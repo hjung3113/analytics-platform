@@ -9,7 +9,7 @@ import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext'
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { assignNoteLevels } from '../annotationLayout';
 import type { EChartProps } from '../EChart';
-import { noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace , useToastsForTest } from '@ap/kernel/testing';
 
 vi.mock('../EChartImpl', () => ({ default: FakePlot }));
 // Wraps the overlap pass so a test can count how often the frame recomputes it (#399 F4).
@@ -399,7 +399,7 @@ describe('toolbar speaks the UI language (#302, #297)', () => {
     // The last sentence follows the same vocabulary as the toolbar (초기화), never the English term.
     expect(await screen.findByText(/초기화 후에도 유지됩니다/)).toBeTruthy();
     expect(screen.queryByText(/Reset/)).toBeNull();
-    expect(within(screen.getByRole('region', { name: '선택 요약' })).getByText(/구간 선택으로 구간을 선택하면/)).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: '선택 요약' })).getByText('선택 구간 없음. 차트를 끌어 구간을 고르면 요약·주석·적용이 열립니다.')).toBeTruthy();
   });
 });
 
@@ -1208,4 +1208,22 @@ describe('valueFormat is read when the tooltip needs it (C2)', () => {
     await waitFor(() => { expect(formatter()).toBe('B3 ea'); });
     expect(plotProps!.option).toBe(optionBefore);
   });
+});
+
+it.each([
+  ['ko', 'time', '선택 구간 없음. 시작·끝이나 빠른 구간을 고르거나 차트를 끌면 요약·주석·적용이 열립니다.'],
+  ['ko', 'category', '선택 구간 없음. 차트를 끌어 구간을 고르면 요약·주석·적용이 열립니다.'],
+  ['en', 'time', 'No selection. Choose a start and end or a quick range, or drag on the chart to open summary, annotation and apply actions.'],
+  ['en', 'category', 'No selection. Drag on the chart to select a range and open summary, annotation and apply actions.'],
+] as const)('uses plain %s selection guidance for %s charts (#1995)', async (lang, xType, expected) => {
+  const storage = memoryStorage();
+  storage.setItem('platform:lang', lang);
+  vi.stubGlobal('localStorage', storage);
+  try {
+    mount(fixture().adapter, off, '/?v=1&scopeId=MEM&from=2026-09-01T00:00:00&to=2026-09-03T00:00:00', { frame: { xType } });
+    expect(await screen.findByText(expected)).toBeTruthy();
+  } finally {
+    cleanup();
+    vi.unstubAllGlobals();
+  }
 });

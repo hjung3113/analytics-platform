@@ -175,7 +175,6 @@ function FeatureBlock({ collapsed }: { collapsed: boolean }) {
       </PlatformLink>;
       return <li key={entry.key}><Tooltip><TooltipTrigger asChild>{inShell}</TooltipTrigger><TooltipContent side="right">{inShellName}</TooltipContent></Tooltip></li>;
     })}</ul>
-    {!collapsed && <p className="px-3 pt-1 text-caption text-text-muted">{lang === 'ko' ? '기능 화면으로 이동합니다' : 'Opens feature screens'}</p>}
   </nav>;
 }
 

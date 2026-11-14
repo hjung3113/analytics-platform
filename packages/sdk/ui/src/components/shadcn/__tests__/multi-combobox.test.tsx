@@ -27,6 +27,21 @@ function open() {
 }
 
 describe('MultiCombobox', () => {
+  it('keeps in-field clearing opt-in and returns focus to the trigger (#1995)', () => {
+    const onClear = vi.fn();
+    const props = { ...text, options, values: ['a'], onValuesChange: vi.fn() };
+    const { rerender } = render(<MultiCombobox {...props} />);
+    expect(screen.queryByRole('button', { name: 'Reset items' })).toBeNull();
+    rerender(<MultiCombobox {...props} clearAction={{ label: 'Reset items', onClear }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset items' }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+    expect(props.onValuesChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Items' })).toHaveFocus();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    rerender(<MultiCombobox {...props} disabled clearAction={{ label: 'Reset items', onClear }} />);
+    expect(screen.getByRole('button', { name: 'Reset items' })).toBeDisabled();
+  });
+
   it.each(['label', 'aria-labelledby'] as const)('names the dialog with %s and keeps both opening controls aligned across views', naming => {
     const accessibleName = naming === 'label' ? 'Items' : 'External items';
     const namingProps = naming === 'label' ? { label: 'Items' } : { 'aria-labelledby': 'external-items' };

@@ -35,7 +35,7 @@ let platform: ReturnType<typeof useHostPlatform>;
 let overlay: ReturnType<typeof useOverlayState>;
 function Probe() { platform = useHostPlatform(); overlay = useOverlayState(); return null; }
 const blocked = [
-  ['unregistered route', '/no-such-menu?v=1', '등록되지 않은 경로입니다'],
+  ['unregistered route', '/no-such-menu?v=1', '없는 화면'],
   ['contract error', '/mars/home?v=99', '주소에 쓸 수 없는 값이 있습니다'],
   ['space denied', '/operations/roles?v=1', '운영 콘솔'],
   ['menu denied', '/mars/equipment?v=1', '설비 마스터'],
@@ -269,4 +269,14 @@ describe('Kernel blocked screens: next actions (#1940)', () => {
     expect(screen.queryByText('권한 요청')).toBeNull();
     expect(screen.queryByRole('button', { name: /^메뉴 검색/ })).toBeNull();
   });
+});
+
+it.each([
+  ['ko', '없는 화면', '등록되지 않은 경로입니다'],
+  ['en', 'Page not found', 'Unregistered route'],
+] as const)('separates the %s unknown-route heading from the body card (#1995)', (lang, heading, body) => {
+  localStorage.setItem('platform:lang', lang);
+  mount('/no-such-menu?v=1');
+  expect(screen.getByRole('heading', { level: 1, name: heading })).toBeTruthy();
+  expect(within(screen.getByRole('main')).getByText(body)).toBeTruthy();
 });

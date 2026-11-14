@@ -31,6 +31,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#1995) | components, shell | 차트 구간 안내 간소화, 조회 조건 필드 안 전체로 되돌리기, 사이드바 보조 문구 삭제, 없는 화면 제목 분리. `ui` MultiCombobox에 선택적 `clearAction` 추가(기본 꺼짐) | 기존 소비자는 변경 없음. QueryBar의 전체 조건 표시는 `전체` |
 | 다음 릴리스 (#2108) | kernel | 추가(기본 동작 불변): `useSessionDraft(key, initial, { ready?, isEqual? })` — 같은 사용자 세션 재마운트 뒤 미저장 입력을 메모리에서 복원. 사용자 교체·일반 언마운트·`discard()` 시 폐기 | 선택 사용. 항목 접근 재조회 성공 뒤 `ready: true`, 저장 성공 뒤 `discard()` 호출 |
 | 다음 릴리스 (#1944) | shell | **기본 동작 변경** — 모든 Context 키를 `unsupported`로 선언한 화면(공지·알림·권한 요청·홈 같은)은 전역 값이 있어도 Context 바를 그리지 않는다(이전: 값이 하나라도 있으면 그렸다). 값은 URL과 Kernel에 그대로 남아 지원 화면에서 다시 보인다([kernel §11](../../docs/contract/kernel.md)) | 없음 — 메뉴가 맞출 선언은 없다. 셸 안 `contextBarVisible`은 셸 내부용이라 공개 export가 아니다 |
 | 다음 릴리스 (#1938) | kernel · components · shell | 추가(기본 동작 불변 — 메뉴 선언 불변): `HostPlatform.scopeSelector`(`@ap/kernel/host`의 `ScopeSelectorRequest`: `open`·`answer`·`available`·`subscribe`)와 `ScopeSelector`의 선택 prop `onExpand`. `PlatformPage`의 Scope `none` 관문에 `Scope 선택` 버튼이 생겨 셸 선택기를 연다(마지막 Scope가 있으면 `최근 Scope 적용` 다음의 보조 버튼, 답할 선택기가 없으면 그리지 않음). 스냅샷 `kernel.host`·`shell.root` | 없음 — 관문의 버튼 수를 세던 시험은 `Scope 선택`을 더한다 |

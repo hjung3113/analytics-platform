@@ -12,7 +12,7 @@ export function useDocumentTitle(productName: string | undefined): void {
   const { t, tx, lang } = useI18n();
   let title: string;
   if (platformScreen === 'board') title = lang === 'ko' ? '분석 보드' : 'Analysis board';
-  else if (!route) title = t('notFound');
+  else if (!route) title = t('notFoundTitle');
   else if (contractError) title = t('contractError');
   else if (currentSpace !== null && currentSpace.permission !== undefined && !can(currentSpace.permission)) title = tx(currentSpace.label);
   else {

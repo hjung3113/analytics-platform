@@ -44,7 +44,7 @@ export function ScreenOutlet() {
   const { route, contractError, can, url, global, metricInit, setGlobal, currentSpace, reportError } = useHostPlatform();
   const sessionKey = useSessionKey();
   const { t, tx, lang } = useI18n();
-  if (!route) return <KernelMessage icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} extra={<OpenPaletteButton />} />;
+  if (!route) return <KernelMessage heading={t('notFoundTitle')} icon={<FileQuestion className="size-4" aria-hidden />} title={t('notFound')} body={<span className="t-mono">{url}</span>} extra={<OpenPaletteButton />} />;
   // An alias address is replaced by the canonical one right after this render (ADR-0093): the screen waits, so nothing queries on the legacy path.
   if (route.viaAlias) return null;
   if (contractError) return <ContractErrorView />;

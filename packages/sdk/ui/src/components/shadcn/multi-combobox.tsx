@@ -22,6 +22,8 @@ interface MultiComboboxBaseProps {
   moreLabel: string;
   clearAllLabel: string;
   removeLabel: (label: string) => string;
+  /** Optional in-field action; callers decide when clearing is available and what it means. */
+  clearAction?: { label: string; onClear: () => void };
   placeholder?: string;
   searchPlaceholder?: string;
   search?: string;
@@ -58,7 +60,7 @@ export type MultiComboboxProps = MultiComboboxBaseProps & (
 export function MultiCombobox({
   values, onValuesChange, options, getLabel, label, 'aria-labelledby': labelledBy,
   listboxLabel, emptyText, selectedSummaryLabel, moreLabel, clearAllLabel, removeLabel,
-  placeholder, searchPlaceholder, search: controlledSearch, onSearchChange,
+  clearAction, placeholder, searchPlaceholder, search: controlledSearch, onSearchChange,
   loading, loadingText, error, onRetry, retryLabel, hasMore, onLoadMore,
   maxVisibleChips = 2, maxSelected, maxSelectedText, disabled, id, className,
   'aria-invalid': invalid, 'aria-describedby': describedBy,
@@ -153,6 +155,9 @@ export function MultiCombobox({
               <span className="truncate">{placeholder ?? label ?? listboxLabel}</span><ChevronsUpDown className="size-4 shrink-0" aria-hidden="true" />
             </button>
           </PopoverTrigger>
+          {clearAction && <Button type="button" variant="ghost" size="icon-sm" disabled={disabled}
+            aria-label={clearAction.label} title={clearAction.label}
+            onClick={() => { clearAction.onClear(); triggerRef.current?.focus(); }}><X className="size-4" aria-hidden="true" /></Button>}
         </div>
       </PopoverAnchor>
       <PopoverContent id={popupId} aria-label={label} aria-labelledby={labelledBy} padding="none" className="w-(--radix-popover-trigger-width)"
