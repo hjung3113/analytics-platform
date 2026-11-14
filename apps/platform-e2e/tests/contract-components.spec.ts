@@ -375,11 +375,11 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
 
   test('권한 거부 네 개도 배너 하나와 패널 이름을 유지한다 (#1994)', async ({ page }, testInfo) => {
     await page.goto('/mars/productivity-overview?v=1&scopeId=MEM');
-    await expect(page.getByRole('heading', { name: '네 지표 요약' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '지표 요약' })).toBeVisible();
     await setScenario(page, '권한 거부 (forbidden)');
     const main = page.getByRole('main');
     await expect(main.locator('[data-outcome-banner], [data-access-request-banner]')).toHaveCount(1);
-    for (const name of ['네 지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
+    for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
       const state = main.getByRole('group', { name, exact: true });
       await expect(state.getByText('위 안내 참고')).toBeVisible();
       await expect(main.getByText(name, { exact: true })).toHaveCount(1);
