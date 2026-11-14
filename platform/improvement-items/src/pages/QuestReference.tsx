@@ -55,7 +55,7 @@ export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | nu
       <Button type="button" variant="secondary" disabled={!id.trim() || lookup === 'loading'} onClick={() => void startLookup()}>{lookup === 'loading' ? c.loading : c.lookup}</Button>
       {lookup !== 'idle' && lookup !== 'loading' && <p role="status">{lookup === 'not_found' ? c.questGone : lookup === 'forbidden' ? c.questDenied : c.questDown}</p>}
     </div> : <>
-      <div onKeyDown={event => { if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return; event.preventDefault(); }}>
+      <div onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }}>
         <SearchInput aria-label={c.questSearch} placeholder={c.questSearch} value={text} onValueChange={setText} onCommit={() => { setQuery(text.trim()); setPage(0); }} />
       </div>
       {!response ? <p role="status">{c.loading}</p> : response.data?.items.length ? <ul aria-label={c.questResults} tabIndex={0} className="max-h-40 space-y-2 overflow-y-auto">{response.data.items.map(q => <li key={q.id}><Button type="button" variant="ghost" size="sm" wrapText onClick={() => onSelect({ id: q.id, title: q.title })}>{q.id} · {q.title} · {q.status}</Button></li>)}</ul> : <p className="text-sm text-text-secondary">{c.questNoMatch}</p>}

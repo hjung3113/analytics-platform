@@ -167,6 +167,9 @@ const rows: Row[] = [
   { file: MENU, code: 'export const A = () => <Input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard' },
   { file: 'menus/log-dev/log-models/src/x.tsx', code: 'export const A = () => <SearchInput onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard' },
   { file: 'apps/platform-web/src/x.tsx', code: 'export const A = () => <Textarea onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard' },
+  { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { const down = useCallback(e => { if (e.key === \'Enter\') go(); }, []); return <input onKeyDown={down} />; }', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
+  { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { const ime = useImeEnterGuard(); return <input onKeyDown={e => { if (ime.isComposingEnter(e)) return; if (e.key === \'Enter\') go(); }} />; }', rule: 'ap/ime-enter-guard', token: 'onCompositionEnd' },
+  { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { const ime = useImeEnterGuard(); return <form onCompositionEnd={ime.onCompositionEnd}><input onKeyDown={e => { if (ime.isComposingEnter(e)) return; if (e.key === \'Enter\') go(); }} /></form>; }', rule: '' },
   // Guarded, passed through, or no composition there: containers, buttons (a combobox trigger too), non-text inputs, tests.
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { const ime = useImeEnterGuard(); return <input onCompositionEnd={ime.onCompositionEnd} onKeyDown={e => { if (ime.isComposingEnter(e)) return; if (e.key === \'Enter\') go(); }} />; }', rule: '' },
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A({ onKeyDown }) { return <input onKeyDown={onKeyDown} />; }', rule: '' },

@@ -8,12 +8,12 @@ export interface ImeEnterGuard {
   /** Form level: cancels the implicit submission of an Enter that belongs to a composition in a text field of the form. */
   onKeyDown: (event: KeyboardEvent<HTMLFormElement>) => void;
   onCompositionStart: () => void;
-  /** Arms the one-frame window for the Enter Safari sends after `compositionend` (text and search inputs only). */
+  /** Arms the one-frame window for the Enter Safari sends after `compositionend` (any field; the form-level `onKeyDown` still acts on text and search inputs only). */
   onCompositionEnd: (event: SyntheticEvent) => void;
   /**
    * Field level: call it first in a text field's own `onKeyDown`. True for an Enter that belongs to an IME composition
    * (isComposing, keyCode 229, or the Safari Enter right after `compositionend`): that Enter must not select, add or commit.
-   * Any other key releases the Safari window and returns false.
+   * Any other key releases the Safari window and returns false. It consumes the window: call it once per keydown, first.
    */
   isComposingEnter: (event: KeyboardEvent) => boolean;
 }
@@ -45,8 +45,7 @@ export function useImeEnterGuard(): ImeEnterGuard {
       if (isComposingEnter(event)) event.preventDefault();
     },
     onCompositionStart: release,
-    onCompositionEnd: (event) => {
-      if (!isTextInput(event.target as EventTarget)) return;
+    onCompositionEnd: () => {
       afterComposition.current = true;
       cancelAnimationFrame(releaseFrame.current);
       releaseFrame.current = requestAnimationFrame(release);

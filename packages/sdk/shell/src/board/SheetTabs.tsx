@@ -71,7 +71,7 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
           onKeyDown={event => {
             if (ime.isComposingEnter(event)) return;
             if (event.key === 'Enter') { event.preventDefault(); commit(sheet.id, event.currentTarget.value); }
-            else if (event.key === 'Escape' && !event.nativeEvent.isComposing) { event.preventDefault(); refocus.current = sheet.id; setEditing(null); }
+            else if (event.key === 'Escape' && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); refocus.current = sheet.id; setEditing(null); }
           }}
           onBlur={event => { if (editing === sheet.id) commit(sheet.id, event.currentTarget.value); }}
           className="my-1 w-36 shrink-0 rounded-sm border border-border-control bg-surface-card px-2 text-sm" />
