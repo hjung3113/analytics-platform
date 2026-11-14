@@ -106,7 +106,7 @@ override); apply `globals.sql` and stop on the first error (only the `postgres` 
 re-grant `CONNECT`; run `set-role-passwords` (passwords from `.env.production`); delete all rows of `core.sessions`
 (everyone logs in again). Then it checks, before any mutable service starts: row counts equal the manifest, sessions empty,
 login roles and attributes, no `fops_*` role, owner roles `NOLOGIN` with the seven memberships, database owner, extension,
-no product table owned by the superuser, runtime grants of `platform_app`, journal digest equals the manifest. Then it
+no table in any non-system schema owned by the superuser (all schemas except `pg_catalog`, `information_schema`, `public` and names starting with `pg_`), runtime grants of `platform_app`, journal digest equals the manifest. Then it
 creates the bucket, mirrors the objects back and compares object count, bytes and the sha256 inventory (through a second
 export), starts `backend` alone under `platform_app` on a free port and waits for `/health/ready` 200. That verification start uses
 `JOBS_DISABLED=true`, `NOTIFICATION_EMAIL_CHANNEL=mock` and blank `SMTP_*` (including `SMTP_USERNAME`; a temporary override file that is deleted, not the

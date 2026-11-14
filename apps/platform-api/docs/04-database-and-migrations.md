@@ -1101,3 +1101,11 @@ The [API contract](../../../docs/architecture/platform-api/api/log-lifecycle.md#
 - Item columns: `id`, `workspace_id`, `attempt_id`, `diagnostic_id`, `item_key`, `ordinal`, `origin`, `rule_result_id`, `evidence`, `title`, `explanation`, `tables`, `erased_at`, `erased_cause`. Composite FKs bind the item to its same-workspace document/attempt and optional rule result in that attempt. Unique `(diagnostic_id, item_key)` and `(diagnostic_id, ordinal)` preserve identity and write order. Partial index `attempt_diagnostic_item_live_idx (workspace_id, attempt_id) WHERE erased_at IS NULL` supports erasure discovery. `erased_cause` is a CHECK-constrained text enumeration (`retention|admin`), paired with `erased_at`.
 - Runtime grants are SELECT and INSERT only on both tables, matching sibling queue storage; no UPDATE or DELETE grant is added. `attempt_diagnostic_append_only` reuses the existing append-only guard. Item UPDATE reuses the extended `excerpt_guard` and permits only one exact shape-preserving body erasure; DELETE reuses `excerpt_no_delete`. These triggers bind the table owner too. No role or existing table grant is widened.
 - The existing `erase_excerpts` SECURITY DEFINER function retains its identity, EXECUTE ACL and `search_path = pg_catalog`. Each call erases at most its existing batch limit across excerpt rows and diagnostic items combined. `diagnostic_erased_tables` is a pure JSON transformation used by both the function and guard: table keys, column keys/types, row counts and evidence remain; titles, explanations, labels and every cell become null. The admin scope writes `admin` regardless of reason text; a cutoff scope writes `retention`. The daily workspace discovery includes diagnostic-only workspaces. Existing deletion/purge audit field sets remain unchanged; `count` includes both types of erased body.
+
+## Product-schema privilege drift checks
+
+`src/db/__tests__/role-grants-product-tables.integration.test.ts` discovers base tables
+in every product schema, including `knowledge`, `eqv` and `platform`. A coverage
+assertion compares the registry with live non-system schemas (excluding infrastructure
+`pgboss` and `drizzle`). Every intentional restriction belongs in `EXPECTED_GRANTS`;
+new tables otherwise require full DML and cannot silently escape the drift check.
