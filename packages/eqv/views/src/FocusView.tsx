@@ -10,7 +10,7 @@ import {
   CursorStateList, DataQualityList, entryOccurrence, EvidenceDetail, FocusGantt, focusRange, illustrativeGhosts, OccurrenceList, PlaybackControls, recordSteps,
   usePlayback, type PlaybackScheduler,
 } from '@eqv/replay';
-import { Button, Checkbox, EmptyState, Input, Label } from '@ap/ui';
+import { Button, Checkbox, EmptyState, Input, Label, useImeEnterGuard } from '@ap/ui';
 import { EvidenceBadge, Panel, StateMessage, Tabs, TabsContent, TabsList, TabsTrigger, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from './NoticeList.js';
 import { GANTT_SPAN_LIMIT, TIMELINE_BUDGET, timelineCost } from './timeline-cost.js';
@@ -96,6 +96,8 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
   const rangeId = useId();
   const rangeFormId = `${rangeId}-form`;
+  // The Enter that confirms a Korean composition (Safari: right after compositionend) does not apply the range (#2236).
+  const ime = useImeEnterGuard();
   const rangeErrorId = `${rangeId}-error`;
   // Everything below belongs to the reset key and the entry key: a change clears it during render. The cursor, range and
   // selection belong to one batch.
@@ -211,7 +213,7 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
         <Panel title="재생 구간" className="mb-4" actions={
           <Button type="submit" form={rangeFormId} variant="secondary" size="toolbar"><ArrowRight className="size-3.5" aria-hidden />적용</Button>
         }>
-          <form id={rangeFormId} aria-label="구간" className="grid gap-3" onSubmit={(event) => { event.preventDefault(); apply(); }}>
+          <form id={rangeFormId} aria-label="구간" className="grid gap-3" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => { event.preventDefault(); apply(); }}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1">
                 <Label htmlFor={`${rangeId}-from`}>시작</Label>

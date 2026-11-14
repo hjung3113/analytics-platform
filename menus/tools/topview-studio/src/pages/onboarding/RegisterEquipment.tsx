@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import {
-  Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldLabel, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldLabel, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard,
 } from '@ap/ui';
 import { EQUIPMENT_LABEL_MAX, WINDOW_IMPORT_PERMISSION, registerEquipment, type FleetRowDto } from '../../endpoints';
 import { equipmentIdProblem, registerFailure } from '../../model/onboarding';
@@ -32,6 +32,8 @@ function RegisterEquipmentDialog({ rows, onClose }: { rows: readonly FleetRowDto
   const idInput = useRef<HTMLInputElement>(null);
   const [equipmentId, setEquipmentId] = useState('');
   const [label, setLabel] = useState('');
+  // The Enter that confirms a Korean composition (Safari: right after compositionend) does not submit (#2236).
+  const ime = useImeEnterGuard();
   const [pair, setPair] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
   // The id rule shows once the field is left or a submit is tried, not on every keystroke (UX-11).
@@ -69,7 +71,7 @@ function RegisterEquipmentDialog({ rows, onClose }: { rows: readonly FleetRowDto
         <DialogTitle>{TITLE}</DialogTitle>
         <DialogDescription>등록한 설비는 Fleet에 «관측 없음»으로 나타납니다. 그다음 Sample Window를 가져옵니다.</DialogDescription>
       </DialogHeader>
-      <form noValidate id="register-equipment-form" className="space-y-3" aria-busy={run.pending || undefined} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      <form noValidate id="register-equipment-form" className="space-y-3" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} aria-busy={run.pending || undefined} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <div className="space-y-1"><FieldLabel htmlFor="register-equipment-id" required>설비 ID</FieldLabel>
           <Input ref={idInput} inputSize="toolbar" id="register-equipment-id" autoComplete="off" spellCheck={false} placeholder="eq-001" value={equipmentId} disabled={run.pending}
             aria-invalid={shownIdProblem ? true : undefined} aria-describedby={shownIdProblem ? 'register-equipment-id-error' : undefined}

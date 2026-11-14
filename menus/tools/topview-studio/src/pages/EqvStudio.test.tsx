@@ -394,6 +394,20 @@ describe('promote', () => {
     expect(await screen.findByText('my-template', {}, slow)).toBeTruthy();
   });
 
+  // #2236: the Enter Safari sends right after compositionend (a Korean name) is cancelled, so it never submits the form;
+  // the next plain Enter is left to the form's own submit.
+  it('the promote form does not submit on the Enter that confirms a Korean composition', async () => {
+    seedRevision();
+    await mount('both', `&revision=${REVISION}`);
+    await waitFor(() => expect((button('EV Template으로 승격') as HTMLButtonElement).disabled).toBe(false), slow);
+    fireEvent.click(button('EV Template으로 승격'));
+    const name = within(await screen.findByRole('alertdialog')).getByLabelText(/^이름/);
+    fireEvent.compositionStart(name);
+    fireEvent.compositionEnd(name);
+    expect(fireEvent.keyDown(name, { key: 'Enter' })).toBe(false);
+    expect(fireEvent.keyDown(name, { key: 'Enter' })).toBe(true);
+  });
+
   it('a server duplicate or bundled id error shows on the id field', async () => {
     seedRevision();
     server.state.templates.push({ id: 'tpl-0', templateId: 'taken', name: 'Taken', promotedFromLayoutId: FIXTURE.id, promotedFromRevision: REVISION, document: {}, createdAt: '2026-11-10T00:00:00.000Z' });

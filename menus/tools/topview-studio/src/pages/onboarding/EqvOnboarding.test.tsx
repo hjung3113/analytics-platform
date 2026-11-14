@@ -885,6 +885,16 @@ describe('Sample Window import', () => {
 });
 
 describe('equipment registration', () => {
+  // #2236: the Enter Safari sends right after compositionend (a Korean name) is cancelled, so it never submits the form.
+  it('does not submit on the Enter that confirms a Korean composition', async () => {
+    mount('engineer');
+    fireEvent.click(await screen.findByRole('button', { name: '설비 등록' }, slow));
+    const label = within(await screen.findByRole('dialog', { name: '설비 등록' }, slow)).getByLabelText(/이름/);
+    fireEvent.compositionStart(label);
+    fireEvent.compositionEnd(label);
+    expect(fireEvent.keyDown(label, { key: 'Enter' })).toBe(false);
+    expect(fireEvent.keyDown(label, { key: 'Enter' })).toBe(true);
+  });
   it('registers an equipment under a Fleet Model; it appears in Fleet as 관측 없음', async () => {
     mount('engineer');
     fireEvent.click(await screen.findByRole('button', { name: '설비 등록' }, slow));
