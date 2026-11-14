@@ -1231,3 +1231,23 @@ it.each([
     vi.unstubAllGlobals();
   }
 });
+
+it('offers keyboard zoom out and pan without clearing the selection (#2065)', async () => {
+  mount(fixture().adapter, off);
+  await screen.findByText('fake-brush');
+  fireEvent.click(screen.getByText('fake-brush'));
+  const zoom = () => (plotProps!.option as { dataZoom: { start: number; end: number }[] }).dataZoom[0];
+  expect(screen.queryByRole('button', { name: '축소' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '확대' }));
+  expect(zoom()).toMatchObject({ start: 25, end: 75 });
+  fireEvent.click(screen.getByRole('button', { name: '왼쪽으로 이동' }));
+  expect(zoom()).toMatchObject({ start: 0, end: 50 });
+  fireEvent.click(screen.getByRole('button', { name: '오른쪽으로 이동' }));
+  expect(zoom()).toMatchObject({ start: 25, end: 75 });
+  fireEvent.click(screen.getByRole('button', { name: '축소' }));
+  expect(zoom()).toMatchObject({ start: 0, end: 100 });
+  expect(screen.queryByRole('button', { name: '축소' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '왼쪽으로 이동' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: '확대' }));
+  expect(screen.getByRole('button', { name: '분석 구간 적용…' })).toBeTruthy();
+});

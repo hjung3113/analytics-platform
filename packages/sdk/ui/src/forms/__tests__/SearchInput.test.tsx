@@ -141,6 +141,15 @@ describe('SearchInput onCommit (#864)', () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
+  it('Enter with onCommit does not also submit a surrounding form (#2214)', () => {
+    const onCommit = vi.fn();
+    const onSubmit = vi.fn((event: Event) => event.preventDefault());
+    render(<form onSubmit={e => onSubmit(e.nativeEvent)}><SearchInput value="로그인" onValueChange={() => {}} onCommit={onCommit} /></form>);
+    const notCanceled = fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Enter' });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(notCanceled).toBe(false);
+  });
+
   it('does not call onCommit while typing', () => {
     const onCommit = vi.fn();
     const onValueChange = vi.fn();

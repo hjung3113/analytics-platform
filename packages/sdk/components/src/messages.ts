@@ -83,6 +83,9 @@ export const COMPONENTS_MESSAGES = {
   },
   chartZoom: { ko: '확대', en: 'Zoom' },
   chartZoomTitle: { ko: '확대 (Shift+휠도 가능)', en: 'Zoom in (Shift+wheel)' },
+  chartZoomOut: { ko: '축소', en: 'Zoom out' },
+  chartPanLeft: { ko: '왼쪽으로 이동', en: 'Pan left' },
+  chartPanRight: { ko: '오른쪽으로 이동', en: 'Pan right' },
   chartBrush: { ko: '구간 선택', en: 'Brush' },
   chartBrushStartAlignDisabled: {
     ko: '시작 위치 맞춤에서는 가로축이 하나의 값 척도가 아니라 구간 선택을 쓸 수 없습니다',

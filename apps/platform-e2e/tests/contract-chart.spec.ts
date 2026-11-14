@@ -502,6 +502,32 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     expect(panned.equals(flat), 'the window is still zoomed after the drag').toBe(false);
   });
 
+  test('키보드로 확대·이동·축소한다 (#2065)', async ({ page }) => {
+    const frame = page.getByRole('region', { name: '사이클타임 추세' });
+    const zoomIn = frame.getByRole('button', { name: '확대', exact: true });
+    const zoomOut = frame.getByRole('button', { name: '축소', exact: true });
+    const left = frame.getByRole('button', { name: '왼쪽으로 이동', exact: true });
+    const right = frame.getByRole('button', { name: '오른쪽으로 이동', exact: true });
+    await expect(zoomIn).toBeVisible();
+    await expect(zoomOut).toHaveCount(0);
+    await expect(left).toHaveCount(0);
+    await zoomIn.focus();
+    await page.keyboard.press('Enter');
+    await expect(left).toBeEnabled();
+    await left.focus();
+    await page.keyboard.press('Enter');
+    await expect(left).toBeDisabled();
+    await right.focus();
+    await page.keyboard.press('Enter');
+    await expect(left).toBeEnabled();
+    await zoomOut.focus();
+    await page.keyboard.press('Enter');
+    await expect(zoomOut).toHaveCount(0);
+    await expect(left).toHaveCount(0);
+    await expect(right).toHaveCount(0);
+    await expect(zoomIn).toBeFocused();
+  });
+
   test('확대 버튼은 그대로 동작한다', async ({ page }) => {
     const frame = page.getByRole('region', { name: '사이클타임 추세' });
     const flat = await trendPlot(page).screenshot();

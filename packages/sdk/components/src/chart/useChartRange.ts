@@ -29,6 +29,8 @@ type RangeAction =
   | { type: 'draft'; range: Selection | null }
   | { type: 'zoom'; range: Zoom }
   | { type: 'zoomIn' }
+  | { type: 'zoomOut' }
+  | { type: 'pan'; direction: -1 | 1 }
   | { type: 'toggleBrush' }
   /** Compare turned on: re-clip whichever of selection/preview exists. */
   | { type: 'compareClip'; result: ClipResult };
@@ -61,6 +63,17 @@ function reduce(state: RangeState, action: RangeAction): RangeState {
       const q = (b - a) / 4;
       return { ...state, zoom: [a + q, b - q] };
     }
+    case 'zoomOut': {
+      const [a, b] = state.zoom;
+      const width = Math.min(100, (b - a) * 2);
+      const start = Math.max(0, Math.min(100 - width, (a + b - width) / 2));
+      return { ...state, zoom: [start, start + width] };
+    }
+    case 'pan': {
+      const [a, b] = state.zoom;
+      const start = Math.max(0, Math.min(100 - (b - a), a + action.direction * (b - a) / 2));
+      return { ...state, zoom: [start, start + (b - a)] };
+    }
     case 'toggleBrush':
       return { ...state, brushMode: !state.brushMode };
     case 'compareClip':
@@ -92,6 +105,8 @@ export function useChartRange() {
     setDraft: (range: Selection | null) => dispatch({ type: 'draft', range }),
     setZoom: (range: Zoom) => dispatch({ type: 'zoom', range }),
     zoomIn: () => dispatch({ type: 'zoomIn' }),
+    zoomOut: () => dispatch({ type: 'zoomOut' }),
+    pan: (direction: -1 | 1) => dispatch({ type: 'pan', direction }),
     toggleBrush: () => dispatch({ type: 'toggleBrush' }),
     compareClip: (result: ClipResult) => dispatch({ type: 'compareClip', result }),
   }), []);

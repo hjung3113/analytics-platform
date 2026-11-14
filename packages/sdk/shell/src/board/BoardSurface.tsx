@@ -136,7 +136,10 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const layout = layoutOf(sheet);
   const paneScreens = screens(sheet);
   const onLeave = (href: string) => { navigate(href, { focus: 'page', via: 'board' }); };
-  const writePane = (index: number, screen: PaneScreen | null) => update(b => setPane(b, sheetId, index, screen));
+  const writePane = (index: number, screen: PaneScreen | null) => {
+    const slotId = sheet.panes[index].id;
+    update(b => setPane(b, sheetId, slotId, screen));
+  };
   const paneKey = (index: number) => paneIdOf(sheetId, sheet.panes[index].id);
   /** Selecting also puts the pane in front of its group in the dock renderer only: the grid reads a collapsed column's active tab as the open pane. */
   const select = (index: number) => update(b => (dock ? selectPaneActive : selectPane)(b, sheetId, index));
@@ -414,14 +417,17 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   };
 
   /** What both renderers wire for a pane; each adds its own frame and sizing. */
-  const paneProps = (index: number): DockPaneProps => ({
+  const paneProps = (index: number): DockPaneProps => {
+    const slotId = sheet.panes[index].id;
+    return ({
     paneId: paneKey(index), number: index + 1, screen: paneScreens[index], selected: index === selected, Outlet,
     signal: signals[index], hasPrevious: previousAt(sheet, index) !== null, applyAllOff: applyOff(index), duplicateOff: duplicateOff(index),
-    onSelect: () => select(index), onChange: (next, how) => update(b => editPane(b, sheetId, index, next, how)), onLeave,
+    onSelect: () => select(index), onChange: (next, how) => update(b => editPane(b, sheetId, slotId, next, how)), onLeave,
     onInsert: menu => insert(index, menu), onClear: () => clearPane(index), onBack: () => update(b => goBackPane(b, sheetId, index)),
     onApplyAll: () => applyToAll(index), onOpenFull: () => openFull(index), onReplace: menu => replaceScreen(index, menu),
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
-  });
+    });
+  };
 
   // A covered board keeps its state (selection, drafts, drill, scroll) but not its transient UI: menus and dialogs close, and the detail slot is told
   // that the surface owning its registrants is paused (ADR-0088).
@@ -467,7 +473,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     <div data-board-body className="contents" inert={covered || undefined}>
     <PaneQueryDraftProvider key={sheetId} screens={Object.fromEntries(paneScreens.map((screen, index) => [paneKey(index), screen]))}>
     <QueryBarExtensionsProvider>
-    <BoardContextBar key={paneKey(selected)} paneId={paneKey(selected)} number={selected + 1} screen={paneScreens[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, selected, next, how))} onLeave={onLeave} />
+    <BoardContextBar key={paneKey(selected)} paneId={paneKey(selected)} number={selected + 1} screen={paneScreens[selected]} onChange={(next, how) => update(b => editPane(b, sheetId, sheet.panes[selected].id, next, how))} onLeave={onLeave} />
     <div ref={panel} id={PANEL_ID} role="tabpanel" aria-labelledby={`board-tab-${sheetId}`} className={cn('min-h-0 flex-1 overflow-auto p-3', dock && 'flex flex-col')}>
       {allEmpty && <section ref={guidance} aria-label={text.emptyGuidanceTitle} className="mb-3 rounded-md border border-border-subtle bg-surface-card px-4 py-3">
         <h2 className="text-sm font-semibold text-text-primary">{text.emptyGuidanceTitle}</h2>
