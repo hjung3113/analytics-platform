@@ -1,5 +1,6 @@
 import { plugin as shadcn } from '@shadcn/lint';
 import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 import { PACKAGE_PREFIX } from './prefix.js';
@@ -433,10 +434,20 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 // menu and app, on EV's ui packages and menus (#2216), and on the feature screens (#2217).
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
+// #2180: asserting existence hides the missing-value case. Enable as sites are fixed: contracts and kernel first,
+// then components, adapters, menus and shell. Tests may assert fixture invariants.
+const NON_NULL = {
+  files: ['**/*.{ts,tsx}'],
+  ignores: TEST_ENTRY_FILES,
+  plugins: { '@typescript-eslint': tsPlugin },
+  rules: { '@typescript-eslint/no-non-null-assertion': 'error' },
+};
+
 /** @type {import('eslint').Linter.Config[]} */
 export const contracts = [
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
+  NON_NULL,
 ];
 
 // contract-schemas (ADR-0096): production code imports no other platform package and no React; "zod only" is held by the manifest and review, not lint.
@@ -471,6 +482,7 @@ export const kernel = [
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
   LANG_COPY,
+  NON_NULL,
 ];
 
 const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, denyQueryEngine: true, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, HOST_ENTRY_SUBPATH], allowDockEngine: true };

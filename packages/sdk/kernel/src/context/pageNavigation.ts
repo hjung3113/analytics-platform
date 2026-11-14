@@ -22,7 +22,10 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
   let seenFocus = focusKeyOf(initialUrl);
   let claimsDetail = seenFocus === null;
   const listeners = new Map<() => void, unknown>();
-  const keeperGone = () => keepers !== null && ![...listeners.values()].some(owner => keepers!.has(owner));
+  const keeperGone = () => {
+    const currentKeepers = keepers;
+    return currentKeepers !== null && ![...listeners.values()].some(owner => currentKeepers.has(owner));
+  };
   const pathOf = (href: string) => href.split('?')[0];
   const rememberFocus = (next: string, focus?: PageFocus) => {
     const nextFocus = focusKeyOf(next);

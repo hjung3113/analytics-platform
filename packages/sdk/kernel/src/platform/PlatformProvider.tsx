@@ -135,7 +135,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const decodedRecent = useMemo(() => preferences ? decodeRecent(preferences.get('recents')) ?? [] : null, [preferences, preferenceState.version]);
   // Decoding builds new arrays on every controller notice; equal content keeps one identity so `usePlatform()` consumers are not woken (#1671).
   const serverFavorites = useStable(decodedFavorites, (held, next) => held === null || next === null ? held === next : sameItems(held, next));
-  const serverRecent = useStable(decodedRecent, (held, next) => held === null || next === null ? held === next : held.length === next.length && held.every((r, i) => r.menuId === next[i]!.menuId && r.url === next[i]!.url && r.at === next[i]!.at));
+  const serverRecent = useStable(decodedRecent, (held, next) => held === null || next === null ? held === next : held.length === next.length && held.every((r, i) => {
+    const other = next[i];
+    if (other === undefined) throw new Error('Equal-length recent lists must have matching entries');
+    return r.menuId === other.menuId && r.url === other.url && r.at === other.at;
+  }));
   const serverScope = preferences ? decodeScopeId(preferences.get('lastScope')) ?? null : null;
   // Server mode: a favorite toggled before the account's list is known is an ordered edit on the account lane of the controller (it survives a controller replacement of the same account) and is applied to the delivered list.
   const favorites = serverFavorites ?? localFavorites;

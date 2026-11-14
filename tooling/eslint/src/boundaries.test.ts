@@ -938,6 +938,12 @@ rows.push(
   { file: MENU_TEST, code: `vi.mock(path);`, rule: '' },
 );
 
+// #2180: production kernel code must narrow; tests may assert fixture invariants.
+rows.push(
+  { file: 'packages/sdk/kernel/src/x.ts', code: `const value: string | undefined = 'ok'; value!;`, rule: '@typescript-eslint/no-non-null-assertion' },
+  { file: 'packages/sdk/kernel/src/x.test.ts', code: `const value: string | undefined = 'ok'; value!;`, rule: '' },
+);
+
 describe('boundary + contract fixtures', () => {
   it.each(rows)('$# $file $code', async ({ file, code, rule, token }) => {
     const messages = await lint(file, code);

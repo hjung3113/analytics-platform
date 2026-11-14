@@ -7,9 +7,14 @@ export type QueryHistoryStore = {
   remove(key: QueryHistoryKey, id: string): Promise<void>;
   clear(key: QueryHistoryKey): Promise<void>;
 };
+function codepoint(char: string): number {
+  const point = char.codePointAt(0);
+  if (point === undefined) throw new Error('String iteration yielded an empty character');
+  return point;
+}
 /** Unicode code-point order, independent of browser locale. */
 export function compareHistoryText(a: string, b: string): number {
-  const aa = Array.from(a, c => c.codePointAt(0)!); const bb = Array.from(b, c => c.codePointAt(0)!);
+  const aa = Array.from(a, c => codepoint(c)); const bb = Array.from(b, c => codepoint(c));
   for (let i = 0; i < Math.min(aa.length, bb.length); i++) if (aa[i] !== bb[i]) return aa[i] - bb[i];
   return aa.length - bb.length;
 }

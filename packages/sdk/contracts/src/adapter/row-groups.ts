@@ -79,7 +79,11 @@ export function groupPage<T>(rows: readonly T[], options: GroupPageOptions<T>): 
     group.count += 1;
     for (const id of subtotalColumns) {
       const v = get(row, id);
-      if (typeof v === 'number' && Number.isFinite(v)) group.subtotals![id] = (group.subtotals![id] ?? 0) + v;
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        const subtotals = group.subtotals;
+        if (subtotals === undefined) throw new Error('Subtotal columns require group subtotals');
+        subtotals[id] = (subtotals[id] ?? 0) + v;
+      }
     }
   }
   const start = page === undefined || pageSize === undefined ? 0 : page * pageSize;
