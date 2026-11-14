@@ -1,3 +1,4 @@
+import { HOME_MESSAGES } from './messages';
 import type { SpaceDef, SpaceId, Text } from '@ap/contracts';
 
 /** Private home Consumer presentation metadata supplied by the app, not access policy. */
@@ -22,5 +23,5 @@ export function groupHomeSpaces(groups: readonly HomeLauncherGroup[], spaces: re
     spaces: spaces.filter(space => group.spaces.includes(space.id)),
   }));
   const other = spaces.filter(space => !assigned.has(space.id));
-  return [...classified, { id: 'other', label: { ko: '기타', en: 'Other' }, spaces: other }].filter(group => group.spaces.length > 0);
+  return [...classified, { id: 'other', label: HOME_MESSAGES.launcherGroupsOther, spaces: other }].filter(group => group.spaces.length > 0);
 }

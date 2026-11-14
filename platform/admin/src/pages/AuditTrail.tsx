@@ -1,6 +1,7 @@
+import { formatText, useMessages, PlatformLink, useI18n, usePlatform } from '@ap/kernel';
+import { ADMIN_MESSAGES } from '../messages';
 import { useMemo } from 'react';
 import { formatInstant, type AuditEvent, type ColumnFilter } from '@ap/contracts';
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { Minus, ArrowRight } from 'lucide-react';
 import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, ManagementLayout, RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { StatusBadge } from '@ap/ui';
@@ -12,10 +13,10 @@ import { viewerTimeZone } from '../audit-window';
 const NO_FILTERS: ColumnFilter[] = [];
 
 // #1690: an API token row names the scopes it was issued or revoked with; every other row lists the changed field names.
-function changedFields(row: AuditEvent, ko: boolean): string {
+function changedFields(row: AuditEvent, lang: 'ko' | 'en'): string {
   if (!row.changes) return '—';
   const scopes = row.target.type === 'api_token' ? row.changes.scopes : undefined;
-  if (scopes) return `${ko ? '권한 묶음' : 'Scopes'}: ${scopes[1] ?? scopes[0] ?? ''}`;
+  if (scopes) return `${formatText(ADMIN_MESSAGES.auditTrailScopes, lang)}: ${scopes[1] ?? scopes[0] ?? ''}`;
   return Object.keys(row.changes).sort().join(', ');
 }
 
@@ -28,20 +29,20 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * never re-sorts a page; the default sort is the server's newest-first and no URL key is written for it.
  */
 export default function AuditTrail() {
+  const m = useMessages(ADMIN_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const timeZone = viewerTimeZone();
   const { adapter, resolveLink } = usePlatform();
   // ADR-0105: every condition is one hidden repeated page key `filter`. A bad sort/page/condition is the table warning, which clears exactly the bad keys.
   const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => {
     const specs = auditFilterSpecs(lang);
     return [
-      { id: 'at', label: { ko: '시각', en: 'At' }, spec: specs.at, entry: auditTimeEntry(timeZone) },
-      { id: 'actor', label: { ko: '행위자', en: 'Actor' }, spec: specs.actor, pinned: AUDIT_PINNED.actor },
-      { id: 'action', label: { ko: '작업', en: 'Action' }, spec: specs.action, pinned: AUDIT_PINNED.action },
-      { id: 'source', label: { ko: '출처', en: 'Source' }, spec: specs.source },
-      { id: 'targetType', label: { ko: '대상 유형', en: 'Target type' }, spec: specs.targetType },
-      { id: 'targetId', label: { ko: '대상 ID', en: 'Target ID' }, spec: specs.targetId },
+      { id: 'at', label: ADMIN_MESSAGES.auditTrailAt, spec: specs.at, entry: auditTimeEntry(timeZone) },
+      { id: 'actor', label: ADMIN_MESSAGES.auditTrailActor, spec: specs.actor, pinned: AUDIT_PINNED.actor },
+      { id: 'action', label: ADMIN_MESSAGES.auditTrailAction, spec: specs.action, pinned: AUDIT_PINNED.action },
+      { id: 'source', label: ADMIN_MESSAGES.auditTrailSource, spec: specs.source },
+      { id: 'targetType', label: ADMIN_MESSAGES.auditTrailTargetType, spec: specs.targetType },
+      { id: 'targetId', label: ADMIN_MESSAGES.auditTrailTargetID, spec: specs.targetId },
     ];
   }, [lang, timeZone]);
   const { urlFilters, filterColumnProps } = useTableFilterDeclaration('filter', filterDeclarations, { lang, validate: auditValueCheck });
@@ -55,19 +56,19 @@ export default function AuditTrail() {
     { ...filterColumnProps('source'), size: 100, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
     { ...filterColumnProps('targetType'), value: row => row.target.type, size: 110, cell: row => Object.hasOwn(TYPE_LABEL, row.target.type) ? TYPE_LABEL[row.target.type][lang] : mono(row.target.type) },
     { ...filterColumnProps('targetId'), sortable: false, value: row => row.target.id, size: 170, cell: row => mono(row.target.id) },
-    { id: 'scopeId', header: ko ? '사이트' : 'Site', sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
-    { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => changedFields(row, ko) },
-    { id: 'reason', header: ko ? '사유' : 'Reason', sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
-  ], [ko, lang, timeZone, filterColumnProps]);
-  return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그 · 행 링크로 상세 변경 이력 탭 이동' : 'Master-change log across all sites · Row links to detail change-history tabs'}>
+    { id: 'scopeId', header: m('auditTrailSite'), sortable: false, size: 90, cell: row => row.target.scopeId ?? '—' },
+    { id: 'changes', header: m('auditTrailChangedFields'), sortable: false, size: 220, cell: row => changedFields(row, lang) },
+    { id: 'reason', header: m('auditTrailReason'), sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
+  ], [m, lang, timeZone, filterColumnProps]);
+  return <PlatformPage description={m('auditTrailMasterChangeLogAcrossAllSitesRow')}>
     <ManagementLayout
       table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<AuditEvent>
         // #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel.
-        title={ko ? '변경 감사' : 'Audit trail'}
+        title={m('auditTrailAuditTrail')}
         hideTitle
-        ariaLabel={ko ? '변경 감사 목록' : 'Audit trail list'}
-        subtitle={ko ? '기본 정렬은 최신순이며 room 필터를 적용하지 않습니다.' : 'Default sort is newest first; no room filter is applied.'}
+        ariaLabel={m('auditTrailAuditTrailList')}
+        subtitle={m('auditTrailDefaultSortIsNewestFirstNoRoom')}
         columns={columns} getRowId={row => row.id}
         preferenceKey="admin-audit:columns:v1" pageSize={25}
         urlState={urlState}
@@ -86,10 +87,10 @@ export default function AuditTrail() {
         emptyAction={clearButton}
         rowAction={(row, { compact }) => {
           const link = auditDestination(resolveLink, row.target);
-          const name = ko ? `${row.target.id} 상세` : `Detail ${row.target.id}`;
-          if (link.ok) return <RowAction compact={compact} icon={ArrowRight} label={name} text={ko ? '상세' : 'Detail'} link={<PlatformLink href={link.href} />} />;
-          const none = ko ? '상세 화면 없음' : 'No detail page';
-          return <span className={compact ? 'flex size-8 items-center justify-center text-text-muted' : 'text-xs text-text-muted'} title={ko ? '이 대상의 상세 화면이 없습니다.' : 'No detail screen for this target.'}>
+          const name = m('auditTrailDetail', { id: row.target.id });
+          if (link.ok) return <RowAction compact={compact} icon={ArrowRight} label={name} text={m('auditTrailDetail2')} link={<PlatformLink href={link.href} />} />;
+          const none = m('auditTrailNoDetailPage');
+          return <span className={compact ? 'flex size-8 items-center justify-center text-text-muted' : 'text-xs text-text-muted'} title={m('auditTrailNoDetailScreenForThisTarget')}>
             {compact ? <><Minus className="size-4" aria-hidden /><span className="sr-only">{none}</span></> : none}
           </span>;
         }}

@@ -1,9 +1,10 @@
+import { useMessages, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { ADMIN_MESSAGES } from '../messages';
 import { useMemo } from 'react';
 import { type UsageSummary } from '@ap/contracts';
 import { AlertTriangle, PanelRight } from 'lucide-react';
 import { Button } from '@ap/ui';
 import UsageNextScreens from './UsageNextScreens';
-import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { DetailDrawer, RowAction, StateMessage, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, sortAndPage, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { formatLastUsed, joinUsageRows, type UsageRow } from '../usage-rows';
 
@@ -16,8 +17,8 @@ const rateText = (rate: number | null | undefined) => rate == null ? '—' : `${
  * Reads the injected adapter's aggregate only; the raw event store is never a client concern.
  */
 export default function UsageOverview() {
+  const m = useMessages(ADMIN_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const { adapter, registry, pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
   const active = registry.menus.find(menu => menu.id === focus);
@@ -28,35 +29,35 @@ export default function UsageOverview() {
   // untruncated), one sentence per field — never `key=value`.
   const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences } = useTableUrlState(SORT_FIELDS, { extraPatch: reason => reason === 'user' ? { focus: null } : undefined });
   const columns = useMemo<PlatformColumn<UsageRow>[]>(() => [
-    { id: 'id', header: ko ? '메뉴 ID' : 'Menu ID', size: 112, cell: row => <span className="t-mono block truncate" title={row.id}>{row.id}</span> },
-    { id: 'label', header: ko ? '메뉴' : 'Menu', size: 128, sortable: false, cell: row => row.label[lang] },
-    { id: 'spaceId', header: ko ? '공간' : 'Space', size: 100, cell: row => row.spaceLabel[lang] },
-    { id: 'visits', header: ko ? '방문' : 'Visits', size: 70, align: 'right' },
-    { id: 'distinctUsers', header: ko ? '방문 사용자' : 'Distinct users', size: 100, align: 'right' },
+    { id: 'id', header: m('usageOverviewMenuID'), size: 112, cell: row => <span className="t-mono block truncate" title={row.id}>{row.id}</span> },
+    { id: 'label', header: m('usageOverviewMenu'), size: 128, sortable: false, cell: row => row.label[lang] },
+    { id: 'spaceId', header: m('usageOverviewSpace'), size: 100, cell: row => row.spaceLabel[lang] },
+    { id: 'visits', header: m('usageOverviewVisits'), size: 70, align: 'right' },
+    { id: 'distinctUsers', header: m('usageOverviewDistinctUsers'), size: 100, align: 'right' },
     ...(['backRate', 'searchEntryRate'] as const).map(id => ({
-      id, header: id === 'backRate' ? (ko ? '뒤로 나감' : 'Back rate') : (ko ? '검색 진입' : 'Search entry'), size: 100, align: 'right' as const,
+      id, header: id === 'backRate' ? m('usageOverviewBackRate') : m('usageOverviewSearchEntry'), size: 100, align: 'right' as const,
       cell: (row: UsageRow) => rateText(q.response?.data?.menus.find(menu => menu.menuId === row.id)?.[id]),
     })),
     {
-      id: 'lastUsedAt', header: ko ? '마지막 사용' : 'Last used', size: 150, align: 'right',
+      id: 'lastUsedAt', header: m('usageOverviewLastUsed'), size: 150, align: 'right',
       cell: row => formatLastUsed(row.lastUsedAt, lang),
     },
-  ], [ko, lang, q.response]);
-  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트 집계 (식별 필드만 수집)' : 'Menu entry and dwell event aggregates (identity fields only)'}>
+  ], [m, lang, q.response]);
+  return <PlatformPage description={m('usageOverviewMenuEntryAndDwellEventAggregatesIdentity')}>
     {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} />
-      : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
+      : <QueryView widgetName={m('usageOverviewMenuUsage')} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);
         // Client envelope: the rows are the registry join, not mart data — trust is null and paging stays client-side.
         // #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel.
         return <PlatformDataTable<UsageRow>
-          title={ko ? '메뉴 활용률' : 'Menu usage'}
+          title={m('usageOverviewMenuUsage2')}
           hideTitle
-          ariaLabel={ko ? '메뉴 활용률 목록' : 'Menu usage list'}
-          subtitle={ko ? '방문 사용자는 세션 사용자 기준으로 집계합니다.' : 'Distinct users are counted per session user.'}
+          ariaLabel={m('usageOverviewMenuUsageList')}
+          subtitle={m('usageOverviewDistinctUsersAreCountedPerSessionUser')}
           columns={columns} getRowId={row => row.id}
           preferenceKey="admin-usage:columns:v2" pageSize={25}
           urlState={tableUrlState} activeRowId={focus}
-          rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id })} />}
+          rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={m('usageOverviewView', { id: row.id })} text={m('usageOverviewView2')} onClick={() => setPage({ focus: row.id })} />}
           loadPage={async page => {
             const sort = page.sorting[0];
             let ordered = rows;
@@ -74,9 +75,9 @@ export default function UsageOverview() {
         />;
       }}</QueryView>}
     {!tableInvalid && focus && (active
-      ? <DetailDrawer key={active.id} title={active.label[lang]} subtitle={ko ? '다음으로 간 화면 · 주 화면 기준' : 'Next screens · main-screen entries'} onClose={() => setPage({ focus: null })}
-          tabs={[{ id: 'next', label: ko ? '다음으로 간 화면' : 'Next screens', content: <UsageNextScreens menuId={active.id} /> }]} />
-      : <StateMessage tone="danger" icon={<AlertTriangle aria-hidden />} title={ko ? '등록되지 않은 메뉴입니다' : 'This menu is not registered'}
-          action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>} />)}
+      ? <DetailDrawer key={active.id} title={active.label[lang]} subtitle={m('usageOverviewNextScreensMainScreenEntries')} onClose={() => setPage({ focus: null })}
+          tabs={[{ id: 'next', label: m('usageOverviewNextScreens'), content: <UsageNextScreens menuId={active.id} /> }]} />
+      : <StateMessage tone="danger" icon={<AlertTriangle aria-hidden />} title={m('usageOverviewThisMenuIsNotRegistered')}
+          action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{m('usageOverviewClose')}</Button>} />)}
   </PlatformPage>;
 }

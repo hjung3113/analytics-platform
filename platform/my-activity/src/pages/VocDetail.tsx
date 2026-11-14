@@ -1,5 +1,6 @@
+import { useMessages, usePlatform, type PageProps } from '@ap/kernel';
+import { MY_ACTIVITY_MESSAGES } from '../messages';
 import { SearchX } from 'lucide-react';
-import { useI18n, usePlatform, type PageProps } from '@ap/kernel';
 import { PlatformPage, ReturnLink, StateMessage } from '@ap/components';
 import { VocReadingPane } from '@ap/feature-screens/global-screens';
 import { FeatureBridge } from '@ap/feature-bridge';
@@ -10,15 +11,14 @@ import { VOC_ID } from '../feature/voc-query';
  * not-found here and never becomes a feature request path. The way back is only ever the Kernel's `returnOrigin()` (`ReturnLink`).
  */
 export default function VocDetail({ params }: PageProps) {
-  const { lang } = useI18n();
+  const m = useMessages(MY_ACTIVITY_MESSAGES);
   const { pageParam } = usePlatform();
-  const ko = lang === 'ko';
   const vocId = params.vocId!;
   if (!VOC_ID.test(vocId)) {
     return <PlatformPage>
       <StateMessage icon={<SearchX className="size-4" aria-hidden />}
-        title={ko ? 'VOC를 찾을 수 없습니다' : 'VOC not found'}
-        body={ko ? '주소의 VOC ID가 올바르지 않습니다.' : 'The VOC ID in the address is not valid.'} />
+        title={m('vocDetailVOCNotFound')}
+        body={m('vocDetailTheVOCIDInTheAddressIs')} />
     </PlatformPage>;
   }
   return <PlatformPage secondaryActions={pageParam('returnTo') !== null ? <ReturnLink /> : undefined}>

@@ -1,7 +1,8 @@
+import { useMessages, PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
+import { IMPROVEMENT_ITEMS_MESSAGES } from '../messages';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { encodeFilterParam, type ColumnFilterSpec, type Pair } from '@ap/contracts';
-import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableUrlState } from '@ap/components';
 import { Button, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { MANAGE_PERMISSION, SORT_IDS, filterSpecs, itemsEndpoint, type ItemRow, type Origin } from '../endpoints';
@@ -12,12 +13,13 @@ import { CreateDrawer } from './CreateDrawer';
 import { Field, ItemStatus } from './parts';
 import { QuestReference } from './QuestReference';
 function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () => void }) {
+  const m = useMessages(IMPROVEMENT_ITEMS_MESSAGES);
   const c = useCopy(), { setPage, linkTo } = usePlatform();
   const uid = useId();
   const pages = useMenuFetch(itemsEndpoint);
   const [draft, setDraft] = useState({ applied: q, value: q });
   if (draft.applied !== q) setDraft({ applied: q, value: q });
-  const specs = useMemo<Record<string, ColumnFilterSpec>>(() => ({ ...filterSpecs, status: { ...filterSpecs.status as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: Object.entries(c.statuses).map(([value, label]) => ({ value, label })) }, assignee: { ...filterSpecs.assignee as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'me', label: c.mine }] }, questLinked: { ...filterSpecs.questLinked as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'true', label: c.quest }, { value: 'false', label: c.questNone }] }, origin: { ...filterSpecs.origin as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'cycle-time', label: c.lang === 'ko' ? '사이클타임 상세' : 'Cycle time detail' }] } }), [c]);
+  const specs = useMemo<Record<string, ColumnFilterSpec>>(() => ({ ...filterSpecs, status: { ...filterSpecs.status as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: Object.entries(c.statuses).map(([value, label]) => ({ value, label })) }, assignee: { ...filterSpecs.assignee as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'me', label: c.mine }] }, questLinked: { ...filterSpecs.questLinked as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'true', label: c.quest }, { value: 'false', label: c.questNone }] }, origin: { ...filterSpecs.origin as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'cycle-time', label: m('improvementItemsCycleTimeDetail') }] } }), [c, m]);
   const labels = useMemo(() => ({ status: c.status, assignee: c.assignee, questLinked: c.questLinked, origin: c.origin }), [c]);
   const filters = useMemo(() => ({ key: 'filter', specs, labels }), [specs, labels]);
   // Clearing a preset's last condition records the transition to the all view in the same write (C4):
@@ -55,7 +57,7 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
     { id: 'targets', header: c.target, size: 150, sortable: false, exportValue: row => row.restricted ? c.restricted : row.targets.map(t => formatTarget(t, c)).join(' · '), cell: row => <span className="whitespace-normal break-words">{row.restricted ? c.restricted : row.targets.map(t => formatTarget(t, c)).join(' · ') || c.unset}</span> },
     { id: 'actionDate', header: c.actionDate, size: 120, sortable: false, cell: row => row.actionDate ?? c.unset },
   ], [c, linkTo, specs]);
-  const fields = useMemo<TableFilterField[]>(() => [{ id: 'questLinked', label: { ko: '과제(Quest) 연결', en: 'Quest link' }, spec: specs.questLinked!, pinned: 3 }, { id: 'origin', label: { ko: '분석 출처', en: 'Analysis source' }, spec: specs.origin! }], [specs]);
+  const fields = useMemo<TableFilterField[]>(() => [{ id: 'questLinked', label: IMPROVEMENT_ITEMS_MESSAGES.improvementItemsQuestLink, spec: specs.questLinked!, pinned: 3 }, { id: 'origin', label: IMPROVEMENT_ITEMS_MESSAGES.improvementItemsAnalysisSource, spec: specs.origin! }], [specs]);
   if (invalid) return <TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} />;
   return <div className="improvement-items-table space-y-2">
     <div className="flex items-end gap-2">

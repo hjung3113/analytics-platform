@@ -1,7 +1,8 @@
+import { useMessages, useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { NOTICE_VOC_MESSAGES } from '../messages';
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Inbox, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Notice, NoticeListPage } from '@ap/contracts';
-import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
 import { PlatformPage, QueryView, StateMessage } from '@ap/components';
 import { Button, cn } from '@ap/ui';
 import { groupNotices, longDate, pickText, seoulWallClock, shortDate } from '../notice-model';
@@ -17,8 +18,8 @@ type Dialog = ({ kind: 'form'; notice: Notice | null } | { kind: 'delete'; notic
  * wraps around `saveNotice`/`deleteNotice` applies. `clock` is the Seoul wall clock (injected by tests).
  */
 export function NoticesScreen({ clock }: { clock: () => string }) {
+  const m = useMessages(NOTICE_VOC_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const { adapter, can, session, pageParam, setPage } = usePlatform();
   const query = usePlatformQuery<NoticeListPage>(signal => adapter.listNotices(signal), null, true, 'session');
   const [openDialog, setDialog] = useState<Dialog | null>(null);
@@ -57,11 +58,11 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
   };
 
   const rejected = (value: string) => <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
-    title={ko ? '찾을 수 없는 공지입니다' : 'Notice not found'}
-    body={ko ? `주소의 공지 「${value}」를 목록에서 찾지 못했습니다. 삭제되었거나 볼 수 없는 공지일 수 있습니다.` : `The notice “${value}” in the address is not in the list. It may be deleted or not visible to you.`}
-    action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '값 지우기' : 'Clear value'}</Button>} />;
+    title={m('noticesNoticeNotFound')}
+    body={m('noticesTheNoticeInTheAddress', { value })}
+    action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{m('noticesClearValue')}</Button>} />;
 
-  const siteLabel = (notice: Notice) => notice.scopeId === null ? (ko ? '전체' : 'All') : (session.scopes.find(s => s.id === notice.scopeId)?.label ?? notice.scopeId);
+  const siteLabel = (notice: Notice) => notice.scopeId === null ? m('noticesAll') : (session.scopes.find(s => s.id === notice.scopeId)?.label ?? notice.scopeId);
 
   const body = (items: readonly Notice[]) => {
     const { active, expired } = groupNotices(items, clock());
@@ -82,51 +83,51 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
       pane = <article aria-label={pickText(selected.title, lang)} className="grid gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="grid gap-1">
-            <p className="text-xs text-text-muted">{ko ? '대상 사이트' : 'Target site'}: {siteLabel(selected)} · {ko ? '종료' : 'Ends'} {longDate(selected.until)}</p>
+            <p className="text-xs text-text-muted">{m('noticesTargetSite')}: {siteLabel(selected)} · {m('noticesEnds')} {longDate(selected.until)}</p>
             <h2 className="text-base font-semibold">{pickText(selected.title, lang)}</h2>
           </div>
           {canWrite && <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="secondary" onClick={() => openWith({ kind: 'form', notice: selected })}><Pencil className="size-3.5" aria-hidden />{ko ? '수정' : 'Edit'}</Button>
-            <Button size="sm" variant="secondary" onClick={() => openWith({ kind: 'delete', notice: selected })}><Trash2 className="size-3.5" aria-hidden />{ko ? '삭제' : 'Delete'}</Button>
+            <Button size="sm" variant="secondary" onClick={() => openWith({ kind: 'form', notice: selected })}><Pencil className="size-3.5" aria-hidden />{m('noticesEdit')}</Button>
+            <Button size="sm" variant="secondary" onClick={() => openWith({ kind: 'delete', notice: selected })}><Trash2 className="size-3.5" aria-hidden />{m('noticesDelete')}</Button>
           </div>}
         </div>
         <p className="whitespace-pre-wrap text-sm">{pickText(selected.content, lang)}</p>
       </article>;
     } else {
-      pane = <p className="p-4 text-sm text-text-muted">{ko ? '목록에서 공지를 고르세요.' : 'Pick a notice from the list.'}</p>;
+      pane = <p className="p-4 text-sm text-text-muted">{m('noticesPickANoticeFromTheList')}</p>;
     }
     return <div className="grid min-h-96 grid-cols-1 rounded-md border border-border-subtle md:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
       <div ref={listRef} className="border-b border-border-subtle md:border-b-0 md:border-r">
-        <h2 className="border-b border-border-subtle px-3 py-2 text-sm font-semibold">{ko ? '공지 목록' : 'Notice list'}</h2>
-        {active.length === 0 && <p className="border-b border-border-subtle p-3 text-sm text-text-muted">{ko ? '진행 중인 공지가 없습니다.' : 'No active notices.'}</p>}
-        <ul aria-label={ko ? '진행 중인 공지' : 'Active notices'}>{active.map(n => row(n, false))}</ul>
+        <h2 className="border-b border-border-subtle px-3 py-2 text-sm font-semibold">{m('noticesNoticeList')}</h2>
+        {active.length === 0 && <p className="border-b border-border-subtle p-3 text-sm text-text-muted">{m('noticesNoActiveNotices')}</p>}
+        <ul aria-label={m('noticesActiveNotices')}>{active.map(n => row(n, false))}</ul>
         {expired.length > 0 && <div>
           <button type="button" aria-expanded={open} onClick={() => setExpiredOpen(!open)} className="flex w-full items-center gap-1 px-3 py-2 text-xs text-text-muted hover:bg-surface-row-hover">
             {open ? <ChevronDown className="size-3.5" aria-hidden /> : <ChevronRight className="size-3.5" aria-hidden />}
-            {ko ? `종료됨 ${expired.length}` : `Ended ${expired.length}`}
+            {m('noticesEnded', { length: expired.length })}
           </button>
-          {open && <ul aria-label={ko ? '종료된 공지' : 'Ended notices'}>{expired.map(n => row(n, true))}</ul>}
+          {open && <ul aria-label={m('noticesEndedNotices')}>{expired.map(n => row(n, true))}</ul>}
         </div>}
       </div>
-      <section aria-label={ko ? '공지 내용' : 'Notice content'}>{pane}</section>
+      <section aria-label={m('noticesNoticeContent')}>{pane}</section>
     </div>;
   };
 
   return <PlatformPage
-    description={ko ? '진행 중 공지 · 종료된 공지' : 'Active notices · Ended notices'}
-    primaryAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}><Plus className="size-3.5" aria-hidden />{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
+    description={m('noticesActiveNoticesEndedNotices')}
+    primaryAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}><Plus className="size-3.5" aria-hidden />{m('noticesWriteNotice')}</Button> : undefined}>
     {focus !== null && query.response?.outcome === 'empty' && rejected(focus)}
-    <div ref={regionRef} role="region" aria-label={ko ? '공지 목록 영역' : 'Notice list area'} tabIndex={-1} className="focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+    <div ref={regionRef} role="region" aria-label={m('noticesNoticeListArea')} tabIndex={-1} className="focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
       {query.response?.outcome === 'empty'
         // The Kernel's empty body tells the user to change query conditions this screen does not have: say plainly there are no notices.
-        ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? '공지가 없습니다' : 'No notices'}
-          action={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}>{ko ? '공지 작성' : 'Write notice'}</Button> : undefined} />
-        : <QueryView widgetName={ko ? '공지' : 'Notices'} query={query}>
+        ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('noticesNoNotices')}
+          action={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}>{m('noticesWriteNotice2')}</Button> : undefined} />
+        : <QueryView widgetName={m('noticesNotices')} query={query}>
           {data => body(data.items)}
         </QueryView>}
     </div>
-    {dialog?.kind === 'form' && <NoticeFormDialog key={dialog.notice?.id ?? 'new'} notice={dialog.notice} ko={ko} scopes={session.scopes} onDone={onDone} />}
-    {dialog?.kind === 'delete' && <NoticeDeleteDialog notice={dialog.notice} ko={ko} onDone={onDone} onCloseAutoFocus={onDeleteClosed} />}
+    {dialog?.kind === 'form' && <NoticeFormDialog key={dialog.notice?.id ?? 'new'} notice={dialog.notice} ko={lang === 'ko'} scopes={session.scopes} onDone={onDone} />}
+    {dialog?.kind === 'delete' && <NoticeDeleteDialog notice={dialog.notice} ko={lang === 'ko'} onDone={onDone} onCloseAutoFocus={onDeleteClosed} />}
   </PlatformPage>;
 }
 

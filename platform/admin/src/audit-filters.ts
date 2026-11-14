@@ -1,3 +1,4 @@
+import { ADMIN_MESSAGES } from './messages';
 /**
  * The 변경 감사 page's filter fields (ADR-0105, #1217 node e2). Every condition is one `ColumnFilter` in the hidden repeated page key `filter`; the
  * page maps them to the typed `auditTrail` port query (`toAuditQuery`), the port itself is unchanged. The ids are the table's column ids, so the
@@ -33,8 +34,8 @@ export const AUDIT_PINNED: Readonly<Record<string, number>> = { action: 1, actor
 /** 시각 is entered to the second in the viewer's explicit zone: a nonexistent or repeated local time (DST) is refused in the editor, never moved (#305). */
 export const auditTimeEntry = (timeZone: string): InstantEntry => ({ timeZone, precision: 'second' });
 
-const BAD_TYPE: Text = { ko: '영문자로 시작하는 80자 이하 토큰이어야 합니다 (영문·숫자·_ . : -).', en: 'Must be a token of up to 80 characters that starts with a letter (letters, digits, _ . : -).' };
-const BAD_MEMBER: Text = { ko: '목록에 없는 값입니다.', en: 'This value is not in the list.' };
+const BAD_TYPE: Text = ADMIN_MESSAGES.auditFiltersMustBeATokenOfUpTo;
+const BAD_MEMBER: Text = ADMIN_MESSAGES.auditFiltersThisValueIsNotInTheList;
 
 /** The port's value rules, checked before any query (address and editor): token shapes of `type`/`actor`/`targetId` and membership of `action`/`source`. A well-formed unknown type is allowed. */
 export function auditValueCheck(filter: ColumnFilter): Text | null {

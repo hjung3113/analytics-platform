@@ -1,6 +1,7 @@
+import { useMessages, type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
+import { HOME_MESSAGES } from '../messages';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Clock3, Megaphone, Star, X } from 'lucide-react';
-import { type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
 import { groupHomeSpaces, type HomeLauncherGroup, type HomeLauncherSpaceNames } from '../launcher-groups';
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
@@ -12,9 +13,10 @@ const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
 const NO_SPACE_NAMES: HomeLauncherSpaceNames = {};
 
 export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, spaceNames = NO_SPACE_NAMES }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[]; spaceNames?: HomeLauncherSpaceNames } = {}) {
+  const m = useMessages(HOME_MESSAGES);
   const { favorites, toggleFavorite, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
   const recent = useRecentVisits();
-  const { t, tx, lang } = useI18n();
+  const { t, tx } = useI18n();
 
   const dismissed = useDismissedNotices();
   const noFavoritesRef = useRef<HTMLParagraphElement>(null);
@@ -35,11 +37,11 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
   }).filter((row): row is { menuId: string; url: string; at: number; menu: MenuEntry } => row !== null).slice(0, 5);
   const ago = (at: number) => {
     const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
-    return mins < 1 ? (lang === 'ko' ? '방금' : 'just now') : mins < 60 ? (lang === 'ko' ? `${mins}분 전` : `${mins}m ago`) : (lang === 'ko' ? `${Math.round(mins / 60)}시간 전` : `${Math.round(mins / 60)}h ago`);
+    return mins < 1 ? m('operationsHomeJustNow') : mins < 60 ? m('operationsHomeMAgo', { mins }) : m('operationsHomeHAgo', { mins60: Math.round(mins / 60) });
   };
   const affiliation = (menu: MenuEntry) => {
     const space = registry.spaceOf(menu);
-    return space ? tx(space.label) : (lang === 'ko' ? '플랫폼' : 'Platform');
+    return space ? tx(space.label) : m('operationsHomePlatform');
   };
 
   // 06 §26 (#398): the row's remove button disappears with the row it removes. Only from that
@@ -106,17 +108,17 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
         {srSubtitle && <span className="sr-only">{srSubtitle}</span>}
         <span aria-hidden className="text-text-muted">·</span>
         <span className="min-w-0 truncate text-xs text-text-secondary">{description}</span>
-        {resumeMenu && <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
+        {resumeMenu && <span className="shrink-0 text-xs text-text-secondary">{m('operationsHomeContinue', { label: tx(resumeMenu.label) })}</span>}
       </PlatformLink>
     </li>;
   };
 
-  return <PlatformPage secondaryActions={voc.allowed ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
+  return <PlatformPage secondaryActions={voc.allowed ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{m('operationsHomeVOC')}</PlatformLink> : undefined}>
     {/* The first row follows body width, including when a detail slot narrows it. */}
     <div className="@container space-y-4">
       <div className={twoFirstRowColumns ? 'grid items-start gap-3 @xl:grid-cols-2' : 'grid items-start gap-3'}>
         {homeTodo && <div ref={todoRef} className={showTodo ? 'min-w-0 space-y-3 empty:hidden' : 'hidden empty:hidden'}><homeTodo.Todo /></div>}
-        {showRecent && <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
+        {showRecent && <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={m('operationsHomeReturnsWithTheFiltersYouUsedAccess')}>
           {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
             <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
               <row.menu.icon className="size-4 text-text-muted" aria-hidden />
@@ -127,7 +129,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
         </Panel>}
       </div>
 
-      <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
+      <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={m('operationsHomeOpensTheScreenSDefaultViewWithYour')}>
         {favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1}
           className="text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
           <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
@@ -138,16 +140,16 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
           </li>)}</ul>}
       </Panel>
 
-      <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
+      <section aria-label={m('operationsHomeWorkSystems')}>
         {accessibleSpaces.length === 0
           ? <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
-              <h2 className="t-section-title">{lang === 'ko' ? '접근 가능한 업무 시스템이 없습니다' : 'No work systems are available'}</h2>
+              <h2 className="t-section-title">{m('operationsHomeNoWorkSystemsAreAvailable')}</h2>
               {permissionRequests.allowed
                 ? <>
-                    <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '업무 시스템 접근 권한은 플랫폼 관리자가 줍니다. 기능 권한이 필요하면 요청하세요.' : 'Work system access is granted by a platform administrator. Request the feature access you need.'}</p>
-                    <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{lang === 'ko' ? '권한 요청' : 'Request access'}</PlatformLink></Button>
+                    <p className="mt-1 text-sm text-text-secondary">{m('operationsHomeWorkSystemAccessIsGrantedByA')}</p>
+                    <Button asChild size="sm" className="mt-3"><PlatformLink href={permissionRequests.href}>{m('operationsHomeRequestAccess')}</PlatformLink></Button>
                   </>
-                : <p className="mt-1 text-sm text-text-secondary">{lang === 'ko' ? '필요한 업무 시스템의 접근 권한을 플랫폼 관리자에게 요청하세요.' : 'Ask a platform administrator for access to the work system you need.'}</p>}
+                : <p className="mt-1 text-sm text-text-secondary">{m('operationsHomeAskAPlatformAdministratorForAccessTo')}</p>}
             </div>
           : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
               <h2 className="t-section-title">{tx(group.label)}</h2>
@@ -156,16 +158,16 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
           : <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card">{accessibleSpaces.map(compactEntry)}</ul>}
       </section>
 
-      <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2">
-        {noticesLink.allowed && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
+      <section aria-label={m('operationsHomeNotices')} className="space-y-2">
+        {noticesLink.allowed && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{m('operationsHomeNoticeList')}</PlatformLink>}
         {notices.response && notices.response.outcome === 'ok' && notices.response.data!.filter(notice => !dismissed.includes(notice.id)).map(notice =>
           <div key={notice.id} role="status" className="flex items-start gap-3 rounded-md border border-accent-primary/30 bg-accent-primary-soft px-4 py-2.5 text-sm">
             <Megaphone className="mt-0.5 size-4 shrink-0 text-accent-primary" aria-hidden />
             <span className="flex-1"><span className="t-mono mr-2 text-tiny text-text-muted">{notice.id}</span>{tx(notice.title)}</span>
-            <button type="button" aria-label={lang === 'ko' ? '이번 방문 동안 닫기' : 'Dismiss for this visit'} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
+            <button type="button" aria-label={m('operationsHomeDismissForThisVisit')} className="grid size-6 place-items-center rounded-xs text-text-muted hover:bg-surface-card"
               onClick={() => dismissNotice(notice.id)}><X className="size-3.5" aria-hidden /></button>
           </div>)}
-        {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={lang === 'ko' ? '공지' : 'Notices'} hideWidgetName query={notices} compact>{() => null}</QueryView>}
+        {notices.response && !['ok', 'empty'].includes(notices.response.outcome) && <QueryView widgetName={m('operationsHomeNotices2')} hideWidgetName query={notices} compact>{() => null}</QueryView>}
       </section>
     </div>
   </PlatformPage>;

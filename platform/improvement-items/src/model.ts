@@ -1,3 +1,5 @@
+import { formatText } from '@ap/kernel';
+import { IMPROVEMENT_ITEMS_MESSAGES } from './messages';
 import { formatWallClock } from '@ap/contracts';
 import type { ColumnFilter } from '@ap/contracts';
 import type { Effect, Origin, Quest, Target } from './endpoints';
@@ -25,8 +27,8 @@ export function questPresentation(state: QuestState, snapshot: string, quest: Qu
 }
 /** Analysis Context is wall-clock time in KST; actionDate is a separate calendar day. */
 export function originPeriod(context: Record<string, unknown>, lang: 'ko' | 'en'): string {
-  const from = formatOriginEndpoint(context.from, lang === 'ko' ? '시작 미상' : 'Unknown start');
-  const to = formatOriginEndpoint(context.to, lang === 'ko' ? '종료 미상' : 'Unknown end');
+  const from = formatOriginEndpoint(context.from, formatText(IMPROVEMENT_ITEMS_MESSAGES.modelUnknownStart, lang));
+  const to = formatOriginEndpoint(context.to, formatText(IMPROVEMENT_ITEMS_MESSAGES.modelUnknownEnd, lang));
   return `${from} – ${to} KST`;
 }
 

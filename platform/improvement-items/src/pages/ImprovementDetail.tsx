@@ -1,6 +1,7 @@
+import { formatText, PlatformLink, useMenuQuery, usePlatform } from '@ap/kernel';
+import { IMPROVEMENT_ITEMS_MESSAGES } from '../messages';
 import { useState } from 'react';
-import { formatInstant } from '@ap/contracts';
-import { PlatformLink, useMenuQuery, usePlatform } from '@ap/kernel';
+import { formatInstant, type Text } from '@ap/contracts';
 import { PlatformPage, QueryView, ReturnLink } from '@ap/components';
 import { Button } from '@ap/ui';
 import { MANAGE_PERMISSION, detailEndpoint, eventsEndpoint, itemsEndpoint, type ItemRow, type Target } from '../endpoints';
@@ -18,8 +19,9 @@ function ChangeHistory({ itemId }: { itemId: string }) {
   return <Section title={c.history}><QueryView query={query}>{data => <><ol className="space-y-4">{data.rows.map(event => <li key={event.id} className="space-y-1 border-l border-border-subtle pl-3"><p className="text-sm">{eventLabel(event.eventType, c.lang)}</p><p className="text-xs text-text-secondary">{event.actor.displayName} · {formatInstant(event.occurredAt, c.lang, 'Asia/Seoul')} KST</p>{event.reason && <p className="break-words text-sm">{event.reason}</p>}<ChangeSummary changes={event.changes} /></li>)}</ol>{data.rows.length === 0 && <p className="text-sm text-text-secondary">{c.noHistory}</p>}<div className="flex gap-2"><Button variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>{c.previous}</Button><Button variant="secondary" size="sm" disabled={(page + 1) * 20 >= data.total} onClick={() => setPage(p => p + 1)}>{c.next}</Button></div></>}</QueryView></Section>;
 }
 function eventLabel(type: string, lang: 'ko' | 'en') {
-  const labels: Record<string, [string, string]> = { created: ['개선 아이템 생성', 'Item created'], updated: ['내용 변경', 'Content updated'], status_changed: ['상태 변경', 'Status changed'], assigned: ['담당 변경', 'Assignee changed'], quest_linked: ['과제(Quest) 연결 변경', 'Quest link changed'], reopened: ['다시 열기', 'Reopened'] };
-  return labels[type]?.[lang === 'ko' ? 0 : 1] ?? type;
+  const labels: Record<string, Text> = { created: IMPROVEMENT_ITEMS_MESSAGES.eventCreated, updated: IMPROVEMENT_ITEMS_MESSAGES.eventUpdated, status_changed: IMPROVEMENT_ITEMS_MESSAGES.eventStatusChanged, assigned: IMPROVEMENT_ITEMS_MESSAGES.eventAssigned, quest_linked: IMPROVEMENT_ITEMS_MESSAGES.eventQuestLinked, reopened: IMPROVEMENT_ITEMS_MESSAGES.eventReopened };
+  const message = labels[type];
+  return message ? formatText(message, lang) : type;
 }
 function ChangeSummary({ changes }: { changes: Record<string, unknown> }) {
   const c = useCopy();

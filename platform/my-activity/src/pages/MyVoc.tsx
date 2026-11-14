@@ -1,6 +1,7 @@
+import { useMessages, PlatformLink, usePlatform } from '@ap/kernel';
+import { MY_ACTIVITY_MESSAGES } from '../messages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { PlatformLink, useI18n, usePlatform } from '@ap/kernel';
 import { PlatformPage, StateMessage } from '@ap/components';
 import { Button } from '@ap/ui';
 import { PublicVocListScreen, VocReadingPane, type PublicVocInitialFocus, type PublicVocQuery } from '@ap/feature-screens/global-screens';
@@ -15,9 +16,8 @@ const CLEARED_FOCUS: Record<string, PublicVocInitialFocus> = { q: 'q', status: '
  * The URL owns the query; a page key outside its domain is rejected and preserved, and nothing is requested for it.
  */
 export default function MyVoc() {
-  const { lang } = useI18n();
+  const m = useMessages(MY_ACTIVITY_MESSAGES);
   const { pageParam, setPage, linkTo, canOpen } = usePlatform();
-  const ko = lang === 'ko';
   const parsed = parseVocPage(pageParam);
   const onQueryChange = useCallback((patch: Partial<PublicVocQuery>) => setPage(pagePatch(patch)), [setPage]);
   // Where focus goes once a rejected value is cleared and the list takes the warning's place (never `<body>`).
@@ -55,12 +55,12 @@ export default function MyVoc() {
     return <PlatformPage>
       <StateMessage tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />}
         title={parsed.unsupported
-          ? (ko ? `VOC 목록은 주소의 ${parsed.key} 조건을 지원하지 않습니다` : `The VOC list does not support the ${parsed.key} condition in the address`)
-          : (ko ? `주소의 ${parsed.key} 값이 올바르지 않습니다` : `The ${parsed.key} value in the address is not valid`)}
+          ? m('myVocTheVOCListDoesNotSupportThe', { key: parsed.key })
+          : m('myVocTheValueInTheAddressIsNot', { key: parsed.key })}
         body={parsed.unsupported
-          ? (ko ? '조건을 적용하지 않고 그대로 두었습니다. 값을 지우면 목록을 볼 수 있습니다.' : 'The condition was neither applied nor changed. Clear the value to see the list.')
-          : (ko ? '다른 값으로 바꾸지 않았습니다.' : 'Nothing was substituted.')}
-        action={<Button size="sm" variant="secondary" onClick={() => { setClearedFocus(CLEARED_FOCUS[parsed.key]); setPage({ [parsed.key]: null }); }}>{ko ? '값 지우기' : 'Clear value'}</Button>} />
+          ? m('myVocTheConditionWasNeitherAppliedNorChanged')
+          : m('myVocNothingWasSubstituted')}
+        action={<Button size="sm" variant="secondary" onClick={() => { setClearedFocus(CLEARED_FOCUS[parsed.key]); setPage({ [parsed.key]: null }); }}>{m('myVocClearValue')}</Button>} />
     </PlatformPage>;
   }
   const { query, focus } = parsed;
@@ -74,14 +74,14 @@ export default function MyVoc() {
           <div ref={listPaneRef} tabIndex={-1} data-voc-list className={`min-h-0 min-w-0 border-r border-border-subtle @3xl/voc:block ${focus === null ? '' : 'hidden'}`}>
             <PublicVocListScreen query={query} initialFocus={clearedFocus} onInitialFocusClaimed={onInitialFocusClaimed} onQueryChange={onQueryChange} selectedId={focus} onSelect={onSelect} />
           </div>
-          <section ref={detailPaneRef} tabIndex={-1} aria-label={ko ? 'VOC 상세' : 'VOC details'} className={`min-h-0 min-w-0 overflow-y-auto @3xl/voc:block ${focus === null ? 'hidden' : ''}`}>
+          <section ref={detailPaneRef} tabIndex={-1} aria-label={m('myVocVOCDetails')} className={`min-h-0 min-w-0 overflow-y-auto @3xl/voc:block ${focus === null ? 'hidden' : ''}`}>
             {focus === null
-              ? <p className="p-6 text-sm text-text-muted">{ko ? '목록에서 VOC를 고르면 여기에 보입니다.' : 'Pick a VOC in the list to read it here.'}</p>
+              ? <p className="p-6 text-sm text-text-muted">{m('myVocPickAVOCInTheListTo')}</p>
               : <>
                 <div className="flex flex-wrap justify-end gap-2 px-4 pt-3">
-                  <Button size="sm" variant="secondary" className="@3xl/voc:hidden" onClick={() => { listFocusRequested.current = true; setPage({ focus: null }); }}>{ko ? '목록 보기' : 'Show list'}</Button>
-                  {canOpen('inbox') && <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('inbox', { page: { focus }, returnTo: true })}>{ko ? '업무 흐름에서 처리' : 'Handle in workflow'}</PlatformLink></Button>}
-                  <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('voc-detail', { params: { vocId: focus }, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>
+                  <Button size="sm" variant="secondary" className="@3xl/voc:hidden" onClick={() => { listFocusRequested.current = true; setPage({ focus: null }); }}>{m('myVocShowList')}</Button>
+                  {canOpen('inbox') && <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('inbox', { page: { focus }, returnTo: true })}>{m('myVocHandleInWorkflow')}</PlatformLink></Button>}
+                  <Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('voc-detail', { params: { vocId: focus }, returnTo: true })}>{m('myVocFullPage')}</PlatformLink></Button>
                 </div>
                 <VocReadingPane key={focus} vocId={focus} variant="embedded" />
               </>}

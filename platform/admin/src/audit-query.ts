@@ -1,3 +1,4 @@
+import { ADMIN_MESSAGES } from './messages';
 /**
  * Vocabulary of the console audit screen (#50, #305, 06 §6.1): sortable columns, display words, and the value domains that mirror the server's
  * `Invalid audit filter` list. Pure and node-runnable. The page's conditions travel as `filter` (see `audit-filters.ts`); this file keeps what
@@ -10,27 +11,27 @@ export const SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'];
 
 /** The timeline words, copied from AuditTimeline (§6: do not export a label helper from components). */
 export const ACTION_LABEL: Record<AuditAction, { ko: string; en: string }> = {
-  create: { ko: '생성', en: 'Created' }, update: { ko: '변경', en: 'Updated' },
-  retire: { ko: '사용중지', en: 'Retired' }, sync: { ko: '동기화', en: 'Synced' }, delete: { ko: '삭제', en: 'Deleted' },
+  create: ADMIN_MESSAGES.auditQueryCreated, update: ADMIN_MESSAGES.auditQueryUpdated,
+  retire: ADMIN_MESSAGES.auditQueryRetired, sync: ADMIN_MESSAGES.auditQuerySynced, delete: ADMIN_MESSAGES.auditQueryDeleted,
 };
 
 /** Display words for the wire values; the URL and adapter keep the raw `user`/`system`·`equipment`/`metric`. */
 export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
-  user: { ko: '사용자', en: 'User' }, system: { ko: '연동', en: 'System' },
+  user: ADMIN_MESSAGES.auditQueryUser, system: ADMIN_MESSAGES.auditQuerySystem,
 };
 /** Display words for the subject types the console knows: the 18 feature types the real projection releases plus the 3 mock samples. Consumer-owned; any other well-formed type is shown raw (#1091, ADR-0101). */
 export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
-  equipment: { ko: '설비', en: 'Equipment' }, metric: { ko: '지표', en: 'Metric' }, annotation: { ko: '차트 주석', en: 'Chart annotation' },
-  voc: { ko: 'VOC', en: 'VOC' }, finding: { ko: 'Finding', en: 'Finding' }, task: { ko: 'Task', en: 'Task' },
-  task_request: { ko: 'Task 요청', en: 'Task request' }, entity_link: { ko: '연결 관계', en: 'Entity link' },
-  voc_cluster: { ko: 'VOC 클러스터', en: 'VOC cluster' }, permission_request: { ko: '권한 요청', en: 'Permission request' },
-  permission_grant: { ko: '권한 부여', en: 'Permission grant' }, permission_deny: { ko: '권한 거절', en: 'Permission denial' },
-  survey: { ko: '설문', en: 'Survey' }, survey_question: { ko: '설문 문항', en: 'Survey question' },
-  managed_system: { ko: '관리 시스템', en: 'Managed system' }, analytics_area: { ko: '분석 영역', en: 'Analytics area' },
-  milestone: { ko: '마일스톤', en: 'Milestone' }, attachment: { ko: '첨부', en: 'Attachment' },
-  public_update_review_candidate: { ko: '공개 업데이트 검토 후보', en: 'Public update review candidate' },
-  voc_cluster_suggestion: { ko: 'VOC 클러스터 제안', en: 'VOC cluster suggestion' }, workspace: { ko: '플랫폼 설정', en: 'Platform settings' },
-  api_token: { ko: 'API 토큰', en: 'API token' },
+  equipment: ADMIN_MESSAGES.auditQueryEquipment, metric: ADMIN_MESSAGES.auditQueryMetric, annotation: ADMIN_MESSAGES.auditQueryChartAnnotation,
+  voc: ADMIN_MESSAGES.auditQueryVOC, finding: ADMIN_MESSAGES.auditQueryFinding, task: ADMIN_MESSAGES.auditQueryTask,
+  task_request: ADMIN_MESSAGES.auditQueryTaskRequest, entity_link: ADMIN_MESSAGES.auditQueryEntityLink,
+  voc_cluster: ADMIN_MESSAGES.auditQueryVOCCluster, permission_request: ADMIN_MESSAGES.auditQueryPermissionRequest,
+  permission_grant: ADMIN_MESSAGES.auditQueryPermissionGrant, permission_deny: ADMIN_MESSAGES.auditQueryPermissionDenial,
+  survey: ADMIN_MESSAGES.auditQuerySurvey, survey_question: ADMIN_MESSAGES.auditQuerySurveyQuestion,
+  managed_system: ADMIN_MESSAGES.auditQueryManagedSystem, analytics_area: ADMIN_MESSAGES.auditQueryAnalyticsArea,
+  milestone: ADMIN_MESSAGES.auditQueryMilestone, attachment: ADMIN_MESSAGES.auditQueryAttachment,
+  public_update_review_candidate: ADMIN_MESSAGES.auditQueryPublicUpdateReviewCandidate,
+  voc_cluster_suggestion: ADMIN_MESSAGES.auditQueryVOCClusterSuggestion, workspace: ADMIN_MESSAGES.auditQueryPlatformSettings,
+  api_token: ADMIN_MESSAGES.auditQueryAPIToken,
 };
 
 /** An opaque, case-sensitive subject-type token: no trimming or normalization. Keep in lockstep with the mock

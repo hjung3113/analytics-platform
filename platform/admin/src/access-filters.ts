@@ -1,3 +1,4 @@
+import { ADMIN_MESSAGES } from './messages';
 /**
  * The 권한/역할 page's filter fields (ADR-0105, #1217 node e2): 역할 (a column, exact and case-sensitive) and 권한 (not a column, one value from the
  * registry). Both live in the hidden repeated page key `filter`; `toAccessQuery` maps them to the typed `accessDirectory` port query, the port is unchanged.
@@ -37,6 +38,6 @@ export function toAccessQuery(filters: readonly ColumnFilter[], { page, pageSize
 /** The port's value rules, checked before any query (address and editor): the role token and registry membership of the permission (what the old `?permission=` check did). */
 export const accessValueCheck = (permissions: readonly string[]) => (filter: ColumnFilter): Text | null => {
   if (filter.id === 'role' && filter.op === 'equals' && invalidText(filter.value)) return BAD_TOKEN;
-  if (filter.id === 'permission' && filter.op === 'in' && !filter.value.every(v => permissions.includes(v))) return { ko: '등록되지 않은 권한입니다.', en: 'This permission is not registered.' };
+  if (filter.id === 'permission' && filter.op === 'in' && !filter.value.every(v => permissions.includes(v))) return ADMIN_MESSAGES.accessFiltersThisPermissionIsNotRegistered;
   return null;
 };

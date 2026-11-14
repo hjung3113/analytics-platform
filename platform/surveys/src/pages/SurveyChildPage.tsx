@@ -1,6 +1,7 @@
+import { useMessages, usePlatform } from '@ap/kernel';
+import { SURVEYS_MESSAGES } from '../messages';
 import type { ReactNode } from 'react';
 import { SearchX } from 'lucide-react';
-import { useI18n, usePlatform } from '@ap/kernel';
 import { PlatformPage, StateMessage } from '@ap/components';
 import { FeatureScreenPage, UUID_PATTERN, type OperatorRoute } from '@ap/feature-bridge';
 import { isSurveyDetailSearchValueValid } from '@ap/feature-screens/operator-screens/surveys-search';
@@ -17,14 +18,13 @@ export function SurveyChildPage({ surveyId, route, useSearch, useHere, children 
   surveyId: string; route: OperatorRoute; useSearch: () => Readonly<Record<string, string>>; useHere: () => string;
   children: (args: { surveyId: string; backToList: () => void }) => ReactNode;
 }) {
-  const { lang } = useI18n();
+  const m = useMessages(SURVEYS_MESSAGES);
   const { navigate, linkTo, pageParam } = usePlatform();
-  const ko = lang === 'ko';
   if (!UUID_PATTERN.test(surveyId)) {
     return <PlatformPage>
       <StateMessage icon={<SearchX className="size-4" aria-hidden />}
-        title={ko ? '설문을 찾을 수 없습니다' : 'Survey not found'}
-        body={ko ? '주소의 설문 ID가 올바르지 않습니다.' : 'The Survey ID in the address is not valid.'} />
+        title={m('surveyChildPageSurveyNotFound')}
+        body={m('surveyChildPageTheSurveyIDInTheAddressIs')} />
     </PlatformPage>;
   }
   const backToList = () => {

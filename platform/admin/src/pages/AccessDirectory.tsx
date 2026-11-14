@@ -1,6 +1,7 @@
+import { useMessages, useI18n, usePlatform } from '@ap/kernel';
+import { ADMIN_MESSAGES } from '../messages';
 import { useMemo, useState } from 'react';
 import { type AccessPrincipal, type ColumnFilter } from '@ap/contracts';
-import { useI18n, usePlatform } from '@ap/kernel';
 import { PanelRight } from 'lucide-react';
 import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlState } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -21,8 +22,8 @@ const mono = (value: unknown) => <span className="t-mono">{String(value)}</span>
  * nothing: room/individual grants are meta-DB owned but the role-membership source stays open (issue #98). Not mart data, so there is no trust indicator.
  */
 export default function AccessDirectory() {
+  const m = useMessages(ADMIN_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const { adapter, registry, pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
   // §13 drawer tab is URL-owned like the other page keys (W-350): the default stays off the URL and an
@@ -32,8 +33,8 @@ export default function AccessDirectory() {
   const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => {
     const specs = accessFilterSpecs(registry.permissions);
     return [
-      { id: 'role', label: { ko: '역할', en: 'Role' }, spec: specs.role, pinned: true },
-      { id: 'permission', label: { ko: '권한', en: 'Permission' }, spec: specs.permission, pinned: true, column: false },
+      { id: 'role', label: ADMIN_MESSAGES.accessDirectoryRole, spec: specs.role, pinned: true },
+      { id: 'permission', label: ADMIN_MESSAGES.accessDirectoryPermission, spec: specs.permission, pinned: true, column: false },
     ];
   }, [registry.permissions]);
   const validate = useMemo(() => accessValueCheck(registry.permissions), [registry.permissions]);
@@ -43,24 +44,24 @@ export default function AccessDirectory() {
   const conditions = urlState?.filters ?? NO_FILTERS;
   const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: conditions.length > 0, extraKeys: ['focus', 'tab'] });
   // `focus` selects the drawer row and is never sent to accessDirectory: a malformed one alerts (adapter not called), an unknown one is the drawer alert.
-  const focusRule = usePageKeyRules([{ key: 'focus', label: { ko: '상세 대상', en: 'Detail target' }, valid: raw => !invalidText(raw) }]);
+  const focusRule = usePageKeyRules([{ key: 'focus', label: ADMIN_MESSAGES.accessDirectoryDetailTarget, valid: raw => !invalidText(raw) }]);
   const ready = !invalid && !focusRule.invalid;
   const columns = useMemo<PlatformColumn<AccessPrincipal>[]>(() => [
-    { id: 'name', header: ko ? '이름' : 'Name' },
+    { id: 'name', header: m('accessDirectoryName') },
     { ...filterColumnProps('role'), cell: row => mono(row.role) },
-    { id: 'title', header: ko ? '직책' : 'Title', sortable: false, value: row => row.title[lang] },
-    { id: 'permissionCount', header: ko ? '권한 수' : 'Permissions', value: row => row.permissions.length },
+    { id: 'title', header: m('accessDirectoryTitle'), sortable: false, value: row => row.title[lang] },
+    { id: 'permissionCount', header: m('accessDirectoryPermissions'), value: row => row.permissions.length },
     {
       id: 'grantCount',
-      header: ko ? 'room 부여' : 'Room grants',
+      header: m('accessDirectoryRoomGrants'),
       value: row => grantTotals(row).granted,
       cell: row => {
         const totals = grantTotals(row);
         return <span className="tabular">{totals.granted}/{totals.total}</span>;
       },
     },
-    { id: 'menus', header: ko ? '메뉴' : 'Menus', sortable: false, value: row => menusForPermissions(registry, row.permissions).length },
-  ], [ko, lang, registry, filterColumnProps]);
+    { id: 'menus', header: m('accessDirectoryMenus'), sortable: false, value: row => menusForPermissions(registry, row.permissions).length },
+  ], [m, lang, registry, filterColumnProps]);
   // The drawer reads the loaded page's rows (the last loadPage result) — no second adapter call for a row.
   // Null until the current page request answered ok or empty: before that, and after forbidden/error/timeout, the page cannot
   // say a focus is unknown (06 §17 — no access and not loaded are not "no such principal").
@@ -69,13 +70,13 @@ export default function AccessDirectory() {
   // Computed outside JSX children: a multi-line JSX ternary in children is a parser trap.
   const drawer = ready && focus && rows ? (active
     ? <DetailDrawer key={active.id} title={active.name} subtitle={active.title[lang]}
-        context={<span className="flex items-center gap-2"><span className="t-mono">{active.role}</span><StatusBadge tone="neutral">{ko ? '조회 전용' : 'Read-only'}</StatusBadge></span>}
+        context={<span className="flex items-center gap-2"><span className="t-mono">{active.role}</span><StatusBadge tone="neutral">{m('accessDirectoryReadOnly')}</StatusBadge></span>}
         onClose={() => setPage({ focus: null, tab: null })}
         tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'permissions' ? null : tab })}
         tabs={[
           {
             id: 'permissions',
-            label: ko ? '권한' : 'Permissions',
+            label: m('accessDirectoryPermissions2'),
             content: <div className="grid gap-3">
               {active.permissions.map(permission => {
                 const joined = menusForPermissions(registry, active.permissions).filter(m => m.permission === permission);
@@ -88,19 +89,19 @@ export default function AccessDirectory() {
                           <span className="flex items-center gap-2">
                             <span className="t-mono text-text-secondary">{menu.path}</span>
                             {menu.spaceId === null && <StatusBadge tone="neutral">{menu.spaceLabel[lang]}</StatusBadge>}
-                            {menu.spaceGated && <StatusBadge tone="neutral">{ko ? '공간' : 'space'}</StatusBadge>}
-                            {menu.missingPermissions.length > 0 && <StatusBadge tone="neutral">{ko ? `추가 권한 필요: ${menu.missingPermissions.join(', ')}` : `needs ${menu.missingPermissions.join(', ')}`}</StatusBadge>}
+                            {menu.spaceGated && <StatusBadge tone="neutral">{m('accessDirectorySpace')}</StatusBadge>}
+                            {menu.missingPermissions.length > 0 && <StatusBadge tone="neutral">{m('accessDirectoryNeeds', { value: menu.missingPermissions.join(', ') })}</StatusBadge>}
                           </span>
                         </li>)}
                       </ul>
-                    : <p className="text-xs text-text-muted">{ko ? '이 권한으로 열리는 메뉴가 레지스트리에 없습니다.' : 'No registry menu declares this permission.'}</p>}
+                    : <p className="text-xs text-text-muted">{m('accessDirectoryNoRegistryMenuDeclaresThisPermission')}</p>}
                 </div>;
               })}
             </div>,
           },
           {
             id: 'sites',
-            label: ko ? '사이트 범위' : 'Site scope',
+            label: m('accessDirectorySiteScope'),
             content: <ul className="grid gap-1.5 text-sm">
               {active.sites.map(site => <li key={site.id} className="flex items-center justify-between gap-2 rounded-sm bg-surface-sunken px-2 py-1">
                 <span>{site.label}</span>
@@ -108,7 +109,7 @@ export default function AccessDirectory() {
                   <span className="tabular">{site.grantedRooms.length}/{site.totalRooms}</span>
                   {site.grantedRooms.length
                     ? <span className="t-mono">{site.grantedRooms.join(', ')}</span>
-                    : <span className="text-text-secondary">{ko ? '부여 없음' : 'No rooms granted'}</span>}
+                    : <span className="text-text-secondary">{m('accessDirectoryNoRoomsGranted')}</span>}
                 </span>
               </li>)}
             </ul>,
@@ -116,19 +117,17 @@ export default function AccessDirectory() {
         ]} />
     : <div role="alert" className="p-3">
         {/* Only the loaded page is known here: absence from it is not proof the principal does not exist. */}
-        <p>{ko ? '이 페이지에 없는 주체입니다.' : 'Principal not on this page.'} <span className="t-mono">{focus}</span></p>
-        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null, tab: null })}>{ko ? '닫기' : 'Close'}</Button>
+        <p>{m('accessDirectoryPrincipalNotOnThisPage')} <span className="t-mono">{focus}</span></p>
+        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null, tab: null })}>{m('accessDirectoryClose')}</Button>
       </div>) : null;
-  return <PlatformPage description={ko
-    ? '역할별 권한·room 부여 (조회 전용)'
-    : 'Permissions and room grants by role (read-only)'}>
+  return <PlatformPage description={m('accessDirectoryPermissionsAndRoomGrantsByRoleReadOnly')}>
     <ManagementLayout drawer={drawer}
       table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} />
         : focusRule.invalid ? <PageKeyWarning sentences={focusRule.sentences} onRecover={focusRule.recover} /> :
     <PlatformDataTable<AccessPrincipal>
-        title={ko ? '권한/역할' : 'Roles & access'}
-        ariaLabel={ko ? '권한/역할 목록' : 'Roles and access list'}
-        subtitle={ko ? '권한·room 부여 조회 전용입니다.' : 'Read-only permissions and room grants.'}
+        title={m('accessDirectoryRolesAccess')}
+        ariaLabel={m('accessDirectoryRolesAndAccessList')}
+        subtitle={m('accessDirectoryReadOnlyPermissionsAndRoomGrants')}
         columns={columns} filterFields={filterFields} getRowId={row => row.id}
         preferenceKey="admin-roles:columns:v1" pageSize={25} activeRowId={focus ?? undefined}
         urlState={urlState}
@@ -151,7 +150,7 @@ export default function AccessDirectory() {
           };
         }}
         emptyAction={clearButton}
-        rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${row.id} 보기` : `View ${row.id}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: row.id, tab: null })} />}
+        rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={m('accessDirectoryView', { id: row.id })} text={m('accessDirectoryView2')} onClick={() => setPage({ focus: row.id, tab: null })} />}
       />} />
   </PlatformPage>;
 }
