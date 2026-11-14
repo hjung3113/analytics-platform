@@ -1,19 +1,21 @@
+import { formatText } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../../messages';
 import type { LegendTreeNode } from '@ap/components';
 import type { ThemeColorToken } from '@ap/ui/theme';
 
 type Label = { ko: string; en: string };
 export type StateId = 'run' | 'idle' | 'stop';
 export const STATES: readonly { id: StateId; label: Label; color: ThemeColorToken }[] = [
-  { id: 'run', label: { ko: '가동', en: 'Running' }, color: 'chart-series-1' },
-  { id: 'idle', label: { ko: '대기', en: 'Idle' }, color: 'chart-series-2' },
-  { id: 'stop', label: { ko: '정지', en: 'Stopped' }, color: 'chart-series-3' },
+  { id: 'run', label: ANALYTICS_MESSAGES.breakdownDataRunning, color: 'chart-series-1' },
+  { id: 'idle', label: ANALYTICS_MESSAGES.breakdownDataIdle, color: 'chart-series-2' },
+  { id: 'stop', label: ANALYTICS_MESSAGES.breakdownDataStopped, color: 'chart-series-3' },
 ];
 type Minutes = Record<StateId, number>;
 export type ShiftId = 'day' | 'swing' | 'night';
 export const SHIFTS: readonly { id: ShiftId; label: Label; color: ThemeColorToken }[] = [
-  { id: 'day', label: { ko: '주간 가동률', en: 'Day utilization' }, color: 'chart-series-4' },
-  { id: 'swing', label: { ko: '석간 가동률', en: 'Swing utilization' }, color: 'chart-blue' },
-  { id: 'night', label: { ko: '야간 가동률', en: 'Night utilization' }, color: 'chart-purple' },
+  { id: 'day', label: ANALYTICS_MESSAGES.breakdownDataDayUtilization, color: 'chart-series-4' },
+  { id: 'swing', label: ANALYTICS_MESSAGES.breakdownDataSwingUtilization, color: 'chart-blue' },
+  { id: 'night', label: ANALYTICS_MESSAGES.breakdownDataNightUtilization, color: 'chart-purple' },
 ];
 /** Utilization of a shift is productive time over planned time. The planned time differs per shift and place, so the ratios cannot be added or averaged. */
 type Rate = { num: number; den: number };
@@ -26,24 +28,24 @@ export const ROOT_PLACE = 'loc';
 const leaf = (id: string, label: Label, minutes: Minutes, day: [number, number], swing: [number, number], night: [number, number]): Place => ({
   id, label, measures: { minutes, rates: { day: { num: day[0], den: day[1] }, swing: { num: swing[0], den: swing[1] }, night: { num: night[0], den: night[1] } } },
 });
-const PLACES: Place = { id: ROOT_PLACE, label: { ko: '전체', en: 'All' }, children: [
-  { id: 'A', label: { ko: '그룹 A', en: 'Group A' }, children: [
-    { id: 'A1', label: { ko: '라인 A1', en: 'Line A1' }, children: [
-      leaf('A1a', { ko: '공정 A1a', en: 'Process A1a' }, { run: 620, idle: 180, stop: 40 }, [520, 600], [430, 540], [300, 480]),
-      leaf('A1b', { ko: '공정 A1b', en: 'Process A1b' }, { run: 540, idle: 240, stop: 90 }, [450, 600], [330, 420], [240, 360]),
+const PLACES: Place = { id: ROOT_PLACE, label: ANALYTICS_MESSAGES.breakdownDataAll, children: [
+  { id: 'A', label: ANALYTICS_MESSAGES.breakdownDataGroupA, children: [
+    { id: 'A1', label: ANALYTICS_MESSAGES.breakdownDataLineA1, children: [
+      leaf('A1a', ANALYTICS_MESSAGES.breakdownDataProcessA1a, { run: 620, idle: 180, stop: 40 }, [520, 600], [430, 540], [300, 480]),
+      leaf('A1b', ANALYTICS_MESSAGES.breakdownDataProcessA1b, { run: 540, idle: 240, stop: 90 }, [450, 600], [330, 420], [240, 360]),
     ] },
   ] },
-  { id: 'B', label: { ko: '그룹 B', en: 'Group B' }, children: [
-    leaf('B1', { ko: '라인 B1', en: 'Line B1' }, { run: 700, idle: 120, stop: 20 }, [560, 600], [380, 480], [200, 240]),
+  { id: 'B', label: ANALYTICS_MESSAGES.breakdownDataGroupB, children: [
+    leaf('B1', ANALYTICS_MESSAGES.breakdownDataLineB1, { run: 700, idle: 120, stop: 20 }, [560, 600], [380, 480], [200, 240]),
   ] },
-  { id: 'C', label: { ko: '그룹 C', en: 'Group C' }, children: [
-    leaf('C1', { ko: '라인 C1', en: 'Line C1' }, { run: 410, idle: 260, stop: 150 }, [300, 480], [260, 600], [150, 360]),
+  { id: 'C', label: ANALYTICS_MESSAGES.breakdownDataGroupC, children: [
+    leaf('C1', ANALYTICS_MESSAGES.breakdownDataLineC1, { run: 410, idle: 260, stop: 150 }, [300, 480], [260, 600], [150, 360]),
   ] },
-  { id: 'D', label: { ko: '그룹 D', en: 'Group D' }, children: [
-    leaf('D1', { ko: '라인 D1', en: 'Line D1' }, { run: 150, idle: 90, stop: 310 }, [120, 360], [90, 240], [40, 300]),
+  { id: 'D', label: ANALYTICS_MESSAGES.breakdownDataGroupD, children: [
+    leaf('D1', ANALYTICS_MESSAGES.breakdownDataLineD1, { run: 150, idle: 90, stop: 310 }, [120, 360], [90, 240], [40, 300]),
   ] },
-  { id: 'E', label: { ko: '그룹 E', en: 'Group E' }, children: [
-    leaf('E1', { ko: '라인 E1', en: 'Line E1' }, { run: 480, idle: 140, stop: 60 }, [400, 540], [300, 420], [180, 300]),
+  { id: 'E', label: ANALYTICS_MESSAGES.breakdownDataGroupE, children: [
+    leaf('E1', ANALYTICS_MESSAGES.breakdownDataLineE1, { run: 480, idle: 140, stop: 60 }, [400, 540], [300, 420], [180, 300]),
   ] },
 ] };
 
@@ -97,7 +99,7 @@ export function breakdownRows(nodeId: string, lang: 'ko' | 'en'): BreakdownRow[]
   const place = find(PLACES, nodeId) ?? PLACES;
   const parts: { id: string; label: string; measures: Measures }[] = place.children
     ? place.children.map(child => ({ id: child.id, label: child.label[lang], measures: measure(child) }))
-    : UNIT_WEIGHTS.map((weight, index) => ({ id: `${place.id}-${index + 1}`, label: `${lang === 'ko' ? '설비' : 'Unit'} ${place.id}-${index + 1}`, measures: scale(measure(place), weight) }));
+    : UNIT_WEIGHTS.map((weight, index) => ({ id: `${place.id}-${index + 1}`, label: `${formatText(ANALYTICS_MESSAGES.breakdownDataUnit, lang)} ${place.id}-${index + 1}`, measures: scale(measure(place), weight) }));
   return parts.map(({ id, label, measures }, index) => {
     const { minutes, rates } = measures;
     const all = SHIFT_IDS.reduce((sum, shift) => ({ num: sum.num + rates[shift].num, den: sum.den + rates[shift].den }), { num: 0, den: 0 });
@@ -112,8 +114,8 @@ export function breakdownRows(nodeId: string, lang: 'ko' | 'en'): BreakdownRow[]
 export function breakdownTree(tx: (label: Label) => string): LegendTreeNode[] {
   const places = (place: Place): LegendTreeNode => ({ id: place.id, label: tx(place.label), drillOnly: true, ...(place.children ? { children: place.children.map(places) } : {}) });
   return [
-    { id: 'states', label: tx({ ko: '상태', en: 'State' }), children: STATES.map(state => ({ id: state.id, label: tx(state.label), color: state.color })) },
-    { id: 'shifts', label: tx({ ko: '교대 가동률', en: 'Shift utilization' }), children: SHIFTS.map(shift => ({ id: shift.id, label: tx(shift.label), color: shift.color })) },
+    { id: 'states', label: tx(ANALYTICS_MESSAGES.breakdownDataState), children: STATES.map(state => ({ id: state.id, label: tx(state.label), color: state.color })) },
+    { id: 'shifts', label: tx(ANALYTICS_MESSAGES.breakdownDataShiftUtilization), children: SHIFTS.map(shift => ({ id: shift.id, label: tx(shift.label), color: shift.color })) },
     places(PLACES),
   ];
 }

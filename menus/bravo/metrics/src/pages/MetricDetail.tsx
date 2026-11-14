@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { METRICS_MESSAGES } from '../messages';
 import { useEffect, useId, useRef, useState } from 'react';
 import { type PageProps, PlatformLink, useEntityAudit, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
@@ -7,15 +9,15 @@ import {
   PERIOD_BASIS, definitionEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
   type MetricDef, type MetricVersion,
 } from '../endpoints';
-import { USAGE_TABLE_MESSAGES, CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
+import { CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
 
 const SECTIONS = [
-  { id: 'definition', ko: '정의', en: 'Definition' },
-  { id: 'version', ko: '버전', en: 'Version' },
-  { id: 'ownership', ko: '소유', en: 'Ownership' },
-  { id: 'coverage', ko: '커버리지', en: 'Coverage' },
-  { id: 'usage', ko: '사용처', en: 'Usage' },
-  { id: 'history', ko: '변경 이력', en: 'Change history' },
+  { id: 'definition', ...METRICS_MESSAGES.metricDetailDefinition,  },
+  { id: 'version', ...METRICS_MESSAGES.metricDetailVersion,  },
+  { id: 'ownership', ...METRICS_MESSAGES.metricDetailOwnership,  },
+  { id: 'coverage', ...METRICS_MESSAGES.metricDetailCoverage,  },
+  { id: 'usage', ...METRICS_MESSAGES.metricDetailUsage,  },
+  { id: 'history', ...METRICS_MESSAGES.metricDetailChangeHistory,  },
 ] as const;
 
 const KEEP_PREVIOUS = { keepPrevious: true } as const;
@@ -23,10 +25,11 @@ const KEEP_PREVIOUS = { keepPrevious: true } as const;
 function sectionId(id: string) { return `metric-section-${id}`; }
 
 export default function MetricDetailPage({ params }: PageProps) {
+  const m = useMessages(METRICS_MESSAGES);
   const metricId = params.metricId;
   const { pageParam, setPage, setGlobal, linkTo, resolveLink, global, url } = usePlatform();
   const { lang, tx } = useI18n();
-  const copyVersionLink = useCopyLink(lang === 'ko' ? '이 버전의 링크를 복사했습니다.' : 'Copied the link to this version.');
+  const copyVersionLink = useCopyLink(m('metricDetailCopiedTheLinkToThisVersion'));
   const versionParam = pageParam('version');
   const tab = pageParam('tab');
   const returnTo = pageParam('returnTo');
@@ -102,70 +105,70 @@ export default function MetricDetailPage({ params }: PageProps) {
       ? <span className="flex items-center gap-2">
           <Button size="sm" aria-disabled className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:focus-visible:opacity-100"
             aria-describedby={draftNoteId}>
-            {lang === 'ko' ? '이 버전을 분석 Context로 사용' : 'Use this version as analysis context'}
+            {m('metricDetailUseThisVersionAsAnalysisContext')}
           </Button>
           <span id={draftNoteId} className="text-xs text-text-secondary">
-            {lang === 'ko' ? '초안은 분석 Context로 쓰지 않습니다' : 'Drafts are not used as analysis context'}
+            {m('metricDetailDraftsAreNotUsedAsAnalysisContext')}
           </span>
         </span>
       : <Button size="sm" data-testid="metric-apply-context" onClick={apply}
           title={global.metricId && global.metricId !== metricId
-            ? (lang === 'ko' ? `다른 지표 ${global.metricId} 쌍 전체를 ${metricId} @ ${selected.version} 으로 바꿉니다.` : `Replaces the whole ${global.metricId} pair with ${metricId} @ ${selected.version}.`)
+            ? (m('metricDetailReplacesTheWholePairWith', { metricId: String(global.metricId), value2: String(metricId), version: String(selected.version) }))
             : undefined}>
-          {lang === 'ko' ? '이 버전을 분석 Context로 사용' : 'Use this version as analysis context'}
+          {m('metricDetailUseThisVersionAsAnalysisContext2')}
         </Button>)}
     secondaryActions={<>
       <Button variant="secondary" size="sm" onClick={() => copyVersionLink(url)}>
-        {lang === 'ko' ? '버전 링크 복사' : 'Copy version link'}
+        {m('metricDetailCopyVersionLink')}
       </Button>
       {returnTo !== null ? <ReturnLink /> : <Button asChild size="sm" variant="secondary">
         <PlatformLink href={linkTo('metric-catalog')}>
-          {lang === 'ko' ? '카탈로그' : 'Catalog'}
+          {m('metricDetailCatalog')}
         </PlatformLink>
       </Button>}
     </>}
-    contextExtension={<nav aria-label={lang === 'ko' ? '카탈로그 영역' : 'Catalog sections'} className="flex flex-wrap gap-1">
+    contextExtension={<nav aria-label={m('metricDetailCatalogSections')} className="flex flex-wrap gap-1">
       {SECTIONS.map(s => <button key={s.id} type="button" aria-current={tab === s.id ? 'true' : undefined}
         className={cn('h-8 rounded-sm border px-2.5 text-xs', tab === s.id ? 'border-accent-primary bg-accent-primary-soft font-semibold text-text-primary' : 'border-border-subtle bg-surface-card text-text-secondary hover:border-border-strong')}
         onClick={() => setPage({ tab: s.id })}>
-        {lang === 'ko' ? s.ko : s.en}
+        {s[lang]}
       </button>)}
-      {tab && !tabKnown && <span role="alert" className="self-center text-xs text-text-warning-label">{lang === 'ko' ? '등록되지 않은 탭입니다. 아래 섹션에서 다시 고르세요.' : 'This tab is not registered. Pick a section below.'}</span>}
+      {tab && !tabKnown && <span role="alert" className="self-center text-xs text-text-warning-label">{m('metricDetailThisTabIsNotRegisteredPickA')}</span>}
     </nav>}
   >
     <div className="space-y-3">
       {/* While the definition below shows its own previous-selection notice for this transition, the pair verdict skips a second label; the queries resolve independently, so a pair that is still previous after the definition arrived labels itself (usage always keeps its own). */}
       <MetricPairBanner query={pair} pageVersion={pairShown} refreshNotice={definition.showingPrevious === true ? 'hidden' : 'visible'} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
-        {lang === 'ko' ? '설비 선택은 이 화면에서 참조만입니다.' : 'Equipment selection is reference only on this page.'}
+        {m('metricDetailEquipmentSelectionIsReferenceOnlyOnThis')}
       </p>}
 
-      <QueryView widgetName={lang === 'ko' ? '지표 정의' : 'Metric definition'} query={definition} skeletonRows={6} skeletonHeight={220}>
+      <QueryView widgetName={m('metricDetailMetricDefinition')} query={definition} skeletonRows={6} skeletonHeight={220}>
         {data => <>
           {/* 06 §18: Data Trust states a displayed number's status. The definition shows no numbers and the envelope
               trust only describes the catalog mart read, so no trust is drawn here for any version state (user
               decision 2026-10-13, #299). */}
           {data.problem === 'unknown-metric' || !data.metric ? (
-          <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '지표를 찾을 수 없습니다' : 'Metric not found'}
-            body={lang === 'ko' ? `${metricId} 는 카탈로그에 없습니다. 카탈로그로 돌아가 다시 고르세요.` : `${metricId} is not in the catalog. Go back to the catalog and pick another.`}
-            action={<PlatformLink href={linkTo('metric-catalog')} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '카탈로그로 돌아가기' : 'Back to the catalog'}</PlatformLink>} />
+          <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={m('metricDetailMetricNotFound')}
+            body={m('metricDetailIsNotInTheCatalogGoBack', { metricId: String(metricId) })}
+            action={<PlatformLink href={linkTo('metric-catalog')} className="text-xs font-medium text-accent-primary hover:underline">{m('metricDetailBackToTheCatalog')}</PlatformLink>} />
         ) : (
           <div className="space-y-3">
             {data.problem === 'version-not-member' && <StateMessage tone="danger" icon={<span className="t-mono">v{data.requestedVersion}</span>}
-              title={lang === 'ko' ? '이 지표에 속한 버전 필요' : 'Choose a version of this metric'}
-              body={lang === 'ko' ? `${metricId} @ ${data.requestedVersion}: 지표에 속한 버전 확인 필요. 아래에서 버전을 고르세요.` : `${metricId} @ ${data.requestedVersion}: check the metric version. Pick a version below.`} />}
+              title={m('metricDetailChooseAVersionOfThisMetric')}
+              body={m('metricDetailCheckTheMetricVersionPickAVersion', { metricId: String(metricId), requestedVersion: String(data.requestedVersion) })} />}
             {data.problem === 'need-version' && <StateMessage icon={<span className="t-mono">v?</span>}
-              title={lang === 'ko' ? '버전을 선택하세요' : 'Select a version'}
+              title={m('metricDetailSelectAVersion')}
               body={data.metric.publishedPointer
-                ? (lang === 'ko' ? `발행 포인터는 v${data.metric.publishedPointer} 입니다. 아래에서 버전을 고르세요.` : `The released pointer is v${data.metric.publishedPointer}. Pick a version below.`)
-                : (lang === 'ko' ? '발행된 버전 없음. 초안·폐기 버전을 직접 고르세요. 분석 기본값은 발행된 버전입니다.' : 'No released version. Choose a draft or deprecated version explicitly. Analysis defaults to released versions.')} />}
+                ? (m('metricDetailTheReleasedPointerIsVPickA', { publishedPointer: String(data.metric.publishedPointer) }))
+                : (m('metricDetailNoReleasedVersionChooseADraftOr'))} />}
             <div className="grid items-start gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="space-y-3">
                 <VersionSection metric={data.metric} selected={data.version} chosen={versionParam} onSelect={version => setPage({ version })} />
                 <OwnershipSection metric={data.metric} />
               </div>
               <div className="space-y-3">
-                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel id={sectionId('definition')} title={lang === 'ko' ? '정의' : 'Definition'}><p className="text-xs text-text-secondary">{lang === 'ko' ? '버전을 고르기 전에는 정의를 보여 주지 않습니다.' : 'The definition stays hidden until a version is selected.'}</p></Panel>}
+                {data.version ? <DefinitionSection metric={data.metric} version={data.version} previous={data.previous} /> : <Panel id={sectionId('definition')} title={m('metricDetailDefinition2')}><p className="text-xs text-text-secondary">{m('metricDetailTheDefinitionStaysHiddenUntilAVersion')}</p></Panel>}
                 {data.version && <CoverageSection version={data.version} />}
               </div>
             </div>
@@ -174,43 +177,42 @@ export default function MetricDetailPage({ params }: PageProps) {
         </>}
       </QueryView>
 
-      <Panel id={sectionId('usage')} title={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'}
+      <Panel id={sectionId('usage')} title={m('metricDetailUsageDependency')}
         subtitle={versionParam
           ? usageStale
-            ? (lang === 'ko' ? `v${usageShown} 사용처 (v${versionParam} 불러오는 중). 아래 행은 ${metricId} @ ${usageShown} 의 결과입니다.` : `Usage of v${usageShown} (loading v${versionParam}). The rows below are for ${metricId} @ ${usageShown}.`)
-            : (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회 · 확인 범위: productivity-overview · cycle-time · 0건: 이 두 메뉴에서 사용처 없음` : `Queries only ${metricId} @ ${versionParam} · checked scope: productivity-overview and cycle-time · zero rows: no usage in these two menus`)
-          : (lang === 'ko' ? '버전을 고르면 그 쌍의 사용처만 조회합니다.' : 'Choose a version to query usage for that pair only.')}>
-        {versionParam ? <QueryView widgetName={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'} hideWidgetName query={usage} compact skeletonRows={3}>
+            ? (m('metricDetailUsageOfVLoadingVTheRows', { usageShown: String(usageShown), versionParam: String(versionParam), metricId: String(metricId) }))
+            : (m('metricDetailQueriesOnlyCheckedScopeProductivityOverviewAnd', { metricId: String(metricId), versionParam: String(versionParam) }))
+          : (m('metricDetailChooseAVersionToQueryUsageFor'))}>
+        {versionParam ? <QueryView widgetName={m('metricDetailUsageDependency2')} hideWidgetName query={usage} compact skeletonRows={3}>
           {data => {
             if (data.problem) return (
-            <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '사용처 조회에 올바른 버전 필요' : 'Usage lookup requires a valid version'}
-              body={lang === 'ko' ? '소속되지 않은 버전을 최신 발행 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest released pair.'} />
+            <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={m('metricDetailUsageLookupRequiresAValidVersion')}
+              body={m('metricDetailAVersionThatDoesNotBelongHere')} />
             );
-            const copy = USAGE_TABLE_MESSAGES[lang];
             return (
             <Table>
               <TableCaption srOnly>{tx(SECTIONS[4])}</TableCaption>
               <TableHeader><TableRow>
-                <TableHead>{copy.menu}</TableHead>
-                <TableHead>{copy.place}</TableHead>
-                <TableHead align="end">{copy.version}</TableHead>
-                <TableHead>{copy.evidence}</TableHead>
-                <TableHead>{copy.open}</TableHead>
+                <TableHead>{m('usageTableMenu')}</TableHead>
+                <TableHead>{m('usageTablePlace')}</TableHead>
+                <TableHead align="end">{m('usageTableVersion')}</TableHead>
+                <TableHead>{m('usageTableEvidence')}</TableHead>
+                <TableHead>{m('usageTableOpen')}</TableHead>
               </TableRow></TableHeader>
               <TableBody>{data.rows.map(row => <TableRow key={row.menuId}>
                 <TableCell>{tx(CONSUMER_LABEL[row.menuId])}<span className="mt-0.5 block t-mono text-text-muted">{row.menuId}</span></TableCell>
                 <TableCell>{tx(row.place)}</TableCell>
                 <TableCell align="end">v{row.version}</TableCell>
-                <TableCell><div className="text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{copy.observedUnknown}</span></div></TableCell>
+                <TableCell><div className="text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{m('usageTableObservedUnknown')}</span></div></TableCell>
                 <TableCell>{(() => {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
                   // Rows of the previous version stay readable, but opening them waits for the picked version (#1365).
-                  if (usageStale) return <span className="text-xs text-text-muted">{copy.loading(versionParam)}</span>;
+                  if (usageStale) return <span className="text-xs text-text-muted">{m('usageTableLoading', { version: String(versionParam) })}</span>;
                   // A consumer menu this assembly does not register is not a permission matter: the row keeps its name and id as text, no link (06 §22).
                   if (link.kind === 'none') return null;
                   return link.allowed
-                    ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{copy.openConsumer}</PlatformLink>
-                    : <span className="text-xs text-text-muted">{copy.noAccess}</span>;
+                    ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{m('usageTableOpenConsumer')}</PlatformLink>
+                    : <span className="text-xs text-text-muted">{m('usageTableNoAccess')}</span>;
                 })()}</TableCell>
               </TableRow>)}</TableBody>
             </Table>
@@ -219,25 +221,24 @@ export default function MetricDetailPage({ params }: PageProps) {
         </QueryView> : null}
       </Panel>
 
-      <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·발행·폐기 기록' : 'Registration, release and deprecation records of the definition'}>
-        <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history.query} compact skeletonRows={4}>
+      <Panel id={sectionId('history')} title={m('metricDetailChangeHistory2')} subtitle={m('metricDetailRegistrationReleaseAndDeprecationRecordsOfThe')}>
+        <QueryView widgetName={m('metricDetailChangeHistory3')} hideWidgetName query={history.query} compact skeletonRows={4}>
           {() => <AuditTimeline {...history.timeline} />}
         </QueryView>
       </Panel>
       <p className="t-caption text-text-muted">
-        {lang === 'ko'
-          ? '섹션 이동은 앵커이며 정의·커버리지·사용처·변경 이력을 숨기지 않습니다. 예시 데이터입니다.'
-          : 'Section navigation is an anchor; definition, coverage, usage and change history stay visible. Example data.'}
+        {m('metricDetailSectionNavigationIsAnAnchorDefinitionCoverage')}
       </p>
     </div>
   </PlatformPage>;
 }
 
 function VersionSection({ metric, selected, chosen, onSelect }: { metric: MetricDef; selected: MetricVersion | null; /** The version in the URL: it leads the shown result while a kept previous result refreshes. */ chosen: string | null; onSelect: (version: string) => void }) {
+  const m = useMessages(METRICS_MESSAGES);
   const { lang, tx } = useI18n();
   const previous = selected ? metric.versions[metric.versions.findIndex(v => v.version === selected.version) - 1] ?? null : null;
   const diff = selected ? versionDiff(selected, previous, lang) : [];
-  return <Panel id={sectionId('version')} title={lang === 'ko' ? '버전' : 'Version'} subtitle={metric.publishedPointer ? (lang === 'ko' ? `발행 포인터 v${metric.publishedPointer}` : `Released pointer v${metric.publishedPointer}`) : (lang === 'ko' ? '발행 포인터 없음' : 'No released pointer')}>
+  return <Panel id={sectionId('version')} title={m('metricDetailVersion2')} subtitle={metric.publishedPointer ? (m('metricDetailReleasedPointerV', { publishedPointer: String(metric.publishedPointer) })) : (m('metricDetailNoReleasedPointer'))}>
     <ul className="space-y-1">
       {metric.versions.map(v => {
         const on = (chosen ?? selected?.version) === v.version;
@@ -251,8 +252,8 @@ function VersionSection({ metric, selected, chosen, onSelect }: { metric: Metric
       })}
     </ul>
     {selected && <div className="mt-3 border-t border-border-subtle pt-2">
-      <p className="text-xs font-semibold text-text-primary">{previous ? (lang === 'ko' ? `v${selected.version} ↔ 이전 v${previous.version}` : `v${selected.version} ↔ previous v${previous.version}`) : (lang === 'ko' ? '이전 버전 없음' : 'No previous version')}</p>
-      {previous && diff.length === 0 && <p className="mt-1 text-xs text-text-secondary">{lang === 'ko' ? '비교한 필드에 변경이 없습니다.' : 'No change in the compared fields.'}</p>}
+      <p className="text-xs font-semibold text-text-primary">{previous ? (m('metricDetailVPreviousV', { version: String(selected.version), value2: String(previous.version) })) : (m('metricDetailNoPreviousVersion'))}</p>
+      {previous && diff.length === 0 && <p className="mt-1 text-xs text-text-secondary">{m('metricDetailNoChangeInTheComparedFields')}</p>}
       {diff.length > 0 && <dl className="mt-1 space-y-1 text-xs">
         {diff.map(row => <div key={row.field}>
           <dt className="t-mono text-text-muted">{row.field}</dt>
@@ -264,50 +265,53 @@ function VersionSection({ metric, selected, chosen, onSelect }: { metric: Metric
 }
 
 function OwnershipSection({ metric }: { metric: MetricDef }) {
+  const m = useMessages(METRICS_MESSAGES);
   const { lang } = useI18n();
-  return <Panel id={sectionId('ownership')} title={lang === 'ko' ? '소유' : 'Ownership'} subtitle={lang === 'ko' ? '정의 책임과 발행 권한은 별개입니다.' : 'Definition ownership and publish permission are separate.'}>
+  return <Panel id={sectionId('ownership')} title={m('metricDetailOwnership2')} subtitle={m('metricDetailDefinitionOwnershipAndPublishPermissionAreSeparate')}>
     <FieldList>
-      <FieldRow layout="detail" label={lang === 'ko' ? '정의 책임' : 'Owner'}>{lang === 'ko' ? metric.owner.ko : metric.owner.en}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailOwner')}>{metric.owner[lang]}</FieldRow>
       <FieldRow layout="detail" label="ownerId" mono>{metric.ownerId}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '소유 조직' : 'Organization'} mono>{metric.organizationRef ?? (lang === 'ko' ? '미정' : 'Unset')}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailOrganization')} mono>{metric.organizationRef ?? (m('metricDetailUnset'))}</FieldRow>
     </FieldList>
   </Panel>;
 }
 
 function DefinitionSection({ metric, version, previous }: { metric: MetricDef; version: MetricVersion; previous: MetricVersion | null }) {
+  const m = useMessages(METRICS_MESSAGES);
   const { lang, tx } = useI18n();
   const diff = versionDiff(version, previous, lang);
-  return <Panel id={sectionId('definition')} title={lang === 'ko' ? '정의' : 'Definition'} subtitle={<span className="t-mono">{metric.metricId} @ {version.version}</span>}
+  return <Panel id={sectionId('definition')} title={m('metricDetailDefinition3')} subtitle={<span className="t-mono">{metric.metricId} @ {version.version}</span>}
     actions={<StatusBadge tone={STATUS_TONE[version.state]} dot>{tx(STATUS_LABEL[version.state])}</StatusBadge>}>
     <FieldList>
-      <FieldRow layout="detail" label={lang === 'ko' ? '유형' : 'Kind'}>{tx(KIND_LABEL[metric.kind])}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '수식 계약' : 'Formula contract'}>{tx(version.formula)}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailKind')}>{tx(KIND_LABEL[metric.kind])}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailFormulaContract')}>{tx(version.formula)}</FieldRow>
       <FieldRow layout="detail" label="grain">{tx(version.grain)}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '단위' : 'Unit'} mono>{version.unit}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '분자' : 'Numerator'} mono>{version.numerator ?? (lang === 'ko' ? '해당 없음' : 'Not applicable')}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '분모' : 'Denominator'} mono>{version.denominator ?? (lang === 'ko' ? '해당 없음' : 'Not applicable')}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '재집계' : 'Reaggregation'} mono>{version.reaggregationRule}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailUnit')} mono>{version.unit}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailNumerator')} mono>{version.numerator ?? (m('metricDetailNotApplicable'))}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailDenominator')} mono>{version.denominator ?? (m('metricDetailNotApplicable2'))}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailReaggregation')} mono>{version.reaggregationRule}</FieldRow>
       <FieldRow layout="detail" label="averageOfRatiosAllowed" mono>{String(version.averageOfRatiosAllowed)}</FieldRow>
       <FieldRow layout="detail" label="averageOfQuantilesAllowed" mono>{version.averageOfQuantilesAllowed === null ? '—' : String(version.averageOfQuantilesAllowed)}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '필터' : 'Filters'}>{version.filters.map(f => tx(f)).join(' · ') || '—'}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '기간 기준' : 'Time basis'}>{tx(PERIOD_BASIS)}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailFilters')}>{version.filters.map(f => tx(f)).join(' · ') || '—'}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailTimeBasis')}>{tx(PERIOD_BASIS)}</FieldRow>
       <FieldRow layout="detail" label="sourceContractRef" mono>{version.sourceContractRef}</FieldRow>
     </FieldList>
-    <p className="mt-3 text-xs text-text-muted">{previous ? (lang === 'ko' ? `이전 v${previous.version} 대비 변경 ${diff.length}개 필드는 왼쪽 버전 영역에 있습니다.` : `${diff.length} field(s) differ from previous v${previous.version}; see Version.`) : (lang === 'ko' ? '비교할 이전 버전이 없습니다.' : 'No previous version to diff.')}</p>
+    <p className="mt-3 text-xs text-text-muted">{previous ? (m('metricDetailFieldSDifferFromPreviousVSee', { version: String(previous.version), length: String(diff.length) })) : (m('metricDetailNoPreviousVersionToDiff'))}</p>
   </Panel>;
 }
 
 function CoverageSection({ version }: { version: MetricVersion }) {
-  const { lang, tx } = useI18n();
+  const m = useMessages(METRICS_MESSAGES);
+  const { tx } = useI18n();
   const c = version.coverage;
-  return <Panel id={sectionId('coverage')} title={lang === 'ko' ? '커버리지 기준' : 'Coverage basis'} subtitle={lang === 'ko' ? '지표 정의에 적힌 기준입니다. 조회 결과에 보이는 커버리지 비율과는 다른 값입니다.' : 'The basis written in the metric definition. It is not the coverage rate shown with query results.'}>
+  return <Panel id={sectionId('coverage')} title={m('metricDetailCoverageBasis')} subtitle={m('metricDetailTheBasisWrittenInTheMetricDefinition')}>
     <FieldList>
-      <FieldRow layout="detail" label={lang === 'ko' ? '모집단' : 'Population'}>{tx(c.populationRef)}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '포함' : 'Included'}>{tx(c.includedBasis)}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '제외' : 'Excluded'}>{tx(c.excludedBasis)}</FieldRow>
-      <FieldRow layout="detail" label={lang === 'ko' ? '분모 기준' : 'Denominator basis'}>{tx(c.denominatorBasis)}</FieldRow>
-      <FieldRow layout="detail" label="sourceRef" mono>{c.sourceRef ?? (lang === 'ko' ? '미정' : 'Unset')}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailPopulation')}>{tx(c.populationRef)}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailIncluded')}>{tx(c.includedBasis)}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailExcluded')}>{tx(c.excludedBasis)}</FieldRow>
+      <FieldRow layout="detail" label={m('metricDetailDenominatorBasis')}>{tx(c.denominatorBasis)}</FieldRow>
+      <FieldRow layout="detail" label="sourceRef" mono>{c.sourceRef ?? (m('metricDetailUnset2'))}</FieldRow>
     </FieldList>
-    <p className="mt-3 text-xs font-semibold text-text-primary">{lang === 'ko' ? '실행 Coverage 값 없음' : 'No runtime coverage value'}</p>
+    <p className="mt-3 text-xs font-semibold text-text-primary">{m('metricDetailNoRuntimeCoverageValue')}</p>
   </Panel>;
 }

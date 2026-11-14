@@ -1,3 +1,4 @@
+import { HW_TIME_MESSAGES } from './messages';
 /** Client-safe endpoint contracts shared by all four HW Time menus and their mock handlers. */
 import { defineEndpoint, menuPermission, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
@@ -38,7 +39,7 @@ export type HwTimeTableData = PageResult<HwTimeTableRow>;
 export type HwTimeExportParams = HwTimeTableFilter & { ids: string[] | null; sorting: PageSort[] };
 export type HwTimeExportRow = HwTimeTableRow;
 
-export const HW_TIME_UNIT = { ko: '초', en: 's' } as const;
+export const HW_TIME_UNIT = HW_TIME_MESSAGES.endpointHwTimeUnit;
 export const HW_TIME_MAX_ROWS = { level: 120, export: 120 } as const;
 /** The eight-row cap keeps request URLs short and multi-row trends legible. */
 export const HW_TIME_MAX_TREND_ROWS = 8;

@@ -1,9 +1,11 @@
+import { useMessages } from '@ap/kernel';
+import { TOPVIEW_MESSAGES } from '../messages';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePlatform } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage } from '@ap/components';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@ap/ui';
-import { useI18n } from '@ap/kernel';
+
 import { FocusView, type FocusTab } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
 import { TrustLine, stateFor } from './states.js';
@@ -17,9 +19,9 @@ import { usePageKeyRulesFor } from '../page-key-rules.js';
  * in the platform scope.
  */
 function FocusBody() {
+  const m = useMessages(TOPVIEW_MESSAGES);
   const { pageParam, setPage, resolveLink, navigate } = usePlatform();
   const { props, load, resetKey, retry } = useReplayScreen();
-  const { lang } = useI18n();
   const [tab, setTab] = useState<FocusTab>('list');
   const [detail, setDetail] = useState<{ node: ReactNode; label: string } | null>(null);
   const renderDetail = useCallback((next: { node: ReactNode; label: string } | null) => setDetail(next), []);
@@ -39,7 +41,7 @@ function FocusBody() {
     <>
     <TrustLine trust={load.trust} assessments={load.assessments} />
     {detail && <DetailDrawer title={detail.label} onClose={() => setDetail(null)}
-      tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: detail.node }]} />}
+      tabs={[{ id: 'detail', label: m('focusScreenDetail'), content: detail.node }]} />}
     <FocusView input={load.input} notices={load.notices} entityType={props.entityType} anchor={props.anchor} resetKey={resetKey}
       range={{ value: props.range, onChange: (range) => setPage({ rangeFrom: range.from, rangeTo: range.to }, { replace: true }) }}
       tab={tab} onTabChange={setTab} renderDetail={renderDetail}

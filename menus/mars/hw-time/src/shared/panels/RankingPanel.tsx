@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../../messages';
 import { useMemo } from 'react';
 import { useI18n } from '@ap/kernel';
 import { HW_TIME_UNIT, type HwTimeBlock } from '../../endpoints';
@@ -13,6 +15,7 @@ export type RankingPanelProps = {
 
 /** Compact ranking of the rows by total. A plain list: no Frame, no query. Free of layout. */
 export function RankingPanel({ block, visibleSeriesIds, limit = 50 }: RankingPanelProps) {
+  const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
   const { ranked, count } = useMemo(() => {
     const rows = block.rows.filter(row => !row.auxiliary).map(row => {
@@ -22,10 +25,10 @@ export function RankingPanel({ block, visibleSeriesIds, limit = 50 }: RankingPan
     }).sort((a, b) => a.total === null || b.total === null ? (a.total === b.total ? 0 : a.total === null ? 1 : -1) : b.total - a.total);
     return { ranked: rows.slice(0, limit), count: rows.length };
   }, [block.rows, visibleSeriesIds, limit]);
-  if (ranked.length === 0) return <p className="t-caption p-2 text-text-muted">{lang === 'ko' ? '순위를 매길 행이 없습니다.' : 'No rows to rank.'}</p>;
-  const partialText = lang === 'ko' ? '미측정 포함' : 'incl. unmeasured';
+  if (ranked.length === 0) return <p className="t-caption p-2 text-text-muted">{m('rankingPanelNoRowsToRank')}</p>;
+  const partialText = m('rankingPanelInclUnmeasured');
   const truncated = count > ranked.length;
-  const list = <ol aria-label={lang === 'ko' ? '합계 순위' : 'Ranking by total'} className={`flex min-h-0 ${truncated ? 'flex-1' : 'h-full'} flex-col gap-0.5 overflow-auto p-2 text-xs`}>
+  const list = <ol aria-label={m('rankingPanelRankingByTotal')} className={`flex min-h-0 ${truncated ? 'flex-1' : 'h-full'} flex-col gap-0.5 overflow-auto p-2 text-xs`}>
     {ranked.map((item, index) => <li key={item.id}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-text-secondary" title={rowIdLabel(item.id)}><span className="text-text-muted">{index + 1}.</span> {rowIdLabel(item.id)}</span>
@@ -37,7 +40,7 @@ export function RankingPanel({ block, visibleSeriesIds, limit = 50 }: RankingPan
   </ol>;
   if (!truncated) return list;
   return <div className="flex h-full min-h-0 flex-col">
-    <p className="t-caption px-2 pt-2 text-text-muted">{lang === 'ko' ? `상위 ${ranked.length}행 / 전체 ${count}행` : `Top ${ranked.length} of ${count} rows`}</p>
+    <p className="t-caption px-2 pt-2 text-text-muted">{m('rankingPanelTopOfRows', { length: String(ranked.length), count: String(count) })}</p>
     {list}
   </div>;
 }

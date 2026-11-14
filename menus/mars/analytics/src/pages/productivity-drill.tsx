@@ -1,3 +1,6 @@
+import type { TextParams } from '@ap/kernel';
+import { formatText } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../messages';
 import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { QueryState } from '@ap/kernel';
@@ -9,21 +12,21 @@ import type { DrillData, DrillEquipmentRow, DrillStgroupRow, KpiSet } from '../e
 type Fmt = { n1: (value: number) => string; ni: (value: number) => string };
 
 export function pctHint(ko: boolean, value: number | null, n1: Fmt['n1']): string {
-  return value === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(value)}%`;
+  return value === null ? (formatText(ANALYTICS_MESSAGES.productivityDrillNotConfirmed, (ko ? 'ko' : 'en'))) : `${n1(value)}%`;
 }
 
 function KpiLine({ ko, kpi, n1, ni }: { ko: boolean; kpi: KpiSet } & Fmt) {
+  const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
   const occ = pctHint(ko, kpi.occupancy?.pct ?? null, n1);
-  const p95 = kpi.cycle.p95 === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(kpi.cycle.p95)}${ko ? '분' : 'min'}`;
+  const p95 = kpi.cycle.p95 === null ? (m('productivityDrillNotConfirmed2')) : `${n1(kpi.cycle.p95)}${m('productivityDrillMin')}`;
   return <p className="text-xs text-text-secondary tabular">
-    {ko
-      ? `점유율 ${occ} · 완료 Job ${ni(kpi.throughput.jobs)} · 설비 ${ni(kpi.equipmentCount)} · P95 ${p95}`
-      : `Occupancy ${occ} · completed jobs ${ni(kpi.throughput.jobs)} · equipment ${ni(kpi.equipmentCount)} · P95 ${p95}`}
+    {m('productivityDrillOccupancyCompletedJobsEquipmentP95', { occ: String(occ), value: String(ni(kpi.throughput.jobs)), value3: String(ni(kpi.equipmentCount)), p95: String(p95) })}
   </p>;
 }
 
 function EnterButton({ ko, value, onClick }: { ko: boolean; value: string; onClick: () => void }) {
-  return <button type="button" aria-label={ko ? `${value} 들어가기` : `Enter ${value}`} onClick={onClick}
+  const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
+  return <button type="button" aria-label={m('productivityDrillEnter', { value: String(value) })} onClick={onClick}
     className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
     <ChevronRight className="size-3.5" aria-hidden />
   </button>;
@@ -44,12 +47,13 @@ function Th({ children, align = 'left' }: { children: ReactNode; align?: 'left' 
 }
 
 function StgroupTable({ ko, rows, onEnter, n1, ni }: { ko: boolean; rows: DrillStgroupRow[]; onEnter: (stgroup: string) => void } & Fmt) {
-  return tableShell(ko ? 'StGroup 점유 구성' : 'StGroup occupancy', <>
+  const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
+  return tableShell(m('productivityDrillStgroupOccupancy'), <>
     <Th>StGroup</Th>
-    <Th align="right">{ko ? '설비 수' : 'Equipment'}</Th>
-    <Th align="right">{ko ? '점유율' : 'Occupancy'}</Th>
-    <Th align="right">{ko ? 'Job 수' : 'Jobs'}</Th>
-    <Th><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></Th>
+    <Th align="right">{m('productivityDrillEquipment')}</Th>
+    <Th align="right">{m('productivityDrillOccupancy')}</Th>
+    <Th align="right">{m('productivityDrillJobs')}</Th>
+    <Th><span className="sr-only">{m('productivityDrillEnter2')}</span></Th>
   </>, rows.map(row => <tr key={row.stgroup} className="border-t border-border-subtle">
     <td className="t-mono px-3 py-1.5">{row.stgroup}</td>
     <td className="px-3 py-1.5 text-right">{ni(row.equipmentCount)}</td>
@@ -62,12 +66,13 @@ function StgroupTable({ ko, rows, onEnter, n1, ni }: { ko: boolean; rows: DrillS
 function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
   ko: boolean; rows: DrillEquipmentRow[]; current: string | null; onEnter: (equipmentId: string) => void;
 } & Fmt) {
-  return tableShell(ko ? '설비 점유' : 'Equipment occupancy', <>
+  const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
+  return tableShell(m('productivityDrillEquipmentOccupancy'), <>
     <Th>EquipmentID</Th>
-    <Th align="right">{ko ? '점유율' : 'Occupancy'}</Th>
-    <Th align="right">{ko ? 'Job 수' : 'Jobs'}</Th>
-    <Th align="right">{ko ? 'P95 사이클타임' : 'P95 cycle time'}</Th>
-    <Th><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></Th>
+    <Th align="right">{m('productivityDrillOccupancy2')}</Th>
+    <Th align="right">{m('productivityDrillJobs2')}</Th>
+    <Th align="right">{m('productivityDrillP95CycleTime')}</Th>
+    <Th><span className="sr-only">{m('productivityDrillEnter3')}</span></Th>
   </>, rows.map(row => {
     const isCurrent = current === row.equipmentId;
     return <tr key={row.equipmentId} aria-current={isCurrent ? 'true' : undefined} className={cn('border-t border-border-subtle', isCurrent && 'bg-accent-primary-soft')}>
@@ -79,7 +84,7 @@ function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
       </td>
       <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>
       <td className="px-3 py-1.5 text-right">{ni(row.jobs)}</td>
-      <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</td>
+      <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (m('productivityDrillNotConfirmed3')) : `${n1(row.p95Min)} ${m('productivityDrillMin2')}`}</td>
       <td className="px-2 py-1.5 text-right"><EnterButton ko={ko} value={row.equipmentId} onClick={() => onEnter(row.equipmentId)} /></td>
     </tr>;
   }));
@@ -105,14 +110,15 @@ export function ProductivityDrillBody({ ko, room, stgroup, equipment, stgroupQue
   onCloseEquipment: () => void;
   equipmentHref: string;
 } & Fmt) {
-  return <QueryView widgetName={ko ? '공정 드릴' : 'Process drill'} query={stgroupQuery} skeletonRows={5}>
+  const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
+  return <QueryView widgetName={m('productivityDrillProcessDrill')} query={stgroupQuery} skeletonRows={5}>
     {data => {
       if (stgroup === null) {
-        return <Stage ko={ko} n1={n1} ni={ni} kpi={data.kpi} title={ko ? `${room} StGroup` : `${room} StGroups`}>
+        return <Stage ko={ko} n1={n1} ni={ni} kpi={data.kpi} title={m('productivityDrillStgroups', { room: String(room) })}>
           <StgroupTable ko={ko} rows={data.stgroups} onEnter={onEnterStgroup} n1={n1} ni={ni} />
         </Stage>;
       }
-      return <QueryView widgetName={ko ? 'StGroup 드릴' : 'StGroup drill'} query={equipmentQuery} skeletonRows={5}>
+      return <QueryView widgetName={m('productivityDrillStgroupDrill')} query={equipmentQuery} skeletonRows={5}>
         {eq => {
           const row = equipment === null ? undefined : eq.equipment.find(item => item.equipmentId === equipment);
           return <>
@@ -121,21 +127,21 @@ export function ProductivityDrillBody({ ko, room, stgroup, equipment, stgroupQue
             </Stage>
             {row && <DetailDrawer
               title={<span className="t-mono">{row.equipmentId}</span>}
-              subtitle={ko ? '설비 요약' : 'Equipment summary'}
+              subtitle={m('productivityDrillEquipmentSummary')}
               onClose={onCloseEquipment}
               tabs={[{
                 id: 'summary',
-                label: ko ? '요약' : 'Summary',
+                label: m('productivityDrillSummary'),
                 content: <>
                   <FieldList>
                     <FieldRow layout="detail" label="EquipmentID" mono>{row.equipmentId}</FieldRow>
-                    <FieldRow layout="detail" label={ko ? '점유율' : 'Occupancy'}>{pctHint(ko, row.occupancyPct, n1)}</FieldRow>
-                    <FieldRow layout="detail" label={ko ? '완료 Job' : 'Jobs'}>{ni(row.jobs)}</FieldRow>
-                    <FieldRow layout="detail" label={ko ? 'P95 사이클타임' : 'P95 cycle time'}>{row.p95Min === null ? (ko ? '미확인' : 'Not confirmed') : `${n1(row.p95Min)} ${ko ? '분' : 'min'}`}</FieldRow>
+                    <FieldRow layout="detail" label={m('productivityDrillOccupancy3')}>{pctHint(ko, row.occupancyPct, n1)}</FieldRow>
+                    <FieldRow layout="detail" label={m('productivityDrillJobs3')}>{ni(row.jobs)}</FieldRow>
+                    <FieldRow layout="detail" label={m('productivityDrillP95CycleTime2')}>{row.p95Min === null ? (m('productivityDrillNotConfirmed4')) : `${n1(row.p95Min)} ${m('productivityDrillMin3')}`}</FieldRow>
                   </FieldList>
                   <div className="mt-3">
                     <Button size="sm" asChild>
-                      <PlatformLink href={equipmentHref}>{ko ? '설비 상세로' : 'Equipment detail'}</PlatformLink>
+                      <PlatformLink href={equipmentHref}>{m('productivityDrillEquipmentDetail')}</PlatformLink>
                     </Button>
                   </div>
                 </>,

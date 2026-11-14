@@ -1,3 +1,4 @@
+import { METRICS_MESSAGES } from './messages';
 /**
  * Metric query endpoints (packages/sdk/contracts/src/menu/menu-query.ts, #129).
  * Client-safe: declarations, the catalog record types, and pure helpers the page and the server share
@@ -78,7 +79,7 @@ export type MetricDef = {
 };
 
 /** Period basis shown on every definition (wall-clock, 06 §6.3). */
-export const PERIOD_BASIS: Text = { ko: '설비에 기록된 시각 · 기간 필터와 별도', en: "The equipment's recorded clock · separate from the period filter" };
+export const PERIOD_BASIS: Text = METRICS_MESSAGES.endpointPeriodBasis;
 
 export type CatalogRow = {
   metricId: string;

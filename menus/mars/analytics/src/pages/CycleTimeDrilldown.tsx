@@ -1,3 +1,5 @@
+import { useMessages, formatText } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../messages';
 import { formatWallClock } from '@ap/contracts';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -21,27 +23,25 @@ import { CYCLE_TIME_SAVED_VIEW } from '../saved-view';
 const NO_PARAMS = {};
 
 function filterVocabulary(lang: 'ko' | 'en') {
-  const ko = lang === 'ko';
   return {
-    grainFieldLabel: ko ? '집계' : 'Grain',
-    grainLabel: { hour: ko ? '시간' : 'Hour', day: ko ? '일' : 'Day', week: ko ? '주' : 'Week' } as const,
+    grainFieldLabel: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownGrain, lang),
+    grainLabel: { hour: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownHour, lang), day: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownDay, lang), week: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownWeek, lang) } as const,
     tailFieldLabel: cycleTailFilterLabel(lang),
-    tailOptions: [{ value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: ko ? '전체 실행' : 'All executions' }],
-    sortFieldLabel: ko ? '정렬' : 'Sort',
+    tailOptions: [{ value: 'p95', label: '≥ P95' }, { value: 'p50', label: '≥ P50' }, { value: 'all', label: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownAllExecutions, lang) }],
+    sortFieldLabel: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownSort, lang),
     sortOptions: [
-      { value: 'cycleMin:desc', label: ko ? '사이클타임 내림차순' : 'Cycle time descending' },
-      { value: 'cycleMin:asc', label: ko ? '사이클타임 오름차순' : 'Cycle time ascending' },
-      { value: 'delta:desc', label: ko ? 'P95 대비 내림차순' : 'vs P95 descending' },
-      { value: 'startedAt:desc', label: ko ? '시작 최신' : 'Start newest' },
-      { value: 'startedAt:asc', label: ko ? '시작 오래된' : 'Start oldest' },
+      { value: 'cycleMin:desc', label: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeDescending, lang) },
+      { value: 'cycleMin:asc', label: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeAscending, lang) },
+      { value: 'delta:desc', label: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownVsP95Descending, lang) },
+      { value: 'startedAt:desc', label: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownStartNewest, lang) },
+      { value: 'startedAt:asc', label: formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownStartOldest, lang) },
       { value: 'equipmentId:asc', label: 'Equipment A→Z' },
     ],
-    unknownRaw: (value: string | null) => ko ? `이 화면에서 쓸 수 없는 값: ${value ?? ''}` : `Not a value this page can use: ${value ?? ''}`,
+    unknownRaw: (value: string | null) => formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownNotAValueThisPageCanUse, lang, { value: String(value ?? '') }),
   };
 }
 
 function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | 'en') {
-  const ko = lang === 'ko';
   const raw = (key: string) => page.find(([k]) => k === key)?.[1] ?? null;
   const grain = resolveGranularity(raw('granularity'), periodHours(global));
   const tail = resolveTail(raw('percentile'));
@@ -55,7 +55,7 @@ function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | '
     // One bucket/bin text with the chips (#1218 FORMAT); a value the page refuses stays the raw token, never corrected.
     ...(['bucket', 'bin', 'page'] as const).filter(key => raw(key) !== null).map(key => ({
       key,
-      label: key === 'bucket' ? (ko ? '버킷' : 'Bucket') : key === 'bin' ? (ko ? '분포 구간' : 'Histogram') : (ko ? '페이지' : 'Page'),
+      label: key === 'bucket' ? (formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownBucket, lang)) : key === 'bin' ? (formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownHistogram, lang)) : (formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownPage, lang)),
       value: key === 'bucket'
         ? bucketText(raw('bucket')!, grain.ok ? grain.value : 'hour', lang)
         : key === 'bin' && bin.ok && bin.value !== null ? binText(bin.value, lang)
@@ -65,6 +65,7 @@ function summaryFor(global: GlobalContext, page: readonly Pair[], lang: 'ko' | '
 }
 
 export default function CycleTimeDrilldown(_: PageProps) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { t, lang } = useI18n();
   const { global, page, pageParam, setPage, setGlobal, linkTo, toast, route } = usePlatform();
   useSavedViewSupport(CYCLE_TIME_SAVED_VIEW);
@@ -92,12 +93,12 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const pageResult = parsePageIndex(pageRaw);
   // Rejected, never corrected (06 §6): one sentence per bad key (user name + raw value as entered) and a Reset that clears exactly those keys.
   const keys = usePageKeyRules([
-    { key: 'granularity', label: { ko: '집계', en: 'Grain' }, valid: raw => resolveGranularity(raw, hours).ok },
-    { key: 'percentile', label: { ko: '느린 실행 기준', en: 'Slow executions' }, valid: raw => resolveTail(raw).ok },
-    { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: raw => parseSortParam(raw).ok },
-    { key: 'bucket', label: { ko: '버킷', en: 'Bucket' }, valid: raw => parseBucket(raw, granularityResult.ok ? granularityResult.value : 'hour').ok },
-    { key: 'bin', label: { ko: '분포 구간', en: 'Histogram' }, valid: raw => parseBin(raw).ok },
-    { key: 'page', label: { ko: '페이지', en: 'Page' }, valid: raw => parsePageIndex(raw).ok },
+    { key: 'granularity', label: ANALYTICS_MESSAGES.cycleTimeDrilldownGrain2, valid: raw => resolveGranularity(raw, hours).ok },
+    { key: 'percentile', label: ANALYTICS_MESSAGES.cycleTimeDrilldownSlowExecutions, valid: raw => resolveTail(raw).ok },
+    { key: 'sort', label: ANALYTICS_MESSAGES.cycleTimeDrilldownSort2, valid: raw => parseSortParam(raw).ok },
+    { key: 'bucket', label: ANALYTICS_MESSAGES.cycleTimeDrilldownBucket2, valid: raw => parseBucket(raw, granularityResult.ok ? granularityResult.value : 'hour').ok },
+    { key: 'bin', label: ANALYTICS_MESSAGES.cycleTimeDrilldownHistogram2, valid: raw => parseBin(raw).ok },
+    { key: 'page', label: ANALYTICS_MESSAGES.cycleTimeDrilldownPage2, valid: raw => parsePageIndex(raw).ok },
   ]);
 
   const invalidPage = keys.invalid;
@@ -110,7 +111,6 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const metric = resolveMetric(global);
   const cycleVersion = cycleVersionOf(metric);
   const enabled = !invalidPage && periodReady && cycleVersion !== null;
-  const ko = lang === 'ko';
 
   const [reload, setReload] = useState(0);
   // A global-Context change clears page/bucket/bin in the kernel (manifest contextResetKeys); pages write no reset effect.
@@ -128,32 +128,32 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
   const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
     { id: 'equipmentId', header: 'Equipment', cell: row => <span className="t-mono">{row.equipmentId}</span> },
-    { id: 'room', header: ko ? '공정' : 'Process', cell: row => <span className="t-mono">{row.room}</span> },
+    { id: 'room', header: m('cycleTimeDrilldownProcess'), cell: row => <span className="t-mono">{row.room}</span> },
     { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
     { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
     {
-      id: 'startedAt', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{formatWallClock(row.startedAt)}</span>,
+      id: 'startedAt', header: m('cycleTimeDrilldownStart'), cell: row => <span className="t-mono tabular">{formatWallClock(row.startedAt)}</span>,
       // The cell shows the wall-clock start space-separated (§6.3); the export shows the same text.
       exportValue: row => formatWallClock(row.startedAt),
     },
     {
-      id: 'cycleMin', header: ko ? '사이클타임 (분)' : 'Cycle time (min)', align: 'right',
+      id: 'cycleMin', header: m('cycleTimeDrilldownCycleTimeMin'), align: 'right',
       cell: row => <span className="tabular">{formatMin(row.cycleMin, lang)}</span>,
     },
     {
-      id: 'delta', header: ko ? 'P95 대비' : 'vs P95', align: 'right',
+      id: 'delta', header: m('cycleTimeDrilldownVsP95'), align: 'right',
       cell: row => {
         const value = row.delta;
         return <span className={value !== null && value > 0 ? 'tabular text-text-danger-label' : 'tabular text-text-secondary'}>{formatDelta(value, lang)}</span>;
       },
     },
     {
-      id: 'quality', header: ko ? '품질' : 'Quality',
-      cell: row => qualityBadge(row.quality, ko),
+      id: 'quality', header: m('cycleTimeDrilldownQuality'),
+      cell: row => qualityBadge(row.quality, lang === 'ko'),
       // The cell shows a label badge; the export shows the same text. Numbers (cycleMin, delta) stay numbers.
-      exportValue: row => qualityLabel(row.quality, ko),
+      exportValue: row => qualityLabel(row.quality, lang === 'ko'),
     },
-  ], [ko, lang]);
+  ], [m, lang]);
 
   const filterKey = JSON.stringify({ tail: tailMode, granularity, bucket: bucketRange, bin, sort: sortRaw, reload });
   const granularityPending = draftParam('granularity') === null && draftHours === null;
@@ -184,31 +184,27 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
   const appliedChips: PageFilterAppliedChip[] = appliedPageSummary.filter(item => item.key !== 'page').map(item => ({
     ...item,
-    ...(item.key === 'bucket' ? { onClear: () => clearNarrowing('bucket'), clearLabel: ko ? '버킷 필터 해제' : 'Clear bucket filter' }
-      : item.key === 'bin' ? { onClear: () => clearNarrowing('bin'), clearLabel: ko ? '분포 필터 해제' : 'Clear histogram filter' }
+    ...(item.key === 'bucket' ? { onClear: () => clearNarrowing('bucket'), clearLabel: m('cycleTimeDrilldownClearBucketFilter') }
+      : item.key === 'bin' ? { onClear: () => clearNarrowing('bin'), clearLabel: m('cycleTimeDrilldownClearHistogramFilter') }
       : {}),
   }));
   const historyPageSummary = useCallback((candidate: GlobalContext, page: readonly Pair[]) => summaryFor(candidate, page, lang), [lang]);
   const issues = [
     ['granularity', grainFieldLabel, draftGrain.ok], ['percentile', tailFieldLabel, draftTail.ok], ['sort', sortFieldLabel, draftSort.ok],
-    ['bucket', ko ? '버킷' : 'Bucket', draftBucket.ok], ['bin', ko ? '분포 구간' : 'Histogram', draftBin.ok], ['page', ko ? '페이지' : 'Page', draftIndex.ok],
+    ['bucket', m('cycleTimeDrilldownBucket3'), draftBucket.ok], ['bin', m('cycleTimeDrilldownHistogram3'), draftBin.ok], ['page', m('cycleTimeDrilldownPage3'), draftIndex.ok],
   ].filter(([, , ok]) => !ok).map(([key, label]) => ({ key: String(key), label: String(label), reason: unknownRaw(draftParam(String(key))) }));
-  const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
+  const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{m('cycleTimeDrilldownResetPageFilters')}</Button>;
 
   return <PlatformPage layout="fill"
     queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response != null && kpi.response.outcome !== 'ok' && kpi.response.outcome !== 'empty' }}
     queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
-    description={ko
-      ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'
-      : 'Cycle time for the applied period and equipment. Point and histogram choices filter only the list.'}
-    secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}</Button>}
+    description={m('cycleTimeDrilldownCycleTimeForTheAppliedPeriodAnd')}
+    secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{m('cycleTimeDrilldownRefresh')}</Button>}
     dataTrustSummary={kpi.response?.trust ? <DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /> : undefined}
     contextNotes={[
       <MetricBanner key="metric" metric={metric} />,
       <p key="grain" className="text-xs text-text-muted">
-        {ko
-          ? `집계 기본값은 기간이 48시간 이하면 시간, 그보다 길면 일입니다${!draftGrain.ok || draftGrain.explicit ? '' : ` (지금 ${draftGrain.value === 'hour' ? '시간' : draftGrain.value === 'day' ? '일' : '주'})`}. 느린 실행은 표시된 P95 이상(같은 값 포함)이며 요약 모집단은 줄이지 않습니다.`
-          : `The default grain is hours when the period is 48 hours or less, otherwise days${!draftGrain.ok || draftGrain.explicit ? '' : ` (now ${draftGrain.value})`}. Slow means at or above the displayed P95, including ties, and does not shrink the summary population.`}
+        {!draftGrain.ok || draftGrain.explicit ? m('cycleTimeDrilldownTheDefaultGrainIsHoursWhenThe') : m('cycleTimeDefaultGrainWithCurrent', { grain: m(draftGrain.value === 'hour' ? 'cycleTimeGrainHour' : draftGrain.value === 'day' ? 'cycleTimeGrainDay' : 'cycleTimeGrainWeek') })}
       </p>,
     ]}
     contextExtension={<div className="space-y-2">
@@ -229,71 +225,69 @@ export default function CycleTimeDrilldown(_: PageProps) {
       : kpi.status === 'idle' ? <QueryView query={kpi}>{() => null}</QueryView>
         : <PanelWorkspace
           persistKey="drilldown"
-          label={{ ko: '사이클타임 분석 영역', en: 'Cycle time workspace' }}
+          label={ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeWorkspace}
           initialPreset="balanced"
           stackPreset="column"
           presets={[
-            { id: 'balanced', label: { ko: '기본', en: 'Balanced' }, layout: { type: 'branch', dir: 'row', sizes: [68, 32], children: [
+            { id: 'balanced', label: ANALYTICS_MESSAGES.cycleTimeDrilldownBalanced, layout: { type: 'branch', dir: 'row', sizes: [68, 32], children: [
               { type: 'group', panels: ['trend'] },
               { type: 'branch', dir: 'column', sizes: [38, 62], children: [{ type: 'group', panels: ['summary'] }, { type: 'group', panels: ['distribution', 'slow'] }] },
             ] } },
-            { id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: { type: 'branch', dir: 'row', sizes: [70, 30], children: [
+            { id: 'focus', label: ANALYTICS_MESSAGES.cycleTimeDrilldownFocus, layout: { type: 'branch', dir: 'row', sizes: [70, 30], children: [
               { type: 'group', panels: ['trend'] },
               { type: 'group', panels: ['summary', 'distribution', 'slow'] },
             ] } },
             // A natural start for the stacked height mode (#686): one row per question, the summary and the distribution side by side.
-            { id: 'column', label: { ko: '세로', en: 'Stacked' }, layout: { type: 'branch', dir: 'column', sizes: [34, 33, 33], children: [
+            { id: 'column', label: ANALYTICS_MESSAGES.cycleTimeDrilldownStacked, layout: { type: 'branch', dir: 'column', sizes: [34, 33, 33], children: [
               { type: 'group', panels: ['trend'] },
               { type: 'branch', dir: 'row', sizes: [40, 60], children: [{ type: 'group', panels: ['summary'] }, { type: 'group', panels: ['distribution'] }] },
               { type: 'group', panels: ['slow'] },
             ] } },
           ]}
           panels={[
-          { id: 'summary', preferredHeight: 360, title: { ko: '사이클타임 요약', en: 'Cycle time summary' }, render: () => <div className="space-y-3 p-3">
+          { id: 'summary', preferredHeight: 360, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeSummary, render: () => <div className="space-y-3 p-3">
           <div className="relative" data-testid="cycle-kpi">
-            <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
+            <QueryView widgetName={m('cycleTimeDrilldownCycleTimeSummary2')} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3">
-                <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} />
-                <StatCard icon={Gauge} chip="teal" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} />
-                <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={formatNumber(data.count, lang)} />
-                <StatCard icon={AlertTriangle} chip="teal" label={ko ? '느린 실행 (P95 기준)' : 'Slow executions (P95 threshold)'} value={formatNumber(data.slowCount, lang)} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
+                <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={m('cycleTimeDrilldownMin')} delta={cycleDelta(data.p50, data.prevP50)} />
+                <StatCard icon={Gauge} chip="teal" label="P95" value={formatMin(data.p95, lang)} unit={m('cycleTimeDrilldownMin2')} delta={cycleDelta(data.p95, data.prevP95)} />
+                <StatCard icon={Hash} chip="teal" label={m('cycleTimeDrilldownExecutions')} value={formatNumber(data.count, lang)} />
+                <StatCard icon={AlertTriangle} chip="teal" label={m('cycleTimeDrilldownSlowExecutionsP95Threshold')} value={formatNumber(data.slowCount, lang)} caption={m('cycleTimeDrilldownAtOrAboveTheDisplayedP95')} />
               </div>}
             </QueryView>
           </div>
-          <p className="text-xs text-text-muted">{ko ? '적용 모집단: 완료된 합성 Job' : 'Applied population: completed synthetic jobs'}</p>
-          <p className="text-xs text-text-muted">{ko
-            ? '0.1분 반올림 · 완료 Job만 · 느린 실행 = P95 이상(같은 값 포함) · 증감: 직전 같은 길이 기간 대비, 감소가 개선 · 빈 구간 = 데이터 없음'
-            : 'Rounded to 0.1 min · completed jobs only · slow = at or above P95 (including ties) · deltas: previous equal-length period, decreases improve · empty bucket = no data'}</p>
+          <p className="text-xs text-text-muted">{m('cycleTimeDrilldownAppliedPopulationCompletedSyntheticJobs')}</p>
+          <p className="text-xs text-text-muted">{m('cycleTimeDrilldownRoundedTo01MinCompletedJobs')}</p>
           </div> },
-            { id: 'trend', primary: true, minWidth: 480, minHeight: 320, preferredHeight: 420, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
-            <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
+            { id: 'trend', primary: true, minWidth: 480, minHeight: 320, preferredHeight: 420, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeTrend, render: () =>
+            <QueryView widgetName={m('cycleTimeDrilldownCycleTimeTrend2')} query={trend} skeletonHeight={280}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-trend"
                 size="fill"
-                title={ko ? '사이클타임 추세' : 'Cycle time trend'}
-                description={ko ? `버킷별 P50/P95 · ${shownGrain === 'hour' ? '시간' : shownGrain === 'day' ? '일' : '주'} · 단위 분` : `P50/P95 by bucket · ${shownGrain === 'hour' ? 'hour' : shownGrain === 'day' ? 'day' : 'week'} · minutes`}
-                metricVersion={metricLabel(metric, ko)}
-                unit={ko ? '분' : 'min'}
+                title={m('cycleTimeDrilldownCycleTimeTrend3')}
+                description={m('cycleTimeDrilldownP50P95ByBucketMinutes', { grain: m(shownGrain === 'hour' ? 'cycleTimeGrainHour' : shownGrain === 'day' ? 'cycleTimeGrainDay' : 'cycleTimeGrainWeek') })}
+                metricVersion={metricLabel(metric, lang === 'ko')}
+                unit={m('cycleTimeDrilldownMin3')}
                 valueFormat={value => formatMin(value, lang)}
                 series={[
                   { id: 'p50', name: 'P50', color: 'chart-blue', points: data.current.p50 },
                   { id: 'p95', name: 'P95', color: 'chart-teal', points: data.current.p95, dashed: true },
                 ]}
                 compareSeries={[
-                  { id: 'p50-prev', name: ko ? 'P50 이전 기간' : 'P50 previous period', color: 'chart-purple', points: data.previous.p50 },
-                  { id: 'p95-prev', name: ko ? 'P95 이전 기간' : 'P95 previous period', color: 'cat-amber', points: data.previous.p95, dashed: true },
+                  { id: 'p50-prev', name: m('cycleTimeDrilldownP50PreviousPeriod'), color: 'chart-purple', points: data.previous.p50 },
+                  { id: 'p95-prev', name: m('cycleTimeDrilldownP95PreviousPeriod'), color: 'cat-amber', points: data.previous.p95, dashed: true },
                 ]}
                 markLines={data.populationP95 === null ? undefined : [{ y: data.populationP95, label: `P95 ${formatMin(data.populationP95, lang)}` }]}
                 trust={response.trust}
-                pointClickHint={ko ? '점을 클릭하면 그 버킷만 목록에 남습니다. 전역 기간은 바뀌지 않습니다.' : 'Click a point to keep that bucket in the list. The global period does not change.'}
+                pointClickHint={m('cycleTimeDrilldownClickAPointToKeepThatBucket')}
                 onPointClick={(x, seriesId) => {
                   if (seriesId.endsWith('-prev')) {
-                    toast(ko ? '이전 기간 점은 비교용입니다. 목록은 현재 전역 기간의 버킷만 필터합니다.' : 'Previous-period points are for comparison. The list only filters buckets in the current global period.');
+                    toast(m('cycleTimeDrilldownPreviousPeriodPointsAreForComparisonThe'));
                     return;
                   }
                   // The kept series are in the previous grain; a bucket of that unit cannot be written under the new one (#1365).
                   if (trend.showingPrevious) {
-                    toast(ko ? '집계 단위를 바꾸는 중입니다. 새 추세가 나타난 뒤 점을 클릭하세요.' : 'The grain is changing. Click a point once the new trend is shown.');
+                    toast(m('cycleTimeDrilldownTheGrainIsChangingClickAPoint'));
                     return;
                   }
                   const start = bucketContaining(x, shownGrain);
@@ -305,30 +299,28 @@ export default function CycleTimeDrilldown(_: PageProps) {
               />}
             </QueryView>
             },
-            { id: 'distribution', preferredHeight: 440, title: { ko: '사이클타임 분포', en: 'Cycle time distribution' }, render: () =>
-            <QueryView widgetName={ko ? '사이클타임 분포' : 'Cycle time distribution'} query={dist} skeletonHeight={220}>
+            { id: 'distribution', preferredHeight: 440, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeDistribution, render: () =>
+            <QueryView widgetName={m('cycleTimeDrilldownCycleTimeDistribution2')} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
-                title={ko ? '사이클타임 분포' : 'Cycle time distribution'}
-                description={ko ? '구간으로 나눕니다. “이 구간 실행 보기”만 목록을 줄입니다.' : 'Split into bins. Only “Show executions in this range” filters the list.'}
-                metricVersion={metricLabel(metric, ko)}
+                title={m('cycleTimeDrilldownCycleTimeDistribution3')}
+                description={m('cycleTimeDrilldownSplitIntoBinsOnlyShowExecutionsIn')}
+                metricVersion={metricLabel(metric, lang === 'ko')}
                 xType="category"
-                unit={ko ? '건' : 'jobs'}
+                unit={m('cycleTimeDrilldownJobs')}
                 valueFormat={value => formatNumber(Math.round(value), lang)}
                 size="fill"
-                series={[{ id: 'hist', name: ko ? '실행 수' : 'Executions', color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
+                series={[{ id: 'hist', name: m('cycleTimeDrilldownExecutions2'), color: 'chart-blue', kind: 'bar', points: data.bins.map((item): [string, number] => [item.id, item.count]) }]}
                 trust={response.trust}
-                selectionActions={selection => <Button size="toolbar" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{ko ? '이 구간 실행 보기' : 'Show executions in this range'}</Button>}
+                selectionActions={selection => <Button size="toolbar" onClick={() => setPage({ bin: selection.from === selection.to ? selection.from : `${selection.from}..${selection.to}`, page: null })}>{m('cycleTimeDrilldownShowExecutionsInThisRange')}</Button>}
               />}
             </QueryView>
             },
-          { id: 'slow', preferredHeight: 420, title: { ko: '느린 실행', en: 'Slow executions' }, render: () => <div className="flex h-full min-h-0 flex-col gap-3 p-3">
+          { id: 'slow', preferredHeight: 420, title: ANALYTICS_MESSAGES.cycleTimeDrilldownSlowExecutions2, render: () => <div className="flex h-full min-h-0 flex-col gap-3 p-3">
           <PlatformDataTable<SlowRow>
-            title={ko ? '느린 실행' : 'Slow executions'}
-            subtitle={ko
-              ? `페이지 필터 적용 목록입니다. 느린 실행 기준 ${tailMode === 'all' ? '전체' : `≥ ${tailMode.toUpperCase()}`} · 모집단 ${kpi.response === null ? '…건' : kpi.response.outcome === 'ok' ? `${formatNumber(kpi.response.data!.count, 'ko')}건` : '확인할 수 없음'}.`
-              : `Page-filtered list. Slow-execution predicate ${tailMode === 'all' ? 'all' : `≥ ${tailMode.toUpperCase()}`} · population ${kpi.response === null ? '…' : kpi.response.outcome === 'ok' ? formatNumber(kpi.response.data!.count, 'en') : 'unavailable'}.`}
-            ariaLabel={ko ? '느린 실행 목록' : 'Slow executions'}
+            title={m('cycleTimeDrilldownSlowExecutions3')}
+            subtitle={m('cycleTimeDrilldownPageFilteredListSlowExecutionPredicatePopulation', { predicate: tailMode === 'all' ? m('cycleTimePredicateAll') : `≥ ${tailMode.toUpperCase()}`, population: kpi.response === null ? m('cycleTimePopulationLoading') : kpi.response.outcome === 'ok' ? m('cycleTimePopulationCount', { count: formatNumber(kpi.response.data!.count, lang) }) : m('cycleTimePopulationUnavailable') })}
+            ariaLabel={m('cycleTimeDrilldownSlowExecutions4')}
             columns={columns}
             getRowId={executionKey}
             preferenceKey="cycle-time-slow"
@@ -350,26 +342,24 @@ export default function CycleTimeDrilldown(_: PageProps) {
             // Table-owned export (#173): the page only says how to read the rows; the table builds the file and toasts.
             // No confirmed metric version → no export menu (D-9).
             exportRows={exportRowsWhenConfirmed(cycleVersion, (request, signal) => exports.fetch(exportParams(listFilter, request), signal))}
-            exportFilterSummary={exportFilterSummary(listFilter, ko)} exportContext={cycleExportEndpoint.context}
-            exportNote={ko ? '페이지 필터 적용 목록 (KPI 모집단과 별도)' : 'Page-filtered list (separate from the KPI population)'}
+            exportFilterSummary={exportFilterSummary(listFilter, lang === 'ko')} exportContext={cycleExportEndpoint.context}
+            exportNote={m('cycleTimeDrilldownPageFilteredListSeparateFromTheKpi')}
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
-              ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
+              ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{m('cycleTimeDrilldownClearListFilters')}</Button>
               : undefined}
             rowAction={(row, { compact }) => {
               const href = linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true });
-              const name = ko ? `${row.equipmentId} · ${formatWallClock(row.startedAt)} 상세` : `Detail ${row.equipmentId} · ${formatWallClock(row.startedAt)}`;
-              return <RowAction compact={compact} icon={ArrowRight} label={name} text={ko ? '상세' : 'Detail'} textLink="primary" link={<PlatformLink href={href} />} />;
+              const name = m('cycleTimeDrilldownDetail', { equipmentId: String(row.equipmentId), value: String(formatWallClock(row.startedAt)) });
+              return <RowAction compact={compact} icon={ArrowRight} label={name} text={m('cycleTimeDrilldownDetail2')} textLink="primary" link={<PlatformLink href={href} />} />;
             }}
             bulkActions={ids => <Button size="toolbar" onClick={() => {
               const equipmentIds = [...new Set(ids.map(equipmentIdFromKey))];
               setGlobal({ selection: equipmentIds });
-              toast(ko ? `설비 ${equipmentIds.length}대를 설비 선택으로 적용했습니다. 다른 메뉴에도 유지됩니다.` : `Applied ${equipmentIds.length} equipment as the equipment selection. It carries across menus.`);
-            }}>{ko ? '선택 설비로 분석 좁히기' : 'Narrow analysis to selected equipment'}</Button>}
+              toast(m('cycleTimeDrilldownAppliedEquipmentAsTheEquipmentSelectionIt', { length: String(equipmentIds.length) }));
+            }}>{m('cycleTimeDrilldownNarrowAnalysisToSelectedEquipment')}</Button>}
             loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />
-          <p className="shrink-0 text-xs text-text-muted">{ko
-            ? '미확정: 판정 근거가 없는 실행 · 검토 표시: 사람이 확인할 실행'
-            : 'Unconfirmed: executions without verdict evidence · Review flags: executions for human review'}</p>
+          <p className="shrink-0 text-xs text-text-muted">{m('cycleTimeDrilldownUnconfirmedExecutionsWithoutVerdictEvidenceReviewFlags')}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <div className="shrink-0"><DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /></div>}
           </div> },
           ]}
@@ -378,38 +368,36 @@ export default function CycleTimeDrilldown(_: PageProps) {
 }
 
 function MetricBanner({ metric }: { metric: ResolvedMetric }) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   if (metric.kind === 'unconfirmed') {
-    return <p className="text-xs text-text-secondary" data-testid="metric-banner">{ko ? `${metric.metricId} 버전이 확인되지 않았습니다. 버전을 고르세요.` : `${metric.metricId} has no confirmed version. Pick a version.`}</p>;
+    return <p className="text-xs text-text-secondary" data-testid="metric-banner">{m('cycleTimeDrilldownHasNoConfirmedVersionPickAVersion', { metricId: String(metric.metricId) })}</p>;
   }
   const versionNote = metric.metricVersion === '4'
-    ? (ko ? '분은 생산성 개요의 cycle_time v4와 같습니다.' : 'Minutes match productivity’s cycle_time v4.')
-    : CYCLE_VERSION_NOTE[ko ? 'ko' : 'en'];
+    ? (m('cycleTimeDrilldownMinutesMatchProductivitySCycleTimeV4'))
+    : CYCLE_VERSION_NOTE[lang];
   if (metric.kind === 'page-default') {
     return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
-      <StatusBadge tone="info">{ko ? '페이지 기본값' : 'Page default'}</StatusBadge>
+      <StatusBadge tone="info">{m('cycleTimeDrilldownPageDefault')}</StatusBadge>
       <span className="t-mono">{PAGE_METRIC_ID} v{metric.metricVersion}</span>
-      <span>{ko ? '전역 지표 쌍이 없습니다. 계산은 이 값을 사용합니다.' : 'No global metric pair. Calculations use this value.'}</span>
+      <span>{m('cycleTimeDrilldownNoGlobalMetricPairCalculationsUseThis')}</span>
       <span>{versionNote}</span>
     </p>;
   }
   if (metric.kind === 'not-applied') {
     return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
-      <StatusBadge tone="warning">{ko ? '미적용' : 'Not applied'}</StatusBadge>
+      <StatusBadge tone="warning">{m('cycleTimeDrilldownNotApplied')}</StatusBadge>
       <span className="t-mono">{metric.globalMetricId}{metric.globalMetricVersion ? ` v${metric.globalMetricVersion}` : ''}</span>
-      <span>{ko
-        ? `전역 지표가 ${PAGE_METRIC_ID}이 아니라서 조회에 쓰지 않습니다. 계산은 페이지 기본값 ${PAGE_METRIC_ID} v${metric.metricVersion}이며 전역 쌍은 유지합니다.`
-        : `The global metric is not ${PAGE_METRIC_ID}, so it is not used for this query. Calculations use the page default ${PAGE_METRIC_ID} v${metric.metricVersion}; the global pair is left unchanged.`}</span>
+      <span>{m('cycleTimeDrilldownTheGlobalMetricIsNotSoIt', { PAGEMETRICID: String(PAGE_METRIC_ID), metricVersion: String(metric.metricVersion) })}</span>
       <span>{versionNote}</span>
     </p>;
   }
   return <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary" data-testid="metric-banner">
-    <StatusBadge tone="success">{ko ? '적용' : 'Applied'}</StatusBadge>
+    <StatusBadge tone="success">{m('cycleTimeDrilldownApplied')}</StatusBadge>
     <span className="t-mono">{metric.metricId} v{metric.metricVersion}</span>
     <span>{metric.versionIsPageDefault
-      ? (ko ? '전역 cycle_time 쌍을 적용했습니다.' : 'The global cycle_time pair is applied.')
-      : (ko ? '요청한 버전 라벨을 표시합니다. 합성 데이터는 v3 시계열만 있습니다.' : 'The requested version label is shown. Synthetic data has only the v3 series.')}</span>
+      ? (m('cycleTimeDrilldownTheGlobalCycleTimePairIsApplied'))
+      : (m('cycleTimeDrilldownTheRequestedVersionLabelIsShownSynthetic'))}</span>
     <span>{versionNote}</span>
   </p>;
 }
@@ -440,11 +428,11 @@ function cycleDelta(current: number | null, previous: number | null): Delta | un
 }
 
 function metricLabel(metric: ResolvedMetric, ko: boolean): string {
-  if (metric.kind === 'unconfirmed') return ko ? `${metric.metricId} 버전 미확인` : `${metric.metricId} unconfirmed`;
+  if (metric.kind === 'unconfirmed') return formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownUnconfirmed, (ko ? 'ko' : 'en'), { metricId: String(metric.metricId) });
   const suffix = metric.kind === 'page-default'
-    ? (ko ? ' · 페이지 기본' : ' page default')
+    ? (formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownPageDefault2, (ko ? 'ko' : 'en')))
     : metric.kind === 'not-applied'
-      ? (ko ? ' · 페이지 기본(전역 지표 미적용)' : ' page default, global not applied')
+      ? (formatText(ANALYTICS_MESSAGES.cycleTimeDrilldownPageDefaultGlobalNotApplied, (ko ? 'ko' : 'en')))
       : '';
   return `${metric.metricId} v${metric.metricVersion}${suffix}`;
 }

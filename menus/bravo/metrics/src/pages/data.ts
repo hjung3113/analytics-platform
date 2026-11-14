@@ -1,20 +1,22 @@
+import { formatText } from '@ap/kernel';
+import { METRICS_MESSAGES } from '../messages';
 /** Metric display labels (client only). Record types and the shared diff live in `../endpoints`. */
 import type { Tone } from '@ap/ui';
 import type { CatalogExportFilter, CatalogFilter, ConsumerMenuId, Domain, MetricKind, PublicationState, Text } from '../endpoints';
 import { tableExportParams, type TableExportRequest } from '@ap/components';
 
 export const DOMAIN_LABEL: Record<Domain, Text> = {
-  productivity: { ko: '생산성', en: 'Productivity' },
-  time: { ko: '시간', en: 'Time' },
-  movement: { ko: '이송', en: 'Movement' },
-  quality: { ko: '품질', en: 'Quality' },
-  maintenance: { ko: '보전', en: 'Maintenance' },
+  productivity: METRICS_MESSAGES.dataProductivity,
+  time: METRICS_MESSAGES.dataTime,
+  movement: METRICS_MESSAGES.dataMovement,
+  quality: METRICS_MESSAGES.dataQuality,
+  maintenance: METRICS_MESSAGES.dataMaintenance,
 };
 
 export const STATUS_LABEL: Record<PublicationState, Text> = {
-  draft: { ko: '초안', en: 'Draft' },
-  published: { ko: '발행', en: 'Released' },
-  deprecated: { ko: '폐기', en: 'Deprecated' },
+  draft: METRICS_MESSAGES.dataDraft,
+  published: METRICS_MESSAGES.dataReleased,
+  deprecated: METRICS_MESSAGES.dataDeprecated,
 };
 
 export const STATUS_TONE: Record<PublicationState, Tone> = {
@@ -24,15 +26,15 @@ export const STATUS_TONE: Record<PublicationState, Tone> = {
 };
 
 export const KIND_LABEL: Record<MetricKind, Text> = {
-  ratio: { ko: '비율', en: 'Ratio' },
-  quantile: { ko: '분위수', en: 'Quantile' },
-  count: { ko: '건수', en: 'Count' },
-  duration: { ko: '시간', en: 'Duration' },
+  ratio: METRICS_MESSAGES.dataRatio,
+  quantile: METRICS_MESSAGES.dataQuantile,
+  count: METRICS_MESSAGES.dataCount,
+  duration: METRICS_MESSAGES.dataDuration,
 };
 
 export const CONSUMER_LABEL: Record<ConsumerMenuId, Text> = {
-  'productivity-overview': { ko: '생산성 개요', en: 'Productivity overview' },
-  'cycle-time': { ko: '사이클타임 상세', en: 'Cycle time detail' },
+  'productivity-overview': METRICS_MESSAGES.dataProductivityOverview,
+  'cycle-time': METRICS_MESSAGES.dataCycleTimeDetail,
 };
 
 /** Table-owned export params (#173): the catalog page filters, the selection ids (`null` = every filtered row) and the table's active sort; the request's conditions ride through (`TableExportRequest.filters`). */
@@ -45,11 +47,8 @@ export function exportParams(
 
 /** Readable page filter for the XLSX 조회 정보 sheet (#173 review P2-3); an unset search is omitted. The conditions are listed by the table itself (`필터 · 상태` …). */
 export function exportFilterSummary({ q }: CatalogFilter, lang: 'ko' | 'en'): [string, string][] {
-  return q ? [[lang === 'ko' ? '검색어' : 'Search', q]] : [];
+  return q ? [[formatText(METRICS_MESSAGES.dataSearch, lang), q]] : [];
 }
 
 
-export const USAGE_TABLE_MESSAGES = {
-  ko: { version: 'metricVersion', menu: '메뉴', place: '위치', evidence: '근거', open: '열기', observedUnknown: '확인 시각 미확인', openConsumer: '사용처 열기', noAccess: '열 권한이 없습니다', loading: (version: string) => `v${version} 불러오는 중 · 열기는 그 뒤에` },
-  en: { version: 'metricVersion', menu: 'Menu', place: 'Place', evidence: 'Evidence', open: 'Open', observedUnknown: 'Observed time not confirmed', openConsumer: 'Open consumer', noAccess: 'No access to open', loading: (version: string) => `Loading v${version} · open after` },
-};
+

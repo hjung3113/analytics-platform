@@ -1,9 +1,11 @@
+import { formatText } from '@ap/kernel';
+import { EQUIPMENT_MESSAGES } from '../messages';
 import { EQUIPMENT_STATUS_VALUES, equipmentFilterSpecs, type Equipment, type EquipmentExportFilter, type EquipmentFilter } from '../endpoints';
 import { tableExportParams, type TableExportRequest } from '@ap/components';
 import { formatWallClock, parseDateTime, shift, type ColumnFilterSpec } from '@ap/contracts';
 export const statusText = {
-  active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
-  maintenance: { ko: '정비', en: 'Maintenance' }, retired: { ko: '사용중지', en: 'Retired' },
+  active: EQUIPMENT_MESSAGES.dataActive, idle: EQUIPMENT_MESSAGES.dataIdle,
+  maintenance: EQUIPMENT_MESSAGES.dataMaintenance, retired: EQUIPMENT_MESSAGES.dataRetired,
 };
 export const statusTone = { active: 'success', idle: 'neutral', maintenance: 'warning', retired: 'neutral' } as const;
 /** The text of one date-like field, shared by the table cell, its export and the detail view: the validity dates as `YYYY-MM-DD`, `updatedAt` with minutes, anything else as stored (#2229). */
@@ -14,13 +16,13 @@ export function equipmentDateText(key: keyof Equipment, value: string): string {
 }
 
 export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
-  { key: 'equipmentId', ko: '설비 ID', en: 'Equipment ID' },
-  { key: 'room', ko: '공정', en: 'Process' }, { key: 'line', ko: '라인', en: 'Line' },
-  { key: 'stgroup', ko: 'StGroup', en: 'StGroup' }, { key: 'team', ko: '분임조', en: 'Team' },
-  { key: 'maker', ko: '설비사', en: 'Maker' }, { key: 'model', ko: 'Model', en: 'Model' },
-  { key: 'chamberType', ko: '챔버 유형', en: 'Chamber type' }, { key: 'status', ko: '상태', en: 'Status' },
-  { key: 'validFrom', ko: '유효 시작', en: 'Valid from' }, { key: 'validTo', ko: '유효 종료일', en: 'Valid to' },
-  { key: 'updatedAt', ko: '변경 시각', en: 'Updated at' }, { key: 'updatedBy', ko: '변경자', en: 'Updated by' },
+  { key: 'equipmentId', ...EQUIPMENT_MESSAGES.dataEquipmentId,  },
+  { key: 'room', ...EQUIPMENT_MESSAGES.dataProcess,  }, { key: 'line', ...EQUIPMENT_MESSAGES.dataLine,  },
+  { key: 'stgroup', ...EQUIPMENT_MESSAGES.dataStgroup,  }, { key: 'team', ...EQUIPMENT_MESSAGES.dataTeam,  },
+  { key: 'maker', ...EQUIPMENT_MESSAGES.dataMaker,  }, { key: 'model', ...EQUIPMENT_MESSAGES.dataModel,  },
+  { key: 'chamberType', ...EQUIPMENT_MESSAGES.dataChamberType,  }, { key: 'status', ...EQUIPMENT_MESSAGES.dataStatus,  },
+  { key: 'validFrom', ...EQUIPMENT_MESSAGES.dataValidFrom,  }, { key: 'validTo', ...EQUIPMENT_MESSAGES.dataValidTo,  },
+  { key: 'updatedAt', ...EQUIPMENT_MESSAGES.dataUpdatedAt,  }, { key: 'updatedBy', ...EQUIPMENT_MESSAGES.dataUpdatedBy,  },
 ];
 /** Pinned filter fields (ADR-0105, R2): their buttons sit on the filter line even before a condition is set. */
 export const pinnedFilterKeys: readonly (keyof Equipment)[] = ['status', 'maker'];
@@ -56,5 +58,5 @@ export function exportParams(
 
 /** Readable page filter for the XLSX 조회 정보 sheet (#173 review P2-3); an unset search is omitted. Conditions are listed by the table itself (`필터 · <label>`). */
 export function exportFilterSummary({ q }: EquipmentFilter, lang: 'ko' | 'en'): [string, string][] {
-  return q ? [[lang === 'ko' ? '검색어' : 'Search', q]] : [];
+  return q ? [[formatText(EQUIPMENT_MESSAGES.dataSearch, lang), q]] : [];
 }

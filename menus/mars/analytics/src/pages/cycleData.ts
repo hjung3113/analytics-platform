@@ -1,3 +1,5 @@
+import { formatText } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../messages';
 /**
  * Cycle-time page codecs (06 §6.1 page keys) and row keys. Computation lives in the server half (`src/mock/cycle.ts`);
  * what both halves share (metric resolution, anchors, bins, bucket ends, the execution key) lives in `../endpoints`.
@@ -12,7 +14,7 @@ export type SortColumn = (typeof SORT_COLUMNS)[number];
 export const DEFAULT_SORT = 'cycleMin:desc';
 
 export function cycleTailFilterLabel(lang: 'ko' | 'en') {
-  return lang === 'ko' ? '느린 실행 기준' : 'Slow-execution predicate';
+  return formatText(ANALYTICS_MESSAGES.cycleDataSlowExecutionPredicate, lang);
 }
 
 const INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
@@ -78,7 +80,7 @@ export function equipmentIdFromKey(key: string): string {
 
 /** Quality badge text (#173 P3-7): one source for the cell badge and the export value, so the two cannot drift. */
 export function qualityLabel(quality: SlowRow['quality'], ko: boolean): string {
-  return quality === 'review' ? (ko ? '검토 표시' : 'Review flag') : (ko ? '미확정' : 'Unconfirmed');
+  return quality === 'review' ? (formatText(ANALYTICS_MESSAGES.cycleDataReviewFlag, (ko ? 'ko' : 'en'))) : (formatText(ANALYTICS_MESSAGES.cycleDataUnconfirmed, (ko ? 'ko' : 'en')));
 }
 
 /** Table-owned export params (#173): the page filters, the selection execution keys (`null` = every filtered row) and the table's active sort. */
@@ -92,10 +94,10 @@ export function exportParams(
 /** Readable page filters for the XLSX 조회 정보 sheet (#173 review P2-3), labeled as the screen labels them. */
 export function exportFilterSummary({ tail, granularity, bucket, bin }: SlowFilter, ko: boolean): [string, string][] {
   const rows: [string, string][] = [];
-  rows.push([cycleTailFilterLabel(ko ? 'ko' : 'en'), tail === 'p95' ? '≥ P95' : tail === 'p50' ? '≥ P50' : (ko ? '전체 실행' : 'All executions')]);
-  rows.push([ko ? '집계' : 'Grain', granularity === 'hour' ? (ko ? '시간' : 'Hour') : granularity === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week')]);
-  if (bucket !== null) rows.push([ko ? '버킷' : 'Bucket', bucketText(bucket, granularity, ko ? 'ko' : 'en')]);
-  if (bin !== null) rows.push([ko ? '분포 구간' : 'Histogram', binText(bin, ko ? 'ko' : 'en')]);
+  rows.push([cycleTailFilterLabel(ko ? 'ko' : 'en'), tail === 'p95' ? '≥ P95' : tail === 'p50' ? '≥ P50' : (formatText(ANALYTICS_MESSAGES.cycleDataAllExecutions, (ko ? 'ko' : 'en')))]);
+  rows.push([formatText(ANALYTICS_MESSAGES.cycleDataGrain, (ko ? 'ko' : 'en')), granularity === 'hour' ? (formatText(ANALYTICS_MESSAGES.cycleDataHour, (ko ? 'ko' : 'en'))) : granularity === 'day' ? (formatText(ANALYTICS_MESSAGES.cycleDataDay, (ko ? 'ko' : 'en'))) : (formatText(ANALYTICS_MESSAGES.cycleDataWeek, (ko ? 'ko' : 'en')))]);
+  if (bucket !== null) rows.push([formatText(ANALYTICS_MESSAGES.cycleDataBucket, (ko ? 'ko' : 'en')), bucketText(bucket, granularity, ko ? 'ko' : 'en')]);
+  if (bin !== null) rows.push([formatText(ANALYTICS_MESSAGES.cycleDataHistogram, (ko ? 'ko' : 'en')), binText(bin, ko ? 'ko' : 'en')]);
   return rows;
 }
 

@@ -1,6 +1,8 @@
+import { useMessages } from '@ap/kernel';
+import { TOPVIEW_MESSAGES } from '../messages';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { usePlatform } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage, StateMessage } from '@ap/components';
 import { ArrowRight, MapPinOff, MousePointerClick, ServerCrash } from 'lucide-react';
 import { Button, EmptyState, FieldRow } from '@ap/ui';
@@ -62,8 +64,8 @@ function sceneAt(input: ReplayInput, to: SiteWallClock): Scene {
  * (`seekSceneState`, evidence labels exactly as the reducer gives them). A selected Component's detail opens in the platform `DetailDrawer` (it closes on equipment, time or server-generation change, close and unmount).
  */
 function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsState: OptionsState | null; refreshing: boolean; listFailed: boolean; retry: () => void }) {
+  const m = useMessages(TOPVIEW_MESSAGES);
   const { resolveLink, navigate } = usePlatform();
-  const { lang } = useI18n();
   const { props, load, resetKey, generation, retry: retryLoad } = useReplayScreen();
   const [selection, setSelection] = useState<{ key: string; id: string | null }>({ key: resetKey, id: null });
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
@@ -91,7 +93,7 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
       <NoticeList notices={load.notices} />
       {scene.layout && selectedId !== null && (
         <DetailDrawer title={`Component · ${selectedId}`} onClose={() => setSelection({ key: selectionKey, id: null })}
-          tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: <ComponentDetail layout={scene.layout} state={scene.state} componentId={selectedId} /> }]} />
+          tabs={[{ id: 'detail', label: m('topViewScreenDetail'), content: <ComponentDetail layout={scene.layout} state={scene.state} componentId={selectedId} /> }]} />
       )}
       <div className="flex flex-wrap items-start gap-4">
         <Panel title="Top View" subtitle={wallClockText(scene.state.at)} className="max-w-full min-w-0 flex-none overflow-auto"

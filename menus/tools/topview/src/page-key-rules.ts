@@ -1,3 +1,4 @@
+import { TOPVIEW_MESSAGES } from './messages';
 import { usePlatform } from '@ap/kernel';
 import { usePageKeyRules, type PageKeyRule } from '@ap/components';
 import { hostRange } from './host-props.js';
@@ -17,9 +18,9 @@ export function usePageKeyRulesFor(options: OptionsState | null) {
     return from !== null && to !== null && hostRange(from, to).ok;
   };
   const rules: PageKeyRule[] = [
-    { key: 'equipment', label: { ko: '설비', en: 'Equipment' }, valid: (raw) => options?.kind !== 'ready' || options.options.some((option) => option.id === raw) },
-    { key: 'rangeFrom', label: { ko: '재생 구간 시작', en: 'Replay range start' }, valid: pairOk },
-    { key: 'rangeTo', label: { ko: '재생 구간 끝', en: 'Replay range end' }, valid: pairOk },
+    { key: 'equipment', label: TOPVIEW_MESSAGES.pageKeyRulesEquipment, valid: (raw) => options?.kind !== 'ready' || options.options.some((option) => option.id === raw) },
+    { key: 'rangeFrom', label: TOPVIEW_MESSAGES.pageKeyRulesReplayRangeStart, valid: pairOk },
+    { key: 'rangeTo', label: TOPVIEW_MESSAGES.pageKeyRulesReplayRangeEnd, valid: pairOk },
   ];
   return usePageKeyRules(rules);
 }

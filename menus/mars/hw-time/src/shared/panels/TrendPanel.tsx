@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../../messages';
 import { LineChart } from 'lucide-react';
 import { useMemo } from 'react';
 import { useI18n, type QueryState } from '@ap/kernel';
@@ -26,11 +28,11 @@ const TREND_FILL_MIN = 160;
 
 /** Daily line per row. No rows → an instruction, not a query. Free of layout. */
 export function TrendPanel({ chartId, title, rowIds, query, level, description, fillMin = TREND_FILL_MIN }: TrendPanelProps) {
-  const { lang } = useI18n();
-  if (rowIds.length === 0) return <StateMessage compact icon={<LineChart className="size-4" aria-hidden />} title={lang === 'ko' ? '행을 추가하세요' : 'Add a row'}
+  const m = useMessages(HW_TIME_MESSAGES);
+  if (rowIds.length === 0) return <StateMessage compact icon={<LineChart className="size-4" aria-hidden />} title={m('trendPanelAddARow')}
     body={level === 0
-      ? (lang === 'ko' ? 'Module을 골라 들어간 뒤 행을 추세에 추가하세요.' : 'Pick a Module to drill in, then add a row to the trend.')
-      : (lang === 'ko' ? '상세 행을 골라 추세에 추가하세요.' : 'Pick a detail row and add it to the trend.')} />;
+      ? (m('trendPanelPickAModuleToDrillInThen'))
+      : (m('trendPanelPickADetailRowAndAddIt'))} />;
   return <QueryView query={query} widgetName={title} hideWidgetName skeletonRows={3} fill>
     {data => <TrendChart chartId={chartId} title={title} description={description} data={data} fillMin={fillMin} />}
   </QueryView>;

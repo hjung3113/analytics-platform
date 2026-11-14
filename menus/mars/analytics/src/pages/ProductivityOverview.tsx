@@ -1,5 +1,6 @@
+import { useMessages } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks } from '@ap/components';
-import { PRODUCTIVITY_TABLE_MESSAGES } from './tableMessages';
 import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
@@ -41,10 +42,9 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
 }
 
 export default function ProductivityOverview(_: PageProps) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
-  const ko = lang === 'ko';
-  const tableCopy = PRODUCTIVITY_TABLE_MESSAGES[lang];
 
   const hours = periodHours(global);
   const rawKpi = pageParam('kpi');
@@ -55,9 +55,9 @@ export default function ProductivityOverview(_: PageProps) {
   const sortResult = resolveBreakdownSort(rawSort);
   // Rejected, never corrected (06 §6): one sentence per bad key (user name + raw value as entered) and a Reset that clears exactly those keys.
   const keys = usePageKeyRules([
-    { key: 'kpi', label: { ko: '지표', en: 'Metric' }, valid: raw => resolveChoice(raw, KPI_KEYS, 'throughput').ok },
-    { key: 'axis', label: { ko: '축', en: 'Axis' }, valid: raw => resolveChoice(raw, AXES, 'room').ok },
-    { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: raw => resolveBreakdownSort(raw).ok },
+    { key: 'kpi', label: ANALYTICS_MESSAGES.productivityOverviewMetric, valid: raw => resolveChoice(raw, KPI_KEYS, 'throughput').ok },
+    { key: 'axis', label: ANALYTICS_MESSAGES.productivityOverviewAxis, valid: raw => resolveChoice(raw, AXES, 'room').ok },
+    { key: 'sort', label: ANALYTICS_MESSAGES.productivityOverviewSort, valid: raw => resolveBreakdownSort(raw).ok },
   ]);
 
   const drill = useDrill();
@@ -76,7 +76,7 @@ export default function ProductivityOverview(_: PageProps) {
   const rawGran = pageParam('granularity');
   const granKnown = GRANS.includes(rawGran as Granularity);
   const gran: Granularity = granKnown ? (rawGran as Granularity) : ((hours ?? 24) <= 48 ? 'hour' : 'day');
-  const granLabel = gran === 'hour' ? (ko ? '시간' : 'hourly') : gran === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
+  const granLabel = gran === 'hour' ? (m('productivityOverviewHourly')) : gran === 'day' ? (m('productivityOverviewDaily')) : (m('productivityOverviewWeekly'));
 
   const kpiQ = useMenuQuery(kpisEndpoint, {}, summary);
   // keepPrevious ON (#1365, ADR-0114): a KPI card or grain change reads the same period/Scope again, so the old chart stays (refreshing) until the new series arrives.
@@ -91,7 +91,7 @@ export default function ProductivityOverview(_: PageProps) {
   // While a kept result is shown (#1365), everything that describes or acts on the DATA follows the params it was loaded with, not the current selection.
   const trendShown = trendQ.resultParams ?? { kpi: selectedKpi, granularity: gran };
   const shownKpi = trendShown.kpi;
-  const shownGranLabel = trendShown.granularity === 'hour' ? (ko ? '시간' : 'hourly') : trendShown.granularity === 'day' ? (ko ? '일별' : 'daily') : (ko ? '주별' : 'weekly');
+  const shownGranLabel = trendShown.granularity === 'hour' ? (m('productivityOverviewHourly2')) : trendShown.granularity === 'day' ? (m('productivityOverviewDaily2')) : (m('productivityOverviewWeekly2'));
   const shownAxis = breakdownQ.resultParams?.axis ?? axis;
 
   const n1 = (v: number) => formatNumber(v, lang, { decimals: 1 });
@@ -107,7 +107,7 @@ export default function ProductivityOverview(_: PageProps) {
 
   /** Explicit-empty-selection escape hatch: outcome `empty` is valid, but the user can restore the unconstrained query in one action. */
   const clearEmptySelection = global.selection !== null && global.selection.length === 0
-    ? <Button size="sm" variant="secondary" onClick={() => setGlobal({ selection: null })}>{ko ? '빈 선택 지우기' : 'Clear empty selection'}</Button>
+    ? <Button size="sm" variant="secondary" onClick={() => setGlobal({ selection: null })}>{m('productivityOverviewClearEmptySelection')}</Button>
     : undefined;
 
   // --- KPI cards (the selected trend is a registered page URL key) ---
@@ -118,66 +118,66 @@ export default function ProductivityOverview(_: PageProps) {
   function kpiCard(kpi: KpiKey, data: { current: KpiSet; previous: KpiSet | null }) {
     const c = data.current; const p = data.previous;
     const active = selectedKpi === kpi;
-    const ver = (v: string) => `${ko ? '지표 버전' : 'version'} ${formatMetricVersion(v)}`;
+    const ver = (v: string) => `${m('productivityOverviewVersion')} ${formatMetricVersion(v)}`;
     if (kpi === 'occupancy') {
       const o = c.occupancy; const po = p?.occupancy ?? null;
-      return <StatCard key={kpi} icon={Percent} chip="blue" label={ko ? '물리 점유율' : 'Physical occupancy'}
+      return <StatCard key={kpi} icon={Percent} chip="blue" label={m('productivityOverviewPhysicalOccupancy')}
         onClick={() => selectKpi(kpi)} active={active}
         value={o ? n1(o.pct) : '—'} unit="%"
         delta={o && po ? deltaOf(o.pct, po.pct, true, v => `${v.toFixed(1)}pp`) : undefined}
-        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 · 미확인 (0% 아님)' : 'denominator 0 · not confirmed (not 0%)')}
+        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (m('productivityOverviewDenominator0NotConfirmedNot0'))}
         footnote={o && <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" role="img"
-          aria-label={ko ? `점유 ${n1(o.num)}시간 / 관측 가능 ${n1(o.den)}시간 = ${n1(o.pct)}%` : `occupied ${n1(o.num)}h of ${n1(o.den)}h observable = ${n1(o.pct)}%`}>
+          aria-label={m('productivityOverviewOccupiedHOfHObservable', { value: String(n1(o.num)), value2: String(n1(o.den)), value3: String(n1(o.pct)) })}>
           {/* eslint-disable-next-line shadcn/no-inline-styles -- bar width is the occupancy percentage computed at runtime */}
           <span className="block h-full rounded-pill bg-chart-blue" style={{ width: `${Math.min(100, Math.max(0, o.pct))}%` }} />
         </span>} />;
     }
     if (kpi === 'dwell') {
       const d = c.dwell; const pd = p?.dwell ?? null;
-      return <StatCard key={kpi} icon={Hourglass} chip="teal" label={ko ? '비Process 체류' : 'Non-process dwell'}
+      return <StatCard key={kpi} icon={Hourglass} chip="teal" label={m('productivityOverviewNonProcessDwell')}
         onClick={() => selectKpi(kpi)} active={active}
-        value={d ? n2(d.perJobH) : '—'} unit={ko ? '시간 / Job' : 'h / Job'}
+        value={d ? n2(d.perJobH) : '—'} unit={m('productivityOverviewHJob')}
         delta={d && pd ? deltaOf(d.perJobH, pd.perJobH, false, v => `${v.toFixed(3)}h`) : undefined}
-        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (ko ? '완료 Job 없음 · 미확인' : 'no completed job · not confirmed')} />;
+        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (m('productivityOverviewNoCompletedJobNotConfirmed'))} />;
     }
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
       // The delta compares P50 only while the card shows P50 / P95, so the finished text says so (#398).
-      const delta = deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${ko ? '분' : 'min'}`);
-      return <StatCard key={kpi} icon={Timer} chip="teal" label={ko ? '사이클타임 P50 / P95' : 'Cycle time P50 / P95'}
+      const delta = deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${m('productivityOverviewMin')}`);
+      return <StatCard key={kpi} icon={Timer} chip="teal" label={m('productivityOverviewCycleTimeP50P95')}
         onClick={() => selectKpi(kpi)} active={active}
         value={<span className="flex items-baseline gap-2">
           <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
           <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
-        </span>} unit={ko ? '분 · P50/P95' : 'min · P50/P95'}
+        </span>} unit={m('productivityOverviewMinP50P95')}
         delta={delta ? { ...delta, value: `P50 ${delta.value}` } : undefined}
-        caption={`${ko ? `완료 Job 모집단 n=${ni(cy.jobs)}` : `pooled jobs n=${ni(cy.jobs)}`} · ${ver(METRIC_VERSIONS.cycleTime)}`} />;
+        caption={`${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${ver(METRIC_VERSIONS.cycleTime)}`} />;
     }
     const t = c.throughput; const pt = p?.throughput ?? null;
-    return <StatCard key={kpi} icon={BarChart3} chip="blue" label={ko ? 'Job 처리량' : 'Job throughput'}
+    return <StatCard key={kpi} icon={BarChart3} chip="blue" label={m('productivityOverviewJobThroughput')}
       onClick={() => selectKpi(kpi)} active={active}
-      value={ni(t.jobs)} unit={ko ? 'Job · 기간 내 완료' : 'jobs completed'}
+      value={ni(t.jobs)} unit={m('productivityOverviewJobsCompleted')}
       delta={deltaOf(t.jobs, pt?.jobs ?? null, true, v => ni(v))}
-      caption={`${ko ? '완료' : 'completed'} ${ni(t.jobs)} / ${ko ? '착수' : 'started'} ${ni(t.started)} · ${ver(METRIC_VERSIONS.throughput)}`} />;
+      caption={`${m('productivityOverviewCompleted')} ${ni(t.jobs)} / ${m('productivityOverviewStarted')} ${ni(t.started)} · ${ver(METRIC_VERSIONS.throughput)}`} />;
   }
 
   // --- Main trend: AnalysisChartFrame for the selected KPI; Compare overlays the previous equal period (bucket-index aligned). ---
   const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: ThemeColorToken[]; dashed?: boolean[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
     occupancy: {
-      title: ko ? '물리 점유율 추세' : 'Physical occupancy trend', names: [ko ? '물리 점유율' : 'Physical occupancy'], colors: ['chart-blue'], kind: 'line', unit: '%', decimals: 1,
-      description: ko ? '점유 시간 합 ÷ 관측 가능 시간 합 (분자·분모를 각각 합산)' : 'sum(occupied) ÷ sum(observable) (numerator and denominator summed separately)',
+      title: m('productivityOverviewPhysicalOccupancyTrend'), names: [m('productivityOverviewPhysicalOccupancy2')], colors: ['chart-blue'], kind: 'line', unit: '%', decimals: 1,
+      description: m('productivityOverviewSumOccupiedSumObservableNumeratorAndDenominator'),
     },
     dwell: {
-      title: ko ? '비Process 체류 추세' : 'Non-process dwell trend', names: [ko ? '비Process 체류' : 'Non-process dwell'], colors: ['chart-teal'], kind: 'line', unit: ko ? '시간/Job' : 'h/Job', decimals: 2,
-      description: ko ? '체류 시간 합 ÷ 완료 Job 수' : 'sum(dwell hours) ÷ completed jobs',
+      title: m('productivityOverviewNonProcessDwellTrend'), names: [m('productivityOverviewNonProcessDwell2')], colors: ['chart-teal'], kind: 'line', unit: m('productivityOverviewHJob2'), decimals: 2,
+      description: m('productivityOverviewSumDwellHoursCompletedJobs'),
     },
     cycleTime: {
-      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-teal'], dashed: [false, true], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
-      description: ko ? '완료 Job 전체를 한 모집단으로 본 분위수' : 'quantiles over all completed jobs as one population',
+      title: m('productivityOverviewCycleTimeTrendP50P95'), names: ['P50', 'P95'], colors: ['chart-blue', 'chart-teal'], dashed: [false, true], kind: 'line', unit: m('productivityOverviewMin2'), decimals: 1,
+      description: m('productivityOverviewQuantilesOverAllCompletedJobsAsOne'),
     },
     throughput: {
-      title: ko ? 'Job 처리량 추세' : 'Job throughput trend', names: [ko ? '완료 Job' : 'Completed jobs'], colors: ['chart-blue'], kind: 'bar', unit: 'Job', decimals: 0,
-      description: ko ? '완료 Job 수' : 'completed jobs',
+      title: m('productivityOverviewJobThroughputTrend'), names: [m('productivityOverviewCompletedJobs')], colors: ['chart-blue'], kind: 'bar', unit: 'Job', decimals: 0,
+      description: m('productivityOverviewCompletedJobs2'),
     },
   };
   const meta = trendMeta[shownKpi];
@@ -188,7 +188,7 @@ export default function ProductivityOverview(_: PageProps) {
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null } {
     const build = (source: TrendBucket[], previous: boolean): ChartSeries[] => meta.names.map((name, i) => ({
       id: `${shownKpi}-${previous ? 'prev' : 'cur'}-${i}`,
-      name: previous ? `${name} (${ko ? '이전 동일 기간' : 'previous period'})` : name,
+      name: previous ? `${name} (${m('productivityOverviewPreviousPeriod')})` : name,
       color: previous ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
       // Previous-period series mirror their current counterpart; the Chart Frame derives the previous pattern (06 §16, ADR-0014).
@@ -220,11 +220,11 @@ export default function ProductivityOverview(_: PageProps) {
   const drillSiblings = drill.depth === 0 ? undefined : {
     ...(roomRows.length > 0 ? { drillRoom: roomRows.map(row => ({
       value: row.key,
-      hint: pctHint(ko, row.observableHours > 0 ? (row.occupiedHours / row.observableHours) * 100 : null, n1),
+      hint: pctHint((lang === 'ko'), row.observableHours > 0 ? (row.occupiedHours / row.observableHours) * 100 : null, n1),
     })) } : {}),
     ...(stgroupData && stgroupData.stgroups.length > 0 ? { drillStgroup: stgroupData.stgroups.map(row => ({
       value: row.stgroup,
-      hint: pctHint(ko, row.occupancyPct, n1),
+      hint: pctHint((lang === 'ko'), row.occupancyPct, n1),
     })) } : {}),
   };
   const trustResponse = drill.depth === 0
@@ -232,34 +232,30 @@ export default function ProductivityOverview(_: PageProps) {
     : drill.depth >= 2 && equipmentQ.response?.outcome === 'ok' ? equipmentQ.response : stgroupQ.response;
 
   return <PlatformPage
-    description={ko
-      ? '물리 점유율 · 비Process 체류 · 사이클타임 P50/P95 · Job 처리량 요약. 수치는 합성 예시입니다.'
-      : 'Physical occupancy, non-process dwell, cycle time P50/P95 and job throughput. Values are synthetic.'}
+    description={m('productivityOverviewPhysicalOccupancyNonProcessDwellCycleTime')}
     primaryAction={<Button size="sm" asChild>
-      <PlatformLink href={linkTo('cycle-time')}>{ko ? '사이클타임 상세 보기' : 'Cycle time detail'}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink>
+      <PlatformLink href={linkTo('cycle-time')}>{m('productivityOverviewCycleTimeDetail')}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink>
     </Button>}
     secondaryActions={<Button size="sm" variant="secondary" onClick={() => { kpiQ.refetch(); trendQ.refetch(); breakdownQ.refetch(); attentionQ.refetch(); roomsQ.refetch(); stgroupQ.refetch(); equipmentQ.refetch(); }}>
-      <RotateCw className="size-3.5" aria-hidden />{ko ? '새로고침' : 'Refresh'}
+      <RotateCw className="size-3.5" aria-hidden />{m('productivityOverviewRefresh')}
     </Button>}
     dataTrustSummary={trustResponse?.trust
       ? <DataTrustIndicator trust={trustResponse.trust} assessments={trustResponse.assessments} />
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{ko ? '집계 단위' : 'Granularity'}</span>
+      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{m('productivityOverviewGranularity')}</span>
       <SegmentedRadio
         labelledBy="granularity-label"
-        label={ko ? '집계 단위' : 'Granularity'}
+        label={m('productivityOverviewGranularity2')}
         value={gran}
         onChange={g => setPage({ granularity: g })}
-        options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (ko ? '시간' : 'Hour') : g === 'day' ? (ko ? '일' : 'Day') : (ko ? '주' : 'Week') }))}
+        options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (m('productivityOverviewHour')) : g === 'day' ? (m('productivityOverviewDay')) : (m('productivityOverviewWeek')) }))}
       />
       <span className="t-caption text-text-muted">
-        {ko
-          ? '이 화면의 집계 단위입니다. 기간과 따로 고릅니다. 고르지 않으면 기간이 48시간 이하일 때 시간, 그보다 길면 일입니다.'
-          : 'This page’s grain. It is chosen separately from the period. When unset, a period of 48 hours or less uses hours; a longer period uses days.'}
+        {m('productivityOverviewThisPageSGrainItIsChosen')}
       </span>
       {/* #304 FIX1 (06 §19): the unknown raw value stays visible, and the default-grain fact is stated truthfully. */}
-      {rawGran !== null && !granKnown && <StatusBadge tone="warning">{ko ? `집계 단위 “${rawGran}”는 이 화면에서 쓸 수 없습니다. 지금은 기본 집계 단위(${granLabel})로 조회합니다. 시간·일·주 중에서 고르세요.` : `Grain “${rawGran}” is not a value this page can use; the default grain (${granLabel}) is used until you choose one. Choose hour, day, or week.`}</StatusBadge>}
+      {rawGran !== null && !granKnown && <StatusBadge tone="warning">{m('productivityOverviewGrainIsNotAValueThisPage', { rawGran: String(rawGran), granLabel: String(granLabel) })}</StatusBadge>}
     </div>}
   >
     {pageInvalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
@@ -267,13 +263,13 @@ export default function ProductivityOverview(_: PageProps) {
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="kpi-heading" className="t-section-title">{ko ? '지표 요약' : 'Metric summary'}</h2>
+          <h2 id="kpi-heading" className="t-section-title">{m('productivityOverviewMetricSummary')}</h2>
           <div>
-            <p className="t-caption text-text-muted">{ko ? '카드를 고르면 그 지표의 추이가 아래에 나옵니다. 증감: 바로 앞 같은 길이 기간 대비.' : 'Select a card to show its trend below. Deltas: previous equal-length period.'}</p>
-            <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
+            <p className="t-caption text-text-muted">{m('productivityOverviewSelectACardToShowItsTrend')}</p>
+            <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[lang]}</p>
           </div>
         </div>
-        <QueryView widgetName={ko ? '지표 요약' : 'Metric summary'} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={m('productivityOverviewMetricSummary2')} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
@@ -281,7 +277,7 @@ export default function ProductivityOverview(_: PageProps) {
       </section>
 
       {/* Main Trend */}
-      <section aria-label={ko ? '주요 추세' : 'Main trend'}>
+      <section aria-label={m('productivityOverviewMainTrend')}>
         <QueryView widgetName={meta.title} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
             const { series, compareSeries, total } = trendSeriesFor(data);
@@ -289,7 +285,7 @@ export default function ProductivityOverview(_: PageProps) {
             return <AnalysisChartFrame
               chartId={`productivity-trend-${shownKpi}`}
               title={meta.title}
-              description={`${meta.description} · ${shownGranLabel}${total !== null ? ` · ${ko ? '합계' : 'total'} ${ni(total)} Job (${ko ? 'KPI 카드와 동일 합산' : 'same sum as the KPI card'})` : ''}`}
+              description={`${meta.description} · ${shownGranLabel}${total !== null ? ` · ${m('productivityOverviewTotal')} ${ni(total)} Job (${m('productivityOverviewSameSumAsTheKpiCard')})` : ''}`}
               metricVersion={METRIC_VERSIONS[shownKpi]}
               series={series}
               compareSeries={compareSeries}
@@ -304,8 +300,8 @@ export default function ProductivityOverview(_: PageProps) {
 
       <div className="grid grid-cols-1 gap-4 @xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
-        <section aria-label={ko ? '점유 구성' : 'Occupancy composition'}>
-          <QueryView widgetName={ko ? '점유 구성' : 'Occupancy composition'} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <section aria-label={m('productivityOverviewOccupancyComposition')}>
+          <QueryView widgetName={m('productivityOverviewOccupancyComposition2')} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
             {rows => {
               const t = breakdownQ.response?.trust;
               const pct = (r: typeof rows[number]) => (r.observableHours > 0 ? (r.occupiedHours / r.observableHours) * 100 : null);
@@ -316,35 +312,35 @@ export default function ProductivityOverview(_: PageProps) {
                 return (typeof va === 'string' || typeof vb === 'string' ? String(va).localeCompare(String(vb)) : va - vb) * sort.dir;
               });
               const columns: { key: typeof sort.key; label: string; align: 'left' | 'right' }[] = [
-                { key: 'key', label: shownAxis === 'room' ? tableCopy.process : tableCopy.stgroup, align: 'left' },
-                { key: 'occ', label: tableCopy.occupied, align: 'right' },
-                { key: 'obs', label: tableCopy.observable, align: 'right' },
-                { key: 'pct', label: tableCopy.occupancy, align: 'right' },
-                { key: 'jobs', label: tableCopy.jobs, align: 'right' },
+                { key: 'key', label: shownAxis === 'room' ? m('productivityTableProcess') : m('productivityTableStgroup'), align: 'left' },
+                { key: 'occ', label: m('productivityTableOccupied'), align: 'right' },
+                { key: 'obs', label: m('productivityTableObservable'), align: 'right' },
+                { key: 'pct', label: m('productivityTableOccupancy'), align: 'right' },
+                { key: 'jobs', label: m('productivityTableJobs'), align: 'right' },
               ];
               return <>
                 <AnalysisChartFrame
                   chartId="productivity-occupancy-breakdown"
-                  title={shownAxis === 'room' ? (ko ? '공정별 점유 구성' : 'Occupancy composition by process') : (ko ? 'StGroup별 점유 구성' : 'Occupancy composition by StGroup')}
-                  description={ko ? '관측 가능 시간 대비 물리 점유 시간 · 회색: 미점유 시간' : 'Occupied vs observable hours · gray: unoccupied hours'}
+                  title={shownAxis === 'room' ? (m('productivityOverviewOccupancyCompositionByProcess')) : (m('productivityOverviewOccupancyCompositionByStgroup'))}
+                  description={m('productivityOverviewOccupiedVsObservableHoursGrayUnoccupiedHours')}
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
                   extraActions={<SegmentedRadio
-                    label={ko ? '그룹 기준' : 'Group by'}
+                    label={m('productivityOverviewGroupBy')}
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
-                    options={[{ value: 'room', label: ko ? '공정' : 'Process' }, { value: 'stgroup', label: 'StGroup' }]}
+                    options={[{ value: 'room', label: m('productivityOverviewProcess') }, { value: 'stgroup', label: 'StGroup' }]}
                   />}
                   series={[
-                    { id: 'occupied', name: ko ? '점유 시간' : 'Occupied hours', color: 'chart-blue', kind: 'bar', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
-                    { id: 'remainder', name: ko ? '미점유 (관측 가능 시간)' : 'Not occupied (observable)', color: 'chart-remainder', kind: 'bar', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },
+                    { id: 'occupied', name: m('productivityOverviewOccupiedHours'), color: 'chart-blue', kind: 'bar', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
+                    { id: 'remainder', name: m('productivityOverviewNotOccupiedObservable'), color: 'chart-remainder', kind: 'bar', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },
                   ]}
                   trust={t}
                 />
                 <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card">
                   <Table density="compact">
-                    <TableCaption srOnly>{tableCopy.caption}</TableCaption>
+                    <TableCaption srOnly>{m('productivityTableCaption')}</TableCaption>
                     <TableHeader><TableRow>
                       {columns.map(col => <TableHead key={col.key} scope="col" align={col.align === 'right' ? 'end' : 'start'} sort={{
                         direction: sort.key === col.key ? sortedDirection : 'none',
@@ -356,17 +352,17 @@ export default function ProductivityOverview(_: PageProps) {
                           setPage({ sort: value === 'key:asc' ? null : value });
                         },
                       }}>{col.label}</TableHead>)}
-                      {shownAxis === 'room' && <TableHead scope="col"><span className="sr-only">{tableCopy.enter}</span></TableHead>}
+                      {shownAxis === 'room' && <TableHead scope="col"><span className="sr-only">{m('productivityTableEnter')}</span></TableHead>}
                     </TableRow></TableHeader>
                     <TableBody>
                       {sorted.map(r => <TableRow key={r.key}>
                         <TableCell><span className="t-mono">{r.key}</span></TableCell>
                         <TableCell align="end">{n1(r.occupiedHours)} h</TableCell>
                         <TableCell align="end">{n1(r.observableHours)} h</TableCell>
-                        <TableCell align="end">{pct(r) === null ? tableCopy.unknown : `${n1(pct(r)!)}%`}</TableCell>
+                        <TableCell align="end">{pct(r) === null ? m('productivityTableUnknown') : `${n1(pct(r)!)}%`}</TableCell>
                         <TableCell align="end">{ni(r.jobs)}</TableCell>
                         {shownAxis === 'room' && <TableCell align="end">
-                          <button type="button" aria-label={tableCopy.enterRow(r.key)} onClick={() => drill.enter('drillRoom', r.key)}
+                          <button type="button" aria-label={m('productivityTableEnterRow', { key: r.key })} onClick={() => drill.enter('drillRoom', r.key)}
                             className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
                             <ChevronRight className="size-3.5" aria-hidden />
                           </button>
@@ -381,30 +377,28 @@ export default function ProductivityOverview(_: PageProps) {
         </section>
 
         {/* Attention List: ranking only, no threshold verdicts (wireframe 11 §1) */}
-        <section aria-label={ko ? '확인할 항목' : 'Attention list'}>
-          <Panel title={ko ? '확인할 항목' : 'Attention'}
-            subtitle={ko ? '비Process 체류·P95 상위 설비 (순위만, 기준 판정 없음)' : 'Top equipment by non-process dwell and P95 (ranking only, no threshold verdict)'}>
-            <QueryView widgetName={ko ? '확인할 항목' : 'Attention'} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <section aria-label={m('productivityOverviewAttentionList')}>
+          <Panel title={m('productivityOverviewAttention')}
+            subtitle={m('productivityOverviewTopEquipmentByNonProcessDwellAnd')}>
+            <QueryView widgetName={m('productivityOverviewAttention2')} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
-                    <StatusBadge tone="neutral">{r.kind === 'dwell' ? (ko ? '비Process 체류 상위' : 'Top dwell') : (ko ? 'P95 상위' : 'Slowest P95')}</StatusBadge>
+                    <StatusBadge tone="neutral">{r.kind === 'dwell' ? (m('productivityOverviewTopDwell')) : (m('productivityOverviewSlowestP95'))}</StatusBadge>
                     <span className="t-mono">{r.equipmentId}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={`${r.room} · ${r.stgroup}`}>{r.room} · {r.stgroup}</span>
                     <span className="tabular text-sm font-medium">
-                      {r.kind === 'dwell' ? `${n2(r.dwellPerJobH ?? 0)} ${ko ? '시간/Job' : 'h/Job'}` : `P95 ${n1(r.p95Min ?? 0)} ${ko ? '분' : 'min'}`}
+                      {r.kind === 'dwell' ? `${n2(r.dwellPerJobH ?? 0)} ${m('productivityOverviewHJob3')}` : `P95 ${n1(r.p95Min ?? 0)} ${m('productivityOverviewMin3')}`}
                       <span className="ml-1 text-tiny font-normal text-text-muted">n={ni(r.jobs)}</span>
                     </span>
                     <PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
-                      title={ko ? '설비 선택을 이 설비로 바꾸고 사이클타임 상세로 이동합니다.' : 'Changes the equipment selection to this equipment and opens cycle time detail.'}
-                      className="text-xs font-medium text-accent-primary hover:underline">{ko ? '사이클타임 상세 →' : 'Cycle time →'}</PlatformLink>
+                      title={m('productivityOverviewChangesTheEquipmentSelectionToThisEquipment')}
+                      className="text-xs font-medium text-accent-primary hover:underline">{m('productivityOverviewCycleTime')}</PlatformLink>
                     <ObjectLinks kind="equipment" id={r.equipmentId} returnTo />
                   </li>)}
                 </ul>
                 <p className="t-caption mt-2 text-text-muted">
-                  {ko
-                    ? '사이클타임 상세 링크는 설비 선택을 해당 설비로 바꾸고 나머지 조건은 그대로 둡니다. 다른 화면 링크는 그 설비만 열며 설비 선택을 바꾸지 않습니다.'
-                    : 'The cycle-time link changes the equipment selection to that equipment and keeps the other conditions. The other-screen links open that equipment only and does not change the equipment selection.'}
+                  {m('productivityOverviewTheCycleTimeLinkChangesTheEquipment')}
                 </p>
               </>}
             </QueryView>
@@ -412,7 +406,7 @@ export default function ProductivityOverview(_: PageProps) {
         </section>
       </div>
     </div> : <ProductivityDrillBody
-      ko={ko} room={room ?? ''} stgroup={stgroup} equipment={equipment}
+      ko={(lang === 'ko')} room={room ?? ''} stgroup={stgroup} equipment={equipment}
       stgroupQuery={stgroupQ} equipmentQuery={equipmentQ}
       onEnterStgroup={value => drill.enter('drillStgroup', value)}
       onEnterEquipment={value => drill.enter('drillEquipment', value)}

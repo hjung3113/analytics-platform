@@ -1,3 +1,6 @@
+import { useMessages } from '@ap/kernel';
+
+import { ANALYTICS_MESSAGES } from '../../messages';
 import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
@@ -16,16 +19,18 @@ export function invalidBreakdownNode(rawNode: string | null): string | null {
 
 /** Rejects an unknown node instead of replacing it with the root (the ProductivityOverview "not in this context" message). */
 export function BreakdownNodeRejection({ node }: { node: string }) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { tx } = useI18n();
   const { setPage } = usePlatform();
   return <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
-    title={tx({ ko: `이 조건에서 없는 값: ${node}`, en: `No value in this context: ${node}` })}
-    body={tx({ ko: '다른 값으로 바꾸지 않습니다.', en: 'Nothing was substituted.' })}
-    action={<Button type="button" size="sm" variant="secondary" onClick={() => setPage({ node: null })}>{tx({ ko: '전체로 돌아가기', en: 'Back to all' })}</Button>} />;
+    title={m('breakdownBarsNoValueInThisContext', { node: String(node) })}
+    body={m('breakdownBarsNothingWasSubstituted')}
+    action={<Button type="button" size="sm" variant="secondary" onClick={() => setPage({ node: null })}>{m('breakdownBarsBackToAll')}</Button>} />;
 }
 
 /** #580 domain-neutrality fixtures: an additive stack with labels, a ratio drawn grouped, and an uneven-depth drill tree. */
 export function BreakdownBars({ height, trust }: { height: number; trust: Trust }) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { tx, lang } = useI18n();
   const { pageParam, setPage } = usePlatform();
   const rawNode = pageParam('node');
@@ -55,29 +60,29 @@ export function BreakdownBars({ height, trust }: { height: number; trust: Trust 
   const half = Math.max(200, Math.floor(height / 2));
   const common = { xType: 'category' as const, orientation: 'horizontal' as const, metricVersion: 'synthetic v1', trust, height: half, size: 'hero' as const,
     legend: false };
-  const none = tx({ ko: '없음', en: 'none' });
-  const caption = `${tx({ ko: '서버 합계', en: 'Server total' })} · ${rows.map(row => `${row.label} ${row.serverUtilizationTotal === null ? none : `${row.serverUtilizationTotal}%`}`).join(' · ')}`;
+  const none = m('breakdownBarsNone');
+  const caption = `${m('breakdownBarsServerTotal')} · ${rows.map(row => `${row.label} ${row.serverUtilizationTotal === null ? none : `${row.serverUtilizationTotal}%`}`).join(' · ')}`;
   return <div className="flex min-w-0 gap-3">
     <div className="min-w-0 flex-1 space-y-3">
       <div className="space-y-1">
         <label className="flex w-fit cursor-pointer items-center gap-2 t-caption">
           <Checkbox checked={minMax} onCheckedChange={checked => setMinMax(checked === true)} />
-          {tx({ ko: '최소·최대 표시', en: 'Show min·max' })}
+          {m('breakdownBarsShowMinMax')}
         </label>
-        <AnalysisChartFrame {...common} {...frameVisibility(STATE_IDS)} chartId="chart-catalog-breakdown-stacked" title={tx({ ko: '상태별 시간 (쌓은 막대)', en: 'Time by state (stacked)' })}
-          description={tx({ ko: '더할 수 있는 측정 · 분', en: 'Additive measure · minutes' })}
-          series={minutes} unit={tx({ ko: '분', en: 'min' })} stacked valueLabels="both" reaggregation="sum" minMax={minMax} />
+        <AnalysisChartFrame {...common} {...frameVisibility(STATE_IDS)} chartId="chart-catalog-breakdown-stacked" title={m('breakdownBarsTimeByStateStacked')}
+          description={m('breakdownBarsAdditiveMeasureMinutes')}
+          series={minutes} unit={m('breakdownBarsMin')} stacked valueLabels="both" reaggregation="sum" minMax={minMax} />
       </div>
       <div className="space-y-1">
-        <AnalysisChartFrame {...common} {...frameVisibility(SHIFT_IDS)} chartId="chart-catalog-breakdown-ratio" title={tx({ ko: '교대별 가동률 (묶음 막대)', en: 'Utilization by shift (grouped)' })}
-          description={tx({ ko: '더하지 않는 측정 · 비율, 교대마다 분모가 다름', en: 'Non-additive measure · ratio, a different denominator per shift' })}
+        <AnalysisChartFrame {...common} {...frameVisibility(SHIFT_IDS)} chartId="chart-catalog-breakdown-ratio" title={m('breakdownBarsUtilizationByShiftGrouped')}
+          description={m('breakdownBarsNonAdditiveMeasureRatioADifferentDenominator')}
           series={utilization} unit="%" reaggregation="ratioOfSums" serverTotals={serverTotals} />
         {/* The Frame draws totals for stacked bars only, so the server totals of the grouped chart are listed here (gap reported in #580h). */}
         <p data-breakdown-server-total="" className="t-caption px-1 text-text-secondary">{caption}</p>
       </div>
     </div>
     {/* Inner padding keeps the focus ring of the rows inside the clipping chart workspace. */}
-    <div className="w-56 shrink-0 p-1.5"><LegendTree label={tx({ ko: '분해 트리', en: 'Breakdown tree' })} nodes={nodes} visible={visible} onVisibleChange={setVisible}
+    <div className="w-56 shrink-0 p-1.5"><LegendTree label={m('breakdownBarsBreakdownTree')} nodes={nodes} visible={visible} onVisibleChange={setVisible}
       currentId={node} defaultExpanded={initiallyOpen} canDrill={isPlace} onDrill={id => { if (isPlaceId(id)) setPage({ node: id }); }} /></div>
   </div>;
 }

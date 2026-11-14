@@ -1,12 +1,13 @@
+import { formatText } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../messages';
 /**
  * The Inspector `분석 대상` text while there are no counts to show: it follows the query the body shows, so the Inspector never says loading
  * next to a body that already says zero rows or a failure (#1158). Wording mirrors the body's states (kernel `stateEmpty`, `stateForbidden`, `stateTooLarge`, `stateError`).
  */
 export function targetStateText(lang: 'ko' | 'en', outcome: string | undefined): string {
-  const ko = lang === 'ko';
-  if (outcome === undefined) return ko ? '불러오는 중입니다.' : 'Loading.';
-  if (outcome === 'empty') return ko ? '조건에 맞는 결과가 없습니다.' : 'No matching result.';
-  if (outcome === 'forbidden') return ko ? '이 Scope에 접근 권한이 없습니다.' : 'You do not have access to this scope.';
-  if (outcome === 'too_large') return ko ? '조회 범위가 너무 큽니다. 조회 조건을 좁혀 주세요.' : 'Query too large. Narrow the conditions.';
-  return ko ? '데이터를 불러오지 못했습니다. 본문에서 다시 시도하세요.' : 'Unable to load data. Retry in the body.';
+  if (outcome === undefined) return formatText(HW_TIME_MESSAGES.targetStateLoading, lang);
+  if (outcome === 'empty') return formatText(HW_TIME_MESSAGES.targetStateNoMatchingResult, lang);
+  if (outcome === 'forbidden') return formatText(HW_TIME_MESSAGES.targetStateYouDoNotHaveAccessToThis, lang);
+  if (outcome === 'too_large') return formatText(HW_TIME_MESSAGES.targetStateQueryTooLargeNarrowTheConditions, lang);
+  return formatText(HW_TIME_MESSAGES.targetStateUnableToLoadDataRetryInThe, lang);
 }

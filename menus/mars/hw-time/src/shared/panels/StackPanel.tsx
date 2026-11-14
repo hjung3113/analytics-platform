@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../../messages';
 import { useCallback, useMemo } from 'react';
 import { useI18n } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartPoint } from '@ap/components';
@@ -66,6 +68,7 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
 export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, rowPitch = DEFAULT_ROW_PITCH, activeRowId, onActiveRowChange, revealActive, fillMin = DETAIL_FILL_MIN, onActivate, rowActions }: StackPanelProps) {
+  const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
   // Auxiliary rows are left out: a label that is not here never reaches a callback.
@@ -77,7 +80,7 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
   const unmeasured = block.rows.filter(row => !row.auxiliary && Object.values(row.values).some(value => value === null)).length;
   // In the Frame's header line, not under it: the Frame fills its parent, so a caption below would overflow onto the trend toggle.
   const unmeasuredNote = unmeasured === 0 ? undefined
-    : lang === 'ko' ? `${missingText(lang)} 값이 있는 행 ${unmeasured}개 · 막대에 그리지 않고, 그 행의 합계는 ≥로 표시합니다` : `${unmeasured} rows have unmeasured values · not drawn; their totals are marked ≥`;
+    : m('stackPanelRowsHaveUnmeasuredValuesNotDrawnTheir', { value: String(missingText(lang)), unmeasured: String(unmeasured) });
   const rowOf = (point: ChartPoint) => byLabel.get(point.x);
   const isPointSelectable = useCallback((point: ChartPoint) => byLabel.has(point.x), [byLabel]);
   return <div className="flex min-h-0 flex-1 flex-col gap-1">

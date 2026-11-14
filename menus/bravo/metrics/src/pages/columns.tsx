@@ -1,3 +1,5 @@
+import { formatText } from '@ap/kernel';
+import { METRICS_MESSAGES } from '../messages';
 import { formatWallClock } from '@ap/contracts';
 /**
  * Catalog table columns (#173 review P3-8): extracted from MetricCatalog so the export labels are testable
@@ -30,9 +32,9 @@ export function catalogColumns({ lang, linkTo, tx, filterColumnProps }: Deps): P
       cell: row => <PlatformLink className="t-mono text-accent-primary hover:underline" href={metricDetailHref(linkTo, row)}>{row.metricId}</PlatformLink>,
     },
     {
-      id: 'nameSort', header: lang === 'ko' ? '이름' : 'Name', size: 180,
-      cell: row => (lang === 'ko' ? row.nameKo : row.nameEn),
-      exportValue: row => (lang === 'ko' ? row.nameKo : row.nameEn),
+      id: 'nameSort', header: formatText(METRICS_MESSAGES.columnsName, lang), size: 180,
+      cell: row => (({ ko: row.nameKo, en: row.nameEn })[lang]),
+      exportValue: row => (({ ko: row.nameKo, en: row.nameEn })[lang]),
     },
     {
       ...filterColumnProps('domain', catalogFilterOptions('domain', lang)),
@@ -42,16 +44,16 @@ export function catalogColumns({ lang, linkTo, tx, filterColumnProps }: Deps): P
     },
     { id: 'grain', header: 'grain', size: 180, cell: row => row.grain },
     {
-      id: 'numerator', header: lang === 'ko' ? '분자' : 'Numerator', size: 200,
+      id: 'numerator', header: formatText(METRICS_MESSAGES.columnsNumerator, lang), size: 200,
       cell: row => <span className="t-mono">{row.numerator}</span>,
     },
     {
-      id: 'denominator', header: lang === 'ko' ? '분모' : 'Denominator', size: 200,
+      id: 'denominator', header: formatText(METRICS_MESSAGES.columnsDenominator, lang), size: 200,
       cell: row => <span className="t-mono">{row.denominator}</span>,
     },
     {
-      id: 'publishedPointer', header: lang === 'ko' ? '발행 포인터' : 'Released pointer', size: 130, align: 'right',
-      cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{lang === 'ko' ? '없음' : 'None'}</span>,
+      id: 'publishedPointer', header: formatText(METRICS_MESSAGES.columnsReleasedPointer, lang), size: 130, align: 'right',
+      cell: row => row.publishedPointer ? <span className="tabular">v{row.publishedPointer}</span> : <span className="text-text-muted">{formatText(METRICS_MESSAGES.columnsNone, lang)}</span>,
       // Export shows the same `v3` pointer text; no pointer exports an empty cell (the muted "None" is screen-only).
       exportValue: row => (row.publishedPointer === null ? null : `v${row.publishedPointer}`),
     },
@@ -61,9 +63,9 @@ export function catalogColumns({ lang, linkTo, tx, filterColumnProps }: Deps): P
       cell: row => <StatusBadge tone={STATUS_TONE[row.status]} dot>{tx(STATUS_LABEL[row.status])}</StatusBadge>,
       exportValue: row => tx(STATUS_LABEL[row.status]),
     },
-    { id: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: row => row.owner },
+    { id: 'owner', header: formatText(METRICS_MESSAGES.columnsOwner, lang), size: 160, cell: row => row.owner },
     {
-      id: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170, align: 'right',
+      id: 'updatedAt', header: formatText(METRICS_MESSAGES.columnsUpdated, lang), size: 170, align: 'right',
       cell: row => <time className="tabular" dateTime={row.updatedAt}>{formatWallClock(row.updatedAt, 'minute')}</time>,
       exportValue: row => formatWallClock(row.updatedAt, 'minute'),
     },

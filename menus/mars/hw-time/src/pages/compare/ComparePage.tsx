@@ -1,3 +1,5 @@
+import { useMessages, formatText } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../../messages';
 /**
  * HW Time 비교 (ADR-0078, 06 §12.7–§12.8, #912): the same Module → Motion drill as 단계별, but a drill step never replaces the body. One `PanelWorkspace`
  * (B 주-상세: summary full height on the left; Module composition over Motion detail+trend tabs on the right) and an Inspector `rail`. Each panel
@@ -32,7 +34,7 @@ const COMPARE_TREND_FILL_MIN = 160;
 /** The trend is a tab beside the detail (the trend Frame needs more height than the right column can spare); `revealTrend` is off, so adding a row only changes the badge. */
 // Below 900px the panels stack into one tab group in layout order, which for this preset reads summary → composition → detail → trend (display only, not stored).
 const PRESETS: PanelWorkspacePreset[] = [
-  { id: 'default', label: { ko: '기본', en: 'Default' }, layout: { type: 'branch', dir: 'row', sizes: [34, 66], children: [
+  { id: 'default', label: HW_TIME_MESSAGES.comparePageDefault, layout: { type: 'branch', dir: 'row', sizes: [34, 66], children: [
     { type: 'group', panels: ['summary'] },
     { type: 'branch', dir: 'column', sizes: [48, 52], children: [{ type: 'group', panels: ['module'] }, { type: 'group', panels: ['detail', 'trend'] }] },
   ] } },
@@ -44,8 +46,8 @@ function PanelFill({ children }: { children: ReactNode }) {
 }
 
 export default function ComparePage(_props: PageProps) {
+  const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const { pageParam, setPage } = usePlatform();
   const drill = useDrill();
   const module = drill.levels[0]?.value ?? null;
@@ -88,9 +90,9 @@ export default function ComparePage(_props: PageProps) {
   const hidden = module === null ? summaryHidden : moduleHidden;
   const setHidden = module === null ? setSummaryHidden : setModuleHidden;
   const legendState = module === null || context ? null
-    : moduleQ.response?.outcome === 'empty' ? (ko ? '이 Module에는 구성 기록이 없습니다.' : 'This Module has no composition records.')
-      : moduleQ.response && moduleQ.response.outcome !== 'ok' ? (ko ? '구성을 불러오지 못했습니다.' : 'The composition could not be loaded.')
-      : ko ? '구성을 불러오는 중입니다.' : 'Loading the composition.';
+    : moduleQ.response?.outcome === 'empty' ? (m('comparePageThisModuleHasNoCompositionRecords'))
+      : moduleQ.response && moduleQ.response.outcome !== 'ok' ? (m('comparePageTheCompositionCouldNotBeLoaded'))
+      : m('comparePageLoadingTheComposition');
   // Without a Module the target and the legend follow the summary query (`legendState` is null by construction there).
   const summaryState = module === null && !summaryData ? targetStateText(lang, summaryQ.response?.outcome) : null;
   const detailBlock: HwTimeBlock | null = detailData ? (detailData.level === 2 ? detailData.detail ?? EMPTY_BLOCK : EMPTY_BLOCK) : null;
@@ -100,48 +102,48 @@ export default function ComparePage(_props: PageProps) {
   const visibleIds = legendSeries.map(item => item.id).filter(id => !hidden.includes(id));
   const optionText = [
     sortText[lang],
-    ko ? (scroll ? '행 스크롤' : '전체 맞춤') : (scroll ? 'Row scroll' : 'Fit all'),
-    ...(align ? [ko ? '시작 위치 맞춤' : 'Start aligned'] : []),
-    ...(minmax ? [ko ? '최소·최대' : 'Min·Max'] : []),
+    m(scroll ? 'comparePageRowScroll' : 'comparePageFitAll'),
+    ...(align ? [m('comparePageStartAligned')] : []),
+    ...(minmax ? [m('comparePageMinMax')] : []),
   ].join(' · ');
   const sections: InspectorSection[] = [
     {
-      id: 'target', title: { ko: '분석 대상', en: 'Target' }, icon: Target,
+      id: 'target', title: HW_TIME_MESSAGES.comparePageTarget, icon: Target,
       summary: counts ?? undefined,
       render: () => counts
         ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
-        : <p className="t-caption text-text-muted">{legendState ?? summaryState ?? (ko ? '불러오는 중입니다.' : 'Loading.')}</p>,
+        : <p className="t-caption text-text-muted">{legendState ?? summaryState ?? (m('comparePageLoading'))}</p>,
     },
     {
-      id: 'legend', title: { ko: '계층 범례', en: 'Legend' }, icon: ListTree,
-      summary: context ? { ko: `${legendSeries.length}개 중 ${visibleIds.length}개 표시`, en: `${visibleIds.length} of ${legendSeries.length} shown` } : undefined,
-      render: () => <LegendTree label={ko ? '계층 범례' : 'Legend'}
+      id: 'legend', title: HW_TIME_MESSAGES.comparePageLegend, icon: ListTree,
+      summary: context ? { ko: formatText(HW_TIME_MESSAGES.comparePageOfShown, 'ko', { length: String(legendSeries.length), value2: String(visibleIds.length) }), en: formatText(HW_TIME_MESSAGES.comparePageOfShown, 'en', { length: String(legendSeries.length), value2: String(visibleIds.length) }) } : undefined,
+      render: () => <LegendTree label={m('comparePageLegend2')}
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
         onDrill={drillTo} canDrill={() => !moduleKept.previous} currentId={currentId}
-          emptyText={legendState ?? summaryState ?? (ko ? '표시할 범례가 없습니다.' : 'No legend to show.')} />,
+          emptyText={legendState ?? summaryState ?? (m('comparePageNoLegendToShow'))} />,
     },
     {
-      id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
+      id: 'options', title: HW_TIME_MESSAGES.comparePageOptions, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
       render: () => <div className="flex flex-col gap-3 text-xs">
         <div className="flex flex-col gap-1">
-          <span id="hw-compare-sort-label" className="font-medium text-text-secondary">{ko ? '정렬' : 'Sort'}</span>
-          <SegmentedRadio labelledBy="hw-compare-sort-label" label={ko ? '정렬' : 'Sort'} value={sort ?? 'none'}
+          <span id="hw-compare-sort-label" className="font-medium text-text-secondary">{m('comparePageSort')}</span>
+          <SegmentedRadio labelledBy="hw-compare-sort-label" label={m('comparePageSort2')} value={sort ?? 'none'}
             onChange={next => setPage({ sort: next === 'none' ? null : next })}
-            options={[{ value: 'none', label: ko ? '기본' : 'Default' }, { value: 'total-desc', label: ko ? '큰 순' : 'High' }, { value: 'total-asc', label: ko ? '작은 순' : 'Low' }]} />
+            options={[{ value: 'none', label: m('comparePageDefault2') }, { value: 'total-desc', label: m('comparePageHigh') }, { value: 'total-asc', label: m('comparePageLow') }]} />
         </div>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={scroll} onCheckedChange={checked => setPage({ scroll: checked === true ? null : '0' })} />
-          {ko ? '행 스크롤 보기' : 'Scroll rows'}
+          {m('comparePageScrollRows')}
         </label>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={align} onCheckedChange={checked => setPage({ align: checked === true ? '1' : null })} />
-          {ko ? '시작 위치 맞춤' : 'Align start positions'}
+          {m('comparePageAlignStartPositions')}
         </label>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={minmax} onCheckedChange={checked => setPage({ minmax: checked === true ? '1' : null })} />
-          {ko ? '최소·최대 표시' : 'Show min·max'}
+          {m('comparePageShowMinMax')}
         </label>
       </div>,
     },
@@ -150,11 +152,11 @@ export default function ComparePage(_props: PageProps) {
   const unit = HW_TIME_UNIT[lang];
   const totalText = (shown: HwTimeBlock) => {
     const values = shown.rows.filter(item => !item.auxiliary).flatMap(item => Object.values(item.values));
-    if (shown.rows.length === 0) return ko ? '기록 없음' : 'No records';
+    if (shown.rows.length === 0) return m('comparePageNoRecords');
     const measured = values.filter((value): value is number => value !== null);
     if (measured.length === 0) return missingText(lang);
     const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0), lang)} ${unit}`;
-    return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
+    return measured.length < values.length ? `${sum} · ${m('comparePagePartlyNotMeasured')}` : sum;
   };
   const summary = !module ? undefined
     : motion ? (detailBlock ? `Module ${detailKept.module} · Motion ${detailKept.motion} · ${totalText(detailBlock)}` : undefined)
@@ -167,11 +169,11 @@ export default function ComparePage(_props: PageProps) {
   const setVisible = (block: HwTimeBlock, setHiddenIds: (ids: string[]) => void) => (ids: string[]) => setHiddenIds(block.series.map(item => item.id).filter(id => !ids.includes(id)));
 
   const trendPanel: PanelWorkspacePanel = {
-    id: 'trend', title: { ko: '추세', en: 'Trend' },
-    badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: `추세에 ${trendRows.length}행`, en: `${trendRows.length} rows in the trend` } } : undefined,
+    id: 'trend', title: HW_TIME_MESSAGES.comparePageTrend,
+    badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: formatText(HW_TIME_MESSAGES.comparePageRowsInTheTrend, 'ko', { length: String(trendRows.length) }), en: formatText(HW_TIME_MESSAGES.comparePageRowsInTheTrend, 'en', { length: String(trendRows.length) }) } } : undefined,
     render: () => <div className="flex h-full min-h-0 flex-col gap-1 p-2">
       {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
-      <TrendPanel chartId="hw-compare-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} fillMin={COMPARE_TREND_FILL_MIN} />
+      <TrendPanel chartId="hw-compare-trend" title={m('comparePageDailyTrendByRow')} rowIds={trendRows} query={trendQ} level={drill.depth} fillMin={COMPARE_TREND_FILL_MIN} />
     </div>,
   };
 
@@ -184,33 +186,33 @@ export default function ComparePage(_props: PageProps) {
 
   const panels: PanelWorkspacePanel[] = [
     { id: 'summary', primary: true, title: module
-      ? { ko: `Module별 · ${module} 선택`, en: `By Module · ${module} selected` }
-      : { ko: 'Module별', en: 'By Module' }, render: () =>
-      <PanelFill><QueryView fill query={summaryQ} widgetName={ko ? 'Module별 동작시간' : 'Operation time by Module'} hideWidgetName skeletonRows={6}>
-        {data => <StackPanel chartId="hw-compare-summary" title={ko ? 'Module별 동작시간' : 'Operation time by Module'} block={data}
+      ? { ko: formatText(HW_TIME_MESSAGES.comparePageByModuleSelected, 'ko', { module: String(module) }), en: formatText(HW_TIME_MESSAGES.comparePageByModuleSelected, 'en', { module: String(module) }) }
+      : HW_TIME_MESSAGES.comparePageByModule, render: () =>
+      <PanelFill><QueryView fill query={summaryQ} widgetName={m('comparePageOperationTimeByModule')} hideWidgetName skeletonRows={6}>
+        {data => <StackPanel chartId="hw-compare-summary" title={m('comparePageOperationTimeByModule2')} block={data}
           visibleSeriesIds={visibleOf(data, summaryHidden)} onVisibleSeriesChange={setVisible(data, setSummaryHidden)} {...stackProps}
           onActivate={({ seriesId }) => drill.enter('drillModule', seriesId)} />}
       </QueryView></PanelFill> },
     { id: 'module', title: module
       ? motion
-        ? { ko: `Module ${moduleKept.module} 구성 · ${motion} 선택`, en: `Module ${moduleKept.module} · ${motion} selected` }
-        : { ko: `Module ${moduleKept.module} 구성`, en: `Module ${moduleKept.module} composition` }
-      : { ko: 'Module 구성', en: 'Module composition' }, render: () => !module
-      ? waiting(ko ? 'Module을 고르세요' : 'Choose a Module')
-      : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${moduleKept.module} 구성` : `Module ${moduleKept.module} composition`} hideWidgetName skeletonRows={6}>
-        {data => <StackPanel chartId="hw-compare-module" title={ko ? `Module ${moduleKept.module} · Motion별 동작시간` : `Module ${moduleKept.module} · Operation time by Motion`} block={data}
+        ? { ko: formatText(HW_TIME_MESSAGES.comparePageModuleSelected, 'ko', { module: String(moduleKept.module), motion: String(motion) }), en: formatText(HW_TIME_MESSAGES.comparePageModuleSelected, 'en', { module: String(moduleKept.module), motion: String(motion) }) }
+        : { ko: formatText(HW_TIME_MESSAGES.comparePageModuleComposition, 'ko', { module: String(moduleKept.module) }), en: formatText(HW_TIME_MESSAGES.comparePageModuleComposition, 'en', { module: String(moduleKept.module) }) }
+      : HW_TIME_MESSAGES.comparePageModuleComposition2, render: () => !module
+      ? waiting(m('comparePageChooseAModule'))
+      : <PanelFill><QueryView fill query={moduleQ} widgetName={m('comparePageModuleComposition3', { module: String(moduleKept.module) })} hideWidgetName skeletonRows={6}>
+        {data => <StackPanel chartId="hw-compare-module" title={m('comparePageModuleOperationTimeByMotion', { module: String(moduleKept.module) })} block={data}
           visibleSeriesIds={visibleOf(data, moduleHidden)} onVisibleSeriesChange={setVisible(data, setModuleHidden)} {...stackProps} {...rowFocus}
           onActivate={moduleKept.previous ? undefined : ({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
       </QueryView></PanelFill> },
-    { id: 'detail', title: motion ? { ko: `Motion ${detailKept.motion} 상세`, en: `Motion ${detailKept.motion} detail` } : { ko: 'Motion 상세', en: 'Motion detail' }, render: () => !module || !motion
-      ? waiting(!module ? (ko ? 'Module을 고르세요' : 'Choose a Module') : (ko ? 'Motion을 고르세요' : 'Choose a Motion'))
-      : <PanelFill><QueryView fill query={detailQ} widgetName={ko ? `Motion ${detailKept.motion} 상세` : `Motion ${detailKept.motion} detail`} hideWidgetName skeletonRows={6}>
+    { id: 'detail', title: motion ? { ko: formatText(HW_TIME_MESSAGES.comparePageMotionDetail, 'ko', { motion: String(detailKept.motion) }), en: formatText(HW_TIME_MESSAGES.comparePageMotionDetail, 'en', { motion: String(detailKept.motion) }) } : HW_TIME_MESSAGES.comparePageMotionDetail2, render: () => !module || !motion
+      ? waiting(!module ? (m('comparePageChooseAModule2')) : (m('comparePageChooseAMotion')))
+      : <PanelFill><QueryView fill query={detailQ} widgetName={m('comparePageMotionDetail3', { motion: String(detailKept.motion) })} hideWidgetName skeletonRows={6}>
         {data => {
           const det = data.level === 2 ? data.detail ?? EMPTY_BLOCK : EMPTY_BLOCK;
           return det.rows.length === 0
-            ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${detailKept.module} Module에는 ${detailKept.motion} 동작 기록이 없습니다` : `No ${detailKept.motion} records for Module ${detailKept.module}`}
-              body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-            : <StackPanel chartId="hw-compare-detail" title={ko ? `Module ${detailKept.module} · Motion ${detailKept.motion} 상세` : `Module ${detailKept.module} · Motion ${detailKept.motion} detail`} block={det}
+            ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('comparePageNoRecordsForModule', { module: String(detailKept.module), motion: String(detailKept.motion) })}
+              body={m('comparePageOtherMotionsOfThisModuleAreOne')} />
+            : <StackPanel chartId="hw-compare-detail" title={m('comparePageModuleMotionDetail', { module: String(detailKept.module), motion: String(detailKept.motion) })} block={det}
               visibleSeriesIds={visibleOf(det, moduleHidden)} onVisibleSeriesChange={setVisible(moduleBlock, setModuleHidden)} {...stackProps} {...rowFocus} rowActions={state.rowActionsOf} />;
         }}
       </QueryView></PanelFill> },
@@ -220,12 +222,12 @@ export default function ComparePage(_props: PageProps) {
   return <PlatformPage layout="fill">
     <div className="flex h-full min-h-0 gap-3">
       <aside className="shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
-        <Inspector form="rail" persistKey="hw-time-compare" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
+        <Inspector form="rail" persistKey="hw-time-compare" label={HW_TIME_MESSAGES.comparePageAnalysisAids} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DrillLayout fill summary={summary}>
           {invalid ? <PageKeyWarning sentences={invalid} onRecover={state.recover} />
-            : <PanelWorkspace persistKey="hw-compare" label={{ ko: 'HW Time 비교 영역', en: 'HW Time compare workspace' }} panels={panels}
+            : <PanelWorkspace persistKey="hw-compare" label={HW_TIME_MESSAGES.comparePageHwTimeCompareWorkspace} panels={panels}
               presets={PRESETS} initialPreset="default" />}
         </DrillLayout>
       </div>
