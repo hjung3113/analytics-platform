@@ -142,9 +142,9 @@ describe('ScopeSelector Scope retry menu item (#183)', () => {
 
   it('shows the re-check item only while the check failed', async () => {
     const scenarios: Array<[string, PlatformAdapter['validateScope'], string]> = [
-      ['valid', async () => ({ status: 'valid', grantedRooms: [] }), '서버 검증됨 · room 3/5'],
-      ['validating', () => new Promise<ScopeCheck>(() => { /* never settles */ }), '검증 중… · room 3/5'],
-      ['forbidden', async () => ({ status: 'forbidden', grantedRooms: [] }), '접근 불가 · room 3/5'],
+      ['valid', async () => ({ status: 'valid', grantedRooms: [] }), '서버 검증됨 · 공정 3/5'],
+      ['validating', () => new Promise<ScopeCheck>(() => { /* never settles */ }), '검증 중… · 공정 3/5'],
+      ['forbidden', async () => ({ status: 'forbidden', grantedRooms: [] }), '접근 불가 · 공정 3/5'],
     ];
     for (const [name, validateScope, pillText] of scenarios) {
       window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
@@ -164,16 +164,16 @@ describe('sidebar Scope selector (#194)', () => {
     const scopes = [{ id: 'MEM', label: 'MEM · 청주', grantedRooms: 3, totalRooms: 5 }];
     render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }), scopes)} registry={registry}><ScopeSelector collapsed /></PlatformProvider></I18nProvider>);
     const trigger = screen.getByRole('button', { name: 'Scope: MEM · 청주' });
-    await waitFor(() => expect(trigger).toHaveAccessibleDescription('서버 검증됨 · room 3/5'));
+    await waitFor(() => expect(trigger).toHaveAccessibleDescription('서버 검증됨 · 공정 3/5'));
     fireEvent.focus(trigger);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('MEM · 청주 · 서버 검증됨 · room 3/5');
-    expect(trigger).toHaveAccessibleDescription('서버 검증됨 · room 3/5');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('MEM · 청주 · 서버 검증됨 · 공정 3/5');
+    expect(trigger).toHaveAccessibleDescription('서버 검증됨 · 공정 3/5');
     fireEvent.blur(trigger);
     fireEvent.pointerMove(trigger);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('MEM · 청주 · 서버 검증됨 · room 3/5');
-    expect(trigger.querySelector('.sr-only')?.textContent).toContain('room 3/5');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('MEM · 청주 · 서버 검증됨 · 공정 3/5');
+    expect(trigger.querySelector('.sr-only')?.textContent).toContain('공정 3/5');
     act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); });
-    expect(await screen.findByRole('menuitemradio', { name: 'MEM · 청주 room 3/5' })).toBeTruthy();
+    expect(await screen.findByRole('menuitemradio', { name: 'MEM · 청주 공정 3/5' })).toBeTruthy();
   });
 
   it('shows no-Scope and unknown-Scope text without substituting an available Scope', async () => {
@@ -206,11 +206,11 @@ describe('Scope accessible status (#194 FIX2)', () => {
       render(<I18nProvider><PlatformProvider adapter={adapterWith(validate, scopes)} registry={registry}><ScopeSelector collapsed={collapsed} /></PlatformProvider></I18nProvider>);
       const trigger = screen.getByRole('button', { name: `Scope: ${scopeId === 'MEM' ? 'MEM · 청주' : scopeId || 'Scope 선택'}` });
       const descriptionId = trigger.getAttribute('aria-describedby');
-      await waitFor(() => expect(trigger).toHaveAccessibleDescription(`${status}${scopeId === 'MEM' ? ' · room 3/5' : ''}`));
+      await waitFor(() => expect(trigger).toHaveAccessibleDescription(`${status}${scopeId === 'MEM' ? ' · 공정 3/5' : ''}`));
       expect(trigger.getAttribute('aria-describedby')).toBe(descriptionId);
       expect(screen.getByRole('status')).toHaveTextContent(status);
       expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
-      expect(screen.getByRole('status')).not.toHaveTextContent('room');
+      expect(screen.getByRole('status')).not.toHaveTextContent('공정');
       const description = document.getElementById(descriptionId!);
       expect(description).toHaveClass(['error', 'forbidden', 'unknown_scope'].includes(_state) ? 'text-text-warning-label' : 'text-text-secondary');
       cleanup();
