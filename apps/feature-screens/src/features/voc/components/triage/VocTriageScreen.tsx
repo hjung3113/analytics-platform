@@ -34,6 +34,7 @@ export type TriageTab = 'unassigned' | 'untriaged' | 'high' | 'waiting';
 
 export interface VocTriageScreenProps {
   items: VocListItem[];
+  queueFooter?: React.ReactNode;
   selectedId: string | null;
   activeTab: TriageTab;
   /** #922: true while the active tab's queue query is loading; keeps the tablist mounted. */
@@ -75,6 +76,7 @@ const TRIAGE_QUEUE_PANEL_ID = 'triage-queue-panel';
 
 export function VocTriageScreen({
   items,
+  queueFooter,
   selectedId,
   activeTab,
   queuePending,
@@ -274,7 +276,7 @@ export function VocTriageScreen({
             {...(onRetryQueue !== undefined ? { onRetryQueue } : {})}
             {...(queueTotal !== undefined ? { queueTotal } : {})}
             {...(outOfScopeSummary !== undefined ? { outOfScopeSummary } : {})}
-          />
+          >{queueFooter}</TriageQueue>
         </div>
 
         {/* Deep link target this queue cannot show (#383) — never silently

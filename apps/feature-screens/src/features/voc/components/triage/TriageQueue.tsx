@@ -18,6 +18,7 @@ import { TriageRow } from './TriageRow';
 
 export interface TriageQueueProps {
   vocs: VocListItem[];
+  children?: React.ReactNode;
   selectedId: string | null;
   activeTab?: string;
   animationContext?: string;
@@ -39,6 +40,7 @@ export interface TriageQueueProps {
 
 export function TriageQueue({
   vocs,
+  children,
   selectedId,
   activeTab,
   animationContext,
@@ -139,6 +141,7 @@ export function TriageQueue({
             />
           ))
         )}
+        {children}
       </div>
     </section>
   );
