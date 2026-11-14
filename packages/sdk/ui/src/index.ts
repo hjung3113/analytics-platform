@@ -121,6 +121,7 @@ export {
   readMotionTiming,
 } from './utils/motion';
 export { useListMotion } from './utils/useListMotion';
+export { useIsTruncated } from './utils/useIsTruncated';
 export { isToastTarget } from './utils/toast-target';
 export { TransientOverlayScope } from './components/TransientOverlayScope';
 
