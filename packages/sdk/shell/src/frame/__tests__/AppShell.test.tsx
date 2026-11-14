@@ -490,8 +490,8 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(scroll?.contains(block)).toBe(false);
     const links = within(block).getAllByRole('link');
     expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
-      'Task — 분석, 기능',
-      'VOC 등록 — 분석, 기능',
+      'Task · 분석, 기능',
+      'VOC 등록 · 분석, 기능',
     ]);
     expect([block.getAttribute('aria-label'), ...links.map(link => link.getAttribute('aria-label'))].join(' ')).not.toContain('기능 검사 전용 시스템 부제');
     for (const link of links) {
@@ -509,8 +509,8 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(block.textContent).not.toContain('기능 · 분석');
     const links = within(block).getAllByRole('link');
     expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
-      'Task — 분석, 기능',
-      'VOC 등록 — 분석, 기능',
+      'Task · 분석, 기능',
+      'VOC 등록 · 분석, 기능',
     ]);
     for (const link of links) expect(link.querySelectorAll('svg')).toHaveLength(1);
   });
@@ -532,7 +532,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       const [voc, task] = within(block).getAllByRole('link');
-      expect(voc.getAttribute('aria-label')).toBe('VOC — 분석, 기능');
+      expect(voc.getAttribute('aria-label')).toBe('VOC · 분석, 기능');
       expect(voc.hasAttribute('target')).toBe(false);
       expect(voc.querySelectorAll('svg')).toHaveLength(1);
       const href = new URL(voc.getAttribute('href')!, 'http://x');
@@ -540,7 +540,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect([...href.searchParams.keys()].sort()).toEqual(['managedSystem', 'returnTo', 'v']);
       expect(href.searchParams.get('managedSystem')).toBe(SYSTEM);
       expect(href.searchParams.get('returnTo')).toBe('/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
-      expect(task.getAttribute('aria-label')).toBe('Task — 분석, 기능');
+      expect(task.getAttribute('aria-label')).toBe('Task · 분석, 기능');
       expect(task.hasAttribute('target')).toBe(false);
       expect(within(block).queryByText('기능 화면으로 이동합니다')).toBeNull();
     });
@@ -549,7 +549,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry]) });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       expect(within(block).queryByText('기능 화면으로 이동합니다')).toBeNull();
-      expect(within(block).getByRole('link', { name: 'VOC — 분석, 기능' }).getAttribute('href')).toContain('/mars/feature-inbox');
+      expect(within(block).getByRole('link', { name: 'VOC · 분석, 기능' }).getAttribute('href')).toContain('/mars/feature-inbox');
     });
 
     it('draws no block at all without the slot permission, and keeps three icons with names when collapsed', () => {
@@ -559,13 +559,13 @@ describe('workspace shell layout (15 §3.1)', () => {
       localStorage.setItem('platform:sidebar-collapsed', '1');
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
-      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC — 분석, 기능', 'Task — 분석, 기능']);
+      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC · 분석, 기능', 'Task · 분석, 기능']);
     });
 
     it('omits an in-shell entry whose menu the user cannot open', () => {
       mount(['platform:view'], true, featureRegistry, { features: slotOf([{ ...vocEntry, menuId: 'ops' }, taskEntry]) });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
-      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['Task — 분석, 기능']);
+      expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['Task · 분석, 기능']);
     });
   });
 
@@ -1284,12 +1284,12 @@ describe('tab title and planned sections (#1944)', () => {
   });
 
   it.each([
-    ['/ready?v=1', '준비된 메뉴 — 분석 · 샘플 제품'],
+    ['/ready?v=1', '분석 · 준비된 메뉴 · 샘플 제품'],
     ['/nowhere?v=1', '없는 화면 · 샘플 제품'],
   ])('writes the tab title for %s', async (url, title) => {
     window.history.replaceState(null, '', url);
     render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell productName="샘플 제품"><p>x</p></AppShell></PlatformProvider></I18nProvider>);
-    await waitFor(() => expect(document.title).toContain(title.split(' · ')[0]!));
+    await waitFor(() => expect(document.title).toContain(title.replace(' · 샘플 제품', '')));
     expect(document.title.endsWith(' · 샘플 제품')).toBe(true);
   });
 
@@ -1303,7 +1303,7 @@ describe('tab title and planned sections (#1944)', () => {
   it('writes no product name when the host passes none', async () => {
     window.history.replaceState(null, '', '/ready?v=1');
     render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell><p>x</p></AppShell></PlatformProvider></I18nProvider>);
-    await waitFor(() => expect(document.title).toBe('준비된 메뉴 — 분석'));
+    await waitFor(() => expect(document.title).toBe('분석 · 준비된 메뉴'));
   });
 
   it('dims a rail section that has only planned menus and says so in its name', () => {

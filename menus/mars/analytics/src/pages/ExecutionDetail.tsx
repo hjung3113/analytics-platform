@@ -54,7 +54,7 @@ export default function ExecutionDetail({ params }: PageProps) {
         {restored ? '' : (ko ? ' returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다.' : ' returnTo is absent, so Back opens cycle time with the current context.')}
       </p>
 
-      <Panel title={ko ? 'Occurrence 식별' : 'Occurrence identity'} subtitle={ko ? '분석 Context와 별도입니다. Lot은 검색 보조이지 대체 키가 아닙니다.' : 'Separate from the analysis context. Lot is a search aid, not a substitute key.'}>
+      <Panel title={ko ? 'Occurrence 식별' : 'Occurrence identity'} subtitle={ko ? '분석 Context와 별도인 식별 키 · Lot은 검색 보조' : 'Identity key separate from the analysis context · Lot is a search aid'}>
         <div className="grid gap-3 sm:grid-cols-4" data-testid="occurrence-key">
           <Identity label="EquipmentID" value={equipmentId} />
           <Identity label="entityType" value={entityType ?? '—'} />
@@ -63,7 +63,7 @@ export default function ExecutionDetail({ params }: PageProps) {
         </div>
       </Panel>
 
-      {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '식별 키가 올바르지 않아 조회하지 않습니다' : 'The identity key is invalid, so nothing was queried'}
+      {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '조회에 올바른 식별 키 필요' : 'Lookup requires a valid identity key'}
         body={<ul className="list-disc pl-4">{errors.map(error => <li key={error}>{error}</li>)}</ul>} />
         : <div className="relative">
           <QueryView widgetName={ko ? '실행 상세' : 'Execution details'} query={query} skeletonHeight={240}>
@@ -87,7 +87,7 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
   const axisEnd = spanEnd;
   const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
   return <div className={PANEL_GAP}>
-    <Panel title={ko ? '표시 속성' : 'Display attributes'} subtitle={ko ? '식별 키가 아닙니다.' : 'Not part of the identity key.'}>
+    <Panel title={ko ? '표시 속성' : 'Display attributes'} subtitle={ko ? '표시용 속성' : 'Display attributes'}>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Identity label={ko ? '공정' : 'Process'} value={execution.room} />
         <Identity label="Recipe" value={execution.recipe} />
@@ -98,8 +98,8 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
     </Panel>
 
     <Panel title={ko ? '공정 타임라인' : 'Process timeline'} subtitle={ko
-      ? 'XFR/FNC/PRC만 막대로 표시합니다. 빈 구간은 미분류이며 대기·불량으로 해석하지 않습니다.'
-      : 'Only XFR/FNC/PRC are bars. Gaps are unclassified — not wait and not scrap.'}>
+      ? 'XFR/FNC/PRC 막대 · 빈 구간: 미분류 (대기·불량 판정 없음)'
+      : 'XFR/FNC/PRC bars · gaps: unclassified (no wait or scrap verdict)'}>
       <div className="mb-2 flex flex-wrap gap-3 text-xs text-text-secondary">
         {(['XFR', 'FNC', 'PRC'] as const).map(kind => <span key={kind} className="inline-flex items-center gap-1.5"><span aria-hidden className={`inline-block h-2 w-4 ${SEGMENT_CLASS[kind]}`} />{kind}</span>)}
         <span className="inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2 w-4 bg-surface-sunken" />{ko ? '미분류' : 'Unclassified'}</span>
@@ -148,8 +148,8 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         ? <StatusBadge tone="warning">{ko ? '검토 표시' : 'Review flag'}</StatusBadge>
         : <StatusBadge tone="neutral">{ko ? '미확정' : 'Unconfirmed'}</StatusBadge>}
       <p className="mt-2 text-xs text-text-muted">{ko
-        ? '미확정은 값이 없다는 뜻이 아니라 판정 근거가 없다는 뜻입니다. 검토 표시는 수율·결함 수가 아닙니다.'
-        : 'Unconfirmed means there is no judgment source, not a zero. A review flag is not a yield or defect count.'}</p>
+        ? '미확정: 판정 근거가 없는 실행 · 검토 표시: 사람이 확인할 실행'
+        : 'Unconfirmed: executions without verdict evidence · Review flags: executions for human review'}</p>
     </Panel>
 
     <Panel title={ko ? '리니지' : 'Lineage'} subtitle={ko ? '논리 경로 예시입니다. 원천 경로와 지표 버전을 섞지 않습니다.' : 'An example logical path. The source path is not mixed with the metric version.'}>

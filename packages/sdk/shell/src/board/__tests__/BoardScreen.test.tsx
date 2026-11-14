@@ -105,8 +105,8 @@ describe('storage (docs/16 §7)', () => {
     mount();
     await settle();
     expect(screen.getAllByText('분석 화면 두 개를 넣어 나란히 비교하세요')).toHaveLength(1);
-    expect(screen.getByText('시트 — 비교 작업 하나를 담는 탭')).toBeInTheDocument();
-    expect(screen.getByText('칸 — 시트 안에 놓는 분석 화면 한 개')).toBeInTheDocument();
+    expect(screen.getByText('시트 · 비교 작업 하나를 담는 탭')).toBeInTheDocument();
+    expect(screen.getByText('칸 · 시트 안에 놓는 분석 화면 한 개')).toBeInTheDocument();
     expect(within(paneGroup(1)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
     expect(within(paneGroup(2)).getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
   });
@@ -162,7 +162,7 @@ describe('storage (docs/16 §7)', () => {
     localStorage.setItem(V2_KEY, newer);
     mount('/board');
     await settle();
-    expect(await screen.findByText('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.')).toBeInTheDocument();
+    expect(await screen.findByText('더 새 버전에서 저장한 보드 · 이 화면에서는 조회 전용')).toBeInTheDocument();
     // Once per user and condition: neither an edit nor a language switch raises it again (#886 G3).
     fireEvent.click(screen.getByRole('button', { name: '시트 추가' }));
     await settle();
@@ -406,7 +406,7 @@ describe('layout (docs/16 §4)', () => {
     await settle();
     fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
     await settle();
-    expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();
+    expect(await screen.findByText('이후 변경으로 실행 취소 중단')).toBeInTheDocument();
     const a = stored().sheets[0];
     expect(a.layout).toBe('2x2');
     expect(a.panes.map(p => p?.menuId ?? null)).toEqual(['alpha', 'alpha', null, 'beta']);
@@ -540,7 +540,7 @@ describe('sheet strip (docs/16 §4)', () => {
     seed(boardOf(Array.from({ length: MAX_SHEETS }, (_, i) => sheet(`s${i}`))));
     mount('/board?sheet=s0');
     await settle();
-    const add = screen.getByRole('button', { name: '시트 추가 — 시트는 최대 20장입니다' });
+    const add = screen.getByRole('button', { name: '시트 추가 · 시트는 최대 20장입니다' });
     expect(add).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(add);
     await settle();

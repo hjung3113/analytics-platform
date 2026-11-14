@@ -167,7 +167,7 @@ function FeatureBlock({ collapsed }: { collapsed: boolean }) {
     <ul className="space-y-0.5">{entries.map(entry => {
       const Icon = entry.icon;
       const label = tx(entry.label);
-      const inShellName = `${label} — ${spaceName}, ${featureName}`;
+      const inShellName = `${label} · ${spaceName}, ${featureName}`;
       const inShell = <PlatformLink via="sidebar" href={linkTo(entry.menuId, { global: emptyGlobal, page: entry.page, returnTo: true })} aria-label={inShellName}
         className={navRowVariants({ feature: true, collapsed })}>
         <Icon className="size-4 shrink-0" aria-hidden />

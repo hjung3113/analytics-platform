@@ -99,7 +99,7 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     expect(within(dialog).getByText(/행 10,000/)).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText('파일 순서 → 줄 번호 기준 첫 N행'), { target: { value: '10001' } });
     expect(within(dialog).getByRole('alert').textContent).toContain('1–10,000행');
-    expect(within(dialog).getByText(/현재 어댑터에서 내보내기를 지원하지 않습니다/)).toBeTruthy();
+    expect(within(dialog).getByText(/내보내기에 어댑터 연결·내보내기 권한 필요/)).toBeTruthy();
     expect((within(dialog).getByRole('button', { name: '내보내기' }) as HTMLButtonElement).disabled).toBe(true);
   });
   it('shows an unsupported sequence without displaying a fabricated track result', async () => {
@@ -145,7 +145,7 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     fireEvent.click(await screen.findByRole('button', { name: '근거 위치 바구니 · 1' }));
     fireEvent.keyDown(await screen.findByRole('button', { name: '넘기기' }), { key: 'Enter' });
     expect((await screen.findByRole('menuitem', { name: 'Round · Round에서 시작한 조사만' })).getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByText(/공식 FAIL이나 지식 발행을 확정하지 않습니다/)).toBeTruthy();
+    expect(screen.getByText(/공식 FAIL·지식 발행은 별도 확정/)).toBeTruthy();
   });
   it('resends the same create request after an unknown answer instead of creating again', async () => {
     write.mockResolvedValueOnce({ outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'lost', message: 'timeout' });
@@ -184,7 +184,7 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
     fireEvent.keyDown(await screen.findByRole('menuitem', { name: 'Round' }), { key: 'Enter' });
     const dialog = await screen.findByRole('alertdialog', { name: /Round에 근거 위치/ });
     expect(within(dialog).getByText('Round에 근거 위치 1개 넘기기')).toBeTruthy();
-    expect(within(dialog).getByText('참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다')).toBeTruthy();
+    expect(within(dialog).getByText('근거 위치 참조만 전달 · 공식 FAIL·기술 지식은 별도 확정')).toBeTruthy();
     expect(within(dialog).getByText('fileRef · line · fileSha256만 전달 · 본문 없음')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: '참조 전달' }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -237,7 +237,7 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
   });
   it.each([
     ['unknown', '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.'],
-    ['error', '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'],
+    ['error', '넘기지 못했습니다. 같은 요청으로 다시 시도하세요.'],
   ] as const)('resends the same request (same idempotency key) after %s', async (outcome, text) => {
     investigation = roundOf();
     write.mockResolvedValueOnce({ outcome, data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'lost' });

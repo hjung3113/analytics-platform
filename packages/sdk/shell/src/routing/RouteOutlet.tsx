@@ -56,7 +56,7 @@ export function ScreenOutlet() {
   if (metricInit.phase === 'confirm') {
     // This is a transient URL-stamping step; the final menu owns the pending arrival focus.
     return <div className="p-6"><StateMessage icon={<Link2Off className="size-4" aria-hidden />} title={lang === 'ko' ? '발행 버전 확인 중' : 'Confirming the released version'}
-      body={lang === 'ko' ? '서버가 확인한 버전을 URL에 기록하기 전에는 조회하지 않습니다.' : 'Nothing is queried until the server-confirmed version is written into the URL.'} action={<HomeLink />} /></div>;
+      body={lang === 'ko' ? '서버가 확인한 버전을 URL에 기록한 뒤 조회합니다.' : 'Queries begin after the server-confirmed version is written into the URL.'} action={<HomeLink />} /></div>;
   }
   if (metricInit.phase === 'blocked') {
     const id = global.metricId;

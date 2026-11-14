@@ -50,7 +50,7 @@ test.describe('HW Time 메뉴 4종 — 드릴 · 작업 영역 · 보드 (06 §1
       expect(query(page).has('drillMotion')).toBe(false);
       await expect(drillPath(page)).toContainText(MODULE);
 
-      await enter(page, menu.entry, MOTION, menu.id === 'hw-time-compare' ? `Motion별 동작시간 — Module ${MODULE}` : undefined);
+      await enter(page, menu.entry, MOTION, menu.id === 'hw-time-compare' ? `Module ${MODULE} · Motion별 동작시간` : undefined);
       await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
       if (menu.id === 'hw-time-compare') await expect(page.getByRole('region', { name: 'Module별 동작시간' })).toBeVisible();
       expect(query(page).get('drillModule')).toBe(MODULE);

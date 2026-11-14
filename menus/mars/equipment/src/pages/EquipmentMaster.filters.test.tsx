@@ -105,3 +105,21 @@ describe('EquipmentMaster filter model (ADR-0105)', () => {
     expect(screen.queryByLabelText('상태', { selector: 'select' })).toBeNull();
   });
 });
+
+
+describe('EquipmentMaster wall-clock display', () => {
+  it('shows validity dates and change time at minute precision', async () => {
+    window.history.replaceState(null, '', '/equipment?v=1&scopeId=MEM');
+    const datesAdapter = testAdapter({
+      session: () => session,
+      menuQuery: async req => req.endpoint === 'equipment.master.page'
+        ? ok({ rows: [{ ...row, validFrom: '2025-12-24T00:00:00', validTo: '2026-09-14T00:00:00', updatedAt: '2026-09-14T10:32:00' }], total: 1 })
+        : req.endpoint === 'equipment.master.makers' ? ok(['TEL']) : empty,
+    });
+    render(<I18nProvider><PlatformProvider adapter={datesAdapter} registry={registry}><DetailPanelSlotProvider><EquipmentMaster /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('2025-12-24')).toBeTruthy();
+    expect(screen.getByText('2026-09-14')).toBeTruthy();
+    expect(screen.getByText('2026-09-14 10:32')).toBeTruthy();
+    expect(screen.queryByText(/2025-12-24T|2026-09-14T/)).toBeNull();
+  });
+});

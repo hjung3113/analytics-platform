@@ -18,7 +18,7 @@ async function managedSystemOf(page: Page, space: string) {
   const inShell = [['VOC', '/flow/inbox'], ['Task', '/flow/task-list'], ['설문', '/flow/survey-management']] as const;
   for (const [index, [name, pathname]] of inShell.entries()) {
     const link = links.nth(index);
-    await expect(link).toHaveAccessibleName(`${name} — ${space}, 기능`);
+    await expect(link).toHaveAccessibleName(`${name} · ${space}, 기능`);
     await expect(link).not.toHaveAttribute('target', /.+/);
     const url = new URL((await link.getAttribute('href'))!, page.url());
     expect(url.pathname).toBe(pathname);

@@ -75,7 +75,7 @@ export function CoveragePicker({ modelId, softwareId, onChange }: { modelId: str
       <Combobox id="coverage-model" className="h-8 w-80 bg-surface-sunken px-2.5 py-0" options={modelOptions} value={modelId} filterOptions={false} onSearchChange={models.setSearch}
         onChange={next => { setPicked(modelOptions.find(o => o.value === next) ?? null); onChange({ modelId: next, softwareId: null }); }}
         placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록"
-        {...(models.hasMore ? { footerText: '일부만 보입니다 — 검색하거나 옆의 더 보기를 누르세요' } : {})}
+        {...(models.hasMore ? { footerText: '일부만 표시. 검색하거나 옆의 더 보기를 누르세요' } : {})}
         emptyText={models.loading ? '불러오는 중…' : models.failed ? '불러오지 못했습니다' : '결과가 없습니다'} />
       {models.failed && <><span role="alert" className="text-xs text-text-danger-label">모델 목록을 불러오지 못했습니다</span><Button type="button" size="toolbar" variant="ghost" onClick={models.retry}>다시 시도</Button></>}
       {!models.failed && models.hasMore && <Button type="button" size="toolbar" variant="ghost" disabled={models.loading} onClick={models.loadMore}>{models.loading ? '불러오는 중…' : '모델 더 보기'}</Button>}

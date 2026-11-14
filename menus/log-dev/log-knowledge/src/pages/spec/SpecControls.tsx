@@ -21,7 +21,7 @@ const SPEC_CODE_TEXT: Record<string, { ko: string; en: string }> = {
   duplicate: { ko: '이미 있는 대상입니다.', en: 'This target already exists.' },
   not_found: { ko: '찾을 수 없습니다.', en: 'Not found.' },
   unexpected_field: { ko: '알 수 없는 값입니다.', en: 'Unknown field.' },
-  target_mismatch: { ko: '값의 이름이 대상과 일치하지 않습니다.', en: 'The value name does not match the target.' },
+  target_mismatch: { ko: '대상과 같은 이름 필요', en: 'The value name must match the target.' },
   already_exists: { ko: '이미 있는 대상입니다.', en: 'This target already exists.' },
   overlap: { ko: '같은 대상의 적용 구간이 겹칩니다.', en: 'Another change overlaps this target.' },
   too_many: { ko: '열린 변경점이 너무 많습니다.', en: 'Too many open changes.' },

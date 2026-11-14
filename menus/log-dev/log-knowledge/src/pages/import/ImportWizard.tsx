@@ -269,7 +269,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
     try {
       if (!force && !(await cancelJobById(resume.jobId))) {
         setResume({ jobId: resume.jobId, failed: true });
-        setError({ text: '이전 가져오기 작업을 취소하지 못했습니다. 다시 시도하거나, 그대로 새로 시작할 수 있습니다.' });
+        setError({ text: '이전 가져오기 작업 취소 실패. 다시 시도하거나 그대로 새로 시작하세요.' });
         return;
       }
       setResume(null); setText(''); setSourceName(null);
@@ -336,7 +336,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
     </div>;
   } else if (step === 3 && job) {
     body = <div className="grid gap-3">
-      <Notice tone="amber" title={`확인이 필요한 행 ${conflicts.length}개`}>이 행들은 건너뛰기만 할 수 있습니다. 카탈로그를 고쳐서 반영하려면 고친 뒤 「다시 검사」를 누르세요.</Notice>
+      <Notice tone="amber" title={`확인이 필요한 행 ${conflicts.length}개`}>이 행들은 건너뛰기 대상입니다. 카탈로그를 고쳐서 반영하려면 고친 뒤 「다시 검사」를 누르세요.</Notice>
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={busy || unresolved.length === 0} onClick={() => { void skipRows(unresolved.map(r => r.rowNo)); }}>모두 건너뛰기</Button>
         <Button type="button" variant="secondary" disabled={busy} onClick={() => { void recheck(); }}>다시 검사</Button>
@@ -373,7 +373,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
         <Notice tone="blue" title="아직 아무것도 저장되지 않았습니다">「적용」을 누르면 카탈로그가 바뀝니다.</Notice>
         <p className="text-sm">새로 추가 <span className="tabular font-semibold">{counts.new}</span>행 · 변경 <span className="tabular font-semibold">{counts.update}</span>행을 반영합니다.
           {parents.vendors + parents.processes > 0 && <> 새 설비사 {parents.vendors} · 공정 {parents.processes}도 함께 만듭니다.</>}
-          {' '}건너뜀 {conflicts.length} · 오류 제외 {counts.error} · 그대로 {counts.unchanged}행은 반영하지 않습니다.</p>
+          {' '}건너뜀 {conflicts.length} · 오류 제외 {counts.error} · 그대로 {counts.unchanged}행은 반영 제외.</p>
         {writes === 0 && <p className="text-sm text-text-muted">반영할 행이 없습니다. 적용해도 카탈로그는 바뀌지 않습니다.</p>}
       </>}
       {phase === 'running' && <div className="grid gap-2" role="status" aria-live="polite">
@@ -384,7 +384,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
       {ended && end && end.kind !== 'done' && end.kind !== 'aborted' && <Notice tone={end.kind === 'conflict' ? 'amber' : 'red'} title="적용을 끝내지 못했습니다"
         action={end.kind === 'conflict' ? <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => { setPhase('ready'); void recheck(); }}>다시 검사</Button> : undefined}>{applyEndText(end)}</Notice>}
       {finished && end?.kind === 'done' && <Notice tone={end.status === 'completed' ? 'emerald' : 'amber'} title={end.status === 'completed' ? '적용했습니다' : '일부 행을 반영하지 못했습니다'}>
-        {end.status === 'completed' ? '카탈로그에 반영했습니다.' : '실패한 행만 다시 적용할 수 있습니다.'}</Notice>}
+        {end.status === 'completed' ? '카탈로그에 반영했습니다.' : '실패한 행만 다시 적용하세요.'}</Notice>}
       {(phase !== 'ready') && live && <Counts items={[['반영', live.applied, 'success'], ['그대로', live.unchanged, 'neutral'], ['건너뜀', live.skipped, 'neutral'], ['제외', live.excluded, 'neutral'], ['실패', live.failed, live.failed > 0 ? 'danger' : 'neutral'],
         ...(live.unresolved > 0 ? [['정리 안 됨', live.unresolved, 'warning'] as const] : [])]} />}
       {ended && <p className="t-caption text-text-muted">작업 상태: {JOB_STATUS_LABEL[status]}</p>}

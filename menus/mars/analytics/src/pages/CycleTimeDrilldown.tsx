@@ -252,16 +252,17 @@ export default function CycleTimeDrilldown(_: PageProps) {
           <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3">
-                <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
-                <StatCard icon={Gauge} chip="teal" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
-                <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={formatNumber(data.count, lang)} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
+                <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} />
+                <StatCard icon={Gauge} chip="teal" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} />
+                <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={formatNumber(data.count, lang)} />
                 <StatCard icon={AlertTriangle} chip="teal" label={ko ? '느린 실행 (P95 기준)' : 'Slow executions (P95 threshold)'} value={formatNumber(data.slowCount, lang)} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
               </div>}
             </QueryView>
           </div>
+          <p className="text-xs text-text-muted">{ko ? '적용 모집단: 완료된 합성 Job' : 'Applied population: completed synthetic jobs'}</p>
           <p className="text-xs text-text-muted">{ko
-            ? '0.1분 단위로 반올림합니다. 진행 중인 Job은 넣지 않습니다. 느린 실행은 표시된 P95 이상(같은 값 포함)입니다. 증감은 직전 같은 길이의 기간과 비교하며, 줄어든 것을 개선으로 칠합니다. 빈 구간은 0이 아닙니다.'
-            : 'Rounded to 0.1 min. In-progress jobs are not included. Slow means at or above the displayed P95, including ties. Deltas compare with the previous period of the same length and treat a decrease as an improvement. An empty bucket is not zero.'}</p>
+            ? '0.1분 반올림 · 완료 Job만 · 느린 실행 = P95 이상(같은 값 포함) · 증감: 직전 같은 길이 기간 대비, 감소가 개선 · 빈 구간 = 데이터 없음'
+            : 'Rounded to 0.1 min · completed jobs only · slow = at or above P95 (including ties) · deltas: previous equal-length period, decreases improve · empty bucket = no data'}</p>
           </div> },
             { id: 'trend', primary: true, minWidth: 480, minHeight: 320, preferredHeight: 420, title: { ko: '사이클타임 추세', en: 'Cycle time trend' }, render: () =>
             <QueryView widgetName={ko ? '사이클타임 추세' : 'Cycle time trend'} query={trend} skeletonHeight={280}>
@@ -349,7 +350,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             // No confirmed metric version → no export menu (D-9).
             exportRows={exportRowsWhenConfirmed(cycleVersion, (request, signal) => exports.fetch(exportParams(listFilter, request), signal))}
             exportFilterSummary={exportFilterSummary(listFilter, ko)} exportContext={cycleExportEndpoint.context}
-            exportNote={ko ? '페이지 필터가 적용된 목록이며 KPI 모집단 전체가 아닙니다' : 'Page filters apply; this is not the full KPI population'}
+            exportNote={ko ? '페이지 필터 적용 목록 (KPI 모집단과 별도)' : 'Page-filtered list (separate from the KPI population)'}
             emptyAction={(bucketRange || bin || tailMode !== 'p95')
               ? <Button size="sm" variant="secondary" onClick={() => setPage({ bucket: null, bin: null, percentile: 'all', page: null })}>{ko ? '목록 필터 해제' : 'Clear list filters'}</Button>
               : undefined}
@@ -366,8 +367,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
             loadPage={(query, signal) => slowPages.fetch({ ...listFilter, ...query, sorting: [{ id: sortSpec.id, desc: sortSpec.desc }] }, signal)}
           />
           <p className="shrink-0 text-xs text-text-muted">{ko
-            ? '미확정은 정상으로 채우지 않습니다. 검토 표시는 불량·수율이 아닙니다.'
-            : 'Unconfirmed is not filled in as pass. A review flag is not a defect or a yield.'}</p>
+            ? '미확정: 판정 근거가 없는 실행 · 검토 표시: 사람이 확인할 실행'
+            : 'Unconfirmed: executions without verdict evidence · Review flags: executions for human review'}</p>
           {kpi.response && kpi.response.outcome === 'ok' && <div className="shrink-0"><DataTrustIndicator trust={kpi.response.trust} assessments={kpi.response.assessments} /></div>}
           </div> },
           ]}

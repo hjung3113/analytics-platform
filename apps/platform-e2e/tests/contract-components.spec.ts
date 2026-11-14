@@ -347,7 +347,7 @@ test.describe('공통 상태 화면 (06 §19)', () => {
 test.describe('공유 위젯 응답 (06 §19, #55)', () => {
   test('생산성의 같은 오류 네 개는 배너 하나와 이름 있는 간결 상태 네 개로 표시한다', async ({ page }, testInfo) => {
     await page.goto('/mars/productivity-overview?v=1&scopeId=MEM');
-    await expect(page.getByRole('heading', { name: '네 지표 요약' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '지표 요약' })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
     const main = page.getByRole('main');
     const banner = main.getByRole('group', { name: '위젯 상태 요약' });
@@ -357,7 +357,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     await expect(banner.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
     await expect(banner).not.toContainText('Correlation ID');
     await expect(main.locator('[data-widget-state]')).toHaveCount(4);
-    for (const name of ['네 지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
+    for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
       const state = main.getByRole('group', { name, exact: true });
       await expect(state).toBeVisible();
       await expect(state.getByText('위 안내 참고')).toBeVisible();
@@ -369,7 +369,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     }
     await expect(main.getByRole('alert')).toHaveCount(0);
     await expect(main.locator('[data-outcome-announcer="assertive"]')).toContainText('위젯 4개가 같은 이유로');
-    await expect(main.getByText('네 지표 요약', { exact: true })).toHaveCount(1);
+    await expect(main.getByText('지표 요약', { exact: true })).toHaveCount(1);
     await evidence(page, testInfo, 'shared-error-banner');
   });
 

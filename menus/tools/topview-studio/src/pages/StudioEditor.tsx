@@ -192,11 +192,11 @@ export default function StudioEditor({ layoutId, layouts, templatesQuery, import
     : mode === 'template' ? '읽기 전용' : '게시됨';
   const blockedReason = canEdit && !canPublish ? 'Revision 게시·승격 권한이 없습니다.' : null;
   const draftReadReason = !draftSettled ? (draftQ.response === null ? '초안을 불러오는 중입니다.' : '초안을 불러오지 못했습니다.') : null;
-  const publishReason = mode === 'revision' ? '이미 게시된 Revision입니다.' : blockedReason ?? draftReadReason ?? (dirty ? '저장한 뒤 게시할 수 있습니다.' : session.version === null ? '저장한 초안이 없습니다.' : null);
+  const publishReason = mode === 'revision' ? '이미 게시된 Revision입니다.' : blockedReason ?? draftReadReason ?? (dirty ? '저장 후 게시 가능' : session.version === null ? '저장한 초안이 없습니다.' : null);
   const revisionDoc = revisionParsed?.ok ? revisionParsed.layout : null;
-  const promoteReason = mode === 'draft' ? '게시된 Revision만 EV Template으로 승격할 수 있습니다.' : blockedReason
-    ?? (revisionDoc === null ? 'Revision을 불러오는 중입니다.' : revisionDoc.kind !== 'equipment-layout' ? '게시된 equipment-layout만 승격할 수 있습니다.' : null);
-  const saveReason = draftReadReason ?? (edit === null ? '저장한 초안이 없습니다.' : !dirty ? '저장할 변경이 없습니다.' : invalidIssue ? `올바른 Layout이 아닙니다 · ${invalidIssue.path.join('.') || '(root)'}: ${invalidIssue.message}` : null);
+  const promoteReason = mode === 'draft' ? 'EV Template 승격 대상: 게시된 Revision' : blockedReason
+    ?? (revisionDoc === null ? 'Revision을 불러오는 중입니다.' : revisionDoc.kind !== 'equipment-layout' ? '승격 대상: 게시된 equipment-layout' : null);
+  const saveReason = draftReadReason ?? (edit === null ? '저장한 초안이 없습니다.' : !dirty ? '저장할 변경이 없습니다.' : invalidIssue ? `Layout 확인 필요 · ${invalidIssue.path.join('.') || '(root)'}: ${invalidIssue.message}` : null);
   const undoReason = writable && edit && !canUndo(edit) ? '실행 취소할 변경이 없습니다.' : null;
   const redoReason = writable && edit && !canRedo(edit) ? '다시 실행할 변경이 없습니다.' : null;
   const selectionReason = writable && !selected ? '회전하려면 Component를 선택하세요.' : null;

@@ -189,7 +189,7 @@ test.describe('06 §21 저장된 뷰', () => {
     await openCycle(page);
     const before = query(page).toString();
     const list = await openList(page);
-    await expect(list.getByText('볼 수 없는 뷰 — 조회 권한이 없는 공정이 포함되어 있습니다.')).toBeVisible();
+    await expect(list.getByText('볼 수 없는 뷰 · 조회 권한이 없는 공정이 포함되어 있습니다.')).toBeVisible();
     await expect(page.getByText('CMP 설비 비교')).toHaveCount(0);
 
     await expect(rowOf(list, 'LOT 추이 (이전 형식)')).toContainText('낡음');

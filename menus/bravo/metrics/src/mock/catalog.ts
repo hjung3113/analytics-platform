@@ -37,7 +37,7 @@ const JOB_COV = coverage(
   { ko: '완료된 Job 실행', en: 'Completed job executions' },
   { ko: 'anchor가 있는 완료 실행', en: 'Completed executions with an anchor' },
   { ko: '미완료·anchor 없음', en: 'Incomplete or missing anchor' },
-  { ko: '해당 없음 — 분위수는 분모 합산이 아님', en: 'Not applicable — quantiles are not a denominator sum' },
+  { ko: '해당 없음 · Job 모집단의 분위수', en: 'Not applicable · quantiles over the job population' },
   null,
 );
 const COUNT_COV = coverage(
@@ -59,7 +59,7 @@ const OWN = {
 export const METRICS: MetricDef[] = [
   {
     metricId: 'cycle_time', name: { ko: '사이클타임', en: 'Cycle time' }, domain: 'time', kind: 'quantile',
-    description: { ko: 'Job 실행 분포의 분위수. P50/P95는 같은 버전의 소비이며 평균하지 않습니다.', en: 'Quantiles of the job-execution distribution. P50/P95 consume the same version and are not averaged.' },
+    description: { ko: 'Job 실행 분포의 분위수 · P50/P95는 같은 지표 버전 사용', en: 'Quantiles of the job-execution distribution · P50/P95 use the same metric version' },
     ...OWN.time, publishedPointer: '4', catalogVersion: '4', draftVersion: '5', catalogStatus: 'published', populationRule: 'etch', updatedAt: '2026-09-24T09:00:00',
     usage: [
       { menuId: 'productivity-overview', place: { ko: '사이클 P50/P95 KPI', en: 'Cycle P50/P95 KPI' }, versions: ['4'] },
@@ -92,7 +92,7 @@ export const METRICS: MetricDef[] = [
       }),
       quantile({
         version: '5', state: 'draft', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: 'v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.', en: 'Copy of v4. Filter wording only. Not an analysis default.' },
+        formula: { ko: 'v4 복사 · 필터 문구 초안 · 분석 기본값은 발행된 버전', en: 'Copy of v4 · draft filter wording · released version used by default for analysis' },
         filters: [{ ko: '완료 Job (초안 문구)', en: 'Completed jobs (draft wording)' }], sourceContractRef: 'cycle-time-basis-v3', coverage: JOB_COV,
         changeReason: { ko: '필터 문구 초안. 발행 아님.', en: 'Draft filter wording. Not released.' }, registeredAt: '2026-09-24T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-24T09:00:00', updatedBy: 'park.seo',
       }),
@@ -100,7 +100,7 @@ export const METRICS: MetricDef[] = [
   },
   {
     metricId: 'occupancy_physical', name: { ko: '물리 점유율', en: 'Physical occupancy' }, domain: 'productivity', kind: 'ratio',
-    description: { ko: '점유 시간 합 / 대상 시간 합. 비율의 평균이 아닙니다.', en: 'Sum of occupied time over sum of eligible time. Not an average of ratios.' },
+    description: { ko: '점유 시간 합 / 대상 시간 합', en: 'Sum of occupied time over sum of eligible time' },
     ...OWN.prod, publishedPointer: '3', catalogVersion: '3', draftVersion: '4', catalogStatus: 'published', populationRule: 'not-retired', updatedAt: '2026-09-24T09:00:00',
     usage: [{ menuId: 'productivity-overview', place: { ko: '물리 점유율 KPI', en: 'Physical occupancy KPI' }, versions: ['3'] }],
     versions: [
@@ -128,7 +128,7 @@ export const METRICS: MetricDef[] = [
       }),
       ratio({
         version: '4', state: 'draft', unit: '%', grain: { ko: 'EquipmentID × 기간', en: 'EquipmentID × period' },
-        formula: { ko: 'v3 복사. 단위 표기 초안. 분석에 반환하지 않습니다.', en: 'Copy of v3. Unit wording draft. Not returned for analysis.' },
+        formula: { ko: 'v3 복사 · 단위 표기 초안 · 분석 대상은 발행된 버전', en: 'Copy of v3 · draft unit wording · analysis uses the released version' },
         numerator: 'occupied_duration', denominator: 'eligible_duration', filters: [{ ko: '유효 관측', en: 'Valid observation' }],
         sourceContractRef: 'occupancy-basis-v3', coverage: OCC_COV, changeReason: { ko: '단위 표기 초안', en: 'Draft unit wording' },
         registeredAt: '2026-09-24T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-24T09:00:00', updatedBy: 'kim.hana',
@@ -197,7 +197,7 @@ export const METRICS: MetricDef[] = [
     versions: [
       additive({
         version: '1', state: 'draft', unit: 's', rule: 'sum', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: 'queue_duration 합. 초안이며 발행 초기화 후보가 아닙니다.', en: 'Sum of queue_duration. A draft, not a release-initialization candidate.' }, numerator: 'queue_duration',
+        formula: { ko: 'queue_duration 합 · 초안 · 발행 초기화 대상 제외', en: 'Sum of queue_duration · draft · excluded from release initialization' }, numerator: 'queue_duration',
         filters: [{ ko: '대기 구간', en: 'Queue interval' }], sourceContractRef: 'queue-basis-draft', coverage: JOB_COV,
         changeReason: { ko: '초안 등록. 발행하지 않음.', en: 'Draft registered. Not released.' }, registeredAt: '2026-09-22T09:00:00', publishedAt: null, deprecatedAt: null, updatedAt: '2026-09-22T09:00:00', updatedBy: 'park.seo',
       }),
@@ -430,7 +430,7 @@ function metricAuditEvents(metric: MetricDef): AuditEvent[] {
         action: 'update',
         source: 'user',
         target,
-        reason: '발행 확정. mart 재계산 완료가 아닙니다.',
+        reason: '정의 발행 확정 · mart 재계산은 별도',
         changes: { metricVersion: [v.version, v.version], publicationState: ['draft', 'published'] },
       });
     }
@@ -442,7 +442,7 @@ function metricAuditEvents(metric: MetricDef): AuditEvent[] {
         action: 'retire',
         source: 'user',
         target,
-        reason: '폐기. 기존 참조는 유지하고 최신으로 대체하지 않습니다.',
+        reason: '폐기 · 기존 버전 참조 유지',
         changes: { metricVersion: [v.version, v.version], publicationState: ['published', 'deprecated'] },
       });
     }

@@ -224,7 +224,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{row.code}을(를) 비활성화할까요?</AlertDialogTitle>
-          <AlertDialogDescription>{impactText(kind, row)} 비활성화해도 하위 항목은 바뀌지 않습니다. 언제든 다시 활성화할 수 있습니다.</AlertDialogDescription>
+          <AlertDialogDescription>{impactText(kind, row)} 비활성화 후 하위 항목 유지 · 언제든 재활성화 가능</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>취소</AlertDialogCancel>

@@ -59,7 +59,7 @@ export function publishBlockReason(input: { dirty: boolean; plan: Pick<PublishPl
 }
 
 /** Publishing takes the Baseline from an active window only (`publishMapping` answers `windowHash/not_active` otherwise). */
-export const WINDOW_NOT_ACTIVE_REASON = '활성 Sample Window에서만 게시할 수 있습니다';
+export const WINDOW_NOT_ACTIVE_REASON = '게시 조건: 활성 Sample Window';
 
 /** `derivePublishPlan`'s problem when the draft and saved rules equal the latest Binding. */
 export const SAME_AS_LATEST = '이전 게시와 같습니다';
@@ -132,11 +132,11 @@ const occurrenceCount = (problems: readonly ImportProblem[]): number => {
 };
 /** Words of the import codes (core `ImportRejectCode`, `ImportWarningCode`) and the server's refusal codes. Occurrences read «이벤트», as in the 데이터 table. */
 const IMPORT_PROBLEM_TEXT: Record<string, (facts: ProblemFacts) => string> = {
-  schema: () => 'Sample Window(batch) 파일 형식이 아닙니다.',
+  schema: () => 'Sample Window(batch) 파일 형식 필요',
   'fraction-too-long': ({ count }) => `시각 ${count}개의 초 소수점이 세 자리를 넘습니다.`,
   'fraction-missing': ({ count }) => `시각 ${count}개에 초 소수점 세 자리가 없습니다.`,
   offset: ({ count }) => `시각 ${count}개에 시간대가 붙어 있습니다. 현장 시각은 시간대 없이 씁니다.`,
-  'malformed-time': ({ count }) => `시각 ${count}개가 YYYY-MM-DDTHH:mm:ss.fff 형식이 아닙니다.`,
+  'malformed-time': ({ count }) => `시각 ${count}개 형식 확인 필요 · YYYY-MM-DDTHH:mm:ss.fff`,
   'empty-range': () => '구간의 끝이 시작보다 늦지 않습니다.',
   'empty-time-domain': () => 'timeDomain이 비어 있습니다.',
   continuation: () => '이어지는 부분이 남은 batch입니다. 끝까지 담긴 batch만 가져올 수 있습니다.',
@@ -172,7 +172,7 @@ export function importProblemLines(problems: readonly ImportProblem[], facts: { 
     return {
       code,
       text: words ? words({ count: group.length, problems: group, dataGeneration: facts.dataGeneration ?? null }) : `확인하지 못한 문제입니다(${code}).`,
-      details: group.map((p) => `${fieldErrorLine(p)}${p.message ? ` — ${p.message}` : ''}`),
+      details: group.map((p) => `${fieldErrorLine(p)}${p.message ? ` · ${p.message}` : ''}`),
     };
   });
 }

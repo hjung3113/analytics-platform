@@ -75,8 +75,8 @@ describe('ProductivityOverview guidance wording (UX-304-01)', () => {
     // PlatformPage gates children behind the async scope validation — wait for the page itself to render.
     await screen.findByRole('radiogroup', { name: '집계 단위' });
     const body = document.body.textContent ?? '';
-    expect(body).toContain('카드를 선택하면');
-    expect(body).toContain('같은 길이 기간과 비교');
+    expect(body).toContain('카드를 고르면');
+    expect(body).toContain('바로 앞 같은 길이 기간 대비');
     expect(body).not.toContain('URL 키');
     expect(body).not.toContain('페이지 소유');
     expect(body).not.toContain('kpi');

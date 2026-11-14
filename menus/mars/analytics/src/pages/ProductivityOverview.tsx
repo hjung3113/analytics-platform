@@ -121,7 +121,7 @@ export default function ProductivityOverview(_: PageProps) {
         onClick={() => selectKpi(kpi)} active={active}
         value={o ? n1(o.pct) : '—'} unit="%"
         delta={o && po ? deltaOf(o.pct, po.pct, true, v => `${v.toFixed(1)}pp`) : undefined}
-        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 — 미확인 (0% 아님)' : 'denominator 0 — not confirmed, not 0%')}
+        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (ko ? '분모 0 · 미확인 (0% 아님)' : 'denominator 0 · not confirmed (not 0%)')}
         footnote={o && <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" role="img"
           aria-label={ko ? `점유 ${n1(o.num)}시간 / 관측 가능 ${n1(o.den)}시간 = ${n1(o.pct)}%` : `occupied ${n1(o.num)}h of ${n1(o.den)}h observable = ${n1(o.pct)}%`}>
           {/* eslint-disable-next-line shadcn/no-inline-styles -- bar width is the occupancy percentage computed at runtime */}
@@ -134,7 +134,7 @@ export default function ProductivityOverview(_: PageProps) {
         onClick={() => selectKpi(kpi)} active={active}
         value={d ? n2(d.perJobH) : '—'} unit={ko ? '시간 / Job' : 'h / Job'}
         delta={d && pd ? deltaOf(d.perJobH, pd.perJobH, false, v => `${v.toFixed(3)}h`) : undefined}
-        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (ko ? '완료 Job 없음 — 미확인' : 'no completed job — not confirmed')} />;
+        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (ko ? '완료 Job 없음 · 미확인' : 'no completed job · not confirmed')} />;
     }
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
@@ -161,7 +161,7 @@ export default function ProductivityOverview(_: PageProps) {
   const trendMeta: Record<KpiKey, { title: string; names: string[]; colors: ThemeColorToken[]; dashed?: boolean[]; kind: 'line' | 'bar'; unit: string; decimals: 0 | 1 | 2; description: string }> = {
     occupancy: {
       title: ko ? '물리 점유율 추세' : 'Physical occupancy trend', names: [ko ? '물리 점유율' : 'Physical occupancy'], colors: ['chart-blue'], kind: 'line', unit: '%', decimals: 1,
-      description: ko ? '점유 시간 합 ÷ 관측 가능 시간 합 — 비율은 분자·분모를 각각 합산 (설비별 %의 평균 아님)' : 'sum(occupied) ÷ sum(observable); ratios sum numerator and denominator separately, never average per-equipment %',
+      description: ko ? '점유 시간 합 ÷ 관측 가능 시간 합 (분자·분모를 각각 합산)' : 'sum(occupied) ÷ sum(observable) (numerator and denominator summed separately)',
     },
     dwell: {
       title: ko ? '비Process 체류 추세' : 'Non-process dwell trend', names: [ko ? '비Process 체류' : 'Non-process dwell'], colors: ['chart-teal'], kind: 'line', unit: ko ? '시간/Job' : 'h/Job', decimals: 2,
@@ -169,11 +169,11 @@ export default function ProductivityOverview(_: PageProps) {
     },
     cycleTime: {
       title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-teal'], dashed: [false, true], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
-      description: ko ? '완료 Job 풀링 모집단의 분위수 — 설비·버킷별 P95의 평균 아님' : 'quantiles over the pooled completed-job population, never averages of per-equipment/bucket P95s',
+      description: ko ? '완료 Job 전체를 한 모집단으로 본 분위수' : 'quantiles over all completed jobs as one population',
     },
     throughput: {
       title: ko ? 'Job 처리량 추세' : 'Job throughput trend', names: [ko ? '완료 Job' : 'Completed jobs'], colors: ['chart-blue'], kind: 'bar', unit: 'Job', decimals: 0,
-      description: ko ? '완료 Job 수 · 0축 시작 막대' : 'completed jobs · zero-based bars',
+      description: ko ? '완료 Job 수' : 'completed jobs',
     },
   };
   const meta = trendMeta[shownKpi];
@@ -263,13 +263,13 @@ export default function ProductivityOverview(_: PageProps) {
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="kpi-heading" className="t-section-title">{ko ? '네 지표 요약' : 'Four-metric summary'}</h2>
+          <h2 id="kpi-heading" className="t-section-title">{ko ? '지표 요약' : 'Metric summary'}</h2>
           <div>
-            <p className="t-caption text-text-muted">{ko ? '카드를 선택하면 그 지표의 추이를 볼 수 있습니다. 증감은 바로 앞의 같은 길이 기간과 비교합니다.' : 'Select a card to see that metric’s trend. Deltas compare the previous equal-length period.'}</p>
+            <p className="t-caption text-text-muted">{ko ? '카드를 고르면 그 지표의 추이가 아래에 나옵니다. 증감: 바로 앞 같은 길이 기간 대비.' : 'Select a card to show its trend below. Deltas: previous equal-length period.'}</p>
             <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[ko ? 'ko' : 'en']}</p>
           </div>
         </div>
-        <QueryView widgetName={ko ? '네 지표 요약' : 'Four-metric summary'} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={ko ? '지표 요약' : 'Metric summary'} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
@@ -321,8 +321,8 @@ export default function ProductivityOverview(_: PageProps) {
               return <>
                 <AnalysisChartFrame
                   chartId="productivity-occupancy-breakdown"
-                  title={shownAxis === 'room' ? (ko ? '공정별 점유 구성' : 'Occupancy composition by process') : (ko ? '점유 구성 — StGroup' : 'Occupancy composition — StGroup')}
-                  description={ko ? '기간 내 관측 가능 시간 대비 물리 점유 시간. 회색은 명명된 잔여 범주 “미점유(관측 가능 시간)”입니다.' : 'Occupied vs observable hours over the period; gray is the named remainder category “not occupied (observable)”.'}
+                  title={shownAxis === 'room' ? (ko ? '공정별 점유 구성' : 'Occupancy composition by process') : (ko ? 'StGroup별 점유 구성' : 'Occupancy composition by StGroup')}
+                  description={ko ? '관측 가능 시간 대비 물리 점유 시간 · 회색: 미점유 시간' : 'Occupied vs observable hours · gray: unoccupied hours'}
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
@@ -340,7 +340,7 @@ export default function ProductivityOverview(_: PageProps) {
                 />
                 <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card">
                   <table className="w-full text-xs">
-                    <caption className="sr-only">{ko ? '점유 구성 분자·분모 표 — 차트와 같은 세대' : 'Occupancy numerator/denominator table — same generation as the chart'}</caption>
+                    <caption className="sr-only">{ko ? '공정별 점유 시간 · 관측 가능 시간 표' : 'Occupied and observable hours by process'}</caption>
                     <thead className="bg-surface-sunken"><tr>
                       {columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={cn('t-table-header px-3 py-1.5 text-text-secondary', col.align === 'right' ? 'text-right' : 'text-left')}>
                         <button type="button" onClick={() => {
@@ -379,7 +379,7 @@ export default function ProductivityOverview(_: PageProps) {
         {/* Attention List: ranking only, no threshold verdicts (wireframe 11 §1) */}
         <section aria-label={ko ? '확인할 항목' : 'Attention list'}>
           <Panel title={ko ? '확인할 항목' : 'Attention'}
-            subtitle={ko ? '비Process 체류·P95 상위 설비입니다. 순위만 보여 주며 기준을 넘었는지는 판정하지 않습니다.' : 'Top equipment by dwell and P95. Ranking only; this is not a threshold verdict.'}>
+            subtitle={ko ? '비Process 체류·P95 상위 설비 (순위만, 기준 판정 없음)' : 'Top equipment by non-process dwell and P95 (ranking only, no threshold verdict)'}>
             <QueryView widgetName={ko ? '확인할 항목' : 'Attention'} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">

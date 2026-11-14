@@ -212,7 +212,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       <IconAction label="다시 실행 · Ctrl/Cmd+Shift+Z" icon={<Redo2 className="size-4" aria-hidden />} disabled={save.pending || !canRedoBoard(board)} onClick={() => setBoard((b) => (b ? redoBoard(b) : b))} />
       <Button size="toolbar" variant="secondary" disabled={save.pending || autoRows.length === 0} onClick={confirmAuto}>자동 일괄 확정 ({autoRows.length})</Button>
       <Button size="toolbar" variant="primary" disabled={!canSave} aria-describedby={conflict ? `${ids}-save-locked` : undefined} onClick={() => void onSave()}><Save className="size-3.5" aria-hidden />저장</Button>
-      {conflict && <span id={`${ids}-save-locked`} className="text-text-muted">다시 불러온 뒤 저장할 수 있습니다</span>}
+      {conflict && <span id={`${ids}-save-locked`} className="text-text-muted">다시 불러온 뒤 저장하세요</span>}
       <span ref={statusRef} role="status" tabIndex={-1} className="text-text-secondary">{statusText}</span>
       {saveScope === 'model' && <span className="text-text-muted">Model 범위 규칙은 {names.maker} / {names.model}의 모든 설비에 적용됩니다.</span>}
     </div>}

@@ -94,7 +94,7 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
     </div>
     <div className="flex shrink-0 items-center gap-1 px-2">
       <Button type="button" variant="ghost" size="icon-sm" aria-disabled={full} title={full ? text.maxSheets : text.addSheet}
-        aria-label={full ? `${text.addSheet} — ${text.maxSheets}` : text.addSheet}
+        aria-label={full ? `${text.addSheet} · ${text.maxSheets}` : text.addSheet}
         onClick={() => { if (!full) onAdd(); }}><Plus className="size-3.5" aria-hidden /></Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

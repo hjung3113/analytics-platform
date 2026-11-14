@@ -42,7 +42,7 @@ export function ValidateTab({ data, layout, run, plan, error, effectiveFrom, onE
         {error ? <Callout tone="red"><span role="alert">{error}</span></Callout> : run === null ? <p role="status" className="text-text-secondary">계산 중…</p>
           : coverage ? <p aria-label="커버리지">참조 {coverage.references.resolved}/{coverage.references.total} · 커버리지 {percent(coverage.references.ratio)} · alias {coverage.aliases.resolved}/{coverage.aliases.total} · 무시 {coverage.ignored.aliases.length} · assumed {percent(coverage.assumed.ratio)} · 미매핑 {coverage.unmapped.length}</p> : null}
         {run && run.issues.length > 0 && <Callout tone="red" title="규칙 문제 · 게시할 수 없습니다"><ul className="m-0 list-disc pl-4">{run.issues.map((issue) => <li key={JSON.stringify([issue.code, issue.path])}>{issue.code}: {issue.message}</li>)}</ul></Callout>}
-        <p className="text-text-muted">Mapping 탭의 저장하지 않은 편집은 포함하지 않습니다.</p>
+        <p className="text-text-muted">Mapping 탭에 저장한 내용만 포함</p>
       </div>
       <div className="space-y-2">
         <PanelSectionTitle className="mb-0">Mapping Conflict · {run?.conflicts.length ?? '—'}</PanelSectionTitle>
@@ -66,7 +66,7 @@ export function ValidateTab({ data, layout, run, plan, error, effectiveFrom, onE
     <div className={cn(PANEL, 'flex-1')}>
       <Toolbar modeText={<>검증 · <span className="font-mono">{layout.id}</span></>} tools={null} count={layout.components.length} loading={false} />
       <Canvas layout={layout} selectedId={null} onSelect={() => undefined} {...(conflict ? { highlight: conflictHighlight(conflict) } : {})} />
-      {conflict?.kind === 'transfer-without-capability' && <p className="shrink-0 border-t border-border-subtle px-3 py-1 text-xs text-text-secondary">점선은 관측 이송의 표시입니다. 경로·궤적·Transfer Capability가 아닙니다.</p>}
+      {conflict?.kind === 'transfer-without-capability' && <p className="shrink-0 border-t border-border-subtle px-3 py-1 text-xs text-text-secondary">점선: 관측 이송 · 경로·궤적·Transfer Capability 정보 없음</p>}
     </div>
   </div>;
 }

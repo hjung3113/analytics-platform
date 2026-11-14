@@ -86,7 +86,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
     if (r.outcome === 'ok' && r.data?.targetKind === 'knowledgeDraft') { setAgain(null); onDone(submittedMode === 'create' ? `새 초안에 ${r.data.handedOff}개 넘김` : `내 초안에 근거 위치 ${r.data.handedOff}개를 전달했습니다. 이미 있던 위치는 더해지지 않습니다.`); return; }
     if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) {
       setAgain(() => r.retry!); setRetryMode(submittedMode);
-      setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'); return;
+      setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '넘기지 못했습니다. 같은 요청으로 다시 시도하세요.'); return;
     }
     setAgain(null);
     if (r.fieldErrors.some(field => field.path.join('.') === 'expectedVersion' && field.code === 'conflict')) { setConflict(true); return; }
@@ -116,7 +116,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
           <p className="text-text-secondary">해시가 다른 위치는 메모 앞에 [해시 불일치]를 붙여 전달합니다.</p>
           <details><summary className="cursor-pointer">위치별 확인 결과 · {investigation.evidence.length}개</summary><ul className="mt-2 grid gap-2" aria-label="근거 위치 확인 결과">{investigation.evidence.map(({ ref }) => {
             const status = statuses.get(`${ref.fileRef}:${ref.line}`) ?? 'unresolved';
-            return <li key={`${ref.fileRef}:${ref.line}`} className="grid gap-1 border-b border-border-subtle pb-2"><div className="flex flex-wrap items-center gap-2"><span className="t-mono">{ref.fileRef}:{ref.line}</span><StatusBadge tone={status === 'unresolved' ? 'danger' : status === 'hash_mismatch' ? 'warning' : 'neutral'}>{status === 'unresolved' ? '제외 · 원본 없음' : status === 'hash_mismatch' ? '전달 · 해시 불일치' : '전달 가능'}</StatusBadge></div><p className="break-all t-mono">SHA-256 {ref.fileSha256}</p><p>{status === 'unresolved' ? 'Source에서 파일을 찾을 수 없어 전달하지 않습니다. 바구니에 남습니다.' : `${status === 'hash_mismatch' ? '[해시 불일치] ' : ''}${ref.note ?? ''}`}</p></li>;
+            return <li key={`${ref.fileRef}:${ref.line}`} className="grid gap-1 border-b border-border-subtle pb-2"><div className="flex flex-wrap items-center gap-2"><span className="t-mono">{ref.fileRef}:{ref.line}</span><StatusBadge tone={status === 'unresolved' ? 'danger' : status === 'hash_mismatch' ? 'warning' : 'neutral'}>{status === 'unresolved' ? '제외 · 원본 없음' : status === 'hash_mismatch' ? '전달 · 해시 불일치' : '전달 가능'}</StatusBadge></div><p className="break-all t-mono">SHA-256 {ref.fileSha256}</p><p>{status === 'unresolved' ? 'Source에 원본 없음 · 전달 제외 · 바구니에 유지' : `${status === 'hash_mismatch' ? '[해시 불일치] ' : ''}${ref.note ?? ''}`}</p></li>;
           })}</ul></details>
         </>}
         {check.failed && <div><Button type="button" variant="secondary" size="sm" onClick={check.retry}>다시 확인</Button></div>}
@@ -130,7 +130,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
           <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">유형 <StatusBadge tone="neutral">확인 필요</StatusBadge><span>작성 중 · 작성자만 볼 수 있음</span></p>
         </div></TabsContent>
         <TabsContent value="append"><section className="grid gap-3 text-sm" aria-label="내 초안 목록">
-          <p className="text-xs text-text-secondary">내가 쓴, 끝나지 않은 초안 {rows.length}개 · 같은 파일·줄·해시는 중복으로 더하지 않습니다.</p>
+          <p className="text-xs text-text-secondary">내가 쓴, 끝나지 않은 초안 {rows.length}개 · 같은 파일·줄·해시는 한 번만 추가</p>
           {drafts.loading && <Skeleton className="h-16" />}
           {drafts.failed && <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">내 초안 목록을 불러오지 못했습니다.</span><Button type="button" variant="secondary" size="sm" onClick={drafts.retry}>목록 다시 확인</Button></div>}
           {!drafts.loading && !drafts.failed && !rows.length && <p>덧붙일 내 초안이 없습니다.</p>}
@@ -141,7 +141,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
       <div className="grid gap-2 text-xs empty:hidden">
       {mode === 'append' && selected && <p>기존 {selected.evidenceCount} + 새 위치 최대 {eligible.length} = 최대 {total}/20 · 중복은 서버에서 제외</p>}
       {reason && !sourceError && <p id={`${uid}-reason`} className="text-xs text-text-secondary">{reason}</p>}
-      {!reason && <p className="text-xs text-text-secondary">{mode === 'create' ? `새 초안에 근거 위치 ${eligible.length}개를 넘깁니다. 발행·승인이 아닙니다.` : '선택한 초안에 근거 위치만 덧붙입니다. 기존 관찰은 바꾸지 않습니다.'}</p>}
+      {!reason && <p className="text-xs text-text-secondary">{mode === 'create' ? `새 초안에 근거 위치 ${eligible.length}개를 넘깁니다. 발행·승인은 별도 진행.` : '선택한 초안에 근거 위치만 추가 · 기존 관찰 유지'}</p>}
       {error && <p ref={alertRef} role="alert" tabIndex={-1} className={errorOnFields && Object.keys(fieldErrors).length > 0 ? 'sr-only' : 'text-sm text-text-danger-label'}>{error}</p>}
       {conflict && <div ref={conflictRef} role="alert" tabIndex={-1}><Callout tone="amber" title="초안 버전 충돌" action={<Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => { drafts.retry(); setDraftId(''); setConflict(false); }}>목록 다시 확인</Button>}>다른 변경으로 초안 버전이 달라졌습니다. 아무 위치도 추가하지 않았습니다. 목록을 다시 확인하고 대상을 고르세요.</Callout></div>}
       </div>

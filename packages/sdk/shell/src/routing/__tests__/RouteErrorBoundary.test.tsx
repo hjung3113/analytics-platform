@@ -9,9 +9,9 @@ import { AppShell } from '../../frame/AppShell';
 import { RouteErrorBoundary } from '../RouteErrorBoundary';
 
 const TRACE = 'client-test-606';
-const RECOVERY = '다른 메뉴는 그대로 사용할 수 있습니다. 다시 시도하거나 홈으로 이동하세요.';
+const RECOVERY = '다른 메뉴는 그대로 동작합니다. 다시 시도하거나 홈으로 이동하세요.';
 const MANUAL = '문의할 때 아래 추적 번호를 알려 주세요.';
-const RECEIPT = '오류 신고가 접수되었습니다. 다시 시도하거나 홈으로 이동할 수 있습니다.';
+const RECEIPT = '오류 신고가 접수되었습니다. 다시 시도하거나 홈으로 이동하세요.';
 const registry = createRegistry({
   spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'home' })],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
@@ -122,7 +122,7 @@ describe('RouteErrorBoundary approved B report entry', () => {
     const user = userEvent.setup();
     await user.click(entry('Report this error'));
     await user.click(screen.getByRole('button', { name: 'Submit report' }));
-    expect(main().getByRole('status', { name: 'Error report result' })).toHaveTextContent('Your error report has been received. You can retry or go home.');
+    expect(main().getByRole('status', { name: 'Error report result' })).toHaveTextContent('Your error report has been received. Retry or go home.');
   });
 
   it('keeps retry and home ahead of reporting in DOM and sequential keyboard order', async () => {

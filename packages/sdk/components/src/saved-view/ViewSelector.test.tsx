@@ -213,7 +213,7 @@ describe('ViewSelector', () => {
   it('a denied view shows only the reason', async () => {
     render(<Harness views={[{ id: 'x', denied: true, reason: '권한 없음' }, ...VIEWS]} />);
     await open();
-    expect(screen.getByText(/볼 수 없는 뷰 — 권한 없음/)).toBeVisible();
+    expect(screen.getByText(/볼 수 없는 뷰 · 권한 없음/)).toBeVisible();
   });
 });
 

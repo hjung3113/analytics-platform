@@ -276,7 +276,7 @@ function RoomEditor({ cap }: { cap: Capability }) {
   const { t, lang } = useI18n();
   return <SetEditor label={t('roomNames')} cap={cap} value={global.roomNames} absentLabel={t('all')} onApply={v => setGlobal({ roomNames: v })}
     options={scope.grantedRooms.map(id => ({ id }))}
-    note={lang === 'ko' ? '공정은 요청 Scope 안의 조회 범위를 좁힐 뿐 권한을 부여하지 않습니다.' : 'Process narrows the requested scope; it never grants access.'} />;
+    note={lang === 'ko' ? '공정: 요청 Scope 안의 조회 범위 · 접근에는 별도 권한 필요' : 'Process narrows the requested scope · access requires permission'} />;
 }
 
 function ConditionEditor({ cap }: { cap: Capability }) {
@@ -361,5 +361,5 @@ function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: Req
   return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
     absentLabel={global.condition ? (lang === 'ko' ? `조건 결과 전체 (${count})` : `All condition results (${count})`) : t('all')}
     onApply={v => setGlobal({ selection: v })} options={options}
-    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 — 자동 제거하지 않습니다.` : `${outside.length} outside the current condition — not removed automatically.`}</b>}</>} />;
+    note={<>{lang === 'ko' ? 'Selection은 고정 EquipmentID 집합입니다.' : 'Selection is a fixed EquipmentID set.'}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{lang === 'ko' ? '조건 결과를 확인하지 못했습니다.' : 'Could not evaluate the condition.'} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{lang === 'ko' ? `현재 조건 결과 밖 ${outside.length}대 · 선택 유지.` : `${outside.length} outside the current condition · selection retained.`}</b>}</>} />;
 }

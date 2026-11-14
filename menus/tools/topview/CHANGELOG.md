@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.1.1 — 2026-11-14
+
+- 화면 문구를 긍정형 개조식으로 정리하고 줄표·가능 표현을 줄임 (#1996).
+
 ## 0.1.0 — 2026-11-11
 
 - 뷰어(Top View·Focus)를 호스트 모듈 마운트에서 일반 메뉴 패키지로 옮겼다(#1659). 그룹 `topview`(도구 공간), 메뉴 `eqv:topview`(주 화면, `/tools/eqv-topview`, 별칭 `/tools/topview`)·`eqv:focus`(`/tools/eqv-focus`, 별칭 `/tools/topview/focus`), 권한 `eqv:view`. id·경로·페이지 키·요청 파라미터는 그대로다.

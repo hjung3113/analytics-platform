@@ -21,7 +21,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await expect(page.getByRole('menuitem', { name: '지식 초안', exact: true })).toBeEnabled();
     await expect(page.getByRole('menuitem', { name: '결함 · 수신 대상 없음', exact: true })).toBeDisabled();
     await page.keyboard.press('Escape');
-    await expect(page.getByText(/공식 FAIL이나 지식 발행을 확정하지 않습니다/)).toBeVisible();
+    await expect(page.getByText(/공식 FAIL·지식 발행은 별도 확정/)).toBeVisible();
     await evidence(page, info, 'log-explorer-synthetic-basket');
   });
   test('Round에서 시작한 조사: 근거 위치를 Round로 넘기는 확인 대화상자(#1474)', async ({ page }, info) => {
@@ -34,7 +34,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await trigger.click();
     await page.getByRole('menuitem', { name: 'Round', exact: true }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Round에 근거 위치 1개 넘기기' });
-    await expect(dialog.getByText('참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다')).toBeVisible();
+    await expect(dialog.getByText('근거 위치 참조만 전달 · 공식 FAIL·기술 지식은 별도 확정')).toBeVisible();
     await expect(dialog.getByText('fileRef · line · fileSha256만 전달 · 본문 없음')).toBeVisible();
     await dialog.getByRole('button', { name: '참조 전달', exact: true }).click();
     await expect(page.getByText('Round에 1개 넘김 · 이미 있던 위치 0개 · 원본 없음 0개')).toBeVisible();
@@ -141,7 +141,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await page.getByRole('button', { name: '현재 범위 내보내기…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '현재 범위 내보내기', exact: true });
     await expect(dialog.getByText(/행 10,000 · 5MB · 일일 20회 · 동시 1건/)).toBeVisible();
-    await expect(dialog.getByText(/현재 어댑터에서 내보내기를 지원하지 않습니다/)).toBeVisible();
+    await expect(dialog.getByText(/내보내기에 어댑터 연결·내보내기 권한 필요/)).toBeVisible();
     await expect(dialog.getByRole('button', { name: '내보내기', exact: true })).toBeDisabled();
     await evidence(page, info, 'log-explorer-export-range-and-reason');
   });

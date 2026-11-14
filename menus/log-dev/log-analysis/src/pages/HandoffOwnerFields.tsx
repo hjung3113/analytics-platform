@@ -35,7 +35,7 @@ export function HandoffOwnerFields({ uid, value, onChange, disabled, errors }: {
       </RadioGroup>
       <Combobox id={`${uid}-model`} aria-invalid={!!errors.model} aria-describedby={`${uid}-owner-hint${errors.model ? ` ${uid}-model-error` : ''}`} options={shown} value={value.modelId || null} disabled={disabled} filterOptions={false}
         onChange={modelId => { setPicked(shown.find(row => row.value === modelId) ?? null); onChange({ modelId, softwareId: '' }); }}
-        onSearchChange={q => { setSearch(q); setPage(0); setOptions([]); }} placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록" emptyText={models.loading ? '불러오는 중…' : '결과가 없습니다'} {...(hasMore ? { footerText: '일부만 보입니다 — 검색하거나 아래 더 보기를 누르세요' } : {})} />
+        onSearchChange={q => { setSearch(q); setPage(0); setOptions([]); }} placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록" emptyText={models.loading ? '불러오는 중…' : '결과가 없습니다'} {...(hasMore ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})} />
       {errors.model && <p id={`${uid}-model-error`} className="text-xs text-text-danger-label">{errors.model}</p>}
       {models.failed && <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">모델 목록을 불러오지 못했습니다</span><Button type="button" variant="ghost" size="sm" onClick={models.retry}>다시 시도</Button></div>}
       {hasMore && <div><Button type="button" variant="ghost" size="sm" disabled={disabled || models.loading} onClick={() => setPage(n => n + 1)}>모델 더 보기</Button></div>}
@@ -59,7 +59,7 @@ function SoftwarePicker({ id, modelId, value, disabled, onChange, hintId, error 
     <Label htmlFor={id} className="sr-only">SW 버전</Label>
     <Combobox id={id} aria-invalid={!!error} aria-describedby={`${hintId}${error ? ` ${id}-error` : ''}`} options={shown} value={value || null} disabled={disabled || !modelId} filterOptions={false}
       onChange={next => { setPicked(shown.find(row => row.value === next) ?? null); onChange(next); }} onSearchChange={q => { setSearch(q); setLimit(20); }}
-      placeholder="모델을 고른 뒤 SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록" emptyText={read.loading ? '불러오는 중…' : '이 모델에 활성 SW 버전이 없습니다'} {...(matches.length > limit ? { footerText: '일부만 보입니다 — 검색하거나 아래 더 보기를 누르세요' } : {})} />
+      placeholder="모델을 고른 뒤 SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록" emptyText={read.loading ? '불러오는 중…' : '이 모델에 활성 SW 버전이 없습니다'} {...(matches.length > limit ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})} />
     {error && <p id={`${id}-error`} className="text-xs text-text-danger-label">{error}</p>}
     {read.failed && <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">SW 버전 목록을 불러오지 못했습니다</span><Button type="button" size="sm" variant="ghost" onClick={read.retry}>다시 시도</Button></div>}
     {matches.length > limit && <div><Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={() => setLimit(n => n + 20)}>SW 버전 더 보기</Button></div>}

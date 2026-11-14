@@ -152,13 +152,13 @@ export default function MetricDetailPage({ params }: PageProps) {
         ) : (
           <div className="space-y-3">
             {data.problem === 'version-not-member' && <StateMessage tone="danger" icon={<span className="t-mono">v{data.requestedVersion}</span>}
-              title={lang === 'ko' ? '요청한 버전이 이 지표에 속하지 않습니다' : 'The requested version does not belong to this metric'}
-              body={lang === 'ko' ? `${metricId} @ ${data.requestedVersion} 은 이 지표의 버전이 아닙니다. 아래에서 버전을 고르세요.` : `${metricId} @ ${data.requestedVersion} is not a version of this metric. Pick a version below.`} />}
+              title={lang === 'ko' ? '이 지표에 속한 버전 필요' : 'Choose a version of this metric'}
+              body={lang === 'ko' ? `${metricId} @ ${data.requestedVersion}: 지표에 속한 버전 확인 필요. 아래에서 버전을 고르세요.` : `${metricId} @ ${data.requestedVersion}: check the metric version. Pick a version below.`} />}
             {data.problem === 'need-version' && <StateMessage icon={<span className="t-mono">v?</span>}
               title={lang === 'ko' ? '버전을 선택하세요' : 'Select a version'}
               body={data.metric.publishedPointer
                 ? (lang === 'ko' ? `발행 포인터는 v${data.metric.publishedPointer} 입니다. 아래에서 버전을 고르세요.` : `The released pointer is v${data.metric.publishedPointer}. Pick a version below.`)
-                : (lang === 'ko' ? '발행된 버전이 없습니다. 초안·폐기 버전을 직접 고르세요. 초안은 분석 기본값이 아닙니다.' : 'There is no released version. Choose a draft or deprecated version explicitly. Drafts are not analysis defaults.')} />}
+                : (lang === 'ko' ? '발행된 버전 없음. 초안·폐기 버전을 직접 고르세요. 분석 기본값은 발행된 버전입니다.' : 'No released version. Choose a draft or deprecated version explicitly. Analysis defaults to released versions.')} />}
             <div className="grid items-start gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="space-y-3">
                 <VersionSection metric={data.metric} selected={data.version} chosen={versionParam} onSelect={version => setPage({ version })} />
@@ -177,12 +177,12 @@ export default function MetricDetailPage({ params }: PageProps) {
       <Panel id={sectionId('usage')} title={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'}
         subtitle={versionParam
           ? usageStale
-            ? (lang === 'ko' ? `v${usageShown} 사용처 (v${versionParam} 불러오는 중) — 아래 행은 ${metricId} @ ${usageShown} 의 결과입니다.` : `Usage of v${usageShown} (loading v${versionParam}) — the rows below are for ${metricId} @ ${usageShown}.`)
-            : (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회합니다. 확인 범위는 선언된 productivity-overview · cycle-time 입니다. 0건은 그 범위의 성공이며 전 플랫폼 미사용이 아닙니다.` : `Queries only ${metricId} @ ${versionParam}. The checked scope is the declared productivity-overview and cycle-time menus. Zero rows means that scope, not the whole platform.`)
+            ? (lang === 'ko' ? `v${usageShown} 사용처 (v${versionParam} 불러오는 중). 아래 행은 ${metricId} @ ${usageShown} 의 결과입니다.` : `Usage of v${usageShown} (loading v${versionParam}). The rows below are for ${metricId} @ ${usageShown}.`)
+            : (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회 · 확인 범위: productivity-overview · cycle-time · 0건: 이 두 메뉴에서 사용처 없음` : `Queries only ${metricId} @ ${versionParam} · checked scope: productivity-overview and cycle-time · zero rows: no usage in these two menus`)
           : (lang === 'ko' ? '버전을 고르면 그 쌍의 사용처만 조회합니다.' : 'Choose a version to query usage for that pair only.')}>
         {versionParam ? <QueryView widgetName={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'} hideWidgetName query={usage} compact skeletonRows={3}>
           {data => data.problem ? (
-            <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '이 버전의 사용처를 조회하지 않습니다' : 'Usage was not queried for this version'}
+            <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '사용처 조회에 올바른 버전 필요' : 'Usage lookup requires a valid version'}
               body={lang === 'ko' ? '소속되지 않은 버전을 최신 발행 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest released pair.'} />
           ) : (
             <table className="w-full text-sm">
@@ -201,7 +201,7 @@ export default function MetricDetailPage({ params }: PageProps) {
                 <td className="py-2">{(() => {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
                   // Rows of the previous version stay readable, but opening them waits for the picked version (#1365).
-                  if (usageStale) return <span className="text-xs text-text-muted">{lang === 'ko' ? `v${versionParam} 불러오는 중 — 열기는 그 뒤에` : `Loading v${versionParam} — open after`}</span>;
+                  if (usageStale) return <span className="text-xs text-text-muted">{lang === 'ko' ? `v${versionParam} 불러오는 중 · 열기는 그 뒤에` : `Loading v${versionParam} · open after`}</span>;
                   // A consumer menu this assembly does not register is not a permission matter: the row keeps its name and id as text, no link (06 §22).
                   if (link.kind === 'none') return null;
                   return link.allowed
@@ -214,7 +214,7 @@ export default function MetricDetailPage({ params }: PageProps) {
         </QueryView> : null}
       </Panel>
 
-      <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·발행·폐기입니다. mart 계산 세대가 아닙니다.' : 'Registration, release and deprecation of the definition. Not a mart generation.'}>
+      <Panel id={sectionId('history')} title={lang === 'ko' ? '변경 이력' : 'Change history'} subtitle={lang === 'ko' ? '정의의 등록·발행·폐기 기록' : 'Registration, release and deprecation records of the definition'}>
         <QueryView widgetName={lang === 'ko' ? '변경 이력' : 'Change history'} hideWidgetName query={history.query} compact skeletonRows={4}>
           {() => <AuditTimeline {...history.timeline} />}
         </QueryView>

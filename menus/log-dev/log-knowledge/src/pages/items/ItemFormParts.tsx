@@ -52,7 +52,7 @@ function ModelPicker({ value, onChange, id, invalid, describedBy }: PickerShared
   return <><Combobox id={id} options={options} value={value || null} filterOptions={false}
     onChange={next => { remember(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록"
-    {...(picker.hasMore ? { footerText: '일부만 보입니다 — 검색하거나 아래 더 보기를 누르세요' } : {})}
+    {...(picker.hasMore ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})}
     emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '결과가 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />
     <PickerPaging picker={picker} label="모델" /></>;
 }
@@ -64,7 +64,7 @@ function SoftwarePicker({ modelId, value, onChange, id, invalid, describedBy }: 
   return <><Combobox id={id} options={options} value={value || null} filterOptions={false}
     onChange={next => { remember(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder="SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록"
-    {...(picker.hasMore ? { footerText: '일부만 보입니다 — 검색하거나 아래 더 보기를 누르세요' } : {})}
+    {...(picker.hasMore ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})}
     emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '이 모델에 활성 SW 버전이 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />
     <PickerPaging picker={picker} label="SW 버전" /></>;
 }

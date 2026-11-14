@@ -72,7 +72,7 @@ function version(pick: {
 
 const QUEUE_TIME_V1 = version({
   version: '1', state: 'draft', unit: 's', numerator: 'queue_duration',
-  formula: { ko: 'queue_duration 합. 초안이며 발행 초기화 후보가 아닙니다.', en: 'Sum of queue_duration. A draft, not a release-initialization candidate.' },
+  formula: { ko: 'queue_duration 합 · 초안 · 발행 초기화 대상 제외', en: 'Sum of queue_duration · draft · excluded from release initialization' },
   filters: [{ ko: '대기 구간', en: 'Queue interval' }], sourceContractRef: 'queue-basis-draft',
   changeReason: { ko: '초안 등록. 발행하지 않음.', en: 'Draft registered. Not released.' },
   registeredAt: '2026-09-22T09:00:00', publishedAt: null, updatedAt: '2026-09-22T09:00:00', updatedBy: 'park.seo',
@@ -80,7 +80,7 @@ const QUEUE_TIME_V1 = version({
 
 const CYCLE_TIME: MetricDef = {
   metricId: 'cycle_time', name: { ko: '사이클타임', en: 'Cycle time' }, domain: 'time', kind: 'quantile',
-  description: { ko: 'Job 실행 분포의 분위수. P50/P95는 같은 버전의 소비이며 평균하지 않습니다.', en: 'Quantiles of the job-execution distribution. P50/P95 consume the same version and are not averaged.' },
+  description: { ko: 'Job 실행 분포의 분위수 · P50/P95는 같은 지표 버전 사용', en: 'Quantiles of the job-execution distribution · P50/P95 use the same metric version' },
   ownerId: 'time-analyst', owner: { ko: '시간 분석 담당', en: 'Time analyst' }, organizationRef: 'ORG-TIME',
   publishedPointer: '4', catalogVersion: '4', draftVersion: '5', catalogStatus: 'published', populationRule: 'etch', updatedAt: '2026-09-24T09:00:00',
   usage: [
@@ -104,7 +104,7 @@ const CYCLE_TIME: MetricDef = {
     }),
     version({
       version: '5', state: 'draft', unit: 's', numerator: null,
-      formula: { ko: 'v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.', en: 'Copy of v4. Filter wording only. Not an analysis default.' },
+      formula: { ko: 'v4 복사 · 필터 문구 초안 · 분석 기본값은 발행된 버전', en: 'Copy of v4 · draft filter wording · released version used by default for analysis' },
       filters: [{ ko: '완료 Job (초안 문구)', en: 'Completed jobs (draft wording)' }], sourceContractRef: 'cycle-time-basis-v3',
       changeReason: { ko: '필터 문구 초안. 발행 아님.', en: 'Draft filter wording. Not released.' },
       registeredAt: '2026-09-24T09:00:00', publishedAt: null, updatedAt: '2026-09-24T09:00:00', updatedBy: 'park.seo',
@@ -215,7 +215,7 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
     const endpoints: string[] = [];
     const recorded: AuditEvent = {
       id: 'cycle_time-v4-publish', at: '2026-09-20T02:00:00.000Z', actor: 'park.seo', action: 'update', source: 'user',
-      target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason: '발행 확정. mart 재계산 완료가 아닙니다.',
+      target: { type: 'metric', id: 'cycle_time', scopeId: null }, reason: '정의 발행 확정 · mart 재계산은 별도',
       changes: { publicationState: ['draft', 'published'] },
     };
     const base = fixtureAdapter();
@@ -225,7 +225,7 @@ describe('MetricDetail change history reads the shared audit store (#90, ADR-004
       entityAudit: async ref => { refs.push(ref); return { outcome: 'ok', data: { events: [recorded] }, assessments: [], trust: null, correlationId: 'corr-audit' }; },
     };
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
-    expect(await screen.findByText('발행 확정. mart 재계산 완료가 아닙니다.')).toBeTruthy();
+    expect(await screen.findByText('정의 발행 확정 · mart 재계산은 별도')).toBeTruthy();
     expect(screen.getAllByText('Change history').length).toBeGreaterThan(0); // the screen is English; the record is not translated
     expect(refs).toEqual([{ type: 'metric', id: 'cycle_time', scopeId: null }]);
     expect(endpoints).not.toContain('metrics.history');
@@ -264,7 +264,7 @@ describe('MetricDetail keeps the previous version while another version loads (#
     expect(screen.getByRole('button', { name: /^v4/ }).getAttribute('aria-pressed')).toBe('false');
     expect(screen.queryByTestId('metric-apply-context')).toBeNull();
     await act(async () => { releases.forEach(release => release()); });
-    expect((await screen.findAllByText('v4 복사. 필터 문구만 초안. 분석 기본 버전이 아닙니다.')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('v4 복사 · 필터 문구 초안 · 분석 기본값은 발행된 버전')).length).toBeGreaterThan(0);
   });
 });
 
@@ -329,16 +329,16 @@ describe('MetricDetail describes the kept usage and pair result by the version i
       },
     };
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
-    await screen.findByText(/cycle_time @ 4 만 조회합니다/);
+    await screen.findByText(/cycle_time @ 4 만 조회/);
     await settleQueries();
     held = true;
     fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
     expect(screen.getByText(/v4 사용처 \(v5 불러오는 중\)/)).toBeTruthy();
-    expect(screen.queryByText(/만 조회합니다/)).toBeNull();
-    expect(screen.getAllByText(/v5 불러오는 중 — 열기는 그 뒤에/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/만 조회/)).toBeNull();
+    expect(screen.getAllByText(/v5 불러오는 중 · 열기는 그 뒤에/).length).toBeGreaterThan(0);
     await act(async () => { releases.forEach(release => release()); });
-    expect(await screen.findByText(/cycle_time @ 5 만 조회합니다/)).toBeTruthy();
-    expect(screen.queryByText(/불러오는 중 — 열기는 그 뒤에/)).toBeNull();
+    expect(await screen.findByText(/cycle_time @ 5 만 조회/)).toBeTruthy();
+    expect(screen.queryByText(/불러오는 중 · 열기는 그 뒤에/)).toBeNull();
   });
 });
 
@@ -352,7 +352,7 @@ describe('MetricDetail usage rows whose consumer menu this assembly lacks (06 §
     });
     window.history.replaceState(null, '', '/metrics/cycle_time?version=4');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixtureAdapter()} registry={metricsOnly}><MetricDetailPage params={{ metricId: 'cycle_time' }} /></PlatformProvider></I18nProvider>);
-    await screen.findByText(/cycle_time @ 4 만 조회합니다/);
+    await screen.findByText(/cycle_time @ 4 만 조회/);
     expect(await screen.findByText('productivity-overview')).toBeTruthy();
     expect(screen.queryByText('열 권한이 없습니다')).toBeNull();
     expect(screen.queryByRole('link', { name: '사용처 열기' })).toBeNull();

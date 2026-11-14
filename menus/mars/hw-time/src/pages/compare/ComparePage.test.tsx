@@ -465,8 +465,8 @@ describe('HW Time compare page keeps the previous Module composition honest (#13
   it('the composition title names the Module of the kept rows and a Motion segment click does not drill', async () => {
     keptPm1();
     await renderPage('&drillModule=PM2');
-    expect(await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM1' })).toBeTruthy();
-    expect(screen.queryByRole('region', { name: 'Motion별 동작시간 — Module PM2' })).toBeNull();
+    expect(await screen.findByRole('region', { name: 'Module PM1 · Motion별 동작시간' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Module PM2 · Motion별 동작시간' })).toBeNull();
     fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
     expect(searchParams().get('drillMotion')).toBeNull();
   });
@@ -474,7 +474,7 @@ describe('HW Time compare page keeps the previous Module composition honest (#13
   it('the visible panel titles follow the accepted Module while the previous result shows', async () => {
     keptPm1();
     await renderPage('&drillModule=PM2');
-    await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM1' });
+    await screen.findByRole('region', { name: 'Module PM1 · Motion별 동작시간' });
     expect(screen.getByTestId('panel-title-module').textContent).toBe('Module PM1 구성');
   });
 
@@ -483,14 +483,14 @@ describe('HW Time compare page keeps the previous Module composition honest (#13
       ? { ...done(level3('PM1', 'Pump')), resultParams: { drillModule: 'PM1', drillMotion: 'Pump' }, showingPrevious: true }
       : done(fixtureFor(drill)));
     await renderPage('&drillModule=PM2&drillMotion=Vent');
-    await screen.findByRole('region', { name: 'Motion Pump 상세 — Module PM1' });
+    await screen.findByRole('region', { name: 'Module PM1 · Motion Pump 상세' });
     expect(screen.getByTestId('panel-title-detail').textContent).toBe('Motion Pump 상세');
   });
 
   it('the composition drills again once its result is live', async () => {
     data.level.mockImplementation((drill: HwTimeDrill) => ({ ...done(fixtureFor(drill)), resultParams: drill, showingPrevious: false }));
     await renderPage('&drillModule=PM2');
-    expect(await screen.findByRole('region', { name: 'Motion별 동작시간 — Module PM2' })).toBeTruthy();
+    expect(await screen.findByRole('region', { name: 'Module PM2 · Motion별 동작시간' })).toBeTruthy();
     fireEvent.click(screen.getAllByRole('button', { name: /^segment Pump / })[0]!);
     expect(searchParams().get('drillMotion')).toBe('Pump');
   });

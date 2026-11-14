@@ -126,7 +126,7 @@ describe('totals (#580d, UX-7/8)', () => {
   it('draws nothing per row for a measure that is not added and says so once', async () => {
     await mount({ valueLabels: 'both', reaggregation: 'ratioOfSums' });
     expect(option().series.some(s => s.id === '__total')).toBe(false);
-    expect(screen.getAllByText('합계 없음 — 이 측정은 더하지 않습니다')).toHaveLength(1);
+    expect(screen.getAllByText('합계 없음 · 합산 제외 측정')).toHaveLength(1);
   });
   it('draws the server total for a measure that is not added while every series is shown', async () => {
     await mount({ valueLabels: 'total', reaggregation: 'ratioOfSums', serverTotals: new Map([['R1', 0.5], ['R2', null]]) });
@@ -138,12 +138,12 @@ describe('totals (#580d, UX-7/8)', () => {
   it('drops the server total while a series is hidden: no per-row number and the one-line 합계 없음', async () => {
     await mount({ valueLabels: 'total', reaggregation: 'ratioOfSums', serverTotals: new Map([['R1', 0.5]]), visibleSeriesIds: ['a'] });
     expect(option().series.some(s => s.id === '__total')).toBe(false);
-    expect(screen.getAllByText('합계 없음 — 이 측정은 더하지 않습니다')).toHaveLength(1);
+    expect(screen.getAllByText('합계 없음 · 합산 제외 측정')).toHaveLength(1);
   });
   it('names the number 표시 합계 once while a series is hidden, in the line and in the table', async () => {
     await mount({ valueLabels: 'total', reaggregation: 'sum', visibleSeriesIds: ['a'] });
     expect((total().data as { label: { formatter: string } }[])[0].label.formatter).toBe('800');
-    expect(screen.getAllByText(/^표시 합계 —/)).toHaveLength(1);
+    expect(screen.getAllByText(/^표시 합계 ·/)).toHaveLength(1);
     const rows = await tableText();
     expect(rows[0]).toContain('표시 합계');
   });
@@ -217,9 +217,9 @@ describe('Compare series count as series (F3)', () => {
   it('names an additive total 표시 합계 when only a previous-period series is hidden', async () => {
     const all = ['a', 'b', 'pa', 'pb'];
     const view = await compareOn({ valueLabels: 'total', reaggregation: 'sum', visibleSeriesIds: all });
-    expect(screen.queryByText(/^표시 합계 —/)).toBeNull();
+    expect(screen.queryByText(/^표시 합계 ·/)).toBeNull();
     view.update({ visibleSeriesIds: ['a', 'b', 'pa'] });
-    expect(screen.getAllByText(/^표시 합계 —/)).toHaveLength(1);
+    expect(screen.getAllByText(/^표시 합계 ·/)).toHaveLength(1);
   });
   it('drops the server total when only a previous-period series is hidden', async () => {
     const serverTotals = new Map([['R1', 0.5]]);
@@ -227,7 +227,7 @@ describe('Compare series count as series (F3)', () => {
     expect(total().data).toHaveLength(1);
     view.update({ visibleSeriesIds: ['a', 'b', 'pa'] });
     expect(option().series.some(s => s.id === '__total')).toBe(false);
-    expect(screen.getAllByText('합계 없음 — 이 측정은 더하지 않습니다')).toHaveLength(1);
+    expect(screen.getAllByText('합계 없음 · 합산 제외 측정')).toHaveLength(1);
   });
 });
 

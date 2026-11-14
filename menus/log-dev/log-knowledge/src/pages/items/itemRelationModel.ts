@@ -15,7 +15,7 @@ export const relationInputs = (rows: readonly RelationRow[]): ItemRelationInput[
 /** Client checks keep incomplete rows out of a write; the server owns key normalization and resolution. */
 export function validateRelations(rows: readonly RelationRow[]): Record<string, string> {
   const errors: Record<string, string> = {}, seen = new Set<string>();
-  if (rows.length > ITEM_RELATION_LIMITS.relations) errors['relations'] = 'Event 관계 기록은 20개까지 추가할 수 있습니다.';
+  if (rows.length > ITEM_RELATION_LIMITS.relations) errors['relations'] = 'Event 관계 기록 최대 20개';
   rows.forEach((row, i) => {
     const source = row.source.trim().normalize('NFKC').toUpperCase(), target = row.target.trim().normalize('NFKC').toUpperCase();
     const valid = (key: string) => key.split('/').length === 2 && key.split('/').every(part => part.trim() !== '') && key.length <= 1200;

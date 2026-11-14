@@ -354,7 +354,7 @@ describe('production model spec screen', () => {
     expect(label.getAttribute('aria-required')).toBe('true');
     expect(version.getAttribute('aria-required')).toBe('true');
     const hintId = input.getAttribute('aria-describedby')?.split(' ')[0] ?? '';
-    expect(document.getElementById(hintId)?.textContent).toContain('kind: module / event / relation.');
+    expect(document.getElementById(hintId)?.textContent).toContain('kind: module / event / relation ·');
   });
   it('attaches server validation errors to the field that failed', async () => {
     saveInvalid = true;

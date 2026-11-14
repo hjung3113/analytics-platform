@@ -51,10 +51,10 @@ export function exportPreparingNote(startTarget: string, format: ExportFormat, l
 /** A selection that lost rows between the gesture and the server read (shared by export and copy). */
 export function selectionShortNote(wanted: number, received: number, lang: Lang): string {
   const missing = wanted - received;
-  return lang === 'ko' ? `선택 ${wanted}행 중 ${received}행 — ${missing}행은 현재 결과에 없음` : `${received} of ${wanted} selected rows — ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`;
+  return lang === 'ko' ? `선택 ${wanted}행 중 ${received}행 · ${missing}행은 현재 결과에 없음` : `${received} of ${wanted} selected rows · ${missing} ${missing === 1 ? 'row is' : 'rows are'} not in the current results`;
 }
 export const exportRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 파일을 만들지 않습니다. 필터를 좁혀 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; no file was built. Narrow the filter.`;
-export const copyRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행을 넘어 복사하지 않습니다. 선택을 줄여 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; nothing was copied. Select fewer rows.`;
+export const copyRowCapNote = (lang: Lang) => lang === 'ko' ? `받은 행이 ${EXPORT_ROW_CAP.toLocaleString('ko-KR')}행 초과 · 복사 중단. 선택을 줄여 주세요.` : `More than ${EXPORT_ROW_CAP.toLocaleString('en-US')} rows arrived; nothing was copied. Select fewer rows.`;
 export function exportDoneText(target: string, format: ExportFormat, lang: Lang): string {
   const file = format === 'xlsx' ? 'Excel' : 'CSV';
   return lang === 'ko' ? `${target}${objectParticle(target)} ${file} 파일로 내보냈습니다` : `Exported ${target} to ${format === 'xlsx' ? 'an' : 'a'} ${file} file`;
@@ -63,16 +63,16 @@ export function exportDoneText(target: string, format: ExportFormat, lang: Lang)
 export function provisionalSuffix(trust: Trust | null | undefined, lang: Lang): string {
   return trust?.provisional
     ? (lang === 'ko'
-        ? ` — 잠정 데이터(${trust.dataThrough ? `데이터 기준 시각 ${trustInstantText(trust.dataThrough, lang, 'minute')}` : '기준 시각 미확인'})`
-        : ` — provisional data (${trust.dataThrough ? `data through ${trustInstantText(trust.dataThrough, lang, 'minute')}` : 'data-through unknown'})`)
+        ? ` · 잠정 데이터(${trust.dataThrough ? `데이터 기준 시각 ${trustInstantText(trust.dataThrough, lang, 'minute')}` : '기준 시각 미확인'})`
+        : ` · provisional data (${trust.dataThrough ? `data through ${trustInstantText(trust.dataThrough, lang, 'minute')}` : 'data-through unknown'})`)
     : '';
 }
 
 /** Row copy (#174) wording. */
 export const copyTargetText = (count: number, lang: Lang) => exportTarget('selected', count, lang);
 export const copiedText = (count: number, lang: Lang) => lang === 'ko'
-  ? `${copyTargetText(count, lang)}${objectParticle(copyTargetText(count, lang))} 복사했습니다 — 엑셀에 붙여넣을 수 있습니다`
-  : `Copied ${copyTargetText(count, lang)} — you can paste them into Excel`;
+  ? `${copyTargetText(count, lang)}${objectParticle(copyTargetText(count, lang))} 복사했습니다. 엑셀에 붙여넣으세요`
+  : `Copied ${copyTargetText(count, lang)}. Paste them into Excel`;
 export const copyingNote = (count: number, lang: Lang) => lang === 'ko' ? `${copyTargetText(count, lang)}${objectParticle(copyTargetText(count, lang))} 복사하는 중입니다` : `Copying ${copyTargetText(count, lang)}`;
 /** 06 §26 cause/action per failure (review P3-3): a real clipboard rejection names the permission. */
 export function clipboardFailure(error: unknown, lang: Lang): string {
@@ -81,7 +81,7 @@ export function clipboardFailure(error: unknown, lang: Lang): string {
   const reason = typeof message === 'string' && message ? message : String(error);
   return lang === 'ko' ? `클립보드에 복사하지 못했습니다(${reason}). 브라우저의 클립보드 권한을 확인하고 다시 시도하세요.` : `Could not copy to the clipboard (${reason}). Check the browser's clipboard permission and try again.`;
 }
-export const copyUnavailable = (lang: Lang) => lang === 'ko' ? '이 환경에서는 복사할 수 없습니다 — 내보내기(CSV·Excel)를 쓰세요' : 'Copying is not available in this environment — use Export (CSV · Excel) instead';
+export const copyUnavailable = (lang: Lang) => lang === 'ko' ? '복사 미지원 환경. 내보내기(CSV·Excel)를 쓰세요' : 'Copy unavailable in this environment. Use Export (CSV · Excel)';
 export const noSelectedOnPage = (lang: Lang) => lang === 'ko' ? '현재 페이지에 선택한 행이 없어 복사하지 못했습니다. 선택한 행이 있는 페이지로 이동해 다시 시도하세요.' : 'No selected row is on this page, so nothing was copied. Go to a page with selected rows and try again.';
 export const loadedRowsOnlyNote = (loaded: number, lang: Lang) => lang === 'ko' ? `이 환경에서는 현재 페이지에 보이는 선택 ${loaded}행만 복사됩니다` : `In this environment only the ${loaded} selected ${loaded === 1 ? 'row' : 'rows'} visible on this page ${loaded === 1 ? 'is' : 'are'} copied`;
 

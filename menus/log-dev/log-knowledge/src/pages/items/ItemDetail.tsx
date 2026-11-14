@@ -47,7 +47,7 @@ function Body({ detail }: { detail: ItemDetailData }) {
   return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 *:min-w-0">
     <Header detail={detail} viewing={viewing} />
     {item.publicationState === 'archived' && <div role="status" className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-text-secondary">
-      보관된 Item입니다 — 읽을 수 있고 이력은 그대로 남아 있습니다. 수정·판단 변경은 보관을 해제한 뒤에 할 수 있습니다.
+      보관된 Item · 조회·이력 유지. 수정·판단 변경은 보관 해제 후 진행합니다.
     </div>}
     {old && <div role="status" className="flex flex-wrap items-center gap-3 rounded-md bg-accent-warn-soft px-3 py-2 text-sm text-text-warning-label">
       이전 리비전 r{viewing}을 보고 있습니다 —
@@ -176,7 +176,7 @@ function ItemDetailScreen({ params }: PageProps) {
   const drawerDetail = (drawer === 'assess' && previous ? undefined : live) ?? (keepEditor ? kept.detail : undefined);
   // Only holders of the publish right see write controls; page header and actions come from the live result only.
   const canWrite = hasPublishRight && !!live;
-  const waitingReason = previous ? '선택한 리비전을 불러오는 중입니다. 불러온 뒤에 할 수 있습니다.' : undefined;
+  const waitingReason = previous ? '선택한 리비전을 불러오는 중. 불러온 뒤 진행하세요.' : undefined;
   const archived = live?.item.publicationState === 'archived';
   // Revise/derive own a session draft (#2108): the owner mounts while the detail read is pending (the form stays withheld until it succeeds),
   // never for a missing or forbidden Item or an archived revise.

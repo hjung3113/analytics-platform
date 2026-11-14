@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
 import type { ColumnFilter } from '@ap/contracts';
-import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, topicParticle, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
+import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableQuickSearch, TableUrlWarning, useClearFiltersAction, useTableFilterDeclaration, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import {
@@ -36,7 +36,7 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
     case 'unknown-metric':
       return { tone: 'danger', title: ko ? '지표를 찾을 수 없습니다' : 'Metric was not found', body: ko ? `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 은 카탈로그에 없습니다. 목록에서 다시 고르세요.` : `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} is not in the catalog. Pick another from the list.` };
     case 'version-not-member':
-      return { tone: 'danger', title: ko ? '그 버전이 이 지표의 버전이 아닙니다' : 'That version is not one of this metric', body: ko ? `${verdict.metricId || '—'} @ ${verdict.metricVersion} 은 이 지표의 버전이 아닙니다. 목록에서 버전을 고르세요.` : `${verdict.metricId || '—'} @ ${verdict.metricVersion} is not a version of this metric. Pick a version from the list.` };
+      return { tone: 'danger', title: ko ? '이 지표에 속한 버전 필요' : 'Choose a version of this metric', body: ko ? `${verdict.metricId || '—'} @ ${verdict.metricVersion}: 지표에 속한 버전 확인 필요. 목록에서 버전을 고르세요.` : `${verdict.metricId || '—'} @ ${verdict.metricVersion}: check the metric version. Pick a version from the list.` };
     case 'other-metric':
       return { tone: 'warning', title: ko ? '다른 지표가 선택되어 있습니다' : 'A different metric is selected', body: ko ? `고른 지표는 ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 입니다. 이 목록의 ${verdict.viewedId}와 다릅니다.` : `The selected metric is ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''}. It differs from ${verdict.viewedId} on this list.` };
     case 'conflict':
@@ -108,8 +108,8 @@ export default function MetricCatalogPage(_: PageProps) {
 
   return <PlatformPage
     description={lang === 'ko'
-      ? '정의·grain·분자/분모·발행 포인터를 탐색합니다. 초안은 분석 기본 버전이 아닙니다.'
-      : 'Browse definitions, grain, numerator/denominator and the released pointer. Drafts are not analysis defaults.'}
+      ? '정의·grain·분자/분모·발행 포인터 탐색 · 분석 기본값은 발행된 버전'
+      : 'Browse definitions, grain, numerator/denominator and the released pointer · analysis defaults to released versions'}
   >
     <div className="space-y-3">
       <MetricPairBanner query={pair} />
@@ -121,7 +121,7 @@ export default function MetricCatalogPage(_: PageProps) {
       {invalid ? <TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> : <PlatformDataTable
         title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         subtitle={lang === 'ko'
-          ? `${metricCountText}. 발행 포인터는 레코드에 저장된 값이며 최대 버전 번호가 아닙니다. 초안 열기는 동작 열.`
+          ? `${metricCountText}. 발행 포인터: 레코드에 저장된 버전 · 초안 열기: 동작 열`
           : `${metricCountText}. The released pointer is stored on the record, not max(version). Open a draft from the action column.`}
         ariaLabel={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
         preferenceKey="platform:table:metric-catalog"
@@ -149,8 +149,8 @@ export default function MetricCatalogPage(_: PageProps) {
       />}
       <p className="t-caption text-text-muted">
         {lang === 'ko'
-          ? `${notFilters}${topicParticle(CONTEXT_LABELS[NOT_FILTER_KEYS.at(-1)!].ko)} 이 목록의 필터가 아닙니다. 검색·상태·도메인으로 거릅니다. 예시 데이터입니다.`
-          : `${notFilters} do not filter this list. It is filtered by search, status and domain. Synthetic data.`}
+          ? `${notFilters}: 다른 분석 화면의 조건. 이 목록은 검색·상태·도메인으로 필터 · 예시 데이터`
+          : `${notFilters}: conditions for other analysis screens. This list filters by search, status and domain · synthetic data.`}
       </p>
     </div>
   </PlatformPage>;
