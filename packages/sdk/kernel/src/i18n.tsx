@@ -171,6 +171,7 @@ const dict = {
   contractCauseMetricPairIncomplete: { ko: '지표만 있고 버전이 없습니다.', en: 'A metric is present without its version.' },
   contractCauseEmptySetWithList: { ko: '빈 선택 표시와 목록을 주소에 같이 적었습니다.', en: 'An empty-selection mark and a list are both written in the address.' },
   resetContext: { ko: '조건 초기화', en: 'Reset conditions' },
+  notFoundTitle: { ko: '없는 화면', en: 'Page not found' },
   notFound: { ko: '등록되지 않은 경로입니다', en: 'Unregistered route' },
   spaceDenied: { ko: '이 업무 시스템에 들어갈 수 없습니다', en: 'You cannot enter this business system' },
   menuDenied: { ko: '이 메뉴에 대한 권한이 없습니다', en: 'You do not have access to this menu' },

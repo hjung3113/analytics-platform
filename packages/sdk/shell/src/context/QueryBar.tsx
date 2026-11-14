@@ -235,15 +235,14 @@ function useSearchQuery(search: string): string {
   return query;
 }
 
-type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string; /** Drawn beside `전체 후보로` (the room field's request entry); absent → today's field. */ request?: ReactNode };
+type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string; /** Access-request entry beside the field. */ request?: ReactNode };
 function SetField({ name, values, onChange, invalid, reasonId, request, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
   const { lang, t } = useI18n();
   const ko = lang === 'ko';
-  const reset = <Button type="button" variant="ghost" size="toolbar" aria-label={ko ? `${name} 전체 후보로 되돌리기` : `Reset ${name} to all candidates`} disabled={values === null} onClick={() => onChange(null)}>{ko ? '전체 후보로' : 'Reset to all candidates'}</Button>;
   return <div className="grid w-56 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
     <span>{name}</span>
-    <MultiCombobox {...props} label={name} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체 후보' : 'All candidates') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
-    {request ? <div className="flex flex-wrap items-center gap-1">{reset}{request}</div> : reset}
+    <MultiCombobox {...props} label={name} clearAction={values === null ? undefined : { label: ko ? `${name} 전체로 되돌리기` : `Reset ${name} to all`, onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={ko ? '후보 없음' : 'No candidates'} placeholder={values === null ? (ko ? '전체' : 'All') : values.length === 0 ? (ko ? '명시적 빈 선택' : 'Explicit empty selection') : undefined} selectedSummaryLabel={count => ko ? `선택한 항목 ${count}개` : `${count} selected items`} moreLabel={ko ? '더 보기' : 'Load more'} clearAllLabel={ko ? '선택 모두 비우기' : 'Clear selection'} removeLabel={value => `${t('clear')} ${value}`} loadingText={ko ? '후보 확인 중' : 'Loading candidates'} retryLabel={t('retry')} />
+    {request && <div className="flex flex-wrap items-center gap-1">{request}</div>}
   </div>;
 }
 function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, 'options'> & { axisId: string; context: PortContext; parents: Record<string, string[]> }) {

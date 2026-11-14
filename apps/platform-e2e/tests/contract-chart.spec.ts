@@ -146,7 +146,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await expect(end).toContainText(chosenEnd);
     await expect(end).toBeFocused();
 
-    await expect(summary).toContainText('선택 구간 없음');
+    await expect(summary).toContainText('선택 구간 없음. 시작·끝이나 빠른 구간을 고르거나 차트를 끌면 요약·주석·적용이 열립니다.');
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
 

@@ -758,8 +758,8 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {lang === 'ko' ? '최소' : 'Min'} {e.min.x} {format(e.min.value)} · {lang === 'ko' ? '최대' : 'Max'} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
       {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? (lang === 'ko' ? '선택 구간 없음' : 'No selection') : showKeyboard
-        ? (lang === 'ko' ? '선택 구간 없음 — 시작·끝이나 빠른 구간, 또는 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — choose a start and end, a quick range, or brush a range to summarize, annotate or apply it.')
-        : (lang === 'ko' ? '선택 구간 없음 — 구간 선택으로 구간을 선택하면 요약·주석·구간 적용을 할 수 있습니다.' : 'No selection — brush a range to summarize, annotate or apply it.')}</span>
+        ? (lang === 'ko' ? '선택 구간 없음. 시작·끝이나 빠른 구간을 고르거나 차트를 끌면 요약·주석·적용이 열립니다.' : 'No selection. Choose a start and end or a quick range, or drag on the chart to open summary, annotation and apply actions.')
+        : (lang === 'ko' ? '선택 구간 없음. 차트를 끌어 구간을 고르면 요약·주석·적용이 열립니다.' : 'No selection. Drag on the chart to select a range and open summary, annotation and apply actions.')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${selection.from} – ${selection.to}`}</span>
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}

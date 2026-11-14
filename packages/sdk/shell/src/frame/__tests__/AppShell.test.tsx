@@ -499,7 +499,7 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect(link.hasAttribute('aria-current')).toBe(false);
       expect(link.querySelectorAll('svg')).toHaveLength(1);
     }
-    expect(within(block).getByText('기능 화면으로 이동합니다')).toBeTruthy();
+    expect(within(block).queryByText('기능 화면으로 이동합니다')).toBeNull();
   });
 
   it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
@@ -527,7 +527,7 @@ describe('workspace shell layout (15 §3.1)', () => {
     const taskEntry = { key: 'task', icon: ListTodo, label: { ko: 'Task', en: 'Task' }, menuId: 'home' };
     const slotOf = (entries: FeatureSlot['entriesFor'] extends (...args: never[]) => infer R ? R : never, permission?: Permission): FeatureSlot => ({ entriesFor: id => id === 'mars' ? entries : null, ...(permission ? { permission } : {}) });
 
-    it('opens VOC in the same tab with only v, managedSystem and returnTo; the in-shell caption shows', () => {
+    it('opens VOC in the same tab with only v, managedSystem and returnTo; omits the redundant caption', () => {
       window.history.replaceState(null, '', '/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
@@ -542,13 +542,13 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect(href.searchParams.get('returnTo')).toBe('/mars/home?v=1&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00&scopeId=MEM');
       expect(task.getAttribute('aria-label')).toBe('Task — 분석, 기능');
       expect(task.hasAttribute('target')).toBe(false);
-      expect(within(block).getByText('기능 화면으로 이동합니다')).toBeTruthy();
+      expect(within(block).queryByText('기능 화면으로 이동합니다')).toBeNull();
     });
 
-    it('draws the in-shell caption and the VOC link opens the registered menu', () => {
+    it('omits the caption and the VOC link opens the registered menu', () => {
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry]) });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
-      expect(within(block).getByText('기능 화면으로 이동합니다')).toBeTruthy();
+      expect(within(block).queryByText('기능 화면으로 이동합니다')).toBeNull();
       expect(within(block).getByRole('link', { name: 'VOC — 분석, 기능' }).getAttribute('href')).toContain('/mars/feature-inbox');
     });
 
@@ -1285,12 +1285,19 @@ describe('tab title and planned sections (#1944)', () => {
 
   it.each([
     ['/ready?v=1', '준비된 메뉴 — 분석 · 샘플 제품'],
-    ['/nowhere?v=1', '등록되지 않은 경로입니다 · 샘플 제품'],
+    ['/nowhere?v=1', '없는 화면 · 샘플 제품'],
   ])('writes the tab title for %s', async (url, title) => {
     window.history.replaceState(null, '', url);
     render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell productName="샘플 제품"><p>x</p></AppShell></PlatformProvider></I18nProvider>);
     await waitFor(() => expect(document.title).toContain(title.split(' · ')[0]!));
     expect(document.title.endsWith(' · 샘플 제품')).toBe(true);
+  });
+
+  it('uses the English unknown-route heading in the tab title (#1995)', async () => {
+    localStorage.setItem('platform:lang', 'en');
+    window.history.replaceState(null, '', '/nowhere?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={titleRegistry(true)}><AppShell productName="Sample product"><p>x</p></AppShell></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(document.title).toBe('Page not found · Sample product'));
   });
 
   it('writes no product name when the host passes none', async () => {

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -141,7 +141,7 @@ describe('place (d): room field request entry', () => {
     window.history.replaceState(null, '', `/?scopeId=SITE-B${query}`);
     return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }), defaultRangeTo: () => '2026-01-01T09:00:00' })} slots={slot ? { accessRequest: slot } : undefined}><GlobalContextBar /></PlatformProvider></I18nProvider>);
   };
-  const resetButton = () => screen.findByRole('button', { name: '공정 전체 후보로 되돌리기' });
+  const roomField = () => screen.findByRole('button', { name: '공정' });
 
   it.each([
     ['no slot', grantTable(), undefined],
@@ -149,13 +149,15 @@ describe('place (d): room field request entry', () => {
     ['a fully granted Scope', grantTable([{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }]), fakeSlot],
   ] as const)('%s → today\'s field', async (_, session, slot) => {
     mount('', session, slot);
-    expect(await resetButton()).toBeTruthy();
+    expect(await roomField()).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '공정 전체로 되돌리기' })).toBeNull();
     expect(screen.queryByRole('button', { name: '공정 권한 요청' })).toBeNull();
   });
 
-  it('a partially granted Scope offers the request beside `전체 후보로`, prefilled with the site when no ungranted room is chosen', async () => {
+  it('a partially granted Scope offers the request beside the field, prefilled with the site when no ungranted room is chosen', async () => {
     mount('', grantTable(), fakeSlot);
-    await resetButton();
+    const field = (await roomField()).closest('.grid')!;
+    expect(within(field as HTMLElement).getByRole('button', { name: '공정 권한 요청' })).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: '공정 권한 요청' }));
     expect(screen.getByRole('dialog', { name: 'fake request dialog' })).toBeTruthy();
     expect(dialogs.at(-1)).toEqual({ kind: 'site', site: 'SITE-B' });

@@ -121,9 +121,9 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   await waitFor(() => expect(screen.getByRole('button', { name: /지우기 EQ-X/ })).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: /지우기 EQ-X/ }));
   expect(draft.draft.global.selection).toEqual([]);
-  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID 전체 후보로 되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID 전체로 되돌리기' }));
   expect(draft.draft.global.selection).toBeNull();
-  expect(screen.getByRole('button', { name: 'EquipmentID 전체 후보로 되돌리기' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'EquipmentID 전체로 되돌리기' })).toBeNull();
   expect(draft.canApply).toBe(true);
   act(() => draft.setDraftGlobal({ prcGroups: ['P1'] }));
   expect(screen.getByRole('button', { name: /그 시점 소속/ })).toBeEnabled();
@@ -148,7 +148,7 @@ it('retains incomplete period input across closing and prevents an unrelated edi
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByLabelText('시작 시각')).toHaveValue('');
-  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보로 되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '공정 전체로 되돌리기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
 });
@@ -215,7 +215,7 @@ it('keeps a blank reference date invalid across unrelated edits and collapse unt
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
   fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: '공정 전체 후보로 되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '공정 전체로 되돌리기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
@@ -447,4 +447,21 @@ describe('initial disclosure (#1892)', () => {
     expect(bar()).not.toHaveAttribute('data-query-bar-collapsed');
     expect(localStorage.getItem('platform:query-bar-collapsed:home')).toBe('false');
   });
+});
+
+it.each([['ko', 'EquipmentID 전체로 되돌리기', '전체'], ['en', 'Reset EquipmentID to all', 'All']] as const)('shows an in-field clear only for a value and resets that field to all in %s (#1995)', async (lang, clearLabel, placeholder) => {
+  localStorage.setItem('platform:lang', lang);
+  mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(screen.queryByRole('button', { name: clearLabel })).toBeNull();
+  const field = screen.getByRole('button', { name: 'EquipmentID' }).parentElement!;
+  expect(within(field).getByText(placeholder)).toBeTruthy();
+  act(() => draft.setDraftGlobal({ selection: ['EQ-X'] }));
+  const clear = screen.getByRole('button', { name: clearLabel });
+  expect(field).toContainElement(clear);
+  expect(clear.querySelector('svg')).toBeTruthy();
+  fireEvent.click(clear);
+  expect(draft.draft.global.selection).toBeNull();
+  expect(screen.queryByRole('button', { name: clearLabel })).toBeNull();
+  expect(screen.getByRole('button', { name: 'EquipmentID' })).toHaveFocus();
 });

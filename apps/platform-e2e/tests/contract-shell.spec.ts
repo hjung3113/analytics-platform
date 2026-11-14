@@ -959,6 +959,7 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await signInAs(page, 'engineer');
     await page.goto('/this-route-does-not-exist');
     const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { level: 1, name: '없는 화면', exact: true })).toBeVisible();
     await expect(main).toContainText('등록되지 않은 경로입니다');
     await main.getByRole('button', { name: /^메뉴 검색 \((⌘K|Ctrl\+K)\)$/ }).click();
     await expect(page.getByRole('dialog').getByRole('combobox', { name: '메뉴 검색' })).toBeVisible();
