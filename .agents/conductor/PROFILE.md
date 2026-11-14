@@ -126,6 +126,7 @@ Every step must exit 0 before commit.
 - Flags: `permission` / `instructions` → SKILL 7a. `e2e` → Verify step 3. `submodule` → the screen gates. `contract` → give the changed 06 sections and ADRs to the code reviewer.
 - Code reviewers use the global `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md). UX and quality reviewers use the global personas plus the lenses below. `review-perf` only after a measured regression.
 - Conflict order: SKILL 7f repo invariants = permission and data-leak rules, then 06 contracts.
+- Class closure: a blocker or major fix includes an `rg` for the same pattern across the repo, and either fixes every site in that round or lists them in the report for one follow-up issue. Reason: the class was wider than the diff each time (#2096: 87 sites), and the first find is the cheapest moment to close it.
 - Every brief has an **Impact** section: consumers found with `rg`, docs that must change, regression risks with the test that catches each (name the E2E describes).
 
 ## Review lens: UX
