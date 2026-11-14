@@ -11,7 +11,8 @@ describe('query summary values', () => {
   });
   it('distinguishes unrestricted, explicit empty and fixed equipment IDs', () => {
     const summary = (selection: string[] | null) => formatQuerySummary({ ...global, selection }, [], { lang: 'ko' });
-    expect(summary(null)).toContain('전체 후보');
+    expect(summary(null)).toContain('전체');
+    expect(summary(null)).not.toContain('전체 후보');
     expect(summary([])).toContain('명시적 빈 선택');
     expect(summary(['EQ-X'])).toContain('EQ-X');
   });

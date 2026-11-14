@@ -29,7 +29,7 @@ export function querySummaryItems(g: GlobalContext, options: QuerySummaryOptions
     for (const id of ordered) if (g.condition[id]) items.push({ key: `condition:${id}`, contextKey: 'condition', label: axes.find(a => a.id === id)?.label[lang] ?? id, value: ids(g.condition[id]), capability: context?.condition });
   }
   if (g.condition !== null || g.prcGroups !== null || g.membershipBasis !== null) items.push({ key: 'membershipBasis', contextKey: 'condition', label: ko ? '소속 기준' : 'Membership', value: g.membershipBasis === 'asOf' ? (ko ? '그 시점 소속' : 'As-of membership') : (ko ? '지금 소속' : 'Current membership') });
-  if (g.selection !== null || !context || context.selection === 'apply') add('selection', g.selection === null ? (ko ? '전체 후보' : 'All candidates') : ids(g.selection), 'EquipmentID');
+  if (g.selection !== null || !context || context.selection === 'apply') add('selection', g.selection === null ? (ko ? '전체' : 'All') : ids(g.selection), 'EquipmentID');
   if (g.lotIds !== null) add('lot', ids(g.lotIds));
   if (g.ppid !== null) add('ppid', g.ppid);
   if (g.recipeIds !== null) add('recipe', ids(g.recipeIds), 'Recipe');
