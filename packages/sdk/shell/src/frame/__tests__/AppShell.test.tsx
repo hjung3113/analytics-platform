@@ -1270,6 +1270,9 @@ describe('recent links from stored values (#1967)', () => {
   ])('keeps a valid stored path with its query %s', async (_label, base, expected) => {
     mountRecent('/m-b?v=1&page=2', base);
     expect((await recentLink())?.getAttribute('href')).toBe(expected);
+  });
+});
+
 describe('tab title and planned sections (#1944)', () => {
   const titleRegistry = (withScreen: boolean) => createRegistry({
     spaces: [testSpace({ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, homeMenuId: 'ready' })],
