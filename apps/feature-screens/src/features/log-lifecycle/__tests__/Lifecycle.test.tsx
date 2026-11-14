@@ -1,4 +1,4 @@
-import { cleanup, render as renderBase, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderBase, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LifecycleApi, Model, RequestDetail, RuleResult, Presentation, Project, ReadState, RoundDetail, ScreenProps, TableParts } from '../contracts';
@@ -66,6 +66,27 @@ describe('log lifecycle screens', () => {
     render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} fixedRound={{ id: ID, seq: 3 }} register />);
     expect(within(screen.getByRole('dialog')).getByLabelText('Round (필수)')).toHaveValue(ID);
     expect(within(screen.getByRole('dialog')).getByLabelText('Round (필수)')).toBeDisabled();
+  });
+});
+
+// #2217: the Enter that confirms a Korean composition in the model ID field (isComposing, keyCode 229, Safari's Enter right
+// after compositionend) does not apply the filter; the next plain Enter does.
+describe('model ID filter and IME Enter', () => {
+  const composingEnters: Array<[string, (target: Element) => void]> = [
+    ['isComposing', target => fireEvent.keyDown(target, { key: 'Enter', isComposing: true })],
+    ['keyCode 229', target => fireEvent.keyDown(target, { key: 'Enter', keyCode: 229 })],
+    ['Safari after compositionend', target => { fireEvent.compositionStart(target); fireEvent.compositionEnd(target); fireEvent.keyDown(target, { key: 'Enter' }); }],
+  ];
+  it.each(composingEnters)('a composition Enter does not apply the model ID (%s)', (_label, composingEnter) => {
+    const setState = vi.fn();
+    render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} state={{}} setState={setState} />);
+    fireEvent.click(screen.getByText('추가 필터'));
+    const field = screen.getByLabelText('모델 ID');
+    fireEvent.change(field, { target: { value: '식각' } });
+    composingEnter(field);
+    expect(setState).not.toHaveBeenCalled();
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(setState).toHaveBeenCalledWith(expect.objectContaining({ modelId: '식각' }));
   });
 });
 

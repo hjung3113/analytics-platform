@@ -293,6 +293,12 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     expect(await lint(UI, 'src/probe.ts', 'export const k = () => crypto.randomUUID();\n', featureUiPreset)).not.toContain('ap/no-browser-random-uuid');
   }, 60_000);
 
+  it('requires the IME Enter guard on a text field\'s Enter handler in screen sources, not in tests (#2217)', async () => {
+    const field = "import { Input } from '@ap/ui';\nexport const A = ({ go }: { go: () => void }) => <Input onKeyDown={e => { if (e.key === 'Enter') go(); }} />;\n";
+    expect(await lint(SCREENS, 'src/probe.tsx', field)).toContain('ap/ime-enter-guard');
+    expect(await lint(SCREENS, 'src/__tests__/probe.test.tsx', field)).not.toContain('ap/ime-enter-guard');
+  }, 60_000);
+
   it('allows safe randomUUID uses: feature detection, non-browser receivers, other properties (#2017)', async () => {
     expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => crypto.randomUUID === undefined;\n')).toEqual([]);
     expect(await lint(SCREENS, 'src/probe.ts', "export const k = () => typeof globalThis.crypto.randomUUID === 'function';\n")).toEqual([]);

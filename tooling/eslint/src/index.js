@@ -430,7 +430,7 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 
 // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (rule source: ime-enter-guard.js), so
 // the Enter that confirms a Korean composition never selects or commits. On in the UI-drawing presets ui, components, shell,
-// menu and app, and on EV's ui packages and menus (#2216); feature screens turn it on once their handlers are fixed.
+// menu and app, on EV's ui packages and menus (#2216), and on the feature screens (#2217).
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -703,9 +703,9 @@ export const tooling = [
 const eqvBanOnlyFor = (allowEqvPackages = []) => ({
   files: ['**/*.{ts,tsx,js,mjs}'],
   // One `ap` plugin per preset array: flat config rejects a second definition of the same plugin name. The screens-only
-  // `no-browser-random-uuid` and `require-api-path` are registered here (dormant — no preset enables them) so
+  // `no-browser-random-uuid`, `require-api-path` and `ime-enter-guard` are registered here (dormant — no preset enables them) so
   // `featureScreensPreset` can enable them without redefining `ap`.
-  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid, 'require-api-path': requireApiPath } } },
+  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid, 'require-api-path': requireApiPath, 'ime-enter-guard': imeEnterGuard } } },
   rules: {
     'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex([], allowEqvPackages), message: EQV_MESSAGE }] }],
     'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE, allowEqvPackages }],
@@ -756,4 +756,4 @@ export const featureScreensPreset = [...featureUi({
   rules: {
     'ap/no-browser-random-uuid': ['error'],
   },
-}];
+}, IME_ENTER_GUARD];
