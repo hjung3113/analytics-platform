@@ -90,4 +90,29 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_URL_MIGRATE |
     expect(stored.rows[0].external_key).toBe('PRIVATE-EQ');
     expect((await migrate.pool.query("select 1 from core.audit_log where actor_id=$1 and event_type='improvement.item.created'", [actorId])).rowCount).toBe(4);
   });
+  it.each([0, 1])('masks updated target-only and origin snapshots for fixture %s', async index => {
+    const itemId = ids[index];
+    const detail = await app.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, payload: { endpoint: 'improvement.itemDetail', context: {}, params: { itemId } } });
+    let version = detail.json<{ data: { version: string } }>().data.version;
+    for (const patch of [{ targets: [{ ...target, externalKey: 'PRIVATE-UPDATED' }] }, { origin: origin(index === 0 ? 'B' : 'A') }]) {
+      const res = await app.inject({ method: 'POST', url: '/api/v1/menu-action', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}`, 'x-csrf-token': csrf }, payload: { action: 'improvement.itemUpdate', context: {}, input: { itemId, ...patch }, expectedVersion: version, idempotencyKey: randomUUID() } });
+      expect(res.json().outcome, res.body).toBe('ok');
+      version = res.json<{ version: string }>().version;
+    }
+    const res = await app.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, payload: { endpoint: 'improvement.itemEvents', context: {}, params: { itemId } } });
+    expect(res.statusCode).toBe(200);
+    const updates = res.json<{ data: { rows: { eventType: string; changes: { before: Record<string, unknown>; after: Record<string, unknown> } }[] } }>().data.rows.filter(row => row.eventType === 'updated');
+    expect(updates).toHaveLength(2);
+    for (const event of updates) {
+      for (const [key, snapshot] of Object.entries(event.changes)) {
+        if ('targets' in snapshot) {
+          expect(snapshot).toMatchObject({ restricted: true, targets: expect.arrayContaining([{ kind: 'equipment', externalKey: '', displayName: '' }]) });
+          expect(JSON.stringify(snapshot)).not.toContain('PRIVATE-');
+        } else {
+          const visible = (index === 0) === (key === 'before');
+          expect(snapshot.origin).toEqual(visible ? origin('A') : { menuId: 'cycle-time', context: {}, restricted: true });
+        }
+      }
+    }
+  });
 });

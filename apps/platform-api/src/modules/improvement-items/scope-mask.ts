@@ -27,21 +27,28 @@ function visibleLink(link: string | null, grants: readonly ScopeGrant[]): boolea
 
 /** Historical snapshots must prove their own Site, rather than inherit an item's possibly changed origin. */
 export function maskChanges(changes: unknown, grants: readonly ScopeGrant[]): unknown {
-  const result = { ...object(changes) };
-  for (const key of ['before', 'after']) {
-    if (!(key in result)) continue;
-    const snapshot = object(result[key]);
-    const origin = object(snapshot.origin);
-    const visible = visibleSite(object(origin.context).scopeId, grants);
-    result[key] = {
-      ...snapshot,
-      ...(!visible ? {
-        restricted: true,
-        ...('targets' in snapshot ? { targets: Array.isArray(snapshot.targets) ? snapshot.targets.map(target => ({ kind: object(target).kind, externalKey: '', displayName: '' })) : [] } : {}),
-        ...('origin' in snapshot ? { origin: snapshot.origin ? { menuId: origin.menuId, context: {}, restricted: true } : null } : {}),
-      } : {}),
-      ...('effectCompareLink' in snapshot ? { effectCompareLink: visible && typeof snapshot.effectCompareLink === 'string' && visibleLink(snapshot.effectCompareLink, grants) ? snapshot.effectCompareLink : null } : {}),
-    };
-  }
-  return result;
+  const project = (value: unknown, inheritedVisible = false, snapshot = false): unknown => {
+    if (Array.isArray(value)) return value.map(entry => project(entry, inheritedVisible));
+    if (value === null || typeof value !== 'object') return value;
+    const source = object(value);
+    const origin = object(source.origin);
+    const visible = 'origin' in source ? visibleSite(object(origin.context).scopeId, grants) : inheritedVisible;
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(source)) {
+      if (key === 'origin' && !visible) {
+        result[key] = entry ? { menuId: origin.menuId, context: {}, restricted: true } : null;
+      } else if (key === 'targets' && !visible) {
+        result[key] = Array.isArray(entry) ? entry.map(target => ({ kind: object(target).kind, externalKey: '', displayName: '' })) : [];
+      } else if (key === 'effectCompareLink' || key === 'compareLink') {
+        result[key] = visible && typeof entry === 'string' && visibleLink(entry, grants) ? entry : null;
+      } else {
+        // Each before/after is independent; nested effect objects inherit only that snapshot's Site.
+        const boundary = key === 'before' || key === 'after';
+        result[key] = project(entry, boundary ? false : visible, boundary);
+      }
+    }
+    if (!visible && (snapshot || 'origin' in source || 'targets' in source)) result.restricted = true;
+    return result;
+  };
+  return project(changes);
 }
