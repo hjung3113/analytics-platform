@@ -5,6 +5,7 @@ import { useMenuAction, useMenuFetch, usePlatform } from '@ap/kernel';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   Button, Callout, FieldLabel, ProgressMeter, StatusBadge, Textarea, cn, copyText,
+  Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@ap/ui';
 import {
   importApply, importCancel, importDetailEndpoint, importPaste, importResolve, importValidate,
@@ -14,7 +15,7 @@ import {
 import { ImportRowsTable } from './ImportTables';
 import { clearDraft, readDraft, writeDraft } from './importDraft';
 import {
-  EXAMPLE, JOB_STATUS_LABEL, PASTE_ROW_LIMIT, STEP_LABEL, TEMPLATE_HEADER, actionFailureText, applyEndText, cellOf, conflictText, countNewParents, fetchAllRows, nextStep, pasteRefusalText,
+  EXAMPLE, IMPORT_TABLE_MESSAGES, JOB_STATUS_LABEL, PASTE_ROW_LIMIT, STEP_LABEL, TEMPLATE_HEADER, actionFailureText, applyEndText, cellOf, conflictText, countNewParents, fetchAllRows, nextStep, pasteRefusalText,
   previousStep, resolveInBatches, runApplyLoop, stepSkipped, type AllRows, type ApplyEnd, type ApplyProgress, type StepId,
 } from './importModel';
 
@@ -342,22 +343,22 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
         <Button type="button" variant="secondary" disabled={busy} onClick={() => { void recheck(); }}>다시 검사</Button>
       </div>
       <div className="max-h-[28rem] overflow-auto rounded-md border border-border-subtle">
-        <table className="w-full border-collapse text-sm">
-          <caption className="sr-only">확인 필요 행</caption>
-          <thead className="sticky top-0 bg-surface-sunken"><tr>{['행', '파일 값', '카탈로그 쪽 상황', '처리'].map(h => <th key={h} scope="col" className="px-3 py-2 text-left font-semibold">{h}</th>)}</tr></thead>
-          <tbody>{conflicts.map(r => {
+        <Table>
+          <TableCaption srOnly>{IMPORT_TABLE_MESSAGES.conflicts}</TableCaption>
+          <TableHeader className="sticky top-0"><TableRow>{IMPORT_TABLE_MESSAGES.conflictColumns.map(column => <TableHead key={column.label} scope="col" align={column.align}>{column.label}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>{conflicts.map(r => {
             const guide = conflictText(r);
-            return <tr key={r.rowNo} className="border-t border-border-subtle align-top">
-              <td className="tabular px-3 py-2">{r.rowNo}</td>
-              <td className="px-3 py-2"><dl className="grid grid-cols-[auto_1fr] gap-x-2">
-                {([['설비사명', 'vendor'], ['공정명', 'process'], ['모델명', 'model']] as const).map(([label, kind]) => <div key={kind} className="contents"><dt className="text-text-muted">{label}</dt><dd>{cellOf(r, kind, job.mapping) || '—'}</dd></div>)}
-              </dl></td>
-              <td className="max-w-md px-3 py-2"><p>{guide.why}</p><p className="mt-1 text-text-secondary">{guide.fix}</p></td>
-              <td className="px-3 py-2">{r.resolution === 'skip' ? <StatusBadge tone="neutral">건너뜀</StatusBadge>
-                : <Button type="button" size="sm" variant="secondary" disabled={busy} aria-label={`${r.rowNo}행 건너뛰기`} data-skip-row={r.rowNo} onClick={() => { void skipRows([r.rowNo], r.rowNo); }}>건너뛰기</Button>}</td>
-            </tr>;
-          })}</tbody>
-        </table>
+            return <TableRow key={r.rowNo}>
+              <TableCell align="end">{r.rowNo}</TableCell>
+              <TableCell><dl className="grid grid-cols-[auto_1fr] gap-x-2">
+                {([[IMPORT_TABLE_MESSAGES.vendor, 'vendor'], [IMPORT_TABLE_MESSAGES.process, 'process'], [IMPORT_TABLE_MESSAGES.model, 'model']] as const).map(([label, kind]) => <div key={kind} className="contents"><dt className="text-text-muted">{label}</dt><dd>{cellOf(r, kind, job.mapping) || '—'}</dd></div>)}
+              </dl></TableCell>
+              <TableCell className="max-w-md"><p>{guide.why}</p><p className="mt-1 text-text-secondary">{guide.fix}</p></TableCell>
+              <TableCell>{r.resolution === 'skip' ? <StatusBadge tone="neutral">{IMPORT_TABLE_MESSAGES.skipped}</StatusBadge>
+                : <Button type="button" size="sm" variant="secondary" disabled={busy} aria-label={IMPORT_TABLE_MESSAGES.skipRow(r.rowNo)} data-skip-row={r.rowNo} onClick={() => { void skipRows([r.rowNo], r.rowNo); }}>{IMPORT_TABLE_MESSAGES.skip}</Button>}</TableCell>
+            </TableRow>;
+          })}</TableBody>
+        </Table>
       </div>
       {unresolved.length > 0 && <p className="text-sm text-text-muted">건너뛰기를 누르지 않은 행이 {unresolved.length}개 있습니다. 모두 처리해야 다음으로 갈 수 있습니다.</p>}
     </div>;

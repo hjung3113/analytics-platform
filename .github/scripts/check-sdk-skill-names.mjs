@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Keeps the hand-written skill .agents/skills/ap-sdk-consumer true to the SDK (#1207, ADR-0131): every `@ap/<entry>#Name` it names
-// is a menu-importable public export in the committed tooling/sdk/api/*.api.txt snapshots, and every relative link and anchor resolves.
+// is a menu-importable public export in the release snapshots or the current public entry, and every relative link and anchor resolves.
 // check-doc-links.mjs excludes .agents/skills/, so this script covers that folder. Node builtins only; runs on every PR before install,
 // because a PR that only edits .agents/ skips the static steps.
 //
 // Usage: node .github/scripts/check-sdk-skill-names.mjs [--self-test]
-// Exit status: 0 = clean, 1 = at least one problem, 2 = the skill or a snapshot cannot be read.
+// Exit status: 0 = clean, 1 = at least one problem, 2 = the skill, a snapshot or a current entry cannot be read.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -37,6 +37,40 @@ function snapshotFile(root, entry) {
   return join(root, 'tooling/sdk/api', `${pkg}.${sub ?? 'root'}.api.txt`);
 }
 
+/** Pre-install fallback: inspect only explicit names in the manifest-selected source entry, never follow `export *`. */
+function currentExportNames(root, entry) {
+  const [pkg, ...subpath] = entry.split('/');
+  const packageRoot = join(root, 'packages/sdk', pkg);
+  const manifestPath = join(packageRoot, 'package.json');
+  if (!existsSync(manifestPath)) return new Set();
+  let source;
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const key = subpath.length ? `./${subpath.join('/')}` : '.';
+    const target = manifest.exports?.[key];
+    // Workspace SDK entries are direct source paths. Unsupported conditions fail closed.
+    if (typeof target !== 'string' || !target.startsWith('./')) return new Set();
+    const sourcePath = resolve(packageRoot, target);
+    if (relative(packageRoot, sourcePath).startsWith('..')) return new Set();
+    source = readFileSync(sourcePath, 'utf8');
+  } catch (error) {
+    throw new Unreadable(`cannot read current public entry @ap/${entry}: ${error.message}`);
+  }
+  // Mask comments and literals before matching declarations so examples cannot invent exports.
+  source = source.replace(/\/\/[^\n\r]*|\/\*[\s\S]*?\*\/|'(?:\\[\s\S]|[^'\\])*'|"(?:\\[\s\S]|[^"\\])*"|`(?:\\[\s\S]|[^`\\])*`/g, ' ');
+  const names = new Set();
+  for (const [, list] of source.matchAll(/\bexport\s+(?:type\s+)?\{([^}]*)\}/g)) {
+    for (const item of list.split(',')) {
+      const match = /^(?:type\s+)?([\w$]+)(?:\s+as\s+([\w$]+))?$/.exec(item.trim());
+      if (match) names.add(match[2] ?? match[1]);
+    }
+  }
+  for (const [, name] of source.matchAll(/\bexport\s+(?:declare\s+)?(?:async\s+)?(?:function\s*\*?|const|let|var|class|interface|type|enum)\s+([\w$]+)/g)) {
+    names.add(name);
+  }
+  return names;
+}
+
 function anchorsOf(root, file) {
   const result = spawnSync(process.execPath, [linkChecker, '--root', root, '--list-anchors', file], { encoding: 'utf8' });
   if (result.status !== 0) throw new Unreadable(`cannot list anchors of ${relative(root, file)}: ${result.stderr.trim()}`);
@@ -57,6 +91,7 @@ export function checkSkill(root) {
   if (!existsSync(join(skillDir, 'SKILL.md')) || !existsSync(join(skillDir, 'intents.md'))) throw new Unreadable(`${SKILL_DIR} needs SKILL.md and intents.md`);
   const problems = [];
   const snapshots = new Map();
+  const currentEntries = new Map();
   const anchors = new Map();
   let named = 0;
   for (const fileName of readdirSync(skillDir).filter((name) => name.endsWith('.md')).sort()) {
@@ -72,7 +107,10 @@ export function checkSkill(root) {
         if (!existsSync(file)) throw new Unreadable(`missing snapshot ${relative(root, file)}`);
         snapshots.set(file, exportNames(readFileSync(file, 'utf8')));
       }
-      if (!snapshots.get(file).has(name)) problems.push(`${label}: @ap/${entry}#${name} is not exported (${relative(root, file)})`);
+      if (!snapshots.get(file).has(name)) {
+        if (!currentEntries.has(entry)) currentEntries.set(entry, currentExportNames(root, entry));
+        if (!currentEntries.get(entry).has(name)) problems.push(`${label}: @ap/${entry}#${name} is not exported (${relative(root, file)})`);
+      }
     }
     // Inline links (a title may follow the target) and reference definitions.
     const targets = [...text.matchAll(/\]\(\s*<?([^)\s>]+)/g), ...text.matchAll(/^\s*\[[^\]]+\]:\s*<?([^\s>]+)/gm)].map((match) => match[1]);
@@ -106,9 +144,28 @@ function selfTest() {
     ['a titled link to a real anchor passes', '`@ap/ui#Button` [c](../../../d.md#title "Title")', 0],
     ['a reference definition to a missing target fails', '`@ap/ui#Button` [c][r]\n\n[r]: ../../../gone.md', 1],
     ['a reference definition with a broken anchor fails', '`@ap/ui#Button` [c][r]\n\n[r]: ../../../d.md#nope "Title"', 1],
+    ...[
+      ['named re-exports', 'export { Table, TableHead } from "./table";', 'Table'],
+      ['aliased re-exports', 'export { Internal as Public } from "./table";', 'Public'],
+      ['type re-exports', 'export type { Internal as PublicType } from "./table";', 'PublicType'],
+      ['inline type re-exports', 'export { type PublicType } from "./table";', 'PublicType'],
+      ['local export lists', 'const Local = 1; export { Local };', 'Local'],
+      ['function declarations', 'export function Freshfunction() {}', 'Freshfunction'],
+      ['const declarations', 'export const Freshconst = 1;', 'Freshconst'],
+      ['class declarations', 'export class Freshclass {}', 'Freshclass'],
+      ['interface declarations', 'export interface Freshinterface {}', 'Freshinterface'],
+      ['type declarations', 'export type Freshtype = 1;', 'Freshtype'],
+    ].map(([kind, source, name]) => [`new ${kind} absent from the snapshot pass`, `\`@ap/ui#${name}\``, 0, { source }]),
+    ['a subpath resolves its own public entry', '`@ap/ui/theme#ThemeFresh`', 0, { source: 'export const ThemeFresh = 1;', subpath: './theme' }],
+    ['a root name does not leak into a subpath', '`@ap/ui/theme#RootOnly`', 1, { source: 'export const RootOnly = 1;', message: '.agents/skills/ap-sdk-consumer/intents.md: @ap/ui/theme#RootOnly is not exported (tooling/sdk/api/ui.theme.api.txt)' }],
+    ['an invented name absent from both sources keeps its diagnostic', '`@ap/ui#Invented`', 1, { source: 'export { Table } from "./table";', message: '.agents/skills/ap-sdk-consumer/intents.md: @ap/ui#Invented is not exported (tooling/sdk/api/ui.root.api.txt)' }],
+    ['an alias does not export the original name', '`@ap/ui#Internal`', 1, { source: 'export { Internal as Public } from "./table";' }],
+    ['comments and strings do not declare exports', '`@ap/ui#Invented`', 1, { source: '// export const Invented = 1;\n/* export { Invented }; */\nconst text = "export class Invented {}";\nconst template = `export interface Invented {}`;' }],
+    ['star exports are not followed', '`@ap/ui#StarOnly`', 1, { source: 'export * from "./table";' }],
+    ['a named default declaration does not export its local name', '`@ap/ui#Internal`', 1, { source: 'export default class Internal {}' }],
   ];
   let bad = 0;
-  for (const [title, body, expected] of cases) {
+  for (const [title, body, expected, fixture] of cases) {
     const root = mkdtempSync(join(tmpdir(), 'ap-skill-names-'));
     try {
       mkdirSync(join(root, SKILL_DIR), { recursive: true });
@@ -117,8 +174,18 @@ function selfTest() {
       writeFileSync(join(root, SKILL_DIR, 'intents.md'), `${body}\n`);
       writeFileSync(join(root, 'tooling/sdk/api/ui.root.api.txt'), 'Button | const | const Button: X\n# reachable types\nHidden | type | type Hidden = 1\n');
       writeFileSync(join(root, 'd.md'), '# Title\n');
-      const count = checkSkill(root).length;
+      if (fixture) {
+        mkdirSync(join(root, 'packages/sdk/ui/src'), { recursive: true });
+        writeFileSync(join(root, 'packages/sdk/ui/package.json'), JSON.stringify({ exports: { '.': './src/public.ts', './theme': './src/theme.ts' } }));
+        writeFileSync(join(root, 'packages/sdk/ui/src/public.ts'), fixture.subpath ? '' : fixture.source);
+        writeFileSync(join(root, 'packages/sdk/ui/src/theme.ts'), fixture.subpath ? fixture.source : '');
+        writeFileSync(join(root, 'packages/sdk/ui/src/table.ts'), 'export const Table = 1, TableHead = 2, Internal = 3, StarOnly = 4;\nexport type PublicType = string;\n');
+        writeFileSync(join(root, 'tooling/sdk/api/ui.theme.api.txt'), '# reachable types\n');
+      }
+      const problems = checkSkill(root);
+      const count = problems.length;
       if (count !== expected) { bad += 1; console.error(`FAIL ${title}: expected ${expected} problem(s), got ${count}`); }
+      if (fixture?.message && problems[0] !== fixture.message) { bad += 1; console.error(`FAIL ${title}: diagnostic changed: ${problems[0]}`); }
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -134,7 +201,7 @@ if (process.argv.includes('--self-test')) {
     const problems = checkSkill(repoRoot);
     for (const problem of problems) console.error(problem);
     if (problems.length > 0) process.exit(1);
-    console.log(`check-sdk-skill-names: ${SKILL_DIR} matches the API snapshots`);
+    console.log(`check-sdk-skill-names: ${SKILL_DIR} matches the API snapshots or current public entries`);
   } catch (error) {
     if (!(error instanceof Unreadable)) throw error;
     console.error(`check-sdk-skill-names: ${error.message}`);

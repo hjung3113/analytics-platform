@@ -5,6 +5,7 @@ Hand-written. Public names are checked against `tooling/sdk/api/*.api.txt` on ev
 | Need | Public pieces | Contract | Note |
 | --- | --- | --- | --- |
 | 표, 목록, 그리드, 표 검색, table, grid | `@ap/components#PlatformDataTable`, `@ap/components#TableQuickSearch`, `@ap/components#useTableUrlState` | [§15](../../../docs/contract/components.md#15-platform-data-table-contract) | Sort, paging, selection and states are the platform's. The menu declares columns |
+| 작은 완전 제공 읽기 전용 표, 요약, 미리보기, 차이, 대화상자 목록, static table | `@ap/ui#Table`, `@ap/ui#TableCaption`, `@ap/ui#TableHeader`, `@ap/ui#TableBody`, `@ap/ui#TableRow`, `@ap/ui#TableHead`, `@ap/ui#TableCell` | [§15](../../../docs/contract/components.md#15-platform-data-table-contract) | Static Table is for small, fully given, read-only tables (summaries, previews, diffs, dialog lists) with no paging, filtering, export, column controls or selection; anything needing one of those, or whose row count is not bounded by the screen, uses PlatformDataTable (rows mode for given data). |
 | 차트, 시계열, 비교 차트, 차트 틀, chart | `@ap/components#AnalysisChart`, `@ap/components#AnalysisChartFrame` | [§16](../../../docs/contract/chart.md#16-analysis-chart-contract) | Do not draw a chart directly with the engine |
 | 범례 트리, 계층 표시 선택, legend tree | `@ap/components#LegendTree` | [§16](../../../docs/contract/chart.md#16-analysis-chart-contract) | |
 | KPI, 지표 카드, stat | `@ap/components#StatCard` | [§13](../../../docs/contract/components.md#13-shared-component-layers) | One metric per tile |

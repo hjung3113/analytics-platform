@@ -1,4 +1,5 @@
 import { ObjectLinks } from '@ap/components';
+import { PRODUCTIVITY_TABLE_MESSAGES } from './tableMessages';
 import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
@@ -12,7 +13,7 @@ import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, PageKeyWarning, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
-import { Button, cn, StatusBadge } from '@ap/ui';
+import { Button, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import {
   CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
@@ -43,6 +44,7 @@ export default function ProductivityOverview(_: PageProps) {
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
   const ko = lang === 'ko';
+  const tableCopy = PRODUCTIVITY_TABLE_MESSAGES[lang];
 
   const hours = periodHours(global);
   const rawKpi = pageParam('kpi');
@@ -69,6 +71,7 @@ export default function ProductivityOverview(_: PageProps) {
   const selectedKpi = kpiResult.ok ? kpiResult.value : 'throughput';
   const axis = axisResult.ok ? axisResult.value : 'room';
   const sort = sortResult.ok ? { key: sortResult.key, dir: sortResult.dir } : { key: 'key' as const, dir: 1 as const };
+  const sortedDirection = sort.dir === 1 ? 'ascending' : 'descending';
   // Page-owned URL key `granularity` (wireframe 11 §3.1). Unset → hour for ≤48h, else day (Candidate).
   const rawGran = pageParam('granularity');
   const granKnown = GRANS.includes(rawGran as Granularity);
@@ -313,11 +316,11 @@ export default function ProductivityOverview(_: PageProps) {
                 return (typeof va === 'string' || typeof vb === 'string' ? String(va).localeCompare(String(vb)) : va - vb) * sort.dir;
               });
               const columns: { key: typeof sort.key; label: string; align: 'left' | 'right' }[] = [
-                { key: 'key', label: shownAxis === 'room' ? (ko ? '공정' : 'Process') : 'StGroup', align: 'left' },
-                { key: 'occ', label: ko ? '점유 시간 (분자)' : 'Occupied h (numerator)', align: 'right' },
-                { key: 'obs', label: ko ? '관측 가능 시간 (분모)' : 'Observable h (denominator)', align: 'right' },
-                { key: 'pct', label: ko ? '점유율' : 'Occupancy', align: 'right' },
-                { key: 'jobs', label: ko ? '완료 Job' : 'Jobs', align: 'right' },
+                { key: 'key', label: shownAxis === 'room' ? tableCopy.process : tableCopy.stgroup, align: 'left' },
+                { key: 'occ', label: tableCopy.occupied, align: 'right' },
+                { key: 'obs', label: tableCopy.observable, align: 'right' },
+                { key: 'pct', label: tableCopy.occupancy, align: 'right' },
+                { key: 'jobs', label: tableCopy.jobs, align: 'right' },
               ];
               return <>
                 <AnalysisChartFrame
@@ -340,37 +343,37 @@ export default function ProductivityOverview(_: PageProps) {
                   trust={t}
                 />
                 <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card">
-                  <table className="w-full text-xs">
-                    <caption className="sr-only">{ko ? '공정별 점유 시간 · 관측 가능 시간 표' : 'Occupied and observable hours by process'}</caption>
-                    <thead className="bg-surface-sunken"><tr>
-                      {columns.map(col => <th key={col.key} scope="col" aria-sort={sort.key === col.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'} className={cn('t-table-header px-3 py-1.5 text-text-secondary', col.align === 'right' ? 'text-right' : 'text-left')}>
-                        <button type="button" onClick={() => {
-                          const next = sort.key === col.key
-                            ? { key: sort.key, dir: sort.dir === 1 ? -1 as const : 1 as const }
-                            : { key: col.key, dir: col.key === 'key' ? 1 as const : -1 as const };
+                  <Table density="compact">
+                    <TableCaption srOnly>{tableCopy.caption}</TableCaption>
+                    <TableHeader><TableRow>
+                      {columns.map(col => <TableHead key={col.key} scope="col" align={col.align === 'right' ? 'end' : 'start'} sort={{
+                        direction: sort.key === col.key ? sortedDirection : 'none',
+                        onSort: () => {
+                          let dir: 1 | -1 = col.key === 'key' ? 1 : -1;
+                          if (sort.key === col.key) dir = sort.dir === 1 ? -1 : 1;
+                          const next = { key: col.key, dir };
                           const value = `${next.key}:${next.dir === 1 ? 'asc' : 'desc'}`;
                           setPage({ sort: value === 'key:asc' ? null : value });
-                        }}
-                          className="inline-flex items-center gap-1 hover:text-text-primary">{col.label}{sort.key === col.key ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</button>
-                      </th>)}
-                      {shownAxis === 'room' && <th scope="col" className="t-table-header px-2 py-1.5"><span className="sr-only">{ko ? '들어가기' : 'Enter'}</span></th>}
-                    </tr></thead>
-                    <tbody className="tabular">
-                      {sorted.map(r => <tr key={r.key} className="border-t border-border-subtle">
-                        <td className="t-mono px-3 py-1.5">{r.key}</td>
-                        <td className="px-3 py-1.5 text-right">{n1(r.occupiedHours)} h</td>
-                        <td className="px-3 py-1.5 text-right">{n1(r.observableHours)} h</td>
-                        <td className="px-3 py-1.5 text-right">{pct(r) !== null ? `${n1(pct(r)!)}%` : (ko ? '미확인' : 'Not confirmed')}</td>
-                        <td className="px-3 py-1.5 text-right">{ni(r.jobs)}</td>
-                        {shownAxis === 'room' && <td className="px-2 py-1.5 text-right">
-                          <button type="button" aria-label={ko ? `${r.key} 들어가기` : `Enter ${r.key}`} onClick={() => drill.enter('drillRoom', r.key)}
+                        },
+                      }}>{col.label}</TableHead>)}
+                      {shownAxis === 'room' && <TableHead scope="col"><span className="sr-only">{tableCopy.enter}</span></TableHead>}
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {sorted.map(r => <TableRow key={r.key}>
+                        <TableCell><span className="t-mono">{r.key}</span></TableCell>
+                        <TableCell align="end">{n1(r.occupiedHours)} h</TableCell>
+                        <TableCell align="end">{n1(r.observableHours)} h</TableCell>
+                        <TableCell align="end">{pct(r) === null ? tableCopy.unknown : `${n1(pct(r)!)}%`}</TableCell>
+                        <TableCell align="end">{ni(r.jobs)}</TableCell>
+                        {shownAxis === 'room' && <TableCell align="end">
+                          <button type="button" aria-label={tableCopy.enterRow(r.key)} onClick={() => drill.enter('drillRoom', r.key)}
                             className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
                             <ChevronRight className="size-3.5" aria-hidden />
                           </button>
-                        </td>}
-                      </tr>)}
-                    </tbody>
-                  </table>
+                        </TableCell>}
+                      </TableRow>)}
+                    </TableBody>
+                  </Table>
                 </div>
               </>;
             }}
