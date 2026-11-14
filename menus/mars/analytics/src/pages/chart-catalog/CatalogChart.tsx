@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../../messages';
 import { formatWallClock } from '@ap/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
@@ -8,6 +10,7 @@ import { kindLabels } from './support';
 
 
 export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: CatalogData; height: number }) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { tx } = useI18n();
   const { global } = usePlatform();
   const identity = JSON.stringify(global);
@@ -18,25 +21,25 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   useEffect(() => {
     if (detail?.identity === identity) result.current?.scrollIntoView({ block: 'nearest' });
   }, [detail, identity]);
-  const title = `${tx(kindLabels[kind])} ${tx({ ko: '차트', en: 'chart' })}`;
-  const description = tx({ ko: '합성 데이터', en: 'Synthetic data' }) + ` · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
-  const previousLabel = tx({ ko: '이전 동일 기간', en: 'Previous equal period' }) + ` · ${formatWallClock(data.previousFrom)} – ${formatWallClock(data.previousTo)}`;
-  const currentLabel = tx({ ko: '현재 기간', en: 'Current period' });
+  const title = `${tx(kindLabels[kind])} ${m('catalogChartChart')}`;
+  const description = m('catalogChartSyntheticData') + ` · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
+  const previousLabel = m('catalogChartPreviousEqualPeriod') + ` · ${formatWallClock(data.previousFrom)} – ${formatWallClock(data.previousTo)}`;
+  const currentLabel = m('catalogChartCurrentPeriod');
   const spec = useMemo<ChartSpec | null>(() => {
     const show = (target: string) => setDetail({ identity, target });
     switch (kind) {
       case 'line': case 'bar': case 'lane': case 'breakdown': case 'sequence': return null;
-      case 'topNBar': return { kind, items: data.topNBar ?? [], defaultExpanded: true, onItemClick: show, legend: [{ label: tx({ ko: '그룹 A', en: 'Group A' }), colorToken: 'chart-series-1' }, { label: tx({ ko: '그룹 B', en: 'Group B' }), colorToken: 'chart-series-2' }] };
+      case 'topNBar': return { kind, items: data.topNBar ?? [], defaultExpanded: true, onItemClick: show, legend: [{ label: m('catalogChartGroupA'), colorToken: 'chart-series-1' }, { label: m('catalogChartGroupB'), colorToken: 'chart-series-2' }] };
       case 'heatmap': return { kind, ...data.heatmap,
         xLabels: data.heatmap.xLabels.map(value => formatWallClock(value)),
         cells: data.heatmap.cells.map(cell => ({ ...cell, x: formatWallClock(cell.x) })),
         onCellClick: (x, y) => show(`${y} · ${x}`) };
       case 'donut': return { kind, slices: data.donut, onSliceClick: show };
-      case 'scatter': return { kind, points: data.scatter, xUnit: tx({ ko: '건', en: 'jobs' }), xLabel: tx({ ko: '완료 Job', en: 'Completed jobs' }), yLabel: tx({ ko: '사이클타임', en: 'Cycle time' }), onPointClick: show };
+      case 'scatter': return { kind, points: data.scatter, xUnit: m('catalogChartJobs'), xLabel: m('catalogChartCompletedJobs'), yLabel: m('catalogChartCycleTime'), onPointClick: show };
       case 'boxPlot': return { kind, groups: data.boxPlot, whisker: 'minMax', onGroupClick: show };
       case 'pareto': return { kind, items: data.pareto, maxItems: 4, onItemClick: show };
     }
-  }, [kind, data, identity, tx]);
+  }, [m, kind, data, identity]);
   const series = useMemo(() => {
     const make = (previous: boolean): ChartSeries[] => [{
       id: previous ? 'previous' : 'current', name: previous ? previousLabel : currentLabel,
@@ -47,13 +50,13 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   }, [data, kind, currentLabel, previousLabel]);
   const densityInstants = useMemo(() => data.lane?.flatMap(lane => lane.segments.map(segment => segment.start)), [data.lane]);
   const lanes = data.lane ?? [];
-  const unit = kind === 'bar' || kind === 'donut' || kind === 'pareto' || kind === 'topNBar' ? tx({ ko: '건', en: 'jobs' }) : tx({ ko: '분', en: 'min' });
+  const unit = kind === 'bar' || kind === 'donut' || kind === 'pareto' || kind === 'topNBar' ? m('catalogChartJobs2') : m('catalogChartMin');
   const common = { chartId: `chart-catalog-${kind}`, title, description, metricVersion: 'synthetic v1', unit, size: 'hero' as const, height,
-    trust: { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: formatWallClock(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) } };
+    trust: { source: m('catalogChartSyntheticData2'), updated: formatWallClock(global.to), coverage: m('catalogChartSampleData') } };
   return <>
-    {kind === 'breakdown' ? <BreakdownBars height={height} trust={common.trust} /> : kind === 'lane' ? <LaneTimeline key={identity} lanes={lanes} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ 높음: 3, 보통: 2, 낮음: 1.5 }} formatTooltip={() => tx({ ko: '작업 구간', en: 'Work interval' })} rangeBrush={{}} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
-    {detail?.identity === identity && <p ref={result} role="status" aria-label={tx({ ko: '상세 결과', en: 'Details result' })} className="t-caption px-4 py-2 text-text-secondary">
-      {tx({ ko: '상세 대상', en: 'Details target' })}: {detail.target}
+    {kind === 'breakdown' ? <BreakdownBars height={height} trust={common.trust} /> : kind === 'lane' ? <LaneTimeline key={identity} lanes={lanes} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ 높음: 3, 보통: 2, 낮음: 1.5 }} formatTooltip={() => m('catalogChartWorkInterval')} rangeBrush={{}} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
+    {detail?.identity === identity && <p ref={result} role="status" aria-label={m('catalogChartDetailsResult')} className="t-caption px-4 py-2 text-text-secondary">
+      {m('catalogChartDetailsTarget')}: {detail.target}
     </p>}
   </>;
 }

@@ -1,3 +1,5 @@
+import { useMessages, formatText } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../../messages';
 /**
  * HW Time 개요 (ADR-0078, 06 §12.7–§12.8): the same Module → Motion drill as 단계별 and 비교, drawn as one stacked `PanelWorkspace`
  * (`initialMode="stack"`, ADR-0077): ranking, the current level, L3 context and detail, a trend and a legend. Panel badges carry the trend
@@ -40,7 +42,7 @@ const GROUPS = {
   l3: ['detail', 'context', 'ranking', 'trend', 'legend'],
 } as const;
 /** Below `compactBelow` one tab group shows its first tab: the primary panel (level at L1/L2, detail at L3) leads. */
-const COMPACT = (level: keyof typeof GROUPS): PanelWorkspacePreset => ({ id: 'compact', label: { ko: '탭 하나', en: 'One tab group' }, layout: group(...GROUPS[level]) });
+const COMPACT = (level: keyof typeof GROUPS): PanelWorkspacePreset => ({ id: 'compact', label: HW_TIME_MESSAGES.overviewPageOneTabGroup, layout: group(...GROUPS[level]) });
 const PRESETS: Record<'l1' | 'l2' | 'l3', PanelWorkspaceLayout> = {
   l1: { type: 'branch', dir: 'column', sizes: [62, 38], children: [
     { type: 'branch', dir: 'row', sizes: [25, 75], children: [group('ranking'), group('level')] },
@@ -67,8 +69,8 @@ function unmeasuredRows(block: HwTimeBlock) {
 }
 
 export default function OverviewPage(_props: PageProps) {
+  const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const { pageParam, setPage } = usePlatform();
   const drill = useDrill();
   const module = drill.levels[0]?.value ?? null;
@@ -101,33 +103,33 @@ export default function OverviewPage(_props: PageProps) {
   const visibleIds = legendSeries.map(item => item.id).filter(id => !hidden.includes(id));
   const optionText = [
     sortText[lang],
-    ...(align ? [ko ? '시작 위치 맞춤' : 'Start aligned'] : []),
-    ...(minmax ? [ko ? '최소·최대' : 'Min·Max'] : []),
+    ...(align ? [m('overviewPageStartAligned')] : []),
+    ...(minmax ? [m('overviewPageMinMax')] : []),
   ].join(' · ');
   const sections: InspectorSection[] = [
     {
-      id: 'target', title: { ko: '분석 대상', en: 'Target' }, icon: Target,
+      id: 'target', title: HW_TIME_MESSAGES.overviewPageTarget, icon: Target,
       summary: counts ?? undefined,
       render: () => counts
         ? <p className="t-caption text-text-secondary">{counts[lang]}</p>
         : <p className="t-caption text-text-muted">{targetStateText(lang, levelQ.response?.outcome)}</p>,
     },
     {
-      id: 'options', title: { ko: '옵션', en: 'Options' }, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
+      id: 'options', title: HW_TIME_MESSAGES.overviewPageOptions, icon: SlidersHorizontal, summary: { ko: optionText, en: optionText },
       render: () => <div className="flex flex-col gap-3 text-xs">
         <div className="flex flex-col gap-1">
-          <span id="hw-overview-sort-label" className="font-medium text-text-secondary">{ko ? '정렬' : 'Sort'}</span>
-          <SegmentedRadio labelledBy="hw-overview-sort-label" label={ko ? '정렬' : 'Sort'} value={sort ?? 'none'}
+          <span id="hw-overview-sort-label" className="font-medium text-text-secondary">{m('overviewPageSort')}</span>
+          <SegmentedRadio labelledBy="hw-overview-sort-label" label={m('overviewPageSort2')} value={sort ?? 'none'}
             onChange={next => setPage({ sort: next === 'none' ? null : next })}
-            options={[{ value: 'none', label: ko ? '기본' : 'Default' }, { value: 'total-desc', label: ko ? '큰 순' : 'High' }, { value: 'total-asc', label: ko ? '작은 순' : 'Low' }]} />
+            options={[{ value: 'none', label: m('overviewPageDefault') }, { value: 'total-desc', label: m('overviewPageHigh') }, { value: 'total-asc', label: m('overviewPageLow') }]} />
         </div>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={align} onCheckedChange={checked => setPage({ align: checked === true ? '1' : null })} />
-          {ko ? '시작 위치 맞춤' : 'Align start positions'}
+          {m('overviewPageAlignStartPositions')}
         </label>
         <label className="flex cursor-pointer items-center gap-2">
           <Checkbox checked={minmax} onCheckedChange={checked => setPage({ minmax: checked === true ? '1' : null })} />
-          {ko ? '최소·최대 표시' : 'Show min·max'}
+          {m('overviewPageShowMinMax')}
         </label>
       </div>,
     },
@@ -136,11 +138,11 @@ export default function OverviewPage(_props: PageProps) {
   const unit = HW_TIME_UNIT[lang];
   const totalText = (shown: HwTimeBlock) => {
     const values = shown.rows.filter(item => !item.auxiliary).flatMap(item => Object.values(item.values));
-    if (shown.rows.length === 0) return ko ? '기록 없음' : 'No records';
+    if (shown.rows.length === 0) return m('overviewPageNoRecords');
     const measured = values.filter((value): value is number => value !== null);
     if (measured.length === 0) return missingText(lang);
     const sum = `${formatSeconds(measured.reduce((a, b) => a + b, 0), lang)} ${unit}`;
-    return measured.length < values.length ? `${sum} · ${ko ? '일부 미측정' : 'partly not measured'}` : sum;
+    return measured.length < values.length ? `${sum} · ${m('overviewPagePartlyNotMeasured')}` : sum;
   };
   const summary = !response || !kept.module ? undefined
     : kept.motion ? `Module ${kept.module} · Motion ${kept.motion} · ${totalText(detail ?? EMPTY_BLOCK)}`
@@ -152,30 +154,30 @@ export default function OverviewPage(_props: PageProps) {
   /** A stack panel whose block has unmeasured values says so on its tab and in the hidden-panel list. */
   const partialBadge = (block: HwTimeBlock): PanelWorkspacePanel['badge'] => {
     const count = unmeasuredRows(block);
-    return count === 0 ? undefined : { tone: 'warning', description: { ko: `일부 미측정 ${count}행`, en: `${count} rows partly not measured` } };
+    return count === 0 ? undefined : { tone: 'warning', description: { ko: formatText(HW_TIME_MESSAGES.overviewPageRowsPartlyNotMeasured, 'ko', { count: String(count) }), en: formatText(HW_TIME_MESSAGES.overviewPageRowsPartlyNotMeasured, 'en', { count: String(count) }) } };
   };
 
   const trendPanel: PanelWorkspacePanel = {
-    id: 'trend', title: { ko: '추세', en: 'Trend' },
-    badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: `추세에 ${trendRows.length}행`, en: `${trendRows.length} rows in the trend` } } : undefined,
+    id: 'trend', title: HW_TIME_MESSAGES.overviewPageTrend,
+    badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: formatText(HW_TIME_MESSAGES.overviewPageRowsInTheTrend, 'ko', { length: String(trendRows.length) }), en: formatText(HW_TIME_MESSAGES.overviewPageRowsInTheTrend, 'en', { length: String(trendRows.length) }) } } : undefined,
     render: () => <div className="flex h-full min-h-0 flex-col gap-1 p-2">
       {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
-      <TrendPanel chartId="hw-overview-trend" title={ko ? '행별 일 추세' : 'Daily trend by row'} rowIds={trendRows} query={trendQ} level={drill.depth} />
+      <TrendPanel chartId="hw-overview-trend" title={m('overviewPageDailyTrendByRow')} rowIds={trendRows} query={trendQ} level={drill.depth} />
     </div>,
   };
   const legendPanel: PanelWorkspacePanel = {
-    id: 'legend', title: { ko: '범례', en: 'Legend' }, minWidth: 160,
+    id: 'legend', title: HW_TIME_MESSAGES.overviewPageLegend, minWidth: 160,
     render: () => <div className="h-full min-h-0 overflow-auto p-2">
-      <LegendTree label={ko ? '계층 범례' : 'Legend'}
+      <LegendTree label={m('overviewPageLegend2')}
         nodes={legendSeries.map(item => ({ id: item.id, label: item.name, color: item.color as ThemeColorToken }))}
         visible={new Set(visibleIds)}
         onVisibleChange={next => setHidden(legendSeries.map(item => item.id).filter(id => !next.has(id)))}
         onDrill={drillTo} canDrill={() => !kept.previous} currentId={currentId}
-          emptyText={ko ? '표시할 범례가 없습니다.' : 'No legend to show.'} />
+          emptyText={m('overviewPageNoLegendToShow')} />
     </div>,
   };
   const rankingPanel = (block: HwTimeBlock): PanelWorkspacePanel => ({
-    id: 'ranking', title: { ko: '합계 순위', en: 'Ranking' }, minWidth: 180,
+    id: 'ranking', title: HW_TIME_MESSAGES.overviewPageRanking, minWidth: 180,
     render: () => <RankingPanel block={block} visibleSeriesIds={visibleOf(block)} />,
   });
 
@@ -191,13 +193,13 @@ export default function OverviewPage(_props: PageProps) {
       const shared = { ...stackProps, activeRowId: row, revealActive: true, onActiveRowChange: (rowId: string | null) => setPage({ row: rowId }), rowActions: state.rowActionsOf };
       panels = [
         rankingPanel(ctx),
-        { id: 'context', title: { ko: `Module ${kept.module} 전체 Motion`, en: `All Motions of Module ${kept.module}` }, badge: partialBadge(ctx), render: () =>
-          <PanelFill><StackPanel chartId="hw-overview-L3-context" title={ko ? `Module ${kept.module} 전체 Motion` : `All Motions of Module ${kept.module}`} block={ctx}
+        { id: 'context', title: { ko: formatText(HW_TIME_MESSAGES.overviewPageAllMotionsOfModule, 'ko', { module: String(kept.module) }), en: formatText(HW_TIME_MESSAGES.overviewPageAllMotionsOfModule, 'en', { module: String(kept.module) }) }, badge: partialBadge(ctx), render: () =>
+          <PanelFill><StackPanel chartId="hw-overview-L3-context" title={m('overviewPageAllMotionsOfModule2', { module: String(kept.module) })} block={ctx}
             visibleSeriesIds={visibleOf(ctx)} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
-        { id: 'detail', primary: true, title: { ko: `Motion ${kept.motion} 상세`, en: `Motion ${kept.motion} detail` }, badge: partialBadge(det), render: () => det.rows.length === 0
-          ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${kept.module} Module에는 ${kept.motion} 동작 기록이 없습니다` : `No ${kept.motion} records for Module ${kept.module}`}
-            body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-          : <PanelFill><StackPanel chartId="hw-overview-L3-detail" title={ko ? `Module ${kept.module} · Motion ${kept.motion} 상세` : `Module ${kept.module} · Motion ${kept.motion} detail`} block={det}
+        { id: 'detail', primary: true, title: { ko: formatText(HW_TIME_MESSAGES.overviewPageMotionDetail, 'ko', { motion: String(kept.motion) }), en: formatText(HW_TIME_MESSAGES.overviewPageMotionDetail, 'en', { motion: String(kept.motion) }) }, badge: partialBadge(det), render: () => det.rows.length === 0
+          ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('overviewPageNoRecordsForModule', { module: String(kept.module), motion: String(kept.motion) })}
+            body={m('overviewPageOtherMotionsOfThisModuleAreOne')} />
+          : <PanelFill><StackPanel chartId="hw-overview-L3-detail" title={m('overviewPageModuleMotionDetail', { module: String(kept.module), motion: String(kept.motion) })} block={det}
             visibleSeriesIds={visibleOf(det).filter(id => visibleIds.includes(id))} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
         trendPanel,
         legendPanel,
@@ -205,10 +207,10 @@ export default function OverviewPage(_props: PageProps) {
     } else {
       const first = data.level === 0;
       persistKey = first ? 'hw-overview-l1' : 'hw-overview-l2'; layout = first ? PRESETS.l1 : PRESETS.l2; compact = COMPACT(first ? 'l1' : 'l2');
-      const stackTitle = first ? (ko ? 'Module별 동작시간' : 'Operation time by Module') : (ko ? `Module ${kept.module} · Motion별 동작시간` : `Module ${kept.module} · Operation time by Motion`);
+      const stackTitle = first ? (m('overviewPageOperationTimeByModule')) : (m('overviewPageModuleOperationTimeByMotion', { module: String(kept.module) }));
       panels = [
         rankingPanel(data),
-        { id: 'level', primary: true, title: first ? { ko: 'Module별', en: 'By Module' } : { ko: 'Motion별', en: 'By Motion' }, badge: partialBadge(data), render: () =>
+        { id: 'level', primary: true, title: first ? HW_TIME_MESSAGES.overviewPageByModule : HW_TIME_MESSAGES.overviewPageByMotion, badge: partialBadge(data), render: () =>
           <PanelFill><StackPanel chartId={first ? 'hw-overview-L1' : 'hw-overview-L2'} title={stackTitle} block={data} visibleSeriesIds={visibleOf(data)} onVisibleSeriesChange={setVisible(data)} {...stackProps}
             onActivate={kept.previous ? undefined : first ? ({ seriesId }) => drill.enter('drillModule', seriesId)
               : ({ seriesId }) => drill.enter('drillMotion', seriesId)}
@@ -217,19 +219,19 @@ export default function OverviewPage(_props: PageProps) {
         legendPanel,
       ];
     }
-    return <PanelWorkspace persistKey={persistKey} initialMode="stack" label={{ ko: 'HW Time 개요 영역', en: 'HW Time overview workspace' }} panels={panels}
-      presets={[{ id: 'default', label: { ko: '패널 나눔', en: 'Split panels' }, layout }, compact]} initialPreset="default" compactPreset="compact" revealRequest={reveal} />;
+    return <PanelWorkspace persistKey={persistKey} initialMode="stack" label={HW_TIME_MESSAGES.overviewPageHwTimeOverviewWorkspace} panels={panels}
+      presets={[{ id: 'default', label: HW_TIME_MESSAGES.overviewPageSplitPanels, layout }, compact]} initialPreset="default" compactPreset="compact" revealRequest={reveal} />;
   };
 
   return <PlatformPage layout="fill">
     <div className="flex h-full min-h-0 gap-3">
       <aside className="shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
-        <Inspector form="rail" persistKey="hw-time-overview" label={{ ko: '분석 보조', en: 'Analysis aids' }} sections={sections} />
+        <Inspector form="rail" persistKey="hw-time-overview" label={HW_TIME_MESSAGES.overviewPageAnalysisAids} sections={sections} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DrillLayout fill summary={summary}>
           {invalid ? <PageKeyWarning sentences={invalid} onRecover={state.recover} />
-            : <QueryView fill query={levelQ} widgetName={ko ? 'HW Time 개요' : 'HW Time overview'} hideWidgetName skeletonRows={6}>
+            : <QueryView fill query={levelQ} widgetName={m('overviewPageHwTimeOverview')} hideWidgetName skeletonRows={6}>
               {data => renderBody(data)}
             </QueryView>}
         </DrillLayout>

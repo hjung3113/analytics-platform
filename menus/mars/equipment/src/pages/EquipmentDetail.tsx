@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { EQUIPMENT_MESSAGES } from '../messages';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { AlertTriangle } from 'lucide-react';
 import { type PageProps, PlatformLink, useEntityAudit, useEntityQuery, useI18n, usePlatform } from '@ap/kernel';
@@ -15,9 +17,9 @@ export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
 }
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
+  const m = useMessages(EQUIPMENT_MESSAGES);
   const { global, scope, linkTo, resolveLink } = usePlatform();
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   // An assembly without the EV module resolves to `none` (06 §22): no button. No permission ⇒ no link.
   const topViewLink = resolveLink(EV_TOP_VIEW_MENU_ID, { page: { equipment: id } });
   const topView = topViewLink.kind === 'link' && topViewLink.allowed ? topViewLink : null;
@@ -26,53 +28,52 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
   // (ADR-0085): the ref carries the scope, so a scope change reads again, a period change does not. Older pages are
   // appended by the timeline's own control; the first page's data below is not used.
   const audit = useEntityAudit({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind === 'audit' && scope.status === 'valid');
-  if (kind === 'audit') return <QueryView widgetName={ko ? '변경 이력' : 'Change history'} query={audit.query}>{() => <div className="space-y-4">
-    <p className="t-caption text-text-muted">{ko ? '감사 이벤트 예시 (합성 데이터)' : 'Example audit events (synthetic data)'}</p>
+  if (kind === 'audit') return <QueryView widgetName={m('equipmentDetailChangeHistory')} query={audit.query}>{() => <div className="space-y-4">
+    <p className="t-caption text-text-muted">{m('equipmentDetailExampleAuditEventsSyntheticData')}</p>
     <AuditTimeline {...audit.timeline} />
   </div>}</QueryView>;
-  return <QueryView widgetName={ko ? '설비 상세' : 'Equipment details'} query={query}>{(e, response) => e && <div className="space-y-4">
+  return <QueryView widgetName={m('equipmentDetailEquipmentDetails')} query={query}>{(e, response) => e && <div className="space-y-4">
     {/* The detail drawer is narrow: `wrap` lets the three fragments (headline · coverage · updated) break only between
       each other and keeps the text left-aligned; break-keep holds Korean word breaks. */}
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} className="break-keep" wrap />
     {kind === 'attributes' && <>
       <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] == null ? '—' : equipmentDateText(f.key, String(e[f.key]))}</FieldRow>)}</FieldList>
-      <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 외부 시스템 값 · 모든 필드 조회 전용' : 'StGroup and team: external system values · all fields read-only'}</p>
+      <p className="t-caption text-text-muted">{m('equipmentDetailStgroupAndTeamExternalSystemValuesAll')}</p>
     </>}
     {kind === 'validity' && <>
-      <p className="t-caption text-text-muted">{ko ? '합성 속성 버전 · 시작 시각 포함·종료 시각 제외 · 과거 소속 미확인' : 'Synthetic attribute versions · start inclusive, end exclusive · past membership unknown'}</p>
+      <p className="t-caption text-text-muted">{m('equipmentDetailSyntheticAttributeVersionsStartInclusiveEndExclusive')}</p>
       <ol className="space-y-3 border-l-2 border-border-strong pl-4">{validity(e).map((v, i) => <li key={v.from} className="rounded-md border border-border-subtle bg-surface-card p-3">
-        <h3 className="t-card-title">{ko ? '속성 버전' : 'Attribute version'} {i + 1}</h3>
-        <p className="t-mono mt-1 text-text-secondary">{formatDateTime(parseDateTime(v.from, 'validFrom')).slice(0, 10)} → {v.to ? formatDateTime(parseDateTime(v.to, 'validTo')).slice(0, 10) : (ko ? '현재 (종료 없음)' : 'Current (open end)')}</p>
-        <p className="mt-2 text-sm">{ko ? '챔버 유형' : 'Chamber type'}: {v.chamberType}</p>
+        <h3 className="t-card-title">{m('equipmentDetailAttributeVersion')} {i + 1}</h3>
+        <p className="t-mono mt-1 text-text-secondary">{formatDateTime(parseDateTime(v.from, 'validFrom')).slice(0, 10)} → {v.to ? formatDateTime(parseDateTime(v.to, 'validTo')).slice(0, 10) : (m('equipmentDetailCurrentOpenEnd'))}</p>
+        <p className="mt-2 text-sm">{m('equipmentDetailChamberType')}: {v.chamberType}</p>
       </li>)}</ol>
-      {e.validTo && <p className="text-sm">{ko ? '유효 종료된 ID입니다. 레코드와 이력은 보존됩니다.' : 'This ID is retired. The record and history are retained.'}</p>}
+      {e.validTo && <p className="text-sm">{m('equipmentDetailThisIdIsRetiredTheRecordAnd')}</p>}
     </>}
     {kind === 'analysis' && <>
-      <p className="text-sm">{ko ? '사이클타임 링크를 누르면 설비 선택이 이 설비 한 대로 바뀝니다. 상세를 여는 것만으로는 바뀌지 않습니다.' : 'The cycle time link changes the equipment selection to this one equipment. Opening details alone does not change it.'}</p>
+      <p className="text-sm">{m('equipmentDetailTheCycleTimeLinkChangesTheEquipment')}</p>
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{ko ? '이 설비로 사이클타임 상세' : 'Cycle time for this equipment'}</PlatformLink></Button>
-        {topView && <Button asChild size="sm" variant="secondary"><PlatformLink href={topView.href}>{ko ? '이 설비 Top View' : 'Top View for this equipment'}</PlatformLink></Button>}
+        <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{m('equipmentDetailCycleTimeForThisEquipment')}</PlatformLink></Button>
+        {topView && <Button asChild size="sm" variant="secondary"><PlatformLink href={topView.href}>{m('equipmentDetailTopViewForThisEquipment')}</PlatformLink></Button>}
       </div>
     </>}
   </div>}</QueryView>;
 }
 
 export default function EquipmentDetail({ params }: PageProps) {
+  const m = useMessages(EQUIPMENT_MESSAGES);
   const id = params.equipmentId;
-  const { lang } = useI18n();
   const { global, scope, pageParam, setPage } = usePlatform();
-  const ko = lang === 'ko';
   const requestedTab = pageParam('tab') ?? 'attributes';
-  const tabs = [{ id: 'attributes', label: ko ? '속성' : 'Attributes' }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history' }, { id: 'audit', label: ko ? '변경 이력' : 'Change history' }, { id: 'analysis', label: ko ? '관련 분석' : 'Related analysis' }] as const;
+  const tabs = [{ id: 'attributes', label: m('equipmentDetailAttributes') }, { id: 'validity', label: m('equipmentDetailValidityHistory') }, { id: 'audit', label: m('equipmentDetailChangeHistory2') }, { id: 'analysis', label: m('equipmentDetailRelatedAnalysis') }] as const;
   const validTab = tabs.some(t => t.id === requestedTab);
   const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, 'header', scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}
-    description={ko ? '이 설비는 위에 전달된 설비 선택과 별개입니다. Scope와 설비 접근 권한은 다시 확인합니다.' : 'This equipment is separate from the equipment selection above. Scope and equipment access are checked again.'}
+    description={m('equipmentDetailThisEquipmentIsSeparateFromTheEquipment')}
     secondaryActions={<ReturnLink />}>
-    <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
-    {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '등록되지 않은 탭입니다' : 'This tab is not registered'} body={ko ? '속성 탭으로 돌아가세요.' : 'Go back to the attributes tab.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button>} /> :
+    <QueryView widgetName={m('equipmentDetailEquipmentSummary')} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
+    {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={m('equipmentDetailThisTabIsNotRegistered')} body={m('equipmentDetailGoBackToTheAttributesTab')} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{m('equipmentDetailOpenAttributes')}</Button>} /> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>
-        <TabsList aria-label={ko ? '설비 상세 탭' : 'Equipment detail tabs'} className="max-w-4xl">{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>
+        <TabsList aria-label={m('equipmentDetailEquipmentDetailTabs')} className="max-w-4xl">{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>
         {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl"><div className="rounded-lg border border-border-subtle bg-surface-card p-4"><EquipmentPanel id={id} kind={t.id} /></div></TabsContent>)}
       </Tabs>}
   </PlatformPage>;

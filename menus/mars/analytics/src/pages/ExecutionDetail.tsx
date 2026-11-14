@@ -1,3 +1,6 @@
+import type { TextParams } from '@ap/kernel';
+import { useMessages, formatText } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../messages';
 import { formatWallClock } from '@ap/contracts';
 import { AlertTriangle, Ban } from 'lucide-react';
 import { formatNumber, parseDateTime } from '@ap/contracts';
@@ -13,13 +16,13 @@ const SEGMENT_CLASS: Record<SegmentKind, string> = {
 };
 
 export default function ExecutionDetail({ params }: PageProps) {
+  const m = useMessages(ANALYTICS_MESSAGES);
   const { lang } = useI18n();
   const { global, pageParam, linkTo, returnOrigin } = usePlatform();
-  const ko = lang === 'ko';
   const equipmentId = params.equipmentId;
   const entityType = pageParam('entityType');
   const anchor = pageParam('anchor');
-  const errors = identityErrors(entityType, anchor, ko);
+  const errors = identityErrors(entityType, anchor, (lang === 'ko'));
   const valid = errors.length === 0;
   const metric = resolveMetric(global);
   const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
@@ -35,45 +38,39 @@ export default function ExecutionDetail({ params }: PageProps) {
   const startedAt = found && found.access === 'ok' ? found.execution.startedAt : null;
 
   const back = <ReturnLink />;
-  const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{ko ? 'VOC 생성(예정)' : 'Create VOC (planned)'}</PlatformLink></Button>;
+  const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{m('executionDetailCreateVocPlanned')}</PlatformLink></Button>;
 
   return <PlatformPage
-    title={<span className="inline-flex items-baseline gap-2">{ko ? '실행' : 'Execution'} <span className="t-mono">{equipmentId}</span></span>}
-    description={ko
-      ? 'occurrence는 (equipmentId, entityType, anchor)로만 식별합니다. 위 Context는 출발 분석의 참조이며 객체 구간을 자르지 않습니다.'
-      : 'An occurrence is identified only by (equipmentId, entityType, anchor). The context above is the source analysis reference and does not clip the object.'}
+    title={<span className="inline-flex items-baseline gap-2">{m('executionDetailExecution')} <span className="t-mono">{equipmentId}</span></span>}
+    description={m('executionDetailAnOccurrenceIsIdentifiedOnlyByEquipmentid')}
     primaryAction={voc}
     secondaryActions={<span className="flex flex-wrap gap-2">{back}</span>}
     dataTrustSummary={query.response?.trust ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}
   >
     <div className="space-y-3">
       <p className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-secondary">
-        {ko
-          ? 'Time·room·condition·selection·lot·ppid·recipe·metric은 참조입니다. 상세에서 본 설비로 전역 Selection을 바꾸지 않습니다. VOC 메뉴에는 occurrence page key가 없어 전역 Context만 전달됩니다.'
-          : 'Time, room, condition, selection, lot, ppid, recipe and metric are reference only. This page does not rewrite the global selection to the equipment it shows. VOC has no occurrence page key, so only the global context is carried.'}
-        {restored ? '' : (ko ? ' returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다.' : ' returnTo is absent, so Back opens cycle time with the current context.')}
+        {m('executionDetailTimeRoomConditionSelectionLotPpidRecipe')}
+        {restored ? '' : (m('executionDetailReturntoIsAbsentSoBackOpensCycle'))}
       </p>
 
-      <Panel title={ko ? 'Occurrence 식별' : 'Occurrence identity'} subtitle={ko ? '분석 Context와 별도인 식별 키 · Lot은 검색 보조' : 'Identity key separate from the analysis context · Lot is a search aid'}>
+      <Panel title={m('executionDetailOccurrenceIdentity')} subtitle={m('executionDetailIdentityKeySeparateFromTheAnalysisContext')}>
         <div className="grid gap-3 sm:grid-cols-4" data-testid="occurrence-key">
           <Identity label="EquipmentID" value={equipmentId} />
           <Identity label="entityType" value={entityType ?? '—'} />
           <Identity label="anchor" value={anchor ?? '—'} />
-          <Identity label={ko ? '시작 시각' : 'Start time'} value={startedAt ? formatWallClock(startedAt) : '—'} />
+          <Identity label={m('executionDetailStartTime')} value={startedAt ? formatWallClock(startedAt) : '—'} />
         </div>
       </Panel>
 
-      {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '조회에 올바른 식별 키 필요' : 'Lookup requires a valid identity key'}
+      {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={m('executionDetailLookupRequiresAValidIdentityKey')}
         body={<ul className="list-disc pl-4">{errors.map(error => <li key={error}>{error}</li>)}</ul>} />
         : <div className="relative">
-          <QueryView widgetName={ko ? '실행 상세' : 'Execution details'} query={query} skeletonHeight={240}>
+          <QueryView widgetName={m('executionDetailExecutionDetails')} query={query} skeletonHeight={240}>
             {data => data.access === 'forbidden'
-              ? <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={ko ? '이 설비는 현재 Scope 권한 밖에 있습니다' : 'This equipment is outside the current scope grant'}
-                body={ko
-                  ? '이 설비는 현재 범위에서 볼 수 없습니다. 권한 담당자에게 요청하세요.'
-                  : 'You cannot view this equipment in the current range. Ask the person who grants access.'}
+              ? <StateMessage tone="warning" icon={<Ban className="size-4" aria-hidden />} title={m('executionDetailThisEquipmentIsOutsideTheCurrentScope')}
+                body={m('executionDetailYouCannotViewThisEquipmentInThe')}
                 correlationId={query.response?.correlationId} />
-              : data.access === 'ok' ? <OccurrenceBody execution={data.execution} segments={data.segments} ko={ko} lang={lang} /> : null}
+              : data.access === 'ok' ? <OccurrenceBody execution={data.execution} segments={data.segments} ko={(lang === 'ko')} lang={lang} /> : null}
           </QueryView>
         </div>}
     </div>
@@ -82,29 +79,28 @@ export default function ExecutionDetail({ params }: PageProps) {
 
 const PANEL_GAP = 'space-y-3';
 
-function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: 'ko' | 'en' }) {
+function OccurrenceBody({ execution, segments, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: 'ko' | 'en' }) {
+  const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], lang, params);
   const spanEnd = segments.reduce((max, segment) => segment.end > max ? segment.end : max, execution.startedAt);
   const axisEnd = spanEnd;
   const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
   return <div className={PANEL_GAP}>
-    <Panel title={ko ? '표시 속성' : 'Display attributes'} subtitle={ko ? '표시용 속성' : 'Display attributes'}>
+    <Panel title={m('executionDetailDisplayAttributes')} subtitle={m('executionDetailDisplayAttributes2')}>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Identity label={ko ? '공정' : 'Process'} value={execution.room} />
+        <Identity label={m('executionDetailProcess')} value={execution.room} />
         <Identity label="Recipe" value={execution.recipe} />
         <Identity label="Lot" value={execution.lotId} />
         <Identity label="PPID" value={execution.ppid} />
-        <Identity label={ko ? '사이클타임' : 'Cycle time'} value={`${formatNumber(execution.cycleMin, lang, { decimals: 1 })} ${ko ? '분' : 'min'}`} />
+        <Identity label={m('executionDetailCycleTime')} value={`${formatNumber(execution.cycleMin, lang, { decimals: 1 })} ${m('executionDetailMin')}`} />
       </div>
     </Panel>
 
-    <Panel title={ko ? '공정 타임라인' : 'Process timeline'} subtitle={ko
-      ? 'XFR/FNC/PRC 막대 · 빈 구간: 미분류 (대기·불량 판정 없음)'
-      : 'XFR/FNC/PRC bars · gaps: unclassified (no wait or scrap verdict)'}>
+    <Panel title={m('executionDetailProcessTimeline')} subtitle={m('executionDetailXfrFncPrcBarsGapsUnclassifiedNo')}>
       <div className="mb-2 flex flex-wrap gap-3 text-xs text-text-secondary">
         {(['XFR', 'FNC', 'PRC'] as const).map(kind => <span key={kind} className="inline-flex items-center gap-1.5"><span aria-hidden className={`inline-block h-2 w-4 ${SEGMENT_CLASS[kind]}`} />{kind}</span>)}
-        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2 w-4 bg-surface-sunken" />{ko ? '미분류' : 'Unclassified'}</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden className="inline-block h-2 w-4 bg-surface-sunken" />{m('executionDetailUnclassified')}</span>
       </div>
-      <div className="relative h-10 rounded-sm bg-surface-sunken" role="img" aria-label={ko ? '공정 구간 막대' : 'Process segment bars'}>
+      <div className="relative h-10 rounded-sm bg-surface-sunken" role="img" aria-label={m('executionDetailProcessSegmentBars')}>
         {segments.map(segment => {
           const left = (secondsBetween(execution.startedAt, segment.start) / totalSec) * 100;
           const width = Math.max(0.8, (secondsBetween(segment.start, segment.end) / totalSec) * 100);
@@ -116,17 +112,15 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
         <span>{formatWallClock(execution.startedAt)}</span>
         <span>{formatWallClock(axisEnd)}</span>
       </div>
-      <p className="mt-2 text-xs text-text-muted">{ko
-        ? '막대 위치는 초 단위 길이입니다. 시작 시각은 식별 키와 별도 필드에서 가져와 그대로 표시합니다. 정확한 값은 아래 표입니다.'
-        : 'Bar positions use second lengths. The start time comes from a field separate from the identity key and is shown as is. Exact values are in the table below.'}</p>
+      <p className="mt-2 text-xs text-text-muted">{m('executionDetailBarPositionsUseSecondLengthsTheStart')}</p>
     </Panel>
 
-    <Panel title={ko ? '구간 표' : 'Segment table'} subtitle={ko ? '부모 occurrence는 위 식별 키입니다. 별도 조인 키를 만들지 않습니다.' : 'The parent occurrence is the identity above. No extra join key is invented.'}>
+    <Panel title={m('executionDetailSegmentTable')} subtitle={m('executionDetailTheParentOccurrenceIsTheIdentityAbove')}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-border-subtle text-left text-text-muted">
-              {['', 'Module', 'Slot', ko ? '시작' : 'Start', ko ? '끝' : 'End', ko ? '길이 (분)' : 'Duration (min)'].map(label => <th key={label || 'kind'} title={label || (ko ? '구간' : 'Segment')} className={`t-table-header truncate whitespace-nowrap px-4 py-1.5 ${label.startsWith('길이') || label.startsWith('Duration') ? 'text-right' : ''}`}>{label || (ko ? '구간' : 'Segment')}</th>)}
+              {['', 'Module', 'Slot', m('executionDetailStart'), m('executionDetailEnd'), m('executionDetailDurationMin')].map(label => <th key={label || 'kind'} title={label || (m('executionDetailSegment'))} className={`t-table-header truncate whitespace-nowrap px-4 py-1.5 ${label.startsWith('길이') || label.startsWith('Duration') ? 'text-right' : ''}`}>{label || (m('executionDetailSegment2'))}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -143,20 +137,16 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
       </div>
     </Panel>
 
-    <Panel title={ko ? '품질 표시' : 'Quality'} subtitle={ko ? '데이터 신뢰와 다릅니다. 정상이나 불량으로 읽지 않습니다.' : 'Distinct from data trust. Do not read this as pass or fail.'}>
+    <Panel title={m('executionDetailQuality')} subtitle={m('executionDetailDistinctFromDataTrustDoNotRead')}>
       {execution.quality === 'review'
-        ? <StatusBadge tone="warning">{ko ? '검토 표시' : 'Review flag'}</StatusBadge>
-        : <StatusBadge tone="neutral">{ko ? '미확정' : 'Unconfirmed'}</StatusBadge>}
-      <p className="mt-2 text-xs text-text-muted">{ko
-        ? '미확정: 판정 근거가 없는 실행 · 검토 표시: 사람이 확인할 실행'
-        : 'Unconfirmed: executions without verdict evidence · Review flags: executions for human review'}</p>
+        ? <StatusBadge tone="warning">{m('executionDetailReviewFlag')}</StatusBadge>
+        : <StatusBadge tone="neutral">{m('executionDetailUnconfirmed')}</StatusBadge>}
+      <p className="mt-2 text-xs text-text-muted">{m('executionDetailUnconfirmedExecutionsWithoutVerdictEvidenceReviewFlags')}</p>
     </Panel>
 
-    <Panel title={ko ? '리니지' : 'Lineage'} subtitle={ko ? '논리 경로 예시입니다. 원천 경로와 지표 버전을 섞지 않습니다.' : 'An example logical path. The source path is not mixed with the metric version.'}>
+    <Panel title={m('executionDetailLineage')} subtitle={m('executionDetailAnExampleLogicalPathTheSourcePath')}>
       <p className="t-mono text-xs text-text-secondary">occurrence_directory → mart.productivity_hourly → execution-detail</p>
-      <p className="mt-2 text-xs text-text-muted">{ko
-        ? `식별 키 anchor ${execution.anchor}는 불투명한 값이며 시각으로 읽지 않습니다. 서버 envelope의 source는 프로토타입이 모든 조회에 찍는 값입니다.`
-        : `The key anchor ${execution.anchor} is opaque and is not read as a time. The envelope source is the value this prototype stamps on every query.`}</p>
+      <p className="mt-2 text-xs text-text-muted">{m('executionDetailTheKeyAnchorIsOpaqueAndIs', { anchor: String(execution.anchor) })}</p>
     </Panel>
   </div>;
 }
@@ -170,10 +160,10 @@ function Identity({ label, value }: { label: string; value: string }) {
 
 function identityErrors(entityType: string | null, anchor: string | null, ko: boolean): string[] {
   const errors: string[] = [];
-  if (!entityType) errors.push(ko ? '실행 종류가 주소에 없습니다. 목록에서 실행을 다시 여세요.' : 'The execution kind is missing from the address. Open the execution again from the list.');
-  else if (!OCCURRENCE_ENTITY_TYPES.includes(entityType)) errors.push(ko ? '이 종류의 상세는 열 수 없습니다. 실행(job)만 열 수 있습니다.' : 'This kind of detail cannot be opened. Only an execution (job) can be opened.');
-  if (!anchor) errors.push(ko ? '실행 키(anchor)가 없습니다. 목록에서 실행을 다시 여세요.' : 'The execution key (anchor) is missing. Open the execution again from the list.');
-  else if (!isAnchor(anchor)) errors.push(ko ? '실행 키(anchor)의 형식이 올바르지 않습니다. 목록에서 실행을 다시 여세요.' : 'The execution key (anchor) is not in the expected form. Open the execution again from the list.');
+  if (!entityType) errors.push(formatText(ANALYTICS_MESSAGES.executionDetailTheExecutionKindIsMissingFromThe, (ko ? 'ko' : 'en')));
+  else if (!OCCURRENCE_ENTITY_TYPES.includes(entityType)) errors.push(formatText(ANALYTICS_MESSAGES.executionDetailThisKindOfDetailCannotBeOpened, (ko ? 'ko' : 'en')));
+  if (!anchor) errors.push(formatText(ANALYTICS_MESSAGES.executionDetailTheExecutionKeyAnchorIsMissingOpen, (ko ? 'ko' : 'en')));
+  else if (!isAnchor(anchor)) errors.push(formatText(ANALYTICS_MESSAGES.executionDetailTheExecutionKeyAnchorIsNotIn, (ko ? 'ko' : 'en')));
   return errors;
 }
 

@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { ANALYTICS_MESSAGES } from '../../messages';
 import { useMemo, useState } from 'react';
 import { StatusBadge } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
@@ -27,31 +29,30 @@ export function SequenceSample({
   onLoadStateChange?: (state: OrderedTrackLoadState) => void;
   loader?: OrderedIntervalTrackProps['onRangeRequest'];
 }) {
-  const { tx, lang } = useI18n();
+  const { lang } = useI18n();
+  const m = useMessages(ANALYTICS_MESSAGES);
   const [failed, setFailed] = useState(false);
   const [detail, setDetail] = useState<OrderedTrackItem | null>(null);
   const states = useMemo<Record<string, OrderedTrackState>>(
     () => ({
-      active: { label: tx({ ko: '동작', en: 'Active' }), colorToken: 'chart-series-1' },
-      waiting: { label: tx({ ko: '대기', en: 'Waiting' }), colorToken: 'chart-series-2' },
-      finished: { label: tx({ ko: '완료', en: 'Finished' }), colorToken: 'chart-series-3' },
+      active: { label: m('sequenceSampleActive'), colorToken: 'chart-series-1' },
+      waiting: { label: m('sequenceSampleWaiting'), colorToken: 'chart-series-2' },
+      finished: { label: m('sequenceSampleFinished'), colorToken: 'chart-series-3' },
     }),
-    [tx],
+    [m],
   );
   const items = useMemo(
     () =>
-      lang === 'ko'
-        ? sequenceItems
-        : sequenceItems.map((item) => ({
+      sequenceItems.map((item) => ({
             ...item,
             label:
               item.id === 'carryover'
-                ? 'Boundary carryover'
+                ? m('sequenceItemCarryover', { label: String(item.label) })
                 : item.id === 'open'
-                  ? 'End unknown interval'
-                  : `${item.laneKey} ${item.kind === 'point' ? 'event' : 'interval'} ${item.orderStart}`,
+                  ? m('sequenceItemOpen', { label: String(item.label) })
+                  : m(item.kind === 'point' ? 'sequenceItemPoint' : 'sequenceItemInterval', { label: String(item.label), laneKey: String(item.laneKey), orderStart: String(item.orderStart) }),
           })),
-    [lang],
+    [m],
   );
   const englishLoader = useMemo(
     () =>
@@ -67,30 +68,25 @@ export function SequenceSample({
   return (
     <>
       <OrderedIntervalTrack
-        ariaLabel={tx({ ko: '순서 트랙', en: 'Order track' })}
-        description={tx({
-          ko: '파일 순서 → 줄 번호 · 합성 데이터',
-          en: 'File order → line number · Synthetic data',
-        })}
+        ariaLabel={m('sequenceSampleOrderTrack')}
+        description={m('sequenceSampleFileOrderLineNumberSyntheticData')}
         onSelect={setDetail}
         selectedId={detail?.id ?? null}
         lanes={sequenceLanes}
         items={items}
         states={states}
         domain={sequenceDomain}
-        axisLabel={tx({ ko: '순번', en: 'Order' })}
+        axisLabel={m('sequenceSampleOrder')}
         height={Math.min(height, 288)}
         markers={
-          lang === 'ko'
-            ? sequenceMarkers
-            : sequenceMarkers.map((marker) => ({
+          sequenceMarkers.map((marker) => ({
                 ...marker,
                 label:
                   marker.kind === 'inversion'
-                    ? 'Time inversion'
+                    ? m('sequenceMarkerInversion', { label: String(marker.label) })
                     : marker.order === 4001
-                      ? 'File B starts'
-                      : 'File C starts',
+                      ? m('sequenceMarkerFileB', { label: String(marker.label) })
+                      : m('sequenceMarkerFileC', { label: String(marker.label) }),
               }))
         }
         formatTime={sequenceTime}
@@ -103,32 +99,29 @@ export function SequenceSample({
           failed
             ? {
                 kind: 'ready',
-                title: tx({ ko: '구간 불러오기 실패', en: 'Range request failed' }),
-                body: tx({
-                  ko: '현재 범위를 다시 불러오세요. 이미 받은 결과는 유지합니다.',
-                  en: 'Retry this range. Previously loaded results are retained.',
-                }),
+                title: m('sequenceSampleRangeRequestFailed'),
+                body: m('sequenceSampleRetryThisRangePreviouslyLoadedResultsAre'),
               }
             : undefined
         }
         trust={{
-          source: tx({ ko: '합성 데이터 fixture-v1', en: 'Synthetic data fixture-v1' }),
+          source: m('sequenceSampleSyntheticDataFixtureV1'),
           updated: '2026-11-08 09:00:00',
-          coverage: tx({ ko: '순번 1–12000 · 견본 데이터', en: 'Order 1–12000 · Sample data' }),
+          coverage: m('sequenceSampleOrder112000SampleData'),
         }}
       />
       {detail && (
         <DetailDrawer
-          title={tx({ ko: '항목 상세', en: 'Item details' })}
+          title={m('sequenceSampleItemDetails')}
           onClose={() => setDetail(null)}
           tabs={[
             {
               id: 'detail',
-              label: tx({ ko: '상세', en: 'Details' }),
+              label: m('sequenceSampleDetails'),
               content: (
                 <div className="flex flex-col items-start gap-3 break-keep p-4 text-sm">
                   <StatusBadge tone="neutral">
-                    {tx({ ko: '합성 데이터', en: 'Synthetic data' })}
+                    {m('sequenceSampleSyntheticData')}
                   </StatusBadge>
                   <h3 className="t-card-title">{detail.label}</h3>
                   <p>
@@ -137,11 +130,11 @@ export function SequenceSample({
                     {detail.kind === 'point'
                       ? detail.orderStart
                       : (detail.orderEnd ??
-                        tx({ ko: '종료 미확인 · 불완전', en: 'End unknown · Incomplete' }))}
+                        m('sequenceSampleEndUnknownIncomplete'))}
                   </p>
                   <p className="t-caption text-text-secondary">
-                    {tx({ ko: '표시 시간', en: 'Display time' })}: {sequenceTime(detail.orderStart)}{' '}
-                    · {tx({ ko: '순서 유지', en: 'Order preserved' })}
+                    {m('sequenceSampleDisplayTime')}: {sequenceTime(detail.orderStart)}{' '}
+                    · {m('sequenceSampleOrderPreserved')}
                   </p>
                 </div>
               ),

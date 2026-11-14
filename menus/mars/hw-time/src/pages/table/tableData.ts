@@ -1,3 +1,5 @@
+import { formatText } from '@ap/kernel';
+import { HW_TIME_MESSAGES } from '../../messages';
 import { tableExportParams, type TableExportRequest } from '@ap/components';
 import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { formatSeconds, missingText } from '../../shared/format';
@@ -53,5 +55,5 @@ export function exportParams(drill: HwTimeDrill, request: TableExportRequest) {
 
 /** Readable page filters for the 조회 정보 sheet. */
 export function exportFilterSummary(module: string | null, motion: string | null, ko: boolean): [string, string][] {
-  return [['Module', module ?? (ko ? '전체' : 'All')], ['Motion', motion ?? (ko ? '전체' : 'All')]];
+  return [['Module', module ?? (formatText(HW_TIME_MESSAGES.tableDataAll, (ko ? 'ko' : 'en')))], ['Motion', motion ?? (formatText(HW_TIME_MESSAGES.tableDataAll2, (ko ? 'ko' : 'en')))]];
 }

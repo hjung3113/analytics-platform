@@ -1,3 +1,5 @@
+import { useMessages } from '@ap/kernel';
+import { EQUIPMENT_MESSAGES } from '../messages';
 import { useMemo } from 'react';
 import type { ColumnFilter } from '@ap/contracts';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
@@ -12,8 +14,8 @@ const NO_PARAMS = {} as const;
 const NO_FILTERS: ColumnFilter[] = [];
 
 export default function EquipmentMaster() {
+  const m = useMessages(EQUIPMENT_MESSAGES);
   const { lang } = useI18n();
-  const ko = lang === 'ko';
   const { pageParam, setPage, linkTo } = usePlatform();
   const q = pageParam('q') ?? '', focus = pageParam('focus');
   // §6.1 page keys: sort/page/tab are URL-owned; invalid wire values alert instead of substituting.
@@ -57,25 +59,25 @@ export default function EquipmentMaster() {
   })), [lang, makerOptions, filterColumnProps]);
   // One clear for the search and every condition: one `setPage`, back to page 1.
   const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: !!q || conditions.length > 0, extraKeys: ['q'] });
-  const search = <TableQuickSearch pageKey="q" label={ko ? '설비 ID 검색' : 'Search equipment ID'} />;
-  return <PlatformPage description={ko ? '설비 속성 · 유효구간 · 변경 이력 (조회 전용)' : 'Equipment attributes · Validity · Change history (read-only)'}>
+  const search = <TableQuickSearch pageKey="q" label={m('equipmentMasterSearchEquipmentId')} />;
+  return <PlatformPage description={m('equipmentMasterEquipmentAttributesValidityChangeHistoryReadOnly')}>
     <ManagementLayout
-      drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
+      drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={m('equipmentMasterEquipmentDetailsSyntheticData')}
       onClose={() => setPage({ focus: null, tab: null })} tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
-      context={ko ? '목록 필터와 설비 선택은 그대로입니다.' : 'List filters and the equipment selection stay as they are.'}
-      headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
-      tabs={[{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]} />}
+      context={m('equipmentMasterListFiltersAndTheEquipmentSelectionStay')}
+      headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{m('equipmentMasterFullPage')}</PlatformLink></Button>}
+      tabs={[{ id: 'attributes', label: m('equipmentMasterAttributes'), content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: m('equipmentMasterValidityHistory'), content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: m('equipmentMasterChangeHistory'), content: <EquipmentPanel id={focus} kind="audit" /> }]} />}
       table={tableInvalid ? <TableUrlWarning search={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<Equipment>
-      title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}
-      subtitle={ko ? '행을 체크해 내보내거나 ‘선택 설비로 분석’으로 엽니다.' : 'Check rows to export or open them with ‘Analyze selected equipment’.'}
+      title={m('equipmentMasterEquipmentList')} ariaLabel={m('equipmentMasterEquipmentMasterList')}
+      subtitle={m('equipmentMasterCheckRowsToExportOrOpenThem')}
       columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25}
       urlState={tableUrlState}
       loadPage={(page, signal) => pages.fetch({ q, ...page }, signal)}
       search={search}
-      rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={ko ? `${e.equipmentId} 보기` : `View ${e.equipmentId}`} text={ko ? '보기' : 'View'} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}
+      rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={m('equipmentMasterView', { equipmentId: String(e.equipmentId) })} text={m('equipmentMasterView2')} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}
       selectAllResults
-      bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{ko ? '선택 설비로 분석' : 'Analyze selected equipment'}</PlatformLink></Button>}
+      bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{m('equipmentMasterAnalyzeSelectedEquipment')}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
       exportRows={(request, signal) => exports.fetch(exportParams({ q }, request), signal)}
       exportFilterSummary={exportFilterSummary({ q }, lang)} exportContext={equipmentExportEndpoint.context}

@@ -1,3 +1,5 @@
+import { useMessages, formatText } from '@ap/kernel';
+import { METRICS_MESSAGES } from '../messages';
 import { useMemo } from 'react';
 import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
 import type { ColumnFilter } from '@ap/contracts';
@@ -18,29 +20,28 @@ const NOT_FILTER_KEYS = ['time', 'lot', 'roomNames', 'condition', 'selection'] a
 const NO_FILTERS: ColumnFilter[] = [];
 
 function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string | null): { title: string; body: string; tone: 'neutral' | 'danger' | 'warning' } {
-  const ko = lang === 'ko';
   switch (verdict.kind) {
     case 'absent':
-      return { tone: 'neutral', title: ko ? '전역 지표 쌍 없음' : 'No global metric pair', body: ko ? '지표와 버전이 모두 없습니다. 정의를 보려면 지표를 고르세요.' : 'Both the metric and the version are missing. Pick a metric to see its definition.' };
+      return { tone: 'neutral', title: formatText(METRICS_MESSAGES.metricCatalogNoGlobalMetricPair, lang), body: formatText(METRICS_MESSAGES.metricCatalogBothTheMetricAndTheVersionAre, lang) };
     case 'id-only':
-      return { tone: 'warning', title: ko ? '미완성 쌍' : 'Incomplete pair', body: ko ? `${verdict.metricId}만 있고 버전은 없습니다. 버전도 함께 고르세요.` : `${verdict.metricId} is present without a version. Pick a version too.` };
+      return { tone: 'warning', title: formatText(METRICS_MESSAGES.metricCatalogIncompletePair, lang), body: formatText(METRICS_MESSAGES.metricCatalogIsPresentWithoutAVersionPickA, lang, { metricId: String(verdict.metricId) }) };
     case 'valid': {
       const matched = pageVersion !== null && pageVersion === verdict.metricVersion;
       const body = pageVersion === null
-        ? (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 목록에서는 그 행만 표시합니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. The list only marks that row.`)
+        ? (formatText(METRICS_MESSAGES.metricCatalogTheListOnlyMarksThatRow, lang, { metricId: String(verdict.metricId), metricVersion: String(verdict.metricVersion) }))
         : matched
-          ? (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 페이지에서 보는 버전과 같습니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. It matches the version open on this page.`)
-          : (ko ? `${verdict.metricId} @ ${verdict.metricVersion}. 목록에서는 그 행만 표시합니다.` : `${verdict.metricId} @ ${verdict.metricVersion}. The list only marks that row.`);
-      return { tone: 'neutral', title: ko ? '전역 쌍' : 'Global pair', body };
+          ? (formatText(METRICS_MESSAGES.metricCatalogItMatchesTheVersionOpenOnThis, lang, { metricId: String(verdict.metricId), metricVersion: String(verdict.metricVersion) }))
+          : (formatText(METRICS_MESSAGES.metricCatalogTheListOnlyMarksThatRow2, lang, { metricId: String(verdict.metricId), metricVersion: String(verdict.metricVersion) }));
+      return { tone: 'neutral', title: formatText(METRICS_MESSAGES.metricCatalogGlobalPair, lang), body };
     }
     case 'unknown-metric':
-      return { tone: 'danger', title: ko ? '지표를 찾을 수 없습니다' : 'Metric was not found', body: ko ? `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 은 카탈로그에 없습니다. 목록에서 다시 고르세요.` : `${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} is not in the catalog. Pick another from the list.` };
+      return { tone: 'danger', title: formatText(METRICS_MESSAGES.metricCatalogMetricWasNotFound, lang), body: formatText(METRICS_MESSAGES.metricCatalogIsNotInTheCatalogPickAnother, lang, { metricId: String(verdict.metricId), value: String(verdict.metricVersion ? ` @ ${verdict.metricVersion}` : '') }) };
     case 'version-not-member':
-      return { tone: 'danger', title: ko ? '이 지표에 속한 버전 필요' : 'Choose a version of this metric', body: ko ? `${verdict.metricId || '—'} @ ${verdict.metricVersion}: 지표에 속한 버전 확인 필요. 목록에서 버전을 고르세요.` : `${verdict.metricId || '—'} @ ${verdict.metricVersion}: check the metric version. Pick a version from the list.` };
+      return { tone: 'danger', title: formatText(METRICS_MESSAGES.metricCatalogChooseAVersionOfThisMetric, lang), body: formatText(METRICS_MESSAGES.metricCatalogCheckTheMetricVersionPickAVersion, lang, { value: String(verdict.metricId || '—'), metricVersion: String(verdict.metricVersion) }) };
     case 'other-metric':
-      return { tone: 'warning', title: ko ? '다른 지표가 선택되어 있습니다' : 'A different metric is selected', body: ko ? `고른 지표는 ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''} 입니다. 이 목록의 ${verdict.viewedId}와 다릅니다.` : `The selected metric is ${verdict.metricId}${verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''}. It differs from ${verdict.viewedId} on this list.` };
+      return { tone: 'warning', title: formatText(METRICS_MESSAGES.metricCatalogADifferentMetricIsSelected, lang), body: formatText(METRICS_MESSAGES.metricCatalogTheSelectedMetricIsItDiffersFrom, lang, { metricId: String(verdict.metricId), value: String(verdict.metricVersion ? ` @ ${verdict.metricVersion}` : ''), viewedId: String(verdict.viewedId) }) };
     case 'conflict':
-      return { tone: 'danger', title: ko ? '같은 지표의 버전이 서로 다릅니다' : 'Same metric, conflicting versions', body: ko ? `${verdict.metricId}: 전역 ${verdict.globalVersion}, 이 화면 ${verdict.pageVersion}. 하나를 고르세요.` : `${verdict.metricId}: global ${verdict.globalVersion}, this page ${verdict.pageVersion}. Pick one.` };
+      return { tone: 'danger', title: formatText(METRICS_MESSAGES.metricCatalogSameMetricConflictingVersions, lang), body: formatText(METRICS_MESSAGES.metricCatalogGlobalThisPagePickOne, lang, { metricId: String(verdict.metricId), globalVersion: String(verdict.globalVersion), pageVersion: String(verdict.pageVersion) }) };
     default:
       return { tone: 'neutral', title: '', body: '' };
   }
@@ -51,10 +52,11 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
  *  pages, so the same single request also gates the detail page's anchor scroll — and the catalog, which reads
  *  the verdict for its active row, no longer sends the request twice. */
 export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: { query: QueryState<PairVerdict>; pageVersion?: string | null; refreshNotice?: 'visible' | 'hidden' }) {
+  const m = useMessages(METRICS_MESSAGES);
   const { setPage } = usePlatform();
   const { lang } = useI18n();
 
-  return <QueryView widgetName={lang === 'ko' ? '지표 쌍 검증' : 'Metric pair validation'} query={query} compact skeletonRows={2} refreshNotice={refreshNotice}>
+  return <QueryView widgetName={m('metricCatalogMetricPairValidation')} query={query} compact skeletonRows={2} refreshNotice={refreshNotice}>
     {verdict => {
       const copy = pairText(verdict, lang, pageVersion);
       const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-text-danger-label' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-text-warning-label' : 'border-border-subtle bg-surface-card text-text-secondary';
@@ -63,7 +65,7 @@ export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: {
         <p className="mt-0.5">{copy.body}</p>
         {verdict.kind === 'conflict' && <div className="mt-2">
           <Button variant="secondary" size="sm" onClick={() => setPage({ version: verdict.globalVersion })}>
-            {lang === 'ko' ? '전역 버전을 페이지에서 보기' : 'Show the global version on this page'}
+            {m('metricCatalogShowTheGlobalVersionOnThisPage')}
           </Button>
         </div>}
       </div>;
@@ -72,9 +74,10 @@ export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: {
 }
 
 export default function MetricCatalogPage(_: PageProps) {
+  const m = useMessages(METRICS_MESSAGES);
   const { pageParam, linkTo, global } = usePlatform();
   const { lang, tx } = useI18n();
-  const notFilters = NOT_FILTER_KEYS.map(key => tx(CONTEXT_LABELS[key])).join(lang === 'ko' ? '·' : ', ');
+  const notFilters = NOT_FILTER_KEYS.map(key => tx(CONTEXT_LABELS[key])).join(m('metricCatalogText'));
   const q = pageParam('q');
   // ADR-0105: 상태·도메인 are conditions of one hidden repeated page key `filter`; `q` stays the toolbar quick search.
   const { urlFilters, filterColumnProps } = useTableFilterDeclaration('filter', catalogFilterDeclarations, { lang, validate: catalogValueCheck });
@@ -93,13 +96,13 @@ export default function MetricCatalogPage(_: PageProps) {
   const metricCount = all.response?.outcome === 'ok' ? all.response.data!.rows.length : null;
   // UXA-4: `…` only while the count is pending; a failed count query says nothing numeric.
   const metricCountText = metricCount !== null
-    ? (lang === 'ko' ? `합성 ${metricCount}건` : `${metricCount} synthetic metrics`)
+    ? (m('metricCatalogSyntheticMetrics', { metricCount: String(metricCount) }))
     : all.response === null
-      ? (lang === 'ko' ? '합성 …건' : '… synthetic metrics')
-      : (lang === 'ko' ? '합성 지표입니다' : 'Synthetic metrics');
+      ? (m('metricCatalogSyntheticMetrics2'))
+      : (m('metricCatalogSyntheticMetrics3'));
   const pages = useMenuFetch(catalogPageEndpoint);
   const exports = useMenuFetch(catalogExportEndpoint);
-  const search = <TableQuickSearch pageKey="q" label={lang === 'ko' ? '이름 또는 지표 ID' : 'Name or metricId'} />;
+  const search = <TableQuickSearch pageKey="q" label={m('metricCatalogNameOrMetricid')} />;
 
   const columns = useMemo<PlatformColumn<CatalogRow>[]>(
     () => catalogColumns({ lang: lang as Lang, linkTo, tx, filterColumnProps }),
@@ -107,23 +110,17 @@ export default function MetricCatalogPage(_: PageProps) {
   );
 
   return <PlatformPage
-    description={lang === 'ko'
-      ? '정의·grain·분자/분모·발행 포인터 탐색 · 분석 기본값은 발행된 버전'
-      : 'Browse definitions, grain, numerator/denominator and the released pointer · analysis defaults to released versions'}
+    description={m('metricCatalogBrowseDefinitionsGrainNumeratorDenominatorAndThe')}
   >
     <div className="space-y-3">
       <MetricPairBanner query={pair} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
-        {lang === 'ko'
-          ? `설비 선택 ${global.selection.length}건은 이 화면에서 참조만입니다.`
-          : `Equipment selection (${global.selection.length}) is reference only on this page.`}
+        {m('metricCatalogEquipmentSelectionIsReferenceOnlyOnThis', { length: String(global.selection.length) })}
       </p>}
       {invalid ? <TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> : <PlatformDataTable
-        title={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
-        subtitle={lang === 'ko'
-          ? `${metricCountText}. 발행 포인터: 레코드에 저장된 버전 · 초안 열기: 동작 열`
-          : `${metricCountText}. The released pointer is stored on the record, not max(version). Open a draft from the action column.`}
-        ariaLabel={lang === 'ko' ? '지표 카탈로그' : 'Metric catalog'}
+        title={m('metricCatalogMetricCatalog')}
+        subtitle={m('metricCatalogTheReleasedPointerIsStoredOnThe', { metricCountText: String(metricCountText) })}
+        ariaLabel={m('metricCatalogMetricCatalog2')}
         preferenceKey="platform:table:metric-catalog"
         columns={columns}
         getRowId={row => row.metricId}
@@ -136,8 +133,8 @@ export default function MetricCatalogPage(_: PageProps) {
         loadPage={(query, signal) => pages.fetch({ ...filter, ...query }, signal)}
         emptyAction={clearButton}
         rowAction={(row, { compact }) => {
-          const definition = lang === 'ko' ? '정의' : 'Definition';
-          const draft = lang === 'ko' ? `초안 v${row.draftVersion}` : `Draft v${row.draftVersion}`;
+          const definition = m('metricCatalogDefinition');
+          const draft = m('metricCatalogDraftV', { draftVersion: String(row.draftVersion) });
           return <span className={compact ? 'flex gap-1' : 'flex flex-wrap gap-2'}>
             <RowAction compact={compact} icon={BookOpen} label={definition} text={definition} textLink="primary" link={<PlatformLink href={metricDetailHref(linkTo, row)} />} />
             {row.draftVersion && <RowAction compact={compact} icon={FilePen} label={draft} text={draft} textLink="secondary" link={<PlatformLink href={metricDetailHref(linkTo, row, row.draftVersion)} />} />}
@@ -148,9 +145,7 @@ export default function MetricCatalogPage(_: PageProps) {
         exportFilterSummary={exportFilterSummary(filter, lang)} exportContext={catalogExportEndpoint.context}
       />}
       <p className="t-caption text-text-muted">
-        {lang === 'ko'
-          ? `${notFilters}: 다른 분석 화면의 조건. 이 목록은 검색·상태·도메인으로 필터 · 예시 데이터`
-          : `${notFilters}: conditions for other analysis screens. This list filters by search, status and domain · synthetic data.`}
+        {m('metricCatalogConditionsForOtherAnalysisScreensThisList', { notFilters: String(notFilters) })}
       </p>
     </div>
   </PlatformPage>;

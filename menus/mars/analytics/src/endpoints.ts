@@ -1,3 +1,4 @@
+import { ANALYTICS_MESSAGES } from './messages';
 import type { ThemeColorToken } from '@ap/ui/theme';
 /**
  * Analytics query endpoints (packages/sdk/contracts/src/menu/menu-query.ts, #114–#115).
@@ -183,10 +184,7 @@ export const occurrenceEndpoint = defineEndpoint<OccurrenceParams, OccurrenceRes
 // ---- cycle-time (#127) ----
 
 /** Version note shown next to cycle-time figures (display constant shared by both analytics pages). */
-export const CYCLE_VERSION_NOTE = {
-  ko: '완료 Job 건수는 버전과 무관하고, 적용된 조건(Context)이 같을 때 두 화면에서 같습니다. Lot은 사이클타임 상세에만 적용되므로 Lot이 걸려 있으면 건수가 다를 수 있습니다. 생산성 개요의 사이클타임 분은 cycle_time v4(큐 대기 포함)이고, 사이클타임 상세의 기본 v3는 같은 Job에서 큐 대기만 뺍니다. 그래서 P50·P95는 다를 수 있습니다.',
-  en: 'Completed-job counts ignore version and match across the two screens only when the applied Context is the same; Lot applies on cycle-time detail only, so a Lot filter makes the counts differ. Productivity cycle-time minutes are cycle_time v4 (queue wait included); cycle-time detail’s default v3 drops only that queue wait on the same jobs, so P50/P95 can differ.',
-};
+export const CYCLE_VERSION_NOTE = ANALYTICS_MESSAGES.endpointCycleVersionNote;
 
 export const PAGE_METRIC_ID = 'cycle_time';
 /** cycle_time versions the synthetic series computes (v3 drops queue wait, v4 includes it). The server rejects others (#123). */

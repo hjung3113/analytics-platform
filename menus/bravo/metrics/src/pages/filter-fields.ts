@@ -1,3 +1,4 @@
+import { METRICS_MESSAGES } from '../messages';
 /**
  * Metric catalog filter declarations (ADR-0105, #1218): 상태 and 도메인 are pinned enum conditions of the hidden
  * repeated page key `filter`, both table columns, applied per condition and instantly. `q` stays the toolbar
@@ -10,12 +11,12 @@ import { DOMAIN_LABEL, STATUS_LABEL } from './data';
 
 /** Both fields are catalog columns: the funnel, chip line and editor come from `filterColumnProps(id, options)`; `filterFields` stays empty. */
 export const catalogFilterDeclarations: readonly TableFilterDeclaration[] = [
-  { id: 'status', label: { ko: '상태', en: 'Status' }, spec: catalogFilterSpecs.status, pinned: true },
-  { id: 'domain', label: { ko: '도메인', en: 'Domain' }, spec: catalogFilterSpecs.domain, pinned: true },
+  { id: 'status', label: METRICS_MESSAGES.filterFieldsStatus, spec: catalogFilterSpecs.status, pinned: true },
+  { id: 'domain', label: METRICS_MESSAGES.filterFieldsDomain, spec: catalogFilterSpecs.domain, pinned: true },
 ];
 
-const BAD_STATUS = { ko: '등록되지 않은 발행 상태입니다.', en: 'This publication state is not registered.' };
-const BAD_DOMAIN = { ko: '등록되지 않은 도메인입니다.', en: 'This domain is not registered.' };
+const BAD_STATUS = METRICS_MESSAGES.filterFieldsThisPublicationStateIsNotRegistered;
+const BAD_DOMAIN = METRICS_MESSAGES.filterFieldsThisDomainIsNotRegistered;
 
 /** The enum token rules the codec's shape check cannot express: membership in STATUSES/DOMAINS (#304; same check in the editor draft and every condition read from the address). */
 export const catalogValueCheck: FilterValueCheck = filter => {
