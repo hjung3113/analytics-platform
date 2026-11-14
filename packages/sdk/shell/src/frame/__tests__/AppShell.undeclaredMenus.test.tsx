@@ -13,7 +13,7 @@ const registry = () => createRegistry({
   spaces: [testSpace({ homeMenuId: 'fixture-home' })],
   groups: [{ id: groupId('fixture-space'), space: spaceId('mars'), label: { ko: '공간', en: 'Space' }, icon: House }],
   permissions: [menuPermission('fixture:view')],
-  menus: [menu('fixture-home', { primary: true }), menu('fixture-hidden', { permission: 'fixture:view' }), menu('fixture-last')],
+  menus: [menu('fixture-home', { primary: true }), menu('fixture-hidden', { permission: menuPermission('fixture:view') }), menu('fixture-last')],
 });
 const LISTED: readonly UndeclaredMenu[] = [{ menuId: 'fixture-hidden', permission: 'fixture:view' }];
 const slot = (list: readonly UndeclaredMenu[]): PlatformSlots => ({ undeclaredMenus: { Read: ({ children }: { children: (l: readonly UndeclaredMenu[]) => ReactNode }) => <>{children(list)}</> } });
