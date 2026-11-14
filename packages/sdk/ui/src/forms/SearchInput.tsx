@@ -123,7 +123,11 @@ export function SearchInput({
           if (event.defaultPrevented) return;
           // Confirming an IME composition also reports Enter (useImeEnterGuard).
           if (ime.isComposingEnter(event)) return;
-          if (event.key === 'Enter' && onCommit !== undefined) onCommit();
+          // The box commits its own query: Enter must not also submit a surrounding <form>.
+          if (event.key === 'Enter' && onCommit !== undefined) {
+            event.preventDefault();
+            onCommit();
+          }
           if (event.key === 'Escape' && value !== '') {
             event.preventDefault();
             onValueChange('');
