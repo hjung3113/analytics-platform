@@ -26,7 +26,7 @@ export function targetOf(row: Pick<SpecChangeRow, 'targetKind' | 'targetKey'>): 
   return { sourceModule: module, sourceEvent: event, predicate: decodeKey(predicate), targetModule, targetEvent };
 }
 /** The text editor is a full snapshot; replace creates a new draft, never edits a sealed revision. */
-export function specText(spec: SpecDraftData): string {
+export function specText(spec: Pick<SpecDraftData, 'modules' | 'events' | 'relations'>): string {
   const modules = new Map(spec.modules.map(m => [m.id, m.name]));
   const events = new Map(spec.events.map(e => [e.id, e]));
   const rows = [ ['kind', 'module', 'parent_module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'] ];
@@ -38,7 +38,7 @@ export function specText(spec: SpecDraftData): string {
 
 /** The same draft as structured rows: stored tabs/newlines round-trip without the unquoted TSV (fix C1). The TSV
  *  text above stays the human preview; a save uses these rows unless the user edited the text or loaded a file. */
-export function specRows(spec: SpecDraftData): Pick<SpecDraftSaveInput, 'modules' | 'events' | 'relations'> {
+export function specRows(spec: Pick<SpecDraftData, 'modules' | 'events' | 'relations'>): Pick<SpecDraftSaveInput, 'modules' | 'events' | 'relations'> {
   const names = new Map(spec.modules.map(m => [m.id, m.name]));
   const eventOf = (id: string) => spec.events.find(e => e.id === id);
   return {

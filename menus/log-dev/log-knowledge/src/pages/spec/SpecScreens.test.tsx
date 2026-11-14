@@ -12,11 +12,12 @@ const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: nu
 const spec: ModelSpecData = { revision: { id: rev, modelId, revisionNo: 1, state: 'published', schemaVersion: 1, sourceDocRef: { docLabel: 'Spec', docVersion: '1' }, contentSha256: 'a'.repeat(64), publishedAt: '2026-11-01T00:00:00Z', publishedBy: 'admin' }, modules: [{ id: 'm1', moduleKey: 'ROBOT', name: 'Robot', parentModuleId: null }, { id: 'm2', moduleKey: 'ARM', name: 'Arm', parentModuleId: 'm1' }], events: [{ id: 'e1', moduleId: 'm2', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }], relations: [] };
 const change: SpecChangeRow = { id: '00000007-0000-4000-8000-000000000002', softwareId: sw, softwareLabel: 'v1.0', endsBeforeSoftwareId: null, endsBeforeLabel: null, targetKind: 'event', targetKey: 'ARM/MOVE', changeKind: 'behavior', change: {}, note: 'timing', evidenceRef: null, basedOnRevNo: 1, needsRevalidation: true, revalidationRevNo: 2, retiredAt: null, retiredBy: null, retiredByChangeId: null, createdAt: '2026-11-01T00:00:00Z', createdBy: 'admin', version: 1 };
 const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
-let queries: MenuQuery[], writes: MenuAction[], result: ApiResponse<unknown> | null, allowed: boolean, conflict: boolean, saveInvalid: boolean;
+let queries: MenuQuery[], writes: MenuAction[], result: ApiResponse<unknown> | null, allowed: boolean, conflict: boolean, saveInvalid: boolean, createInvalid: boolean;
 let extraChanges: SpecChangeRow[];
 let coverage: unknown;
+let revisions: unknown[] | null, drafts: Record<string, unknown>;
 let restoreGeometry: () => void;
-beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; extraChanges = []; coverage = null; });
+beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; createInvalid = false; extraChanges = []; coverage = null; revisions = null; drafts = {}; });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks();
   // eslint-disable-next-line no-restricted-syntax -- the kernel owns web storage; the test resets the faked seam it reads
   window.localStorage?.removeItem?.('platform:lang');
@@ -34,11 +35,11 @@ function mount(search = '', draft: Record<string, unknown> | null = null, id = m
     if (req.endpoint === 'logKnowledge.modelSpec') return result === null ? new Promise(() => {}) : result as ApiResponse<never>;
     if (req.endpoint === 'logKnowledge.softwareVersions') return ok({ rows: [{ id: sw, versionLabel: 'v1.0', releaseOrder: 1 }], total: 1 });
     if (req.endpoint === 'logKnowledge.specChanges') return ok({ rows: [change, ...extraChanges], total: 1 + extraChanges.length });
-    if (req.endpoint === 'logKnowledge.modelSpecRevisions') return ok({ rows: [{ id: rev, revisionNo: 2, state: 'draft', version: 1 }], total: 1 });
+    if (req.endpoint === 'logKnowledge.modelSpecRevisions') return ok({ rows: revisions ?? [{ id: rev, revisionNo: 2, state: 'draft', version: 1 }], total: (revisions ?? [0]).length });
     if (req.endpoint === 'logKnowledge.specCoverage') return ok(coverage);
-    if (req.endpoint === 'logKnowledge.specDraft') return ok(draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
+    if (req.endpoint === 'logKnowledge.specDraft') return ok(drafts[(req.params as { revisionId: string }).revisionId] ?? draft ?? { ...spec, revision: { ...spec.revision, state: 'draft', version: 1 } });
     return ok(null);
-  }, menuAction: async req => { writes.push(req); return saveInvalid ? { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'malformed' }] } as unknown as ActionResponse<never> : (conflict ? { outcome: 'conflict', currentVersion: '2' } : { outcome: 'ok', data: { revisionId: rev, version: '2' }, version: '2' }) as unknown as ActionResponse<never>; } });
+  }, menuAction: async req => { writes.push(req); if (createInvalid && req.action === 'logKnowledge.specDraftCreate') return { outcome: 'invalid', fieldErrors: [{ path: ['modelId'], code: 'draft_exists' }] } as unknown as ActionResponse<never>; return saveInvalid ? { outcome: 'invalid', fieldErrors: [{ path: ['text'], code: 'malformed' }] } as unknown as ActionResponse<never> : (conflict ? { outcome: 'conflict', currentVersion: '2' } : { outcome: 'ok', data: { revisionId: rev, version: '2' }, version: '2' }) as unknown as ActionResponse<never>; } });
   return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId: id }} />, slot: true });
 }
 describe('production model spec screen', () => {
@@ -101,10 +102,117 @@ describe('production model spec screen', () => {
     conflict = true; mount('&drawer=draft&revision=' + rev); const input = await screen.findByLabelText('명세 TSV');
     fireEvent.change(input, { target: { value: 'kind\tmodule\nmodule\tKept' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
-    expect(await screen.findByRole('button', { name: '최신 확인 후 새 초안 작성' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: '최신 발행본 확인' })).toBeTruthy();
     expect((input as HTMLTextAreaElement).value).toContain('Kept');
     expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(true);
     expect(writes[0]?.expectedVersion).toBe('1');
+  });
+  // #2073: recovery shows what it read and writes nothing before the user picks.
+  const publishedB: ModelSpecData = { ...spec, revision: { ...spec.revision, revisionNo: 4 }, modules: [...spec.modules, { id: 'm3', moduleKey: 'BPUB', name: 'BPublished', parentModuleId: null }] };
+  const conflictThenRecover = async (search = '&drawer=draft&revision=' + rev) => {
+    conflict = true; mount(search); const input = await screen.findByLabelText('명세 TSV') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'kind\tmodule\nmodule\tAKept' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    fireEvent.click(await screen.findByRole('button', { name: '최신 발행본 확인' }));
+    return input;
+  };
+  const writeNames = () => writes.map(x => x.action);
+  it('recovery shows the latest publication and writes nothing until a choice; replacing puts it in the editor', async () => {
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    const input = await conflictThenRecover();
+    const shown = await screen.findByRole('group', { name: '현재 발행본 r4' });
+    expect(within(shown).getByText(/BPublished/)).toBeTruthy();
+    expect(input.value).toContain('AKept');
+    expect(writes).toHaveLength(1);
+    expect(writeNames()).toEqual(['logKnowledge.specDraftSave']);
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '발행본으로 바꾸기' }));
+    await waitFor(() => expect(input.value).toContain('BPublished'));
+    expect(input.value).not.toContain('AKept');
+    // The new draft is empty on the server: 발행 stays closed until the shown content is saved into it.
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByRole('button', { name: '발행' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate', 'logKnowledge.specDraftSave']));
+    // C1: the chosen publication is saved as structured rows, not through the TSV preview.
+    expect(JSON.stringify((writes[2]?.input as Record<string, unknown>)['modules'])).toContain('BPublished');
+  });
+  it('keeping the input after recovery creates the draft and leaves the editor dirty', async () => {
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    const input = await conflictThenRecover();
+    await screen.findByRole('group', { name: '현재 발행본 r4' });
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate']));
+    expect(input.value).toContain('AKept');
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByRole('button', { name: '발행' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it('open-draft recovery shows that draft and adopts its revision and version', async () => {
+    const other = '00000007-0000-4000-8000-000000000003';
+    result = ok(publishedB); revisions = [{ id: other, revisionNo: 5, state: 'draft', version: 7 }];
+    drafts[other] = { ...spec, revision: { ...spec.revision, id: other, revisionNo: 5, state: 'draft', version: 7 }, modules: [{ id: 'm9', moduleKey: 'OS', name: 'OtherSaved', parentModuleId: null }] };
+    const input = await conflictThenRecover();
+    const shown = await screen.findByRole('group', { name: '열린 초안 r5 (다른 사람이 저장)' });
+    expect(within(shown).getByText(/OtherSaved/)).toBeTruthy();
+    expect(writes).toHaveLength(1);
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    await waitFor(() => expect(window.location.search).toContain(`revision=${other}`));
+    expect(input.value).toContain('AKept');
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[1]?.expectedVersion).toBe('7');
+    expect((writes[1]?.input as Record<string, unknown>)['revisionId']).toBe(other);
+  });
+  it('replacing with a publication saves its structured rows, so stored tabs and newlines survive', async () => {
+    const stored: ModelSpecData = { ...publishedB, events: [{ id: 'e1', moduleId: 'm2', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'a\tb\nc', detailDocRef: null }] };
+    result = ok(stored); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    await conflictThenRecover();
+    await screen.findByRole('group', { name: '현재 발행본 r4' });
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '발행본으로 바꾸기' }));
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate', 'logKnowledge.specDraftSave']));
+    const payload = writes[2]?.input as Record<string, unknown>;
+    expect(payload['text']).toBeUndefined();
+    expect(payload['events']).toEqual([{ module: 'Arm', name: 'Move', fields: [], triggerRule: 'a\tb\nc', detailDocRef: null }]);
+  });
+  it('keeping untouched text after recovery saves the loaded draft as structured rows, never the unquoted preview', async () => {
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    conflict = true; mount('&drawer=draft&revision=' + rev); await screen.findByLabelText('명세 TSV');
+    // Only the source metadata changes: the TSV text stays untouched.
+    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    fireEvent.click(await screen.findByRole('button', { name: '최신 발행본 확인' }));
+    await screen.findByRole('group', { name: '현재 발행본 r4' });
+    conflict = false;
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    await waitFor(() => expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate']));
+    await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes).toHaveLength(3));
+    const payload = writes[2]?.input as Record<string, unknown>;
+    expect(payload['text']).toBeUndefined();
+    expect(payload['events']).toEqual([{ module: 'Arm', name: 'Move', fields: [], triggerRule: 'on move', detailDocRef: null }]);
+  });
+  it('a lost create race returns to a fresh recovery read that shows the newly opened draft', async () => {
+    const other = '00000007-0000-4000-8000-000000000003';
+    result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
+    const input = await conflictThenRecover();
+    await screen.findByRole('group', { name: '현재 발행본 r4' });
+    conflict = false; createInvalid = true;
+    revisions = [{ id: other, revisionNo: 5, state: 'draft', version: 7 }];
+    drafts[other] = { ...spec, revision: { ...spec.revision, id: other, revisionNo: 5, state: 'draft', version: 7 }, modules: [{ id: 'm9', moduleKey: 'OS', name: 'OtherSaved', parentModuleId: null }] };
+    fireEvent.click(screen.getByRole('button', { name: '내 입력 유지' }));
+    expect(await screen.findByRole('button', { name: '최신 발행본 확인' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: '현재 발행본 r4' })).toBeNull();
+    expect(input.value).toContain('AKept');
+    expect(writeNames()).toEqual(['logKnowledge.specDraftSave', 'logKnowledge.specDraftCreate']);
+    fireEvent.click(screen.getByRole('button', { name: '최신 발행본 확인' }));
+    expect(await screen.findByRole('group', { name: '열린 초안 r5 (다른 사람이 저장)' })).toBeTruthy();
   });
   it.each(['empty', 'loading', 'error', 'forbidden'] as const)('renders the %s state', async state => {
     result = state === 'empty' ? ok(null) : state === 'loading' ? null : { ...ok(null), outcome: state === 'forbidden' ? 'forbidden' : 'error' };
