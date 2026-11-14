@@ -1,3 +1,4 @@
+import { formatWallClock } from '@ap/contracts';
 /**
  * Catalog table columns (#173 review P3-8): extracted from MetricCatalog so the export labels are testable
  * without mounting the page. The cell renders exactly what the screen shows; `exportValue` gives the export
@@ -63,8 +64,8 @@ export function catalogColumns({ lang, linkTo, tx, filterColumnProps }: Deps): P
     { id: 'owner', header: lang === 'ko' ? '정의 책임' : 'Owner', size: 160, cell: row => row.owner },
     {
       id: 'updatedAt', header: lang === 'ko' ? '수정 시각' : 'Updated', size: 170, align: 'right',
-      cell: row => <time className="tabular" dateTime={row.updatedAt}>{row.updatedAt.replace('T', ' ').slice(0, 16)}</time>,
-      exportValue: row => row.updatedAt.replace('T', ' ').slice(0, 16),
+      cell: row => <time className="tabular" dateTime={row.updatedAt}>{formatWallClock(row.updatedAt, 'minute')}</time>,
+      exportValue: row => formatWallClock(row.updatedAt, 'minute'),
     },
   ];
 }

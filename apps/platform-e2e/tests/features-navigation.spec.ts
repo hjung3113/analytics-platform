@@ -40,6 +40,7 @@ test.describe('#1099 B 업무 흐름·운영 콘솔과 내 활동·소통', () =
     expect(query(page).get('managedSystem')).toBe(SYSTEM);
     for (const retired of ['/feedbackops', '/feedbackops/my-tasks', '/feedbackops/fo-my-tasks']) {
       await page.goto(retired);
+      await expect(mainHeading(page)).toHaveText('없는 화면');
       await expect(page.getByRole('main')).not.toContainText('내 Task');
       expect(new URL(page.url()).pathname).toBe(retired);
     }

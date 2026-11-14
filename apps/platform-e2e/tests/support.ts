@@ -1,4 +1,4 @@
-import { expect, type Page, type TestInfo } from '@playwright/test';
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 /**
  * Black-box helpers: everything goes through the rendered app and the dev tools, never through @ap/* imports.
@@ -33,6 +33,20 @@ export const queryBar = (page: Page) => page.getByRole('region', { name: '조회
 // The result moves into the folded workspace query bar; expanded/other pages keep the strip.
 export const queryResultSurface = (page: Page) => page.locator('[data-workspace-query-row], [role="region"][aria-label="적용된 조회 조건"]');
 export const contextBar = (page: Page) => liveContextBar(page).or(queryBar(page));
+
+/**
+ * Waits for the bar's controls to mount before deciding whether it needs opening. A bar without the expand/collapse
+ * toggle (the always-open live context bar) is already open, so the helper only waits for its first control.
+ */
+export async function expandQueryBar(page: Page, scope: Locator = contextBar(page)) {
+  const expand = scope.getByRole('button', { name: '조회 조건 펼치기' });
+  const collapse = scope.getByRole('button', { name: '조회 조건 접기' });
+  await expect(scope.getByRole('button').first()).toBeVisible();
+  if (await expand.isVisible()) {
+    await expand.click();
+    await expect(collapse).toBeVisible();
+  }
+}
 
 /** Opens the inline page editor. Expand a folded workspace query bar first (#1941). */
 export async function expandPageHead(page: Page) {

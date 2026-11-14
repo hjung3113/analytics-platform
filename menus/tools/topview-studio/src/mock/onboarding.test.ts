@@ -5,7 +5,7 @@ import {
   DICTIONARY_GLOBAL_EDIT_PERMISSION, EQV_READ_PERMISSION, LAYOUT_EDIT_PERMISSION, LAYOUT_PUBLISH_PERMISSION, MAPPING_PUBLISH_PERMISSION, RULES_EDIT_PERMISSION, STUDIO_VIEW_PERMISSION,
   WINDOW_IMPORT_PERMISSION, onboardingActionSpecs, onboardingReadSpecs,
 } from '../endpoints';
-import { resetOnboardingMock, setSampleWindowImport, topviewOnboardingActionsMock, topviewStudioActionsMock, topviewStudioMock, type SampleWindowImportHooks } from './index';
+import { resetOnboardingMock, setSampleWindowImport, topviewOnboardingMockActions, topviewStudioActionsMock, topviewStudioMock, type SampleWindowImportHooks } from './index';
 import { flattenRules } from './onboarding-actions';
 
 /** Mirror the two manifests in '../index.ts' (importing it from `src/mock/**` is lint-banned); change them together. */
@@ -15,7 +15,7 @@ const menus: MenuMeta[] = [
   { ...base, id: 'eqv-onboarding', label: { ko: '설비 온보딩', en: 'Equipment onboarding' }, path: '/tools/eqv-onboarding', pageType: 'management', pageKeys: ['equipment', 'step', 'window'] },
 ];
 const permissions = [...KERNEL_PERMISSIONS, STUDIO_VIEW_PERMISSION, EQV_READ_PERMISSION, LAYOUT_EDIT_PERMISSION, LAYOUT_PUBLISH_PERMISSION, RULES_EDIT_PERMISSION, DICTIONARY_GLOBAL_EDIT_PERMISSION, MAPPING_PUBLISH_PERMISSION, WINDOW_IMPORT_PERMISSION];
-const adapter = createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock, ...topviewOnboardingActionsMock], registry: { menus }, permissions });
+const adapter = createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock], registry: { menus }, permissions });
 
 const previousRole = getRole();
 beforeEach(() => { resetOnboardingMock(); setRole('engineer'); });
@@ -34,7 +34,7 @@ type Windows = { rows: { hash: string; state: string; mappingCount: number }[] }
 describe('onboarding mock reads', () => {
   it('registers every declared read and write', () => {
     expect(topviewStudioMock.filter((e) => e.spec.menuId === 'eqv-onboarding').map((e) => e.spec.id)).toEqual(onboardingReadSpecs.map((s) => s.id));
-    expect(topviewOnboardingActionsMock.map((a) => a.spec.id)).toEqual(onboardingActionSpecs.map((s) => s.id));
+    expect(topviewOnboardingMockActions.map((a) => a.spec.id)).toEqual(onboardingActionSpecs.map((s) => s.id));
   });
 
   it('serves the three synthetic equipment with status codes and the latest active window', async () => {
@@ -136,7 +136,7 @@ describe('onboarding mock writes', () => {
   it('a global-level save also needs eqv-studio:dictionary-global-edit', async () => {
     const global = { level: 'global', document: { schemaVersion: '0.4', scope: { level: 'global' }, rules: [] } };
     // A mock adapter installs its permission vocabulary as the roles' world: build one without the global permission, then restore.
-    const build = (list: readonly string[]) => createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock, ...topviewOnboardingActionsMock], registry: { menus }, permissions: list as typeof permissions });
+    const build = (list: readonly string[]) => createMockAdapter({ endpoints: [...topviewStudioMock], actions: [...topviewStudioActionsMock], registry: { menus }, permissions: list as typeof permissions });
     const withoutGlobal = build(permissions.filter((p) => p !== DICTIONARY_GLOBAL_EDIT_PERMISSION));
     try {
       const send = (input: Record<string, unknown>) => withoutGlobal.menuAction({ action: 'eqv.saveAliasRules', context: {}, input, idempotencyKey: crypto.randomUUID(), expectedVersion: '0' });

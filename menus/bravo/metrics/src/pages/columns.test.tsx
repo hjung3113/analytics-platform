@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { CatalogRow, Lang, Text } from '../endpoints';
 import { DOMAIN_LABEL, STATUS_LABEL } from './data';
@@ -9,7 +10,7 @@ const row: CatalogRow = {
   metricId: 'cycle_time', nameKo: '사이클타임', nameEn: 'Cycle time', nameSort: 'cycle_time',
   domain: 'time', grain: 'equipment × hour', numerator: 'run_minutes', denominator: 'runs',
   publishedPointer: '3', catalogVersion: '3', draftVersion: '4', status: 'published',
-  ownerId: 'u1', owner: '생산팀', updatedAt: '2026-10-01T09:30:00+09:00',
+  ownerId: 'u1', owner: '생산팀', updatedAt: '2026-10-01T09:30:00',
 };
 
 const columnById = (lang: Lang) => {
@@ -47,4 +48,10 @@ describe('metric catalog columns exportValue labels (#173 P3-8)', () => {
     expect(ko.grain.exportValue).toBeUndefined();
     expect(ko.owner.exportValue).toBeUndefined();
   });
+});
+
+it('catalog updatedAt is the wall-clock value the mock and server send, same in cell and export (#2010)', () => {
+  const column = columnById('ko').updatedAt;
+  expect(column.exportValue!(row)).toBe('2026-10-01 09:30');
+  expect(renderToStaticMarkup(<>{column.cell!(row)}</>)).toContain('2026-10-01 09:30</time>');
 });

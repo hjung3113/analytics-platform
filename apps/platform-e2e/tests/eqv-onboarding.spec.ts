@@ -13,7 +13,7 @@ const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 const GLOBAL_CONTEXT_KEYS = new Set(['v', 'from', 'to', 'relativePeriod']);
 const keys = (page: Page) => [...new URL(page.url()).searchParams.keys()].filter((key) => !GLOBAL_CONTEXT_KEYS.has(key)).sort();
 
-test.describe('eqv studio onboarding', () => {
+test.describe('eqv studio onboarding (06 §5·§17·§19)', () => {
   test('engineer opens an equipment from the Fleet, reviews Mapping and publishes from 검증·게시', async ({ page }, testInfo) => {
     await page.goto('/');
     await chooseSystem(page, '도구');

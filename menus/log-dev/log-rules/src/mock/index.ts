@@ -1,5 +1,5 @@
 import { datasetsMock } from './datasets';
-export { datasetActionsMock, stageDatasetBaseline, stageDatasetSuiteRun } from './datasets';
+export { datasetActionsMock as logRulesActionsMock, stageDatasetBaseline, stageDatasetSuiteRun } from './datasets';
 import { filterRows, validateFilters, type ColumnFilterSpec } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
@@ -105,3 +105,5 @@ const softwareOptions = defineMockEndpoint(softwareOptionsEndpoint, { mart: fals
   handle: ({ params }) => ({ rows: (fixtureSoftware[params.modelId.toLowerCase()] ?? []).map((id, i) => ({ id, versionLabel: `${i + 1}.0`, name: '합성 fixture', active: true })) }),
 });
 export const logRulesMock: readonly AnyMockEndpoint[] = [sets, history, rules, detail, catalog, coverage, summary, modelOptions, softwareOptions, ...datasetsMock];
+
+export { logRulesWriteSamples } from './write-samples';

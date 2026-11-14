@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FEATURES, betweenOrdered, filterRows, groupPage, validateFilters, type ColumnFilter, type ColumnFilterSpec, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
+import { NO_FEATURES, formatWallClock, betweenOrdered, filterRows, groupPage, validateFilters, type ColumnFilter, type ColumnFilterSpec, RETURN_TO_KEY, carriesReturnTo, compareAuditEvents, contextCapabilities, isRecord, withoutReturnTo, type AuditEvent, type Capability, type ContextKey } from '@ap/contracts';
 
 // #673: shared @ap/contracts helpers — the manifest defaults every menu index and the gen-menu scaffold share (06 §5), `isRecord`, and the `returnTo` rule (#851).
 const ALL_UNSUPPORTED: Record<ContextKey, Capability> = {
@@ -399,5 +399,23 @@ describe('groupPage (row groups, ADR-0104)', () => {
     expect(out.groups.map(g => [g.key, g.count])).toEqual([['A', 1], ['', 5]]);
     const desc = groupPage(mixed, { groupBy: 'line', sorting: [{ id: 'at', desc: true }] });
     expect(desc.rows.map(r => r.id).slice(1)).toEqual(['n1', 'u1', 'e2', 'e1', 'n2']); // stable among ties
+  });
+});
+
+
+describe('formatWallClock (#2010)', () => {
+  it.each([
+    ['2026-09-26T09:08:07', undefined, '2026-09-26 09:08:07'],
+    ['2026-09-26T09:08:07', 'second', '2026-09-26 09:08:07'],
+    ['2026-09-26T09:08:07', 'minute', '2026-09-26 09:08'],
+    ['2026-09-26T09:08', undefined, '2026-09-26 09:08'],
+    ['2026-09-26T09:08', 'minute', '2026-09-26 09:08'],
+    [null, undefined, ''],
+    [null, 'minute', ''],
+  ] as const)('formats %s at %s precision without a zone conversion', (value, precision, expected) => {
+    expect(formatWallClock(value, precision)).toBe(expected);
+  });
+  it.each(['2026-02-30T09:00:00', '2026-09-26T24:00:00', '2026-09-26T09:00:00Z', '2026-09-26T09:00:00+09:00', '2026-09-26'])('rejects non-wall-clock values %s', value => {
+    expect(() => formatWallClock(value)).toThrow(/time:/);
   });
 });

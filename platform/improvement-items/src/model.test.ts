@@ -26,5 +26,12 @@ describe('improvement item screen contracts', () => {
   });
   it('shows both wall-clock endpoints as KST, separately from action date', () => {
     expect(originPeriod({ from: '2026-11-01T00:00', to: '2026-11-05T00:00' }, 'ko')).toBe('2026-11-01 00:00 – 2026-11-05 00:00 KST');
+    expect(originPeriod({ from: '2026-11-01T00:00:15', to: '2026-11-05T12:30:45' }, 'en')).toBe('2026-11-01 00:00:15 – 2026-11-05 12:30:45 KST');
+  });
+  it('falls back to the unknown label per endpoint when a stored origin string is not a valid wall-clock date', () => {
+    expect(originPeriod({ from: 'not-a-date', to: '2026-11-05T00:00:00' }, 'ko')).toBe('시작 미상 – 2026-11-05 00:00:00 KST');
+    expect(originPeriod({ from: '2026-11-01T00:00', to: '2026-02-30T00:00:00' }, 'en')).toBe('2026-11-01 00:00 – Unknown end KST');
+    expect(originPeriod({ from: '2026-11-01T00:00:00Z', to: '' }, 'ko')).toBe('시작 미상 – 종료 미상 KST');
+    expect(originPeriod({}, 'en')).toBe('Unknown start – Unknown end KST');
   });
 });

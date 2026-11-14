@@ -3,6 +3,14 @@ import { ContractError, formatDateTime, parseDateTime, shift } from '../links/ur
 /** Wall-clock period helpers (06 §6.3) shared by pages and the server: naive datetimes, never time-zone shifted. */
 export type Grain = 'hour' | 'day' | 'week';
 
+/** Calendar digits for display (06 §6.3), never converted to a viewer's time zone. Null prints an empty label.
+ * Minute-only display snapshots retain their precision; wire values still require seconds in parseDateTime. */
+export function formatWallClock(value: string | null, precision: 'second' | 'minute' = 'second'): string {
+  if (value === null) return '';
+  parseDateTime(value.length === 16 ? `${value}:00` : value, 'time');
+  return value.replace('T', ' ').slice(0, precision === 'minute' ? 16 : 19);
+}
+
 /** Hours between `from` and `to`; null while either end is open. */
 export function periodHours(g: { from: string | null; to: string | null }): number | null {
   if (!g.from || !g.to) return null;

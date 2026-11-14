@@ -17,20 +17,19 @@ import { topviewStudioMock } from '@ap/menu-topview-studio/mock';
 // </gen:menu-mock-imports>
 // Mock actions and write samples of generated menus (ADR-0054) — written by `pnpm gen:menu`.
 // <gen:menu-mock-action-imports>
+import { logAnalysisActionsMock, logAnalysisWriteSamples } from '@ap/menu-log-analysis/mock';
+import { logKnowledgeActionsMock, logKnowledgeWriteSamples } from '@ap/menu-log-knowledge/mock';
+import { improvementItemsActionsMock, improvementItemsWriteSamples } from '@ap/menu-improvement-items/mock';
+import { logModelsActionsMock, logModelsWriteSamples } from '@ap/menu-log-models/mock';
+import { logRulesActionsMock, logRulesWriteSamples } from '@ap/menu-log-rules/mock';
+import { topviewStudioActionsMock, topviewStudioWriteSamples } from '@ap/menu-topview-studio/mock';
 // </gen:menu-mock-action-imports>
 // Audit seeds of menu-owned destinations (ADR-0048) — hand-wired, outside the generator's import region.
 import { metricsAuditEvents } from '@ap/menu-metrics/mock';
-// Menu mock actions (ADR-0054) of menus that predate the generator's action markers — hand-wired, outside the regions.
-import { logAnalysisActionsMock } from '@ap/menu-log-analysis/mock';
-export { stageLifecycleFixture, stageValidationIssue } from '@ap/menu-log-models/mock';
-export { stageDatasetBaseline, stageDatasetSuiteRun } from '@ap/menu-log-rules/mock';
-import { datasetActionsMock } from '@ap/menu-log-rules/mock';
-import { logLifecycleActionsMock } from '@ap/menu-log-models/mock';
-import { logKnowledgeActionsMock } from '@ap/menu-log-knowledge/mock';
-import { improvementItemsActionsMock } from '@ap/menu-improvement-items/mock';
+export { stagedImport, specFixture } from '@ap/menu-log-knowledge/mock';
+export { setConformanceUpload } from '@ap/menu-topview-studio/mock';
 import { setTopviewMockSource } from '@ap/menu-topview/mock';
-import { setSampleWindowImport, topviewOnboardingActionsMock, topviewStudioActionsMock } from '@ap/menu-topview-studio/mock';
-export { stageOnboardingWindow } from '@ap/menu-topview-studio/mock';
+import { setSampleWindowImport } from '@ap/menu-topview-studio/mock';
 import { buildInventory, checkSampleWindowImport, eqvMockContext, eqvMockEquipmentOptions, eqvMockEvents } from '@ap/menu-topview/mock-data';
 import type { CreateAssembly } from '#platform-assembly';
 import { menuPermissions, type AuditEvent } from '@ap/contracts';
@@ -62,26 +61,37 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   // </gen:menu-mock-spreads>
 ];
 
-/**
- * Every menu mock action the app registers (ADR-0054); `pnpm gen:menu` writes the marker region. The mock adapter below and the conformance test read it.
- */
 // 설비 온보딩 Sample Window import (#1658): the mock judges an uploaded batch with the dev tool's own `@eqv/core` code.
 setSampleWindowImport({ check: checkSampleWindowImport, inventory: buildInventory });
 // Top View viewer (#801, #1659): the mock answers its three reads from the synthetic fixture.
 setTopviewMockSource({ equipmentOptions: eqvMockEquipmentOptions, context: eqvMockContext, events: eqvMockEvents });
+
+/**
+ * Every menu mock action the app registers (ADR-0054); `pnpm gen:menu` writes the marker region. The mock adapter below and the conformance test read it.
+ */
 export const MOCK_ACTIONS: readonly AnyMockAction[] = [
   // <gen:menu-mock-action-spreads>
+  ...logAnalysisActionsMock,
+  ...logKnowledgeActionsMock,
+  ...improvementItemsActionsMock,
+  ...logModelsActionsMock,
+  ...logRulesActionsMock,
+  ...topviewStudioActionsMock,
   // </gen:menu-mock-action-spreads>
-  ...logAnalysisActionsMock, ...logKnowledgeActionsMock, ...improvementItemsActionsMock, ...logLifecycleActionsMock, ...datasetActionsMock, ...topviewStudioActionsMock, ...topviewOnboardingActionsMock,
 ];
 
 /**
  * Conformance write samples of generated menus, keyed by the full action id (`<group>.<action>`) — each menu's `./mock`
- * exports them next to its actions. The conformance test merges them with its hand table for the older menus and fails
- * by action id when a registered action has neither (#1904).
+ * exports them next to its actions. The conformance test fails by action id when a registered action has no sample (#1904).
  */
 export const MOCK_WRITE_SAMPLES: readonly Readonly<Record<string, () => Record<string, unknown>>>[] = [
   // <gen:menu-mock-sample-entries>
+  logAnalysisWriteSamples,
+  logKnowledgeWriteSamples,
+  improvementItemsWriteSamples,
+  logModelsWriteSamples,
+  logRulesWriteSamples,
+  topviewStudioWriteSamples,
   // </gen:menu-mock-sample-entries>
 ];
 

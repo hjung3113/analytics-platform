@@ -1,3 +1,4 @@
+import { formatWallClock } from '@ap/contracts';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
@@ -131,9 +132,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
     { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
     {
-      id: 'startedAt', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{row.startedAt.replace('T', ' ')}</span>,
+      id: 'startedAt', header: ko ? '시작' : 'Start', cell: row => <span className="t-mono tabular">{formatWallClock(row.startedAt)}</span>,
       // The cell shows the wall-clock start space-separated (§6.3); the export shows the same text.
-      exportValue: row => row.startedAt.replace('T', ' '),
+      exportValue: row => formatWallClock(row.startedAt),
     },
     {
       id: 'cycleMin', header: ko ? '사이클타임 (분)' : 'Cycle time (min)', align: 'right',
@@ -356,7 +357,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               : undefined}
             rowAction={(row, { compact }) => {
               const href = linkTo('execution-detail', { params: { equipmentId: row.equipmentId }, page: { entityType: 'job', anchor: row.anchor }, returnTo: true });
-              const name = ko ? `${row.equipmentId} · ${row.startedAt.replace('T', ' ')} 상세` : `Detail ${row.equipmentId} · ${row.startedAt.replace('T', ' ')}`;
+              const name = ko ? `${row.equipmentId} · ${formatWallClock(row.startedAt)} 상세` : `Detail ${row.equipmentId} · ${formatWallClock(row.startedAt)}`;
               return <RowAction compact={compact} icon={ArrowRight} label={name} text={ko ? '상세' : 'Detail'} textLink="primary" link={<PlatformLink href={href} />} />;
             }}
             bulkActions={ids => <Button size="toolbar" onClick={() => {

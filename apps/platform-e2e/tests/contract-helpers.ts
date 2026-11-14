@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { contextBar } from './support';
+import { contextBar, expandQueryBar } from './support';
 
 export const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 export const PRODUCTIVITY = `/mars/productivity-overview?v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`;
@@ -44,8 +44,7 @@ export async function periodPreset(page: Page, name: string) {
   const bar = contextBar(page);
   await expect(bar).toBeVisible();
   if (await bar.getAttribute('data-query-bar') !== null) {
-    const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
-    if (await expand.count()) await expand.click();
+    await expandQueryBar(page, bar);
     return { locator: bar.getByRole('button', { name: name === '1일' ? '최근 24시간' : name === '7일' ? '최근 7일' : name, exact: true }), close: async () => {
       await bar.getByRole('button', { name: '적용', exact: true }).click();
     } };

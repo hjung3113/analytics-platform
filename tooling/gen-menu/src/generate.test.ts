@@ -4,7 +4,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import ts from 'typescript';
 import { PACKAGE_PREFIX } from './prefix.ts';
 import { APP_PKG, MOCK_ASSEMBLY_TSX, MENUS_TS, STYLE_CSS, editSummary } from './generate.ts';
-import { PAGE_SLOTS, PAGE_TYPES, depLine, importLine, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
+import { PAGE_SLOTS, PAGE_TYPES, SDK_RANGE, depLine, importLine, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, renderFiles, slotsLiteral, spreadLine, styleLine, type MenuInputs } from './templates.ts';
 import { FIXTURE_FOLDER, FIXTURE_GROUP, GEN_ARGS, appSnapshot, fixtureMockAssemblyTsx, makeFixture, menusTree, removeFixture, repoRoot, runCli } from './fixture.ts';
 
 const INPUTS: MenuInputs = {
@@ -390,7 +390,7 @@ it('generates version metadata and a matching changelog', () => {
   const files = renderFiles(INPUTS, '2026-01-02');
   const pkg = JSON.parse(files.find(f => f.relPath === 'package.json')!.content) as { version: string; ap: { sdk: string } };
   expect(pkg.version).toBe('0.1.0');
-  expect(pkg.ap.sdk).toBe('>=0.36.0 <0.37.0');
+  expect(pkg.ap.sdk).toBe(SDK_RANGE);
   expect(files.find(f => f.relPath === 'CHANGELOG.md')?.content).toMatch(/^# @ap\/menu-gen-probe 변경 기록[\s\S]*^## 0\.1\.0 — 2026-01-02$/m);
 });
 

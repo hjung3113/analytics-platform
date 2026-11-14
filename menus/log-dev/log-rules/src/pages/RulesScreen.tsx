@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { ManagementLayout, PageKeyWarning, PlatformPage, QueryView, usePageKeyRules } from '@ap/components';
 import { useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
-import { encodeFilterParams, parseFilterParams, formatInstant, formatDateTime, parseDateTime } from '@ap/contracts';
+import { encodeFilterParams, parseFilterParams, formatInstant, formatWallClock } from '@ap/contracts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { catalogStatusEndpoint, isCatalogKey, isUuid, ruleFilterSpecs } from '../endpoints';
 import { CoverageTab } from './CoverageTab';
@@ -57,5 +57,5 @@ export default function RulesScreen({ params = {} }: PageProps) {
 /** Server report timestamps are instants; legacy synthetic wall-clock fixtures retain their written calendar digits. */
 function reportTime(value: string | null): string {
   if (!value) return '없음';
-  return /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? formatInstant(value, 'ko') : formatDateTime(parseDateTime(value, 'time')).replace('T', ' ');
+  return /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? formatInstant(value, 'ko') : formatWallClock(value);
 }

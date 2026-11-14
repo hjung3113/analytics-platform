@@ -1,3 +1,4 @@
+import { formatWallClock } from '@ap/contracts';
 import type { ColumnFilter } from '@ap/contracts';
 import type { Effect, Origin, Quest, Target } from './endpoints';
 export function formatTarget(target: Target, labels: Record<Target['kind'], string>): string {
@@ -24,7 +25,16 @@ export function questPresentation(state: QuestState, snapshot: string, quest: Qu
 }
 /** Analysis Context is wall-clock time in KST; actionDate is a separate calendar day. */
 export function originPeriod(context: Record<string, unknown>, lang: 'ko' | 'en'): string {
-  const from = typeof context.from === 'string' ? context.from.replace('T', ' ') : (lang === 'ko' ? '시작 미상' : 'Unknown start');
-  const to = typeof context.to === 'string' ? context.to.replace('T', ' ') : (lang === 'ko' ? '종료 미상' : 'Unknown end');
+  const from = formatOriginEndpoint(context.from, lang === 'ko' ? '시작 미상' : 'Unknown start');
+  const to = formatOriginEndpoint(context.to, lang === 'ko' ? '종료 미상' : 'Unknown end');
   return `${from} – ${to} KST`;
+}
+
+function formatOriginEndpoint(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  try {
+    return formatWallClock(value);
+  } catch {
+    return fallback;
+  }
 }

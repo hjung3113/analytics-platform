@@ -109,6 +109,7 @@ test.describe('업무 흐름 설정·운영 콘솔 권한 그룹(#764 p2, #1099c
     await signInAs(page, 'admin');
     await page.goto(PRODUCTIVITY);
     const block = page.getByRole('navigation', { name: '기능 · MARS' });
+    await expect(block.getByRole('link').first()).toBeVisible();
     // Destinations, not labels: no shortcut to the flow settings or the operations console.
     for (const path of ['/flow/managed-systems', '/flow/analytics-areas', '/flow/settings', '/operations/']) {
       await expect(block.locator(`a[href*="${path}"]`)).toHaveCount(0);

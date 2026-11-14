@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { emptyGlobal, type HierarchyNode, type HierarchyPage } from '@ap/contracts';
-import { logLifecycleActionsMock, logLifecycleMock, PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, resetLifecycle, fixtureId } from './index';
+import { logModelsActionsMock as logLifecycleActionsMock, logLifecycleMock, PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, resetLifecycle, fixtureId } from './index';
 import type { RequestDetail, RuleResult, RoundDetail } from '../endpoints';
 import type { PageSort } from '@ap/contracts';
 

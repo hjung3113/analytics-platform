@@ -137,3 +137,5 @@ export const logAnalysisActionsMock: readonly AnyMockAction[] = [
   } }),
   defineMockAction(investigationArchive, { version, handle: ({ input, actor }) => { const row = open(input.id, actor); row.status = 'archived'; return touch(row); } }),
 ];
+
+export { logAnalysisWriteSamples } from './write-samples';

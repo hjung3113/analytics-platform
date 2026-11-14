@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { renderFiles, type MenuInputs } from './templates.ts';
 import { repoRoot } from './fixture.ts';
 import { checkAppMarkers } from './generate.ts';
 import { checkCodeowners, checkMenuVersions, checkGroups, checkMarkers, checkNoProbe, checkUniqueness, checkWiring, loadShape } from './repo-invariants.ts';
@@ -55,4 +56,14 @@ describe('committed wiring locks (real repo, read-only)', () => {
   it('has no probe leftovers (skipped while the probe menu exists)', () => {
     expect(() => checkNoProbe(shape, process.env.GEN_MENU_PROBE === '1')).not.toThrow();
   });
+});
+
+
+it('scaffold dependency versions match the reference consumer (#2010)', () => {
+  const input: MenuInputs = { group: 'example', folder: 'example', space: 'mars', menuId: 'example', page: 'Example', path: '/example', pageType: 'overview', labelKo: '견본', labelEn: 'Example', binding: 'example' };
+  const generated = JSON.parse(renderFiles(input).find(file => file.relPath === 'package.json')!.content);
+  const reference = JSON.parse(readFileSync(join(repoRoot(), 'menus/mars/analytics/package.json'), 'utf8'));
+  for (const section of ['dependencies', 'peerDependencies', 'devDependencies']) {
+    for (const [name, version] of Object.entries(generated[section])) expect(reference[section][name], `${section}.${name}`).toBe(version);
+  }
 });

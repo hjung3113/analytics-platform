@@ -104,7 +104,7 @@ export function createRealAssembly({ bootstrap, where, importEnvironment = pageE
 }
 
 /** The space-links source: passes the store's abort signal and session identity to the transport so a 401 binds to the session it started under. */
-export const createSpaceSystemsSource = (featureApi: { basePath: string; onSessionLost: () => void }) =>
+const createSpaceSystemsSource = (featureApi: { basePath: string; onSessionLost: () => void }) =>
   (signal?: AbortSignal, identity?: readonly unknown[]) => fetchSpaceLinks(featureApi, signal, identity);
 
 export const createAssembly: CreateAssembly = createRealAssembly({ bootstrap: bootstrapHttpAdapter, where: () => window.location });

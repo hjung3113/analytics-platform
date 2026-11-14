@@ -278,3 +278,6 @@ export { resetCatalog } from './store';
 export { resetItems } from './items';
 export { resetImports } from './imports';
 export { resetTopView } from './topview';
+
+export { logKnowledgeWriteSamples } from './write-samples';
+export { stagedImport, specFixture } from './write-samples';

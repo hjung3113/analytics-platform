@@ -29,7 +29,7 @@ export function createEndpointInvalidation(): EndpointInvalidation {
 }
 
 /** The Home banner's endpoint id (`platform/home` `noticesEndpoint`); a test pins it against the declaration. */
-export const NOTICE_AFFECTED_ENDPOINTS = ['home.notices'] as const;
+const NOTICE_AFFECTED_ENDPOINTS = ['home.notices'] as const;
 
 /** A write may have applied after these answers; a judged `invalid`/`forbidden`/`not_found`/`error` changed nothing. */
 const MAY_HAVE_CHANGED: readonly ActionOutcome[] = ['ok', 'conflict', 'unknown'];
