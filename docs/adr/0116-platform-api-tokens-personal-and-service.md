@@ -31,7 +31,7 @@
 
 - 소유 문서: `docs/architecture/platform-api/api/auth.md`(토큰 호출 인증 순서), `05-permission-policy.md`(세션 전용 capability, 교집합 규칙, 감사 동사), `04-database-and-migrations.md`(`core.api_tokens`: `id, workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, expires_at, last_used_at, revoked_at, created_by`). 구현 노드는 [log-lifecycle §7](../design/features/log-lifecycle/README.md) a·b.
 - 토큰 관리 화면(개인 목록·발급·폐기, 관리자 서비스 토큰)은 새 화면이라 시안 컨펌 대상이다.
-- 감사: 발급·폐기·거절된 고위험 시도·인증 실패를 기록하고, 토큰 호출의 쓰기에는 토큰 ID를 세부에 둔다.
+- 감사: 발급·폐기·거절된 고위험 시도·저장된 토큰의 인증 실패를 기록하고(형식 불량·알 수 없는 토큰은 접두사·사유만 warn 로그), 토큰 호출의 쓰기에는 토큰 ID를 세부에 둔다.
 - 소유 문서의 `core.api_tokens.expires_at`은 nullable이다.
 - 구현: 노드 a [#1442](https://github.com/hjung3113/analytics-platform/issues/1442)(PR #1456). 미사용 토큰 알림(3a ⅱ)과 발급자 비활성화 반영(3a ⅴ, `core.actors`에 활성 칼럼 없음)은 구현 안 함 — [backlog](../../.planning/backlog.md)에 다시 여는 조건과 함께 있다.
 - 열린 것: 서비스 토큰 발급 주체 확인(관리자만으로 가정), 미사용 경고 일수(30일 시작값), 사내 보안 검토에서 무기한 허용이 막힐 경우.
