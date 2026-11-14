@@ -118,4 +118,50 @@ describe('useVocConversation', () => {
     expect(result.current.data?.pages[1]?.items[0]?.id).toBe(ENTRY_2.id);
     expect(result.current.hasNextPage).toBe(false);
   });
+
+  test('retrying fetchNextPage after a next-page error preserves page 1 and resends the same cursor', async () => {
+    const urls: string[] = [];
+    let failSecondPage = true;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      urls.push(url);
+      if (!url.includes('cursor=')) {
+        return jsonResponse({ items: [ENTRY], page: { cursor: 'cursor-abc', has_more: true } });
+      }
+      if (failSecondPage) {
+        failSecondPage = false;
+        return jsonResponse({ error: { code: 'internal_error', message: 'boom' } }, 500);
+      }
+      return jsonResponse({ items: [ENTRY_2], page: { has_more: false } });
+    }) as typeof globalThis.fetch;
+
+    const { result } = renderHook(
+      () => useVocConversation({ vocId: 'voc-1' }),
+      { wrapper: makeWrapper() },
+    );
+    await waitFor(() => expect(result.current.hasNextPage).toBe(true));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.isFetchNextPageError).toBe(false);
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    await waitFor(() => expect(result.current.isFetchNextPageError).toBe(true));
+    expect(result.current.isError).toBe(true);
+    expect(result.current.data?.pages).toHaveLength(1);
+    expect(result.current.hasNextPage).toBe(true);
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
+    expect(urls).toHaveLength(3);
+    expect(urls[1]).toContain('cursor=cursor-abc');
+    expect(urls[2]).toContain('cursor=cursor-abc');
+    expect(result.current.isError).toBe(false);
+    expect(result.current.isFetchNextPageError).toBe(false);
+    expect(result.current.data?.pages[0]?.items[0]?.id).toBe(ENTRY.id);
+    expect(result.current.data?.pages[1]?.items[0]?.id).toBe(ENTRY_2.id);
+    expect(result.current.hasNextPage).toBe(false);
+  });
 });

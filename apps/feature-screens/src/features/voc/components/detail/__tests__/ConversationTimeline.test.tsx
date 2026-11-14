@@ -369,4 +369,95 @@ describe('deduplicated timeline rendering', () => {
     renderTimeline(PublicTimeline, publicInline, [[]]);
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  it.each([
+    [
+      'Public',
+      PublicTimeline,
+      publicInline,
+      makeEntry('public-older', 'public_update', 'older public body', '2026-04-30T23:00:00Z'),
+    ],
+    [
+      'Internal',
+      InternalTimeline,
+      internalInline,
+      makeEntry(
+        'internal-older',
+        'internal_comment',
+        'older internal body',
+        '2026-04-30T23:30:00Z',
+      ),
+    ],
+  ] as const)(
+    '%s timeline retries a failed next-page load with fetchNextPage and keeps loaded entries',
+    (_, Component, inline, older) => {
+      const fetchNextPage = vi.fn(async () => makeConversationQuery());
+      const refetch = vi.fn(async () => makeConversationQuery());
+      vi.mocked(useVocConversation).mockReturnValue(
+        makeConversationQuery({
+          data: {
+            pages: [{ items: [older], page: { cursor: 'cursor-1', has_more: true } }],
+            pageParams: [''],
+          },
+          hasNextPage: true,
+          isError: true,
+          isFetchNextPageError: true,
+          isSuccess: false,
+          status: 'error',
+          fetchNextPage,
+          refetch,
+        } as never),
+      );
+
+      const { container } = render(
+        <Component vocId="voc-timeline" inline={inline} hasMore={true} />,
+        { wrapper: makeWrapper() },
+      );
+
+      expect(screen.getByRole('alert')).toHaveTextContent('대화를 불러오지 못했습니다.');
+      expect(renderedIds(container)).toEqual([older.id, ...inline.map((entry) => entry.id)]);
+      fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+      expect(refetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [
+      'Public',
+      PublicTimeline,
+      publicInline,
+      makeEntry('public-older', 'public_update', 'older public body', '2026-04-30T23:00:00Z'),
+    ],
+    [
+      'Internal',
+      InternalTimeline,
+      internalInline,
+      makeEntry(
+        'internal-older',
+        'internal_comment',
+        'older internal body',
+        '2026-04-30T23:30:00Z',
+      ),
+    ],
+  ] as const)(
+    '%s timeline hides load-more button when query has no next page despite stale hasMore=true',
+    (_, Component, inline, older) => {
+      vi.mocked(useVocConversation).mockReturnValue(
+        makeConversationQuery({
+          data: {
+            pages: [{ items: [older], page: { has_more: false } }],
+            pageParams: [''],
+          },
+          hasNextPage: false,
+        }),
+      );
+
+      render(<Component vocId="voc-timeline" inline={inline} hasMore={true} />, {
+        wrapper: makeWrapper(),
+      });
+
+      expect(screen.queryByRole('button', { name: '이전 항목 더보기' })).toBeNull();
+    },
+  );
 });

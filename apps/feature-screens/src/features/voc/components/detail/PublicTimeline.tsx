@@ -45,7 +45,7 @@ export function PublicTimeline({
     return true;
   });
 
-  const showLoadMore = hasMore || query.hasNextPage === true;
+  const showLoadMore = query.data ? query.hasNextPage === true : hasMore;
 
   return (
     <div className="flex flex-col">
@@ -66,7 +66,14 @@ export function PublicTimeline({
       {query.isError && (
         <div role="alert" className="flex items-center justify-center gap-2 py-2 text-sm text-text-muted">
           <span>대화를 불러오지 못했습니다.</span>
-          <Button type="button" variant="ghost" size="sm" onClick={() => void query.refetch()}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())
+            }
+          >
             다시 시도
           </Button>
         </div>
