@@ -106,36 +106,55 @@ describe('operations console card (#1099c)', () => {
 });
 
 describe('platform home launcher', () => {
-  it('E1 draws the 내 할 일 slot between the work systems and the favorites grid, and nothing without a slot', async () => {
-    mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: () => <section aria-label="내 할 일">stub</section> } });
+  it('puts assignments and recent visits together before favorites and systems (#1998)', async () => {
+    mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: () => <section aria-label="내 담당 개선 아이템">내 담당 3건</section> } });
     await settled();
     const systems = screen.getByRole('region', { name: '업무 시스템' });
-    const todo = screen.getByRole('region', { name: '내 할 일' });
-    const favorites = screen.getByRole('heading', { name: '즐겨찾기' });
-    expect(systems.compareDocumentPosition(todo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(todo.compareDocumentPosition(favorites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const todo = screen.getByRole('region', { name: '내 담당 개선 아이템' });
+    const recent = screen.getByRole('heading', { name: '최근 방문' }).closest('section')!;
+    const favorites = screen.getByRole('heading', { name: '즐겨찾기' }).closest('section')!;
+    const firstRow = recent.parentElement!;
+    expect(firstRow.contains(todo)).toBe(true);
+    expect(firstRow.classList.contains('@xl:grid-cols-2')).toBe(true);
+    expect(todo.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(recent.compareDocumentPosition(favorites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(favorites.compareDocumentPosition(systems) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     cleanup();
     mount(BOTH);
     await settled();
-    expect(screen.queryByRole('region', { name: '내 할 일' })).toBeNull();
+    expect(screen.queryByRole('region', { name: '내 담당 개선 아이템' })).toBeNull();
+    expect(screen.getByRole('heading', { name: '최근 방문' })).toBeTruthy();
   });
 
-  // #1167 B-3/C-4: columns follow the body width (a detail slot narrows it), not the viewport; Korean descriptions keep word breaks.
-  it('answers container width for the launcher grid and keeps descriptions at word boundaries', async () => {
+  it('renders dense system rows without icons or visible subtitle lines (#1998)', async () => {
     mount(BOTH);
     await settled();
     const systems = screen.getByRole('region', { name: '업무 시스템' });
-    // The container is the page body wrapping the section, so look up from the document.
-    const container = document.querySelector('div[class*="@container"]');
-    expect(container).not.toBeNull();
-    expect(container?.contains(systems)).toBe(true);
-    const grid = systems.querySelector('div[class*="grid-cols-1"]');
-    expect(grid?.classList.contains('@xl:grid-cols-2')).toBe(true);
-    expect(grid?.classList.contains('@4xl:grid-cols-3')).toBe(true);
-    expect(grid?.classList.contains('sm:grid-cols-2')).toBe(false);
-    expect(grid?.classList.contains('md:grid-cols-2')).toBe(false);
-    expect(grid?.classList.contains('xl:grid-cols-3')).toBe(false);
-    expect(grid?.querySelector('.break-keep')).not.toBeNull();
+    const list = within(systems).getByRole('list');
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(list.querySelector('svg')).toBeNull();
+    expect(systems.querySelector('[class*="grid-cols"]')).toBeNull();
+    const mars = within(list).getByRole('link', { name: 'MARS 생산성 분석 설비·기간별 생산성과 사이클타임을 분석합니다.' });
+    expect(mars.querySelector('.truncate')?.textContent).toBe('설비·기간별 생산성과 사이클타임을 분석합니다.');
+    expect(within(mars).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
+  });
+
+  it.each([false, true])('names tools as 설비 Top View only on Home (grouped=%s, #1998)', async grouped => {
+    const toolsRegistry = createRegistry({
+      platformHomeMenuId: 'home',
+      permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
+      spaces: [...registry.spaces, { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃 조회', en: 'View equipment layouts' }, homeMenuId: 'tools-home' }],
+      groups: [...registry.groups, { id: groupId('tools'), label: { ko: '도구', en: 'Tools' }, icon: House, space: spaceId('tools') }],
+      menus: [...registry.menus, { ...menu('tools-home', 'equipment', '/topview', 'platform:view', { ko: 'Top View', en: 'Top View' }, true), group: groupId('tools') }],
+    });
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={toolsRegistry}><OperationsHome launcherGroups={grouped ? [{ id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] }] : undefined} /></PlatformProvider></I18nProvider>);
+    await settled();
+    const row = screen.getByRole('link', { name: '설비 Top View 설비 레이아웃 조회' });
+    expect(row.getAttribute('href')).toBe('/tools/tools-home?v=1&scopeId=MEM');
+    expect(within(row).getByText('설비 Top View')).toBeTruthy();
+    expect(toolsRegistry.spaces.find(space => space.id === 'tools')?.label.ko).toBe('도구');
+    expect(within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('listitem')).toHaveLength(3);
   });
 
   it('links a partial-permission space card to its first openable menu without a continue line', async () => {
@@ -449,7 +468,7 @@ describe('configured home launcher (#1109)', () => {
     expect(screen.queryByRole('heading', { name: empty })).toBeNull();
   });
 
-  it('keeps resume navigation as text inside one whole-card link', async () => {
+  it('keeps resume navigation in the accessible name of one whole-row link', async () => {
     tabStore.setItem('platform:space-last:u1', JSON.stringify({ bravo: '/metrics?v=1&scopeId=OLD&page=2&extra=1' }));
     const Home = createHomeComponent(groups);
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
@@ -464,7 +483,7 @@ describe('configured home launcher (#1109)', () => {
     expect(() => createHomeComponent([{ ...groups[0], spaces: [spaceId('mars'), spaceId('mars')] }])).toThrow(/duplicate.*mars/i);
   });
 
-  it('keeps the default manifest as an unlabeled grid', async () => {
+  it('keeps the default manifest as an unlabeled list', async () => {
     const { manifests } = await import('../index');
     const Home = manifests[0].component!;
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
