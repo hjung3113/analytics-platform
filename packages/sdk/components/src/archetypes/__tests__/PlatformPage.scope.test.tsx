@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '../PlatformPage';
 import { QueryView } from '../../StateView';
+import { PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
 
@@ -289,5 +290,61 @@ describe('PlatformPage sticky offset', () => {
     window.history.replaceState(null, '', '/');
     const { container } = render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}><PlatformPage>body</PlatformPage></PlatformProvider></I18nProvider>);
     expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--page-sticky-offset')).toBe('98px');
+  });
+});
+
+describe('Scope gate `Scope 선택` action (#1938)', () => {
+  /** Stands in for the shell's selector: answers the host request while mounted. */
+  function SelectorStub({ onOpen }: { onOpen: () => void }) {
+    const { scopeSelector } = useHostPlatform();
+    useLayoutEffect(() => scopeSelector.answer(onOpen), [scopeSelector, onOpen]);
+    return null;
+  }
+
+  it.each([
+    ['without a recent Scope', null, ['Scope 선택']],
+    ['with a recent Scope', 'MEM', ['최근 Scope 적용: MEM', 'Scope 선택']],
+  ])('%s: the gate actions, and `Scope 선택` only asks the selector to open', async (_name, recent, names) => {
+    const storage = memoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    if (recent) storage.setItem('platform:lastScope:u1', JSON.stringify(recent));
+    window.history.replaceState(null, '', '/?v=1');
+    const onOpen = vi.fn();
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <SelectorStub onOpen={onOpen} />
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    const choose = await screen.findByRole('button', { name: 'Scope 선택' });
+    const actions = choose.parentElement!.querySelectorAll('button');
+    expect([...actions].map(button => button.textContent)).toEqual(names);
+    // The recent Scope stays the primary action; `Scope 선택` is then secondary.
+    expect(choose.className).toContain(recent ? 'bg-surface-raised' : 'bg-accent-primary');
+    fireEvent.click(choose);
+    expect(onOpen).toHaveBeenCalledOnce();
+    expect(screen.getByText('Scope를 선택하세요')).toBeTruthy();
+    expect(screen.queryByText('page body')).toBeNull();
+  });
+
+  it('draws no `Scope 선택` while no selector is mounted to answer it', async () => {
+    window.history.replaceState(null, '', '/?v=1');
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Scope를 선택하세요')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Scope 선택' })).toBeNull();
+  });
+
+  it('a pane without a Scope draws no `Scope 선택` even while the main screen has another Scope and a selector', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const onOpen = vi.fn();
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <SelectorStub onOpen={onOpen} />
+      <PaneScreenProvider paneId="a" screen={{ menuId: 'home', params: {}, query: '?v=1' }} onLeave={() => {}} onChange={() => {}}>
+        <PlatformPage><p>pane body</p></PlatformPage>
+      </PaneScreenProvider>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Scope를 선택하세요')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Scope 선택' })).toBeNull();
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });
