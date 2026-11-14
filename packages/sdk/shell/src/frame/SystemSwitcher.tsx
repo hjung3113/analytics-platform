@@ -5,6 +5,7 @@ import { PlatformLink, useI18n } from '@ap/kernel';
 import { useHostPlatform, useOverlayState } from '@ap/kernel/host';
 import { usePlatformMenu } from './platformMenu';
 import { MenuUnread } from './unread';
+import { undeclaredOnlySpaces, UndeclaredBoundary } from './undeclared';
 import { cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 
 const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-left hover:bg-surface-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
@@ -15,7 +16,7 @@ const CARD = 'flex w-full items-start gap-2 rounded-md border px-3 py-2.5 text-l
  * from `onCloseAutoFocus`, after the focus trap is gone, so the Kernel arrival focus (ADR-0032) lands on the new title.
  */
 export function SystemSwitcher() {
-  const { currentSpace: routeSpace, accessibleSpaces, spaceEntry, switchSpace, registry, linkTo, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
+  const { currentSpace: routeSpace, visibleMenus, accessibleSpaces, spaceEntry, switchSpace, registry, linkTo, navigate, pathname, route, slots, setSwitcherOpen } = useHostPlatform();
   const { switcherOpen: open, switcherSession } = useOverlayState();
   const { t, tx } = useI18n();
   const titleId = useId();
@@ -137,10 +138,29 @@ export function SystemSwitcher() {
           })}</ul>
         </nav>}
         <p className="px-4 pt-3 t-nav-group text-text-muted">{t('switcherSystemsHeading')}</p>
-        {cards.length === 0
+        <UndeclaredBoundary>{undeclared => {
+          // Operator only (#2201): a space whose menus are all undeclared is a dimmed, non-navigable card in its Registry place among the real ones.
+          const dimmed = undeclaredOnlySpaces(registry.spaces, accessibleSpaces, registry.groups, registry.menus, visibleMenus, undeclared);
+          const order = new Map(registry.spaces.map((space, at) => [space.id, at]));
+          const entries = [...cards.map(card => ({ space: card.space, entry: card.entry as typeof card.entry | null, permissions: null as string | null })), ...dimmed.map(({ space, permissions }) => ({ space, entry: null, permissions }))]
+            .sort((x, y) => (order.get(x.space.id) ?? 0) - (order.get(y.space.id) ?? 0));
+          return entries.length === 0
           ? <p data-switcher-empty tabIndex={-1} className="px-4 py-6 text-center text-sm text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('switcherEmpty')}</p>
-          : <ul className="grid grid-cols-2 gap-2 p-3">{cards.map(({ space, entry }) => {
+          : <ul className="grid grid-cols-2 gap-2 p-3">{entries.map(({ space, entry, permissions }) => {
             const Icon = spaceIcon(space.homeMenuId);
+            if (entry === null) {
+              const name = t('undeclaredMenuNamed', { label: tx(space.label), permission: permissions ?? '' });
+              return <li key={space.id}>
+                <div role="button" tabIndex={0} aria-disabled="true" aria-label={name} data-switcher-undeclared={space.id} className={cn(CARD, 'cursor-default border-border-subtle text-text-muted hover:bg-transparent')}>
+                  <Icon className="mt-0.5 size-4 shrink-0 text-text-disabled" aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{tx(space.label)}</span>
+                    {space.subtitle && <span className="block truncate text-caption">{tx(space.subtitle)}</span>}
+                  </span>
+                  <span aria-hidden className="shrink-0 t-badge">{t('undeclaredMenu')}</span>
+                </div>
+              </li>;
+            }
             const current = currentSpace?.id === space.id;
             const menuName = tx(registry.menuById(entry.menuId).label);
             return <li key={space.id}>
@@ -156,7 +176,8 @@ export function SystemSwitcher() {
                 {current && <span className="flex items-center gap-0.5 t-badge text-accent-primary"><Check className="size-3" aria-hidden />{t('switcherCurrentBadge')}</span>}
               </button>
             </li>;
-          })}</ul>}
+          })}</ul>;
+        }}</UndeclaredBoundary>
         {planned.length > 0 && <div className="border-t border-border-subtle p-3">
           <p className="mb-2 t-nav-group text-text-muted">{t('switcherPlannedHeading')}</p>
           <ul className="grid grid-cols-2 gap-2">{planned.map(item => {
