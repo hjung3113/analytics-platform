@@ -38,7 +38,7 @@ concurrency:
 
 # PR 최소 모드(#1931, 소유자 지시: 운영 전까지 PR CI 벽시계 약 10분, 운영 시점은 소유자가 정한다): 아래 검사는 PR에서 돌지 않고 main push와
 # `workflow_dispatch`(주 1회 `full=true` 포함)에서만 돈다 — SDK upgrade gate와 그 self-test, Platform static의 SDK 릴리스 tarball·외부 소비자·키트 검사,
-# E2E shard 1의 키트 브라우저 검사, Backend images. 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
+# E2E shard 1의 키트 브라우저 검사, Backend images, Platform static의 production 조립 검사(--force-mock 두 개, real production build와 시작 청크 검사, edge 이미지 nginx -t; #2182). mock 조립의 `check:prod-graph`는 PR에서도 돈다. 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
 # 소개 사이트 캡처(`Intro site captures`, #608)는 CI에서 뺐다(#2153, 소유자 2026-11-14: 소유자가 소개 사이트 재개를 말할 때까지 관리하지 않는다). 미구현(보류): `shots.mjs`의
 # testid 전환과 캡처 갱신. 다시 열 조건: 소유자가 재개를 말할 때 — job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터. `classify-changes.mjs`의 `site` 판정은 그때를 위해 남긴다.
 
@@ -154,6 +154,7 @@ jobs:
           # #1884: the scripts that decide which gates run are tested here too (node builtins and bash only, seconds).
           node .github/scripts/classify-changes.mjs --self-test
           node .github/scripts/select-e2e.mjs --self-test
+          node .github/scripts/e2e-shard.mjs --self-test
           node .github/scripts/last-green-main-sha.mjs --self-test
           bash .github/scripts/e2e-verdict.sh --self-test
           bash .github/scripts/require-success.sh --self-test
@@ -207,27 +208,27 @@ jobs:
       # The checks must still bite (#153 review P3-1): the assembly forced to the mock must fail both the CI graph
       # check and the build-time guard of a real production build. An unexpected pass (exit 0) or a failure for any
       # other reason (no offender line) turns the step red.
-      - if: ${{ env.DOCS_ONLY != 'true' }}
+      - if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock 2>&1); then echo "$out"; exit 1; fi
           echo "$out" | grep -q 'check:prod-graph FAILED (--force-mock)' && echo "$out" | grep -q '\[packages/adapters/mock-server/\]'
-      - if: ${{ env.DOCS_ONLY != 'true' }}
+      - if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi
           echo "$out" | grep -q 'failed as it must' && echo "$out" | grep -q 'production build bundles mock/dev code'
       - name: Real production build (DB-free)
-        if: ${{ env.DOCS_ONLY != 'true' }}
+        if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: pnpm --filter @ap/platform-web build:real-prod
       # #1678: the real build is what the edge serves, so the start-up closure is checked here too (the mock build is checked above;
       # build:real-prod overwrites the same dist, so this reads the real one).
       - name: Real build keeps heavy engines out of the start-up closure
-        if: ${{ env.DOCS_ONLY != 'true' }}
+        if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: node tooling/scripts/check-lazy-chunks.mjs apps/platform-web/dist
       # #1678: the production edge image (nginx + the real bundle, apps/platform-web/Dockerfile) is built from that dist and its
       # config is checked with `nginx -t` (the entrypoint renders the template first; the backend upstream is a runtime variable,
       # so no backend is needed). A broken Dockerfile, empty bundle or nginx syntax error fails here, not at the install site.
       - name: Edge image builds and nginx -t passes
-        if: ${{ env.DOCS_ONLY != 'true' }}
+        if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: |
           DOCKER_BUILDKIT=1 docker build -f apps/platform-web/Dockerfile -t platform-release-web:ci .
           docker run --rm --memory 256m platform-release-web:ci nginx -t
@@ -638,7 +639,15 @@ jobs:
         run: |
           set --
           if [ "$E2E" != all ] && [ -n "$E2E" ]; then for s in $E2E; do set -- "$@" "tests/$s"; done; fi
-          pnpm e2e --shard=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '8' }} --reporter=list,blob "$@"
+          total='${{ needs.changes.outputs.e2e_total || '8' }}'
+          # #2182: the whole suite is split by recorded test time (e2e-shard.mjs: `tests/<spec>:<line>` filters, the same partition in every shard);
+          # a selection (total 1) or any failure of the script falls back to Playwright's equal-count `--shard`.
+          if [ "$total" != 1 ] && [ "$E2E" = all ] && files="$(node .github/scripts/e2e-shard.mjs ${{ matrix.shard }} "$total")" && [ -n "$files" ]; then
+            echo "E2E shard ${{ matrix.shard }}/$total: $(echo "$files" | wc -l) filters balanced by recorded time"
+            pnpm e2e --reporter=list,blob $files
+          else
+            pnpm e2e --shard=${{ matrix.shard }}/$total --reporter=list,blob "$@"
+          fi
       # 하위 경로 배포(#318, ADR-0030): 별도 mock 빌드·preview(4191)에서 base 유지 계약을 확인한다.
       # Runs once, on the last shard, regardless of the shard's own result; skipped only when the selection says it is unaffected ('false'; empty = run).
       - if: ${{ matrix.shard == fromJSON(needs.changes.outputs.e2e_total || '8') && needs.changes.outputs.e2e_base_path != 'false' && !cancelled() }}
