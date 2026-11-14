@@ -680,7 +680,7 @@ it('renders the Scope restriction in list and detail without target history or a
   const saved = { ...row, restricted: true, origin: { menuId: 'improvement-items', context: {}, restricted: true }, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
   mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
   await screen.findByText('test problem');
-  expect(screen.getAllByText('권한 밖').length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText('출처 Site가 확인되지 않거나 접근 범위 밖이라 대상과 분석 정보를 표시할 수 없습니다.')).toHaveLength(3);
   expect(screen.queryByRole('link', { name: '분석 화면 열기' })).toBeNull();
   expect(screen.queryByRole('button', { name: /^설비 ·/ })).toBeNull();
 });
@@ -691,4 +691,13 @@ it('renders the restriction label in the list target cell (#2076)', async () => 
     mount({ overrides: { menuQuery: async () => response({ rows: [{ ...row, restricted: true, targets: [{ kind: 'process', externalKey: '', displayName: '' }] }], total: 1 }) } });
     expect(await screen.findByRole('cell', { name: '권한 밖' })).toBeTruthy();
   } finally { height.mockRestore(); }
+});
+
+it('explains unknown or inaccessible source Sites in English in all three detail sections (#2076 FIX2)', async () => {
+  const storage = memoryStorage(); storage.setItem('platform:lang', 'en'); vi.stubGlobal('localStorage', storage);
+  const saved = { ...row, restricted: true, origin: null, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
+  mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+  await screen.findByText('test problem');
+  expect(screen.getAllByText('The source Site is unknown or outside your access scope, so targets and analysis information cannot be displayed.')).toHaveLength(3);
+  expect(screen.queryByRole('link', { name: 'Open analysis' })).toBeNull();
 });

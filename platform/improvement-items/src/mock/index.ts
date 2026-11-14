@@ -19,6 +19,11 @@ export function resetItems() {
     effectResult: i === 3 ? 'effective' : null, effectNote: null, effectCompareLink: null, dropReason: i === 4 ? '중복' : null,
     version: '1', createdBy: 'admin', createdAt: at, updatedBy: 'admin', updatedAt: at,
   }));
+  // Keep the five original identities and saved-view counts; this unassigned row exposes viewer masking.
+  rows.push({ ...rows[0]!, id: itemId(6), itemNo: 6, problem: '식각 설비의 반복 대기 증가', assignee: null,
+    origin: { menuId: 'cycle-time', context: { scopeId: 'MEM', roomNames: ['ETCH'], selection: ['MEM-ETCH-0101'], from: '2026-11-01T00:00:00', to: '2026-11-05T00:00:00' } },
+    targets: [{ kind: 'equipment', externalKey: 'MEM-ETCH-0101', displayName: '식각 설비 MEM-ETCH-0101' }],
+  });
 }
 resetItems();
 const blank = (x: string | null | undefined): boolean => x === null || x === undefined || x.trim() === '';
@@ -357,14 +362,24 @@ const writes = actionSpecs.slice(1).map(spec => defineMockAction(spec as ActionS
 export const improvementItemsActionsMock: readonly AnyMockAction[] = [create, ...writes];
 
 // Mirror the server's response-only Scope projection; writes retain the stored snapshots.
-const visibleSite = (site: unknown, grants: Record<string, string[]>): boolean => typeof site === 'string' && (grants[site]?.length ?? 0) > 0;
+const visibleContext = (context: Record<string, unknown>, grants: Record<string, string[]>): boolean => {
+  const site = context.scopeId;
+  if (typeof site !== 'string' || !Object.hasOwn(grants, site)) return false;
+  const rooms = grants[site];
+  if (!Array.isArray(rooms) || !rooms.length || !rooms.every(room => typeof room === 'string' && room.length > 0)) return false;
+  // Mirror menu-dispatch's hasRequestScope: room-less requests require the nonempty Site grant only.
+  return context.roomNames == null || (Array.isArray(context.roomNames) && context.roomNames.every(room => typeof room === 'string' && rooms.includes(room)));
+};
 const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 function visibleLink(link: string | null, grants: Record<string, string[]>): boolean {
   if (!link) return false;
-  try { return visibleSite(new URL(link, 'https://platform.invalid').searchParams.get('scopeId'), grants); } catch { return false; }
+  try {
+    const params = new URL(link, 'https://platform.invalid').searchParams;
+    return params.getAll('scopeId').length === 1 && visibleContext({ scopeId: params.get('scopeId'), roomNames: params.getAll('roomNames') }, grants);
+  } catch { return false; }
 }
 function maskItem(row: ItemRow, grants: Record<string, string[]>): ItemRow {
-  const visible = visibleSite(row.origin?.context.scopeId, grants);
+  const visible = visibleContext(object(row.origin?.context), grants);
   return { ...row, ...(!visible ? { restricted: true as const, targets: row.targets.map(t => ({ kind: t.kind, externalKey: '', displayName: '' })), origin: row.origin ? { menuId: row.origin.menuId, context: {}, restricted: true as const } : null } : {}), ...(row.effectCompareLink && (!visible || !visibleLink(row.effectCompareLink, grants)) ? { effectCompareRestricted: true as const } : {}), effectCompareLink: visible && visibleLink(row.effectCompareLink, grants) ? row.effectCompareLink : null };
 }
 function maskChanges(changes: Record<string, unknown>, grants: Record<string, string[]>): Record<string, unknown> {
@@ -372,7 +387,7 @@ function maskChanges(changes: Record<string, unknown>, grants: Record<string, st
   for (const key of ['before', 'after']) {
     if (!(key in result)) continue;
     const snapshot = object(result[key]), origin = object(snapshot.origin);
-    const visible = visibleSite(object(origin.context).scopeId, grants);
+    const visible = visibleContext(object(origin.context), grants);
     result[key] = { ...snapshot, ...(!visible ? { restricted: true, ...('targets' in snapshot ? { targets: Array.isArray(snapshot.targets) ? snapshot.targets.map(t => ({ kind: object(t).kind, externalKey: '', displayName: '' })) : [] } : {}), ...('origin' in snapshot ? { origin: snapshot.origin ? { menuId: origin.menuId, context: {}, restricted: true } : null } : {}) } : {}), ...('effectCompareLink' in snapshot ? { effectCompareLink: visible && typeof snapshot.effectCompareLink === 'string' && visibleLink(snapshot.effectCompareLink, grants) ? snapshot.effectCompareLink : null } : {}) };
   }
   return result;

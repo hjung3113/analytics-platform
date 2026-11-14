@@ -1,12 +1,11 @@
-import type { ScopeGrant } from '../menu-dispatch/index.js';
+import { hasRequestScope, type ScopeGrant } from '../menu-dispatch/scope-resolver.js';
 import type { ItemRow } from './repositories/item-read.js';
 
 const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-const visibleSite = (site: unknown, grants: readonly ScopeGrant[]): boolean => typeof site === 'string' && grants.some(grant => grant.site === site && grant.rooms.length > 0);
 
 /** Response-only projection. Unknown Site fails closed; arbitrary saved page keys may also contain equipment IDs. */
 export function maskItem(row: ItemRow, grants: readonly ScopeGrant[]): Omit<ItemRow, 'origin'> & { origin: (NonNullable<ItemRow['origin']> & { restricted?: true }) | null; restricted?: true; effectCompareRestricted?: true } {
-  const visible = visibleSite(object(row.origin?.context).scopeId, grants);
+  const visible = hasRequestScope(object(row.origin?.context), grants);
   return {
     ...row,
     ...(!visible ? {
@@ -21,7 +20,10 @@ export function maskItem(row: ItemRow, grants: readonly ScopeGrant[]): Omit<Item
 
 function visibleLink(link: string | null, grants: readonly ScopeGrant[]): boolean {
   if (!link) return false;
-  try { return visibleSite(new URL(link, 'https://platform.invalid').searchParams.get('scopeId'), grants); }
+  try {
+    const params = new URL(link, 'https://platform.invalid').searchParams;
+    return params.getAll('scopeId').length === 1 && hasRequestScope({ scopeId: params.get('scopeId'), roomNames: params.getAll('roomNames') }, grants);
+  }
   catch { return false; }
 }
 
@@ -32,7 +34,7 @@ export function maskChanges(changes: unknown, grants: readonly ScopeGrant[]): un
     if (value === null || typeof value !== 'object') return value;
     const source = object(value);
     const origin = object(source.origin);
-    const visible = 'origin' in source ? visibleSite(object(origin.context).scopeId, grants) : inheritedVisible;
+    const visible = 'origin' in source ? hasRequestScope(object(origin.context), grants) : inheritedVisible;
     const result: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(source)) {
       if (key === 'origin' && !visible) {
