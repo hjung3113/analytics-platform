@@ -1,3 +1,4 @@
+import { useResponsibilityIdentityNames } from '@/features/tasks/components/ResponsibilityEditor';
 import { usePublicUpdateReviewCandidates } from '@/features/voc/hooks/usePublicUpdateReviewCandidates';
 import { useRequestTaskFromVoc } from '@/features/voc/hooks/useRequestTaskFromVoc';
 import { errorMapper } from '@/lib/api/errorMapper';
@@ -61,6 +62,10 @@ export function useVocDetailPanelController({
   // Scroll container ref for section nav anchor tracking
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const { actors } = useWorkspaceActors();
+  const identity = useResponsibilityIdentityNames(
+    null,
+    voc.owner_team_id != null ? [voc.owner_team_id] : [],
+  );
   const actorNamesById = React.useMemo(
     () => new Map((actors ?? []).map((actor) => [actor.id, actor.display_name])),
     [actors],
@@ -172,6 +177,7 @@ export function useVocDetailPanelController({
     setReviewOpen,
     scrollRef,
     actorNamesById,
+    ownerTeamName: voc.owner_team_id != null ? identity.teamName(voc.owner_team_id) : null,
     analyticsAreasById,
     canTriage,
     noFollowUpScope: `${vocId}:${voc.primary_managed_system_id}:${permissionManagedSystemId}:${canTriage}:${voc.follow_up?.can_record}:${voc.follow_up?.can_withdraw}`,

@@ -1,3 +1,4 @@
+import { useResponsibilityIdentityNames } from '@/features/tasks/components/ResponsibilityEditor';
 /**
  * VocList — composes VOC rows with loading / empty / error states (mirrors
  * docs/design/history/feedbackops-prototype/screen-voc.jsx `VocList`).
@@ -156,6 +157,8 @@ function VocListContent({
   const msMap = useManagedSystemMap();
   const areaMap = useAnalyticsAreaMap();
   const actorMap = useActorMap();
+  const teamIds = [...new Set(items.flatMap((voc) => voc.owner_team_id ? [voc.owner_team_id] : []))];
+  const identity = useResponsibilityIdentityNames(null, teamIds);
 
   // 1. Loading with no items → skeletons
   if (loading && items.length === 0) {
@@ -239,6 +242,7 @@ function VocListContent({
           },
           managedSystem: msMap[voc.primary_managed_system_id] ?? null,
           owner: voc.owner_user_id != null ? (actorMap[voc.owner_user_id] ?? null) : null,
+          ownerTeamName: voc.owner_team_id != null ? (identity.teamName(voc.owner_team_id) ?? null) : null,
           reporter: actorMap[voc.reporter_id] ?? null,
           areaName: voc.analytics_area_id != null ? (areaMap[voc.analytics_area_id] ?? null) : null,
           ...(unassignedBadgeTone !== undefined ? { unassignedBadgeTone } : {}),

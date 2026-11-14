@@ -1,3 +1,4 @@
+import { GLOSSARY } from '@/lib/copy/glossary';
 import { TASK_PRIORITY_LABELS } from '@/lib/copy/enum-labels';
 import { TASK_BOARD_COPY } from '@/lib/copy/task-board';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
@@ -117,6 +118,8 @@ function TaskBoardCardContent({
           </span>
         ) : assigneeName ? (
           <UserAvatar user={{ display_name: assigneeName }} size="sm" />
+        ) : task.assignee_actor_id != null ? (
+          <span>{GLOSSARY.unknownUser}</span>
         ) : (
           <UnassignedBadge />
         )}

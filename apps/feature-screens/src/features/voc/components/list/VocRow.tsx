@@ -1,3 +1,5 @@
+import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
+import { shortId } from '@/lib/identity';
 /**
  * VocRow — single-select row for the VOC inbox list.
  *
@@ -62,7 +64,9 @@ export interface VocRowProps {
    * per row and passes the result in. Decouples primitive from the hook.
    */
   managedSystem?: { name: string; mark: string; archived: boolean } | null;
-  /** Resolved owner identity (from the workspace-actors map). Null = unassigned. */
+  /** Resolved team owner name; the persisted owner id determines assignment. */
+  ownerTeamName?: string | null;
+  /** Resolved owner identity (from the workspace-actors map). Null = not resolvable. */
   owner?: AvatarUser | null;
   /** Resolved reporter identity (from the workspace-actors map). Null = not resolvable. */
   reporter?: AvatarUser | null;
@@ -85,6 +89,7 @@ export function VocRow({
   unassignedBadgeTone,
   managedSystem,
   owner,
+  ownerTeamName,
   reporter,
   areaName,
   className,
@@ -187,6 +192,10 @@ export function VocRow({
         <div className="flex items-center gap-2 shrink-0">
           {showOwnerMissing && ownerMissing ? (
             <UnassignedBadge tone={unassignedBadgeTone ?? 'danger'} />
+          ) : voc.owner_team_id != null ? (
+            <span className="text-xs text-text-muted">
+              {RESPONSIBILITY_COPY.teamMark} · {ownerTeamName ?? `팀 ${shortId(voc.owner_team_id)}`}
+            </span>
           ) : owner !== null && owner !== undefined ? (
             <UserAvatar user={owner} size="sm" />
           ) : null}

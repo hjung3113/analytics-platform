@@ -130,3 +130,16 @@ it('aligns a leading property heading and its action in one centered row without
   expect(title).toHaveClass('mb-0');
   expect(title.parentElement?.parentElement).not.toHaveClass('mt-8');
 });
+
+
+it('renders a team owner instead of the unassigned badge', () => {
+  render(
+    <TriageBlock
+      voc={{ ...DETAIL_ENVELOPE, owner_user_id: null, owner_team_id: '00000000-0000-4000-8000-000000000050' }}
+      ownerTeamName="운영팀"
+      canTriage={false}
+    />,
+  );
+  expect(screen.getByText('팀 · 운영팀')).toBeInTheDocument();
+  expect(screen.queryByText('담당자 없음')).not.toBeInTheDocument();
+});
