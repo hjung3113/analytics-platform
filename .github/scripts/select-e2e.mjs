@@ -12,6 +12,8 @@
 // Rules (safe side, a file is judged alone and the strictest verdict wins):
 //   Markdown or .agents/ (the same set classify-changes.mjs treats as docs)  → needs nothing
 //   apps/platform-e2e/tests/<x>.spec.ts that still exists                      → that spec (base-path.spec.ts → base-path run)
+//   apps/platform-e2e/tests-real/** or playwright.real*.config.ts → needs no mock run
+//   apps/platform-e2e/tests-kit/** or playwright.kit.config.ts → none on PR, all on push
 //   a deleted or renamed spec                                                  → needs nothing
 //   apps/platform-api/** or ops/platform-api/** except ops/platform-api/tsconfig.base.json → needs nothing (the mock E2E web server is `@ap/platform-web` on the mock adapter and its workspace
 //     dependency graph reaches neither tree; the one exception is tsconfig.base.json, which packages/feature-shared, feature-ui and apps/feature-screens extend)
@@ -58,6 +60,11 @@ export function select({ event, files, fullInput, exists }) {
   const specs = new Set();
   let basePath = false;
   for (const f of list) {
+    if (/^apps\/platform-e2e\/(?:tests-real\/|playwright\.real[^/]*\.config\.ts$)/.test(f)) continue;
+    if (/^apps\/platform-e2e\/(?:tests-kit\/|playwright\.kit\.config\.ts$)/.test(f)) {
+      if (event === 'push') return { ...ALL };
+      continue;
+    }
     if (DOCS_ONLY.test(f)) continue;
     if (SERVER_ONLY.test(f) && f !== SERVER_ONLY_EXCEPTION) continue;
     const m = SPEC.exec(f);
@@ -173,6 +180,18 @@ function selfTest() {
   check('server: tsconfig.base.json + server file → all', pr(['apps/platform-api/src/a.ts', 'ops/platform-api/tsconfig.base.json']), ALLV);
   check('server: nested tsconfig.base.json is not the exception → none', pr(['ops/platform-api/sub/tsconfig.base.json']), NONEV);
   check('server: push uses the same rule', push(['apps/platform-api/src/a.ts']), NONEV);
+  // Real-server files never feed mock E2E; kit files run only on push, not PR (#2048).
+  for (const f of ['tests-real/console.admin.real.spec.ts', 'tests-real/support.ts', 'playwright.real.config.ts', 'playwright.real-down.config.ts']) {
+    check(`real: PR ${f} → none`, pr([`apps/platform-e2e/${f}`]), NONEV);
+    check(`real: push ${f} → none`, push([`apps/platform-e2e/${f}`]), NONEV);
+  }
+  for (const f of ['tests-kit/kit.spec.ts', 'tests-kit/workflow.test.mjs', 'tests-kit/README.md', 'playwright.kit.config.ts']) {
+    check(`kit: PR ${f} → none`, pr([`apps/platform-e2e/${f}`]), NONEV);
+    check(`kit: push ${f} → all`, push([`apps/platform-e2e/${f}`]), ALLV);
+  }
+  check('server + real spec → none', pr(['apps/platform-api/src/a.ts', 'apps/platform-e2e/tests-real/console.admin.real.spec.ts']), NONEV);
+  check('real + mock spec → mock spec', pr(['apps/platform-e2e/tests-real/support.ts', `${T}hw-time.spec.ts`]), sub('hw-time.spec.ts'));
+  check('kit + product code → all', pr(['apps/platform-e2e/tests-kit/kit.spec.ts', 'packages/sdk/kernel/src/a.ts']), ALLV);
   // Events and undecidable inputs → all.
   check('all: computation failed (null)', pr(null), ALLV);
   check('all: empty diff', pr([]), ALLV);

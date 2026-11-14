@@ -303,7 +303,7 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
     await expect(card).toHaveCount(0);
     await expect(kpis.locator('[aria-busy="true"]').first()).toBeVisible();
     await evidence(page, testInfo, 'during-switch');
-    // room_name is site-bound and cleared on a site change (ADR-0004).
+    // room_name is site-bound and cleared on a site change (ADR-0153).
     expect(query(page).get('scopeId')).toBe('FDRY');
     expect(query(page).has('roomNames')).toBe(false);
     await expect(card).toBeVisible({ timeout: 10_000 });

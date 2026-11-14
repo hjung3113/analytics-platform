@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { globSync, readFileSync } from 'node:fs';
+import { matchesGlob } from 'node:path';
+import ts from 'typescript';
 import { requireSafeRealDatabaseEnv } from './database-safety.ts';
 
 const WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
@@ -120,4 +123,44 @@ test('keeps the host, port, password and override protections', () => {
     () => requireSafeRealDatabaseEnv(env({ DATABASE_URL: '' })),
     /DATABASE_URL is required/,
   );
+});
+
+
+// Read declarations without importing configs: importing the real config requires database environment values.
+test('every real spec is selected by exactly one real Playwright project', () => {
+  const root = new URL('../', import.meta.url);
+  const property = (object: ts.ObjectLiteralExpression, name: string) => object.properties.find(
+    (node): node is ts.PropertyAssignment => ts.isPropertyAssignment(node) && node.name.getText().replace(/['"]/g, '') === name,
+  )?.initializer;
+  const literal = (node: ts.Expression | undefined): string => {
+    assert.ok(node && ts.isStringLiteral(node), 'testMatch/testIgnore must remain auditable string literals');
+    return node.text;
+  };
+  const projects: { config: string; match: string; project: string; ignore?: string }[] = [];
+  for (const config of globSync('playwright.real*.config.ts', { cwd: root })) {
+    const source = ts.createSourceFile(config, readFileSync(new URL(config, root), 'utf8'), ts.ScriptTarget.Latest, true);
+    const statement = source.statements.find(ts.isExportAssignment);
+    assert.ok(statement && ts.isCallExpression(statement.expression));
+    const options = statement.expression.arguments[0];
+    assert.ok(options && ts.isObjectLiteralExpression(options));
+    assert.equal(literal(property(options, 'testDir')), './tests-real');
+    const ignoreNode = property(options, 'testIgnore');
+    const ignore = ignoreNode ? literal(ignoreNode) : undefined;
+    const declared = property(options, 'projects');
+    if (!declared) {
+      projects.push({ config, project: 'default', match: literal(property(options, 'testMatch')), ignore });
+      continue;
+    }
+    assert.ok(ts.isArrayLiteralExpression(declared));
+    for (const project of declared.elements) {
+      assert.ok(ts.isObjectLiteralExpression(project));
+      projects.push({ config, project: literal(property(project, 'name')), match: literal(property(project, 'testMatch')), ignore });
+    }
+  }
+  const specs = globSync('**/*.real.spec.ts', { cwd: new URL('tests-real/', root) });
+  assert.ok(projects.length > 0 && specs.length > 0, 'project and spec discovery must be nonempty');
+  for (const spec of specs) {
+    const matches = projects.filter(project => matchesGlob(spec, project.match) && (!project.ignore || !matchesGlob(spec, project.ignore)));
+    assert.equal(matches.length, 1, `${spec}: expected exactly one project, got ${JSON.stringify(matches)}`);
+  }
 });
