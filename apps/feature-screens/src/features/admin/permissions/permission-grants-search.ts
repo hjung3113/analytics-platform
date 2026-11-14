@@ -9,7 +9,6 @@ export const permissionGrantsSearchSchema = z
   })
   .strict();
 
-export type PermissionGrantsSearch = z.infer<typeof permissionGrantsSearchSchema>;
 export type PermissionGrantTab = 'grants' | 'denies';
 
 export function validatePermissionGrantsSearch(raw: unknown) {

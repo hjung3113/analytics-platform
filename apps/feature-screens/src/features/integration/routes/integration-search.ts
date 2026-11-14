@@ -15,7 +15,6 @@ export const integrationDashboardSearchSchema = z
     managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
   })
   .strict();
-export type IntegrationDashboardSearch = z.infer<typeof integrationDashboardSearchSchema>;
 
 export function validateIntegrationDashboardSearch(raw: unknown) {
   return parseRouteSearch(integrationDashboardSearchSchema, raw);
@@ -35,7 +34,6 @@ export const evidenceSearchSchema = z
     cursor: z.string().min(1).optional(),
   })
   .strict();
-export type EvidenceSearch = z.infer<typeof evidenceSearchSchema>;
 
 export function validateEvidenceSearch(raw: unknown) {
   return parseRouteSearch(evidenceSearchSchema, raw);
@@ -50,7 +48,6 @@ export const integrationCoverageSearchSchema = z
     managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
   })
   .strict();
-export type IntegrationCoverageSearch = z.infer<typeof integrationCoverageSearchSchema>;
 
 export function validateIntegrationCoverageSearch(raw: unknown) {
   return parseRouteSearch(integrationCoverageSearchSchema, raw);
@@ -72,7 +69,6 @@ export const integrationLinksSearchSchema = z
     managedSystem: z.string().optional(),
   })
   .strict();
-export type IntegrationLinksSearch = z.infer<typeof integrationLinksSearchSchema>;
 
 export function validateIntegrationLinksSearch(raw: unknown) {
   return parseRouteSearch(integrationLinksSearchSchema, raw);
