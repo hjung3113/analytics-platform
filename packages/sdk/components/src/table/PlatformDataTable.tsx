@@ -146,8 +146,8 @@ type TableBaseProps<T> = {
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
   /** Bulk actions for an explicit id selection. Hidden while a `selectAllResults` selection covers the whole result — use `bulkSelectionActions` for that. */
   bulkActions?: (selectedIds: string[]) => ReactNode;
-  /** Bulk actions for either selection kind (renders in `ids` and `all` mode, after `bulkActions`). Without it, an `all` selection shows no bulk action. */
-  bulkSelectionActions?: (selection: TableSelection) => ReactNode;
+  /** Bulk actions for either selection kind (renders in `ids` and `all` mode, after `bulkActions`). The second argument carries active column filters and sorting; the menu supplies its own Context/page filters. Existing one-argument callbacks remain valid. Without it, an `all` selection shows no bulk action. */
+  bulkSelectionActions?: (selection: TableSelection, query: { filters: ColumnFilter[]; sorting: PageSort[] }) => ReactNode;
   /**
    * Table-owned export (#173, 06 §15): the menu only says how to read the rows to export from the server — permission/
    * Scope/limits re-checked per request. Omit to make the screen un-exportable. `sorting` is the table's active sort, so
@@ -752,7 +752,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
           : (lang === 'ko' ? `전체 ${selectionState.all.total.toLocaleString()}행 선택` : `All ${selectionState.all.total.toLocaleString()} rows selected`))
         : (lang === 'ko' ? `${selectedCount}행 선택` : `${selectedCount} selected`)}</span>
       {selectionState.selection?.kind === 'ids' && p.bulkActions?.(selectionState.selection.ids)}
-      {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection)}
+      {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection, { filters: effectiveFilters, sorting: activeSorting })}
       {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{lang === 'ko' ? '선택 해제' : 'Clear selection'}</Button>}
       {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{lang === 'ko' ? `접힌 그룹의 ${hiddenSelected.toLocaleString()}행 포함` : `includes ${hiddenSelected.toLocaleString()} rows in collapsed groups`}</span>}
       <span className="text-text-secondary">{lang === 'ko' ? '선택은 현재 조회 결과 안에서만 유지되며 Context 변경 시 해제됩니다.' : 'Selection is kept within this result and cleared on context change.'}</span>

@@ -103,3 +103,11 @@ it('treats a rejected save as a failure: shows it, keeps the input and lets the 
   await user.click(save);
   await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
 });
+
+it.each(['conflict', 'forbidden', 'unavailable', 'invalid'] as const)('renders English group controls and %s refusal', async reason => {
+  render(<Harness lang="en" onCreate={async () => ({ ok: false, reason })} />);
+  await userEvent.type(screen.getByLabelText('Group name'), 'New group');
+  await userEvent.click(screen.getByRole('button', { name: 'Create group' }));
+  expect(await screen.findByRole('alert')).not.toHaveTextContent(/[가-힣]/);
+  expect(screen.getByRole('dialog')).not.toHaveTextContent(/[가-힣]/);
+});

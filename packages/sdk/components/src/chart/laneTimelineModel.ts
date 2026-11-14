@@ -265,16 +265,16 @@ export function visibleRects(model: LaneModel, view: [number, number], width: nu
   }
   return rects;
 }
-/** Topmost painted rect under (x, y): deepest, then last input index; 1.5 px minimum width, inclusive edges, visible lanes only. */
-export function hitTest(model: LaneModel, view: [number, number], width: number, height: number, scroll: number, x: number, y: number, stats?: { scanned: number }): LaneRect | undefined {
+/** Topmost painted rect: LOD lanes use the pixel column coverage winner; exact lanes use deepest then last input index. */
+export function hitTest(model: LaneModel, view: [number, number], width: number, height: number, scroll: number, x: number, y: number, stats?: { scanned: number }, lodLanes?: ReadonlySet<number>): LaneRect | undefined {
   const [first, last] = visibleLanes(model, height, scroll);
   const plotWidth = Math.max(1, width - GUTTER);
   const span = view[1] - view[0];
   const time = view[0] + (x - GUTTER) / plotWidth * span;
   // A hit rect spans at most 1.5 px beyond its time edges, so this window is a superset; the exact rect test decides.
-  const delta = MIN_WIDTH * span / plotWidth * 1.01 + Math.abs(time) * 1e-12 + 1e-9;
+  const delta = (MIN_WIDTH + (lodLanes?.size ? 1 : 0)) * span / plotWidth * 1.01 + Math.abs(time) * 1e-12 + 1e-9;
   const row = Math.floor((y + scroll) / ROW_HEIGHT);
-  let bestFlat = -1; let bestDepth = -1; let best: LaneRect | undefined;
+  let bestFlat = -1; let bestDepth = -1; let bestCover = -1; let best: LaneRect | undefined;
   const local: number[] = [];
   for (let laneIndexValue = row - 1; laneIndexValue <= row; laneIndexValue++) {
     if (laneIndexValue < first || laneIndexValue >= last) continue;
@@ -283,10 +283,13 @@ export function hitTest(model: LaneModel, view: [number, number], width: number,
     for (let i = 0; i < local.length; i++) {
       const o = local[i];
       geometry(cols, o, laneIndexValue, view, width, plotWidth, scroll);
-      if (!(x >= G.x && x <= G.x + G.width && y >= G.y && y <= G.y + G.height)) continue;
+      const lod = lodLanes?.has(laneIndexValue);
+      const column = Math.floor(x);
+      const covered = lod ? Math.min(G.x + G.width, column + 1) - Math.max(G.x, column) : 0;
+      if (!(y >= G.y && y <= G.y + G.height) || (lod ? covered <= 0 : !(x >= G.x && x <= G.x + G.width))) continue;
       const depth = cols.depth[o]; const flat = model.offsets[laneIndexValue] + o;
-      if (depth > bestDepth || (depth === bestDepth && flat > bestFlat)) {
-        bestDepth = depth; bestFlat = flat;
+      if (depth > bestDepth || (depth === bestDepth && (covered > bestCover || (covered === bestCover && flat > bestFlat)))) {
+        bestDepth = depth; bestFlat = flat; bestCover = covered;
         best = { segment: cols.segments[o], laneIndex: laneIndexValue, index: flat, offset: o, x: G.x, y: G.y, width: G.width, height: G.height };
       }
     }

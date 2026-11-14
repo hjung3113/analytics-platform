@@ -247,3 +247,27 @@ describe('PlatformDataTable select all results (#556c)', () => {
     expect(bar()?.textContent).toContain('필터 결과 전체 54행을 선택했습니다');
   });
 });
+
+// #2045 SHE-32: an uncontrolled column filter must reach the bulk action.
+it('passes the active filters and sorting to a select-all bulk action', async () => {
+  const action = vi.fn(() => <span>Action</span>);
+  render(<I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>
+    <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} loadPage={makeLoad()}
+      preferenceKey="bulk-query" pageSize={25} height={200} selectAllResults bulkSelectionActions={action} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByText('n1');
+  fireEvent.click(screen.getByRole('button', { name: '이름 필터' }));
+  fireEvent.change(await screen.findByLabelText('값'), { target: { value: 'n' } });
+  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: '적용' })).toBeNull());
+  await widen();
+  fireEvent.click(screen.getAllByRole('button', { name: /^상태/ })[0]);
+  await waitFor(() => expect(action.mock.calls.at(-1)).toEqual([
+    { kind: 'all', excludedIds: [], total: 54 },
+    { filters: [{ id: 'name', op: 'contains', value: 'n' }], sorting: [{ id: 'status', desc: false }] },
+  ]));
+  expect(action).toHaveBeenLastCalledWith(
+    { kind: 'all', excludedIds: [], total: 54 },
+    { filters: [{ id: 'name', op: 'contains', value: 'n' }], sorting: [{ id: 'status', desc: false }] },
+  );
+});

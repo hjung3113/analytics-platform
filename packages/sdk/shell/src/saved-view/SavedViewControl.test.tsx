@@ -699,3 +699,17 @@ describe('person names come from exact lookup (#1105)', () => {
     await act(async () => { release(); });
   });
 });
+
+it('uses the shell language for sharing and the nested group editor', async () => {
+  localStorage.setItem('platform:lang', 'en');
+  const user = userEvent.setup();
+  mount(createFakeViewStore([]), `/?scopeId=MEM&${period}&roomNames=PHOTO`);
+  await user.click(await screen.findByRole('button', { name: 'Save' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Save as new view' }));
+  await user.type(await screen.findByLabelText('View name'), 'Shared view');
+  await user.click(screen.getByRole('radio', { name: /Choose who can see it/ }));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+  const picker = await screen.findByRole('dialog', { name: 'Share targets' });
+  await user.click(within(picker).getByRole('button', { name: 'New group' }));
+  expect(screen.getByRole('dialog', { name: 'New group' })).toHaveTextContent('Group name');
+});

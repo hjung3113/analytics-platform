@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { word, memberCountText, shareSummaryText, groupCreatedText } from './text';
 import type { GroupMember, Result, ViewGroupEntry } from '@ap/contracts';
 import { Badge, Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@ap/ui';
 import { SegmentedRadio } from '../RadioGroup';
@@ -13,6 +14,8 @@ export type ShareTargetDraft = { mode: ShareMode; people: readonly GroupMember[]
 export type ShareGroupsState = { status: 'loading' | 'error' | 'ready'; entries: readonly ViewGroupEntry[]; retry: () => void };
 
 export type ShareTargetPickerProps = {
+  /** Display language; defaults to Korean for existing standalone consumers. */
+  lang?: 'ko' | 'en';
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Draft the picker starts from each time it opens. */
@@ -28,20 +31,13 @@ export type ShareTargetPickerProps = {
   confirmError?: string | null;
 };
 
-const MODES = [
-  { value: 'private', label: '나만' },
-  { value: 'people', label: '사람 지정' },
-  { value: 'groups', label: '그룹' },
-  { value: 'official', label: '공식 신청' },
-] as const;
-
 export function ShareTargetPicker(props: ShareTargetPickerProps) {
   return <Dialog open={props.open} onOpenChange={props.onOpenChange}>{props.open && <PickerBody {...props} />}</Dialog>;
 }
 
 type EditorState = { kind: 'create'; members: readonly GroupMember[] } | { kind: 'edit'; id: string } | null;
 
-function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, onCreateGroup, onUpdateGroup, onConfirm, confirmError }: ShareTargetPickerProps) {
+function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, searchPeople, onCreateGroup, onUpdateGroup, onConfirm, confirmError }: ShareTargetPickerProps) {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<ShareTargetDraft>(value);
   const [groupQuery, setGroupQuery] = useState('');
@@ -100,14 +96,11 @@ function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, 
     setGroupQuery('');
     lastMade.current = entry.group.id;
     setLastMadeId(entry.group.id);
-    setNotice(`그룹 "${entry.group.name}"을 만들었습니다. 취소해도 그룹은 남습니다. 공유는 "공유 대상 저장"을 눌러야 적용됩니다.`);
+    setNotice(groupCreatedText(entry.group.name, lang));
   };
 
   const toggleGroup = (id: string) => setDraft(d => ({ ...d, groupIds: d.groupIds.includes(id) ? d.groupIds.filter(x => x !== id) : [...d.groupIds, id] }));
-  const summary = draft.mode === 'private' ? '나만 볼 수 있습니다.'
-    : draft.mode === 'official' ? '공식 등록을 신청합니다. 신청해도 지금 보는 사람은 바뀌지 않습니다.'
-      : draft.mode === 'people' ? `사람 ${draft.people.length}명 선택`
-        : `그룹 ${draft.groupIds.length}개 선택${selectedGroups.length > 0 ? `: ${selectedGroups.join(', ')}` : ''}`;
+  const summary = shareSummaryText(draft.mode, draft.people.length, draft.groupIds.length, selectedGroups, lang);
   const incomplete = (draft.mode === 'people' && draft.people.length === 0) || (draft.mode === 'groups' && draft.groupIds.length === 0);
 
   const renderGroup = (entry: ViewGroupEntry) => {
@@ -115,81 +108,82 @@ function PickerBody({ onOpenChange, value, groups, currentUserId, searchPeople, 
     const checked = draft.groupIds.includes(group.id);
     return <li key={group.id} ref={node => { if (node) rows.current.set(group.id, node); else rows.current.delete(group.id); }} className="flex items-center gap-2">
       <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-        <Checkbox checked={checked} onCheckedChange={() => toggleGroup(group.id)} aria-label={`${group.name} (${group.memberCount}명)`} />
+        <Checkbox checked={checked} onCheckedChange={() => toggleGroup(group.id)} aria-label={`${group.name} (${memberCountText(group.memberCount, lang)})`} />
         <span className="truncate">{group.name}</span>
-        <span className="text-xs text-text-secondary">{group.memberCount}명</span>
-        {!capabilities.canEditMembers && <span className="text-xs text-text-secondary">멤버 편집 불가</span>}
+        <span className="text-xs text-text-secondary">{memberCountText(group.memberCount, lang)}</span>
+        {!capabilities.canEditMembers && <span className="text-xs text-text-secondary">{word('membersLocked', lang)}</span>}
       </label>
-      {(capabilities.canEditMembers || capabilities.canRename) && <Button type="button" variant="ghost" size="sm" aria-label={`${group.name} 편집`} onClick={() => openEditor({ kind: 'edit', id: group.id })}>편집</Button>}
+      {(capabilities.canEditMembers || capabilities.canRename) && <Button type="button" variant="ghost" size="sm" aria-label={`${group.name} ${word('edit', lang)}`} onClick={() => openEditor({ kind: 'edit', id: group.id })}>{word('edit', lang)}</Button>}
     </li>;
   };
 
   const editing = editor?.kind === 'edit' ? entries.find(e => e.group.id === editor.id) : undefined;
 
-  return <DialogContent className="max-w-lg" closeLabel="닫기"
+  return <DialogContent className="max-w-lg" closeLabel={word('close', lang)}
     onOpenAutoFocus={() => { trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
     onCloseAutoFocus={pickerReturnFocus}>
     <DialogHeader>
-      <DialogTitle>공유 대상</DialogTitle>
-      <DialogDescription>이 뷰를 볼 수 있는 사람을 고릅니다. 저장하기 전에는 바뀌지 않습니다.</DialogDescription>
+      <DialogTitle>{word('shareTitle', lang)}</DialogTitle>
+      <DialogDescription>{word('shareBody', lang)}</DialogDescription>
     </DialogHeader>
-    <SegmentedRadio label="공유 대상 종류" value={draft.mode} options={MODES} onChange={mode => setDraft(d => ({ ...d, mode }))} />
+    <SegmentedRadio label={word('shareMode', lang)} value={draft.mode} options={(['private', 'people', 'groups', 'official'] as const).map(value => ({ value, label: word(value === 'private' ? 'private' : value === 'people' ? 'peopleMode' : value === 'groups' ? 'groupsMode' : 'officialMode', lang) }))} onChange={mode => setDraft(d => ({ ...d, mode }))} />
 
     {draft.mode === 'people' && <div className="grid gap-2">
-      <ul className="flex flex-wrap gap-1" aria-label="선택한 사람">
+      <ul className="flex flex-wrap gap-1" aria-label={word('selectedPeople', lang)}>
         {draft.people.map(p => <li key={p.userId}><Badge variant="secondary">
           <span>{personLabel(p, known)}</span>
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={`${personLabel(p, known)} 제거`} onClick={() => setDraft(d => ({ ...d, people: toggleMember(d.people, p) }))}><X className="h-3 w-3" aria-hidden="true" /></Button>
+          <Button type="button" variant="ghost" size="icon-xs" aria-label={`${personLabel(p, known)} ${word('removePerson', lang)}`} onClick={() => setDraft(d => ({ ...d, people: toggleMember(d.people, p) }))}><X className="h-3 w-3" aria-hidden="true" /></Button>
         </Badge></li>)}
       </ul>
-      <label className="text-xs font-semibold" htmlFor="share-people-search">사람 검색</label>
-      <Input id="share-people-search" value={peopleQuery} placeholder="이름 또는 소속(공정·팀)으로 검색" onChange={event => setPeopleQuery(event.target.value)} />
+      <label className="text-xs font-semibold" htmlFor="share-people-search">{word('peopleSearch', lang)}</label>
+      <Input id="share-people-search" value={peopleQuery} placeholder={word('peoplePlaceholder', lang)} onChange={event => setPeopleQuery(event.target.value)} />
       <div aria-live="polite">
-        {people.status === 'loading' && <p className="text-xs text-text-secondary">검색 중…</p>}
-        {people.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">검색하지 못했습니다. <Button type="button" variant="link" size="sm" onClick={people.retry}>다시 시도</Button></p>}
-        {people.status === 'ready' && people.results.length === 0 && <p className="text-xs text-text-secondary">검색 결과가 없습니다.</p>}
+        {people.status === 'loading' && <p className="text-xs text-text-secondary">{word('searching', lang)}</p>}
+        {people.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">{word('searchFailed', lang)} <Button type="button" variant="link" size="sm" onClick={people.retry}>{word('retry', lang)}</Button></p>}
+        {people.status === 'ready' && people.results.length === 0 && <p className="text-xs text-text-secondary">{word('searchEmpty', lang)}</p>}
       </div>
-      <ul className="grid max-h-40 gap-1 overflow-auto" aria-label="검색 결과">
+      <ul className="grid max-h-40 gap-1 overflow-auto" aria-label={word('searchResults', lang)}>
         {people.results.map(p => <li key={p.userId}><label className="flex items-center gap-2 text-sm">
           <Checkbox checked={draft.people.some(x => x.userId === p.userId)} onCheckedChange={() => setDraft(d => ({ ...d, people: toggleMember(d.people, p) }))} aria-label={personLabel(p, known)} />
           <span>{p.displayName}</span><span className="text-xs text-text-secondary">{p.affiliation}</span>
         </label></li>)}
       </ul>
-      <Button type="button" variant="outline" size="sm" disabled={draft.people.length === 0} onClick={() => openEditor({ kind: 'create', members: draft.people })}>사람 목록을 그룹으로 저장</Button>
+      <Button type="button" variant="outline" size="sm" disabled={draft.people.length === 0} onClick={() => openEditor({ kind: 'create', members: draft.people })}>{word('savePeopleGroup', lang)}</Button>
     </div>}
 
     {draft.mode === 'groups' && <div className="grid gap-2">
-      <label className="text-xs font-semibold" htmlFor="share-group-search">그룹 검색</label>
-      <Input id="share-group-search" value={groupQuery} placeholder="그룹 이름으로 검색" onChange={event => setGroupQuery(event.target.value)} />
+      <label className="text-xs font-semibold" htmlFor="share-group-search">{word('groupSearch', lang)}</label>
+      <Input id="share-group-search" value={groupQuery} placeholder={word('groupPlaceholder', lang)} onChange={event => setGroupQuery(event.target.value)} />
       <div className="grid max-h-56 gap-2 overflow-auto" aria-busy={groups.status === 'loading'}>
-        {groups.status === 'loading' && <p role="status" className="text-xs text-text-secondary">그룹을 불러오는 중…</p>}
-        {groups.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">그룹을 불러오지 못했습니다. <Button type="button" variant="link" size="sm" onClick={groups.retry}>다시 시도</Button></p>}
-        {groups.status === 'ready' && shown.length === 0 && <p role="status" className="text-xs text-text-secondary">{needle === '' ? '그룹이 없습니다.' : '검색 결과가 없습니다.'}</p>}
+        {groups.status === 'loading' && <p role="status" className="text-xs text-text-secondary">{word('groupsLoading', lang)}</p>}
+        {groups.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">{word('groupsFailed', lang)} <Button type="button" variant="link" size="sm" onClick={groups.retry}>{word('retry', lang)}</Button></p>}
+        {groups.status === 'ready' && shown.length === 0 && <p role="status" className="text-xs text-text-secondary">{needle === '' ? word('groupsEmpty', lang) : word('searchEmpty', lang)}</p>}
         {shown.length > 0 && <>
-          <section aria-label="조직 팀"><h3 className="text-xs font-semibold">조직 팀</h3>
+          <section aria-label={word('orgTeams', lang)}><h3 className="text-xs font-semibold">{word('orgTeams', lang)}</h3>
             <ul className="grid gap-1">{orgTeams.map(renderGroup)}</ul>
-            {groups.status === 'ready' && orgTeams.length === 0 && <p className="text-xs text-text-secondary">해당하는 조직 팀이 없습니다.</p>}</section>
-          <section aria-label="커스텀 그룹"><h3 className="text-xs font-semibold">커스텀 그룹</h3>
+            {groups.status === 'ready' && orgTeams.length === 0 && <p className="text-xs text-text-secondary">{word('orgTeamsEmpty', lang)}</p>}</section>
+          <section aria-label={word('customGroups', lang)}><h3 className="text-xs font-semibold">{word('customGroups', lang)}</h3>
             <ul className="grid gap-1">{custom.map(renderGroup)}</ul>
-            {groups.status === 'ready' && custom.length === 0 && <p className="text-xs text-text-secondary">해당하는 커스텀 그룹이 없습니다.</p>}</section>
+            {groups.status === 'ready' && custom.length === 0 && <p className="text-xs text-text-secondary">{word('customGroupsEmpty', lang)}</p>}</section>
         </>}
       </div>
-      <Button type="button" variant="outline" size="sm" onClick={() => openEditor({ kind: 'create', members: [] })}>새 그룹 만들기</Button>
+      <Button type="button" variant="outline" size="sm" onClick={() => openEditor({ kind: 'create', members: [] })}>{word('createGroup', lang)}</Button>
     </div>}
 
-    {draft.mode === 'official' && <p className="text-xs text-text-secondary">공식 신청은 승인 대기 상태만 만듭니다. 승인 전에는 공개 대상이 그대로입니다.</p>}
+    {draft.mode === 'official' && <p className="text-xs text-text-secondary">{word('officialNotice', lang)}</p>}
 
-    <p role="status" aria-label="선택 요약" className="text-sm">{summary}</p>
+    <p role="status" aria-label={word('selectionSummary', lang)} className="text-sm">{summary}</p>
     {notice && <p role="status" className="text-xs text-text-secondary">{notice}</p>}
 
     {confirmError && <p role="alert" className="text-xs text-text-danger-label">{confirmError}</p>}
 
     <DialogFooter>
-      <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>취소</Button>
-      <Button type="button" disabled={incomplete || busy} onClick={() => { void confirm(); }}>공유 대상 저장</Button>
+      <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{word('cancel', lang)}</Button>
+      <Button type="button" disabled={incomplete || busy} onClick={() => { void confirm(); }}>{word('saveTargets', lang)}</Button>
     </DialogFooter>
 
     <GroupEditor
+      lang={lang}
       open={editor !== null && (editor.kind === 'create' || editing !== undefined)}
       onOpenChange={next => { if (!next) setEditor(null); }}
       {...(editing ? { entry: editing } : {})}

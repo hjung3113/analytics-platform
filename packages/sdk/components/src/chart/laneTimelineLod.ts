@@ -87,15 +87,16 @@ const DECO_REACH = 8;
  * Per depth, ascending and never reordered: the exact rects of that depth, then the LOD lanes' runs grouped by colour, then the decorations of the
  * winning rects (each clipped to the columns no later-painted winner of that depth takes). `buf` is scratch for the exact lanes' rects.
  */
-export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, frame: { view: [number, number]; width: number; height: number; scroll: number }, buf: RectBuffer, lodAt: number, stats?: LodStats) {
+export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, frame: { view: [number, number]; width: number; height: number; scroll: number }, buf: RectBuffer, lodAt: number, stats?: LodStats, lodLanes?: Set<number>) {
   const { model } = style; const { view, width, height, scroll } = frame;
+  lodLanes?.clear();
   const plot = Math.max(1, width - GUTTER); const [first, last] = visibleLanes(model, height, scroll);
   const windows: number[][] = []; const lodLane = new Uint8Array(model.lanes.length); let anyLod = false;
   if (stats) { stats.bucketBytes = 0; stats.groupBytes = 0; }
   if (lodAt !== Infinity) {
     for (let l = first; l < last; l++) {
       const w: number[] = []; laneWindow(model.cols[l], view[0], view[1], w);
-      if (w.length > 0 && w.length >= lodAt) { lodLane[l] = 1; windows[l] = w; anyLod = true; }
+      if (w.length > 0 && w.length >= lodAt) { lodLane[l] = 1; lodLanes?.add(l); windows[l] = w; anyLod = true; }
     }
   }
   const count = fillVisibleRects(model, view, width, height, scroll, buf, undefined, anyLod ? lodLane : undefined);

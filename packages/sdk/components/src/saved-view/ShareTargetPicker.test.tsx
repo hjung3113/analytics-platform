@@ -332,3 +332,9 @@ it('stays open with the choice when an async confirm answers false, and closes w
   await user.click(screen.getByRole('button', { name: '공유 대상 저장' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: '공유 대상' })).toBeNull());
 });
+
+it.each(['private', 'people', 'groups', 'official'] as const)('renders English sharing controls for %s', mode => {
+  render(<Harness lang="en" groups={ready([])} searchPeople={async () => []} value={{ mode, people: [], groupIds: [] }} />);
+  expect(screen.getByRole('dialog', { name: 'Share targets' })).not.toHaveTextContent(/[가-힣]/);
+  expect(screen.getByRole('button', { name: 'Save share targets' })).toBeTruthy();
+});

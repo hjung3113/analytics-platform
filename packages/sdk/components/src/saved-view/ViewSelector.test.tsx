@@ -179,6 +179,7 @@ describe('ViewSelector', () => {
     await open(user);
     await user.click(screen.getByRole('button', { name: 'Alpha 동작' }));
     await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
     await waitFor(() => expect(screen.queryByRole('button', row('Alpha'))).toBeNull());
     await waitFor(() => expect(screen.getByRole('button', row('Beta shared'))).toHaveFocus());
   });
@@ -334,6 +335,7 @@ describe('ViewSelector fix round', () => {
     await open(user);
     await user.click(screen.getByRole('button', { name: 'Alpha 동작' }));
     await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
     act(() => finish());
     await waitFor(() => expect(screen.queryByRole('button', row('Alpha'))).toBeNull());
     await waitFor(() => expect(screen.getByRole('button', row('Beta shared'))).toHaveFocus());
@@ -428,4 +430,22 @@ describe('ViewSelector fix round', () => {
     await user.click(screen.getByRole('button', { name: '취소' }));
     await waitFor(() => expect(screen.getByRole('button', { name: '저장' })).toHaveFocus());
   });
+});
+
+it('confirms deletion with the view name and audience, and cancels without deleting', async () => {
+  const onDelete = vi.fn();
+  render(<Harness views={[entry('a', 'Shared Alpha', { visibility: { kind: 'groups', groupIds: ['g1', 'g2'] } })]} onDelete={onDelete} />);
+  const user = await open();
+  await user.click(screen.getByRole('button', { name: 'Shared Alpha 동작' }));
+  await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+  expect(onDelete).not.toHaveBeenCalled();
+  const dialog = screen.getByRole('dialog', { name: '뷰 삭제' });
+  expect(dialog).toHaveTextContent('Shared Alpha');
+  expect(dialog).toHaveTextContent('Team One, Team Two');
+  await user.click(within(dialog).getByRole('button', { name: '취소' }));
+  expect(onDelete).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'Shared Alpha 동작' }));
+  await user.click(screen.getByRole('menuitem', { name: '삭제' }));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+  expect(onDelete).toHaveBeenCalledExactlyOnceWith('a');
 });
