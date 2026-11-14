@@ -106,18 +106,16 @@ it('org-team membership and name cannot be edited; a custom group needs a manage
 
 it.each([
   ['권한 밖 공정', 'CMP 설비 비교'],
-])('every read re-judges scope: %s becomes a denied entry with only a reason', async (_label, name) => {
+])('object access preserves a shared %s view regardless of data scope', async (_label, name) => {
   const items = await store().list(key(ENG));
-  const denied = items.filter(i => i.denied);
-  expect(denied).toHaveLength(1);
-  expect(denied[0]).toEqual({ id: 'u-limchaewon|productivity-overview|1', denied: true, reason: expect.any(String) });
-  expect(JSON.stringify(denied)).not.toContain(name);
-  expect(await store().get('u-limchaewon|productivity-overview|1')).toMatchObject({ denied: true });
-  as('admin'); // the same view is readable once the reader's rooms include it
+  expect(items.every(i => i.denied !== true)).toBe(true);
+  expect(visible(items).some(i => i.view.name === name)).toBe(true);
+  expect(await store().get('u-limchaewon|productivity-overview|1')).toMatchObject({ view: { name } });
+  as('admin'); // object sharing still excludes an admin who is not a recipient
   expect(visible(await store().list(key(ADMIN))).some(i => i.view.name === name)).toBe(false); // admin is not a share target
 });
 
-it('menu permission is re-judged on read: a viewer without the menu permission gets denied entries', async () => {
+it('menu permission does not prevent shared view reads or saving', async () => {
   const s = store(); ok(await s.save(draft('내 뷰'))); // engineer saves
   as('viewer');
   const raw = JSON.parse(storage.getItem(savedViewsStorageKey(ENG, MENU))!);
@@ -125,8 +123,8 @@ it('menu permission is re-judged on read: a viewer without the menu permission g
   storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify(raw));
   const items = await s.list(key('viewer'));
   expect(items.length).toBeGreaterThan(0);
-  expect(items.every(i => i.denied)).toBe(true);
-  expect(await s.save(draft('권한 없음'))).toMatchObject({ ok: false, reason: 'forbidden' });
+  expect(items.every(i => i.denied !== true)).toBe(true);
+  expect(ok(await s.save(draft('권한 없음'))).view.name).toBe('권한 없음');
 });
 
 it('editing an official copy asks for approval again and leaves who can see it unchanged', async () => {
@@ -221,11 +219,11 @@ it('approval walks pending→approved→revoked by transition and never takes a 
   expect(await s.setVisibility(a.view.id, { kind: 'official' }, { expectedVersion: approved.view.version })).toMatchObject({ ok: false, reason: 'invalid' });
 });
 
-it('seeds include a stale, a pending and a denied view for the engineer', async () => {
+it('seeds include stale, pending and out-of-data-scope shared views for the engineer', async () => {
   const items = await store().list(key(ENG));
   expect(visible(items).some(i => i.view.kind === 'menu-view' && i.view.menuSchemaVersion < 2)).toBe(true);
   expect(visible(items).some(i => i.view.approval === 'pending')).toBe(true);
-  expect(items.some(i => i.denied)).toBe(true);
+  expect(items.every(i => i.denied !== true)).toBe(true);
   expect(visible(await store().list(key(ENG, null))).map(i => i.view.kind)).toEqual(['condition-set']);
 });
 
@@ -239,7 +237,7 @@ it('searchPeople separates same-named people by affiliation and honors an aborte
 
 const withRegistry = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf });
 
-it('C2: a menu outside the seed table is judged by the registry permission; unknown menus are rejected; denied is exactly {id, denied, reason}', async () => {
+it('C2: a registered menu may be saved and shared without its permission; unknown menus are rejected', async () => {
   const s = withRegistry();
   const eq = { ...draft('설비'), menuId: 'equipment-master' } as SavedViewDraft;
   const saved = ok(await s.save(eq));
@@ -248,7 +246,7 @@ it('C2: a menu outside the seed table is judged by the registry permission; unkn
   raw.views[0].visibility = { kind: 'people', userIds: ['viewer'] };
   storage.setItem(savedViewsStorageKey(ENG, 'equipment-master'), JSON.stringify(raw));
   const got = await withRegistry().get(saved.view.id);
-  expect(got).toEqual({ id: saved.view.id, denied: true, reason: expect.any(String) });
+  expect(got).toMatchObject({ view: { id: saved.view.id } });
   expect(await withRegistry().save({ ...draft('x'), menuId: 'no-such-menu' } as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
 });
 
@@ -270,12 +268,11 @@ it('C3: editing an official copy keeps readers on the approved content until re-
   expect(again).toMatchObject({ view: { name: '공식 (수정)', approval: 'rejected' } });
 });
 
-it('C4: updating a readable view with a context the caller may not read is forbidden and changes nothing', async () => {
+it('C4: updating a readable view with out-of-data-scope context succeeds', async () => {
   const s = store(); const a = ok(await s.save(draft('a')));
-  const snapshot = storage.getItem(savedViewsStorageKey(ENG, MENU));
-  const r = await s.update(a.view.id, { context: { roomNames: ['CMP'] } }, { expectedVersion: a.view.version });
-  expect(r).toMatchObject({ ok: false, reason: 'forbidden' });
-  expect(storage.getItem(savedViewsStorageKey(ENG, MENU))).toBe(snapshot);
+  const r = ok(await s.update(a.view.id, { context: { roomNames: ['CMP'] } }, { expectedVersion: a.view.version }));
+  expect(r.view.context.roomNames).toEqual(['CMP']);
+  expect(await s.get(a.view.id)).toEqual(r);
 });
 
 it('C5: ids are never reused, so a deleted default and old versions do not attach to a new view', async () => {
@@ -349,24 +346,26 @@ it('an edit of an official copy lists what the proposal changes and a rejection 
   expect((await store().listApprovalRequests(key(ENG)))[0]).toMatchObject({ rejectReason: '근거 부족' });
 });
 
-// A menu that needs two grants (menuPermissions): each grant alone is not enough on any path, both are, revoking one denies an existing view.
+// Menu grants belong to the opened data boundary, independently of the saved-view object ACL.
 describe('a menu requiring platform:view AND console:access', () => {
   let held: string[] = [];
   const asHolder = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, getActor: () => ({ userId: ENG, admin: false, permissions: held, rooms: ['PHOTO'] }), menuPermissionsOf: permissionOf });
   const both = { ...draft('둘 다'), menuId: 'needs-both' } as SavedViewDraft;
-  it.each([[['platform:view']], [['console:access']], [[]]])('denies saving with %j', async grants => {
+  it.each([[['platform:view']], [['console:access']], [[]]])('saves independently of menu grants %j', async grants => {
     held = grants;
-    expect(await asHolder().save(both)).toMatchObject({ ok: false, reason: 'forbidden' });
+    expect(ok(await asHolder().save(both)).view.name).toBe('둘 다');
   });
-  it('saves, reads and updates with both grants; one revoked denies the existing view and the update', async () => {
+  it('reads and updates keep working when a menu grant is revoked', async () => {
     held = ['platform:view', 'console:access'];
     const s = asHolder(); const saved = ok(await s.save(both));
     expect(visible(await s.list(key(ENG, 'needs-both'))).map(i => i.view.name)).toContain('둘 다');
     ok(await s.update(saved.view.id, { name: '수정' }, { expectedVersion: saved.view.version }));
     for (const left of [['platform:view'], ['console:access']]) {
       held = left;
-      expect(await s.get(saved.view.id)).toEqual({ id: saved.view.id, denied: true, reason: expect.any(String) });
-      expect(await s.update(saved.view.id, { name: '막힘' }, { expectedVersion: saved.view.version + 1 })).toMatchObject({ ok: false });
+      const current = await s.get(saved.view.id);
+      expect(current).toMatchObject({ view: { id: saved.view.id } });
+      if (!current || current.denied) throw new Error('owner lost object access');
+      expect(ok(await s.update(saved.view.id, { name: '수정' }, { expectedVersion: current.view.version })).view.name).toBe('수정');
     }
   });
 });
@@ -411,40 +410,38 @@ it('the three storage key formats are the pinned literals', async () => {
   expect(keys).toContain(`platform:saved-view-groups:v1:${JSON.stringify([1])}`);
 });
 
-// Fix-round 1 (#1702h): condition sets pass through the same room ACL as menu views, and the denial reasons
-// stay the user-facing Korean strings (ViewSelector renders `reason` as-is).
-const SCOPE_REASON = '조회 권한이 없는 공정이 포함되어 있습니다.';
+// ADR-0099: saved views judge the object ACL; the opened data request judges menu and Scope.
 const conditionDraft = (roomNames: string[]): SavedViewDraft =>
   ({ schemaVersion: 1, kind: 'condition-set', name: 'CMP 조건', context: { roomNames } });
 
-it('a condition set with a room outside the actor is refused on save, like a menu view', async () => {
-  expect(await store().save(conditionDraft(['CMP']))).toMatchObject({ ok: false, reason: 'forbidden' });
-  expect(storage.getItem(savedViewsStorageKey(ENG, null))).toBeNull(); // nothing was written
+it('saves a condition set with a room outside the actor scope', async () => {
+  const saved = ok(await store().save(conditionDraft(['CMP'])));
+  expect(saved.view.context.roomNames).toEqual(['CMP']);
 });
 
-it('a condition set saved earlier is re-judged on every read after the room is lost (get/list/update/default)', async () => {
-  const owner = 'u-limchaewon'; // in the seed directory, so the owner's bucket is iterated on list
+it('keeps object reads, updates and defaults after the actor loses a room', async () => {
+  const owner = 'u-limchaewon';
   const setKey = { userId: owner, menuId: null };
-  const withCmp = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms: ['PHOTO', 'CMP'] }) });
-  const withoutCmp = (): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }) });
-  const saved = ok(await withCmp().save(conditionDraft(['CMP'])));
-  ok(await withCmp().setDefault(setKey, saved.view.id));
-  expect(await withoutCmp().get(saved.view.id)).toEqual({ id: saved.view.id, denied: true, reason: SCOPE_REASON });
-  expect(await withoutCmp().list(setKey)).toEqual([{ id: saved.view.id, denied: true, reason: SCOPE_REASON }]);
-  expect(await withoutCmp().update(saved.view.id, { name: '수정' }, { expectedVersion: saved.view.version })).toMatchObject({ ok: false, reason: 'forbidden' });
-  expect(await withoutCmp().getDefaultId(setKey)).toBeNull();
-  expect(await withoutCmp().setDefault(setKey, saved.view.id)).toMatchObject({ ok: false, reason: 'invalid' });
+  const scoped = (rooms: string[]): SavedViewStore => createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, menuPermissionsOf: permissionOf, getActor: () => ({ userId: owner, admin: false, permissions: ['analytics:view'], rooms }) });
+  const saved = ok(await scoped(['PHOTO', 'CMP']).save(conditionDraft(['CMP'])));
+  ok(await scoped(['PHOTO', 'CMP']).setDefault(setKey, saved.view.id));
+  const withoutCmp = scoped(['PHOTO']);
+  expect(await withoutCmp.get(saved.view.id)).toEqual(saved);
+  expect(await withoutCmp.list(setKey)).toEqual([saved]);
+  expect(await withoutCmp.getDefaultId(setKey)).toBe(saved.view.id);
+  ok(await withoutCmp.setDefault(setKey, saved.view.id));
+  expect(ok(await withoutCmp.update(saved.view.id, { name: '수정' }, { expectedVersion: saved.view.version })).view.name).toBe('수정');
 });
 
-it('denial reasons are the user-facing Korean messages, not internal codes', async () => {
-  const s = store(); ok(await s.save(draft('내 뷰'))); // engineer saves
-  const items = await s.list(key(ENG));
-  expect(items.find(i => i.denied)).toEqual({ id: 'u-limchaewon|productivity-overview|1', denied: true, reason: SCOPE_REASON });
+it('lists shared views without menu or room denials and permits a save without menu permission', async () => {
+  const s = store(); const saved = ok(await s.save(draft('내 뷰')));
+  expect((await s.list(key(ENG))).every(i => i.denied !== true)).toBe(true);
+  ok(await s.setVisibility(saved.view.id, { kind: 'people', userIds: ['viewer'] }, { expectedVersion: saved.view.version }));
   as('viewer');
-  const raw = JSON.parse(storage.getItem(savedViewsStorageKey(ENG, MENU))!);
-  raw.views.find((v: { name: string }) => v.name === '내 뷰')!.visibility = { kind: 'people', userIds: ['viewer'] };
-  storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify(raw));
-  expect((await store().list(key('viewer'))).every(i => i.denied && i.reason === '이 메뉴를 열 권한이 없습니다.')).toBe(true);
+  const items = await store().list(key('viewer'));
+  expect(items.some(i => !i.denied && i.view.id === saved.view.id)).toBe(true);
+  expect(items.every(i => i.denied !== true)).toBe(true);
+  expect(ok(await store().save(draft('권한 없는 메뉴 뷰'))).view.name).toBe('권한 없는 메뉴 뷰');
 });
 
 it('a replacement seed falls back to its first actor when the stored role is missing or obsolete', async () => {
