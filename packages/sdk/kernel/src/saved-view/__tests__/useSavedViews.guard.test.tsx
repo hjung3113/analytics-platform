@@ -100,3 +100,17 @@ it('KER-18 a held restore of a view with a hidden key before a visible key still
   act(() => request!.confirm());
   await waitFor(() => expect(views.selected?.view.id).toBe('b'));
 });
+
+// review-check: the expected arrival carries the restored Context, not the current one.
+it('KER-18 a held restore that changes the Context still selects on confirm', async () => {
+  support = { ...baseSupport, contextKeys: ['line'] };
+  registry = makeRegistry({ context: { ...noContext, time: 'apply' as const, line: 'apply' as const } });
+  const ctx = (id: string) => testSavedView({ id, name: id, kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: { lineNames: [id.toUpperCase()] }, page: [['filter', id]], chartOptions: {}, layout: null, panels: null } as never);
+  rows = () => [ctx('a'), ctx('b')];
+  await mount();
+  let outcome: unknown;
+  await act(async () => { outcome = await views.select('b'); });
+  expect(outcome).toEqual({ ok: false, reason: 'held' });
+  act(() => request!.confirm());
+  await waitFor(() => expect(views.selected?.view.id).toBe('b'));
+});

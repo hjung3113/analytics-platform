@@ -79,10 +79,10 @@ const entryOf = (item: SavedViewListItem | null | undefined): SavedViewEntry | n
  * three change states. Inactive without a store, a `features.savedView` menu and its registered support.
  */
 /** The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too. */
-function arrivalHref(page: readonly (readonly [string, string])[], from: Pick<ReturnType<typeof useHostPlatform>, 'route' | 'pathname' | 'global' | 'extras'>): string {
+function arrivalHref(next: { global: ReturnType<typeof useHostPlatform>['global']; page: readonly (readonly [string, string])[] }, from: Pick<ReturnType<typeof useHostPlatform>, 'route' | 'pathname' | 'extras'>): string {
   const hidden = from.route?.menu.hiddenPageKeys ?? [];
-  const pairs = page.map(([key, value]): Pair => [key, value]);
-  return from.pathname + buildQuery(from.global, [...pairs.filter(([key]) => !hidden.includes(key)), ...pairs.filter(([key]) => hidden.includes(key))], from.extras);
+  const pairs = next.page.map(([key, value]): Pair => [key, value]);
+  return from.pathname + buildQuery(next.global, [...pairs.filter(([key]) => !hidden.includes(key)), ...pairs.filter(([key]) => hidden.includes(key))], from.extras);
 }
 
 export function useSavedViews(): SavedViews {
@@ -206,7 +206,7 @@ export function useSavedViews(): SavedViews {
       const moved = current.navigate(result.href, { replace: source === 'default', run: () => {
         if (stale(at) || intent.current !== mine || live.current.host.appliedUrl !== startUrl) return false;
         // The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too.
-        if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next.page, current), entry: found });
+        if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next, current), entry: found });
         return true;
       } });
       if (!moved) {
