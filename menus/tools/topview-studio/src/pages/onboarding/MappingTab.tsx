@@ -9,7 +9,7 @@ import {
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import {
   Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, EmptyState, FieldLabel, FieldList, FieldRow, Input, Label,
-  PanelSectionTitle, RadioGroup, RadioGroupItem, SearchInput, StatusBadge, cn, type Tone,
+  PanelSectionTitle, RadioGroup, RadioGroupItem, SearchInput, StatusBadge, cn, useImeEnterGuard, type Tone,
 } from '@ap/ui';
 import { RULES_EDIT_PERMISSION, saveAliasRules, type JsonDocument } from '../../endpoints';
 import { Canvas, PANEL } from '../../parts/Canvas';
@@ -58,6 +58,7 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
   const [alias, setAlias] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const ime = useImeEnterGuard();
   const [notice, setNotice] = useState<{ state: BoardState; text: string } | null>(null);
   const [savedState, setSavedState] = useState<BoardState | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -221,9 +222,10 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       onConfirm={reload} onCancel={() => setConfirmReload(false)} />}
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <aside aria-label="Alias" className="flex w-60 shrink-0 flex-col border-r border-border-subtle bg-surface-card">
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3" onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}>
           <SearchInput size="toolbar" className="w-full" inputRef={searchRef} aria-label="Alias 검색" clearLabel="검색어 지우기" placeholder="/ 검색" value={query} onValueChange={setQuery}
             onKeyDown={(event) => {
+              if (ime.isComposingEnter(event)) return;
               if (event.key === 'Escape') { setQuery(''); listRef.current?.focus(); }
               else if (event.key === 'Enter' || event.key === 'ArrowDown') listRef.current?.focus();
               else return;
@@ -284,7 +286,10 @@ export function MappingTab({ input, board, setBoard, saveScope, setSaveScope, da
       <span>{writable ? SHORTCUTS : '조회 전용 · alias와 Component 확인 가능'}</span>
     </div>
     {palette && <Dialog open onOpenChange={(open) => { if (!open) setPalette(null); }}>
-      <DialogContent closeLabel="창 닫기" className="break-keep" onCloseAutoFocus={returnToList} onKeyDown={(event) => {
+      <DialogContent closeLabel="창 닫기" className="break-keep" onCloseAutoFocus={returnToList}
+        onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={(event) => {
+        // The Enter that confirms a Korean composition in the Component filter bubbles here; it never assigns (#2216).
+        if (ime.isComposingEnter(event)) return;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           if (!options.length) return;
           const step = event.key === 'ArrowDown' ? 1 : -1;

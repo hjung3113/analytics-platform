@@ -600,7 +600,7 @@ const menuMockOverride = {
   },
 };
 
-const menuPreset = (restriction, { imeEnterGuard = true } = {}) => [
+const menuPreset = (restriction) => [
   REACT_HOOKS,
   layerConfig({
     restriction,
@@ -612,7 +612,7 @@ const menuPreset = (restriction, { imeEnterGuard = true } = {}) => [
   testEntryOverride(restriction, ABOVE_COMPONENTS_TEST_ENTRIES),
   menuMockOverride,
   designSystem(),
-  ...(imeEnterGuard ? [IME_ENTER_GUARD] : []),
+  IME_ENTER_GUARD,
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -623,7 +623,7 @@ export const menu = menuPreset(MENU_RESTRICTION);
  * so subpaths such as `@eqv/ui/styles.css` stay banned; `src/mock/**` keeps the plain menu mock policy and may not import `@eqv/core`.
  * @type {import('eslint').Linter.Config[]}
  */
-export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE }, { imeEnterGuard: false });
+export const eqvMenu = menuPreset({ ...MENU_RESTRICTION, allowEqv: EQV_MENU_ENTRIES, eqvMessage: EQV_MENU_MESSAGE });
 
 /**
  * `menu` plus the one feature entry the bridge menu (menu-my-activity) may import (platform ADR-0071).
