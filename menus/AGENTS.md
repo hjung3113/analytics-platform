@@ -2,7 +2,7 @@
 
 Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (two levels). One package per Registry group (`@ap/menu-<group>`). A menu declares `manifests`; the app (`apps/platform-web/src/menus.ts`) concatenates them and registers them with the Kernel. Menu screens are Consumers that verify the five platform areas (root `AGENTS.md`). Platform features (home, my activity, notices, operations console, feature screens) live one level down in `platform/<feature>/` ([`platform/AGENTS.md`](../platform/AGENTS.md)). The rules below apply to `@ap/menu-*` packages under both roots.
 
-- **Products, not samples:** `menus/log-dev/log-knowledge` is built for real use (epic #1192); its [`AGENTS.md`](log-dev/log-knowledge/AGENTS.md) says what that changes. Every other menu here is a sample Consumer.
+- **Products, not samples:** every package under `menus/log-dev/` is built for real use; [`log-dev/AGENTS.md`](log-dev/AGENTS.md) says what that changes. Every other menu here is a sample Consumer.
 - Group ownership is recorded per system/group folder in `.github/CODEOWNERS`; add the line when you create a group folder (ADR-0090 D4).
 - `menus/_global/`, `menus/feedbackops/` and `menus/operations/` do not exist; those packages live in `platform/` ([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md)).
 - `ls menus/*/*` lists the packages. Groups without screens (for example `master-data`, `rcc`, `mcc`, `wpt`, `configuration`, `log-my-work`, `log-cross`) own their group through planned-menu manifests only.
