@@ -1,6 +1,6 @@
 # 설비 시각화(EV)를 플랫폼에 합친다: 이력은 `products/eqv/`로 보존하고, 패키지는 `packages/eqv/*`로 옮긴다
 
-상태: **Decided (2026-11-10)** — 방향과 배치. 단계별 구현은 #1607의 노드 이슈가 소유한다. 결정 8의 릴리스 번호는 아래 「개정」(2026-11-10)이 바꿨다.
+상태: **Decided (2026-11-10)** — 방향과 배치. 단계별 구현은 #1607의 노드 이슈가 소유한다. 결정 8의 릴리스 번호는 아래 「개정」(2026-11-10)이 바꿨다. 결정 2의 `products/eqv/` 사본은 EV 아카이브 뒤 #2208에서 지웠다. 이력은 git 커밋에 남고 가져오기 기록은 [EV ADR 이력 README](history/eqv/README.md)에 있다.
 - 결정자: 사용자 — "EV 저장소를 아카이브하고 패키지와 Studio를 모두 이 저장소로 옮길 계획"(2026-11-10), "위 계획을 추천대로 진행합니다. ① Git 이력 보존(`git filter-repo`, 머지 커밋 예외 승인, `#N`은 `EV#N`으로 치환) ② 모델 식별자의 원본은 Hub 카탈로그 ③ `v0.33.0`과 별도 릴리즈 주제"(#1607 댓글, 2026-11-10).
 - Supersedes: [ADR-0039](0039-equipment-visualization-platform-first-host-contract.md)와 [ADR-0053](0053-host-module-contract-v1.md)의 "EV는 외부 저장소의 모듈" 서술(호스트 모듈 계약 자체는 유지). EV 쪽은 EV ADR-0001·0012(호스트 경계)·0008(디자인 시스템)·0013·0014(tarball)를 대체한다.
 - Scope: [#1607](https://github.com/hjung3113/analytics-platform/issues/1607). 계획 파일은 노드 이슈들의 본문에 있다.
@@ -45,7 +45,7 @@ EV는 별도 저장소(`hjung3113/equipment-visualization`)에서 `@eqv/*` 패�
 
 - `apps/platform-web/package.json`의 tarball URL 6개, `pnpm-workspace.yaml`의 EV peer 예외, `vite.config.ts`의 `@eqv/*` 인라인 변환은 `workspace:*` 전환 노드에서 사라진다. `eqv:pack`, `eqv:consumer-check`, `eqv-release`, 소유자 태그 단계와 `lane:ev`의 tarball 갱신은 쓸모가 없어진다.
 - 외부 SDK 소비자가 없어지므로 `sdk:pack`, `sdk-v*` 릴리스의 쓸모는 ADR-0056 결정으로 따로 다시 본다. 이 결정에 묶지 않는다.
-- 아카이브 전 조건과 EV 열린 이슈 처리는 [EV 흡수 점검표](../design/features/equipment-visualization/absorption-checklist.md)가 소유한다.
+- 아카이브 전 조건과 EV 열린 이슈 처리는 [EV 흡수 점검표](../design/features/equipment-visualization/history/absorption-checklist.md)가 소유한다.
 - 위험: 이력 합치기는 `main`에 한 번 들어가면 되돌릴 수 없다. `#N` 언급 359줄의 치환 오류는 AP 이슈에 잘못 연결되므로 리허설에서 맨 `#N` 0건을 확인한 뒤 합친다. `eqv.*` 엔드포인트가 생긴 뒤의 Site 경계는 #1087 전까지 capability로만 막는다(서버 슬라이스에서 다룸).
 
 ## 개정 (2026-11-10, 결정 8의 번호)

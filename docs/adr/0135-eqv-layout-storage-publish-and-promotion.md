@@ -19,5 +19,5 @@
 
 ## 결과
 
-- 이 결정은 흡수 점검표의 EV#177·EV#170·EV#105 행에 반영됐다. 후속 [ADR-0139](0139-eqv-onboarding-storage-and-publish.md)에 따라 Bindings·Mapping 저장과 규칙·사전·게시 capability는 #1747, Sample Window 서버 저장·가져오기와 `eqv.window.import`는 #1757에서 구현됐다. 현재 남은 일은 [흡수 점검표](../design/features/equipment-visualization/absorption-checklist.md)를 따른다.
+- 이 결정은 흡수 점검표의 EV#177·EV#170·EV#105 행에 반영됐다. 후속 [ADR-0139](0139-eqv-onboarding-storage-and-publish.md)에 따라 Bindings·Mapping 저장과 규칙·사전·게시 capability는 #1747, Sample Window 서버 저장·가져오기와 `eqv.window.import`는 #1757에서 구현됐다. 현재 남은 일은 [흡수 점검표](../design/features/equipment-visualization/history/absorption-checklist.md)를 따른다.
 - 되돌리기: 표와 선언만 더했으므로 이 PR을 되돌리면 이전 동작으로 돌아간다.
