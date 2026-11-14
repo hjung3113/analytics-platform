@@ -430,7 +430,7 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 
 // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (rule source: ime-enter-guard.js), so
 // the Enter that confirms a Korean composition never selects or commits. On in the UI-drawing presets ui, components, shell,
-// menu and app; the EV menus and feature screens turn it on once their handlers are fixed (#2216 and its feature sibling).
+// menu and app, and on EV's ui packages and menus (#2216); feature screens turn it on once their handlers are fixed.
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -589,6 +589,7 @@ export const eqvUi = [
   BUILD_OUTPUT,
   layerConfig({ restriction: EQV_UI_RESTRICTION }),
   designSystem({ eqvComponents: true }),
+  IME_ENTER_GUARD,
 ];
 
 const menuMockOverride = {

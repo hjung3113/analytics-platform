@@ -1217,6 +1217,11 @@ describe('eqvUi (ui, replay, views, editor)', () => {
   it.each(['@eqv-extra/x', '@eqv/uix'])('near neighbour %s is not an EV identity', async (source) => {
     expect(await lintEqv(eqvUi, 'packages/eqv/ui/src/x.ts', `import { x } from '${source}';`)).toEqual([]);
   });
+  // #2216: EV text fields go through the IME Enter guard too.
+  it('rejects an unguarded Enter handler on a text field', async () => {
+    const messages = await lintEqv(eqvUi, 'packages/eqv/editor/src/x.tsx', `export const A = () => <input onKeyDown={e => { if (e.key === 'Enter') go(); }} />;`);
+    expect(messages.map((m) => m.ruleId), JSON.stringify(messages, null, 2)).toEqual(['ap/ime-enter-guard']);
+  });
 });
 
 // ap/no-relative-package-escape at the packages/eqv/<name> depth: the manifest at that depth owns the file.
