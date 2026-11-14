@@ -78,7 +78,7 @@ describe('API-token scope.read is judged once at resolveRequestScopes, for any r
       expect(transaction).not.toHaveBeenCalled();
     } else {
       expect(resolver.resolve).toHaveBeenCalledTimes(1);
-      expect(handle).toHaveBeenCalledWith(expect.anything(), actor, {}, { correlationId: 'cid', scopeId: 'SITE-X', scopes: grants });
+      expect(handle).toHaveBeenCalledWith(expect.anything(), actor, {}, { correlationId: 'cid', idempotencyKey: expect.any(String), scopeId: 'SITE-X', scopes: grants });
     }
   });
 });

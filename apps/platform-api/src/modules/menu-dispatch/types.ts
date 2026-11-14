@@ -142,6 +142,8 @@ export interface ActionHandlerResult {
 
 export interface ActionHandlerContext {
   correlationId: string;
+  /** Validated lowercase dispatcher key; correlationId is tracing metadata, not command identity. */
+  idempotencyKey: string;
   /** Validated requested site; null for scope-free actions. Never inferred from the grants. */
   scopeId: string | null;
   scopes: readonly ScopeGrant[];

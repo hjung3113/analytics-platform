@@ -149,6 +149,7 @@ export function createMenuActionEngine(deps: MenuActionEngineDeps) {
 
     const actionContext: ActionHandlerContext = {
       correlationId,
+      idempotencyKey: key,
       scopeId: spec.requiresScope ? context.scopeId as string : null,
       scopes,
       ...(signal ? { signal } : {}),
