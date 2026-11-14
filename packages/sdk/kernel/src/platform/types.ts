@@ -288,7 +288,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'objectLinks' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'returnOrigin' | 'objectLinks' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
   /** The host's `navigate` without its host-only `guard` option (#2061). */
   navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => boolean;
 };

@@ -588,3 +588,26 @@ it.each([
   mount('/' + period, chosen);
   expect(platform.global.from).toBe('2026-09-25T09:00:00');
 });
+
+
+it('acknowledges Apply with hidden page keys once and preserves edits made after the click (#2047 KER-20)', async () => {
+  const hiddenMenu = { ...menu, hiddenPageKeys: ['filter'] };
+  const hiddenRegistry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [hiddenMenu] });
+  const history = { list: vi.fn(async () => []), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
+  const session = testSession(['platform:view']);
+  window.history.replaceState(null, '', '/' + period + '&page=1');
+  render(<I18nProvider><PlatformProvider registry={hiddenRegistry} adapter={testAdapter({ session: () => session })} queryHistory={history}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.queryHistory.status).toBe('ready'));
+  act(() => platform.setPage({ filter: 'hidden' }));
+  expect(window.location.search).not.toContain('filter');
+  act(() => draft.setDraftPage({ page: '2' }));
+  expect(draft.draft.page).toEqual([['filter', 'hidden'], ['page', '2']]);
+  act(() => { draft.apply(); draft.setDraftPage({ page: '3' }); });
+  expect(platform.page).toEqual([['page', '2'], ['filter', 'hidden']]);
+  expect.soft(draft.draft.page).toEqual([['filter', 'hidden'], ['page', '3']]);
+  await waitFor(() => expect(history.record).toHaveBeenCalledTimes(1));
+  expect(history.record).toHaveBeenCalledWith(
+    { userId: session.user.id, menuId: menu.id, scopeId: null },
+    expect.objectContaining({ count: 1, query: period + '&filter=hidden&page=2' }),
+  );
+});

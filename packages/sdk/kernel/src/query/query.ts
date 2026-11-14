@@ -234,23 +234,27 @@ function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryC
 export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'page' | 'route' | 'scope' | 'session' | 'queryPolicy'>;
 
 /** The Context a menu request carries: `projectContext` over the global Context narrowed to the screen's applied Condition preset (06 §6.4). */
-export function projectMenuContext<P, T>(spec: EndpointSpec<P, T>, { global, page, route }: Pick<MenuRequestInputs, 'global' | 'page' | 'route'>): MenuQueryContext {
-  return projectContext(spec, narrowedGlobal(route?.menu, page, global));
+export function projectMenuContext<P, T>(spec: EndpointSpec<P, T>, { global, page, route }: Pick<MenuRequestInputs, 'global' | 'page' | 'route'>, options?: { detached?: boolean }): MenuQueryContext {
+  return projectContext(spec, !options?.detached || spec.menuId === route?.menu.id ? narrowedGlobal(route?.menu, page, global) : global);
 }
 
 /**
  * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
  * absolute period when time applies, no drill gap in the page (06 §6.4), Context projection and the assessment check. Not a hook.
  */
-export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestInputs) {
+export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestInputs, options?: { detached?: boolean }) {
   const { adapter, global, scope, session, queryPolicy } = inputs;
-  const projected = projectMenuContext(spec, inputs);
+  const projected = projectMenuContext(spec, inputs, options);
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
     checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
-  return { projected, ready: scopeReady && periodReady && queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap, send, notReady };
+  // `detached` (the sidebar `Source`'s `useMenuFetch`): the request is not part of the screen in view, so that screen's Apply/drill gate cannot block it unless the endpoint belongs to this very menu. A screen's own panels (`useMenuQuery`, the module host) keep the gate whatever menu their endpoint is declared under (HW Time's trend panel, #2007).
+  const ownScreen = !options?.detached || spec.menuId === inputs.route?.menu.id;
+  const screenReady = !ownScreen || (queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap);
+  const missing = ownScreen && queryPolicy.idle ? queryPolicy.missing : null;
+  return { projected, ready: scopeReady && periodReady && screenReady, missing, send, notReady };
 }
 
 /** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */
@@ -276,9 +280,9 @@ export type MenuQueryState<P, T> = QueryState<T> & { resultParams?: P };
  */
 export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>, enabled = true, options?: MenuQueryOptions): MenuQueryState<P, T> {
   const platform = useHostPlatform();
-  const { projected, ready, send } = menuRequest(spec, platform);
+  const { projected, ready, missing, send } = menuRequest(spec, platform);
   // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.
-  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, platform.queryPolicy.idle ? platform.queryPolicy.missing : null, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
+  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
 }
 
 export type MenuFetch<P, T> = {
@@ -295,7 +299,7 @@ export type MenuFetch<P, T> = {
  * never sends an unvalidated Scope.
  */
 export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
-  const { ready, send, notReady } = menuRequest(spec, useHostPlatform());
+  const { ready, send, notReady } = menuRequest(spec, useHostPlatform(), { detached: true });
   const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready
     ? send(params, signal)
     : Promise.resolve(notReady());

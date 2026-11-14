@@ -135,9 +135,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     for (let error = pendingRef.current.shift(); error !== undefined; error = pendingRef.current.shift()) screen.reportError(error);
   });
 
-  // One stable listener (it reads refs, so a pathname change never re-registers it). `compensating`: Back/Forward pops the guard undid itself and must ignore;
+  // One stable listener (it reads refs, so a pathname change never re-registers it). `compensatingTo`: the origin to which blocked Back/Forward arrivals are corrected;
   // `replayIdx`: the position a confirmed leave is travelling to (ADR-0115).
-  const compensating = useRef(0);
+  const compensatingTo = useRef<number | null>(null);
   const replayIdx = useRef<number | null>(null);
   useEffect(() => {
     const failOpen = (name: string) => { const error = new Error(name); error.name = name; reportRef.current?.(error); };
@@ -167,8 +167,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       const cur = idxRef.current;
       // Positions of different segments are not comparable: such a pop is neither a compensation nor a measurable distance.
       const sameSegment = newIdx !== null && readHistorySeg(location.readState?.()) === segRef.current;
-      // The pop the guard caused by putting the person back where they were.
-      if (compensating.current > 0 && newIdx !== null && sameSegment && newIdx === cur) { compensating.current--; return; }
+      // Several corrections can coalesce into one pop at the origin; that arrival completes the correction, regardless of call count.
+      if (compensatingTo.current !== null && sameSegment && newIdx === compensatingTo.current) { compensatingTo.current = null; return; }
       // The pop of a leave the person confirmed.
       if (replayIdx.current !== null && newIdx === replayIdx.current) { replayIdx.current = null; arrivePop(newIdx); return; }
       const raw = location.read() ?? '';
@@ -179,8 +179,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
           // The destination's hidden pairs live in ITS entry state: read them before the compensation moves away (R2-2).
           const destHidden = arrive(raw, readHiddenState(location.readState?.())).hidden;
           const crossMenu = raw.split('?')[0] !== shownRef.current.split('?')[0];
-          compensating.current++;
-          try { location.go(-delta); } catch { compensating.current--; failOpen('NavGuardHistoryError'); arrivePop(newIdx); return; }
+          compensatingTo.current = cur;
+          try { location.go(-delta); } catch { compensatingTo.current = null; failOpen('NavGuardHistoryError'); arrivePop(newIdx); return; }
           guard.request({ change, destination: menuFor(raw)?.label ?? null, via: 'history', proceed: () => {
             replayIdx.current = newIdx;
             try { location.go?.(delta); } catch {

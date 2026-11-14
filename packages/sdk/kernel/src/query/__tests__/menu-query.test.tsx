@@ -1,11 +1,11 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useLayoutEffect, useState } from 'react';
-import { defineEndpoint, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session, groupId, spaceId } from '@ap/contracts';
+import { defineEndpoint, emptyGlobal, type ApiResponse, type AssessmentKind, type EndpointSpec, type MenuQuery, type PlatformAdapter, type ScopeCheck, type Session, groupId, spaceId } from '@ap/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../../platform/platform';
-import { type MenuFetch, type QueryState, useEntityQuery, useMenuFetch, useMenuQuery } from '../query';
+import { type MenuFetch, type QueryState, projectMenuContext, useEntityQuery, useMenuFetch, useMenuQuery } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, testAdapter, testSession, testSpace } from '../../testing';
 
@@ -42,6 +42,53 @@ function makeRegistry(time: 'apply' | 'unsupported') {
 
 const registry = makeRegistry('unsupported');
 const periodRegistry = makeRegistry('apply');
+
+describe('cross-menu fetch on an idle Apply screen (#2008 KER-6)', () => {
+  it('a detached fetch (sidebar source) uses the screen Condition preset only for the screen\'s own endpoint', () => {
+    const route = {
+      menu: { ...registry.menus[0], conditionPresets: [{ id: 'one', label: { ko: 'One', en: 'One' }, axes: ['team'] }], conditionPreset: { key: 'view', default: 'one' } },
+      params: {}, viaAlias: false,
+    };
+    const input = { route, page: [], global: { ...emptyGlobal, condition: { team: ['T'], maker: ['M'] } } };
+    const own = defineEndpoint<Params, QueryData>({ ...endpoint, context: { condition: 'apply' } });
+    const detached = { detached: true };
+    expect(projectMenuContext(own, input, detached).condition).toEqual({ team: ['T'] });
+    expect(projectMenuContext({ ...own, menuId: 'other' }, input, detached).condition).toEqual({ team: ['T'], maker: ['M'] });
+    // A screen's own panels keep the preset whatever menu their endpoint is declared under (HW Time's trend panel, #2007).
+    expect(projectMenuContext({ ...own, menuId: 'other' }, input).condition).toEqual({ team: ['T'] });
+  });
+
+  it('allows a detached useMenuFetch for another menu\'s Context-free endpoint while keeping the screen endpoint idle; a screen panel stays gated', async () => {
+    const base = makeRegistry('apply');
+    const applyRegistry = createRegistry({
+      spaces: base.spaces, groups: base.groups,
+      menus: base.menus.map(menu => ({ ...menu, query: { mode: 'apply' as const } })),
+    });
+    const auxiliary = defineEndpoint<Params, QueryData>({ ...endpoint, id: 'other.hierarchy', menuId: 'other', context: {} });
+    const own = defineEndpoint<Params, QueryData>({ ...endpoint, id: 'home.auxiliary', context: {} });
+    const fx = fixture();
+    let otherFetch!: MenuFetch<Params, QueryData>;
+    let ownFetch!: MenuFetch<Params, QueryData>;
+    let otherQuery!: QueryState<QueryData>;
+    function Probe() {
+      otherFetch = useMenuFetch(auxiliary);
+      ownFetch = useMenuFetch(own);
+      otherQuery = useMenuQuery(auxiliary, params);
+      return null;
+    }
+    window.history.replaceState(null, '', '/');
+    render(<I18nProvider><PlatformProvider registry={applyRegistry} adapter={fx.adapter}><Probe /></PlatformProvider></I18nProvider>);
+    expect(ownFetch.ready).toBe(false);
+    expect(otherFetch.ready).toBe(true);
+    expect(otherQuery.status).not.toBe('done');
+    expect(fx.requests).toHaveLength(0);
+    await act(async () => { expect((await otherFetch.fetch(params)).outcome).toBe('ok'); });
+    expect(fx.requests).toHaveLength(1);
+    expect(fx.requests[0].context).toEqual({});
+    expect((await ownFetch.fetch(params)).outcome).toBe('error');
+    expect(fx.requests).toHaveLength(1);
+  });
+});
 
 type Answer = (request: MenuQuery, call: number) => ApiResponse<QueryData>;
 type FixtureOptions = { answer?: Answer; validateScope?: PlatformAdapter['validateScope'] };

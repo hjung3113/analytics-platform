@@ -14,7 +14,7 @@ const SEGMENT_CLASS: Record<SegmentKind, string> = {
 
 export default function ExecutionDetail({ params }: PageProps) {
   const { lang } = useI18n();
-  const { global, pageParam, linkTo, registry } = usePlatform();
+  const { global, pageParam, linkTo, returnOrigin } = usePlatform();
   const ko = lang === 'ko';
   const equipmentId = params.equipmentId;
   const entityType = pageParam('entityType');
@@ -23,7 +23,7 @@ export default function ExecutionDetail({ params }: PageProps) {
   const valid = errors.length === 0;
   const metric = resolveMetric(global);
   const metricVersion = metric.kind === 'unconfirmed' ? null : metric.metricVersion;
-  const restored = registry.safeReturnTo(pageParam('returnTo')) !== null;
+  const restored = returnOrigin().accepted;
 
   const query = useMenuQuery(
     occurrenceEndpoint,

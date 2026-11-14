@@ -1,6 +1,6 @@
 import type { MenuView, SavedView, SavedViewSupport } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
-import { diagnoseSavedView, type DiagnoseContext } from './diagnose.js';
+import { diagnoseSavedView, type DiagnoseContext } from '../diagnose.js';
 
 const sharing = { visibility: { kind: 'private' }, approval: 'none' } as const;
 const menuView = (over: Partial<MenuView> = {}): SavedView =>

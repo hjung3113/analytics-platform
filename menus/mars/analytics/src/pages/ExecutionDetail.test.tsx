@@ -46,6 +46,21 @@ function renderAt(search: string) {
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><ExecutionDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
 }
 
+describe('ExecutionDetail return origin (#2008 KER-2)', () => {
+  it('shows the fallback explanation when returnTo matches a menu the user cannot open', async () => {
+    const restricted = { ...destinations[0], id: 'restricted', path: '/restricted', permission: menuPermission('restricted:view') };
+    const restrictedRegistry = createRegistry({
+      permissions: [menuPermission('analytics:view'), menuPermission('restricted:view')],
+      spaces: registry.spaces, groups: registry.groups, menus: [...registry.menus, restricted],
+    });
+    expect(restrictedRegistry.safeReturnTo('/restricted?v=1')).not.toBeNull();
+    window.history.replaceState(null, '', `/analytics/executions/EQ-1?v=1&scopeId=MEM&returnTo=${encodeURIComponent('/restricted?v=1')}`);
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={restrictedRegistry}><ExecutionDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
+    await screen.findByTestId('occurrence-key');
+    expect(screen.getByText(/returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다/)).toBeTruthy();
+  });
+});
+
 describe('ExecutionDetail identity', () => {
   it('shows the anchor as the key, the start time as a separate field, and draws the timeline from the start time', async () => {
     renderAt('&entityType=job&anchor=2456001');

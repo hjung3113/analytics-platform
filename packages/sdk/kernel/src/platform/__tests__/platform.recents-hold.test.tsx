@@ -81,6 +81,40 @@ const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAs
 const dispatch = () => act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
 
 describe('a held recents visit (#1671)', () => {
+  it('keeps visits queued before the first read across a same-account controller replacement (#2034 KER-16)', async () => {
+    const f = fixture();
+    let release = () => {};
+    const reading = new Promise<void>(resolve => { release = resolve; });
+    const read = vi.spyOn(f.adapter, 'readPreferences').mockImplementationOnce(async () => { await reading; return ok({}); });
+    window.history.replaceState(null, '', '/main');
+    render(<I18nProvider><PlatformProvider serverPreferences adapter={f.adapter} registry={registry}><Consumer /></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+    act(() => { menu.navigate('/mars/plain'); });
+    act(() => { f.notify(); });
+    await waitFor(() => expect(f.accounts['user-a']!.recents).toEqual([
+      expect.objectContaining({ menuId: 'plain' }), expect.objectContaining({ menuId: 'main' }),
+    ]));
+    release();
+    await dispatch();
+    expect(urls(host.readRecent())).toEqual(['plain', 'main']);
+  });
+
+  it('shows visits while the read has failed and retries when another menu is visited (#2034 KER-16)', async () => {
+    const f = fixture();
+    const read = vi.spyOn(f.adapter, 'readPreferences').mockRejectedValueOnce(new Error('offline'));
+    window.history.replaceState(null, '', '/main');
+    render(<I18nProvider><PlatformProvider serverPreferences adapter={f.adapter} registry={registry}><Consumer /></PlatformProvider></I18nProvider>);
+    await dispatch();
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(urls(visits)).toEqual(['main']);
+    expect(urls(host.readRecent())).toEqual(['main']);
+    act(() => { menu.navigate('/mars/plain'); });
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(f.accounts['user-a']!.recents).toEqual([
+      expect.objectContaining({ menuId: 'plain' }), expect.objectContaining({ menuId: 'main' }),
+    ]));
+  });
+
   it.each([[false], [true]])('shows the latest visit at once and sends one PATCH after the delay (StrictMode %s)', async strict => {
     const { f } = await mountReady(strict);
     pages('2');

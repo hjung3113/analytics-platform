@@ -82,23 +82,23 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
     };
   }, [instance]);
 
-  // `appliedUrl` carries the hidden page pairs too: a hidden-only update must rebuild the readers and the `setPage` closure (ADR-0105).
+  // `appliedUrl` carries the hidden page pairs too: a hidden-only update must rebuild the readers (ADR-0105).
   const { revision, appliedUrl, session, scope } = platform;
   return useMemo((): ModuleHost => {
     const p = platform;
     const declared = (key: string) => entry.pageKeys.includes(key);
     // Only registered menus resolve, through the platform's own link builder: a module never assembles a URL.
-    const resolve = (target: ModuleTarget) => {
+    const resolve = (target: ModuleTarget, source = p) => {
       try {
         let id: string;
         if ('screen' in target) {
           // A prefixed id is not proof of ownership (a nested module id or a platform id can look the same): the entry must be this module's.
           id = `${entry.module}:${target.screen}`;
-          const candidate = p.registry.menuById(id);
+          const candidate = source.registry.menuById(id);
           if (candidate.moduleScreen === undefined || candidate.module !== entry.module) return null;
         } else id = target.menuId;
         // An unregistered menu id resolves to `none` (06 §22); the catch keeps the `menuById` ownership check and a missing route param.
-        const link = p.resolveLink(id, { params: target.params, page: target.page, returnTo: target.returnTo });
+        const link = source.resolveLink(id, { params: target.params, page: target.page, returnTo: target.returnTo });
         return link.kind === 'link' ? link : null;
       } catch { return null; }
     };
@@ -112,13 +112,14 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
       setPage(patch, options) {
         const undeclared = Object.keys(patch).find(key => !declared(key));
         if (undeclared !== undefined) throw new RangeError(`Module "${entry.module}" screen "${entry.id}" does not declare page key "${undeclared}"`);
-        if (instance.state === 'active') p.setPage(patch, options);
+        if (instance.state === 'active') latest.current.setPage(patch, options);
       },
       href: target => { const link = resolve(target); return link && { href: link.href, allowed: link.allowed }; },
       // Arrival focus is requested when the pathname changes, as PlatformLink does (06 §26, ADR-0032).
       navigate: (target, options) => {
-        const link = resolve(target);
-        return link !== null && instance.state === 'active' && p.navigate(link.href, link.href.split('?')[0] !== p.pathname ? { ...options, focus: 'page', via: 'link' } : { ...options, via: 'link' });
+        const now = latest.current;
+        const link = resolve(target, now);
+        return link !== null && instance.state === 'active' && now.navigate(link.href, link.href.split('?')[0] !== now.pathname ? { ...options, focus: 'page', via: 'link' } : { ...options, via: 'link' });
       },
       returnTarget: () => p.returnTarget(),
       context() {
@@ -153,7 +154,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
         } catch {
           throw new RangeError('Invalid applied time range');
         }
-        if (instance.state === 'active') p.setGlobal({ from: parsed.global.from, to: parsed.global.to });
+        if (instance.state === 'active') latest.current.setGlobal({ from: parsed.global.from, to: parsed.global.to });
       };
     }
     if (entry.moduleFeatures?.includes('detailSlot') && ports.detail) host.detail = ports.detail;
@@ -179,7 +180,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
           const adapterCall = new AbortController();
           const call: Pending = {
             valid: () => instance.state === 'active' && !callerSignal?.aborted && latest.current.revision === startedFor.revision
-              && latest.current.user.id === startedFor.user && latest.current.queryPolicy.ready && !latest.current.queryPolicy.idle && !latest.current.queryPolicy.drillGap && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
+              && latest.current.user.id === startedFor.user && menuRequest(spec, latest.current).ready && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
             fail: () => { settle(); adapterCall.abort(); reject(abortError()); },
           };
           const settle = () => { instance.pending.delete(call); callerSignal?.removeEventListener('abort', call.fail); };
