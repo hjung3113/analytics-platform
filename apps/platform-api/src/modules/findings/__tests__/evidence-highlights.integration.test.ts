@@ -183,10 +183,59 @@ describe.skipIf(!runIntegration)('Evidence Highlights backend (#124)', () => {
       headers: {
         cookie: `${SESSION_COOKIE_NAME}=${cookie}`,
         'content-type': 'application/json',
+        'idempotency-key': randomUUID(),
       },
       payload,
     });
   }
+
+  it('SER-12 replays one evidence insertion and counter increment per key', async () => {
+    const source = await seedSource();
+    const finding = await seedFinding({ managedSystemId: source.msId, sourceVocId: source.vocId });
+    const before = await migrateHandle.pool.query('select evidence_count from finding.findings where id=$1', [finding.id]);
+    const key = randomUUID();
+    const send = (quote = 'Synthetic note') => app.inject({
+      method: 'POST', url: `/findings/${finding.id}/evidence-highlights`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`, 'idempotency-key': key },
+      payload: { source_type: 'note', quote_or_summary: quote },
+    });
+    const first = await send();
+    const replay = await send();
+    expect(first.statusCode).toBe(201);
+    expect(replay.statusCode).toBe(201);
+    expect(replay.json()).toEqual(first.json());
+    expect((await migrateHandle.pool.query('select id from finding.evidence_highlights where finding_id=$1', [finding.id])).rows).toEqual([{ id: first.json().id }]);
+    expect((await migrateHandle.pool.query('select evidence_count from finding.findings where id=$1', [finding.id])).rows[0]?.evidence_count).toBe(before.rows[0]?.evidence_count + 1);
+    expect((await migrateHandle.pool.query("select 1 from core.audit_log where subject_id=$1 and event_type='evidence_highlight_added'", [finding.id])).rows).toHaveLength(1);
+    expect((await send('Different note')).statusCode).toBe(409);
+  });
+
+  it('SER-12 refuses cached VOC evidence after source or parent access is revoked', async () => {
+    const source = await seedSource();
+    const finding = await seedFinding({ managedSystemId: source.msId, sourceVocId: source.vocId });
+    const dev = await insertDevActor(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX));
+    await grantCapability(dbHandle, WORKSPACE_ID, dev.id, 'finding.manage', source.msId, adminActorId);
+    await grantCapability(dbHandle, WORKSPACE_ID, dev.id, 'finding.read', source.msId, adminActorId);
+    const sourceGrant = await grantCapability(dbHandle, WORKSPACE_ID, dev.id, 'voc.read', source.msId, adminActorId);
+    const cookie = await loginAs(app, dev.externalId);
+    const key = randomUUID();
+    const send = () => app.inject({
+      method: 'POST', url: `/findings/${finding.id}/evidence-highlights`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}`, 'idempotency-key': key },
+      payload: { source_type: 'voc', source_id: source.vocId, quote_or_summary: 'Synthetic private evidence' },
+    });
+    expect((await send()).statusCode).toBe(201);
+    await revokeCapabilityGrant(migrateHandle, sourceGrant, adminActorId);
+    const sourceDenied = await send();
+    expect(sourceDenied.statusCode).toBe(404);
+    expect(sourceDenied.body).not.toContain('Synthetic private evidence');
+    await grantCapability(dbHandle, WORKSPACE_ID, dev.id, 'voc.read', source.msId, adminActorId);
+    await denyCapability(migrateHandle, WORKSPACE_ID, dev.id, 'finding.read', source.msId, adminActorId);
+    const parentDenied = await send();
+    expect(parentDenied.statusCode).toBe(403);
+    expect(parentDenied.body).not.toContain('Synthetic private evidence');
+    expect((await migrateHandle.pool.query('select id from finding.evidence_highlights where finding_id=$1', [finding.id])).rows).toHaveLength(1);
+  });
 
   function getHighlights(cookie: string, findingId: string) {
     return app.inject({

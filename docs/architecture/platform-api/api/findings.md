@@ -59,6 +59,17 @@ of `execution=none`. Side effects are atomic: set `findings.linked_task_id`, cre
 the existing `(finding, task, requested_task)` entity link, audit
 `entity_link.created` when inserted, and audit `finding_task_linked`.
 
+## POST /findings/:id/evidence-highlights
+
+Requires `finding.manage` and `Idempotency-Key`. The request hash includes the
+validated body, Finding ID and route `finding.evidence_highlight`. An identical
+retry returns the original `201` and highlight without adding a row, incrementing
+`evidence_count`, or emitting another `evidence_highlight_added` audit. Reusing
+the key for another body or Finding returns `409 conflict.idempotency_key_reuse`.
+Authorization is checked before replay: current target manage/read and source
+VOC access are required; a revoked source never replays its cached quote.
+The insertion, counter, audit and idempotency response commit together.
+
 ## GET /findings — opt-in list pages
 
 Query: optional `q` (trimmed string, max 100 characters), `managed_system_id` (UUID), `execution=none`, `owner_actor_id` / `owner_team_id`
