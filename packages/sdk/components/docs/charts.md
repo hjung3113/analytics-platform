@@ -83,16 +83,17 @@ const [range, setRange] = useState<AxisRange | null>(null);
 시간을 빼고 순서만 같은 구간을 찾는 계산 조각이다(#1861). 화면은 그리지 않는다. 메뉴는 레인마다 항목을 순서대로 넘기고(`SequenceLane<T> = { id, items }`, 정렬은 메뉴 몫), `symbol(item)`으로 항목이 뜻하는 단계를 문자열로 선언한다. 같은 문자열이면 같은 단계다. SDK는 단계에 뜻을 붙이지 않는다(동작·상태·설비 의미는 메뉴 몫). 일치는 정확 일치다(빈칸·치환 없음).
 
 - `findSequenceMatches(lanes, pattern, { symbol, collapseRuns? })`: 단계가 `pattern`과 같은 곳을 모두 찾는다. 레인 순서, 레인 안 위치 순서로 돌려준다. 한 레인 안에서는 겹치지 않는다(왼쪽부터, 먼저 시작한 것). 빈 `pattern`은 아무것도 찾지 않는다.
-- `findRepeatedSequences(lanes, { symbol, collapseRuns?, minLength? = 3, maxLength? = SEQUENCE_MAX_LENGTH(32), minCount? = 2 })`: 모든 레인에 걸쳐 `minCount`번 이상(겹치지 않게) 나오는 단계열을 찾는다. 최대인 것만 남긴다: 모든 나타남이 같은 횟수의 더 긴 결과 안에 들어가면 뺀다. 정렬은 단계 수(긴 것 먼저), 나타난 횟수(많은 것 먼저), 첫 위치 순이다. `maxLength`는 성능 경계일 뿐이다(색인 비용이 단계 수 × maxLength). 더 긴 반복은 maxLength 길이 조각들로 나온다. 1만 항목·7종 무작위 단계에서 약 0.3초가 걸리므로 렌더 경로 밖에서(`useMemo`, 입력이 바뀔 때만) 부른다.
+- `findRepeatedSequences(lanes, { symbol, collapseRuns?, minLength? = 3, maxLength? = SEQUENCE_MAX_LENGTH(32), minCount? = 2 })`: 모든 레인에 걸쳐 `minCount`번 이상(겹치지 않게) 나오는 단계열을 찾는다. 최대인 것만 남긴다: 같은 횟수의 더 긴 결과 하나가 모든 나타남을 품으면 뺀다. 정렬은 단계 수(긴 것 먼저), 나타난 횟수(많은 것 먼저), 첫 위치 순이다. 단계열은 아직 `minCount`번 나오는 동안만 한 단계씩 늘리므로 일은 찾은 반복만큼이고 최대 단계 수 × `maxLength`다(1만 항목에서 무작위·주기·잡음 섞인 주기 단계 모두 0.1초 안). `maxLength`는 이 성능 경계일 뿐이다. 더 긴 반복은 그 안의 `maxLength` 단계 창 하나하나(서로 겹침)가 각각 결과로 나온다. 바뀐 입력에서만 다시 부르게 `useMemo`에 둔다. `minLength`·`maxLength`·`minCount`가 유한하지 않으면 기본값을 쓴다.
 - `collapseRuns: true`: 이웃한 같은 단계를 한 단계로 본다(레인과 `pattern` 모두). 일치 범위는 그 연속 전체를 덮는다.
 - 결과 `SequenceMatch<T> = { laneId, from, to, items }`: `from`·`to`는 레인 `items`의 포함 색인이고 `items`는 그 사이 항목이다. 그리기는 메뉴가 고른다(예: `LaneTimeline` `overlays`의 `segments`에 `items`의 id를 준다).
 - `useRangeBrush`와 잇기: `itemsInRange(items, range, span)`는 구간 안에 다 들어간 항목을 순서대로 돌려주고, `sequenceSteps(items, { symbol, collapseRuns? })`는 그 단계열(`pattern`)을 만든다.
 
 ```ts
-const lanesBySeq = useMemo(() => lanes.map(l => ({ id: l.id, items: l.segments })), [lanes]);
-const pattern = range ? sequenceSteps(itemsInRange(lanesBySeq[0].items, range, s => [s.start, s.end]), { symbol: s => stepOf(s) }) : [];
-const matches = useMemo(() => findSequenceMatches(lanesBySeq, pattern, { symbol: s => stepOf(s) }), [lanesBySeq, pattern.join('\u0000')]);
-const overlays = useMemo(() => [{ kind: 'segments', id: 'same-order', segmentIds: matches.flatMap(m => m.items.map(s => s.id)), style: 'outline' } as const], [matches]);
+// stepOf는 모듈 범위의 안정된 함수, source는 메뉴가 고른 기준 레인(예: 선택한 레인)이다. 구간 선택은 시간 구간만 주고 레인은 정하지 않는다.
+const seqLanes = useMemo(() => lanes.map(l => ({ id: l.id, items: l.segments })), [lanes]);
+const pattern = useMemo(() => (range && source ? sequenceSteps(itemsInRange(source.segments, range, s => [s.start, s.end]), { symbol: stepOf }) : []), [range, source]);
+const matches = useMemo(() => findSequenceMatches(seqLanes, pattern, { symbol: stepOf }), [seqLanes, pattern]);
+const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same-order', segmentIds: matches.flatMap(m => m.items.map(s => s.id)), style: 'outline' }], [matches]);
 ```
 
 ## 변경 기록

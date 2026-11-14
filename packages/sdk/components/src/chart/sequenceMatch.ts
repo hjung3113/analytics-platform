@@ -24,11 +24,11 @@ export type SequenceMatch<T> = { laneId: string; from: number; to: number; items
 export type RepeatedSequence<T> = { steps: readonly string[]; matches: readonly SequenceMatch<T>[] };
 
 export type RepeatedSequenceOptions<T> = SequenceMatchOptions<T> & {
-  /** Shortest step sequence reported (default 3, at least 1). */
+  /** Shortest step sequence reported (default 3, at least 1; a non-finite value means the default, as for the other two). */
   minLength?: number;
   /**
-   * Longest step sequence indexed (default `SEQUENCE_MAX_LENGTH`). A performance bound only: indexing costs steps × maxLength;
-   * a longer repeat is still reported, as its maxLength-step pieces. Raise it when the lanes are short.
+   * Longest step sequence reported (default `SEQUENCE_MAX_LENGTH`). A performance bound only: the work is at most
+   * steps × maxLength. A longer repeat comes back as every maxLength-step window of it (overlapping windows, each its own result).
    */
   maxLength?: number;
   /** Fewest occurrences a sequence needs (default 2, at least 2). */
@@ -91,57 +91,95 @@ export function itemsInRange<T>(items: readonly T[], range: AxisRange, span: (it
   return items.filter(item => { const [s, e] = span(item); return s >= lo && e <= hi; });
 }
 
+/** A finite option rounded down and clamped to `min`; anything else falls back to `fallback`. */
+function count(value: number | undefined, fallback: number, min: number): number {
+  return value !== undefined && Number.isFinite(value) ? Math.max(min, Math.floor(value)) : fallback;
+}
+
 /**
  * Step sequences of `minLength`…`maxLength` steps that occur at least `minCount` times (non-overlapping, across all lanes).
- * Only maximal ones are kept: a sequence is dropped when each of its occurrences lies inside an occurrence of a longer reported
- * sequence with the same number of occurrences. Sorted by steps (longest first), then occurrences (most first), then first occurrence.
+ * Only maximal ones are kept: a sequence is dropped when one longer reported sequence with the same number of occurrences holds
+ * every one of its occurrences. Sorted by steps (longest first), then occurrences (most first), then first occurrence.
+ *
+ * Sequences grow one step at a time and only while they still occur `minCount` times, so the work follows the repeats found,
+ * at most steps × maxLength.
  */
 export function findRepeatedSequences<T>(lanes: readonly SequenceLane<T>[], options: RepeatedSequenceOptions<T>): RepeatedSequence<T>[] {
   const collapse = options.collapseRuns ?? false;
-  const minLength = Math.max(1, Math.floor(options.minLength ?? 3));
-  const maxLength = Math.max(minLength, Math.floor(options.maxLength ?? SEQUENCE_MAX_LENGTH));
-  const minCount = Math.max(2, Math.floor(options.minCount ?? 2));
+  const minLength = count(options.minLength, 3, 1);
+  const maxLength = Math.max(minLength, count(options.maxLength, SEQUENCE_MAX_LENGTH, 1));
+  const minCount = count(options.minCount, 2, 2);
+  // All lanes in one code array, each lane followed by -1, so a position is one number and no sequence crosses a lane end.
   const ids = new Map<string, number>();
-  const laneSteps = lanes.map(lane => {
+  const codes: number[] = []; const at: [number, number][] = [];
+  const laneSteps = lanes.map((lane, l) => {
     const steps = stepsOf(lane.items, options.symbol, collapse);
-    return { lane, steps, codes: steps.map(s => { let id = ids.get(s.symbol); if (id === undefined) { id = ids.size; ids.set(s.symbol, id); } return id; }) };
+    steps.forEach((s, k) => {
+      let id = ids.get(s.symbol);
+      if (id === undefined) { id = ids.size; ids.set(s.symbol, id); }
+      codes.push(id); at.push([l, k]);
+    });
+    codes.push(-1); at.push([l, -1]);
+    return { lane, steps };
   });
-  // key → occurrences as [lane index, step start]; a key is the step codes joined, so equal keys are equal step sequences.
-  type Group = { length: number; at: [number, number][]; lastEnd: number[] };
-  const groups = new Map<string, Group>();
-  laneSteps.forEach(({ codes }, l) => {
-    for (let i = 0; i < codes.length; i++) {
-      let key = '';
-      for (let len = 1; len <= maxLength && i + len <= codes.length; len++) {
-        key += (len > 1 ? ',' : '') + codes[i + len - 1];
-        if (len < minLength) continue;
-        let g = groups.get(key);
-        if (!g) { g = { length: len, at: [], lastEnd: [] }; groups.set(key, g); }
-        // Non-overlapping, left to right: starts arrive in increasing order per lane.
-        if ((g.lastEnd[l] ?? -1) < i) { g.at.push([l, i]); g.lastEnd[l] = i + len - 1; }
+  /** The greedy non-overlapping starts (the most there can be for equal lengths), from ascending starts. */
+  const apart = (starts: readonly number[], length: number) => {
+    const kept: number[] = []; let end = -1;
+    for (const p of starts) if (p > end) { kept.push(p); end = p + length - 1; }
+    return kept;
+  };
+  type Found = { length: number; starts: number[] };
+  const found: Found[] = [];
+  // A longer sequence never occurs apart more often than its prefix, so a level keeps only prefixes that still can repeat.
+  const first = new Map<number, number[]>();
+  codes.forEach((c, p) => { if (c >= 0) { const list = first.get(c); if (list) list.push(p); else first.set(c, [p]); } });
+  let level = [...first.values()];
+  for (let length = 1; level.length > 0; length++) {
+    const next: number[][] = [];
+    for (const starts of level) {
+      const kept = apart(starts, length);
+      if (kept.length < minCount) continue;
+      if (length >= minLength) found.push({ length, starts: kept });
+      if (length === maxLength) continue;
+      const grown = new Map<number, number[]>();
+      for (const p of starts) {
+        const c = codes[p + length];
+        if (c < 0) continue;
+        const list = grown.get(c); if (list) list.push(p); else grown.set(c, [p]);
+      }
+      for (const list of grown.values()) if (list.length >= minCount) next.push(list);
+    }
+    level = next;
+  }
+  found.sort((a, b) => b.length - a.length || b.starts.length - a.starts.length || a.starts[0] - b.starts[0]);
+  // Kept sequences by each occurrence start, and each kept sequence's start set, to test cover by one sequence.
+  const byStart = new Map<number, Found[]>();
+  const startSets = new Map<Found, Set<number>>();
+  const holds = (outer: Found, q: number, length: number) => {
+    const set = startSets.get(outer)!;
+    for (let s = Math.max(0, q + length - outer.length); s <= q; s++) if (set.has(s)) return true;
+    return false;
+  };
+  const kept: Found[] = [];
+  for (const g of found) {
+    const p0 = g.starts[0];
+    let covered = false;
+    for (let s = Math.max(0, p0 + g.length - maxLength); s <= p0 && !covered; s++) {
+      for (const outer of byStart.get(s) ?? []) {
+        if (outer.length <= g.length || outer.starts.length !== g.starts.length || s + outer.length < p0 + g.length) continue;
+        if (g.starts.every(q => holds(outer, q, g.length))) { covered = true; break; }
       }
     }
-  });
-  const kept = [...groups.values()].filter(g => g.at.length >= minCount)
-    .sort((a, b) => b.length - a.length || b.at.length - a.at.length || a.at[0][0] - b.at[0][0] || a.at[0][1] - b.at[0][1]);
-  // Every sub-window of a kept occurrence → the occurrence counts of the kept groups holding it, so a shorter group tests
-  // cover with one lookup per occurrence.
-  const covers = new Map<string, Set<number>>();
-  const result: Group[] = [];
-  for (const g of kept) {
-    if (g.at.every(([l, i]) => covers.get(`${l}:${i}:${g.length}`)?.has(g.at.length))) continue;
-    for (const [l, i] of g.at) for (let s = i; s < i + g.length; s++) for (let e = s + minLength; e <= i + g.length; e++) {
-      const key = `${l}:${s}:${e - s}`;
-      const counts = covers.get(key);
-      if (counts) counts.add(g.at.length); else covers.set(key, new Set([g.at.length]));
-    }
-    result.push(g);
+    if (covered) continue;
+    kept.push(g);
+    startSets.set(g, new Set(g.starts));
+    for (const s of g.starts) { const list = byStart.get(s); if (list) list.push(g); else byStart.set(s, [g]); }
   }
-  return result.map(g => {
-    const { steps } = laneSteps[g.at[0][0]];
+  return kept.map(g => {
+    const [l0, k0] = at[g.starts[0]];
     return {
-      steps: steps.slice(g.at[0][1], g.at[0][1] + g.length).map(s => s.symbol),
-      matches: g.at.map(([l, i]) => match(laneSteps[l].lane, laneSteps[l].steps, i, g.length)),
+      steps: laneSteps[l0].steps.slice(k0, k0 + g.length).map(s => s.symbol),
+      matches: g.starts.map(p => { const [l, k] = at[p]; return match(laneSteps[l].lane, laneSteps[l].steps, k, g.length); }),
     };
   });
 }

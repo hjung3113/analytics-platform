@@ -19,8 +19,9 @@ describe('findSequenceMatches (#1861)', () => {
   it('does not overlap occurrences within a lane, earliest first', () => {
     expect(findSequenceMatches([lane('a', 'AAAA')], ['A', 'A'], { symbol }).map(m => m.from)).toEqual([0, 2]);
   });
-  it('matches exactly: no gaps, and an empty pattern matches nothing', () => {
+  it('matches exactly: no gaps, and an empty pattern or one longer than the lane matches nothing', () => {
     expect(findSequenceMatches([lane('a', 'ABXC')], ['A', 'B', 'C'], { symbol })).toEqual([]);
+    expect(findSequenceMatches([lane('a', 'AB')], ['A', 'B', 'C'], { symbol })).toEqual([]);
     expect(findSequenceMatches([lane('a', 'ABC')], [], { symbol })).toEqual([]);
   });
   it('with collapseRuns, a run of equal steps is one step and the match covers the whole runs', () => {
@@ -71,14 +72,66 @@ describe('findRepeatedSequences (#1861)', () => {
     expect(findRepeatedSequences([odd], { symbol, minLength: 2 }).map(r => r.steps)).toEqual([['a,b', 'c']]);
   });
   it('collapses runs before indexing when asked', () => {
-    expect(findRepeatedSequences([lane('a', 'AABBCxABBBC')], { symbol }).map(r => r.steps.join(''))).not.toContain('ABC');
+    expect(findRepeatedSequences([lane('a', 'AABBCxABBBC')], { symbol }).map(r => r.steps.join(''))).toEqual(['ABB', 'BBC']);
     expect(findRepeatedSequences([lane('a', 'AABBCxABBBC')], { symbol, collapseRuns: true }).map(r => r.matches.map(m => [m.from, m.to]))).toEqual([[[0, 4], [6, 10]]]);
   });
-  it('indexes at most maxLength steps: a longer repeat comes back as maxLength pieces', () => {
+  it('reports at most maxLength steps: a longer repeat comes back as every maxLength-step window of it', () => {
     const long = 'ABCDEFGHIJ';
     const found = findRepeatedSequences([lane('a', `${long}x${long}`)], { symbol, maxLength: 4 });
-    expect(found.every(r => r.steps.length === 4)).toBe(true);
-    expect(found[0].steps.join('')).toBe('ABCD');
+    expect(found.map(r => r.steps.join(''))).toEqual(['ABCD', 'BCDE', 'CDEF', 'DEFG', 'EFGH', 'FGHI', 'GHIJ']);
     expect(SEQUENCE_MAX_LENGTH).toBe(32);
   });
+  it('keeps a repeat whose occurrences lie in two different longer repeats (one sequence must hold them all)', () => {
+    const found = findRepeatedSequences([lane('a', 'AABAABAAABA'), lane('b', 'BBAAABABA'), lane('c', 'AABAAABAAB')], { symbol });
+    const aabaa = found.find(r => r.steps.join('') === 'AABAA');
+    expect(aabaa?.matches.map(m => `${m.laneId}${m.from}`)).toEqual(['a0', 'c0']);
+  });
+  it('counts a self-overlapping repeat apart, and keeps its matches apart', () => {
+    const found = findRepeatedSequences([lane('a', 'ABABABAB')], { symbol, minLength: 2 });
+    expect(found.map(r => `${r.steps.join('')}×${r.matches.length}`)).toEqual(['ABAB×2', 'AB×4', 'BA×3']);
+    for (const r of found) r.matches.forEach((m, i) => { if (i > 0) expect(m.from).toBeGreaterThan(r.matches[i - 1].to); });
+    expect(findRepeatedSequences([lane('a', 'AAAAAA')], { symbol }).map(r => `${r.steps.join('')}×${r.matches.length}`)).toEqual(['AAA×2']);
+  });
+  it('breaks ties by first occurrence across lanes', () => {
+    const found = findRepeatedSequences([lane('a', 'XYZxXYZ'), lane('b', 'PQRpPQR')], { symbol }).map(r => r.steps.join(''));
+    expect(found).toEqual(['XYZ', 'PQR']);
+  });
+  it('clamps options and treats non-finite ones as the default', () => {
+    const lanes = [lane('a', 'ABxAB')];
+    expect(findRepeatedSequences(lanes, { symbol, minLength: 0, minCount: 1 }).map(r => r.steps.join(''))).toEqual(['AB']);
+    expect(findRepeatedSequences(lanes, { symbol, minLength: 2, maxLength: 1 }).map(r => r.steps.join(''))).toEqual(['AB']);
+    expect(findRepeatedSequences([lane('a', 'ABCxABC')], { symbol, minLength: Number.NaN, maxLength: Infinity, minCount: Infinity }).map(r => r.steps.join(''))).toEqual(['ABC']);
+  });
+  it('matches a brute-force reading of the documented rule on random lanes', () => {
+    let seed = 11; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let round = 0; round < 60; round++) {
+      const lanes = Array.from({ length: 3 }, (_, l) => lane(`l${l}`, Array.from({ length: 6 + Math.floor(rnd() * 8) }, () => 'AB'[Math.floor(rnd() * 2)]).join('')));
+      const got = findRepeatedSequences(lanes, { symbol, minLength: 2, maxLength: 6 }).map(r => `${r.steps.join('')}:${r.matches.map(m => `${m.laneId}.${m.from}`).join(',')}`);
+      expect(got).toEqual(bruteForce(lanes, 2, 6));
+    }
+  });
 });
+
+/** Every window, counted apart greedily; maximal by one longer same-count window set holding each occurrence; same sort. */
+function bruteForce(lanes: SequenceLane<Item>[], minLength: number, maxLength: number): string[] {
+  const groups = new Map<string, { laneIndex: number; laneId: string; from: number }[]>();
+  lanes.forEach((l, laneIndex) => {
+    const s = l.items.map(i => i.s).join('');
+    for (let len = minLength; len <= maxLength; len++) for (let i = 0; i + len <= s.length; i++) {
+      const key = s.slice(i, i + len); const list = groups.get(key) ?? [];
+      const last = list.filter(o => o.laneId === l.id).at(-1);
+      if (!last || last.from + len <= i) list.push({ laneIndex, laneId: l.id, from: i });
+      groups.set(key, list);
+    }
+  });
+  const order = (o: { laneIndex: number; from: number }) => o.laneIndex * 1000 + o.from;
+  const all = [...groups].filter(([, o]) => o.length >= 2)
+    .sort(([a, x], [b, y]) => b.length - a.length || y.length - x.length || order(x[0]) - order(y[0]));
+  const kept: typeof all = [];
+  for (const [key, occ] of all) {
+    const covered = kept.some(([k2, o2]) => k2.length > key.length && o2.length === occ.length
+      && occ.every(o => o2.some(p => p.laneId === o.laneId && p.from <= o.from && o.from + key.length <= p.from + k2.length)));
+    if (!covered) kept.push([key, occ]);
+  }
+  return kept.map(([key, occ]) => `${key}:${occ.map(o => `${o.laneId}.${o.from}`).join(',')}`);
+}
