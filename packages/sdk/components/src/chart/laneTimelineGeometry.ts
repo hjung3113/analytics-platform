@@ -25,9 +25,15 @@ const MINUTE = 60_000; const HOUR = 3_600_000; const DAY = 86_400_000;
 const UNIT_STEPS: Record<number, number[]> = { [MINUTE]: [1, 2, 5, 10, 15, 30], [HOUR]: [1, 2, 3, 6, 12], [DAY]: [1, 2, 5, 10] };
 export function niceTicks(view: [number, number], width: number): number[] {
   const desired = (view[1] - view[0]) / Math.max(1, Math.floor(width / 160));
-  const unit = desired <= HOUR ? MINUTE : desired <= DAY ? HOUR : DAY;
-  const steps = UNIT_STEPS[unit];
-  const step = steps.map(n => n * unit).find(n => n >= desired) ?? steps[steps.length - 1] * unit * 10;
+  // Each unit's threshold is its largest step, so `desired` always fits a step of its unit; beyond 10 days the day unit
+  // continues with 1·2·5×10ⁿ days (SHE-39/#2063: the old 1h/1d thresholds left gaps that fell to a 10× fallback —
+  // 5h between 30min and 1h, 5 days between 12h and 1d, 100 days beyond 10 days — and a whole span drew one tick).
+  const unit = desired <= 30 * MINUTE ? MINUTE : desired <= 12 * HOUR ? HOUR : DAY;
+  const step =
+    unit === DAY
+      ? // Calendar day steps: 1, 2, 5, 10, 20, 50, … days.
+        ((() => { const days = desired / DAY; const base = 10 ** Math.floor(Math.log10(days)); return ([1, 2, 5].map(m => m * base).find(n => n >= days) ?? 10 * base) * DAY; })())
+      : UNIT_STEPS[unit].map(n => n * unit).find(n => n >= desired)!;
   const ticks: number[] = [];
   for (let t = Math.ceil(view[0] / step) * step; t <= view[1] && ticks.length < 100; t += step) ticks.push(t);
   return ticks;

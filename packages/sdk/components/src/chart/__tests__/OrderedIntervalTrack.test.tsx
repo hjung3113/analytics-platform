@@ -133,6 +133,39 @@ it('moves by item and lane with keys, selects and clears, and supplies paged tex
   fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
   expect(within(screen.getByRole('table')).getAllByRole('row').slice(1)).toHaveLength(5);
 });
+it('keeps scrollTop when the first visible lane changes, and reveals only on arrow keys (#2026)', () => {
+  const manyLanes = Array.from({ length: 16 }, (_, i) => ({ laneKey: `l${i}`, label: `Lane ${i}` }));
+  const manyItems: OrderedTrackItem[] = manyLanes.map((lane, i) => ({
+    id: `i${i}`,
+    laneKey: lane.laneKey,
+    orderStart: i * 3,
+    orderEnd: i * 3 + 2,
+    state: 'ok',
+    label: `항목 ${i}`,
+  }));
+  const props = { ...base, lanes: manyLanes, items: manyItems };
+  const { rerender } = mount(props);
+  const scroller = document.querySelector('[data-ordered-scroll]') as HTMLDivElement;
+  expect(scroller.scrollTop).toBe(0); // mount does not scroll
+  act(() => {
+    scroller.scrollTop = 300;
+  });
+  fireEvent.click(screen.getByRole('button', { name: '확대' })); // view narrows; the first visible lane changes
+  expect(scroller.scrollTop).toBe(300);
+  rerender(
+    <I18nProvider>
+      <OrderedIntervalTrack {...props} items={[]} />
+    </I18nProvider>,
+  ); // empty view does not scroll
+  expect(scroller.scrollTop).toBe(300);
+  rerender(
+    <I18nProvider>
+      <OrderedIntervalTrack {...props} />
+    </I18nProvider>,
+  );
+  fireEvent.keyDown(screen.getByRole('region', { name: 'Track' }), { key: 'ArrowDown' });
+  expect(scroller.scrollTop).toBeLessThan(300); // keyboard navigation still reveals the focused lane
+});
 it.each(['loading', 'empty', 'error', 'partial', 'forbidden', 'unsupported'] as const)(
   'frames consumer copy for %s and hides restricted content',
   (kind) => {

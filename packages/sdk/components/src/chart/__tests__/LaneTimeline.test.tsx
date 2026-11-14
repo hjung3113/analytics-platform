@@ -182,6 +182,13 @@ it('keeps the tooltip at full width and flips left of the cursor near the right 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
   }
 });
+it('renders the hover tooltip through a portal to document.body outside paint containment (#2023)', () => {
+  mountLane(<LaneTimeline lanes={[{ id: 'a', label: 'Lane', segments: [{ id: 's', start: 0, end: 100 }] }]} ariaLabel="Timeline" />); flush();
+  fireEvent.pointerMove(screen.getByRole('img'), { clientX: 300, clientY: 12 });
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip.parentElement).toBe(document.body);
+  expect(screen.getByRole('region', { name: 'Timeline' })).not.toContainElement(tooltip);
+});
 it('packs title, subtitle and controls into one header row and keeps only boundary semantics above the plot', async () => {
   mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals" />); flush();
   const header = screen.getByRole('region', { name: 'Timeline' }).querySelector('header')!;

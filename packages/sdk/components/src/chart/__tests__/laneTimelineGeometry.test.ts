@@ -13,6 +13,23 @@ it('picks calendar-unit UTC ticks for a 1-day span (12h) and a 6-hour span (2h)'
   expect(niceTicks([Date.UTC(2026, 9, 21, 6), Date.UTC(2026, 9, 21, 12)], 600))
     .toEqual([Date.UTC(2026, 9, 21, 6), Date.UTC(2026, 9, 21, 8), Date.UTC(2026, 9, 21, 10), Date.UTC(2026, 9, 21, 12)]);
 });
+it.each([
+  [7, 1280], [4, 640], [90, 1200], [2, 1600], [40, 2239], [365, 1200], [1, 2239], [0.2, 640], [0.05, 1600],
+] as const)('draws at least two calendar ticks for a %s-day span at %spx (#2063)', (days, width) => {
+  const view: [number, number] = [Date.UTC(2026, 0, 1), Date.UTC(2026, 0, 1) + days * 86_400_000];
+  const ticks = niceTicks(view, width);
+  const calendarSteps = { minute: [1, 2, 5, 10, 15, 30], hour: [1, 2, 3, 6, 12], day: [1, 2, 5, 10, 20, 50, 100, 200, 500] };
+  expect(ticks.length).toBeGreaterThanOrEqual(2);
+  const step = ticks[1] - ticks[0];
+  if (step % 86_400_000 === 0 && calendarSteps.day.includes(step / 86_400_000)) return;
+  if (step % 3_600_000 === 0 && calendarSteps.hour.includes(step / 3_600_000)) return;
+  if (step % 60_000 === 0 && calendarSteps.minute.includes(step / 60_000)) return;
+  throw new Error(`non-calendar step ${step}ms`);
+});
+it('keeps the fixed cases: 1d@600 stays 12h and 6h@600 stays 2h', () => {
+  expect(niceTicks([Date.UTC(2026, 9, 21), Date.UTC(2026, 9, 22)], 600)).toHaveLength(3);
+  expect(niceTicks([Date.UTC(2026, 9, 21, 6), Date.UTC(2026, 9, 21, 12)], 600)).toHaveLength(4);
+});
 it('labels ticks with time only and adds the date once at the first tick and each day boundary', () => {
   expect(laneTickLabel(Date.UTC(2026, 9, 21), true)).toBe('10-21 00:00');
   expect(laneTickLabel(Date.UTC(2026, 9, 21, 12), false)).toBe('12:00');
