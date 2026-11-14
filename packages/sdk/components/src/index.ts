@@ -56,6 +56,7 @@ export { OrderedIntervalTrack } from './chart/OrderedIntervalTrack';
 export { ORDERED_TRACK_RESPONSE_LIMIT, type OrderedIntervalTrackProps, type OrderedTrackLane, type OrderedTrackState, type OrderedTrackItem, type OrderedTrackMarker, type OrderedTrackStatus, type OrderedTrackLoadState } from './chart/orderedIntervalTypes';
 export { LaneTimeline, type LaneTimelineProps, type LaneTimelineHandle, type TimelineLane, type TimelineSegment, type TimelineOverlay } from './chart/LaneTimeline';
 export { useRangeBrush, RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange, type RangeBrush, type RangeBrushOptions, type RangeBrushKey } from './chart/useRangeBrush';
+export { findSequenceMatches, findRepeatedSequences, sequenceSteps, itemsInRange, SEQUENCE_MAX_LENGTH, type SequenceLane, type SequenceMatch, type SequenceMatchOptions, type RepeatedSequence, type RepeatedSequenceOptions } from './chart/sequenceMatch';
 export { Inspector, type InspectorProps, type InspectorSection } from './inspector/Inspector';
 
 export * from './floating';
