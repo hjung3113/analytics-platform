@@ -98,6 +98,23 @@ describe('PlatformPage ⋯ for the analysisActions slot (#1424)', () => {
   });
 
   it.each([
+    ['lands on the enabled row after a blocked first row', [false, true], '열 수 있는 동작'],
+    ['falls back to the first row when every row is blocked', [false, false], '막힌 첫 동작'],
+  ] as const)('⋯ opening focus %s (#2186)', async (_name, allowed, focused) => {
+    function Blocked() {
+      return <>
+        <HeaderOverflowItem label="막힌 첫 동작" allowed={allowed[0]} reason="권한이 없습니다" onSelect={onPick} />
+        <HeaderOverflowItem label="열 수 있는 동작" allowed={allowed[1]} reason="권한이 없습니다" onSelect={onPick} />
+      </>;
+    }
+    mount('/trend', { analysisActions: { Actions: Blocked } });
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    await screen.findByRole('group', { name: '기타 페이지 동작' });
+    await waitFor(() => expect(screen.getByRole('button', { name: focused })).toHaveFocus());
+  });
+
+  it.each([
     ['a menu that is not an analysis page', '/', slots],
     ['an app that provides no slot', '/trend', {}],
   ])('shows no ⋯ for %s', async (_name, url, s) => {
