@@ -64,6 +64,13 @@ export function TriageScreen(): React.ReactElement {
   const { search, write } = useHostSearchWriter('/vocs', validateVocSearch);
   const { canLink } = useHostSeam();
   const [processedCount, setProcessedCount] = useState(0);
+  const moreButtonRef = useCallback((button: HTMLButtonElement | null) => {
+    if (!button) return;
+    // Ref cleanup runs before removal, while both the button and queue are connected.
+    return () => {
+      if (document.activeElement === button) button.closest<HTMLElement>('section')?.focus();
+    };
+  }, []);
   const handleProcessed = useCallback((delta: 1 | -1): void => {
     setProcessedCount((count) => count + delta);
   }, []);
@@ -250,7 +257,14 @@ export function TriageScreen(): React.ReactElement {
         <div className="p-3 text-xs text-text-muted">
           <p>{VOC_TRIAGE_PAGING_COPY.partial(items.length)}</p>
           {moreError && <p role="alert">{VOC_TRIAGE_PAGING_COPY.error}</p>}
-          <Button variant="secondary" size="sm" disabled={morePending || isFetching} onClick={loadMore}>
+          <Button
+            ref={moreButtonRef}
+            variant="secondary"
+            size="sm"
+            aria-disabled={morePending || isFetching}
+            className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+            onClick={loadMore}
+          >
             {morePending ? VOC_TRIAGE_PAGING_COPY.loading : moreError ? VOC_TRIAGE_PAGING_COPY.retry : VOC_TRIAGE_PAGING_COPY.more}
           </Button>
         </div>

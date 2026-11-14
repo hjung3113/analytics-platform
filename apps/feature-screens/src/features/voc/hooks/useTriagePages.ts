@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { isPermissionDenied } from '@/lib/api/types';
 import { hashKey, useInfiniteQuery } from '@tanstack/react-query';
 import { fetchVocListPage, useVocList, type UseVocListParams } from './useVocList';
@@ -9,10 +9,13 @@ export function useTriagePages(params: UseVocListParams) {
   const { managedSystemId, tab, filters } = params;
   const cursor = first.data?.page?.cursor;
   const scope = hashKey([managedSystemId, tab, filters]);
-  const [paging, setPaging] = useState({ scope, requested: false });
-  if (paging.scope !== scope) setPaging({ scope, requested: false });
+  const instance = useId();
+  const [paging, setPaging] = useState({ scope, requested: false, chain: 0 });
+  // A context return starts a new chain, including when the old tail was complete.
+  if (paging.scope !== scope) setPaging({ scope, requested: false, chain: paging.chain + 1 });
   const more = useInfiniteQuery({
-    queryKey: ['vocs', 'triage', 'more', { managedSystemId, tab, filters, cursor }],
+    queryKey: ['vocs', 'triage', 'more', { managedSystemId, tab, filters, cursor }, instance, paging.chain],
+    gcTime: 0,
     // Once requested, loaded pages remain active so mutation invalidations refresh them too.
     enabled: paging.scope === scope && paging.requested && params.enabled !== false && first.isSuccess && cursor !== undefined,
     initialPageParam: cursor,
@@ -46,7 +49,7 @@ export function useTriagePages(params: UseVocListParams) {
     moreError: more.isError,
     loadMore: () => {
       if (params.enabled !== false && first.isSuccess && !first.isFetching && hasMore && cursor && !more.isFetching) {
-        setPaging({ scope, requested: true });
+        setPaging({ scope, requested: true, chain: paging.chain });
         void more.fetchNextPage({ cancelRefetch: false });
       }
     },
