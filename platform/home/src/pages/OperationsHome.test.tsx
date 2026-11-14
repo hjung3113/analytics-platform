@@ -107,6 +107,7 @@ describe('operations console card (#1099c)', () => {
 
 describe('platform home launcher', () => {
   it('puts assignments and recent visits together before favorites and systems (#1998)', async () => {
+    persisted.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'catalog', url: '/metrics?page=1', at: 6 }]));
     mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: () => <section aria-label="내 담당 개선 아이템">내 담당 3건</section> } });
     await settled();
     const systems = screen.getByRole('region', { name: '업무 시스템' });
@@ -119,11 +120,57 @@ describe('platform home launcher', () => {
     expect(todo.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(recent.compareDocumentPosition(favorites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(favorites.compareDocumentPosition(systems) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    cleanup();
+  });
+
+  it('collapses absent or null-rendering assignment slots so recent visits fill the row (#1998)', async () => {
+    persisted.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'catalog', url: '/metrics?page=1', at: 6 }]));
     mount(BOTH);
     await settled();
     expect(screen.queryByRole('region', { name: '내 담당 개선 아이템' })).toBeNull();
-    expect(screen.getByRole('heading', { name: '최근 방문' })).toBeTruthy();
+    const recentNoSlot = screen.getByRole('heading', { name: '최근 방문' }).closest('section')!;
+    expect(recentNoSlot.parentElement!.classList.contains('@xl:grid-cols-2')).toBe(false);
+
+    cleanup();
+    let setShowTodo!: (show: boolean) => void;
+    const { useState } = await import('react');
+    function ToggleTodo() {
+      const [show, setShow] = useState(false);
+      setShowTodo = setShow;
+      return show ? <section aria-label="내 담당 개선 아이템">내 담당 3건</section> : null;
+    }
+    mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: ToggleTodo } });
+    await settled();
+    const recentNullSlot = screen.getByRole('heading', { name: '최근 방문' }).closest('section')!;
+    const firstRow = recentNullSlot.parentElement!;
+    expect(screen.queryByRole('region', { name: '내 담당 개선 아이템' })).toBeNull();
+    expect(firstRow.classList.contains('@xl:grid-cols-2')).toBe(false);
+    expect(firstRow.firstElementChild?.classList.contains('hidden')).toBe(true);
+    expect(firstRow.firstElementChild?.classList.contains('empty:hidden')).toBe(true);
+
+    act(() => { setShowTodo(true); });
+    const todo = await screen.findByRole('region', { name: '내 담당 개선 아이템' });
+    await waitFor(() => expect(firstRow.classList.contains('@xl:grid-cols-2')).toBe(true));
+    expect(firstRow.firstElementChild?.classList.contains('hidden')).toBe(false);
+    expect(todo.compareDocumentPosition(recentNullSlot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('collapses recent visits when there are no recent visits but assignments exist (#1998)', async () => {
+    mount(BOTH, '/?v=1&scopeId=MEM', { homeTodo: { Todo: () => <section aria-label="내 담당 개선 아이템">내 담당 3건</section> } });
+    await settled();
+    const todo = screen.getByRole('region', { name: '내 담당 개선 아이템' });
+    const favorites = screen.getByRole('heading', { name: '즐겨찾기' }).closest('section')!;
+    const firstRow = todo.parentElement!.parentElement!;
+    expect(screen.queryByRole('heading', { name: '최근 방문' })).toBeNull();
+    expect(firstRow.classList.contains('@xl:grid-cols-2')).toBe(false);
+    expect(todo.compareDocumentPosition(favorites) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps the recent-visits empty message across the row when both slots are empty (#1998)', async () => {
+    mount(BOTH);
+    await settled();
+    const recent = screen.getByRole('heading', { name: '최근 방문' }).closest('section')!;
+    expect(within(recent).getByText('최근 방문한 화면이 없습니다.')).toBeTruthy();
+    expect(recent.parentElement!.classList.contains('@xl:grid-cols-2')).toBe(false);
   });
 
   it('renders dense system rows without icons or visible subtitle lines (#1998)', async () => {
@@ -139,7 +186,37 @@ describe('platform home launcher', () => {
     expect(within(mars).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
   });
 
-  it.each([false, true])('names tools as 설비 Top View only on Home (grouped=%s, #1998)', async grouped => {
+  it.each([false, true])('applies Home-only spaceNames overrides without hardcoding space ids (grouped=%s, #1998)', async grouped => {
+    const toolsRegistry = createRegistry({
+      platformHomeMenuId: 'home',
+      permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
+      spaces: [...registry.spaces, { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃 조회', en: 'View equipment layouts' }, homeMenuId: 'tools-home' }],
+      groups: [...registry.groups, { id: groupId('tools'), label: { ko: '도구', en: 'Tools' }, icon: House, space: spaceId('tools') }],
+      menus: [...registry.menus, { ...menu('tools-home', 'equipment', '/topview', 'platform:view', { ko: 'Top View', en: 'Top View' }, true), group: groupId('tools') }],
+    });
+    const spaceNames = {
+      [spaceId('mars')]: { ko: '설비 생산성 허브', en: 'Equipment Productivity Hub' },
+      [spaceId('tools')]: { ko: '설비 Top View', en: 'Equipment Top View' },
+    };
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={toolsRegistry}><OperationsHome launcherGroups={grouped ? [{ id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] }] : undefined} spaceNames={spaceNames} /></PlatformProvider></I18nProvider>);
+    await settled();
+    const marsRow = screen.getByRole('link', { name: '설비 생산성 허브 생산성 분석 설비·기간별 생산성과 사이클타임을 분석합니다.' });
+    expect(marsRow.getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
+    expect(within(marsRow).getByText('설비 생산성 허브')).toBeTruthy();
+    expect(within(marsRow).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
+
+    const toolsRow = screen.getByRole('link', { name: '설비 Top View 설비 레이아웃 조회' });
+    expect(toolsRow.getAttribute('href')).toBe('/tools/tools-home?v=1&scopeId=MEM');
+    expect(within(toolsRow).getAllByText('설비 Top View')).toHaveLength(1);
+
+    expect(screen.getByRole('link', { name: /^BRAVO / })).toBeTruthy();
+    expect(toolsRegistry.spaces.find(space => space.id === 'mars')?.label.ko).toBe('MARS');
+    expect(toolsRegistry.spaces.find(space => space.id === 'tools')?.label.ko).toBe('도구');
+    expect(within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('falls back to SpaceDef.label when no Home spaceNames override is configured (#1998)', async () => {
     const toolsRegistry = createRegistry({
       platformHomeMenuId: 'home',
       permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
@@ -148,13 +225,11 @@ describe('platform home launcher', () => {
       menus: [...registry.menus, { ...menu('tools-home', 'equipment', '/topview', 'platform:view', { ko: 'Top View', en: 'Top View' }, true), group: groupId('tools') }],
     });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
-    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={toolsRegistry}><OperationsHome launcherGroups={grouped ? [{ id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] }] : undefined} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={toolsRegistry}><OperationsHome /></PlatformProvider></I18nProvider>);
     await settled();
-    const row = screen.getByRole('link', { name: '설비 Top View 설비 레이아웃 조회' });
-    expect(row.getAttribute('href')).toBe('/tools/tools-home?v=1&scopeId=MEM');
-    expect(within(row).getByText('설비 Top View')).toBeTruthy();
-    expect(toolsRegistry.spaces.find(space => space.id === 'tools')?.label.ko).toBe('도구');
-    expect(within(screen.getByRole('region', { name: '업무 시스템' })).getAllByRole('listitem')).toHaveLength(3);
+    const toolsRow = screen.getByRole('link', { name: '도구 설비 Top View 설비 레이아웃 조회' });
+    expect(toolsRow.getAttribute('href')).toBe('/tools/tools-home?v=1&scopeId=MEM');
+    expect(within(toolsRow).getByText('도구')).toBeTruthy();
   });
 
   it('links a partial-permission space card to its first openable menu without a continue line', async () => {
@@ -481,6 +556,16 @@ describe('configured home launcher (#1109)', () => {
   it('rejects duplicate configured spaces at factory creation', () => {
     expect(() => createHomeComponent([groups[0], { ...groups[2], spaces: [spaceId('mars')] }])).toThrow(/duplicate.*mars/i);
     expect(() => createHomeComponent([{ ...groups[0], spaces: [spaceId('mars'), spaceId('mars')] }])).toThrow(/duplicate.*mars/i);
+  });
+
+  it('passes Home-only spaceNames overrides through createHomeComponent (#1998)', async () => {
+    const Home = createHomeComponent(groups, { spaceNames: { [spaceId('mars')]: { ko: '생산성 허브', en: 'Productivity hub' } } });
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={registry}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);
+    const mars = await screen.findByRole('link', { name: '생산성 허브 생산성 분석 설비·기간별 생산성과 사이클타임을 분석합니다.' });
+    expect(mars.getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
+    expect(screen.getByRole('link', { name: /^BRAVO / })).toBeTruthy();
+    expect(registry.spaces.find(space => space.id === 'mars')?.label.ko).toBe('MARS');
   });
 
   it('keeps the default manifest as an unlabeled list', async () => {

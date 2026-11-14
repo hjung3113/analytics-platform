@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { EQUIPMENT_AXES } from './equipmentAxes';
-import { HOME_LAUNCHER_GROUPS, SPACES, registry } from './menus';
+import { HOME_LAUNCHER_GROUPS, HOME_LAUNCHER_SPACE_NAMES, SPACES, registry } from './menus';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -39,5 +39,8 @@ describe('app home launcher assembly (#1109)', () => {
     expect(within(section).getAllByRole('heading').map(heading => heading.textContent)).toEqual(headings);
     const categories = within(section).getAllByRole('heading').map(heading => within(heading.closest('section')!).getAllByRole('link'));
     expect(categories.map(cards => cards.map(card => new URL(card.getAttribute('href')!, window.location.origin).pathname))).toEqual(categoryPaths);
+    const toolsHomeName = HOME_LAUNCHER_SPACE_NAMES.tools[lang];
+    expect(within(section).getByRole('link', { name: new RegExp(`^${toolsHomeName} `) })).toBeTruthy();
+    expect(SPACES.find(space => space.id === 'tools')?.label[lang]).toBe(lang === 'ko' ? '도구' : 'Tools');
   }, 15_000);
 });

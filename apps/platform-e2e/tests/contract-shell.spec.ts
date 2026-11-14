@@ -676,19 +676,26 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     await evidence(page, testInfo, 'viewer-home-global');
   });
 
-  test('mock 홈 첫 줄은 내 담당·최근 방문이고 즐겨찾기·시스템 목록은 아래에 있다 (#1998)', async ({ page }) => {
+  test('mock 홈 첫 줄은 내 담당·최근 방문이고 빈 최근 방문은 접히며 즐겨찾기·시스템 목록은 아래에 있다 (#1998)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '즐겨찾기' })).toBeVisible();
     await expect(page.getByRole('region', { name: '내 할 일' })).toHaveCount(0);
     await expect(page.getByText('실서버 필요')).toHaveCount(0);
-    const systems = await page.getByRole('region', { name: '업무 시스템' }).boundingBox();
-    // #1328 e2 adds an independent menu-query contribution; the feature bridge stays hidden in mock.
+    // When assignments exist and recent visits are empty, recent visits collapses so assignments fill the row.
+    await expect(page.getByRole('heading', { name: '최근 방문' })).toHaveCount(0);
     const assignments = page.getByRole('region', { name: '내 담당 개선 아이템' });
     await expect(assignments.getByText('담당 건수 없음')).toBeVisible();
     await expect(assignments.getByRole('link', { name: '내 담당 목록 열기 · 내 담당 개선 아이템 0건' })).toHaveAttribute('href', /view=mine/);
-    const assigned = await assignments.boundingBox();
+
+    await page.evaluate(() => {
+      localStorage.setItem('platform:recent:viewer', JSON.stringify([{ menuId: 'metric-catalog', url: '/bravo/metric-catalog', at: Date.now() }]));
+    });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
+    const systems = await page.getByRole('region', { name: '업무 시스템' }).boundingBox();
+    const assigned = await page.getByRole('region', { name: '내 담당 개선 아이템' }).boundingBox();
     const recent = await page.getByRole('heading', { name: '최근 방문' }).locator('xpath=ancestor::section[1]').boundingBox();
     const favorites = await page.getByRole('heading', { name: '즐겨찾기' }).boundingBox();
     expect(Math.abs(assigned!.y - recent!.y)).toBeLessThan(2);

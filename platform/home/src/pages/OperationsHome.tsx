@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Clock3, Megaphone, Star, X } from 'lucide-react';
 import { type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
-import { groupHomeSpaces, type HomeLauncherGroup } from '../launcher-groups';
+import { groupHomeSpaces, type HomeLauncherGroup, type HomeLauncherSpaceNames } from '../launcher-groups';
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
@@ -9,8 +9,9 @@ import { Button, StatusBadge } from '@ap/ui';
 
 /** Platform home (ADR-0028, 15 §3.1): `내 할 일` (a Kernel slot) beside recent visits, then favorites, system rows and notices. */
 const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
+const NO_SPACE_NAMES: HomeLauncherSpaceNames = {};
 
-export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[] } = {}) {
+export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, spaceNames = NO_SPACE_NAMES }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[]; spaceNames?: HomeLauncherSpaceNames } = {}) {
   const { favorites, toggleFavorite, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
   const recent = useRecentVisits();
   const { t, tx, lang } = useI18n();
@@ -62,18 +63,45 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
   }
 
   const launcherSections = groupHomeSpaces(launcherGroups, accessibleSpaces);
+  const todoRef = useRef<HTMLDivElement>(null);
+  const [hasTodoContent, setHasTodoContent] = useState(false);
+
+  // Collapse an empty/null-rendering homeTodo slot so Recent visits fills the first row (and vice versa).
+  useLayoutEffect(() => {
+    const el = todoRef.current;
+    if (!homeTodo || !el) {
+      setHasTodoContent(false);
+      return;
+    }
+    const sync = () => {
+      const next = el.children.length > 0 || (el.textContent?.trim().length ?? 0) > 0;
+      setHasTodoContent(prev => (prev === next ? prev : next));
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => {
+      observer.disconnect();
+      setHasTodoContent(false);
+    };
+  }, [homeTodo]);
+
+  const showTodo = !!homeTodo && hasTodoContent;
+  const showRecent = !showTodo || recentRows.length > 0;
+  const twoFirstRowColumns = showTodo && showRecent;
+
   const compactEntry = (space: typeof accessibleSpaces[number]) => {
     const entry = spaceEntry(space.id);
     if (!entry) return null;
     const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
-    // #1998: tools keeps its global identity; only Home uses its descriptive name.
-    const name = space.id === 'tools' && space.subtitle ? tx(space.subtitle) : tx(space.label);
-    const subtitle = space.id === 'tools' ? undefined : space.subtitle;
+    const name = tx(spaceNames[space.id] ?? space.label);
+    const subtitle = space.subtitle ? tx(space.subtitle) : undefined;
+    const srSubtitle = subtitle && subtitle !== name ? subtitle : undefined;
     const description = space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description);
     return <li key={space.id}>
       <PlatformLink href={entry.href} className="flex min-w-0 items-baseline gap-3 px-3 py-2 hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
         <span className="shrink-0 t-card-title">{name}</span>
-        {subtitle && <span className="sr-only">{tx(subtitle)}</span>}
+        {srSubtitle && <span className="sr-only">{srSubtitle}</span>}
         <span aria-hidden className="text-text-muted">·</span>
         <span className="min-w-0 truncate text-xs text-text-secondary">{description}</span>
         {resumeMenu && <span className="sr-only">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
@@ -84,9 +112,9 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
   return <PlatformPage secondaryActions={voc.allowed ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
     {/* The first row follows body width, including when a detail slot narrows it. */}
     <div className="@container space-y-4">
-      <div className="grid items-start gap-3 @xl:grid-cols-2">
-        {homeTodo && <div className="min-w-0 space-y-3"><homeTodo.Todo /></div>}
-        <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
+      <div className={twoFirstRowColumns ? 'grid items-start gap-3 @xl:grid-cols-2' : 'grid items-start gap-3'}>
+        {homeTodo && <div ref={todoRef} className={showTodo ? 'min-w-0 space-y-3 empty:hidden' : 'hidden empty:hidden'}><homeTodo.Todo /></div>}
+        {showRecent && <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
           {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
             <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
               <row.menu.icon className="size-4 text-text-muted" aria-hidden />
@@ -94,7 +122,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
               <span className="text-tiny text-text-muted">{affiliation(row.menu)}</span>
               <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>
             </li>)}</ul>}
-        </Panel>
+        </Panel>}
       </div>
 
       <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
