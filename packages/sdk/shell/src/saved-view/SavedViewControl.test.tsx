@@ -428,7 +428,8 @@ describe('a switch asks only when something would be lost (UX-1)', () => {
     await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 저장하지 않은 조건'));
     expect(platform.global.roomNames).toEqual(['ETCH']);
     // The hook drops the id it can no longer show, so a reload does not try to recover it.
-    expect(Object.keys(window.sessionStorage).filter(key => key.startsWith('platform:saved-view:selected:'))).toEqual([]);
+    // The name follows the reread at once; the id is dropped by the effect after that render, so wait for it.
+    await waitFor(() => expect(Object.keys(window.sessionStorage).filter(key => key.startsWith('platform:saved-view:selected:'))).toEqual([]));
     await user.click(selector());
     await user.click(await screen.findByRole('button', row('둘째 뷰')));
     const ask = await screen.findByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' });

@@ -651,12 +651,12 @@ try {
     async () => {
       await go(productivity);
       // 늦게 마운트되는 KPI 위젯의 스켈레톤이 남지 않았는지 값까지 확인한다.
-      const kpi = page.getByRole("region", { name: "네 지표 요약" });
+      const kpi = page.getByRole("region", { name: "지표 요약", exact: true });
       await expect(kpi.locator('[role="status"][aria-busy]')).toHaveCount(0);
       await expect(kpi.locator(".t-stat").first()).toContainText(/\d/);
     },
     async () => {
-      const region = page.getByRole("region", { name: "네 지표 요약" });
+      const region = page.getByRole("region", { name: "지표 요약", exact: true });
       await region.evaluate((el) => el.scrollIntoView({ block: "center", inline: "nearest" }));
       return elementClip(region);
     },
@@ -778,7 +778,7 @@ try {
     "shell",
     async () => {
       await go(productivity);
-      const kpi = page.getByRole("region", { name: "네 지표 요약" });
+      const kpi = page.getByRole("region", { name: "지표 요약", exact: true });
       await expect(kpi.locator(".t-stat").first()).toContainText(/\d/);
       await expect(page.getByRole("main").locator('[role="status"][aria-busy]')).toHaveCount(0);
       await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
