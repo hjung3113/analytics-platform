@@ -51,6 +51,29 @@ describe.skipIf(!APP_URL || !MIGRATE_URL || !WORKSPACE_ID)('request correlation 
   }, 60_000);
 
   afterAll(async () => {
+    if (migrate && actorId) {
+      const sql = (text: string, values: unknown[]) => migrate.pool.query(text, values);
+      const client = await migrate.pool.connect();
+      try {
+        await client.query('begin');
+        await client.query('delete from log_lifecycle.execution_request where requested_by_actor_id = $1', [actorId]);
+        await client.query('alter table log_lifecycle.development_event disable trigger development_event_append_only');
+        await client.query('delete from log_lifecycle.development_event where actor_id = $1', [actorId]);
+        await client.query('alter table log_lifecycle.development_event enable trigger development_event_append_only');
+        await client.query('delete from log_lifecycle.validation_round where created_by = $1', [actorId]);
+        await client.query('delete from log_lifecycle.development_project where created_by = $1', [actorId]);
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+      for (const table of ['equipment_model', 'vendor']) await sql(`delete from knowledge.${table} where workspace_id = $1 and created_by = $2`, [WORKSPACE_ID, actorId]);
+      for (const [table, column] of [['core.idempotency_keys', 'actor_id'], ['core.audit_log', 'actor_id'], ['core.sessions', 'actor_id'], ['core.actors', 'id']]) {
+        await sql(`delete from ${table} where ${column} = $1`, [actorId]);
+      }
+    }
     await app?.close();
     await db?.close();
     await migrate?.close();
