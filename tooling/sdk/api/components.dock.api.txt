@@ -13,7 +13,10 @@ WorkspaceCommandsHost | function | function WorkspaceCommandsHost({ children }: 
 activatePanel | function | function activatePanel(tree: @ap/components/dock#DockNode, panelId: string): @ap/components/dock#DockNode
 addPanel | function | function addPanel(tree: @ap/components/dock#DockNode, panelId: string, near: { panelId: string; position: 'bottom' | 'center' | 'right'; }): @ap/components/dock#DockNode
 dockLayoutMenu | function | function dockLayoutMenu(tree: @ap/components/dock#DockNode, panelId: string, options: { maximized: boolean; orderOf: (group: @ap/components/dock#DockGroupInfo) => number; }): @ap/components/dock#DockLayoutMenu
+dockStripElement | function | function dockStripElement(element: Element): HTMLElement | null
+dockTabElements | function | function dockTabElements(strip: Element | null): HTMLElement[]
 groupOf | function | function groupOf(tree: @ap/components/dock#DockNode, panelId: string): undefined | { active: string; panels: string[]; }
+isActiveDockTab | function | function isActiveDockTab(tab: Element): boolean
 isValidDockTree | function | function isValidDockTree(tree: unknown, panelIds: readonly string[]): boolean
 movePanel | function | function movePanel(tree: @ap/components/dock#DockNode, panelId: string, target: { panelId: string; position: @ap/components/dock#DockDropPosition; }): @ap/components/dock#DockNode
 normalizeDockTree | function | function normalizeDockTree(raw: unknown, panelIds: readonly string[]): @ap/components/dock#DockNode
