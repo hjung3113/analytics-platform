@@ -147,7 +147,7 @@ export function createIdempotencyService() {
     key: string,
     requestHash: string,
     handler: () => Promise<IdempotentResult<TBody>>,
-    options?: { beforeReplay?: (stored: IdempotentResult<TBody>) => Promise<void> },
+    options?: { beforeReplay?: (stored: IdempotentResult<TBody>) => Promise<TBody | undefined> | Promise<void> },
   ): Promise<IdempotentResult<TBody>> {
     // FO ADR-0015 race-surface amendment: serialise first-time retries with the
     // same (actor_id, key) before lookup so only one handler can produce
@@ -158,8 +158,8 @@ export function createIdempotencyService() {
     if (hit.kind === 'match') {
       const stored = { status: hit.status, body: hit.body as TBody };
       // A stored response must not outlive the Actor's current access.
-      await options?.beforeReplay?.(stored);
-      return stored;
+      const body = await options?.beforeReplay?.(stored);
+      return body === undefined ? stored : { status: stored.status, body };
     }
     if (hit.kind === 'mismatch') {
       throw new HttpError(

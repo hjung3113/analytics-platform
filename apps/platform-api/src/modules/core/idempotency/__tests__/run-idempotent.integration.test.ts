@@ -95,6 +95,31 @@ describe.skipIf(!runIntegration)('idempotencyService.runIdempotent', () => {
     }
   });
 
+  it('returns a replacement replay body without changing the stored receipt or status', async () => {
+    const svc = createIdempotencyService();
+    const key = randomUUID();
+    const body = { id: randomUUID(), internal: 'operator-only' };
+    const replacement = { id: body.id };
+    const handler = vi.fn(async () => ({ status: 201, body }));
+    try {
+      await handle.db.transaction((tx) =>
+        svc.runIdempotent(tx, actorId, key, 'projection-hash', handler),
+      );
+      const replay = await handle.db.transaction((tx) =>
+        svc.runIdempotent<{ id: string; internal?: string }>(
+          tx, actorId, key, 'projection-hash', handler,
+          { beforeReplay: async () => replacement },
+        ),
+      );
+      expect(replay).toEqual({ status: 201, body: replacement });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(await handle.db.transaction((tx) => svc.lookup(tx, actorId, key, 'projection-hash')))
+        .toEqual({ kind: 'match', status: 201, body });
+    } finally {
+      await handle.db.execute(sql`DELETE FROM core.idempotency_keys WHERE actor_id = ${actorId} AND key = ${key}`);
+    }
+  });
+
   it('rejects reused keys with a different request hash before running the handler', async () => {
     const svc = createIdempotencyService();
     const key = randomUUID();

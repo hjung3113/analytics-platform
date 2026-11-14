@@ -19,6 +19,8 @@ import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
+import { insertDevActor } from '../../../test-support/actor-fixtures.js';
+import { denyCapability, grantCapability, revokeCapabilityGrant } from '../../../test-support/permissions-fixtures.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -351,6 +353,78 @@ describe.skipIf(!runIntegration)('POST /vocs (#13)', () => {
       }
     }
   });
+
+  it.each(['revoke', 'deny'] as const)(
+    'projects the create replay to the reporter arm after a read grant %s',
+    async (change) => {
+      const admin = await loginAs(app, 'mock-admin-1');
+      const msId = await createMs(app, admin, `it-voc-replay-${change}`, 'Replay MS');
+      const owner = await dbHandle.pool.query<{ id: string }>(
+        "select id from core.actors where workspace_id=$1 and external_id='mock-admin-1'",
+        [WORKSPACE_ID],
+      );
+      const ownerId = owner.rows[0]?.id;
+      if (!ownerId) throw new Error('admin owner not found');
+      await dbHandle.pool.query(
+        'update core.managed_systems set default_owner_actor_id=$1 where id=$2',
+        [ownerId, msId],
+      );
+      const actor = await insertDevActor(dbHandle, WORKSPACE_ID, randomUUID());
+      try {
+        const grantId = await grantCapability(dbHandle, WORKSPACE_ID, actor.id, 'voc.read', msId, ownerId);
+        const cookie = await loginAs(app, actor.externalId);
+        const input = {
+          primary_managed_system_id: msId,
+          title: 'Current reporter projection',
+          description_rich_content: paragraphDoc('Keep this receipt except internal fields'),
+        };
+        const key = randomUUID();
+        const send = () => postVoc(app, cookie, input, key);
+        const created = await send();
+        expect(created.statusCode).toBe(201);
+        const original = created.json();
+        expect(original).toMatchObject({ owner_user_id: ownerId, default_resolved: true });
+        const allowed = await send();
+        expect(allowed.statusCode).toBe(created.statusCode);
+        expect(allowed.json()).toEqual(original);
+        if (change === 'revoke') await revokeCapabilityGrant(dbHandle, grantId, ownerId);
+        else await denyCapability(dbHandle, WORKSPACE_ID, actor.id, 'voc.read', msId, ownerId);
+
+        const detail = await app.inject({
+          method: 'GET', url: `/vocs/${original.id}`,
+          headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+        });
+        expect(detail.statusCode).toBe(200);
+        const replay = await send();
+        expect(replay.statusCode).toBe(created.statusCode);
+        const expected = { ...original };
+        for (const field of ['severity', 'analytics_area_id', 'owner_user_id', 'owner_team_id']) {
+          expect(detail.json()).not.toHaveProperty(field);
+          expect(replay.json()).not.toHaveProperty(field);
+          delete expected[field];
+        }
+        expect(replay.json()).toEqual(expected);
+        const receipt = await dbHandle.pool.query(
+          'select response_status, response_body from core.idempotency_keys where actor_id=$1 and key=$2',
+          [actor.id, key],
+        );
+        expect(receipt.rows).toEqual([{ response_status: 201, response_body: original }]);
+        const audit = await canonicalHistory.pool.query(
+          "select id from core.audit_log where subject_id=$1 and event_type='voc_created'",
+          [original.id],
+        );
+        expect(audit.rows).toHaveLength(1);
+        const rows = await dbHandle.pool.query('select id from voc.vocs where primary_managed_system_id=$1', [msId]);
+        expect(rows.rows).toEqual([{ id: original.id }]);
+      } finally {
+        await dbHandle.pool.query('delete from permission.permission_denies where actor_id=$1', [actor.id]);
+        await dbHandle.pool.query('delete from permission.permission_grants where actor_id=$1', [actor.id]);
+        await cleanupProductTables();
+        await canonicalHistory.pool.query('delete from core.audit_log where actor_id=$1', [actor.id]);
+        await dbHandle.pool.query('delete from core.actors where id=$1', [actor.id]);
+      }
+    },
+  );
 
   it.each(['actor', 'null', 'denied_admin', 'aa_team', 'archived_team', 'rollback'] as const)(
     'VOC responsibility %s keeps User intake separate from privileged override',
