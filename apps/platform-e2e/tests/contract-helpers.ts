@@ -4,6 +4,13 @@ import { contextBar } from './support';
 export const PERIOD = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
 export const PRODUCTIVITY = `/mars/productivity-overview?v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`;
 
+/** The menu's stored query-bar choice (`'true'` collapsed, `'false'` open): a saved-state key of the Kernel contract, written in one place. */
+export const queryBarCollapsedKey = (menuId: string) => `platform:query-bar-collapsed:${menuId}`;
+/** Stores «open» before every load, so the query bar starts expanded: an applied address starts collapsed without a stored choice (#1892). */
+export async function startWithQueryBarOpen(page: Page, menuId: string) {
+  await page.addInitScript(key => localStorage.setItem(key, 'false'), queryBarCollapsedKey(menuId));
+}
+
 /** Rail section buttons of the current system (15 §3.2). `exact` keeps '생산성 분석' apart from the switcher's '… 현재: MARS'. */
 export function railSection(page: Page, name: string) {
   return page.getByRole('navigation', { name: '시스템 레일' }).getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name, exact: true });

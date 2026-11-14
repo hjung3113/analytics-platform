@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { PERIOD } from './contract-helpers';
+import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
 import { contextBar, evidence, expandPageHead, fitWorkspace, query, setScenario, signInAs, tableStatusLine } from './support';
 
 /**
@@ -839,9 +839,9 @@ test.describe('페이지 머리 접기 (#680)', () => {
       if (sessionStorage.getItem('platform:e2e-head-reset')) return;
       localStorage.removeItem('platform:page-head-collapsed:cycle-time');
       localStorage.removeItem('platform:page-filter-collapsed:cycle-time');
-      localStorage.setItem('platform:query-bar-collapsed:cycle-time', 'false'); // an applied address starts collapsed without a stored choice (#1892); these specs measure the open bar
       sessionStorage.setItem('platform:e2e-head-reset', '1');
     });
+    await startWithQueryBarOpen(page, 'cycle-time'); // these specs measure the open bar
   });
 
   test('fill 페이지는 접힌 채 시작하고, 조회 조건까지 접으면 작업 영역이 위쪽 한계 안에서 시작한다', async ({ page }, testInfo) => {
