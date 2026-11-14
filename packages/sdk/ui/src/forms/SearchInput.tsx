@@ -121,7 +121,11 @@ export function SearchInput({
           // fallback where isComposing is missing (older Chrome/Safari).
           const native = event.nativeEvent;
           const composingEnter = native.isComposing || native.keyCode === 229;
-          if (event.key === 'Enter' && onCommit !== undefined && !composingEnter) onCommit();
+          // The box commits its own query: Enter must not also submit a surrounding <form>.
+          if (event.key === 'Enter' && onCommit !== undefined && !composingEnter) {
+            event.preventDefault();
+            onCommit();
+          }
           if (event.key === 'Escape' && value !== '') {
             event.preventDefault();
             onValueChange('');
