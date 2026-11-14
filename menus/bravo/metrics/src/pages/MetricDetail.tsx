@@ -37,8 +37,8 @@ export default function MetricDetailPage({ params }: PageProps) {
 
   // keepPrevious ON (#1365, ADR-0114): the version buttons re-read the same metric, so the page keeps its frame and the old sections (refreshing) instead of three skeletons.
   // The old result is another version's definition: the version list marks the chosen version from the URL and the apply action waits (below).
-  const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam }, true, KEEP_PREVIOUS);
-  const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam }, true, KEEP_PREVIOUS);
+  const pair = useMenuQuery(metricPairEndpoint, { viewedId: metricId, pageVersion: versionParam }, KEEP_PREVIOUS);
+  const definition = useMenuQuery(definitionEndpoint, { metricId, version: versionParam }, KEEP_PREVIOUS);
   const usage = useMenuQuery(usageEndpoint, { metricId, version: versionParam ?? '' }, versionParam !== null, KEEP_PREVIOUS);
   // ADR-0048: the shared audit store, same port read as the equipment Audit tab. A metric has no site, and the
   // record does not change with the global Context, so session identity: a period or scope change does not refetch.

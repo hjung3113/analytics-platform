@@ -5,6 +5,7 @@ import { useCopy } from '../copy';
 import { questEndpoint, questSearchEndpoint, type Quest } from '../endpoints';
 import { questPresentation } from '../model';
 import { Field } from './parts';
+import { isAnswered } from '@ap/contracts';
 type QuestState = 'ok' | 'not_found' | 'forbidden' | 'unavailable';
 const questState = (outcome: string, data: Quest | null): QuestState => outcome === 'ok' && data ? 'ok' : outcome === 'empty' || (outcome === 'ok' && !data) ? 'not_found' : outcome === 'forbidden' ? 'forbidden' : 'unavailable';
 export function QuestReference({ id, snapshot }: { id: string; snapshot: string }) {
@@ -24,7 +25,7 @@ export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | nu
   const ime = useImeEnterGuard();
   const response = useMenuQuery(questSearchEndpoint, { query, page, pageSize: 10 }).response;
   const unsupported = response?.outcome === 'ok' && response.data?.supported === false;
-  const failed = response && response.outcome !== 'ok' && response.outcome !== 'empty';
+  const failed = response && !isAnswered(response.outcome);
   const useIdEntry = direct || unsupported || !!failed;
   // A lookup is one gesture whose answer goes to `onSelect`, not a displayed result: one fetch per press, the previous attempt aborted.
   const { fetch } = useMenuFetch(questEndpoint);

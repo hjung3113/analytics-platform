@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Plus } from 'lucide-react';
-import { type ApiResponse, type ColumnFilterSpec, type PageResult, type TableQuery } from '@ap/contracts';
+import { type ApiResponse, type ColumnFilterSpec, type PageResult, type TableQuery, isAnswered } from '@ap/contracts';
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
 import { Button, SearchInput } from '@ap/ui';
@@ -26,7 +26,7 @@ function useModelNames(ids: readonly string[]): ReadonlyMap<string, string> {
     if (key === '') return;
     const controller = new AbortController();
     void fetchRef.current({ q: null, page: 0, pageSize: 200, sorting: [{ id: 'name', desc: false }], filters: [{ id: 'id', op: 'in', value: key.split(',') }] }, controller.signal).then(res => {
-      if (controller.signal.aborted || (res.outcome !== 'ok' && res.outcome !== 'empty') || !res.data) return;
+      if (controller.signal.aborted || !isAnswered(res.outcome) || !res.data) return;
       setNames(new Map(res.data.rows.map(r => [r.id, r.name || r.code] as const)));
     }).catch(() => undefined);
     return () => controller.abort();
@@ -49,7 +49,7 @@ function useOwnerPreset(raw: string | null): OwnerPreset {
     const controller = new AbortController();
     void fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [raw] }] }, controller.signal).then(res => {
       if (controller.signal.aborted) return;
-      const row = (res.outcome === 'ok' || res.outcome === 'empty') ? res.data?.rows.find(r => r.id === raw) : undefined;
+      const row = (isAnswered(res.outcome)) ? res.data?.rows.find(r => r.id === raw) : undefined;
       setDone({ raw, ok: !!row && row.active });
     }).catch(() => { if (!controller.signal.aborted) setDone({ raw, ok: false }); });
     return () => controller.abort();

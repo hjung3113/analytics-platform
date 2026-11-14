@@ -476,7 +476,7 @@ Unknown
   바가 일부만 덮거나(초안은 고쳤지만 적용 전이라 적용값 기준 누락이 남는 경우), 바가 없으면 목록을 그대로 둔다(#1170).
   이전 결과·시각을 즉시 가리고 진행 요청을 취소하며 늦은 응답을 버린다.
   refetch·refreshEpoch도 닫힌 게이트를 열지 않는다.
-  **예외(opt-in, ADR-0114):** `useMenuQuery(spec, params, enabled, { keepPrevious: true })`는 같은 훅이 받아들인 마지막 `ok`·`empty` 결과를, *그 엔드포인트의 페이지 입력 `params`만* 바뀌고 세션 세대·투영 Context(Scope·기간 포함)·엔드포인트·게이트(열림, idle 아님)가 같은 동안, 새 응답이 올 때까지 `refreshing`으로 남긴다.
+  **예외(opt-in, ADR-0114):** `useMenuQuery(spec, params, { keepPrevious: true })`는 같은 훅이 받아들인 마지막 `ok`·`empty` 결과를, *그 엔드포인트의 페이지 입력 `params`만* 바뀌고 세션 세대·투영 Context(Scope·기간 포함)·엔드포인트·게이트(열림, idle 아님)가 같은 동안, 새 응답이 올 때까지 `refreshing`으로 남긴다.
   `params`가 또 바뀌면 그 사이 요청의 응답은 보이지 않고 마지막 요청만 받아들인다.
   새 `params`의 응답이 오면 오류·금지·시간 초과·너무 큼을 포함해 남긴 결과를 바로 대체한다(옛 숫자를 오류 아래에 두지 않는다).
   남긴 동안 `completedAt`은 *남긴 결과를 받아들인 시각* 그대로라 신선도 표시가 정직하고, 새 응답이 오면 새 시각이 된다.

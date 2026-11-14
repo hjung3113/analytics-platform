@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMenuFetch, useMenuQuery } from '@ap/kernel';
 import type { ColumnFilter } from '@ap/contracts';
 import { modelsEndpoint, processesEndpoint, softwareVersionsEndpoint, vendorsEndpoint, type CatalogPageParams, type ModelRow, type ProcessRow, type VendorRow } from '../endpoints';
+import { isAnswered } from '@ap/contracts';
 
 /** The lists the filter row chooses from: one read of up to 200 rows by name (the server's page-size cap), inactive ones included but disabled. */
 const OPTION_PARAMS: CatalogPageParams = { q: null, page: 0, pageSize: 200, sorting: [{ id: 'name', desc: false }] };
@@ -58,7 +59,7 @@ export function useOptionPicker(endpoint: Endpoint, enabled = true, extraFilters
       const params: CatalogPageParams = { q: text.trim() === '' ? null : text.trim(), page, pageSize: PICKER_PAGE, sorting: [{ id: 'name', desc: false }], filters: [{ id: 'active', op: 'in', value: ['true'] }, ...(filtersRef.current ?? [])] };
       const res = await fetchRef.current(params, signal);
       if (signal.aborted) return;
-      if ((res.outcome !== 'ok' && res.outcome !== 'empty') || !res.data) { setState(s => ({ ...s, loading: false, failed: true })); return; }
+      if (!isAnswered(res.outcome) || !res.data) { setState(s => ({ ...s, loading: false, failed: true })); return; }
       const next = res.data.rows.map(endpoint === softwareVersionsEndpoint ? toSoftwareOption : toOption);
       setState(s => page > 0 && s.search !== text ? s : ({ search: text, options: page === 0 ? next : [...s.options, ...next.filter(o => !s.options.some(x => x.value === o.value))], total: res.data!.total, page, loading: false, failed: false }));
     } catch { if (!signal.aborted) setState(s => ({ ...s, loading: false, failed: true })); }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type GroupedPageResult, type PageGroup, type PageSort, type TableQuery } from '@ap/contracts';
+import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type GroupedPageResult, type PageGroup, type PageSort, type TableQuery, isAnswered } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
 import type { TableUrlState } from './PlatformDataTable';
 
@@ -83,7 +83,7 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
   // 06 §19: a failed lookup (error·timeout·forbidden·too_large) is not a zero — only a successful
   // response (ok, or empty which IS a successful zero) may state a count or offer pages.
-  const success = shown !== null && (shown.outcome === 'ok' || shown.outcome === 'empty');
+  const success = shown !== null && (isAnswered(shown.outcome));
   // #314: a successful page past the end. While the clamped refetch is in flight the status line keeps the
   // loading text; once that response has settled and the clamp was already notified (a consumer may ignore it),
   // it falls back to count + total pages only — never "9/3", never a page number that was not received.

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Cpu, Factory, GitBranch, Package } from 'lucide-react';
-import { HierarchyFailure, isHierarchyFailure, type ApiResponse, type HierarchyNode, type HierarchyPage, type HierarchySource } from '@ap/contracts';
+import { HierarchyFailure, isHierarchyFailure, type ApiResponse, type HierarchyNode, type HierarchyPage, type HierarchySource, isAnswered } from '@ap/contracts';
 import { useMenuFetch } from '@ap/kernel';
 import { endpoints, isUuid } from './endpoints';
 
@@ -12,7 +12,7 @@ export function createModelHierarchySource(fetch: Fetch): HierarchySource {
       const response = await fetch(params, signal);
       signal?.throwIfAborted();
       if (response.outcome === 'forbidden') throw new HierarchyFailure('forbidden');
-      if (response.outcome !== 'ok' && response.outcome !== 'empty') throw new HierarchyFailure('error');
+      if (!isAnswered(response.outcome)) throw new HierarchyFailure('error');
       const data = response.data;
       if (data && typeof data === 'object' && 'failure' in data) {
         throw new HierarchyFailure(data.failure === 'deleted' ? 'deleted' : data.failure === 'forbidden' ? 'forbidden' : 'error');

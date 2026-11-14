@@ -4,6 +4,7 @@ import { Button, Callout, ObjectRow, StatusBadge } from '@ap/ui';
 import { searchEndpoint, type KnowledgeSearchData, type KnowledgeSearchItem, type KnowledgeSearchParams, type SearchReason } from '../../endpoints';
 import { OwnerChip, StateBadges, TypeBadge } from '../items/ItemBadges';
 import { useSpecWords } from '../spec/SpecControls';
+import { isAnswered } from '@ap/contracts';
 
 const REASON: Record<SearchReason, { ko: string; en: string }> = {
   observed_same_direction: { ko: '같은 방향 · 관찰', en: 'Same direction · observed' },
@@ -43,7 +44,7 @@ function Continuation({ params, cursor, restart }: { params: KnowledgeSearchPara
   const w = useSpecWords(), query = useMenuQuery(searchEndpoint, { ...params, cursor });
   const response = query.response;
   if (!response) return <p role="status" className="p-4 text-sm text-text-secondary">{w('검색 중…', 'Searching…')}</p>;
-  if (!['ok', 'empty'].includes(response.outcome) || !response.data) return <SearchFailure retry={restart} fromFirstPage />;
+  if (!isAnswered(response.outcome) || !response.data) return <SearchFailure retry={restart} fromFirstPage />;
   return <><SearchRows items={response.data.items} lag={response.data.indexLag.lagSeconds !== null} /><SearchMore key={cursor} params={params} data={response.data} restart={restart} /></>;
 }
 export function SearchMore({ params, data, restart }: { params: KnowledgeSearchParams; data: KnowledgeSearchData; restart: () => void }) {

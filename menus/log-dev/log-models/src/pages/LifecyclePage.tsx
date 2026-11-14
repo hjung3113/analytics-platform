@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
 import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
-import { defineEndpoint, type AuditEvent, type EndpointSpec } from '@ap/contracts';
+import { defineEndpoint, type AuditEvent, type EndpointSpec, isAnswered } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
 import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
@@ -34,7 +34,7 @@ function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> 
   const query = gated ? own : shared;
   // Within one instance a re-read (retry, write refresh) never shows the prior answer either: a revoked right must not re-show it.
   const response = gated && query.status === 'refreshing' ? undefined : query.response;
-  return { status: response ? response.outcome === 'ok' || response.outcome === 'empty' ? 'done' : 'error' : 'loading', completedAt: query.completedAt, data: response?.data as T | null, denied: response?.outcome === 'forbidden', retry: query.refetch };
+  return { status: response ? isAnswered(response.outcome) ? 'done' : 'error' : 'loading', completedAt: query.completedAt, data: response?.data as T | null, denied: response?.outcome === 'forbidden', retry: query.refetch };
 }
 function useAction(name: string): Action {
   const spec = actions[name];

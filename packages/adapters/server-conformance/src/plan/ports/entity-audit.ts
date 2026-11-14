@@ -1,4 +1,4 @@
-import { ENTITY_AUDIT_PAGE_MAX, instantEpochMs, type ApiResponse, type AuditEvent, type EntityAuditPage, type EntityRef } from '@ap/contracts';
+import { ENTITY_AUDIT_PAGE_MAX, instantEpochMs, type ApiResponse, type AuditEvent, type EntityAuditPage, type EntityRef, isAnswered } from '@ap/contracts';
 import type { ConformanceCheck, ConformanceSkipped, ServerConformanceHarness } from '../../types';
 import { UNKNOWN_ENTITY_TYPE, assessmentProblem, describeResponse, expectOutcome, missingEnvelopeKey, trustProblem } from '../../helpers';
 import type { AtSite } from './shared';
@@ -172,7 +172,7 @@ export function planEntityAuditChecks(harness: ServerConformanceHarness, atSite:
     mode: 'granted',
     run: async () => {
       const r = await adapter.entityAudit(entityRef);
-      if (r.outcome !== 'ok' && r.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(r)}`;
+      if (!isAnswered(r.outcome)) return `expected ok or empty, got ${describeResponse(r)}`;
       if (r.outcome === 'ok' && !Array.isArray(r.data?.events)) return 'an ok entityAudit answer carries data.events as an array';
       if (r.outcome === 'ok' && r.data?.events.length === 0) return 'a zero is outcome empty, not ok with no events (adapter.ts)';
       // Every successful envelope answers the full 06 §19/§18 shape (#152 round D), like getEntity above.

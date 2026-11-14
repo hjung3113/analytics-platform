@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMenuFetch } from '@ap/kernel';
 import { Button, Combobox, FieldLabel, type ComboboxOption } from '@ap/ui';
 import { modelOptionsEndpoint, softwareOptionsEndpoint, type ModelOption, type SoftwareOption } from '../endpoints';
+import { isAnswered } from '@ap/contracts';
 
 const PAGE = 20;
 const MODEL_BASE = '__model_base__';
@@ -21,7 +22,7 @@ function useModelOptions() {
     try {
       const res = await fetchRef.current({ q: text.trim() === '' ? null : text.trim(), page, pageSize: PAGE }, signal);
       if (signal.aborted) return;
-      if ((res.outcome !== 'ok' && res.outcome !== 'empty') || !res.data) { setState(s => ({ ...s, loading: false, failed: true })); return; }
+      if (!isAnswered(res.outcome) || !res.data) { setState(s => ({ ...s, loading: false, failed: true })); return; }
       const next = res.data.rows.map(m => ({ value: m.id, label: modelLabel(m) }));
       const total = res.data.total;
       setState(s => ({ search: text, options: page === 0 ? next : [...s.options, ...next.filter(o => !s.options.some(x => x.value === o.value))], total, page, loading: false, failed: false }));
@@ -49,7 +50,7 @@ function useSoftwareOptions(modelId: string | null) {
     const controller = new AbortController();
     void fetchRef.current({ modelId }, controller.signal).then(res => {
       if (controller.signal.aborted) return;
-      const ok = (res.outcome === 'ok' || res.outcome === 'empty') && res.data;
+      const ok = (isAnswered(res.outcome)) && res.data;
       setState({ modelId, options: ok ? res.data!.rows.map(s => ({ value: s.id, label: softwareLabel(s) })) : [], failed: !ok });
     }).catch(() => { if (!controller.signal.aborted) setState({ modelId, options: [], failed: true }); });
     return () => controller.abort();

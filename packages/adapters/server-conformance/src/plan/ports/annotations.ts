@@ -1,6 +1,7 @@
 import type { AnnotationInput } from '@ap/contracts';
 import type { ConformanceCheck, PortMethod, ServerConformanceHarness } from '../../types';
 import { ANNOTATION_ROW_KEYS, assessmentProblem, describeResponse, expectOutcome, missingEnvelopeKey, trustProblem } from '../../helpers';
+import { isAnswered } from '@ap/contracts';
 
 /** The annotation checks save, list and delete across one another, so each declares the whole annotation port. */
 const ANNOTATION_METHODS: readonly PortMethod[] = ['listAnnotations', 'saveAnnotation', 'deleteAnnotation'];
@@ -67,7 +68,7 @@ export function planAnnotationChecks(harness: ServerConformanceHarness): Conform
       const saved = await adapter.saveAnnotation(annotationInput(harness.context.scopeId));
       if (saved.outcome !== 'ok' || saved.data === null) return `expected ok with the saved row, got ${describeResponse(saved)}`;
       const list = await adapter.listAnnotations({ chartId, scopeId: ports.otherGrantedScopeId });
-      if (list.outcome !== 'ok' && list.outcome !== 'empty') return `expected ok or empty, got ${describeResponse(list)}`;
+      if (!isAnswered(list.outcome)) return `expected ok or empty, got ${describeResponse(list)}`;
       if (list.data?.items.some(item => item.id === saved.data!.id)) {
         return `a note written at ${harness.context.scopeId} is listed at ${ports.otherGrantedScopeId} — annotations are keyed by (chartId, scopeId), never chartId alone (06 §16, ADR-0004)`;
       }
@@ -150,7 +151,7 @@ export function planAnnotationChecks(harness: ServerConformanceHarness): Conform
         return 'saveAnnotation is not mart data (adapter.ts): no assessments, null trust';
       }
       const list = await adapter.listAnnotations({ chartId, scopeId: harness.context.scopeId });
-      if (list.outcome !== 'ok' && list.outcome !== 'empty') return null;
+      if (!isAnswered(list.outcome)) return null;
       const listMissing = missingEnvelopeKey(list, 'assessments') ?? missingEnvelopeKey(list, 'trust');
       if (listMissing) return `listAnnotations: ${listMissing}`;
       if (list.assessments.length > 0 || list.trust !== null) {

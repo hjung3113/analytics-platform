@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { clientCorrelationId, type ApiResponse, type Outcome } from '@ap/contracts';
+import { clientCorrelationId, type ApiResponse, type Outcome, isAnswered } from '@ap/contracts';
 
 /**
  * Internal (not exported from the package): the lifecycle of a cursor-paged list whose first page is read elsewhere
@@ -62,7 +62,7 @@ export function useCursorPages<T>(
     runRef.current(cursor, controller.signal).then(response => {
       if (controller.signal.aborted) return;
       controllerRef.current = null;
-      if (response.outcome !== 'ok' && response.outcome !== 'empty') {
+      if (!isAnswered(response.outcome)) {
         fail({ outcome: response.outcome, message: response.message ?? '', correlationId: response.correlationId });
         return;
       }

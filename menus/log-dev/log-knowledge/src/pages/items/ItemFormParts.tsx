@@ -7,6 +7,7 @@ import { ITEM_LIMITS, EVIDENCE_SOURCE_KINDS, modelsEndpoint, softwareVersionsEnd
 import { useOptionPicker, toOption, type Option } from '../useCatalogOptions';
 import { emptyEvidence, evidenceKey, type EvidenceRow, type WriteForm } from './itemWriteModel';
 import { EVIDENCE_KIND_LABEL } from './itemModel';
+import { isAnswered } from '@ap/contracts';
 
 export function Field({ id, label, error, hint, required, badge, children }: { id: string; label: string; error?: string | undefined; hint?: string; required?: boolean; badge?: string; children: React.ReactNode }) {
   return <div className="grid gap-1.5">
@@ -29,7 +30,7 @@ function useChosenOption(endpoint: typeof modelsEndpoint | typeof softwareVersio
     const controller = new AbortController();
     void (async () => {
       const res: ApiResponse<PageResult<{ id: string; name: string; code: string; active: boolean }>> = await fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [value] }] }, controller.signal);
-      const row = res.outcome === 'ok' || res.outcome === 'empty' ? res.data?.rows.find(r => r.id === value) : undefined;
+      const row = isAnswered(res.outcome) ? res.data?.rows.find(r => r.id === value) : undefined;
       if (row && !controller.signal.aborted) setPicked(toOption(row));
     })().catch(() => undefined);
     return () => controller.abort();

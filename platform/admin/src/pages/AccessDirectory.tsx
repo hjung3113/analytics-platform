@@ -1,7 +1,7 @@
 import { useMessages, useI18n, usePlatform } from '@ap/kernel';
 import { ADMIN_MESSAGES } from '../messages';
 import { useMemo, useState } from 'react';
-import { type AccessPrincipal, type ColumnFilter } from '@ap/contracts';
+import { type AccessPrincipal, type ColumnFilter, isAnswered } from '@ap/contracts';
 import { PanelRight } from 'lucide-react';
 import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, PageKeyWarning, TableUrlWarning, usePageKeyRules, useTableUrlState } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
@@ -139,7 +139,7 @@ export default function AccessDirectory() {
           const response = await adapter.accessDirectory(toAccessQuery(pageQuery.filters ?? NO_FILTERS, { page: pageQuery.page + 1, pageSize: 25, sorting: pageQuery.sorting }), signal);
           // Keep drawer data aligned with the latest non-aborted page result. ok/empty are answers about
           // principals; any other outcome clears them so neither a stale drawer nor an "unknown" alert survives.
-          if (!signal.aborted) setRows(response.outcome === 'ok' || response.outcome === 'empty' ? response.data?.items ?? [] : null);
+          if (!signal.aborted) setRows(isAnswered(response.outcome) ? response.data?.items ?? [] : null);
           return {
             outcome: response.outcome,
             data: response.data === null ? null : { rows: [...response.data.items], total: response.data.total },

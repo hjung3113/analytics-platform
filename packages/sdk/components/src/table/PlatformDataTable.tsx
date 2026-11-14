@@ -222,6 +222,10 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
 
 const NO_FILTERS: ColumnFilter[] = [];
 
+/** The outcome container shows a retry button: a failed or timed-out read, and (only when `groupedEmpty`) an empty one that joined a shared-response group (#1175). */
+const isRetryable = (response: Pick<ApiResponse<unknown>, 'outcome'> | null, groupedEmpty = false): boolean =>
+  response?.outcome === 'error' || response?.outcome === 'timeout' || (groupedEmpty && response?.outcome === 'empty');
+
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
@@ -445,7 +449,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     if (focusedRetry.current) {
       if (success && shown?.outcome === 'ok') { focusedRetry.current = false; viewport.current?.focus(); return; }
       // A grouped empty keeps its own retry button (the scope's shared-response rule), so it is retryable too (#1175).
-      if (shown?.outcome === 'error' || shown?.outcome === 'timeout' || (shown?.outcome === 'empty' && groupedOutcome)) { outcome.current?.querySelector('button')?.focus(); return; }
+      if (isRetryable(shown, groupedOutcome)) { outcome.current?.querySelector('button')?.focus(); return; }
       focusedRetry.current = false;
       section.current?.focus();
       return;
@@ -456,7 +460,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     if (!owned || !(owned === 'previous' ? previousDisabled : nextDisabled)) return;
     focusedPager.current = null;
     const opposite = owned === 'previous' ? nextButton.current : previousButton.current;
-    const retryButton = shown?.outcome === 'error' || shown?.outcome === 'timeout'
+    const retryButton = isRetryable(shown)
       ? outcome.current?.querySelector('button') : null;
     const target = opposite && !opposite.disabled ? opposite : retryButton ?? section.current;
     target?.focus();

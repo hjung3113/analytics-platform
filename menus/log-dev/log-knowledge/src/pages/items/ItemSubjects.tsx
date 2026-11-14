@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { isAppRelativePath } from '@ap/contracts';
+import { isAppRelativePath, isAnswered } from '@ap/contracts';
 import { PlatformLink, usePlatform } from '@ap/kernel';
 import { Button, Input, StatusBadge } from '@ap/ui';
 import { ITEM_PUBLISH_PERMISSION, type ItemSubject } from '../../endpoints';
@@ -79,7 +79,7 @@ export function SubjectPicker({ modelId, picks, onChange, disabled = false, subj
       : !modelId ? <p role="status" className="text-sm text-text-secondary">{w('먼저 소유 모델을 골라 주세요.', 'Select the owner model first.')}</p>
       : !response ? <p role="status">{w('대상을 불러오는 중…', 'Loading subjects…')}</p>
       : response.outcome === 'forbidden' ? <p role="status">{w('명세를 볼 수 없습니다. 조회 권한을 관리자에게 요청하세요.', 'Ask an administrator for read permission to read specifications.')}</p>
-      : malformed || !['ok', 'empty'].includes(response.outcome) ? <div role="alert"><p>{w('대상을 불러오지 못했습니다.', 'Could not load subjects.')}</p><Button type="button" size="sm" variant="secondary" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div>
+      : malformed || !isAnswered(response.outcome) ? <div role="alert"><p>{w('대상을 불러오지 못했습니다.', 'Could not load subjects.')}</p><Button type="button" size="sm" variant="secondary" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div>
       : !spec ? <p role="status" className="text-sm text-text-secondary">{w('발행된 명세가 없습니다. 명세를 발행한 뒤 대상을 고를 수 있습니다.', 'Publish a specification before selecting subjects.')}</p>
       : <><label htmlFor={`${uid}-search`} className="text-sm">{w('대상 검색', 'Search subjects')}</label><Input id={`${uid}-search`} value={search} onChange={e => setSearch(e.target.value)} disabled={disabled} />
         <div className="max-h-64 overflow-auto">{tree.length ? branch(tree) : <p role="status" className="text-sm text-text-muted">{w('검색 결과가 없습니다.', 'No matches.')}</p>}</div></>}

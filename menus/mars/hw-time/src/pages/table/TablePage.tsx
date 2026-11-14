@@ -22,6 +22,7 @@ import { TrendPanel } from '../../shared/panels/TrendPanel';
 import {
   SORT_FIELDS, auxiliaryText, columnSizeOf, drillParams, exportFilterSummary, exportNumber, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
 } from './tableData';
+import { isAnswered } from '@ap/contracts';
 
 const NO_ROWS: HwTimeRow[] = [];
 
@@ -78,7 +79,7 @@ export default function TablePage(_props: PageProps) {
   const emptyDetail = level === 2 && response !== null && dataRows.length === 0;
   const focusRow = focus === null ? undefined : dataRows.find(row => row.id === focus);
   // A failed level read is not an absent row: the summary and the drawer say so and retry, while the paged table keeps working.
-  const levelFailure = levelQ.response && levelQ.response.outcome !== 'ok' && levelQ.response.outcome !== 'empty' ? levelQ.response : null;
+  const levelFailure = levelQ.response && !isAnswered(levelQ.response.outcome) ? levelQ.response : null;
   const detailPending = focus !== null && focusRow === undefined && response === null;
 
   const trendable = focusRow !== undefined && isHwTimeTrendId(focusRow.id);

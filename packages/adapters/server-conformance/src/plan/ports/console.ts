@@ -1,6 +1,7 @@
 import type { ApiResponse } from '@ap/contracts';
 import type { ConformanceCheck, ServerConformanceHarness } from '../../types';
 import { CONSOLE_ACCESS, assessmentProblem, describeResponse, expectOutcome, missingEnvelopeKey, trustProblem } from '../../helpers';
+import { isAnswered } from '@ap/contracts';
 
 export function planConsoleChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
   const { adapter } = harness;
@@ -163,7 +164,7 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
     run: async () => {
       const r = await adapter.accessDirectory({});
       // A read that did not succeed is the `→ ok` check's failure; this check owns only the mart-data rule.
-      if (r.outcome !== 'ok' && r.outcome !== 'empty') return null;
+      if (!isAnswered(r.outcome)) return null;
       const missing = missingEnvelopeKey(r, 'assessments') ?? missingEnvelopeKey(r, 'trust');
       if (missing) return missing;
       if (r.assessments.length > 0 || r.trust !== null) {

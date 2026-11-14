@@ -5,13 +5,14 @@ import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, type PageProps 
 import type { AuditEvent } from '@ap/contracts';
 import { DatasetScreen, DatasetsScreen, type Action, type BaselineEvent, type DatasetApi, type Params, type Presentation, type ReadState, type TableParts } from '@ap/feature-screens/operator-screens/log-datasets';
 import { DATASET_APPROVE, DATASET_MANAGE, DATASET_RUN, datasetActions, datasetEndpoints, isUuid } from '../endpoints';
+import { isAnswered } from '@ap/contracts';
 
 function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
   const spec = datasetEndpoints[name];
   if (!spec) throw new Error(`Unknown dataset read: ${name}`);
   const query = useMenuQuery(spec, params, enabled);
   const response = query.response;
-  return { status: response ? response.outcome === 'ok' || response.outcome === 'empty' ? 'done' : 'error' : 'loading', data: response?.data as T | null, completedAt: query.completedAt, denied: response?.outcome === 'forbidden', retry: query.refetch };
+  return { status: response ? isAnswered(response.outcome) ? 'done' : 'error' : 'loading', data: response?.data as T | null, completedAt: query.completedAt, denied: response?.outcome === 'forbidden', retry: query.refetch };
 }
 function useAction(name: string): Action {
   const spec = datasetActions[name];

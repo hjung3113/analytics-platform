@@ -129,12 +129,21 @@ function fixture(options: FixtureOptions = {}) {
 type ProbeProps = {
   spec?: EndpointSpec<Params, QueryData>;
   enabled?: boolean;
+  /** Which signature carries `enabled`: the third positional argument or `options.enabled` (#2189). */
+  form?: 'positional' | 'options';
   onQuery?: (query: QueryState<QueryData>) => void;
 };
 
-function QueryProbe({ spec = endpoint, enabled = true, onQuery }: ProbeProps) {
+// `form` never changes within a mounted probe, so the branch below keeps the hook order stable.
+/* eslint-disable react-hooks/rules-of-hooks -- one fixed call per probe instance */
+function useQueryForm(form: 'positional' | 'options', spec: EndpointSpec<Params, QueryData>, enabled: boolean): QueryState<QueryData> {
+  return form === 'options' ? useMenuQuery(spec, params, { enabled }) : useMenuQuery(spec, params, enabled);
+}
+/* eslint-enable react-hooks/rules-of-hooks */
+
+function QueryProbe({ spec = endpoint, enabled = true, form = 'positional', onQuery }: ProbeProps) {
   const { global, setGlobal } = useHostPlatform();
-  const query = useMenuQuery(spec, params, enabled);
+  const query = useQueryForm(form, spec, enabled);
   onQuery?.(query);
   return (
     <>
@@ -355,6 +364,19 @@ describe('useMenuQuery identity and request shape', () => {
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByTestId('query').textContent).toBe('loading:-');
     expect(f.requests).toHaveLength(0);
+  });
+
+  it('options.enabled gates the request like the positional argument (#2189)', async () => {
+    const off = fixture();
+    mount(off, { enabled: false, form: 'options' });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByTestId('query').textContent).toBe('loading:-');
+    expect(off.requests).toHaveLength(0);
+    cleanup();
+    const on = fixture();
+    mount(on, { enabled: true, form: 'options' });
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(on.requests).toHaveLength(1);
   });
 });
 
