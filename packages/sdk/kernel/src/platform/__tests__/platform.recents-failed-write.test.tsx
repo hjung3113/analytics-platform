@@ -5,13 +5,13 @@ import { groupId } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, usePlatform } from '../platform';
 import { createRegistry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
 
 // C2 (#2033 review): browser-storage mode, reads work and writes throw (quota). A visit must not drop the earlier ones kept in memory.
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const entry = (id: string) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path: `/${id}`, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: [],
+  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, features, pageKeys: [],
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],
