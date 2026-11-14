@@ -1,16 +1,12 @@
-import { apiClient } from '@/lib/api/client';
-import type { ConversationEntry } from '@ap/feature-shared';
+import { apiRequest } from '@/lib/api/client';
+import { type ConversationPage, conversationPageSchema } from '@ap/feature-shared';
 import { type UseInfiniteQueryResult, useInfiniteQuery } from '@tanstack/react-query';
+
+export type { ConversationPage };
 
 export interface UseVocConversationParams {
   vocId: string;
   kind?: 'public_update' | 'reporter_reply' | 'internal_comment';
-}
-
-export interface ConversationPage {
-  items: ConversationEntry[];
-  next_cursor?: string;
-  has_more: boolean;
 }
 
 export function useVocConversation(
@@ -26,12 +22,12 @@ export function useVocConversation(
       const kindPart = kind ? `kind=${encodeURIComponent(kind)}` : '';
       const queryParts = [cursorPart, kindPart].filter(Boolean).join('&');
       const url = `/vocs/${vocId}/conversation${queryParts ? `?${queryParts}` : ''}`;
-      const res = await apiClient<ConversationPage>('GET', url, { signal });
+      const res = await apiRequest('GET', url, conversationPageSchema, { signal });
       return res.data;
     },
     initialPageParam: '',
     getNextPageParam: (lastPage: ConversationPage) =>
-      lastPage.has_more ? lastPage.next_cursor : undefined,
+      lastPage.page.has_more ? lastPage.page.cursor : undefined,
     enabled: Boolean(vocId),
     staleTime: 10_000,
   });

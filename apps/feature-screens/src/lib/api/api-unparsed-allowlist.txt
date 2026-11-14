@@ -25,7 +25,6 @@ features/voc/hooks/useConfirmVocRecommendation.ts 2
 features/voc/hooks/useDismissVocRecommendation.ts 2
 features/voc/hooks/usePublicUpdateReviewCandidates.ts 3
 features/voc/hooks/useRequestTaskFromVoc.ts 2
-features/voc/hooks/useVocConversation.ts 2
 features/voc/hooks/useVocCreateMutation.ts 2
 features/voc/hooks/useVocEditDescriptionMutation.ts 2
 features/voc/hooks/useVocInternalCommentMutation.ts 2

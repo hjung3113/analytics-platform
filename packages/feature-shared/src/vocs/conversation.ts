@@ -32,3 +32,14 @@ export const conversationEntrySchema = z.object({
   attachments: z.array(LinkedAttachmentSchema),
 });
 export type ConversationEntry = z.infer<typeof conversationEntrySchema>;
+
+// GET /vocs/:id/conversation response: one page of entries plus the cursor of
+// the next page. `page.cursor` is present only while `page.has_more` is true.
+export const conversationPageSchema = z.object({
+  items: z.array(conversationEntrySchema),
+  page: z.object({
+    cursor: z.string().optional(),
+    has_more: z.boolean(),
+  }),
+});
+export type ConversationPage = z.infer<typeof conversationPageSchema>;
