@@ -16,7 +16,7 @@ const GROUP = groupId('voc');
 export const manifests: MenuEntry[] = [
   {
     id: 'inbox', primary: true, group: GROUP, label: { ko: 'VOC 처리함', en: 'VOC inbox' },
-    description: { ko: '접수된 VOC를 큐별로 보고 하나씩 처리합니다', en: 'Work through incoming VOCs by queue' },
+    description: { ko: '큐별 접수 VOC 조회 · 개별 처리', en: 'Incoming VOCs by queue · Review · Individual processing' },
     path: '/flow/inbox', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -25,7 +25,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'triage', group: GROUP, label: { ko: '분류', en: 'Triage' },
-    description: { ko: '미배정·높음·연결 없음 VOC를 분류하고 담당을 정합니다', en: 'Classify unassigned, high and unlinked VOCs and decide owners' },
+    description: { ko: '미배정·높음·연결 없음 VOC 분류 · 담당 지정', en: 'Unassigned, high and unlinked VOCs · Classification · Owner assignment' },
     path: '/flow/triage', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'tab', 'managedSystem', 'area', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -37,7 +37,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'clusters', group: GROUP, label: { ko: '반복 VOC', en: 'Recurring VOC' },
-    description: { ko: '비슷한 VOC를 반복 VOC로 묶어 보고 확정합니다', en: 'Review and confirm clusters of similar VOCs' },
+    description: { ko: '유사 VOC의 반복 VOC 묶음 검토 · 확정', en: 'Similar VOC clusters · Review · Confirmation' },
     path: '/flow/clusters', icon: Layers, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

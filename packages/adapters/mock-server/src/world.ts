@@ -30,16 +30,16 @@ export function createUsers(vocabulary: readonly Permission[]): Record<RoleId, U
   const all = [...vocabulary];
   return {
     engineer: {
-      role: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' },
+      role: 'engineer', name: '공정 엔지니어', title: { ko: '공정 엔지니어', en: 'Process engineer' },
       permissions: all.filter(p => !ENGINEER_EXCLUDED.includes(p)),
       grants: { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] },
     },
     admin: {
-      role: 'admin', name: 'Platform Admin', title: { ko: '플랫폼 관리자', en: 'Platform admin' },
+      role: 'admin', name: '플랫폼 관리자', title: { ko: '플랫폼 관리자', en: 'Platform admin' },
       permissions: all, grants: Object.fromEntries(SITES.map(s => [s.id, s.rooms])),
     },
     viewer: {
-      role: 'viewer', name: 'Field Requester', title: { ko: '현업 문의자', en: 'Field requester' },
+      role: 'viewer', name: '현업 문의자', title: { ko: '현업 문의자', en: 'Field requester' },
       permissions: all.filter(p => VIEWER_GRANTS.includes(p)),
       grants: { MEM: ['PHOTO'] },
     },

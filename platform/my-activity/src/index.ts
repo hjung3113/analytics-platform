@@ -42,7 +42,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'survey-respond', group: COMMUNICATION, parent: 'surveys', navHidden: true, label: { ko: '설문 응답', en: 'Survey response' },
-    description: { ko: '설문 하나에 응답합니다.', en: 'Answer one survey.' },
+    description: { ko: '개별 설문 응답', en: 'Individual survey response' },
     path: '/survey/:surveyId/respond', aliases: ['/surveys/:surveyId/respond'], icon: ClipboardList, permission: 'platform:view', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['returnTo'],
     component: lazy(() => import('./pages/SurveyRespond')),

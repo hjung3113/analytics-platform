@@ -58,7 +58,7 @@ describe('admin usage in the real AppRoot assembly (#605 FIXB)', () => {
   // Not implemented here: see .planning/backlog.md, #605 FIXB shared arrival focus.
   it.each([
     ['/operations/admin-usage?focus=chart-catalog', '차트 카탈로그'],
-    ['/operations/admin-roles?focus=admin', 'Platform Admin'],
+    ['/operations/admin-roles?focus=admin', '플랫폼 관리자'],
   ])('records the shared initial-focus limitation at %s (Escape outside the drawer does not close)', async (url, title) => {
     await mountAt(url);
     const drawer = await screen.findByRole('dialog', { name: title }, { timeout: 10_000 });

@@ -26,7 +26,7 @@ const registry = createRegistry({
 });
 const session = testSession(['console:access', 'platform:view'], { user: { id: 'admin-a', name: 'admin-a', title: { ko: '관리자', en: 'Administrator' } } });
 const ok = <T,>(data: T): ApiResponse<T> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' });
-const principal: AccessPrincipal = { id: 'engineer', name: 'Process Engineer', title: { ko: '공정 엔지니어', en: 'Process engineer' }, role: 'engineer', permissions: ['platform:view'], sites: [] };
+const principal: AccessPrincipal = { id: 'engineer', name: '공정 엔지니어', title: { ko: '공정 엔지니어', en: 'Process engineer' }, role: 'engineer', permissions: ['platform:view'], sites: [] };
 const event = (id: string, scopeId: string | null): AuditEvent => ({
   id, at: '2026-09-26T02:10:00.000Z', actor: 'admin-a', action: 'update', source: 'user',
   target: { type: 'equipment', id: `EQ-${id}`, scopeId }, changes: { status: ['idle', 'maintenance'] },

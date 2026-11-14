@@ -126,14 +126,14 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
       subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
-      description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' },
+      description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' },
       homeMenuId: 'productivity-overview',
     });
     expect(SPACE_DEFS[0].permission).toBeUndefined();
     expect(SPACE_DEFS[1]).toMatchObject({
       label: { ko: 'BRAVO', en: 'BRAVO' },
       subtitle: { ko: '지표관리', en: 'Metrics' },
-      description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' },
+      description: { ko: '지표 정의 · 버전 · 발행', en: 'Metric definitions · Versions · Releases' },
       homeMenuId: 'metric-catalog',
     });
     expect(SPACE_DEFS[1].permission).toBeUndefined();
@@ -147,10 +147,10 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[3]).toMatchObject({ label: { ko: '도구', en: 'Tools' }, homeMenuId: 'eqv:topview' });
     expect(SPACE_DEFS[3].permission).toBeUndefined();
     // ADR-0110: the 업무 흐름 space (F menus; lands on the dashboard) and the reduced 운영 콘솔 (C menus: platform management and access; lands on 역할); neither has a space permission, each shows only when a member menu is permitted.
-    expect(SPACE_DEFS[5]).toMatchObject({ label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '들어온 VOC를 판단하고 Task로 실행한 뒤 설문으로 효과를 확인합니다.', en: 'Judge incoming VOC, run it as Tasks and confirm the effect with surveys.' }, homeMenuId: 'dashboard' });
+    expect(SPACE_DEFS[5]).toMatchObject({ label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: 'VOC 판단 → Task 실행 → 설문으로 효과 확인', en: 'VOC assessment → Task execution → Effect checks with surveys' }, homeMenuId: 'dashboard' });
     expect(SPACE_DEFS[5].permission).toBeUndefined();
     expect(SPACE_DEFS[5].subtitle).toBeUndefined();
-    expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리와 권한을 다룹니다.', en: 'Platform administration and access.' }, homeMenuId: 'admin-roles' });
+    expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리 · 권한', en: 'Platform administration · Access' }, homeMenuId: 'admin-roles' });
     expect(SPACE_DEFS[6].permission).toBeUndefined();
     expect(SPACE_DEFS[6].subtitle).toBeUndefined();
     // #1099b: the one production carry set; every 업무 흐름 menu is a member, no other menu is, and the space declares nothing.

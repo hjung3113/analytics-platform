@@ -69,7 +69,7 @@ export default function RegistryCatalog() {
         title={ko ? '등록되지 않은 메뉴입니다' : 'This menu is not registered'}
         body={ko ? `${focus} 메뉴는 등록되어 있지 않습니다. 목록에서 다시 고르세요.` : `${focus} is not a registered menu. Pick another from the list.`}
         action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{ko ? '닫기' : 'Close'}</Button>} />) : null;
-  return <PlatformPage description={ko ? '등록된 메뉴 선언의 조회 전용 화면입니다.' : 'Read-only view of the registered menu declarations.'}>
+  return <PlatformPage description={ko ? '등록된 메뉴 선언 (조회 전용)' : 'Registered menu declarations (read-only)'}>
     {/* #1167 B-1: the page head already shows this title; keep it for the outline only, the table's name is ariaLabel. */}
     {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} />
       : <PlatformDataTable<RegistryRow>

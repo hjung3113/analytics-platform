@@ -20,8 +20,8 @@ const registry = createRegistry({
   platformHomeMenuId: 'home',
   permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
   spaces: [
-    { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
-    { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
+    { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' }, homeMenuId: 'equipment' },
+    { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의 · 버전 · 발행', en: 'Metric definitions · Versions · Releases' }, homeMenuId: 'catalog' },
     { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, homeMenuId: 'dashboard' },
   ],
   groups: [
@@ -181,8 +181,8 @@ describe('platform home launcher', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(2);
     expect(list.querySelector('svg')).toBeNull();
     expect(systems.querySelector('[class*="grid-cols"]')).toBeNull();
-    const mars = within(list).getByRole('link', { name: 'MARS 생산성 분석 설비·기간별 생산성과 사이클타임을 분석합니다.' });
-    expect(mars.querySelector('.truncate')?.textContent).toBe('설비·기간별 생산성과 사이클타임을 분석합니다.');
+    const mars = within(list).getByRole('link', { name: 'MARS 생산성 분석 설비·기간별 생산성 · 사이클타임' });
+    expect(mars.querySelector('.truncate')?.textContent).toBe('설비·기간별 생산성 · 사이클타임');
     expect(within(mars).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
   });
 
@@ -201,7 +201,7 @@ describe('platform home launcher', () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={toolsRegistry}><OperationsHome launcherGroups={grouped ? [{ id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] }] : undefined} spaceNames={spaceNames} /></PlatformProvider></I18nProvider>);
     await settled();
-    const marsRow = screen.getByRole('link', { name: '설비 생산성 허브 생산성 분석 설비·기간별 생산성과 사이클타임을 분석합니다.' });
+    const marsRow = screen.getByRole('link', { name: '설비 생산성 허브 생산성 분석 설비·기간별 생산성 · 사이클타임' });
     expect(marsRow.getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
     expect(within(marsRow).getByText('설비 생산성 허브')).toBeTruthy();
     expect(within(marsRow).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
@@ -265,7 +265,7 @@ describe('platform home launcher', () => {
       expect.stringContaining('BRAVO'),
     ]);
     expect(cards[0].textContent).toContain('생산성 분석');
-    expect(cards[0].textContent).toContain('설비·기간별 생산성과 사이클타임을 분석합니다.');
+    expect(cards[0].textContent).toContain('설비·기간별 생산성 · 사이클타임');
     expect(cards[1].textContent).toContain('지표관리');
     expect(cards[0].textContent).not.toContain('이어서');
     expect(cards[0].getAttribute('href')).toContain('/equipment');
@@ -562,7 +562,7 @@ describe('configured home launcher (#1109)', () => {
     const Home = createHomeComponent(groups, { spaceNames: { [spaceId('mars')]: { ko: '생산성 허브', en: 'Productivity hub' } } });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(BOTH)} registry={registry}><Suspense fallback={null}><Home params={{}} /></Suspense></PlatformProvider></I18nProvider>);
-    const mars = await screen.findByRole('link', { name: '생산성 허브 생산성 분석 설비·기간별 생산성과 사이클타임을 분석합니다.' });
+    const mars = await screen.findByRole('link', { name: '생산성 허브 생산성 분석 설비·기간별 생산성 · 사이클타임' });
     expect(mars.getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
     expect(screen.getByRole('link', { name: /^BRAVO / })).toBeTruthy();
     expect(registry.spaces.find(space => space.id === 'mars')?.label.ko).toBe('MARS');

@@ -34,7 +34,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'admin-registry', group: GROUP, label: { ko: '메뉴 레지스트리', en: 'Menu registry' },
-    description: { ko: '등록된 메뉴 선언을 조회합니다.', en: 'Registered menu declarations.' },
+    description: { ko: '등록된 메뉴 선언 (조회 전용)', en: 'Registered menu declarations (read-only)' },
     path: '/admin/registry', icon: Library, permission: 'console:access', requiresScope: false, pageType: 'catalog', context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['sort', 'page', 'focus'],
     component: lazy(() => import('./pages/RegistryCatalog')),
   },

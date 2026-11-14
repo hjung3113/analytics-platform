@@ -170,6 +170,7 @@ describe('Quest reads (BRAVO is not served by the platform; the mock answers the
   it('answers ok with the Quest for every mock row; the ids the item fixtures link to resolve', async () => {
     const a = adapter();
     for (const row of MOCK_QUESTS) expect(await quest(a, row.id)).toMatchObject({ outcome: 'ok', data: row, trust: null, assessments: [] });
+    expect(await quest(a, 'Q-1')).toMatchObject({ data: { title: '챔버 압력 변동 검토', status: '진행 중' } });
     for (const q of ['Q-1', 'Q-2', 'Q-9']) expect((await quest(a, q)).outcome).toBe('ok');
   });
 
@@ -206,7 +207,7 @@ describe('Quest reads (BRAVO is not served by the platform; the mock answers the
     const ids = async (p: object) => pageOf(await search(a, { page: 0, pageSize: 10, ...p }))?.items.map((q: Quest) => q.id);
     expect(await ids({ query: 'q-3' })).toEqual(['Q-3']);
     expect(await ids({ query: '설비' })).toEqual(['Q-3']);
-    expect(await ids({ status: 'Open' })).toEqual(['Q-1', 'Q-7', 'Q-9']);
+    expect(await ids({ status: 'Open' })).toEqual(['Q-7', 'Q-9']);
     expect(await ids({ query: 'pump', status: 'Open' })).toEqual([]);
   });
 
@@ -245,10 +246,10 @@ describe('Quest reads (BRAVO is not served by the platform; the mock answers the
     const a = adapter();
     const first = (await quest(a, 'Q-1')).data as Quest;
     first.title = 'changed';
-    expect(((await quest(a, 'Q-1')).data as Quest).title).toBe('Chamber pressure drift review');
+    expect(((await quest(a, 'Q-1')).data as Quest).title).toBe('챔버 압력 변동 검토');
     const listed = pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0] as Quest;
     listed.title = 'changed';
-    expect(pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0]!.title).toBe('Chamber pressure drift review');
+    expect(pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0]!.title).toBe('챔버 압력 변동 검토');
   });
 });
 

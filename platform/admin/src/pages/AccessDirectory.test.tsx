@@ -53,12 +53,12 @@ const sites = (rooms: Record<string, string[]>): AccessPrincipal['sites'] => [
 const principal = (id: string, name: string, title: { ko: string; en: string }, permissions: Permission[], rooms: Record<string, string[]>): AccessPrincipal =>
   ({ id, name, title, role: id, permissions, sites: sites(rooms) });
 
-const VIEWER = principal('viewer', 'Field Requester', { ko: '현업 문의자', en: 'Field requester' },
+const VIEWER = principal('viewer', '현업 문의자', { ko: '현업 문의자', en: 'Field requester' },
   ['platform:view', menuPermission('metrics:view'), 'notice:view', 'voc:view'], { MEM: ['PHOTO'] });
-const ENGINEER = principal('engineer', 'Process Engineer', { ko: '공정 엔지니어', en: 'Process engineer' },
+const ENGINEER = principal('engineer', '공정 엔지니어', { ko: '공정 엔지니어', en: 'Process engineer' },
   ['platform:view', menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), 'notice:view', 'voc:view'],
   { MEM: ['PHOTO', 'ETCH', 'CVD'], FDRY: ['PHOTO'] });
-const ADMIN = principal('admin', 'Platform Admin', { ko: '플랫폼 관리자', en: 'Platform admin' },
+const ADMIN = principal('admin', '플랫폼 관리자', { ko: '플랫폼 관리자', en: 'Platform admin' },
   ['platform:view', menuPermission('equipment:view'), menuPermission('master:view'), menuPermission('analytics:view'), menuPermission('metrics:view'), 'notice:view', 'voc:view', 'console:access'],
   { MEM: ['PHOTO', 'ETCH', 'CVD', 'DIFF'], FDRY: ['PHOTO', 'ETCH', 'CMP'], XIA: ['PHOTO', 'ETCH'] });
 // Payload order is deliberately NOT the server default (role asc): the table must not re-sort a page.
@@ -133,12 +133,12 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
     // Payload order [viewer, admin, engineer] is served as-is: the client never re-sorts a page.
-    await screen.findByText('Field Requester');
+    await screen.findAllByText('현업 문의자');
     const rows = dataRows();
     // `data-row-id` selects body rows only; there is no header row at index 0.
-    expect(rows[0]).toContain('Field Requester');
-    expect(rows[1]).toContain('Platform Admin');
-    expect(rows[2]).toContain('Process Engineer');
+    expect(rows[0]).toContain('현업 문의자');
+    expect(rows[1]).toContain('플랫폼 관리자');
+    expect(rows[2]).toContain('공정 엔지니어');
   });
 
   it('offers the registry\'s permission list as the editor options: kernel first, then the app\'s declared ones (ADR-0072), one value only', async () => {
@@ -264,7 +264,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
   it('opens the drawer from the loaded rows: held permissions, client-joined menus, site counts', async () => {
     const f = renderRoles('/admin/roles');
     await waitFor(() => expect(f.calls).toHaveLength(1));
-    const engineerRow = screen.getAllByRole('row').find(r => r.textContent?.includes('Process Engineer'))!;
+    const engineerRow = screen.getAllByRole('row').find(r => r.textContent?.includes('공정 엔지니어'))!;
     fireEvent.click(within(engineerRow).getByRole('button', { name: /보기|View/ }));
     expect(url().get('focus')).toBe('engineer');
     // Held permissions in wire order, console:access omitted; the joined fixture menu carries the space badge.
@@ -307,14 +307,14 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     const empty: ApiResponse<AccessDirectoryPage> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'empty' };
     const f = renderRoles('/admin/roles', (_query, call) => call === 1 ? okResponse([ENGINEER]) : empty);
     await waitFor(() => expect(f.calls).toHaveLength(1));
-    const engineerRow = screen.getAllByRole('row').find(r => r.textContent?.includes('Process Engineer'))!;
+    const engineerRow = screen.getAllByRole('row').find(r => r.textContent?.includes('공정 엔지니어'))!;
     fireEvent.click(within(engineerRow).getByRole('button', { name: /보기|View/ }));
-    expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '공정 엔지니어' })).toBeTruthy();
 
     historyStep({ focus: 'engineer', filter: 'permission:in:console:access' });
     await waitFor(() => expect(f.calls).toHaveLength(2));
     expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Process Engineer' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: '공정 엔지니어' })).toBeNull();
   });
 
   it('does not let an aborted page response replace the rows used by the drawer', async () => {
@@ -326,11 +326,11 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
 
     historyStep({ focus: 'viewer', filter: 'permission:in:console:access' });
     await waitFor(() => expect(f.calls).toHaveLength(2));
-    expect(await screen.findByRole('heading', { name: 'Field Requester' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '현업 문의자' })).toBeTruthy();
 
     resolveFirst(okResponse([ENGINEER]));
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Field Requester' })).toBeTruthy());
-    expect(screen.queryByRole('heading', { name: 'Process Engineer' })).toBeNull();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '현업 문의자' })).toBeTruthy());
+    expect(screen.queryByRole('heading', { name: '공정 엔지니어' })).toBeNull();
   });
 
   it('never calls a focus unknown before a page answered, or when the page answered forbidden (06 §17)', async () => {
@@ -361,13 +361,13 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
 
     resolveSecond(okResponse([ENGINEER]));
-    expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '공정 엔지니어' })).toBeTruthy();
     expect(screen.queryByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeNull();
   });
 
   it('drops focus when the user re-sorts, so a row that moved pages is not called missing (bot review P2)', async () => {
     const f = renderRoles('/admin/roles?focus=engineer');
-    expect(await screen.findByRole('heading', { name: 'Process Engineer' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '공정 엔지니어' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /이름|Name/ }));
     await waitFor(() => expect(url().get('sort')).not.toBeNull());
     expect(url().has('focus')).toBe(false);
@@ -380,7 +380,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
     expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
     expect(await screen.findByText(/이 페이지에 없는 주체입니다\.|Principal not on this page\./)).toBeTruthy();
-    await screen.findByText('Field Requester'); // the table still lists the page
+    await screen.findAllByText('현업 문의자'); // the table still lists the page
     fireEvent.click(screen.getByRole('button', { name: /닫기|Close/ }));
     expect(url().has('focus')).toBe(false);
   });
@@ -405,7 +405,7 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     const f = renderRoles('/admin/roles?v=1&focus=engineer&tab=bogus');
     // An unknown tab is a drawer alert, not a page parse failure: the adapter still answers.
     await waitFor(() => expect(f.calls).toHaveLength(1));
-    await screen.findByText('Field Requester');
+    await screen.findAllByText('현업 문의자');
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('alert').textContent).toMatch(/등록되지 않은 탭입니다|This tab is not registered\./);
     fireEvent.click(within(dialog).getByRole('button', { name: /권한 열기|Open permissions/ }));

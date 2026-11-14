@@ -104,9 +104,9 @@ describe('accessDirectory (issue #49: the console access directory)', () => {
 
   it('sorts server-side by master name, permissionCount and grantCount; desc flips only the field', async () => {
     const byName = page(await accessDirectory({ sort: { field: 'name', desc: false } }, undefined, { role: 'admin', latency: 0 }));
-    expect(byName.items.map(p => p.name)).toEqual(['Field Requester', 'Platform Admin', 'Process Engineer']);
+    expect(byName.items.map(p => p.name)).toEqual(['공정 엔지니어', '플랫폼 관리자', '현업 문의자']);
     const byNameDesc = page(await accessDirectory({ sort: { field: 'name', desc: true } }, undefined, { role: 'admin', latency: 0 }));
-    expect(byNameDesc.items.map(p => p.name)).toEqual(['Process Engineer', 'Platform Admin', 'Field Requester']);
+    expect(byNameDesc.items.map(p => p.name)).toEqual(['현업 문의자', '플랫폼 관리자', '공정 엔지니어']);
     const byPermissions = page(await accessDirectory({ sort: { field: 'permissionCount', desc: true } }, undefined, { role: 'admin', latency: 0 }));
     expect(byPermissions.items.map(p => p.permissions)).toEqual([USERS.admin.permissions, USERS.engineer.permissions, USERS.viewer.permissions]);
     const byGrants = page(await accessDirectory({ sort: { field: 'grantCount', desc: true } }, undefined, { role: 'admin', latency: 0 }));

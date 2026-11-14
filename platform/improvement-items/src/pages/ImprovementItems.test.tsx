@@ -96,7 +96,7 @@ describe('improvement screens', () => {
   });
   it('does not offer creation without improvement.manage', async () => {
     mount({ allowed: false });
-    await screen.findByText('개선 아이템을 만들거나 상태를 바꾸려면 improvement.manage 권한이 필요합니다.');
+    await screen.findByText('개선 아이템을 만들거나 상태를 바꾸려면 개선 아이템 관리 권한이 필요합니다.');
     expect(screen.queryByRole('button', { name: '개선 아이템 남기기' })).toBeNull();
   });
 });

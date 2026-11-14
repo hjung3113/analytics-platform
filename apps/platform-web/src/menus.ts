@@ -90,13 +90,13 @@ export const SPACE_ID_MIGRATIONS: Readonly<Record<string, string>> = { analytics
 
 /** SPACES stays separate from GROUPS so the folder-space invariant reads each declaration independently. */
 export const SPACES = [
-  { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'productivity-overview', feedbackTracking: true },
-  { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'metric-catalog', feedbackTracking: true },
-  { id: spaceId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비별 동작시간과 동작 흐름을 분석합니다.', en: 'Analyze operation time and operation flow by equipment.' }, homeMenuId: 'operation-time', feedbackTracking: true },
-  { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃을 Top View로 보고 로그를 재생합니다.', en: 'View equipment layouts as a Top View and replay their logs.' }, homeMenuId: 'eqv:topview' },
-  { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계와 검증을 관리합니다.', en: 'Manage log development stages and validation per equipment model.' }, homeMenuId: 'log-my-queue', scopePresentation: 'hidden', feedbackTracking: true },
-  { id: spaceId('flow'), label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '들어온 VOC를 판단하고 Task로 실행한 뒤 설문으로 효과를 확인합니다.', en: 'Judge incoming VOC, run it as Tasks and confirm the effect with surveys.' }, homeMenuId: 'dashboard' },
-  { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리와 권한을 다룹니다.', en: 'Platform administration and access.' }, homeMenuId: 'admin-roles' },
+  { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' }, homeMenuId: 'productivity-overview', feedbackTracking: true },
+  { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의 · 버전 · 발행', en: 'Metric definitions · Versions · Releases' }, homeMenuId: 'metric-catalog', feedbackTracking: true },
+  { id: spaceId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비별 동작시간 · 동작 흐름', en: 'Operation time and flow by equipment' }, homeMenuId: 'operation-time', feedbackTracking: true },
+  { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃 Top View · 로그 재생', en: 'Equipment layout Top View · Log replay' }, homeMenuId: 'eqv:topview' },
+  { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계 · 검증', en: 'Log development stages by equipment model · Validation' }, homeMenuId: 'log-my-queue', scopePresentation: 'hidden', feedbackTracking: true },
+  { id: spaceId('flow'), label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: 'VOC 판단 → Task 실행 → 설문으로 효과 확인', en: 'VOC assessment → Task execution → Effect checks with surveys' }, homeMenuId: 'dashboard' },
+  { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리 · 권한', en: 'Platform administration · Access' }, homeMenuId: 'admin-roles' },
 ] satisfies readonly SpaceDef[];
 
 /** Home-only display order; registry access and per-space ordering remain authoritative. */

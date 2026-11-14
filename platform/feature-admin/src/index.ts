@@ -19,7 +19,7 @@ const GROUP = groupId('flowSettings');
 export const manifests: MenuEntry[] = [
   {
     id: 'managed-systems', primary: true, group: GROUP, label: { ko: '시스템', en: 'Systems' },
-    description: { ko: '시스템의 기본 담당자·검토자와 활성 상태를 관리합니다', en: 'Manage Managed Systems, their default owners and reviewers, and their active state' },
+    description: { ko: '시스템별 기본 담당자·검토자 · 활성 상태 관리', en: 'Managed Systems · Default owners and reviewers · Active state management' },
     path: '/flow/managed-systems', icon: Server, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -27,7 +27,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'analytics-areas', group: GROUP, label: { ko: '분석 영역', en: 'Analytics areas' },
-    description: { ko: '분석 영역을 시스템별로 보고 관리합니다', en: 'See and manage Analytics Areas by Managed System' },
+    description: { ko: '시스템별 분석 영역 조회 · 관리', en: 'Analytics Areas by Managed System · Review · Management' },
     path: '/flow/analytics-areas', icon: Network, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['system', 'includeArchived', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -35,7 +35,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'settings', group: GROUP, label: { ko: '흐름 정책', en: 'Workflow policy' },
-    description: { ko: '커버리지 기준 등 플랫폼 설정을 관리합니다', en: 'Manage workspace settings such as the coverage thresholds' },
+    description: { ko: '커버리지 기준 등 플랫폼 설정 관리', en: 'Workspace settings management, including coverage thresholds' },
     path: '/flow/settings', icon: SlidersHorizontal, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['section', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

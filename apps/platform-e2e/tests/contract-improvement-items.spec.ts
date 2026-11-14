@@ -46,7 +46,7 @@ test.describe('개선 아이템 (§5 권한 · §13 표/확인 · §22 Context �
     await expect(page.getByRole('link', { name: 'IM-1', exact: true })).toBeVisible();
     await signInAs(page, 'viewer');
     await page.reload();
-    await expect(page.getByText('개선 아이템을 만들거나 상태를 바꾸려면 improvement.manage 권한이 필요합니다.', { exact: true })).toBeVisible();
+    await expect(page.getByText('개선 아이템을 만들거나 상태를 바꾸려면 개선 아이템 관리 권한이 필요합니다.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '개선 아이템 남기기', exact: true })).toHaveCount(0);
   });
 

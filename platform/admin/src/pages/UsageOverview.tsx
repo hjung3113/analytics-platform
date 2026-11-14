@@ -42,7 +42,7 @@ export default function UsageOverview() {
       cell: row => formatLastUsed(row.lastUsedAt, lang),
     },
   ], [ko, lang, q.response]);
-  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트의 집계입니다. 식별 필드만 수집합니다.' : 'Aggregates of menu entry and dwell events. Collects identity fields only.'}>
+  return <PlatformPage description={ko ? '메뉴 진입·체류 이벤트 집계 (식별 필드만 수집)' : 'Menu entry and dwell event aggregates (identity fields only)'}>
     {tableInvalid ? <TableUrlWarning sentences={invalidTableSentences} />
       : <QueryView widgetName={ko ? '메뉴 활용률' : 'Menu usage'} query={q}>{data => {
         const rows = joinUsageRows(registry, data.menus);

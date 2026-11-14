@@ -18,7 +18,7 @@ const GROUP = groupId('access');
 export const manifests: MenuEntry[] = [
   {
     id: 'permission-request-review', primary: true, group: GROUP, label: { ko: '권한 요청 검토', en: 'Permission request review' },
-    description: { ko: '권한 요청을 검토하고 결정합니다', en: 'Review and decide workspace permission requests' },
+    description: { ko: '권한 요청 검토 · 결정', en: 'Workspace permission requests · Review · Decisions' },
     path: '/operations/permission-request-review', icon: FileCheck2, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -26,7 +26,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'permission-grants', group: GROUP, label: { ko: '부여 목록', en: 'Grants' },
-    description: { ko: '활성 권한과 명시적 거부를 보고 회수하거나 해제합니다', en: 'See active grants and explicit denies, then revoke or lift them' },
+    description: { ko: '활성 권한·명시적 거부 조회 · 권한 회수·거부 해제', en: 'Active grants and explicit denies · Review · Grant revocation and deny removal' },
     path: '/operations/permission-grants', icon: KeyRound, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
