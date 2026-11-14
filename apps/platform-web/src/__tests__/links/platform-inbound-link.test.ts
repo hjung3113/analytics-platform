@@ -202,6 +202,7 @@ describe('inbound destinations come from the menus\' opensObject (#2230, ADR-016
     { id: 'by-key', path: '/lots', opensObject: { lot: { pageKey: 'lotId' } } },
     { id: 'two', path: '/x/:a', opensObject: { one: { param: 'a' }, other: { param: 'b' } } },
     { id: 'nested', path: '/s/:site/items/:itemId', opensObject: { item: { param: 'itemId' } } },
+    { id: 'clash', path: '/objects/:menuId', opensObject: { object: { param: 'menuId' } } },
   ];
   it('derives one destination per object-opening menu with a single trailing id param, and drops the rest', () => {
     expect(inboundDestinationsOf(menus)).toEqual([
