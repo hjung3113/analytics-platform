@@ -24,6 +24,7 @@ export function Attempts({ attempts, selected, onSelect, ui, compact = false, Ru
 export function ResultSummary({ attempt }: { attempt?: Attempt | undefined }) { return <p className="text-xs text-text-secondary">{attempt ? `${STATE_LABEL[attempt.verdict ?? 'none'] ?? '판정 없음'}${attempt.requiredUnchecked > 0 ? ` · 필수 규칙 ${attempt.requiredUnchecked}건 미검증` : ''}${attempt.manifestMatches ? '' : ' · 샘플 매니페스트 불일치'}` : '아직 결과가 없습니다. 작업자가 실행 결과를 저장하면 표시됩니다.'}</p>; }
 
 export function RequestRegister(props: ScreenProps & { fixedRound?: { id: string; seq: number }; onClose(): void }) {
+  const ime = useImeEnterGuard();
   const { api, ui, fixedRound, onClose } = props;
   const create = api.useAction('requestCreate');
   const [modelQ, setModelQ] = useState('');
@@ -37,7 +38,7 @@ export function RequestRegister(props: ScreenProps & { fixedRound?: { id: string
   const [result, setResult] = useState<WriteResult | null>(null);
   const locked = create.pending || result?.outcome === 'unknown' || result?.outcome === 'error';
   async function submit() { try { const next = await create.run({ roundId, priority: Number(priority), immediate }); setResult(next); if (next.outcome === 'ok') onClose(); } catch (cause) { const failure = writeFailure(cause); if (failure) setResult(failure); } }
-  return ui.drawer({ title: '요청 등록', subtitle: 'Round의 샘플·명세 검증을 요청합니다', requestClose: () => { if (!create.pending) onClose(); }, body: <form className="grid gap-5 break-keep" onSubmit={e => { e.preventDefault(); void submit(); }}>
+  return ui.drawer({ title: '요청 등록', subtitle: 'Round의 샘플·명세 검증을 요청합니다', requestClose: () => { if (!create.pending) onClose(); }, body: <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-5 break-keep" onSubmit={e => { e.preventDefault(); void submit(); }}>
     {fixedRound ? <div className="grid gap-2"><Label htmlFor="fixed-round">Round (필수)</Label><Input inputSize="toolbar" id="fixed-round" disabled value={fixedRound.id} /><p className="text-xs">Round {fixedRound.seq} · 이 Round로 고정</p></div> : <>
       <div className="grid gap-2"><Label htmlFor="request-model">모델 검색</Label><Input id="request-model" inputSize="toolbar" value={modelQ} disabled={locked} onChange={e => { setModelQ(e.target.value); setModelPage(0); setProjectId(''); setRoundId('none'); }} /></div>
       <ReadView query={models}>{data => <><Choice label="개발 건 선택" value={projectId || 'none'} disabled={locked} onChange={id => { setProjectId(id === 'none' ? '' : id); setRoundId('none'); }} options={[[ 'none', '모델의 열린 개발 건 선택' ], ...data.rows.flatMap(m => m.project ? [[m.project.projectId, `${m.code} · ${m.name}`] as const] : [])]} /><Pager page={modelPage} total={data.total} onChange={setModelPage} />{data.rows.every(m => !m.project) ? <p className="text-xs">선택할 개발 건이 없습니다. 모델에서 개발 건을 먼저 만들어 주세요.</p> : null}</>}</ReadView>

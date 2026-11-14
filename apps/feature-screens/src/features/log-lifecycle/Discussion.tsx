@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Button, Checkbox, Input, Label, Textarea } from '@ap/ui';
+import { Button, Checkbox, Input, Label, Textarea, useImeEnterGuard } from '@ap/ui';
 import { VALIDATION_ISSUE_LIMITS as ISSUE_LIMITS } from '@ap/feature-shared';
 import { type Action, type CursorPage, type DiscussionComment, type IssueHistoryEvent, type IssueOccurrence, type LifecycleApi, type Params, type RoundDetail, type RuleResult, type ScreenProps, type ValidationIssueDetail, type ValidationIssueRow, type WriteResult } from './contracts';
 import { ReadView, Section, time, writeFailure, WriteError } from './presentation';
@@ -116,12 +116,13 @@ function WriteFeedback({ controller, slotKey }: { controller: DiscussionControll
 }
 
 export function CommentComposer({ controller, slotKey, action, input, label, disabled = false }: { controller: DiscussionController; slotKey: string; action: 'validationIssueComment' | 'roundDiscussionComment'; input: Params; label: string; disabled?: boolean }) {
+  const ime = useImeEnterGuard();
   const { draft, result } = controller.slot(slotKey);
   const pending = controller.pending(action);
   const locked = lockedBy(result, pending) || disabled;
   const body = draft.body ?? '';
   const id = `comment-${slotKey.replace(/[^a-z0-9]/gi, '-')}`;
-  return <form className="grid gap-2" aria-label={label} onSubmit={e => { e.preventDefault(); if (!locked && fits(body, ISSUE_LIMITS.comment, true)) void controller.submit(slotKey, action, { ...input, body }); }}>
+  return <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-2" aria-label={label} onSubmit={e => { e.preventDefault(); if (!locked && fits(body, ISSUE_LIMITS.comment, true)) void controller.submit(slotKey, action, { ...input, body }); }}>
     <TextField id={id} label={label} value={body} limit={ISSUE_LIMITS.comment} required disabled={locked} onChange={value => controller.edit(slotKey, 'body', value)} />
     <WriteFeedback controller={controller} slotKey={slotKey} />
     {result?.outcome === 'ok' ? <p role="status" className="text-xs text-text-secondary">댓글을 남겼습니다.</p> : null}
@@ -204,6 +205,7 @@ export function IssueDrawer({ api, ui, round, issueId, actorId, canContribute, c
 
 /** Registration without a rule: title and free description (optional expected/actual/repro). Saved → its thread opens. */
 export function IssueRegister({ ui, round, controller, onClose, onSaved }: Pick<ScreenProps, 'ui'> & { round: RoundDetail; controller: DiscussionController; onClose(): void; onSaved(issueId: string): void }) {
+  const ime = useImeEnterGuard();
   const key = `register:${round.id}`;
   const { draft, result } = controller.slot(key);
   const pending = controller.pending('validationIssueRegister');
@@ -216,7 +218,7 @@ export function IssueRegister({ ui, round, controller, onClose, onSaved }: Pick<
     void controller.submit(key, 'validationIssueRegister', { projectId: round.projectId, firstRoundId: round.id, title: draft.title ?? '', body: draft.body ?? '', ...optional }, saved);
   };
   const field = (name: string, label: string, limit: number, required = false, multiline = true) => <TextField key={name} id={`issue-${name}`} label={label} value={draft[name] ?? ''} limit={limit} required={required} multiline={multiline} disabled={locked} onChange={value => controller.edit(key, name, value)} />;
-  const body = <form className="grid gap-4 break-keep" onSubmit={e => { e.preventDefault(); submit(); }}>
+  const body = <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-4 break-keep" onSubmit={e => { e.preventDefault(); submit(); }}>
     <p className="text-xs text-text-secondary">규칙이 없어도 등록할 수 있습니다. 로그 원문은 붙여 넣지 말고, 등록 뒤 규칙 상세에서 근거 위치로 연결해 주세요. 등록은 규칙 결과·판정·Gate를 바꾸지 않습니다.</p>
     {field('title', '제목', ISSUE_LIMITS.title, true, false)}{field('body', '설명', ISSUE_LIMITS.body, true)}{field('expected', '기대', ISSUE_LIMITS.body)}{field('actual', '실제', ISSUE_LIMITS.body)}{field('repro', '재현 절차', ISSUE_LIMITS.body)}
     <WriteFeedback controller={controller} slotKey={key} />
@@ -231,6 +233,7 @@ export function IssueRegister({ ui, round, controller, onClose, onSaved }: Pick<
  * an earlier Round can recur here (C5); the table and header stay Round-scoped.
  */
 export function IssueLink({ api, round, attemptId, rule, controller, onOpenIssue }: { api: LifecycleApi; round: RoundDetail; attemptId: string; rule: RuleResult; controller: DiscussionController; onOpenIssue(issueId: string): void }) {
+  const ime = useImeEnterGuard();
   const key = `link:${rule.id}`;
   const evidenceKey = `${key}:evidence`;
   const { draft, result, linked } = controller.slot(key);
@@ -242,7 +245,7 @@ export function IssueLink({ api, round, attemptId, rule, controller, onOpenIssue
   const link = () => { if (!locked && issueId) void controller.link(key, { issueId, roundId: round.id, attemptId, ruleResultId: rule.id }, withEvidence ? refs : null); };
   // The candidate list stays outside the form: its «더 보기» and retry buttons must never submit a link.
   return <Section title="검증 항목 연결"><CursorFeed<ValidationIssueRow> api={api} name="validationIssues" params={{ projectId: round.projectId }} label="연결할 검증 항목" empty="이 개발 건에 연결할 검증 항목이 없습니다. 먼저 검증 항목을 등록해 주세요." render={row => <Button type="button" variant={row.id === issueId ? 'secondary' : 'ghost'} size="toolbar" className="h-auto max-w-full justify-start whitespace-normal text-left" aria-pressed={row.id === issueId} disabled={locked} onClick={() => controller.edit(key, 'issueId', row.id)}><span className="grid gap-0.5"><span className="text-sm">{row.title}</span><span className="text-xs text-text-secondary">{row.firstRoundId === round.id ? '이 Round에서 등록' : '다른 Round에서 등록'} · 연결 {row.occurrenceCount}건 · Round {row.roundCount}개</span></span></Button>} />
-    <form className="grid gap-3" onSubmit={e => { e.preventDefault(); link(); }}>
+    <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-3" onSubmit={e => { e.preventDefault(); link(); }}>
     {refs.length ? <label htmlFor={`link-evidence-${rule.id}`} className="flex items-center gap-2 text-xs"><Checkbox id={`link-evidence-${rule.id}`} checked={withEvidence} disabled={locked} onCheckedChange={value => controller.edit(key, 'evidence', String(value === true))} />근거 위치 {refs.length}개도 연결 (위치 참조만, 원문 복사 없음)</label> : <p className="text-xs text-text-secondary">이 규칙 결과에는 근거 위치가 없어 규칙 결과만 연결합니다.</p>}
     <WriteFeedback controller={controller} slotKey={key} />
     <WriteFeedback controller={controller} slotKey={evidenceKey} />

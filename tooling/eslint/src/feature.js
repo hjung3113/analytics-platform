@@ -193,6 +193,14 @@ const baseConfigs = () => [
 const A11Y_RULES = Object.fromEntries(
   Object.entries(jsxA11y.configs.recommended.rules).map(([name, level]) => [name, level]),
 );
+// #2243: a form's `onKeyDown` handles keys bubbling up from its own fields — the IME Enter guard
+// (`useImeEnterGuard().onKeyDown` of the ui package, which cancels the implicit submit of an Enter that confirms a Korean
+// composition) or an inline editor's Escape-to-cancel. It gives the form no interaction of its own, so `<form>` may carry it;
+// other handlers on a form (onClick, …) stay reported.
+{
+  const [level, options] = A11Y_RULES['jsx-a11y/no-noninteractive-element-interactions'];
+  A11Y_RULES['jsx-a11y/no-noninteractive-element-interactions'] = [level, { ...options, form: ['onKeyDown'] }];
+}
 
 const reactUiConfigs = (reactHooks) => [
   reactHooks,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Input, Label, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
+import { Button, Input, Label, RadioGroup, RadioGroupItem, Textarea, useImeEnterGuard } from '@ap/ui';
 import { GATE_LABEL, REASON_COPY, type CursorPage, type Page, type ValidationIssueRow, type RequestDetail, type RuleResult, type RoundDetail, type ScreenProps, type WriteResult } from './contracts';
 import { Disclosure, GateBadge, ReadView, time, writeFailure, WriteError } from './presentation';
 import { decisiveReference } from './RoundExecution';
@@ -36,6 +36,7 @@ function StandaloneGatePanel(props: GateProps) {
   return <GatePanelView {...props} controller={controller} />;
 }
 function GatePanelView({ api, ui, round, completedAt, controller }: GateProps & { controller: GateController }) {
+  const ime = useImeEnterGuard();
   const available = round.gateAvailability;
   const { draft: { decision, reason, riskActor, scope, until, result }, update, pending, submit, retry } = controller;
   const reference = decisiveReference(round);
@@ -55,7 +56,7 @@ function GatePanelView({ api, ui, round, completedAt, controller }: GateProps & 
       {issues.status === 'done' && issues.data?.rows.length ? <><p className="text-text-secondary">최근 활동 검증 항목{issues.data.nextCursor ? ` ${issues.data.rows.length}건만 표시` : ''}</p>{issues.data.rows.map(row => <p key={row.id}>{row.title}</p>)}</> : null}
     </section>
     <Disclosure label="근거 스냅샷"><pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(available.basis, null, 2)}</pre></Disclosure>
-    <form className="grid gap-3" onSubmit={e => { e.preventDefault(); void submit(); }}>
+    <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-3" onSubmit={e => { e.preventDefault(); void submit(); }}>
       <fieldset disabled={locked}><legend className="mb-2 text-sm">결정</legend><RadioGroup aria-label="결정" value={selected?.allowed ? decision : ''} onValueChange={v => { update({ decision: v as typeof decision, result: null }); }} orientation="horizontal">
         {(['approved', 'rejected', 'exception'] as const).map(d => <label key={d} className="flex items-center gap-2 text-sm"><RadioGroupItem value={d} disabled={!available.decisions[d].allowed} />{GATE_LABEL[d]}</label>)}
       </RadioGroup></fieldset>

@@ -16,6 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -208,6 +209,7 @@ function RegisterDialog({
   onOpenChange: (v: boolean) => void;
   onSaved: () => Promise<void>;
 }) {
+  const ime = useImeEnterGuard();
   const [slug, setSlug] = useState(prefill?.slug ?? '');
   const [name, setName] = useState(prefill?.name ?? '');
   const [externalKey, setExternalKey] = useState(prefill?.external_key ?? '');
@@ -252,7 +254,7 @@ function RegisterDialog({
               : '새 시스템을 레지스트리에 추가합니다.'}
           </DialogDescription>
         </DialogHeader>
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           data-testid="create-managed-system-form"
           className="space-y-3"
           noValidate
@@ -445,6 +447,7 @@ function EditForm({
   onReregister: (target: ManagedSystemDto) => void;
   onSaved: () => Promise<void>;
 }) {
+  const ime = useImeEnterGuard();
   const isArchived = target.archived_at !== null;
   const [name, setName] = useState(target.name);
   const [externalKey, setExternalKey] = useState(target.external_key ?? '');
@@ -518,7 +521,7 @@ function EditForm({
           <span className="font-mono text-xs">managed-system/{target.slug}</span>
         </DialogDescription>
       </DialogHeader>
-      <form
+      <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
         data-testid={`edit-managed-system-form-${target.slug}`}
         className="space-y-3"
         onSubmit={(e) => {

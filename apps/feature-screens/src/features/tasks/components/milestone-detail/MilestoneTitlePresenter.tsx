@@ -1,6 +1,6 @@
 import { GLOSSARY } from '@/lib/copy/glossary';
 import type { MilestoneDetailDto } from '@ap/feature-shared';
-import { Button, Input, PanelTitleBlock } from '@ap/ui';
+import { Button, Input, PanelTitleBlock, useImeEnterGuard } from '@ap/ui';
 import { Pencil } from 'lucide-react';
 
 import { MilestoneManagedSystemPill, MilestoneOutlineBadge } from '../MilestoneIdentity';
@@ -21,6 +21,7 @@ export function MilestoneTitlePresenter({
   titleEdit: UseMilestoneTitleEditResult;
   statusEdit: UseMilestoneStatusEditResult;
 }) {
+  const ime = useImeEnterGuard();
   const {
     editingTitle,
     titleDraft,
@@ -50,7 +51,7 @@ export function MilestoneTitlePresenter({
 
       {/* B2e — title-only edit control. Only the title becomes an input; stale If-Match shows server text. */}
       {editingTitle ? (
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           className="mb-4 flex flex-col gap-2 rounded-sm border border-border-subtle bg-surface-card p-3"
           onSubmit={(event) => submitTitleEdit(event, statusMutation.isPending)}
         >
