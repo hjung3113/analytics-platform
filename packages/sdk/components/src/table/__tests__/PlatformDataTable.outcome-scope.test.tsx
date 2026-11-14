@@ -54,7 +54,7 @@ describe('PlatformDataTable in an OutcomeScope (#1175)', () => {
     const loadPage = vi.fn(async () => failure(outcome));
     render(<Page loadPage={loadPage} sibling={query(outcome)} />);
     const banner = await screen.findByRole('group', { name: '위젯 상태 요약' });
-    expect(banner).toHaveTextContent('위젯 2개에서 같은 응답');
+    expect(banner).toHaveTextContent('위젯 2개가 같은 이유로');
     expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(1);
     // Grouped table state: named group (name line hidden — the toolbar title names the table), no live region of its own.
     const state = await screen.findByRole('group', { name: '지표 표' });

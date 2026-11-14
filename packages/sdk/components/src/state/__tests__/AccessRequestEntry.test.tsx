@@ -144,18 +144,20 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     </PlatformPage>
   </PlatformProvider></I18nProvider>);
 
-  it('without the slot keeps today\'s per-widget rendering and no banner', async () => {
+  it('without the slot groups the widgets without an access-request banner', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = renderPage(requestable(partial));
-    expect(await screen.findAllByText('이 Scope에 접근 권한이 없습니다')).toHaveLength(2);
+    expect(await screen.findAllByText('위 안내 참고')).toHaveLength(2);
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
   });
 
-  it('on a fully granted Scope a forbidden widget keeps today\'s rendering (a capability matter, not a Scope target)', async () => {
+  it('on a fully granted Scope forbidden widgets still group (a capability matter, not a Scope target)', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = renderPage(requestable(full), fakeSlot);
-    expect(await screen.findAllByText('이 Scope에 접근 권한이 없습니다')).toHaveLength(2);
+    expect(await screen.findAllByText('위 안내 참고')).toHaveLength(2);
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
   });
 
@@ -164,15 +166,66 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     const view = renderPage(requestable(partial), fakeSlot);
     const banner = await vi.waitFor(() => { const node = view.container.querySelector<HTMLElement>('[data-access-request-banner]'); if (!node) throw new Error('no banner'); return node; });
     expect(view.container.querySelectorAll('[data-access-request-banner]')).toHaveLength(1);
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(0);
+    expect(banner).toHaveTextContent('위젯 2개');
+    expect(within(banner).queryByRole('status')).toBeNull();
+    for (const name of ['Widget A', 'Widget B']) {
+      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고');
+    }
     expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
     fireEvent.click(within(banner).getByRole('button', { name: '권한 요청' }));
     expect(dialogs.at(-1)?.target).toEqual({ kind: 'site_room', site: 'SITE-B', room: 'RB4' });
   });
 
-  it('with the slot but a session without requestableScopes keeps today\'s per-widget rendering and no banner', async () => {
+  it('keeps separate summaries per forbidden evidence group instead of merging counts (#1994 C2)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    const qOne: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, message: 'one' } };
+    const qTwo: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, message: 'two' } };
+    const view = render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: fakeSlot }}>
+      <PlatformPage>
+        <QueryView query={qOne} widgetName="Widget A">{() => <p>ok</p>}</QueryView>
+        <QueryView query={qOne} widgetName="Widget B">{() => <p>ok</p>}</QueryView>
+        <QueryView query={qTwo} widgetName="Widget C">{() => <p>ok</p>}</QueryView>
+        <QueryView query={qTwo} widgetName="Widget D">{() => <p>ok</p>}</QueryView>
+      </PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    const banner = await vi.waitFor(() => { const node = view.container.querySelector<HTMLElement>('[data-access-request-banner]'); if (!node) throw new Error('no banner'); return node; });
+    expect(view.container.querySelectorAll('[data-access-request-banner]')).toHaveLength(1);
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(0);
+    expect(banner).not.toHaveTextContent('위젯 4개');
+    const summaries = within(banner).getAllByText(/위젯 2개가 같은 이유로 열리지 않았습니다\./);
+    expect(summaries).toHaveLength(2);
+    const idA = screen.getByRole('group', { name: 'Widget A' }).getAttribute('aria-describedby')!;
+    const idB = screen.getByRole('group', { name: 'Widget B' }).getAttribute('aria-describedby')!;
+    const idC = screen.getByRole('group', { name: 'Widget C' }).getAttribute('aria-describedby')!;
+    const idD = screen.getByRole('group', { name: 'Widget D' }).getAttribute('aria-describedby')!;
+    expect(idA).toBeTruthy();
+    expect(idC).toBeTruthy();
+    expect(idA).toBe(idB);
+    expect(idC).toBe(idD);
+    expect(idA).not.toBe(idC);
+    const summaryOne = document.getElementById(idA)!;
+    const summaryTwo = document.getElementById(idC)!;
+    expect(summaryOne).toHaveTextContent('Widget A');
+    expect(summaryOne).toHaveTextContent('Widget B');
+    expect(summaryOne).not.toHaveTextContent('Widget C');
+    expect(summaryTwo).toHaveTextContent('Widget C');
+    expect(summaryTwo).toHaveTextContent('Widget D');
+    expect(summaryTwo).not.toHaveTextContent('Widget A');
+    for (const name of ['Widget A', 'Widget B', 'Widget C', 'Widget D']) {
+      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고(권한 없음)');
+    }
+    expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
+    const announcer = view.container.querySelector('[data-outcome-announcer="polite"]')!;
+    expect(announcer.textContent).not.toContain('위젯 4개');
+    expect(within(announcer as HTMLElement).getAllByText('위젯 2개가 같은 이유로 열리지 않았습니다.')).toHaveLength(2);
+  });
+
+  it('with the slot but a session without requestableScopes groups the widgets without an access-request banner', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = renderPage(testSession(['platform:view'], { scopes: partial }), fakeSlot);
-    expect(await screen.findAllByText('이 Scope에 접근 권한이 없습니다')).toHaveLength(2);
+    expect(await screen.findAllByText('위 안내 참고')).toHaveLength(2);
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
   });

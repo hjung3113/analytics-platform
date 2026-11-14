@@ -92,7 +92,7 @@ describe('same server error / 0건 on the pair banner and the table (#1175)', ()
     render(<I18nProvider><PlatformProvider adapter={sameAdapter(outcome)} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     const banners = await screen.findAllByRole('group', { name: '위젯 상태 요약' });
     expect(banners).toHaveLength(1);
-    expect(banners[0].textContent).toContain('위젯 2개에서 같은 응답');
+    expect(banners[0].textContent).toContain('위젯 2개가 같은 이유로 열리지 않았습니다');
     expect(screen.getByRole('group', { name: '지표 쌍 검증' }).hasAttribute('data-widget-state')).toBe(true);
     expect(screen.getByRole('group', { name: '지표 카탈로그' }).hasAttribute('data-widget-state')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();

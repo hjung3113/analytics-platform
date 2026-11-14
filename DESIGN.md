@@ -334,11 +334,11 @@ Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 
 
 ### Shared outcome banner and compact widget state — Decided (B, 2026-10-04)
 
-[06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
+[06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary, forbidden은 기존 warning 상태의 warn-soft + warning-label이다. 여러 그룹이 있으면 각 배너(얇은 띠는 `자세히`)가 소속 위젯 이름을 함께 표시한다. 본문·조언은 배너에서 한 번 안내하고 forbidden에는 재시도를 두지 않는다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
 
 묶이지 않은 오류 카드(`StateMessage tone="danger"`)는 `bg-accent-danger-soft`와 1px `border border-text-danger-label`을 쓴다. 아이콘은 `text-text-danger`, 제목은 `text-text-danger-label`, 본문·추적 번호·서버 세부는 `text-text-secondary`다. warning 톤의 recipe는 바꾸지 않는다.
 
-그룹 위젯은 중립 sunken 표면, 의미 아이콘·제목만 label token으로 표시한다. 이름·본문·timeout 조언·동작·ID를 직접 읽을 수 있게 배치한다. 작은 필수 본문은 sunken 위 secondary이며 opacity fade를 쓰지 않는다. 본문은 독립 행, 동작·ID는 다음 wrap 행으로 두어 좁은 카드에서 단어마다 줄이 갈라지지 않게 한다. 상위 heading과 같은 위젯 제목을 중복 표시하지 않되 접근 이름은 보존한다. chip/disclosure C안은 조언이 추가 클릭 뒤에 숨으므로 채택하지 않는다.
+그룹 위젯은 중립 sunken 표면에 이름·한 줄 안내·개별 재시도를 배치하고 `aria-describedby`로 자기 그룹 배너를 가리킨다(Decided, 소유자 2026-11-14, #1994). 그룹이 하나면 `위 안내 참고` / `See the notice above`, 둘 이상이면 상태 이름을 덧붙인다(`위 안내 참고(서버 오류)` 등). 상태 제목·본문·timeout 조언은 배너에만 둔다. forbidden도 같은 근거끼리 묶고 이름을 유지하며 재시도는 없다. 권한 요청 배너가 있으면 forbidden 그룹 배너를 대신하고 서로 다른 근거 그룹은 각각 따로 요약한다. 추적 번호·서버 세부는 위젯의 접힌 「기술 정보」 안에 둔다. 한 줄 안내는 secondary이며 opacity fade를 쓰지 않는다. 상위 heading과 같은 위젯 제목을 중복 표시하지 않되 접근 이름은 보존한다.
 
 ## Do's and Don'ts
 
