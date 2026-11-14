@@ -173,7 +173,7 @@
 | [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) | 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`) | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
 | [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) | 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸 | Decided(2026-11-13, 소유자 «플랫폼이 정의», 미구현, 되돌릴 수 있음) |
 | [0160](0160-folded-analysis-workspace-query-bar.md) | 접힌 분석 작업 영역의 조회 결과·페이지 조건·화면 배치를 조회 막대의 고정 둘째 줄에 둔다 | Decided(2026-11-14, 소유자 B 승인, 되돌릴 수 있음) |
-| [0161](0161-form-field-hint-always-visible-render-function.md) | 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다 |
+| [0161](0161-form-field-hint-always-visible-render-function.md) | 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다 | Decided(2026-11-14, 소유자가 Opus(high) 리뷰에 위임, 되돌릴 수 있음) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

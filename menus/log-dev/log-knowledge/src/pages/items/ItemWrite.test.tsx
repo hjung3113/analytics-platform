@@ -398,7 +398,13 @@ describe('판단 변경 (assess)', () => {
     submit('판단 변경');
     expect(await within(drawer()).findByText('새 상태를 골라 주세요')).toBeTruthy();
     expect(writes).toHaveLength(0);
+    // No live role on the error (FormField contract): a failed submit moves focus to the first invalid input instead.
+    expect(document.activeElement).toBe(within(drawer()).getAllByRole('radio').find(r => !r.hasAttribute('disabled') && r.closest('[aria-label="새 상태"]'))!);
     fireEvent.click(within(drawer()).getByRole('radio', { name: /검증됨/ }));
+    submit('판단 변경');
+    expect(await within(drawer()).findByText('필수 항목입니다')).toBeTruthy();
+    expect(document.activeElement).toBe(field(/^사유/));
+    expect(within(drawer()).queryByRole('alert')).toBeNull();
     type(/^사유/, '두 번째 설비에서도 재현');
     submit('판단 변경');
     await waitFor(() => expect(writes).toHaveLength(1), slow);
