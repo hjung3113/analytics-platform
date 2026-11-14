@@ -1,9 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import userEvent from '@testing-library/user-event';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, spaceId } from '@ap/contracts';
+import { groupId, parseDateTime, spaceId } from '@ap/contracts';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import type { EChartProps } from '../EChart';
 
@@ -76,7 +77,7 @@ describe('selection follows the data (#2064)', () => {
   const hour = (h: number) => `2026-10-0${1 + Math.floor(h / 24)}T${String(h % 24).padStart(2, '0')}:00:00`;
   const bars = (points: [string, number][]): ChartSeries => ({ id: 's', name: 'S', color: 'chart-blue', kind: 'bar', points });
   const url = '/?v=1&scopeId=MEM&from=2026-10-01T00:00:00&to=2026-10-04T00:00:00';
-  it('re-fits a time selection to the new bar boundaries and closes the editor', async () => {
+  it('re-fits a time selection to the new bar boundaries and keeps the editor open', async () => {
     window.history.replaceState(null, '', url);
     const hourly = bars(Array.from({ length: 72 }, (_, h) => [hour(h), 1]));
     const view = render(tree({ series: [hourly] }));
@@ -101,5 +102,123 @@ describe('selection follows the data (#2064)', () => {
     view.rerender(tree({ series: [{ ...A, points: [['a', 1], ['b', 2]] }], xType: 'category' }));
     expect(screen.queryByText(/선택 구간: a/)).toBeNull();
     expect(screen.queryByRole('textbox', { name: '주석 내용' })).toBeNull();
+  });
+});
+
+const compareRegistry = createRegistry({
+  spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, savedView: false, annotate: true, compare: true }, pageKeys: [] }],
+});
+const compareTree = (props: Partial<AnalysisChartFrameProps>) => <I18nProvider><PlatformProvider adapter={adapter} registry={compareRegistry}>
+  <AnalysisChartFrame chartId="sel" title="Sel" series={[]} unit="s" {...props} /></PlatformProvider></I18nProvider>;
+const ShiftEnd = ({ to }: { to: string }) => { const { setGlobal } = usePlatform(); return <button type="button" onClick={() => setGlobal({ to })}>shift-end</button>; };
+
+describe('review fix round (#2020 FIX1)', () => {
+  const ms = (s: string) => parseDateTime(s, 'x').getTime();
+  const day = (d: number) => `2026-10-0${d}T00:00:00`;
+  const dailyBars = (n: number): ChartSeries => ({ id: 's', name: 'S', color: 'chart-blue', kind: 'bar', points: Array.from({ length: n }, (_, i) => [day(i + 1), 1] as [string, number]) });
+  it('C1: a Context change clears selection, confirm and editor instead of refitting them back', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-10-01T00:00:00&to=2026-10-04T00:00:00');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <ShiftEnd to="2026-10-05T00:00:00" /><AnalysisChartFrame chartId="sel" title="Sel" series={[dailyBars(3)]} unit="s" />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    brush([ms('2026-10-03T06:00:00'), ms('2026-10-03T18:00:00')]);
+    expect(summary().textContent).toContain('선택 구간: 2026-10-03 00:00 – 2026-10-04 00:00');
+    fireEvent.click(screen.getByRole('button', { name: '분석 구간 적용…' }));
+    fireEvent.click(screen.getByRole('button', { name: '주석' }));
+    expect(screen.getByRole('group', { name: '구간 적용 확인' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: '주석 내용' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'shift-end' }));
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    expect(screen.queryByText(/선택 구간: 2026/)).toBeNull();
+    expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '주석 내용' })).toBeNull();
+  });
+  it('C2: a reordered category axis normalizes the selection to the new order', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const view = render(tree({ series: [A], xType: 'category' }));
+    await screen.findByRole('img');
+    brush([1, 2]);
+    expect(summary().textContent).toContain('선택 구간: b – c');
+    view.rerender(tree({ series: [{ ...A, points: [['c', 3], ['b', 2], ['a', 1]] }], xType: 'category' }));
+    expect(summary().textContent).toContain('선택 구간: c – b');
+    expect(summary().textContent).toContain('A: n=2');
+    fireEvent.click(screen.getByRole('combobox', { name: '구간 끝' }));
+    expect((await screen.findAllByRole('option')).map(o => o.textContent)).toContain('b');
+    expect((await screen.findAllByRole('option')).map(o => o.textContent)).toContain('c');
+  });
+  const compareMount = async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-10-01T10:00:00&to=2026-10-04T10:00:00');
+    const hourly = bars24();
+    const view = render(compareTree({ series: [hourly], compareSeries: [{ ...hourly, id: 'prev', name: 'P' }] }));
+    await screen.findByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
+    return view;
+  };
+  const bars24 = (): ChartSeries => ({ id: 's', name: 'S', color: 'chart-blue', kind: 'bar', points: Array.from({ length: 72 }, (_, h) => [`2026-10-0${1 + Math.floor(h / 24)}T${String(h % 24).padStart(2, '0')}:00:00`, 1] as [string, number]) });
+  it('C3: Compare on, a granularity refit that clips shows the partial notice', async () => {
+    const view = await compareMount();
+    brush([ms('2026-10-01T10:00:00'), ms('2026-10-02T10:00:00')]);
+    expect(screen.queryByText(/현재 기간으로 잘랐습니다/)).toBeNull();
+    view.rerender(compareTree({ series: [dailyBars(3)], compareSeries: [{ ...dailyBars(3), id: 'prev', name: 'P' }] }));
+    expect(summary().textContent).toContain('선택 구간: 2026-10-01 10:00 – 2026-10-03 00:00');
+    expect(screen.getByText(/현재 기간으로 잘랐습니다/)).toBeTruthy();
+  });
+  it('C3: turning Compare on over a range wholly before the period clears it, closes its editor and says so', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-10-01T10:00:00&to=2026-10-04T10:00:00');
+    const hourly = bars24();
+    render(compareTree({ series: [hourly], compareSeries: [{ ...hourly, id: 'prev', name: 'P' }] }));
+    await screen.findByRole('img');
+    brush([ms('2026-10-01T02:00:00'), ms('2026-10-01T03:30:00')]);
+    fireEvent.click(screen.getByRole('button', { name: '주석' }));
+    expect(screen.getByRole('textbox', { name: '주석 내용' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
+    expect(screen.queryByRole('textbox', { name: '주석 내용' })).toBeNull();
+    expect(screen.queryByText(/선택 구간: 2026/)).toBeNull();
+    expect(screen.getByText(/이전 기간이라 선택하지 않았습니다/)).toBeTruthy();
+  });
+});
+
+describe('category keyboard walk (#2024, FIX1 C4)', () => {
+  it.each([
+    ['fill vertical', { size: 'fill' as const }, true],
+    ['horizontal', { orientation: 'horizontal' as const }, false],
+  ])('sets both endpoints and confirms with the keyboard only: %s', async (_name, extra, focusMoves) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const user = userEvent.setup();
+    render(tree({ series: [A], xType: 'category', ...extra, selectionActions: s => <button type="button">act {s.from}-{s.to}</button> }));
+    await screen.findByRole('img');
+    const before = window.location.search;
+    const brushButton = screen.getByRole('button', { name: '구간 선택' });
+    for (let i = 0; i < 80 && document.activeElement !== brushButton; i++) await user.tab();
+    expect(document.activeElement).toBe(brushButton);
+    await user.keyboard('{Enter}');
+    const start = screen.getByRole('combobox', { name: '구간 시작' });
+    // Only a fill card moves focus to the start select (the form may sit below the fold); other sizes keep focus on Brush and the form is the next stops.
+    if (focusMoves) expect(document.activeElement).toBe(start);
+    else for (let i = 0; i < 20 && document.activeElement !== start; i++) await user.tab();
+    expect(document.activeElement).toBe(start);
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('option', { name: 'b' }));
+    await user.keyboard('{Tab}');
+    expect(document.activeElement).toBe(screen.getByRole('combobox', { name: '구간 끝' }));
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('option', { name: 'c' }));
+    const choose = within(summary()).getByRole('button', { name: '선택' });
+    for (let i = 0; i < 5 && document.activeElement !== choose; i++) await user.tab();
+    expect(document.activeElement).toBe(choose);
+    await user.keyboard('{Enter}');
+    expect(summary().textContent).toContain('선택 구간: b – c');
+    expect(within(summary()).getByRole('button', { name: 'act b-c' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '주석' }).hasAttribute('disabled')).toBe(false);
+    expect(window.location.search).toBe(before);
+  });
+  it('offers no start/end selects for StartAlign (Brush is off)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const two: ChartSeries = { ...B, id: 'b2', name: 'B2' };
+    render(tree({ series: [A, two], xType: 'category', orientation: 'horizontal', stacked: true, startAlign: true }));
+    await screen.findByRole('img');
+    expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
   });
 });

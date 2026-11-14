@@ -49,7 +49,7 @@ function reduce(state: RangeState, action: RangeAction): RangeState {
     case 'clear':
       return { ...state, selection: null, clipNotice: null, rangeDraft: null };
     case 'refit':
-      return { ...state, selection: action.selection, preview: action.preview, clipNotice: action.selection ? state.clipNotice : action.notice, rangeDraft: null };
+      return { ...state, selection: action.selection, preview: action.preview, clipNotice: action.notice ?? (action.selection ? state.clipNotice : null), rangeDraft: null };
     case 'preview':
       return { ...state, preview: action.range };
     case 'draft':

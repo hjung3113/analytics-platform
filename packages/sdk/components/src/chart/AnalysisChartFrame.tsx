@@ -392,20 +392,28 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const { selection: currentSelection, preview: currentPreview } = range;
   const compareClipOn = compare && canCompare;
   const periodFrom = global.from; const periodTo = global.to;
+  // A Context change invalidates the old ranges (the reset effect above ran in this commit): this effect must not fit them back, so the first run after a new key only records it.
+  const fittedContext = useRef(contextKey);
   useEffect(() => {
+    if (fittedContext.current !== contextKey) { fittedContext.current = contextKey; return; }
     if (!currentSelection && !currentPreview) return;
     const fit = (r: Selection | null): ClipResult => {
       if (!r) return { range: null, notice: null };
-      if (xType === 'category') return { range: categories.includes(r.from) && categories.includes(r.to) ? r : null, notice: null };
+      if (xType === 'category') {
+        // Both ends must still be drawn; the pair is returned in the current axis order (a reorder can reverse it).
+        const i = categories.indexOf(r.from); const j = categories.indexOf(r.to);
+        if (i < 0 || j < 0) return { range: null, notice: null };
+        return { range: i <= j ? r : { from: r.to, to: r.from }, notice: null };
+      }
       const snapped = snapOutward(toMs(r.from), toMs(r.to), timeBounds);
       return snapped ? clipToPeriod(snapped, periodFrom, periodTo, compareClipOn) : { range: null, notice: 'outside' };
     };
     const next = fit(currentSelection); const nextPreview = fit(currentPreview);
     const same = (a: Selection | null, b: Selection | null) => a === b || (!!a && !!b && a.from === b.from && a.to === b.to);
     if (same(next.range, currentSelection) && same(nextPreview.range, currentPreview)) return;
-    rangeActions.refit(next.range, nextPreview.range, next.notice);
+    rangeActions.refit(next.range, nextPreview.range, next.notice ?? nextPreview.notice);
     if (currentSelection && !next.range) closeEditor();
-  }, [xType, categories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor]);
+  }, [contextKey, xType, categories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor]);
   // Label geometry, cached by what it depends on: the spans and rows change with the notes only, the data extent with the series,
   // so zoom, resize, editor typing and busy state redo none of it. Nothing runs while there are no notes.
   const noteSpans = useMemo(() => annotations.map(a => (xType === 'time'
