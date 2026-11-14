@@ -65,6 +65,8 @@ Reusable component contracts live in `apps/feature-screens/docs/ui-design-system
 | `/admin/permissions/requests` | `tab`, `selected`, `returnTo` | `tab` for the pending tab; `selected` when none is selected; `returnTo` unless opened from a recovery queue |
 | `/admin/permissions/grants` | `tab`, `selected` | `tab` for grants; `selected` when none is selected |
 
+VOC scope accepts only a UUID or `all`. The host validates it before mounting Inbox or Triage. Inbox severity, reporter-status and owner comma lists use the shared list-query schemas; invalid values remain in the address with the rejection warning and send no list request. The platform Triage route carries scope, tab, focus and Analytics Area; it does not declare those three Inbox filter keys.
+
 **Standalone return removed (#597).** `platformReturn`, `/me.platform_return_origins` and `PLATFORM_RETURN_ORIGINS` are retired. The platform keeps bounded internal `returnTo`; its URL/permission contract and retained feature filters are unchanged. Historical FO ADR-0071 describes the removed standalone design.
 
 Route naming rules:
