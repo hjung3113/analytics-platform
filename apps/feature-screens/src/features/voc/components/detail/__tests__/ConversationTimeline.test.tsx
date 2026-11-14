@@ -447,7 +447,6 @@ describe('deduplicated timeline rendering', () => {
         makeConversationQuery({
           data: {
             pages: [{ items: [older], page: { has_more: false } }],
-            pageParams: [''],
           },
           hasNextPage: false,
         }),
