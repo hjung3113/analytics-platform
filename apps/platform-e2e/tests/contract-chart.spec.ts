@@ -509,7 +509,8 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     const left = frame.getByRole('button', { name: '왼쪽으로 이동', exact: true });
     const right = frame.getByRole('button', { name: '오른쪽으로 이동', exact: true });
     await expect(zoomIn).toBeVisible();
-    await expect(zoomOut).toBeDisabled();
+    await expect(zoomOut).toHaveCount(0);
+    await expect(left).toHaveCount(0);
     await zoomIn.focus();
     await page.keyboard.press('Enter');
     await expect(left).toBeEnabled();
@@ -521,9 +522,10 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     await expect(left).toBeEnabled();
     await zoomOut.focus();
     await page.keyboard.press('Enter');
-    await expect(zoomOut).toBeDisabled();
-    await expect(left).toBeDisabled();
-    await expect(right).toBeDisabled();
+    await expect(zoomOut).toHaveCount(0);
+    await expect(left).toHaveCount(0);
+    await expect(right).toHaveCount(0);
+    await expect(zoomIn).toBeFocused();
   });
 
   test('확대 버튼은 그대로 동작한다', async ({ page }) => {

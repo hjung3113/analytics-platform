@@ -222,6 +222,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   // Focus anchors for the confirm row (#297 UX): it unmounts on both outcomes, so its handlers hand focus back —
   // cancel to the "Apply analysis range…" button, apply (selection cleared by the Context change) to the brush toggle.
   const brushToggle = useRef<HTMLButtonElement | null>(null);
+  const zoomInButton = useRef<HTMLButtonElement | null>(null);
   const rangeStart = useRef<HTMLButtonElement | null>(null);
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
@@ -277,6 +278,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
   const { state: range, actions: rangeActions } = useChartRange();
   const { selection, preview, zoom, clipNotice, rangeDraft } = range;
+  const isZoomed = zoom[0] > 0 || zoom[1] < 100;
+  /** One more zoom-out reaches the full range, which removes the zoom-out and pan buttons; focus then moves to 확대. */
+  const zoomsBackToFull = zoom[1] - zoom[0] >= 50;
   const [showTable, setShowTable] = useState(false);
   const scopeId = global.scopeId;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId, canAnnotate });
@@ -685,9 +689,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </div>}
         {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
         <div className="flex flex-wrap items-center gap-1">
-          {rowPitch === undefined && <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>}
-          {rowPitch === undefined && <>
-            <Button variant="ghost" size="toolbar" onClick={rangeActions.zoomOut} disabled={zoom[0] === 0 && zoom[1] === 100}><ZoomOut className="size-3.5" aria-hidden />{lang === 'ko' ? '축소' : 'Zoom out'}</Button>
+          {rowPitch === undefined && <Button ref={zoomInButton} variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={lang === 'ko' ? '확대 (Shift+휠도 가능)' : 'Zoom in (Shift+wheel)'}><ZoomIn className="size-3.5" aria-hidden />{lang === 'ko' ? '확대' : 'Zoom'}</Button>}
+          {/* Zoom out and pan exist only while zoomed: at the full range they do nothing, and three disabled buttons would wrap the toolbar of a narrow panel. */}
+          {rowPitch === undefined && isZoomed && <>
+            <Button variant="ghost" size="toolbar" onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{lang === 'ko' ? '축소' : 'Zoom out'}</Button>
             <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{lang === 'ko' ? '왼쪽으로 이동' : 'Pan left'}</Button>
             <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{lang === 'ko' ? '오른쪽으로 이동' : 'Pan right'}</Button>
           </>}
