@@ -105,7 +105,7 @@ describe('invalid URL value warnings keep field name and raw value (#304 FIX1)',
   it('the footer caption names the Context keys by their user labels (U-5)', () => {
     window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
-    expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·room_name·설비 그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
+    expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·공정·설비 그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
   });
 
   it('domain:in:bogus names the 도메인 field and the entered value, without key=value', async () => {

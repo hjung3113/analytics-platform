@@ -34,14 +34,14 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
     await expect(bar.getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
-    await expect(bar.getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
-    await expect(contextBar(page).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
   });
 
   test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {

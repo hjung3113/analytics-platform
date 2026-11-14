@@ -89,7 +89,7 @@ function OccurrenceBody({ execution, segments, ko, lang }: { execution: { room: 
   return <div className={PANEL_GAP}>
     <Panel title={ko ? '표시 속성' : 'Display attributes'} subtitle={ko ? '식별 키가 아닙니다.' : 'Not part of the identity key.'}>
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Identity label="room_name" value={execution.room} />
+        <Identity label={ko ? '공정' : 'Process'} value={execution.room} />
         <Identity label="Recipe" value={execution.recipe} />
         <Identity label="Lot" value={execution.lotId} />
         <Identity label="PPID" value={execution.ppid} />

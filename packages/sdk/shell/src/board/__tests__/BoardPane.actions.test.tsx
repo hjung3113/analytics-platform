@@ -91,7 +91,7 @@ describe('pane header signals (ADR-0051)', () => {
     mount();
     await settle();
     const header = paneGroup(1).querySelector<HTMLElement>('[data-pane-head]')!;
-    expect(header.querySelector('[data-pane-chip="roomNames"]')).toHaveTextContent('room_name PHOTO');
+    expect(header.querySelector('[data-pane-chip="roomNames"]')).toHaveTextContent('공정 PHOTO');
     expect(within(header).getByRole('button', { name: '칸 1의 조건 3개 더 보기' })).toHaveTextContent('+3');
     expect(within(header).queryByRole('button', { name: /같은 조건/ })).toBeNull();
     expect(within(header).getByRole('button', { name: '칸 1 동작' })).toBeVisible();

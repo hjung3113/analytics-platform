@@ -33,7 +33,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   const boardPane = (page: Page, number: number) => page.getByRole('group', { name: `칸 ${number}` });
   const boardPaneHead = (page: Page, number: number) => boardPane(page, number).locator('[data-pane-head]');
   const boardContext = (page: Page, number: number) => page.getByRole('region', { name: `칸 ${number} · 분석 Context` });
-  const productivityBody = (page: Page, number: number) => boardPane(page, number).getByRole('region', { name: '점유 구성 — room_name', exact: true });
+  const productivityBody = (page: Page, number: number) => boardPane(page, number).getByRole('region', { name: '공정별 점유 구성', exact: true });
   const cycleTimeBody = (page: Page, number: number) => boardPane(page, number).getByRole('region', { name: '사이클타임 추세', exact: true });
 
   async function boardPeriodPreset(page: Page, number: number, name: string) {
@@ -185,7 +185,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
     const first = boardPane(page, 1);
     const firstHead = boardPaneHead(page, 1);
-    const firstRoomChip = first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true });
+    const firstRoomChip = first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true });
     await expect(firstHead).toContainText('생산성 개요');
     await expect(firstRoomChip).toBeVisible();
     const originalPeriodChip = '기간 09-25 09:00 → 09-26 09:00 (24h)';
@@ -219,26 +219,26 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await page.goto('/board?sheet=apply');
     const first = boardPane(page, 1);
     const second = boardPane(page, 2);
-    await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
-    await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(second.getByText('공정 ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
 
     await first.getByRole('button', { name: '칸 1 동작' }).click();
     await page.getByRole('menuitem', { name: '이 조건을 시트의 모든 칸에 적용' }).click();
     await expect(first.getByRole('button', { name: /칸 1의 같은 조건/ })).toBeVisible();
     await expect(second.getByRole('button', { name: /칸 2의 같은 조건/ })).toBeVisible();
-    await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toHaveCount(0);
-    await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toHaveCount(0);
+    await expect(first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true })).toHaveCount(0);
+    await expect(second.getByText('공정 ETCH', { exact: true }).filter({ visible: true })).toHaveCount(0);
 
     await first.getByRole('button', { name: '칸 1 선택' }).click();
     await expect(boardContext(page, 1).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
-    await expect(boardContext(page, 1).getByRole('button', { name: 'room_name PHOTO', exact: true })).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: '공정 PHOTO', exact: true })).toBeVisible();
     await second.getByRole('button', { name: '칸 2 선택' }).click();
     await expect(boardContext(page, 2).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
-    await expect(boardContext(page, 2).getByRole('button', { name: 'room_name PHOTO', exact: true })).toBeVisible();
+    await expect(boardContext(page, 2).getByRole('button', { name: '공정 PHOTO', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: '실행 취소' }).click();
-    await expect(first.getByText('room_name PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
-    await expect(second.getByText('room_name ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
+    await expect(second.getByText('공정 ETCH', { exact: true }).filter({ visible: true })).toBeVisible();
     await evidence(page, testInfo, 'board-apply-all-undo');
   });
 

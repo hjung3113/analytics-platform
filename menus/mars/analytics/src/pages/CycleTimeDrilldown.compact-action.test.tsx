@@ -45,6 +45,7 @@ describe('CycleTimeDrilldown compact action', () => {
     fireEvent.keyDown(await screen.findByRole('tab', { name: '느린 실행' }), { key: 'Enter' });
     // The first render of this page exceeds the 1s default wait under parallel load (#434, #437).
     const link = await screen.findByRole('link', { name: 'EQ-1 · 2026-09-26 01:02:03 상세' }, { timeout: 8000 });
+    expect(screen.getByRole('columnheader', { name: '공정' })).toBeTruthy();
     expect(link.getAttribute('href')).toContain('EQ-1');
     // The row link carries the RecordSequence, never the start time.
     const query = new URL(link.getAttribute('href')!, 'http://x').searchParams;

@@ -196,7 +196,7 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('omits the English applied capability tag while keeping Apply as the editor action (P2-2)', () => {
     mount('', 'en');
-    const editor = screen.getByRole('button', { name: 'room_name All' });
+    const editor = screen.getByRole('button', { name: 'Process All' });
     fireEvent.click(editor);
     expect(screen.getByRole('button', { name: 'Apply' })).toBeVisible();
   });
@@ -230,7 +230,7 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {
     mount();
-    fireEvent.click(within(bar()).getByRole('button', { name: 'room_name 전체' }));
+    fireEvent.click(within(bar()).getByRole('button', { name: '공정 전체' }));
     fireEvent.click(screen.getByRole('radio', { name: '명시 선택' }));
     const checkbox = await screen.findByRole('checkbox', { name: 'PHOTO' });
     fireEvent.click(checkbox);
@@ -301,7 +301,7 @@ describe('Context 막대 그리기 조건 (#1944 4번)', () => {
     expect(screen.queryByRole('region', { name: '전역 Context' })).toBeNull();
     cleanup();
     mount('&roomNames=PHOTO');
-    expect(within(bar()).getByRole('button', { name: 'room_name PHOTO' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
   });
 });
 

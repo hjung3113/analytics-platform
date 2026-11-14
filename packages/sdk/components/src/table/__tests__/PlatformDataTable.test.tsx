@@ -1281,7 +1281,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const sortedSelection = [...initial.selection].sort();
     expect(rows).toMatchObject({
       검색어: 'etch', 상태: '사용중', Maker: 'ACME',
-      room_name: sortedRooms.join(', '), '설비 그룹 조건': 'StGroup: Etch-A',
+      공정: sortedRooms.join(', '), '설비 그룹 조건': 'StGroup: Etch-A',
       '설비 선택': `12개: ${sortedSelection.slice(0, 10).join(', ')} …`, // ids, not exported rows (N-P3-6)
       Lot: '1개: LOT-1', PPID: 'PP-9', Recipe: '1개: RCP-1', '지표·버전': 'cycle_time v4',
     });
@@ -1304,7 +1304,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     const info = (await readXlsx(downloads[0].blob)).sheets[1] as Record<string, unknown>;
     const names = Object.keys(info).filter(k => k.startsWith('A')).map(k => String(info[k]));
     expect(names).not.toContain('지표·버전');
-    expect(names).not.toContain('room_name');
+    expect(names).not.toContain('공정');
     expect(names).not.toContain('PPID');
     expect(names).not.toContain('기간');
   });
@@ -1322,7 +1322,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     await waitFor(() => expect(downloads.length).toBe(1));
     const { sheets: [, info] } = await readXlsx(downloads[0].blob);
     const labels = Object.keys(info).filter(k => k.startsWith('A')).map(k => String(info[k]));
-    expect(labels).not.toContain('room_name');
+    expect(labels).not.toContain('공정');
     expect(labels).not.toContain('PPID');
     expect(labels).not.toContain('지표·버전');
   });

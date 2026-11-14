@@ -157,7 +157,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       // Site is a DB boundary (ADR-0004): site-bound sets are cleared explicitly, never re-mapped.
       const had = hasSiteBound(global);
       next = withoutSiteBound(next);
-      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).' : 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).', 'warning');
+      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).' : 'Scope changed: Process, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).', 'warning');
     }
     // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);

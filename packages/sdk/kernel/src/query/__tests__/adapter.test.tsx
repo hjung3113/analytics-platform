@@ -432,8 +432,8 @@ describe('site-bound map fields (#552)', () => {
     expect(window.location.search).not.toContain('membershipBasis');
   });
   it.each([
-    ['ko', 'Scope 변경: room_name·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).'],
-    ['en', 'Scope changed: room_name, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).'],
+    ['ko', 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).'],
+    ['en', 'Scope changed: Process, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).'],
   ])('names Line, PRC groups and PPID in the %s Scope reset toast', (lang, expected) => {
     localStorage.setItem('platform:lang', lang);
     window.history.replaceState(null, '', '/?scopeId=MEM&lineNames=L&prcGroups=P');
