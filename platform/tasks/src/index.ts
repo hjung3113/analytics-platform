@@ -18,7 +18,7 @@ const MY_ACTIVITY = groupId('myActivity');
 export const manifests: MenuEntry[] = [
   {
     id: 'task-requests', group: GROUP, label: { ko: 'Task 요청', en: 'Task requests' },
-    description: { ko: '들어온 Task 요청을 검토해 승인하거나 반려합니다', en: 'Review incoming Task requests and approve or reject them' },
+    description: { ko: 'Task 요청 검토 · 승인 · 반려', en: 'Incoming Task requests · Review · Approval · Rejection' },
     path: '/flow/task-requests', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'reviewer', 'reviewerTeam', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -26,7 +26,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'tasks', primary: true, group: GROUP, label: { ko: 'Task 보드', en: 'Task board' },
-    description: { ko: 'Task를 상태별 보드에서 보고 다음 상태로 옮깁니다', en: 'See Tasks on a status board and move them to the next status' },
+    description: { ko: '상태별 Task 보드 · 다음 상태 전환', en: 'Task board by status · Next-status transitions' },
     path: '/flow/tasks', icon: ListTodo, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'publicUpdate', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -34,7 +34,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'my-tasks', group: MY_ACTIVITY, label: { ko: '내 Task', en: 'My Tasks' },
-    description: { ko: '내게 배정된 Task를 목록에서 확인합니다', en: 'See the Tasks assigned to me in a list' },
+    description: { ko: '내게 배정된 Task 목록', en: 'Tasks assigned to me' },
     path: '/my-tasks', icon: User, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'q', 'area', 'status', 'statusGroup', 'overdue', 'publicUpdate', 'reporterUpdate', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -42,7 +42,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'milestones', group: GROUP, label: { ko: '마일스톤', en: 'Milestones' },
-    description: { ko: 'Milestone을 만들고 진행을 확인합니다', en: 'Create Milestones and follow their progress' },
+    description: { ko: 'Milestone 생성 · 진행 확인', en: 'Milestone creation · Progress review' },
     path: '/flow/milestones', icon: Flag, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -50,7 +50,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'task-list', group: GROUP, label: { ko: 'Task 목록', en: 'Task list' }, navHidden: true, parent: 'tasks',
-    description: { ko: '필터로 좁힌 Task를 목록에서 확인합니다', en: 'See Tasks narrowed by filters in a list' },
+    description: { ko: '필터별 Task 목록', en: 'Task list by filter' },
     path: '/flow/task-list', icon: ListTodo, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'managedSystem', 'q', 'area', 'status', 'statusGroup', 'overdue', 'publicUpdate', 'reporterUpdate', 'returnTo'], carrySet: FEATURES_CARRY_SET,

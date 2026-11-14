@@ -16,7 +16,7 @@ const GROUP = groupId('integration');
 export const manifests: MenuEntry[] = [
   {
     id: 'integration', primary: true, group: GROUP, label: { ko: '연동 대시보드', en: 'Integration dashboard' },
-    description: { ko: '연동 복구 항목을 확인하고 보류하거나 숨기거나 다시 복원합니다', en: 'Check integration recovery items and snooze, mute or restore them' },
+    description: { ko: '연동 복구 항목 확인 · 보류 · 숨기기 · 복원', en: 'Integration recovery items · Review · Snooze · Mute · Restore' },
     path: '/flow/integration', icon: Activity, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'category', 'presentation', 'history', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -24,7 +24,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'entity-links', group: GROUP, label: { ko: '연결 관계', en: 'Entity links' },
-    description: { ko: 'VOC·Finding·Task 사이의 연결을 상태와 유형별로 봅니다', en: 'See links between entities by status and type' },
+    description: { ko: 'VOC·Finding·Task 연결 상태 · 유형', en: 'VOC, Finding and Task links · Status · Type' },
     path: '/flow/entity-links', icon: Link2, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['status', 'type', 'q', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -32,7 +32,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'coverage', group: GROUP, label: { ko: '커버리지', en: 'Coverage' },
-    description: { ko: '분석 영역별 연동 커버리지를 요약과 영역 표로 봅니다', en: 'See integration coverage per analytics area as a summary and an area table' },
+    description: { ko: '분석 영역별 연동 커버리지 요약 · 영역 표', en: 'Integration coverage by analytics area · Summary · Area table' },
     path: '/flow/coverage', icon: Layers, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['view', 'area', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

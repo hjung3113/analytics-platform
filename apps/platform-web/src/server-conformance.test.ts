@@ -333,11 +333,11 @@ const IMPROVEMENT_OPEN = improvementSeedId(1);
 const IMPROVEMENT_QUESTED = improvementSeedId(2);
 const improvementHandler = (id: string) => MOCK_ACTIONS.find(action => action.spec.id === `improvement.${id}`)!;
 const stagedOpenItem = (): string => {
-  const { itemId } = improvementHandler('itemCreate').handle({ input: { problem: unique('IS'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: '설비 EQ-01' }] }, actor: 'admin', scopeId: null }).data as { itemId: string };
+  const { itemId } = improvementHandler('itemCreate').handle({ input: { problem: unique('IS'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }] }, actor: 'admin', scopeId: null }).data as { itemId: string };
   return itemId;
 };
 const improvementSamples: Record<string, () => Record<string, unknown>> = {
-  itemCreate: () => ({ problem: unique('IC'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: '설비 EQ-01' }] }),
+  itemCreate: () => ({ problem: unique('IC'), targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }] }),
   itemUpdate: () => ({ itemId: IMPROVEMENT_OPEN, problem: '이송 대기 시간 증가' }),
   itemSetStatus: () => ({ itemId: stagedOpenItem(), status: 'in_progress', action: '적합성 표본 조치' }),
   itemReopen: () => {

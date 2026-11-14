@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-systems",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "ap": {
     "sdk": ">=0.36.0 <0.37.0"
   },

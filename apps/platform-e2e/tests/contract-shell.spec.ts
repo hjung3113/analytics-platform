@@ -1215,11 +1215,11 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
     await expect(table).toBeVisible({ timeout: 10_000 });
     await expect(table.getByRole('row')).toHaveCount(4);
-    for (const name of ['Platform Admin', 'Process Engineer', 'Field Requester']) {
+    for (const name of ['플랫폼 관리자', '공정 엔지니어', '현업 문의자']) {
       await expect(table.getByRole('row').filter({ hasText: name })).toBeVisible();
     }
 
-    const engineerRow = table.getByRole('row').filter({ hasText: 'Process Engineer' });
+    const engineerRow = table.getByRole('row').filter({ hasText: '공정 엔지니어' });
     await expect(engineerRow).toContainText('4/9');
     await engineerRow.getByRole('button', { name: 'engineer 보기' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -1240,7 +1240,7 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     await page.goto('/operations/admin-roles');
     const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
     await expect(table).toBeVisible({ timeout: 10_000 });
-    await table.getByRole('row').filter({ hasText: 'Process Engineer' }).getByRole('button', { name: 'engineer 보기' }).click();
+    await table.getByRole('row').filter({ hasText: '공정 엔지니어' }).getByRole('button', { name: 'engineer 보기' }).click();
     const drawer = page.getByRole('dialog');
     await expect(drawer).toBeVisible();
     await drawer.getByRole('tab', { name: '사이트 범위' }).click();
@@ -1256,9 +1256,9 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
     await expect(table).toBeVisible({ timeout: 10_000 });
     await expect(table.getByRole('row')).toHaveCount(2);
-    await expect(table.getByRole('row').filter({ hasText: 'Platform Admin' })).toBeVisible();
-    await expect(table.getByRole('row').filter({ hasText: 'Process Engineer' })).toHaveCount(0);
-    await expect(table.getByRole('row').filter({ hasText: 'Field Requester' })).toHaveCount(0);
+    await expect(table.getByRole('row').filter({ hasText: '플랫폼 관리자' })).toBeVisible();
+    await expect(table.getByRole('row').filter({ hasText: '공정 엔지니어' })).toHaveCount(0);
+    await expect(table.getByRole('row').filter({ hasText: '현업 문의자' })).toHaveCount(0);
     await evidence(page, testInfo, 'roles-console-access-filter');
 
     await page.goto('/operations/admin-roles?v=1&filter=permission:in:bogus');

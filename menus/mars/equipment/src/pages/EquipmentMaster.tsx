@@ -60,7 +60,7 @@ export default function EquipmentMaster() {
   // One clear for the search and every condition: one `setPage`, back to page 1.
   const clearButton = useClearFiltersAction({ filterKey: urlFilters.key, hasFilters: !!q || conditions.length > 0, extraKeys: ['q'] });
   const search = <TableQuickSearch pageKey="q" label={ko ? '설비 ID 검색' : 'Search equipment ID'} />;
-  return <PlatformPage description={ko ? '설비 속성 → 유효구간 → 변경 이력. 합성 데이터 · 조회 전용.' : 'Equipment attributes → validity → change history. Synthetic data · read-only.'}>
+  return <PlatformPage description={ko ? '설비 속성 · 유효구간 · 변경 이력 (조회 전용)' : 'Equipment attributes · Validity · Change history (read-only)'}>
     <ManagementLayout
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
       onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}

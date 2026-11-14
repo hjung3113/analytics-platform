@@ -59,7 +59,7 @@ export default function AuditTrail() {
     { id: 'changes', header: ko ? '변경 필드' : 'Changed fields', sortable: false, size: 220, cell: row => changedFields(row, ko) },
     { id: 'reason', header: ko ? '사유' : 'Reason', sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
   ], [ko, lang, timeZone, filterColumnProps]);
-  return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그입니다. 행의 링크는 각 상세 화면의 변경 이력 탭으로 이동합니다.' : 'The master-change log across all sites. A row link opens the destination detail\'s change-history tab.'}>
+  return <PlatformPage description={ko ? '모든 사이트의 마스터 변경 로그 · 행 링크로 상세 변경 이력 탭 이동' : 'Master-change log across all sites · Row links to detail change-history tabs'}>
     <ManagementLayout
       table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<AuditEvent>

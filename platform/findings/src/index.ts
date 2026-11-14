@@ -16,7 +16,7 @@ const GROUP = groupId('findings');
 export const manifests: MenuEntry[] = [
   {
     id: 'findings', primary: true, group: GROUP, label: { ko: '전체 Finding', en: 'All Findings' },
-    description: { ko: 'Finding을 목록에서 찾아 상세를 열고 근거와 Task를 연결합니다', en: 'Find Findings in a list, open the detail and link Evidence and Tasks' },
+    description: { ko: 'Finding 목록 · 상세 · 근거·Task 연결', en: 'Finding list · Details · Evidence and Task links' },
     path: '/flow/findings', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'area', 'status', 'execution', 'assignment', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
@@ -24,7 +24,7 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'evidence', group: GROUP, label: { ko: '근거', en: 'Evidence' },
-    description: { ko: 'Finding에 연결된 근거를 출처별로 찾아 봅니다', en: 'Find Evidence linked to Findings by source' },
+    description: { ko: '출처별 Finding 연결 근거', en: 'Evidence linked to Findings by source' },
     path: '/flow/evidence', icon: FileBarChart, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'source', 'q', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,

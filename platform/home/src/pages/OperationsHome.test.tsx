@@ -20,8 +20,8 @@ const registry = createRegistry({
   platformHomeMenuId: 'home',
   permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
   spaces: [
-    { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성과 사이클타임을 분석합니다.', en: 'Analyze productivity and cycle time by equipment and period.' }, homeMenuId: 'equipment' },
-    { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의·버전·발행을 관리합니다.', en: 'Manage metric definitions, versions, and releases.' }, homeMenuId: 'catalog' },
+    { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' }, homeMenuId: 'equipment' },
+    { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의 · 버전 · 발행', en: 'Metric definitions · Versions · Releases' }, homeMenuId: 'catalog' },
     { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: purpose, homeMenuId: 'dashboard' },
   ],
   groups: [
@@ -265,7 +265,7 @@ describe('platform home launcher', () => {
       expect.stringContaining('BRAVO'),
     ]);
     expect(cards[0].textContent).toContain('생산성 분석');
-    expect(cards[0].textContent).toContain('설비·기간별 생산성과 사이클타임을 분석합니다.');
+    expect(cards[0].textContent).toContain('설비·기간별 생산성 · 사이클타임');
     expect(cards[1].textContent).toContain('지표관리');
     expect(cards[0].textContent).not.toContain('이어서');
     expect(cards[0].getAttribute('href')).toContain('/equipment');

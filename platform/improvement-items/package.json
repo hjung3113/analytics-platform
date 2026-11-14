@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-improvement-items",
   "private": true,
-  "version": "0.1.10",
+  "version": "0.1.11",
   "ap": {
     "sdk": ">=0.36.0 <0.37.0"
   },

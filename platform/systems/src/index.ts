@@ -13,7 +13,7 @@ export const manifests: PlatformMenuEntry[] = [
   {
     id: 'systems', primary: true, group: groupId('systems'),
     label: { ko: '시스템', en: 'Systems' },
-    description: { ko: '업무 시스템과 연결된 추적 시스템, 연결 상태를 봅니다', en: 'See which tracked system each business system is linked to, and whether the link holds' },
+    description: { ko: '업무 시스템별 추적 시스템 연결 · 연결 상태', en: 'Tracked system links by business system · Link status' },
     path: '/operations/systems', icon: Server, permission: 'console:access',
     requiresScope: false, context: contextCapabilities(), pageType: 'catalog', features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/Systems')),

@@ -15,7 +15,7 @@ export function resetItems() {
     action: i ? '설비 조건 점검 및 조정' : null, actionDate: i >= 2 ? '2026-11-04' : null, status,
     assignee: { id: 'admin', displayName: '관리자' }, quest: i > 0 && i < 4 ? { id: ['Q-1', 'Q-DOWN', 'Q-404'][i - 1]!, titleSnapshot: '대기 시간 줄이기' } : null,
     origin: { menuId: 'cycle-time', context: { scopeId: 'MEM', from: '2026-11-01T00:00:00', to: '2026-11-05T00:00:00' } },
-    targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: '설비 EQ-01' }],
+    targets: [{ kind: 'equipment', externalKey: 'EQ-01', displayName: 'EQ-01' }],
     effectResult: i === 3 ? 'effective' : null, effectNote: null, effectCompareLink: null, dropReason: i === 4 ? '중복' : null,
     version: '1', createdBy: 'admin', createdAt: at, updatedBy: 'admin', updatedAt: at,
   }));
@@ -280,9 +280,9 @@ function list(p: ListParams, actor: string): PageResult<ItemRow> {
 export const QUEST_DOWN_ID = 'Q-DOWN';
 /** Searching this text answers `supported: false`, as a BRAVO that cannot search would (the picker then takes an id by hand). */
 export const QUEST_UNSUPPORTED_QUERY = 'Q-NOSEARCH';
-/** Mixed statuses, one Korean title, one very long title. Ids `Q-1`, `Q-2` and `Q-9` are the ones the item fixtures link to. Nine rows: three pages of three. */
+/** Mixed statuses, Korean titles, one very long title. Ids `Q-1`, `Q-2` and `Q-9` are the ones the item fixtures link to. Nine rows: three pages of three. */
 export const MOCK_QUESTS: readonly Quest[] = [
-  { id: 'Q-1', title: 'Chamber pressure drift review', status: 'Open' },
+  { id: 'Q-1', title: '챔버 압력 변동 검토', status: '진행 중' },
   { id: 'Q-2', title: 'Transfer robot teaching cycle', status: 'In progress' },
   { id: 'Q-3', title: '설비 점검 주기 개선', status: '완료' },
   { id: 'Q-4', title: 'Recipe change approval flow', status: 'Closed' },

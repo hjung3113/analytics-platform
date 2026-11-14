@@ -113,7 +113,7 @@ export function NoticesScreen({ clock }: { clock: () => string }) {
   };
 
   return <PlatformPage
-    description={ko ? '플랫폼 공지 목록과 내용입니다.' : 'Platform notices and their content.'}
+    description={ko ? '진행 중 공지 · 종료된 공지' : 'Active notices · Ended notices'}
     primaryAction={canWrite ? <Button size="sm" onClick={() => openWith({ kind: 'form', notice: null })}><Plus className="size-3.5" aria-hidden />{ko ? '공지 작성' : 'Write notice'}</Button> : undefined}>
     {focus !== null && query.response?.outcome === 'empty' && rejected(focus)}
     <div ref={regionRef} role="region" aria-label={ko ? '공지 목록 영역' : 'Notice list area'} tabIndex={-1} className="focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">

@@ -8,7 +8,7 @@ export default function Faq() {
   const { lang } = useI18n();
   const ko = lang === 'ko';
   const { canOpen, linkTo } = usePlatform();
-  return <PlatformPage description={ko ? '자주 묻는 질문 자리입니다.' : 'The place for frequently asked questions.'}>
+  return <PlatformPage description={ko ? '자주 묻는 질문' : 'Frequently asked questions'}>
     <EmptyState
       icon={<HelpCircle className="size-6" />}
       title={ko ? '준비 중입니다' : 'Coming soon'}

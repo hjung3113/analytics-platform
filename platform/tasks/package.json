@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-tasks",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "ap": { "sdk": ">=0.36.0 <0.37.0" },
   "type": "module",
   "exports": {

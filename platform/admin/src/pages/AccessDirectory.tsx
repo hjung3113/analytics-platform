@@ -125,8 +125,8 @@ export default function AccessDirectory() {
         <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPage({ focus: null, tab: null })}>{ko ? '닫기' : 'Close'}</Button>
       </div>) : null;
   return <PlatformPage description={ko
-    ? '조회 전용 화면입니다. 권한 부여·회수는 하지 않습니다.'
-    : 'Read-only view. Grants and revocations are not made here.'}>
+    ? '역할별 권한·room 부여 (조회 전용)'
+    : 'Permissions and room grants by role (read-only)'}>
     <ManagementLayout drawer={drawer}
       table={invalid ? <TableUrlWarning sentences={sentences} recoverKeys={recoverKeys} cause={cause} />
         : focusRule.invalid ? <PageKeyWarning sentences={focusRule.sentences} onRecover={focusRule.recover} /> :
