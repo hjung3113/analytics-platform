@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { evidence, expectScopeValid, fitWorkspace, query, setScenario, signInAs } from './support';
+import { evidence, expectScopeValid, fitWorkspace, nextFrames, query, setScenario, signInAs } from './support';
 
 /**
  * HW Time (#690, node 690m): the four menus share one drill contract (06 §12.7) and one workspace/board contract (§12.8).
@@ -254,7 +254,7 @@ test.describe('approved analysis B (#1141)', () => {
       const hoverDropTarget = async (x: number, y: number) => {
         await page.mouse.move(x, y, { steps: 12 });
         for (let i = 0; i < 6; i++) {
-          await page.waitForTimeout(80);
+          await nextFrames(page);
           await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
         }
       };
