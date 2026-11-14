@@ -15,7 +15,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
  *   listboxLabel — accessible name for the options list (optional, default "옵션")
  *   emptyText — text shown when no options match (optional, default "결과 없음")
  *   id — forwarded to the trigger button
- *   aria-invalid — forwarded to the trigger button
+ *   aria-invalid, aria-required — forwarded to the trigger button
  *   aria-describedby — forwarded to the trigger button
  *   onSearchChange — called when the search text changes
  *   filterOptions — when false, options are listed exactly as given (for
@@ -56,6 +56,7 @@ export interface ComboboxProps {
   font?: 'default' | 'mono';
   id?: string;
   'aria-invalid'?: boolean;
+  'aria-required'?: boolean;
   'aria-describedby'?: string;
   onSearchChange?: (search: string) => void;
   /**
@@ -83,6 +84,7 @@ export function Combobox({
   font = 'default',
   id,
   'aria-invalid': ariaInvalid,
+  'aria-required': ariaRequired,
   'aria-describedby': ariaDescribedBy,
   onSearchChange,
   filterOptions = true,
@@ -216,11 +218,12 @@ export function Combobox({
           aria-controls={open ? listboxId : undefined}
           aria-disabled={disabled}
           aria-invalid={ariaInvalid}
+          aria-required={ariaRequired}
           aria-describedby={ariaDescribedBy}
           disabled={disabled}
           onKeyDown={handleTriggerKeyDown}
           className={cn(
-            'flex w-full items-center justify-between rounded-md border border-border-control bg-surface-field text-sm text-text-primary',
+            'flex w-full items-center justify-between rounded-md border border-border-control aria-invalid:border-accent-danger bg-surface-field text-sm text-text-primary',
             density === 'compact' ? 'h-8 px-2 py-1' : 'h-10 px-3 py-2',
             font === 'mono' && 'font-mono',
             'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',

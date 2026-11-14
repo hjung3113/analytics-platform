@@ -130,7 +130,7 @@ export function MultiCombobox({
   return (
     <Popover open={open && !disabled} onOpenChange={next => { setOpen(next); if (next) { setSelectedView(false); setActiveValue(null); } }}>
       <PopoverAnchor asChild>
-        <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-control bg-surface-field px-3 py-2 text-sm text-text-primary', density === 'compact' && 'min-h-8 px-2 py-1', className)}>
+        <div className={cn('flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-border-control has-[[aria-invalid=true]]:border-accent-danger bg-surface-field px-3 py-2 text-sm text-text-primary', density === 'compact' && 'min-h-8 px-2 py-1', className)}>
           {values.slice(0, Math.max(0, maxVisibleChips)).map(value => (
             <Button key={value} type="button" variant="secondary" size="toolbar" disabled={disabled} className={density === 'compact' ? 'h-5 px-1.5 text-xs' : undefined}
               aria-label={removeLabel(valueLabel(value))} onClick={() => { remove(value); triggerRef.current?.focus(); }}>

@@ -150,6 +150,15 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 결정과 비교 선택지는 [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), 배치는 [07](../design/app-shell.md), 시각 규칙은 [DESIGN](../../DESIGN.md#shell-visual-rules)을 따른다.
 
+### FormField — 라벨·입력·도움말·오류 (Decided, #1890, [ADR-0161](../adr/0161-form-field-hint-always-visible-render-function.md))
+
+- `@ap/ui`의 `FormField({ label, required?, tip?, hint?, error?, id?, describedBy?, className?, children })`. `children`은 렌더 함수이고 `control`(`id`·`aria-describedby`·`aria-invalid`·`aria-required`)을 라벨 가능한 입력 **하나**에 펼친다(`<Input {...control} />`). `id` 기본값은 `useId()`이고 `describedBy`는 도움말·오류 id 뒤에 붙는다. 한 필드에 입력이 여럿이면 `FormField`를 나눈다.
+- 순서는 라벨 → 입력 → 도움말 → 오류, 간격 6px. 라벨은 `FieldLabel`(필수 `*`, 선택 `tip`). 도움말(`text-xs text-text-muted`)은 **항상 보이고** 오류가 나도 남는다. 오류(`text-xs text-text-danger-label`)는 그 아래에 더하고 문구는 `break-keep`이다.
+- `aria-describedby`는 도움말 id, 오류 id, `describedBy` 순서이며 있는 것만 넣는다. `aria-invalid`는 오류가 있을 때만, `aria-required`는 `required`일 때만 입력에 닿는다. `Combobox`는 트리거 button에 둘 다 전달하고, `MultiCombobox`는 `aria-required`를 button에 넘기지 않는다.
+- **오류에 `role="alert"`·`aria-live`를 쓰지 않는다.** 여러 필드가 한꺼번에 오류를 내므로 필드마다 알리지 않는다(§26/§19 한 알림자). 호출하는 쪽은 제출하거나 칸을 벗어날 때 `error`를 넣고(글자마다 넣지 않는다), 제출이 막히면 첫 잘못된 입력으로 포커스를 옮긴다.
+- 오류 테두리는 각 입력이 칠한다: `Input`·`Textarea`·`SelectTrigger`·`Combobox` 트리거는 `aria-invalid:border-accent-danger`, `MultiCombobox`는 바깥 div의 `has-[[aria-invalid=true]]:border-accent-danger`. 감싸개는 테두리를 칠하지 않는다.
+- 이전: 손으로 만든 사본(이슈의 4곳과 `log-knowledge` `SpecField`, `log-analysis` `KnowledgeHandoffDialog`·`HandoffOwnerFields`)은 이전하지 않았다(`.planning/backlog.md`). `notice-voc`가 이미 `type FormField`를 내보내므로 이전 때 별칭이 필요하다.
+
 ### Domain Component
 
 업무 의미가 있는 컴포넌트다.

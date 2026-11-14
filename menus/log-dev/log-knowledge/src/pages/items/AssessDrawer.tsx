@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform, type QueryState } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
-import { Button, Callout, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
+import { Button, Callout, FormField, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
 import { ASSESSMENT_DIMENSIONS, ITEM_LIMITS, PROCESSING_STATES, VERIFICATION_STATES, itemAssess, type AssessmentDimension, type ItemDetail } from '../../endpoints';
 import { StateBadge } from './ItemBadges';
 import { Field, useCloseGuard, useSyncedVersion } from './ItemFormParts';
@@ -91,9 +91,9 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
         })}
       </RadioGroup>
     </Field>
-    <Field id={`${uid}-rationale`} label="사유" required error={errors['rationale']} hint={`판단 변경 이력에 남습니다 (${ITEM_LIMITS.rationale}자 이하)`}>
-      <Textarea id={`${uid}-rationale`} value={rationale} onChange={e => { setShowReloadNotice(false); setRationale(e.target.value); }} aria-invalid={errors['rationale'] !== undefined} aria-describedby={errors['rationale'] ? `${uid}-rationale-error` : undefined} />
-    </Field>
+    <FormField id={`${uid}-rationale`} label="사유" required error={errors['rationale']} hint={`판단 변경 이력에 남습니다 (${ITEM_LIMITS.rationale}자 이하)`}>
+      {control => <Textarea {...control} value={rationale} onChange={e => { setShowReloadNotice(false); setRationale(e.target.value); }} />}
+    </FormField>
     <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-end gap-2 border-t border-border-subtle bg-surface-detail px-5 py-3">
       <Button type="button" variant="secondary" onClick={guard.request}>취소</Button>
       <Button type="submit" disabled={assess.pending || conflict}>{assess.pending ? '저장 중…' : '판단 변경'}</Button>

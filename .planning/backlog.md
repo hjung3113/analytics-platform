@@ -27,6 +27,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — 손으로 만든 폼 필드 사본 7곳을 `FormField`로 이전 (#1890 항목 3):** 이유: 조각이 먼저 들어왔고(ADR-0161) 소비자 하나(`log-knowledge` 판단 변경의 「사유」)로 API를 증명했으며, 사본 이전은 메뉴 화면을 바꾸는 별도 작업이다. 대상: `log-knowledge` `CatalogDrawer`·`ItemFormParts`의 `Field`와 `SpecField`, `improvement-items` `parts.tsx`, `notice-voc` `NoticeDialogs.tsx`(`type FormField`와 이름 충돌, 별칭 필요), `log-analysis` `KnowledgeHandoffDialog`·`HandoffOwnerFields`. 다시 여는 조건: 해당 메뉴를 손볼 때 또는 사본 간 간격·접근성 차이로 결함이 보고될 때.
 - **구현 안 함 — RichEditor 멘션 이름 변경 시 기존 칩 다시 그리기 (#2043 C2):** 이유: ProseMirror 노드 DOM을 정적으로 그리므로 `resolveMentionLabel` 결과가 바뀌어도 이미 그린 칩은 갱신되지 않는다. 소비자는 마운트 전에 이름을 준비해야 한다. 다시 여는 조건: 편집기를 마운트한 채로 이름을 비동기로 받거나 바꿔야 하는 소비자가 생길 때(reactive redraw).
 
 - **구현 안 함 — zod 한 버전으로 맞추기:** `zod` 3.25.67(`apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/sdk/contract-schemas`)과 4.6.5(`packages/eqv/core`)가 함께 있다. `contract-schemas`는 3.25의 `zod/v4` 하위 경로를 일부러 쓴다(ADR-0096). 두 버전이 만나는 곳은 `apps/platform-api/src/modules/eqv/`가 `@eqv/core` 스키마에 `.safeParse`를 부르는 곳뿐이다. 이유: 지금은 parse 호출만 경계를 넘어 문제가 없고, 맞추려면 약 200개 파일과 `fastify-type-provider-zod`를 함께 올려야 한다. 다시 여는 조건: 3.x 패키지가 `@eqv/core` 스키마를 다른 스키마에 합성해야 할 때, 또는 zod 3.x 지원이 끝날 때(#1977).

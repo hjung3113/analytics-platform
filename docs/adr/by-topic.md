@@ -188,6 +188,7 @@ FeedbackOps 합류, 플랫폼 기능 메뉴, VOC·과제·감사 화면.
 - [0139](0139-eqv-onboarding-storage-and-publish.md) — 서버 `eqv` Onboarding: alias 규칙·Type Dictionary·Mapping Version·Baseline·Binding의 저장과 게시
 
 ## SDK·디자인 시스템·패키지 구조
+- [0161](0161-form-field-hint-always-visible-render-function.md) — 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다
 
 SDK 소유와 배포, 디자인 시스템, 저장소·패키지 구조, 테스트 fixture.
 
