@@ -385,8 +385,9 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     return !t.expiresAt || t.expiresAt.getTime() > now().getTime();
   }
 
-  /** Audit one rejected attempt in its own transaction. The secret is never written; the prefix only when parseable. */
+  /** Audit stored-token failures only. Unidentified attempts belong in the request warning log, never in the DB. */
   async function recordAuthFailure(result: Extract<TokenAuthResult, { ok: false }>): Promise<void> {
+    if (result.reason === 'malformed' || result.reason === 'unknown') return;
     let workspaceId = result.workspaceId ?? deps.workspaceId;
     let actorId = result.actorId;
     if (!actorId) {

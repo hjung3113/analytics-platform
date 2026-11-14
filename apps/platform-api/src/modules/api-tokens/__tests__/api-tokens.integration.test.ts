@@ -328,7 +328,21 @@ describe.skipIf(!runIntegration)('API tokens: issue, revoke, auth hook, scope âˆ
     const ipCounter = async () =>
       Number((await migrate.pool.query("select counter from core.rate_limits where key = '127.0.0.1' and route_group = 'global'")).rows[0]?.counter ?? 0);
 
-    it('revoked / expired / unknown / malformed tokens get the identical 401, an auth_failed audit, and count in the IP bucket', async () => {
+    it.each(['not-a-token', `ap_${'c'.repeat(8)}_${'D'.repeat(43)}`])(
+      'unidentified Bearer %s leaves the audit log unchanged (#2016 SER-6)',
+      async (value) => {
+        const countRows = async () => Number((await migrate.pool.query(
+          'select count(*) as n from core.audit_log',
+        )).rows[0]?.n);
+        const before = await countRows();
+        const res = await query(bearer(value));
+        expect(res.statusCode).toBe(401);
+        expect(res.json().code).toBe('auth.token_invalid');
+        expect(await countRows()).toBe(before);
+      },
+    );
+
+    it('revoked / expired / unknown / malformed tokens get the identical 401, stored failures are audited, and count in the IP bucket', async () => {
       const revoked = await rawToken({ actorId: dev.id, scopes: [], revoked: true });
       const expired = await rawToken({ actorId: dev.id, scopes: [], expiresAt: new Date(Date.now() - 1000).toISOString() });
       const unknown = `ap_${'a'.repeat(8)}_${'B'.repeat(43)}`;

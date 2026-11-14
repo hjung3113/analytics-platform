@@ -45,10 +45,14 @@ export function installTokenGate(app: FastifyInstance, deps: { tokens: ApiTokenS
 
     const result = await authResultOf(req, () => deps.tokens.authenticate(value, req.ip));
     if (!result.ok) {
-      try {
-        await deps.tokens.recordAuthFailure(result);
-      } catch (err) {
-        req.log.warn({ err }, 'api token auth failure could not be audited');
+      if (result.reason === 'malformed' || result.reason === 'unknown') {
+        req.log.warn({ prefix: result.prefix, reason: result.reason }, 'unidentified API token authentication failed');
+      } else {
+        try {
+          await deps.tokens.recordAuthFailure(result);
+        } catch (err) {
+          req.log.warn({ err }, 'api token auth failure could not be audited');
+        }
       }
       return sendError(reply, 'auth.token_invalid', 'API token is not valid');
     }

@@ -20,6 +20,27 @@ afterEach(() => {
 });
 
 describe('menu usage (docs/05 메뉴 활용률 계측)', () => {
+  it.each(['', 'x'.repeat(81), 'a b', 'a?b', 'a#b', 'a&b', 'a\u0000b', 'a\u007fb', 'a\u200bb'])(
+    'rejects unsafe sessionId %j without storing any event', async (sessionId) => {
+      for (const name of ['entry', 'dwell'] as const) {
+        const event = name === 'entry' ? entry({ sessionId }) : entry({ sessionId, name, dwellMs: 1, enteredAt: 1 });
+        expect(await recordUsage([entry(), event])).toEqual({ accepted: 0 });
+        expect(storedUsage()).toHaveLength(0);
+      }
+    },
+  );
+
+  it('accepts sessionId at the 80-character limit', async () => {
+    expect(await recordUsage([entry({ sessionId: 's'.repeat(80) })])).toEqual({ accepted: 1 });
+  });
+
+  it.each(['menuId', 'path', 'spaceId', 'stayId'])(
+    'rejects control characters in %s without storing any event', async (field) => {
+      expect(await recordUsage([entry(), entry({ source: 'board', stayId: 'pane', [field]: 'a\u0000b' })])).toEqual({ accepted: 0 });
+      expect(storedUsage()).toHaveLength(0);
+    },
+  );
+
   it('keeps events across a role switch: two roles produce visits 2, distinctUsers 2', async () => {
     setRole('engineer');
     await recordUsage([entry()]);

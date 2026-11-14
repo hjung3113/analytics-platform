@@ -13,6 +13,25 @@ const entry = {
 };
 
 describe('parseUsageBatch', () => {
+  it.each(['', 'x'.repeat(81), 'a b', 'a?b', 'a#b', 'a&b', 'a\u0000b', 'a\u007fb', 'a\u200bb'])(
+    'rejects unsafe sessionId %j for the entire batch', (sessionId) => {
+      for (const name of ['entry', 'dwell']) {
+        const event = name === 'entry' ? { ...entry, sessionId } : { ...entry, sessionId, name, dwellMs: 1, enteredAt: 1 };
+        expect(parseUsageBatch({ events: [entry, event] })).toBeNull();
+      }
+    },
+  );
+
+  it('accepts sessionId at the 80-character limit', () => {
+    expect(parseUsageBatch({ events: [{ ...entry, sessionId: 's'.repeat(80) }] })).not.toBeNull();
+  });
+
+  it.each(['menuId', 'path', 'spaceId', 'stayId'])(
+    'rejects control characters in %s', (field) => {
+      expect(parseUsageBatch({ events: [{ ...entry, source: 'board', stayId: 'pane', [field]: 'a\u0000b' }] })).toBeNull();
+    },
+  );
+
   it('parses a main entry with via and a board dwell with stayId', () => {
     const parsed = parseUsageBatch({
       events: [
