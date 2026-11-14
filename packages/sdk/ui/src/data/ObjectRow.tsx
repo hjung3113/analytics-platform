@@ -38,6 +38,15 @@ const severityClassName: Record<ObjectRowSeverity, string> = {
   critical: 'bg-severity-critical',
 };
 
+const INTERACTIVE_CHILD_SELECTOR =
+  'a[href], button, input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"], [role="checkbox"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="radio"], [role="switch"], [role="tab"], [tabindex]:not([tabindex="-1"])';
+
+function isNestedInteractiveTarget(target: EventTarget | null, row: HTMLElement): boolean {
+  if (!(target instanceof Element)) return false;
+  const interactive = target.closest(INTERACTIVE_CHILD_SELECTOR);
+  return interactive !== null && interactive !== row && row.contains(interactive);
+}
+
 export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
   (
     {
@@ -63,8 +72,12 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
     const showLeadingCell = leadingCell === 'always' || !!(severity || selectable || icon);
     const clickableProps = onClick
       ? {
-          role:    'button',
+          role: 'button' as const,
           tabIndex: 0,
+          onClick(event: React.MouseEvent<HTMLDivElement>) {
+            if (isNestedInteractiveTarget(event.target, event.currentTarget)) return;
+            onClick(event);
+          },
           onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
             if (event.target !== event.currentTarget) return;
             if (event.key === 'Enter' || event.key === ' ') {
@@ -86,7 +99,6 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
           densityClassName[density],
           className,
         )}
-        onClick={onClick}
         {...clickableProps}
       >
         {selected && (

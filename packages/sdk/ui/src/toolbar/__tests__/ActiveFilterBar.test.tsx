@@ -25,31 +25,96 @@ describe('ActiveFilterBar', () => {
   });
 });
 
-function FocusHarness({ explicit = false }: { explicit?: boolean }) {
-  const [keys, setKeys] = useState(['A', 'B', 'C']);
+function FocusHarness({
+  explicit = false,
+  unmountWhenEmpty = false,
+  initialKeys = ['A', 'B', 'C'],
+  onAfterClear,
+}: {
+  explicit?: boolean;
+  unmountWhenEmpty?: boolean;
+  initialKeys?: string[];
+  onAfterClear?: () => void;
+}) {
+  const [keys, setKeys] = useState(initialKeys);
   const returnFocusRef = useRef<HTMLInputElement>(null);
-  return <><input aria-label="Filter" ref={returnFocusRef} />{explicit && <input aria-label="Nearby" />}<ActiveFilterBar
-    {...(explicit ? { returnFocusRef } : {})}
-    items={keys.map(key => ({ key, label: key, onRemove: () => setKeys(old => old.filter(k => k !== key)) }))}
-    onClearAll={() => setKeys([])} /></>;
+  const bar = (
+    <ActiveFilterBar
+      {...(explicit ? { returnFocusRef } : {})}
+      items={keys.map(key => ({
+        key,
+        label: key,
+        onRemove: () => {
+          setKeys(old => old.filter(k => k !== key));
+          if (keys.length === 1) onAfterClear?.();
+        },
+      }))}
+      onClearAll={() => {
+        setKeys([]);
+        onAfterClear?.();
+      }}
+    />
+  );
+  return (
+    <>
+      <input aria-label="Filter" ref={returnFocusRef} />
+      {explicit && <input aria-label="Nearby" />}
+      <input aria-label="Other" />
+      {unmountWhenEmpty ? keys.length > 0 && bar : bar}
+    </>
+  );
 }
 it('focuses the next remove control, then clear, then the preceding field', () => {
   render(<FocusHarness />);
-  for (const [key, next] of [['A', 'B 필터 제거'], ['B', 'C 필터 제거'], ['C', 'Filter']]) {
+  for (const [key, next] of [['A', 'B 필터 제거'], ['B', 'C 필터 제거'], ['C', 'Other']]) {
     const button = screen.getByRole('button', { name: `${key} 필터 제거` });
     act(() => button.focus()); fireEvent.click(button);
-    expect(next === 'Filter' ? screen.getByRole('textbox', { name: 'Filter' }) : screen.getByRole('button', { name: next })).toHaveFocus();
+    expect(next === 'Other' ? screen.getByRole('textbox', { name: 'Other' }) : screen.getByRole('button', { name: next })).toHaveFocus();
   }
 });
 it.each([false, true])('returns focus after clearing all (explicit ref: %s)', explicit => {
   render(<FocusHarness explicit={explicit} />);
   const button = screen.getByRole('button', { name: '필터 초기화' });
   act(() => button.focus()); fireEvent.click(button);
-  expect(screen.getByRole('textbox', { name: 'Filter' })).toHaveFocus();
+  expect(screen.getByRole('textbox', { name: explicit ? 'Filter' : 'Other' })).toHaveFocus();
 });
 it('uses clear when removing the last chip in a nonempty bar', () => {
   render(<FocusHarness />);
   const button = screen.getByRole('button', { name: 'C 필터 제거' });
   act(() => button.focus()); fireEvent.click(button);
   expect(screen.getByRole('button', { name: '필터 초기화' })).toHaveFocus();
+});
+it('returns focus to returnFocusRef when the consumer unmounts the bar after removing the last chip', () => {
+  render(<FocusHarness explicit unmountWhenEmpty initialKeys={['A']} />);
+  const button = screen.getByRole('button', { name: 'A 필터 제거' });
+  act(() => button.focus());
+  fireEvent.click(button);
+  expect(screen.queryByRole('group', { name: '적용된 필터' })).toBeNull();
+  expect(screen.getByRole('textbox', { name: 'Filter' })).toHaveFocus();
+});
+it('returns focus to returnFocusRef when the consumer unmounts the bar after clearing all', () => {
+  render(<FocusHarness explicit unmountWhenEmpty initialKeys={['A', 'B']} />);
+  const button = screen.getByRole('button', { name: '필터 초기화' });
+  act(() => button.focus());
+  fireEvent.click(button);
+  expect(screen.queryByRole('group', { name: '적용된 필터' })).toBeNull();
+  expect(screen.getByRole('textbox', { name: 'Filter' })).toHaveFocus();
+});
+it('returns focus to the preceding field when unmounting without returnFocusRef', () => {
+  render(<FocusHarness unmountWhenEmpty initialKeys={['A']} />);
+  const button = screen.getByRole('button', { name: 'A 필터 제거' });
+  act(() => button.focus());
+  fireEvent.click(button);
+  expect(screen.queryByRole('group', { name: '적용된 필터' })).toBeNull();
+  expect(screen.getByRole('textbox', { name: 'Other' })).toHaveFocus();
+});
+it('does not steal focus if the removal callback already moved focus elsewhere', () => {
+  const focusOther = () => {
+    screen.getByRole('textbox', { name: 'Other' }).focus();
+  };
+  render(<FocusHarness explicit unmountWhenEmpty initialKeys={['A']} onAfterClear={focusOther} />);
+  const button = screen.getByRole('button', { name: 'A 필터 제거' });
+  act(() => button.focus());
+  fireEvent.click(button);
+  expect(screen.getByRole('textbox', { name: 'Other' })).toHaveFocus();
 });

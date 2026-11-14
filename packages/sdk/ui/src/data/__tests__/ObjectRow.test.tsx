@@ -1,6 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import * as React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { ObjectRow } from '../ObjectRow.js';
 
@@ -87,4 +88,63 @@ it.each(['checkbox', 'button'])('does not turn a nested %s key into a row click'
   const control = screen.getByRole(kind, { name: kind === 'checkbox' ? '행 선택' : 'Action' });
   expect(fireEvent.keyDown(control, { key: kind === 'checkbox' ? ' ' : 'Enter' })).toBe(true);
   expect(click).not.toHaveBeenCalled();
+});
+
+it.each(['{Enter}', ' '])('activates the row itself on %s via user keyboard interaction', async key => {
+  const user = userEvent.setup();
+  const rowClick = vi.fn();
+  const view = render(<ObjectRow title="Row" onClick={rowClick} />);
+  const row = view.container.firstElementChild as HTMLElement;
+  row.focus();
+  await user.keyboard(key);
+  expect(rowClick).toHaveBeenCalledOnce();
+});
+
+it.each(['{Enter}', ' '])('does not activate the row when activating a nested button with %s', async key => {
+  const user = userEvent.setup();
+  const rowClick = vi.fn();
+  const actionClick = vi.fn();
+  render(
+    <ObjectRow
+      title="Row"
+      onClick={rowClick}
+      trailing={<button type="button" onClick={actionClick}>Action</button>}
+    />,
+  );
+  const button = screen.getByRole('button', { name: 'Action' });
+  button.focus();
+  await user.keyboard(key);
+  expect(actionClick).toHaveBeenCalledOnce();
+  expect(rowClick).not.toHaveBeenCalled();
+});
+
+it('does not activate the row when clicking a nested button or its inner content', async () => {
+  const user = userEvent.setup();
+  const rowClick = vi.fn();
+  const actionClick = vi.fn();
+  render(
+    <ObjectRow
+      title="Row"
+      onClick={rowClick}
+      trailing={<button type="button" onClick={actionClick}><span>Action</span></button>}
+    />,
+  );
+  await user.click(screen.getByText('Action'));
+  expect(actionClick).toHaveBeenCalledOnce();
+  expect(rowClick).not.toHaveBeenCalled();
+});
+
+it('does not activate the row when clicking a nested link in title', async () => {
+  const user = userEvent.setup();
+  const rowClick = vi.fn();
+  const linkClick = vi.fn((event: React.MouseEvent<HTMLAnchorElement>) => event.preventDefault());
+  render(
+    <ObjectRow
+      title={<a href="#detail" onClick={linkClick}>Detail link</a>}
+      onClick={rowClick}
+    />,
+  );
+  await user.click(screen.getByRole('link', { name: 'Detail link' }));
+  expect(linkClick).toHaveBeenCalledOnce();
+  expect(rowClick).not.toHaveBeenCalled();
 });
