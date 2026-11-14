@@ -1,4 +1,4 @@
-import { buildQuery, isForbiddenSavedViewKey, parseQuery, RETURN_TO_KEY, shift, type ContextKey, type GlobalContext, type Pair, type SavedViewContext, type SavedViewSupport } from '@ap/contracts';
+import { buildQuery, parseQuery, RETURN_TO_KEY, shift, type ContextKey, type GlobalContext, type Pair, type SavedViewContext, type SavedViewSupport } from '@ap/contracts';
 
 /** Menu-declared Context keys (`SavedViewSupport.contextKeys`) → the saved fields each one governs (06 §21.1). */
 const FIELDS_OF: Record<string, readonly (keyof SavedViewContext)[]> = {
@@ -13,7 +13,7 @@ export type SavedState = { context: SavedViewContext; page: Pair[] };
 export function supportedFields(support: SupportedKeys): ReadonlySet<keyof SavedViewContext> {
   return new Set(support.contextKeys.flatMap(key => FIELDS_OF[key] ?? []));
 }
-const savable = ([key]: Pair) => key !== RETURN_TO_KEY && !isForbiddenSavedViewKey(key);
+const savable = ([key]: Pair) => key !== RETURN_TO_KEY;
 
 /** Normalizes one page representation (pairs or key map) to pairs ordered by key; the values of one repeated key keep their order, which is part of the state. */
 export function pagePairs(page: Pair[] | Record<string, string[]>): Pair[] {

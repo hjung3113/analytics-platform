@@ -126,7 +126,7 @@ export function canTransition(approval: ViewApproval, action: ApprovalAction): b
   return APPROVAL_TRANSITIONS[action].from.includes(approval);
 }
 
-/** Transient UI state and raw data/engine dumps that must never be saved (21.1). Matched by key name at any depth outside `panels`. */
+/** Transient UI state and raw data/engine dumps that must never be saved (21.1). Matched by key name at any depth in `chartOptions` and `layout`. */
 const TRANSIENT_KEY = /^(hover|zoom|modal|openModal|draft)/i;
 const RAW_KEYS: ReadonlySet<string> = new Set(['rows', 'rawData', 'engineState']);
 const DOCK_KEY = /^dock/i;
@@ -168,17 +168,15 @@ function invalidContext(context: Record<string, unknown>): string | null {
   return null;
 }
 
-/** Both page representations (pairs and key map) get the same logical-key rule and value shape. */
+/** Both page representations (pairs and key map) keep applied keys regardless of name and validate the value shape. */
 function invalidPage(page: unknown): string | null {
   if (Array.isArray(page)) {
     for (const [i, pair] of page.entries()) {
       if (!Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== 'string' || typeof pair[1] !== 'string') return `page[${i}] must be a [key, value] pair`;
-      if (isForbiddenSavedViewKey(pair[0])) return `page.${pair[0]} must not be saved`;
     }
     return null;
   }
   for (const [k, v] of Object.entries(page as Record<string, unknown>)) {
-    if (isForbiddenSavedViewKey(k)) return `page.${k} must not be saved`;
     if (!isStringArray(v)) return `page.${k} must be a string array`;
   }
   return null;
@@ -219,7 +217,7 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
     const bad = nonSerializable(v, k, [input]);
     if (bad) return invalid(bad);
     if (isForbiddenSavedViewKey(k)) return invalid(`${k} must not be saved`);
-    const key = k === 'panels' ? null : forbiddenKey(v, k);
+    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : null;
     if (key) return invalid(`${key} must not be saved`);
   }
   return { ok: true, value: input as SavedViewDraft };

@@ -119,11 +119,11 @@ describe('saved-view commands', () => {
     expect(parse(withDraft({ ...condDraft, context: { condition: { axis: [] } } })).success).toBe(false);
   });
 
-  it('forbidden keys: same names as the SDK, page and nested, Scope-named keys allowed, panels opaque', () => {
+  it('forbidden keys: same names as the SDK in chartOptions/layout, Scope-named keys allowed, panels opaque', () => {
     for (const k of ['hoverRow', 'zoomLevel', 'modalOpen', 'openModal', 'draftFilter', 'rows', 'rawData', 'engineState', 'dockLayout', 'scopeId', 'scope', 'rowsX', 'Rows']) {
       expect(isForbiddenSavedViewWireKey(k), k).toBe(isForbiddenSavedViewKey(k));
     }
-    for (const bad of [{ ...menuDraft, page: { hoverRow: ['a'] } }, { ...menuDraft, page: [['dockX', 'a']] }, { ...menuDraft, chartOptions: { nested: { rows: [] } } }, { ...menuDraft, layout: [{ engineState: 1 }] }]) {
+    for (const bad of [{ ...menuDraft, chartOptions: { nested: { rows: [] } } }, { ...menuDraft, layout: [{ engineState: 1 }] }]) {
       expect(parse(withDraft(bad)).success).toBe(false);
       expect(validateSavedView(bad).ok).toBe(false);
     }

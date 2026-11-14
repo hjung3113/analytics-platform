@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validateSavedView } from '@ap/contracts';
 import { savedViewCommandSchema, savedViewResponseSchemas } from '@ap/contract-schemas/source';
 import { TransportError } from '../calls/calls.js';
 import { isSavedViewCommand, responseGuards, withinDepth } from '../saved-views/guards.js';
@@ -154,7 +155,7 @@ describe('guards equal the wire schemas', () => {
     ['forged id', { ...base, id: 'x' }],
     ['unknown draft key', { ...base, draft: { ...menuDraft, ownerId: 'u9' } }],
     ['forbidden chartOptions key (nested)', { ...base, draft: { ...menuDraft, chartOptions: { a: { hoverRow: 1 } } } }],
-    ['forbidden page key', { ...base, draft: { ...menuDraft, page: [['zoomLevel', '1']] } }],
+    ['applied page key with transient-looking name', { ...base, draft: { ...menuDraft, page: [['zoomLevel', '1']] } }],
     ['scopeId in context', { ...base, draft: { ...menuDraft, context: { scopeId: 'S' } } }],
     ['panels with forbidden-looking keys is opaque', { ...base, draft: { ...menuDraft, panels: { hoverX: 1 } } }],
     ['bad visibility enum', { version: 1, op: 'setVisibility', id: 'a', visibility: { kind: 'everyone' }, expectedVersion: 1 }],
@@ -224,5 +225,54 @@ describe('guards equal the wire schemas', () => {
   it('measures depth with the root at 0', () => {
     expect(withinDepth(deepArray(33))).toBe(false);
     expect(withinDepth(deepArray(32))).toBe(true);
+  });
+});
+
+
+describe('KER-26 saved-view name equivalence', () => {
+  const names = ['zoomFrom', 'draftId', 'rows', 'dockSide', 'hoverSeries', 'rawData', 'engineState', 'modalOpen', 'openModal'];
+  it.each(names)('accepts page and Condition names %s across contracts, wire and guards', key => {
+    for (const page of [[[key, 'applied']], { [key]: ['applied'] }]) {
+      const draft = { ...menuDraft, page, context: { condition: { [key]: ['E1'] } } };
+      expect(validateSavedView(draft).ok).toBe(true);
+      const save = { version: 1, op: 'save', draft };
+      expect(savedViewCommandSchema.safeParse(save).success).toBe(true);
+      expect(isSavedViewCommand(save)).toBe(true);
+      const update = { version: 1, op: 'update', id: 'v1', expectedVersion: 1, patch: { page, context: draft.context } };
+      expect(savedViewCommandSchema.safeParse(update).success).toBe(true);
+      expect(isSavedViewCommand(update)).toBe(true);
+      const reply = ok({ ...entry, view: { ...view, page, context: draft.context } });
+      expect(savedViewResponseSchemas.save.safeParse(reply).success).toBe(true);
+      expect(responseGuards.save(reply)).toBe(true);
+    }
+    const conditionSet = { schemaVersion: 1, kind: 'condition-set', name: 'Set', context: { condition: { [key]: ['E1'] } } };
+    expect(validateSavedView(conditionSet).ok).toBe(true);
+    expect(savedViewCommandSchema.safeParse({ version: 1, op: 'save', draft: conditionSet }).success).toBe(true);
+    expect(isSavedViewCommand({ version: 1, op: 'save', draft: conditionSet })).toBe(true);
+  });
+  it.each(names)('still rejects free-form chartOptions/layout name %s', key => {
+    for (const field of ['chartOptions', 'layout']) {
+      const draft = { ...menuDraft, [field]: { nested: [{ [key]: 1 }] } };
+      expect(validateSavedView(draft).ok).toBe(false);
+      const command = { version: 1, op: 'save', draft };
+      expect(savedViewCommandSchema.safeParse(command).success).toBe(false);
+      expect(isSavedViewCommand(command)).toBe(false);
+      const reply = ok({ ...entry, view: { ...view, [field]: draft[field as keyof typeof draft] } });
+      expect(savedViewResponseSchemas.save.safeParse(reply).success).toBe(false);
+      expect(responseGuards.save(reply)).toBe(false);
+    }
+  });
+  it.each([
+    { context: { condition: { dockType: [] } } },
+    { context: { condition: { dockType: [1] } } },
+    { context: { scopeId: 'other' } },
+    { page: { zoomFrom: [1] } },
+    { page: [['draftId', 1]] },
+  ])('preserves Context and page value validation: %j', patch => {
+    const draft = { ...menuDraft, ...patch };
+    expect(validateSavedView(draft).ok).toBe(false);
+    const command = { version: 1, op: 'save', draft };
+    expect(savedViewCommandSchema.safeParse(command).success).toBe(false);
+    expect(isSavedViewCommand(command)).toBe(false);
   });
 });
