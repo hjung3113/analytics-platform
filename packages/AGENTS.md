@@ -31,6 +31,7 @@ Folders are grouped one level (ADR-0090): `app-host/` sits directly under `packa
 - Import another package only through the public entry points of its `package.json` `exports` (`@ap/kernel`, `@ap/ui/styles.css`). No deep paths like `@ap/x/src/...`.
 - In workspace development a package exports TS source directly; `build` produces `dist` for release tarballs ([ADR-0056](../docs/adr/0056-sdk-release-github-release-tarballs.md)). Vite bundles the app.
 - A package that uses Tailwind classes registers its own source with `@source` in `styles.css`, and the app `src/style.css` imports it. Add both when creating a package. A package without Tailwind (`mock-server`) has no `styles.css`.
+- New tests go in the `__tests__/` folder of the feature folder they test ([ADR-0090](../docs/adr/0090-repo-structure-by-branch.md)).
 - Test-only entry points are exported as `exports["./testing"]` (ADR-0040, extended #413). Import them only from test files (`*.test.ts(x)`, `test-support.ts(x)`, `test-setup.ts`); lint blocks production sources.
   - `@ap/kernel/testing`: `testAdapter`, `testSession`, `testSpace`, `noContext`, `memoryStorage`, `ToastProbe`, `useToastsForTest`, `settleQueries`. Build adapter stubs with `testAdapter({ … })`, never by hand.
   - `@ap/components/testing`: `stubCompactTableGeometry` (table geometry stub); components' own tests use `./testing`.

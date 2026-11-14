@@ -33,6 +33,11 @@ Every operator-screen menu below follows these unless its entry says otherwise.
 
 ## Packages
 
+Two pairs of names look alike but are different features (folder names stay as they are):
+
+- `voc` = 업무 흐름 `VOC 처리` (operator inbox, triage, clusters); `notice-voc` = the `소통` notices and FAQ places (the user-side VOC and surveys of `소통` are declared by `my-activity`).
+- `admin` = 운영 콘솔 `플랫폼 관리` (access directory, audit, usage, registry catalog); `feature-admin` = 업무 흐름 `설정` (managed systems, analytics areas, flow policy).
+
 | Package | Folder | Group |
 | --- | --- | --- |
 | `@ap/menu-home` | `platform/home` | `overview` |
