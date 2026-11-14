@@ -100,7 +100,7 @@ export const lifecycleSuiteRequests: SuiteRequestPort = {
   async requestStates(tx, workspaceId, requestIds) {
     const out = new Map<string, SuiteRequestState>();
     if (requestIds.length === 0) return out;
-    const verdict = sql<string | null>`(select ea.verdict from ${executionAttempts} ea where ea.request_id = ${q.id} order by ea.attempt_no desc limit 1)`;
+    const verdict = sql<string | null>`(select ea.verdict from ${executionAttempts} ea where ea.request_id = ${sql.raw('"log_lifecycle"."execution_request"."id"')} order by ea.attempt_no desc limit 1)`;
     const rows = await tx
       .select({ id: q.id, suiteRunId: q.suiteRunId, state: q.state, attemptCount: q.attemptCount, maxAttempts: q.maxAttempts, endedAt: q.endedAt, verdict })
       .from(q)

@@ -766,7 +766,7 @@ describe.skipIf(!runIntegration)('regression suites and suite runs (#1479 D-c)',
       expect(detail.data.items[1]).toEqual({ ordinal: 2, restricted: true });
       expect(detail.data.items[0]).toMatchObject({ restricted: false, datasetId: shared.ds.id });
       const seen = (await runs(suite.id, user)).data.rows[0];
-      expect(seen.items[1]).toEqual({ ordinal: 2, restricted: true, requestState: 'queued', attemptCount: 0, latestVerdict: null });
+      expect(seen.items[1]).toEqual({ ordinal: 2, restricted: true });
       expect(JSON.stringify(seen)).not.toContain(priv.ds.id);
       expect(JSON.stringify(seen)).not.toContain(priv.revision.digest);
       const before = await runCount(suite.id);
@@ -774,6 +774,66 @@ describe.skipIf(!runIntegration)('regression suites and suite runs (#1479 D-c)',
       expect(refused.outcome).toBe('invalid');
       expect(fe(refused)).toEqual(['items.1.datasetId:not_found']);
       expect(await runCount(suite.id)).toBe(before);
+    });
+
+    it.each(['failed', 'succeeded'] as const)('a hidden request becoming %s changes no item, count or state for another reader (#2112)', async (terminal) => {
+      const shared = await approvedDataset(['visible.log']);
+      const priv = await approvedDataset(['hidden.log'], { shareScope: 'private' });
+      const suite = await makeSuite([{ datasetId: shared.ds.id }, { datasetId: priv.ds.id }], {}, privOwner);
+      const started = await run(suite.id, privOwner);
+      expect(started.outcome).toBe('ok');
+      // Claim ordering among equal-time requests is unspecified. Leave the visible request unchanged
+      // across the snapshot pair, whether it stays queued or has already been claimed.
+      let before = (await runs(suite.id, user)).data;
+      let hiddenClaim = (await claim()).json();
+      if (hiddenClaim.request.id === started.data.items[0].requestId) {
+        before = (await runs(suite.id, user)).data;
+        hiddenClaim = (await claim()).json();
+      }
+      expect(hiddenClaim.request.id).toBe(started.data.items[1].requestId);
+      if (terminal === 'failed') {
+        const failed = await post(`/requests/${hiddenClaim.request.id}/fail`, { attemptNo: hiddenClaim.attempt.attemptNo, reason: 'validator crashed' });
+        expect(failed.statusCode, failed.body).toBe(200);
+      } else {
+        await finish(hiddenClaim, [rule('R-1', 'PASS')]);
+      }
+      expect((await runs(suite.id, user)).data).toEqual(before);
+      expect(before.rows[0]).toMatchObject(before.rows[0].items[0].requestState === 'claimed'
+        ? { state: 'running', counts: { queued: 0, claimed: 1, succeeded: 0, failed: 0, cancelled: 0, expired: 0 } }
+        : { state: 'queued', counts: { queued: 1, claimed: 0, succeeded: 0, failed: 0, cancelled: 0, expired: 0 } });
+      expect(before.rows[0].items[1]).toEqual({ ordinal: 2, restricted: true });
+      const owner = (await runs(suite.id, privOwner)).data.rows[0];
+      expect(owner.items[1]).toMatchObject({ restricted: false, requestState: terminal, attemptCount: 1 });
+    });
+
+    it('the owner sees the succeeded attempt verdict pass in suiteRuns (#2059)', async () => {
+      const priv = await approvedDataset(['verdict.log'], { shareScope: 'private' });
+      const suite = await makeSuite([{ datasetId: priv.ds.id }], {}, privOwner);
+      const started = await run(suite.id, privOwner);
+      expect(started.outcome).toBe('ok');
+      await finish((await claim()).json(), [rule('R-1', 'PASS')]);
+      expect((await runs(suite.id, privOwner)).data.rows[0].items[0]).toMatchObject({ requestState: 'succeeded', attemptCount: 1, latestVerdict: 'pass' });
+    });
+
+    it('runs with no visible item are absent before counting and paging (#2112)', async () => {
+      const shared = await approvedDataset(['page-visible.log']);
+      const priv = await approvedDataset(['page-hidden.log'], { shareScope: 'private' });
+      const suite = await makeSuite([{ datasetId: shared.ds.id }], {}, privOwner);
+      const visible = await run(suite.id, privOwner);
+      expect(visible.outcome).toBe('ok');
+      const changed = await act('suiteUpdate', { id: suite.id, items: [{ datasetId: priv.ds.id }] }, privOwner, suite.version);
+      expect(changed.outcome).toBe('ok');
+      const hidden = await run(suite.id, privOwner);
+      expect(hidden.outcome).toBe('ok');
+      const page = await read('suiteRuns', { suiteId: suite.id, pageSize: 1 }, user);
+      expect(page.data.rows.map((r: { id: string }) => r.id)).toEqual([visible.data.suiteRunId]);
+      expect(page.data.total).toBe(1);
+      expect((await read('suiteRuns', { suiteId: suite.id, pageSize: 1, page: 1 }, user)).data).toMatchObject({ total: 1, rows: [] });
+      expect((await read('comparison', { suiteRunId: hidden.data.suiteRunId }, user)).data).toBeNull();
+      expect((await runs(suite.id, privOwner)).data.total).toBe(2);
+      const privateSuite = await makeSuite([{ datasetId: priv.ds.id }], {}, privOwner);
+      expect((await run(privateSuite.id, privOwner)).outcome).toBe('ok');
+      expect((await runs(privateSuite.id, user)).data).toEqual({ suiteId: privateSuite.id, rows: [], total: 0 });
     });
 
     it('another workspace\'s suite is absent for reads and writes', async () => {
