@@ -123,6 +123,7 @@ describe('production model spec screen', () => {
     const shown = await screen.findByRole('group', { name: '현재 발행본 r4' });
     expect(within(shown).getByText(/BPublished/)).toBeTruthy();
     expect(input.value).toContain('AKept');
+    expect(screen.getByText('아직 저장하지 않음. 하나를 골라 이어서 편집하세요.')).toBeTruthy();
     expect(writes).toHaveLength(1);
     expect(writeNames()).toEqual(['logKnowledge.specDraftSave']);
     conflict = false;

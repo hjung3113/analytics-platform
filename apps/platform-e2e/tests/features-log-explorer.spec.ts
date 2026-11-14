@@ -141,7 +141,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await page.getByRole('button', { name: '현재 범위 내보내기…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '현재 범위 내보내기', exact: true });
     await expect(dialog.getByText(/행 10,000 · 5MB · 일일 20회 · 동시 1건/)).toBeVisible();
-    await expect(dialog.getByText(/내보내기에 어댑터 연결·내보내기 권한 필요/)).toBeVisible();
+    await expect(dialog.getByText(/현재 어댑터는 내보내기 미지원 · 연결·내보내기 권한 필요/)).toBeVisible();
     await expect(dialog.getByRole('button', { name: '내보내기', exact: true })).toBeDisabled();
     await evidence(page, info, 'log-explorer-export-range-and-reason');
   });

@@ -124,7 +124,7 @@ export function ExportDialog({ open, onOpenChange, set, querySummary, onCloseAut
       {!range && <p role="alert">1–10,000행 범위를 입력하세요. 초과 범위를 자르지 않습니다.</p>}
       <Label htmlFor="explorer-export-format">형식</Label><Select value={format} onValueChange={setFormat}><SelectTrigger id="explorer-export-format"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="csv">CSV</SelectItem><SelectItem value="jsonl">JSONL</SelectItem></SelectGroup></SelectContent></Select>
       <p className="text-xs text-text-secondary">행 10,000 · 5MB · 일일 20회 · 동시 1건. 권한과 남은 한도는 요청마다 다시 확인합니다.</p>
-      <p id="explorer-export-reason" className="text-xs text-text-secondary">내보내기에 어댑터 연결·내보내기 권한 필요</p>
+      <p id="explorer-export-reason" className="text-xs text-text-secondary">현재 어댑터는 내보내기 미지원 · 연결·내보내기 권한 필요</p>
     </div><DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>닫기</Button><Button disabled aria-describedby="explorer-export-reason">내보내기</Button></DialogFooter>
   </DialogContent></Dialog>;
 }

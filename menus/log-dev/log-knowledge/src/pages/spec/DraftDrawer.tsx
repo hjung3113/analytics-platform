@@ -124,7 +124,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
     {recovery && <div role="group" aria-label={recovery.kind === 'published' ? w(`현재 발행본 r${recovery.revisionNo}`, `Current publication r${recovery.revisionNo}`) : w(`열린 초안 r${recovery.revisionNo} (다른 사람이 저장)`, `Open draft r${recovery.revisionNo} (saved by someone else)`)} className="grid gap-2 rounded-md border p-3">
       <p className="text-sm font-medium">{recovery.kind === 'published' ? w(`현재 발행본 r${recovery.revisionNo}`, `Current publication r${recovery.revisionNo}`) : w(`열린 초안 r${recovery.revisionNo} (다른 사람이 저장)`, `Open draft r${recovery.revisionNo} (saved by someone else)`)}</p>
       <pre className="max-h-60 overflow-auto whitespace-pre text-xs">{recovery.text}</pre>
-      <p className="text-sm">{w('저장된 내용 없음. 하나를 골라 이어서 편집하세요.', 'Nothing saved. Pick one to continue editing.')}</p>
+      <p className="text-sm">{w('아직 저장하지 않음. 하나를 골라 이어서 편집하세요.', 'Not saved yet. Pick one to continue editing.')}</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" disabled={pending} onClick={() => { void choose('replace').catch(() => setRecovering(false)); }}>{recovery.kind === 'published' ? w('발행본으로 바꾸기', 'Replace with the publication') : w('그 초안으로 바꾸기', 'Replace with that draft')}</Button>
         <Button variant="secondary" disabled={pending} onClick={() => { void choose('keep').catch(() => setRecovering(false)); }}>{w('내 입력 유지', 'Keep my input')}</Button>

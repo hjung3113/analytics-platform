@@ -99,7 +99,7 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     expect(within(dialog).getByText(/행 10,000/)).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText('파일 순서 → 줄 번호 기준 첫 N행'), { target: { value: '10001' } });
     expect(within(dialog).getByRole('alert').textContent).toContain('1–10,000행');
-    expect(within(dialog).getByText(/내보내기에 어댑터 연결·내보내기 권한 필요/)).toBeTruthy();
+    expect(within(dialog).getByText(/현재 어댑터는 내보내기 미지원 · 연결·내보내기 권한 필요/)).toBeTruthy();
     expect((within(dialog).getByRole('button', { name: '내보내기' }) as HTMLButtonElement).disabled).toBe(true);
   });
   it('shows an unsupported sequence without displaying a fabricated track result', async () => {
