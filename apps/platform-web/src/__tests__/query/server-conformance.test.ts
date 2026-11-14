@@ -86,6 +86,8 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'logLifecycle.validationIssueThread': { issueId: '14470000-0000-4000-8000-000000000501' },
   'logLifecycle.validationIssueHistory': { issueId: '14470000-0000-4000-8000-000000000501' },
   'logLifecycle.roundDiscussion': { roundId: '14470000-0000-4000-8000-000000000501' },
+  'logLifecycle.diagnostics': { attemptId: '14470000-0000-4000-8000-000000000401', page: 0, pageSize: 25 },
+  'logLifecycle.diagnosticItem': { attemptId: '14470000-0000-4000-8000-000000000401', producer: 'synthetic', itemKey: 'diagnostic:item' },
   'logLifecycle.evidenceStates': { ruleResultId: '14470000-0000-4000-8000-000000000501' },
   'logLifecycle.excerpt': { ruleResultId: '14470000-0000-4000-8000-000000000501', evidenceIndex: 0 },
   // Log knowledge catalog reads (#1194 r): the table's page + `filters` shape, no filter = every row.

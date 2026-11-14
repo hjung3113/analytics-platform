@@ -29,15 +29,15 @@ describe('diagnostic payload', () => {
     ['duplicate item', body([entry(), entry()]), 'items.1.itemKey:duplicate'],
     ['duplicate table', body([entry({ tables: [table(), table()] })]), 'items.0.tables.1.tableKey:duplicate'],
     ['duplicate column', body([entry({ tables: [table({ columns: [{ key: 'x', label: 'X', type: 'number' }, { key: 'x', label: 'Y', type: 'number' }], rows: [] })] })]), 'items.0.tables.0.columns:duplicate'],
-    ['unknown field', body(undefined, { attachment: 'file' }), 'attachment:malformed'],
+    ['unknown field', body(undefined, { attachment: 'file' }), ':malformed'],
     ['empty items', body([]), 'items:malformed'],
     ['empty columns', body([entry({ tables: [table({ columns: [] })] })]), 'items.0.tables.0.columns:malformed'],
-    ['unknown cell', body([entry({ tables: [table({ rows: [{ other: 'x' }] })] })]), 'items.0.tables.0.rows.0.other:malformed'],
-    ['nested cell', body([entry({ tables: [table({ rows: [{ value: { nested: 'x' } }] })] })]), 'items.0.tables.0.rows.0.value:malformed'],
-    ['array cell', body([entry({ tables: [table({ rows: [{ value: ['x'] }] })] })]), 'items.0.tables.0.rows.0.value:malformed'],
-    ['type mismatch', body([entry({ tables: [table({ rows: [{ value: 42 }] })] })]), 'items.0.tables.0.rows.0.value:malformed'],
-    ['NaN', body([entry({ tables: [table({ columns: [{ key: 'value', label: 'Value', type: 'number' }], rows: [{ value: NaN }] })] })]), 'items.0.tables.0.rows.0.value:malformed'],
-    ['infinite number', body([entry({ tables: [table({ columns: [{ key: 'value', label: 'Value', type: 'number' }], rows: [{ value: Infinity }] })] })]), 'items.0.tables.0.rows.0.value:malformed'],
+    ['unknown cell', body([entry({ tables: [table({ rows: [{ other: 'x' }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['nested cell', body([entry({ tables: [table({ rows: [{ value: { nested: 'x' } }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['array cell', body([entry({ tables: [table({ rows: [{ value: ['x'] }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['type mismatch', body([entry({ tables: [table({ rows: [{ value: 42 }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['NaN', body([entry({ tables: [table({ columns: [{ key: 'value', label: 'Value', type: 'number' }], rows: [{ value: NaN }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['infinite number', body([entry({ tables: [table({ columns: [{ key: 'value', label: 'Value', type: 'number' }], rows: [{ value: Infinity }] })] })]), 'items.0.tables.0.rows.0:malformed'],
   ])('refuses %s atomically', (_label, raw, expected) => expect(codes(raw)).toContain(expected));
 
   it.each([
@@ -102,5 +102,37 @@ describe('diagnostic payload', () => {
     const files = dirs.flatMap((dir) => walk(new URL(`${dir}/`, import.meta.url))).filter((url) => !url.pathname.includes('/diagnostic-'));
     files.push(...['gate-availability.ts', 'repositories/gate.ts', 'gate-actions.ts', 'opinion-service.ts', 'repositories/opinion-read.ts', 'repositories/opinion-write.ts', 'suite-result-read-port.ts'].map((name) => new URL(`../${name}`, import.meta.url)));
     for (const file of files) expect(readFileSync(file, 'utf8'), file.pathname).not.toMatch(/attempt_diagnostic|attemptDiagnostics|attemptDiagnosticItems|diagnostic-read|diagnostic-write/);
+  });
+  it('never copies submitted secret or unknown keys into error paths', () => {
+    const secretKey = `ghp_${'a'.repeat(30)}`;
+    const regexSecretKey = `ap_1234abcd_${'a'.repeat(20)}`;
+    const proseKey = 'SYNTHETIC_UNKNOWN_PROSE_KEY';
+    for (const raw of [
+      body([entry({ [proseKey]: { producer: 'Bearer ' + 'a'.repeat(20) }, tables: [table({ rows: [{ [secretKey]: 'x', [proseKey]: 'prose' }] })] })], { [proseKey]: 'root prose', [secretKey]: { nested: 'Bearer ' + 'a'.repeat(20) } }),
+      body([entry({ tables: [table({ columns: [{ key: regexSecretKey, label: 'Value', type: 'string' }], rows: [{ [regexSecretKey]: 42, [secretKey]: 'x', [proseKey]: 'Bearer ' + 'a'.repeat(20) }] })] })]),
+    ]) {
+      const r = parseDiagnosticBody(raw, context);
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      const serialized = JSON.stringify(r);
+      expect(serialized).not.toContain(secretKey);
+      expect(serialized).not.toContain(regexSecretKey);
+      expect(serialized).not.toContain(proseKey);
+    }
+  });
+  it.each([
+    ['high surrogate in cell', body([entry({ tables: [table({ rows: [{ value: 'bad\ud800cell' }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['low surrogate in cell', body([entry({ tables: [table({ rows: [{ value: 'bad\udc00cell' }] })] })]), 'items.0.tables.0.rows.0:malformed'],
+    ['high surrogate in label', body([entry({ tables: [table({ columns: [{ key: 'value', label: 'bad\ud800label', type: 'string' }], rows: [] })] })]), 'items.0.tables.0.columns.0.label:malformed'],
+    ['low surrogate in label', body([entry({ tables: [table({ columns: [{ key: 'value', label: 'bad\udc00label', type: 'string' }], rows: [] })] })]), 'items.0.tables.0.columns.0.label:malformed'],
+  ])('rejects unpaired UTF-16 %s with malformed', (_label, raw, expected) => expect(codes(raw)).toContain(expected));
+  it('accepts valid surrogate pairs (supplementary Unicode) in cells and labels', () => {
+    expect(codes(body([entry({ tables: [table({ columns: [{ key: 'value', label: 'Label 😀 𠮷', type: 'string' }], rows: [{ value: 'cell 😀 𠮷' }] })] })]))).toEqual([]);
+  });
+  it('reads row cells as own properties so omitted constructor cells normalize to null', () => {
+    const r = parseDiagnosticBody(body([entry({ tables: [table({ columns: [{ key: 'constructor', label: 'Value', type: 'string' }], rows: [{}] })] })]), context);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(defined(defined(r.value.items[0]).tables?.[0]).rows).toEqual([{ constructor: null }]);
   });
 });

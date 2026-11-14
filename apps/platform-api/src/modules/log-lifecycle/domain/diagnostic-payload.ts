@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { unsafeText } from '../../../lib/text-safety.js';
 import type { FieldError } from '../../menu-dispatch/types.js';
 import { looksSecret } from './result-payload.js';
 
@@ -9,6 +10,15 @@ export const DIAGNOSTIC_PRODUCERS = 4;
 const CONTROLS = /[\u0000-\u001f\u007f-\u009f]/g;
 // eslint-disable-next-line no-control-regex -- explanation keeps LF and TAB, as excerpts do
 const MULTILINE_CONTROLS = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
+const FIXED_FIELDS: Readonly<Record<string, ReadonlySet<string>>> = {
+  '': new Set(['schemaVersion', 'producer', 'producerVersion', 'inputManifestDigest', 'items']),
+  'items.*': new Set(['itemKey', 'origin', 'ruleId', 'title', 'explanation', 'evidenceRefs', 'tables']),
+  'items.*.evidenceRefs.*': new Set(['fileRef', 'line', 'fileSha256']),
+  'items.*.tables.*': new Set(['tableKey', 'title', 'columns', 'rows']),
+  'items.*.tables.*.columns.*': new Set(['key', 'label', 'type']),
+};
+const ARRAY_PATHS = new Set(['items', 'items.*.evidenceRefs', 'items.*.tables', 'items.*.tables.*.columns', 'items.*.tables.*.rows']);
+const pathPattern = (path: (string | number)[]) => path.map((segment) => (typeof segment === 'number' ? '*' : segment)).join('.');
 const chars = (s: string, min: number, max: number) => [...s].length >= min && [...s].length <= max;
 const text = (min: number, max: number) => z.string().refine((s) => chars(s, min, max), 'malformed');
 const key = z.string().regex(/^[a-z0-9_]{1,32}$/);
@@ -29,25 +39,35 @@ export type DiagnosticParse = { ok: true; value: DiagnosticBody; digest: string;
 export function parseDiagnosticBody(raw: unknown, context: { sampleRefs: ReadonlySet<string>; ruleIds: ReadonlySet<string>; inputManifestDigest: string }): DiagnosticParse {
   const errors: FieldError[] = [];
   const add = (path: (string | number)[], code: string) => errors.push({ path: path.map(String), code });
-  const walk = (v: unknown, path: (string | number)[], depth = 0): unknown => {
+  const walk = (v: unknown, path: (string | number)[], inSchema = true, depth = 0): unknown => {
     if (depth > 12) { add(path, 'malformed'); return null; }
     if (typeof v === 'string') {
-      const multiline = path.length === 3 && path[0] === 'items' && path[2] === 'explanation';
+      const multiline = inSchema && path.length === 3 && path[0] === 'items' && path[2] === 'explanation';
       const clean = v.replace(multiline ? MULTILINE_CONTROLS : CONTROLS, '');
+      if (unsafeText(clean)) add(path, 'malformed');
       if (looksSecret(v) || looksSecret(clean)) add(path, 'secret_detected');
       return clean;
     }
-    if (Array.isArray(v)) return v.map((entry, i) => walk(entry, [...path, i], depth + 1));
-    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, val]) => {
-      if (looksSecret(k) || looksSecret(k.replace(CONTROLS, ''))) add([...path, k], 'secret_detected');
-      return [k, walk(val, [...path, k], depth + 1)];
-    }));
+    if (Array.isArray(v)) {
+      const knownArray = inSchema && ARRAY_PATHS.has(pathPattern(path));
+      return v.map((entry, i) => walk(entry, knownArray ? [...path, i] : path, knownArray, depth + 1));
+    }
+    if (v && typeof v === 'object') {
+      const fields = inSchema ? FIXED_FIELDS[pathPattern(path)] : undefined;
+      return Object.fromEntries(Object.entries(v).map(([k, val]) => {
+        const cleanKey = k.replace(CONTROLS, '');
+        if (unsafeText(cleanKey)) add(path, 'malformed');
+        if (looksSecret(k) || looksSecret(cleanKey)) add(path, 'secret_detected');
+        const knownKey = fields?.has(k) ?? false;
+        return [k, walk(val, knownKey ? [...path, k] : path, knownKey, depth + 1)];
+      }));
+    }
     return v;
   };
   const parsed = schema.safeParse(walk(raw, []));
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
-      if (issue.code === 'unrecognized_keys') for (const k of issue.keys) add([...issue.path, k], 'malformed');
+      if (issue.code === 'unrecognized_keys') add(issue.path, 'malformed');
       else add(issue.path, issue.path[0] === 'schemaVersion' ? 'unsupported_version' : issue.code === 'too_big' && issue.type === 'array' ? 'too_many' : 'malformed');
     }
     return { ok: false, errors };
@@ -69,10 +89,11 @@ export function parseDiagnosticBody(raw: unknown, context: { sampleRefs: Readonl
       const columns = new Map(t.columns.map((c) => [c.key, c]));
       if (columns.size !== t.columns.length) add([...tp, 'columns'], 'duplicate');
       t.rows = t.rows.map((row, n) => {
-        for (const k of Object.keys(row)) if (!columns.has(k)) add([...tp, 'rows', n, k], 'malformed');
+        const rp = [...tp, 'rows', n];
+        if (Object.keys(row).some((k) => !columns.has(k))) add(rp, 'malformed');
         return Object.fromEntries(t.columns.map((c) => {
-          const v = row[c.key] ?? null;
-          if (v !== null && (typeof v !== c.type || (typeof v === 'number' && !Number.isFinite(v)) || (typeof v === 'string' && !chars(v, 0, 500)))) add([...tp, 'rows', n, c.key], 'malformed');
+          const v = (Object.hasOwn(row, c.key) ? row[c.key] : null) ?? null;
+          if (v !== null && (typeof v !== c.type || (typeof v === 'number' && !Number.isFinite(v)) || (typeof v === 'string' && !chars(v, 0, 500)))) add(rp, 'malformed');
           return [c.key, v];
         }));
       });

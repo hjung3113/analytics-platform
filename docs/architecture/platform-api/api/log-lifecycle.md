@@ -361,7 +361,7 @@ This read contains no body text and writes no audit row, verdict, Gate decision 
 
 **수명과 삭제.** 본문은 발췌와 같이 Round `closed` + `excerptRetentionDays`(suite 주체는 suite run 종료 기준) 뒤 지운다. 같은 일일 작업과 관리자 `excerptDelete`(Round·시도 범위)가 같은 저장 경로로 진단 본문도 지우며, 원인은 `retention`·`admin`으로 따로 기록한다. 수명 이유: 진단 본문은 발췌와 같은 Source 유래 텍스트다.
 
-**저장 (B1 마이그레이션).** `log_lifecycle.attempt_diagnostic`(시도·workspace·producer·버전·schemaVersion·digest·바이트 수·actor·token, `(attempt_id, producer)` 고유)과 `attempt_diagnostic_item`(항목 키·순서·origin·`rule_result_id`·근거 jsonb·제목·설명·표 jsonb·`erased_at`·`erased_cause`). `platform_app`은 SELECT·INSERT만, 삭제는 발췌와 같은 `SECURITY DEFINER` 함수 경로, guard trigger가 그 한 가지 UPDATE만 허용한다. 열 이름·인덱스와 삭제 경로는 [04](../../../../apps/platform-api/docs/04-database-and-migrations.md#attempt-diagnostics-1815-b1)가 소유한다.
+**저장 (B1 마이그레이션).** `log_lifecycle.attempt_diagnostic`(시도·workspace·producer·버전·schemaVersion·digest·바이트 수·actor·token, `(attempt_id, producer)` 고유)과 `attempt_diagnostic_item`(항목 키·순서·origin·`rule_result_id`·근거 jsonb·제목·설명·표 jsonb·`erased_at`·`erased_cause`). `platform_app`은 SELECT·INSERT만, 삭제는 발췌와 같은 `SECURITY DEFINER` 함수 경로, guard trigger가 그 한 가지 UPDATE만 허용한다. 열 이름·인덱스와 삭제 경로는 [04](../../../../apps/platform-api/docs/04-database-and-migrations.md#0134--attempt-diagnostics-1815-b1)가 소유한다.
 
 **첨부 (R4).** schemaVersion 1에는 첨부 필드가 없다. 방향은 Source 소유 참조(형식 CSV·PDF·PNG, 내용 해시·크기·형식만 플랫폼에 저장, 열기는 Source 계약의 새 ACL 판정, 보관은 Source 수명이며 발췌 90일과 무관)다. 플랫폼 저장 첨부와 세션 전용 `uploadFile`의 worker 전용은 쓰지 않는다. 버전 2 필드로 여는 조건은 [backlog](../../../../.planning/backlog.md)의 #1815 행이 가진다.
 

@@ -347,4 +347,41 @@ describe.skipIf(!runIntegration)('attempt diagnostics (#1815 B1)', { timeout: 30
     expect(JSON.stringify(detail)).not.toContain(TEXT);
     expect((await read('diagnostics', { attemptId: s.attemptId }, user)).data.rows[0]).toMatchObject({ title: null, rowCounts: [200], bodyState: `erased_${bodyCause}` });
   });
+  it('excludes submitted secret and prose-bearing unknown keys from the 422 response body', async () => {
+    const s = await succeeded();
+    const secretKey = `ghp_${'a'.repeat(30)}`;
+    const regexSecretKey = `ap_1234abcd_${'a'.repeat(20)}`;
+    const unknownKey = 'SYNTHETIC-PROSE-UNKNOWN-KEY';
+    for (const payload of [
+      document({ [unknownKey]: 'prose', [secretKey]: 'secret' }),
+      document({ items: [{ itemKey: 'diagnostic:item', origin: 'analysis', title: TEXT, tables: [{ tableKey: 'data', columns: [{ key: regexSecretKey, label: TEXT, type: 'string' }], rows: [{ [regexSecretKey]: 42, [secretKey]: 'x', [unknownKey]: 'prose' }] }] }] }),
+    ]) {
+      const res = await write(s.requestId, payload);
+      expect(res.statusCode, res.body).toBe(422);
+      expect(res.body).not.toContain(secretKey);
+      expect(res.body).not.toContain(regexSecretKey);
+      expect(res.body).not.toContain(unknownKey);
+    }
+    expect((await sql('select id from log_lifecycle.attempt_diagnostic where attempt_id = $1', [s.attemptId])).rows).toEqual([]);
+    expect((await sql('select id from log_lifecycle.attempt_diagnostic_item where attempt_id = $1', [s.attemptId])).rows).toEqual([]);
+    expect((await audit(s.requestId)).filter((a) => a.event_type === 'lifecycle.diagnostic.recorded')).toEqual([]);
+  });
+  it('rejects unpaired UTF-16 surrogates in cells and labels with 422 and writes nothing, while accepting valid surrogate pairs', async () => {
+    const s = await succeeded();
+    for (const [label, cell, expectedField] of [
+      ['bad\ud800label', 'ok', 'items.0.tables.0.columns.0.label:malformed'],
+      ['bad\udc00label', 'ok', 'items.0.tables.0.columns.0.label:malformed'],
+      ['Label', 'bad\ud800cell', 'items.0.tables.0.rows.0:malformed'],
+      ['Label', 'bad\udc00cell', 'items.0.tables.0.rows.0:malformed'],
+    ] as const) {
+      const res = await write(s.requestId, document({ items: [{ itemKey: 'diagnostic:item', origin: 'analysis', title: TEXT, tables: [{ tableKey: 'data', columns: [{ key: 'value', label, type: 'string' }], rows: [{ value: cell }] }] }] }));
+      expect(res.statusCode, res.body).toBe(422);
+      expect(fields(res)).toContain(expectedField);
+    }
+    expect((await sql('select id from log_lifecycle.attempt_diagnostic where attempt_id = $1', [s.attemptId])).rows).toEqual([]);
+    expect((await sql('select id from log_lifecycle.attempt_diagnostic_item where attempt_id = $1', [s.attemptId])).rows).toEqual([]);
+    expect((await audit(s.requestId)).filter((a) => a.event_type === 'lifecycle.diagnostic.recorded')).toEqual([]);
+    const okRes = await write(s.requestId, document({ items: [{ itemKey: 'diagnostic:item', origin: 'analysis', title: TEXT, tables: [{ tableKey: 'data', columns: [{ key: 'value', label: 'Label 😀 𠮷', type: 'string' }], rows: [{ value: 'cell 😀 𠮷' }] }] }] }));
+    expect(okRes.statusCode, okRes.body).toBe(200);
+  });
 });
