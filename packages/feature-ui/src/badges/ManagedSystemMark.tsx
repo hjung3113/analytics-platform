@@ -12,8 +12,8 @@ export interface ManagedSystemMarkProps {
 
 const SIZE_CLASS: Record<ManagedSystemMarkProps['size'], string> = {
   16: 'size-4 rounded-sm text-(length:--managed-system-mark-font-size)',
-  18: 'size-4.5 rounded text-caption',
-  22: 'size-5.5 rounded-md text-caption',
+  18: 'size-4.5 rounded text-tiny',
+  22: 'size-5.5 rounded-md text-tiny',
   28: 'size-7 rounded-md text-tiny',
 };
 

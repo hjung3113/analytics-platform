@@ -89,7 +89,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - GroupedSelectionList (`@ap/ui`, 분류된 체크박스·radio 선택과 검색·다중 선택 프리셋, 아래 계약)
 - AuditTimeline
 - QueryView / OutcomeView / StateMessage (응답 상태, EmptyState 역할), PlatformPage-provided shared outcome scope / banner (§19)
-- StatCard / Panel
+- StatCard / Panel (icon chip 팔레트와 deprecated 값의 이전 규칙: [DESIGN — KPI tiles](../../DESIGN.md#kpi-tiles-and-supporting-copy))
 - DrillPath / DrillLayout (드릴다운 경로 바와 단계 본문, §12.7)
 - Inspector (분석 화면 보조 섹션을 한 번 선언해 `stack`·`rail` 두 형태로 보인다, [ADR-0080](../adr/0080-inspector-forms.md))
 - HeaderOverflowItem (`@ap/components`, 페이지 머리 `⋯` 메뉴의 항목 한 줄. `allowed: false`면 숨기지 않고 비활성 + `reason`을 보인다. 셸 슬롯 `analysisActions`의 `Actions`가 이것으로 항목을 그린다, [layout.md](layout.md) 슬롯, §22, #1424)
@@ -404,7 +404,7 @@ Unknown
 - `forbidden`은 묶지 않는다. 다만 앱이 막힌 자리 신청 슬롯([§8 `accessRequest`](layout.md#8-shell-slots))을 주고 세션에 `requestableScopes`가 있으며 지금 Scope가 부분 부여(`grantedRooms < totalRooms`)인 `requiresScope` 메뉴에서는, 본문 위젯이 하나라도 `forbidden`이면 그룹 배너 위에 `권한 요청` 배너 하나를 더 그린다(위젯마다 버튼을 두지 않는다. 각 위젯의 `forbidden` 상태는 그대로다). 대상은 적용된 조건의 부여받지 않은 첫 room(`site_room`), 없으면 site다. 대기 중인 요청이 있으면 `요청 대기 중`과 `요청 상태` 링크를 그린다. 완전 부여 Scope의 `forbidden`은 capability 문제라 배너를 그리지 않는다([ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md) 결정 6).
 - 그룹 위젯은 이름을 유지하는 중립 간결 상태로 표시한다. 제목·아이콘에만 의미 톤을 적용하고 본문(시간 초과 조언 포함)을 직접 노출한다. 개별 재시도와 추적 번호는 위젯에 남긴다. 좁은 카드에서는 본문을 독립 행에 놓고 동작·ID는 다음 행에서 줄바꿈한다. Consumer가 같은 제목을 바로 위에 보여주면 중복 visible 제목은 생략하고 등록·접근 이름은 유지한다.
 - **얇은 띠 (fill 페이지, Decided, 사용자 2026-10-23, #680, [ADR-0075](../adr/0075-page-head-one-line-fold-thin-outcome-strip.md)):** `layout="fill"` 페이지의 배너는 한 줄 띠다 — 아이콘, 짧은 상태 접두(`서버 오류 ·`), 요약 문장(줄이면 `title`로 전체), `자세히`(Popover만: 클릭·Enter·Space — 상태 제목과 전체 요약을 보이고, Popover의 접근 이름은 그 상태 제목이다), `다시 시도`. 같은 `data-outcome-banner`·`role=group`·이름·live 안내·danger/neutral 톤·그룹당 하나(큰 그룹 먼저)·재시도 busy·중복 활성화 방지·포커스 복귀 규칙이다. 띠가 사라질 때 `자세히`가 열려 있으면 먼저 닫고 포커스가 그 띠 자신의 Popover 안에 있을 때만(다른 그룹의 Popover는 아니다) 아래 복귀 대상으로 간다. 요약 문장을 줄이고 `title`로 전체를 주는 것은 띠에서만 허용하고 전체 배너는 문장을 그대로 둔다. flow 페이지와 `DetailDrawer`는 전체 배너를 쓴다.
-- error/timeout 배너는 danger, empty 배너는 neutral이며 보이는 배너는 non-live `role=group`이다. scope는 처음부터 빈 assertive/polite live region을 유지하고, danger 요약은 assertive 채널, neutral 요약은 polite 채널의 문구를 갱신해 한 번 안내한다. 보이는 배너와 위젯은 별도 live 채널을 만들지 않는다. 그룹 위젯은 live region 없는 이름 있는 group으로 두어 같은 응답을 반복 announce하지 않는다(§26). 한 위젯만 실패하면 배너 없이 기존 전체 StateMessage를 유지한다.
+- error/timeout 배너는 danger, empty 배너는 neutral이며 보이는 배너는 non-live `role=group`이다. scope는 처음부터 빈 assertive/polite live region을 유지하고, danger 요약은 assertive 채널, neutral 요약은 polite 채널의 문구를 갱신해 한 번 안내한다. 보이는 배너와 위젯은 별도 live 채널을 만들지 않는다. 그룹 위젯은 live region 없는 이름 있는 group으로 두어 같은 응답을 반복 announce하지 않는다(§26). 한 위젯만 실패하면 배너 없이 전체 StateMessage를 유지한다(오류 카드의 색·테두리 recipe: [DESIGN](../../DESIGN.md#shared-outcome-banner-and-compact-widget-state--decided-b-2026-10-04)).
 - 그룹 재시도 중에는 배너 버튼이 busy 상태를 표시하며 중복 활성화를 막고 폭·포커스를 유지한다. 그룹별 갱신 문구는 기존 알림 채널 한 곳에서 안내한다. 각 위젯의 `aria-busy`는 유지하되 반복 `role=status` 갱신 label은 표시하지 않는다. 배너가 사라질 때 포커스가 그 안에 있으면 이름 있는 상세 패널(dialog) 또는 `main` 랜드마크(셸 밖에서는 페이지 본문 요소)로 이동하며 다른 곳으로 이동한 포커스는 빼앗지 않는다. 페이지 본문 주위에 랜드마크를 더하지 않는다.
 - 그룹에 속한 empty 위젯에는 개별 retry와 추적 번호를 추가한다(확정된 사용자 결정). 한 개뿐인 empty 위젯은 기존 표시·emptyAction을 그대로 유지하며 retry·ID를 추가하지 않는다.
 - DetailDrawer는 페이지와 독립된 scope 및 상세 상단 배너를 제공하며 두 표면의 위젯을 함께 묶지 않는다. 위젯 이름이 없으면 visible 이름·접근 이름을 발명하지 않는다. 보이는 이름은 non-heading label과 aria-labelledby로 연결하고 이름을 숨길 때만 aria-label을 사용한다.

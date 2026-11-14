@@ -89,7 +89,7 @@ function CapTag({ cap }: { cap: Capability }) {
   const { t } = useI18n();
   if (cap === 'apply') return null;
 
-  return <span className={cn('shrink-0 rounded-xs px-1 text-caption font-semibold', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
+  return <span className={cn('shrink-0 rounded-xs px-1 t-badge', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
     {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
 }

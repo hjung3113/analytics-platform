@@ -114,6 +114,18 @@ describe('SystemSwitcher button (15 §3.2)', () => {
 });
 
 describe('SystemSwitcher popover', () => {
+  it('uses shared typography for group headings and the current mark', () => {
+    mount();
+    const dialog = open();
+    const headings = Array.from(dialog.querySelectorAll('p')).filter(node => node.classList.contains('font-semibold') || node.classList.contains('t-nav-group'));
+    expect(headings).toHaveLength(3);
+    for (const heading of headings) {
+      expect(heading).toHaveClass('t-nav-group', 'text-text-muted');
+      expect(heading).not.toHaveClass('text-caption', 'font-semibold');
+    }
+    expect(within(cardOf('MARS')).getByText('현재')).toHaveClass('t-badge');
+  });
+
   it('focuses the current card on open, and the first card outside a space', () => {
     mount();
     open();
@@ -434,6 +446,15 @@ describe('SystemSwitcher focus ownership and lifecycle (ADR-0032)', () => {
 
 describe('notifications slot (ADR-0070 decision 4)', () => {
   let unread: number | null = 3;
+  it('uses badge typography for the platform unread count', () => {
+    unread = 3;
+    mount({ slots: slot(), url: '/alerts?v=1' });
+    const nav = within(open()).getByRole('navigation', { name: '플랫폼 메뉴' });
+    const badge = within(nav).getByText('3', { exact: true });
+    expect(badge).toHaveClass('t-badge');
+    expect(badge).not.toHaveClass('text-caption', 'font-semibold');
+  });
+
   const slot = (): PlatformSlots => ({ ...SLOT, notifications: { menuId: 'alerts', UnreadCount: ({ children }) => <>{children(unread)}</>, Recent: () => <p>recent body</p> } });
   const bell = () => screen.getByRole('button', { name: /^알림/ });
   beforeEach(() => { unread = 3; });

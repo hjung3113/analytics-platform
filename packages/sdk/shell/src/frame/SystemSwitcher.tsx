@@ -117,7 +117,7 @@ export function SystemSwitcher() {
           <h2 id={titleId} className="text-sm font-semibold">{t('switcherTitle')}</h2>
         </div>
         {platformItems.length > 0 && <nav aria-label={t('platformMenu')} className="border-b border-border-subtle px-4 py-3">
-          <p className="mb-1.5 text-caption font-semibold text-text-muted">{t('platformMenu')} <span className="font-normal">· {t('platformMenuShared')}</span></p>
+          <p className="mb-1.5 t-nav-group text-text-muted">{t('platformMenu')} <span className="font-normal">· {t('platformMenuShared')}</span></p>
           <ul className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">{platformItems.map((menu, at) => {
             // A platform menu item comes from the Registry, so its destination is registered.
             const href = linkTo(menu.id);
@@ -130,13 +130,13 @@ export function SystemSwitcher() {
                   {...(unread > 0 ? { 'aria-label': t('unreadNamed', { label: name, count: unread }) } : {})}
                   className="rounded-md px-1.5 py-0.5 text-text-secondary hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=page]:font-semibold aria-[current=page]:text-text-primary">
                   {name}
-                  {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 text-caption font-semibold text-text-secondary">{badgeCountText(unread)}</span>}
+                  {unread > 0 && <span aria-hidden className="ml-1 rounded-pill bg-surface-row-selected px-1.5 t-badge text-text-secondary">{badgeCountText(unread)}</span>}
                 </PlatformLink>;
               }}</MenuUnread>
             </li>;
           })}</ul>
         </nav>}
-        <p className="px-4 pt-3 text-caption font-semibold text-text-muted">{t('switcherSystemsHeading')}</p>
+        <p className="px-4 pt-3 t-nav-group text-text-muted">{t('switcherSystemsHeading')}</p>
         {cards.length === 0
           ? <p data-switcher-empty tabIndex={-1} className="px-4 py-6 text-center text-sm text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('switcherEmpty')}</p>
           : <ul className="grid grid-cols-2 gap-2 p-3">{cards.map(({ space, entry }) => {
@@ -153,12 +153,12 @@ export function SystemSwitcher() {
                   {space.subtitle && <span className="block truncate text-caption text-text-muted">{tx(space.subtitle)}</span>}
                   <span className="block truncate text-caption text-text-muted">{entry.resumed ? t('switcherResume', { menu: menuName }) : t('switcherStart', { menu: menuName })}</span>
                 </span>
-                {current && <span className="flex items-center gap-0.5 text-caption font-semibold text-accent-primary"><Check className="size-3" aria-hidden />{t('switcherCurrentBadge')}</span>}
+                {current && <span className="flex items-center gap-0.5 t-badge text-accent-primary"><Check className="size-3" aria-hidden />{t('switcherCurrentBadge')}</span>}
               </button>
             </li>;
           })}</ul>}
         {planned.length > 0 && <div className="border-t border-border-subtle p-3">
-          <p className="mb-2 text-caption font-semibold text-text-muted">{t('switcherPlannedHeading')}</p>
+          <p className="mb-2 t-nav-group text-text-muted">{t('switcherPlannedHeading')}</p>
           <ul className="grid grid-cols-2 gap-2">{planned.map(item => {
             const Icon = item.icon;
             return <li key={item.id}>

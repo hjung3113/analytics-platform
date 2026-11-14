@@ -30,10 +30,10 @@ function ServerDetail({ detail }: { detail?: string }) {
 export function StateMessage({ icon, title, body, action, tone = 'neutral', correlationId, compact, detail }: StateProps) {
   const { t } = useI18n();
   return <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('flex flex-col items-start gap-2 rounded-md p-4',
-    tone === 'danger' ? 'bg-accent-danger-soft text-text-danger-label' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-surface-sunken text-text-secondary',
+    tone === 'danger' ? 'border border-text-danger-label bg-accent-danger-soft text-text-secondary' : tone === 'warning' ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-surface-sunken text-text-secondary',
     compact ? 'p-3' : 'min-h-24')}>
-    <div className="flex items-center gap-2 font-semibold text-sm"><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
-    {body && <div className="max-w-prose text-xs leading-4">{body}</div>}
+    <div className={cn("flex items-center gap-2 font-semibold text-sm", tone === 'danger' && 'text-text-danger-label')}><span className={cn(tone === 'danger' ? 'text-text-danger' : tone === 'warning' && 'text-text-warning')}>{icon}</span>{title}</div>
+    {body && <div className={cn("max-w-prose text-xs leading-4 break-keep", tone === 'danger' && 'text-text-secondary')}>{body}</div>}
     {(action || correlationId || detail) && <div className="flex flex-wrap items-center gap-3">
       {action}
       {correlationId && <span className="t-mono text-tiny">{t('correlationId')}: {correlationId}</span>}

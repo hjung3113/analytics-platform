@@ -52,7 +52,7 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">
       <StatCard icon={Cpu} chip="blue" label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
       <StatCard icon={Clock} chip="teal" label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(Math.round(total / 60))} unit={tx({ ko: '시간', en: 'h' })} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
-      <StatCard icon={Gauge} chip="amber" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(Math.round(total / data.ranking.length / 6) / 10)} unit={tx({ ko: '시간', en: 'h' })} caption={`${tx({ ko: '최장', en: 'Longest' })} ${top.equipmentId}`} />
+      <StatCard icon={Gauge} chip="blue" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(Math.round(total / data.ranking.length / 6) / 10)} unit={tx({ ko: '시간', en: 'h' })} caption={`${tx({ ko: '최장', en: 'Longest' })} ${top.equipmentId}`} />
     </div> }}
     charts={[
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"

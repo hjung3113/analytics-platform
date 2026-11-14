@@ -140,7 +140,7 @@ export default function ProductivityOverview(_: PageProps) {
       const cy = c.cycle; const pc = p?.cycle ?? null;
       // The delta compares P50 only while the card shows P50 / P95, so the finished text says so (#398).
       const delta = deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${ko ? '분' : 'min'}`);
-      return <StatCard key={kpi} icon={Timer} chip="purple" label={ko ? '사이클타임 P50 / P95' : 'Cycle time P50 / P95'}
+      return <StatCard key={kpi} icon={Timer} chip="teal" label={ko ? '사이클타임 P50 / P95' : 'Cycle time P50 / P95'}
         onClick={() => selectKpi(kpi)} active={active}
         value={<span className="flex items-baseline gap-2">
           <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
@@ -150,7 +150,7 @@ export default function ProductivityOverview(_: PageProps) {
         caption={`${ko ? `완료 Job 모집단 n=${ni(cy.jobs)}` : `pooled jobs n=${ni(cy.jobs)}`} · ${ver(METRIC_VERSIONS.cycleTime)}`} />;
     }
     const t = c.throughput; const pt = p?.throughput ?? null;
-    return <StatCard key={kpi} icon={BarChart3} chip="amber" label={ko ? 'Job 처리량' : 'Job throughput'}
+    return <StatCard key={kpi} icon={BarChart3} chip="blue" label={ko ? 'Job 처리량' : 'Job throughput'}
       onClick={() => selectKpi(kpi)} active={active}
       value={ni(t.jobs)} unit={ko ? 'Job · 기간 내 완료' : 'jobs completed'}
       delta={deltaOf(t.jobs, pt?.jobs ?? null, true, v => ni(v))}
@@ -168,11 +168,11 @@ export default function ProductivityOverview(_: PageProps) {
       description: ko ? '체류 시간 합 ÷ 완료 Job 수' : 'sum(dwell hours) ÷ completed jobs',
     },
     cycleTime: {
-      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-purple'], dashed: [false, true], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
+      title: ko ? '사이클타임 추세 (P50·P95)' : 'Cycle time trend (P50·P95)', names: ['P50', 'P95'], colors: ['chart-blue', 'chart-teal'], dashed: [false, true], kind: 'line', unit: ko ? '분' : 'min', decimals: 1,
       description: ko ? '완료 Job 풀링 모집단의 분위수 — 설비·버킷별 P95의 평균 아님' : 'quantiles over the pooled completed-job population, never averages of per-equipment/bucket P95s',
     },
     throughput: {
-      title: ko ? 'Job 처리량 추세' : 'Job throughput trend', names: [ko ? '완료 Job' : 'Completed jobs'], colors: ['chart-purple'], kind: 'bar', unit: 'Job', decimals: 0,
+      title: ko ? 'Job 처리량 추세' : 'Job throughput trend', names: [ko ? '완료 Job' : 'Completed jobs'], colors: ['chart-blue'], kind: 'bar', unit: 'Job', decimals: 0,
       description: ko ? '완료 Job 수 · 0축 시작 막대' : 'completed jobs · zero-based bars',
     },
   };

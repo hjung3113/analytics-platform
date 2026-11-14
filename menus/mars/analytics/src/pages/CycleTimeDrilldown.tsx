@@ -253,9 +253,9 @@ export default function CycleTimeDrilldown(_: PageProps) {
             <QueryView widgetName={ko ? '사이클타임 요약' : 'Cycle time summary'} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3">
                 <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p50, data.prevP50)} caption={ko ? '적용 모집단' : 'Applied population'} />
-                <StatCard icon={Gauge} chip="amber" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
+                <StatCard icon={Gauge} chip="teal" label="P95" value={formatMin(data.p95, lang)} unit={ko ? '분' : 'min'} delta={cycleDelta(data.p95, data.prevP95)} caption={ko ? '적용 모집단' : 'Applied population'} />
                 <StatCard icon={Hash} chip="teal" label={ko ? '실행 수' : 'Executions'} value={formatNumber(data.count, lang)} caption={ko ? '완료된 합성 Job' : 'Completed synthetic jobs'} />
-                <StatCard icon={AlertTriangle} chip="purple" label={ko ? '느린 실행 (P95 기준)' : 'Slow executions (P95 threshold)'} value={formatNumber(data.slowCount, lang)} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
+                <StatCard icon={AlertTriangle} chip="teal" label={ko ? '느린 실행 (P95 기준)' : 'Slow executions (P95 threshold)'} value={formatNumber(data.slowCount, lang)} caption={ko ? '표시된 P95 이상' : 'At or above the displayed P95'} />
               </div>}
             </QueryView>
           </div>

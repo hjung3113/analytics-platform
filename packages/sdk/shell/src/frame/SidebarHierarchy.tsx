@@ -4,12 +4,12 @@ import type { HierarchySource } from '@ap/contracts';
 import { useHierarchyNavState } from '@ap/components';
 import { useI18n, type MenuEntry, type PlatformMenuEntry } from '@ap/kernel';
 import { useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
-import { Button, navRowVariants, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
+import { Button, cn, navRowVariants, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@ap/ui';
 import { ShellBoundary } from './ShellBoundary';
 
 const HierarchyNav = lazy(() => import('./SidebarHierarchyNav'));
 
-export const SIDEBAR_GROUP_TITLE = 'mx-2 mb-1 mt-3.5 text-caption font-semibold uppercase tracking-wide text-text-muted';
+export const SIDEBAR_GROUP_TITLE = 'mx-2 mb-1 t-nav-group text-text-muted';
 
 /** Called only with a visible declaring menu. Refuse access before mounting its Source component. */
 export function SidebarHierarchy({ menu, collapsed }: { menu: MenuEntry; collapsed: boolean }) {
@@ -39,7 +39,7 @@ function HierarchySection({ menu, declaration, source, collapsed }: { menu: Menu
   }, [currentNodeId]);
   // A stale nav chunk shows a retry inside the section (or the popover), keeping its title and trigger (#1876).
   const content = <ShellBoundary><Suspense fallback={<div className="h-8" aria-busy="true" />}><HierarchyNav menuId={menu.id} label={label} source={source} state={state} mode={declaration.mode} levelIcon={declaration.levelIcon} currentNodeId={currentNodeId} onNavigate={() => { navigated.current = true; setOpen(false); }} /></Suspense></ShellBoundary>;
-  if (!collapsed) return <div role="group" aria-label={label}><p className={SIDEBAR_GROUP_TITLE}>{label}</p>{content}</div>;
+  if (!collapsed) return <div role="group" aria-label={label}><p className={cn(SIDEBAR_GROUP_TITLE, 'mt-3.5')}>{label}</p>{content}</div>;
   return <Popover open={open} onOpenChange={value => { navigated.current = false; setOpen(value); }}>
     <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild><button type="button" aria-label={label} className={navRowVariants({ collapsed: true })}><FolderTree className="size-4 shrink-0" aria-hidden /></button></PopoverTrigger></TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip>
     <PopoverContent side="right" align="start" sideOffset={4} padding="none" aria-label={label} onEscapeKeyDown={event => { if (state.read().query !== '') { event.preventDefault(); state.update({ query: '', readyQuery: '' }); } }} onInteractOutside={event => { if (leaveRequest) event.preventDefault(); }} onCloseAutoFocus={event => { if (navigated.current) event.preventDefault(); }}>

@@ -90,6 +90,16 @@ function nearestRole(el: Element): { el: Element; role: string } | null {
 }
 
 describe('CommandPalette space bundles (06 §9.1)', () => {
+  it('uses navigation group typography for section labels', () => {
+    mount();
+    const headings = document.querySelectorAll('p[role="presentation"]');
+    expect(headings.length).toBeGreaterThan(0);
+    for (const heading of headings) {
+      expect(heading).toHaveClass('t-nav-group', 'text-text-muted');
+      expect(heading).not.toHaveClass('text-caption', 'font-semibold');
+    }
+  });
+
   it('uses the palette scrim (#310)', () => {
     mount();
 

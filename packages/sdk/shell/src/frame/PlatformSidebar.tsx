@@ -4,7 +4,7 @@ import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@a
 import { useHostPlatform } from '@ap/kernel/host';
 import { NavItem } from './AppSidebar';
 import { usePlatformMenu } from './platformMenu';
-import { SidebarHierarchy } from './SidebarHierarchy';
+import { SidebarHierarchy, SIDEBAR_GROUP_TITLE } from './SidebarHierarchy';
 import { MenuUnread } from './unread';
 
 /**
@@ -35,7 +35,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
           {sections.map(({ group, items }, index) => {
             const headed = !(group.hideLabelWhenSingle && items.length === 1);
             return <div key={group.id} role="group" aria-label={tx(group.label)}>
-              {!collapsed && headed && <p className={cn('mx-2 mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted', index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
+              {!collapsed && headed && <p className={cn(SIDEBAR_GROUP_TITLE, index === 0 ? 'mt-1.5' : 'mt-3.5')}>{tx(group.label)}</p>}
               {((collapsed && index > 0) || (!collapsed && !headed && index > 0)) && <div className="mx-3 my-1.5 border-t border-border-subtle" aria-hidden />}
               <ul className="space-y-0.5">{items.map(menu => <li key={menu.id}><MenuUnread menuId={menu.id}>{count => <NavItem menu={menu} active={menu.id === activeId} collapsed={collapsed} label={labelOf(menu)} unread={count} />}</MenuUnread></li>)}</ul>
               {items.filter(menu => menu.navTree && canOpen(menu.id)).map(menu => <SidebarHierarchy key={menu.id} menu={menu} collapsed={collapsed} />)}

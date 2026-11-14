@@ -224,7 +224,7 @@
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* --- Typography: sizes --- */
-  --text-caption: 10px;
+  --text-caption: 12px;
   --text-tiny: 11px;
   --text-micro: 9px;
   --text-xs: 12px;

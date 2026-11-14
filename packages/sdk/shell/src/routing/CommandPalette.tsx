@@ -135,7 +135,7 @@ export function CommandPalette() {
           {sections.map(section => {
             const headingId = `palette-heading-${section.key}`;
             return <li key={section.key} role="presentation">
-              <p id={headingId} role="presentation" className="px-3 pb-1 pt-2 text-caption font-semibold text-text-muted">{tx(section.label)}</p>
+              <p id={headingId} role="presentation" className="px-3 pb-1 pt-2 t-nav-group text-text-muted">{tx(section.label)}</p>
               <ul role="group" aria-labelledby={headingId}>
                 {section.items.map(m => {
                   const i = index++;

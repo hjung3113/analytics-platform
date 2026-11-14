@@ -2,13 +2,33 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, type QueryState } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
-import { QueryView } from './StateView';
+import { QueryView, StateMessage } from './StateView';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
 import { QueryBarStatusContext } from './filters/QueryBarStatus';
 import { PageDensityProvider } from './pageDensity';
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 
 afterEach(cleanup);
+
+it.each([false, true])('keeps Korean error-card advice together (compact=%s)', compact => {
+  render(<I18nProvider><StateMessage tone="danger" compact={compact} icon={null} title="Error" body="Correlation ID를 전달하세요" /></I18nProvider>);
+  expect(screen.getByText('Correlation ID를 전달하세요')).toHaveClass('break-keep');
+});
+
+it.each([false, true])('danger card limits colour to icon/title and borders the soft surface (compact=%s)', compact => {
+  render(<I18nProvider><StateMessage tone="danger" compact={compact} icon={<span>icon</span>} title="Error title" body="Recovery advice" correlationId="trace-1945" detail="Server detail" /></I18nProvider>);
+  const alert = screen.getByRole('alert');
+  expect(alert).toHaveClass('bg-accent-danger-soft', 'border', 'border-text-danger-label', 'text-text-secondary');
+  expect(alert).not.toHaveClass('text-text-danger-label');
+  expect(screen.getByText('Error title')).toHaveClass('text-text-danger-label');
+  expect(screen.getByText('icon').parentElement).toHaveClass('text-text-danger');
+  expect(screen.getByText('Recovery advice')).toHaveClass('text-text-secondary');
+  fireEvent.click(within(alert).getByRole('button', { name: '기술 정보' }));
+  for (const node of [screen.getByText(/trace-1945/), screen.getByRole('note')]) {
+    expect(node.closest('.text-text-secondary')).toBeTruthy();
+    expect(node.closest('.text-text-danger-label')).toBeNull();
+  }
+});
 
 function textWithoutDetail(node: HTMLElement) {
   const clone = node.cloneNode(true) as HTMLElement;
