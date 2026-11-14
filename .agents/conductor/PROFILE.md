@@ -1,5 +1,5 @@
-Lanes read: §Flow, §Size and path, §Lanes, §Launch, §Verify
-Lane sessions read only those sections (SKILL §0 full read does not apply; this profile wins). The lead reads this whole file. Reviewers read only their lens section.
+Lanes read: §Flow, §Size and path, §Lanes, §Owner gates and questions, §Launch, §Verify
+Lane sessions read only those sections and the ones a step names (SKILL §0 full read does not apply; this profile wins). The lead reads [`lead.md`](lead.md) plus §Flow, §Lanes and §Owner gates and questions here, not this whole file. Reviewers read only their lens section.
 
 # Conductor profile — analytics-platform
 
@@ -11,9 +11,7 @@ The mock-adapter app has no database or login; its evidence comes from Playwrigh
 
 - Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
 - Run `git config workerops.protectedBases none` once per clone for `ship-pr.sh`.
-- **Bot PRs** (Dependabot, `.github/dependabot.yml`: one grouped npm minor/patch PR and one GitHub Actions PR each Monday): the lead reads the lockfile diff and the PR CI, then merges a green one like any PR. If CI is red, the lead closes it or hands the fix to `lane:arch` on the bot branch; a dependency that cannot move gets an `ignore` entry with its reason and a backlog row. Majors are never opened by the bot: each is its own issue. Reason: a lockfile change reruns almost every package, so one weekly bundle costs one PR's CI.
-- The lead updates `.planning/README.md` once, in the release-docs PR. Mid-slice progress is `board.py` output.
-- Merge grant: a lane session uses its brief's grant. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag when the cold CI of the tag SHA succeeds and no `bug` issue is open. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
+- Merge grant: a lane session uses its brief's grant. Merges never wait for a release tag; the tag SHA is the release-docs PR's merge commit ([`lead.md`](lead.md) §Slice close).
 
 ## Size and path
 
@@ -39,15 +37,7 @@ Run E2E with `E2E_PORT=<port>` and base-path E2E with `E2E_BASE_PATH_PORT=<port+
 
 ## Request classification
 
-Take the first match:
-
-1. **Kernel duty** (06 §4 list, `packages/sdk/kernel/AGENTS.md`): contracts/runtime → `lane:sdk`; wiring into the app → `lane:platform`. Changing an 06 contract is an owner decision.
-2. **SDK piece:** if the rest is a domain-free part another menu could use once menu-specific parts become menu declarations → `lane:sdk` ([ADR-0052](../../docs/adr/0052-rich-content-stays-in-the-sdk.md)).
-3. **Menu share:** sample menu → `lane:platform` (touch only what the platform contract needs). Feature consumer/bridge → `lane:features`. EV module → `lane:ev`. In-house menus are not built here: point to `docs/integration/in-house-rollout.md` §5 and close the issue.
-
-- **Mixed request:** split it by class. The SDK issue goes first.
-- **Bugs:** go to the lane that owns the confirmed cause, not the symptom.
-- **Promotion candidates:** go in `.planning/backlog.md` with their current consumers. Promote when 2–3 real consumers exist.
+Lead only: [`lead.md`](lead.md) §Request classification.
 
 ## Start coordination paths
 
@@ -62,9 +52,16 @@ Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Sta
 - The screen bridge entry list (`apps/feature-screens/package.json` `exports`)
 - `.planning/README.md`: the lead updates it once, in the release-docs PR.
 
-## Owner gates
+## Owner gates and questions
 
-On top of the shared list in `references/lanes.md` §Lane session: 06 contract changes and 3+ new menu screens.
+This is the repo's one home for owner questions; other files point here. Owner gates on top of the shared list in `references/lanes.md` §Lane session: 06 contract changes and 3+ new menu screens.
+
+- A lane sends a decision only the owner can make to the lead as `질문 #n`, with the options and its recommendation, and keeps working on other items. Nothing that depends on the answer is implemented first.
+- Owner awake: the lead asks one numbered question, once. It does not repeat the question or re-attach it to later reports; the open question lives in `board.py`.
+- Owner away (01:00–09:30 KST): a question with a recommendable, reversible option is decided by the `advisor` role; work continues, and the lead reports those decisions once in the morning report. Only what cannot be undone waits for the owner: anything published outside the repo, deletion, 06 contract docs, and the gates above.
+- Add `ready-for-human` to the issue only when the session hands over without an answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
+
+Reason: questions repeated at every report, or left for an owner who was asleep, cost 5–10 hour waits for answers that were usually the recommendation.
 
 ## Heavy steps
 
@@ -97,7 +94,7 @@ Every step must exit 0 before commit.
 2. Root checks:
    - `verify=full`: `bash $LANES/verify-root.sh <log-dir>` (lint → typecheck → test+build under `heavy.lock`; exits 3 if capacity says `start=no`, 75 if `heavy.lock` is held). Only a summary with `step=test` and `step=build` counts.
    - `verify=light`: `verify-root.sh --light <log-dir>` (lint + typecheck); test and build are left to PR CI. `tier.sh` gives `verify=full` for any change under the full paths, tests included, except `tier=small`.
-3. E2E, only when Kernel, shell, shared components or the mock server change, except `tier=small`: PR CI's selected specs stand in. Run the new describe first, then the brief's Impact describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the specs `.github/scripts/select-e2e.mjs` picks; anything it cannot limit (most code PRs) runs all four shards, and a PR touching only `apps/platform-api/**` or `ops/platform-api/**` (not `ops/platform-api/tsconfig.base.json`) runs none, so a green PR is not a full E2E record; the release `full=true` run is.
+3. E2E, only when Kernel, shell, shared components or the mock server change, except `tier=small`: PR CI's selected specs stand in. Run the new describe first, then the brief's Impact describes with `-g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the specs `.github/scripts/select-e2e.mjs` picks; anything it cannot limit (most code PRs) runs all four shards, and a PR touching only `apps/platform-api/**` or `ops/platform-api/**` (not `ops/platform-api/tsconfig.base.json`) runs none, so a green PR is not a full E2E record; the weekly `full=true` run is ([`lead.md`](lead.md) §Slice close).
 4. Menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` changed: `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
 5. Feature gates, when feature packages or `.github/workflows/ci.yml` change:
    - `bash ops/platform-api/scripts/ci/gate.sh static-extra`; `unit` only for suites the root test does not cover.
@@ -107,7 +104,7 @@ Every step must exit 0 before commit.
    - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api --report` (read the diff; PR CI writes the same diff to its summary), `pnpm sdk:test`. Write the change as `packages/sdk/changes/<issue>.md` (`pnpm sdk:changelog --check`); never edit `packages/sdk/CHANGELOG.md` or run `sdk:api --update` in a PR. Reason: parallel PRs that each edited those two files conflicted on every rebase; the release folds them once.
    - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
-8. PR CI budget: until production, PR CI stays minimal at about 10 minutes of wall clock; the owner names the go-live date (#1931). The SDK upgrade gate, SDK tarball and outside-consumer checks, the kit browser check and backend image builds run on main push and `workflow_dispatch` (release `full=true`), never on a PR, so run step 7's SDK checks locally when their inputs change. A new CI check goes to main push or release first; it joins PR CI only if the PR still fits the budget. Reason: the PR wait was the bottleneck.
+8. PR CI budget: until production, PR CI stays minimal at about 10 minutes of wall clock; the owner names the go-live date (#1931). The SDK upgrade gate, SDK tarball and outside-consumer checks, the kit browser check and backend image builds run on main push and `workflow_dispatch` (the weekly `full=true` run), never on a PR, so run step 7's SDK checks locally when their inputs change. A new CI check goes to main push or release first; it joins PR CI only if the PR still fits the budget. Reason: the PR wait was the bottleneck.
    - After main moves, push rebased PRs one at a time: push the next only when the previous PR's CI has finished. Reason: the repo runs at most 20 jobs at once and one PR takes up to 18, so simultaneous pushes queue and each PR's wall clock doubles while the jobs themselves stay under 8 minutes ([#1931](https://github.com/hjung3113/analytics-platform/issues/1931#issuecomment-6844968461)).
 
 - **Fix round:** changed packages, root lint/typecheck/test (cached), affected `-g` E2E, affected screen gates, hygiene, and step 7 if its inputs changed. No build, full E2E or probe unless a build input changed.
@@ -124,8 +121,9 @@ Every step must exit 0 before commit.
 
 - Plan: `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]` (rules in `conductor.json` `review_plan`). Light tier gets no reviewers. `flags.permission` always makes the PR full; `ux=required` only picks the reviewers of a full PR.
 - UX skip: when a full PR has `ux=required` but no `review-ux` runs, record the skip reason and the substitute browser evidence in the PR body.
-- Impeccable check: a PR with a new screen gets one separate `impl-complex-sol` run at effort `high` (never the implementer judging its own work) doing `impeccable critique` + `audit` on the branch preview (1440×900), alongside review-final and before the PR opens; its findings join the one fix round. VERIFY: `impeccable: <report path>` or the skip reason. Reason: review-ux checks flow, not visual craft.
-- Platform-consistency check: every `?variant=` prototype and every new-screen PR passes [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) (a non-builder reviewer comparing each capture with `*-current`, the filled checklist in the Artifact) before the Artifact is sent or the PR opens. VERIFY: `consistency: <report path>`. Its rules 1–2 apply to all screen work. Reason: prototypes drifted from the platform look while every other gate passed.
+- Screen PR reviewers: `review-final`, plus `review-ux` when `review-plan.py` says `ux=required`. The Impeccable and platform-consistency checks below run only when the PR holds root `AGENTS.md` §UI test A. Reason: four reviewers on one screen PR repeated about half of each other's findings, and `review-ux` covers the same items.
+- Impeccable check: a PR that holds UI test A gets one separate `impl-complex-sol` run at effort `high` (never the implementer judging its own work) doing `impeccable critique` + `audit` on the branch preview (1440×900), alongside review-final and before the PR opens; its findings join the one fix round. VERIFY: `impeccable: <report path>` or the skip reason. Reason: review-ux checks flow, not visual craft.
+- Platform-consistency check: every `?variant=` prototype and every PR that holds UI test A passes [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) (a non-builder reviewer comparing each capture with `*-current`, the filled checklist in the Artifact) before the Artifact is sent or the PR opens. VERIFY: `consistency: <report path>`. Its rules 1–2 apply to all screen work. Reason: prototypes drifted from the platform look while every other gate passed.
 - Prototypes: offer 2–3 variants only when there are real placement alternatives; otherwise one variant plus the current screen. Captures run on role `research`. Follow-up checks, polish and fixes on a prototype are one fix round.
 - `conflict` terms from `review-doc`: no dependent implementation node (screen copy, new table names) starts until the owner list is answered. Reason: a name that reaches schema or API contracts costs a migration to change.
 - Flags: `permission` / `instructions` → SKILL 7a. `e2e` → Verify step 3. `submodule` → the screen gates. `contract` → give the changed 06 sections and ADRs to the code reviewer.
@@ -176,20 +174,7 @@ Every item not done now — an owner "not now", an accepted limit, a `major` or 
 
 ## Slice close
 
-Release order. Reason: once the slice's work is merged, the tag waits only for the cold CI; everything else runs before it or after it.
-
-  1. Alongside the last PRs' reviews, run in parallel: the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed), the one-off doc audit ([addenda/doc-audit.md](addenda/doc-audit.md), `review-doc`, persona doc-steward), and the release-docs PR. In that PR, fold the SDK change record (`pnpm sdk:changelog --release X.Y.Z`, then, after building the SDK packages, `pnpm sdk:api --update`) and set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); nothing else updates them. If the SDK changes, build the SDK on the PR head (`pnpm sdk:pack --version X.Y.Z --out <d>`, `pnpm sdk:schemas --version X.Y.Z --out <d2>`, `pnpm sdk:consumer-check <d>`).
-  2. The tag SHA is the release-docs PR's merge commit. A PR merged after it goes to the next release; never hold the tag for it.
-  3. Run a full cold CI on the tag SHA: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`, none for server-only PRs; `Platform test` leaves out `@ap/platform-api`, which `integration` runs), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. A failure outside the diff (runner network, registry) gets one rerun of the failed job, then a fix.
-  4. Tag when the cold CI succeeds and no `release-blocker` is open; an open `bug` issue does not hold the tag. Tag `sdk-v*` with the tarballs and a GitHub Release (assets: the nine tarballs, `ap-start-kit-<V>.tgz` and `SHA256SUMS`, as `sdk:pack` writes them), and upload `<d2>/contract-schemas-X.Y.Z.tgz` and `<d2>/SHA256SUMS-schemas` with `gh release upload sdk-vX.Y.Z`. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag on step 4 without asking again. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
-  5. After the tag, without holding it: run the real-server suite (`pnpm --filter @ap/platform-e2e run e2e:real`) on a throwaway database, by the procedure in [`apps/platform-e2e/AGENTS.md`](../../apps/platform-e2e/AGENTS.md#procedure), and post the pass/fail counts and the gate table on the release issue. A failing spec is diagnosed (product defect or stale test, [expected-behavior](../../docs/product/expected-behavior/README.md#판단-기준) «판단 기준»); a product defect gets a patch release, a stale test an issue for the next release. Reason: CI does not run it, so stale real specs go unnoticed without it (#1660 answer 3); it checks test upkeep, not the tagged build.
-
-- **Gate table:** after tagging (step 5), the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with three rows: impeccable, platform consistency, and `tier=small` (count and findings of major or worse).
-- **Impeccable and consistency re-measure (next release):** in their rows, count runs and the findings of major or worse that `review-ux` and `review-final` did not also report. With at least 5 runs, a gate with at least one such finding stays at its scope and a gate with none is removed; with fewer than 5 runs it stays one more release and the row says so.
-- **SDK release timing:** a lane adds only its `packages/sdk/changes/<issue>.md` fragment. The lead releases the SDK when a fragment (or a leftover `다음 릴리스` row) exists and main CI is green, and at once if a lane is waiting for it.
-- **Intro site:** updating `site/` is not a release step; site changes ship as their own PRs when the owner asks. The tag still triggers the Pages deploy of the tagged tree. Reason: the owner decides when the intro site changes; tying it to every release added a step the release did not need.
-
-Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
+Lead only: [`lead.md`](lead.md) §Slice close (release order, tag rule, weekly cold run).
 
 ## Tools
 
