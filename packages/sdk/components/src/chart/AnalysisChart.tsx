@@ -1,14 +1,14 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { useI18n, useMessages, usePlatform } from '@ap/kernel';
+import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton, ImageActionStatus, useImageActionGate, type ChartExportActionsPolicy } from './ChartImageCopyButton';
 import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
@@ -91,6 +91,12 @@ export type AnalysisChartProps = {
   imageCopy?: boolean;
   /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
   imagePrint?: boolean;
+  /**
+   * Outside a platform only (#1953 B): the chart renders with `I18nProvider` alone, and this opens its `내보내기` (CSV), `imageCopy` and `imagePrint`
+   * buttons (default off, `exportAllowed: true` opens them) and says where their result text goes (`notify`, default a status line beside the button).
+   * Inside a `PlatformProvider` it is ignored and the menu's `features.export` decides; it never widens a menu's permission.
+   */
+  exportActions?: ChartExportActionsPolicy;
 };
 
 const sequential = [colors.seq0, colors.seq1, colors.seq2, colors.seq3, colors.seq4];
@@ -99,7 +105,9 @@ const diverging = [colors.div0, colors.div1, colors.div2, colors.div3, colors.di
 export function AnalysisChart(p: AnalysisChartProps) {
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { global, route, toast } = usePlatform();
+  const platform = usePlatformOptional();
+  const global = platform?.global ?? null;
+  const exportGate = useImageActionGate(p.exportActions);
   const section = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, section);
   const compact = size === 'compact';
@@ -236,8 +244,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header);
     const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang)] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
-    downloadChartCsv({ ...p, context: global }, csvHeaders, csvValues);
-    toast(m('chartExportedCsv', { chartId: p.chartId }));
+    downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues);
+    exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS)}>
@@ -252,9 +260,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
           <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartReset')}</Button>
           {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{m('chartDragToSelect')}</Button>}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{m('chartShowAsTable')}</Button>
-          {route?.menu.features?.export && <Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button>}
-          {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
-          {p.imagePrint && <ChartImagePrintButton title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+          {exportGate.allowed && <><Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button><ImageActionStatus text={exportGate.status} /></>}
+          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
         </div>
       </header>
       {spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
