@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { PageFilterExpandedContext } from '../pageFilterPresentation';
 import { I18nProvider } from '@ap/kernel';
 import { PageFilterBar, type PageFilterBarProps } from '../../index';
 
@@ -332,6 +334,28 @@ describe('PageFilterBar collapsible', () => {
     expect(screen.getByRole('button', { name: '분포 필터 해제' })).toHaveFocus();
     await user.keyboard('{Enter}');
     expect(screen.getByRole('button', { name: collapsed ? '페이지 필터 펼치기' : '페이지 필터 접기' })).toHaveFocus();
+  });
+
+  it('returns focus to the first field after the last removable chip in a parent-expanded popover (#1941 C3)', async () => {
+    function ClearHarness() {
+      const [chip, setChip] = useState(true);
+      return <Popover><PopoverTrigger>페이지 조건</PopoverTrigger><PopoverContent>
+        <PageFilterExpandedContext.Provider value>
+          <PageFilterBar {...collapsibleProps} defaultCollapsed appliedChips={chip ? [
+            { key: 'bucket', label: '버킷', value: '선택', onClear: () => setChip(false), clearLabel: '버킷 필터 해제' },
+          ] : []} />
+        </PageFilterExpandedContext.Provider>
+      </PopoverContent></Popover>;
+    }
+    const user = userEvent.setup();
+    render(<I18nProvider><ClearHarness /></I18nProvider>);
+    const trigger = screen.getByRole('button', { name: '페이지 조건' });
+    await user.click(trigger);
+    screen.getByRole('button', { name: '버킷 필터 해제' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(trigger).toHaveFocus();
   });
 
   it.each([false, true])('tabs through the bar before the clear buttons, skipping fixed chips (collapsed=%s)', async collapsed => {

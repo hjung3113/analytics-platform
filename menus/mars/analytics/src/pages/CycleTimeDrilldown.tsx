@@ -195,7 +195,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{ko ? '페이지 조건 기본값' : 'Reset page filters'}</Button>;
 
   return <PlatformPage layout="fill"
-    queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response?.outcome === 'error' }}
+    queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response != null && kpi.response.outcome !== 'ok' && kpi.response.outcome !== 'empty' }}
     queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
     description={ko
       ? '적용된 기간·설비의 사이클타임입니다. 점·분포 선택은 목록만 줄입니다.'

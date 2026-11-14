@@ -167,6 +167,7 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   const { collapsed: preferredCollapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
   const collapsed = !expandedByParent && preferredCollapsed;
   const barRef = useRef<HTMLFieldSetElement>(null);
+  const fieldsRef = useRef<HTMLDivElement>(null);
   const clearedFocus = useRef<{ key: string; index: number } | null>(null);
   const clearChip = (chip: PageFilterAppliedChip, button: HTMLButtonElement) => {
     if (document.activeElement === button) {
@@ -181,7 +182,8 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
     if (!cleared || appliedChips?.some(chip => chip.key === cleared.key) || document.activeElement !== document.body) return;
     // A removed clear button must not strand keyboard focus on the document body.
     const buttons = barRef.current?.querySelectorAll<HTMLButtonElement>('[data-page-filter-chip-clear]');
-    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? (collapsed ? expandRef.current : collapseRef.current))?.focus();
+    const firstField = expandedByParent ? fieldsRef.current?.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') : null;
+    (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? firstField ?? (collapsed ? expandRef.current : collapseRef.current))?.focus();
   });
 
   return <fieldset ref={barRef} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
@@ -203,7 +205,7 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
       {collapsedActions != null && <div className="flex flex-wrap items-center gap-2">{collapsedActions}</div>}
     </div>}
     {/* Shell stays mounted with the same id in both states so aria-controls never points at a missing element. */}
-    <div id={panelId} hidden={collapsed} className={collapsed ? undefined : 'flex flex-wrap items-end gap-3'}>
+    <div ref={fieldsRef} id={panelId} hidden={collapsed} className={collapsed ? undefined : 'flex flex-wrap items-end gap-3'}>
       {!collapsed && <>
         {fields.map((field, index) => <PageFilterFieldControl key={field.key} field={field} id={`${id}-field-${index}`} />)}
         <div className="flex flex-wrap items-end gap-2">

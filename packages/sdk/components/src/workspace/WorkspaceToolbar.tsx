@@ -24,7 +24,7 @@ function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
  * The workspace's one toolbar row: the presets, the hidden panels to reopen, `기본 배치` and, at the end, `⋯` with the height mode. It draws the same commands a host would
  * (`WorkspaceCommandsHost`), so the two surfaces cannot differ.
  */
-export function WorkspaceToolbar({ commands, onShown }: { commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
+export function WorkspaceToolbar({ commands, onShown, label }: { label: string; commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
   const { tx } = useI18n();
   const workspace = useContext(WorkspaceQueryBarContext);
   const inPanel = useInWorkspacePanel();
@@ -84,6 +84,6 @@ export function WorkspaceToolbar({ commands, onShown }: { commands: readonly Wor
     </DropdownMenu>}
   </div>;
   return workspace?.toolbarTarget && !inPanel
-    ? createPortal(<div className="flex items-center gap-2 break-keep"><span className="text-xs text-text-secondary">{tx(workspaceQueryText.screenLayout)}</span>{toolbar}</div>, workspace.toolbarTarget)
+    ? createPortal(<div role="group" aria-label={label} className="flex items-center gap-2 break-keep"><span className="text-xs text-text-secondary">{tx(workspaceQueryText.screenLayout)}</span>{toolbar}</div>, workspace.toolbarTarget)
     : toolbar;
 }

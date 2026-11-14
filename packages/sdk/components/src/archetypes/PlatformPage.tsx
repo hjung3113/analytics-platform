@@ -313,6 +313,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // A folded bar that is not editing already prints the applied values in its summary (#1170): the strip keeps only the completion time.
   const appliedValuesShown = !(shownBarStatus?.folded && !shownBarStatus.editing);
   const workspaceQueryBar = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate && shownBarStatus?.folded === true;
+  const workspaceQueryRowReady = workspaceQueryBar && parameterTarget !== null && toolbarTarget !== null;
   const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="max-w-56 text-xs text-text-secondary break-keep">
     {queryResult.status === 'loading' ? t('loading') : queryResult.status === 'refreshing' ? t('refreshing') : queryResult.failed ? t('stateError') : tx(workspaceQueryText.completed)}
     {queryResult.completedAt !== null && <> {formatInstant(queryResult.completedAt, lang)}</>}
@@ -374,7 +375,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     </div>}
     <div data-platform-page-body className="contents" inert={covered || undefined}>
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
-    {!workspaceQueryBar && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+    {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
       {completionShown && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
