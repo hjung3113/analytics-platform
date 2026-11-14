@@ -6,7 +6,7 @@
 
 | # | 조건 | 확인 방법 | 상태 |
 | --- | --- | --- | --- |
-| 1 | EV `develop`과 `main` 내용이 전부 들어왔고 기준 SHA가 이력 합치기 PR에 적혀 있다 | PR 본문, `git log products/eqv` | Done — 기준 EV `develop` fdb5fa6 + `main` 43248b7, 새 해시와 함께 `products/eqv/IMPORTED.md`에 있다. PR #1622(병합 24846c332, 2026-11-09, CI 16 통과·1 건너뜀) |
+| 1 | EV `develop`과 `main` 내용이 전부 들어왔고 기준 SHA가 이력 합치기 PR에 적혀 있다 | PR 본문, 이력 합치기 커밋 | Done — 기준 EV `develop` fdb5fa6 + `main` 43248b7, 새 해시와 함께 [EV ADR 이력 README «Import record»](../../../adr/history/eqv/README.md#import-record)에 있다(가져온 사본은 #2208에서 삭제). PR #1622(병합 24846c332, 2026-11-09, CI 16 통과·1 건너뜀) |
 | 2 | `pnpm-lock.yaml`과 모든 `package.json`에 `equipment-visualization/releases` URL이 없다 | `rg equipment-visualization/releases` | Done — `main` 전체에서 이 줄 말고는 0건. PR #1626(병합 b8668d954, CI 17 통과) |
 | 3 | EV 테스트 92파일(`*.test.ts(x)`, 릴리스용 `.mjs` 시험 2개는 가져오지 않는다)이 AP CI에서 돌고 `eqv.spec.ts`가 수정 없이 통과한다 | PR CI | Done — 90파일은 `packages/eqv/*`·`apps/eqv-studio`에서 그대로 돌고(지금은 `roots.test.ts` 포함 91파일), `tooling`의 EV 전용 2파일(`design-lint`, `eslint-boundary`)은 옮기지 않았다. 같은 규칙은 `tooling/eslint`의 EV 프리셋(`eqvCore`·`eqvUi`·`eqvHost`) 시험(#1619)과 `pnpm lint`가 확인한다. `eqv.spec.ts`는 #1029 이후 수정 없이 PR #1626 E2E 4개 샤드를 통과했다. PR #1623·#1624·#1626·#1627 CI 17 통과 |
 | 4 | Studio가 AP에서 개발 도구로 뜨고 저장·발행이 된다 | `apps/eqv-studio` 시험 | Done(이력) — 개발 도구는 #1659에서 삭제했다(뷰어·Studio는 메뉴 패키지 `menus/tools/topview`·`topview-studio`로 옮겼다). 당시 기록: 시험 23파일 435개가 PR #1627(병합 9c3081106) CI를 통과했다. 직접 실행: `main`에서 `EQV_STUDIO_ASSETS`를 저장소 밖 폴더로 두고 Studio를 띄워 `/`·`/layouts` 200, 초안 저장 201, 발행 201(revision `sha256:86bf8052…`), 읽기 200이었고 번들 `packages/eqv/assets`는 바뀌지 않았다 |

@@ -91,7 +91,6 @@
 - **구현 안 함 — `.planning/README.md` 갱신 규칙 충돌([#1670](https://github.com/hjung3113/analytics-platform/issues/1670) 9번):** README 3줄은 "이슈가 닫히거나 상태가 바뀌면 같은 PR에서 해당 줄을 고친다"고 하고, 루트 `AGENTS.md` §Workflow와 PROFILE §Flow는 "팀장이 release-docs PR에서 한 번 고친다"고 한다. 이유: README는 팀장 소유라 레인 PR이 손대지 않는다. 다시 여는 조건: 다음 release-docs PR(팀장이 README 3줄을 루트 규칙에 맞춘다).
 - **구현 안 함 — 자동 지침 축소를 `components` 외 패키지로 확대 (저장소 문서 리뷰 2):** 이유: 효과를 잰 적이 없어 `packages/sdk/components/AGENTS.md` 한 곳에서 먼저 시범한다. 다시 여는 조건: 시범 뒤 한 슬라이스 동안 규칙을 놓쳤다는 리뷰 지적이 늘지 않을 때.
 - **구현 안 함 — `sdk-external-extension.md` 본문의 검토 경위를 research로 분리 (v0.33.0 문서 감사 D4):** 이유: Deferred 설계의 근거 본문이고 머리말에 현행 상태를 적어 혼동을 막았다. 다시 여는 조건: #428을 다시 열 때.
-- **구현 안 함 — `products/eqv/` 옛 사본 정리 (v0.33.0 슬라이스 리뷰 Q7):** `products/eqv/docs/`에 옮긴 문서의 옛 사본 27개와 동작하지 않는 루트 설정이 남아 검색에 함께 걸린다. 이유: 보존 의도가 있는 폴더라 EV 저장소 아카이브 점검과 함께 정한다. 다시 여는 조건: EV 저장소 아카이브 점검을 마칠 때(`IMPORTED.md`의 기준 SHA를 `docs/adr/history/eqv/README.md`로 옮기고 `products/eqv/`를 지운다).
 - **구현 안 함 — 생성형 SDK Catalog 전체, `inspect`, `check` 묶음 (#1207):** 이유: 기존 `.api.txt`, lint, tsc와 겹친다. 다시 여는 조건: 실제 메뉴 PR이나 리뷰에서 의도어 표와 이름 검사가 막지 못한 잘못된 SDK import나 중복 구현된 SDK 부품이 나올 때. 설계안: `docs/research/2026-11-10-devkit-generated-catalog-deferred-design.md`.
 - **구현 안 함 — `ap-devkit` tarball, 저장소 밖 `check`, 소비자 유형 판별 (#1207):** 이유: 외부 도구 배포는 소유자 결정으로 보류한다. EV는 ADR-0132에 따라 workspace 소비자로 흡수됐다. 다시 여는 조건: 저장소 밖 패키지가 이 도구나 확장을 실제로 필요로 할 때.
 - **구현 안 함 — `SKILL.md`·`lanes.md` 재배치(회고 항목 12):** 이유: 레인 절감이 0이고 EV가 이 절차에 기댄다. 다시 여는 조건: EV가 레인으로 옮기거나 쓰지 않게 될 때.

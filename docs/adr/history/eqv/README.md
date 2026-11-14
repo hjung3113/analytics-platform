@@ -25,6 +25,14 @@ Citation forms: `EV ADR-NNNN` is a file here; bare `ADR-NNNN` is an AP ADR in `d
 
 The EV-side list of what AP ADR-0132 replaces is: EV ADR-0001 (placement), 0008 (design-system source), 0012 (host boundary wording), 0013 and 0014 (tarballs).
 
+## Import record
+
+The EV history was imported once with `git filter-repo` (PR #1622, merge `24846c332`, 2026-11-09). The `products/eqv/` copy it created was deleted after the EV repository was archived (2026-10-31, #2208); the commits stay in git history.
+
+- Basis: EV `develop` fdb5fa6 + `main` 43248b7 (the only `main`-only content is one cherry-pick of EV#236, and `develop` has a commit with the same patch-id).
+- New hashes (old → new): EV `develop` `fdb5fa6d30561f860205a288100c18b78b94d0b0` → `c25af235bb328893b366d5736532d65cc8e29b34`, EV `main` `43248b75a569cff2f4f04a4d3cf7979780ba406d` → `a8adb675265c9d74a745342f2617f216ecfc40b5`. The merged import tip is `82a3ee67952652309d09b4dd196fe5321e076510`. Apart from the excluded `.claude/` and `HANDOFF.md`, the 452 files at both tips match the originals in path, mode and blob.
+- Excluded: `.claude/`, `HANDOFF.md`, and the EV tags (`v0.1.0`, `v0.2.0` and `eqv-v*` collide with AP tags or keep their release files in the EV repository). Commit messages had `#N` rewritten to `EV#N`; file contents were not.
+
 ## Open EV issues at absorption
 
 Sixteen EV issues were open on 2026-11-10. Their disposition (imported, carried to a step, backlog or dropped) is owned by the [absorption checklist](../../../design/features/equipment-visualization/absorption-checklist.md) ([ADR-0132](../../0132-eqv-merges-into-platform.md)); this folder keeps only the frozen ADRs.

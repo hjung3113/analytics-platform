@@ -64,7 +64,7 @@ Schema validation deliberately transcribes the DTO without pairing, chronology, 
 - `onboarding/mappings/eq-synth-01/0abf3e9ff0b22cb0e7993bfe143461f44ef1b8828df2cdce8e25af3d02987aef.mapping.json`: v2, published from model and equipment files. Both filenames are the canonical SHA-256 hash without `sha256:`; the full hash is in each document.
 - `onboarding/bindings/eq-synth-01.bindings.json`: v1 `[09:00:00, T_BIND)`, v2 `[T_BIND, open)` on eq-synth-01-layout.
 - `expected-inventory.json`: hand-counted over all 29 Occurrences, eight aliases and six directed transfer pairs (seven transfers). Each alias reference counts once per Occurrence; boundaries outside the query window are retained. ModuleType/Port/Robot metadata is absent because the batch cannot supply it. Role is not a DTO field.
-- `expected-scene-states.json`: sixteen static answers using the nine numbered rules in [Scene State 계약 (EV#9b)](../../../../products/eqv/docs/REPLAY-CONTRACT.md#scene-state-계약-9b). These are fixtures for EV#10, not reducer output. Each lists all eight bound Components in code-unit order; unlisted activities below mean `no recorded activity`/`unknown`/`[]`.
+- `expected-scene-states.json`: sixteen static answers using the nine numbered rules in [Scene State 계약 (EV#9b)](../../../../docs/design/features/equipment-visualization/REPLAY-CONTRACT.md#scene-state-계약-9b). These are fixtures for EV#10, not reducer output. Each lists all eight bound Components in code-unit order; unlisted activities below mean `no recorded activity`/`unknown`/`[]`.
 
 ## Per-time rationale
 
