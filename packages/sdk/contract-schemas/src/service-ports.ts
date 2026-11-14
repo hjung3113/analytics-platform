@@ -118,3 +118,22 @@ export const deleteNoticeInputSchema = z.strictObject({ id: z.string().min(1), e
 
 /** `data` of a successful `uploadFile`: the opaque id plus the size and MIME the server recorded. Strict, so a stray key is refused. */
 export const uploadedFileSchema = z.strictObject({ id: z.string().min(1), name: z.string().min(1), size: z.number().int().nonnegative().max(UPLOAD_FILE_MAX_BYTES), mimeType: z.string().min(1) });
+
+/** Operations-console usage read; deployment diagnostics are independent of the selected usage range. */
+export const usageSummarySchema = z.strictObject({
+  preset: z.enum(['all', 'range']),
+  menus: z.array(z.strictObject({
+    menuId: z.string(),
+    visits: z.number(),
+    distinctUsers: z.number(),
+    lastUsedAt: z.number(),
+    entries: z.number().nullable().optional(),
+    backRate: z.number().nullable().optional(),
+    searchEntryRate: z.number().nullable().optional(),
+  })),
+  undeclaredMenuPermissions: z.array(z.strictObject({
+    menuId: z.string(),
+    permission: z.string(),
+    reason: z.string(),
+  })).optional(),
+});

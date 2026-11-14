@@ -242,9 +242,11 @@ export function parseUsageNextQuery(body: unknown): { menuId: string; includeBac
 export interface UsageSummaryData {
   preset: 'all' | 'range';
   menus: UsageMenuSummary[];
+  undeclaredMenuPermissions?: { menuId: string; permission: string; reason: string }[];
 }
 
 export interface PlatformUsageServiceDeps {
+  undeclaredMenuPermissions?: readonly { menuId: string; permission: string; reason: string }[];
   db: Db;
   checkService: CheckService;
 }
@@ -424,6 +426,9 @@ export function createPlatformUsageService(deps: PlatformUsageServiceDeps) {
       outcome: 'ok',
       data: {
         preset: 'preset' in range ? 'all' : 'range',
+        ...(deps.undeclaredMenuPermissions?.length
+          ? { undeclaredMenuPermissions: deps.undeclaredMenuPermissions.map(row => ({ ...row })) }
+          : {}),
         menus: rows.map((row) => {
           // The mask is the menu's main-entry users (1–2, or none, answer null); a numerator of < 3 people counts as 0.
           // Also masked when 1–2 entries are covered by no open inflow cell (`uncoveredOpen`).

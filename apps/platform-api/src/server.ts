@@ -112,6 +112,7 @@ import {
   logExplorerExportRoutes,
 } from './modules/log-explorer/index.js';
 import { type DatasetSourceRead, logDatasetsContribution } from './modules/log-datasets/index.js';
+import { undeclaredMenuPermissionLines, undeclaredMenuPermissions } from './modules/menu-dispatch/undeclared-menu-permissions.js';
 import { eqvContribution } from './modules/eqv/index.js';
 import {
   createManagedSystemService,
@@ -256,6 +257,8 @@ export interface BuildServerOptions {
    * registration validation stops the boot. Tests pass their own pair here.
    */
   menuDispatch?: readonly MenuDispatchContribution[];
+  /** Validated snapshot requirements, compared with this server's complete permission registry. */
+  menuRequirements?: readonly { id: string; permission: string }[];
   /**
    * Site/room Scope resolver shared by session, checks and dispatch (ADR-0154). Production
    * selects the grant table with a catalog, or the optional HTTP service; synthetic resolvers are test-only.
@@ -1001,21 +1004,10 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       taskRequestsService,
     });
   // ── Platform port — #620, platform ADR-0069 ──────────────────────────────────────
-  // This server's own permission rules; the menu permissions are bound once the menu registry is built below.
+  // This server's own permission rules; menu permissions are bound after registry assembly below.
   const platformPermissions = createPlatformPermissionResolver();
-  await app.register(platformPortRoutes, {
-    ...scopeDeps,
-    prefix: PLATFORM_PORT_PREFIX,
-    permissions: platformPermissions,
-    sessionService,
-    checkService,
-    workspaceId,
-    db: dbHandle.db,
-    vocReadService,
-    findingsService,
-    tasksService,
-  });
-  // Saved views share the platform prefix with the port above; the sub-paths do not overlap (#1105, ADR-0099).
+
+  // Saved views share the platform prefix with the platform port; the sub-paths do not overlap (#1105, ADR-0099).
   await app.register(platformSavedViewRoutes, {
     prefix: PLATFORM_PORT_PREFIX,
     sessionService,
@@ -1082,6 +1074,23 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead ?? opts.logExplorer?.sourceReadPort, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? logExplorerDeps.sourceOwnerAccess }),
     ...(opts.menuDispatch ?? []),
   ], scopeResolver ? { scopeResolver } : {});
+  // #1846: compare only after built-in and deployment contributions share one registry. Warn only;
+  // the same findings feed the console read, and the declarations below feed the session resolver.
+  const menuPermissionFindings = undeclaredMenuPermissions(opts.menuRequirements ?? [], menuRegistry.permissions.map(row => row.permission));
+  for (const line of undeclaredMenuPermissionLines(menuPermissionFindings)) app.log.warn(line);
+  await app.register(platformPortRoutes, {
+    ...scopeDeps,
+    prefix: PLATFORM_PORT_PREFIX,
+    permissions: platformPermissions,
+    ...(menuPermissionFindings.length ? { undeclaredMenuPermissions: menuPermissionFindings } : {}),
+    sessionService,
+    checkService,
+    workspaceId,
+    db: dbHandle.db,
+    vocReadService,
+    findingsService,
+    tasksService,
+  });
   // The menu permissions the modules declared are what this server's bootstrap, session-state and access directory resolve (#1667).
   // Every one must name a capability of this server's registry (ADR-0157): a judgment never meets an unregistered name.
   for (const declaration of menuRegistry.permissions) {

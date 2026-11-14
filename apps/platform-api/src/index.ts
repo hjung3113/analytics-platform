@@ -181,7 +181,7 @@ const app = await buildServer({
   config,
   drainState,
    ...(sourceAssembly.sourceReadPort ? { logExplorer: { sourceReadPort: sourceAssembly.sourceReadPort, sourceOwnerAccess: sourceAssembly.sourceOwnerAccess } } : {}),
-  ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch } : {}),
+  ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch, menuRequirements: menuDeclarations.menuRequirements } : {}),
   ...(menuDeclarations?.scopeCatalog ? { scopeCatalog: menuDeclarations.scopeCatalog } : {}),
   ...(menuDeclarations?.scopeResolver ? { scopeResolver: menuDeclarations.scopeResolver } : {}),
    dbHandle,

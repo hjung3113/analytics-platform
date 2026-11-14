@@ -151,7 +151,12 @@ export type UsageMenuSummary = {
   /** Share 0..1 of the menu's main entries with via `palette` (「검색 진입」). `null` under the `entries` mask, and `null` when either side of the split (palette entries / the other main entries) has 1–2 distinct people, so `entries × (1 − rate)` never gives the size of a small group. */
   searchEntryRate?: number | null;
 };
-export type UsageSummary = { preset: 'all' | 'range'; menus: UsageMenuSummary[] };
+export type UsageSummary = {
+  preset: 'all' | 'range';
+  menus: UsageMenuSummary[];
+  /** Deployment diagnostics, independent of usage range/counts. Absent with no snapshot or no undeclared menu permission. */
+  undeclaredMenuPermissions?: { menuId: string; permission: string; reason: string }[];
+};
 /** `usageNextScreens` request. `menuId` is validated like a `fromMenuId`; `includeBack` (default false) also ranks history/return and same-menu entries. */
 export type UsageNextQuery = { menuId: string; includeBack?: boolean };
 /**

@@ -47,6 +47,8 @@ export interface MenuDeclarationSetup {
   /** The sole Scope source: grant table with a catalog, or optional HTTP service (ADR-0154). */
   scopeResolver?: ScopeResolver;
   scopeCatalog?: ScopeCatalog;
+  /** Validated snapshot requirements, compared with all contributions by server assembly (#1846). */
+  menuRequirements: readonly { id: string; permission: string }[];
 }
 
 /**
@@ -96,6 +98,7 @@ export async function loadMenuDeclarationSetup(
     });
   if (!envelope) return {
     menuDispatch: [declaredContribution({ bundle, snapshot, checkService: deps.checkService, ...routedDeps })],
+    menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
@@ -133,6 +136,7 @@ export async function loadMenuDeclarationSetup(
   return {
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
     menuDispatch: [declaredContribution({ bundle, snapshot, forwarder, checkService: deps.checkService, ...routedDeps })],
+    menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
   };

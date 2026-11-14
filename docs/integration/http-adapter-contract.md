@@ -61,6 +61,8 @@
 | `deleteNotice(input)` | `POST /api/v1/platform/notices/delete` + 같은 헤더 | `{ id, expectedVersion, idempotencyKey }` | `ActionResponse<{ id }>` |
 | `uploadFile(input)` (선택) | `POST /api/v1/platform/files` + 헤더 `Idempotency-Key`(= `input.idempotencyKey`)·`X-CSRF-Token`, 본문 `multipart/form-data`(`file` 부분 하나, 파일 이름 = `input.name`, 형식 = `file.type`). `Content-Type`은 어댑터가 정하지 않는다(경계 문자열은 `fetch`가 만든다). 판정은 서버 몫이라 어댑터는 크기·형식을 미리 거르지 않는다. 마감은 JSON 호출보다 길다(120 s 이상) | `{ file: Blob, name, idempotencyKey }` | `ActionResponse<UploadedFile>`(`menuAction`과 같은 변환: 답을 못 받으면 `unknown`). `ok`인데 `data`가 `{ id, name, size, mimeType }`가 아니면 `unknown`(`invalid_response`) |
 
+`UsageSummary.undeclaredMenuPermissions?: { menuId: string; permission: string; reason: string }[]`는 서버가 메뉴 선언 스냅샷과 서버 권한 선언을 대조한 배포 진단이다(#1846). 이용 이력이 없는 메뉴도 포함하며 조회 기간과 무관하다. `reason`은 영어 진단 문자열이다. 스냅샷이 없거나 미선언 권한이 없으면 필드를 생략한다. 기존 `console:access` 권한으로만 읽고 권한 부여나 메뉴 접근 판정은 바꾸지 않는다. 이전 서버의 필드 없는 응답도 유효하다. 공유 스키마는 `@ap/contract-schemas`의 `usageSummarySchema`, 생성 파일은 `schemas/usageSummary.json`이다.
+
 **`signal` 전파(새 포트 공통):** 읽기 포트는 호출자의 `AbortSignal`을 전송에 그대로 연결한다(중단은 `AbortError`). 첫 인수가 `signal`인 `readPreferences`·`listNotices`는 실제 `AbortSignal`이 아닌 값이 와도(드리프트 점검의 자리표시 인수) 동기 예외나 요청 생략 없이 요청을 보낸다. 쓰기(`patchPreferences`·`importPreferences`·`saveNotice`·`deleteNotice`)도 같은 방식으로 신호를 전달하되 보낸 쓰기는 되돌리지 못한다. 어댑터는 본문을 보내기 전에 클라이언트 쪽에서 검증하지 않는다 — 판정은 서버 몫이다.
 
 
