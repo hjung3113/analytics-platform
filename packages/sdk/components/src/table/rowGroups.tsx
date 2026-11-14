@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
-import { EMPTY_GROUP_LABEL, type PageGroup } from '@ap/contracts';
+import { EMPTY_GROUP_LABEL, formatNumber, type PageGroup } from '@ap/contracts';
 import { cn } from '@ap/ui';
 
 type Lang = 'ko' | 'en';
@@ -58,7 +58,7 @@ export function groupHeaderLayout<C extends { id: string }>(displayed: readonly 
   return { leading: displayed.slice(0, end), trailing: displayed.slice(end), leadSubtotal: null };
 }
 
-export const groupCountText = (count: number, lang: Lang) => lang === 'ko' ? `${count.toLocaleString()}행 (전체 결과)` : `${count.toLocaleString()} rows (whole result)`;
+export const groupCountText = (count: number, lang: Lang) => lang === 'ko' ? `${formatNumber(count, lang)}행 (전체 결과)` : `${formatNumber(count, lang)} rows (whole result)`;
 export const groupToggleName = (label: string, collapsed: boolean, lang: Lang) =>
   lang === 'ko' ? `${label} 그룹 ${collapsed ? '펼치기' : '접기'}` : `${collapsed ? 'Expand' : 'Collapse'} group ${label}`;
 
@@ -88,7 +88,7 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
     return value === undefined ? null : <>
       <span className="sr-only">{ko ? '전체 결과 합계 ' : 'Whole-result total '}</span>
       <span className="mr-1 text-xs font-normal text-text-muted" aria-hidden>{ko ? '합계' : 'Total'}</span>
-      {value === null ? '—' : value.toLocaleString()}
+      {value === null ? '—' : formatNumber(value, lang)}
     </>;
   };
   const label = group.label === '' ? EMPTY_GROUP_LABEL : group.label;
@@ -105,7 +105,7 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
         <span className="min-w-0 truncate" title={label}>{label}</span>
         {continued && <span className="shrink-0 text-xs font-normal text-text-muted">{ko ? '(이어서)' : '(continued)'}</span>}
         <span className="shrink-0 text-xs font-normal text-text-secondary tabular" data-group-count>{groupCountText(group.count, lang)}</span>
-        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{ko ? `이 쪽 ${rowsOnPage.toLocaleString()}행 숨김` : `${rowsOnPage.toLocaleString()} rows on this page hidden`}</span>}
+        {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{ko ? `이 쪽 ${formatNumber(rowsOnPage, lang)}행 숨김` : `${formatNumber(rowsOnPage, lang)} rows on this page hidden`}</span>}
       </div>
     </div>
     {/* eslint-disable-next-line shadcn/no-inline-styles -- band width comes from column sizing at runtime */}
