@@ -39,6 +39,7 @@ import {
 } from './repositories/queue-write.js';
 import { countRuleResults } from './repositories/queue-read.js';
 import type { SampleSet } from './domain/sample-set.js';
+import { createDiagnosticService } from './diagnostic-service.js';
 import { createOpinionService } from './opinion-service.js';
 
 export class LeaseLostError extends Error {
@@ -282,7 +283,8 @@ export function createQueueService(deps: QueueServiceDeps) {
 
   // Opinions on a succeeded attempt (#1778): their own service and axis; exposed here so the worker routes keep one handle.
   const recordOpinions = createOpinionService({ db: deps.db }).record;
-  return { claim, heartbeat, submitResult, fail, recordOpinions };
+  const recordDiagnostics = createDiagnosticService({ db: deps.db }).record;
+  return { claim, heartbeat, submitResult, fail, recordOpinions, recordDiagnostics };
 }
 
 export type QueueService = ReturnType<typeof createQueueService>;

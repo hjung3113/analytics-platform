@@ -32,7 +32,7 @@ Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. �
 
 ## 3. Slice B — 버전 있는 진단과 선택 첨부
 
-**Decided · 미구현 (R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)).** `AttemptDiagnostic`(시도 × 생산자당 문서 하나)과 `DiagnosticItem`을 도입한다. 규칙 결과와 1:1을 강제하지 않으며 규칙 결과·의견·사람 등록 항목과 다른 출처다. wire shape·상한·읽기·감사·수명은 [API §시도 진단](../../../architecture/platform-api/api/log-lifecycle.md#시도-진단-attemptdiagnostic-b0b1)이 한 번만 정의한다. 이 절은 설계 이유만 둔다.
+**B1 As-built (R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)).** `AttemptDiagnostic`(시도 × 생산자당 문서 하나)과 `DiagnosticItem`을 도입한다. 규칙 결과와 1:1을 강제하지 않으며 규칙 결과·의견·사람 등록 항목과 다른 출처다. wire shape·상한·읽기·감사·수명은 [API §시도 진단](../../../architecture/platform-api/api/log-lifecycle.md#시도-진단-attemptdiagnostic-b0b1)이 한 번만 정의한다. 이 절은 설계 이유만 둔다.
 
 - **쓰기를 결과 본문과 떼는 이유.** 별도 worker 경로라서 verdict·`result_digest`·결과 422 범위가 진단 상한에 묶이지 않는다. 의견 경로와 같은 «성공한 시도 뒤 추가 쓰기» 틀이다.
 - **상한.** items 500, 표 4/항목, 열 16, 행 200, 셀 500자, 설명 4,000자, 시도 합계 512 KiB, 읽기 쪽 크기 100. 모두 유한하고 초과는 422, 조용한 절단은 없다. 수량을 곱한 값보다 합계 bytes가 실제 상한이며 발췌 256 KiB와 summary 4,096 bytes와 비교한 이유는 API가 가진다.
@@ -62,11 +62,11 @@ Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. �
 | A3 상세/근거표 | A1/A2 + **#1809 merge** + 실제 앱 variant 승인 | `RoundScreen.tsx`, 화면 contracts·상세 Drawer. #1809 뒤 stack |
 | A4 parity 회귀 | P0 + A1/A2/A3 | 합성 DB/read/UI 검증. UI 사양은 A3 의존 |
 | B0 진단 계약 | **Decided** ([ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md), API §시도 진단) | 문서만. #1807 공급자 선택과 동일시하지 않음 |
-| B1 버전 진단 쓰기/읽기 | B0 | **구현 가능 backend 노드.** 마이그레이션(`attempt_diagnostic`·`attempt_diagnostic_item`, guard·삭제 함수 확장, `db:generate` 스냅샷), `domain/diagnostic-payload.ts`(파싱·상한·비밀 검사), `diagnostic-service.ts`, `repositories/diagnostic-write.ts`·`diagnostic-read.ts`, `worker-routes.ts`의 진단 경로, `request-endpoints.ts`의 `logLifecycle.diagnostics`·`diagnosticItem`, `excerpt-purge-job.ts`·`excerptDelete` 경로 확장, `@ap/contract-schemas` `validationDiagnostic*` 스키마, 메뉴 `log-validation-requests` 읽기 미러. RoundScreen 미접촉 |
+| B1 버전 진단 쓰기/읽기 | B0 | **As-built backend 노드.** 마이그레이션(`attempt_diagnostic`·`attempt_diagnostic_item`, guard·삭제 함수 확장, `db:generate` 스냅샷), `domain/diagnostic-payload.ts`(파싱·상한·비밀 검사), `diagnostic-service.ts`, `repositories/diagnostic-write.ts`·`diagnostic-read.ts`, `worker-routes.ts`의 진단 경로, `request-endpoints.ts`의 `logLifecycle.diagnostics`·`diagnosticItem`, `excerpt-purge-job.ts`·`excerptDelete` 경로 확장, `@ap/contract-schemas` `validationDiagnostic*` 스키마, 메뉴 `log-validation-requests` 읽기 미러. RoundScreen 미접촉 |
 | B2 진단 표 상세 | B1 + A3 + `?variant=` 실제 앱 시안 + 소유자 질문 답 | 화면 노드. `RoundScreen.tsx`·상세 Drawer, #1809 뒤 stack |
 | B3 첨부 참조 | Source 산출물 읽기 포트 + schemaVersion 2 | Deferred(backlog #1815 행) |
 
-**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1(summary 투영)은 backend As-built다. B1(진단 쓰기·읽기)은 계약이 Decided라 화면 없이 구현할 수 있다. A3의 summary 표시와 B2(진단 표 상세)는 화면 노드라 `?variant=` 실제 앱 시안과 소유자 승인 뒤에 만든다(루트 AGENTS §UI 시험 A: 새 상세 영역).
+**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1(summary 투영)은 backend As-built다. B1(진단 쓰기·읽기)은 화면 없이 구현했다. A3의 summary 표시와 B2(진단 표 상세)는 화면 노드라 `?variant=` 실제 앱 시안과 소유자 승인 뒤에 만든다(루트 AGENTS §UI 시험 A: 새 상세 영역).
 
 #1808은 [사람 등록/토론 설계](validation-issues-discussion.md)의 N1/N2 backend를 먼저 준비할 수 있지만 진단 연결 UI는 A3의 안정 참조를 따른다.
 
@@ -75,7 +75,7 @@ Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. �
 | ID / 상태 | 선택지·실사 질문 | 추천과 이유 |
 | --- | --- | --- |
 | R1 As-built (플랫폼 정의) | Slice A 허용 키를 enum만 둘까, 검증된 자유 설명까지 열까? | 허용 목록 버전 1: `fixture`·`mode`·`durationMs`·`producer`·`producerVersion`(enum·정수·좁은 문자 집합). 자유 제목·설명은 summary에 두지 않음: `platform:view` 목록 읽기라 R5 ACL이 없고, 비밀 패턴·길이 제한으로 원본 비포함을 증명할 수 없음. 제목·설명은 R2의 ACL 읽기로 |
-| R2 Decided (소유자 2026-11-13, 플랫폼 정의; [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md), 미구현) | 기존 기대/관측·근거로 충분한가, AttemptDiagnostic이 필요한가? 표의 열/행/셀·총량·페이지 상한은? | 도입. 별도 worker 경로, items 500·표 4·열 16·행 200·셀 500자·설명 4,000자·시도 합계 512 KiB·페이지 100. 한 줄 500자 기대/관측으로는 설명·표가 사라짐 |
+| R2 Decided (소유자 2026-11-13, 플랫폼 정의; [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md), B1 As-built) | 기존 기대/관측·근거로 충분한가, AttemptDiagnostic이 필요한가? 표의 열/행/셀·총량·페이지 상한은? | 도입. 별도 worker 경로, items 500·표 4·열 16·행 200·셀 500자·설명 4,000자·시도 합계 512 KiB·페이지 100. 한 줄 500자 기대/관측으로는 설명·표가 사라짐 |
 | R3 Decided (소유자 2026-11-12, 추천안; 과거 삭제 provenance는 unknown) | 관리자 삭제와 retention의 과거 provenance를 어떻게 구별할까? unknown 유지, 제한된 안전 사유 읽기, 후속 provenance 보강 중 선택 | 권위가 없는 과거 행은 unknown. 만료를 추정하면 거짓 상태가 됨. 보강에 DDL이 필요하면 별도 승인 PR |
 | R4 Decided (소유자 2026-11-12, 추천안; 미구현) | 첨부 불필요, Source 소유 참조, 플랫폼 attempt/issue 첨부 중 어느 범위·형식·보관 기간인가? | Source 참조 우선, 형식 CSV·PDF·PNG, 보관은 Source 수명(발췌 90일과 별도). schemaVersion 1에서 제외하고 Source 산출물 읽기 포트가 생기면 버전 2로(§3) |
 | R5 Decided (소유자 2026-11-12, 추천안) | 진단 상세/첨부를 누가 읽고 생산자는 누구인가? Source 유래 표·설명을 통째로 보호할까, 검증된 메타데이터만 분리할까? | Source 유래 내용은 매 접근 ACL. 독립 metadata만 명시적으로 투영해 목록 누출 방지 |

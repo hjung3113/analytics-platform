@@ -154,6 +154,8 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
   'lifecycle.request.failed',
   'lifecycle.request.lease_expired',
   'lifecycle.opinion.recorded',
+  'lifecycle.diagnostic.recorded',
+  'lifecycle.diagnostic.read',
   'lifecycle.excerpt.read',
   'lifecycle.queue_settings.updated',
   'lifecycle.excerpt_access.set',
@@ -228,7 +230,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(208);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(210);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });

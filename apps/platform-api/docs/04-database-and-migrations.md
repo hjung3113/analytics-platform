@@ -313,6 +313,7 @@ log_rules (validation catalog report, #1491 R-a, migration 0106, design docs/des
 - rule (`rule_key`, `title`, `summary`, `support`, `scope` jsonb, `required_default`, `rule_digest`; unique per revision on `rule_key`)
 - rule_target (`position`, `format`, `target` verbatim, `requirement_ids text[]`)
 - execution_request, execution_attempt, rule_result, rule_result_excerpt, queue_settings, excerpt_reader (validation request queue, #1445 d; see §Validation request queue)
+- attempt_diagnostic, attempt_diagnostic_item (#1815 B1; see §Attempt diagnostics)
 
 log_datasets (log test datasets, #1477 D-a, design docs/design/features/log-test-datasets/README.md §3)
 - dataset (`share_scope` private|workspace, `model_ids uuid[]` plain ids, `scenario_tags text[]` closed set, `status`, `synthetic`, `row_version`)
@@ -1090,3 +1091,13 @@ Derived, rebuildable tables of `knowledge` for the log knowledge search (design 
 ## 0133 — Immutable Round owner (#2111)
 
 Adds nullable `owner_model_id` / `owner_software_id` UUIDs to `log_lifecycle.validation_round` (plain UUIDs across the knowledge boundary). The insert trigger records the project's model/SW under a row lock; the owner guard refuses changing either column even for the migration role. Existing app SELECT/INSERT and column-limited UPDATE privileges are sufficient; no GRANT is added. Existing Rounds retain null owner columns because their historical SW cannot be proven from the stored pin/event order. Null model is the unresolved marker, distinct from a resolved model with null SW. Access, legacy visibility and Gate policy: [log-lifecycle.md](../../../docs/architecture/platform-api/api/log-lifecycle.md#immutable-round-ownership-2111).
+
+## 0134 — Attempt diagnostics (#1815 B1)
+
+Migration `0134_attempt_diagnostic.sql` adds `log_lifecycle.attempt_diagnostic` and `attempt_diagnostic_item`.
+The [API contract](../../../docs/architecture/platform-api/api/log-lifecycle.md#시도-진단-attemptdiagnostic-b0b1) owns payload limits and read behavior.
+
+- Document columns: `id`, `workspace_id`, `attempt_id`, `producer`, `producer_version`, `schema_version`, `digest`, `byte_count`, `item_count`, `actor_id`, `token_id`, `created_at`. Unique `(attempt_id, producer)` serializes producer identity; `(workspace_id, attempt_id, id)` is the child ownership witness. The request/attempt row locks serialize the four-producer and 512 KiB aggregate checks. Stored normalized byte counts survive erasure, so an erased document cannot reset the intake budget or its digest.
+- Item columns: `id`, `workspace_id`, `attempt_id`, `diagnostic_id`, `item_key`, `ordinal`, `origin`, `rule_result_id`, `evidence`, `title`, `explanation`, `tables`, `erased_at`, `erased_cause`. Composite FKs bind the item to its same-workspace document/attempt and optional rule result in that attempt. Unique `(diagnostic_id, item_key)` and `(diagnostic_id, ordinal)` preserve identity and write order. Partial index `attempt_diagnostic_item_live_idx (workspace_id, attempt_id) WHERE erased_at IS NULL` supports erasure discovery. `erased_cause` is a CHECK-constrained text enumeration (`retention|admin`), paired with `erased_at`.
+- Runtime grants are SELECT and INSERT only on both tables, matching sibling queue storage; no UPDATE or DELETE grant is added. `attempt_diagnostic_append_only` reuses the existing append-only guard. Item UPDATE reuses the extended `excerpt_guard` and permits only one exact shape-preserving body erasure; DELETE reuses `excerpt_no_delete`. These triggers bind the table owner too. No role or existing table grant is widened.
+- The existing `erase_excerpts` SECURITY DEFINER function retains its identity, EXECUTE ACL and `search_path = pg_catalog`. Each call erases at most its existing batch limit across excerpt rows and diagnostic items combined. `diagnostic_erased_tables` is a pure JSON transformation used by both the function and guard: table keys, column keys/types, row counts and evidence remain; titles, explanations, labels and every cell become null. The admin scope writes `admin` regardless of reason text; a cutoff scope writes `retention`. The daily workspace discovery includes diagnostic-only workspaces. Existing deletion/purge audit field sets remain unchanged; `count` includes both types of erased body.

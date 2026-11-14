@@ -1,6 +1,6 @@
-// Daily excerpt retention purge (#1445 d, ADR-0117 decision 7): the BODY of a log excerpt is physically erased once its
+// Daily excerpt and diagnostic-body retention purge (#1445 d, ADR-0117 decision 7): the BODY of a log excerpt is physically erased once its
 // Round has been closed for `excerptRetentionDays` (workspace queue setting, default 90). Rule results, evidence
-// locations and hashes stay; the excerpt then reads as deleted. The erasure itself is the migration's definer function
+// locations, diagnostic shape and hashes stay; reads expose erased bodies. The erasure itself is the migration's definer function
 // (`log_lifecycle.erase_excerpts`): the runtime role has no UPDATE on the table.
 //
 // Idempotent (an erased row is skipped), batch-limited (EXCERPT_ERASE_BATCH rows per statement) and audited with one
@@ -34,7 +34,7 @@ export async function purgeExpiredExcerpts(deps: { db: Db; now?: () => Date; bat
   const now = deps.now ?? (() => new Date());
   const batch = deps.batchSize ?? EXCERPT_ERASE_BATCH;
   const audit = createAuditService();
-  const found = await deps.db.execute(sql`select distinct workspace_id from log_lifecycle.rule_result_excerpt where deleted_at is null`);
+  const found = await deps.db.execute(sql`select workspace_id from log_lifecycle.rule_result_excerpt where deleted_at is null union select workspace_id from log_lifecycle.attempt_diagnostic_item where erased_at is null`);
   const workspaceIds = (found as unknown as { rows: { workspace_id: string }[] }).rows.map((r) => r.workspace_id);
   let erased = 0;
   let workspaces = 0;
