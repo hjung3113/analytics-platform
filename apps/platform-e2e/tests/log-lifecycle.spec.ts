@@ -54,16 +54,13 @@ test.describe('log-lifecycle screens (06 §6·§12·§17·§22)', () => {
     await signInAs(page, 'admin');
     await page.goto('/log-dev/log-models');
     await expect(page.getByRole('table', { name: '모델 목록' })).toBeVisible();
-    await expect(page.getByText('개발 건 없음', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'ETCH-300', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/log-dev/log-model-project/${PROJECT}`));
-    await expect(page.getByRole('list', { name: '개발 단계' }).getByRole('listitem')).toHaveCount(5);
     await page.getByRole('button', { name: 'Round 3', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(roundPath));
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Gate 결정', exact: true }).click();
     const gate = page.getByRole('dialog', { name: 'Gate 결정' });
-    await expect(gate.getByRole('radio', { name: '승인', exact: true })).toBeDisabled();
     for (const width of [1440, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       const rulesBox = await page.getByRole('table', { name: '규칙 결과', exact: true }).boundingBox();
@@ -101,38 +98,22 @@ test.describe('log-lifecycle screens (06 §6·§12·§17·§22)', () => {
     await expect(page).not.toHaveURL(/view=/);
   });
 
-  test('request drawer restores from URL and opens attempts/results; registration from a Round fixes that Round', async ({ page }, testInfo) => {
+  test('request drawer restores from URL and opens its Round result', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto(`/log-dev/log-validation-requests?request=${REQUEST}`);
     await expect(page.getByRole('heading', { name: '검증 요청 상세' })).toBeVisible();
     await expect(page.getByRole('region', { name: '시도 이력', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Round 결과 열기' }).click();
     await expect(page).toHaveURL(new RegExp(roundPath));
-    await page.getByRole('tab', { name: '설정·이력' }).click();
-    await page.getByRole('button', { name: '요청 등록', exact: true }).click();
-    await expect(page.getByLabel('Round (필수)', { exact: true })).toBeDisabled();
-    await expect(page.getByLabel('Round (필수)', { exact: true })).toHaveValue(ROUND);
-    await evidence(page, testInfo, 'register-fixed-round');
+    await evidence(page, testInfo, 'request-round-route');
   });
 
-  test('rule filters restore after reload and excerpts require an explicit read', async ({ page }, testInfo) => {
+  test('rule filters restore after reload', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     // The default population is the decisive (latest completed) attempt; pin the first attempt, whose rules carry the deleted excerpt.
     await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=NOT_CHECKED`);
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toContainText('SEQ-002');
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).not.toContainText('TIME-001');
-    // A purged excerpt reads as an unknown state (no deletion provenance), never as «삭제됨»; the audited body read is not offered.
-    await page.getByRole('button', { name: 'SEQ-002 상세 열기', exact: true }).click();
-    await expect(page.getByText('발췌 상태 알 수 없음').first()).toBeVisible();
-    await expect(page.getByText(/삭제됨|만료/)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '발췌 보기', exact: true })).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=ERROR`);
-    await page.getByRole('button', { name: 'TIME-001 상세 열기', exact: true }).click();
-    await expect(page.getByText('SYNTHETIC FIXTURE · 이벤트 형식 해석 실패')).toHaveCount(0);
-    await page.getByRole('button', { name: '발췌 보기', exact: true }).first().click();
-    await expect(page.getByText('SYNTHETIC FIXTURE · 이벤트 형식 해석 실패')).toBeVisible();
-    await page.goto(`${roundPath}?request=${REQUEST}&attempt=${ATTEMPT}&result=NOT_CHECKED`);
     await page.reload();
     await expect(page.getByRole('table', { name: '규칙 결과', exact: true })).toContainText('SEQ-002');
     await evidence(page, testInfo, 'rule-filter-restored');

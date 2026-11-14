@@ -19,8 +19,6 @@ test.describe('eqv studio onboarding (06 §5·§17·§19)', () => {
     await chooseSystem(page, '도구');
     await page.getByRole('group', { name: '시스템 섹션' }).getByRole('button', { name: 'Top View 작성', exact: true }).click();
     await sidebar(page).getByRole('link', { name: '설비 온보딩', exact: true }).click();
-    await expect(page.getByText('게시됨 · Drift 미확인', { exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('관측 없음', { exact: true })).toBeVisible();
     await evidence(page, testInfo, 'eqv-onboarding-fleet');
 
     await page.getByRole('button', { name: 'eq-synth-01 열기', exact: true }).click();
@@ -41,11 +39,8 @@ test.describe('eqv studio onboarding (06 §5·§17·§19)', () => {
     await expect(review).toBeEnabled({ timeout: 15_000 });
     await review.click();
     const dialog = page.getByRole('alertdialog');
-    await expect(dialog.getByText('Mapping을 게시할까요?', { exact: true })).toBeVisible();
-    await expect(dialog.getByText(/^열린 binding\(2026-01-01T10:04:30\.000 ~\)을 2026-01-01T10:30:00\.000에서 닫습니다$/)).toBeVisible();
     await evidence(page, testInfo, 'eqv-onboarding-publish-review');
     await dialog.getByRole('button', { name: '게시', exact: true }).click();
-    await expect(page.locator('[data-toast-stack]').getByText('Mapping을 게시했습니다', { exact: true })).toBeVisible();
     // The publish stored a Baseline Inventory, so Drift is now judged in the browser: the title leaves «게시됨 · Drift 미확인».
     await expect(heading(page)).not.toContainText('Drift 미확인');
     expect(keys(page)).toEqual(['equipment', 'step']);

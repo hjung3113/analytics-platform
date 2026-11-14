@@ -671,3 +671,44 @@ describe('FIX2 review regressions', () => {
     expect(server.state.writes).toEqual([]);
   });
 });
+
+
+describe('MEN-8 studio menu assertions', () => {
+  it('edited sample label is dirty until saved and the publish diff compares the seeded Revision', async () => {
+    server.state.revisions.push({ id: 'rev-seed', layoutId: FIXTURE.id, revision: 'sha256:0cd25afbcf9beeb516b7d6c65b16d12ba648c688c70c8c0b2db994170e1ec0f5', document: structuredClone(FIXTURE), publishedAt: '2026-11-10T00:00:00.000Z' });
+    await mount('both');
+    select('proc-a'); rename('Edited proc');
+    expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy();
+    expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button('초안 저장'));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
+    await waitFor(() => expect(screen.queryByText('저장 안 됨', { exact: true })).toBeNull(), slow);
+    fireEvent.click(button('Revision 게시'));
+    const publish = await screen.findByRole('alertdialog');
+    expect(within(publish).getByText(/^비교 기준:/)).toBeTruthy();
+    expect(within(within(publish).getByRole('table', { name: 'Layout 변경 목록' })).getAllByRole('cell', { name: '변경' }).length).toBeGreaterThan(0);
+    fireEvent.click(within(publish).getByRole('button', { name: '게시' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Revision을 게시했습니다', 'info'), slow);
+    await waitFor(() => expect(within(title().parentElement!).getByText('게시됨', { exact: true })).toBeTruthy(), slow);
+  });
+});
+
+
+describe('MEN-8 template promotion', () => {
+  it('published edited Revision is read-only and promotes to e2e-template', async () => {
+    const revision = `sha256:${'e'.repeat(64)}`;
+    const document = structuredClone(FIXTURE);
+    document.components.find(c => c.id === 'proc-a')!.label = 'Edited proc';
+    server.state.revisions.push({ id: 'rev-edited', layoutId: FIXTURE.id, revision, document, publishedAt: '2026-11-10T01:02:00.000Z' });
+    await mount('both', `&revision=${revision}`);
+    expect(maybe('초안 저장')).toBeNull();
+    await waitFor(() => expect((button('EV Template으로 승격') as HTMLButtonElement).disabled).toBe(false), slow);
+    fireEvent.click(button('EV Template으로 승격'));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.change(within(dialog).getByLabelText(/^ID/), { target: { value: 'e2e-template' } });
+    fireEvent.change(within(dialog).getByLabelText(/^이름/), { target: { value: 'E2E template' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '승격' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('EV Template e2e-template 승격 완료 · 삭제 불가', 'info'), slow);
+    expect(await within(screen.getByRole('region', { name: 'EV Templates' })).findByRole('button', { name: 'e2e-template' }, slow)).toBeTruthy();
+  });
+});

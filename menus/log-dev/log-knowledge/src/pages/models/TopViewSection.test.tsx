@@ -40,7 +40,7 @@ let actionResult: Record<string, unknown> = { outcome: 'ok', data: { linkId: 'l1
 let optionsAnswer: () => unknown = () => ok({ rows: revisionRows });
 const revisionRows = [{ layoutId: 'demo-layout', revision: REV, publishedAt: '2026-10-05T00:00:00.000Z' }];
 
-function mount(opts: { perms?: string[]; studio?: boolean; canEdit?: boolean } = {}) {
+function mount(opts: { perms?: string[]; studio?: boolean; canEdit?: boolean; modelId?: string } = {}) {
   const session = testSession((opts.perms ?? ['platform:view', 'knowledge:catalog-manage', 'eqv-studio:view']) as Parameters<typeof testSession>[0], { user: { id: 'u', name: 'u', title: { ko: '사용자', en: 'User' } } });
   const adapter = testAdapter({
     session: () => session,
@@ -52,9 +52,9 @@ function mount(opts: { perms?: string[]; studio?: boolean; canEdit?: boolean } =
     },
     menuAction: async (req: MenuAction) => { writes.push(req); return { correlationId: 'tv', ...actionResult } as unknown as ActionResponse<never>; },
   });
-  window.history.replaceState(null, '', `/logDev/log-knowledge-model/${MODEL}?v=1`);
+  window.history.replaceState(null, '', `/logDev/log-knowledge-model/${opts.modelId ?? MODEL}?v=1`);
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registryWith(opts.studio ?? true)}>
-    <TopViewSection modelId={MODEL} canEdit={opts.canEdit ?? true} /></PlatformProvider></I18nProvider>);
+    <TopViewSection modelId={opts.modelId ?? MODEL} canEdit={opts.canEdit ?? true} /></PlatformProvider></I18nProvider>);
 }
 // The applied line contains styled ID/hash spans; match its complete paragraph text.
 const appliedText = (text: string | RegExp) => (_: string, node: Element | null) =>
@@ -313,5 +313,16 @@ describe('focus after a successful unlink', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole('button', { name: '해제' })[0]), slow);
     await unlinkRow(0, []);
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Top View 연결' })), slow);
+  });
+});
+
+
+describe('MEN-8 unlinked model', () => {
+  it('an unlinked model shows 미연결', async () => {
+    mount({ modelId: '00000003-0000-4000-8000-000000000009' });
+    const section = document.body;
+    expect(await within(section).findByText('미연결', { exact: true }, slow)).toBeTruthy();
+    expect(within(section).getByText('연결된 Top View가 없습니다', { exact: true })).toBeTruthy();
+    expect(within(section).queryByTestId('model-topview-slot')).toBeNull();
   });
 });
