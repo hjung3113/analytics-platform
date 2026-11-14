@@ -82,3 +82,8 @@ export function reviseTargetError(
   if (item.rowVersion !== expectedItemVersion) return { path: ['expectedItemVersion'], code: 'stale' };
   return null;
 }
+
+/** A revise draft is judged against the revision it was written on: a newer latest revision means the draft would overwrite it, so it is refused (no merge; the author resubmits on the new base). */
+export function reviseBaseError(item: { latestRevisionNo: number }, baseRevisionNo: number | null): FieldError | null {
+  return item.latestRevisionNo === baseRevisionNo ? null : { path: ['id'], code: 'base_stale' };
+}

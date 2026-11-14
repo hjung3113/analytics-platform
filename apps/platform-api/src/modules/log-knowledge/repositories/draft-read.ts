@@ -166,6 +166,8 @@ export interface DraftDetail {
   }[];
   /** A revise draft under review, for a publish holder: the target's current `row_version` (the `expectedItemVersion` to send); else null. */
   targetItemVersion: number | null;
+  /** Same gate as `targetItemVersion`: the target's current `latest_revision_no`, to show "base N, now M"; else null. */
+  targetLatestRevisionNo: number | null;
   /** The latest revision's stored proposal (normalized, see `draft-input.ts`). */
   proposal: unknown;
 }
@@ -186,12 +188,14 @@ export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: strin
   const { draft } = row;
   const reviews = await listReviews(tx, workspaceId, draftId);
   let targetItemVersion: number | null = null;
+  let targetLatestRevisionNo: number | null = null;
   if (viewer.holdsPublish && draft.status === 'submitted' && draft.proposalType === 'revise' && draft.targetItemId) {
     const [target] = await tx
-      .select({ rowVersion: knowledgeItems.rowVersion })
+      .select({ rowVersion: knowledgeItems.rowVersion, latestRevisionNo: knowledgeItems.latestRevisionNo })
       .from(knowledgeItems)
       .where(and(eq(knowledgeItems.workspaceId, workspaceId), eq(knowledgeItems.id, draft.targetItemId)));
     targetItemVersion = target?.rowVersion ?? null;
+    targetLatestRevisionNo = target?.latestRevisionNo ?? null;
   }
   return {
     draft: {
@@ -218,6 +222,7 @@ export async function getDraftDetail(tx: Tx, workspaceId: string, draftId: strin
     revisions: revisions.map((x) => ({ ...x, createdAt: iso(x.createdAt) })),
     reviews: reviews.map((x) => ({ ...x, reviewedAt: iso(x.reviewedAt) })),
     targetItemVersion,
+    targetLatestRevisionNo,
     proposal: row.proposal,
   };
 }

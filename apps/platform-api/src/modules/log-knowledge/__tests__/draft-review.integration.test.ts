@@ -355,6 +355,22 @@ describe.skipIf(!runIntegration)('log knowledge draft review (#1198 b)', () => {
       expect(await draftRow(d.id)).toMatchObject({ status: 'submitted' });
     });
 
+    it('a draft whose base revision is no longer the latest is refused even with the current item version, and the newer revision stays', async () => {
+      const target = await newItem('base-stale');
+      const d = await submitted('base-stale-d', author, reviseProposal('base-stale-d'), target.id);
+      const rev = await act('itemRevise', { id: target.id, title: title('base-bump'), typeCode: 'anomaly', observation: 'bumped directly', changeNote: 'bump' }, { who: admin, expectedVersion: target.version });
+      expect(rev.outcome).toBe('ok');
+      const now = await one('select row_version, latest_revision_no from knowledge.knowledge_item where id = $1', [target.id]);
+      expect(now).toMatchObject({ latest_revision_no: 2 });
+      const before = await itemTableCounts();
+      const a = await approve(d, { expectedItemVersion: Number(now?.row_version) });
+      expect(a.outcome).toBe('invalid');
+      expect(fe(a)).toEqual(['id:base_stale']);
+      expect(await itemTableCounts()).toEqual(before);
+      expect(await one('select latest_revision_no from knowledge.knowledge_item where id = $1', [target.id])).toMatchObject({ latest_revision_no: 2 });
+      expect(await draftRow(d.id)).toMatchObject({ status: 'submitted' });
+    });
+
     it('an archived target is refused', async () => {
       const target = await newItem('item-archived');
       const d = await submitted('item-archived-d', author, reviseProposal('item-archived-d'), target.id);

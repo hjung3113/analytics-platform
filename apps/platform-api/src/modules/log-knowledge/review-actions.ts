@@ -29,6 +29,7 @@ import {
   itemVersionErrors,
   parseReviewInput,
   reviewerAuthorship,
+  reviseBaseError,
   reviseTargetError,
   validateReviewInput,
 } from './domain/review-input.js';
@@ -164,6 +165,8 @@ export function reviewActions(deps: ReviewActionDeps): MenuActionDeclaration[] {
         const target = await lockItem(tx, viewerOf(actor), draft.targetItemId as string);
         const targetError = reviseTargetError(target, value.expectedItemVersion as number);
         if (targetError || !target) throw invalid(targetError as FieldError);
+        const baseError = reviseBaseError(target, draft.baseRevisionNo);
+        if (baseError) throw invalid(baseError);
         const item = await publishRevise(tx, actor, target, { content, evidence, subjects, changeNote: changeNote ?? '' }, ['proposal']);
         [itemId, itemNo, revisionNo] = [item.id, item.itemNo, item.latestRevisionNo];
       }
