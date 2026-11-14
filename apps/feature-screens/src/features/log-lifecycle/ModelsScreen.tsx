@@ -1,13 +1,14 @@
 import { useLifecycleNavigate } from './host';
 import { usePageValue } from './usePageValue';
 import { useState } from 'react';
-import { Button, Input } from '@ap/ui';
+import { Button, Input, useImeEnterGuard } from '@ap/ui';
 import { STAGES, STAGE_LABEL, STATE_LABEL, type Model, type Page, type ScreenProps } from './contracts';
 import { Choice, Disclosure, GateBadge, Pager, ReadView, StageBadge, StateBadge, time } from './presentation';
 import { CatalogChoice } from './CatalogChoice';
 import { LifecycleForm } from './forms';
 
 export function ModelsScreen(props: ScreenProps) {
+  const ime = useImeEnterGuard();
   const { api, ui, canProject, actorId } = props;
   const navigate = useLifecycleNavigate();
   const [q, setQ] = usePageValue(props, 'q', '');
@@ -23,7 +24,7 @@ export function ModelsScreen(props: ScreenProps) {
   const [creating, setCreating] = useState<Model | null>(null);
   const query = api.useRead<Page<Model>>('models', { includeClosedProjects: true, q: q || null, page, pageSize: 25, sorting: [{ id: sort, desc: sort === 'updatedAt' }], filters: [...(vendorId === 'all' ? [] : [{ id: 'vendorId', op: 'in', value: [vendorId] }]), ...(processId === 'all' ? [] : [{ id: 'processes', op: 'in', value: [processId] }]), ...(active === 'all' ? [] : [{ id: 'active', op: 'in', value: [active] }]), ...(stage === 'all' ? [] : [{ id: 'stage', op: stage === 'empty' ? 'isEmpty' : 'in', ...(stage === 'empty' ? {} : { value: [stage] }) }]), ...(validation === 'all' ? [] : [{ id: 'validation', op: 'in', value: [validation] }])] });
   return <div className="grid min-w-0 grid-cols-1 gap-4 break-keep" data-testid="log-models">
-    <div className="flex min-w-0 flex-wrap items-end gap-3"><form className="min-w-0 max-w-sm flex-1" onSubmit={e => { e.preventDefault(); setQ(draft.text.trim()); }}><Input inputSize="toolbar" type="search" aria-label="모델 코드·이름 검색" placeholder="모델 코드·이름 검색" value={draft.text} onChange={e => setDraft({ applied: q, text: e.target.value })} /></form><Disclosure label="모델 필터·정렬">
+    <div className="flex min-w-0 flex-wrap items-end gap-3"><form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="min-w-0 max-w-sm flex-1" onSubmit={e => { e.preventDefault(); setQ(draft.text.trim()); }}><Input inputSize="toolbar" type="search" aria-label="모델 코드·이름 검색" placeholder="모델 코드·이름 검색" value={draft.text} onChange={e => setDraft({ applied: q, text: e.target.value })} /></form><Disclosure label="모델 필터·정렬">
       <Choice label="개발 단계" value={stage} onChange={setStage} options={[[ 'all', '전체 단계' ], ...STAGES.map(s => [s, STAGE_LABEL[s] ?? s] as const), ['cancelled', '취소'], ['empty', '개발 건 없음']]} /><Choice label="검증 상태" value={validation} onChange={setValidation} options={['all', 'fail', 'incomplete', 'claimed', 'queued', 'pass', 'none'].map(v => [v, STATE_LABEL[v] ?? '전체 상태'])} />
       <CatalogChoice api={api} name="vendors" label="설비사" value={vendorId} onChange={setVendorId} /><CatalogChoice api={api} name="processes" label="공정" value={processId} onChange={setProcessId} /><Choice label="활성" value={active} onChange={setActive} options={[[ 'all', '전체' ], ['true', '활성'], ['false', '비활성']]} /><Choice label="모델 정렬" value={sort} onChange={setSort} options={[[ 'code', '모델 코드순' ], ['vendorName', '설비사순'], ['stage', '개발 단계순'], ['updatedAt', '최근 갱신순']]} />
     </Disclosure></div>

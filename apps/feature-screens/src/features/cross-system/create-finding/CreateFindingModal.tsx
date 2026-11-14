@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
@@ -78,6 +79,7 @@ export function CreateFindingModal({
   onClose,
   onCreated,
 }: CreateFindingModalProps): React.ReactElement {
+  const ime = useImeEnterGuard();
   const navigate = useHostNavigate();
   const here = useHostHere();
   const { canLink, hostCarriesReturn, notifyError, notifySuccess } = useHostSeam();
@@ -215,7 +217,7 @@ export function CreateFindingModal({
           <DialogTitle>Finding 생성</DialogTitle>
         </DialogHeader>
 
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           id="create-finding-form"
           onSubmit={form.handleSubmit(handleSubmit)}
           noValidate

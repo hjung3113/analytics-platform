@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
@@ -39,6 +40,7 @@ export function CreateClusterModal({
   onClose: () => void;
   onCreated: (id: string) => void;
 }): React.ReactElement {
+  const ime = useImeEnterGuard();
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [managedSystemId, setManagedSystemId] = useState('');
@@ -124,7 +126,7 @@ export function CreateClusterModal({
         <DialogHeader>
           <DialogTitle>반복 VOC 생성</DialogTitle>
         </DialogHeader>
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           id="create-cluster-form"
           data-testid="create-cluster-form"
           className="flex flex-col gap-4"

@@ -35,6 +35,7 @@ import {
   Input,
   RichEditor,
   type TipTapDoc,
+  useImeEnterGuard,
 } from '@ap/ui';
 
 import { errorMapper } from '@/lib/api/errorMapper';
@@ -94,6 +95,7 @@ export function EditDescriptionModal({
   open,
   onClose,
 }: EditDescriptionModalProps): React.ReactElement {
+  const ime = useImeEnterGuard();
   const queryClient = useQueryClient();
   const { notifyError, notifySuccess } = useHostSeam();
   const { notify } = useHostNotice();
@@ -291,7 +293,7 @@ export function EditDescriptionModal({
             <DialogTitle>설명 수정</DialogTitle>
           </DialogHeader>
 
-          <form
+          <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
             id="edit-description-form"
             onSubmit={form.handleSubmit(handleSubmit)}
             noValidate

@@ -9,7 +9,7 @@ import { apiHref } from '@/lib/api/client';
 import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { createVocRequestSchema, isTipTapDocBlank } from '@ap/feature-shared';
 import { AnalyticsAreaPicker, ManagedSystemPicker } from '@ap/feature-ui';
-import { Button, FieldLabel, Input, RichEditor, Skeleton, type TipTapDoc } from '@ap/ui';
+import { Button, FieldLabel, Input, RichEditor, Skeleton, type TipTapDoc, useImeEnterGuard } from '@ap/ui';
 import type * as React from 'react';
 import { Controller } from 'react-hook-form';
 import { AttachmentDropzone } from '../create/AttachmentDropzone';
@@ -49,6 +49,7 @@ export function VocComposeScreen({
   onCancel,
   onDirtyChange,
 }: VocComposeScreenProps): React.ReactElement {
+  const ime = useImeEnterGuard();
   const {
     form,
     msQuery,
@@ -92,7 +93,7 @@ export function VocComposeScreen({
 
   return (
     <div className="flex h-full flex-col">
-      <form
+      <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
         className="flex flex-1 flex-col gap-4 overflow-auto px-4 py-4"
         onSubmit={form.handleSubmit(handleSubmit)}
         noValidate

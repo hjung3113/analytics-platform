@@ -5,6 +5,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, Checkbox, Input,
   Label, RadioGroup, RadioGroupItem,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { GroupedSelectionList } from '@ap/ui';
 import { tokenSelectionGroups } from '@/lib/copy/permission-selection';
@@ -36,6 +37,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   service: boolean; actors: UseQueryResult<ActorListItem[], Error>;
   renderDrawer: (parts: ApiTokenDrawerParts) => ReactNode; onClose: () => void; onIssued: () => Promise<unknown>;
 }) {
+  const ime = useImeEnterGuard();
   const bundles = visibleApiTokenScopeBundles(undefined, { service });
   const formId = useId();
   const groups = tokenSelectionGroups(service);
@@ -110,7 +112,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
     <p role="status" className="text-sm text-text-secondary">{copyMessage}</p>
     <label className="flex items-center gap-2 text-sm"><Checkbox checked={stored} onCheckedChange={checked => setStored(checked === true)} />{COPY.stored}</label>
     <Button variant="primary" className="w-full" disabled={!stored} onClick={requestClose}>완료 · 토큰 값 닫기</Button>
-  </div> : <form id={formId} onSubmit={event => void submit(event)} className="space-y-5 break-keep">
+  </div> : <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} id={formId} onSubmit={event => void submit(event)} className="space-y-5 break-keep">
     <p className="text-xs text-text-secondary">{COPY.session}</p>
     <div className="space-y-2"><Label htmlFor="token-name">{COPY.name}</Label><Input id="token-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" disabled={pending} aria-invalid={fieldError('name').length > 0} aria-describedby="token-name-error" />{errorsFor('name')}</div>
     {service ? <fieldset className="space-y-2" disabled={pending}><legend className="text-sm font-medium">{COPY.actor}</legend>

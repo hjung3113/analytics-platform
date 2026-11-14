@@ -193,6 +193,13 @@ const baseConfigs = () => [
 const A11Y_RULES = Object.fromEntries(
   Object.entries(jsxA11y.configs.recommended.rules).map(([name, level]) => [name, level]),
 );
+// #2243: a form's `onKeyDown` is the IME Enter guard (`useImeEnterGuard().onKeyDown` of the ui package), which only cancels the
+// implicit submit of an Enter that confirms a Korean composition; it adds no interaction, so `<form>` may carry it. Other
+// handlers on a form (onClick, …) stay reported.
+{
+  const [level, options] = A11Y_RULES['jsx-a11y/no-noninteractive-element-interactions'];
+  A11Y_RULES['jsx-a11y/no-noninteractive-element-interactions'] = [level, { ...options, form: ['onKeyDown'] }];
+}
 
 const reactUiConfigs = (reactHooks) => [
   reactHooks,

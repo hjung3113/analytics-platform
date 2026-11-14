@@ -30,6 +30,7 @@ import {
   Textarea,
   ToggleGroup,
   ToggleGroupItem,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
@@ -52,6 +53,7 @@ export function CreateSurveyDialog({
   onClose: () => void;
   onCreated: (surveyId: string) => void;
 }) {
+  const ime = useImeEnterGuard();
   const [title, setTitle] = React.useState('');
   const [type, setType] = React.useState<SurveyType | ''>('');
   const [system, setSystem] = React.useState('');
@@ -220,7 +222,7 @@ export function CreateSurveyDialog({
           <DialogTitle>설문 생성</DialogTitle>
           <DialogDescription>{COPY.intro}</DialogDescription>
         </DialogHeader>
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           className="flex flex-col gap-4"
           onSubmit={async (event) => {
             event.preventDefault();

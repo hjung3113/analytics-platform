@@ -10,6 +10,7 @@ import {
   DialogTitle,
   FieldLabel,
   Input,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { useRef, useState } from 'react';
 
@@ -58,6 +59,7 @@ function RegisterForm({
   initialMsId: string | null;
   onSaved: () => Promise<void>;
 }) {
+  const ime = useImeEnterGuard();
   const [msId, setMsId] = useState<string | null>(initialMsId);
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
@@ -85,7 +87,7 @@ function RegisterForm({
           시스템 하위에 새 분석 영역을 등록합니다.
         </DialogDescription>
       </DialogHeader>
-      <form
+      <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
         data-testid="create-analytics-area-form"
         className="space-y-3"
         noValidate
@@ -223,6 +225,7 @@ function EditForm({
   target: AnalyticsAreaDto;
   onSaved: () => Promise<void>;
 }) {
+  const ime = useImeEnterGuard();
   const [name, setName] = useState(target.name);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,7 +255,7 @@ function EditForm({
           <span className="font-mono text-xs">analytics-area/{target.slug}</span>
         </DialogDescription>
       </DialogHeader>
-      <form
+      <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
         data-testid={`edit-analytics-area-form-${target.slug}`}
         className="space-y-3"
         onSubmit={(e) => {

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { useMutation } from '@tanstack/react-query';
 import * as React from 'react';
@@ -64,6 +65,7 @@ export function useMilestoneCreateParts({
   onDirtyChange,
   onCancel,
 }: MilestoneCreatePanelProps): MilestoneCreateParts {
+  const ime = useImeEnterGuard();
   const [title, setTitle] = React.useState('');
   const [why, setWhy] = React.useState('');
   const [managedSystemId, setManagedSystemId] = React.useState(defaultManagedSystemId ?? '');
@@ -217,7 +219,7 @@ export function useMilestoneCreateParts({
     title: 'Milestone 생성',
     body: (
       <>
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           className="min-h-0 flex-1 overflow-y-auto"
           data-testid="milestone-create-panel"
           onSubmit={submit}

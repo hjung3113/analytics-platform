@@ -300,6 +300,15 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     expect(await lint(UI, 'src/probe.tsx', field, featureUiPreset)).not.toContain('ap/ime-enter-guard');
   }, 60_000);
 
+  it('lets a form carry the IME Enter guard onKeyDown, and still reports other handlers on a form (#2243)', async () => {
+    const form = (attrs: string) => `export const A = ({ k }: { k: () => void }) => <form ${attrs}><input /></form>;\n`;
+    const rule = 'jsx-a11y/no-noninteractive-element-interactions';
+    expect(await lint(SCREENS, 'src/probe.tsx', form('onKeyDown={k}'))).not.toContain(rule);
+    expect(await lint(UI, 'src/probe.tsx', form('onKeyDown={k}'), featureUiPreset)).not.toContain(rule);
+    expect(await lint(SCREENS, 'src/probe.tsx', form('onClick={k}'))).toContain(rule);
+    expect(await lint(SCREENS, 'src/probe.tsx', `export const A = ({ k }: { k: () => void }) => <section aria-label="x" onKeyDown={k} />;\n`)).toContain(rule);
+  }, 60_000);
+
   it('allows safe randomUUID uses: feature detection, non-browser receivers, other properties (#2017)', async () => {
     expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => crypto.randomUUID === undefined;\n')).toEqual([]);
     expect(await lint(SCREENS, 'src/probe.ts', "export const k = () => typeof globalThis.crypto.randomUUID === 'function';\n")).toEqual([]);

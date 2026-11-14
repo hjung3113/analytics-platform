@@ -13,6 +13,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  useImeEnterGuard,
 } from '@ap/ui';
 
 import { useResponsibilityIdentityNames } from '../../components/ResponsibilityEditor';
@@ -45,6 +46,7 @@ export function TaskRequestConversionForm({
   names: NameMaps;
   eligibleActors: readonly WorkspaceActor[];
 }) {
+  const ime = useImeEnterGuard();
   const candidateTeamIds = [
     ...new Set([...teamCandidates, ...(conversion.teamId ? [conversion.teamId] : [])]),
   ];
@@ -62,7 +64,7 @@ export function TaskRequestConversionForm({
         : null;
 
   return (
-    <form
+    <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
       className="flex flex-col gap-2 rounded border border-border-subtle bg-surface-card p-3"
       onSubmit={conversion.submit}
     >

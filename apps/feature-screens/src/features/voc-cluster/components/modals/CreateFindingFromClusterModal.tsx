@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
@@ -47,6 +48,7 @@ export function CreateFindingFromClusterModal({
   clusterId: string;
   onClose: () => void;
 }): React.ReactElement {
+  const ime = useImeEnterGuard();
   const navigate = useHostNavigate();
   const { canLink, notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
@@ -106,7 +108,7 @@ export function CreateFindingFromClusterModal({
           <DialogTitle>Finding 생성</DialogTitle>
         </DialogHeader>
 
-        <form
+        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           id="create-finding-from-cluster-form"
           data-testid="create-finding-from-cluster-form"
           onSubmit={form.handleSubmit(handleSubmit)}
