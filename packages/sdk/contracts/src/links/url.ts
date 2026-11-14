@@ -3,6 +3,7 @@
  * Extends the old bounded kernel-app-shell prototype codec (deleted in #1787; see git history): time, Lot/PPID/Recipe
  * and the metric pair are applied globals here instead of opaque preserved values.
  */
+import { codepoint } from '../guards.js';
 export class ContractError extends Error {
   /** `field` (the URL key) and `raw` (its value as written) are set only when one key's one value is at fault; `message` stays the English diagnostic. */
   constructor(public code: string, message: string, public field?: string, public raw?: string) { super(message); this.name = 'ContractError'; }
@@ -54,11 +55,6 @@ export const GLOBAL_KEYS = new Set<string>([...SINGLES, ...SETS.flatMap(s => ('a
 // Python str.isspace() code points (parity with the old kernel-app-shell prototype codec in git history).
 const SPACE_CODES = [[0x09, 0x0d], [0x1c, 0x20], [0x85, 0x85], [0xa0, 0xa0], [0x1680, 0x1680], [0x2000, 0x200a], [0x2028, 0x2029], [0x202f, 0x202f], [0x205f, 0x205f], [0x3000, 0x3000]];
 const isSpace = (c: number) => SPACE_CODES.some(([lo, hi]) => c >= lo && c <= hi);
-function codepoint(char: string): number {
-  const point = char.codePointAt(0);
-  if (point === undefined) throw new Error('String iteration yielded an empty character');
-  return point;
-}
 /** `field` is the diagnostic name; `urlKey` (only parseQuery passes it) is the URL key to blame, with the value as written. */
 function identifier(value: string, field: string, urlKey?: string): string {
   if (Array.from(value).every(ch => isSpace(codepoint(ch)))) fail('invalid_id', `${field}: empty or whitespace-only ID`, urlKey, urlKey === undefined ? undefined : value);
