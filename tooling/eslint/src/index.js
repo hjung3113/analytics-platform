@@ -11,6 +11,7 @@ import noRelativePackageEscape from './relative-escape.js';
 import restrictedImportSource from './import-source.js';
 import { noMenuMockImport } from './menu-boundaries.js';
 import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
+import noLangCopyTernary from './no-lang-copy-ternary.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
 import noBrowserRandomUuid from './no-browser-random-uuid.js';
 import requireApiPath from './require-api-path.js';
@@ -328,6 +329,7 @@ function layerConfig({ restriction, extraRules = {} }) {
           'no-hand-built-url': noHandBuiltUrl,
           'no-menu-mock-import': noMenuMockImport,
           'no-shell-id-literal-comparison': noShellIdLiteralComparison,
+          'no-lang-copy-ternary': noLangCopyTernary,
           'no-color-var-shorthand': noColorVarShorthand,
         },
       },
@@ -450,11 +452,17 @@ export const ui = [
   designSystem({ componentSource: true }),
 ];
 
+// #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
+// spell the expected text of both languages. Enabled per package as its copy moves: kernel and shell first, then
+// components, then menus and platform features.
+const LANG_COPY = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/no-lang-copy-ternary': 'error' } };
+
 /** @type {import('eslint').Linter.Config[]} */
 export const kernel = [
   REACT_HOOKS,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
+  LANG_COPY,
 ];
 
 const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, denyQueryEngine: true, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, HOST_ENTRY_SUBPATH], allowDockEngine: true };
@@ -481,7 +489,7 @@ export const shell = [
     extraRules: { 'ap/no-shell-id-literal-comparison': 'error' },
   }),
   testEntryOverride(SHELL_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
-  designSystem(),
+  designSystem(),  LANG_COPY,
 ];
 
 // Host assembly package (#1702, host-entry-contract §3): sits above the shell and is domain-free, so it sees exactly the SDK layers

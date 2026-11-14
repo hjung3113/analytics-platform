@@ -65,7 +65,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // The screen reads visible + hidden pairs as one query; only the Provider's `commit` splits them again (ADR-0105).
   const url = useMemo(() => (hidden && hidden.length > 0 ? visibleUrl + (visibleUrl.includes('?') ? '&' : '?') + new URLSearchParams(hidden.map(([k, v]): [string, string] => [k, v])).toString() : visibleUrl), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
-  const { lang } = useI18n();
+  const { t } = useI18n();
   const userId = user.id;
 
   const pathname = url.split('?')[0] || '/';
@@ -157,11 +157,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       // Site is a Scope grant boundary (ADR-0153): site-bound sets are cleared explicitly, never re-mapped.
       const had = hasSiteBound(global);
       next = withoutSiteBound(next);
-      if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).' : 'Scope changed: Process, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).', 'warning');
+      if (had && !options?.silent) toast(t('scopeChangedSiteReset'), 'warning');
     }
     // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
-  }, [global, page, extras, pathname, write, toast, lang, dropContextResetKeys]);
+  }, [global, page, extras, pathname, write, toast, t, dropContextResetKeys]);
 
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
   const setPage = useCallback((requested: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
