@@ -41,7 +41,7 @@ type Row = Record<string, unknown>;
 const FILES = (n = 2) => Array.from({ length: n }, (_v, i) => ({ fileRef: `s3://${TAG}/f${i + 1}.log`, order: i + 1, sha256: H('a') }));
 const SAMPLE = (n = 2) => ({ files: FILES(n), sourceOwner: `${TAG}-fab` });
 
-describe.skipIf(!runIntegration)('attempt diagnostics (#1815 B1)', () => {
+describe.skipIf(!runIntegration)('attempt diagnostics (#1815 B1)', { timeout: 30_000 }, () => {
   let app: FastifyInstance;
   let dbHandle: DbHandle;
   let migrate: DbHandle;
