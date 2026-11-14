@@ -1,4 +1,4 @@
-import type { VocPreSubmitPeersResponse } from '@ap/feature-shared';
+import type { VocPreSubmitPeersResponse, RoleLevel } from '@ap/feature-shared';
 
 import type { Db } from '../../../db/client.js';
 import { actorReadScope } from '../authorization.js';
@@ -8,7 +8,7 @@ import { selectPreSubmitVocPeers } from './repo.js';
 export interface PreSubmitVocPeersActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export function createPreSubmitVocPeersService(deps: { db: Db }) {

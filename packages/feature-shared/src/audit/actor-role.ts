@@ -4,10 +4,11 @@
 // AUDIT_EVENT_DETAIL_SCHEMAS. Ids and roles only: no email or display name.
 
 import { z } from 'zod';
+import { ROLE_LEVEL_VALUES } from '../enums/index.js';
 
 export const ACTOR_ROLE_AUDIT_EVENT_TYPES = ['actor_role_changed'] as const;
 
-const actorRoleLevelSchema = z.enum(['admin', 'developer', 'user']);
+const actorRoleLevelSchema = z.enum(ROLE_LEVEL_VALUES);
 
 export const actorRoleChangedDetailSchema = z
   .object({

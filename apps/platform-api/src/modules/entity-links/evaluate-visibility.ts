@@ -1,10 +1,10 @@
-import type { EntityLinkVisibility, EntityLinkVisibilityState } from '@ap/feature-shared';
+import type { EntityLinkVisibility, EntityLinkVisibilityState, RoleLevel } from '@ap/feature-shared';
 
 export interface LinkVisibilityEvaluationInput {
   visibility: EntityLinkVisibility;
   actorContext: {
     actor_id: string;
-    role_level: 'admin' | 'developer' | 'user';
+    role_level: RoleLevel;
   };
   sourceReadable: boolean;
   targetReadable: boolean;

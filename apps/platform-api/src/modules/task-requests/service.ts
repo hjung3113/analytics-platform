@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { RoleLevel } from '@ap/feature-shared';
 import { LIST_DEFAULT_LIMIT, type ListTaskRequestsResponse } from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import { decodeListCursor, encodeListCursor } from '../../lib/list-cursor.js';
@@ -53,7 +54,7 @@ import {
 export interface TaskRequestsActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export interface TaskRequestsServiceDeps {

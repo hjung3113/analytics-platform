@@ -1,4 +1,5 @@
 import type { DbHandle } from '../db/client.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export async function insertActorRow(
   dbHandle: DbHandle,
@@ -7,7 +8,7 @@ export async function insertActorRow(
     externalId: string;
     email?: string;
     displayName?: string;
-    roleLevel: 'admin' | 'developer' | 'user';
+    roleLevel: RoleLevel;
     actorType?: 'internal_member' | 'system';
   },
 ): Promise<{ id: string }> {

@@ -13,7 +13,7 @@
 // ETag header: weak W/"<voc.updated_at-ISO>". FO ADR-0031 disables conditional
 // detail 304 responses because similarity is peer-derived.
 
-import type { ReporterFacingStatusEnum } from '@ap/feature-shared';
+import type { ReporterFacingStatusEnum, RoleLevel } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import type { EntityLinksService } from '../entity-links/index.js';
 import type { CheckService } from '../permissions/check-service.js';
@@ -34,7 +34,7 @@ export interface VocReadServiceDeps {
 export interface ReadActorContext {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 /**

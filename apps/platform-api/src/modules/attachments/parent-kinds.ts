@@ -1,3 +1,4 @@
+import type { RoleLevel } from '@ap/feature-shared';
 // Attachment parent kinds and the per-parent read seam (#1451, log-lifecycle design D6).
 //
 // A linked attachment belongs to exactly one parent of a closed kind. The kind decides who may download it: each kind
@@ -16,7 +17,7 @@ export type AttachmentParentKind = (typeof ATTACHMENT_PARENT_KINDS)[number];
 export interface AttachmentActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 /** The link columns of a stored attachment row the readers judge. */

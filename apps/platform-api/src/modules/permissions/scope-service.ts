@@ -1,6 +1,6 @@
 // Permission-owned scope adapter for read-model filtering. The capability rule
 // lives in check-service.ts and is shared with GET /me/permissions/scope.
-import type { Capability } from '@ap/feature-shared';
+import type { Capability, RoleLevel } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { resolveCapabilityScope } from './check-service.js';
@@ -26,7 +26,7 @@ export function unionScopes(a: Scope, b: Scope): Scope {
 export interface ScopeActorContext {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 /**

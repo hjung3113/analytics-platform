@@ -10,6 +10,7 @@ import type { VocReadService } from '../voc/index.js';
 import { ENTITY_READABLE_TYPES, isUuid, parseEntityRef } from './audit-query.js';
 import type { Outcome } from './envelope.js';
 import type { PlatformActor } from './permissions.js';
+import { ROLE_LEVEL_VALUES } from '@ap/feature-shared';
 
 export type PlatformEntityType = (typeof ENTITY_READABLE_TYPES)[number];
 
@@ -46,7 +47,6 @@ export type EntityGate =
   | { ok: true; ref: { type: PlatformEntityType; id: string }; entity: PlatformEntity }
   | { ok: false; outcome: Outcome; message: string };
 
-const ROLE_LEVELS = ['admin', 'developer', 'user'] as const;
 
 /** A module refusing the read (missing or not permitted) is "not readable"; anything else is a fault. */
 function refusal(error: unknown): null {
@@ -65,7 +65,7 @@ export function createEntityReader(deps: EntityReadDeps) {
     type: PlatformEntityType,
     id: string,
   ): Promise<PlatformEntity | null> {
-    const roleLevel = ROLE_LEVELS.find((r) => r === actor.role_level) ?? 'user';
+    const roleLevel = ROLE_LEVEL_VALUES.find((r) => r === actor.role_level) ?? 'user';
     const ctx = {
       actor_id: actor.actor_id,
       workspace_id: actor.workspace_id,

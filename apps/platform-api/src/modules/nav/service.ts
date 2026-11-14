@@ -1,4 +1,4 @@
-import type { NavResolveResponse } from '@ap/feature-shared';
+import type { NavResolveResponse, RoleLevel } from '@ap/feature-shared';
 
 import type { FindingsService } from '../findings/index.js';
 import { isAuthorizationAbsence } from '../permissions/read-utility.js';
@@ -9,7 +9,7 @@ import type { CountVocsQuery, VocCountReader, VocDisplayIdReader } from '../voc/
 export interface NavActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 /** Authorization-absence (permission.denied / permission.scope_required) → undefined; unexpected errors propagate. */

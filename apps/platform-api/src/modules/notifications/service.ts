@@ -3,6 +3,7 @@ import type {
   NotificationDto,
   NotificationSubjectReference,
   NotificationEventType as SharedNotificationEventType,
+  RoleLevel,
 } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
@@ -20,7 +21,7 @@ import {
 export interface NotificationActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 type NotificationRow = {

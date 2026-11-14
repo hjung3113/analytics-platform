@@ -10,10 +10,11 @@ import { type SQL, and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { actors } from '../../db/schema/core.js';
 import type { Tx } from '../../db/tx.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export interface WorkspaceActor {
   id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
   actor_type: 'internal_member' | 'system';
 }
 

@@ -9,6 +9,7 @@ import type {
   VocClusterMemberDto,
   VocClusterPublicUpdateCandidateRequest,
   VocClusterPublicUpdateOutcome,
+  RoleLevel,
 } from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
@@ -50,7 +51,7 @@ import {
 export interface VocClustersActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export interface VocClustersServiceDeps {

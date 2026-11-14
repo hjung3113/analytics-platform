@@ -19,6 +19,7 @@ import {
   scopeIncludes,
   unionScopes,
 } from '../permissions/scope-service.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export type { Scope };
 
@@ -27,7 +28,7 @@ export type { Scope };
 export interface ActorContextLite {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 // ── Scope resolvers ───────────────────────────────────────────────────────────

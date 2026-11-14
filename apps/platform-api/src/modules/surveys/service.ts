@@ -12,11 +12,12 @@ import { createSurveyFollowUp } from './follow-up.js';
 import { createOutcomeRecoveryPresentation } from './recovery-presentation.js';
 import { createMySurveyResponseHistory } from './response-history.js';
 import { createSurveyResults } from './results.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export interface SurveysActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 export interface ResolvedSurveyWorkspaceSettings {
   survey_anonymity_threshold: number;

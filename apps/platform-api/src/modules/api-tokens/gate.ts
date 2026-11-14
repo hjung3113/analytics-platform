@@ -14,6 +14,7 @@ import { sendError } from '../../lib/errors.js';
 import type { ApiTokenService } from './service.js';
 import { bearerValue } from './token-format.js';
 import { authResultOf, authStoreOf, setAuthStore, setTokenSession, tokenSessionOf } from './request-state.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 const HEALTH_PATHS = new Set(['/health', '/health/live', '/health/ready']);
 
@@ -63,14 +64,14 @@ export function installTokenGate(app: FastifyInstance, deps: { tokens: ApiTokenS
       session_id: `token:${result.tokenId}`,
       actor_id: result.actorId,
       workspace_id: result.workspaceId,
-      role_level: result.roleLevel as 'admin' | 'developer' | 'user',
+      role_level: result.roleLevel as RoleLevel,
     };
     setTokenSession(req, {
       session: {
         id: `token:${result.tokenId}`,
         actorId: result.actorId,
         workspaceId: result.workspaceId,
-        roleLevel: result.roleLevel as 'admin' | 'developer' | 'user',
+        roleLevel: result.roleLevel as RoleLevel,
       },
       actor: result.actor,
     });
