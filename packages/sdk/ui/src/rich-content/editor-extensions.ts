@@ -1,6 +1,6 @@
-import { type Editor, ResizableNodeView } from '@tiptap/core';
+import { type Editor, type MarkConfig, getExtensionField, ResizableNodeView } from '@tiptap/core';
 import StarterKit, { type StarterKitOptions } from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
+import Link, { type LinkOptions } from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
@@ -15,6 +15,7 @@ import { Mention } from './extensions/mention';
 import { AttachmentImage, OutlineNode, PaletteHighlight, PaletteColor } from './content-schema';
 import { lowlight } from './highlight';
 import { richContentOutline } from './outline';
+import { isValidWriteHref } from './sanitizeClient';
 interface EditingOptions {
   resolveAttachmentUrl: (id: string) => string | null;
   onFiles: (editor: Editor, files: File[], pos?: number) => void;
@@ -23,6 +24,18 @@ interface EditingOptions {
 export function buildExtensionsForSurface(surface: RichEditorSurface, placeholder: string, options: EditingOptions) {
   const capabilities = new Set(getExtensionsForSurface(surface));
   const has = (capability: UIRichContentExtensionCapability) => capabilities.has(capability);
+  const allowedHref = (url: string) => isValidWriteHref(url, surface);
+  // Tiptap 3.23.5's autolink plugin validates linkify's original text, not its resolved href.
+  // Adapt only that plugin's candidates to the default protocol, keeping stored/HTML href checks
+  // absolute. Email candidates become credentialed URLs and fail the same shared validator.
+  const autoLinkHref = (url: string) => allowedHref(/^[a-z][a-z\d+.-]*:/i.test(url) ? url : `http://${url}`);
+  const surfaceLink = Link.extend({
+    addProseMirrorPlugins() {
+      return getExtensionField<NonNullable<MarkConfig<LinkOptions>['addProseMirrorPlugins']>>(Link, 'addProseMirrorPlugins', {
+        ...this, options: { ...this.options, isAllowedUri: autoLinkHref },
+      })();
+    },
+  });
   const starter: Partial<StarterKitOptions> = {
     blockquote: has('blockquote') ? {} : false,
     heading: has('heading') ? { levels: [1, 2, 3] } : false,
@@ -69,7 +82,7 @@ export function buildExtensionsForSurface(surface: RichEditorSurface, placeholde
     },
   }).configure({ resolveAttachmentUrl: options.resolveAttachmentUrl });
   return [StarterKit.configure(starter),
-    ...(has('link') ? [Link.configure({ openOnClick: false })] : []), ...(has('underline') ? [Underline] : []),
+    ...(has('link') ? [surfaceLink.configure({ openOnClick: false, protocols: [], isAllowedUri: allowedHref, shouldAutoLink: autoLinkHref })] : []), ...(has('underline') ? [Underline] : []),
     Placeholder.configure({ placeholder }), ...(has('attachmentRef') ? [AttachmentRef] : []), ...(has('mention') ? [Mention.configure({ label: id => options.resolveMentionLabel?.(id) })] : []),
     ...(has('highlight') ? [PaletteHighlight] : []), ...(has('color') ? [PaletteColor] : []),
     ...(has('taskList') ? [TaskList, TaskItem.configure({ nested: true, HTMLAttributes: { 'data-type': 'taskItem' } })] : []),

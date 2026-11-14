@@ -6,7 +6,7 @@ import { act, render, waitFor } from '@testing-library/react';
 import type { Editor } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
 import { RichEditor, type RichEditorSurface, type TipTapDoc } from '../RichEditor';
-import { UI_ALLOWLISTS, type AttrSchema } from '../allowlist-local';
+import { serverRuleViolations } from './server-rule-checker';
 import { normalizeClient } from '../sanitizeClient';
 // Load the lazy editor module up front so the first test does not spend its waitFor budget on the import.
 import '../RichEditorImpl';
@@ -14,45 +14,6 @@ import '../RichEditorImpl';
 const ATTACHMENT = '33333333-3333-4333-8333-333333333333';
 const ACTOR = '11111111-1111-4111-8111-111111111111';
 
-// Test-local copy of the two server attr rules (apps/platform-api/src/lib/rich-content/sanitize.ts:154-195),
-// which @ap/ui cannot import: a node or mark with no attr definition carries no attrs, and one with a
-// definition carries only defined keys and every required key. URL values must pass the server validator.
-// Node and mark types must be allowed too.
-function serverRuleViolations(doc: TipTapDoc, surface: RichEditorSurface): string[] {
-  const allow = UI_ALLOWLISTS[surface];
-  const errors: string[] = [];
-  const checkAttrs = (where: string, schemas: Readonly<Record<string, AttrSchema>> | undefined, attrs: unknown) => {
-    const keys = Object.keys((attrs as Record<string, unknown> | undefined) ?? {});
-    if (!schemas) {
-      if (keys.length) errors.push(`${where}: no attrs allowed, found ${keys.join(',')}`);
-      return;
-    }
-    for (const [key, schema] of Object.entries(schemas)) if (schema.required && !keys.includes(key)) errors.push(`${where}: missing ${key}`);
-    for (const key of keys) if (!Object.hasOwn(schemas, key)) errors.push(`${where}: attr ${key} not allowed`);
-    for (const [key, schema] of Object.entries(schemas)) {
-      if (schema.kind !== 'url' || !keys.includes(key)) continue;
-      const value = (attrs as Record<string, unknown>)[key];
-      try {
-        if (typeof value !== 'string' || value.length > schema.maxLen) throw new Error('invalid URL');
-        const parsed = new URL(value);
-        if (!schema.schemes.has(parsed.protocol) || parsed.username !== '' || parsed.password !== '') throw new Error('invalid URL');
-      } catch {
-        errors.push(`${where}: invalid ${key}`);
-      }
-    }
-  };
-  const walk = (node: TipTapDoc, path: string) => {
-    if (!allow.nodes.has(node.type)) errors.push(`${path}: node ${node.type} not allowed`);
-    checkAttrs(`${path}(${node.type})`, allow.nodeAttrs[node.type], node.attrs);
-    for (const mark of (node.marks ?? []) as Array<{ type: string; attrs?: unknown }>) {
-      if (!allow.marks.has(mark.type)) errors.push(`${path}: mark ${mark.type} not allowed`);
-      checkAttrs(`${path}.mark(${mark.type})`, allow.markAttrs[mark.type], mark.attrs);
-    }
-    ((node.content ?? []) as TipTapDoc[]).forEach((child, i) => walk(child, `${path}.${i}`));
-  };
-  walk(doc, 'doc');
-  return errors;
-}
 
 function mount(surface: RichEditorSurface) {
   let editor: Editor | null = null;

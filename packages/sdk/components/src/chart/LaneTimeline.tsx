@@ -11,6 +11,7 @@ import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
 import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
 import type { TimelineOverlay } from './laneTimelineTypes';
 import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
+import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
@@ -150,6 +151,6 @@ export function LaneTimeline(props: LaneTimelineProps) {
     {overlayLines.length > 0 && <ul aria-label={tx({ ko: '표시 목록', en: 'Marked times' })} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p id={summaryId} role="status" aria-live="polite" className="px-4 py-2 text-text-secondary">{summary(focused)}</p>
     <ChartTrustFooter trust={props.trust} />
-    <div ref={tooltip} role="tooltip" hidden={!hover} className="pointer-events-none fixed z-50 max-w-xs break-words rounded border border-border-subtle bg-surface-card px-3 py-2 text-text-primary shadow-lg">{hover}</div>
+    <BodyTooltipPortal domRef={tooltip} hidden={!hover} className="pointer-events-none fixed z-50 max-w-xs break-words rounded border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-primary shadow-lg">{hover}</BodyTooltipPortal>
   </section>;
 }

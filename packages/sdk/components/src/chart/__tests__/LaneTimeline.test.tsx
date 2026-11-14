@@ -1,5 +1,6 @@
 import { readColorToken } from '@ap/ui/theme';
 import { I18nProvider } from '@ap/kernel';
+import { renderToString } from 'react-dom/server';
 import { Profiler, createRef, type ReactElement } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -182,6 +183,13 @@ it('keeps the tooltip at full width and flips left of the cursor near the right 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
   }
 });
+it('renders the hover tooltip through a portal to document.body outside paint containment (#2023)', () => {
+  mountLane(<LaneTimeline lanes={[{ id: 'a', label: 'Lane', segments: [{ id: 's', start: 0, end: 100 }] }]} ariaLabel="Timeline" />); flush();
+  fireEvent.pointerMove(screen.getByRole('img'), { clientX: 300, clientY: 12 });
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip.parentElement).toBe(document.body);
+  expect(screen.getByRole('region', { name: 'Timeline' })).not.toContainElement(tooltip);
+});
 it('packs title, subtitle and controls into one header row and keeps only boundary semantics above the plot', async () => {
   mountLane(<LaneTimeline ariaLabel="Timeline" lanes={lanes} description="Intervals" />); flush();
   const header = screen.getByRole('region', { name: 'Timeline' }).querySelector('header')!;
@@ -219,4 +227,25 @@ it('reserves the section collapse-button gutter in its header only inside an ana
   unmount();
   const plain = mountLane(<LaneTimeline lanes={lanes} ariaLabel="Timeline" />);
   expect(plain.container.querySelector('header')).not.toHaveClass('pr-12');
+});
+
+it.each(['document', 'body'] as const)('server renders without %s (C2)', missing => {
+  if (missing === 'document') vi.stubGlobal('document', undefined);
+  else vi.spyOn(document, 'body', 'get').mockReturnValue(null as unknown as HTMLElement);
+  try {
+    const html = renderToString(<I18nProvider><LaneTimeline lanes={lanes} ariaLabel="Timeline" /></I18nProvider>);
+    expect(html).toContain('Timeline');
+    expect(html).not.toContain('role="tooltip"');
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+it('preserves the body tooltip font size after renderer initialization (C3)', () => {
+  mountLane(<LaneTimeline lanes={[{ id: 'a', label: 'Lane', segments: [{ id: 's', start: 0, end: 100 }] }]} ariaLabel="Timeline" />); flush();
+  fireEvent.pointerMove(screen.getByRole('img'), { clientX: 300, clientY: 12 });
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip).toHaveTextContent('깊이 0');
+  expect(tooltip.parentElement).toBe(document.body);
+  expect(tooltip).toHaveClass('text-xs');
 });

@@ -8,7 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { Ban, Inbox, Info, ServerCrash } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
@@ -58,6 +58,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const [recovered, setRecovered] = useState<{ title?: string; body?: unknown } | null>(null);
   const [selection, setSelection] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [laneReveal, setLaneReveal] = useState(0);
   const [brush, setBrush] = useState<[number, number] | null>(null);
   const [brushMode, setBrushMode] = useState(false);
   const [textView, setTextView] = useState(false);
@@ -273,7 +274,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             undefined,
           ) ?? focused;
     }
-    if (next) setFocusId(next.id);
+    if (next) { setFocusId(next.id); setLaneReveal(n => n + 1); }
   }
   const help = tx({
     ko: 'Shift 또는 Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 구간 선택: 끌기 / Shift+←→ · 방향키: 줄·항목 탐색 · Enter: 선택 · Escape: 해제 · +/−: 확대·축소 · 촘촘한 점은 축 아래 밀도로 표시 · 항목 목록: 현재 범위의 텍스트 대안',
@@ -576,6 +577,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                   selected={selectedId}
                   focused={focused?.id ?? null}
                   focusedLane={props.lanes.findIndex((lane) => lane.laneKey === focused?.laneKey)}
+                  laneReveal={laneReveal}
                   timeLabels={timeLabels}
                   brushMode={brushMode}
                   brush={brush}
@@ -617,15 +619,13 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
         )}
       </output>
       {kind !== 'forbidden' && <ChartTrustFooter trust={props.trust} />}
-      {!restricted && hover && createPortal(
-        <div
-          ref={tooltip}
-          role="tooltip"
+      {!restricted && hover && (
+        <BodyTooltipPortal
+          domRef={tooltip}
           className="pointer-events-none fixed z-50 max-w-xs break-keep rounded border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-primary shadow-lg"
         >
           {itemText(hover.item)}
-        </div>,
-        document.body,
+        </BodyTooltipPortal>
       )}
     </section>
   );
