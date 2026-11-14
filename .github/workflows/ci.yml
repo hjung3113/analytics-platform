@@ -131,6 +131,8 @@ jobs:
       - run: |
           node .github/scripts/check-sdk-skill-names.mjs --self-test
           node .github/scripts/check-sdk-skill-names.mjs
+      # Fragments are Markdown, so validate even on docs-only PRs; no install or build needed.
+      - run: node tooling/sdk/sdk-changelog.mjs --check
       - run: pnpm install --frozen-lockfile
         if: ${{ env.DOCS_ONLY != 'true' }}
       # turbo cache (#1019): restored on every non-full run, saved only by a push to main so PR runs cannot grow the cache.
@@ -172,7 +174,11 @@ jobs:
       - name: SDK public API snapshots
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: |
-          pnpm sdk:api
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.full == true }}" = "true" ]; then
+            pnpm sdk:api
+          else
+            pnpm sdk:api --report
+          fi
           pnpm sdk:api --self-test
           pnpm sdk:test
       # #430: verify the packed contracts package in an external consumer.

@@ -19,6 +19,7 @@
 - **원본 manifest는 그대로다.** 저장소의 `package.json`은 지금처럼 `private`·소스 `exports`다. 이것은 workspace 개발과 FeedbackOps의 `@ap/ui` git 태그 소비가 쓴다. 배포용 manifest는 릴리스 준비 스크립트가 복사본에서 만든다.
 - **소비자:** 쓰는 패키지와 그 형제 peer 전부를 Release URL로 직접 의존한다. `@ap/*` `overrides`는 두지 않는다(2026-10-26 보충, #806). 소비자 조건(`@tiptap/*` 고정, auto-animate 패치)은 [소비 안내](../../packages/sdk/CHANGELOG.md)에 둔다.
 - **게이트:** CI가 매 PR마다 다섯 tarball을 만든다. 그다음 깨끗한 외부 소비자가 그것을 `127.0.0.1` HTTP URL로(`blockExoticSubdeps: true`) 받아 install·typecheck·Vite build·작은 vitest·CSS 클래스 생성까지 통과해야 한다(ADR-0044 ②③). 공개 API 스냅샷은 #520에서 같은 tarball의 `.d.ts`로 잰다.
+- **변경 기록·API 기준선:** PR은 `packages/sdk/changes/<issue>.md`에 변경 행을 쓴다. PR·main push의 `pnpm sdk:api --report`는 기존 빌드 결과를 릴리스 기준선과 비교해 stdout과 CI 요약에 차이를 남긴다. 병렬 PR의 공유 파일 충돌을 줄이기 위해 CHANGELOG와 API 기준선은 릴리스 때만 갱신한다. 릴리스 문서 PR에서 SDK를 빌드한 뒤 `pnpm sdk:changelog --release X.Y.Z`와 `pnpm sdk:api --update`를 함께 실행한다. 첫 명령은 조각과 표에 남은 `다음 릴리스` 행을 이슈 번호순으로 합쳐 버전을 붙이고 조각을 지운다(`--dry-run`으로 미리 확인). `workflow_dispatch`의 `full=true`에서 엄격한 `pnpm sdk:api` 비교가 통과한 SHA를 태그한다. 자세한 순서는 [릴리스 절차](../../.agents/conductor/PROFILE.md#slice-close)를 따른다.
 - **업로드:** 릴리스 때 콘덕터가 태그와 함께 Release를 만들고 tarball을 올린다(사용자 위임 2026-10-20). 사내 미러가 필요하면 같은 다섯 파일과 체크섬을 옮긴다(#151).
 
 ## Considered Options

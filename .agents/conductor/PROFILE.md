@@ -57,7 +57,7 @@ Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Sta
 - `apps/platform-web/src/menus.ts`, 06 contract docs
 - Root `package.json`, `pnpm-lock.yaml`, `turbo.json`, `.github/workflows`
 - `apps/platform-e2e`
-- The "next release" row in `packages/sdk/CHANGELOG.md`, the `docs/adr/README.md` table, ADR numbers (reservation: [`addenda/traps.md`](addenda/traps.md))
+- The `docs/adr/README.md` table, ADR numbers (reservation: [`addenda/traps.md`](addenda/traps.md))
 - `addenda/traps.md`, `docs/agents/operations.md` (append only)
 - The screen bridge entry list (`apps/feature-screens/package.json` `exports`)
 - `.planning/README.md`: the lead updates it once, in the release-docs PR.
@@ -104,7 +104,7 @@ Every step must exit 0 before commit.
    - Integration: `PLATFORM_API_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`, not `gate.sh integration` (it truncates the source DB). A migration node runs the full suite on its recreated DB. One issue DB serves one run at a time: wait for the worker to end first.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:
-   - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api` (intended changes: `--update` plus one line in `packages/sdk/CHANGELOG.md`), `pnpm sdk:test`.
+   - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api --report` (read the diff; PR CI writes the same diff to its summary), `pnpm sdk:test`. Write the change as `packages/sdk/changes/<issue>.md` (`pnpm sdk:changelog --check`); never edit `packages/sdk/CHANGELOG.md` or run `sdk:api --update` in a PR. Reason: parallel PRs that each edited those two files conflicted on every rebase; the release folds them once.
    - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
 8. PR CI budget: until production, PR CI stays minimal at about 10 minutes of wall clock; the owner names the go-live date (#1931). The SDK upgrade gate, SDK tarball and outside-consumer checks, the kit browser check and backend image builds run on main push and `workflow_dispatch` (release `full=true`), never on a PR, so run step 7's SDK checks locally when their inputs change. A new CI check goes to main push or release first; it joins PR CI only if the PR still fits the budget. Reason: the PR wait was the bottleneck.
@@ -178,7 +178,7 @@ Every item not done now — an owner "not now", an accepted limit, a `major` or 
 
 Release order. Reason: once the slice's work is merged, the tag waits only for the cold CI; everything else runs before it or after it.
 
-  1. Alongside the last PRs' reviews, run in parallel: the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed), the one-off doc audit ([addenda/doc-audit.md](addenda/doc-audit.md), `review-doc`, persona doc-steward), and the release-docs PR. In that PR, set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); nothing else updates them. If the SDK changes, build the SDK on the PR head (`pnpm sdk:pack --version X.Y.Z --out <d>`, `pnpm sdk:schemas --version X.Y.Z --out <d2>`, `pnpm sdk:consumer-check <d>`).
+  1. Alongside the last PRs' reviews, run in parallel: the slice-close `review-quality` (plus a `review-ux` walk-through if screens changed), the one-off doc audit ([addenda/doc-audit.md](addenda/doc-audit.md), `review-doc`, persona doc-steward), and the release-docs PR. In that PR, fold the SDK change record (`pnpm sdk:changelog --release X.Y.Z`, then, after building the SDK packages, `pnpm sdk:api --update`) and set consumer packages in `menus/` and `platform/` `ap.sdk` and the gen-menu `SDK_RANGE` to the new SDK range (`menus/AGENTS.md`, `platform/AGENTS.md`); nothing else updates them. If the SDK changes, build the SDK on the PR head (`pnpm sdk:pack --version X.Y.Z --out <d>`, `pnpm sdk:schemas --version X.Y.Z --out <d2>`, `pnpm sdk:consumer-check <d>`).
   2. The tag SHA is the release-docs PR's merge commit. A PR merged after it goes to the next release; never hold the tag for it.
   3. Run a full cold CI on the tag SHA: `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`, none for server-only PRs; `Platform test` leaves out `@ap/platform-api`, which `integration` runs), so this run is the only whole, cold gate. Take the run id from `gh run list --workflow ci.yml --event workflow_dispatch --limit 1 --json databaseId` and require `headSha` = tag SHA and `success`. A failure outside the diff (runner network, registry) gets one rerun of the failed job, then a fix.
   4. Tag when the cold CI succeeds and no `release-blocker` is open; an open `bug` issue does not hold the tag. Tag `sdk-v*` with the tarballs and a GitHub Release (assets: the nine tarballs, `ap-start-kit-<V>.tgz` and `SHA256SUMS`, as `sdk:pack` writes them), and upload `<d2>/contract-schemas-X.Y.Z.tgz` and `<d2>/SHA256SUMS-schemas` with `gh release upload sdk-vX.Y.Z`. App `v0.x` tags: At slice start ask once: 'tag when cold CI is green?'. If yes, tag on step 4 without asking again. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
@@ -186,7 +186,7 @@ Release order. Reason: once the slice's work is merged, the tag waits only for t
 
 - **Gate table:** after tagging (step 5), the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with three rows: impeccable, platform consistency, and `tier=small` (count and findings of major or worse).
 - **Impeccable and consistency re-measure (next release):** in their rows, count runs and the findings of major or worse that `review-ux` and `review-final` did not also report. With at least 5 runs, a gate with at least one such finding stays at its scope and a gate with none is removed; with fewer than 5 runs it stays one more release and the row says so.
-- **SDK release timing:** a lane adds only the "next release" row in `packages/sdk/CHANGELOG.md`. The lead releases the SDK when that row exists and main CI is green, and at once if a lane is waiting for it.
+- **SDK release timing:** a lane adds only its `packages/sdk/changes/<issue>.md` fragment. The lead releases the SDK when a fragment (or a leftover `다음 릴리스` row) exists and main CI is green, and at once if a lane is waiting for it.
 - **Intro site:** updating `site/` is not a release step; site changes ship as their own PRs when the owner asks. The tag still triggers the Pages deploy of the tagged tree. Reason: the owner decides when the intro site changes; tying it to every release added a step the release did not need.
 
 Tag with the full SHA (`git rev-parse origin/main`, `gh release create --target "$SHA"`). `app-preview.py status` must show no tracked previews at the end.
