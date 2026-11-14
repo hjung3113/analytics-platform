@@ -160,8 +160,10 @@ describe('menu-query scaffold (#126)', () => {
       .toEqual([`${PACKAGE_PREFIX}contracts`]);
     expect(specifiersOf(files.find(f => f.relPath === 'src/mock/index.ts')!.content, 'index.ts'))
       .toEqual(['../endpoints', `${PACKAGE_PREFIX}mock-server`]);
+    expect(specifiersOf(files.find(f => f.relPath === 'src/messages.ts')!.content, 'messages.ts'))
+      .toEqual([`${PACKAGE_PREFIX}contracts`]);
     expect(specifiersOf(files.find(f => f.relPath.startsWith('src/pages/'))!.content, 'page.tsx'))
-      .toEqual(['../endpoints', `${PACKAGE_PREFIX}components`, `${PACKAGE_PREFIX}kernel`]);
+      .toEqual(['../endpoints', '../messages', `${PACKAGE_PREFIX}components`, `${PACKAGE_PREFIX}kernel`]);
   });
 });
 
@@ -176,13 +178,16 @@ describe('page archetype skeletons (06 §12, #104)', () => {
   };
   const pageOf = (pageType: MenuInputs['pageType']) =>
     renderFiles({ ...INPUTS, pageType }).find(f => f.relPath.startsWith('src/pages/'))!.content;
-  const slotBlock = (page: string) => /const SLOTS = \[\n([\s\S]*?)\n\];/.exec(page)![1];
-  const enNames = (page: string) => [...slotBlock(page).matchAll(/en: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1]);
+  // The slot list lives in the package's message table (#2261), the page imports it.
+  const messagesOf = (pageType: MenuInputs['pageType']) =>
+    renderFiles({ ...INPUTS, pageType }).find(f => f.relPath === 'src/messages.ts')!.content;
+  const slotBlock = (messages: string) => /const SLOTS = \[\n([\s\S]*?)\n\] satisfies/.exec(messages)![1];
+  const enNames = (messages: string) => [...slotBlock(messages).matchAll(/en: '((?:[^'\\]|\\.)*)'/g)].map(m => m[1]);
 
   it.each(PAGE_TYPES)('%s: manifest pageType and generated slots equal the 06 §12 contract, in order', pageType => {
     const files = renderFiles({ ...INPUTS, pageType });
     expect(files.find(f => f.relPath === 'src/index.ts')!.content).toContain(`pageType: '${pageType}'`);
-    expect(enNames(pageOf(pageType))).toEqual(CONTRACT[pageType]);
+    expect(enNames(messagesOf(pageType))).toEqual(CONTRACT[pageType]);
   });
 
   it.each(PAGE_TYPES)('%s: generated JSX renders placeholders in independent contract order', pageType => {
@@ -194,6 +199,7 @@ describe('page archetype skeletons (06 §12, #104)', () => {
       workflow: ['queue', 'filter', 'detail', 'timeline', 'comments', 'related'],
     };
     const source = ts.createSourceFile('page.tsx', pageOf(pageType), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const messages = ts.createSourceFile('messages.ts', messagesOf(pageType), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const rendered: string[] = [];
     const visit = (node: ts.Node) => {
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'slotPlaceholder') {
@@ -203,12 +209,14 @@ describe('page archetype skeletons (06 §12, #104)', () => {
       if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.getText(source) === 'SLOTS.map') {
         // Inspect the actual JSX mapping, not just the unused slot declaration.
         expect(node.getText(source)).toContain('data-slot={slot.id}');
-        const declaration = source.statements.filter(ts.isVariableStatement).flatMap(statement => [...statement.declarationList.declarations])
-          .find(declaration => declaration.name.getText(source) === 'SLOTS');
-        expect(declaration?.initializer && ts.isArrayLiteralExpression(declaration.initializer)).toBe(true);
-        const slots = declaration!.initializer as ts.ArrayLiteralExpression;
+        const declaration = messages.statements.filter(ts.isVariableStatement).flatMap(statement => [...statement.declarationList.declarations])
+          .find(declaration => declaration.name.getText(messages) === 'SLOTS');
+        const initializer = declaration?.initializer;
+        const list = initializer && ts.isSatisfiesExpression(initializer) ? initializer.expression : initializer;
+        expect(list && ts.isArrayLiteralExpression(list)).toBe(true);
+        const slots = list as ts.ArrayLiteralExpression;
         for (const slot of slots.elements) {
-          const id = (slot as ts.ObjectLiteralExpression).properties.find(property => ts.isPropertyAssignment(property) && property.name.getText(source) === 'id') as ts.PropertyAssignment;
+          const id = (slot as ts.ObjectLiteralExpression).properties.find(property => ts.isPropertyAssignment(property) && property.name.getText(messages) === 'id') as ts.PropertyAssignment;
           rendered.push((id.initializer as ts.StringLiteral).text);
         }
       }
@@ -219,7 +227,7 @@ describe('page archetype skeletons (06 §12, #104)', () => {
   });
 
   it('each archetype has its own slot list, and the page renders every slot', () => {
-    const blocks = new Set(PAGE_TYPES.map(t => slotBlock(pageOf(t))));
+    const blocks = new Set(PAGE_TYPES.map(t => slotBlock(messagesOf(t))));
     expect(blocks.size).toBe(PAGE_TYPES.length);
     for (const t of PAGE_TYPES) {
       const page = pageOf(t);
