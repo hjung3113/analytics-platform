@@ -624,7 +624,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
 test.describe('Scope 관문 첫 진입 (06 §6.2, #1938)', () => {
   test('Scope 없이 들어온 분석 메뉴는 본문 `Scope 선택`으로 접힌 사이드바를 펴고 목록을 열며, Esc는 버튼으로 돌아온다', async ({ page }) => {
     await signInAs(page, 'engineer');
-    await page.setViewportSize({ width: 1280, height: 900 });
+    // The sidebar starts collapsed below 1200px (#1944), so 1100px is a first entry with a collapsed sidebar.
+    await page.setViewportSize({ width: 1100, height: 900 });
     await page.goto('/mars/productivity-overview');
     const main = page.getByRole('main');
     await expect(main.getByText('Scope를 선택하세요')).toBeVisible();
@@ -636,13 +637,14 @@ test.describe('Scope 관문 첫 진입 (06 §6.2, #1938)', () => {
     await page.keyboard.press('Enter');
     const list = page.getByRole('menu');
     await expect(list).toBeVisible();
-    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     await expect.poll(() => list.evaluate(node => node.contains(document.activeElement))).toBe(true);
     // Opening applies nothing: the gate stays until the person picks.
     expect(query(page).get('scopeId')).toBeNull();
 
     await page.keyboard.press('Escape');
     await expect(list).toBeHidden();
+    // The open list hides the rest of the page from the accessibility tree, so the expanded sidebar is checked once it closes.
+    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     await expect(choose).toBeFocused();
 
     await page.keyboard.press('Enter');
