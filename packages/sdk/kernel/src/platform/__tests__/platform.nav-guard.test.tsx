@@ -3,7 +3,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useUnsavedGuard, type UnsavedGuardOptions } from '../../index';
-import { useHostPlatform, useLeaveRequest, type LeaveRequest } from '../../host';
+import { PaneScreenProvider, useHostPlatform, useLeaveRequest, type LeaveRequest } from '../../host';
 import { AppContext } from '../contexts';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
@@ -546,5 +546,62 @@ describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
       await settle();
       expect(traversals).toBe(0);
     });
+  });
+});
+
+
+describe('pane unsaved guards (#2066 KER-24)', () => {
+  const paneDiscard = vi.fn();
+  function PaneEditor() {
+    const [dirty, changeDirty] = useState(true);
+    setDirty = changeDirty;
+    useUnsavedGuard(dirty, { onDiscard: paneDiscard, leaves: 'address' });
+    return null;
+  }
+  function MainEditor({ onDiscard }: { onDiscard: () => void }) {
+    useUnsavedGuard(true, { onDiscard });
+    return null;
+  }
+  function mountPane(mainDiscard?: () => void) {
+    window.history.replaceState(null, '', '/mars/editor');
+    paneDiscard.mockClear();
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+      <Probe />
+      {mainDiscard && <MainEditor onDiscard={mainDiscard} />}
+      <PaneScreenProvider paneId="p" screen={{ menuId: 'editor', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>
+        <PaneEditor />
+      </PaneScreenProvider>
+    </PlatformProvider></I18nProvider>);
+  }
+  it('allows main navigation while a pane is dirty', () => {
+    mountPane();
+    let moved = false;
+    act(() => { moved = platform.navigate('/mars/other'); });
+    expect(moved).toBe(true);
+    expect(here()).toBe('/mars/other');
+    expect(request).toBeNull();
+    expect(paneDiscard).not.toHaveBeenCalled();
+  });
+  it('confirmation discards only the blocking main editor, preserving the pane', () => {
+    const mainDiscard = vi.fn();
+    mountPane(mainDiscard);
+    act(() => { platform.navigate('/mars/other'); });
+    expect(request).not.toBeNull();
+    act(() => request!.confirm());
+    expect(here()).toBe('/mars/other');
+    expect(mainDiscard).toHaveBeenCalledTimes(1);
+    expect(paneDiscard).not.toHaveBeenCalled();
+  });
+  it('protects document unload until the pane becomes clean or unmounts', () => {
+    const ui = mountPane();
+    const probe = () => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
+    expect(probe()).toBe(true);
+    act(() => setDirty(false));
+    expect(probe()).toBe(false);
+    act(() => setDirty(true));
+    expect(probe()).toBe(true);
+    ui.unmount();
+    expect(probe()).toBe(false);
+    expect(paneDiscard).not.toHaveBeenCalled();
   });
 });

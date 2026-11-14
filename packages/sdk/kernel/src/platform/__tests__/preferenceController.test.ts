@@ -312,16 +312,27 @@ describe('import limits', () => {
     for (let i = 0; i < 33; i++) deep = [deep];
     expect(importFits([], { columns: deep })).toBe(false);
   });
-  it('does not send, ack or erase when the candidates do not fit', async () => {
-    const f = fixture({ server: Object.fromEntries(server(199).map(k => [k, 1])) });
+  it.each([198, 199])('KER-15 reduces oversized imports with %i server keys and preserves all originals', async count => {
+    const f = fixture({ server: Object.fromEntries(server(count).map(k => [k, 1])) });
     f.store.setItem('platform:favorites:u1', JSON.stringify(['m']));
     f.store.setItem('platform:lastScope:u1', JSON.stringify('s'));
+    f.store.setItem('platform:table:old', JSON.stringify({ sizing: {}, visibility: {}, pinning: { left: [], right: [] } }));
+    const originals = Array.from({ length: f.store.length }, (_, i) => { const key = f.store.key(i)!; return [key, f.store.getItem(key)]; });
     const c = make(f);
     c.start();
     await flushAll();
-    expect(c.state()).toMatchObject({ status: 'failed', failure: 'import_too_large' });
-    expect(f.imports).toEqual([]);
-    expect(f.store.getItem('platform:favorites:u1')).not.toBeNull();
+    expect(c.state()).toMatchObject({ status: 'ready', partialImport: true });
+    expect(f.imports).toEqual([count === 198 ? { favorites: ['m'], lastScope: 's' } : {}]);
+    expect(originals.map(([key]) => [key, f.store.getItem(key!)])).toEqual(originals);
+    c.set('columns:s0', 2);
+    await flushAll();
+    expect(f.server()['columns:s0']).toBe(2);
+    c.stop();
+    const next = make(f); next.start();
+    await flushAll();
+    expect(f.imports).toHaveLength(1);
+    expect(next.state()).toMatchObject({ status: 'ready', partialImport: false });
+    next.stop();
   });
 });
 

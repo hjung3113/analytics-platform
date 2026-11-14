@@ -266,6 +266,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (m.pageKeys.includes(DETAIL_EXPAND_KEY) || m.hiddenPageKeys?.includes(DETAIL_EXPAND_KEY) || m.navViews?.some(view => Object.hasOwn(view.page, DETAIL_EXPAND_KEY))) fail(`Menu "${m.id}" key "expand" is reserved for the platform`);
     if (m.defaultPeriodHours !== undefined && (!Number.isInteger(m.defaultPeriodHours) || m.defaultPeriodHours <= 0 || m.context.time !== 'apply')) fail(`Menu "${m.id}" defaultPeriodHours must be a positive integer on a time-applying menu`);
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
+    if (m.features.savedView === true && m.query?.mode !== 'apply') fail(`Menu "${m.id}" savedView requires query.mode: 'apply' with time: 'apply': saved views use the Apply query toolbar; remove features.savedView for a live menu`);
     if (m.query) {
       if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);
       const contextError = requiredContextError(m.query.required?.context ?? [], m.context);

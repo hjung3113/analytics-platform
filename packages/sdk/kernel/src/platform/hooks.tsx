@@ -94,16 +94,18 @@ export function useSelectionPortCache(): PortCache {
 /**
  * Declares unsaved edits (ADR-0115). While `dirty` is true, leaving the menu (or the whole address with `leaves: 'address'`, or a change of the page keys named by `leaves: { pageKeys }`) by a link, `navigate`,
  * the browser Back/Forward or a reload asks first; the shell shows the dialog. Same-pathname writes never ask unless the chosen mode watches what they change (`'address'`, `{ pageKeys }`); `replace`, Scope or session changes never ask.
+ * Inside a pane, only document reload/tab close asks; main/pane navigation never blocks or discards pane edits.
  * Unregisters when `dirty` turns false or the component unmounts. A no-op outside a provider.
  */
 export function useUnsavedGuard(dirty: boolean, options?: UnsavedGuardOptions): void {
   const guard = useContext(AppContext)?.internal.guard;
+  const unloadOnly = useContext(PaneScreenContext) !== null;
   const latest = useRef<UnsavedGuardOptions>(options ?? {});
   useLayoutEffect(() => { latest.current = options ?? {}; });
   useEffect(() => {
     if (!dirty || !guard) return;
-    return guard.register(() => latest.current);
-  }, [dirty, guard]);
+    return guard.register(() => latest.current, { unloadOnly });
+  }, [dirty, guard, unloadOnly]);
 }
 
 /** The navigation waiting for the person's answer, or null (`@ap/kernel/host`). The shell renders the confirmation and calls `confirm()` or `cancel()`. Throws outside a provider. */
