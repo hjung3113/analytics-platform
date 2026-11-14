@@ -11,6 +11,12 @@ describe('sortRows', () => {
     expect(sortRows(rows, [{ id: 'v', desc: true }]).map(r => r.id)).toEqual(['b', 'a', 'd', 'c']);
     expect(sortRows(rows, []).map(r => r.id)).toEqual(['a', 'b', 'c', 'd']);
   });
+  it('orders text naturally: digit runs as numbers, case ignored, ties stable, desc reverses (#2218)', () => {
+    const names = ['EQ-10', 'EQ-2', 'eq-3', 'EQ-1', 'Eq-2'].map((name, at) => ({ id: String(at), name }));
+    expect(sortRows(names, [{ id: 'name', desc: false }]).map(r => r.name)).toEqual(['EQ-1', 'EQ-2', 'Eq-2', 'eq-3', 'EQ-10']);
+    expect(sortRows(names, [{ id: 'name', desc: true }]).map(r => r.name)).toEqual(['EQ-10', 'eq-3', 'EQ-2', 'Eq-2', 'EQ-1']);
+    expect(sortRows([{ name: 'b' }, { name: null }, { name: 'A' }], [{ id: 'name', desc: false }]).map(r => r.name)).toEqual(['A', 'b', null]);
+  });
   it('does not mutate its input', () => {
     sortRows(rows, [{ id: 'v', desc: true }]);
     expect(rows.map(r => r.id)).toEqual(['a', 'b', 'c', 'd']);
