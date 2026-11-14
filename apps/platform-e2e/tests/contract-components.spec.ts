@@ -824,14 +824,14 @@ test.describe('표 필터 모델 (#1217)', () => {
 
 });
 
-// #680 (ADR-0075): a fill page's head (notes + page filter + chips) folds to one line; shared responses become a thin strip.
+// #680 keeps the expanded-bar head disclosure; #1941 moves its folded-bar controls into the query region.
 test.describe('페이지 머리 접기 (#680)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
   const HEAD_KEY = 'platform:page-head-collapsed:cycle-time';
-  /** Upper bound of the workspace top (px) at 1440×900 with the query bar and the page head collapsed: measured 230.8 (315 before #680), plus 9px for font metrics on CI. */
-  const COLLAPSED_WORKSPACE_TOP_MAX = 240;
+  /** Owner-approved B: first chart top at 1440×900 is at most 270px (prototype 262px). */
+  const FIRST_CHART_TOP_MAX = 270;
   const line = (page: Page) => page.locator('[data-page-head-line]');
-  const workspaceTop = async (page: Page) => (await page.locator('[data-panel-workspace]').boundingBox())!.y;
+  const firstChartTop = async (page: Page) => (await page.getByRole('region', { name: '사이클타임 추세', exact: true }).getByRole('img', { name: /^사이클타임 추세/ }).boundingBox())!.y;
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -851,7 +851,23 @@ test.describe('페이지 머리 접기 (#680)', () => {
     await expect(page.getByTestId('page-filter-bar')).toBeHidden();
     await page.getByRole('button', { name: '조회 조건 접기' }).click();
     await expect(page.locator('[data-panel-workspace]')).toBeVisible();
-    await expect.poll(() => workspaceTop(page)).toBeLessThanOrEqual(COLLAPSED_WORKSPACE_TOP_MAX);
+    const row = contextBar(page).locator('[data-workspace-query-row]');
+    await expect(row).toBeVisible();
+    await expect(row.getByRole('status')).toContainText('요약 조회 완료');
+    await expect(row.getByRole('radio', { name: '기본', exact: true })).toBeVisible();
+    await expect(row.getByText('화면 배치', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toHaveCount(0);
+    await expect(page.locator('[data-page-head]')).toHaveCount(0);
+    await expect(page.locator('[data-panel-workspace]').getByRole('toolbar', { name: '배치' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: '사이클타임 추세', exact: true }).getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
+    await expect.poll(() => firstChartTop(page)).toBeLessThanOrEqual(FIRST_CHART_TOP_MAX);
+    const chip = row.getByRole('button', { name: /^페이지 조건/ });
+    await chip.click();
+    const editor = page.getByRole('dialog', { name: '페이지 조건', exact: true });
+    await expect(editor.getByRole('button', { name: '주', exact: true })).toBeVisible();
+    await expect(editor.locator('[data-page-notes]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(chip).toBeFocused();
     await evidence(page, testInfo, 'page-head-collapsed-1440x900');
   });
 

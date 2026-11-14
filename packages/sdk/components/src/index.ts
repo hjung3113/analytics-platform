@@ -41,6 +41,7 @@ export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPa
 export { LegendTree, type LegendTreeNode, type LegendTreeSort, type LegendTreeProps } from './chart/LegendTree';
 
 export { formatQuerySummary, presetOutsideAxes, querySummaryItems, summaryPreset, type QuerySummaryOptions, type QuerySummaryItem, type SummaryPreset } from './filters/querySummary';
+export { WorkspaceQueryBarRow } from './archetypes/WorkspaceQueryBar';
 export { useReportQueryBarStatus, type QueryBarStatus } from './filters/QueryBarStatus';
 export { useCompactPageDensity } from './pageDensity';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './filters/QueryBarExtension';

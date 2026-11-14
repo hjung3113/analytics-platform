@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset } from './contract-helpers';
-import { contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
+import { contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -783,7 +783,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('granularity')).toBe('day');
-    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     const applied = page.url();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     expect(page.url()).toBe(applied);
@@ -791,7 +791,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
   });
   test('deep link와 Back/Forward는 적용값을 복원하고 초안 page 값은 적용까지 결과에 섞이지 않는다', async ({ page }) => {
     await page.goto(`/mars/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
-    const strip = page.getByRole('region', { name: '적용된 조회 조건' });
+    const strip = queryResultSurface(page);
     await expect(strip).toContainText('요약 조회 완료');
     const bar = await expandQuery(page);
     await expandPageHead(page);
@@ -850,11 +850,11 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: '일', exact: true }).click();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
-    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     await page.getByRole('button', { name: '주', exact: true }).click();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('granularity')).toBe('week');
-    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('집계 주');
+    await expect(queryResultSurface(page)).toContainText('집계 주');
     await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
     await expect(page.getByRole('option')).toHaveCount(2);
     await page.keyboard.press('Escape');
@@ -872,7 +872,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     expect(await requestCount()).toBe(before);
     expect(query(page).has('granularity')).toBe(false);
     await bar.getByRole('button', { name: '적용', exact: true }).click();
-    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     expect(await requestCount()).toBe(before + 1);
     await evidence(page, testInfo, 'query-history-draft-restore');
   });
@@ -902,7 +902,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     const bar = await openBar(page);
     await expandPageHead(page);
     await bar.getByRole('button', { name: '적용', exact: true }).click().catch(() => undefined);
-    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     await expect(switcher(bar).getByRole('radio', { name: '설비 기준' })).toBeChecked();
     await expect(bar.getByText(/StGroup .* · 설비 기준에서 미적용/)).toBeVisible();
     await expect(bar.getByRole('button', { name: '설비사', exact: true })).toBeVisible();
@@ -923,7 +923,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect.poll(() => query(page).get('conditionSet')).toBe('organization');
     await expect.poll(() => kpiRequests(page)).toBeGreaterThan(before);
     await expect(busy).toHaveCount(0);
-    await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toContainText('요약 조회 완료');
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     // Nothing happens: applying must send exactly one query; give a second, wrongly sent one time to arrive.
     await page.waitForTimeout(1000);
     expect(await kpiRequests(page)).toBe(before + 1);

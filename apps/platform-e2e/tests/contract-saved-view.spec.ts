@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD } from './contract-helpers';
-import { contextBar, evidence, mainHeading, query, signInAs } from './support';
+import { contextBar, evidence, mainHeading, query, queryResultSurface, signInAs } from './support';
 
 /**
  * Platform contract checks for Saved Views (docs/06 §21, #1011 node 1011g). The cycle-time detail is only the consumer the
@@ -11,7 +11,7 @@ const PHOTO_CHIP = '지우기 PHOTO';
 const trigger = (page: Page) => page.getByRole('button', { name: /^저장된 뷰:/ });
 const modifiedBadge = (page: Page) => trigger(page).getByText('수정됨');
 const toast = (page: Page, text: RegExp | string) => page.getByText(text).first();
-const applied = (page: Page) => page.getByRole('region', { name: '적용된 조회 조건' });
+const applied = queryResultSurface;
 async function openCycle(page: Page, url = CYCLE) {
   await page.goto(url);
   await expect(mainHeading(page)).toHaveText('사이클타임 상세');

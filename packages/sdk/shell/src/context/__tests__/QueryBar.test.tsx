@@ -372,7 +372,7 @@ function mountPage(query: string, collapsed: boolean, completed = false) {
   window.history.replaceState(null, '', `/?scopeId=MEM${query}`);
   if (collapsed) localStorage.setItem('platform:query-bar-collapsed:home', 'true');
   const session = testSession(['platform:view']);
-  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage queryResult={completed ? { status: 'done', completedAt: 1_800_000_000_000 } : undefined}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage layout="fill" queryResult={completed ? { status: 'done', completedAt: 1_800_000_000_000 } : undefined}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
 }
 const STRIP = { name: '적용된 조회 조건' };
 it('idle: the bar draws every missing reason, so the page keeps the title and a pointer but not the list (#1170)', async () => {
@@ -398,21 +398,21 @@ it('idle: a draft that fixed the missing item but is not applied no longer cover
   expect(within(idle).getAllByRole('listitem').length).toBeGreaterThan(0);
   expect(idle).not.toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
 });
-it('strip: a folded bar that is not editing leaves the applied values to its summary and keeps only the completion time (#1170)', async () => {
+it('folded workspace: result time is in the query bar and applied values remain in its summary (#1941)', async () => {
   mountPage('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', true, true);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  const strip = screen.getByRole('region', STRIP);
-  expect(strip).toHaveTextContent('요약 조회 완료');
-  expect(strip).not.toHaveTextContent('공정 PHOTO');
+  expect(screen.queryByRole('region', STRIP)).toBeNull();
+  expect(document.querySelector('[data-workspace-query-row]')).toHaveTextContent('요약 조회 완료');
   expect(document.querySelector('summary')).toHaveTextContent('공정 PHOTO');
 });
-it('strip: editing a folded bar, or opening it, shows both the applied values and the time (#1170)', async () => {
+it('folded workspace: edits stay in the query bar and expanding restores applied values with time (#1941)', async () => {
   mountPage('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', true, true);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => { draft.setDraftGlobal({ roomNames: ['ETCH'] }); });
-  expect(screen.getByRole('region', STRIP)).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
+  expect(screen.queryByRole('region', STRIP)).toBeNull();
+  expect(document.querySelector('[data-workspace-query-row]')).toHaveTextContent('요약 조회 완료');
   act(() => { draft.revert(); });
-  expect(screen.getByRole('region', STRIP)).not.toHaveTextContent('공정 PHOTO');
+  expect(screen.queryByRole('region', STRIP)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByRole('region', STRIP)).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
 });

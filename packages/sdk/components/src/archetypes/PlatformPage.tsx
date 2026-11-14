@@ -4,6 +4,7 @@ import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
 import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
 import { ForbiddenRequestMessage, OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
+import { WorkspaceQueryBarContext, workspaceQueryText } from './WorkspaceQueryBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
@@ -123,7 +124,7 @@ export type PlatformPageProps = {
   dataTrustSummary?: ReactNode;
   queryBarExtension?: QueryBarExtension;
   /** Completion of the consumer's authoritative summary query, including terminal error responses. */
-  queryResult?: { completedAt: number | null; status: 'idle' | 'loading' | 'refreshing' | 'done' };
+  queryResult?: { completedAt: number | null; status: 'idle' | 'loading' | 'refreshing' | 'done'; /** Whether the completed summary response failed. */ failed?: boolean };
   /** Extra crumbs between the menu and the current object. */
   crumbs?: { label: ReactNode; href?: string }[];
   /**
@@ -154,6 +155,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   usePublishQueryBarExtension(queryBarExtension);
   // The query bar inside this page reports what it shows; a board pane's bar lives in another tree and arrives through the shared store.
   const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
+  const [parameterTarget, setParameterTarget] = useState<HTMLDivElement | null>(null);
+  const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null);
   const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus }), [barStatus]);
   const paneBarStatus = useQueryBarStatus();
   const shownBarStatus = barStatus ?? paneBarStatus;
@@ -309,8 +312,13 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const fixedFill = layout === 'fill' && flowing === 0;
   // A folded bar that is not editing already prints the applied values in its summary (#1170): the strip keeps only the completion time.
   const appliedValuesShown = !(shownBarStatus?.folded && !shownBarStatus.editing);
+  const workspaceQueryBar = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate && shownBarStatus?.folded === true;
+  const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="max-w-56 text-xs text-text-secondary break-keep">
+    {queryResult.status === 'loading' ? t('loading') : queryResult.status === 'refreshing' ? t('refreshing') : queryResult.failed ? t('stateError') : tx(workspaceQueryText.completed)}
+    {queryResult.completedAt !== null && <> {formatInstant(queryResult.completedAt, lang)}</>}
+  </span> : null;
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
-  return <PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  return <WorkspaceQueryBarContext.Provider value={workspaceQueryBar ? { status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -366,7 +374,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
     </div>}
     <div data-platform-page-body className="contents" inert={covered || undefined}>
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
-    {!gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+    {!workspaceQueryBar && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={lang === 'ko' ? '적용된 조회 조건' : 'Applied query conditions'} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
       {completionShown && <span>{lang === 'ko' ? '요약 조회 완료' : 'Summary response completed'} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
@@ -385,7 +393,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
         {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
       </OutcomeScope>}</div>
     </div>
-  </div></PageBoundContext.Provider></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider>;
+  </div></PageBoundContext.Provider></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider></WorkspaceQueryBarContext.Provider>;
 }
 
 /** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */

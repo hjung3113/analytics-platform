@@ -1,6 +1,7 @@
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useContext, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
+import { PageFilterExpandedContext } from './pageFilterPresentation';
 import { useCollapsePreference } from './useCollapsePreference';
 import { Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
 
@@ -162,7 +163,9 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   const panelId = `${id}-panel`;
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
-  const { collapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
+  const expandedByParent = useContext(PageFilterExpandedContext);
+  const { collapsed: preferredCollapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, defaultCollapsed);
+  const collapsed = !expandedByParent && preferredCollapsed;
   const barRef = useRef<HTMLFieldSetElement>(null);
   const clearedFocus = useRef<{ key: string; index: number } | null>(null);
   const clearChip = (chip: PageFilterAppliedChip, button: HTMLButtonElement) => {
@@ -206,10 +209,10 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
         <div className="flex flex-wrap items-end gap-2">
           {actions}
           {hasPendingChanges && <span className="t-caption self-center text-text-secondary">{t('pageFilterPendingApplyHint')}</span>}
-          <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
+          {!expandedByParent && <Button ref={collapseRef} type="button" variant="ghost" size="toolbar" onClick={() => toggle(true)}
             aria-expanded="true" aria-controls={panelId} aria-label={t('collapsePageFilter', { label })}>
             <ChevronUp className="size-3.5" aria-hidden />{t('collapseShort')}
-          </Button>
+          </Button>}
         </div>
       </>}
     </div>

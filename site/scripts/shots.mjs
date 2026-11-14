@@ -1043,10 +1043,16 @@ try {
     await resetStorage();
     await go(`/analytics/cycle-time?${period}`);
     await expect(page.getByRole("region", { name: "사이클타임 분석 영역", exact: true })).toBeVisible();
-    // 접힘 상태는 이 브라우저에 저장되므로, 접혀 있으면 펼치고 시작한다. 접기 버튼이 있을 때만 누른다.
+    // 기존 저장 상태와 무관하게 조회 조건을 접는다. 접기 버튼이 있을 때만 누른다.
     const collapse = page.getByRole("button", { name: "조회 조건 접기" });
     if (await collapse.count()) await collapse.click();
     await expect(page.getByRole("button", { name: "조회 조건 펼치기" })).toBeVisible();
+    const row = page.getByRole("region", { name: "조회 조건", exact: true }).locator("[data-workspace-query-row]");
+    await expect(row.getByRole("status")).toContainText("요약 조회 완료");
+    await expect(row.getByRole("button", { name: /^페이지 조건/ })).toBeVisible();
+    await expect(row.getByRole("toolbar", { name: "배치" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "적용된 조회 조건" })).toHaveCount(0);
+    await expect(page.locator("[data-page-head]")).toHaveCount(0);
     await readyChart(trend());
   }
   const mainClip = async (height) => {
@@ -1065,7 +1071,7 @@ try {
   await capture(
     "cycle-head-fold",
     "페이지 머리 한 줄 · 조회 조건 접힘",
-    "페이지 머리는 한 줄(경로·제목·설명·상태)이고, 조회 조건 막대는 한 줄로 접혀 있으며 조회 결과는 그 아래 얇은 띠로 보입니다.",
+    "페이지 머리는 한 줄(경로·제목·설명·상태)이고, 조회 조건 막대의 둘째 줄에 조회 결과·페이지 조건·화면 배치가 모입니다.",
     "shell",
     () => cycleWorkspace(900),
     () => mainClip(220),

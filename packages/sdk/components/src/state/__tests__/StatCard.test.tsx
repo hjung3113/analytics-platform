@@ -2,6 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { Timer } from 'lucide-react';
 import { afterEach, expect, it } from 'vitest';
 import { PageDensityProvider } from '../../pageDensity';
+import { EmbeddedPane, InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { WorkspaceQueryBarContext } from '../../archetypes/WorkspaceQueryBar';
 import { StatCard } from '../StatCard';
 
 afterEach(cleanup);
@@ -34,4 +36,24 @@ it.each([
   rerender(<StatCard icon={Timer} label="사이클타임" value="12" chip={supported} />);
   expect(legacyClass).toBe(container.querySelector('span')!.className);
   expect(legacyClass).toContain(`bg-icon-${supported}-soft`);
+});
+
+const foldedWorkspace = { status: null, parameterTarget: null, setParameterTarget: () => {}, toolbarTarget: null, setToolbarTarget: () => {} };
+it.each(['compact', 'comfortable'] as const)('folded workspace StatCard has one pane border at %s density, retaining rounded selection and hover', density => {
+  const view = render(<WorkspaceQueryBarContext.Provider value={foldedWorkspace}><PageDensityProvider value={density}><InWorkspacePanelProvider value><StatCard icon={Timer} label="사이클타임" value="12" active onClick={() => {}} /></InWorkspacePanelProvider></PageDensityProvider></WorkspaceQueryBarContext.Provider>);
+  const tile = screen.getByRole('button', { name: /사이클타임/ });
+  expect(tile).not.toHaveClass('border');
+  expect(tile).toHaveClass('rounded-lg', 'ring-1', 'ring-accent-primary', 'hover:bg-surface-row-hover');
+  view.rerender(<StatCard icon={Timer} label="사이클타임" value="12" />);
+  expect(card()).toHaveClass('border', 'border-border-subtle');
+});
+
+it('board pane StatCards keep their existing border', () => {
+  render(<EmbeddedPane><StatCard icon={Timer} label="사이클타임" value="12" /></EmbeddedPane>);
+  expect(card()).toHaveClass('border', 'border-border-subtle');
+});
+
+it('keeps workspace StatCard borders when that workspace is inside a board pane (#1941)', () => {
+  render(<EmbeddedPane><InWorkspacePanelProvider value><StatCard icon={Timer} label="사이클타임" value="12" /></InWorkspacePanelProvider></EmbeddedPane>);
+  expect(card()).toHaveClass('border', 'border-border-subtle');
 });

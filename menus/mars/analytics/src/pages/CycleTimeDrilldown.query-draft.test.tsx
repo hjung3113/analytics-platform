@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, expect, it, vi } from 'vitest';
-import { useQueryBarExtension } from '@ap/components';
+import { useQueryBarExtension, useReportQueryBarStatus, WorkspaceQueryBarRow } from '@ap/components';
 import { emptyGlobal, type MenuQuery, groupId, menuPermission, spaceId } from '@ap/contracts';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
@@ -75,4 +75,22 @@ it('formats historical page defaults from that candidate rather than the current
   }
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <Summary /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(screen.getByText('집계 일 · 느린 실행 기준 전체 실행 · 정렬 Equipment A→Z')).toBeTruthy());
+});
+
+
+it('reports a terminal summary failure with its completion time in the folded workspace bar (#1941)', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  const session = testSession(['analytics:view', 'platform:view']);
+  window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+  function FoldedBar() {
+    useReportQueryBarStatus({ folded: true, editing: false, reasonKeys: [] });
+    return <section aria-label="조회 조건"><WorkspaceQueryBarRow /></section>;
+  }
+  const failure = { outcome: 'error' as const, data: null, assessments: [], trust: null, correlationId: 'failure' };
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session, menuQuery: async () => failure })} slots={{ contextBar: <FoldedBar /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  await waitFor(() => {
+    const row = screen.getByRole('region', { name: '조회 조건' }).querySelector('[role="status"]');
+    expect(row?.textContent).toContain('데이터를 불러오지 못했습니다');
+    expect(row?.textContent).toMatch(/\d{1,2}:/);
+  });
 });

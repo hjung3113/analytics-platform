@@ -104,6 +104,8 @@ Page Archetype, 셸 영역, 상세 패널, 분석 보드와 작업 영역, 페�
 - [0126](0126-detail-panel-content-region-expansion.md) — 상세 패널 크게 보기: 같은 패널을 본문 영역으로 펼치고 입력·포커스·주소 상태를 유지
 - [0130](0130-workspace-stack-default-and-declared-stack-layout.md) — 작업 영역은 아래로 쌓기로 시작하고, 메뉴가 쌓기용 배치(`stackPreset`)와 패널 선호 높이를 선언한다
 
+- [0160](0160-folded-analysis-workspace-query-bar.md) — 접힌 apply 분석 작업 영역은 조회 결과·페이지 조건 팝오버·화면 배치를 조회 막대의 고정 둘째 줄로 합친다 — 현재 y=355·A 324·B 262 중 B, 목표 y ≤ 270
+
 ## 메뉴 간 연결
 
 메뉴 간 Context Link, 목적지 선언, 메뉴 조립.
