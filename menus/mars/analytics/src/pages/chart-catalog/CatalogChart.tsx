@@ -7,6 +7,9 @@ import { BreakdownBars } from './BreakdownBars';
 import { kindLabels } from './support';
 
 
+// The catalog shows LaneTimeline's opt-in range brush (#1860), uncontrolled; one stable object so the timeline never re-reads it.
+const laneBrush = {};
+
 export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: CatalogData; height: number }) {
   const { tx } = useI18n();
   const { global } = usePlatform();
@@ -51,7 +54,7 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   const common = { chartId: `chart-catalog-${kind}`, title, description, metricVersion: 'synthetic v1', unit, size: 'hero' as const, height,
     trust: { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: formatWallClock(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) } };
   return <>
-    {kind === 'breakdown' ? <BreakdownBars height={height} trust={common.trust} /> : kind === 'lane' ? <LaneTimeline key={identity} lanes={lanes} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ 높음: 3, 보통: 2, 낮음: 1.5 }} formatTooltip={() => tx({ ko: '작업 구간', en: 'Work interval' })} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
+    {kind === 'breakdown' ? <BreakdownBars height={height} trust={common.trust} /> : kind === 'lane' ? <LaneTimeline key={identity} lanes={lanes} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ 높음: 3, 보통: 2, 낮음: 1.5 }} formatTooltip={() => tx({ ko: '작업 구간', en: 'Work interval' })} rangeBrush={laneBrush} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
     {detail?.identity === identity && <p ref={result} role="status" aria-label={tx({ ko: '상세 결과', en: 'Details result' })} className="t-caption px-4 py-2 text-text-secondary">
       {tx({ ko: '상세 대상', en: 'Details target' })}: {detail.target}
     </p>}

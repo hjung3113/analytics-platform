@@ -16,6 +16,7 @@ import { formatNumber } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
+import { useRangeBrush } from './useRangeBrush';
 import { LoadingBlock, StateMessage } from '../StateView';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { OrderedIntervalPlot } from './OrderedIntervalPlot';
@@ -60,8 +61,8 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   const [selection, setSelection] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [laneReveal, setLaneReveal] = useState(0);
-  const [brush, setBrush] = useState<[number, number] | null>(null);
-  const [brushMode, setBrushMode] = useState(false);
+  const brush = useRangeBrush();
+  const brushRange = brush.range;
   const [textView, setTextView] = useState(false);
   const [pageState, setPage] = useState(0);
   const [timeLabels, setTimeLabels] = useState(false);
@@ -215,8 +216,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
       event.preventDefault();
       select(null);
       setHover(null);
-      setBrush(null);
-      setBrushMode(false);
+      brush.clear();
       return;
     }
     if (event.key === '+' || event.key === '=') {
@@ -237,18 +237,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key))
       return;
     event.preventDefault();
-    if (event.shiftKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
-      const start = brush?.[0] ?? view[0];
-      const minimum = Math.min(1, view[1] - start);
-      const step = Math.max(minimum, (view[1] - view[0]) / 20);
-      const end = Math.max(
-        start + minimum,
-        Math.min(view[1], (brush?.[1] ?? start) + (event.key === 'ArrowLeft' ? -step : step)),
-      );
-      setBrush([start, end]);
-      setBrushMode(true);
-      return;
-    }
+    if (brush.keyDown(event, view)) return;
     if (!focused) return;
     const laneItems = visible.filter((item) => item.laneKey === focused.laneKey);
     const index = laneItems.findIndex((item) => item.id === focused.id);
@@ -337,10 +326,10 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
           <Button
             type="button"
             size="toolbar"
-            variant={brushMode ? 'secondary' : 'ghost'}
+            variant={brush.mode ? 'secondary' : 'ghost'}
             disabled={restricted}
-            aria-pressed={brushMode}
-            onClick={() => setBrushMode(!brushMode)}
+            aria-pressed={brush.mode}
+            onClick={() => brush.setMode(!brush.mode)}
           >
             {m('chartBrush')}
           </Button>
@@ -351,8 +340,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             disabled={restricted}
             onClick={() => {
               moveView(domain);
-              setBrush(null);
-              setBrushMode(false);
+              brush.clear();
             }}
           >
             {m('laneZoomReset')}
@@ -573,9 +561,9 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                   focusedLane={props.lanes.findIndex((lane) => lane.laneKey === focused?.laneKey)}
                   laneReveal={laneReveal}
                   timeLabels={timeLabels}
-                  brushMode={brushMode}
-                  brush={brush}
-                  onBrush={setBrush}
+                  brushMode={brush.mode}
+                  brush={brush.range}
+                  onBrush={brush.select}
                   onView={moveView}
                   onZoom={zoom}
                   onSelect={select}
@@ -588,11 +576,11 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             aria-label={m('chartSelectionSummaryRegion')}
             className="bg-surface-sunken px-4 py-2 text-text-secondary"
           >
-            {brush ? (
+            {brushRange ? (
               <>
-                {t('selectedRange')}: {displayOrder(brush[0])}–
-                {displayOrder(brush[1])}{' '}
-                <Button type="button" size="toolbar" variant="ghost" onClick={() => moveView(brush)}>
+                {t('selectedRange')}: {displayOrder(brushRange[0])}–
+                {displayOrder(brushRange[1])}{' '}
+                <Button type="button" size="toolbar" variant="ghost" onClick={() => moveView([brushRange[0], brushRange[1]])}>
                   {m('intervalZoomToSelection')}
                 </Button>
               </>

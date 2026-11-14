@@ -5,7 +5,7 @@ import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } 
 import { useI18n, useMessages } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { prepareLanes, segmentText } from './laneTimelineGeometry';
+import { prepareLanes, segmentText, utcTick } from './laneTimelineGeometry';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
@@ -16,6 +16,7 @@ import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
+import { useRangeBrush, type RangeBrushOptions } from './useRangeBrush';
 
 export type { TimelineOverlay } from './laneTimelineTypes';
 export type TimelineSegment = {
@@ -40,12 +41,19 @@ export type LaneTimelineProps = {
   /** Marks drawn above the segments and below the selection outline: time instants, time ranges and segment sets. Memoize the array: a new array redraws the overlay layer once. */
   overlays?: TimelineOverlay[];
   selectedId?: string | null; defaultSelectedId?: string | null; onSelectedChange?: (id: string | null) => void;
+  /**
+   * Opt-in range brush (#1860), the same as OrderedIntervalTrack's: adds the `구간 선택` toggle. While it is on, a drag picks a time
+   * range (epoch ms, like the segments) instead of panning and a click selects nothing; Shift+←/→ moves the range end within the
+   * visible window; the selection summary shows the range with `선택 구간 확대`. Escape and `초기화` clear it. Pass `{}` for an
+   * uncontrolled brush, or `value`/`onChange` to own the range. Omitted: no toggle, and drag, keys and summary are unchanged.
+   */
+  rangeBrush?: RangeBrushOptions;
 };
 const noInstants: number[] = [];
 const noOverlays: TimelineOverlay[] = [];
 /** A standalone wall-clock interval chart. Pan, zoom and scroll never enter React state. */
 export function LaneTimeline(props: LaneTimelineProps) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const section = useContext(AnalysisSectionContext);
   const root = useRef<HTMLElement>(null); const scroll = useRef<HTMLDivElement>(null);
@@ -65,6 +73,9 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const focused = (focusId ? model.byId.get(focusId) : undefined) ?? model.flat[0];
   const [hover, setHover] = useState<string | null>(null);
   const summaryId = useId(); const helpId = useId();
+  const brush = useRangeBrush(props.rangeBrush);
+  const brushOn = props.rangeBrush !== undefined;
+  const brushRange = brushOn ? brush.range : null;
   useImperativeHandle(props.ref, () => ({
     resetZoom: () => engine.current?.resetZoom(),
     reveal: index => engine.current?.reveal(index),
@@ -73,6 +84,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const state: RendererState = {
     model, props, selectedId: selectedItem?.segment.id ?? null, lang, overlays,
     onSelect: id => { setLocalSelection(id); props.onSelectedChange?.(id); }, onHover: setHover,
+    brush: brushOn ? { mode: brush.mode, range: brush.range, onSelect: brush.select } : null,
   };
   // The renderer is created once per mount; every later render only hands it the latest values, and `update()` diffs them.
   useEffect(() => {
@@ -89,6 +101,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     }
   });
   useEffect(() => () => { engine.current?.destroy(); engine.current = null; }, []);
+  const tickText = (time: number) => props.formatTick?.(time) ?? utcTick(time);
   function summary(item: typeof focused) {
     if (!item) return '';
     return segmentText(model, item, props.formatTooltip, lang);
@@ -97,6 +110,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     className="relative min-w-0 rounded-lg border border-border-subtle bg-surface-card text-xs text-text-primary"
     onKeyDown={event => {
       if (event.target !== event.currentTarget) return;
+      if (brushOn && brush.keyDown(event, engine.current?.view() ?? model.domain)) return;
       const index = focused?.index ?? 0;
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
@@ -106,6 +120,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
         event.preventDefault(); setLocalSelection(focused.segment.id); props.onSelectedChange?.(focused.segment.id);
       } else if (event.key === 'Escape') {
         event.preventDefault(); setLocalSelection(null); props.onSelectedChange?.(null); engine.current?.clearHover(); setHover(null);
+        if (brushOn) brush.clear();
       } else if (event.key === '+' || event.key === '=') { event.preventDefault(); engine.current?.zoom(0.8); }
       else if (event.key === '-') { event.preventDefault(); engine.current?.zoom(1.25); }
     }}>
@@ -119,7 +134,8 @@ export function LaneTimeline(props: LaneTimelineProps) {
           <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={m('laneHowToInteract')}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
           <TooltipContent>{m('laneInteractionHelp')}</TooltipContent>
         </Tooltip></TooltipProvider>
-        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.resetZoom()}>{m('laneZoomReset')}</Button>
+        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button>{brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
+        <Button size="toolbar" variant="ghost" onClick={() => { engine.current?.resetZoom(); if (brushOn) brush.clear(); }}>{m('laneZoomReset')}</Button>
         {props.imageCopy && <ChartImageCopyButton fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
         {props.imagePrint && <ChartImagePrintButton title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
       </div>
@@ -140,7 +156,9 @@ export function LaneTimeline(props: LaneTimelineProps) {
     </div>
     )}
     {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{m('chartNoData')}</p>}
-    <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-text-secondary">{selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
+    <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-text-secondary">{brushRange
+      ? <>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}{' '}<Button type="button" size="toolbar" variant="ghost" onClick={() => engine.current?.showRange(brushRange)}>{m('intervalZoomToSelection')}</Button></>
+      : selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
     {overlayLines.length > 0 && <ul aria-label={m('laneMarkedTimes')} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p id={summaryId} role="status" aria-live="polite" className="px-4 py-2 text-text-secondary">{summary(focused)}</p>
     <ChartTrustFooter trust={props.trust} />

@@ -66,6 +66,18 @@ const overlays = useMemo<TimelineOverlay[]>(() => [
 
 Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한다. modifier 없는 wheel은 세로 스크롤이다. 축은 고정되고 구간 canvas는 가시 행만 그린다. 352px 미만 컨테이너에서는 내부 가로 스크롤한다. reveal 순서는 **유효한** lanes→segments 입력 순서이며 중복/무효 입력을 제외한 순서다. 재정렬될 수 있으면 `revealById`를 사용한다.
 
+### 구간 끌어 고르기 (`rangeBrush`, `useRangeBrush`)
+
+`LaneTimeline`에 선택 `rangeBrush`를 주면 도구줄에 `구간 선택` 토글이 생긴다. 켜진 동안 plot drag는 이동 대신 시간 구간을 고르고(epoch ms, 구간과 같은 좌표), 클릭은 구간을 선택하지 않는다. Shift+←/→는 구간 끝을 보이는 창의 1/20씩 옮기고(구간이 없으면 보이는 창의 시작부터) 토글을 켠다. 선택 요약은 `선택 구간: 시작–끝`(`formatTick`, 없으면 `YYYY-MM-DD HH:mm:ss`)과 `선택 구간 확대`를 보인다. Escape와 `확대 초기화`가 구간을 지운다. 생김새와 키는 `OrderedIntervalTrack`의 구간 선택과 같다(플롯 높이 전체의 2px `chart-selection-outline`). 주지 않으면 토글이 없고 drag·키·요약이 지금과 같다.
+
+```tsx
+const [range, setRange] = useState<AxisRange | null>(null);
+<LaneTimeline ariaLabel="Intervals" lanes={lanes} rangeBrush={{ value: range, onChange: setRange }} />;
+// 제어하지 않을 때: rangeBrush={brushOptions} (메모이즈한 {} 또는 { onChange })
+```
+
+차트 밖 표면(메뉴가 직접 그린 띠·canvas)은 같은 상태와 키보드 대체 입력을 `useRangeBrush({ value?, defaultValue?, onChange?, minSpan? })`로 쓴다. 반환값의 `mode`·`setMode`는 토글, `select(from, to)`는 끝난 drag(순서 무관, 축 값), `keyDown(event, view)`는 Shift+←/→를 처리했으면 true, `clear()`는 Escape·초기화다. 포인터 좌표를 축 값으로 바꾸는 일과 그리기는 표면 몫이며, 3px(`RANGE_BRUSH_DRAG_THRESHOLD`)보다 짧은 누름은 클릭으로 본다. 구간은 Chart Local State라 URL·전역 Context를 바꾸지 않는다.
+
 ## 변경 기록
 
 2026-10-21 / #541: `ChartPoint`, `ChartPointAction` 추가. `AnalysisChartFrame`에 `pointActivation`, `pointActions`, `orientation`, `visibleSeriesIds`, `onVisibleSeriesChange` 추가. `AnalysisChart` 반환 타입이 `JSX.Element`에서 `JSX.Element | null`로 바뀌었다(`topNBar.hideWhenEmpty`, 호환성 변경).
@@ -77,3 +89,5 @@ Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한�
 2026-11-10 / #1665: 선택 옵션 추가(기본 동작 불변). `AnalysisChartFrame`·`AnalysisChart`·`LaneTimeline`의 `imagePrint?: boolean`은 `imageCopy`와 같은 PNG를 차트 제목과 함께 인쇄한다(`features.export`가 켜진 메뉴에서만 표시).
 
 2026-11-11 / #1746: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.overlays?: TimelineOverlay[]`와 타입 `TimelineOverlay`(`instant`·`range`·`segments`) 추가. 렌더러는 마운트마다 한 번 만들어지고, 선택·오버레이 변경은 오버레이 층만 다시 그린다. `LaneTimelineHandle`은 그대로다.
+
+2026-11-15 / #1860: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.rangeBrush?: RangeBrushOptions`(구간 끌어 고르기)와 차트 밖 표면용 `useRangeBrush`·`AxisRange`·`RangeBrush`·`RangeBrushOptions`·`RANGE_BRUSH_DRAG_THRESHOLD` 추가. `OrderedIntervalTrack`의 구간 선택이 같은 훅을 쓴다(동작 같음).

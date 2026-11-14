@@ -26,7 +26,7 @@ export function supportFor(kind: CatalogKind, features: Features | undefined): S
   const featureOff = { ko: '메뉴 기능이 꺼져 있음', en: 'Disabled by the menu features' };
   return [
     cell('zoom', { ko: 'Zoom', en: 'Zoom' }, frame || lane || breakdown ? 'supported' : 'unsupported', frame || lane || breakdown ? noReason : unavailable),
-    cell('selection', { ko: 'Brush·선택', en: 'Brush / selection' }, 'supported', sequence ? { ko: '끌기·Shift+방향키 구간 선택, 항목은 클릭·Enter로 선택', en: 'Drag or Shift+arrows to brush; click/Enter to select items' } : lane ? { ko: '클릭·방향키·Enter로 구간 선택, Escape로 해제', en: 'Click or arrows/Enter to select; Escape to clear' } : breakdown
+    cell('selection', { ko: 'Brush·선택', en: 'Brush / selection' }, 'supported', sequence ? { ko: '끌기·Shift+방향키 구간 선택, 항목은 클릭·Enter로 선택', en: 'Drag or Shift+arrows to brush; click/Enter to select items' } : lane ? { ko: '구간 선택을 켜고 끌기·Shift+방향키로 시간 구간 선택, 항목은 클릭·방향키·Enter로 선택, Escape로 해제', en: 'Turn on Brush, then drag or Shift+arrows to pick a time range; click or arrows/Enter to select items; Escape to clear' } : breakdown
       ? { ko: '구간 선택으로 범주 구간 끌기(시간 입력은 시간 축 전용)', en: 'Drag a category range with Brush (time inputs are for time axes only)' }
       : frame
       ? { ko: '구간 끌기·키보드 시간 입력', en: 'Drag a range or use time inputs' }
