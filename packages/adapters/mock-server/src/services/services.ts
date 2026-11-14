@@ -8,6 +8,7 @@ import { PEOPLE_LOOKUP_MAX, UPLOAD_FILE_MAX_BYTES, PREFERENCE_KEYS_MAX, PREFEREN
 import type { ActionResponse, ApiResponse, DeleteNoticeInput, FieldError, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UploadFileInput, UploadedFile } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
+import { isBareUuid } from '../access/uuid';
 
 export type ServiceOptions = { role?: RoleId; latency?: number };
 const DEFAULT_LATENCY_MS = 80;
@@ -177,7 +178,6 @@ export async function listNotices(signal?: AbortSignal, opts?: ServiceOptions): 
 
 const DRAFT_KEYS = ['title', 'content', 'scopeId', 'until', 'idempotencyKey'] as const;
 const text = (value: unknown, max: number): boolean => isPlain(value) && onlyKeys(value, ['ko', 'en']) && typeof value['ko'] === 'string' && typeof value['en'] === 'string' && value['ko'].length <= max && value['en'].length <= max;
-const NOTICE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const WALL_CLOCK = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 /** Match the server's Gregorian wall-clock validation, including years below 100. */
 function isRealWallClock(value: unknown): boolean {
@@ -199,13 +199,15 @@ function checkSave(input: unknown): FieldError[] {
   if (!text(input['content'], 10_000)) errors.push({ path: ['content'], code: 'invalid' });
   if (input['scopeId'] !== null && (typeof input['scopeId'] !== 'string' || input['scopeId'] === '')) errors.push({ path: ['scopeId'], code: 'invalid' });
   if (!isRealWallClock(input['until'])) errors.push({ path: ['until'], code: 'invalid' });
-  if (typeof input['idempotencyKey'] !== 'string' || !NOTICE_UUID.test(input['idempotencyKey'])) errors.push({ path: ['idempotencyKey'], code: 'invalid' });
+  if (input['idempotencyKey'] === undefined) errors.push({ path: ['idempotencyKey'], code: 'required' });
+  else if (!isBareUuid(input['idempotencyKey'])) errors.push({ path: ['idempotencyKey'], code: 'invalid' });
   return errors;
 }
 function checkDelete(input: unknown): FieldError[] {
   if (!isPlain(input)) return [{ path: [], code: 'invalid' }];
   const errors: FieldError[] = Object.keys(input).filter(key => !['id', 'expectedVersion', 'idempotencyKey'].includes(key)).map(key => ({ path: [key], code: 'unknown_key' }));
-  if (typeof input['idempotencyKey'] !== 'string' || !NOTICE_UUID.test(input['idempotencyKey'])) errors.push({ path: ['idempotencyKey'], code: 'invalid' });
+  if (input['idempotencyKey'] === undefined) errors.push({ path: ['idempotencyKey'], code: 'required' });
+  else if (!isBareUuid(input['idempotencyKey'])) errors.push({ path: ['idempotencyKey'], code: 'invalid' });
   for (const key of ['id', 'expectedVersion']) if (typeof input[key] !== 'string' || input[key] === '') errors.push({ path: [key], code: 'required' });
   return errors;
 }

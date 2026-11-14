@@ -165,6 +165,13 @@ describe('notices', () => {
     expect((await listNotices(undefined, as('admin'))).data?.items).toHaveLength(2);
   });
 
+  it('reports an omitted key as required (not invalid) on save and delete', async () => {
+    const { idempotencyKey: _omit, ...noKey } = { ...draft, idempotencyKey: 'x' };
+    void _omit;
+    expect(await saveNotice(noKey as never, undefined, as('admin'))).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
+    expect(await deleteNotice({ id: 'N-mock-1', expectedVersion: 'v1' } as never, undefined, as('admin'))).toMatchObject({ outcome: 'invalid', fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
+  });
+
   it('replays notice keys regardless of UUID letter case', async () => {
     const key = 'abcdefab-1234-4234-8234-abcdefabcdef';
     const first = await saveNotice({ ...draft, idempotencyKey: key }, undefined, as('admin'));

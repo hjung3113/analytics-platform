@@ -2,6 +2,7 @@ import type { ActionResponse, ActionSpec, FieldError } from '@ap/contracts';
 import { checkScope, getRole, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
 import { readUploadAs, type UploadContent } from '../services/services';
+import { isBareUuid } from '../access/uuid';
 
 type ActionInput<I> = {
   input: I; actor: RoleId; scopeId: string | null;
@@ -62,7 +63,6 @@ export class MockActionInvalid extends Error {
 export type AnyMockAction = MockAction<any, any>;
 
 const requestKeys = ['action', 'context', 'input', 'idempotencyKey'] as const;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Stored = { hash: string; response: ActionResponse<unknown> };
 /**
@@ -131,7 +131,7 @@ export async function serveAction(
 
   const key = req.idempotencyKey;
   if (!has('idempotencyKey')) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'required' }] });
-  if (typeof key !== 'string' || !UUID.test(key)) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'malformed' }] });
+  if (typeof key !== 'string' || !isBareUuid(key)) return answer('invalid', { fieldErrors: [{ path: ['idempotencyKey'], code: 'malformed' }] });
 
   await sleep(opts?.latency ?? defaultDelay(80), signal);
   if (!activeWorld().users[actor].permissions.includes(spec.permission)) return answer('forbidden', { message: `No permission ${spec.permission}` });

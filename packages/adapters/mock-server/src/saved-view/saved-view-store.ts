@@ -236,7 +236,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       void [_id, _o, _v, _u];
       const merged = { ...content, ...patch };
       const checked = validateSavedView(merged); if (!checked.ok) return checked;
-      // The edit is judged like a save: a context the editor may not read is refused before anything is written.
+      // The saved-view object ACL authorizes the edit; the opened data boundary judges Scope.
       const next = { ...(merged as SavedView), id: view.id, ownerId: view.ownerId, version: view.version, updatedAt: view.updatedAt, visibility };
       // A personal edit of an official copy is a separate pending change: readers keep the approved copy, visibility is unchanged.
       if (isOfficial(stored)) return commit(c, { ...stored, pending: { ...next, approval: 'pending' } as SavedView }, c.actor, c.groups);
