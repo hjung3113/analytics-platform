@@ -680,7 +680,7 @@ it('renders the Scope restriction in list and detail without target history or a
   const saved = { ...row, restricted: true, origin: { menuId: 'improvement-items', context: {}, restricted: true }, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
   mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
   await screen.findByText('test problem');
-  expect(screen.getAllByText('출처 Site가 확인되지 않거나 접근 범위 밖이라 대상과 분석 정보를 표시할 수 없습니다.')).toHaveLength(3);
+  expect(screen.getAllByText('출처 Site를 확인할 수 없거나 출처의 Site 또는 공정이 접근 범위 밖이라 대상과 분석 정보를 표시할 수 없습니다.')).toHaveLength(3);
   expect(screen.queryByRole('link', { name: '분석 화면 열기' })).toBeNull();
   expect(screen.queryByRole('button', { name: /^설비 ·/ })).toBeNull();
 });
@@ -698,6 +698,14 @@ it('explains unknown or inaccessible source Sites in English in all three detail
   const saved = { ...row, restricted: true, origin: null, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
   mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
   await screen.findByText('test problem');
-  expect(screen.getAllByText('The source Site is unknown or outside your access scope, so targets and analysis information cannot be displayed.')).toHaveLength(3);
+  expect(screen.getAllByText('The source Site cannot be confirmed, or the source Site or process is outside your access scope, so targets and analysis information cannot be displayed.')).toHaveLength(3);
   expect(screen.queryByRole('link', { name: 'Open analysis' })).toBeNull();
+});
+
+it('explains a restricted saved comparison without claiming the targets are hidden (#2076 UX2)', async () => {
+  const saved = { ...row, effectCompareRestricted: true, targets: [{ kind: 'equipment' as const, externalKey: 'EQ-01', displayName: 'EQ-01' }] };
+  mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+  await screen.findByText('test problem');
+  expect(screen.getByText('저장된 비교의 분석 조건이 접근 범위 밖이라 열 수 없습니다.')).toBeTruthy();
+  expect(screen.queryByText(/대상과 분석 정보를 표시할 수 없습니다/)).toBeNull();
 });

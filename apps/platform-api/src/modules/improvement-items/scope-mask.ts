@@ -1,4 +1,4 @@
-import { hasRequestScope, type ScopeGrant } from '../menu-dispatch/scope-resolver.js';
+import { hasRequestScope, type ScopeGrant } from '../menu-dispatch/index.js';
 import type { ItemRow } from './repositories/item-read.js';
 
 const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
