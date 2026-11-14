@@ -49,6 +49,3 @@ export function exportParams(
 export function exportFilterSummary({ q }: CatalogFilter, lang: 'ko' | 'en'): [string, string][] {
   return q ? [[formatText(METRICS_MESSAGES.dataSearch, lang), q]] : [];
 }
-
-
-
