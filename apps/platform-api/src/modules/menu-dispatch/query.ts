@@ -10,7 +10,7 @@ import { MenuUpstreamError } from './forwarder.js';
 
 import { tokenDenial } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
-import type { ScopeGrant, ScopeResolver } from './scope-resolver.js';
+import { hasRequestScope, type ScopeGrant, type ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
 import type { ContextKey, EndpointOutcome, MenuEndpointDeclaration } from './types.js';
 
@@ -186,10 +186,7 @@ export async function resolveRequestScopes(
   try {
     const scopes = await resolver?.resolve(actor, signal);
     if (signal?.aborted || !scopes?.length) return null;
-    const site = scopes.filter((grant) => grant.site === context.scopeId);
-    if (typeof context.scopeId !== 'string' || !site.some((grant) => grant.rooms.length > 0)) return null;
-    const rooms = context.roomNames;
-    if (Array.isArray(rooms) && !rooms.every((room) => site.some((grant) => grant.rooms.includes(room)))) return null;
+    if (!hasRequestScope(context, scopes)) return null;
     return scopes;
   } catch {
     if (signal?.aborted && signal.reason instanceof CoreDeadlineExpired) throw signal.reason;

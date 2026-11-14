@@ -5,6 +5,8 @@
 // The reads write nothing; the item writes are item-actions.ts (#1328 b). The Quest port is a later node.
 
 import type { EndpointResult, MenuDispatchContribution, MenuEndpointDeclaration, ParamsJudgment } from '../menu-dispatch/types.js';
+import { tokenDenial } from '../permissions/check-service.js';
+import { maskItem, maskChanges } from './scope-mask.js';
 import { holdsPlatformPermission } from '../platform-port/permissions.js';
 import type { ImprovementItemsDeps } from './deps.js';
 import { IMPROVEMENT_MENU_PERMISSION, IMPROVEMENT_PERMISSION, itemActions } from './item-actions.js';
@@ -68,6 +70,12 @@ const eventsJudge: Judge = (params) => {
 };
 
 export function itemEndpoints(deps: ImprovementItemsDeps): MenuEndpointDeclaration[] {
+  const grantsFor = async (actor: { actor_id: string; workspace_id: string }) => {
+    // Same owner-grants intersection as Site-scoped dispatch; token credentials cannot bypass scope.read.
+    if (tokenDenial('scope.read')) return [];
+    try { return await deps.scopeResolver?.resolve(actor) ?? []; }
+    catch { return []; } // Resolver failure hides values while keeping the scope-free rows readable.
+  };
   return [
     declareRead(deps, 'improvement.items', LIST_PARAM_KEYS, listJudge, async (actor, params) => {
       const parsed = parseItemListParams(params);
@@ -81,17 +89,22 @@ export function itemEndpoints(deps: ImprovementItemsDeps): MenuEndpointDeclarati
           }
         : parsed.value.conditions;
       const page = await listItems(deps.db, { ...parsed.value, conditions, workspaceId: actor.workspace_id });
-      return { outcome: 'ok', data: page };
+      const grants = await grantsFor(actor);
+      return { outcome: 'ok', data: { ...page, rows: page.rows.map(row => maskItem(row, grants)) } };
     }),
     declareRead(deps, 'improvement.itemDetail', DETAIL_PARAM_KEYS, detailJudge, async (actor, params) => {
       const parsed = parseDetailParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await getItemDetail(deps.db, actor.workspace_id, parsed.value) };
+      const row = await getItemDetail(deps.db, actor.workspace_id, parsed.value);
+      const grants = await grantsFor(actor);
+      return { outcome: 'ok', data: row ? maskItem(row, grants) : null };
     }),
     declareRead(deps, 'improvement.itemEvents', EVENT_PARAM_KEYS, eventsJudge, async (actor, params) => {
       const parsed = parseEventParams(params);
       if (!parsed.ok) return { outcome: 'error', data: null, message: parsed.message };
-      return { outcome: 'ok', data: await listItemEvents(deps.db, actor.workspace_id, parsed.value) };
+      const page = await listItemEvents(deps.db, actor.workspace_id, parsed.value);
+      const grants = await grantsFor(actor);
+      return { outcome: 'ok', data: { ...page, rows: page.rows.map(row => ({ ...row, changes: maskChanges(row.changes, grants) })) } };
     }),
   ];
 }

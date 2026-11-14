@@ -34,6 +34,8 @@
 
 ## 3. API·DB (기존 log-knowledge·Task 패턴)
 
+읽기는 로그인 전원(`platform:view`)에게 열어 두되, 조회자의 Scope 밖 Site에서 만든 아이템은 행을 유지하고 대상 설비 ID·공정 이름과 출처 Context, 효과 비교 링크를 서버 응답에서 가린다. Scope로 보호하는 값이 Scope 없는 조회를 통해 나가지 않게 하기 위해서다. 저장된 Site가 없으면 권한 밖으로 처리하며 문제·조치 등 사용자가 쓴 본문은 가리지 않는다(#2076, 소유자 2026-11-14).
+
 - 새 모듈 `apps/platform-api/src/modules/improvement-items`, 소유 스키마 `improvement`(마이그레이션 노드 a). 표: `item`, `item_target`, `item_event`, `item_counter`. 모든 PK/FK에 `workspace_id`. 낙관적 동시성은 `row_version`.
 - 읽기(`platform:view`, menu-query): `improvement.items`(필터 `status`·`assignee`·`questId`·`questLinked`·`target`·`origin`), `improvement.itemDetail`, `improvement.itemEvents`. Quest 읽기 `improvement.quest`·`improvement.questSearch`도 메뉴 조회(§2, 노드 c)지만 platform-api는 서비스하지 않는다(platform-api 읽기는 BRAVO에 닿을 수 없다). 사내 서버가 구현한다.
 - 쓰기(menu-action, capability **`improvement.manage`** 워크스페이스 범위, Admin 항상, Developer 요청, User 거절 — 안, Q3): `itemCreate`, `itemUpdate`(version CAS), `itemSetStatus`, `itemAssign`, `itemLinkQuest`, `itemReopen`. 편집형 표(#540)의 여러 칸 편집은 `itemBulkUpdate`(행마다 version, 부분 실패 보고)로 받는다. 모든 쓰기는 감사 기록 + `item_event`.

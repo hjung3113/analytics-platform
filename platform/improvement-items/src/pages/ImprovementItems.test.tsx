@@ -675,3 +675,37 @@ describe('target presentation and unified editor (#1430)', () => {
     } finally { height.mockRestore(); }
   });
 });
+
+it('renders the Scope restriction in list and detail without target history or analysis links (#2076)', async () => {
+  const saved = { ...row, restricted: true, origin: { menuId: 'improvement-items', context: {}, restricted: true }, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
+  mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+  await screen.findByText('test problem');
+  expect(screen.getAllByText('출처 Site를 확인할 수 없거나 출처의 Site 또는 공정이 접근 범위 밖이라 대상과 분석 정보를 표시할 수 없습니다.')).toHaveLength(3);
+  expect(screen.queryByRole('link', { name: '분석 화면 열기' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^설비 ·/ })).toBeNull();
+});
+
+it('renders the restriction label in the list target cell (#2076)', async () => {
+  const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.getAttribute('role') === 'row' ? 32 : 420; });
+  try {
+    mount({ overrides: { menuQuery: async () => response({ rows: [{ ...row, restricted: true, targets: [{ kind: 'process', externalKey: '', displayName: '' }] }], total: 1 }) } });
+    expect(await screen.findByRole('cell', { name: '권한 밖' })).toBeTruthy();
+  } finally { height.mockRestore(); }
+});
+
+it('explains unknown or inaccessible source Sites in English in all three detail sections (#2076 FIX2)', async () => {
+  const storage = memoryStorage(); storage.setItem('platform:lang', 'en'); vi.stubGlobal('localStorage', storage);
+  const saved = { ...row, restricted: true, origin: null, targets: [{ kind: 'equipment' as const, externalKey: '', displayName: '' }] };
+  mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+  await screen.findByText('test problem');
+  expect(screen.getAllByText('The source Site cannot be confirmed, or the source Site or process is outside your access scope, so targets and analysis information cannot be displayed.')).toHaveLength(3);
+  expect(screen.queryByRole('link', { name: 'Open analysis' })).toBeNull();
+});
+
+it('explains a restricted saved comparison without claiming the targets are hidden (#2076 UX2)', async () => {
+  const saved = { ...row, effectCompareRestricted: true, targets: [{ kind: 'equipment' as const, externalKey: 'EQ-01', displayName: 'EQ-01' }] };
+  mount({ detail: true, overrides: { menuQuery: async r => response(r.endpoint === 'improvement.itemDetail' ? saved : { rows: [], total: 0 }) } });
+  await screen.findByText('test problem');
+  expect(screen.getByText('저장된 비교의 분석 조건이 접근 범위 밖이라 열 수 없습니다.')).toBeTruthy();
+  expect(screen.queryByText(/대상과 분석 정보를 표시할 수 없습니다/)).toBeNull();
+});

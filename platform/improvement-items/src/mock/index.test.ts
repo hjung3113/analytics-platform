@@ -44,7 +44,7 @@ describe('improvement mock dispatch', () => {
     expect(await write(a, 'itemCreate', { problem: ' ' })).toMatchObject({ outcome: 'invalid' });
     expect(await write(a, 'itemCreate', { problem: 'no origin' })).toMatchObject({ outcome: 'invalid' });
     const res = await write(a, 'itemCreate', { problem: 'new problem', origin: { menuId: 'cycle-time', context: { from: '2026-11-01T00:00', to: '2026-11-05T00:00' } } });
-    expect(res).toMatchObject({ outcome: 'ok', data: { itemNo: 6, version: '1' } });
+    expect(res).toMatchObject({ outcome: 'ok', data: { itemNo: 7, version: '1' } });
     const created = res.data as { itemId: string };
     expect(await query(a, 'improvement.itemEvents', { itemId: created.itemId })).toMatchObject({ outcome: 'ok', data: { total: 1, rows: [{ eventType: 'created' }] } });
   });
@@ -117,7 +117,7 @@ describe('improvement mock dispatch', () => {
   });
   it('trims targets before the duplicate check and storage, like the server (C3)', async () => {
     const a = adapter();
-    const origin = { menuId: 'cycle-time', context: { from: '2026-11-01T00:00', to: '2026-11-05T00:00' } };
+    const origin = { menuId: 'cycle-time', context: { scopeId: 'MEM', from: '2026-11-01T00:00', to: '2026-11-05T00:00' } };
     // leading/trailing space and tab collapse before the duplicate check: the second occurrence is the duplicate
     expect(await write(a, 'itemCreate', { problem: 'p', origin, targets: [
       { kind: 'equipment', externalKey: ' EQ-9 ', displayName: 'x' },
@@ -250,4 +250,81 @@ describe('Quest reads (BRAVO is not served by the platform; the mock answers the
     listed.title = 'changed';
     expect(pageOf(await search(a, { page: 0, pageSize: 1 }))!.items[0]!.title).toBe('Chamber pressure drift review');
   });
+});
+
+describe('Scope masking (#2076)', () => {
+  it('keeps rows readable while masking targets, origin, history and links outside granted Sites', async () => {
+    const a = adapter();
+    const created: string[] = [];
+    for (const site of ['MEM', 'FDRY', 'missing', 'no-origin']) {
+      const res = await write(a, 'itemCreate', { problem: `mask-${site}`, origin: site === 'no-origin' ? null : { menuId: 'cycle-time', context: site === 'missing' ? {} : { scopeId: site, selection: ['SECRET-EQ'], roomNames: ['SECRET-ROOM'], page: { drillEquipment: 'SECRET-EQ' } } }, targets: [{ kind: 'equipment', externalKey: 'SECRET-EQ', displayName: 'SECRET-NAME' }, { kind: 'process', externalKey: 'SECRET-ROOM', displayName: 'SECRET-ROOM' }] });
+      expect(res.outcome).toBe('ok'); created.push((res.data as { itemId: string }).itemId);
+    }
+    setRole('viewer');
+    const listed = (await query(a, 'improvement.items', { ...params, q: 'mask-' })).data as { rows: { restricted?: boolean; id: string }[]; total: number };
+    expect(listed.total).toBe(4);
+    for (const [i, itemId] of created.entries()) {
+      const detail = await query(a, 'improvement.itemDetail', { itemId });
+      const events = await query(a, 'improvement.itemEvents', { itemId });
+      expect((detail.data as { restricted?: boolean }).restricted).toBe(true);
+      expect(listed.rows.find(r => r.id === itemId)?.restricted).toBe(true);
+      expect(JSON.stringify(detail.data)).not.toContain('SECRET-'); expect(JSON.stringify(events.data)).not.toContain('SECRET-');
+    }
+    setRole('admin');
+    // Masking is a response projection: recording a Site later reveals the unchanged stored targets.
+    expect(await write(a, 'itemUpdate', { itemId: created[1], origin: { menuId: 'cycle-time', context: { scopeId: 'MEM' } } }, '1')).toMatchObject({ outcome: 'ok' });
+    expect(await query(a, 'improvement.itemDetail', { itemId: created[1] })).toMatchObject({ data: { targets: [{ externalKey: 'SECRET-EQ' }, { externalKey: 'SECRET-ROOM' }] } });
+  });
+});
+
+// The adapter boundary covers the same-Site room decision and independent link Context.
+describe('room Scope masking (#2076 FIX2)', () => {
+  it.each([
+    ['MEM', ['PHOTO'], ['PHOTO'], false, false],
+    ['MEM', ['ETCH'], ['PHOTO'], true, true],
+    ['MEM', ['PHOTO', 'ETCH'], ['PHOTO'], true, true],
+    ['MEM', undefined, undefined, false, false],
+    ['MEM', [], [], false, false],
+    ['MEM', ['PHOTO'], ['ETCH'], false, true],
+    ['MEM', ['PHOTO'], ['PHOTO', 'ETCH'], false, true],
+    ['UNKNOWN', ['PHOTO'], ['PHOTO'], true, true],
+    ['constructor', ['PHOTO'], ['PHOTO'], true, true],
+  ])('projects %s origin rooms %j and link rooms %j', async (site, rooms, linkRooms, restricted, linkRestricted) => {
+    const a = adapter();
+    const link = `/mars/cycle-time?scopeId=${site}${(linkRooms ?? []).map(room => `&roomNames=${room}`).join('')}&selection=PRIVATE-EQ`;
+    const res = await write(a, 'itemCreate', { problem: 'room-mask', origin: { menuId: 'cycle-time', context: { scopeId: site, ...(rooms ? { roomNames: rooms } : {}), selection: ['PRIVATE-EQ'] } }, targets: [{ kind: 'equipment', externalKey: 'PRIVATE-EQ', displayName: 'PRIVATE-NAME' }] });
+    expect(res.outcome).toBe('ok');
+    const itemId = (res.data as { itemId: string }).itemId;
+    for (const [i, input] of [{ status: 'in_progress', action: 'repair' }, { status: 'done', actionDate: '2026-11-14' }, { status: 'verified', effect: { result: 'effective', compareLink: link } }].entries()) {
+      expect(await write(a, 'itemSetStatus', { itemId, ...input }, String(i + 1))).toMatchObject({ outcome: 'ok' });
+    }
+    setRole('viewer');
+    const detail = await query(a, 'improvement.itemDetail', { itemId });
+    const list = await query(a, 'improvement.items', { ...params, q: 'room-mask' });
+    const history = await query(a, 'improvement.itemEvents', { itemId });
+    expect(detail).toMatchObject({ data: { targets: [{ externalKey: restricted ? '' : 'PRIVATE-EQ' }], effectCompareLink: linkRestricted ? null : link } });
+    expect(list).toMatchObject({ data: { rows: [{ targets: [{ externalKey: restricted ? '' : 'PRIVATE-EQ' }], effectCompareLink: linkRestricted ? null : link }] } });
+    expect(JSON.stringify(history.data).includes('PRIVATE-EQ')).toBe(!restricted);
+    expect(JSON.stringify(history.data).includes(link)).toBe(!linkRestricted);
+  });
+});
+
+it('seeds an unassigned restricted row for viewer review without changing existing item identities (#2076 FIX2)', async () => {
+  const a = adapter(); setRole('viewer');
+  const list = (await query(a, 'improvement.items', params)).data as { rows: { id: string; restricted?: boolean }[] };
+  expect(list.rows.some(row => row.restricted)).toBe(true);
+  expect(list.rows.some(row => row.id === id)).toBe(true);
+});
+
+it.each(['UNKNOWN', 'constructor'])('hides a %s comparison link even when the origin room is granted (#2076 C2)', async site => {
+  const a = adapter();
+  const link = `/mars/cycle-time?scopeId=${site}&roomNames=PHOTO&selection=PRIVATE-EQ`;
+  // Existing done item has a visible, room-less MEM origin.
+  const itemId = '13280000-0000-4000-8000-000000000003';
+  expect(await write(a, 'itemSetStatus', { itemId, status: 'verified', effect: { result: 'effective', compareLink: link } }, '1')).toMatchObject({ outcome: 'ok' });
+  setRole('viewer');
+  expect(await query(a, 'improvement.itemDetail', { itemId })).toMatchObject({ data: { effectCompareLink: null, effectCompareRestricted: true } });
+  const list = (await query(a, 'improvement.items', params)).data as { rows: { id: string; effectCompareLink: string | null }[] };
+  expect(list.rows.find(row => row.id === itemId)?.effectCompareLink).toBeNull();
+  expect(JSON.stringify((await query(a, 'improvement.itemEvents', { itemId })).data)).not.toContain(link);
 });

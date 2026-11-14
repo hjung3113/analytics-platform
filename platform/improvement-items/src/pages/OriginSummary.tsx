@@ -9,8 +9,9 @@ export function OriginSummary({ origin }: { origin: Origin }) {
   const c = useCopy(), { registry, adapter, resolveLink } = usePlatform();
   const metricId = typeof origin.context.metricId === 'string' ? origin.context.metricId : null;
   const version = typeof origin.context.metricVersion === 'string' ? origin.context.metricVersion : null;
-  const query = usePlatformQuery<unknown>(signal => adapter.menuQuery({ endpoint: 'metrics.definition', context: {}, params: { metricId, version } }, signal), { metricId, version }, !!metricId, 'session');
+  const query = usePlatformQuery<unknown>(signal => adapter.menuQuery({ endpoint: 'metrics.definition', context: {}, params: { metricId, version } }, signal), { metricId, version }, !!metricId && !origin.restricted, 'session');
   const data = query.status === 'done' && query.response?.outcome === 'ok' ? query.response.data : null;
+  if (origin.restricted) return <p className="text-sm text-text-secondary">{c.restrictedDetail}</p>;
   let menuName = c.unknownMenu, source: string | null = null;
   try {
     menuName = registry.menuById(origin.menuId).label[c.lang];

@@ -1060,7 +1060,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
       ...(opts.logKnowledgeImport?.applyBudgetMs !== undefined ? { applyBudgetMs: opts.logKnowledgeImport.applyBudgetMs } : {}),
       ...(opts.logKnowledgeImport?.hooks ? { applyHooks: opts.logKnowledgeImport.hooks } : {}),
     }),
-    improvementItemsContribution({ db: dbHandle.db, checkService, notify }),
+    improvementItemsContribution({ db: dbHandle.db, checkService, notify, ...(scopeResolver ? { scopeResolver } : {}) }),
     logLifecycleContribution({ db: dbHandle.db, checkService, knowledgeLookup, entityLinks: entityLinksService, ruleCoverage }),
     logExplorerContribution(logExplorerDeps),
     logRulesContribution({ db: dbHandle.db, checkService, knowledgeLookup }),
