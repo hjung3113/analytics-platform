@@ -1,5 +1,6 @@
 // TimelineEntry — single conversation entry with kind chip + rich body.
 
+import { useMentionLabelResolver } from '@/lib/cross-system/useMentionLabelResolver';
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { formatRelativeTime } from '@/lib/format/datetime';
@@ -57,6 +58,8 @@ export function TimelineEntry({
         : { display_name: GLOSSARY.unknownUser };
 
   const rendererMode = entry.kind === 'internal_comment' ? 'internal' : 'reporter_visible';
+  // Only internal comments carry mentions; reporter-visible entries never fetch the actor list.
+  const resolveMentionLabel = useMentionLabelResolver({ enabled: rendererMode === 'internal' });
   const rendererSurface = RENDERER_SURFACE[entry.kind];
 
   const hasStatusTransition =
@@ -80,6 +83,7 @@ export function TimelineEntry({
           surface={rendererSurface}
           attachments={entry.attachments}
           attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
+          resolveMentionLabel={resolveMentionLabel}
         />
         {/* PLAN-22 §Bug-2 (2026-05-22): per-entry linked attachments. */}
         <AttachmentChipList attachments={entry.attachments} />

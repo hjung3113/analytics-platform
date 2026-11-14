@@ -33,6 +33,7 @@ import { insertMention } from '@/features/cross-system/mentions/insertMention';
 import { useVocInternalCommentMutation } from '@/features/voc/hooks/useVocInternalCommentMutation';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import type { MeResponse } from '@/lib/api/me';
+import { useMentionLabelResolver } from '@/lib/cross-system/useMentionLabelResolver';
 import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { type VocDetailEnvelope, isTipTapDocBlank } from '@ap/feature-shared';
@@ -74,6 +75,7 @@ export function InternalCommentComposer({
   const { notifyError, notifySuccess } = useHostSeam();
   const { editorHandle, focusEditor } = useComposerEditorFocus();
 
+  const resolveMentionLabel = useMentionLabelResolver();
   // Hold a ref to the editor instance to allow MentionPickerButton insertions.
   const editorRef = React.useRef<TipTapEditor | null>(null);
 
@@ -161,6 +163,7 @@ export function InternalCommentComposer({
         placeholder="내부 코멘트를 입력하세요..."
         minHeight={84}
         onAttach={uploadRichEditorAttachment}
+        resolveMentionLabel={resolveMentionLabel}
         toolbar={(editor, api) => {
           // Keep editor ref in sync for mention insertion.
           editorRef.current = editor;

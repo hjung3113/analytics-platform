@@ -15,6 +15,7 @@ import type { ApiError } from '@/lib/api/types';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { isTipTapDocBlank } from '@ap/feature-shared';
 import type { TipTapEditor } from '@ap/feature-ui';
+import { useMentionLabelResolver } from '@/lib/cross-system/useMentionLabelResolver';
 import { Button, RichEditor, type TipTapDoc } from '@ap/ui';
 import { Bold, Code, Italic, Link, List } from 'lucide-react';
 import * as React from 'react';
@@ -119,6 +120,8 @@ export function ProgressNotesComposer({
 
   const isEmpty = draftDoc === null || isTipTapDocBlank(draftDoc);
 
+  const resolveMentionLabel = useMentionLabelResolver();
+
   function handleSubmit() {
     if (draftDoc === null || isTipTapDocBlank(draftDoc)) return;
     mutation.mutate(draftDoc);
@@ -138,6 +141,7 @@ export function ProgressNotesComposer({
         onChange={(doc) => setDraftDoc(doc)}
         placeholder={copy.placeholder}
         minHeight={84}
+        resolveMentionLabel={resolveMentionLabel}
         toolbar={(editor) => {
           // Keep the editor ref in sync for mention insertion.
           editorRef.current = editor;
