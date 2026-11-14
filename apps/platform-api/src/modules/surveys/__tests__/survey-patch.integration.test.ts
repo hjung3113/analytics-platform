@@ -297,6 +297,24 @@ describe.skipIf(!runIntegration)('survey scalar patch and question reorder (#233
     ).toBe(draft.primary_managed_system_id);
   });
 
+  it('SER-19 revalidates the retained operator when moving a draft', async () => {
+    const draft = await createSurvey();
+    const operator = await manager(draft.primary_managed_system_id);
+    await migrateHandle.pool.query('update survey.surveys set operator_actor_id=$1 where id=$2', [operator.id, draft.id]);
+    const target = await insertMsDirectly(appHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Synthetic target');
+    const denied = await patch(adminCookie, draft.id, { primary_managed_system_id: target });
+    expect(denied.statusCode).toBe(422);
+    expect(denied.json().code).toBe('validation.failed');
+    expect(denied.json().detail.fields).toContainEqual({ path: ['operator_actor_id'], code: 'permission_denied' });
+    expect((await getSurvey(draft.id)).json().primary_managed_system_id).toBe(draft.primary_managed_system_id);
+    expect((await migrateHandle.pool.query("select 1 from core.audit_log where subject_id=$1 and event_type='survey_updated'", [draft.id])).rows).toEqual([]);
+    await grantCapability(appHandle, WORKSPACE_ID, operator.id, 'survey.manage', target, adminActorId);
+    const allowed = await patch(adminCookie, draft.id, { primary_managed_system_id: target });
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json().operator_actor_id).toBe(operator.id);
+    expect((await migrateHandle.pool.query("select 1 from core.audit_log where subject_id=$1 and event_type='survey_updated'", [draft.id])).rows).toHaveLength(1);
+  });
+
   it('AC-8 hides an unreadable survey from PATCH', async () => {
     const draft = await createSurvey();
     const actor = await dev();

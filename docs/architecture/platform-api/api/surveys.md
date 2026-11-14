@@ -256,7 +256,7 @@ It is draft-only; an open or closed Survey returns `422 validation.failed` with
 `fields: [{ path: ['status'], code: 'not_draft' }]`. Missing or cross-workspace
 Surveys return `404 not_found.record`. Changing `primary_managed_system_id`
 checks `survey.manage` on both the current and target Managed System, so a
-caller cannot move a Survey into an unauthorized scope. A successful update
+caller cannot move a Survey into an unauthorized scope. The retained operator is also checked for `survey.manage` on the target system, even when `operator_actor_id` is omitted. An ineligible operator returns `422 validation.failed` with `detail.fields: [{ path: ['operator_actor_id'], code: 'permission_denied' }]`; no mutation or audit is committed. A successful update
 returns `200` with the Survey DTO and writes `survey_updated` in the same
 transaction; audit detail is `{ survey_id }` only.
 Errors: `validation.failed`, `validation.malformed_idempotency_key`,
