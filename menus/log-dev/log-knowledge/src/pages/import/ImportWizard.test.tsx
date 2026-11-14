@@ -456,3 +456,14 @@ describe('catalog import wizard', () => {
     });
   });
 });
+
+it('uses the shared sticky conflict table with numeric alignment (#2192)', async () => {
+  mountWith({ registry, adapter, ui: <CatalogManagement /> });
+  await paste();
+  await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
+  next();
+  const header = await screen.findByRole('columnheader', { name: '행' }, slow);
+  expect(header.classList.contains('text-right')).toBe(true);
+  expect(header.classList.contains('border-b')).toBe(true);
+  expect(header.closest('thead')!.classList.contains('sticky')).toBe(true);
+});

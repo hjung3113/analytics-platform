@@ -274,3 +274,9 @@ export function applyEndText(end: Exclude<ApplyEnd, { kind: 'done' | 'aborted' }
   if (end.kind === 'conflict') return end.reason === 'plan_version' ? APPLY_END_TEXT.conflict_plan_version : APPLY_END_TEXT.conflict_state;
   return APPLY_END_TEXT[end.kind];
 }
+
+export const IMPORT_TABLE_MESSAGES = {
+  conflicts: '확인 필요 행', vendor: '설비사명', process: '공정명', model: '모델명', skipped: '건너뜀', skip: '건너뛰기',
+  skipRow: (row: number) => `${row}행 건너뛰기`,
+  conflictColumns: [{ label: '행', align: 'end' }, { label: '파일 값', align: 'start' }, { label: '카탈로그 쪽 상황', align: 'start' }, { label: '처리', align: 'start' }] as const,
+};

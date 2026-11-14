@@ -48,3 +48,8 @@ export function exportFilterSummary({ q }: CatalogFilter, lang: 'ko' | 'en'): [s
   return q ? [[lang === 'ko' ? '검색어' : 'Search', q]] : [];
 }
 
+
+export const USAGE_TABLE_MESSAGES = {
+  ko: { version: 'metricVersion', menu: '메뉴', place: '위치', evidence: '근거', open: '열기', observedUnknown: '확인 시각 미확인', openConsumer: '사용처 열기', noAccess: '열 권한이 없습니다', loading: (version: string) => `v${version} 불러오는 중 · 열기는 그 뒤에` },
+  en: { version: 'metricVersion', menu: 'Menu', place: 'Place', evidence: 'Evidence', open: 'Open', observedUnknown: 'Observed time not confirmed', openConsumer: 'Open consumer', noAccess: 'No access to open', loading: (version: string) => `Loading v${version} · open after` },
+};

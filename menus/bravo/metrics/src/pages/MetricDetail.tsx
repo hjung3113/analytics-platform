@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { type PageProps, PlatformLink, useEntityAudit, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
-import { Button, cn, FieldList, FieldRow, StatusBadge } from '@ap/ui';
+import { Button, cn, FieldList, FieldRow, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
   PERIOD_BASIS, definitionEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
   type MetricDef, type MetricVersion,
 } from '../endpoints';
-import { CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
+import { USAGE_TABLE_MESSAGES, CONSUMER_LABEL, KIND_LABEL, STATUS_LABEL, STATUS_TONE } from './data';
 
 const SECTIONS = [
   { id: 'definition', ko: '정의', en: 'Definition' },
@@ -181,36 +181,41 @@ export default function MetricDetailPage({ params }: PageProps) {
             : (lang === 'ko' ? `${metricId} @ ${versionParam} 만 조회 · 확인 범위: productivity-overview · cycle-time · 0건: 이 두 메뉴에서 사용처 없음` : `Queries only ${metricId} @ ${versionParam} · checked scope: productivity-overview and cycle-time · zero rows: no usage in these two menus`)
           : (lang === 'ko' ? '버전을 고르면 그 쌍의 사용처만 조회합니다.' : 'Choose a version to query usage for that pair only.')}>
         {versionParam ? <QueryView widgetName={lang === 'ko' ? '사용처 / 의존성' : 'Usage / dependency'} hideWidgetName query={usage} compact skeletonRows={3}>
-          {data => data.problem ? (
+          {data => {
+            if (data.problem) return (
             <StateMessage tone="danger" icon={<span className="t-mono">!</span>} title={lang === 'ko' ? '사용처 조회에 올바른 버전 필요' : 'Usage lookup requires a valid version'}
               body={lang === 'ko' ? '소속되지 않은 버전을 최신 발행 쌍으로 바꿔 사용처를 채우지 않습니다.' : 'A version that does not belong here is not rewritten to the latest released pair.'} />
-          ) : (
-            <table className="w-full text-sm">
-              <thead><tr className="t-table-header text-left text-text-muted">
-                <th className="py-1 pr-3 font-semibold">{lang === 'ko' ? '메뉴' : 'Menu'}</th>
-                <th className="py-1 pr-3 font-semibold">{lang === 'ko' ? '위치' : 'Place'}</th>
-                <th className="py-1 pr-3 text-right font-semibold">metricVersion</th>
-                <th className="py-1 pr-3 font-semibold">{lang === 'ko' ? '근거' : 'Evidence'}</th>
-                <th className="py-1 font-semibold">{lang === 'ko' ? '열기' : 'Open'}</th>
-              </tr></thead>
-              <tbody>{data.rows.map(row => <tr key={row.menuId} className="border-t border-border-subtle">
-                <td className="py-2 pr-3">{tx(CONSUMER_LABEL[row.menuId])}<span className="mt-0.5 block t-mono text-text-muted">{row.menuId}</span></td>
-                <td className="py-2 pr-3">{tx(row.place)}</td>
-                <td className="py-2 pr-3 text-right tabular">v{row.version}</td>
-                <td className="py-2 pr-3 text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{lang === 'ko' ? '확인 시각 미확인' : 'Observed time not confirmed'}</span></td>
-                <td className="py-2">{(() => {
+            );
+            const copy = USAGE_TABLE_MESSAGES[lang];
+            return (
+            <Table>
+              <TableCaption srOnly>{tx(SECTIONS[4])}</TableCaption>
+              <TableHeader><TableRow>
+                <TableHead>{copy.menu}</TableHead>
+                <TableHead>{copy.place}</TableHead>
+                <TableHead align="end">{copy.version}</TableHead>
+                <TableHead>{copy.evidence}</TableHead>
+                <TableHead>{copy.open}</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>{data.rows.map(row => <TableRow key={row.menuId}>
+                <TableCell>{tx(CONSUMER_LABEL[row.menuId])}<span className="mt-0.5 block t-mono text-text-muted">{row.menuId}</span></TableCell>
+                <TableCell>{tx(row.place)}</TableCell>
+                <TableCell align="end">v{row.version}</TableCell>
+                <TableCell><div className="text-xs text-text-secondary">{row.evidenceSource}<span className="mt-0.5 block text-text-muted">{copy.observedUnknown}</span></div></TableCell>
+                <TableCell>{(() => {
                   const link = resolveLink(row.menuId, { global: { metricId, metricVersion: row.version } });
                   // Rows of the previous version stay readable, but opening them waits for the picked version (#1365).
-                  if (usageStale) return <span className="text-xs text-text-muted">{lang === 'ko' ? `v${versionParam} 불러오는 중 · 열기는 그 뒤에` : `Loading v${versionParam} · open after`}</span>;
+                  if (usageStale) return <span className="text-xs text-text-muted">{copy.loading(versionParam)}</span>;
                   // A consumer menu this assembly does not register is not a permission matter: the row keeps its name and id as text, no link (06 §22).
                   if (link.kind === 'none') return null;
                   return link.allowed
-                    ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{lang === 'ko' ? '사용처 열기' : 'Open consumer'}</PlatformLink>
-                    : <span className="text-xs text-text-muted">{lang === 'ko' ? '열 권한이 없습니다' : 'No access to open'}</span>;
-                })()}</td>
-              </tr>)}</tbody>
-            </table>
-          )}
+                    ? <PlatformLink className="font-medium text-accent-primary hover:underline" href={link.href}>{copy.openConsumer}</PlatformLink>
+                    : <span className="text-xs text-text-muted">{copy.noAccess}</span>;
+                })()}</TableCell>
+              </TableRow>)}</TableBody>
+            </Table>
+            );
+          }}
         </QueryView> : null}
       </Panel>
 

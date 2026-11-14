@@ -586,3 +586,11 @@ const equipmentAxes = [
   { id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
+
+it('uses shared static headers and numeric alignment for usage (#2192)', async () => {
+  renderDetail('/metrics/cycle_time?v=1&version=4', 'cycle_time');
+  const header = await screen.findByRole('columnheader', { name: 'metricVersion' });
+  expect(header.classList.contains('t-table-header')).toBe(true);
+  expect(header.classList.contains('text-right')).toBe(true);
+  expect(header.closest('table')!.classList.contains('border-separate')).toBe(true);
+});

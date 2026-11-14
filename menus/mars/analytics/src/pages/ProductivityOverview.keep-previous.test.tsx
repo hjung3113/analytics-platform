@@ -121,3 +121,32 @@ describe('ProductivityOverview keeps the previous result while a page input chan
     expect(skeletons().length).toBeGreaterThan(0);
   });
 });
+
+it('uses compact density for the six-column static productivity table (#2192)', async () => {
+  await mount();
+  const table = within(screen.getByRole('region', { name: '점유 구성' })).getByRole('table');
+  expect(table.classList.contains('text-xs')).toBe(true);
+  expect(table.classList.contains('[&_th]:px-3')).toBe(true);
+  expect(table.classList.contains('[&_td]:px-3')).toBe(true);
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(6);
+  const row = within(table).getByRole('row', { name: /PHOTO/ });
+  expect(within(row).getAllByRole('cell')).toHaveLength(6);
+  expect(within(row).getByRole('button', { name: 'PHOTO 들어가기' })).toBeTruthy();
+  expect(within(table).getByRole('columnheader', { name: '완료 Job' }).classList.contains('text-right')).toBe(true);
+  for (const cell of within(row).getAllByRole('cell').slice(1)) {
+    expect(cell.classList.contains('text-right')).toBe(true);
+    expect(cell.classList.contains('tabular')).toBe(true);
+  }
+});
+
+it('sorts through the adopted static header and keeps sort in the URL (#2192)', async () => {
+  await mount();
+  const region = screen.getByRole('region', { name: '점유 구성' });
+  const table = within(region).getByRole('table');
+  expect(table.classList.contains('border-separate')).toBe(true);
+  const jobs = within(table).getByRole('columnheader', { name: '완료 Job' });
+  expect(jobs.getAttribute('aria-sort')).toBe('none');
+  fireEvent.click(within(jobs).getByRole('button', { name: '완료 Job' }));
+  await waitFor(() => expect(within(region).getByRole('columnheader', { name: '완료 Job' }).getAttribute('aria-sort')).toBe('descending'));
+  expect(new URLSearchParams(window.location.search).get('sort')).toBe('jobs:desc');
+});

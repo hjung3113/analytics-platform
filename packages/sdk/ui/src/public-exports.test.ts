@@ -23,6 +23,7 @@ const PUBLIC_EXPORTS = [
   'Select', 'SelectContent', 'SelectGroup', 'SelectItem', 'SelectLabel', 'SelectScrollDownButton', 'SelectScrollUpButton', 'SelectSeparator', 'SelectTrigger', 'SelectValue',
   'Skeleton',
   'StatusBadge',
+  'Table', 'TableCaption', 'TableHeader', 'TableBody', 'TableRow', 'TableHead', 'TableCell',
   'Tabs', 'TabsContent', 'TabsList', 'TabsTrigger',
   'Tooltip', 'TooltipContent', 'TooltipProvider', 'TooltipTrigger',
   'cn',

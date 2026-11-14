@@ -1,5 +1,6 @@
 export { Button, buttonVariants, type ButtonProps } from './components/Button';
 export { Dot, StatusBadge, type Tone } from './components/StatusBadge';
+export { Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from './components/Table';
 export * from './components/shadcn/alert';
 export * from './components/shadcn/badge';
 export * from './components/shadcn/checkbox';
