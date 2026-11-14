@@ -16,6 +16,7 @@ const label = z.enum(REVIEW_LABELS, { errorMap: (_i, ctx) => ({ message: ctx.dat
 
 const schema = z.object({
   suiteRunId: uuid,
+  ordinal: z.number({ required_error: 'required', invalid_type_error: 'malformed' }).int('malformed').min(1, 'malformed'),
   ruleId: requiredText(RULE_ID_MAX),
   datasetRevisionId: uuid,
   label,
@@ -23,7 +24,7 @@ const schema = z.object({
 });
 
 export type ReviewLabelInput = Omit<z.infer<typeof schema>, 'suiteRunId' | 'datasetRevisionId'> & { suiteRunId: string; datasetRevisionId: string };
-export const REVIEW_LABEL_INPUT_KEYS = ['suiteRunId', 'ruleId', 'datasetRevisionId', 'label', 'reason'] as const;
+export const REVIEW_LABEL_INPUT_KEYS = ['suiteRunId', 'ordinal', 'ruleId', 'datasetRevisionId', 'label', 'reason'] as const;
 
 const KNOWN = ['required', 'too_long', 'malformed'];
 

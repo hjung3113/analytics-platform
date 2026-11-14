@@ -46,7 +46,7 @@ export function reviewLabelActions(deps: LogDatasetsDeps): MenuActionDeclaration
       if (!parsed.ok) throw new Error('action reviewLabelAdd: validate passed but parse failed');
       const v = parsed.value;
       const ws = actor.workspace_id;
-      const target = await findLabelTarget(tx, ws, actor.actor_id, v.suiteRunId, v.datasetRevisionId);
+      const target = await findLabelTarget(tx, ws, actor.actor_id, v.suiteRunId, v.ordinal, v.datasetRevisionId);
       if (!target) {
         const known = await runVisibleTo(tx, ws, actor.actor_id, v.suiteRunId);
         throw invalid({ path: [known ? 'datasetRevisionId' : 'suiteRunId'], code: 'not_found' });
@@ -62,6 +62,7 @@ export function reviewLabelActions(deps: LogDatasetsDeps): MenuActionDeclaration
         workspaceId: ws,
         actorId: actor.actor_id,
         suiteRunId: v.suiteRunId,
+        ordinal: v.ordinal,
         ruleId: v.ruleId,
         datasetRevisionId: v.datasetRevisionId,
         label: v.label,
@@ -74,7 +75,7 @@ export function reviewLabelActions(deps: LogDatasetsDeps): MenuActionDeclaration
         subject_type: 'suite_run',
         subject_id: v.suiteRunId,
         summary: 'dataset review label added',
-        detail: { datasetRevisionId: v.datasetRevisionId, ruleId: v.ruleId, label: v.label, reasonLength: [...v.reason].length },
+        detail: { datasetRevisionId: v.datasetRevisionId, ordinal: v.ordinal, ruleId: v.ruleId, label: v.label, reasonLength: [...v.reason].length },
       });
       return { data: { labelId: row.id, at: row.at }, version: null };
     },

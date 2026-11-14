@@ -925,6 +925,13 @@
       "when": 1794530937470,
       "tag": "0131_declared_capabilities",
       "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1794619747359,
+      "tag": "0132_perfect_franklin_richards",
+      "breakpoints": true
     }
   ]
 }

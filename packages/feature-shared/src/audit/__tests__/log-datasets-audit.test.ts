@@ -24,7 +24,7 @@ describe('log test dataset audit detail schemas (#1477 D-a)', () => {
     ['dataset.suite_created', { itemCount: 3, hasEngineProfile: true, hasRequiredPin: false }],
     ['dataset.suite_updated', { changed: ['items', 'name'], itemCount: 2 }],
     ['dataset.suite_run_requested', { suiteId: ID, itemCount: 3, stale: { fresh: 1, stale: 1, unknown: 1 }, activeRuns: 2 }],
-    ['dataset.review_label_added', { datasetRevisionId: ID, ruleId: 'R-1', label: 'false_positive', reasonLength: 7 }],
+    ['dataset.review_label_added', { datasetRevisionId: ID, ordinal: 1, ruleId: 'R-1', label: 'false_positive', reasonLength: 7 }],
   ] as const)('%s accepts its detail', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(true);
   });
@@ -51,8 +51,9 @@ describe('log test dataset audit detail schemas (#1477 D-a)', () => {
     ['dataset.suite_updated', 'no changed field', { changed: [], itemCount: 1 }],
     ['dataset.suite_run_requested', 'the idempotency key', { suiteId: ID, itemCount: 1, stale: { fresh: 1, stale: 0, unknown: 0 }, activeRuns: 0, idempotencyKey: 'k' }],
     ['dataset.suite_run_requested', 'a stale state without counts', { suiteId: ID, itemCount: 1, stale: { fresh: 1 }, activeRuns: 0 }],
-    ['dataset.review_label_added', 'the reason text', { datasetRevisionId: ID, ruleId: 'R-1', label: 'needs_review', reasonLength: 3, reason: 'bad' }],
-    ['dataset.review_label_added', 'an unknown label', { datasetRevisionId: ID, ruleId: 'R-1', label: 'accepted', reasonLength: 3 }],
+    ['dataset.review_label_added', 'the reason text', { datasetRevisionId: ID, ordinal: 1, ruleId: 'R-1', label: 'needs_review', reasonLength: 3, reason: 'bad' }],
+    ['dataset.review_label_added', 'an unknown label', { datasetRevisionId: ID, ordinal: 1, ruleId: 'R-1', label: 'accepted', reasonLength: 3 }],
+    ['dataset.review_label_added', 'a missing run item ordinal', { datasetRevisionId: ID, ruleId: 'R-1', label: 'needs_review', reasonLength: 3 }],
     ['lifecycle.request.created', 'both subjects', { roundId: ID, suiteRunItemId: ID, priority: 0, immediate: false, maxAttempts: 3 }],
     ['lifecycle.request.created', 'no subject', { priority: 0, immediate: false, maxAttempts: 3 }],
   ] as const)('%s rejects %s', (type, _label, detail) => {

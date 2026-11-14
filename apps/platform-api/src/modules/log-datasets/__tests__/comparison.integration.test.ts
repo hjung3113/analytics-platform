@@ -342,7 +342,7 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
   const compare = (runId: string, who: Person = runner, params: Record<string, unknown> = {}, app: FastifyInstance = withPort) => read('comparison', { suiteRunId: runId, ...params }, who, app);
   const byRule = (a: Answer) => Object.fromEntries((a.data.rules.rows as { ruleId: string; classification: string }[]).map((r) => [r.ruleId, r.classification]));
   const addLabel = (input: Record<string, unknown>, who: Person = grantee) => act('reviewLabelAdd', input, who);
-  const labelInput = (s: { runId: string; revision: { id: string } }, over: Record<string, unknown> = {}) => ({ suiteRunId: s.runId, datasetRevisionId: s.revision.id, ruleId: 'R-1', label: 'false_positive', reason: 'checked by hand', ...over });
+  const labelInput = (s: { runId: string; revision: { id: string } }, over: Record<string, unknown> = {}) => ({ suiteRunId: s.runId, ordinal: 1, datasetRevisionId: s.revision.id, ruleId: 'R-1', label: 'false_positive', reason: 'checked by hand', ...over });
   const labelRows = async (runId: string) => (await sql('select * from log_datasets.suite_review_label where suite_run_id = $1 order by at, id', [runId])).rows as Row[];
 
   // ============================================================================================================
@@ -569,6 +569,75 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
 
   // ============================================================================================================
   describe('reviewLabelAdd', () => {
+    async function duplicateRevisionRun() {
+      const d = await datasetWith([['R-1', 'PASS']]);
+      const suite = await makeSuite([{ datasetId: d.ds.id }, { datasetId: d.ds.id, datasetRevisionId: d.revision.id }]);
+      const started = await run(suite.id);
+      const runId = started.data.suiteRunId as string;
+      const items = started.data.items as { requestId: string }[];
+      await seedResult(at(items, 0).requestId, [['R-1', 'PASS']]);
+      await seedResult(at(items, 1).requestId, [['R-1', 'FAIL'], ['R-only-2', 'WARN']]);
+      const input = (ordinal: number, over: Record<string, unknown> = {}) => ({ suiteRunId: runId, datasetRevisionId: d.revision.id, ordinal, ruleId: 'R-1', label: 'false_positive', reason: 'checked', ...over });
+      return { runId, input };
+    }
+
+    it('#2107 isolates labels and counts by ordinal for a duplicated revision', async () => {
+      const { runId, input } = await duplicateRevisionRun();
+      expect((await addLabel(input(2))).outcome).toBe('ok');
+      expect((await addLabel(input(1, { label: 'needs_review' }))).outcome).toBe('ok');
+      const compared = await compare(runId);
+      expect(compared.data.rules.rows.map((r: { ordinal: number; label: { label: string } }) => [r.ordinal, r.label.label])).toEqual([[1, 'needs_review'], [2, 'false_positive']]);
+      expect(compared.data.items.map((i: { labelCount: number }) => i.labelCount)).toEqual([1, 1]);
+      expect((await compare(runId, runner, { ordinal: 2 })).data.labels.total).toBe(1);
+      expect((await labelRows(runId)).map(r => r.ordinal)).toEqual([2, 1]);
+    });
+
+    it('#2107 validates a result-only rule against the selected item', async () => {
+      const { input } = await duplicateRevisionRun();
+      expect((await addLabel(input(2, { ruleId: 'R-only-2' }))).outcome).toBe('ok');
+      expect(fe(await addLabel(input(1, { ruleId: 'R-only-2' })))).toEqual(['ruleId:not_found']);
+    });
+
+    it('#2107 refuses a revision mismatch and a nonexistent ordinal', async () => {
+      const { input } = await duplicateRevisionRun();
+      expect(fe(await addLabel(input(2, { datasetRevisionId: randomUUID() })))).toEqual(['datasetRevisionId:not_found']);
+      expect(fe(await addLabel(input(3)))).toEqual(['datasetRevisionId:not_found']);
+    });
+
+    it('#2107 audits the exact item ordinal', async () => {
+      const { runId, input } = await duplicateRevisionRun();
+      expect((await addLabel(input(2))).outcome).toBe('ok');
+      expect((await audit(runId)).filter(e => e.event_type === 'dataset.review_label_added').map(e => e.detail.ordinal)).toEqual([2]);
+    });
+
+    it('#2107 requires ordinal instead of guessing an item', async () => {
+      const s = await scenario([['R-1', 'PASS']]);
+      const input = { ...labelInput(s), ordinal: undefined };
+      expect(fe(await addLabel(input))).toEqual(['ordinal:required']);
+    });
+
+    it.each([0, -1, 1.5, '2', null])('#2107 refuses malformed ordinal %s', async ordinal => {
+      const s = await scenario([['R-1', 'PASS']]);
+      expect(fe(await addLabel(labelInput(s, { ordinal })))).toEqual(['ordinal:malformed']);
+    });
+
+    it('#2107 retains legacy labels only for an unambiguous revision', async () => {
+      const d = await datasetWith([['R-1', 'PASS']]);
+      const single = await datasetWith([['R-1', 'PASS']]);
+      const suite = await makeSuite([{ datasetId: d.ds.id }, { datasetId: d.ds.id, datasetRevisionId: d.revision.id }, { datasetId: single.ds.id }]);
+      const started = await run(suite.id);
+      const runId = started.data.suiteRunId as string;
+      for (const item of started.data.items as { requestId: string }[]) await seedResult(item.requestId, [['R-1', 'PASS']]);
+      for (const revisionId of [d.revision.id, single.revision.id]) {
+        await sql(`insert into log_datasets.suite_review_label (workspace_id, suite_run_id, dataset_revision_id, rule_id, label, reason, actor_id) values ($1,$2,$3,'R-1','needs_review','legacy',$4)`, [WORKSPACE_ID, runId, revisionId, grantee.id]);
+      }
+      const a = await compare(runId);
+      expect(a.data.items.map((i: { labelCount: number }) => i.labelCount)).toEqual([0, 0, 1]);
+      expect(a.data.rules.rows.map((r: { label: { label: string } | null }) => r.label?.label ?? null)).toEqual([null, null, 'needs_review']);
+      expect(a.data.labels.total).toBe(1);
+      expect(await labelRows(runId)).toHaveLength(2);
+    });
+
     async function labelled() {
       const s = await scenario([['R-1', 'PASS'], ['R-2', 'PASS']]);
       await seedResult(s.requestId, [['R-1', 'FAIL'], ['R-9', 'WARN']]);
@@ -600,7 +669,7 @@ describe.skipIf(!runIntegration)('comparison, coverage, review labels, rerun dif
       expect(a.outcome, JSON.stringify(a)).toBe('ok');
       expect(await labelRows(s.runId)).toMatchObject([{ suite_run_id: s.runId, rule_id: 'R-1', dataset_revision_id: s.revision.id, label: 'false_positive', reason: 'SECRET reviewer note', actor_id: grantee.id }]);
       const events = (await audit(s.runId)).filter((e) => e.event_type === 'dataset.review_label_added');
-      expect(events.map((e) => [e.subject_type, e.actor_id, e.detail])).toEqual([['suite_run', grantee.id, { datasetRevisionId: s.revision.id, ruleId: 'R-1', label: 'false_positive', reasonLength: 20 }]]);
+      expect(events.map((e) => [e.subject_type, e.actor_id, e.detail])).toEqual([['suite_run', grantee.id, { datasetRevisionId: s.revision.id, ordinal: 1, ruleId: 'R-1', label: 'false_positive', reasonLength: 20 }]]);
       expect(JSON.stringify(events)).not.toContain('SECRET');
       // The real projection with the app's real action map, as the app role: the label event is written but never listed, a visible control row is.
       expect(events).toHaveLength(1);
