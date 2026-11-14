@@ -1215,10 +1215,12 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     const table = page.getByRole('main').getByRole('table', { name: '권한/역할 목록' });
     await expect(table).toBeVisible({ timeout: 10_000 });
     await expect(table.getByRole('row')).toHaveCount(4);
-    // Mock principals' names now equal their Korean titles (#1997), so a row-wide text match would also pass on the title cell alone:
-    // require the exact text in two cells of the row — the name cell and the title cell.
-    for (const name of ['플랫폼 관리자', '공정 엔지니어', '현업 문의자']) {
-      await expect(table.getByRole('row').filter({ hasText: name }).getByRole('cell', { name, exact: true })).toHaveCount(2);
+    // Mock principals' names now equal their Korean titles (#1997): pick each row by its role id cell, then require that exact text in
+    // two of its cells (name and title), so neither a title-only match nor a name on another principal's row passes.
+    for (const [role, name] of [['admin', '플랫폼 관리자'], ['engineer', '공정 엔지니어'], ['viewer', '현업 문의자']] as const) {
+      const row = table.getByRole('row').filter({ has: page.getByRole('cell', { name: role, exact: true }) });
+      await expect(row).toHaveCount(1);
+      await expect(row.getByRole('cell', { name, exact: true })).toHaveCount(2);
     }
 
     const engineerRow = table.getByRole('row').filter({ hasText: '공정 엔지니어' });
