@@ -24,3 +24,11 @@ export const VOC_POSTPONE_INVALID_STATE_LABEL = '미분류 VOC만 보류할 수 
 export const VOC_ALREADY_POSTPONED_LABEL = '이미 보류된 VOC입니다.';
 
 export const VOC_OWNER_FAILURE_PREFIX = '담당자를 배정할 수 없습니다.';
+
+export const VOC_TRIAGE_PAGING_COPY = {
+  partial: (count: number) => `${count}건 표시 중 · 더 있습니다.`,
+  more: '더 보기',
+  loading: '불러오는 중…',
+  error: 'VOC 목록을 불러오지 못했습니다.',
+  retry: '다시 시도',
+} as const;

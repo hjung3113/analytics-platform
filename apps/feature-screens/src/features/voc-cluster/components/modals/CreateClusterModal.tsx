@@ -117,7 +117,7 @@ export function CreateClusterModal({
     <Dialog
       open={open}
       onOpenChange={(isOpen) => {
-        if (!isOpen) closeAndReset();
+        if (!isOpen && !mutation.isPending) closeAndReset();
       }}
     >
       <DialogContent data-testid="create-cluster-modal">

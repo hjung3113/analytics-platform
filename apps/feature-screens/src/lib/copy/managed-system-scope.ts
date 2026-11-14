@@ -7,4 +7,7 @@ export const SCOPE_SELECTOR_COPY = {
   outOfScope: '범위 밖',
   unknownLabel: '알 수 없는 시스템',
   listScopeLabel: '시스템',
+  loading: '불러오는 중…',
+  loadError: '시스템을 불러오지 못했습니다.',
+  retry: '다시 시도',
 } as const;

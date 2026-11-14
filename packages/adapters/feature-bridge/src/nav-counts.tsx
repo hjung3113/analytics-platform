@@ -4,6 +4,7 @@ import { usePlatform, type NavCountsSlot } from '@ap/kernel';
 import { fetchNavCounts } from '@/lib/api/nav';
 import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
 import { featureQueryClient, useFeatureSession } from './feature/session';
+import { isUuid } from './feature/uuid';
 import { SCOPE_KEY, usesNavCounts } from './operator-menus';
 
 /** Feature count key → sidebar slot key (`menuId`, or `menuId/viewId` for a `navViews` item). Copied from feature `NAV_TREE.voc`; the fo-voc views test pins the hrefs. */
@@ -37,14 +38,15 @@ function toSlotCounts(counts: Readonly<Record<string, number | undefined>>): Rec
  */
 function useNavCounts(managedSystem: string | null): Record<string, number> | null {
   const session = useFeatureSession();
+  const validScope = managedSystem === null || isUuid(managedSystem);
   const scope = managedSystem ?? undefined;
   const { data, isError } = useQuery({
     queryKey: [...NAV_COUNTS_QUERY_KEY, scope] as const,
     queryFn: ({ signal }) => fetchNavCounts({ ...(scope !== undefined ? { managedSystemId: scope } : {}), signal }),
-    enabled: session.status === 'ready',
+    enabled: session.status === 'ready' && validScope,
     retry: false,
   }, featureQueryClient);
-  return session.status === 'ready' && !isError && data !== undefined ? toSlotCounts(data.counts) : null;
+  return session.status === 'ready' && validScope && !isError && data !== undefined ? toSlotCounts(data.counts) : null;
 }
 
 /**
@@ -53,7 +55,7 @@ function useNavCounts(managedSystem: string | null): Record<string, number> | nu
  */
 function NavCounts({ children }: { children: (counts: Readonly<Record<string, number>> | null) => ReactNode }) {
   const { pageParam } = usePlatform();
-  const counts = useNavCounts(pageParam(SCOPE_KEY) || null);
+  const counts = useNavCounts(pageParam(SCOPE_KEY));
   return <>{children(counts)}</>;
 }
 

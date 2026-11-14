@@ -208,8 +208,10 @@ as the other surfaces.
   the title badge is the sum of the column totals (the open-set size outside status
   grouping).
   VOC Inbox and 내 VOC append pages under the rows with the same control and never put the
-  cursor in the URL; VOC Triage keeps its single 50-row working page, and each command's
-  refetch brings the next rows.
+  cursor in the URL. VOC Triage also appends cursor pages of 50 through its queue's
+  load-more control; a partial-list notice states the loaded count. Later-page failures retain
+  the loaded rows and offer retry. Tab, Managed System or Analytics Area changes start a new
+  page chain. Pin-only reads retain the first-page behavior; overlapping pins are deduplicated.
 - A selected ID absent from loaded pages resolves through its detail endpoint;
   page membership does not prove deletion. Detail 404 or the screen's active
   scope/filter rule reconciles selection. VOC Cluster selections (`/voc-clusters?selected=` and
@@ -298,7 +300,7 @@ The platform bridge supplies `ManagedSystemScopeControl` over `ManagedSystemScop
 - Every workspace Managed System is listed. Systems outside the actor's `voc.read` scope (`GET /me/permissions/scope`), including Admin denies, are dimmed and marked `범위 밖`, with a note that names are workspace-visible and access is requested separately (#282).
 - The list is a real `listbox` of `option`s (`aria-selected` on the current value). ArrowUp/ArrowDown/Home/End move focus (no wrap), Enter/Space select, Esc closes (from the list or the trigger), Tab or a click elsewhere closes; selecting or Esc returns focus to the trigger. With a visible label (the platform `목록 범위`) the trigger's accessible name starts with it.
 - Opening focuses the current value's option. The `전체` option's name is `전체 Managed System`; its helper (`워크스페이스 전체` / `내 담당 n / m`) is its description.
-- A `managedSystem` uuid that is not in the loaded list shows `알 수 없는 Managed System` (glyph `?`, no `범위 밖` badge, no option selected). While the list is empty (loading, error, or no systems) the picker keeps `전체 Managed System`.
+- A `managedSystem` uuid that is not in the loaded list shows `알 수 없는 Managed System` (glyph `?`, no `범위 밖` badge, no option selected). After a successful empty catalog read the picker keeps `전체 Managed System`.
 ```
 
 Changing Managed System scope updates URL state and list queries. It must not

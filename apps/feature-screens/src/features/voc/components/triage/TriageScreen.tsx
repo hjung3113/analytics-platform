@@ -2,7 +2,7 @@ import { RequestAccessButton } from '@/features/admin/permissions/request-access
 // TriageScreen — the triage workbench (queue, tabs with counts, selection, advance, inline panel, undo) over the host seam.
 //
 // Reads URL state (tab, managedSystem, selected) from the route search.
-// Owns data fetching via useVocList({ view: 'triage', tab }).
+// Owns data fetching via useTriagePages over useVocList({ view: 'triage', tab }).
 //
 // Architecture (from PLAN-21 §Architecture sketch):
 //   No new route file-route. /vocs?view=triage mounts TriageRoute from vocs.tsx
@@ -32,7 +32,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import type * as React from 'react';
 import { useCallback, useState } from 'react';
-import { useVocList } from '../../hooks/useVocList';
+import { useTriagePages } from '../../hooks/useTriagePages';
+import { VOC_TRIAGE_PAGING_COPY } from '@/lib/copy/voc-views';
 import { validateVocSearch } from '../../routes/voc-search';
 import { type TriageTab, VocTriageScreen } from './VocTriageScreen';
 
@@ -63,6 +64,13 @@ export function TriageScreen(): React.ReactElement {
   const { search, write } = useHostSearchWriter('/vocs', validateVocSearch);
   const { canLink } = useHostSeam();
   const [processedCount, setProcessedCount] = useState(0);
+  const moreButtonRef = useCallback((button: HTMLButtonElement | null) => {
+    if (!button) return;
+    // Ref cleanup runs before removal, while both the button and queue are connected.
+    return () => {
+      if (document.activeElement === button) button.closest<HTMLElement>('section')?.focus();
+    };
+  }, []);
   const handleProcessed = useCallback((delta: 1 | -1): void => {
     setProcessedCount((count) => count + delta);
   }, []);
@@ -111,8 +119,8 @@ export function TriageScreen(): React.ReactElement {
   // target as `selected`. Already-triaged VOCs are excluded by the queue
   // predicate, so the target must be pinned explicitly or the queue cannot show
   // it. Out-of-scope / unknown ids are dropped server-side.
-  const { data, isLoading, isSuccess, isFetching, isPlaceholderData, isError, error, refetch } =
-    useVocList({
+  const { data, isLoading, isSuccess, isFetching, isPlaceholderData, isError, error, refetch, hasMore, morePending, moreError, loadMore } =
+    useTriagePages({
       view: 'triage',
       ...(search.managedSystem !== undefined ? { managedSystemId: search.managedSystem } : {}),
       tab: activeTab,
@@ -245,6 +253,22 @@ export function TriageScreen(): React.ReactElement {
   return (
     <VocTriageScreen
       items={items}
+      queueFooter={hasMore ? (
+        <div className="p-3 text-xs text-text-muted">
+          <p>{VOC_TRIAGE_PAGING_COPY.partial(items.length)}</p>
+          {moreError && <p role="alert">{VOC_TRIAGE_PAGING_COPY.error}</p>}
+          <Button
+            ref={moreButtonRef}
+            variant="secondary"
+            size="sm"
+            aria-disabled={morePending || isFetching}
+            className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+            onClick={loadMore}
+          >
+            {morePending ? VOC_TRIAGE_PAGING_COPY.loading : moreError ? VOC_TRIAGE_PAGING_COPY.retry : VOC_TRIAGE_PAGING_COPY.more}
+          </Button>
+        </div>
+      ) : null}
       selectedId={search.selected ?? null}
       activeTab={activeTab}
       queuePending={isLoading}

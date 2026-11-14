@@ -98,7 +98,7 @@ export function CreateFindingFromClusterModal({
     <Dialog
       open={open}
       onOpenChange={(isOpen) => {
-        if (!isOpen) closeAndReset();
+        if (!isOpen && !mutation.isPending) closeAndReset();
       }}
     >
       <DialogContent className="max-w-lg" data-testid="create-finding-from-cluster-modal">

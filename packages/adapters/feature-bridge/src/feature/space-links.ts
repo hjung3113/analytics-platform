@@ -1,5 +1,6 @@
 import type { FeatureApi } from '../feature-api';
 import { unauthorizedReporter, type SessionIdentity } from './session';
+import { isUuid } from './uuid';
 
 /**
  * The server reads behind the app's space→system links and the 운영 콘솔 「시스템」 screen (#1289 node j, ADR-0110 decision 5).
@@ -18,7 +19,6 @@ export class FeatureReadError extends Error {
   constructor(readonly status: number, message: string) { super(message); this.name = 'FeatureReadError'; }
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Strict, like the server's `spaceLinksResponseSchema`: an unknown key or a wrong type is a contract failure, not a partial list. */
@@ -28,12 +28,12 @@ export function parseSpaceLinks(data: unknown): SpaceLinks {
   const { items, platform_managed_system_id: platform, ...rest } = data;
   if (Object.keys(rest).length > 0) bad('unknown key');
   if (!Array.isArray(items)) return bad('items');
-  if (platform !== null && !(typeof platform === 'string' && UUID.test(platform))) bad('platform_managed_system_id');
+  if (platform !== null && !(typeof platform === 'string' && isUuid(platform))) bad('platform_managed_system_id');
   const links = items.map((item): SpaceLink => {
     if (!isRecord(item)) return bad('item');
     const { space_id: spaceId, managed_system_id: managedSystemId, declared, ...extra } = item;
     if (Object.keys(extra).length > 0) bad('unknown item key');
-    if (typeof spaceId !== 'string' || spaceId === '' || typeof managedSystemId !== 'string' || !UUID.test(managedSystemId) || typeof declared !== 'boolean') return bad('item shape');
+    if (typeof spaceId !== 'string' || spaceId === '' || typeof managedSystemId !== 'string' || !isUuid(managedSystemId) || typeof declared !== 'boolean') return bad('item shape');
     return { spaceId, managedSystemId, declared };
   });
   return { links, platformManagedSystemId: platform as string | null };
