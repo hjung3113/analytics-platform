@@ -2,6 +2,10 @@
 
 내부 버전이며 발행하지 않는다. SDK 범위는 package.json의 ap.sdk를 따른다.
 
+## 0.2.5 — 2026-11-14
+
+- 설비 목록·상세의 `room` 필드 화면 라벨을 `room_name`에서 `공정`(`Process`)으로 통일(#1993).
+
 ## 0.2.4 — 2026-11-13
 
 - 설비 상세의 Top View 버튼: 손 가드(`registry.menus.some`)를 걷고 `resolveLink`의 `kind`로 가른다. `equipment-detail`이 `linkTargets.optional: ['eqv:topview']`를 선언한다(06 §22, ADR-0158, #1903). 화면은 그대로다.

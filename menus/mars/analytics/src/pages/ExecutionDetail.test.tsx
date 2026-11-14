@@ -52,6 +52,7 @@ describe('ExecutionDetail identity', () => {
     const key = await screen.findByTestId('occurrence-key');
     expect(within(key).getByText('anchor').nextElementSibling?.textContent).toBe('2456001');
     await screen.findByText('공정 타임라인');
+    expect(screen.getByText('공정').nextElementSibling?.textContent).toBe('PHOTO');
     expect(within(key).getByText('시작 시각').nextElementSibling?.textContent).toBe('2026-09-26 01:02:03');
     expect(queries.find(q => q.endpoint === 'analytics.execution.occurrence')?.params).toMatchObject({ anchor: '2456001' });
     // Timeline axis origin is the start time, not the key.

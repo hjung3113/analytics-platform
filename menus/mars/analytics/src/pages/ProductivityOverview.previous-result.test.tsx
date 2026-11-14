@@ -72,24 +72,25 @@ describe('ProductivityOverview describes the kept result by the params it was lo
     await mount('&axis=stgroup');
     const breakdown = screen.getByRole('region', { name: '점유 구성' });
     expect(within(breakdown).queryByRole('button', { name: /들어가기/ })).toBeNull();
-    fireEvent.click(within(breakdown).getByRole('radio', { name: 'room_name' }));
+    fireEvent.click(within(breakdown).getByRole('radio', { name: '공정' }));
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('axis')).toBeNull());
-    expect(within(breakdown).getByRole('radio', { name: 'room_name' }).getAttribute('aria-checked')).toBe('true');
+    expect(within(breakdown).getByRole('radio', { name: '공정' }).getAttribute('aria-checked')).toBe('true');
     expect(within(breakdown).getByRole('figure').getAttribute('aria-label')).toContain('StGroup');
     expect(within(breakdown).getByText('st-01')).toBeTruthy();
     expect(within(breakdown).getByRole('button', { name: /^StGroup/ })).toBeTruthy();
     expect(within(breakdown).queryByRole('button', { name: /들어가기/ })).toBeNull();
     await act(async () => { releases.forEach(release => release()); });
-    await waitFor(() => expect(within(breakdown).getByRole('figure').getAttribute('aria-label')).toContain('room_name'));
+    await waitFor(() => expect(within(breakdown).getByRole('figure').getAttribute('aria-label')).toContain('공정별 점유 구성'));
+    expect(within(breakdown).getByRole('button', { name: /^공정/ })).toBeTruthy();
     expect(within(breakdown).getByRole('button', { name: 'PHOTO 들어가기' })).toBeTruthy();
   });
 
-  it('room → stgroup: the kept room rows keep the room_name title and their drill buttons (the keys are rooms)', async () => {
+  it('room → stgroup: the kept room rows keep the 공정 title and their drill buttons (the keys are rooms)', async () => {
     await mount();
     const breakdown = screen.getByRole('region', { name: '점유 구성' });
     fireEvent.click(within(breakdown).getByRole('radio', { name: 'StGroup' }));
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('axis')).toBe('stgroup'));
-    expect(within(breakdown).getByRole('figure').getAttribute('aria-label')).toContain('room_name');
+    expect(within(breakdown).getByRole('figure').getAttribute('aria-label')).toContain('공정별 점유 구성');
     expect(within(breakdown).getByRole('button', { name: 'PHOTO 들어가기' })).toBeTruthy();
   });
 

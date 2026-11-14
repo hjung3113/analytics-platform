@@ -15,6 +15,10 @@ describe('equipment-master sort allow-list', () => {
     expect(new Set(sortFields).size).toBe(sortFields.length);
   });
 
+  it('uses 공정 / Process as the screen label for the room field (#1993)', () => {
+    expect(fields.find(f => f.key === 'room')).toEqual({ key: 'room', ko: '공정', en: 'Process' });
+  });
+
   it('accepts every field key through parseTableSort and round-trips encodeTableSort', () => {
     for (const key of sortFields) {
       const parsed = parseTableSort(`${key}:desc`, sortFields);

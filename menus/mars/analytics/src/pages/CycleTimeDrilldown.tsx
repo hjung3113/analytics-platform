@@ -127,7 +127,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
 
   const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
     { id: 'equipmentId', header: 'Equipment', cell: row => <span className="t-mono">{row.equipmentId}</span> },
-    { id: 'room', header: 'room_name', cell: row => <span className="t-mono">{row.room}</span> },
+    { id: 'room', header: ko ? '공정' : 'Process', cell: row => <span className="t-mono">{row.room}</span> },
     { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
     { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
     {

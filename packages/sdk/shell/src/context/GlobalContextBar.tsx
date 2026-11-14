@@ -276,7 +276,7 @@ function RoomEditor({ cap }: { cap: Capability }) {
   const { t, lang } = useI18n();
   return <SetEditor label={t('roomNames')} cap={cap} value={global.roomNames} absentLabel={t('all')} onApply={v => setGlobal({ roomNames: v })}
     options={scope.grantedRooms.map(id => ({ id }))}
-    note={lang === 'ko' ? 'room_name은 요청 Scope 안의 조회 범위를 좁힐 뿐 권한을 부여하지 않습니다.' : 'room_name narrows the requested scope; it never grants access.'} />;
+    note={lang === 'ko' ? '공정은 요청 Scope 안의 조회 범위를 좁힐 뿐 권한을 부여하지 않습니다.' : 'Process narrows the requested scope; it never grants access.'} />;
 }
 
 function ConditionEditor({ cap }: { cap: Capability }) {

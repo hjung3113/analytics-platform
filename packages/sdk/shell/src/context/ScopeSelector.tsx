@@ -109,7 +109,7 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
             onRequest={() => { chosenSite.current = site.id; }} onStatus={href => navigate(href)} />)}
         </>}
         <DropdownMenuSeparator />
-        <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 room_name입니다. Scope를 바꾸면 Site 경계를 넘는 room·설비 조건/선택은 초기화됩니다.' : 'Grants are room_name within a Site. Changing scope clears site-bound room/equipment context.'}</p>
+        <p className="px-2 py-1.5 text-tiny leading-4 text-text-secondary">{lang === 'ko' ? '권한 축은 Site 안의 공정입니다. Scope를 바꾸면 Site 경계를 넘는 공정·설비 조건/선택은 초기화됩니다.' : 'Grants are Process within a Site. Changing scope clears site-bound Process/equipment context.'}</p>
       </DropdownMenuContent>
     </DropdownMenu>
     {accessRequest && requestSite !== null && <ShellBoundary fallback={null}><accessRequest.Dialog target={{ kind: 'site', site: requestSite }} returnTo={url} open onOpenChange={open => {

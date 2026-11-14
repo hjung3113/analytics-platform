@@ -500,7 +500,7 @@ function missing(seg: string): never { throw new Error(`Missing route param ${se
 
 export const CONTEXT_LABELS: Record<ContextKey, Text> = {
   time: { ko: '기간', en: 'Period' },
-  roomNames: { ko: 'room_name', en: 'room_name' },
+  roomNames: { ko: '공정', en: 'Process' },
   line: { ko: 'Line', en: 'Line' },
   prcGroup: { ko: 'PRC 그룹', en: 'PRC group' },
   condition: { ko: '설비 그룹 조건', en: 'Group condition' },

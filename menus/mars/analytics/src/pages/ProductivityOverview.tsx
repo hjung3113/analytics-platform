@@ -312,7 +312,7 @@ export default function ProductivityOverview(_: PageProps) {
                 return (typeof va === 'string' || typeof vb === 'string' ? String(va).localeCompare(String(vb)) : va - vb) * sort.dir;
               });
               const columns: { key: typeof sort.key; label: string; align: 'left' | 'right' }[] = [
-                { key: 'key', label: shownAxis === 'room' ? 'room_name' : 'StGroup', align: 'left' },
+                { key: 'key', label: shownAxis === 'room' ? (ko ? '공정' : 'Process') : 'StGroup', align: 'left' },
                 { key: 'occ', label: ko ? '점유 시간 (분자)' : 'Occupied h (numerator)', align: 'right' },
                 { key: 'obs', label: ko ? '관측 가능 시간 (분모)' : 'Observable h (denominator)', align: 'right' },
                 { key: 'pct', label: ko ? '점유율' : 'Occupancy', align: 'right' },
@@ -321,7 +321,7 @@ export default function ProductivityOverview(_: PageProps) {
               return <>
                 <AnalysisChartFrame
                   chartId="productivity-occupancy-breakdown"
-                  title={ko ? `점유 구성 — ${shownAxis === 'room' ? 'room_name' : 'StGroup'}` : `Occupancy composition — ${shownAxis === 'room' ? 'room_name' : 'StGroup'}`}
+                  title={shownAxis === 'room' ? (ko ? '공정별 점유 구성' : 'Occupancy composition by process') : (ko ? '점유 구성 — StGroup' : 'Occupancy composition — StGroup')}
                   description={ko ? '기간 내 관측 가능 시간 대비 물리 점유 시간. 회색은 명명된 잔여 범주 “미점유(관측 가능 시간)”입니다.' : 'Occupied vs observable hours over the period; gray is the named remainder category “not occupied (observable)”.'}
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
@@ -330,7 +330,7 @@ export default function ProductivityOverview(_: PageProps) {
                     label={ko ? '그룹 기준' : 'Group by'}
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
-                    options={[{ value: 'room', label: 'room_name' }, { value: 'stgroup', label: 'StGroup' }]}
+                    options={[{ value: 'room', label: ko ? '공정' : 'Process' }, { value: 'stgroup', label: 'StGroup' }]}
                   />}
                   series={[
                     { id: 'occupied', name: ko ? '점유 시간' : 'Occupied hours', color: 'chart-blue', kind: 'bar', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
