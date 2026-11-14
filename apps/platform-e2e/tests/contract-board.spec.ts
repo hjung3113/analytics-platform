@@ -1030,6 +1030,10 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   /** Collapses the query bar, the page filter and the page head (the head starts collapsed; the filter sits inside it). */
   async function collapseBars(page: Page) {
     await page.getByRole('button', { name: '조회 조건 접기' }).click();
+    // #1941: a folded workspace query bar carries the page head as its 「페이지 조건」 chip, so folding the bar folds the head too.
+    const row = page.locator('[data-workspace-query-row]');
+    await expect(row.or(page.getByRole('button', { name: '페이지 머리 펼치기' })).or(page.getByRole('button', { name: '페이지 머리 접기' })).first()).toBeVisible();
+    if (await row.count()) return;
     await expandPageHead(page);
     await page.getByRole('button', { name: '페이지 필터 접기' }).click();
     await page.getByRole('button', { name: '페이지 머리 접기' }).click();
@@ -1091,7 +1095,10 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
 
     await page.getByRole('button', { name: '조회 조건 펼치기' }).click();
     await expandPageHead(page);
-    await page.getByRole('button', { name: '페이지 필터 펼치기' }).click();
+    // collapseBars leaves the filter open when the folded bar carried the head (#1941); open it only if it is closed.
+    const filterExpand = page.getByRole('button', { name: '페이지 필터 펼치기' });
+    if (await filterExpand.isVisible()) await filterExpand.click();
+    await expect(page.getByRole('button', { name: '페이지 필터 접기' })).toBeVisible();
     // The fill body keeps 520 px (toolbar included): the page scrolls instead of crushing the workspace.
     await expect.poll(async () => (await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
     expect(await mainScrolls(page)).toBe(true);
@@ -1479,7 +1486,8 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 
   test('쌓기에서도 페이지 머리 접기와 얇은 응답 띠는 그대로다(#680)', async ({ page }) => {
     await openStack(page);
-    await expect(page.locator('[data-page-head-line]')).toHaveCount(1);
+    // Folded (#1941): the collapsed page head is the one 「페이지 조건」 chip in the query bar's second line.
+    await expect(page.locator('[data-workspace-query-row]').getByRole('button', { name: /^페이지 조건/ })).toHaveCount(1);
     await expandPageHead(page);
     await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
@@ -2005,7 +2013,8 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await open(page);
     await main(page).evaluate(element => { element.scrollTop = 0; });
     const rows = await rowPx(page);
-    const separator = rowSeparators(page).first();
+    // The second boundary: the first row starts too high under the folded query bar (#1941) to keep growing room once the pointer reaches the edge.
+    const separator = rowSeparators(page).nth(1);
     // Place the boundary low on the screen, so the pointer reaches the edge zone while the row is still under its maximum.
     await main(page).evaluate((element, delta) => { element.scrollTop += delta; }, (await separator.boundingBox())!.y - 700);
     const startScroll = await scrollTop(page);
@@ -2016,11 +2025,11 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await page.mouse.move(box.x + box.width / 2, area.bottom - 10, { steps: 10 });
     await expect.poll(() => scrollTop(page), { timeout: 5000 }).toBeGreaterThan(startScroll + 40);
     const during = await rowPx(page);
-    expect(during[1]).toBe(rows[1]);
+    expect(during[0]).toBe(rows[0]);
     expect(during[2]).toBe(rows[2]);
     await page.mouse.up();
     const after = await rowPx(page);
-    expect(after[1]).toBe(rows[1]);
+    expect(after[0]).toBe(rows[0]);
     expect(after[2]).toBe(rows[2]);
     await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(after);
   });
