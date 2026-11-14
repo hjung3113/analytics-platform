@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  useImeEnterGuard,
 } from '@ap/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -101,6 +102,7 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 ]);
 
 export function RequestAccessButton(props: RequestAccessButtonProps) {
+  const ime = useImeEnterGuard();
   const qc = useQueryClient();
   const [ownOpen, setOwnOpen] = useState(false);
   // A recoverable conflict keeps the dialog open and says why: the message, and whether it is the duplicate (links to the status page).
@@ -350,6 +352,9 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                 </DialogDescription>
               </DialogHeader>
               <form
+                onKeyDown={ime.onKeyDown}
+                onCompositionStart={ime.onCompositionStart}
+                onCompositionEnd={ime.onCompositionEnd}
                 className="space-y-3"
                 data-testid="permission-request-form"
                 onSubmit={(event) => {

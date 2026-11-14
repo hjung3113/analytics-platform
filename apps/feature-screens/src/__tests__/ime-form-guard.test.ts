@@ -5,13 +5,13 @@ import { describe, expect, it } from "vitest";
 /**
  * #2243: in Safari the Enter that confirms a Korean composition arrives after `compositionend` with `isComposing` already
  * false, so a form with a text field submits on it. Every `<form>` in a screen source that also draws a text field
- * (`Input`, `input`) carries the form-level guard of `useImeEnterGuard()` from `@ap/ui`: its `onKeyDown`,
- * `onCompositionStart` and `onCompositionEnd`. The `ap/ime-enter-guard` lint checks field handlers only, not forms.
+ * (`Input`, `input`, or `DatePicker`, whose date entry is a text input) carries the form-level guard of
+ * `useImeEnterGuard()` from `@ap/ui`: its `onKeyDown`, `onCompositionStart` and `onCompositionEnd`. The `ap/ime-enter-guard` lint checks field handlers only, not forms.
  * A form whose fields are only Selects or textareas needs no guard (a textarea Enter never submits); such a file has no
  * text field and is skipped.
  */
 const SRC = path.resolve(__dirname, "..");
-const TEXT_FIELD = /<(Input|input)\b(?![^>]*type=["'](?:date|datetime-local|time|number|checkbox|radio|file|hidden)["'])/;
+const TEXT_FIELD = /<(Input|input|DatePicker)\b(?![^>]*type=["'](?:date|datetime-local|time|number|checkbox|radio|file|hidden)["'])/;
 
 function sources(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
