@@ -6,7 +6,7 @@ import type { Text } from '@ap/contracts';
 import { usePlatformMenu } from '../frame/platformMenu';
 import { SHELL_MESSAGES } from '../messages';
 import { isNearMiss, MATCH_NAME, matchRank, queryWords, type PaletteTarget } from './paletteMatch';
-import { cn, Dialog, DialogContent, DialogTitle } from '@ap/ui';
+import { cn, Dialog, DialogContent, DialogTitle, useImeEnterGuard } from '@ap/ui';
 
 /** §10: menu navigation is the palette's base responsibility; entity search/action commands are Deferred. */
 export function CommandPalette() {
@@ -17,6 +17,7 @@ export function CommandPalette() {
   const { t, tx, text } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const [q, setQ] = useState('');
+  const ime = useImeEnterGuard();
   const [active, setActive] = useState(0);
   const [failedSelection, setFailedSelection] = useState(false);
   const platformLabel = text('palettePlatform');
@@ -125,10 +126,12 @@ export function CommandPalette() {
           <input value={q} onChange={e => { setQ(e.target.value); setActive(0); }} placeholder={t('palettePlaceholder')} aria-label={t('paletteName')}
             role="combobox" aria-expanded aria-controls="palette-list" aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
             className="h-12 flex-1 bg-transparent text-base outline-none"
+            onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={e => {
+              if (ime.isComposingEnter(e)) return;
               if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(items.length - 1, a + 1)); }
               if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)); }
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); go(active); }
+              if (e.key === 'Enter') { e.preventDefault(); go(active); }
             }} />
         </div>
         <ul id="palette-list" role="listbox" className="max-h-[50vh] overflow-auto p-1.5">

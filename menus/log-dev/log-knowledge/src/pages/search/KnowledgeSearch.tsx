@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useMenuQuery, usePlatform } from '@ap/kernel';
 import { PageKeyWarning, PlatformPage, usePageKeyRules } from '@ap/components';
-import { Button, Callout, Checkbox, EmptyState, ListToolbar, RadioGroup, RadioGroupItem, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { Button, Callout, Checkbox, EmptyState, ListToolbar, RadioGroup, RadioGroupItem, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard } from '@ap/ui';
 import { searchEndpoint, searchSuggestEndpoint, type SearchDirection, type SearchKind, type SearchRelation } from '../../endpoints';
 import { EventKeyPicker } from '../items/EventKeyPicker';
 import { useSpecWords } from '../spec/SpecControls';
@@ -48,6 +48,7 @@ export default function KnowledgeSearch() {
   const keys = usePageKeyRules(SEARCH_KEY_RULES);
   const address = parseSearchAddress({ q, relation, kind, opposite });
   const [draft, setDraft] = useState({ applied: q, text: q }), [filtersOpen, setFiltersOpen] = useState(false);
+  const ime = useImeEnterGuard();
   if (draft.applied !== q) setDraft({ applied: q, text: q });
   const query = useMenuQuery(searchEndpoint, address.params, address.active && !keys.invalid);
   const response = query.response, data = response && ['ok', 'empty'].includes(response.outcome) ? response.data : null;
@@ -71,8 +72,9 @@ export default function KnowledgeSearch() {
   return <PlatformPage description={w('발행된 기술 Item을 모델·SW에 걸쳐 찾고, 일치한 이유와 Event 순서를 확인합니다.', 'Search published technical Items across models and software, with match reasons and Event order.')}>
     <div className="flex flex-col gap-3 break-keep">
       {data?.indexLag.backfill.state === 'running' && <Callout tone="blue" title={w(`색인 중 ${data.indexLag.backfill.percent}%`, `Indexing ${data.indexLag.backfill.percent}%`)}>{w('검색 결과를 계속 보여 드립니다. 아직 반영되지 않은 Item이 있을 수 있습니다.', 'Results remain available. Some Items may not be indexed yet.')}</Callout>}
-      <form className="flex items-center gap-2" onSubmit={event => { event.preventDefault(); commit(); }} onKeyDown={event => {
-        if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.type === 'search' && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.preventDefault(); commit(); }
+      <form className="flex items-center gap-2" onSubmit={event => { event.preventDefault(); commit(); }} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={event => {
+        if (ime.isComposingEnter(event)) { event.preventDefault(); return; }
+        if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.type === 'search') { event.preventDefault(); commit(); }
       }}><SearchInput size="toolbar" className="min-w-0 flex-1" aria-label={w('통합 검색어', 'Knowledge search query')}
         placeholder={w('Event 키·기술 용어 검색', 'Search Event keys or technical terms')} clearLabel={w('검색어 지우기', 'Clear query')}
         value={draft.text} onValueChange={text => setDraft({ applied: q, text })} />

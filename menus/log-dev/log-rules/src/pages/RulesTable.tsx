@@ -2,7 +2,7 @@ import { parseFilterParams, type ColumnFilter, type ColumnFilterSpec } from '@ap
 import { useMemo, useState } from 'react';
 import { useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type FilterValueCheck } from '@ap/components';
-import { Button, Input } from '@ap/ui';
+import { Button, Input, useImeEnterGuard } from '@ap/ui';
 import { RULE_SORT_IDS, SUPPORTS, ruleFilterSpecs, rulesEndpoint, ruleSetsEndpoint, type RuleRow } from '../endpoints';
 import { Original, ScopeText, scopeSummary, SupportBadge } from './presentation';
 import { SnapshotTable } from './SnapshotTable';
@@ -27,12 +27,13 @@ export function CommittedSearch({ pageKey, placeholder }: { pageKey: string; pla
   const { pageParam, setPage } = usePlatform();
   const q = pageParam(pageKey) ?? '';
   const [draft, setDraft] = useState({ applied: q, text: q });
+  const ime = useImeEnterGuard();
   if (draft.applied !== q) setDraft({ applied: q, text: q });
   const commit = () => setPage({ [pageKey]: draft.text.trim() || null, page: null });
   return <Input type="search" inputSize="toolbar" placeholder={placeholder} aria-label={placeholder} value={draft.text}
-    onChange={event => setDraft({ applied: q, text: event.target.value })} onBlur={commit} onKeyDown={event => {
-      if (event.defaultPrevented) return;
-      if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) commit();
+    onChange={event => setDraft({ applied: q, text: event.target.value })} onBlur={commit} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={event => {
+      if (event.defaultPrevented || ime.isComposingEnter(event)) return;
+      if (event.key === 'Enter') commit();
       if (event.key === 'Escape' && draft.text !== '') { event.preventDefault(); setDraft({ applied: q, text: '' }); }
     }} />;
 }

@@ -286,6 +286,19 @@ it('leaves composition Enter in the palette', () => {
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(window.location.pathname).toBe('/no-such-page');
 });
+// #2215: keyCode 229 and the Enter Safari sends right after compositionend do not navigate either.
+it('leaves a keyCode 229 Enter and the Safari post-composition Enter in the palette', () => {
+  mount();
+  const input = screen.getByRole('combobox');
+  const enter229 = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  Object.defineProperty(enter229, 'keyCode', { value: 229 });
+  fireEvent(input, enter229);
+  fireEvent.compositionStart(input);
+  fireEvent.compositionEnd(input);
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(window.location.pathname).toBe('/no-such-page');
+});
 it('falls back to platform main when the saved opener is removed', async () => {
   mount(<main id="platform-main" tabIndex={-1} />);
   fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Escape' });

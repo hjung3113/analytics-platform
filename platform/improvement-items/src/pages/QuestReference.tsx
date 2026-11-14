@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { Button, Input, SearchInput } from '@ap/ui';
+import { Button, Input, SearchInput, useImeEnterGuard } from '@ap/ui';
 import { useCopy } from '../copy';
 import { questEndpoint, questSearchEndpoint, type Quest } from '../endpoints';
 import { questPresentation } from '../model';
@@ -21,6 +21,7 @@ export type PickedQuest = { id: string; title: string };
 export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | null; onSelect: (quest: PickedQuest | null) => void }) {
   const c = useCopy(), uid = useId();
   const [text, setText] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(0), [direct, setDirect] = useState(false), [id, setId] = useState('');
+  const ime = useImeEnterGuard();
   const response = useMenuQuery(questSearchEndpoint, { query, page, pageSize: 10 }).response;
   const unsupported = response?.outcome === 'ok' && response.data?.supported === false;
   const failed = response && response.outcome !== 'ok' && response.outcome !== 'empty';
@@ -49,11 +50,12 @@ export function QuestPicker({ selected, onSelect }: { selected: PickedQuest | nu
     {unsupported && <p className="text-sm text-text-secondary">{c.questUnsupported}</p>}
     {failed && <p role="status" className="text-sm text-text-secondary">{response.outcome === 'forbidden' ? c.questDenied : c.questDown}</p>}
     {useIdEntry ? <div className="space-y-2"><Field id={`${uid}-id`} label={c.directId}><Input id={`${uid}-id`} maxLength={200} value={id} onChange={e => { setId(e.target.value); cancelLookup(); }}
-      onKeyDown={event => { if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return; event.preventDefault(); if (id.trim() && lookup !== 'loading') void startLookup(); }} /></Field>
+      onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
+      onKeyDown={event => { if (ime.isComposingEnter(event) || event.key !== 'Enter') return; event.preventDefault(); if (id.trim() && lookup !== 'loading') void startLookup(); }} /></Field>
       <Button type="button" variant="secondary" disabled={!id.trim() || lookup === 'loading'} onClick={() => void startLookup()}>{lookup === 'loading' ? c.loading : c.lookup}</Button>
       {lookup !== 'idle' && lookup !== 'loading' && <p role="status">{lookup === 'not_found' ? c.questGone : lookup === 'forbidden' ? c.questDenied : c.questDown}</p>}
     </div> : <>
-      <div onKeyDown={event => { if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return; event.preventDefault(); }}>
+      <div onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }}>
         <SearchInput aria-label={c.questSearch} placeholder={c.questSearch} value={text} onValueChange={setText} onCommit={() => { setQuery(text.trim()); setPage(0); }} />
       </div>
       {!response ? <p role="status">{c.loading}</p> : response.data?.items.length ? <ul aria-label={c.questResults} tabIndex={0} className="max-h-40 space-y-2 overflow-y-auto">{response.data.items.map(q => <li key={q.id}><Button type="button" variant="ghost" size="sm" wrapText onClick={() => onSelect({ id: q.id, title: q.title })}>{q.id} · {q.title} · {q.status}</Button></li>)}</ul> : <p className="text-sm text-text-secondary">{c.questNoMatch}</p>}

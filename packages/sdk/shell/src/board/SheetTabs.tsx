@@ -1,7 +1,7 @@
 import { MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '@ap/kernel';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, useSurfacePaused } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, useImeEnterGuard, useSurfacePaused } from '@ap/ui';
 import { MAX_SHEETS, type Sheet } from './boardModel';
 import { boardText } from './text';
 
@@ -35,7 +35,7 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
   const list = useRef<HTMLDivElement>(null);
   const refocus = useRef<string | null>(null);
   const renameNext = useRef(false);
-  const afterComposition = useRef(false);
+  const ime = useImeEnterGuard();
   const active = sheets.find(s => s.id === activeId) ?? sheets[0];
   const activeIndex = sheets.findIndex(s => s.id === active.id);
   const full = sheets.length >= MAX_SHEETS;
@@ -66,15 +66,12 @@ export function SheetTabs({ sheets, activeId, panelId, onSwitch, onAdd, onRename
       {sheets.map(sheet => sheet.id === editing
         ? <input key={sheet.id} autoFocus aria-label={text.renameField} defaultValue={sheet.name} maxLength={40}
           onFocus={event => event.currentTarget.select()}
-          onCompositionStart={() => { afterComposition.current = false; }}
-          // Safari fires the confirming Enter after compositionend with isComposing already false; swallow that one, then release.
-          onCompositionEnd={() => { afterComposition.current = true; requestAnimationFrame(() => { afterComposition.current = false; }); }}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           onKeyDown={event => {
-            const composing = event.nativeEvent.isComposing || event.keyCode === 229 || afterComposition.current;
-            afterComposition.current = false;
-            if (composing) return;
+            if (ime.isComposingEnter(event)) return;
             if (event.key === 'Enter') { event.preventDefault(); commit(sheet.id, event.currentTarget.value); }
-            else if (event.key === 'Escape') { event.preventDefault(); refocus.current = sheet.id; setEditing(null); }
+            else if (event.key === 'Escape' && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); refocus.current = sheet.id; setEditing(null); }
           }}
           onBlur={event => { if (editing === sheet.id) commit(sheet.id, event.currentTarget.value); }}
           className="my-1 w-36 shrink-0 rounded-sm border border-border-control bg-surface-card px-2 text-sm" />
