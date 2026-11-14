@@ -223,7 +223,7 @@ const NO_FILTERS: ColumnFilter[] = [];
 /** §15: platform owns interaction, loading/error, column preference, selection model, toolbar layout; domain owns columns/cells/actions/filters. */
 export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
-  const source = useRowsSource<T>({ rows: props.rows, rowsLoading: !!props.rowsLoading, external: !!props.externalPagination, columns: props.columns, filterFields: props.filterFields });
+  const source = useRowsSource<T>({ rows: props.rows, rowsLoading: !!props.rowsLoading, external: !!props.externalPagination, urlSorting: !!props.urlState, columns: props.columns, filterFields: props.filterFields });
   // The rest of the table reads one shape: always a `loadPage`, the (possibly stripped) columns and fields.
   const p = { ...props, columns: source.columns, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
   const dataVersion = props.rows ? source.version : epoch;

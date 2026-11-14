@@ -1,14 +1,14 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { DetailPanelFullscreenContext } from '@ap/ui';
 import { groupId, spaceId } from '@ap/contracts';
 import { BoardSurface } from '../BoardSurface';
-import { addSheet, freshBoard } from '../boardModel';
+import { addSheet, freshBoard, setLayout, setPane, closePane, type Board } from '../boardModel';
 
 import { OpenInBoardAction } from '../OpenInBoardAction';
 import { BOARD_LAYOUT_ENGINE_KEY } from '../layoutEngine';
@@ -133,4 +133,37 @@ describe('BoardSurface against a stale copy (#2019)', () => {
     expect(stored.sheets).toHaveLength(3);
     expect(stored.sheets.map(s => s.id)).toContain(theirs.sheets[1].id);
   });
+});
+
+it.each([false, true])('ignores an unmounted pane writer after clear (and close: %s) (#2065)', async close => {
+  const start = freshBoard('시트');
+  const id = start.sheets[0].id;
+  const shot = { menuId: 'alpha', params: {}, query: '?from=2026-09-01T00:00:00&to=2026-09-02T00:00:00' };
+  const seeded = setPane(setPane(setLayout(start, id, '1x2'), id, 0, shot), id, 1, shot);
+  const userId = testSession(['platform:view']).user.id;
+  const key = `platform:board:v2:${userId}`;
+  localStorage.setItem(key, JSON.stringify(seeded));
+  const writers: (() => void)[] = [];
+  function WritingOutlet() {
+    const { setGlobal } = usePlatform();
+    writers.push(() => setGlobal({ from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00' }));
+    return <p>writer</p>;
+  }
+  let change: (fn: (board: Board) => Board) => void = () => { throw new Error('Probe not mounted'); };
+  function Probe() {
+    const { update } = useBoardSession(userId, '시트');
+    change = update;
+    return null;
+  }
+  render(provide(<><BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={WritingOutlet} /><Probe /></>));
+  await settle();
+  expect(writers.length).toBeGreaterThan(0);
+  const late = writers[0];
+  act(() => change(board => {
+    const cleared = setPane(board, id, 0, null);
+    return close ? closePane(cleared, id, 0)!.board : cleared;
+  }));
+  const before = JSON.parse(localStorage.getItem(key)!);
+  act(() => late());
+  expect(JSON.parse(localStorage.getItem(key)!)).toEqual(before);
 });

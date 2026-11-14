@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneScreen } from '@ap/kernel/host';
 import {
-  addPaneInGroup, addPane, setArrangement, MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, layoutOf, normalizeBoard, openScreenInNewSheet, parseBoardV2, previousAt, restoreLayout,
+  closePane, addPaneInGroup, addPane, setArrangement, MAX_SHEETS, addSheet, applyPaneEdits, editPane, freshBoard, goBackPane, layoutOf, normalizeBoard, openScreenInNewSheet, parseBoardV2, previousAt, restoreLayout,
   revertPaneEdits, screens, setLayout, setPane, type Board, type PaneEdit,
 } from '../boardModel';
 import { groupHolding, groupsOf } from '../boardDockTree';
@@ -209,4 +209,23 @@ describe('addPaneInGroup (893a)', () => {
     expect(viaGroup).toEqual({ ...viaAdd, id: viaGroup.id });
     expect(viaGroup.id).toMatch(/^p[0-9a-z]{8}$/);
   });
+});
+
+it.each(['push', 'replace'] as const)('ignores late %s writes after clearing or closing the owning slot (#2065)', how => {
+  const { board: initial, id } = base();
+  const board = setPane(initial, id, 1, screen('neighbor'));
+  const slotId = sheetOf(board, id).panes[0].id;
+  const lateWrite = (current: Board) => editPane(current, id, slotId, screen('late'), how);
+  const cleared = setPane(board, id, 0, null);
+  expect(lateWrite(cleared)).toEqual(cleared);
+  const closed = closePane(cleared, id, 0)!.board;
+  expect(lateWrite(closed)).toEqual(closed);
+  expect(screens(sheetOf(closed, id))).toEqual([screen('neighbor')]);
+});
+it('a slot-owned edit follows its slot when an earlier empty pane closes (#2065)', () => {
+  const { board: initial, id } = base();
+  const board = setPane(initial, id, 1, screen('neighbor'));
+  const slotId = sheetOf(board, id).panes[1].id;
+  const closed = closePane(setPane(board, id, 0, null), id, 0)!.board;
+  expect(screens(sheetOf(editPane(closed, id, slotId, screen('next'), 'push'), id))).toEqual([screen('next')]);
 });
