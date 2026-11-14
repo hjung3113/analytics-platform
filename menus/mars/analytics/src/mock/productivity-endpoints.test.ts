@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createMockAdapter, getRole, setRole, setScenario, type AnyMockEndpoint } from '@ap/mock-server';
+import { createMockAdapter, EQUIPMENT, getRole, jobsInPeriod, setRole, setScenario, type AnyMockEndpoint } from '@ap/mock-server';
 import { analyticsMock } from './index';
 import { LOGIC_CUTOVER, sourceLogicVersionsFor } from './productivity';
 import { cycleKpiEndpoint, cycleSlowPageEndpoint } from '../endpoints';
@@ -221,6 +221,73 @@ describe('productivity-overview endpoint smoke', () => {
       const result = await adapter.menuQuery({ endpoint: trendEndpoint.id, context, params: { kpi, granularity: 'hour' } });
       expect(result.outcome).toBe('ok');
       expect(result.trust?.metricVersion).toBe(version);
+    }
+  });
+});
+
+describe('productivity-overview maintenance-hour equipment denominators', () => {
+  const from = '2026-09-25T02:00:00';
+  const to = '2026-09-25T03:00:00';
+  const equipment = EQUIPMENT.filter(row => row.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(row.room));
+  const activeIds = new Set(jobsInPeriod(equipment, from, to).map(job => job.equipmentId));
+  const idle = equipment.filter(row => !activeIds.has(row.equipmentId));
+  // Keep idle members beside an active member to exercise the StGroup drill denominator.
+  const active = equipment.find(row => activeIds.has(row.equipmentId) && idle.some(other => other.stgroup === row.stgroup));
+  const selections = ['mixed', 'all-idle'] as const;
+  const selectedEquipment = (selection: typeof selections[number]) => {
+    expect(active).toBeDefined();
+    expect(idle.length).toBeGreaterThan(0);
+    return selection === 'mixed' ? [active!, ...idle] : idle;
+  };
+
+  it.each(selections.flatMap(selection => (['room', 'stgroup'] as const).map(axis => ({ selection, axis }))))(
+    '$selection selection keeps $axis groups and KPI equipment-axis denominators', async ({ selection, axis }) => {
+      const selected = selectedEquipment(selection);
+      const query = { ...context, from, to, roomNames: ['PHOTO', 'ETCH', 'CVD'], selection: selected.map(row => row.equipmentId) };
+      const kpis = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context: query, params: {} });
+      const breakdown = await adapter.menuQuery({ endpoint: breakdownEndpoint.id, context: query, params: { axis } });
+      expect(kpis.outcome).toBe('ok');
+      expect(breakdown.outcome).toBe('ok');
+      const kpi = (kpis.data as KpisData).current;
+      const rows = breakdown.data as BreakdownRow[];
+      expect(kpi.equipmentCount).toBe(selected.length);
+      expect(kpi.occupancy?.den).toBe(selected.length);
+      expect(kpi.throughput.jobs > 0).toBe(selection === 'mixed');
+      expect(rows.map(row => row.key)).toEqual([...new Set(selected.map(row => row[axis]))].sort());
+      expect(rows.reduce((sum, row) => sum + row.equipmentCount, 0)).toBe(kpi.equipmentCount);
+      expect(rows.reduce((sum, row) => sum + row.observableHours, 0)).toBe(kpi.occupancy?.den);
+      expect(rows.reduce((sum, row) => sum + row.jobs, 0)).toBe(kpi.throughput.jobs);
+      expect(rows.reduce((sum, row) => sum + row.occupiedHours, 0)).toBeCloseTo(kpi.occupancy!.num);
+      for (const row of rows) {
+        const members = selected.filter(item => item[axis] === row.key);
+        expect(row.equipmentCount).toBe(members.length);
+        expect(row.observableHours).toBe(members.length);
+        if (members.every(item => !activeIds.has(item.equipmentId))) {
+          expect(row.jobs).toBe(0);
+          expect(row.occupiedHours).toBe(0);
+        }
+      }
+    },
+  );
+
+  it.each(selections)('%s selection drill occupancy agrees with the corresponding KPI', async selection => {
+    const selected = selectedEquipment(selection);
+    const query = { ...context, from, to, roomNames: ['PHOTO', 'ETCH', 'CVD'], selection: selected.map(row => row.equipmentId) };
+    for (const room of new Set(selected.map(row => row.room))) {
+      const drill = await adapter.menuQuery({ endpoint: drillEndpoint.id, context: query, params: { level: 'stgroup', room, stgroup: '' } });
+      expect(drill.outcome).toBe('ok');
+      const data = drill.data as DrillData;
+      expect(data.roomFound).toBe(true);
+      expect(data.stgroups.map(row => row.stgroup)).toEqual([...new Set(selected.filter(row => row.room === room).map(row => row.stgroup))].sort());
+      for (const row of data.stgroups) {
+        const members = selected.filter(item => item.room === room && item.stgroup === row.stgroup);
+        const kpis = await adapter.menuQuery({ endpoint: kpisEndpoint.id, context: { ...query, selection: members.map(item => item.equipmentId) }, params: {} });
+        expect(kpis.outcome).toBe('ok');
+        const kpi = (kpis.data as KpisData).current;
+        expect(row.equipmentCount).toBe(kpi.equipmentCount);
+        expect(row.jobs).toBe(kpi.throughput.jobs);
+        expect(row.occupancyPct).toBeCloseTo(kpi.occupancy!.pct);
+      }
     }
   });
 });

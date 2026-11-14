@@ -101,18 +101,22 @@ export function trendBuckets(equipment: Equipment[], from: string, to: string, g
   });
 }
 
-/** Occupancy composition per room_name or StGroup, grouped from the shared job population. */
+/** Equipment-axis denominators per room_name or StGroup, with numerators from the filtered job population. */
 export function occupancyBreakdown(equipment: Equipment[], from: string, to: string, axis: 'room' | 'stgroup', global: JobContext): BreakdownRow[] {
   const equipmentById = new Map(equipment.map(row => [row.equipmentId, row]));
   const groups = new Map<string, { equipmentIds: Set<string>; occupiedHours: number; jobs: number }>();
-  for (const job of jobsFor(equipment, from, to, global, false)) {
-    const key = axis === 'room' ? job.room : equipmentById.get(job.equipmentId)?.stgroup ?? 'unknown';
+  for (const item of equipment) {
+    const key = axis === 'room' ? item.room : item.stgroup;
     let group = groups.get(key);
     if (!group) {
       group = { equipmentIds: new Set(), occupiedHours: 0, jobs: 0 };
       groups.set(key, group);
     }
-    group.equipmentIds.add(job.equipmentId);
+    group.equipmentIds.add(item.equipmentId);
+  }
+  for (const job of jobsFor(equipment, from, to, global, false)) {
+    const item = equipmentById.get(job.equipmentId)!;
+    const group = groups.get(axis === 'room' ? item.room : item.stgroup)!;
     group.occupiedHours += job.occupiedMin / 60;
     group.jobs++;
   }
