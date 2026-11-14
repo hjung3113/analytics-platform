@@ -11,7 +11,7 @@ import { TASK_REQUEST_COPY } from '@/lib/copy/task-requests';
 import { useHostNavigate, useHostNotice, useHostSeam } from '@/lib/host/host-seam';
 import { searchHref } from '@/lib/host/search';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
-import { draftRecord, draftString, useSessionDraft } from '@/lib/session-draft/useSessionDraft';
+import { draftRecord, draftString, useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
@@ -84,7 +84,7 @@ export function useTaskRequestDecision({
   }, [item]);
 
   // The open decision and its typed reason are kept across a session expiry (#1887) and reopen for the same request.
-  const { discard: discardDraft } = useSessionDraft({
+  const { discard: discardDraft } = useFormDraftAcrossExpiry({
     key: `task-request-decision:${item.id}`,
     read: () =>
       decisionDialog !== null && decisionDialog.requestId === item.id && decisionDialog.value !== ''

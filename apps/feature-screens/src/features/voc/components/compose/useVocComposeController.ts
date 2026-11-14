@@ -11,7 +11,7 @@ import { VOC_CREATE_COPY } from '@/lib/copy/voc';
 import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
 import { useHostSeam } from '@/lib/host/host-seam';
 import type { DraftJson } from '@/lib/session-draft/registry';
-import { useSessionDraft } from '@/lib/session-draft/useSessionDraft';
+import { useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
 import {
   MAX_ATTACHMENT_IDS_PER_PARENT,
   createVocRequestSchema,
@@ -229,7 +229,7 @@ export function useVocComposeController({
   // Dirty = a field differs from its initial value or an attachment exists; the Context block never counts.
   // A submitted form keeps nothing; the drafts are written only by the bridge on a session expiry.
   const submittedRef = React.useRef(false);
-  const { discard: discardDraft } = useSessionDraft({
+  const { discard: discardDraft } = useFormDraftAcrossExpiry({
     key: VOC_COMPOSE_DRAFT_KEY,
     read: () => {
       if (submittedRef.current || !dirty) return null;

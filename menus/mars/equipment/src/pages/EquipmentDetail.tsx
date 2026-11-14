@@ -4,7 +4,7 @@ import { type PageProps, PlatformLink, useEntityAudit, useEntityQuery, useI18n, 
 import { AuditTimeline, DataTrustIndicator, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
 import { Button, FieldList, FieldRow, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
-import { fields, statusText, statusTone, validity } from './data';
+import { equipmentDateText, fields, statusText, statusTone, validity } from './data';
 
 // EV host module menu (apps/platform-web mounts it); its page key `equipment` selects the equipment.
 const EV_TOP_VIEW_MENU_ID = 'eqv:topview';
@@ -35,7 +35,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
       each other and keeps the text left-aligned; break-keep holds Korean word breaks. */}
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} className="break-keep" wrap />
     {kind === 'attributes' && <>
-      <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] == null ? '—' : f.key === 'validFrom' || f.key === 'validTo' ? formatDateTime(parseDateTime(`${e[f.key]}${e[f.key]!.length === 10 ? 'T00:00:00' : ''}`, f.key)).slice(0, 10) : f.key === 'updatedAt' && e.updatedAt.length > 10 ? formatDateTime(parseDateTime(e.updatedAt, f.key)).slice(0, 16).replace('T', ' ') : e[f.key]}</FieldRow>)}</FieldList>
+      <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] == null ? '—' : equipmentDateText(f.key, String(e[f.key]))}</FieldRow>)}</FieldList>
       <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 외부 시스템 값 · 모든 필드 조회 전용' : 'StGroup and team: external system values · all fields read-only'}</p>
     </>}
     {kind === 'validity' && <>

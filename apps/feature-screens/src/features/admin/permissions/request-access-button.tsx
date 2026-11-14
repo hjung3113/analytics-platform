@@ -56,7 +56,7 @@ import {
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
 import { permissionCheckQueryKey } from '@/lib/cross-system/usePermissionCheckBridge';
-import { draftRecord, draftString, useSessionDraft } from '@/lib/session-draft/useSessionDraft';
+import { draftRecord, draftString, useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
 /** A blocked Site or 공정 (ADR-0154 decision 6). A Site target lets the user pick the scope kind. */
@@ -149,7 +149,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     : undefined;
 
   // Kept across a session expiry (#1887) while the form is open: the typed reason, the chosen expiration and scope choice, per requested permission.
-  const { discard: discardDraft } = useSessionDraft({
+  const { discard: discardDraft } = useFormDraftAcrossExpiry({
     key: scopeTarget
       ? `permission-request:scope:${scopeTarget.site}:${scopeTarget.kind === 'site_room' ? scopeTarget.room : ''}`
       : `permission-request:${capability}:${props.managedSystemId ?? '*'}`,

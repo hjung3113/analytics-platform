@@ -4,7 +4,7 @@ import { SESSION_DRAFT_COPY } from '@/lib/copy/session-draft';
 import { useHostSeam } from '@/lib/host/host-seam';
 import { type DraftJson, type SessionDraftBinding, currentSessionDraftBinding, discardSessionDraft, registerSessionDraft, takeSessionDraft } from './registry';
 
-export type UseSessionDraftOptions<T> = {
+export type FormDraftAcrossExpiryOptions<T> = {
   /** One key per form instance kind (with the record id where a form is per record); `null` registers and restores nothing. */
   key: string | null;
   /** What this form keeps across a session expiry: plain user-entered text/choices only, or `null` when there is nothing to keep. */
@@ -22,7 +22,7 @@ export type UseSessionDraftOptions<T> = {
  * next ready session of the same user mounts the form (and `active` is true), restores the stored draft and shows one notice.
  * `discard` deletes a stored draft (successful submit, explicit cancel or close).
  */
-export function useSessionDraft<T>({ key, read, parse, restore, active = true }: UseSessionDraftOptions<T>): { discard: () => void } {
+export function useFormDraftAcrossExpiry<T>({ key, read, parse, restore, active = true }: FormDraftAcrossExpiryOptions<T>): { discard: () => void } {
   const seam = useHostSeam();
   const latest = React.useRef({ read, parse, restore, seam });
   React.useLayoutEffect(() => {

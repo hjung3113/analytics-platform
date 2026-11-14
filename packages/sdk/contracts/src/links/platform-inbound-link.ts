@@ -25,11 +25,36 @@ export interface PlatformDestination {
   acceptsReturnTo?: boolean;
 }
 
+/** The three destinations of the sample platform, kept so a call without a `destinations` list behaves as before. An assembly with its own menus derives its list with `inboundDestinationsOf` (ADR-0162). */
 export const DEFAULT_PLATFORM_DESTINATIONS: readonly PlatformDestination[] = [
   { menuId: 'equipment-detail', path: '/equipment', idField: 'equipmentId', acceptsReturnTo: true },
   { menuId: 'equipment-master', path: '/equipment' },
   { menuId: 'cycle-time', path: '/analytics/cycle-time' },
 ];
+
+/** The part of a menu declaration an inbound destination is derived from (`MenuDef` satisfies it). */
+export type InboundDestinationSource = { id: string; path: string; pageKeys?: readonly string[]; opensObject?: Readonly<Record<string, { param?: string; pageKey?: string }>> };
+
+/**
+ * The object-opening destinations of a menu list, derived from the menus' own `opensObject` declarations (ADR-0162) instead of a second table kept by the caller.
+ * A menu becomes `{ menuId, path, idField }` when its kinds name one path param and the path is `<prefix>/:param` with no other param; `returnTo` is accepted when the
+ * menu lists it in `pageKeys`. A kind that opens by page key, a menu with several params, a param named `menuId` (the hop's destination field) and a menu without `opensObject` give nothing: list a fixed-path destination
+ * by hand next to this result. Order follows `menus`, and `validateDestinations` still checks the combined list.
+ */
+export function inboundDestinationsOf(menus: readonly InboundDestinationSource[]): PlatformDestination[] {
+  const out: PlatformDestination[] = [];
+  for (const menu of menus) {
+    const params = new Set(Object.values(menu.opensObject ?? {}).flatMap(kind => kind.param === undefined ? [] : [kind.param]));
+    if (params.size !== 1) continue;
+    const [param] = [...params] as [string];
+    if (param === 'menuId') continue; // the hop's own `menuId` names the destination; an id field of the same name would overwrite it
+    const tail = `/:${param}`;
+    const prefix = menu.path.endsWith(tail) ? menu.path.slice(0, -tail.length) : null;
+    if (prefix === null || prefix === '' || prefix.includes(':')) continue;
+    out.push({ menuId: menu.id, path: prefix, idField: param, ...(menu.pageKeys?.includes(RETURN_TO_KEY) ? { acceptsReturnTo: true } : {}) });
+  }
+  return out;
+}
 
 /** Hop of an injected destination list: `menuId` plus the id field the destination declares. */
 export type PlatformInboundHop = { menuId: string } & { [field: string]: string };
