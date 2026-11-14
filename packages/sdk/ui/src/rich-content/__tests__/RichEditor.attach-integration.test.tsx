@@ -141,3 +141,19 @@ describe('RichEditor + AttachButton integration', () => {
     expect(readEditorJSON()).toEqual({ found: false });
   });
 });
+
+it('discards an upload after the controlled draft is cleared (#2028 SHE-29)', async () => {
+  let resolve!: (result: RichEditorAttachmentResult) => void;
+  const upload = new Promise<RichEditorAttachmentResult>(done => { resolve = done; });
+  const onAttach = vi.fn(() => upload);
+  let api!: RichEditorToolbarApi;
+  const value = { type: 'doc' as const, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Old draft' }] }] };
+  const view = render(<RichEditor surface="internal-comment" value={value} onAttach={onAttach} toolbar={(_, current) => { api = current; return null; }} />);
+  await screen.findByRole('textbox');
+  const pending = api.attach(new File(['x'], 'x.txt', { type: 'text/plain' }));
+  view.rerender(<RichEditor surface="internal-comment" value={null} onAttach={onAttach} toolbar={(_, current) => { api = current; return null; }} />);
+  await waitFor(() => expect(screen.getByRole('textbox')).not.toHaveTextContent('Old draft'));
+  resolve({ attachment_id: 'old', name: 'x.txt', size_bytes: 1, mime_type: 'text/plain' });
+  await pending;
+  expect(readEditorJSON()).toEqual({ found: false });
+});

@@ -31,7 +31,7 @@ describe('SearchInput', () => {
   it('renders default Korean placeholder', () => {
     render(<SearchInput />);
     const input = screen.getByRole('textbox');
-    expect(input).toHaveAttribute('placeholder', 'VOC 검색…');
+    expect(input).toHaveAttribute('placeholder', '검색…');
   });
 
   it('accepts custom placeholder', () => {

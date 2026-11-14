@@ -705,3 +705,10 @@ it.each(['view', 'empty items', 'height', 'list remount'] as const)(
     expect(scroller.scrollTop).toBe(240);
   },
 );
+
+it('hit-tests only drawn dense points and leaves the interval reachable (#2028 SHE-20)', () => {
+  mount({ items: [{ ...items[0], id: 'interval', label: 'Visible interval', orderStart: 0, orderEnd: 100 }, ...Array.from({ length: 30 }, (_, i) => ({ ...items[0], id: `point-${i}`, label: `Hidden point ${i}`, kind: 'point', orderStart: 50, orderEnd: undefined }))] });
+  fireEvent.pointerMove(screen.getByRole('img', { name: 'Track' }), { clientX: 356, clientY: 12 });
+  expect(screen.getByRole('tooltip')).toHaveTextContent('Visible interval');
+  expect(screen.getByRole('tooltip')).not.toHaveTextContent('Hidden point');
+});

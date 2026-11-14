@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { formatInstant } from '@ap/contracts';
 import type { SavedView, SavedViewEntry, SavedViewListItem } from '@ap/contracts';
 import { useI18n, type Text } from '@ap/kernel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, Input } from '@ap/ui';
 import { SegmentedRadio } from '../RadioGroup';
 import { QueuePanel } from './ApprovalQueue';
 import { ViewDetail, ViewRow, rowHasReason, useRowElements, useVanishedLayers } from './ViewParts';
-import { formatKst, type ApprovalRequestInfo, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler } from './viewInfo';
+import { type ApprovalRequestInfo, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler } from './viewInfo';
 
 export type ViewManagementFilter = 'all' | 'pending' | 'attention';
 
@@ -59,7 +60,9 @@ export function ViewManagement(props: ViewManagementProps) {
   </Dialog>;
 }
 
-function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime = formatKst, onDone, tx }: ViewManagementProps & { tx: (text: Text) => string }) {
+function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone, tx }: ViewManagementProps & { tx: (text: Text) => string }) {
+  const { lang } = useI18n();
+  const formatTime = suppliedFormatTime ?? ((ms: number) => formatInstant(ms, lang));
   const [filter, setFilter] = useState<ViewManagementFilter>(initialFilter);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);

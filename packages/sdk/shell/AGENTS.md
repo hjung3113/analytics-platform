@@ -116,7 +116,7 @@ App Shell (06 §8–9, screen design [07](../../../docs/design/app-shell.md)). R
 - Screens and ownership:
   - `BoardScreen` is the URL adapter: it reads `/board?sheet=`, picks the sheet, turns sheet-switch commands into address moves (unknown value → replace; match → update `activeSheetId`), and maximizes panes.
   - `BoardSurface` does not read the address. It takes `sheetId`, `onSheetChange`, `arrivalKey` and `Outlet`, and owns arrival focus, undo and the group `+`.
-  - `boardSession.ts` is the module-level external store holding each user's board (`useBoardSession`, `readBoardSession`, `updateBoardSession`, `reloadBoardSession`); it lives only while it has subscribers.
+  - `boardSession.ts` is the module-level external store holding each user's board (`useBoardSession`, `readBoardSession`, `updateBoardSession`, `reloadBoardSession`); it lives while it has subscribers, or while a failed write has unsaved edits.
   - Layout: header 50px, layout picker, Context bar row 48px, grid, bottom sheet strip. Undo notices go to the shell toast stack; clearing a pane, deleting a sheet and shrinking a layout are undoable.
   - `Sheet.gridMemory` (stored model V2) remembers per-layout column/row ratios and collapse state. The grid reads the tree through `gridOf(sheet)` and adjusts boundaries with `PaneSplitter`.
   - The board knows no menus or mocks; `ScreenOutlet` is passed in as props by `RouteOutlet`.
@@ -157,7 +157,7 @@ App Shell (06 §8–9, screen design [07](../../../docs/design/app-shell.md)). R
 - `boardDockTree.ts` — pure `toDockTree`/`fromDockTree`, `reconcileSelection`, default layout tree. Its name differs from `BoardDock.tsx` only by case; keep the names distinct so they do not collide in the same folder.
 - `text.ts` — board copy (ko/en); board copy lives here, not in the Kernel dictionary.
 - `paneActions.ts` — pure computation for pane Context comparison, bulk apply, cross-sheet position copy and replace (apply only through Kernel `withPaneContext`; pane-number text `1–3` / `1, 3`).
-- `OpenInBoardAction.tsx` — the shell-exported `분석 보드에 열기…` item and dialog, passed by the app as `slots.boardEntry`. The dialog uses `useHeaderOverflowDialog` from `@ap/components` so it survives the page header `⋯` closing. Save only through `boardSession` and model functions (`reloadBoardSession` just before confirm, then confirm, change and save in one update). Write nothing before confirm; if the write fails (newer-version value) show `boardNotSaved` and do not close.
+- `OpenInBoardAction.tsx` — the shell-exported `분석 보드에 열기…` item and dialog, passed by the app as `slots.boardEntry`. The dialog uses `useHeaderOverflowDialog` from `@ap/components` so it survives the page header `⋯` closing. Save only through `boardSession` and model functions (`reloadBoardSession` just before confirm, then confirm, change and save in one update). Write nothing before confirm; if a newer-version value blocks writing, show `boardNotSaved`; if storage throws, show `storageFailed`, retain the unsaved session and do not close or navigate.
 - Test: `board/*.test.ts(x)`.
 
 ## Detail expansion (ADR-0126)

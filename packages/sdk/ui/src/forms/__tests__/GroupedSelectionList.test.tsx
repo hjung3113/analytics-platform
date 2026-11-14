@@ -16,6 +16,17 @@ function Multiple() {
     presets={[{ id: 'p', label: 'Preset', description: 'Adds Alpha', itemIds: ['a', 'c'] }]} aria-label="Choices" />;
 }
 describe('GroupedSelectionList', () => {
+  it('clear all preserves disabled selections and disables when only those remain (#2028 SHE-27)', () => {
+    function Required() {
+      const [value, onChange] = useState(['a', 'c']);
+      return <GroupedSelectionList mode="multiple" groups={groups} value={value} onChange={onChange} aria-label="Choices" />;
+    }
+    render(<Required />);
+    fireEvent.click(screen.getByRole('button', { name: '모두 해제' }));
+    expect(screen.getByRole('checkbox', { name: 'Blocked' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Alpha' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: '모두 해제' })).toBeDisabled();
+  });
   it('adds presets without replacing selection, describes them, and clears all', () => {
     render(<Multiple />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Beta' }));

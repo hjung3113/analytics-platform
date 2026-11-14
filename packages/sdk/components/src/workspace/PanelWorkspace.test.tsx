@@ -1156,3 +1156,14 @@ describe('row geometry and focus at the command boundary (#701 fix round)', () =
     expect(document.activeElement).not.toBe(document.body);
   });
 });
+
+it('reconciles added and removed panels without changing persistKey (#2028 SHE-24)', async () => {
+  const { rerender } = mountWorkspace();
+  await ready();
+  const extra = { id: 'extra', title: { ko: '추가', en: 'Extra' }, render: () => <Probe id="extra" /> };
+  rerender(shell(<PanelWorkspace {...BASE} panels={[...PANELS, extra]} />));
+  await screen.findByRole('tab', { name: '추가' });
+  rerender(shell(<PanelWorkspace {...BASE} panels={PANELS} />));
+  await waitFor(() => expect(screen.queryByRole('tab', { name: '추가' })).toBeNull());
+  expect(screen.getByRole('tab', { name: '추세' })).toBeInTheDocument();
+});

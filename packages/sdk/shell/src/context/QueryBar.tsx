@@ -168,7 +168,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
   }}>
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
-        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} reportInvalid={() => setEditError(m('queryInvalidPeriodInput'))} />}
+        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
         {cap.roomNames === 'apply' && <SetField name={t('roomNames')} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId}
           request={roomRequest(g.roomNames, t('roomNames'))} />}
         {cap.line === 'apply' && <AxisField axisId="lineNames" name={tx(CONTEXT_LABELS.line)} values={g.lineNames} context={context} parents={g.roomNames === null ? {} : { roomNames: g.roomNames }} onChange={lineNames => write({ lineNames })} invalid={invalid('line')} reasonId={reasonId} />}
@@ -281,19 +281,19 @@ function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'opt
 }
 /** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
 const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
-function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, reportInvalid, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; reportInvalid: () => void }) {
+function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string }) {
   const { defaultRangeTo } = useHostPlatform();
   const { lang, t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const { mode, reference } = periodEditor;
-  const setMode = (mode: 'reference' | 'range') => setPeriodEditor({ ...periodEditor, mode });
+  const setMode = (mode: 'reference' | 'range') => setPeriodEditor({ ...periodEditor, mode, invalidReference: false });
   const date = (value: string) => {
-    try { const from = `${value}T00:00:00`; parseDateTime(from, 'from'); setPeriodEditor({ mode: 'reference', reference: value, invalidReference: false }); write({ from, to: shift(from, 24) }); } catch { setPeriodEditor({ mode: 'reference', reference: value, invalidReference: true }); reportInvalid(); }
+    try { const from = `${value}T00:00:00`; parseDateTime(from, 'from'); setPeriodEditor({ mode: 'reference', reference: value, invalidReference: false }); write({ from, to: shift(from, 24) }); } catch { setPeriodEditor({ mode: 'reference', reference: value, invalidReference: true }); }
   };
   const custom = (key: 'from' | 'to', value: string) => {
     const normalized = value.length === 16 ? `${value}:00` : value;
     const next = { ...range, [key]: normalized }; setRange(next);
-    try { parseDateTime(next.from, 'from'); parseDateTime(next.to, 'to'); write(next); } catch { reportInvalid(); }
+    try { parseDateTime(next.from, 'from'); parseDateTime(next.to, 'to'); write(next); } catch { /* Invalid input is derived from range, without a second error state. */ }
   };
   const hours = periodHours(g);
   const ends = (hoursBack: number) => isTrailingPeriod(g, defaultRangeTo, hoursBack);

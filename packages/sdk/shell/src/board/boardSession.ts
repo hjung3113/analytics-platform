@@ -1,12 +1,12 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Board } from './boardModel';
-import { boardStorageKey, browserStorage, loadBoard, readStoredRaw, saveBoard, type KeyValueStore, type StorageNotice } from './boardStore';
+import { boardStorageKey, browserStorage, loadBoard, readStoredRaw, saveBoardOutcome, type KeyValueStore, type StorageNotice } from './boardStore';
 
 /**
  * The board session store (docs/16 §7): one module-level store of the signed-in users' boards, the only path that reads or writes the stored
  * board. The board screen and `분석 보드에 열기…` both go through it, so a board held in memory is never overwritten by a stale copy. It holds
  * the board document only; what is on screen is not part of it. A user's session lives while someone subscribes to it (plus the tick after the last one leaves) or for one call of
- * `updateBoardSession`; the next one reads the stored value again.
+ * `updateBoardSession`; a failed write retains its unsaved board until a later successful save.
  */
 /** `raw`: the stored text this session last read or wrote (`undefined` when storage could not be read), so a save can tell that another tab wrote since. */
 type Session = { board: Board; notice: StorageNotice | null; readOnly: boolean; unsaved: boolean; raw: string | null | undefined };
@@ -63,13 +63,13 @@ const stopListening = (userId: string) => {
   storageListeners.delete(userId);
   window.removeEventListener('storage', listener);
 };
-/** A session nobody subscribes to is not kept: the next reader loads the stored value. */
-const dropIfAlone = (userId: string) => { if (!subscribers.has(userId)) sessions.delete(userId); };
-/** The last subscriber leaving drops the session one microtask later, so a re-subscribe in the same tick (StrictMode's effect replay, a board swapped within one commit) keeps the unsaved moves and the read-only latch. */
+/** Keep unsaved failed writes across readers; otherwise the next lone reader reloads storage. */
+const dropIfAlone = (userId: string) => { if (!subscribers.has(userId) && sessions.get(userId)?.notice !== 'failed') sessions.delete(userId); };
+/** The last subscriber leaving drops a durably saved session one microtask later, so a re-subscribe in the same tick (StrictMode's effect replay, a board swapped within one commit) keeps the unsaved moves and the read-only latch. */
 let generation = 0;
 const dropAfterTick = (userId: string) => {
   const queued = generation;
-  queueMicrotask(() => { if (queued === generation && !subscribers.has(userId)) sessions.delete(userId); });
+  queueMicrotask(() => { if (queued === generation) dropIfAlone(userId); });
 };
 const emit = (userId: string) => { for (const listener of Array.from(subscribers.get(userId) ?? [])) listener(); };
 const subscribe = (userId: string, prefix: string, listener: () => void) => {
@@ -104,8 +104,12 @@ function apply(userId: string, prefix: string, change: (board: Board) => Board, 
   let session: Session;
   if (!save) session = { ...previous, board: next, unsaved: true };
   // A newer build may have written since the load: that refusal latches this session read-only, with the notice.
-  else if (!previous.readOnly && !saveBoard(browserStorage, userId, next)) session = { ...previous, board: next, notice: 'newer', readOnly: true, unsaved: false };
-  else session = { ...previous, board: next, unsaved: false, raw: previous.readOnly ? previous.raw : readStoredRaw(browserStorage, userId) };
+  else if (!previous.readOnly) {
+    const outcome = saveBoardOutcome(browserStorage, userId, next);
+    session = outcome === 'saved'
+      ? { ...previous, board: next, notice: previous.notice === 'failed' ? null : previous.notice, unsaved: false, raw: readStoredRaw(browserStorage, userId) }
+      : { ...previous, board: next, notice: outcome, readOnly: outcome === 'newer', unsaved: outcome === 'failed' };
+  } else session = { ...previous, board: next, unsaved: false };
   sessions.set(userId, session);
   dropIfAlone(userId);
   emit(userId);

@@ -10,6 +10,7 @@ import {
 import { cn } from '../utils/cn.js';
 
 export interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof Label> {
+  messages?: { help?: (tip: string) => string };
   appearance?: 'default' | 'section';
   required?: boolean;
   tone?: 'default' | 'secondary';
@@ -28,6 +29,7 @@ const TONE_CLASSES = {
 } as const;
 
 export function FieldLabel({
+  messages,
   appearance = 'default',
   required,
   tone = 'default',
@@ -50,7 +52,7 @@ export function FieldLabel({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={`도움말: ${tip}`}
+                aria-label={messages?.help?.(tip) ?? `도움말: ${tip}`}
                 className="ml-1 inline-flex cursor-default items-center rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 data-testid="field-label-tip-trigger"
               >

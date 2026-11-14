@@ -11,6 +11,7 @@ import {
 import { cn } from '../utils/cn.js';
 
 export interface SearchInputProps {
+  messages?: Partial<{ placeholder: string; disabled: string; clear: string }>;
   placeholder?: string;
   size?: 'default' | 'toolbar';
   'aria-label'?: string;
@@ -43,11 +44,11 @@ export interface SearchInputProps {
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 }
 
-const DISABLED_TOOLTIP = '검색은 다음 슬라이스에서 제공됩니다';
-const DEFAULT_PLACEHOLDER = 'VOC 검색…';
+const DEFAULT_MESSAGES = { placeholder: '검색…', disabled: '검색을 사용할 수 없습니다.', clear: 'Clear' };
 
 export function SearchInput({
-  placeholder = DEFAULT_PLACEHOLDER,
+  messages,
+  placeholder = messages?.placeholder ?? DEFAULT_MESSAGES.placeholder,
   className,
   value,
   onValueChange,
@@ -56,7 +57,7 @@ export function SearchInput({
   onKeyDown,
   size = 'default',
   'aria-label': ariaLabel,
-  clearLabel = 'Clear',
+  clearLabel = messages?.clear ?? DEFAULT_MESSAGES.clear,
 }: SearchInputProps) {
   if (onValueChange === undefined) {
     return (
@@ -90,7 +91,7 @@ export function SearchInput({
               />
             </span>
           </TooltipTrigger>
-          <TooltipContent>{DISABLED_TOOLTIP}</TooltipContent>
+          <TooltipContent>{messages?.disabled ?? DEFAULT_MESSAGES.disabled}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );

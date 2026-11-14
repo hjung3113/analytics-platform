@@ -16,6 +16,7 @@ export interface FilterCategory {
 }
 
 export interface ListFilterButtonProps {
+  messages?: Partial<{ filter: string; reset: string }>;
   categories: FilterCategory[];
   values: Record<string, string[]>;
   onChange: (next: Record<string, string[]>) => void;
@@ -27,6 +28,7 @@ function totalCount(values: Record<string, string[]>): number {
 }
 
 export function ListFilterButton({
+  messages,
   categories,
   values,
   onChange,
@@ -59,7 +61,7 @@ export function ListFilterButton({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={cn('gap-1.5', className)}>
-          필터
+          {messages?.filter ?? '필터'}
           {count > 0 && (
             <Badge variant="secondary" className="px-1.5 py-0 text-xs">
               {count}
@@ -103,7 +105,7 @@ export function ListFilterButton({
             className="text-xs text-accent-primary hover:underline"
             onClick={handleReset}
           >
-            필터 초기화
+            {messages?.reset ?? '필터 초기화'}
           </button>
         </div>
       </PopoverContent>

@@ -4,3 +4,4 @@ export { isValidDockTree, normalizeDockTree, type DockNode } from './schema';
 export { activatePanel, addPanel, groupOf, movePanel, panelOrder, removePanel, resizeBoundary, type DockDropPosition, type DockEdge } from './commands';
 export { dockLayoutMenu, type DockGroupInfo, type DockLayoutMenu } from './layoutMenu';
 export { WorkspaceCommandsHost, radioGroupsOf, useWorkspaceCommands, type WorkspaceCommand } from './WorkspaceCommandsHost';
+export { dockTabElements, isActiveDockTab, dockStripElement } from './tabElements';

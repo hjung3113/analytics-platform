@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { downloadBlob, safeFileName } from '../table/download';
 import { toCsvDocument } from '../table/tableExport';
 
 type ChartCsvMeta = {
@@ -11,6 +12,5 @@ export function downloadChartCsv(meta: ChartCsvMeta, headers: string[], rows: (s
   const { chartId, title, metricVersion, unit, context } = meta;
   const header = `# ${typeof title === 'string' ? title : chartId} · scopeId=${context.scopeId ?? ''} · from=${context.from ?? ''} · to=${context.to ?? ''}${metricVersion ? ` · metricVersion=${metricVersion}` : ''} · unit=${unit}`;
   const blob = new Blob([toCsvDocument(header, headers, rows)], { type: 'text/csv' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob); link.download = `${chartId}.csv`; link.click(); URL.revokeObjectURL(link.href);
+  downloadBlob(blob, `${safeFileName(chartId)}.csv`);
 }

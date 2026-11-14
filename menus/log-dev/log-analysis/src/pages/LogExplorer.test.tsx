@@ -450,17 +450,17 @@ describe('knowledge draft handoff (#1474c, confirmed A)', () => {
     });
     write.mockResolvedValueOnce(sent);
     const dialog = await open();
-    await within(dialog).findByRole('button', { name: '모델 더 보기' });
-    fireEvent.click(within(dialog).getByRole('button', { name: '모델 더 보기' }));
-    await waitFor(() => expect(read.mock.calls.some(([r]) => r.endpoint === 'logExplorer.handoffModels' && (r.params as { page: number }).page === 1)).toBe(true));
     fireEvent.click(within(dialog).getByRole('combobox', { name: /소유 대상/ }));
+    fireEvent.click(await screen.findByRole('button', { name: '모델 더 보기' }));
+    await waitFor(() => expect(read.mock.calls.some(([r]) => r.endpoint === 'logExplorer.handoffModels' && (r.params as { page: number }).page === 1)).toBe(true));
     fireEvent.click(await screen.findByRole('option', { name: 'MX-20 · 모델 20' }));
     if (kind === 'software') {
       fireEvent.click(within(dialog).getByRole('radio', { name: 'SW 버전' }));
       const picker = await within(dialog).findByRole('combobox', { name: 'SW 버전' });
       expect(picker.textContent).toContain('모델을 고른 뒤 SW 버전 선택');
-      fireEvent.click(await within(dialog).findByRole('button', { name: 'SW 버전 더 보기' }));
-      fireEvent.click(picker); fireEvent.click(await screen.findByRole('option', { name: 'v20 · 제어 SW' }));
+      fireEvent.click(picker);
+      fireEvent.click(await screen.findByRole('button', { name: 'SW 버전 더 보기' }));
+      fireEvent.click(await screen.findByRole('option', { name: 'v20 · 제어 SW' }));
     }
     fireEvent.change(within(dialog).getByLabelText(/제목/), { target: { value: '선택 유지' } });
     fireEvent.change(within(dialog).getByLabelText(/관찰 사실/), { target: { value: '관찰 사실' } });

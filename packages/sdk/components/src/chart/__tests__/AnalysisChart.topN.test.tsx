@@ -94,7 +94,7 @@ it('exports exactly the visible table projection under the manifest gate and pre
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(plot.option).toBe(option);
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
-  expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['이름', '값'], [['Item 9', '9 ea'], ['Item 7', '8 ea']]);
+  expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['이름', '값 (ea)'], [['Item 9', 9], ['Item 7', 8]]);
   const bars = (plot.option as { series: { barMaxWidth: number; data: { itemStyle: { color: string } }[] }[] }).series;
   expect(bars[0].barMaxWidth).toBe(24);
   expect(bars[0].data[0].itemStyle.color).toBe(readColorToken('chart-series-1'));

@@ -14,7 +14,7 @@ const v1BackupKey = (userId: string) => `platform:board:v1-backup:${userId}`;
 const corruptBackupKey = (userId: string, version: 'v1' | 'v2') => `platform:board:corrupt-backup:${version}:${userId}`;
 
 /** `newer`: the stored board was saved by a newer build, so this session never writes it. `corrupt`: a stored value could not be read and was kept aside. */
-export type StorageNotice = 'newer' | 'corrupt';
+export type StorageNotice = 'newer' | 'corrupt' | 'failed';
 /** `unavailable`: storage could not be read, so `board` is the fresh fallback and says nothing about what is stored. */
 export type LoadedBoard = { board: Board; notice: StorageNotice | null; readOnly: boolean; unavailable?: boolean };
 
@@ -69,17 +69,20 @@ export function loadBoard(storage: KeyValueStore, userId: string, prefix: string
  * panes is the rollback path for older builds). False — nothing written — while the stored value is from a newer build. The first write over a V1 board copies
  * the untouched V1 value to its backup key once.
  */
-export function saveBoard(storage: KeyValueStore, userId: string, board: Board): boolean {
+export function saveBoardOutcome(storage: KeyValueStore, userId: string, board: Board): 'saved' | 'newer' | 'failed' {
   try {
     const rawV2 = storage.getItem(v2Key(userId));
     const json = rawV2 === null ? null : parseJson(rawV2);
-    if (json && isNewer(json.value)) return false;
+    if (json && isNewer(json.value)) return 'newer';
     const rawV1 = storage.getItem(v1Key(userId));
     if (rawV1 !== null && storage.getItem(v1BackupKey(userId)) === null && (rawV2 === null || !parseBoard(json?.value))) storage.setItem(v1BackupKey(userId), rawV1);
     storage.setItem(v2Key(userId), JSON.stringify({ ...board, v: boardVersionFor(board.sheets) }));
-  } catch { /* memory-only */ }
-  return true;
+  } catch { return 'failed'; }
+  return 'saved';
 }
+
+/** False when storage refuses the write or holds a newer board. */
+export const saveBoard = (storage: KeyValueStore, userId: string, board: Board): boolean => saveBoardOutcome(storage, userId, board) === 'saved';
 
 /** The stored board for code outside the board screen (`분석 보드에 열기…`): read and write through the same functions the hook uses. */
 export const readStoredBoard = (userId: string, prefix: string): LoadedBoard => loadBoard(browserStorage, userId, prefix);

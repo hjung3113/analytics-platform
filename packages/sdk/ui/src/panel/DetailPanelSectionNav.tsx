@@ -53,6 +53,7 @@ export interface PanelSection {
 }
 
 export interface DetailPanelSectionNavProps {
+  messages?: Partial<{ previous: string; next: string; more: string; current: (label: string) => string }>;
   sections: PanelSection[];
   /** Ref to the scrollable container that holds the anchored sections. */
   scrollRef?: React.RefObject<HTMLElement | null>;
@@ -111,6 +112,7 @@ function stickyCover(root: HTMLElement, header: HTMLElement | null): number {
 }
 
 export function DetailPanelSectionNav({
+  messages,
   sections,
   scrollRef,
   className,
@@ -268,8 +270,8 @@ export function DetailPanelSectionNav({
   const overflowed = sections.filter((s) => s.overflow);
   const activeOverflowSection = overflowed.find((section) => section.id === activeSection);
   const overflowTriggerAccessibleName = activeOverflowSection
-    ? `더보기, 현재 ${activeOverflowSection.label}`
-    : '더보기';
+    ? messages?.current?.(activeOverflowSection.label) ?? `${messages?.more ?? '더보기'}, 현재 ${activeOverflowSection.label}`
+    : messages?.more ?? '더보기';
   const scrollTabs = (direction: 'left' | 'right') => {
     const nav = navRef.current;
     if (!nav) return;
@@ -301,7 +303,7 @@ export function DetailPanelSectionNav({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label="이전 탭 보기"
+                aria-label={messages?.previous ?? '이전 탭 보기'}
                 className="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-card text-text-secondary shadow-sm hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 onClick={() => scrollTabs('left')}
               >
@@ -309,7 +311,7 @@ export function DetailPanelSectionNav({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              이전 탭 보기
+              {messages?.previous ?? '이전 탭 보기'}
             </TooltipContent>
           </Tooltip>
         )}
@@ -386,7 +388,7 @@ export function DetailPanelSectionNav({
                     : 'border-transparent text-text-muted hover:text-text-secondary',
                 )}
               >
-                더보기
+                {messages?.more ?? '더보기'}
                 <ChevronDown className="h-3 w-3" aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
@@ -419,7 +421,7 @@ export function DetailPanelSectionNav({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label="다음 탭 보기"
+                aria-label={messages?.next ?? '다음 탭 보기'}
                 className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-card text-text-secondary shadow-sm hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 onClick={() => scrollTabs('right')}
               >
@@ -427,7 +429,7 @@ export function DetailPanelSectionNav({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              다음 탭 보기
+              {messages?.next ?? '다음 탭 보기'}
             </TooltipContent>
           </Tooltip>
         )}

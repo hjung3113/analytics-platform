@@ -9,17 +9,18 @@ import {
 import { cn } from '../utils/cn.js';
 
 export interface ActiveFilterBarProps {
+  messages?: Partial<{ label: string; remove: (label: string) => string; reset: string }>;
   items: { key: string; label: string; onRemove: () => void }[];
   onClearAll: () => void;
   className?: string;
 }
 
-export function ActiveFilterBar({ items, onClearAll, className }: ActiveFilterBarProps) {
+export function ActiveFilterBar({ items, onClearAll, className, messages }: ActiveFilterBarProps) {
   if (items.length === 0) return null;
   return (
     <TooltipProvider>
       <fieldset
-        aria-label="적용된 필터"
+        aria-label={messages?.label ?? '적용된 필터'}
         className={cn('flex flex-wrap items-center gap-2 text-xs', className)}
       >
         {items.map(({ key, label, onRemove }) => (
@@ -35,13 +36,13 @@ export function ActiveFilterBar({ items, onClearAll, className }: ActiveFilterBa
                   variant="subtle"
                   size="icon-xs"
                   className="text-current hover:bg-accent-primary/10"
-                  aria-label={`${label} 필터 제거`}
+                  aria-label={messages?.remove?.(label) ?? `${label} 필터 제거`}
                   onClick={onRemove}
                 >
                   <X className="size-3" aria-hidden="true" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent size="sm">{`${label} 필터 제거`}</TooltipContent>
+              <TooltipContent size="sm">{messages?.remove?.(label) ?? `${label} 필터 제거`}</TooltipContent>
             </Tooltip>
           </span>
         ))}
@@ -50,7 +51,7 @@ export function ActiveFilterBar({ items, onClearAll, className }: ActiveFilterBa
           onClick={onClearAll}
           className="rounded-sm text-xs text-accent-primary hover:underline focus-visible:outline focus-visible:outline-focus-ring"
         >
-          필터 초기화
+          {messages?.reset ?? '필터 초기화'}
         </button>
       </fieldset>
     </TooltipProvider>

@@ -206,7 +206,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', lang === 'ko' ? '값' : 'Value'] : [lang === 'ko' ? '이름' : 'Name', lang === 'ko' ? '값' : 'Value', '%']);
   const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value)] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
-    downloadChartCsv({ ...p, context: global }, headers, tableValues);
+    const csvHeaders = extended?.csvHeaders ?? headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header);
+    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang === 'ko')] : [row.label, row.value ?? unknownLabel(lang === 'ko'), row.share ?? 0]);
+    downloadChartCsv({ ...p, context: global }, csvHeaders, csvValues);
     toast(lang === 'ko' ? `${p.chartId}.csv 내보냄` : `Exported ${p.chartId}.csv`);
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;

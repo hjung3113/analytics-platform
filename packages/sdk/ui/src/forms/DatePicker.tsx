@@ -10,24 +10,15 @@ import {
 import { cn } from '../utils/cn.js';
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const monthFormatter = new Intl.DateTimeFormat('ko-KR', {
-  year: 'numeric',
-  month: 'long',
-  timeZone: 'UTC',
-});
-const weekdayFormatter = new Intl.DateTimeFormat('ko-KR', {
-  weekday: 'short',
-  timeZone: 'UTC',
-});
-const weekdays = Array.from({ length: 7 }, (_, index) =>
-  weekdayFormatter.format(makeUtcDate(2023, 1, index + 1)),
-);
+const DATE_MESSAGES = { clear: '날짜 지우기', open: '달력 열기', previous: '이전 달', next: '다음 달', invalid: '날짜를 YYYY-MM-DD 형식으로 입력하세요.', beforeMin: '최소 날짜보다 빠른 날짜를 선택할 수 없습니다.', afterMax: '최대 날짜보다 늦은 날짜를 선택할 수 없습니다.' };
 
 export interface DatePickerProps
   extends Omit<
     React.InputHTMLAttributes<HTMLInputElement>,
     'type' | 'value' | 'onChange' | 'min' | 'max'
   > {
+  locale?: string;
+  messages?: Partial<typeof DATE_MESSAGES>;
   value: string | null;
   onChange: (value: string | null) => void;
   min?: string;
@@ -39,6 +30,8 @@ export interface DatePickerProps
 }
 
 export function DatePicker({
+  locale = 'ko-KR',
+  messages: suppliedMessages,
   value,
   onChange,
   min,
@@ -56,6 +49,10 @@ export function DatePicker({
   placeholder = 'YYYY-MM-DD',
   ...inputProps
 }: DatePickerProps) {
+  const messages = { ...DATE_MESSAGES, ...suppliedMessages };
+  const monthFormatter = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', timeZone: 'UTC' });
+  const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' });
+  const weekdays = Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(makeUtcDate(2023, 1, index + 1)));
   const [draft, setDraft] = React.useState(value ?? '');
   const [hasBlurred, setHasBlurred] = React.useState(false);
   const initialDate = parseDate(value) ?? clampToRange(today(), min, max);
@@ -67,7 +64,7 @@ export function DatePicker({
   const calendarRef = React.useRef<HTMLDivElement>(null);
   const restoreTriggerFocusRef = React.useRef(false);
   const errorId = `datepicker-error-${React.useId()}`;
-  const validationMessage = getValidationMessage(draft, min, max);
+  const validationMessage = getValidationMessage(draft, min, max, messages);
   const isInvalid = validationMessage !== '' || ariaInvalid === true || ariaInvalid === 'true';
   const callerHasError = ariaInvalid === true || ariaInvalid === 'true';
   const showError =
@@ -231,7 +228,7 @@ export function DatePicker({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="날짜 지우기"
+                  aria-label={messages.clear}
                   className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                   disabled={disabled}
                   onClick={() => {
@@ -243,7 +240,7 @@ export function DatePicker({
                   <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>날짜 지우기</TooltipContent>
+              <TooltipContent>{messages.clear}</TooltipContent>
             </Tooltip>
           ) : null}
           <Popover
@@ -263,7 +260,7 @@ export function DatePicker({
                   <button
                     ref={triggerRef}
                     type="button"
-                    aria-label="달력 열기"
+                    aria-label={messages.open}
                     className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                     disabled={disabled}
                   >
@@ -271,7 +268,7 @@ export function DatePicker({
                   </button>
                 </PopoverTrigger>
               </TooltipTrigger>
-              <TooltipContent>달력 열기</TooltipContent>
+              <TooltipContent>{messages.open}</TooltipContent>
             </Tooltip>
             <PopoverContent
               align="end"
@@ -303,14 +300,14 @@ export function DatePicker({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        aria-label="이전 달"
+                        aria-label={messages.previous}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-card focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         onClick={() => focusDate(addMonths(visibleMonth, -1))}
                       >
                         <ChevronLeft aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>이전 달</TooltipContent>
+                    <TooltipContent>{messages.previous}</TooltipContent>
                   </Tooltip>
                   <span aria-live="polite" className="text-sm font-medium text-text-primary">
                     {monthFormatter.format(visibleMonth)}
@@ -319,14 +316,14 @@ export function DatePicker({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        aria-label="다음 달"
+                        aria-label={messages.next}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-card focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         onClick={() => focusDate(addMonths(visibleMonth, 1))}
                       >
                         <ChevronRight aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>다음 달</TooltipContent>
+                    <TooltipContent>{messages.next}</TooltipContent>
                   </Tooltip>
                 </div>
                 <table
@@ -370,7 +367,7 @@ export function DatePicker({
                                 <button
                                   type="button"
                                   data-date={dateValue}
-                                  aria-label={formatDateLabel(date)}
+                                  aria-label={formatDateLabel(date, locale)}
                                   aria-current={
                                     dateValue === formatDate(today()) ? 'date' : undefined
                                   }
@@ -438,8 +435,8 @@ function formatDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatDateLabel(date: Date): string {
-  return `${date.getUTCFullYear()}년 ${date.getUTCMonth() + 1}월 ${date.getUTCDate()}일`;
+function formatDateLabel(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(date);
 }
 
 function startOfMonth(date: Date): Date {
@@ -484,10 +481,10 @@ function clampToRange(date: Date, min?: string, max?: string): Date {
   return date;
 }
 
-function getValidationMessage(value: string, min?: string, max?: string): string {
+function getValidationMessage(value: string, min: string | undefined, max: string | undefined, messages: typeof DATE_MESSAGES): string {
   if (value === '') return '';
-  if (!isValidDate(value)) return '날짜를 YYYY-MM-DD 형식으로 입력하세요.';
-  if (min && value < min) return '최소 날짜보다 빠른 날짜를 선택할 수 없습니다.';
-  if (max && value > max) return '최대 날짜보다 늦은 날짜를 선택할 수 없습니다.';
+  if (!isValidDate(value)) return messages.invalid;
+  if (min && value < min) return messages.beforeMin;
+  if (max && value > max) return messages.afterMax;
   return '';
 }

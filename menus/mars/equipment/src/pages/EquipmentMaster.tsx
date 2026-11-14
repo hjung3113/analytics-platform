@@ -63,11 +63,10 @@ export default function EquipmentMaster() {
   return <PlatformPage description={ko ? '설비 속성 · 유효구간 · 변경 이력 (조회 전용)' : 'Equipment attributes · Validity · Change history (read-only)'}>
     <ManagementLayout
       drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={ko ? '설비 상세 · 합성 데이터' : 'Equipment details · synthetic data'}
-      onClose={() => setPage({ focus: null, tab: null })} tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
+      onClose={() => setPage({ focus: null, tab: null })} tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
       context={ko ? '목록 필터와 설비 선택은 그대로입니다.' : 'List filters and the equipment selection stay as they are.'}
       headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{ko ? '전체 화면' : 'Full page'}</PlatformLink></Button>}
-      tabs={validTab ? [{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]
-        : [{ id: 'invalid', label: ko ? '알 수 없는 탭' : 'Unregistered tab', content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '속성 열기' : 'Open attributes'}</Button></p> }]} />}
+      tabs={[{ id: 'attributes', label: ko ? '속성' : 'Attributes', content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: ko ? '유효구간 이력' : 'Validity history', content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: ko ? '변경 이력' : 'Change history', content: <EquipmentPanel id={focus} kind="audit" /> }]} />}
       table={tableInvalid ? <TableUrlWarning search={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
     <PlatformDataTable<Equipment>
       title={ko ? '설비 목록' : 'Equipment list'} ariaLabel={ko ? '설비 마스터 목록' : 'Equipment master list'}

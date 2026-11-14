@@ -15,6 +15,7 @@ export interface SortOption {
 }
 
 export interface ListSortButtonProps {
+  messages?: { sort?: string };
   options: SortOption[];
   value: string;
   defaultValue: string;
@@ -23,6 +24,7 @@ export interface ListSortButtonProps {
 }
 
 export function ListSortButton({
+  messages,
   options,
   value,
   defaultValue,
@@ -44,13 +46,13 @@ export function ListSortButton({
         <Button variant="outline" size="sm" className={cn('gap-1.5', className)}>
           {isNonDefault && activeOption !== undefined ? (
             <>
-              정렬:
+              {messages?.sort ?? '정렬'}:
               <Badge variant="secondary" className="px-1.5 py-0 text-xs">
                 {activeOption.label}
               </Badge>
             </>
           ) : (
-            '정렬'
+            messages?.sort ?? '정렬'
           )}
         </Button>
       </PopoverTrigger>

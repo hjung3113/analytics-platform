@@ -4,7 +4,8 @@ import { X } from 'lucide-react';
 import { Fragment, useContext, useEffect, useId, useState, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
-import { useI18n } from '@ap/kernel';
+import { invalidValueSentence, useI18n } from '@ap/kernel';
+import { RecoverButton } from '../state/RecoverButton';
 import { useHostPlatformOptional } from '@ap/kernel/host';
 import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused, cn } from '@ap/ui';
 
@@ -26,7 +27,7 @@ export type DetailDrawerTab = { id: string; label: ReactNode } & (
 );
 
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
-export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, focusOnOpen, returnFocusRef, identity }: {
+export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, onTabRecover, focusOnOpen, returnFocusRef, identity }: {
   /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
   focusOnOpen?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
@@ -38,7 +39,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   identity?: string | number;
   title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   tabs: DetailDrawerTab[];
-  onClose: () => void; tab?: string; onTabChange?: (tab: string) => void;
+  onClose: () => void; tab?: string; onTabChange?: (tab: string) => void; onTabRecover?: () => void;
 }) {
   const paneId = useHostPlatformOptional()?.paneId;
   const closeLatest = useRef(onClose);
@@ -52,7 +53,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent identity={identity} focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} returnFocusRef={returnFocusRef} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent identity={identity} focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} onTabRecover={onTabRecover} returnFocusRef={returnFocusRef} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -74,7 +75,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, onTabRecover, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const onKeyDown = useDetailPanelEscape(onClose);
   const close = useRef<HTMLButtonElement>(null);
@@ -171,7 +172,9 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
     <OutcomeBanners />
     {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
     <Fragment key={identity}>
-    {tabs.length === 1
+    {tab !== undefined && !tabs.some(candidate => candidate.id === tab)
+      ? <div role="alert" className="grid gap-2 px-5 py-3"><p>{invalidValueSentence(lang, 'value', { ko: '상세 탭', en: 'Detail tab' }, tab)}</p><RecoverButton onRecover={onTabRecover ?? (() => onTabChange?.(tabs[0].id))} label={lang === 'ko' ? '값 지우기' : 'Clear value'} /></div>
+      : tabs.length === 1
       ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList aria-label={lang === 'ko' ? '상세 탭' : 'Detail tabs'} className="mx-5 mt-3 w-auto">

@@ -75,15 +75,15 @@
   --color-border-selected: rgb(var(--border-selected));
 
   /* --- Focus tokens --- */
-  --color-focus-ring: rgb(var(--color-neon-lime));
-  --color-focus-ring-danger: rgb(var(--color-warning-red));
+  --color-focus-ring: rgb(var(--focus-ring));
+  --color-focus-ring-danger: rgb(var(--focus-ring-danger));
 
   /* --- Accent tokens --- */
-  --color-accent-primary: rgb(var(--color-neon-lime));
-  --color-accent-info: rgb(var(--color-cyan-spark));
-  --color-accent-warn: rgb(var(--color-amber));
-  --color-accent-danger: rgb(var(--color-warning-red));
-  --color-accent-success: rgb(var(--color-emerald));
+  --color-accent-primary: rgb(var(--accent-primary));
+  --color-accent-info: rgb(var(--accent-info));
+  --color-accent-warn: rgb(var(--accent-warn));
+  --color-accent-danger: rgb(var(--accent-danger));
+  --color-accent-success: rgb(var(--accent-success));
   --color-accent-voc: rgb(var(--accent-voc));
   --color-accent-task: rgb(var(--accent-task));
 

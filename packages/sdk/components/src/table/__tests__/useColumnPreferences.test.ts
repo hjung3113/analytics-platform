@@ -22,6 +22,20 @@ describe('column preference writes (#823)', () => {
     expect(written).not.toHaveBeenCalled();
   });
 
+  it('reads each browser key on reuse and keeps edits under that key (#2028 SHE-10)', () => {
+    localStorage.setItem('b', JSON.stringify({ sizing: { b: 160 }, visibility: { b: false }, order: ['b'], pinning: { left: ['b'] } }));
+    const { result, rerender } = renderHook(({ key }) => useColumnPreferences(key), { initialProps: { key: 'a' } });
+    act(() => { result.current.onColumnVisibilityChange({ a: false }); });
+    act(() => { result.current.onColumnSizingChange({ a: 140 }); });
+    rerender({ key: 'b' });
+    expect(result.current.preferences).toEqual({ sizing: { b: 160 }, visibility: { b: false }, order: ['b'], pinning: { left: ['b'], right: [] } });
+    act(() => { result.current.onColumnOrderChange(['b', 'c']); });
+    expect(JSON.parse(localStorage.getItem('b')!).sizing).toEqual({ b: 160 });
+    expect(JSON.parse(localStorage.getItem('a')!).sizing).toEqual({ a: 140 });
+    rerender({ key: 'unused' });
+    expect(result.current.preferences.visibility).toEqual({});
+  });
+
   it('a width drag is written once, 300 ms after its last change', () => {
     const written = vi.spyOn(localStorage, 'setItem');
     const { result } = renderHook(() => useColumnPreferences('t'));

@@ -407,8 +407,8 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
     await screen.findAllByText('현업 문의자');
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByRole('alert').textContent).toMatch(/등록되지 않은 탭입니다|This tab is not registered\./);
-    fireEvent.click(within(dialog).getByRole('button', { name: /권한 열기|Open permissions/ }));
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/상세 탭 “bogus”|Detail tab “bogus”/);
+    fireEvent.click(within(dialog).getByRole('button', { name: /값 지우기|Clear value/ }));
     expect(url().has('tab')).toBe(false);
     expect(within(dialog).getByRole('tab', { name: /권한|Permissions/ }).getAttribute('aria-selected')).toBe('true');
   });
@@ -422,8 +422,8 @@ describe('AccessDirectory (issue #49: /admin/roles)', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     visit('bogus');
-    expect(within(dialog).getByRole('alert').textContent).toMatch(/등록되지 않은 탭입니다|This tab is not registered\./);
-    expect(within(dialog).getByRole('button', { name: /권한 열기|Open permissions/ })).toBeTruthy();
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/상세 탭 “bogus”|Detail tab “bogus”/);
+    expect(within(dialog).getByRole('button', { name: /값 지우기|Clear value/ })).toBeTruthy();
     visit('sites');
     expect(within(dialog).getByRole('tab', { name: /사이트 범위|Site scope/ }).getAttribute('aria-selected')).toBe('true');
   });

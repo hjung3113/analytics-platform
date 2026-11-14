@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Cpu, Factory, GitBranch, Package } from 'lucide-react';
 import { HierarchyFailure, isHierarchyFailure, type ApiResponse, type HierarchyNode, type HierarchyPage, type HierarchySource } from '@ap/contracts';
 import { useMenuFetch } from '@ap/kernel';
@@ -35,7 +35,15 @@ export function createModelHierarchySource(fetch: Fetch): HierarchySource {
 /** The shell owns mounting/session lifetime; this component neither reads screen Context nor fetches during render. */
 export function ModelHierarchySource({ children }: { children: (source: HierarchySource) => ReactNode }) {
   const { fetch } = useMenuFetch(endpoints.hierarchy!);
-  return children(createModelHierarchySource(fetch));
+  const fetchRef = useRef(fetch);
+  useLayoutEffect(() => {
+    fetchRef.current = fetch;
+  }, [fetch]);
+  const source = useMemo(
+    () => createModelHierarchySource((params, signal) => fetchRef.current(params, signal)),
+    [],
+  );
+  return children(source);
 }
 const icons = { vendor: Factory, process: GitBranch, model: Cpu, software: Package };
 export const modelHierarchyIcon = (kind: string) => icons[kind as keyof typeof icons];

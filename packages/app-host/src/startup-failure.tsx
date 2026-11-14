@@ -14,20 +14,27 @@ export function StartupFailure() {
   );
 }
 
+const logStartupError = (error: unknown) => { console.error(error); };
+const reportStartupError = (error: unknown, report = logStartupError) => {
+  try { report(error); } catch (reportError) { console.error(reportError); }
+};
+
 /**
  * The root's last boundary: a render-time throw no inner boundary contains (a Provider declaration error such as a Condition preset naming an
  * undeclared axis, or a registry without spaces) renders `StartupFailure` instead of unmounting the whole root to a blank page (#1876).
  */
-export class StartupBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+export class StartupBoundary extends Component<{ children: ReactNode; onStartupError?: (error: unknown) => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: unknown) { reportStartupError(error, this.props.onStartupError); }
   render() { return this.state.failed ? <StartupFailure /> : this.props.children; }}
 
 /** Runs the async startup; a rejection or throw renders the failure screen instead of leaving a blank root and an unhandled rejection. */
-export async function startOrFail(root: { render: (node: ReactNode) => void }, start: () => Promise<void> | void): Promise<void> {
+export async function startOrFail(root: { render: (node: ReactNode) => void }, start: () => Promise<void> | void, onStartupError?: (error: unknown) => void): Promise<void> {
   try {
     await start();
-  } catch {
+  } catch (error) {
+    reportStartupError(error, onStartupError);
     root.render(<StartupFailure />);
   }
 }

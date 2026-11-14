@@ -821,10 +821,10 @@ describe('owner pickers page past the first 50 matches', () => {
     for (let n = 0; n < 60; n += 1) MODELS.push({ id: uuid(3, 100 + n), code: `P-${n}`, name: `Plenty ${String(n).padStart(2, '0')}`, active: true });
     mountList(`${published}&focus=new`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
-    expect(await within(drawer()).findByRole('button', { name: '모델 더 보기' }, slow)).toBeTruthy();
     fireEvent.click(within(drawer()).getAllByRole('combobox')[0]!);
+    expect(await screen.findByRole('button', { name: '모델 더 보기' }, slow)).toBeTruthy();
     expect((await screen.findAllByRole('option', {}, slow)).length).toBe(50);
-    fireEvent.click(within(drawer()).getByRole('button', { name: '모델 더 보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '모델 더 보기' }));
     await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(50), slow);
     const pages = queries.filter(q => q.endpoint === 'logKnowledge.models' && (q.params as { pageSize?: number }).pageSize === 50).map(q => (q.params as { page: number }).page);
     expect(pages).toEqual(expect.arrayContaining([0, 1]));

@@ -155,3 +155,18 @@ describe('startAppHost stale chunk notice (#1981)', () => {
     error.mockRestore();
   });
 });
+
+it.each(['assembly', 'render'])('reports a %s startup error through the injected hook (#2028 SHE-14)', async kind => {
+  const problem = new Error('private startup details');
+  const onStartupError = vi.fn();
+  function Broken(): never { throw problem; }
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  await start({ onStartupError, createAssembly: () => {
+    if (kind === 'assembly') throw problem;
+    return { screen: <Broken /> };
+  } });
+  expect(await failure()).toBeInTheDocument();
+  expect(onStartupError).toHaveBeenCalledExactlyOnceWith(problem);
+  expect(screen.queryByText(problem.message)).toBeNull();
+  consoleError.mockRestore();
+});

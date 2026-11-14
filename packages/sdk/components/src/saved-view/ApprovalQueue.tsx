@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { formatInstant } from '@ap/contracts';
 import type { SavedView, SavedViewListItem, SavedViewEntry, ViewApproval } from '@ap/contracts';
 import { useI18n, type Text } from '@ap/kernel';
 import { Input } from '@ap/ui';
 import { SegmentedRadio } from '../RadioGroup';
 import { ViewDetail, ViewRow, rowHasReason, useRowElements, useVanishedLayers } from './ViewParts';
 import { approvalText } from './text';
-import { formatKst, type ApprovalRequestInfo, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler } from './viewInfo';
+import { type ApprovalRequestInfo, type ViewDecideHandler, type ViewDiagnosis, type ViewRevokeHandler } from './viewInfo';
 
 export type ApprovalQueueStatus = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -60,8 +61,9 @@ export function ApprovalQueue(props: ApprovalQueueProps) {
   return <QueuePanel {...props} />;
 }
 
-export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime = formatKst, onDone }: QueuePanelProps) {
+export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: QueuePanelProps) {
   const { tx, lang } = useI18n();
+  const formatTime = suppliedFormatTime ?? ((ms: number) => formatInstant(ms, lang));
   const [status, setStatus] = useState<ApprovalQueueStatus>(defaultStatus);
   const [query, setQuery] = useState('');
   const [ownId, setOwnId] = useState<string | null>(null);
