@@ -276,6 +276,48 @@ describe('lifecycle interactions with the real Kernel host', () => {
     click(button('이전', requestsRegion()));
     await waitFor(() => expect(query().has('requestsPage')).toBe(false));
   });
+  it('keeps the Gate decisive attempt in 결과·결함 when the requests page turns, until a row is clicked', async () => {
+    const OTHER = 'cccccccc-cccc-4ccc-8ccc-000000000025';
+    const OLD_ATTEMPT = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const ids = Array.from({ length: 26 }, (_, i) => i === 0 ? ID : i === 1 ? B : `cccccccc-cccc-4ccc-8ccc-${String(i).padStart(12, '0')}`);
+    const queries: MenuQuery<Record<string, unknown>>[] = [];
+    const detail = (id: string) => ({ ...request(id), attempts: [{ ...attempt(id === ID ? ID : OLD_ATTEMPT), attemptNo: id === ID ? 7 : 2 }] });
+    const session = testSession(['platform:view', PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE], { user: { id: ID } });
+    const adapter = testAdapter({
+      session: () => session,
+      menuQuery: async q => {
+        queries.push(q as MenuQuery<Record<string, unknown>>);
+        const p = q.params as Record<string, unknown>;
+        if (q.endpoint === 'logLifecycle.projectDetail') return ok(project);
+        if (q.endpoint === 'logLifecycle.roundDetail') return ok({ ...round, gateAvailability: { ...round.gateAvailability, basis: { version: 1, decisiveAttemptId: ID, decisiveVerdict: 'fail', attempts: [{ attemptId: ID, requestId: ID }] } } });
+        if (q.endpoint === 'logLifecycle.requests') return ok({ rows: ids.map(id => detail(id)).slice(Number(p.page ?? 0) * 25, (Number(p.page ?? 0) + 1) * 25), total: 26 });
+        if (q.endpoint === 'logLifecycle.requestDetail') return ok(detail(String(p.requestId)));
+        if (q.endpoint === 'logLifecycle.ruleResults') return ok({ rows: rules.filter(r => r.result === 'FAIL'), total: 13 });
+        return ok(null);
+      },
+    });
+    window.history.replaceState(null, '', `/logDev/log-model-round/${ID}/${ID}?v=1`);
+    act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={{ projectId: ID, roundId: ID }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+    await ready();
+    const head = () => element('[aria-label="선택 시도 서버 판정"]').textContent ?? '';
+    expect(head()).toContain('시도 #7');
+    activateRoundTab('설정·이력');
+    // Page 1 holds the decisive request: it is shown in 결과·결함 but not chosen, so no row reads as active.
+    await waitFor(() => expect(text(ID.slice(0, 8), requestsRegion())).toBe(true));
+    expect(document.querySelector('section[aria-label="Round 검증 요청"] [aria-current="true"]')).toBeNull();
+    click(button('다음', requestsRegion()));
+    await waitFor(() => expect(query().get('requestsPage')).toBe('2'));
+    await waitFor(() => expect(text('cccccccc', requestsRegion())).toBe(true));
+    expect(query().has('request')).toBe(false);
+    expect(head()).toContain('시도 #7');
+    expect(head()).toContain(`요청 ${ID.slice(0, 8)}`);
+    expect(queries.filter(q => q.endpoint === 'logLifecycle.ruleResults').every(q => q.params.attemptId === ID)).toBe(true);
+    expect(document.querySelector('section[aria-label="Round 검증 요청"] [aria-current="true"]')).toBeNull();
+    click(button('cccccccc', requestsRegion()));
+    await waitFor(() => expect(query().get('request')).toBe(OTHER));
+    await waitFor(() => expect(head()).toContain('시도 #2'));
+    await waitFor(() => expect(queries.some(q => q.endpoint === 'logLifecycle.ruleResults' && q.params.attemptId === OLD_ATTEMPT)).toBe(true));
+  });
   it.each(['FAIL', 'required', 'sort'])('applies %s from an unfiltered URL with one host write and a rule-page reset', async control => {
     const t = mount('&result=all&rulesPage=2'); await waitFor(() => expect(text('R-026')).toBe(true)); t.history.mockClear();
     if (control === 'FAIL') click(button('실패 13'));
