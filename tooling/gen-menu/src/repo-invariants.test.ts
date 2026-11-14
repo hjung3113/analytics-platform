@@ -400,6 +400,14 @@ describe('wiring invariants against a fixture repo', () => {
       d.mockAssemblyTsx = `import { qualityActionsMock } from ${from};\n${d.mockAssemblyTsx}`;
       expect(() => checkWiring(d)).toThrow(/qualityActionsMock' is imported but never spread/);
     });
+    it.each(['line', 'block'])('rejects commented hand-wired actions (%s)', style => {
+      const d = loadShape(fresh());
+      d.mockIndexes['menus/mars/quality'] = 'export const qualityMock = []; export const qualityActionsMock = [];';
+      const code = `import { qualityActionsMock } from ${from};\nconst old = [...qualityActionsMock];`;
+      const comment = style === 'line' ? code.split('\n').map(line => `// ${line}`).join('\n') : `/* ${code} */`;
+      d.mockAssemblyTsx = `${comment}\n${d.mockAssemblyTsx}`;
+      expect(() => checkWiring(d)).toThrow(/qualityActionsMock.*pair/);
+    });
     it('(e) rejects write samples exported without an action list', () => {
       const e = loadShape(fresh());
       e.mockIndexes['menus/mars/quality'] = 'export const qualityMock = []; export const qualityWriteSamples = {};';

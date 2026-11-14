@@ -404,13 +404,12 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
   });
 
   test('일부 위젯 실패에서 단일 실패는 배너 없이 전체 상태를 유지한다', async ({ page }, testInfo) => {
-    // The scenario fails every other query. Equipment detail has two queries;
-    // productivity has four and therefore intentionally groups its two equal failures.
-    await page.goto('/mars/equipment-detail/MEM-PHOTO-0103?v=1&scopeId=MEM');
+    // The scenario fails every other query. Equipment detail's change-history tab has two queries (the shared
+    // entity read, #2056, and the change log); productivity has four and therefore groups its two equal failures.
+    await page.goto('/mars/equipment-detail/MEM-PHOTO-0103?v=1&scopeId=MEM&tab=audit');
     const loadedHeader = page.getByRole('main').locator('[data-platform-page-content] > [aria-busy]');
-    const loadedPanel = page.getByRole('tabpanel');
     await expect(loadedHeader.getByText('MEM-PHOTO-0103')).toBeVisible();
-    await expect(loadedPanel.getByText('MEM-PHOTO-0103')).toBeVisible();
+    await expect(page.getByRole('tabpanel')).toBeVisible();
     await setScenario(page, '일부 위젯 실패');
     const main = page.getByRole('main');
     await expect(main.getByRole('alert')).toHaveCount(1);

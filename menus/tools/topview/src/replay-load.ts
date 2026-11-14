@@ -3,6 +3,7 @@ import {
   assertReplayInput, verifyBindingContext,
   type OccurrenceBatch, type ReplayInput,
 } from '@eqv/core';
+import type { HostProps } from './host-props.js';
 import { topviewEvents, type TopviewContextParams, type TopviewEventsParams } from './endpoints.js';
 
 /** What the reads said about the data (EV#187): shown as the one Data Trust line, never as stacked notices. `unknown` stays `unknown`, never `clear`. */
@@ -109,7 +110,7 @@ export async function verifyContext(context: Omit<ReplayInput, 'batch'>, equipme
  * `continuationToken`; it is bounded by the server's `maxHours` window, a token seen twice (a cycle is a data error), and `signal`.
  * Resolves null when `signal` aborted: the caller drops the result.
  */
-export async function loadReplayInput(reads: ReplayReads, equipmentId: string, signal: AbortSignal): Promise<Settled | null> {
+export async function loadReplayInput(reads: ReplayReads, equipmentId: string, signal: AbortSignal, window: Pick<Extract<HostProps['time'], { kind: 'applied' }>, 'from' | 'to'>): Promise<Settled | null> {
   const acc: Acc = { trust: null, assessments: [] };
   try {
     const contextResponse = await reads.context({ equipmentId }, signal);
@@ -137,6 +138,7 @@ export async function loadReplayInput(reads: ReplayReads, equipmentId: string, s
     try {
       const batch = mergePages(pages);
       if (batch.equipmentId !== equipmentId) throw new RangeError(`batch.equipmentId(${batch.equipmentId})가 ${equipmentId}와 다릅니다`);
+      if (batch.from !== window.from || batch.to !== window.to) throw new RangeError('응답 구간이 적용된 조회 구간과 다릅니다');
       const verified = await verifyContext(context.data, equipmentId);
       const input: ReplayInput = { ...verified.input, batch };
       assertReplayInput(input);

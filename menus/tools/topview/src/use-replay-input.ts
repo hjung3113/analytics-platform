@@ -41,7 +41,7 @@ export function useReplayScreen(): { props: HostProps; load: ReplayLoad | null; 
   const [settled, setSettled] = useState<{ key: string; load: Settled } | null>(null);
   // A settled result belongs to one request: any other key (an invalid input included) discards it, so revisiting a key waits for a new one.
   if (settled !== null && settled.key !== loadKey) setSettled(null);
-  const read = useEffectEvent((id: string, signal: AbortSignal) => loadReplayInput({ context: context.fetch, events: events.fetch }, id, signal));
+  const read = useEffectEvent((id: string, signal: AbortSignal) => loadReplayInput({ context: context.fetch, events: events.fetch }, id, signal, { from: from!, to: to! }));
 
   useEffect(() => {
     if (!loadable || equipment === null || !gateOpen) return;

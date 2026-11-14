@@ -29,7 +29,7 @@ export default function RulesScreen({ params = {} }: PageProps) {
   const modelId = pageParam('modelId')?.toLowerCase() ?? null, softwareId = pageParam('softwareId')?.toLowerCase() ?? null;
   const query = useMenuQuery(catalogStatusEndpoint, {}, !keys.invalid);
   const close = () => {
-    if (params.ruleSetKey) navigate(linkTo('log-rules', { page: { tab: 'rules', ...(modelId ? { modelId } : {}), ...(softwareId ? { softwareId } : {}) } }));
+    if (params.ruleSetKey) navigate(linkTo('log-rules', { page: { ...Object.fromEntries(page), filter: pageParams('filter'), tab: 'rules', ruleSetKey: null, ruleKey: null } }));
     else setPage({ ruleSetKey: null, ruleKey: null });
   };
   return <PlatformPage description="Validator가 보고한 규칙과 명세 요구사항의 선언 구성을 봅니다."><div className="grid min-w-0 gap-3 break-keep">
@@ -39,7 +39,7 @@ export default function RulesScreen({ params = {} }: PageProps) {
         <TabsList aria-label="검증 규칙 탭"><TabsTrigger value="rules">규칙</TabsTrigger><TabsTrigger value="coverage">명세 커버리지</TabsTrigger></TabsList>
         {(['rules', 'coverage'] as const).map(value => <TabsContent key={value} value={value}>
           <QueryView query={query}>{status => <div className="grid min-w-0 gap-3">
-            <ManagementLayout table={value === 'coverage' ? <CoverageTab onOpenRule={onOpen} modelId={modelId} softwareId={softwareId} /> : !status.received ? <EmptyNote title="카탈로그를 아직 받지 못했습니다" body="규칙 카탈로그를 보려면 Validator의 보고가 필요합니다." /> : <RulesTable onOpen={onOpen} />}
+            <ManagementLayout table={value === 'coverage' ? <CoverageTab onOpenRule={onOpen} modelId={modelId} softwareId={softwareId} /> : !status.received ? <EmptyNote title="카탈로그를 아직 받지 못했습니다" body="규칙 카탈로그를 보려면 Validator의 보고가 필요합니다." /> : <RulesTable onOpen={onOpen} activeRule={ruleSetKey ? { ruleSetKey, ruleKey } : null} />}
               drawer={value === 'rules' && status.received && ruleSetKey ? ruleKey ? <RuleDrawer key={JSON.stringify([ruleSetKey, ruleKey])} focusOnOpen={focusOnOpen} ruleSetKey={ruleSetKey} ruleKey={ruleKey} modelId={modelId} softwareId={softwareId} onClose={close} /> : <RuleSetHistory focusOnOpen={focusOnOpen} ruleSetKey={ruleSetKey} onClose={close} onViewRules={() => {
                 const parsed = parseFilterParams(pageParams('filter'), ruleFilterSpecs);
                 const filters = parsed.ok ? parsed.filters.filter(filter => filter.id !== 'ruleSetKey') : [];

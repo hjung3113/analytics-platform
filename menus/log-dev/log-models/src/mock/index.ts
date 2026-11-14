@@ -49,6 +49,7 @@ function read(name: string, p: Params, actor: string): unknown {
   if (name === 'models') {
     let rows = models.map(m => p.includeClosedProjects || !m.project || !['completed','cancelled'].includes(m.project.stage) ? m : { ...m, project: null }).filter(m => !p.q || `${m.code} ${m.name}`.toLowerCase().includes(String(p.q).toLowerCase()));
     for (const f of (p.filters ?? []) as ColumnFilter[]) {
+      if (f.id === 'active' && (f.op === 'in' || f.op === 'notIn')) rows = rows.filter(m => f.op === 'in' ? f.value.includes(String(m.active !== false)) : !f.value.includes(String(m.active !== false)));
       if (f.id === 'stage') rows = rows.filter(m => f.op === 'isEmpty' ? m.project === null : f.op === 'in' && f.value.includes(m.project?.stage ?? ''));
       if (f.id === 'validation' && f.op === 'in') rows = rows.filter(m => f.value.includes(m.validation));
       if (f.id === 'vendorId' && f.op === 'in') rows = rows.filter(m => f.value.includes(m.vendorId));
@@ -56,6 +57,16 @@ function read(name: string, p: Params, actor: string): unknown {
       if (f.id === 'processes' && f.op === 'isEmpty') rows = rows.filter(m => m.processes.length === 0);
       if (f.id === 'processes' && f.op === 'in') rows = rows.filter(m => m.processes.some(x => f.value.includes(x.id)));
     }
+    const sorting = (p.sorting ?? []) as PageSort[];
+    rows.sort((a, b) => {
+      for (const sort of sorting) {
+        const left = sort.id === 'stage' ? a.project?.stage ?? '' : a[sort.id as keyof typeof a];
+        const right = sort.id === 'stage' ? b.project?.stage ?? '' : b[sort.id as keyof typeof b];
+        const order = typeof left === 'number' && typeof right === 'number' ? left - right : String(left ?? '').localeCompare(String(right ?? ''));
+        if (order) return order * (sort.desc ? -1 : 1);
+      }
+      return a.id.localeCompare(b.id);
+    });
     return page(rows, p);
   }
   if (name === 'projectDetail') return findProject(p.projectId) ?? null;
@@ -63,7 +74,7 @@ function read(name: string, p: Params, actor: string): unknown {
   if (name === 'projectEvents') return page(events.filter(e => e.projectId === p.projectId).reverse(), p);
   if (name === 'roundDetail') { const r = roundOf(p.roundId); return r ? { ...r, gateAvailability: availability(r, actor) } : null; }
   if (name === 'roundEvidence') return roundOf(p.roundId) ? { rows: [] } : null;
-  if (name === 'requests') return page(requests.filter(r => (!p.roundId || r.roundId === p.roundId) && (!p.states || (p.states as string[]).includes(r.state)) && (p.priority === undefined || p.priority === r.priority) && (!p.modelId || p.modelId === r.modelId)).map(({ attempts: _attempts, cancelReason: _cancelReason, ...row }) => row), p);
+  if (name === 'requests') return page(requests.filter(r => (!p.from || Date.parse(r.createdAt) >= Date.parse(String(p.from))) && (!p.to || Date.parse(r.createdAt) < Date.parse(String(p.to))) && (!p.roundId || r.roundId === p.roundId) && (!p.states || (p.states as string[]).includes(r.state)) && (p.priority === undefined || p.priority === r.priority) && (!p.modelId || p.modelId === r.modelId)).map(({ attempts: _attempts, cancelReason: _cancelReason, ...row }) => row), p);
   if (name === 'requestDetail') return requestOf(p.requestId) ?? null;
   if (name === 'opinionScale') return opinionScale;
   if (name === 'opinions') {

@@ -63,6 +63,10 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const tab = pageParam(pageKeys.tab) ?? 'raw';
   const focus = pageParam(pageKeys.focus);
   const drawer = pageParam(pageKeys.drawer);
+  const [writeVersion, setWriteVersion] = useState({ source: investigation.version, current: investigation.version });
+  if (writeVersion.source !== investigation.version) setWriteVersion({ source: investigation.version, current: investigation.version });
+  const currentInvestigation = { ...investigation, version: writeVersion.source === investigation.version ? writeVersion.current : investigation.version };
+  const acceptVersion = (version: string) => setWriteVersion(v => ({ ...v, current: version }));
   const savedKey = JSON.stringify(investigation.filters);
   const [filters, setFilters] = useState({ savedKey, draft: investigation.filters, applied: investigation.filters });
   if (filters.savedKey !== savedKey) setFilters({ savedKey, draft: investigation.filters, applied: investigation.filters });
@@ -98,6 +102,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   if ((data?.state === 'permission_denied' || periodData?.state === 'permission_denied') && !accessDenied) setAccessDenied(true);
   const synthetic = (tab === 'raw' ? data : periodData)?.synthetic;
   const active = tab === 'raw' ? records : periods;
+  const contextInvalid = !!filters.draft.contextKey !== !!filters.draft.contextValue;
   const pending = JSON.stringify(filters.draft) !== JSON.stringify(filters.applied);
   const fields: PageFilterField[] = ['logType', 'module', 'event', 'contextKey', 'contextValue'].map((key, index) => ({ key, label: ['로그 타입', 'Module', 'Event', 'Context 키', 'Context 값'][index], kind: 'text', value: String(filters.draft[key] ?? ''), onValueChange: value => setFilters(f => ({ ...f, draft: { ...f.draft, [key]: value.slice(0, key === 'logType' || key === 'contextKey' || key === 'module' || key === 'event' ? 100 : 200) } })) }));
   const summaryItems = [...fields.map(f => ({ key: f.key, label: f.label, value: String(filters.applied[f.key] || '전체') })), { key: 'text', label: '검색', value: String(filters.applied.text || '없음') }];
@@ -107,7 +112,8 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const contextExtension = <div className="flex flex-col gap-3 break-keep">
       <PageFilterBar collapsible defaultCollapsed preferenceKey="log-explorer" label="조회 조건" summaryItems={summaryItems} hasPendingChanges={pending} fields={[
         ...fields, { key: 'period', label: '기간 시작·끝', kind: 'custom', content: <p className="text-xs text-text-secondary">Source 조회 계약에서 미지원</p> },
-      ]} actions={<><Button size="toolbar" disabled={!pending} onClick={() => setFilters(f => ({ ...f, applied: f.draft }))}>적용</Button><Button variant="ghost" size="toolbar" onClick={() => setFilters(f => ({ ...f, draft: {}, applied: {} }))}>초기화</Button>{!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: investigation.version }).then(r => setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : '조건을 저장하지 못했습니다.')).catch(() => undefined); }}>조건 저장</Button>}</>} />
+      ]} actions={<><Button size="toolbar" disabled={!pending || contextInvalid} onClick={() => setFilters(f => ({ ...f, applied: f.draft }))}>적용</Button><Button variant="ghost" size="toolbar" onClick={() => setFilters(f => ({ ...f, draft: {}, applied: {} }))}>초기화</Button>{!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending || contextInvalid} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: currentInvestigation.version }).then(r => { if (r.outcome === 'ok' && r.version) acceptVersion(r.version); setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 저장 여부를 다시 확인하세요.' : '조건을 저장하지 못했습니다.'); }).catch(() => undefined); }}>조건 저장</Button>}</>} />
+      {contextInvalid && <p role="alert" className="text-xs text-text-danger-label">Context 키와 값을 함께 입력하세요.</p>}
     </div>;
   const inner = (
     <div className="flex min-h-0 flex-1 flex-col gap-3 break-keep">
@@ -125,8 +131,8 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
           {tab === 'sequence' && !accessDenied && track && periodData && <><div className="flex shrink-0 items-center justify-between gap-2 text-xs text-text-secondary"><span>현재 읽은 기간 범위 · {periodData.rows.length}개</span><div className="flex gap-2"><Button variant="ghost" size="toolbar" disabled={periodPaging.index === 0} onClick={() => setPeriodPaging(p => ({ ...p, index: p.index - 1 }))}>이전 기간 범위</Button><Button variant="ghost" size="toolbar" disabled={!periodData.nextCursor} onClick={() => { if (periodData.nextCursor) setPeriodPaging(p => ({ ...p, cursors: [...p.cursors.slice(0, p.index + 1), periodData.nextCursor], index: p.index + 1 })); }}>다음 기간 범위</Button></div></div><OrderedIntervalTrack ariaLabel="시퀀스" description="파일 순서 → 줄 번호 · 시간순 재정렬 없음" {...track} height={Math.min(288, track.lanes.length * 28 + 56)} states={STATES} axisLabel="파일 순서:줄" selectedId={set ? periodSelectionOf(set, periodData.rows, focus) : null} onSelect={item => setPage({ [pageKeys.focus]: item?.id ?? null, [pageKeys.drawer]: item ? 'record' : null })} state={!sourceReadable(periodData.state) ? { kind: periodData.state === 'permission_denied' ? 'forbidden' : 'unsupported', title: '시퀀스 미지원', body: '기간 행 미지원' } : periodData.nextCursor || periodData.state === 'partial' ? { kind: 'partial', title: '일부 결과 · 현재 기간 범위만 표시' } : undefined} /></>}
         </>}
       </>}
-      {!keys.invalid && !embedded && drawer === 'basket' && <BasketDrawer investigation={investigation} onClose={closeDrawer} />}
-      {!keys.invalid && (embedded || drawer !== 'basket') && selection && set && <RecordDrawer embedded={embedded} key={`${selection.fileRef}:${selection.line}`} investigation={investigation} blocked={accessDenied} onDenied={() => setAccessDenied(true)} set={set} selection={selection} onClose={closeDrawer} />}
+      {!keys.invalid && !embedded && drawer === 'basket' && <BasketDrawer onVersion={acceptVersion} investigation={currentInvestigation} onClose={closeDrawer} />}
+      {!keys.invalid && (embedded || drawer !== 'basket') && selection && set && <RecordDrawer onVersion={acceptVersion} embedded={embedded} key={`${selection.fileRef}:${selection.line}`} investigation={currentInvestigation} blocked={accessDenied} onDenied={() => setAccessDenied(true)} set={set} selection={selection} onClose={closeDrawer} />}
     </div>
   );
   const framed = frame ? frame({ contextExtension, children: inner }) : <PlatformPage layout="fill" contextExtension={contextExtension} queryBarExtension={{ pageSummary: summaryItems, appliedPageSummary: summaryItems, issues: [] }} secondaryActions={set && <ExportEntry set={set} summary={summary} />}>{inner}</PlatformPage>;

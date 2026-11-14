@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hostWallClock, readHostProps } from '../src/host-props.js';
-import { mergePages } from '../src/replay-load.js';
-import { batch, pages } from './replay-fixture.js';
+import { loadReplayInput, mergePages } from '../src/replay-load.js';
+import { batch, pages, contextData, EQUIPMENT } from './replay-fixture.js';
 
 describe('hostWallClock', () => {
   it.each([
@@ -40,4 +40,14 @@ describe('mergePages', () => {
     expect(() => mergePages([first, { ...second, dataGeneration: 'g2' }])).toThrow(/dataGeneration/);
     expect(() => mergePages([first, { ...second, equipmentId: 'eq-other' }])).toThrow(/equipmentId/);
   });
+});
+
+it.each(['from', 'to'] as const)('rejects a batch whose %s differs from the applied window (#2056)', async key => {
+  const reads = {
+    context: async () => ({ outcome: 'ok' as const, data: contextData(), assessments: [], trust: null, correlationId: 'context' }),
+    events: async () => ({ outcome: 'ok' as const, data: { ...batch, [key]: '2026-01-01T10:01:00.000' }, assessments: [], trust: null, correlationId: 'events' }),
+  };
+  // The fourth argument belongs to this private menu loader, not the public SDK.
+  const result = await loadReplayInput(reads, EQUIPMENT, new AbortController().signal, { from: batch.from, to: batch.to });
+  expect(result).toMatchObject({ kind: 'failed', title: '데이터 오류' });
 });

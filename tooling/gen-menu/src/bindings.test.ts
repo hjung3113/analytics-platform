@@ -25,14 +25,13 @@ describe('binding safety (F5)', () => {
     expect(appSnapshot(root)).toEqual(before);
   });
 
-  it('rejects menu ids whose page component collides with the page template imports', async () => {
+  it('accepts menu ids whose suffixed component does not collide with page imports', async () => {
     for (const menu of ['platform-page', 'query-view']) {
       const root = fresh();
       const before = appSnapshot(root);
       const res = await runCli([FIXTURE_GROUP, ...GEN_ARGS, '--menu', menu], root);
-      expect(res.status, menu).toBe(1);
-      expect(res.stderr, menu).toMatch(/collides with the page template imports/);
-      expect(appSnapshot(root)).toEqual(before);
+      expect(res.status, res.stderr).toBe(0);
+      expect(appSnapshot(root)).not.toEqual(before);
     }
   });
 

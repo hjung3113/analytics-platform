@@ -55,7 +55,7 @@ function RoundHandoffDialog({ investigation, onOpenChange, onDone, onCloseAutoFo
     <AlertDialogFooter><AlertDialogCancel disabled={pending}>취소</AlertDialogCancel>{/* A plain button, not AlertDialogAction: a refusal keeps the dialog open. */}<Button disabled={pending} onClick={confirm}>{pending ? '전달 중…' : again ? '같은 요청 다시 시도' : '참조 전달'}</Button></AlertDialogFooter>
   </AlertDialogContent></AlertDialog>;
 }
-export function BasketDrawer({ investigation, onClose }: { investigation: Investigation; onClose: () => void }) {
+export function BasketDrawer({ investigation, onClose, onVersion }: { investigation: Investigation; onClose: () => void; onVersion: (version: string) => void }) {
   const { setPage } = usePlatform();
   const keys = usePageKeys();
   const remove = useMenuAction(evidenceRemove);
@@ -76,11 +76,11 @@ export function BasketDrawer({ investigation, onClose }: { investigation: Invest
     {investigation.evidence.map(({ ref, state }) => <div key={`${ref.fileRef}:${ref.line}`} className="flex items-start gap-2">
       <div className="min-w-0 flex-1"><Button variant="link" size="sm" disabled={state.code === 'no_access'} onClick={() => { const file = investigation.sampleSet?.files.find(f => f.fileRef === ref.fileRef); if (file) setPage({ [keys.focus]: `${file.order}:${ref.line}`, [keys.drawer]: 'record' }); }}>{ref.fileRef}:{ref.line}</Button>
         <p className="text-xs text-text-secondary">파일 해시</p><p className="t-mono break-all">{ref.fileSha256}</p>{ref.note && <p>{ref.note}</p>}{state.code === 'no_access' && <p className="text-xs text-text-secondary">원본 접근 불가 · {state.reason}</p>}</div>
-      <Button variant="ghost" size="toolbar" disabled={!investigation.canInvestigate || investigation.status !== 'open' || remove.pending} onClick={() => { void remove.run({ id: investigation.id, ref: { fileRef: ref.fileRef, line: ref.line } }, { expectedVersion: investigation.version }).then(r => setNotice(r.outcome === 'ok' ? '근거 위치를 뺐습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : '근거 위치를 빼지 못했습니다.')).catch(() => undefined); }}>빼기</Button>
+      <Button variant="ghost" size="toolbar" disabled={!investigation.canInvestigate || investigation.status !== 'open' || remove.pending} onClick={() => { void remove.run({ id: investigation.id, ref: { fileRef: ref.fileRef, line: ref.line } }, { expectedVersion: investigation.version }).then(r => { if (r.outcome === 'ok' && r.version) onVersion?.(r.version); setNotice(r.outcome === 'ok' ? '근거 위치를 뺐습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 근거 위치 삭제 여부를 다시 확인하세요.' : '근거 위치를 빼지 못했습니다.'); }).catch(() => undefined); }}>빼기</Button>
     </div>)}<p role="status" className="text-xs text-text-secondary">{notice}</p>
   </div> }]} />;
 }
-export function RecordDrawer({ investigation, set, selection, blocked, embedded = false, onDenied, onClose }: { blocked: boolean; embedded?: boolean; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
+export function RecordDrawer({ investigation, set, selection, blocked, embedded = false, onDenied, onClose, onVersion }: { onVersion?: (version: string) => void; blocked: boolean; embedded?: boolean; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
   const location = { fileRef: selection.fileRef, line: selection.line }; // the read contracts reject unknown keys such as fileOrder
   const windowRead = useSourceRead(windowEndpoint, { sourceOwner: set.sourceOwner, ...location, before: 3, after: 3, ...(investigation.roundId ? { roundId: investigation.roundId } : {}) });
   const parsedRead = useSourceRead(parsedEndpoint, { sourceOwner: set.sourceOwner, ...location });
@@ -97,7 +97,7 @@ export function RecordDrawer({ investigation, set, selection, blocked, embedded 
   const writable = investigation.canInvestigate && investigation.status === 'open' && !!row && !!ref && !already && investigation.evidence.length < 100;
   return <DetailDrawer title="레코드 상세" subtitle={`${selection.fileRef}:${selection.line}`} onClose={onClose} tabs={[{ id: 'record', label: '레코드 상세', content: <div className="flex flex-col gap-5 break-keep text-xs">
     <section className="flex flex-col gap-2"><h3 className="text-xs font-semibold text-text-secondary">근거 위치</h3><p className="t-mono break-all">{selection.fileRef}:{selection.line}</p><p className="text-text-secondary">파일 해시</p><p className="t-mono break-all">{ref?.fileSha256}</p>
-      {!embedded && <><Button variant="secondary" size="toolbar" disabled={!writable || add.pending} onClick={() => { if (!ref) return; void add.run({ id: investigation.id, ref }, { expectedVersion: investigation.version }).then(r => setNotice(r.outcome === 'ok' ? '근거 위치를 담았습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : '근거 위치를 담지 못했습니다.')).catch(() => undefined); }}>{already ? '담은 근거 위치' : '근거 위치 담기'}</Button>
+      {!embedded && <><Button variant="secondary" size="toolbar" disabled={!writable || add.pending} onClick={() => { if (!ref) return; void add.run({ id: investigation.id, ref }, { expectedVersion: investigation.version }).then(r => { if (r.outcome === 'ok' && r.version) onVersion?.(r.version); setNotice(r.outcome === 'ok' ? '근거 위치를 담았습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 근거 위치 저장 여부를 다시 확인하세요.' : '근거 위치를 담지 못했습니다.'); }).catch(() => undefined); }}>{already ? '담은 근거 위치' : '근거 위치 담기'}</Button>
       {!investigation.canInvestigate && <p>조사 쓰기 권한이 없습니다.</p>}<p role="status">{notice}</p></>}
     </section>
     {windowRead.loading || parsedRead.loading ? <div aria-busy="true"><Skeleton className="h-16" /><p>원문 불러오는 중</p></div> : null}
@@ -140,7 +140,7 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [again, setAgain] = useState<null | (() => Promise<ActionResult<{ id: string }>>)>(null);
   const edit = (set: (value: string) => void) => (value: string) => { set(value); setAgain(null); setError(''); };
   function settle(r: ActionResult<{ id: string }>) {
-    if (r.outcome === 'ok' && r.data) { setAgain(null); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
+    if (r.outcome === 'ok' && r.data) { setAgain(null); setTitle(''); setOwner(''); setText(''); setError(''); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
     if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 만들어졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '조사를 만들지 못했습니다. 같은 요청으로 다시 시도하세요.'); return; }
     setAgain(null); setError('조사를 만들지 못했습니다. 입력과 권한을 확인하세요.');
   }

@@ -163,3 +163,11 @@ describe('EquipmentDetail wall-clock display', () => {
     expect(screen.queryByText(/2025-12-24T|2026-09-14T/)).toBeNull();
   });
 });
+
+it('shares the same entity read between summary and attributes (#2056)', async () => {
+  const getEntity = vi.fn(async () => ({ outcome: 'ok' as const, data: { equipmentId: 'EQ-1', status: 'active' }, assessments: [], trust: null, correlationId: 'shared' }));
+  window.history.replaceState(null, '', '/equipment/EQ-1?v=1&scopeId=MEM&tab=attributes');
+  render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, getEntity })} registry={registry}><EquipmentDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
+  await screen.findByText(/모든 필드 조회 전용/);
+  expect(getEntity).toHaveBeenCalledTimes(1);
+});

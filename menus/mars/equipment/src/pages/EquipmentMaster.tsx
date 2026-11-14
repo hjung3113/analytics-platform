@@ -77,6 +77,7 @@ export default function EquipmentMaster() {
       search={search}
       rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={m('equipmentMasterView', { equipmentId: String(e.equipmentId) })} text={m('equipmentMasterView2')} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}
       selectAllResults
+      bulkSelectionActions={selection => selection.kind === 'all' ? <span className="text-xs text-text-secondary">{m('equipmentMasterAnalyzeAllHint')}</span> : null}
       bulkActions={ids => <Button asChild size="sm"><PlatformLink href={linkTo('productivity-overview', { global: { selection: ids } })}>{m('equipmentMasterAnalyzeSelectedEquipment')}</PlatformLink></Button>}
       // Table-owned export (#173): the page only says how to read the rows; the table builds the file.
       exportRows={(request, signal) => exports.fetch(exportParams({ q }, request), signal)}

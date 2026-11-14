@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { emptyGlobal, type HierarchyNode, type HierarchyPage } from '@ap/contracts';
 import { logModelsActionsMock as logLifecycleActionsMock, logLifecycleMock, PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, resetLifecycle, fixtureId } from './index';
+import { models } from './fixtures';
 import type { RequestDetail, RuleResult, RoundDetail } from '../endpoints';
 import type { PageSort } from '@ap/contracts';
 
@@ -91,4 +92,21 @@ it('keeps the real Gate basis identities when a new queued request has no attemp
   const failing = read('ruleResults', { attemptId: reference.attemptId, results: ['FAIL'], page: 0, pageSize: 25 }) as { rows: RuleResult[]; total: number };
   expect(failing).toMatchObject({ total: 1, rows: [{ ruleId: 'RULE-005', result: 'FAIL' }] });
   expect(read('requestDetail', { requestId: created?.data.requestId })).toMatchObject({ state: 'queued', attempts: [] });
+});
+
+describe('minor mock parity (#2056)', () => {
+  it('filters active models and sorts before paging', () => {
+    models[0]!.active = false; models[1]!.active = true;
+    const all = read('models', { pageSize: 200 }) as { rows: { code: string; active: boolean }[] };
+    expect(all.rows.length).toBeGreaterThan(1);
+    expect(read('models', { filters: [{ id: 'active', op: 'in', value: ['false'] }], pageSize: 200 })).toMatchObject({ rows: all.rows.filter(m => m.active === false) });
+    const sorted = [...all.rows].sort((a, b) => a.code.localeCompare(b.code));
+    expect(read('models', { sorting: [{ id: 'code', desc: false }], pageSize: 1 })).toMatchObject({ rows: sorted.slice(0, 1) });
+  });
+  it('applies both request time boundaries using instants', () => {
+    const all = read('requests', { pageSize: 200 }) as { rows: { createdAt: string }[] };
+    expect(all.rows.length).toBeGreaterThan(0);
+    expect(read('requests', { from: '2099-01-01T00:00:00Z' })).toMatchObject({ rows: [], total: 0 });
+    expect(read('requests', { to: all.rows[0]!.createdAt })).toMatchObject({ rows: all.rows.filter(r => Date.parse(r.createdAt) < Date.parse(all.rows[0]!.createdAt)) });
+  });
 });

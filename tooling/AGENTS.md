@@ -44,6 +44,7 @@ Creates the menu package skeleton (`src/endpoints.ts`, `src/mock/`, `useMenuQuer
 - When you create a group folder, add its group line to `.github/CODEOWNERS` yourself; `repo-invariants` catches a missing line and a line pointing at a missing folder. The generator adds no sidebar group.
 - The generator writes nine app wiring lines (`menus.ts` import/spread, `style.css`, app `package.json` dependency, and in `dev/mock-assembly.tsx` the `<gen:menu-mock-imports>` / `-spreads` endpoint markers plus `<gen:menu-mock-action-imports>`, `<gen:menu-mock-action-spreads>` (inside `MOCK_ACTIONS`) and `<gen:menu-mock-sample-entries>` (inside `MOCK_WRITE_SAMPLES`)), and `--remove` reverts them byte for byte. The skeleton's `src/mock/index.ts` exports `<group>Mock`, an empty `<group>ActionsMock` and an empty `<group>WriteSamples` (conformance write samples keyed by the full action id); the app's conformance test fails by action id when an action has no sample. Never edit marker regions by hand.
 - After changing the generator, the coordinator runs `node tooling/gen-menu/scripts/probe.ts` once on a clean tree (it creates and reverts both `menus/` and `platform/` placements in one run).
+- `GEN_MENU_PROBE_PAGE_TYPE` selects the probe's page archetype (default `overview`); generated typechecks cover overview, analysis, management and catalog in one program.
 - Change the `--page-type` slots (`PAGE_SLOTS`) together with 06 §12.
 
 ## sdk/ tools

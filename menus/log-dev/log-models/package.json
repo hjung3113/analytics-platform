@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-log-models",
   "private": true,
-  "version": "0.7.3",
+  "version": "0.7.4",
   "ap": { "sdk": ">=0.37.0 <0.38.0" },
   "type": "module",
   "exports": {
