@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contractErrorSentence, URL_FIELD_NAMES } from '../../i18n';
+import { contractErrorSentence, URL_FIELD_NAMES } from '../i18n';
 
 const ACTION = { ko: '주소를 고치거나 조건을 초기화하세요.', en: 'Fix the address or reset the conditions.' };
 const GENERIC = { ko: '주소의 값이 올바르지 않아 조회하지 않았습니다. 주소를 고치거나 조건을 초기화하세요.', en: 'The address has a value this page cannot use. Fix the address or reset the conditions.' };

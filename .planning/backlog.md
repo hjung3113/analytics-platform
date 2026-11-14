@@ -1,5 +1,8 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **구현 안 함 — 「Context 키 → GlobalContext 필드」 표 네 곳 한 곳으로 (#2008 KER-8):** contracts `required-context.ts`, kernel `module-host.ts`·`useScreenState.ts`·`capture.ts`에 같은 표가 따로 있다. 이유: 한 곳으로 모으려면 contracts에 표를 두고 내보내야 해서(공개 추가 export·API 기준선 갱신) kernel만의 정리로는 끝나지 않는다. 다시 열 조건: contracts+kernel 항목으로 배정될 때(제안: 값 존재 검사용 `CONTEXT_FIELDS`는 두고 membershipBasis를 포함한 전체 복사 표를 따로 둠).
+- **구현 안 함 — `sortRows` 비교가 `null`과 `undefined` 사이에서 대칭이 아님 (#2047 KER-23):** `packages/sdk/contracts/src/adapter/paging.ts:16`이 두 방향 모두 1을 돌려준다. 실제 결함이며 고칠 곳이 contracts라 kernel 묶음 범위 밖이다. 다시 열 조건: contracts 항목으로 배정될 때(nullish를 먼저 비교하고, null·undefined 섞인 오름·내림 시험을 옛 비교자에서 실패 확인; NaN·이종 값 순서는 별도 정책 질문).
+- **구현 안 함 — 가드가 이동을 붙잡은 Apply의 주소 확인 (#2047 KER-20 일부):** 숨은 page 키 확인은 고쳤지만, 가드가 붙잡아 `commit`이 false를 돌려줄 때 대기 중 제안을 지우는 부분은 그대로다(false가 거절·no-op도 뜻해서 모두 보존하면 취소된 Apply가 남음). 다시 열 조건: 가드를 아는 commit/확인 결과가 설계될 때.
 - **미구현 — 저장소 밖 하네스 문서의 질문·태그·리뷰 규칙 정리 (#2154 2차):** 1차(#2154)는 저장소 안 `AGENTS.md`·`PROFILE.md`·`lead.md`만 고쳤다. 전역 `~/AGENTS.md`, 엔진 `issue-wave-conductor`의 `SKILL.md`·`references/lanes.md`, 프로젝트 메모리에 남은 질문 규칙·태그 전 병합 보류·«PROFILE 전체 읽기» 문구는 그대로다. 이유: 저장소 밖 변경이고, 회고 권장 순서상 2차(SKILL/lanes 통합)는 릴리스 뒤다. 다시 열 조건: v0.38.0 태그 뒤 팀장이 2차를 배정할 때. 그때 이 파일들이 `PROFILE.md` §Owner gates and questions와 `lead.md`를 가리키게 한다.
 - **미구현 — 범위 조회 트랙의 소스 정체·초기화 계약 (#2028 SHE-12):** `OrderedIntervalTrack`의 로더 참조는 새 소스와 부모 재렌더의 인라인 콜백을 구별하지 못한다. 이유: 소스 전환 때 받은 항목·선택·탐색·Brush를 지우면서 인라인 로더의 반복 조회를 막으려면 명시적 소스 식별 계약이 필요하다. 레인 판단(2026-11-15, 추가형·기존 소비자 무영향): 선택 prop `sourceKey`를 더하고 값이 바뀌면 상태를 지운다 — #2191에서 구현.
 - **미구현 — 브라우저 선호의 사용자 범위·키 이전 (#2028 SHE-18):** 열·접힘 선호의 사용자별 키와 형식 통일. 이유: 기존 저장 키·형식 변경은 이번 작업의 중단 조건이다. 다시 열 조건: 소유자가 사용자/브라우저 범위와 이전 정책을 확정할 때.

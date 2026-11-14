@@ -161,7 +161,10 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
       try { next = candidate(previous.draft); } catch { return; }
       if (queryMissing(input.menu, next.global, next.page).length || missingRequiredContext(['time'], next.global).length || !scopeValid(next.global)) return;
       if (sameGlobal(input.global, next.global) && samePage(input.page, next.page)) return;
-      const target = input.url.split('?')[0] + buildQuery(next.global, next.page, input.extras);
+      // Providers echo visible pairs before hidden pairs; acknowledge that order without changing repeated values.
+      const hiddenKeys = input.menu?.hiddenPageKeys ?? [];
+      const page = [...next.page.filter(([key]) => !hiddenKeys.includes(key)), ...next.page.filter(([key]) => hiddenKeys.includes(key))];
+      const target = input.url.split('?')[0] + buildQuery(next.global, page, input.extras);
       const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys);
       const record: RecordEvent | undefined = input.history && input.menu ? { port: input.history, key: { userId: input.session.user.id, menuId: input.menu.id, scopeId: next.global.scopeId }, entry: { id: queryHistoryId(query), query, schemaVersion: 1, lastAppliedAt: Date.now(), count: 1 } } : undefined;
       const pending = { source: input.url, target, dispatching: true, editRevision: previous.editRevision + 1, record };

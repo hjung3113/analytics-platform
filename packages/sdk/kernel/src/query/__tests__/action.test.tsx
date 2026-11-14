@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineAction, defineEndpoint, type ActionOutcome, type ActionResponse, type ActionResult, type MenuAction, type MenuQuery, type Session, groupId, spaceId } from '@ap/contracts';
 import { useMenuAction, type MenuActionState } from '../action';
 import { I18nProvider } from '../../i18n';
-import { PaneScreenProvider, PlatformProvider } from '../../platform/platform';
+import { PaneScreenProvider, PlatformProvider, useHostPlatform } from '../../platform/platform';
 import { useEndpointRefreshEpoch, useMenuQuery, type QueryState } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, settleQueries, testAdapter, testSession, testSpace } from '../../testing';
@@ -190,6 +190,33 @@ describe('useMenuAction: retry', () => {
     expect(t.sent[2].request).toBe(t.sent[0].request);
   });
 
+  it('waits for another input before retrying its own identical request (#2066 KER-25)', async () => {
+    const t = setup(both());
+    await flush();
+    let first!: Promise<ActionResult<{ id: string }>>;
+    act(() => { first = t.probes.action.run(input()); });
+    await act(async () => { t.sent[0].resolve(response('unknown')); await first; });
+    const { retry } = await first;
+    let other!: Promise<ActionResult<{ id: string }>>;
+    let again!: Promise<ActionResult<{ id: string }>>;
+    let overlap!: Promise<ActionResult<{ id: string }>>;
+    act(() => {
+      other = t.probes.action.run({ text: 'b', nested: { n: 2 } });
+      again = retry!();
+      overlap = retry!();
+    });
+    expect(again).not.toBe(other);
+    expect(t.sent).toHaveLength(2);
+    await act(async () => { t.sent[1].resolve(response('ok', { data: { id: 'b' } })); await other; });
+    expect(t.sent).toHaveLength(3);
+    expect(t.sent[2].request).toBe(t.sent[0].request);
+    expect(t.probes.action.pending).toBe(true);
+    await act(async () => { t.sent[2].resolve(response('ok', { data: { id: 'a' } })); await again; await overlap; });
+    expect(await again).toMatchObject({ outcome: 'ok', data: { id: 'a' } });
+    expect(await overlap).toBe(await again);
+    expect(t.probes.action.pending).toBe(false);
+  });
+
   it('rejects a retained retry with AbortError and no send after unmount', async () => {
     const t = setup(both());
     await flush();
@@ -233,6 +260,30 @@ describe('useMenuAction: retry', () => {
 });
 
 describe('useMenuAction: lifetime and generation', () => {
+  it('rejects and clears the slot when an invalidation subscriber throws (#2066 KER-27)', async () => {
+    let stop!: () => void;
+    function ThrowingSubscriber() {
+      const { refreshEpochs } = useHostPlatform();
+      useLayoutEffect(() => {
+        stop = refreshEpochs.subscribe(() => { throw new Error('subscriber failed'); });
+        return stop;
+      }, [refreshEpochs]);
+      return null;
+    }
+    const t = setup(probes => <><Writer probes={probes} /><ThrowingSubscriber /></>);
+    let result: object | undefined;
+    act(() => { void settle(t.probes.action.run(input())).then(value => { result = value; }); });
+    await act(async () => { t.sent[0].resolve(response('ok')); });
+    expect(isAbort(result ?? {})).toBe(true);
+    expect(t.probes.action.pending).toBe(false);
+    stop();
+    let next!: Promise<ActionResult<{ id: string }>>;
+    act(() => { next = t.probes.action.run(input()); });
+    expect(t.sent).toHaveLength(2);
+    await act(async () => { t.sent[1].resolve(response('ok')); await next; });
+    expect(await next).toMatchObject({ outcome: 'ok' });
+  });
+
   it('rejects AbortError on unmount while the adapter call still completes and invalidation runs', async () => {
     const t = setup(both());
     await flush();

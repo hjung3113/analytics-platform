@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { invalidValueSentence, userFacingEntries } from '../../i18n';
+import { invalidValueSentence, userFacingEntries } from '../i18n';
 
 const SORT = { ko: '정렬', en: 'Sort' };
 const PAGE = { ko: '페이지', en: 'Page' };

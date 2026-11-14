@@ -51,8 +51,8 @@ export const abortError = () => new DOMException('The screen was released or its
 export type PendingWrite = { valid: () => boolean; fail: () => void };
 /** Flight control one owner (a hook instance or a host instance) gives the sends it starts. */
 export type WriteFlight = {
-  /** The unsettled send of this slot; `run` and every `retry` share it. */
-  slot: { promise: Promise<ActionResult<any>> | null };
+  /** Runs share the unsettled send; retries join only the identical request. */
+  slot: { promise: Promise<ActionResult<any>> | null; request?: object };
   pending: Set<PendingWrite>;
   /** Origin lifetime and generation: false once the owner is gone or the session generation changed since the first send. */
   valid: () => boolean;
@@ -65,13 +65,18 @@ export type WriteFlight = {
 };
 
 /**
- * Starts `send` under `flight`: single-flight per slot, delivery only while `valid()`, every `retry` the answer carries is
- * wrapped in the same control (recursively). The send itself is never cancelled, so epochs still bump on a rejected delivery.
+ * Starts `send` under `flight`: delivery only while `valid()`, every `retry` the answer carries is wrapped in the same
+ * control (recursively). A retry waits for a different request occupying the slot, then sends its own request.
+ * The send itself is never cancelled, so epochs still bump on a rejected delivery.
  */
-export function launchWrite<T>(flight: WriteFlight, send: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
+export function launchWrite<T>(flight: WriteFlight, send: () => Promise<ActionResult<T>>, request: object = send): Promise<ActionResult<T>> {
   // A retained retry of an expired origin never joins or occupies a slot: it must not see another generation's answer.
   if (flight.expired?.()) return Promise.reject(abortError());
-  if (flight.slot.promise) return flight.slot.promise;
+  if (flight.slot.promise) {
+    if (flight.slot.request === request) return flight.slot.promise;
+    const resume = () => launchWrite(flight, send, request);
+    return flight.slot.promise.then(resume, resume);
+  }
   const start = () => new Promise<ActionResult<T>>((resolve, reject) => {
     if (!flight.valid()) return reject(abortError());
     const call: PendingWrite = { valid: flight.valid, fail: () => { flight.pending.delete(call); reject(abortError()); } };
@@ -80,13 +85,15 @@ export function launchWrite<T>(flight: WriteFlight, send: () => Promise<ActionRe
       flight.pending.delete(call);
       if (!flight.valid()) return reject(abortError());
       const { retry } = result;
-      resolve(retry ? { ...result, retry: () => launchWrite(flight, retry) } : result);
-    });
+      resolve(retry ? { ...result, retry: () => launchWrite(flight, retry, request) } : result);
+    }, () => call.fail());
   });
   const promise = flight.gate ? flight.gate(start) : start();
   flight.slot.promise = promise;
+  // actionRequest creates one send closure per immutable request; keep its identity across every retry.
+  flight.slot.request = request;
   flight.busy?.(true);
-  const clear = () => { if (flight.slot.promise === promise) flight.slot.promise = null; flight.busy?.(false); };
+  const clear = () => { if (flight.slot.promise === promise) { flight.slot.promise = null; flight.slot.request = undefined; } flight.busy?.(false); };
   promise.then(clear, clear);
   return promise;
 }

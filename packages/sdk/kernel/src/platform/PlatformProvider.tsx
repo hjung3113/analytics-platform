@@ -12,7 +12,7 @@ import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQu
 import { menuPermissions, type EquipmentAxisDescriptor, type JsonValue, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
 import type { PlatformSlots, Recent, Toast, ToastOptions } from './types';
 import { PreferenceContext, usePreferenceState } from './preferenceContext';
-import { createPreferenceController, type PreferenceController } from './preferenceController';
+import { createPreferenceController } from './preferenceController';
 import { sameItems, useStable } from '../stable';
 import { ServerLanguage, textFor } from '../i18n';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, readStoredPreference, writePreference } from './preferences';
@@ -334,25 +334,13 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const recentRef = useRef(recent);
   useLayoutEffect(() => { recentRef.current = recent; }, [recent]);
   const readRecent = useCallback((): readonly Recent[] => recentRef.current, []);
-  // Server mode: a visit made before the account's list is known waits here and is merged into the list the server (or the legacy import) delivers.
-  const queuedVisits = useRef<{ controller: PreferenceController | null; visits: Recent[] }>({ controller: null, visits: [] });
-  useEffect(() => {
-    const queue = queuedVisits.current;
-    if (!preferences || preferenceState.status !== 'ready' || queue.controller !== preferences || queue.visits.length === 0) return;
-    queuedVisits.current = { controller: preferences, visits: [] };
-    preferences.set('recents', queue.visits.reduce<Recent[]>((list, visit) => mergeVisit(list, visit), decodeRecent(preferences.get('recents')) ?? []));
-  }, [preferences, preferenceState.status, preferenceState.version]);
   const recordVisit = useCallback((menuId: string, url: string) => {
     const visit: Recent = { menuId, url: stripDetailExpansion(stripReturnToFromUrl(url)), at: Date.now() };
     if (preferences) {
-      if (preferences.state().status !== 'ready') {
-        const queue = queuedVisits.current;
-        queuedVisits.current = { controller: preferences, visits: [...(queue.controller === preferences ? queue.visits : []), visit] };
-        return;
-      }
       const apply = (current: JsonValue | undefined): JsonValue => mergeVisit(decodeRecent(current) ?? [], visit);
       // Entering a menu saves at once; URL changes inside the same menu are saved once after a pause (#1671).
-      if (decodeRecent(preferences.get('recents'))?.[0]?.menuId === menuId) preferences.hold('recents', apply, RECENT_WRITE_DELAY_MS);
+      // Before readiness, queue on the account lane so visits survive a controller replacement and retry failed reads.
+      if (preferences.state().status === 'ready' && decodeRecent(preferences.get('recents'))?.[0]?.menuId === menuId) preferences.hold('recents', apply, RECENT_WRITE_DELAY_MS);
       else preferences.update('recents', apply);
       recentRef.current = decodeRecent(preferences.get('recents')) ?? [];
       return;

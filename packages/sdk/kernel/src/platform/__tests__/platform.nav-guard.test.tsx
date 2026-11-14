@@ -329,6 +329,30 @@ function DirtyFromStart() {
 }
 
 describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
+  it('clears a coalesced compensation after two Back arrivals (#2034 KER-17)', () => {
+    stack();
+    act(() => setDirty(true));
+    const state = window.history.state as Record<string, unknown>;
+    const go = vi.spyOn(window.history, 'go').mockImplementation(() => {});
+    const pop = (idx: number, url: string) => act(() => {
+      window.history.replaceState({ ...state, apIdx: idx }, '', url);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
+    });
+    // Two Back arrivals before either correction lands. Chromium may coalesce both corrections into one pop at the origin.
+    pop(1, '/mars/editor');
+    pop(0, '/mars/other');
+    expect(go.mock.calls).toEqual([[1], [2]]);
+    pop(2, '/mars/third');
+    expect(platform.pathname).toBe('/mars/third');
+    expect(traversals).toBe(0);
+    expect(request?.destination).toEqual({ ko: 'other', en: 'other' });
+    act(() => request!.cancel());
+    // A later same-position fragment arrival is ordinary history, not another compensation to swallow.
+    pop(2, '/mars/third#section');
+    expect(traversals).toBe(1);
+    expect(request).toBeNull();
+  });
+
   it('stamps entries with their position', () => {
     stack();
     expect(window.history.state).toMatchObject({ apIdx: 2 });
