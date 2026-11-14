@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
@@ -22,7 +23,7 @@ export function useRequestTaskFromCluster(
     mutationFn: async (body) => {
       const res = await apiClient<TaskRequestDto>(
         'POST',
-        `/voc-clusters/${clusterId}/request-task`,
+        apiPath`/voc-clusters/${clusterId}/request-task`,
         {
           body,
           idempotencyKey,

@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useVocClusterDetail — react-query wrapper for GET /voc-clusters/:id.
 // Returns the full VocClusterDto including the members array.
 
@@ -13,7 +14,7 @@ export function useVocClusterDetail(id: string | null | undefined): UseQueryResu
     queryFn: async ({ signal }) => {
       const res = await apiRequest<VocClusterDto>(
         'GET',
-        `/voc-clusters/${id as string}`,
+        apiPath`/voc-clusters/${id as string}`,
         vocClusterDtoSchema,
         { signal },
       );

@@ -1,3 +1,4 @@
+import { apiPath, isApiPathId } from '@/lib/api/path';
 import { apiHref } from '@/lib/api/client';
 // ReporterVocDetail — one VOC as its reporter sees it, for the platform 내 VOC page (platform ADR-0071).
 //
@@ -128,7 +129,7 @@ export function ReporterVocDetail({
               surface="voc-description"
               attachments={voc.attachments}
               attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
-              resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
+              resolveAttachmentUrl={id => isApiPathId(id) ? apiHref(apiPath`/attachments/${id}/download`) : null}
             />
           )}
         </div>

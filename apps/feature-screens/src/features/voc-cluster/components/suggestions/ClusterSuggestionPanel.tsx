@@ -1,3 +1,4 @@
+import { apiPath, isApiPathId } from '@/lib/api/path';
 import { apiHref } from '@/lib/api/client';
 import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
 import { CLUSTER_SUGGESTION_COPY as COPY } from '@/lib/copy/voc-cluster';
@@ -72,7 +73,7 @@ export function ClusterSuggestionPanel({
                     mode="internal"
                     attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL}
                     surface="voc-description"
-                    resolveAttachmentUrl={id => apiHref(`/attachments/${id}/download`)}
+                    resolveAttachmentUrl={id => isApiPathId(id) ? apiHref(apiPath`/attachments/${id}/download`) : null}
                   />
                 ) : (
                   <p className="text-sm text-text-muted">{COPY.noDescription}</p>

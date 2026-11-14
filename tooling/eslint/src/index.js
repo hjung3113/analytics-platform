@@ -13,7 +13,7 @@ import { noMenuMockImport } from './menu-boundaries.js';
 import noShellIdLiteralComparison from './no-shell-id-literal-comparison.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
 import noBrowserRandomUuid from './no-browser-random-uuid.js';
-import { featureServer, featureShared, featureUi } from './feature.js';
+import { featureServer, featureShared, featureUi, featureScreenPaths } from './feature.js';
 
 const pkg = (name) => `${PACKAGE_PREFIX}${name}`;
 
@@ -724,7 +724,7 @@ export const featureScreensPreset = [...featureUi({
       },
     },
   },
-}), eqvBanOnly, {
+}), eqvBanOnly, featureScreenPaths, {
   // #2017: `crypto.randomUUID` does not exist outside a secure context (plain HTTP on a non-localhost origin), so a direct
   // call throws and the write never leaves. Only the browser call is reported — the global receivers `crypto`,
   // `globalThis.crypto` and `window.crypto` — so feature detection (`crypto.randomUUID === undefined`) and Node test

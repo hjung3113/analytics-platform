@@ -1,3 +1,4 @@
+import { ApiPathError } from '@/lib/api/path';
 // useSurveys.test.ts — #398: survey list/detail payloads are validated at the
 // network seam through the shared DTO schemas. The valid twins run before the
 // malformed cases so the error assertions cannot pass vacuously.
@@ -185,3 +186,12 @@ it.each([undefined, SURVEY.primary_managed_system_id])(
     expect(global.fetch).not.toHaveBeenCalled();
   },
 );
+
+it('path values are validated', async () => {
+  const fetchMock = vi.fn();
+  global.fetch = fetchMock;
+  const { result } = renderHookWithClient(() => useSurvey('invalid-id'));
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(result.current.error).toBeInstanceOf(ApiPathError);
+  expect(fetchMock).not.toHaveBeenCalled();
+});

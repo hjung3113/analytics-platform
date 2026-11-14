@@ -275,3 +275,21 @@ export const featureUi = ({ reactHooks, design }) => {
     },
   ];
 };
+
+// Path values are validated through apiPath. Keep the shared correctness selectors intact.
+export const featureScreenPaths = {
+  files: ['src/**/*.{ts,tsx,js,mjs}'],
+  ignores: ['src/lib/api/**'],
+  rules: {
+    'no-restricted-syntax': [
+      ...CORRECTNESS_RULES['no-restricted-syntax'],
+      ...[
+        "CallExpression[callee.name=/^(apiClient|apiRequest)$/] > TemplateLiteral.arguments:nth-child(2)[expressions.length>0]",
+        "CallExpression[callee.name='apiHref'] > TemplateLiteral.arguments:first-child[expressions.length>0]",
+        "CallExpression[callee.object.name='apiClient'] > TemplateLiteral.arguments:first-child[expressions.length>0]",
+        "CallExpression[callee.name=/^(apiClient|apiRequest)$/] > ConditionalExpression.arguments:nth-child(2) TemplateLiteral[expressions.length>0]:not(TaggedTemplateExpression > TemplateLiteral)",
+        "CallExpression[callee.name='apiHref'] > ConditionalExpression.arguments:first-child TemplateLiteral[expressions.length>0]:not(TaggedTemplateExpression > TemplateLiteral)",
+      ].map((selector) => ({ selector, message: 'Build request paths with apiPath; path values are validated.' })),
+    ],
+  },
+};

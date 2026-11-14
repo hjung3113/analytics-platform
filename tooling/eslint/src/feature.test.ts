@@ -394,3 +394,33 @@ describe('package lint dispatch', () => {
   // The platform-api row runs the type-aware lint (#1972): it builds the package's TS program, about 2.5x the untyped run.
   }, 600_000);
 });
+
+describe('feature screen request paths', () => {
+  it.each([
+    "apiClient('GET', `/items/${id}`)",
+    "apiRequest('GET', `/items/${id}`, parser)",
+    "apiHref(`/items/${id}`)",
+    "apiClient.get(`/items/${id}`)",
+    "apiClient.post(`/items/${id}`, {})",
+    "apiRequest('GET', flag ? `/items/${id}` : '/items', parser)",
+  ])('requires apiPath: %s', async (call) => {
+    expect(await lint(SCREENS, 'src/features/probe.ts', `export const f = (id: string) => ${call};`)).toContain('no-restricted-syntax');
+  });
+
+  it.each([
+    "apiClient('GET', apiPath`/items/${id}`)",
+    "apiHref(apiPath`/items/${id}`)",
+    "apiClient('GET', '/items?' + new URLSearchParams({ id }))",
+    "({ to: `/items/${id}` })",
+  ])('allows validated paths and other strings: %s', async (call) => {
+    expect(await lint(SCREENS, 'src/features/probe.ts', `export const f = (id: string) => ${call};`)).not.toContain('no-restricted-syntax');
+  });
+
+  it('keeps lib/api outside the rule', async () => {
+    expect(await lint(SCREENS, 'src/lib/api/probe.ts', 'export const f = (id: string) => apiHref(`/items/${id}`);')).not.toContain('no-restricted-syntax');
+  });
+
+  it('preserves existing correctness selectors', async () => {
+    expect(await lint(SCREENS, 'src/features/probe.ts', 'export const enum E { A }')).toContain('no-restricted-syntax');
+  });
+});

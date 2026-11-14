@@ -25,3 +25,8 @@ describe('<AttachmentChip> download href', () => {
     );
   });
 });
+
+it('path values are validated', () => {
+  render(<AttachmentChip attachment={{ ...ATTACHMENT, id: 'invalid-id' }} />);
+  expect(screen.getByTestId('attachment-chip').getAttribute('href')).toBeNull();
+});

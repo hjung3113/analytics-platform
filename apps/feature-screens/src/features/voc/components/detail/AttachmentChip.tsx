@@ -1,3 +1,4 @@
+import { apiPath, isApiPathId } from '@/lib/api/path';
 // AttachmentChip — compact horizontal pill rendering a linked attachment
 // on the VOC body or a conversation entry. Paperclip icon + filename + size,
 // click → download via GET /attachments/:id/download (browser handles
@@ -24,7 +25,7 @@ export function AttachmentChip({ attachment }: AttachmentChipProps): React.React
   // Anchor with href triggers a same-origin GET that carries the session
   // cookie; Content-Disposition: attachment makes the browser download
   // instead of navigate. download attr is a hint; the server header wins.
-  const href = apiHref(`/attachments/${attachment.id}/download`);
+  const href = isApiPathId(attachment.id) ? apiHref(apiPath`/attachments/${attachment.id}/download`) : undefined;
   return (
     <a
       data-testid="attachment-chip"

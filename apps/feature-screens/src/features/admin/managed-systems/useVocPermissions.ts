@@ -22,7 +22,7 @@ export const vocSettingLabel = (setting: VocSetting) => setting.mode === 'open' 
 async function fetchSystems(signal: AbortSignal): Promise<ManagedSystemDto[]> {
   const items: ManagedSystemDto[] = [];
   for (;;) {
-    const response = await apiRequest('GET', `/managed-systems?include_archived=true&limit=500&offset=${items.length}`, managedSystemListSchema, { signal });
+    const response = await apiRequest('GET', '/managed-systems?' + new URLSearchParams({ include_archived: 'true', limit: '500', offset: String(items.length) }), managedSystemListSchema, { signal });
     const page = response.data as unknown as { items: ManagedSystemDto[]; total: number };
     if (page.items.length === 0 && items.length < page.total) throw new Error('시스템 목록이 불완전합니다. 다시 불러오세요.');
     items.push(...page.items);

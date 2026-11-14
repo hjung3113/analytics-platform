@@ -1,3 +1,4 @@
+import { ApiPathError } from '@/lib/api/path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -31,6 +32,15 @@ const ENTRY = {
 const ENTRY_2 = { ...ENTRY, id: '33333333-3333-4333-8333-333333333333' };
 
 describe('useVocConversation', () => {
+  test('path values are validated', async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock;
+    const { result } = renderHook(() => useVocConversation({ vocId: 'invalid-id' }), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBeInstanceOf(ApiPathError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   const originalFetch = globalThis.fetch;
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -40,12 +50,12 @@ describe('useVocConversation', () => {
   test('fetches first page of conversation', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();
-      expect(url).toContain('/vocs/voc-1/conversation');
+      expect(url).toContain('/vocs/10000000-0000-4000-8000-000000000001/conversation');
       return jsonResponse({ items: [ENTRY], page: { has_more: false } });
     }) as typeof globalThis.fetch;
 
     const { result } = renderHook(
-      () => useVocConversation({ vocId: 'voc-1' }),
+      () => useVocConversation({ vocId: '10000000-0000-4000-8000-000000000001' }),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -61,7 +71,7 @@ describe('useVocConversation', () => {
     }) as typeof globalThis.fetch;
 
     const { result } = renderHook(
-      () => useVocConversation({ vocId: 'voc-1', kind: 'internal_comment' }),
+      () => useVocConversation({ vocId: '10000000-0000-4000-8000-000000000001', kind: 'internal_comment' }),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -74,7 +84,7 @@ describe('useVocConversation', () => {
     ) as typeof globalThis.fetch;
 
     const { result } = renderHook(
-      () => useVocConversation({ vocId: 'voc-1' }),
+      () => useVocConversation({ vocId: '10000000-0000-4000-8000-000000000001' }),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -88,7 +98,7 @@ describe('useVocConversation', () => {
     ) as typeof globalThis.fetch;
 
     const { result } = renderHook(
-      () => useVocConversation({ vocId: 'voc-1' }),
+      () => useVocConversation({ vocId: '10000000-0000-4000-8000-000000000001' }),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -106,7 +116,7 @@ describe('useVocConversation', () => {
     }) as typeof globalThis.fetch;
 
     const { result } = renderHook(
-      () => useVocConversation({ vocId: 'voc-1' }),
+      () => useVocConversation({ vocId: '10000000-0000-4000-8000-000000000001' }),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.hasNextPage).toBe(true));
@@ -136,7 +146,7 @@ describe('useVocConversation', () => {
     }) as typeof globalThis.fetch;
 
     const { result } = renderHook(
-      () => useVocConversation({ vocId: 'voc-1' }),
+      () => useVocConversation({ vocId: '10000000-0000-4000-8000-000000000001' }),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.hasNextPage).toBe(true));

@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
@@ -20,7 +21,7 @@ export function useFindingStatusMutation(
 
   return useMutation<FindingDto, ApiError, PatchFindingRequest>({
     mutationFn: async (body) => {
-      const res = await apiClient<FindingDto>('PATCH', `/findings/${findingId}`, {
+      const res = await apiClient<FindingDto>('PATCH', apiPath`/findings/${findingId}`, {
         body,
         idempotencyKey,
       });

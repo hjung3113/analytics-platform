@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useVocEditDescriptionMutation.ts
 // PATCH /vocs/:id/description — Reporter pre-triage edit flow.
 //
@@ -64,7 +65,7 @@ export type UseVocEditDescriptionMutationResult = UseMutationResult<
 export function useVocEditDescriptionMutation(): UseVocEditDescriptionMutationResult {
   return useMutation<EditDescriptionSuccess, ApiError, EditDescriptionVars>({
     mutationFn: async ({ vocId, ifMatch, body }) => {
-      const res = await apiClient<EditDescriptionSuccess>('PATCH', `/vocs/${vocId}/description`, {
+      const res = await apiClient<EditDescriptionSuccess>('PATCH', apiPath`/vocs/${vocId}/description`, {
         body,
         // Idempotency-Key is auto-minted by apiClient when absent (FO ADR-0015).
         ifMatch,

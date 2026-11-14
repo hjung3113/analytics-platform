@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import { ApiError } from '@/lib/api/types';
 import {
@@ -33,7 +34,7 @@ export function useSurveyEvidenceCandidates(surveyId: string | null) {
         return (
           await apiRequest(
             'GET',
-            `/surveys/${surveyId}/evidence-candidates?${params}`,
+            apiPath`/surveys/${surveyId as string}/evidence-candidates` + '?' + params,
             surveyEvidenceCandidatesResponseSchema,
             { signal },
           )

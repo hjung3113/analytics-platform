@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useLinkExistingFindingToVocCluster — command-only association that refreshes
 // the cluster detail so its backend-authorized linked_findings are rendered.
 
@@ -22,7 +23,7 @@ export function useLinkExistingFindingToVocCluster(args?: {
     mutationFn: async ({ clusterId, findingId }) => {
       const response = await apiClient<LinkedFindingDto>(
         'POST',
-        `/voc-clusters/${clusterId}/link-finding`,
+        apiPath`/voc-clusters/${clusterId}/link-finding`,
         {
           body: { finding_id: findingId },
           ...(args?.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}),

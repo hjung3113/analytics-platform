@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import { ApiError, ApiParseError } from '@/lib/api/types';
 import { findingDtoSchema } from '@ap/feature-shared';
@@ -10,7 +11,7 @@ export function useFindingDetail(id: string | null | undefined): UseQueryResult<
     queryFn: async ({ signal }) => {
       const res = await apiRequest<FindingDto>(
         'GET',
-        `/findings/${id as string}`,
+        apiPath`/findings/${id as string}`,
         findingDtoSchema,
         { signal },
       );

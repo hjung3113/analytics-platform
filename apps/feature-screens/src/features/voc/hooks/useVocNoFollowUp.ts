@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
 import { invalidateRecovery } from '@/lib/query/recovery';
@@ -11,7 +12,7 @@ export function useVocNoFollowUp() {
     mutationFn: (intent: DecisionIntent) =>
       apiRequest(
         intent.action === 'record' ? 'POST' : 'DELETE',
-        `/vocs/${intent.vocId}/no-follow-up`,
+        apiPath`/vocs/${intent.vocId}/no-follow-up`,
         vocNoFollowUpResponseSchema,
         {
           idempotencyKey: intent.key,

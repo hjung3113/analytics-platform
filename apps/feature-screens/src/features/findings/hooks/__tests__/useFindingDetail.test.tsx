@@ -1,3 +1,4 @@
+import { ApiPathError } from '@/lib/api/path';
 // useFindingDetail.test.ts — #398: Finding detail payloads are validated at
 // the network seam. The valid twin runs first so the malformed-payload
 // assertion cannot pass vacuously (e.g. through a broken fetch mock).
@@ -97,4 +98,13 @@ describe('useFindingDetail', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiParseError).detail?.endpoint).toBe(`GET /findings/${FINDING.id}`);
   });
+});
+
+it('path values are validated', async () => {
+  const fetchMock = vi.fn();
+  global.fetch = fetchMock;
+  const { result } = renderFindingDetail('invalid-id');
+  await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+  expect(result.current.error).toBeInstanceOf(ApiPathError);
+  expect(fetchMock).not.toHaveBeenCalled();
 });

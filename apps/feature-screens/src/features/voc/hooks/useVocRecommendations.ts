@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useVocRecommendations — GET /vocs/:id/recommendations (#168 step 6).
 //
 // The response is a discriminated union on `available` (see
@@ -23,7 +24,7 @@ export function useVocRecommendations(
     queryFn: async ({ signal }) => {
       const res = await apiClient<VocRecommendationsResponse>(
         'GET',
-        `/vocs/${vocId as string}/recommendations`,
+        apiPath`/vocs/${vocId as string}/recommendations`,
         { signal },
       );
       return res.data;

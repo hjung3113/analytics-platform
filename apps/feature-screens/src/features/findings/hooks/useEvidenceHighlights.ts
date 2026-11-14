@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import {
   type EvidenceHighlightDto,
@@ -13,7 +14,7 @@ export function useEvidenceHighlights(
     queryFn: async ({ signal }) => {
       const res = await apiRequest(
         'GET',
-        `/findings/${findingId as string}/evidence-highlights`,
+        apiPath`/findings/${findingId as string}/evidence-highlights`,
         listEvidenceHighlightsResponseSchema,
         { signal },
       );

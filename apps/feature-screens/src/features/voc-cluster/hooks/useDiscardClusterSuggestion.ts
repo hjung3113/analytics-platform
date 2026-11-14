@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import {
   type DiscardVocClusterSuggestionRequest,
@@ -18,7 +19,7 @@ export function useDiscardClusterSuggestion() {
       (
         await apiRequest(
           'POST',
-          `/voc-cluster-suggestions/${intent.id}/discard`,
+          apiPath`/voc-cluster-suggestions/${intent.id}/discard`,
           discardVocClusterSuggestionResponseSchema,
           {
             body: intent.body,

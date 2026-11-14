@@ -79,7 +79,7 @@ export async function fetchVocListPage(
   if (cursor) qs.set('cursor', cursor);
   if (limit !== undefined) qs.set('limit', String(limit));
 
-  const res = await apiClient<VocListPage>('GET', `/vocs?${qs.toString()}`, { signal });
+  const res = await apiClient<VocListPage>('GET', '/vocs?' + qs.toString(), { signal });
   return res.data;
 }
 

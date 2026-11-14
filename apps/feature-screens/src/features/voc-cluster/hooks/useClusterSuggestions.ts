@@ -21,7 +21,7 @@ export function useClusterSuggestions(
     queryKey: clusterSuggestionsKey(managedSystemId, actorContext),
     queryFn: async ({ signal }) => {
       const path = managedSystemId
-        ? `/voc-cluster-suggestions?managed_system_id=${encodeURIComponent(managedSystemId)}`
+        ? '/voc-cluster-suggestions?' + new URLSearchParams({ managed_system_id: managedSystemId })
         : '/voc-cluster-suggestions';
       return (await apiRequest('GET', path, vocClusterSuggestionsResponseSchema, { signal })).data;
     },

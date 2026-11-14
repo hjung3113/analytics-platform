@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 // useAddClusterMember — POST /voc-clusters/:id/vocs.
 // Invalidates the cluster detail query on success.
 
@@ -21,7 +22,7 @@ export function useAddClusterMember(): UseMutationResult<
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- the response/value type is intentionally void here (the former Biome rule allowed void call-site type arguments)
   return useMutation<void, ApiError, AddClusterMemberVariables>({
     mutationFn: async ({ clusterId, vocId }) => {
-      await apiClient('POST', `/voc-clusters/${clusterId}/vocs`, { body: { voc_id: vocId } });
+      await apiClient('POST', apiPath`/voc-clusters/${clusterId}/vocs`, { body: { voc_id: vocId } });
     },
     onSuccess: async (_data, { clusterId }) => {
       invalidateRecovery(qc);

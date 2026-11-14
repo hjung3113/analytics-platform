@@ -1,3 +1,4 @@
+import { ApiPathError } from '@/lib/api/path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -20,7 +21,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 const DETAIL_ENVELOPE = {
-  id: 'voc-1',
+  id: '10000000-0000-4000-8000-000000000001',
   display_id: 'VOC-0001',
   title: 'Test VOC',
   primary_managed_system_id: 'ms-1',
@@ -45,6 +46,15 @@ const DETAIL_ENVELOPE = {
 };
 
 describe('useVocDetail', () => {
+  test('path values are validated', async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock;
+    const { result } = renderHook(() => useVocDetail('invalid-id'), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+    expect(result.current.error).toBeInstanceOf(ApiPathError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   const originalFetch = globalThis.fetch;
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -54,20 +64,20 @@ describe('useVocDetail', () => {
   test('fetches detail envelope for a known id', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();
-      expect(url).toContain('/vocs/voc-1');
+      expect(url).toContain('/vocs/10000000-0000-4000-8000-000000000001');
       return jsonResponse(DETAIL_ENVELOPE);
     }) as typeof globalThis.fetch;
 
-    const { result } = renderHook(() => useVocDetail('voc-1'), {
+    const { result } = renderHook(() => useVocDetail('10000000-0000-4000-8000-000000000001'), {
       wrapper: makeWrapper(),
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toMatchObject({ id: 'voc-1', title: 'Test VOC' });
+    expect(result.current.data).toMatchObject({ id: '10000000-0000-4000-8000-000000000001', title: 'Test VOC' });
   });
 
   test('returns summary envelope (only id fields, no title)', async () => {
     const summaryEnvelope = {
-      id: 'voc-2',
+      id: '10000000-0000-4000-8000-000000000002',
       display_id: 'VOC-0002',
       primary_managed_system_id: 'ms-1',
       reporter_facing_status: 'received',
@@ -76,11 +86,11 @@ describe('useVocDetail', () => {
     };
     globalThis.fetch = vi.fn(async () => jsonResponse(summaryEnvelope)) as typeof globalThis.fetch;
 
-    const { result } = renderHook(() => useVocDetail('voc-2'), {
+    const { result } = renderHook(() => useVocDetail('10000000-0000-4000-8000-000000000002'), {
       wrapper: makeWrapper(),
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toMatchObject({ id: 'voc-2' });
+    expect(result.current.data).toMatchObject({ id: '10000000-0000-4000-8000-000000000002' });
     // title not present in summary envelope
     expect((result.current.data as Record<string, unknown>)['title']).toBeUndefined();
   });
@@ -102,7 +112,7 @@ describe('useVocDetail', () => {
       jsonResponse({ code: 'not_found', message: 'Not found' }, 404),
     ) as typeof globalThis.fetch;
 
-    const { result } = renderHook(() => useVocDetail('voc-missing'), {
+    const { result } = renderHook(() => useVocDetail('10000000-0000-4000-8000-000000000003'), {
       wrapper: makeWrapper(),
     });
     // retry: 1 in the hook means up to 2 attempts; allow extra time.

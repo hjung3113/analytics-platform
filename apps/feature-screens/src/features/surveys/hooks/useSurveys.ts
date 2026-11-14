@@ -1,3 +1,4 @@
+import { apiPath, segment } from '@/lib/api/path';
 import { apiClient, apiRequest } from '@/lib/api/client';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { type ApiError, ApiParseError } from '@/lib/api/types';
@@ -45,7 +46,7 @@ async function fetchAnswerableSurveys(
   return (
     await apiRequest(
       'GET',
-      `/me/answerable-surveys${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+      '/me/answerable-surveys' + (cursor ? '?' + new URLSearchParams({ cursor }) : ''),
       answerableSurveysResponseSchema,
       { signal },
     )
@@ -80,7 +81,7 @@ export function useMySurveyResponses() {
       (
         await apiRequest(
           'GET',
-          `/me/survey-responses${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ''}`,
+          '/me/survey-responses' + (pageParam ? '?' + new URLSearchParams({ cursor: pageParam }) : ''),
           mySurveyResponsesResponseSchema,
           { signal },
         )
@@ -95,7 +96,7 @@ export function useSurveyRespondentForm(surveyId: string) {
     queryKey: surveyKeys.respondentForm(surveyId),
     queryFn: async ({ signal }) =>
       (
-        await apiRequest('GET', `/surveys/${surveyId}/form`, surveyRespondentFormDtoSchema, {
+        await apiRequest('GET', apiPath`/surveys/${surveyId}/form`, surveyRespondentFormDtoSchema, {
           signal,
         })
       ).data,
@@ -117,7 +118,7 @@ export function useSubmitSurveyResponse(surveyId: string) {
       (
         await apiRequest(
           'POST',
-          `/surveys/${surveyId}/responses`,
+          apiPath`/surveys/${surveyId}/responses`,
           surveyResponseSubmittedDtoSchema,
           {
             body,
@@ -157,7 +158,7 @@ export function useSurveys(
       (
         await apiRequest(
           'GET',
-          query.size > 0 ? `/surveys?${query.toString()}` : '/surveys',
+          query.size > 0 ? '/surveys?' + query.toString() : '/surveys',
           listSurveysResponseSchema,
           { signal },
         )
@@ -172,7 +173,7 @@ export function useSurveyResults(id: string, enabled = true) {
     queryKey: surveyKeys.results(id),
     queryFn: async ({ signal }): Promise<SurveyResultDto> =>
       surveyResultDtoSchema.parse(
-        (await apiClient<unknown>('GET', `/surveys/${id}/results`, { signal })).data,
+        (await apiClient<unknown>('GET', apiPath`/surveys/${id}/results`, { signal })).data,
       ),
     enabled: Boolean(id) && enabled,
     retry: false,
@@ -183,7 +184,7 @@ export function useSurvey(id: string) {
   return useQuery({
     queryKey: surveyKeys.detail(id),
     queryFn: async ({ signal }) =>
-      (await apiRequest<Survey>('GET', `/surveys/${id}`, surveyDetailDtoSchema, { signal })).data,
+      (await apiRequest<Survey>('GET', apiPath`/surveys/${id}`, surveyDetailDtoSchema, { signal })).data,
     enabled: Boolean(id),
     retry: false,
   });
@@ -225,7 +226,7 @@ function useSurveyStatusMutation(surveyId: string, target: 'open' | 'close') {
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- react-query's `void` variables type makes mutate() take no argument; `undefined` would force mutate(undefined) at every call site (the former Biome rule allowed void call-site type arguments)
   return useMutation<Survey, ApiError, void>({
     mutationFn: async () =>
-      (await apiClient<Survey>('POST', `/surveys/${surveyId}/${target}`)).data,
+      (await apiClient<Survey>('POST', apiPath`/surveys/${surveyId}/${segment(target)}`)).data,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: surveyKeys.detail(surveyId) });
       void queryClient.invalidateQueries({ queryKey: surveyKeys.list });
@@ -244,14 +245,14 @@ export function useSurveyQuestionMutations(surveyId: string) {
     });
   const create = useMutation({
     mutationFn: async (body: QuestionInput) =>
-      (await apiClient<SurveyQuestionResponse>('POST', `/surveys/${surveyId}/questions`, { body }))
+      (await apiClient<SurveyQuestionResponse>('POST', apiPath`/surveys/${surveyId}/questions`, { body }))
         .data,
     onSuccess: invalidate,
   });
   const update = useMutation({
     mutationFn: async ({ id, body }: { id: string; body: QuestionInput }) =>
       (
-        await apiClient<SurveyQuestionResponse>('PATCH', `/surveys/${surveyId}/questions/${id}`, {
+        await apiClient<SurveyQuestionResponse>('PATCH', apiPath`/surveys/${surveyId}/questions/${id}`, {
           body,
         })
       ).data,
@@ -259,19 +260,19 @@ export function useSurveyQuestionMutations(surveyId: string) {
   });
   const remove = useMutation({
     mutationFn: async (id: string) =>
-      (await apiClient<SurveyQuestionResponse>('DELETE', `/surveys/${surveyId}/questions/${id}`))
+      (await apiClient<SurveyQuestionResponse>('DELETE', apiPath`/surveys/${surveyId}/questions/${id}`))
         .data,
     onSuccess: invalidate,
   });
   const updateSurvey = useMutation({
     mutationFn: async (body: SurveyPatchInput) =>
-      (await apiClient<Survey>('PATCH', `/surveys/${surveyId}`, { body })).data,
+      (await apiClient<Survey>('PATCH', apiPath`/surveys/${surveyId}`, { body })).data,
     onSuccess: invalidate,
   });
   const reorder = useMutation({
     mutationFn: async (questionIds: string[]) =>
       (
-        await apiClient<Survey>('PATCH', `/surveys/${surveyId}/questions/reorder`, {
+        await apiClient<Survey>('PATCH', apiPath`/surveys/${surveyId}/questions/reorder`, {
           body: { question_ids: questionIds },
         })
       ).data,
@@ -287,7 +288,7 @@ export function useSurveyTemplates(system: string, enabled: boolean) {
       (
         await apiRequest(
           'GET',
-          `/surveys/templates?managed_system_id=${encodeURIComponent(system)}`,
+          '/surveys/templates?' + new URLSearchParams({ managed_system_id: system }),
           surveyTemplatesResponseSchema,
           { signal },
         )
@@ -307,7 +308,7 @@ export function useSurveyCopySources(system: string, search: string, enabled: bo
       const query = new URLSearchParams({ managed_system_id: system, q: search.trim() });
       if (pageParam) query.set('cursor', pageParam);
       return (
-        await apiRequest('GET', `/surveys/copy-sources?${query}`, surveyCopySourcesResponseSchema, {
+        await apiRequest('GET', '/surveys/copy-sources?' + query, surveyCopySourcesResponseSchema, {
           signal,
         })
       ).data;
@@ -325,7 +326,7 @@ export function useSurveyCopySource(id: string, enabled: boolean) {
     queryKey: ['survey-copy-source', id],
     queryFn: async ({ signal }) =>
       (
-        await apiRequest('GET', `/surveys/${id}/copy-source`, surveyCopySourceResponseSchema, {
+        await apiRequest('GET', apiPath`/surveys/${id}/copy-source`, surveyCopySourceResponseSchema, {
           signal,
         })
       ).data,

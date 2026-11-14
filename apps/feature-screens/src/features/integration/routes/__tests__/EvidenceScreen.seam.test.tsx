@@ -1,3 +1,5 @@
+import { ApiPathError } from '@/lib/api/path';
+import { fetchEvidenceDetail } from '../../api/evidence-inventory';
 import type { ClosableDetailParts } from '@/lib/host/detail-parts';
 import { type HostSeam, HostSeamProvider } from '@/lib/host/host-seam';
 import {
@@ -331,4 +333,11 @@ it('links a VOC source only when the host can link to its route', async () => {
   await screen.findByTestId('drawer');
   await waitFor(() => expect(screen.getAllByText('VOC-77 · 원본 VOC').length).toBeGreaterThan(0));
   expect(screen.queryByRole('link', { name: 'VOC-77 · 원본 VOC' })).toBeNull();
+});
+
+it('path values are validated', async () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+  await expect(fetchEvidenceDetail('invalid-id', new AbortController().signal)).rejects.toBeInstanceOf(ApiPathError);
+  expect(fetchMock).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api/path';
 import { apiRequest } from '@/lib/api/client';
 import {
   type RestoreVocClusterSuggestionRequest,
@@ -18,7 +19,7 @@ export function useRestoreClusterSuggestion() {
       (
         await apiRequest(
           'POST',
-          `/voc-cluster-suggestions/${intent.id}/restore`,
+          apiPath`/voc-cluster-suggestions/${intent.id}/restore`,
           restoreVocClusterSuggestionResponseSchema,
           {
             body: intent.body,
