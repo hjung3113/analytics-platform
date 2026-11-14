@@ -10,7 +10,7 @@ import {
 import type { CreateRegistryInput } from '@ap/app-host';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
-import { createHomeComponent, type HomeLauncherGroup } from '@ap/menu-home/launcher';
+import { createHomeComponent, type HomeLauncherGroup, type HomeLauncherSpaceNames } from '@ap/menu-home/launcher';
 // <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
 import { manifests as myActivity } from '@ap/menu-my-activity';
@@ -106,7 +106,11 @@ export const HOME_LAUNCHER_GROUPS = [
   { id: 'tools', label: { ko: '도구', en: 'Tools' }, spaces: [spaceId('tools')] },
   { id: 'platform', label: { ko: '플랫폼 관리', en: 'Platform administration' }, spaces: [spaceId('operations')] },
 ] satisfies readonly HomeLauncherGroup[];
-const ConfiguredHome = createHomeComponent(HOME_LAUNCHER_GROUPS);
+// #1998: Home names the tools entry after its primary capability so it does not repeat the "도구" group heading.
+export const HOME_LAUNCHER_SPACE_NAMES = {
+  [spaceId('tools')]: { ko: '설비 Top View', en: 'Equipment Top View' },
+} satisfies HomeLauncherSpaceNames;
+const ConfiguredHome = createHomeComponent(HOME_LAUNCHER_GROUPS, { spaceNames: HOME_LAUNCHER_SPACE_NAMES });
 
 function configureHome(menus: readonly MenuEntry[]): MenuEntry[] {
   if (menus.filter(menu => menu.id === 'home').length !== 1) fail('configureHome: expected exactly one home menu');

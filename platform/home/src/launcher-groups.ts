@@ -7,6 +7,13 @@ export interface HomeLauncherGroup {
   readonly spaces: readonly SpaceId[];
 }
 
+/** Home-only display-name overrides keyed by space id so global SpaceDef labels stay unchanged. */
+export type HomeLauncherSpaceNames = Readonly<Partial<Record<SpaceId, Text>>>;
+
+export interface HomeLauncherOptions {
+  readonly spaceNames?: HomeLauncherSpaceNames;
+}
+
 export function groupHomeSpaces(groups: readonly HomeLauncherGroup[], spaces: readonly SpaceDef[]) {
   const assigned = new Set(groups.flatMap(group => group.spaces));
   const classified = groups.map(group => ({

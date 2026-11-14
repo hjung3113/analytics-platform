@@ -676,22 +676,45 @@ test.describe('플랫폼 홈 · 전역 화면 (ADR-0028, ADR-0070)', () => {
     await evidence(page, testInfo, 'viewer-home-global');
   });
 
-  test('mock 홈은 업무 시스템 → 내 담당 개선 아이템 → 즐겨찾기 순서이며 기능 내 할 일 안내는 없다 (#657, #1328)', async ({ page }) => {
+  test('mock 홈 첫 줄은 내 담당·최근 방문이고 빈 최근 방문도 빈 안내로 남으며 즐겨찾기·시스템 목록은 아래에 있다 (#1998)', async ({ page }) => {
     await signInAs(page, 'viewer');
     await page.goto('/home');
     await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '즐겨찾기' })).toBeVisible();
     await expect(page.getByRole('region', { name: '내 할 일' })).toHaveCount(0);
     await expect(page.getByText('실서버 필요')).toHaveCount(0);
-    const systems = await page.getByRole('region', { name: '업무 시스템' }).boundingBox();
-    // #1328 e2 adds an independent menu-query contribution; the feature bridge stays hidden in mock.
+    // Recent visits stays beside assignments with its empty message, so the first row has no blank half.
+    const emptyRecent = page.getByRole('heading', { name: '최근 방문' }).locator('xpath=ancestor::section[1]');
+    await expect(emptyRecent.getByText('최근 방문한 화면이 없습니다.')).toBeVisible();
     const assignments = page.getByRole('region', { name: '내 담당 개선 아이템' });
     await expect(assignments.getByText('담당 건수 없음')).toBeVisible();
     await expect(assignments.getByRole('link', { name: '내 담당 목록 열기 · 내 담당 개선 아이템 0건' })).toHaveAttribute('href', /view=mine/);
-    const assigned = await assignments.boundingBox();
+
+    await page.evaluate(() => {
+      localStorage.setItem('platform:recent:viewer', JSON.stringify([{ menuId: 'metric-catalog', url: '/bravo/metric-catalog', at: Date.now() }]));
+    });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: '플랫폼 홈' })).toBeVisible();
+    const systems = await page.getByRole('region', { name: '업무 시스템' }).boundingBox();
+    const assigned = await page.getByRole('region', { name: '내 담당 개선 아이템' }).boundingBox();
+    const recent = await page.getByRole('heading', { name: '최근 방문' }).locator('xpath=ancestor::section[1]').boundingBox();
     const favorites = await page.getByRole('heading', { name: '즐겨찾기' }).boundingBox();
-    expect(systems!.y).toBeLessThan(assigned!.y);
-    expect(assigned!.y).toBeLessThan(favorites!.y);
+    expect(Math.abs(assigned!.y - recent!.y)).toBeLessThan(2);
+    expect(assigned!.x + assigned!.width).toBeLessThanOrEqual(recent!.x);
+    expect(assigned!.y + assigned!.height).toBeLessThanOrEqual(favorites!.y);
+    expect(recent!.y + recent!.height).toBeLessThanOrEqual(favorites!.y);
+    expect(favorites!.y).toBeLessThan(systems!.y);
+  });
+
+  test('홈의 도구 진입은 설비 Top View라는 이름의 목록 링크다 (#1998)', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/home');
+    const systems = page.getByRole('region', { name: '업무 시스템' });
+    const tools = systems.getByRole('link', { name: /^설비 Top View / });
+    await expect(tools).toBeVisible();
+    await expect(tools).toHaveAttribute('href', /^\/tools\/eqv-topview(?:\?|$)/);
+    await expect(systems.locator('svg')).toHaveCount(0);
+    await expect(tools.locator('..')).toHaveJSProperty('tagName', 'LI');
   });
 
   test('여러 공간이 있는 역할도 전역 화면에서는 현재 시스템·섹션 표식이 없고, 공간 화면에서만 표시한다', async ({ page }, testInfo) => {

@@ -1,16 +1,17 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Clock3, Megaphone, Star, X } from 'lucide-react';
 import { type MenuEntry, type PageProps, PlatformLink, useI18n, useMenuQuery, usePlatform, useRecentVisits } from '@ap/kernel';
-import { groupHomeSpaces, type HomeLauncherGroup } from '../launcher-groups';
+import { groupHomeSpaces, type HomeLauncherGroup, type HomeLauncherSpaceNames } from '../launcher-groups';
 import { noticesEndpoint } from '../endpoints';
 import { dismissNotice, useDismissedNotices } from './dismissed-notices';
 import { Panel, PlatformPage, QueryView } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 
-/** Platform home (ADR-0028, 15 §3.1): space cards, then `내 할 일` (a Kernel slot, ADR-0070 decision 8), then favorites and recent, then notices. */
+/** Platform home (ADR-0028, 15 §3.1): `내 할 일` (a Kernel slot) beside recent visits, then favorites, system rows and notices. */
 const NO_LAUNCHER_GROUPS: readonly HomeLauncherGroup[] = [];
+const NO_SPACE_NAMES: HomeLauncherSpaceNames = {};
 
-export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[] } = {}) {
+export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, spaceNames = NO_SPACE_NAMES }: Partial<PageProps> & { launcherGroups?: readonly HomeLauncherGroup[]; spaceNames?: HomeLauncherSpaceNames } = {}) {
   const { favorites, toggleFavorite, linkTo, global, registry, accessibleSpaces, canOpen, resolveLink, spaceEntry, homeTodo } = usePlatform();
   const recent = useRecentVisits();
   const { t, tx, lang } = useI18n();
@@ -22,7 +23,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
   const noticesLink = resolveLink('notices');
   const permissionRequests = resolveLink('permission-requests');
   const homeId = registry.platformHome?.id;
-  // The operations console is one card for F-only, C-only and both holders: its description names the sections this viewer can open (#1099c), never the ones another grant would add.
+  // The operations console is one row for F-only, C-only and both holders: its description names the sections this viewer can open (#1099c), never the ones another grant would add.
   const consoleSections = (spaceKey: string) => registry.groups
     .filter(group => group.space === spaceKey && registry.menus.some(menu => menu.group === group.id && !menu.navHidden && canOpen(menu.id)))
     .map(group => tx(group.label));
@@ -62,25 +63,81 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
   }
 
   const launcherSections = groupHomeSpaces(launcherGroups, accessibleSpaces);
+  const todoRef = useRef<HTMLDivElement>(null);
+  const [hasTodoContent, setHasTodoContent] = useState(false);
+
+  // Collapse an empty/null-rendering homeTodo slot so Recent visits fills the first row (and vice versa).
+  useLayoutEffect(() => {
+    const el = todoRef.current;
+    if (!homeTodo || !el) {
+      setHasTodoContent(false);
+      return;
+    }
+    const sync = () => {
+      const next = el.children.length > 0 || (el.textContent?.trim().length ?? 0) > 0;
+      setHasTodoContent(prev => (prev === next ? prev : next));
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => {
+      observer.disconnect();
+      setHasTodoContent(false);
+    };
+  }, [homeTodo]);
+
+  const showTodo = !!homeTodo && hasTodoContent;
+  // 최근 방문 always shows (its empty message when there are none): the assignment card is width-capped by its owner, so dropping
+  // this panel would leave the rest of the first row blank.
+  const showRecent = true;
+  const twoFirstRowColumns = showTodo && showRecent;
+
   const compactEntry = (space: typeof accessibleSpaces[number]) => {
     const entry = spaceEntry(space.id);
     if (!entry) return null;
-    const home = registry.menuById(space.homeMenuId);
-    const Icon = registry.groupById(home.group).icon;
     const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
-    return <PlatformLink key={space.id} href={entry.href} className="flex min-h-16 min-w-0 items-start gap-3 rounded-lg border border-border-subtle bg-surface-card p-3 hover:border-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
-      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-5" strokeWidth={1.75} aria-hidden /></span>
-      <span className="min-w-0 flex-1"><span className="block t-card-title">{tx(space.label)}</span>
-        {space.subtitle && <span className="block text-xs text-text-muted">{tx(space.subtitle)}</span>}
-        <span className="block break-keep text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
-        {resumeMenu && <span className="mt-1 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
-      </span>
-    </PlatformLink>;
+    const name = tx(spaceNames[space.id] ?? space.label);
+    const subtitle = space.subtitle ? tx(space.subtitle) : undefined;
+    const srSubtitle = subtitle && subtitle !== name ? subtitle : undefined;
+    const description = space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description);
+    return <li key={space.id}>
+      <PlatformLink href={entry.href} className="flex min-w-0 items-baseline gap-3 px-3 py-2 hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+        <span className="shrink-0 t-card-title">{name}</span>
+        {srSubtitle && <span className="sr-only">{srSubtitle}</span>}
+        <span aria-hidden className="text-text-muted">·</span>
+        <span className="min-w-0 truncate text-xs text-text-secondary">{description}</span>
+        {resumeMenu && <span className="shrink-0 text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
+      </PlatformLink>
+    </li>;
   };
 
   return <PlatformPage secondaryActions={voc.allowed ? <PlatformLink href={voc.href} className="text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? 'VOC' : 'VOC'}</PlatformLink> : undefined}>
-    {/* #1167 B-3/C-4: the container the launcher grids answer to is the page body, so a detail slot narrows it. */}
+    {/* The first row follows body width, including when a detail slot narrows it. */}
     <div className="@container space-y-4">
+      <div className={twoFirstRowColumns ? 'grid items-start gap-3 @xl:grid-cols-2' : 'grid items-start gap-3'}>
+        {homeTodo && <div ref={todoRef} className={showTodo ? 'min-w-0 space-y-3 empty:hidden' : 'hidden empty:hidden'}><homeTodo.Todo /></div>}
+        {showRecent && <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
+          {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
+            <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
+              <row.menu.icon className="size-4 text-text-muted" aria-hidden />
+              <PlatformLink href={row.url} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(row.menu.label)}</PlatformLink>
+              <span className="text-tiny text-text-muted">{affiliation(row.menu)}</span>
+              <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>
+            </li>)}</ul>}
+        </Panel>}
+      </div>
+
+      <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
+        {favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1}
+          className="text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
+          <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
+            <menu.icon className="size-4 text-text-muted" aria-hidden />
+            <PlatformLink href={linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) })} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
+            <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
+            <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
+          </li>)}</ul>}
+      </Panel>
+
       <section aria-label={lang === 'ko' ? '업무 시스템' : 'Work systems'}>
         {accessibleSpaces.length === 0
           ? <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
@@ -94,51 +151,10 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS }: 
             </div>
           : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
               <h2 className="t-section-title">{tx(group.label)}</h2>
-              {/* #1167 B-3: columns follow the body width (a detail slot narrows it), not the viewport. */}
-              <div className="grid grid-cols-1 gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">{group.spaces.map(compactEntry)}</div>
+              <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card">{group.spaces.map(compactEntry)}</ul>
             </section>)}</div>
-          : <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
-              {accessibleSpaces.map(space => {
-                const home = registry.menuById(space.homeMenuId);
-                const Icon = registry.groupById(home.group).icon;
-                const entry = spaceEntry(space.id);
-                if (!entry) return null;
-                const href = entry.href;
-                const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
-                return <PlatformLink key={space.id} href={href} className="rounded-lg border border-border-subtle bg-surface-card p-4 hover:border-accent-primary">
-                  <span className="grid size-10 place-items-center rounded-md bg-icon-blue-soft text-accent-primary"><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>
-                  <span className="mt-3 block t-card-title">{tx(space.label)}</span>
-                  {space.subtitle && <span className="mt-0.5 block text-xs text-text-muted">{tx(space.subtitle)}</span>}
-                  <span className="mt-0.5 block break-keep text-xs text-text-muted">{space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description)}</span>
-                  {resumeMenu && <span className="mt-2 block text-xs text-text-secondary">{lang === 'ko' ? `이어서: ${tx(resumeMenu.label)}` : `Continue: ${tx(resumeMenu.label)}`}</span>}
-                </PlatformLink>;
-              })}
-            </div>}
+          : <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card">{accessibleSpaces.map(compactEntry)}</ul>}
       </section>
-
-      {homeTodo && <homeTodo.Todo />}
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title={<span className="inline-flex items-center gap-2"><Star className="size-4 text-accent-warn" aria-hidden />{t('favorites')}</span>} subtitle={lang === 'ko' ? '지금 조회 조건을 유지하고 그 화면의 기본 보기로 이동합니다.' : "Opens the screen's default view with your current filters."}>
-          {favoriteMenus.length === 0 ? <p ref={noFavoritesRef} tabIndex={-1}
-            className="text-xs text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{t('noFavorites')}</p> :
-            <ul className="divide-y divide-border-subtle">{favoriteMenus.map(menu => <li key={menu.id} className="flex items-center gap-3 py-2">
-              <menu.icon className="size-4 text-text-muted" aria-hidden />
-              <PlatformLink href={linkTo(menu.id, { page: Object.fromEntries((registry.carrySetOf(menu)?.pageKeys ?? []).map(key => [key, null])) })} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(menu.label)}</PlatformLink>
-              <span className="text-tiny text-text-muted">{affiliation(menu)}</span>
-              <button type="button" onClick={event => removeFavoriteRow(menu.id, event.currentTarget)} className="rounded-xs px-2 py-1 text-xs text-text-secondary hover:bg-surface-sunken">{t('removeFavorite')}</button>
-            </li>)}</ul>}
-        </Panel>
-        <Panel title={<span className="inline-flex items-center gap-2"><Clock3 className="size-4 text-text-muted" aria-hidden />{t('recent')}</span>} subtitle={lang === 'ko' ? '방문했던 조회 조건으로 돌아갑니다. 권한은 다시 확인합니다.' : 'Returns with the filters you used. Access is checked again.'}>
-          {recentRows.length === 0 ? <p className="rounded-md bg-surface-sunken p-3 text-xs text-text-secondary">{t('noRecent')}</p> :
-            <ul className="divide-y divide-border-subtle">{recentRows.map(row => <li key={row.menuId} className="flex items-center gap-3 py-2">
-              <row.menu.icon className="size-4 text-text-muted" aria-hidden />
-              <PlatformLink href={row.url} className="min-w-0 flex-1 text-sm font-medium hover:text-accent-primary hover:underline">{tx(row.menu.label)}</PlatformLink>
-              <span className="text-tiny text-text-muted">{affiliation(row.menu)}</span>
-              <StatusBadge tone="neutral">{ago(row.at)}</StatusBadge>
-            </li>)}</ul>}
-        </Panel>
-      </div>
 
       <section aria-label={lang === 'ko' ? '공지' : 'Notices'} className="space-y-2">
         {noticesLink.allowed && <PlatformLink href={noticesLink.href} className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary hover:underline">{lang === 'ko' ? '공지 목록' : 'Notice list'}</PlatformLink>}
