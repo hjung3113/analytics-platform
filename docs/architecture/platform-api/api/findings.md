@@ -66,6 +66,9 @@ validated body, Finding ID and route `finding.evidence_highlight`. An identical
 retry returns the original `201` and highlight without adding a row, incrementing
 `evidence_count`, or emitting another `evidence_highlight_added` audit. Reusing
 the key for another body or Finding returns `409 conflict.idempotency_key_reuse`.
+The shared cache keeps a response up to 16 KiB; for a larger one (a very long
+`quote_or_summary`) the identical retry also returns `409 conflict.idempotency_key_reuse`
+(FO ADR-0015, response-body cap amendment).
 Authorization is checked before replay: current target manage/read and source
 VOC access are required; a revoked source never replays its cached quote.
 The insertion, counter, audit and idempotency response commit together.
