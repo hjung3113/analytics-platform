@@ -64,6 +64,8 @@ it.each([
     message: 'occurrences[3].equipmentId (record occ-efem-out) (other) must match batch.equipmentId (eq-synth-01)' },
   { name: 'a duplicate Record Sequence', edit: (b: ReturnType<typeof batch>) => { b.occurrences[2]!.start.seq = 2; },
     message: 'Record Sequence 2 is not unique (occurrences[1].start, occurrences[2].start)' },
+  { name: 'a reversed Occurrence Record Sequence', edit: (b: ReturnType<typeof batch>) => { [b.occurrences[1]!.start.seq, b.occurrences[1]!.end!.seq] = [4, 2]; },
+    message: 'occurrences[1].end.seq (2) must be greater than start.seq (4) (Occurrence occ-lp-slot-one)' },
   { name: 'a duplicate Occurrence id', edit: (b: ReturnType<typeof batch>) => { b.occurrences[3]!.id = 'occ-lp-slot-two'; },
     message: 'Occurrence id occ-lp-slot-two is not unique (occurrences[2], occurrences[3])' },
   { name: 'a duplicate DQI id', edit: (b: ReturnType<typeof batch>) => { b.issues[1]!.id = 'dqi-end-before-start'; },

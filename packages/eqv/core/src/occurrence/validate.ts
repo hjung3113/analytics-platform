@@ -1,12 +1,12 @@
 import type { OccurrenceBatch } from './schema.js';
 
 export type BatchRecordProblem = {
-  code: 'record-owner' | 'duplicate-seq' | 'duplicate-id';
+  code: 'record-owner' | 'duplicate-seq' | 'reversed-seq' | 'duplicate-id';
   path: (string | number)[];
   message: string;
 };
 
-// Every precondition problem, in the order consumers report them: owners, Record Sequences, then ids.
+// Every precondition problem, in the order consumers report them: owners, Record Sequences (duplicates, then end before start), then ids.
 export function batchRecordProblems(batch: OccurrenceBatch): BatchRecordProblem[] {
   const problems: BatchRecordProblem[] = [];
   for (const field of ['occurrences', 'issues'] as const) {
@@ -28,6 +28,12 @@ export function batchRecordProblems(batch: OccurrenceBatch): BatchRecordProblem[
     if (occurrence.end) claim(occurrence.end.seq, `occurrences[${i}].end`, ['occurrences', i, 'end', 'seq']);
   }
   for (const [i, issue] of batch.issues.entries()) claim(issue.seq, `issues[${i}]`, ['issues', i, 'seq']);
+  for (const [i, occurrence] of batch.occurrences.entries()) {
+    if (occurrence.end !== null && occurrence.end.seq < occurrence.start.seq) {
+      problems.push({ code: 'reversed-seq', path: ['occurrences', i, 'end', 'seq'],
+        message: `occurrences[${i}].end.seq (${occurrence.end.seq}) must be greater than start.seq (${occurrence.start.seq}) (Occurrence ${occurrence.id})` });
+    }
+  }
   // replayKey sorts each array by id; equal ids would let input order decide the hash. An Occurrence and a DQI may share an id.
   for (const [field, label] of [['occurrences', 'Occurrence'], ['issues', 'Data Quality Issue']] as const) {
     const firstIndex = new Map<string, number>();
@@ -41,7 +47,9 @@ export function batchRecordProblems(batch: OccurrenceBatch): BatchRecordProblem[
 }
 
 // Preconditions every consumer of a batch relies on: one equipment, Record Sequence as a total order
-// (GLOSSARY: a per-equipment global order number) and unique ids. An equal sequence would let array order decide state.
+// (GLOSSARY: a per-equipment global order number), closed Occurrences ordered start < end, and unique ids.
+// An equal sequence would let array order decide state; an end before its start would let replay (`reduce.ts`)
+// and the timeline (`timeline.ts`) disagree on open state.
 export function assertBatchRecords(batch: OccurrenceBatch): void {
   const [first] = batchRecordProblems(batch);
   if (first) throw new RangeError(first.message);

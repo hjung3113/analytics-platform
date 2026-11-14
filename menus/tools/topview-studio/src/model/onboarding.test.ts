@@ -130,6 +130,10 @@ describe('import problem words (#1658 import PR)', () => {
   it('words a code it does not know without hiding it', () => {
     expect(importProblemLines([{ code: 'new-code', path: [] }])[0]!.text).toBe('확인하지 못한 문제입니다(new-code).');
   });
+  it('words reversed-seq per Occurrence', () => {
+    const issues = [1, 4].map((i) => ({ code: 'reversed-seq', path: ['occurrences', i, 'end', 'seq'], message: `occurrences[${i}].end.seq must be greater` }));
+    expect(importProblemLines(issues).map((l) => l.text)).toEqual(['이벤트 2건의 끝 Record Sequence가 시작보다 앞섭니다.']);
+  });
   it.each([
     [[{ path: ['file'], code: 'staged_exists' }], '같은 구간에 교체 대기 window가 이미 있습니다.', '데이터 탭에서 교체 대기 window를 먼저 «교체»한 뒤 가져오세요.'],
     [[{ path: ['file'], code: 'retired' }], '퇴역한 window와 같은 내용입니다.', '퇴역한 window는 다시 가져올 수 없습니다. 다른 파일을 고르세요.'],

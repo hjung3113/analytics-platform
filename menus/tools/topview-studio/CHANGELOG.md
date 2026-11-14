@@ -4,6 +4,7 @@
 
 ## 0.4.2 — 2026-11-14
 
+- Sample Window 가져오기는 끝 Record Sequence가 시작보다 앞선 닫힌 이벤트를 거부한다(#2110): 새 거부 코드 `reversed-seq`, 문구 «이벤트 N건의 끝 Record Sequence가 시작보다 앞섭니다.». 같은 batch는 재생에서도 거부되어 재생 화면과 타임라인이 서로 다른 상태를 그리지 않는다.
 - 게시는 검토한 Mapping만 싣는다(#2053): `eqv.publishMapping` 입력에 `expectedMappingHash`(검토 대화상자의 `plan.mapping.hash`)를 더했다. 검토 뒤 다른 사람이 규칙을 저장해 서버의 평탄화 hash가 다르면 `invalid` `mapping/changed`로 아무것도 저장하지 않고, 대화상자는 «규칙이 바뀌었습니다. 다시 확인한 뒤 게시하세요.»를 보이며 alias 규칙을 다시 읽어 diff를 새 규칙으로 다시 계산한다. mock은 hash 형식만 검사한다.
 - 설비 온보딩 Mapping 저장(#2035): 저장은 Board를 만든 규칙 파일의 버전만 보내고, 범위별 저장 성공 응답의 버전으로만 올린다. `conflict`면 저장을 잠그고 «다시 불러오기»(저장 안 된 변경이 있으면 확인)로 Board와 버전을 최신 파일에서 함께 다시 만든다. 편집이 없는 Board는 다른 사람의 저장을 다시 읽을 때 새 파일로 바뀐다.
 

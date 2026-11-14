@@ -50,6 +50,7 @@ it.each<{ code: ImportRejectCode; path: (string | number)[]; edit: (b: Occurrenc
   { code: 'equipment-mismatch', path: ['equipmentId'], edit: () => {}, equipmentId: 'EQ-SYNTH-01' },
   { code: 'record-owner', path: ['occurrences', 3, 'equipmentId'], edit: (b) => { b.occurrences[3]!.equipmentId = 'other'; } },
   { code: 'duplicate-seq', path: ['occurrences', 2, 'start', 'seq'], edit: (b) => { b.occurrences[2]!.start.seq = 2; } },
+  { code: 'reversed-seq', path: ['occurrences', 1, 'end', 'seq'], edit: (b) => { [b.occurrences[1]!.start.seq, b.occurrences[1]!.end!.seq] = [4, 2]; } },
   { code: 'duplicate-id', path: ['occurrences', 3, 'id'], edit: (b) => { b.occurrences[3]!.id = 'occ-lp-slot-two'; } },
   { code: 'duplicate-id', path: ['issues', 1, 'id'], edit: (b) => { b.issues[1]!.id = 'dqi-end-before-start'; } },
   { code: 'generation-mismatch', path: ['occurrences', 0, 'source', 'dataGeneration'], edit: (b) => { b.occurrences[0]!.source.dataGeneration = 'g2'; } },
