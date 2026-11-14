@@ -33,6 +33,8 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
     return scopeSelector.answer(() => {
       requester.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       if (latest.current.collapsed) latest.current.onExpand?.();
+      // A controlled Root does not call onOpenChange(true) for this, so clear the previous pick here.
+      picked.current = false;
       setOpen(true);
     });
   }, [bar, scopeSelector]);

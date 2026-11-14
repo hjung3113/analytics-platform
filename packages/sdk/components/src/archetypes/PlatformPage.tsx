@@ -257,8 +257,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   // #353: a gate action button disappears with the state change it triggers, so keyboard focus must
   // move before that — §19 banner dismissal rule: main landmark, page content element outside a shell.
 
-  // `Scope 선택` (#1938) only opens the shell's selector; it is drawn while a selector is mounted to answer it.
-  const selectorAvailable = useSyncExternalStore(scopeSelector.subscribe, scopeSelector.available, scopeSelector.available);
+  // `Scope 선택` (#1938) only opens the shell's selector; it is drawn on the main screen while a selector is mounted to answer it (a pane has no selector that answers for it).
+  const selectorAvailable = useSyncExternalStore(scopeSelector.subscribe, scopeSelector.available, scopeSelector.available) && screenMode === 'main';
   let gate: ReactNode = null;
   if (menu.requiresScope && scope.status !== 'valid') {
     gate = scope.status === 'validating'

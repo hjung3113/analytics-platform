@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { PlatformPage } from '../PlatformPage';
 import { QueryView } from '../../StateView';
-import { useHostPlatform } from '@ap/kernel/host';
+import { PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
 
@@ -332,5 +332,19 @@ describe('Scope gate `Scope 선택` action (#1938)', () => {
     </PlatformProvider></I18nProvider>);
     expect(await screen.findByText('Scope를 선택하세요')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Scope 선택' })).toBeNull();
+  });
+
+  it('a pane without a Scope draws no `Scope 선택` even while the main screen has another Scope and a selector', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    const onOpen = vi.fn();
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }))} registry={registry}>
+      <SelectorStub onOpen={onOpen} />
+      <PaneScreenProvider paneId="a" screen={{ menuId: 'home', params: {}, query: '?v=1' }} onLeave={() => {}} onChange={() => {}}>
+        <PlatformPage><p>pane body</p></PlatformPage>
+      </PaneScreenProvider>
+    </PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Scope를 선택하세요')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Scope 선택' })).toBeNull();
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });

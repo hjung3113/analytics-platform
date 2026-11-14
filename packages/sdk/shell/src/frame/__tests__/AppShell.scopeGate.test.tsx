@@ -63,4 +63,23 @@ describe('Scope gate `Scope 선택` opens the shell selector (#1938)', () => {
     fireEvent.click(await screen.findByRole('menuitemradio', { name: /MEM · 청주/ }));
     expect(await screen.findByText('page body')).toBeInTheDocument();
   });
+
+  it('after a pick and a return to the Scope-less address, Escape still returns focus to the button', async () => {
+    mount(false);
+    act(() => screen.getByRole('button', { name: 'Scope 선택' }).click());
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /MEM · 청주/ }));
+    expect(await screen.findByText('page body')).toBeInTheDocument();
+
+    act(() => { window.history.back(); });
+    const open = await screen.findByRole('button', { name: 'Scope 선택' });
+    open.focus();
+    fireEvent.keyDown(open, { key: 'Enter' });
+    fireEvent.click(open);
+    const menu = await screen.findByRole('menu');
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Scope 선택' })).toHaveFocus());
+  }, 20_000);
 });
