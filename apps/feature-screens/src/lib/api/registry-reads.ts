@@ -44,15 +44,26 @@ export async function fetchManagedSystems(options?: {
   const params = new URLSearchParams();
   if (options?.includeArchived) params.set('include_archived', 'true');
   if (options?.limit !== undefined) params.set('limit', String(options.limit));
-  const url = `/managed-systems${params.size ? `?${params.toString()}` : ''}`;
-  const result = await apiRequest(
-    'GET',
-    url,
-    managedSystemListSchema,
-    options?.signal ? { signal: options.signal } : {},
-  );
-  // The schema checks the envelope only (see registry-lists.ts); the rows are the server's, typed as before.
-  return result.data as unknown as { items: ManagedSystemDto[]; total: number };
+  const items: ManagedSystemDto[] = [];
+  let total = 0;
+  do {
+    if (items.length > 0) params.set('offset', String(items.length));
+    const url = `/managed-systems${params.size ? `?${params.toString()}` : ''}`;
+    const result = await apiRequest(
+      'GET',
+      url,
+      managedSystemListSchema,
+      options?.signal ? { signal: options.signal } : {},
+    );
+    // Every catalog consumer needs all systems, including the single-page limit:500 callers.
+    const page = result.data as unknown as { items: ManagedSystemDto[]; total: number };
+    total = page.total;
+    if (page.items.length === 0 && items.length < total) {
+      throw new Error('Managed System catalog ended before its total');
+    }
+    items.push(...page.items);
+  } while (items.length < total);
+  return { items, total };
 }
 
 export async function fetchAnalyticsAreas(options?: {

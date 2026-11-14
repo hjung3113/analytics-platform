@@ -2,6 +2,7 @@
 // `AppFrame`, but through `useMeBridge`, `fetchManagedSystems` and `fetchCapabilityScopeViaClient` (all on `client.ts`),
 // so the platform sidebar's Scope place shares the feature cache and the `/api/features` base path. Value only through props.
 
+import { Button } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 
 import { useMeBridge } from '@/lib/api/me';
@@ -56,6 +57,19 @@ export function ManagedSystemScopeControl({
       (grantsQuery.data?.scope.kind === 'scoped' &&
         grantsQuery.data.scope.managed_system_ids.includes(system.id)),
   }));
+  if (systemsQuery.isPending) {
+    return <p role="status" className="text-xs text-text-muted">{SCOPE_SELECTOR_COPY.loading}</p>;
+  }
+  if (systemsQuery.isError) {
+    return (
+      <div role="alert" className="text-xs text-text-muted">
+        <p>{SCOPE_SELECTOR_COPY.loadError}</p>
+        <Button variant="secondary" size="sm" onClick={() => { void systemsQuery.refetch(); }}>
+          {SCOPE_SELECTOR_COPY.retry}
+        </Button>
+      </div>
+    );
+  }
   return (
     <ManagedSystemScopePicker
       managedSystems={managedSystems}

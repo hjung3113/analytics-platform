@@ -107,6 +107,19 @@ Rules:
 - `All` in ManagedSystemScopeSwitcher means the actor's effective Managed System scope union; only Admin sees true workspace-wide all.
 ```
 
+### Managed System catalog state
+
+The shared `fetchManagedSystems` catalog read follows offsets to the response `total`,
+including callers with an explicit page-size limit. It preserves the archive flag and
+AbortSignal, and rejects incomplete reads instead of returning a partial catalog.
+Compose, public VOC, Area filters, Cluster/Survey creation, Registry, Area administration,
+name catalogs and permission requests all use this read.
+
+The sidebar scope control shows a loading status before the catalog arrives. A failed
+catalog read shows an error and `다시 시도`, including when a background refresh failed;
+it does not present an empty picker. After a successful empty read it offers the usual
+all-systems value. System names and `voc.read` scope flags remain separate.
+
 ### Responsive Behavior
 
 Desktop (≥1024px) only is built; the tablet/mobile rules below are the target contract, out of scope until responsive lands — `apps/feature-screens/AGENTS.md`.
