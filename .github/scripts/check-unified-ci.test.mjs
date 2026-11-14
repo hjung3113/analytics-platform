@@ -1,6 +1,6 @@
-// Exercise the actual workflow verdict shell and build ordering without Git, services or builds.
+// Exercise workflow verdicts and ordering without services or builds; the inventory guard reads tracked paths.
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -111,4 +111,15 @@ test('SDK drift reports on PR/main; strict comparison only on full manual releas
   assert.match(step, /pnpm sdk:test/);
   assert.match(workflow, /node tooling\/sdk\/sdk-changelog.mjs --check/);
   assert.doesNotMatch(step, /pnpm build|--update/);
+});
+
+// New focused Node tests must enter static-extra even though these packages have no test script.
+test('static-extra lists every tracked ops and real-server Node test exactly once', () => {
+  const gate = readFileSync(new URL('../../ops/platform-api/scripts/ci/gate.sh', import.meta.url), 'utf8');
+  const stage = gate.split('stage_static_extra() {')[1].split('\n}')[0];
+  const listed = [...stage.matchAll(/step node (?:--test )?("[^"\n]+"|[^\s]+)/g)]
+    .map(([, path]) => path.replaceAll('"', '').replace('$FEATURE_OPS', 'ops/platform-api')).sort();
+  const tracked = execFileSync('git', ['ls-files', '--', ':(glob)ops/platform-api/**/*.test.mjs', ':(glob)apps/platform-e2e/tests-real/*.test.ts'], { cwd: root, encoding: 'utf8' }).trim().split('\n').filter(Boolean).sort();
+  assert.ok(tracked.length > 0, 'tracked test discovery must be nonempty');
+  assert.deepEqual(listed, tracked);
 });

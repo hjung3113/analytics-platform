@@ -21,36 +21,52 @@ jobs:
   css-selectors:
     name: CSS selectors (build diff)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # 합성 merge 커밋이 아니라 PR head 자체를 빌드한다(리뷰 P1-b).
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Fetch base branch (merge-base baseline)
         run: git fetch --no-tags origin "+refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+      - id: classify
+        continue-on-error: true
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/classify-changes.mjs
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+        if: ${{ steps.classify.outputs.code != 'false' }}
+      - uses: actions/setup-node@v7
+        if: ${{ steps.classify.outputs.code != 'false' }}
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - name: Build head
+        if: ${{ steps.classify.outputs.code != 'false' }}
         run: |
           pnpm install --frozen-lockfile
           pnpm --filter @ap/platform-web build
       - name: Collect head CSS
+        if: ${{ steps.classify.outputs.code != 'false' }}
         # 앱 CSS는 청크 1개가 정상이고, 여러 개면 집합 비교라 순서 무관하게 이어 붙인다.
         run: cat apps/platform-web/dist/assets/*.css > "$RUNNER_TEMP/head.css"
       - name: Check out base worktree (merge-base with target branch)
+        if: ${{ steps.classify.outputs.code != 'false' }}
         run: git worktree add "$RUNNER_TEMP/base" "$(git merge-base HEAD "origin/${{ github.event.pull_request.base.ref }}")"
       - name: Build base
+        if: ${{ steps.classify.outputs.code != 'false' }}
         working-directory: ${{ runner.temp }}/base
         run: |
           pnpm install --frozen-lockfile
           pnpm --filter @ap/platform-web build
       - name: Collect base CSS
+        if: ${{ steps.classify.outputs.code != 'false' }}
         run: cat "$RUNNER_TEMP/base/apps/platform-web/dist/assets/"*.css > "$RUNNER_TEMP/base.css"
       - name: Compare selector sets
+        if: ${{ steps.classify.outputs.code != 'false' }}
         run: |
           ARGS=(--summary "$GITHUB_STEP_SUMMARY")
           if ${{ contains(github.event.pull_request.labels.*.name, 'css-removal-ok') }}; then

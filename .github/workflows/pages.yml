@@ -27,12 +27,11 @@ jobs:
     # workflow_dispatch keeps its manual path; deploy is skipped with build via `needs`.
     if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
-          submodules: true
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm

@@ -6,7 +6,7 @@ import { linkedSystemOf, platformSystemOf, spaceSystems } from './space-systems'
 
 /**
  * The Managed System a screen's VOC belongs to by default (ADR-0045, ADR-0110 decision 5): inside a business-system space, that space's linked system, only while the link is
- * declared; with no space (home, 소통, 내 활동, the shell) the 「플랫폼」 system. Never inferred from Site or equipment ids (ADR-0004). It reads the app's link store
+ * declared; with no space (home, 소통, 내 활동, the shell) the 「플랫폼」 system. Never inferred from Site or equipment ids (ADR-0153). It reads the app's link store
  * (`space-systems.ts`) synchronously and is `null` until the store is ready, for a space without a declared link, and when the server has no 「플랫폼」 system.
  * The one lookup for the sidebar entries and the VOC 등록 form's default.
  */

@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "transit": {
-      "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/feature-bridge#transit", "@ap/kernel#transit", "@ap/ui#transit"],
+      "dependsOn": ["@ap/components#transit", "@ap/contracts#transit", "@ap/feature-bridge#transit", "@ap/kernel#transit", "@ap/mock-server#transit", "@ap/ui#transit"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/feature-screens/src/**",

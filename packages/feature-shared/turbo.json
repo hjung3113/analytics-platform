@@ -2,11 +2,15 @@
   "$schema": "https://turbo.build/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_EXTENDS$", "$TURBO_ROOT$/ops/platform-api/tsconfig.base.json"]
+    },
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/ops/platform-api/tsconfig.base.json",
         "$TURBO_ROOT$/menus/log-dev/log-models/src/mock/issues.ts",
         "$TURBO_ROOT$/apps/platform-api/src/**",
         "$TURBO_ROOT$/apps/feature-screens/src/**",
@@ -14,7 +18,8 @@
       ]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/ops/platform-api/tsconfig.base.json"]
     }
   }
 }

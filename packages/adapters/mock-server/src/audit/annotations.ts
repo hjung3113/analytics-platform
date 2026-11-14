@@ -1,7 +1,7 @@
 /**
  * Persistent chart annotations (06 §16 layer 4, issue #103). Module-level store like usage: it survives `setRole`,
  * so what one user wrote is what another user of the same site reads. Every row carries the site it was written
- * under and every read filters on it — the chart id alone never selects a row (ADR-0004 site boundary). Not mart
+ * under and every read filters on it — the chart id alone never selects a row (ADR-0153 site boundary). Not mart
  * data: trust is null and assessments are empty on every branch, so this does not go through finish().
  * The server stamps the author and `at`; the wire input has no field for either and an unknown key rejects the call.
  */

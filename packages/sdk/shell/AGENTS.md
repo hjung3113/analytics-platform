@@ -30,7 +30,7 @@ App Shell (06 §8–9, screen design [07](../../../docs/design/app-shell.md)). R
   - `알림` bell (`NotificationsBell.tsx`) when `slots.notifications` exists and its menu is openable. The shell owns button, popover frame, badge and accessible name; the slot supplies count and body. On open, focus goes to the dialog; Esc returns to the bell; `모두 보기` navigation leaves focus to the arrival title.
   - `MenuUnread` (`unread.tsx`) puts the same count as a badge on the switcher platform link and the platform sidebar `NavItem`.
   - Below that: `slots.topBarTools`, divider, help and user menu. The user menu keeps language selection; choosing a language does not close the menu. The standalone `기능 전체` external entry and `features.overall` slot are retired (ADR-0097).
-  - Do not copy the space last-screen resume rule here: [06 §9.1](../../../docs/contract/kernel.md#91-워크스페이스-decided-2026-09-26); verified by Kernel `src/platform.space-resume.test.tsx`.
+  - Do not copy the space last-screen resume rule here: [06 §9.1](../../../docs/contract/kernel.md#91-워크스페이스-decided-2026-09-26); verified by Kernel `packages/sdk/kernel/src/platform/__tests__/platform.space-resume.test.tsx`.
 - `SystemSwitcher.tsx` — business system switcher at the top of the rail (15 §3.2, ADR-0042).
   - A path space not in `accessibleSpaces` is not "current": button name, icon and current-card mark all render "no current system" (same as outside business systems), so the rail never names a denied space even when the sidebar falls back to another space.
   - `@ap/ui` Popover (modal, focus trap). Cards = `accessibleSpaces` ∧ has `spaceEntry` (subtext `이어서`/`시작` from `entry.menuId`/`resumed`). `slots.plannedSpaces` render as display-only rows.

@@ -41,9 +41,9 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
 - Reports: `contract-report/README.md` (per-item pass/flaky/fail table) + `evidence/` (screenshots) + `results.json`; failure traces in `playwright-report/`. None goes into git.
 - CI Job `Platform contracts (E2E)` puts the table in the Job summary and uploads the `platform-contract-report` artifact.
 - CI sharding (#666):
-  - A full run splits the suite into 4 shard Jobs (`Platform contracts (E2E shard i/4)`, `pnpm e2e --shard=i/4 --reporter=list,blob`). The merge Job `Platform contracts (E2E)` merges the blobs with `pnpm --filter @ap/platform-e2e e2e:merge` (`playwright.merge.config.ts`) into one report and issues the verdict from the shard results.
+  - A full run splits the suite into 8 shard Jobs (`Platform contracts (E2E shard i/8)`, `pnpm e2e --shard=i/8 --reporter=list,blob`). The merge Job `Platform contracts (E2E)` merges the blobs with `pnpm --filter @ap/platform-e2e e2e:merge` (`playwright.merge.config.ts`) into one report and issues the verdict from the shard results.
   - `fullyParallel: true` makes shards split by test, not file; with one worker the execution order is unchanged.
-  - To reproduce one shard run `pnpm e2e --shard=2/4`; never put `--` before the argument (Playwright reads it as a file filter).
+  - To reproduce one shard run `pnpm e2e --shard=2/8`; never put `--` before the argument (Playwright reads it as a file filter).
   - `e2e:base-path` runs once, in the last shard.
   - PRs and main pushes run only affected specs (`.github/scripts/select-e2e.mjs`): chosen specs go to one shard (`i/1`) by file path (`tests/<x>.spec.ts`), so `contract-report` is a partial report of those specs. With no affected spec, shard Jobs are skipped and the merge Job decides.
   - A full run (8 shards) happens on `workflow_dispatch` `full=true` (the required cold full gate before release), manual `full=false`, PR/push changing `menus/**`, `packages/**`, `apps/**`, tooling, workflows or unclassified paths, and when selection or base-SHA computation fails (fail-safe). Changing non-spec files under `tests/` (`contract-helpers.ts`, `support.ts`), config or `package.json` also runs full.
@@ -54,12 +54,12 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
 - `playwright.kit.config.ts` drives `tests-kit/*.spec.ts` against an installed kit outside the repository. Like the other specs, it imports no `@ap/*`; the kit installs release tarballs only.
 - Prepare with `pnpm sdk:pack --out <empty-directory>`, then `AP_SDK_KIT_DIR_FILE=<path-file> pnpm sdk:consumer-check <directory>`. On success the file contains the installed kit directory, which is retained for the browser run. Export that path as `AP_SDK_KIT_DIR`, then run `pnpm --filter @ap/platform-e2e exec playwright test --config playwright.kit.config.ts`. Remove the retained kit and tarball directory when finished.
 - `E2E_KIT_PORT` defaults to 4192, separate from app 4190 and base-path 4191; Vite uses `strictPort` and never reuses a listener. Desktop only, no retries. Screenshots and traces go to the kit report uploaded as `platform-start-kit-browser-report`.
-- CI runs the named `Start kit browser check` step once in the Playwright shard job. `select-e2e.mjs` selects it conservatively with every full selection, including kit, app-host, mock-server and SDK changes. The static job runs the workflow pin tests in `tests-kit/*.test.mjs`.
+- CI runs the named `Start kit browser check` step once in the Playwright shard job; it does not run on a PR (#1931). `select-e2e.mjs` selects it conservatively with every full selection, including kit, app-host, mock-server and SDK changes. The static job runs the workflow pin tests in `tests-kit/*.test.mjs`.
 - This gate proves **mock 통과** only. It does not prove a real-server assembly.
 
 ## Real-server contract E2E (#593)
 
-CI runs the default mock E2E config only; no CI job executes real specs or the real assembly browser flow. Covered contracts and the unavailable-on-real table: [`real-server-checklist.md`](../../docs/integration/real-server-checklist.md).
+CI runs the default mock E2E config only; no CI job executes real specs or the real assembly browser flow. A PR changing only `tests-real/**` or `playwright.real*.config.ts` is not run by CI; run the changed spec with `e2e:real` before pushing. Covered contracts and the unavailable-on-real table: [`real-server-checklist.md`](../../docs/integration/real-server-checklist.md).
 
 ### Layout and guards
 

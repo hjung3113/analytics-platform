@@ -154,7 +154,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
     let next: GlobalContext = { ...global, ...patch };
     if ('scopeId' in patch && patch.scopeId !== global.scopeId) {
-      // Site is a DB boundary (ADR-0004): site-bound sets are cleared explicitly, never re-mapped.
+      // Site is a Scope grant boundary (ADR-0153): site-bound sets are cleared explicitly, never re-mapped.
       const had = hasSiteBound(global);
       next = withoutSiteBound(next);
       if (had && !options?.silent) toast(lang === 'ko' ? 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).' : 'Scope changed: Process, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).', 'warning');
@@ -189,7 +189,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly — the one exception is a carry set's
   // page keys between member menus of that same set, in any space (ADR-0081 decision 4 as replaced by #1099b). Changing the site applies the same
-  // site boundary as setGlobal (ADR-0004) to the values carried over from the current URL — values the caller
+  // site boundary as setGlobal (ADR-0153) to the values carried over from the current URL — values the caller
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
   const menuIds = useMemo(() => new Set(registry.menus.map(m => m.id)), [registry]);
