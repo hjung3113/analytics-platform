@@ -54,3 +54,8 @@ export function hostLinksCarrying(carry: CarryTarget | null, ...targets: TargetO
 export function permissionRequestsTarget(to: string): PlatformTarget | null {
   return to === '/permission-requests' ? { menuId: 'permission-requests' } : null;
 }
+
+/** `/notifications` is the notifications page (the home `내 할 일` "모두 보기" overflow target). */
+export function notificationsTarget(to: string): PlatformTarget | null {
+  return to === '/notifications' ? { menuId: 'notifications' } : null;
+}
