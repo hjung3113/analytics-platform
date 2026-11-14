@@ -19,8 +19,9 @@ export function useSessionDraft<T>(key: string, initial: T, options?: { ready?: 
   const ready = options?.ready ?? true;
   const read = () => {
     const entry = store.owner === owner ? store.entries.get(scopedKey) : undefined;
-    const restored = ready && entry?.owner === owner;
-    return { store, key: scopedKey, ready, initial, value: restored ? entry.value as T : initial, restored };
+    const carried = entry?.owner === owner ? entry : undefined;
+    const restored = ready && carried !== undefined;
+    return { store, key: scopedKey, ready, initial, carried, value: restored ? carried.value as T : initial, restored };
   };
   const [state, setState] = useState(read);
   if (state.store !== store || state.key !== scopedKey || state.ready !== ready) setState(read());
@@ -32,20 +33,14 @@ export function useSessionDraft<T>(key: string, initial: T, options?: { ready?: 
       else store.entries.set(scopedKey, { owner, value: current.value });
     }
   }, [store, scopedKey, ready, owner, current.value, current.initial, equal]);
+  // An unmount deletes at once, so a later mount or generation never sees it. StrictMode's cleanup/setup replay runs this setup again on
+  // the same instance: it puts back the entry this instance was rendered with (a draft carried into a not-yet-ready mount), unless the
+  // publishing effect above has already written a newer value.
+  const carried = current.carried;
   useLayoutEffect(() => {
-    store.mounts.set(scopedKey, (store.mounts.get(scopedKey) ?? 0) + 1);
-    return () => {
-      const next = (store.mounts.get(scopedKey) ?? 0) - 1;
-      if (next > 0) store.mounts.set(scopedKey, next);
-      else {
-        store.mounts.delete(scopedKey);
-        // Defer ordinary-unmount deletion past synchronous StrictMode cleanup/setup replay so held drafts on non-ready mounts survive.
-        queueMicrotask(() => {
-          if (!store.mounts.has(scopedKey)) store.entries.delete(scopedKey);
-        });
-      }
-    };
-  }, [store, scopedKey]);
+    if (carried && !store.entries.has(scopedKey)) store.entries.set(scopedKey, carried);
+    return () => { store.entries.delete(scopedKey); };
+  }, [store, scopedKey, carried]);
   const setValue = useCallback<Dispatch<SetStateAction<T>>>(next => {
     if (!ready) return;
     setState(held => ({ ...held, value: typeof next === 'function' ? (next as (value: T) => T)(held.value) : next }));

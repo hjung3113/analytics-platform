@@ -43,6 +43,16 @@ describe('useSessionDraft lifecycle (#2108)', () => {
     view.rerender(tree());
     expect(input().value).toBe('');
   });
+  it('clears on ordinary unmount even when the same key mounts again before any microtask runs', () => {
+    const { tree, bump } = setup(true);
+    const view = render(tree());
+    type(); bump();
+    expect(input().value).toBe('typed');
+    view.rerender(tree(false));
+    view.rerender(tree());
+    expect(input().value).toBe('');
+    expect(screen.getByText('fresh')).toBeTruthy();
+  });
   it('discard clears stored input before another generation', () => {
     const { tree, bump } = setup();
     render(tree()); type();
