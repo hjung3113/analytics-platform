@@ -47,6 +47,21 @@ describe('clas operation time mock', () => {
     expect(data.lanes.map(lane => lane.id)).toEqual(['LL1', 'TM', 'CH1', 'CH2', 'CH3', 'LL2']);
   });
 
+  it('returns the shown equipment\'s own row when it ranks below the 30-row cap, and only then (#2187)', () => {
+    const handle = (eqp: string) => operationTimeMock.handle({ context: { ...emptyGlobal, ...context }, equipment: EQUIPMENT, params: { eqp }, actor: 'engineer' });
+    const all = handle('');
+    expect(EQUIPMENT.length).toBeGreaterThan(30);
+    expect(all.equipmentRow).toBeUndefined();
+    const ranked = new Set(all.ranking.map(row => row.equipmentId));
+    const below = EQUIPMENT.find(row => !ranked.has(row.equipmentId))!;
+    const data = handle(below.equipmentId);
+    expect(data.equipmentId).toBe(below.equipmentId);
+    expect(data.ranking).toEqual(all.ranking);
+    expect(data.equipmentRow).toMatchObject({ equipmentId: below.equipmentId, room: below.room });
+    expect(data.equipmentRow!.minutes).toBeLessThanOrEqual(all.ranking.at(-1)!.minutes);
+    expect(handle(all.ranking[5].equipmentId).equipmentRow).toBeUndefined();
+  });
+
   it('keeps segments inside the requested period', () => {
     const data = operationTimeMock.handle({ context: { ...emptyGlobal, ...context }, equipment: EQUIPMENT.slice(0, 6), params: { eqp: '' }, actor: 'engineer' });
     const from = parseDateTime(context.from, 'from').getTime();

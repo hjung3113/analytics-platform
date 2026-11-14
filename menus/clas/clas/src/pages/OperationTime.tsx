@@ -39,7 +39,9 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
   const { global, setPage } = usePlatform();
   const ko = lang === 'ko';
   const number = (value: number) => formatNumber(value, lang);
-  const rooms = useMemo(() => [...new Set(data.ranking.map(row => row.room))], [data.ranking]);
+  // The shown equipment's own row joins the chart input only when it ranks below the response's cap (#2187).
+  const chartRows = useMemo(() => data.equipmentRow ? [...data.ranking, data.equipmentRow] : data.ranking, [data.ranking, data.equipmentRow]);
+  const rooms = useMemo(() => [...new Set(chartRows.map(row => row.room))], [chartRows]);
   const roomColor = (room: string) => ROOM_COLORS[rooms.indexOf(room) % ROOM_COLORS.length];
   const lanes = useMemo<TimelineLane[]>(() => data.lanes.map(lane => ({
     ...lane, segments: lane.segments.map(segment => ({ id: segment.id, start: segment.start, end: segment.end, colorToken: KIND_COLOR[segment.kind], rank: segment.kind })),
@@ -59,8 +61,8 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"
         title={tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' })} description={period}
         metricVersion="synthetic v1" unit={tx({ ko: '분', en: 'min' })} size="hero" height={360} trust={trust}
-        spec={{ kind: 'topNBar', topN: 10, defaultExpanded: true, onItemClick: id => setPage({ eqp: id }),
-          items: data.ranking.map(row => ({ id: row.equipmentId, label: row.equipmentId, value: row.minutes, colorToken: roomColor(row.room) })),
+        spec={{ kind: 'topNBar', topN: 10, defaultExpanded: true, onItemClick: id => setPage({ eqp: id }), selectedId: data.equipmentId,
+          items: chartRows.map(row => ({ id: row.equipmentId, label: row.equipmentId, value: row.minutes, colorToken: roomColor(row.room) })),
           legend: rooms.map(room => ({ label: room, colorToken: roomColor(room) })) }} /> },
     ]}
     breakdown={{ id: 'flow', title: flowTitle, node: data.missingEquipment !== null

@@ -24,10 +24,10 @@ export const operationTimeMock = defineMockEndpoint(operationTimeEndpoint, {
     const duration = parseDateTime(context.to, 'to').getTime() - start;
     if (duration <= 0) return empty;
     const hours = duration / 3_600_000;
-    const ranking = equipment
+    const all = equipment
       .map(row => ({ equipmentId: row.equipmentId, room: row.room, minutes: Math.round(hours * (18 + seed(row.equipmentId) % 37)) }))
-      .sort((a, b) => b.minutes - a.minutes || a.equipmentId.localeCompare(b.equipmentId))
-      .slice(0, RANK_LIMIT);
+      .sort((a, b) => b.minutes - a.minutes || a.equipmentId.localeCompare(b.equipmentId));
+    const ranking = all.slice(0, RANK_LIMIT);
     // A requested equipment outside the conditions is reported, not replaced (kernel §6: no automatic substitute). No request (`''`) is the only case that picks the top of the ranking.
     if (params.eqp !== '' && !equipment.some(row => row.equipmentId === params.eqp)) return { ranking, equipmentId: null, missingEquipment: params.eqp, lanes: [] };
     const shown = params.eqp === '' ? ranking[0].equipmentId : params.eqp;
@@ -41,7 +41,8 @@ export const operationTimeMock = defineMockEndpoint(operationTimeEndpoint, {
         return { id: `${module}-${j}`, start: start + slot * (j + offset), end: start + slot * Math.min(j + offset + length, j + 1), kind: OPERATION_KINDS[(base + m + j) % 3] };
       }),
     }));
-    return { ranking, equipmentId: shown, missingEquipment: null, lanes };
+    const below = ranking.some(row => row.equipmentId === shown) ? undefined : all.find(row => row.equipmentId === shown);
+    return { ranking, equipmentId: shown, missingEquipment: null, ...(below ? { equipmentRow: below } : {}), lanes };
   },
   isEmpty: data => data.ranking.length === 0,
   metricVersion: () => 'synthetic v1',

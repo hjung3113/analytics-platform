@@ -45,6 +45,7 @@ export const COMPONENTS_MESSAGES = {
   chartSelectionSummary: { ko: '{labels} · {count}개 선택', en: '{labels} · {count} selected' },
   chartHeatmapSelectionSummary: { ko: '{labels} · {count}칸 선택', en: '{labels} · {count} selected' },
   chartNoSelection: { ko: '선택 없음', en: 'No selection' },
+  chartSelectionOutsideTopN: { ko: '{label} · 상위 {count}개 밖', en: '{label} · outside the top {count}' },
   chartNoRangeSelection: { ko: '선택 구간 없음', en: 'No selection' },
   chartSelectionOverflow: { ko: '{count}개 선택 · {labels} 외 {more}개', en: '{count} selected · {labels} +{more} more' },
   chartHeatmapRangeSelection: { ko: '{count}칸 선택 · {yRange} · {xRange}', en: '{count} cells selected · {yRange} · {xRange}' },
