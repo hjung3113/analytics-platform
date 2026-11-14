@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useContext, useLayoutEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { AppContext } from './contexts';
 import { useHostPlatform } from './hooks';
 
@@ -32,14 +32,27 @@ export function useSessionDraft<T>(key: string, initial: T, options?: { ready?: 
       else store.entries.set(scopedKey, { owner, value: current.value });
     }
   }, [store, scopedKey, ready, owner, current.value, current.initial, equal]);
-  useLayoutEffect(() => () => { store.entries.delete(scopedKey); }, [store, scopedKey]);
-  const setValue: Dispatch<SetStateAction<T>> = next => {
+  useLayoutEffect(() => {
+    store.mounts.set(scopedKey, (store.mounts.get(scopedKey) ?? 0) + 1);
+    return () => {
+      const next = (store.mounts.get(scopedKey) ?? 0) - 1;
+      if (next > 0) store.mounts.set(scopedKey, next);
+      else {
+        store.mounts.delete(scopedKey);
+        // Defer ordinary-unmount deletion past synchronous StrictMode cleanup/setup replay so held drafts on non-ready mounts survive.
+        queueMicrotask(() => {
+          if (!store.mounts.has(scopedKey)) store.entries.delete(scopedKey);
+        });
+      }
+    };
+  }, [store, scopedKey]);
+  const setValue = useCallback<Dispatch<SetStateAction<T>>>(next => {
     if (!ready) return;
     setState(held => ({ ...held, value: typeof next === 'function' ? (next as (value: T) => T)(held.value) : next }));
-  };
-  const discard = () => {
+  }, [ready]);
+  const discard = useCallback(() => {
     store.entries.delete(scopedKey);
     setState(held => ({ ...held, value: held.initial, restored: false }));
-  };
+  }, [store, scopedKey]);
   return [ready ? current.value : initial, setValue, { restored: ready && current.restored, discard }];
 }

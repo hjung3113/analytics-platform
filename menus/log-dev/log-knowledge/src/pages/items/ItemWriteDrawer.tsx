@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useI18n, useMenuAction, usePlatform, useSessionDraft } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
@@ -24,38 +24,76 @@ const failureText = (outcome: string) => (outcome === 'unknown' ? '저장됐는�
 export type ItemWriteTarget =
   | { mode: 'create'; ownerModelId: string }
   | { mode: 'revise'; detail: ItemDetail; viewedRevisionNo: number | null; onReload: () => void }
-  | { mode: 'derive'; detail: ItemDetail };
+  | { mode: 'derive'; detail: ItemDetail; viewedRevisionNo?: number | null };
 
+export type ItemWriteDraft = {
+  form: WriteForm;
+  picks: SubjectPick[];
+  relations: ReturnType<typeof relationRowsOf>;
+  baseVersion: string;
+};
+
+const EMPTY_DRAFT: ItemWriteDraft = { form: emptyForm(''), picks: [], relations: [], baseVersion: '' };
+
+function initialDraftOf(target: ItemWriteTarget): ItemWriteDraft {
+  return {
+    form: target.mode === 'create' ? emptyForm(target.ownerModelId) : target.mode === 'revise' ? reviseForm(target.detail) : deriveForm(target.detail),
+    picks: target.mode === 'revise' ? picksOf(target.detail.subjects) : [],
+    relations: relationRowsOf(target.mode === 'revise' ? target.detail.relations : []),
+    baseVersion: target.mode === 'create' ? '' : target.detail.item.version,
+  };
+}
+
+export function itemWriteDraftKey(mode: WriteMode, itemId: string, viewedRevisionNo?: number | null): string {
+  if (mode === 'create') return 'item:create';
+  return `item:${mode}:${itemId}:${mode === 'derive' ? (viewedRevisionNo ?? 'latest') : ''}`;
+}
+
+/** Owns the drawer's session draft above the gated form so pending reads hold it without rendering the form. */
+export function useItemWriteDraft(draftKey: string, target: ItemWriteTarget | null) {
+  const [activation, setActivation] = useState<{ key: string; active: boolean; draft: ItemWriteDraft }>(() =>
+    target === null ? { key: draftKey, active: false, draft: EMPTY_DRAFT } : { key: draftKey, active: true, draft: initialDraftOf(target) });
+  if (activation.key !== draftKey || activation.active !== (target !== null)) {
+    setActivation(target === null
+      ? { key: draftKey, active: false, draft: EMPTY_DRAFT }
+      : { key: draftKey, active: true, draft: initialDraftOf(target) });
+  }
+  const initialDraft = target === null ? EMPTY_DRAFT : (activation.key === draftKey && activation.active ? activation.draft : initialDraftOf(target));
+  return useSessionDraft<ItemWriteDraft>(draftKey, initialDraft, { ready: target !== null, isEqual: sameInput });
+}
+
+type WriteDraftHandle = ReturnType<typeof useItemWriteDraft>;
 type Guard = ReturnType<typeof useCloseGuard>;
-function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; onReload: () => void; guard: Guard }) {
+function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWriteTarget; draftState: WriteDraftHandle; onReload: () => void; guard: Guard }) {
   const { setPage, navigate, linkTo, toast } = usePlatform();
   const create = useMenuAction(itemCreate), revise = useMenuAction(itemRevise), derive = useMenuAction(itemDerive);
   const uid = useId(), w = useSpecWords();
   const mode: WriteMode = target.mode;
-  const [initialForm] = useState<WriteForm>(() => (target.mode === 'create' ? emptyForm(target.ownerModelId) : target.mode === 'revise' ? reviseForm(target.detail) : deriveForm(target.detail)));
-  // The version this form was built on: a re-read after a conflict must not let a retry overwrite what the user has not seen.
-  const [baseVersion, setBaseVersion] = useState(() => (target.mode === 'create' ? '' : target.detail.item.version));
-  const [initialPicks] = useState<SubjectPick[]>(() => target.mode === 'revise' ? picksOf(target.detail.subjects) : []);
-  const [initialRelationRows] = useState(() => relationRowsOf(target.mode === 'revise' ? target.detail.relations : []));
-  const [initialDraft] = useState(() => ({ form: initialForm, picks: initialPicks, relations: initialRelationRows }));
-  // Revise/derive targets are passed only after ItemDetail's current-generation access read succeeds.
-  const draftKey = target.mode === 'create' ? 'item:create' : `item:${target.mode}:${target.detail.item.id}:${target.mode === 'derive' ? target.detail.revision.revisionNo : ''}`;
-  const [draft, setDraft, { restored, discard }] = useSessionDraft(draftKey, initialDraft, { ready: target.mode === 'create' || !!target.detail, isEqual: sameInput });
-  const { form, picks, relations } = draft;
-  const setForm = (update: (value: WriteForm) => WriteForm) => setDraft(held => ({ ...held, form: update(held.form) }));
+  const [initialDraft] = useState(() => initialDraftOf(target));
+  const [draft, setDraft, { restored, discard }] = draftState;
+  const { form, picks, relations, baseVersion } = draft;
+  const setForm = (update: (value: WriteForm) => WriteForm) => setDraft(held => {
+    const nextForm = update(held.form);
+    return nextForm.modelId !== held.form.modelId ? { ...held, form: nextForm, picks: [] } : { ...held, form: nextForm };
+  });
   const setPicks = (next: SubjectPick[]) => setDraft(held => ({ ...held, picks: next }));
-  const setRelations = (next: typeof initialRelationRows) => setDraft(held => ({ ...held, relations: next }));
-  const [initialRelations] = useState(() => JSON.stringify(initialRelationRows));
+  const setRelations = (next: typeof initialDraft.relations) => setDraft(held => ({ ...held, relations: next }));
+  const [initialRelations] = useState(() => JSON.stringify(initialDraft.relations));
   const { t } = useI18n();
   const { setDiscard } = guard;
   useEffect(() => setDiscard(discard), [setDiscard, discard]);
-  const [subjectOwner, setSubjectOwner] = useState(form.modelId);
   const ownerModelId = target.mode === 'revise' ? target.detail.item.owner.modelId : form.modelId;
-  if (subjectOwner !== form.modelId) { setSubjectOwner(form.modelId); setPicks([]); }
-  const [reloadRequested, setReloadRequested] = useState(false);
+  // Capture the detail snapshot when reload is requested so a restored v1 draft still waits for refetch before adopting v2+.
+  const [reloadBaseDetail, setReloadBaseDetail] = useState<ItemDetail | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [banner, setBanner] = useState<Banner | null>(null);
-  if (reloadRequested && target.mode === 'revise' && target.detail.item.version !== baseVersion) { setBaseVersion(target.detail.item.version); setReloadRequested(false); setBanner(null); }
+  useLayoutEffect(() => {
+    if (reloadBaseDetail !== null && target.mode === 'revise' && target.detail !== reloadBaseDetail && target.detail.item.version !== baseVersion) {
+      setDraft(held => ({ ...held, baseVersion: target.detail.item.version }));
+      setReloadBaseDetail(null);
+      setBanner(null);
+    }
+  }, [reloadBaseDetail, target, baseVersion, setDraft]);
   useDirtyReport(draft, guard.markDirty, initialDraft);
   const busy = create.pending || revise.pending || derive.pending;
   const set = (patch: Partial<WriteForm>) => { setForm(f => ({ ...f, ...patch })); };
@@ -102,7 +140,7 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
   return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy && banner?.kind !== 'conflict') save(); }}>
     {restored && <Callout tone="blue" title={t('sessionDraftRestoredTitle')}>{t('sessionDraftRestored')}</Callout>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다"
-      action={<Button type="button" size="sm" variant="secondary" onClick={() => { setReloadRequested(true); onReload(); }}>최신 불러오기</Button>}>
+      action={<Button type="button" size="sm" variant="secondary" onClick={() => { if (target.mode === 'revise') setReloadBaseDetail(target.detail); onReload(); }}>최신 불러오기</Button>}>
       작성 중인 입력은 유지됩니다. 최신 상태를 확인한 뒤 다시 저장하세요.
     </Callout>}
     {banner?.kind === 'failed' && <Callout tone="red" title="저장하지 못했습니다" action={banner.retry ? <Button type="button" size="sm" variant="secondary" onClick={banner.retry}>다시 시도</Button> : undefined}>{banner.text}</Callout>}
@@ -156,13 +194,32 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
  * revise edits the latest revision (owner read-only, 변경 사유 required), derive starts a new item from a viewed revision (no evidence).
  * A conflict keeps the form and its subjects; reload advances the version only after the new detail arrives.
  */
-export function ItemWriteDrawer({ target, onClose }: { target: ItemWriteTarget; onClose: () => void }) {
-  const guard = useCloseGuard(onClose);
+function ItemWriteDrawerView({ target, onClose, draftState }: { target: ItemWriteTarget; onClose: () => void; draftState: WriteDraftHandle }) {
+  const [, , { discard }] = draftState;
+  const guard = useCloseGuard(() => { discard(); onClose(); });
   const title = target.mode === 'create' ? '새 기술 Item' : target.mode === 'revise' ? '기술 Item 수정' : '관련 Item으로 신규 작성';
   const subtitle = target.mode === 'create' ? '전체 기술 Item' : `${itemNoLabel(target.detail.item.itemNo)} · ${ownerText(target.detail.item.owner)}`;
   const key = target.mode === 'revise' ? `revise:${target.detail.item.id}` : target.mode === 'derive' ? `derive:${target.detail.item.id}:${target.detail.revision.revisionNo}` : 'create';
   return <>
-    <DetailDrawer key={target.mode} title={title} subtitle={subtitle} onClose={guard.request} tabs={[{ id: 'form', label: '내용', content: <WriteFormBody key={key} target={target} guard={guard} onReload={() => { if (target.mode === 'revise') target.onReload(); }} /> }]} />
+    <DetailDrawer key={target.mode} title={title} subtitle={subtitle} onClose={guard.request} tabs={[{ id: 'form', label: '내용', content: <WriteFormBody key={key} target={target} draftState={draftState} guard={guard} onReload={() => { if (target.mode === 'revise') target.onReload(); }} /> }]} />
     {guard.dialog}
   </>;
+}
+
+function LocalItemWriteDrawer({ target, onClose }: { target: ItemWriteTarget; onClose: () => void }) {
+  const itemId = target.mode === 'create' ? '' : target.detail.item.id;
+  const viewedRevisionNo = target.mode === 'derive' ? target.viewedRevisionNo : undefined;
+  const draftState = useItemWriteDraft(itemWriteDraftKey(target.mode, itemId, viewedRevisionNo), target);
+  return <ItemWriteDrawerView target={target} onClose={onClose} draftState={draftState} />;
+}
+
+/**
+ * The create / revise / derive drawer (#1197 s3b, owner-confirmed variant A). Fact fields and the opinion field stay visibly apart;
+ * revise edits the latest revision (owner read-only, 변경 사유 required), derive starts a new item from a viewed revision (no evidence).
+ * A conflict keeps the form and its subjects; reload advances the version only after the new detail arrives.
+ */
+export function ItemWriteDrawer({ target, onClose, draftState }: { target: ItemWriteTarget; onClose: () => void; draftState?: WriteDraftHandle }) {
+  return draftState
+    ? <ItemWriteDrawerView target={target} onClose={onClose} draftState={draftState} />
+    : <LocalItemWriteDrawer target={target} onClose={onClose} />;
 }
