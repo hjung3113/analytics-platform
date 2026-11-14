@@ -435,11 +435,13 @@ describe('site-bound map fields (#552)', () => {
     window.history.replaceState(null, '', '/?scopeId=MEM&lineNames=OLD&prcGroups=P&roomNames=R1');
     function PatchProbe() {
       const p = useHostPlatform();
-      return <><p data-testid="patch-global">{JSON.stringify(p.global)}</p><button onClick={() => p.setGlobal({ scopeId: 'FDRY', lineNames: ['NEW'] })}>change-with-line</button></>;
+      const toasts = useToastList();
+      return <><p data-testid="patch-global">{JSON.stringify(p.global)}</p><p data-testid="patch-toast">{toasts.map(x => x.text).join('')}</p><button onClick={() => p.setGlobal({ scopeId: 'FDRY', lineNames: ['NEW'] })}>change-with-line</button></>;
     }
     render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registry}><PatchProbe /></PlatformProvider></I18nProvider>);
     act(() => screen.getByRole('button', { name: 'change-with-line' }).click());
     expect(JSON.parse(screen.getByTestId('patch-global').textContent!)).toMatchObject({ scopeId: 'FDRY', lineNames: ['NEW'], prcGroups: null, roomNames: null });
+    expect(screen.getByTestId('patch-toast').textContent).toContain('이번 변경에 함께 준 값은 유지했습니다');
   });
   it.each([
     ['ko', 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).'],

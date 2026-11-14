@@ -236,6 +236,7 @@ const dict = {
   invalidTableSort: { ko: '정렬', en: 'Sort' },
   invalidTablePage: { ko: '페이지', en: 'Page' },
   scopeChangedSiteReset: { ko: 'Scope 변경: 공정·Line·PRC 그룹·설비 조건·선택·Lot·Recipe·PPID를 초기화했습니다 (Site 경계).', en: 'Scope changed: Process, Line, PRC groups, condition, selection, Lot, Recipe and PPID were cleared (site boundary).' },
+  scopeChangedSiteKept: { ko: ' 이번 변경에 함께 준 값은 유지했습니다.', en: ' Values passed in this change were kept.' },
   preferencesUnsaved: { ko: '설정을 서버에 저장하지 못했습니다. 이 브라우저에는 남아 있으며 다시 시도합니다.', en: 'Your settings could not be saved to the server. They stay in this browser and will be retried.' },
 } satisfies Record<string, Text>;
 

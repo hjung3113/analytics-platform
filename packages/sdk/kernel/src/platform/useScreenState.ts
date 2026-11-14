@@ -157,7 +157,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       // Site is a Scope grant boundary (ADR-0153): the carried site-bound sets are cleared explicitly, never re-mapped. Values the same patch passes stay: the caller meant them for the new Scope (as in `resolveLink`).
       const had = hasSiteBound(global);
       next = { ...withoutSiteBound(global), ...patch };
-      if (had && !options?.silent) toast(t('scopeChangedSiteReset'), 'warning');
+      // Say so when the same change supplied some of those values: they stay (the toast would otherwise contradict the filter the user just set).
+      const kept = SITE_BOUND_FIELDS.some(f => f in patch && patch[f] != null);
+      if (had && !options?.silent) toast(kept ? `${t('scopeChangedSiteReset')}${t('scopeChangedSiteKept')}` : t('scopeChangedSiteReset'), 'warning');
     }
     // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
     write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
