@@ -171,9 +171,10 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
 });
 
 test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
-  // Measured 2026-10-05: the full row needs about 1018px; the bar has about 1148px before the detail slot opens and 708px after.
-  test('상세 슬롯을 같은 1280px 뷰포트에서 열면 자체 폭 변화로 기간 프리셋이 접힌다', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
+  // Measured 2026-10-05 at 1280px with the sidebar collapsed: the full row needs about 1018px; the bar has about 1148px before the detail slot opens and 708px after.
+  // The sidebar now starts collapsed only below 1200px (#1944), so the same widths are measured at 1440px with the sidebar open.
+  test('상세 슬롯을 같은 1440px 뷰포트에서 열면 자체 폭 변화로 기간 프리셋이 접힌다', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     const row = page.getByRole('main').locator('[data-row-id]').first();
@@ -182,16 +183,16 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
     await expectContextBounds(page);
     const before = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
-    await evidence(page, testInfo, 'context-before-detail-1280');
+    await evidence(page, testInfo, 'context-before-detail-1440');
     await row.getByRole('button', { name: /보기$/ }).click();
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
     await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
     await expect(visibleContextLabel(page)).toHaveCount(0);
-    expect(page.viewportSize()).toEqual({ width: 1280, height: 800 });
+    expect(page.viewportSize()).toEqual({ width: 1440, height: 800 });
     await expectContextBounds(page);
     const after = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
     await testInfo.attach('context-own-width-before-after', { body: JSON.stringify({ before, after }, null, 2), contentType: 'application/json' });
-    await evidence(page, testInfo, 'context-after-detail-1280');
+    await evidence(page, testInfo, 'context-after-detail-1440');
   });
 
   test('넓은 폭(1920px) 생산성 개요에서는 1일 프리셋과 모든 조건이 인라인이다', async ({ page }, testInfo) => {
@@ -217,7 +218,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await evidence(page, testInfo, 'context-1440-presets-inline');
   });
 
-  // At 1280px with the detail slot open the compact row fits without overflow (see the first test), so overflow editing is checked at 1024px.
+  // With the detail slot open the compact row fits without overflow (see the first test), so overflow editing is checked at 1024px.
   test('상세 슬롯이 열린 1024px에서도 한 줄이며 넘침에서 편집한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1024, height: 800 });
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
