@@ -9,6 +9,7 @@
   - Duplication: `rg` the member set, regex or list the diff adds; a second copy elsewhere is a finding that names the one home.
   - Permission: every read path the change opens (list, detail, replay, export), including ones outside the diff.
   - SDK: a hand-built table, picker, formatter or gate that `@ap/*` already provides is major, not a nit.
+  - Readability: a line you had to read twice (nested ternary, 3+ positional literals, a null/undefined sentinel with meaning, a second spelling of an existing union or predicate) is a minor finding with the named fix; two in one file is major.
 - **Perf** (only when the task names it): query counts, refetches, rerenders, bundle size.
 - **Measurement code:** DOM reads stay outside `setState` updaters; `MutationObserver`/`ResizeObserver` cover only the needed area and exclude their own row, so virtual-row scrolling does not retrigger them.
 - **UI, only when there is no UX review:** layout, hierarchy, Korean copy, accessibility (names, focus, keyboard), consistency with `DESIGN.md` and neighboring screens.
