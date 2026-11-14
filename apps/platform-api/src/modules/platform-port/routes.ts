@@ -4,7 +4,7 @@
 // (session, permission check) and writes only its own tables — `platform.usage_events`,
 // `platform.client_errors` — plus `core.sessions.csrf_token` (platform ADR-0069 decision 1).
 
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 import type { ScopeCatalog } from '../permissions/index.js';
 import type { ScopeResolver } from '../menu-dispatch/index.js';
@@ -34,6 +34,7 @@ import { createSessionState } from './session-snapshot.js';
 import {
   MALFORMED_BODY,
   createAuthenticator,
+  createSessionGuard,
   installPlatformTransport,
   platformActorOf,
 } from './transport.js';
@@ -82,6 +83,11 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   });
 
   const actorOf = platformActorOf;
+  // #1972: every route below authenticates in a marked preHandler. Reads have no other hook, so the lookup runs at the
+  // same point as the old in-handler call; writes list it after `csrf`, the order the handler used to follow.
+  const guard = createSessionGuard(authenticate, true);
+  const pollingGuard = createSessionGuard(authenticate, false);
+  const loadedOf = guard.loadedOf;
 
   // Notice management (ADR-0098 §4) is a child of this plugin: it inherits the transport policy above
   // (no-store, malformed-JSON judgment, error handler, prefix 404) instead of repeating it.
@@ -96,9 +102,8 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   const scopeWarning = () => app.log.warn('Scope resolution failed');
   const buildSession = createSessionState({ ...opts, scopeWarning });
 
-  app.get<{ Params: { scopeId: string } }>('/scopes/:scopeId/check', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.get<{ Params: { scopeId: string } }>('/scopes/:scopeId/check', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const site = req.params.scopeId;
     if (!opts.scopeCatalog?.hasSite(site)) return { status: 'unknown_scope', grantedRooms: [] };
     try {
@@ -112,9 +117,8 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     }
   });
 
-  app.get('/bootstrap', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.get('/bootstrap', { preHandler: guard.preHandler }, async (req, reply) => {
+    const loaded = loadedOf(req);
     const { session, version } = await buildSession(loaded);
     const csrfToken = await opts.sessionService.ensureCsrfToken(loaded.session.id);
     if (!csrfToken) return sendError(reply, 'auth.session_invalid', 'session not active');
@@ -128,33 +132,29 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   });
 
   // Polling is not activity (http-adapter-contract §4.5): the non-touching lookup.
-  app.get('/session-state', async (req, reply) => {
-    const loaded = await authenticate(req, reply, false);
-    if (!loaded) return reply;
+  app.get('/session-state', { preHandler: pollingGuard.preHandler }, async (req) => {
+    const loaded = pollingGuard.loadedOf(req);
     return { sessionVersion: (await buildSession(loaded)).version };
   });
 
   // Read POSTs (platform ADR-0069 decision 4): no CSRF. Every judged result is HTTP 200 + envelope.
-  app.post('/audit-trail/search', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/audit-trail/search', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const body = req.body === MALFORMED_BODY ? null : req.body;
     const result = await audit.auditTrail(actorOf(loaded), body);
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
-  app.post('/entity/audit', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/entity/audit', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const body = req.body === MALFORMED_BODY ? null : req.body;
     const result = await audit.entityAudit(actorOf(loaded), body);
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
   // O19: a readable row is never `empty` for getEntity — `empty` is unreachable today.
-  app.post('/entity', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/entity', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const body = req.body === MALFORMED_BODY ? null : req.body;
     const gate = await entityReader.gateEntity(actorOf(loaded), body);
     return gate.ok
@@ -162,9 +162,8 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
       : envelope(req, gate.outcome, null, gate.message);
   });
 
-  app.post('/access-directory/search', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/access-directory/search', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const body = req.body === MALFORMED_BODY ? null : req.body;
     const result = await access.accessDirectory(actorOf(loaded), body);
     return envelope(req, result.outcome, result.data ?? null, result.message);
@@ -175,34 +174,30 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   // `accepted: 0 / false`. Plain JSON, not an envelope. No per-route rate-limit tier: only the global
   // 100/min/actor applies, since the kernel sends one POST per event (~2 per navigation). Above that a
   // 429 is dropped silently by the adapter.
-  app.post('/usage-events', { preHandler: csrf }, async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/usage-events', { preHandler: [csrf, guard.preHandler] }, async (req) => {
+    const loaded = loadedOf(req);
     const events = req.body === MALFORMED_BODY ? null : parseUsageBatch(req.body);
     if (!events) return { accepted: 0 };
     await usage.recordUsage(actorOf(loaded), events);
     return { accepted: events.length };
   });
 
-  app.get('/usage-summary', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.get('/usage-summary', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const result = await usage.usageSummary(actorOf(loaded), req.query);
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
   // Read over POST (the body carries the query); same permission as usage-summary, no audit row, so no CSRF like the other reads.
-  app.post('/usage-next-screens', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/usage-next-screens', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const body = req.body === MALFORMED_BODY ? null : req.body;
     const result = await usage.usageNextScreens(actorOf(loaded), body);
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
 
-  app.post('/client-errors', { preHandler: csrf }, async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.post('/client-errors', { preHandler: [csrf, guard.preHandler] }, async (req) => {
+    const loaded = loadedOf(req);
     const report = req.body === MALFORMED_BODY ? null : parseClientError(req.body);
     if (!report) return { accepted: false };
     await clientErrors.reportClientError(actorOf(loaded), req.id, report);
@@ -211,9 +206,8 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
 
   // Preferences (ADR-0098): the session user's own state, so no permission beyond the session; identity is never read from
   // the body (the shared schemas are strict). Writes need CSRF; every judged result is HTTP 200 + envelope.
-  app.get('/preferences', async (req, reply) => {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  app.get('/preferences', { preHandler: guard.preHandler }, async (req) => {
+    const loaded = loadedOf(req);
     const result = await prefs.read(actorOf(loaded));
     return envelope(req, result.outcome, result.data ?? null, result.message);
   });
@@ -226,22 +220,20 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
 
     const judge = async (
       req: FastifyRequest,
-      reply: FastifyReply,
       run: (actor: PlatformActor, body: unknown) => Promise<PreferencesJudgement>,
     ) => {
-      const loaded = await authenticate(req, reply, true);
-      if (!loaded) return reply;
+      const loaded = loadedOf(req);
       const result: PreferencesJudgement =
         req.body === OVERSIZE_BODY
           ? { outcome: 'too_large', message: 'Preferences request exceeds the allowed size' }
           : await run(actorOf(loaded), req.body === MALFORMED_BODY ? null : req.body);
       return envelope(req, result.outcome, result.data ?? null, result.message);
     };
-    writes.post('/preferences/patch', { preHandler: csrf }, (req, reply) =>
-      judge(req, reply, prefs.patch),
+    writes.post('/preferences/patch', { preHandler: [csrf, guard.preHandler] }, (req) =>
+      judge(req, prefs.patch),
     );
-    writes.post('/preferences/import', { preHandler: csrf }, (req, reply) =>
-      judge(req, reply, prefs.import),
+    writes.post('/preferences/import', { preHandler: [csrf, guard.preHandler] }, (req) =>
+      judge(req, prefs.import),
     );
   });
 
@@ -249,16 +241,15 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   // has no sites, so every call is `forbidden`. Storage, validation, the site grant, author-only
   // delete and its platform ADR-0041 audit are NOT implemented — recorded in .planning/backlog.md
   // (## 작은 후속, "주석 저장"); the full platform ADR-0041 order is validation → site grant → lookup.
-  async function annotationGate(req: FastifyRequest, reply: FastifyReply) {
-    const loaded = await authenticate(req, reply, true);
-    if (!loaded) return reply;
+  async function annotationGate(req: FastifyRequest) {
+    const loaded = loadedOf(req);
     if (!(await holdsPlatformPermission(opts.checkService, actorOf(loaded), 'analytics:view'))) {
       return envelope(req, 'forbidden', null, 'No permission analytics:view');
     }
     // Unreachable while feature holds no menu permission of the app; failing closed beats an unfinished write path.
     return envelope(req, 'error', null, 'Annotations are not implemented');
   }
-  app.get('/annotations', annotationGate);
-  app.post('/annotations', { preHandler: csrf }, annotationGate);
-  app.post('/annotations/delete', { preHandler: csrf }, annotationGate);
+  app.get('/annotations', { preHandler: guard.preHandler }, annotationGate);
+  app.post('/annotations', { preHandler: [csrf, guard.preHandler] }, annotationGate);
+  app.post('/annotations/delete', { preHandler: [csrf, guard.preHandler] }, annotationGate);
 };

@@ -4,9 +4,10 @@
 // A missing/expired session or workspace mismatch is judged first (401/403), then the CSRF token of that
 // active session (403): a stale cookie never reaches the CSRF check (platform ADR-0069 decision 3, ADR-0098 §4).
 
-import type { FastifyPluginAsync, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 
 import type { Db } from '../../db/client.js';
+import { markAuthGuard } from '../../middleware/route-auth.js';
 import type { CheckService } from '../permissions/check-service.js';
 import { envelope } from '../platform-port/envelope.js';
 import {
@@ -39,16 +40,17 @@ export const platformNoticeRoutes: FastifyPluginAsync<PlatformNoticeRoutesOption
 
   // The session is loaded once, before the CSRF hook, and handed to the handler.
   const authenticated = new WeakMap<FastifyRequest, LoadedSession>();
-  const authenticateFirst: preHandlerHookHandler = async (req, reply) => {
+  const authenticateFirst: preHandlerHookHandler = markAuthGuard(async (req: FastifyRequest, reply: FastifyReply) => {
     const loaded = await opts.authenticate(req, reply, true);
     if (!loaded) return reply;
     authenticated.set(req, loaded);
     return undefined;
-  };
+  });
 
-  app.get('/notices', async (req, reply) => {
-    const loaded = await opts.authenticate(req, reply, true);
-    if (!loaded) return reply;
+  // #1972: the read authenticates in the same preHandler (it has no other hook, so the order is unchanged).
+  app.get('/notices', { preHandler: authenticateFirst }, async (req, reply) => {
+    const loaded = authenticated.get(req);
+    if (!loaded) return reply.code(401).send({ code: 'auth.session_invalid' });
     const result = await notices.list(platformActorOf(loaded));
     return envelope(req, result.outcome, result.data, result.message);
   });

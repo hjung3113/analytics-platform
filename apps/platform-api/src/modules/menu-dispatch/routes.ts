@@ -8,9 +8,10 @@
 // (http-adapter `actionCall`), but the body copy is the one judged (checklist §3 step 1–2): the adapter
 // always sends both from the same value, so a header can never decide a different request.
 
-import type { FastifyPluginAsync, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 
 import type { Db } from '../../db/client.js';
+import { markAuthGuard } from '../../middleware/route-auth.js';
 import type { SessionService } from '../auth/session-service.js';
 import { refuseLostTokenContext } from '../api-tokens/gate.js';
 import { requireCsrf } from '../platform-port/csrf.js';
@@ -54,7 +55,9 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
 
   // tokenCallable (ADR-0116): every judgment of a menu-query goes through `declaration.authorize` →
   // `holdsPlatformPermission` → `checkCapability`, which applies the token scopes.
-  app.post('/', { config: { tokenCallable: true } }, async (req, reply) => {
+  // authInHandler (#1972): the disconnect listener is attached before the session lookup, so a preHandler would miss a
+  // client that leaves while the session loads.
+  app.post('/', { config: { tokenCallable: true, authInHandler: true } }, async (req, reply) => {
     // The client going away cancels the read: handlers that call a slow Source take this signal into the port. Tracked before the
     // authentication await, so a disconnect while the session loads is not missed.
     const abandoned = new AbortController();
@@ -119,12 +122,12 @@ export const menuActionRoutes: FastifyPluginAsync<MenuActionRoutesOptions> = asy
 
   // The session is loaded once, before the CSRF hook: a stale cookie never reaches the CSRF check.
   const authenticated = new WeakMap<FastifyRequest, LoadedSession>();
-  const authenticateFirst: preHandlerHookHandler = async (req, reply) => {
+  const authenticateFirst: preHandlerHookHandler = markAuthGuard(async (req: FastifyRequest, reply: FastifyReply) => {
     const loaded = await authenticate(req, reply, true);
     if (!loaded) return reply;
     authenticated.set(req, loaded);
     return undefined;
-  };
+  });
 
   app.post('/', { config: { tokenCallable: true, tokenMutation: true }, preHandler: [authenticateFirst, csrf] }, async (req, reply) => {
     const loaded = authenticated.get(req);

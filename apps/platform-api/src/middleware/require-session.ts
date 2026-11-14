@@ -10,13 +10,14 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastif
 import { sendError } from '../lib/errors.js';
 import { tokenSessionOf } from '../modules/api-tokens/request-state.js';
 import type { SessionService } from '../modules/auth/session-service.js';
+import { markAuthGuard } from './route-auth.js';
 
 export const SESSION_COOKIE_NAME = 'platform_session';
 
 export function requireSession(sessionService: SessionService): preHandlerHookHandler {
   // An async preHandler that sends a reply must return it: otherwise Fastify still runs the route
   // handler, and the denial response would hide a write that already happened (#638).
-  return async function requireSessionHandler(
+  return markAuthGuard(async function requireSessionHandler(
     req: FastifyRequest,
     reply: FastifyReply,
   ): Promise<FastifyReply | undefined> {
@@ -37,5 +38,5 @@ export function requireSession(sessionService: SessionService): preHandlerHookHa
       workspace_id: loaded.session.workspaceId,
       role_level: loaded.session.roleLevel,
     };
-  };
+  });
 }

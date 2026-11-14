@@ -14,6 +14,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 
 import { HttpError } from '../../lib/errors.js';
 import { IDEMPOTENCY_KEY_REGEX } from '../../lib/http-headers.js';
+import { markAuthGuard } from '../../middleware/route-auth.js';
 import {
   type AttachmentsService,
   type UploadAdmission,
@@ -149,10 +150,11 @@ export const platformFilesRoutes: FastifyPluginAsync<PlatformFilesRoutesOptions>
   app.post(
     PLATFORM_FILES_PATH,
     {
-      preParsing: async (req, reply) => {
+      // #1972: the pre-parse gate authenticates first, so it is the route's marked guard.
+      preParsing: markAuthGuard(async (req: FastifyRequest, reply: FastifyReply) => {
         const refused = await gates(req, reply);
         return refused ? (reply as never) : undefined;
-      },
+      }),
       ...(opts.rateLimitConfig
         ? { config: { rateLimit: opts.rateLimitConfig.attachmentMutation as never } }
         : {}),

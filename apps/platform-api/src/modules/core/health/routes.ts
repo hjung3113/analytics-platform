@@ -38,6 +38,7 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
   app.route({
     method: 'GET',
     url: '/health',
+    config: { public: true }, // probe: answered without a session by design (FO ADR-0013)
     schema: {
       response: {
         200: z.object({
@@ -59,7 +60,7 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
   app.route({
     method: 'GET',
     url: '/health/live',
-    config: { rateLimit: false },
+    config: { rateLimit: false, public: true }, // probe: answered without a session by design (FO ADR-0013)
     schema: {
       response: {
         200: z.object({ status: z.literal('ok') }),
@@ -80,7 +81,7 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
   app.route({
     method: 'GET',
     url: '/health/ready',
-    config: { rateLimit: false },
+    config: { rateLimit: false, public: true }, // probe: answered without a session by design (FO ADR-0013)
     schema: {
       response: {
         200: z.object({ status: z.literal('ok'), checks: healthChecksSchema }),
