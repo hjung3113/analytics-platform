@@ -515,6 +515,24 @@ describe('useModuleHost: write', () => {
     await act(async () => { h.sent[0].resolve(answer('ok')); await first; });
   });
 
+  it('retries A with its original key after an in-flight B settles (#2066 KER-25)', async () => {
+    const h = harness();
+    let first!: Promise<ActionResult<Saved>>;
+    act(() => { first = h.seen.host.act!(save, { text: 'a' }); });
+    await act(async () => { h.sent[0].resolve(answer('unknown')); await first; });
+    const { retry } = await first;
+    let other!: Promise<ActionResult<Saved>>;
+    let again!: Promise<ActionResult<Saved>>;
+    act(() => { other = h.seen.host.act!(save, { text: 'b' }); again = retry!(); });
+    expect(again).not.toBe(other);
+    expect(h.sent).toHaveLength(2);
+    await act(async () => { h.sent[1].resolve({ ...answer('ok'), data: { id: 'b' } }); await other; });
+    expect(h.sent).toHaveLength(3);
+    expect(h.sent[2].request).toBe(h.sent[0].request);
+    await act(async () => { h.sent[2].resolve({ ...answer('ok'), data: { id: 'a' } }); await again; });
+    expect(await again).toMatchObject({ outcome: 'ok', data: { id: 'a' } });
+  });
+
   it('rejects AbortError without an adapter call once the screen is released, retained retry included', async () => {
     const h = harness();
     const { host } = h.seen;
@@ -560,7 +578,7 @@ describe('useModuleHost: write', () => {
     expect(await second).toMatchObject({ outcome: 'ok' });
   });
 
-  it('a retry made while only suspended joins the deferred call and both reject once the screen is gone', async () => {
+  it('a retry made while only suspended waits for a different deferred request and both reject once the screen is gone', async () => {
     let retained: (() => Promise<ActionResult<Saved>>) | undefined;
     const results: Promise<unknown>[] = [];
     const raw: Promise<unknown>[] = [];
@@ -580,8 +598,8 @@ describe('useModuleHost: write', () => {
     h.unmount();
     await act(async () => {});
     expect(results).toHaveLength(2);
-    // The retry joins the deferred call: the same promise, not a separate rejection.
-    expect(raw[1]).toBe(raw[0]);
+    // The retained retry belongs to the earlier request, so it cannot receive this deferred write's answer.
+    expect(raw[1]).not.toBe(raw[0]);
     for (const outcome of await Promise.all(results)) expect(isAbort(outcome as object)).toBe(true);
     expect(h.sent).toHaveLength(1);
   });
