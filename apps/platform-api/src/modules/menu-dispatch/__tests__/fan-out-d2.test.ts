@@ -14,7 +14,8 @@ import { menuSnapshotFor } from '../../../test-support/menu-snapshot.js';
 const actor = { actor_id: 'syn-actor', workspace_id: 'syn-workspace', role_level: 'user' } as const;
 function runtime(connector: Connector, options: { paged?: boolean; single?: boolean; max?: number; keyed?: boolean } = {}) {
   const { paged = false, single = false, max = 4, keyed = false } = options;
-  const call = { statement: 'SELECT :rooms', params: { rooms: 'scope.rooms' as const } };
+  // A resolve-keys endpoint must bind its keys in the main call too (SER-10).
+  const call = keyed ? { statement: 'SELECT :rooms, :q', params: { rooms: 'scope.rooms' as const, q: 'params.q' as const } } : { statement: 'SELECT :rooms', params: { rooms: 'scope.rooms' as const } };
   const owner: Routing = {
     routes: [{ sites: ['SITE-A'], targets: single ? ['syn-1'] : ['syn-1', 'syn-2'] }], call,
     scopeCheck: keyed ? { mode: 'resolve-keys', keys: 'params.q', lookup: { statement: 'SELECT :key', params: { key: 'params.q' } }, siteField: '/site', roomField: '/room' } : { mode: 'verify-rows', roomField: '/room' },

@@ -135,6 +135,16 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
     return id;
   }
 
+  it('SER-13 exposes a role change without its private reason', async () => {
+    const actor = await newActor('user');
+    const id = await seedAudit('role-change', { actorId: actor.id, eventType: 'actor_role_changed', subjectType: 'actor', subjectId: actor.id, hours: 50 });
+    const result = await search({ actor: actor.externalId, type: 'actor', action: 'update' });
+    expect(result.outcome).toBe('ok');
+    expect(result.data?.items).toEqual([expect.objectContaining({ id, target: { type: 'actor', id: actor.id, scopeId: null }, action: 'update' })]);
+    expect(JSON.stringify(result)).not.toContain('secret reason');
+    expect(JSON.stringify(result)).not.toContain('detail');
+  });
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     dbHandle = createDb(APP_URL);

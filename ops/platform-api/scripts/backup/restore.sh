@@ -284,7 +284,7 @@ check 'owner role memberships' "select count(*) from pg_auth_members m join pg_r
 check 'database owner' "select pg_catalog.pg_get_userbyid(datdba) from pg_database where datname = '$DB'" platform_migrate
 check 'extension vector' "select count(*) from pg_extension where extname = 'vector'" 1
 check 'extension pg_trgm' "select count(*) from pg_extension where extname = 'pg_trgm'" 1
-check 'no product table owned by the superuser' "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('core','permission','voc','voc_cluster','finding','task','task_request','survey','knowledge','pgboss','drizzle') and c.relkind in ('r','p') and c.relowner = (select oid from pg_roles where rolname = 'postgres')" 0
+check 'no product table owned by the superuser' "select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname not in ('pg_catalog','information_schema','public') and n.nspname !~ '^pg_' and c.relkind in ('r','p') and c.relowner = (select oid from pg_roles where rolname = 'postgres')" 0
 check 'runtime grants (platform_app)' "select has_database_privilege('platform_app','$DB','CONNECT') and has_schema_privilege('platform_app','core','USAGE') and has_table_privilege('platform_app','core.actors','SELECT')" t
 check 'journal digest' "select encode(sha256(convert_to(string_agg(hash, E'\\n' order by id) || E'\\n', 'UTF8')), 'hex') from drizzle.__drizzle_migrations" "$(bk_m_section_value "$M" journal digest)"
 

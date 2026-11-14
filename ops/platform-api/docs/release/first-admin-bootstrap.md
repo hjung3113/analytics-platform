@@ -33,7 +33,7 @@ All commands run as one-off jobs from the migrate/tools image in the operator Co
 
 ## Behavior and exit codes
 
-- One transaction: a per-workspace lock, the role update, and one `actor_role_changed` audit row attributed to the `system` Actor (subject = the changed Actor; detail = `before_role`, `after_role`, optional `reason`).
+- One transaction: a per-workspace lock, the role update, and one `actor_role_changed` audit row attributed to the `system` Actor (subject = the changed Actor; detail = `before_role`, `after_role`, optional `reason`). The platform audit console projects the role change as `update` on an `actor` subject (migration `0135_actor_role_audit`); the reason and other audit detail stay private.
 - Role changes are serialized per workspace, so two concurrent demotions cannot remove the last admin.
 - Already at the requested role: no change, no audit row, exit 0.
 - **Demotion does not revoke grants.** An explicit `workspace.admin` grant is a capability separate from the role, and the server keeps honoring it after the role drops to `user` (admin checks, permission decisions, workspace settings, the operations console). So lowering an Actor who holds an active `workspace.admin` grant (not revoked, not superseded, not expired) is refused with exit 5 and the count, and nothing changes. Rerun with `--revoke-admin-grants` to lower the role and revoke those grants in the same transaction: one `permission_revoked` audit row per grant, attributed to the `system` Actor (reason = `--reason`, else a fixed text). Promotion and lowering an Actor without such grants are unaffected.

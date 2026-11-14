@@ -834,7 +834,7 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
             );
           }
           const operatorActorId = a.input.operator_actor_id ?? s.operator_actor_id;
-          if (a.input.operator_actor_id) {
+          if (a.input.operator_actor_id || primaryManagedSystemId !== s.primary_managed_system_id) {
             const operator = await tx.execute<{
               id: string;
               role_level: RoleLevel;

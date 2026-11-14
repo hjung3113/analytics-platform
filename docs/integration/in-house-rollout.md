@@ -112,7 +112,7 @@
 - [ ] **기존 시스템을 선언 묶음으로 붙일 때 시스템마다 정해 주는 것**([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md), 합성 예시 [routed-declarations.example.json](examples/routed-declarations.example.json)). 새 서버·백엔드 수정은 필요 없다.
   - 연결 방식 하나: HTTP 변환형(`mapped`: 코어가 요청·응답을 선언대로 바꿔 부른다), envelope(그 시스템이 06 §19 envelope와 신원 토큰을 말할 때만), DB 읽기 전용(`statement`) 또는 프로시저(`procedure`). 코어에는 HTTP(`mapped`·envelope)와 DB(`postgres` 문장, `mssql` 문장·프로시저) 연결기가 있다. `postgres` 프로시저는 기동 거부다.
   - 라우팅 키: Scope 키(site, room)로 어느 대상이 어느 데이터를 갖는지 — N site → 1 대상, 한 site를 room별 여러 대상으로, 또는 플랫폼이 볼 수 없는 기준(설비 묶음·기간)으로 나뉘면 모두에 묻고 병합. 대상에 없는 room이 부여될 수 있으면 `unroutedRooms: "skip"`으로 둘지 정한다.
-  - 응답 행에 site·room이 있는지, 호출이 room으로 거를 수 있는지: 있고 거를 수 있으면 `verify-rows`(벗어난 행이 하나라도 있으면 응답 전체 실패), 있지만 못 거르면 `drop-rows`, 행에 room이 없으면 `resolve-keys`(키를 site·room으로 푸는 조회 하나). site·room 표기가 플랫폼 값과 다르면 대응표(`valueMap`).
+  - 응답 행에 site·room이 있는지, 호출이 room으로 거를 수 있는지: 있고 거를 수 있으면 `verify-rows`(벗어난 행이 하나라도 있으면 응답 전체 실패), 있지만 못 거르면 `drop-rows`, 행에 room이 없으면 `resolve-keys`(키를 site·room으로 푸는 조회 하나). 키가 있는 `resolve-keys`는 본 호출과 lookup 모두 `scopeCheck.keys`와 같은 바인딩을 써야 하며, 빠지면 기동을 거부한다. 키 없는 집계는 본 호출의 `scope.rooms` 바인딩을 요구한다. site·room 표기가 플랫폼 값과 다르면 대응표(`valueMap`).
   - 엔드포인트마다 행 상한(`limits.maxRows`, 페이지는 `merge.maxWindow`), 행을 합칠 때의 유일한 정렬 키, 읽기 전용 계정·주소·비밀 파일(위 «DB 대상 준비물»).
 - [ ] 체크리스트를 읽고 "기존 시스템에서 이 규칙을 지킬 수 없다"는 항목 — 있으면 계약 변경 결정으로 올린다(루트 `AGENTS.md`)
 

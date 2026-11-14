@@ -327,6 +327,7 @@ export const findingsRoutes: FastifyPluginAsync<FindingsRoutesOptions> = async (
           fields: fieldsFromZodIssues(parsed.error.issues),
         });
       }
+      const idempotencyKey = requireIdempotencyKey(req.headers as Record<string, unknown>);
       const result = await findingsService.addEvidenceHighlight({
         actor: {
           actor_id: sess.actor_id,
@@ -335,6 +336,8 @@ export const findingsRoutes: FastifyPluginAsync<FindingsRoutesOptions> = async (
         },
         findingId: id,
         input: parsed.data,
+        idempotencyKey,
+        requestHash: hashRequestBody({ body: parsed.data, findingId: id, route: 'finding.evidence_highlight' }),
       });
       return reply.code(result.status).send(result.body);
     },

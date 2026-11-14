@@ -231,13 +231,13 @@ it('cancels a pending driver when the caller abandons the request', async () => 
   const result = endpoint.handle({ ...args(), signal: aborted.signal });
   aborted.abort(); await expect(result).rejects.toEqual(new MenuUpstreamError('unavailable')); expect(driverSignal?.aborted).toBe(true);
 });
-it('lookup cannot silently ignore the keys binding', async () => {
+it('lookup missing the keys binding is refused at boot', () => {
   const routing = owner(); routing.scopeCheck = { mode: 'resolve-keys', keys: 'params.q', lookup: { statement: 'SELECT 1', params: {} }, siteField: '/site', roomField: '/room' };
-  const { endpoint, calls } = runtime(routing);
-  expect(await endpoint.handle(args())).toMatchObject({ outcome: 'forbidden', data: null }); expect(calls).toEqual([]);
+  expect(() => runtime(routing)).toThrow('scopeCheck.lookup must bind scopeCheck.keys');
 });
 it('a constant-key lookup resolves each declared key through the same binding', async () => {
   const routing = owner(); routing.scopeCheck = { mode: 'resolve-keys', keys: { const: ['syn-1'] }, lookup: { statement: 'SELECT :key', params: { key: { const: ['syn-1'] } } }, siteField: '/site', roomField: '/room' };
+  routing.call = { statement: 'SELECT :rooms, :key', params: { rooms: 'scope.rooms', key: { const: ['syn-1'] } } };
   const { endpoint } = runtime(routing, { async *query(leg) {
     if ('statement' in leg.call && leg.call.statement === 'SELECT :key') expect(leg.bindings.params?.key).toEqual(['syn-1']);
     yield { site: 'SITE-A', room: 'RA1' };

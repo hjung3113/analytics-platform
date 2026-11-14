@@ -43,13 +43,16 @@ const runIntegration = Boolean(APP_URL && MIGRATE_URL && WORKSPACE_ID);
 const PRODUCT_SCHEMAS = [
   'core',
   'dashboard',
+  'eqv',
   'finding',
+  'knowledge',
   'improvement',
   'log_explorer',
   'log_datasets',
   'log_lifecycle',
   'log_rules',
   'permission',
+  'platform',
   'survey',
   'task',
   'task_request',
@@ -78,6 +81,54 @@ const SURVEY_AGGREGATE_FUNCTIONS = [
 // silence: the entry is the design record, and adding one is a decision, not
 // paperwork (#207).
 const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
+  // SER-15: table-wide grants from migrations 0075–0125; column grants stay checked separately.
+  'eqv.alias_rules': ['SELECT', 'INSERT'],
+  'eqv.baseline_inventory': ['SELECT', 'INSERT'],
+  'eqv.binding': ['SELECT', 'INSERT'],
+  'eqv.equipment': ['SELECT'],
+  'eqv.layout_draft': ['SELECT', 'INSERT'],
+  'eqv.layout_revision': ['SELECT', 'INSERT'],
+  'eqv.mapping_version': ['SELECT', 'INSERT'],
+  'eqv.sample_window': ['SELECT', 'INSERT'],
+  'eqv.template': ['SELECT', 'INSERT'],
+  'eqv.type_dictionary': ['SELECT', 'INSERT'],
+  'knowledge.catalog_import_job': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.catalog_import_resolution': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.catalog_import_row': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.common_concept': ['SELECT', 'INSERT'],
+  'knowledge.draft': ['SELECT', 'INSERT'],
+  'knowledge.draft_review': ['SELECT', 'INSERT'],
+  'knowledge.draft_revision': ['SELECT', 'INSERT'],
+  'knowledge.equipment_model': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.external_identity_map': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.item_assessment_event': ['SELECT', 'INSERT'],
+  'knowledge.item_counter': ['SELECT', 'INSERT'],
+  'knowledge.item_event_relation_record': ['SELECT', 'INSERT'],
+  'knowledge.item_link': ['SELECT', 'INSERT'],
+  'knowledge.item_revision_evidence': ['SELECT', 'INSERT'],
+  'knowledge.item_revision_subject': ['SELECT', 'INSERT'],
+  'knowledge.knowledge_item': ['SELECT', 'INSERT'],
+  'knowledge.knowledge_item_revision': ['SELECT', 'INSERT'],
+  'knowledge.model_spec_revision': ['SELECT', 'INSERT'],
+  'knowledge.model_topview_link': ['SELECT', 'INSERT', 'DELETE'],
+  'knowledge.object_access_rule': ['SELECT', 'INSERT'],
+  'knowledge.process_category': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.search_backfill_progress': ['SELECT', 'INSERT'],
+  'knowledge.search_document': ['SELECT', 'INSERT', 'DELETE'],
+  'knowledge.search_index_pointer': ['SELECT', 'INSERT'],
+  'knowledge.search_outbox': ['SELECT', 'INSERT', 'DELETE'],
+  'knowledge.software_version': ['SELECT', 'INSERT', 'UPDATE'],
+  'knowledge.spec_concept_mapping': ['SELECT', 'INSERT'],
+  'knowledge.spec_event': ['SELECT', 'INSERT'],
+  'knowledge.spec_event_relation': ['SELECT', 'INSERT'],
+  'knowledge.spec_module': ['SELECT', 'INSERT'],
+  'knowledge.spec_sw_change': ['SELECT', 'INSERT'],
+  'knowledge.vendor': ['SELECT', 'INSERT', 'UPDATE'],
+  'platform.client_errors': ['INSERT'],
+  'platform.preferences': ['SELECT', 'INSERT', 'UPDATE'],
+  'platform.saved_view_imports': ['SELECT', 'INSERT'],
+  'platform.usage_events': ['SELECT', 'INSERT', 'UPDATE'],
+
   'survey.finding_response_bindings': [],
   'survey.highlight_response_bindings': [],
   // Migration 0000 makes the audit log append-only so application writes retain
@@ -243,6 +294,15 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
   afterAll(async () => {
     await migrateHandle?.close();
     await appHandle?.close();
+  });
+
+  it('SER-15 covers every product schema with base tables', async () => {
+    const { rows } = await migrateHandle.pool.query<{ schema: string }>(
+      `select distinct table_schema as schema from information_schema.tables
+       where table_type='BASE TABLE' and table_schema not in ('pg_catalog','information_schema','public','pgboss','drizzle')
+         and table_schema !~ '^pg_' order by table_schema`,
+    );
+    expect([...PRODUCT_SCHEMAS].sort()).toEqual(rows.map((row) => row.schema));
   });
 
   it('platform_app holds exactly the designed DML privileges on every product-schema base table', async () => {
@@ -579,7 +639,7 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     );
   });
 
-  // #1198 a: the `knowledge` schema is not in PRODUCT_SCHEMAS, so the three draft tables are pinned explicitly.
+  // #1198 a: retain the explicit draft-table and mutable-column checks alongside schema-wide coverage.
   it.each([
     ['draft', ['SELECT', 'INSERT']],
     ['draft_revision', ['SELECT', 'INSERT']],
@@ -611,7 +671,7 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
     expect(rows.map((row) => row.column_name)).toEqual([...columns].sort());
   });
 
-  // #1645: the `eqv` schema is not in PRODUCT_SCHEMAS either, so its tables are pinned explicitly (migrations 0121, 0124, 0125).
+  // #1645: retain the explicit eqv-table and mutable-column checks (migrations 0121, 0124, 0125).
   it.each([
     ['layout_draft', ['SELECT', 'INSERT']],
     ['layout_revision', ['SELECT', 'INSERT']],

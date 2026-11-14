@@ -43,7 +43,7 @@ it.each(['main', 'lookup'] as const)('refuses context.lineNames without listJoin
     const base = routedBundle();
     const owner = base.endpointOwners['syn.rows'];
     const bundleWith = (listJoin?: Record<string, string>) => {
-      const procedure = { procedure: 'syn.read_rows', args: { rooms: 'scope.rooms', lines: 'context.lineNames' }, listJoin: { rooms: ',', ...listJoin } };
+      const procedure = { procedure: 'syn.read_rows', args: { rooms: 'scope.rooms', lines: 'context.lineNames', q: 'params.q' }, listJoin: { rooms: ',', ...listJoin } };
       return {
         ...base,
         endpoints: [{ ...base.endpoints[0], context: { time: 'apply', line: 'apply' } }],

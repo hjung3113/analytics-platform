@@ -100,6 +100,8 @@ export function createFindingEvidence(deps: FindingsServiceDeps) {
     actor: FindingsActor;
     findingId: string;
     input: AddEvidenceHighlightRequest;
+    idempotencyKey: string;
+    requestHash: string;
   }): Promise<{ status: number; body: EvidenceHighlightDto }> {
     const { actor, findingId, input } = args;
 
@@ -117,72 +119,80 @@ export function createFindingEvidence(deps: FindingsServiceDeps) {
         throw new HttpError('permission.denied', 'finding.manage capability required');
       }
 
-      if (input.analytics_area_id) {
-        await assertActiveAnalyticsAreaForManagedSystem(
-          tx,
-          actor.workspace_id,
-          finding.primary_managed_system_id,
-          input.analytics_area_id,
-        );
-      }
-
       await assertHighlightSourceReadableForWrite({
-        actor,
-        tx,
-        sourceType: input.source_type,
-        sourceId: input.source_id,
+        actor, tx, sourceType: input.source_type, sourceId: input.source_id,
       });
+      return deps.idempotencyService.runIdempotent(
+        tx, actor.actor_id, args.idempotencyKey, args.requestHash,
+        async () => {
+          if (input.analytics_area_id) {
+            await assertActiveAnalyticsAreaForManagedSystem(
+              tx,
+              actor.workspace_id,
+              finding.primary_managed_system_id,
+              input.analytics_area_id,
+            );
+          }
 
-      const row = await insertEvidenceHighlight(tx, {
-        workspaceId: actor.workspace_id,
-        findingId: finding.id,
-        primaryManagedSystemId: finding.primary_managed_system_id,
-        sourceType: input.source_type,
-        sourceId: input.source_id ?? null,
-        approvedExcerptId: null,
-        quoteOrSummary: input.quote_or_summary,
-        analyticsAreaId: input.analytics_area_id ?? null,
-        sentiment: input.sentiment ?? null,
-        importance: input.importance ?? null,
-        createdBy: actor.actor_id,
-      });
-      await incrementFindingEvidenceCount(tx, {
-        workspaceId: actor.workspace_id,
-        findingId: finding.id,
-      });
+          const row = await insertEvidenceHighlight(tx, {
+            workspaceId: actor.workspace_id,
+            findingId: finding.id,
+            primaryManagedSystemId: finding.primary_managed_system_id,
+            sourceType: input.source_type,
+            sourceId: input.source_id ?? null,
+            approvedExcerptId: null,
+            quoteOrSummary: input.quote_or_summary,
+            analyticsAreaId: input.analytics_area_id ?? null,
+            sentiment: input.sentiment ?? null,
+            importance: input.importance ?? null,
+            createdBy: actor.actor_id,
+          });
+          await incrementFindingEvidenceCount(tx, {
+            workspaceId: actor.workspace_id,
+            findingId: finding.id,
+          });
 
-      await deps.auditService.record(tx, {
-        workspace_id: actor.workspace_id,
-        actor_id: actor.actor_id,
-        event_type: 'evidence_highlight_added',
-        subject_type: 'finding',
-        subject_id: finding.id,
-        summary: 'Evidence highlight added',
-        detail: {
-          finding_id: finding.id,
-          evidence_highlight_id: row.id,
-          source_type: row.source_type,
-          source_id: row.source_id,
-          primary_managed_system_id: finding.primary_managed_system_id,
+          await deps.auditService.record(tx, {
+            workspace_id: actor.workspace_id,
+            actor_id: actor.actor_id,
+            event_type: 'evidence_highlight_added',
+            subject_type: 'finding',
+            subject_id: finding.id,
+            summary: 'Evidence highlight added',
+            detail: {
+              finding_id: finding.id,
+              evidence_highlight_id: row.id,
+              source_type: row.source_type,
+              source_id: row.source_id,
+              primary_managed_system_id: finding.primary_managed_system_id,
+            },
+          });
+
+          const sourceMeta =
+            row.source_type === 'voc' && row.source_id
+              ? await findVocSourceMeta(tx, {
+                  workspaceId: actor.workspace_id,
+                  vocId: row.source_id,
+                })
+              : null;
+
+          return {
+            status: 201,
+            body: evidenceHighlightToDto(row, {
+              includeQuote: true,
+              source_title: sourceMeta?.title ?? null,
+              source_meta: sourceMeta?.display_id ?? null,
+            }),
+          };
         },
-      });
-
-      const sourceMeta =
-        row.source_type === 'voc' && row.source_id
-          ? await findVocSourceMeta(tx, {
-              workspaceId: actor.workspace_id,
-              vocId: row.source_id,
-            })
-          : null;
-
-      return {
-        status: 201,
-        body: evidenceHighlightToDto(row, {
-          includeQuote: true,
-          source_title: sourceMeta?.title ?? null,
-          source_meta: sourceMeta?.display_id ?? null,
-        }),
-      };
+        {
+          beforeReplay: async () => {
+            if (!(await canReadFinding(deps, actor, finding.primary_managed_system_id, { tx }))) {
+              throw new HttpError('permission.denied', 'finding.read capability required');
+            }
+          },
+        },
+      );
     });
   }
 

@@ -1611,6 +1611,14 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
       verify: read('verify.yml'),
     };
   }
+  test('SER-15 checks ownership in every non-system schema', () => {
+    const r = restoreRun();
+    assert.equal(r.code, 0, r.err);
+    const query = r.calls.find((call) => call.includes('c.relowner ='));
+    assert.ok(query, 'ownership query executed');
+    assert.match(query, /n\.nspname not in \('pg_catalog','information_schema','public'\)/);
+    assert.match(query, /n\.nspname !~ '\^pg_'/);
+  });
   const anyStart = (c) => / up -d/.test(c) || / run --rm/.test(c) || /(^| )start( |$)/.test(c);
 
   test('F3: a missing web image is a refusal for a legacy manifest, before anything starts or is written', () => {
