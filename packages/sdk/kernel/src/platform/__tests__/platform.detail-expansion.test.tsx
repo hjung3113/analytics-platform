@@ -9,12 +9,12 @@ import { decodeRecent, readSpaceLast, spaceLastKey } from '../preferences';
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace, testScreen } from '../../testing';
 
 const group = { id: groupId('g'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') };
-const base = { group: group.id, icon: House, component: testScreen, label: group.label, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, pageKeys: ['q', 'focus', 'returnTo'], features: { export: false, savedView: true, annotate: false, compare: false } };
+const base = { group: group.id, icon: House, component: testScreen, label: group.label, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, pageKeys: ['q', 'focus', 'returnTo'], features: { export: false, savedView: false, annotate: false, compare: false } };
 const menus = [
   { ...base, id: 'home', path: '/mars/home', aliases: ['/legacy-home'], primary: true, carrySet: carrySetId('set') },
   { ...base, id: 'other', path: '/mars/other', carrySet: carrySetId('set') },
   { ...base, id: 'live', path: '/mars/live', context: { ...noContext, time: 'apply' as const } },
-  { ...base, id: 'apply', path: '/mars/apply', context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const } },
+  { ...base, features: { ...base.features, savedView: true }, id: 'apply', path: '/mars/apply', context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const } },
 ];
 const registry = createRegistry({ spaces: [testSpace()], groups: [group], menus, carrySets: [{ id: carrySetId('set'), pageKeys: ['q'] }] });
 const session = testSession(['platform:view']);

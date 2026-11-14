@@ -29,7 +29,7 @@ export type LeaveRequest = {
   cancel: () => void;
 };
 
-type Entry = { read: () => UnsavedGuardOptions; seq: number };
+type Entry = { read: () => UnsavedGuardOptions; seq: number; unloadOnly: boolean };
 /** `hiddenKeys`: page keys the destination menu keeps out of its address; a Back/Forward address can still carry one from an older entry, so a `{ pageKeys }` comparison skips them. */
 export type AddressChange = { from: string; to: string; hiddenKeys?: readonly string[] };
 
@@ -69,14 +69,14 @@ export function createNavigationGuard() {
     if (pathOf(change.from) !== pathOf(change.to)) return true;
     return typeof leaves === 'object' && leaves.pageKeys.some(key => !(change.hiddenKeys?.includes(key) ?? false) && !sameValues(valuesOf(change.from, key), valuesOf(change.to, key)));
   };
-  const blockersFor = (change: AddressChange): Entry[] => [...entries].filter(e => blocks(e, change)).sort((a, b) => a.seq - b.seq);
+  const blockersFor = (change: AddressChange): Entry[] => [...entries].filter(e => !e.unloadOnly && blocks(e, change)).sort((a, b) => a.seq - b.seq);
 
   const dropRequest = () => { if (request !== null) { request = null; notify(); } };
 
   return {
     /** Registers a dirty guard; returns its unregister. */
-    register(read: () => UnsavedGuardOptions): () => void {
-      const entry: Entry = { read, seq: ++seq };
+    register(read: () => UnsavedGuardOptions, options?: { unloadOnly?: boolean }): () => void {
+      const entry: Entry = { read, seq: ++seq, unloadOnly: options?.unloadOnly === true };
       entries.add(entry);
       syncUnload();
       return () => {

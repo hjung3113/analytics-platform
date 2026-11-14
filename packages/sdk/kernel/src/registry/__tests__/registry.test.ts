@@ -24,6 +24,16 @@ const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}):
 const catalog = menu('catalog', '/metrics', { primary: true });
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
+  it('rejects live saved views with actionable Apply-only guidance (#2047 KER-22)', () => {
+    const entry = { ...catalog, features: { ...catalog.features, savedView: true } };
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(RegistryError);
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/savedView.*query.mode: 'apply'.*query toolbar/);
+  });
+  it('accepts saved views on Apply menus (#2047 KER-22)', () => {
+    const entry = { ...catalog, features: { ...catalog.features, savedView: true }, context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const } };
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).not.toThrow();
+  });
+
   it.each([0, -1, 1.5, NaN, Infinity])('rejects defaultPeriodHours=%s', defaultPeriodHours => {
     expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, context: { ...none, time: 'apply' }, defaultPeriodHours }] })).toThrow(/defaultPeriodHours/);
   });
