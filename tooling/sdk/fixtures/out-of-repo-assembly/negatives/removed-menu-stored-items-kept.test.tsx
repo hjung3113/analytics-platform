@@ -6,6 +6,7 @@ import { setRole } from '@ap/mock-server';
 import { AppRoot, buildRegistry } from '@ap/app-host';
 import { I18nProvider } from '@ap/kernel';
 import { declarations, KIT_AXES } from '../../menus';
+import { MENU_ID, MENU_LABEL, MENU_PATH } from '../../menus/sample/menu';
 import { createAssembly } from '../../mock/assembly';
 import { inMemoryQueryHistory } from '../start';
 
@@ -45,11 +46,14 @@ it('removed-menu-stored-items-kept: the removed menu’s recent visit stays in s
   ]));
   const withoutInHouseMenu = { ...declarations, menus: declarations.menus.filter((menu) => menu.id !== 'kit-inhouse-work') };
   const registry = buildRegistry(withoutInHouseMenu);
+  // A menu without a screen is a place to look at, not one to come back to, so its visit is not recorded (#1944). The visit
+  // that persists is therefore the kit's sample menu, which has a screen.
+  window.history.replaceState(null, '', MENU_PATH);
   // Render the public Host root through Testing Library so cleanup owns its unmount.
   render(<I18nProvider><AppRoot registry={registry} assembly={createAssembly({ registry })}
     equipmentAxes={KIT_AXES} queryHistory={inMemoryQueryHistory()} location={undefined} slots={{}} /></I18nProvider>);
-  expect((await screen.findAllByText('키트 개요')).length).toBeGreaterThan(0);
-  await waitFor(() => expect(storage.getItem('platform:recent:viewer')).toContain('kit-overview'));
+  expect((await screen.findAllByText(MENU_LABEL.ko)).length).toBeGreaterThan(0);
+  await waitFor(() => expect(storage.getItem('platform:recent:viewer')).toContain(MENU_ID));
   const stored = JSON.parse(storage.getItem('platform:recent:viewer') ?? '[]') as unknown[];
   expect(stored, 'the removed menu’s stored item must be kept after the public menu visit is persisted').toContainEqual({
     menuId: 'kit-inhouse-work', url: '/kit/kit-inhouse-work', at: 1,
