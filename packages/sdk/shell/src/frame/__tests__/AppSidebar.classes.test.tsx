@@ -34,7 +34,7 @@ it.each([false, true])('pins existing NavItem, NavViewItem and feature row class
   await waitFor(() => expect(screen.getByRole('link', { name: '메뉴' })).toBeTruthy());
   expect(screen.getByRole('link', { name: '메뉴' }).className).toBe(collapsed ? `${base.replace('px-3 ', '').replace('text-text-secondary ', '')} justify-center px-0 ${active}` : base);
   if (!collapsed) expect(screen.getByRole('link', { name: '하위' }).className).toBe(`${view.replace('text-text-secondary ', '')} ${active}`);
-  expect(screen.getByRole('link', { name: /^기능 —/ }).className).toBe(`flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary${collapsed ? ' justify-center px-0' : ''}`.replace(collapsed ? 'px-3 ' : '__absent__', ''));
+  expect(screen.getByRole('link', { name: /^기능 ·/ }).className).toBe(`flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary${collapsed ? ' justify-center px-0' : ''}`.replace(collapsed ? 'px-3 ' : '__absent__', ''));
 });
 
 it.each([false, true])('draws the sidebar notice slot only when given and expanded (collapsed=%s) (#2022)', async collapsed => {

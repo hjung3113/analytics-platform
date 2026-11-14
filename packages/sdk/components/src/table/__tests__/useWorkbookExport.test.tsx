@@ -74,7 +74,7 @@ describe('useWorkbookExport (#860)', () => {
     fireEvent.click(screen.getByText('export'));
     await waitFor(() => expect(downloads).toHaveLength(1), { timeout: 8000 });
     expect(downloads[0]).toMatch(/^HW Time-가동률-\d{8}-\d{4}-provisional\.xlsx$/);
-    expect(toasts()).toContain('Excel 파일로 내보냈습니다 — 잠정 데이터(데이터 기준 시각 2026-09-25 09:00)');
+    expect(toasts()).toContain('Excel 파일로 내보냈습니다 · 잠정 데이터(데이터 기준 시각 2026-09-25 09:00)');
     expect(results).toEqual(['done']);
   });
 

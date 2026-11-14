@@ -333,7 +333,7 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
     await stacked.getByRole('button', { name: '더보기', exact: true }).click();
     await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
     await expect(stacked.getByRole('table').getByRole('columnheader', { name: '합계', exact: true })).toBeVisible();
-    await expect(workspace.locator('[data-breakdown-server-total]')).toContainText(/서버 합계 — 그룹 A [\d.]+% · 그룹 B 없음/);
+    await expect(workspace.locator('[data-breakdown-server-total]')).toContainText(/서버 합계 · 그룹 A [\d.]+% · 그룹 B 없음/);
     await workspace.getByRole('checkbox', { name: '최소·최대 표시' }).check();
     await expect(workspace.getByRole('checkbox', { name: '최소·최대 표시' })).toBeChecked();
     const tree = workspace.getByRole('tree', { name: '분해 트리' });

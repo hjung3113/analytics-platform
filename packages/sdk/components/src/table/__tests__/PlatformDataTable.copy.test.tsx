@@ -165,7 +165,7 @@ describe('PlatformDataTable row copy (#174) — button', () => {
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect((button as HTMLButtonElement).disabled).toBe(false);
     act(() => { button.focus(); });
-    expect((await screen.findByRole('tooltip')).textContent).toBe('행을 선택하면 복사할 수 있습니다');
+    expect((await screen.findByRole('tooltip')).textContent).toBe('복사할 행을 선택하세요');
     fireEvent.click(button);
     expect(clipboard.write).not.toHaveBeenCalled();
     expect(serverSelected).not.toHaveBeenCalled();
@@ -182,14 +182,14 @@ describe('PlatformDataTable row copy (#174) — button', () => {
     expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+C Meta+C');
     act(() => { button.focus(); });
     // Notation follows the OS (#300, 06 §26): jsdom's platform is '' → Windows/Linux wording; a Mac stub shows ⌘C.
-    expect((await screen.findByRole('tooltip')).textContent).toBe('Ctrl+C로도 복사할 수 있습니다(표 안에서)');
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Ctrl+C로 복사 (표 안에서)');
     view.unmount();
     Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
     render(<Harness />);
     await ready();
     select('r1', 'r2', 'r3');
     act(() => { copyButton().focus(); });
-    expect((await screen.findByRole('tooltip')).textContent).toBe('⌘C로도 복사할 수 있습니다(표 안에서)');
+    expect((await screen.findByRole('tooltip')).textContent).toBe('⌘C로 복사 (표 안에서)');
     Reflect.deleteProperty(navigator, 'platform');
   });
 
@@ -221,7 +221,7 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
     expect(html).toContain('<th style="mso-number-format:\'\\@\'">Code</th>');
     expect(html).toContain('<td style="mso-number-format:\'\\@\'">00123</td>');
     expect(html).toContain(">'=1+1</td>"); // the HTML flavor is guarded too (review P1-2)
-    await waitFor(() => expect(toasts()).toContain('선택 3행을 복사했습니다 — 엑셀에 붙여넣을 수 있습니다'));
+    await waitFor(() => expect(toasts()).toContain('선택 3행을 복사했습니다. 엑셀에 붙여넣으세요'));
   });
 
   it('copies a multi-page selection from the server (rows not on this page included)', async () => {
@@ -260,7 +260,7 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
     select('r1', 'r2');
     fireEvent.click(copyButton());
     await waitFor(() => expect(toasts()).toContain('선택 1행을 복사했습니다'));
-    expect(toasts()).toContain('선택 2행 중 1행 — 1행은 현재 결과에 없음');
+    expect(toasts()).toContain('선택 2행 중 1행 · 1행은 현재 결과에 없음');
     expect(await writtenText('text/plain')).toBe('Code\tNote\n00123\tplain\n');
   });
 
@@ -310,7 +310,7 @@ describe('PlatformDataTable row copy (#174) — secure context', () => {
     await ready();
     select('r1');
     fireEvent.click(copyButton());
-    await waitFor(() => expect(toasts()).toContain('이 환경에서는 복사할 수 없습니다 — 내보내기(CSV·Excel)를 쓰세요'));
+    await waitFor(() => expect(toasts()).toContain('복사 미지원 환경. 내보내기(CSV·Excel)를 쓰세요'));
   });
 
   it('copy and export each keep their own status line, in either completion order (review P3-1, UX P2-2)', async () => {
@@ -384,7 +384,7 @@ describe('PlatformDataTable row copy (#174) — insecure context', () => {
     expect(execCommand).toHaveBeenCalledWith('copy');
     expect(data.get('text/plain')).toBe("Code\tNote\n00123\tplain\n00456\t'=1+1\n");
     expect(data.get('text/html')).toContain(">'=1+1</td>");
-    expect(toasts()).toContain('선택 2행을 복사했습니다 — 엑셀에 붙여넣을 수 있습니다');
+    expect(toasts()).toContain('선택 2행을 복사했습니다. 엑셀에 붙여넣으세요');
   });
 
   it('no selected row on this page: the clipboard is untouched and the toast says what to do (UX P2-1)', async () => {
@@ -408,7 +408,7 @@ describe('PlatformDataTable row copy (#174) — insecure context', () => {
     await ready();
     select('r1');
     fireEvent.click(copyButton());
-    expect(toasts()).toContain('이 환경에서는 복사할 수 없습니다 — 내보내기(CSV·Excel)를 쓰세요');
+    expect(toasts()).toContain('복사 미지원 환경. 내보내기(CSV·Excel)를 쓰세요');
     expect(toasts()).not.toContain('클립보드 권한');
   });
 });

@@ -184,7 +184,7 @@ export function ViewSelector(props: ViewSelectorProps) {
               {!loading && !error && shown.length > 0 && (
                 <ul ref={list} aria-label={word('list', lang)} className="max-h-80 space-y-0.5 overflow-auto">
                   {shown.map(item => item.denied ? (
-                    <li key={item.id} className="p-2 text-xs text-text-secondary">{word('denied', lang)} — {item.reason}</li>
+                    <li key={item.id} className="p-2 text-xs text-text-secondary">{word('denied', lang)} · {item.reason}</li>
                   ) : (
                     <li key={item.view.id} data-view-id={item.view.id} className="flex items-start gap-1">
                       <button data-view-row type="button" className="flex min-w-0 flex-1 items-start gap-1.5 rounded-md p-2 text-left text-xs hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" aria-current={item.view.id === currentId ? 'true' : undefined} onClick={() => choose(item.view.id)}>

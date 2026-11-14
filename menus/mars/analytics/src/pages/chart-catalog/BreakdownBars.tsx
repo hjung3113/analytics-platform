@@ -56,7 +56,7 @@ export function BreakdownBars({ height, trust }: { height: number; trust: Trust 
   const common = { xType: 'category' as const, orientation: 'horizontal' as const, metricVersion: 'synthetic v1', trust, height: half, size: 'hero' as const,
     legend: false };
   const none = tx({ ko: '없음', en: 'none' });
-  const caption = `${tx({ ko: '서버 합계', en: 'Server total' })} — ${rows.map(row => `${row.label} ${row.serverUtilizationTotal === null ? none : `${row.serverUtilizationTotal}%`}`).join(' · ')}`;
+  const caption = `${tx({ ko: '서버 합계', en: 'Server total' })} · ${rows.map(row => `${row.label} ${row.serverUtilizationTotal === null ? none : `${row.serverUtilizationTotal}%`}`).join(' · ')}`;
   return <div className="flex min-w-0 gap-3">
     <div className="min-w-0 flex-1 space-y-3">
       <div className="space-y-1">
@@ -65,12 +65,12 @@ export function BreakdownBars({ height, trust }: { height: number; trust: Trust 
           {tx({ ko: '최소·최대 표시', en: 'Show min·max' })}
         </label>
         <AnalysisChartFrame {...common} {...frameVisibility(STATE_IDS)} chartId="chart-catalog-breakdown-stacked" title={tx({ ko: '상태별 시간 (쌓은 막대)', en: 'Time by state (stacked)' })}
-          description={tx({ ko: '더할 수 있는 측정 — 분', en: 'Additive measure — minutes' })}
+          description={tx({ ko: '더할 수 있는 측정 · 분', en: 'Additive measure · minutes' })}
           series={minutes} unit={tx({ ko: '분', en: 'min' })} stacked valueLabels="both" reaggregation="sum" minMax={minMax} />
       </div>
       <div className="space-y-1">
         <AnalysisChartFrame {...common} {...frameVisibility(SHIFT_IDS)} chartId="chart-catalog-breakdown-ratio" title={tx({ ko: '교대별 가동률 (묶음 막대)', en: 'Utilization by shift (grouped)' })}
-          description={tx({ ko: '더하지 않는 측정 — 비율, 교대마다 분모가 다름', en: 'Non-additive measure — ratio, a different denominator per shift' })}
+          description={tx({ ko: '더하지 않는 측정 · 비율, 교대마다 분모가 다름', en: 'Non-additive measure · ratio, a different denominator per shift' })}
           series={utilization} unit="%" reaggregation="ratioOfSums" serverTotals={serverTotals} />
         {/* The Frame draws totals for stacked bars only, so the server totals of the grouped chart are listed here (gap reported in #580h). */}
         <p data-breakdown-server-total="" className="t-caption px-1 text-text-secondary">{caption}</p>

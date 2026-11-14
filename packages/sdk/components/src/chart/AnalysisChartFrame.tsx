@@ -461,9 +461,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const totalName = mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계' : 'Shown total') : (lang === 'ko' ? '합계' : 'Total');
   // Said once per chart, not per row: what the number is, or why there is none.
   const totalNote = !wantsTotal ? null
-    : totals && totals.size > 0 ? (mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계 — 보이는 시리즈만 더한 값입니다' : 'Shown total — only the visible series are added') : null)
+    : totals && totals.size > 0 ? (mayClientSum && anyHidden ? (lang === 'ko' ? '표시 합계 · 보이는 시리즈 합' : 'Shown total · visible series only') : null)
     : visible.length === 0 ? null
-    : (lang === 'ko' ? '합계 없음 — 이 측정은 더하지 않습니다' : 'No total — this measure is not added');
+    : (lang === 'ko' ? '합계 없음 · 합산 제외 측정' : 'No total · non-additive measure');
   const partialNote = anyPartial && p.partialTotalNote !== false ? (lang === 'ko' ? '◇ ≥ 합계: 미측정 계열이 있는 행의 합계' : '◇ ≥ total: total for a row with an unmeasured series') : null;
   const missingText = (missing: readonly string[]) => `${missing.join(', ')} ${lang === 'ko' ? '미측정' : 'not measured'}`;
   const unit = p.unit; const stacked = p.stacked;
@@ -818,7 +818,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         <Button size="toolbar" type="button" variant="ghost" onClick={closeEditor}>{t('cancel')}</Button>
       </form>}
       {annotationAlert && <p role="alert" className="mt-2 flex items-center gap-2 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
-        {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 사용할 수 있습니다.' : 'Could not load annotations. The chart is unaffected.'}
+        {lang === 'ko' ? '주석을 불러오지 못했습니다. 차트는 그대로 유지됩니다.' : 'Could not load annotations. The chart is unaffected.'}
         <Button size="toolbar" variant="ghost" onClick={editor.refetch}>{lang === 'ko' ? '다시 시도' : 'Retry'}</Button>
       </p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">

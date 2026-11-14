@@ -294,7 +294,7 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
   test('Scope를 바꾸는 순간 이전 Scope의 결과는 사라지고 로딩으로 바뀐다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
     await setScenario(page, '느린 응답 (+2.2s)');
-    const kpis = page.getByRole('region', { name: '네 지표 요약' });
+    const kpis = page.getByRole('region', { name: '지표 요약' });
     const card = kpis.getByRole('button', { name: /^물리 점유율/ });
     await expect(card).toBeVisible({ timeout: 10_000 });
     await evidence(page, testInfo, 'before-switch');
@@ -314,7 +314,7 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
     // No scope revalidation here, so only the query identity (usePlatformQuery) can hide the old result.
     await page.goto(PRODUCTIVITY);
     await setScenario(page, '느린 응답 (+2.2s)');
-    const kpis = page.getByRole('region', { name: '네 지표 요약' });
+    const kpis = page.getByRole('region', { name: '지표 요약' });
     const card = kpis.getByRole('button', { name: /^물리 점유율/ });
     await expect(card).toBeVisible({ timeout: 10_000 });
 
@@ -343,7 +343,7 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
   test('역할(세션)을 바꾸면 이전 사용자의 결과를 보이지 않는다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
     await setScenario(page, '느린 응답 (+2.2s)');
-    const card = page.getByRole('region', { name: '네 지표 요약' }).getByRole('button', { name: /^물리 점유율/ });
+    const card = page.getByRole('region', { name: '지표 요약' }).getByRole('button', { name: /^물리 점유율/ });
     await expect(card).toBeVisible({ timeout: 10_000 });
 
     await page.getByRole('button', { name: '역할(데모 전환)' }).click();
@@ -611,7 +611,7 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     await expect(alert).not.toContainText('drillStgroup=');
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(broken);
     expect(query(page).has('drillRoom')).toBe(false);
-    await expect(page.getByRole('region', { name: '네 지표 요약' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: '지표 요약' })).toHaveCount(0);
     await evidence(page, testInfo, 'drill-invalid');
   });
 

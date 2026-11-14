@@ -1009,7 +1009,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     await waitFor(() => expect(downloads.length).toBe(1));
     expect(exportRows).toHaveBeenCalledWith({ scope: { kind: 'selected', ids: ['r1', 'r2'] }, sorting: [] }, expect.anything());
     expect(await blobText(downloads[0].blob)).toBe('Status\r\na\r\n');
-    expect(screen.getByText('선택 2행 중 1행 — 1행은 현재 결과에 없음')).toBeTruthy();
+    expect(screen.getByText('선택 2행 중 1행 · 1행은 현재 결과에 없음')).toBeTruthy();
     expect(screen.getByText('선택 1행을 CSV 파일로 내보냈습니다')).toBeTruthy();
   });
 
@@ -1039,7 +1039,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     await waitFor(() => expect(downloads.length).toBe(1));
     expect(downloads[0].name).toMatch(/^export-menu-\d{8}-\d{4}-provisional\.csv$/);
     // dataThrough is null → “기준 시각 미확인”; updatedAt is never substituted as the data-through time.
-    expect(screen.getByText('필터 결과 전체 1행을 CSV 파일로 내보냈습니다 — 잠정 데이터(기준 시각 미확인)')).toBeTruthy();
+    expect(screen.getByText('필터 결과 전체 1행을 CSV 파일로 내보냈습니다 · 잠정 데이터(기준 시각 미확인)')).toBeTruthy();
     expect(screen.getByTestId('toast-probe').textContent).not.toContain('2026-10-02 09:00');
   });
 
@@ -1048,7 +1048,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     await screen.findByText(/1\/1/);
     await exportVia(FILTERED_CSV);
     await waitFor(() => expect(screen.getByText(/페이지 필터가 적용된 목록입니다/)).toBeTruthy());
-    expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다 — 페이지 필터가 적용된 목록입니다')).toBeTruthy();
+    expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다 · 페이지 필터가 적용된 목록입니다')).toBeTruthy();
   });
 
   it('refuses to build a file over the defensive client cap and says why', async () => {
@@ -1148,7 +1148,7 @@ describe('PlatformDataTable table-owned export (#173)', () => {
     });
     expect(rows.Scope).toBeUndefined(); // no Scope in this Context → empty, never invented
     expect(rows['내보낸 시각']).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
-    expect(screen.getByText('선택 2행을 Excel 파일로 내보냈습니다 — 잠정 데이터(데이터 기준 시각 2026-10-02 08:00)')).toBeTruthy();
+    expect(screen.getByText('선택 2행을 Excel 파일로 내보냈습니다 · 잠정 데이터(데이터 기준 시각 2026-10-02 08:00)')).toBeTruthy();
   });
 
   // ---- #173 review fixes ----

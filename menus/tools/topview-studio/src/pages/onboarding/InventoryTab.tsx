@@ -43,7 +43,7 @@ export function InventoryTab({ data }: { data: EquipmentData }) {
     </TabsContent>
     <TabsContent value="transfers" className="m-0 flex min-h-0 flex-1 flex-col">
       <PlatformDataTable title="관측된 이송" hideTitle ariaLabel="관측된 이송" fill rows={inventory.transfers} columns={TRANSFER_COLUMNS} getRowId={(row) => `${row.from}\u0000${row.to}`} preferenceKey="eqv-onboarding-transfers"
-        subtitle="공간 정보 없는 관측 쌍입니다. 경로나 궤적이 아닙니다." />
+        subtitle="공간 정보 없는 관측 쌍 · 경로·궤적 정보 없음" />
     </TabsContent>
   </Tabs></div>;
 }

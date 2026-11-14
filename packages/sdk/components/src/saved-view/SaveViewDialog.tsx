@@ -103,7 +103,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
         )}
         {!updating && visibilityOptions.length > 0 && (
           <fieldset className="space-y-1">
-            <legend className="text-xs text-text-secondary">{word('visibility', lang)} — {word('visibilityHint', lang)}</legend>
+            <legend className="text-xs text-text-secondary">{word('visibility', lang)} · {word('visibilityHint', lang)}</legend>
             <RadioGroup value={visibility} onValueChange={setVisibility}>
               {visibilityOptions.map(o => <div key={o.value} className="flex items-center gap-2"><RadioGroupItem id={`save-visibility-${o.value}`} value={o.value} /><Label htmlFor={`save-visibility-${o.value}`}>{o.label}</Label></div>)}
             </RadioGroup>

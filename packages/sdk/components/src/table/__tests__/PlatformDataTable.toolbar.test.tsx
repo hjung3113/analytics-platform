@@ -223,7 +223,7 @@ describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
     await screen.findByText(/1\/1/);
     await user.click(within(toolbar()).getByRole('button', { name: '더보기' }));
     const item = await screen.findByRole('menuitem', { name: /복사/ });
-    expect(item).toHaveAccessibleDescription('행을 선택하면 복사할 수 있습니다');
+    expect(item).toHaveAccessibleDescription('복사할 행을 선택하세요');
     expect(item.getAttribute('aria-keyshortcuts')).toBeNull();
   });
 
@@ -237,7 +237,7 @@ describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
     const item = await screen.findByRole('menuitem', { name: /1행 복사/ });
     expect(item.getAttribute('aria-keyshortcuts')).toBe('Control+C Meta+C');
     expect(item.getAttribute('aria-describedby')).toBeTruthy();
-    expect(item).toHaveAccessibleDescription(/복사할 수 있습니다\(표 안에서\)/);
+    expect(item).toHaveAccessibleDescription(/로 복사 \(표 안에서\)/);
   });
 
   it('overflow 「복사」 with a whole-result selection stays disabled, says why and advertises no shortcut (C3)', async () => {
@@ -252,7 +252,7 @@ describe('PlatformDataTable toolbar overflow (1217c, P10)', () => {
     const item = await screen.findByRole('menuitem', { name: /복사/ });
     expect(item).toHaveAttribute('aria-disabled', 'true');
     expect(item.getAttribute('aria-keyshortcuts')).toBeNull();
-    expect(item).toHaveAccessibleDescription(/전체 선택은 복사할 수 없습니다/);
+    expect(item).toHaveAccessibleDescription(/복사 대상: 불러온 행만/);
   });
 
   it('a stale outside-close flag from the wide 컬럼 path does not block the `⋯` focus return (C2)', async () => {

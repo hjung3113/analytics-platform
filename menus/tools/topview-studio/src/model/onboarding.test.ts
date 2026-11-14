@@ -49,7 +49,7 @@ describe('publish gate (D9, D10)', () => {
 
   it.each(['staged', 'replaced', 'retired'])('a %s window blocks publish with its reason; an active one does not', (windowState) => {
     const plan = derivePublishPlan(input, { run, revision });
-    expect(publishBlockReason({ dirty: false, plan, windowState })).toBe('활성 Sample Window에서만 게시할 수 있습니다');
+    expect(publishBlockReason({ dirty: false, plan, windowState })).toBe('게시 조건: 활성 Sample Window');
     expect(publishBlockReason({ dirty: false, plan, windowState: 'active' })).toBeNull();
   });
 
@@ -120,11 +120,11 @@ describe('import problem words (#1658 import PR)', () => {
   it('groups one code across Occurrences into one Korean line with a count; paths and messages stay in the details', () => {
     const issues = [0, 1, 2].map((i) => ({ code: 'generation-mismatch', path: ['occurrences', i, 'source', 'dataGeneration'], message: `occurrences[${i}] must match` }));
     const lines = importProblemLines(issues, { dataGeneration: 'g2' });
-    expect(lines).toEqual([{ code: 'generation-mismatch', text: '이벤트 3건의 Generation이 파일의 Generation(g2)과 다릅니다.', details: issues.map((p) => `generation-mismatch · ${p.path.join('.')} — ${p.message}`) }]);
+    expect(lines).toEqual([{ code: 'generation-mismatch', text: '이벤트 3건의 Generation이 파일의 Generation(g2)과 다릅니다.', details: issues.map((p) => `generation-mismatch · ${p.path.join('.')} · ${p.message}`) }]);
   });
   it('turns every schema failure into one line', () => {
     const lines = importProblemLines(['equipmentId', 'from', 'to'].map((key) => ({ code: 'schema', path: [key], message: 'Invalid input' })));
-    expect(lines.map((l) => l.text)).toEqual(['Sample Window(batch) 파일 형식이 아닙니다.']);
+    expect(lines.map((l) => l.text)).toEqual(['Sample Window(batch) 파일 형식 필요']);
     expect(lines[0]!.details).toHaveLength(3);
   });
   it('words a code it does not know without hiding it', () => {

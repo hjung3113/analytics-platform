@@ -57,7 +57,7 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
     // No response yet: the count stays pending, it is neither a number nor a failure statement.
     const pending = await descriptionTip();
-    expect(pending.textContent).toContain('발행 포인터는 레코드에 저장된 값');
+    expect(pending.textContent).toContain('발행 포인터: 레코드에 저장된 버전');
     expect(pending.textContent).toContain('합성 …건');
     expect(pending.textContent).not.toContain('합성 지표입니다');
     await act(async () => {
@@ -73,7 +73,7 @@ describe('metric catalog count under a failed list query (UXA-4)', () => {
     // The count line first paints as pending (…) — wait for the failure itself, not the first paint.
     const subtitle = await descriptionTip();
     await waitFor(() => expect(subtitle.textContent).toContain('합성 지표입니다'));
-    expect(subtitle.textContent).toContain('발행 포인터는 레코드에 저장된 값');
+    expect(subtitle.textContent).toContain('발행 포인터: 레코드에 저장된 버전');
     expect(subtitle.textContent).not.toContain('…');
   });
 });
@@ -105,7 +105,7 @@ describe('invalid URL value warnings keep field name and raw value (#304 FIX1)',
   it('the footer caption names the Context keys by their user labels (U-5)', () => {
     window.history.replaceState(null, '', '/metrics?v=1&scopeId=MEM');
     render(<I18nProvider><PlatformProvider adapter={fixture()} registry={registry}><MetricCatalogPage params={{}} /></PlatformProvider></I18nProvider>);
-    expect(screen.getByText(/이 목록의 필터가 아닙니다/).textContent).toContain('기간·Lot·공정·설비 그룹 조건·설비 선택은 이 목록의 필터가 아닙니다.');
+    expect(screen.getByText(/다른 분석 화면의 조건/).textContent).toContain('기간·Lot·공정·설비 그룹 조건·설비 선택: 다른 분석 화면의 조건.');
   });
 
   it('domain:in:bogus names the 도메인 field and the entered value, without key=value', async () => {

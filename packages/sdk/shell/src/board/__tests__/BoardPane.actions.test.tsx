@@ -397,7 +397,7 @@ describe('⋯ pane menu (docs/16 §4)', () => {
     expect(toast.closest('[data-toast-stack]')).not.toBeNull();
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
-    expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();
+    expect(await screen.findByText('이후 변경으로 실행 취소 중단')).toBeInTheDocument();
     expect(stored().sheets[0].panes[1]).toBeNull();
   });
 
@@ -573,7 +573,7 @@ describe('이 시트 조건을 다른 시트에 복사 (docs/16 §4)', () => {
     const toast = screen.getByText("칸 1–2의 조건을 'B'의 같은 칸에 복사했습니다").closest('[data-toast-item]') as HTMLElement;
     fireEvent.click(within(toast).getByRole('button', { name: '실행 취소' }));
     await settle();
-    expect(await screen.findByText('실행 취소할 수 없습니다 — 그 뒤에 바뀌었습니다')).toBeInTheDocument();
+    expect(await screen.findByText('이후 변경으로 실행 취소 중단')).toBeInTheDocument();
     expect(stored().sheets[1].panes[1]).toBeNull();
     expect(ctx(stored().sheets[1].panes[0]!.query).global.from).toBe('2026-09-01T00:00:00');
   });

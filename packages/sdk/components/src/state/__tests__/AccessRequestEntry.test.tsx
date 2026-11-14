@@ -82,7 +82,7 @@ describe('place (c): the Scope forbidden gate', () => {
   it('with the slot offers the request, prefilled with the site, and opens the dialog in place without changing the address', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
     renderGate(requestable(), fakeSlot);
-    expect(await screen.findByText('권한 요청으로 운영자에게 요청할 수 있습니다.')).toBeTruthy();
+    expect(await screen.findByText('운영자에게 권한을 요청하세요.')).toBeTruthy();
     const before = window.location.href;
     fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
     expect(screen.getByRole('dialog', { name: 'fake request dialog' })).toBeTruthy();

@@ -18,7 +18,7 @@ export function useDocumentTitle(productName: string | undefined): void {
   else {
     const name = tx(route.menu.label);
     const system = currentSpace !== null ? tx(currentSpace.label) : null;
-    title = system ? `${name} — ${system}` : name;
+    title = system ? `${system} · ${name}` : name;
   }
   const full = productName ? `${title} · ${productName}` : title;
   useEffect(() => { document.title = full; }, [full, url]);

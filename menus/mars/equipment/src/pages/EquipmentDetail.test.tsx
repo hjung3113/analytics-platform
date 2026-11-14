@@ -143,3 +143,23 @@ describe('EquipmentDetail change history tab', () => {
     expect(within(panel()).queryByRole('button', { name: '이전 변경 이력 더 보기' })).toBeNull();
   });
 });
+
+
+describe('EquipmentDetail wall-clock display', () => {
+  it.each(['attributes', 'validity'])('formats %s dates without ISO time separators', async tab => {
+    window.history.replaceState(null, '', `/equipment/EQ-1?v=1&scopeId=MEM&tab=${tab}`);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({
+      session: () => session,
+      getEntity: async () => ({ outcome: 'ok', data: { equipmentId: 'EQ-1', status: 'active', validFrom: '2025-12-24T00:00:00', validTo: '2026-09-14T00:00:00', updatedAt: '2026-09-14T10:32:00', chamberType: 'A' }, assessments: [], trust: null, correlationId: 'corr-dates' }),
+    })} registry={registry}><EquipmentDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
+    if (tab === 'attributes') {
+      expect(await screen.findByText('2025-12-24')).toBeTruthy();
+      expect(screen.getByText('2026-09-14')).toBeTruthy();
+      expect(screen.getByText('2026-09-14 10:32')).toBeTruthy();
+    } else {
+      expect(await screen.findByText(/2025-12-24 →/)).toBeTruthy();
+      expect(screen.getByText(/→ 2026-09-14$/)).toBeTruthy();
+    }
+    expect(screen.queryByText(/2025-12-24T|2026-09-14T/)).toBeNull();
+  });
+});

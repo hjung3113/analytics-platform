@@ -116,7 +116,7 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
         {!!trust.sourceLogicVersions?.length && <><dt className="text-text-secondary">{lang === 'ko' ? '원천 로직 버전' : 'Source logic versions'}</dt><dd>{trust.sourceLogicVersions.join(', ')}</dd></>}
         <dt className="text-text-secondary">{t('status')}</dt><dd>{trust.provisional ? t('provisional') : t('final')}</dd>
         <dt className="text-text-secondary">{t('source')}</dt><dd className="t-mono">{trust.source}</dd>
-      </dl> : <p className="text-text-secondary">{noTrustText}{lang === 'ko' ? ' — 갱신 시각·커버리지·확정 여부를 알 수 없습니다.' : ' — update time, coverage and final status are unknown.'}</p>}
+      </dl> : <p className="text-text-secondary">{noTrustText}{lang === 'ko' ? ' · 갱신 시각·커버리지·확정 여부를 알 수 없습니다.' : ' · update time, coverage and final status are unknown.'}</p>}
       <ul className="mt-3 space-y-1.5 border-t border-border-subtle pt-2">
         {assessments.map(a => <li key={a.kind} className="flex items-start justify-between gap-2">
           <span>{tx(KIND[a.kind])}</span>

@@ -198,7 +198,7 @@ export default function ComparePage(_props: PageProps) {
       : { ko: 'Module 구성', en: 'Module composition' }, render: () => !module
       ? waiting(ko ? 'Module을 고르세요' : 'Choose a Module')
       : <PanelFill><QueryView fill query={moduleQ} widgetName={ko ? `Module ${moduleKept.module} 구성` : `Module ${moduleKept.module} composition`} hideWidgetName skeletonRows={6}>
-        {data => <StackPanel chartId="hw-compare-module" title={ko ? `Motion별 동작시간 — Module ${moduleKept.module}` : `Operation time by Motion — Module ${moduleKept.module}`} block={data}
+        {data => <StackPanel chartId="hw-compare-module" title={ko ? `Module ${moduleKept.module} · Motion별 동작시간` : `Module ${moduleKept.module} · Operation time by Motion`} block={data}
           visibleSeriesIds={visibleOf(data, moduleHidden)} onVisibleSeriesChange={setVisible(data, setModuleHidden)} {...stackProps} {...rowFocus}
           onActivate={moduleKept.previous ? undefined : ({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
       </QueryView></PanelFill> },
@@ -210,7 +210,7 @@ export default function ComparePage(_props: PageProps) {
           return det.rows.length === 0
             ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${detailKept.module} Module에는 ${detailKept.motion} 동작 기록이 없습니다` : `No ${detailKept.motion} records for Module ${detailKept.module}`}
               body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-            : <StackPanel chartId="hw-compare-detail" title={ko ? `Motion ${detailKept.motion} 상세 — Module ${detailKept.module}` : `Motion ${detailKept.motion} detail — Module ${detailKept.module}`} block={det}
+            : <StackPanel chartId="hw-compare-detail" title={ko ? `Module ${detailKept.module} · Motion ${detailKept.motion} 상세` : `Module ${detailKept.module} · Motion ${detailKept.motion} detail`} block={det}
               visibleSeriesIds={visibleOf(det, moduleHidden)} onVisibleSeriesChange={setVisible(moduleBlock, setModuleHidden)} {...stackProps} {...rowFocus} rowActions={state.rowActionsOf} />;
         }}
       </QueryView></PanelFill> },

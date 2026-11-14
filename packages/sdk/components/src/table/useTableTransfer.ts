@@ -180,7 +180,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       downloadBlob(blob, `${safeFileName(route?.menu.id ?? 'table')}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.${format}`);
       const done = exportDoneText(target, format, lang);
       const provisional = provisionalSuffix(response.trust, lang);
-      toast(input.menuNote ? `${done}${provisional} — ${input.menuNote}` : done + provisional);
+      toast(input.menuNote ? `${done}${provisional} · ${input.menuNote}` : done + provisional);
     } catch (error) {
       if (cancelled()) return;
       toast(EXPORT_REFUSAL.error[lang], 'warning');

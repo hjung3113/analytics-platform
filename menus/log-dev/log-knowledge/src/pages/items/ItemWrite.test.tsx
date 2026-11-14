@@ -610,7 +610,7 @@ describe('관련 Item으로 신규 작성 (derive)', () => {
   it('prefills from the viewed revision, hides evidence, and creates an 미확인·열림 item linked to its source', async () => {
     mountDetail(ITEM(1), '&rev=1&drawer=derive');
     await screen.findByRole('heading', { name: '관련 Item으로 신규 작성' }, slow);
-    expect(within(drawer()).getByText('원본 KI-1 r1에서 파생합니다 — 근거와 판단 상태는 이어받지 않고 미확인으로 시작합니다')).toBeTruthy();
+    expect(within(drawer()).getByText('원본 KI-1 r1에서 파생합니다. 근거는 새로 등록하고 판단 상태는 미확인으로 시작합니다')).toBeTruthy();
     expect((field(/^제목/) as HTMLInputElement).value).toBe('챔버 압력 로그 지연');
     expect((field(/^관찰 사실/) as HTMLTextAreaElement).value).toBe('');
     expect((field(/^기대·기준/) as HTMLTextAreaElement).value).toBe('');
@@ -646,19 +646,19 @@ describe('보관 / 보관 해제', () => {
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     fireEvent.click(await screen.findByRole('button', { name: '보관' }, slow));
     const dialog = await screen.findByRole('alertdialog', {}, slow);
-    expect(dialog.textContent).toContain('읽을 수 있고');
-    expect(dialog.textContent).toContain('이력은 그대로');
+    expect(dialog.textContent).toContain('Item 조회');
+    expect(dialog.textContent).toContain('이력 유지');
     fireEvent.click(within(dialog).getByRole('button', { name: '보관' }));
     await waitFor(() => expect(writes).toHaveLength(1), slow);
     expect(lastWrite()).toMatchObject({ action: 'logKnowledge.itemSetArchived', expectedVersion: '1' });
     expect(input()).toMatchObject({ id: ITEM(1), archived: true });
-    expect(await screen.findByText(/보관된 Item입니다/, {}, slow)).toBeTruthy();
+    expect(await screen.findByText(/보관된 Item ·/, {}, slow)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '수정' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     expect(screen.queryByRole('button', { name: '판단 변경' })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: '보관 해제' }, slow));
     fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '보관 해제' }));
-    await waitFor(() => expect(screen.queryByText(/보관된 Item입니다/)).toBeNull(), slow);
+    await waitFor(() => expect(screen.queryByText(/보관된 Item ·/)).toBeNull(), slow);
     expect(screen.getByRole('button', { name: '수정' })).toBeTruthy();
     expect(input()).toMatchObject({ archived: false });
   });
@@ -873,7 +873,7 @@ describe('an evidence kind outside the declared list', () => {
     await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
     type(/^변경 사유/, '그대로');
     submit('새 리비전 저장');
-    const message = await within(drawer()).findByText(/지원하지 않는 출처 종류입니다/, {}, slow);
+    const message = await within(drawer()).findByText(/출처 종류 확인 필요/, {}, slow);
     expect(message.id).toContain('ev-0-sourceKind-error');
     expect(writes).toHaveLength(0);
     fireEvent.click(within(drawer()).getByRole('combobox', { name: /출처 종류/ }));

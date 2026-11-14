@@ -195,7 +195,7 @@ describe('PlatformDataTable select all results (#556c)', () => {
     const copy = screen.getByRole('button', { name: '복사' });
     expect(copy.getAttribute('aria-disabled')).toBe('true');
     fireEvent.focus(copy);
-    expect((await screen.findAllByText(/복사는 불러온 행만 읽습니다/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/복사 대상: 불러온 행만/)).length).toBeGreaterThan(0);
   });
 
   it('exports the all scope with the exclusions and the sort', async () => {

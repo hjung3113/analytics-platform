@@ -1,3 +1,4 @@
+import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { AlertTriangle } from 'lucide-react';
 import { type PageProps, PlatformLink, useEntityAudit, useEntityQuery, useI18n, usePlatform } from '@ap/kernel';
 import { AuditTimeline, DataTrustIndicator, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
@@ -26,7 +27,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
   // appended by the timeline's own control; the first page's data below is not used.
   const audit = useEntityAudit({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind === 'audit' && scope.status === 'valid');
   if (kind === 'audit') return <QueryView widgetName={ko ? '변경 이력' : 'Change history'} query={audit.query}>{() => <div className="space-y-4">
-    <p className="t-caption text-text-muted">{ko ? '합성 감사 이벤트 · 실제 변경 기록이 아닙니다.' : 'Synthetic audit events · not real change records.'}</p>
+    <p className="t-caption text-text-muted">{ko ? '감사 이벤트 예시 (합성 데이터)' : 'Example audit events (synthetic data)'}</p>
     <AuditTimeline {...audit.timeline} />
   </div>}</QueryView>;
   return <QueryView widgetName={ko ? '설비 상세' : 'Equipment details'} query={query}>{(e, response) => e && <div className="space-y-4">
@@ -34,14 +35,14 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
       each other and keeps the text left-aligned; break-keep holds Korean word breaks. */}
     <DataTrustIndicator trust={response.trust} assessments={response.assessments} className="break-keep" wrap />
     {kind === 'attributes' && <>
-      <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] ?? '—'}</FieldRow>)}</FieldList>
-      <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 현재 외부 공급값. 그 외 필드는 편집을 제공하지 않습니다.' : 'StGroup and team: current external values. Other fields are not editable.'}</p>
+      <FieldList>{fields.map(f => <FieldRow layout="detail" key={f.key} label={f[lang]} mono={f.key === 'equipmentId'}>{f.key === 'status' ? <EquipmentStatus equipment={e} /> : e[f.key] == null ? '—' : f.key === 'validFrom' || f.key === 'validTo' ? formatDateTime(parseDateTime(`${e[f.key]}${e[f.key]!.length === 10 ? 'T00:00:00' : ''}`, f.key)).slice(0, 10) : f.key === 'updatedAt' && e.updatedAt.length > 10 ? formatDateTime(parseDateTime(e.updatedAt, f.key)).slice(0, 16).replace('T', ' ') : e[f.key]}</FieldRow>)}</FieldList>
+      <p className="t-caption text-text-muted">{ko ? 'StGroup·분임조: 외부 시스템 값 · 모든 필드 조회 전용' : 'StGroup and team: external system values · all fields read-only'}</p>
     </>}
     {kind === 'validity' && <>
-      <p className="t-caption text-text-muted">{ko ? '합성 속성 버전입니다. 시작 시각부터 종료 시각 전까지이며, 과거 소속은 추정하지 않습니다.' : 'Synthetic attribute versions. Each interval runs from its start up to, but not including, its end. Past membership is not inferred.'}</p>
+      <p className="t-caption text-text-muted">{ko ? '합성 속성 버전 · 시작 시각 포함·종료 시각 제외 · 과거 소속 미확인' : 'Synthetic attribute versions · start inclusive, end exclusive · past membership unknown'}</p>
       <ol className="space-y-3 border-l-2 border-border-strong pl-4">{validity(e).map((v, i) => <li key={v.from} className="rounded-md border border-border-subtle bg-surface-card p-3">
         <h3 className="t-card-title">{ko ? '속성 버전' : 'Attribute version'} {i + 1}</h3>
-        <p className="t-mono mt-1 text-text-secondary">{v.from} → {v.to ?? (ko ? '현재 (종료 없음)' : 'Current (open end)')}</p>
+        <p className="t-mono mt-1 text-text-secondary">{formatDateTime(parseDateTime(v.from, 'validFrom')).slice(0, 10)} → {v.to ? formatDateTime(parseDateTime(v.to, 'validTo')).slice(0, 10) : (ko ? '현재 (종료 없음)' : 'Current (open end)')}</p>
         <p className="mt-2 text-sm">{ko ? '챔버 유형' : 'Chamber type'}: {v.chamberType}</p>
       </li>)}</ol>
       {e.validTo && <p className="text-sm">{ko ? '유효 종료된 ID입니다. 레코드와 이력은 보존됩니다.' : 'This ID is retired. The record and history are retained.'}</p>}
@@ -69,7 +70,7 @@ export default function EquipmentDetail({ params }: PageProps) {
     description={ko ? '이 설비는 위에 전달된 설비 선택과 별개입니다. Scope와 설비 접근 권한은 다시 확인합니다.' : 'This equipment is separate from the equipment selection above. Scope and equipment access are checked again.'}
     secondaryActions={<ReturnLink />}>
     <QueryView widgetName={lang === 'ko' ? '설비 요약' : 'Equipment summary'} query={header}>{e => e && <div className="mb-4 flex items-center gap-3"><EquipmentStatus equipment={e} /><span className="t-mono text-sm text-text-secondary">{e.equipmentId}</span></div>}</QueryView>
-    {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '등록되지 않은 탭입니다' : 'This tab is not registered'} body={ko ? '이 화면의 탭이 아닙니다. 속성으로 돌아가세요.' : 'This is not a tab on this page. Go back to attributes.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button>} /> :
+    {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={ko ? '등록되지 않은 탭입니다' : 'This tab is not registered'} body={ko ? '속성 탭으로 돌아가세요.' : 'Go back to the attributes tab.'} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{ko ? '속성 열기' : 'Open attributes'}</Button>} /> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>
         <TabsList aria-label={ko ? '설비 상세 탭' : 'Equipment detail tabs'} className="max-w-4xl">{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>
         {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl"><div className="rounded-lg border border-border-subtle bg-surface-card p-4"><EquipmentPanel id={id} kind={t.id} /></div></TabsContent>)}

@@ -15,7 +15,7 @@ const CODE_TEXT: Record<string, string> = {
   invalid: '형식이 올바르지 않습니다.',
   not_found: '찾을 수 없습니다.',
   id_mismatch: 'Layout id가 문서의 id와 다릅니다.',
-  kind_not_equipment_layout: 'equipment-layout만 저장할 수 있습니다.',
+  kind_not_equipment_layout: '저장 대상: equipment-layout',
   hash_mismatch: '저장된 Revision이 해시와 맞지 않습니다.',
 };
 

@@ -281,7 +281,7 @@ describe('publish', () => {
     await mount('both');
     select('proc-a'); rename('Edited');
     expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(true);
-    expect(within(guidance()).getByText('저장한 뒤 게시할 수 있습니다.')).toBeTruthy();
+    expect(within(guidance()).getByText('저장 후 게시 가능')).toBeTruthy();
     fireEvent.click(button('초안 저장'));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
     await waitFor(() => expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(false), slow);
@@ -369,7 +369,7 @@ describe('promote', () => {
     seedRevision();
     await mount('both');
     expect((button('EV Template으로 승격') as HTMLButtonElement).disabled).toBe(true);
-    expect(within(guidance()).getByText('게시된 Revision만 EV Template으로 승격할 수 있습니다.')).toBeTruthy();
+    expect(within(guidance()).getByText('EV Template 승격 대상: 게시된 Revision')).toBeTruthy();
   });
 
   it('on a published Revision: validates the id, shows the source and role counts, and promotes', async () => {

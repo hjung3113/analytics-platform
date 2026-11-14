@@ -197,7 +197,7 @@ export default function OverviewPage(_props: PageProps) {
         { id: 'detail', primary: true, title: { ko: `Motion ${kept.motion} 상세`, en: `Motion ${kept.motion} detail` }, badge: partialBadge(det), render: () => det.rows.length === 0
           ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${kept.module} Module에는 ${kept.motion} 동작 기록이 없습니다` : `No ${kept.motion} records for Module ${kept.module}`}
             body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />
-          : <PanelFill><StackPanel chartId="hw-overview-L3-detail" title={ko ? `Motion ${kept.motion} 상세 — Module ${kept.module}` : `Motion ${kept.motion} detail — Module ${kept.module}`} block={det}
+          : <PanelFill><StackPanel chartId="hw-overview-L3-detail" title={ko ? `Module ${kept.module} · Motion ${kept.motion} 상세` : `Module ${kept.module} · Motion ${kept.motion} detail`} block={det}
             visibleSeriesIds={visibleOf(det).filter(id => visibleIds.includes(id))} onVisibleSeriesChange={setVisible(ctx)} {...shared} /></PanelFill> },
         trendPanel,
         legendPanel,
@@ -205,7 +205,7 @@ export default function OverviewPage(_props: PageProps) {
     } else {
       const first = data.level === 0;
       persistKey = first ? 'hw-overview-l1' : 'hw-overview-l2'; layout = first ? PRESETS.l1 : PRESETS.l2; compact = COMPACT(first ? 'l1' : 'l2');
-      const stackTitle = first ? (ko ? 'Module별 동작시간' : 'Operation time by Module') : (ko ? `Motion별 동작시간 — Module ${kept.module}` : `Operation time by Motion — Module ${kept.module}`);
+      const stackTitle = first ? (ko ? 'Module별 동작시간' : 'Operation time by Module') : (ko ? `Module ${kept.module} · Motion별 동작시간` : `Module ${kept.module} · Operation time by Motion`);
       panels = [
         rankingPanel(data),
         { id: 'level', primary: true, title: first ? { ko: 'Module별', en: 'By Module' } : { ko: 'Motion별', en: 'By Motion' }, badge: partialBadge(data), render: () =>

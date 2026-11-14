@@ -70,7 +70,7 @@ describe('breakdown bar fixtures (#580h)', () => {
   it('lists the server totals inside the ratio card, found by a data hook, with no aria-label', async () => {
     await mount();
     const caption = document.querySelector('[data-breakdown-server-total]')!;
-    expect(caption.textContent).toMatch(/^서버 합계 — 그룹 A 75\.7% · 그룹 B 없음/);
+    expect(caption.textContent).toMatch(/^서버 합계 · 그룹 A 75\.7% · 그룹 B 없음/);
     expect(caption.hasAttribute('aria-label')).toBe(false);
   });
   it('shows 4–6 rows at the root so Min/Max marks only some segments', async () => {

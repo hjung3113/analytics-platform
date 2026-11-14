@@ -529,7 +529,7 @@ describe('검증·게시', () => {
     await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
     fireEvent.click(review);
     fireEvent.click(within(await screen.findByRole('alertdialog', {}, slow)).getByRole('button', { name: '게시' }));
-    expect(await screen.findByText('활성 Sample Window에서만 게시할 수 있습니다', {}, slow)).toBeTruthy();
+    expect(await screen.findByText('게시 조건: 활성 Sample Window', {}, slow)).toBeTruthy();
   });
 });
 
@@ -738,7 +738,7 @@ describe('Sample Window import', () => {
     expect(lines.every((li) => !/[a-z]+-[a-z]+ ·/.test(li.textContent ?? ''))).toBe(true);
     const details = within(dialog).getByText('자세히').closest('details')!;
     expect(details.open).toBe(false);
-    expect(within(details).getAllByText(/^equipment-mismatch · equipmentId — /)).toHaveLength(1);
+    expect(within(details).getAllByText(/^equipment-mismatch · equipmentId · /)).toHaveLength(1);
     expect(within(dialog).getByRole('status').textContent).toBe(`가져올 수 없습니다 · 문제 ${lines.length}건`);
   });
 
@@ -746,7 +746,7 @@ describe('Sample Window import', () => {
     mount('engineer', '&equipment=eq-synth-03');
     const dialog = await importDialog();
     pick(dialog, batchFile('{"hello":1}', 'notbatch.batch.json'));
-    expect(await within(dialog).findByText('Sample Window(batch) 파일 형식이 아닙니다.', {}, slow)).toBeTruthy();
+    expect(await within(dialog).findByText('Sample Window(batch) 파일 형식 필요', {}, slow)).toBeTruthy();
     expect(within(dialog).getByRole('status').textContent).toBe('가져올 수 없습니다 · 문제 1건');
     expect(within(dialog).getByText('원천 변환기가 만든 *.batch.json 파일을 고르세요.')).toBeTruthy();
   });

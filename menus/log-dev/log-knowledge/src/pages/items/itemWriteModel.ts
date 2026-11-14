@@ -40,7 +40,7 @@ export const deriveForm = (detail: ItemDetail): WriteForm => ({
 });
 
 export const deriveNotice = (itemNo: number, revisionNo: number): string =>
-  `원본 KI-${itemNo} r${revisionNo}에서 파생합니다 — 근거와 판단 상태는 이어받지 않고 미확인으로 시작합니다`;
+  `원본 KI-${itemNo} r${revisionNo}에서 파생합니다. 근거는 새로 등록하고 판단 상태는 미확인으로 시작합니다`;
 
 const length = (value: string): number => [...value].length;
 const FIELD_LABEL: Record<string, string> = {
@@ -55,7 +55,7 @@ export function itemErrorText(code: string): string {
     case 'required_one': return '관찰 사실과 기대·기준 중 하나는 써야 합니다';
     case 'too_long': return '입력 길이가 너무 깁니다';
     case 'malformed': return '사용할 수 없는 문자가 들어 있습니다';
-    case 'bad_kind': return '지원하지 않는 출처 종류입니다 — 목록에서 다시 골라 주세요';
+    case 'bad_kind': return '출처 종류 확인 필요. 목록에서 다시 골라 주세요';
     case 'not_found': return '찾을 수 없는 항목입니다';
     case 'inactive': return '비활성 항목에는 연결할 수 없습니다';
     case 'archived': return '보관된 Item은 바꿀 수 없습니다';

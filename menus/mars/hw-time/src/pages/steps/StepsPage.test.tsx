@@ -383,7 +383,7 @@ describe('HW Time steps page keeps the previous level honest (#1365 F4)', () => 
     keptPm1();
     await renderPage('&drillModule=PM2');
     expect(screen.getByTitle(/^Module PM1 · [\d,]+\.\d{2} 초$/)).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Motion별 동작시간 — Module PM1' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Module PM1 · Motion별 동작시간' })).toBeTruthy();
     expect(screen.queryByRole('region', { name: /Module PM2/ })).toBeNull();
   });
 

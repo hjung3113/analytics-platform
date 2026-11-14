@@ -52,7 +52,7 @@ export function readHostProps(source: ScreenSource): HostProps {
   if (!from || !to) return { ...base, time: { kind: 'missing' } };
   const range = hostRange(from, to);
   if (!range.ok) {
-    return { ...base, time: { kind: 'invalid', problem: range.problem === 'format' ? `Site Wall-clock 형식이 아닙니다 (${from} – ${to})` : '시작은 끝보다 앞서야 합니다' } };
+    return { ...base, time: { kind: 'invalid', problem: range.problem === 'format' ? `Site Wall-clock 형식 필요 (${from} – ${to})` : '시작은 끝보다 앞서야 합니다' } };
   }
   return { ...base, time: { kind: 'applied', from: range.from, to: range.to } };
 }

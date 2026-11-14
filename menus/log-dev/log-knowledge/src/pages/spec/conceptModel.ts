@@ -104,7 +104,7 @@ const CODE_TEXT: Record<string, Words> = {
   none_published: { ko: '발행된 명세가 없습니다.', en: 'No published specification.' },
   kind_mismatch: { ko: '개념의 종류(Module/Event)가 대상과 다릅니다.', en: 'The concept is of another kind.' },
   already_mapped: { ko: '이 개념에 이미 연결된 대상입니다.', en: 'This target is already on the concept.' },
-  already_rejected: { ko: '이미 기각된 짝입니다. 다시 제안하지 않습니다.', en: 'This pair was rejected and is not proposed again.' },
+  already_rejected: { ko: '이미 기각된 짝 · 재제안 제외', en: 'Rejected pair · excluded from proposals' },
   already_confirmed: { ko: '이미 확인된 같은 개념이 있습니다.', en: 'A same-concept mapping is already confirmed.' },
 };
 /** Field errors keyed by wire path (`pairWith.target`), with texts for the closed code vocabulary. */

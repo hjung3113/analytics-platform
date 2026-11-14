@@ -38,7 +38,7 @@ export function EquipmentWorkspace({ equipmentId }: { equipmentId: string }) {
     return <PlatformPage crumbs={crumbs} title={title(null)}><div className="break-keep">
       {load.kind === 'loading' ? <p role="status" className="p-4 text-xs text-text-secondary">{t('loading')}</p>
         : load.kind === 'not-found' ? <EmptyState title="설비를 찾을 수 없습니다" action={<Button size="toolbar" variant="secondary" onClick={() => setPage({ equipment: null, step: null, window: null })}>Fleet으로 이동</Button>} />
-          : load.kind === 'unknown-window' ? <EmptyState title="Sample Window를 찾을 수 없습니다" body="주소의 window가 이 설비의 Sample Window가 아닙니다." action={<Button size="toolbar" variant="secondary" onClick={() => setPage({ window: null })}>가장 늦은 window 열기</Button>} />
+          : load.kind === 'unknown-window' ? <EmptyState title="Sample Window를 찾을 수 없습니다" body="이 설비의 Sample Window를 선택하세요." action={<Button size="toolbar" variant="secondary" onClick={() => setPage({ window: null })}>가장 늦은 window 열기</Button>} />
             : <Callout tone="red" title={load.message} action={<Button size="toolbar" variant="secondary" onClick={load.retry}>다시 시도</Button>}>{null}</Callout>}
     </div></PlatformPage>;
   }

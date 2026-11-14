@@ -607,10 +607,10 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const copyLabel = selectedIds.length === 0 ? (lang === 'ko' ? '복사' : 'Copy') : lang === 'ko' ? `${selectedIds.length}행 복사` : `Copy ${selectedIds.length} ${selectedIds.length === 1 ? 'row' : 'rows'}`;
   // Same wording as the wide 복사 button's tooltip; the overflow item carries it as its description (no hover/focus tooltip inside a menu).
   const copyHelp = selectionState.all
-    ? (lang === 'ko' ? '필터 결과 전체 선택은 복사할 수 없습니다 — 복사는 불러온 행만 읽습니다. 쪽에서 행을 골라 복사하거나 내보내기를 쓰세요' : 'Copy is unavailable for a whole-result selection — it reads loaded rows only. Select rows on a page to copy, or use Export')
+    ? (lang === 'ko' ? '복사 대상: 불러온 행만. 쪽에서 행을 골라 복사하거나 전체 결과 내보내기를 쓰세요' : 'Copy reads loaded rows only. Select rows on a page to copy, or export the whole result')
     : selectedIds.length === 0
-    ? (lang === 'ko' ? '행을 선택하면 복사할 수 있습니다' : 'Select rows to copy')
-    : (lang === 'ko' ? `${shortcutLabel('C')}로도 복사할 수 있습니다(표 안에서)` : `You can also copy with ${shortcutLabel('C')} (inside the table)`);
+    ? (lang === 'ko' ? '복사할 행을 선택하세요' : 'Select rows to copy')
+    : (lang === 'ko' ? `${shortcutLabel('C')}로 복사 (표 안에서)` : `Copy with ${shortcutLabel('C')} (inside the table)`);
   const copyHelpId = `${columnPrefsId}-copy-help`;
   const descriptionId = `${columnPrefsId}-description`;
   const exportBody = <>

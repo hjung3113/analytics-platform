@@ -10,7 +10,7 @@ export type ModelTopViewProps = { layoutId: string; revision: string; document: 
 export const MODEL_TOPVIEW_HEIGHT = 320;
 const FALLBACK_WIDTH = 720;
 export const DISCLOSURE = '개략도 · 실측 아님 · 제조사 도면 아님';
-export const MISMATCH_TEXT = 'Top View를 확인할 수 없습니다 · Revision이 일치하지 않습니다';
+export const MISMATCH_TEXT = 'Top View 확인에 같은 Revision 필요';
 
 type Checked = { status: 'checking' } | { status: 'error' } | { status: 'ok'; layout: Extract<ReturnType<typeof validateLayout>, { ok: true }>['layout'] };
 

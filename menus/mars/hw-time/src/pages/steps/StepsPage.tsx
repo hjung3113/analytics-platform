@@ -129,8 +129,8 @@ export default function StepsPage(_props: PageProps) {
     if (data.level === 2 && shown.rows.length === 0) return <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={ko ? `${kept.module} Module에는 ${kept.motion} 동작 기록이 없습니다` : `No ${kept.motion} records for Module ${kept.module}`}
       body={ko ? 'Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.' : 'Other Motions of this Module are one level up.'} />;
     const chartTitle = data.level === 0 ? (ko ? 'Module별 동작시간' : 'Operation time by Module')
-      : data.level === 1 ? (ko ? `Motion별 동작시간 — Module ${kept.module}` : `Operation time by Motion — Module ${kept.module}`)
-        : (ko ? `Motion ${kept.motion} 상세 — Module ${kept.module}` : `Motion ${kept.motion} detail — Module ${kept.module}`);
+      : data.level === 1 ? (ko ? `Module ${kept.module} · Motion별 동작시간` : `Module ${kept.module} · Operation time by Motion`)
+        : (ko ? `Module ${kept.module} · Motion ${kept.motion} 상세` : `Module ${kept.module} · Motion ${kept.motion} detail`);
     return <StackPanel chartId={`hw-time-steps-L${data.level + 1}`} title={chartTitle} block={shown}
       visibleSeriesIds={shown.series.map(item => item.id).filter(id => !hidden.includes(id))}
       onVisibleSeriesChange={ids => setHidden(shown.series.map(item => item.id).filter(id => !ids.includes(id)))}

@@ -14,7 +14,7 @@ export const appliedLine = (resolved: Resolved): string =>
 
 const FIELD_TEXT: Record<string, string> = {
   'modelId:not_found': '이 모델을 찾을 수 없습니다.',
-  'fromSoftwareId:software_not_of_model': '이 모델의 SW 버전이 아닙니다.',
+  'fromSoftwareId:software_not_of_model': '선택한 모델의 SW 버전 필요',
   'revision:revision_not_found': '게시된 Revision을 찾을 수 없거나 해시가 맞지 않습니다.',
 };
 /** Server field errors of link by form field (`revision`, `fromSoftwareId`); anything else lands on `form`. */

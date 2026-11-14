@@ -153,7 +153,7 @@ describe('분석 보드에 열기… (docs/16 §6)', () => {
     expect(screen.getByRole('button', { name: '더보기' })).toHaveFocus();
   });
 
-  const changed = '그 칸이 바뀌었습니다 — 다시 고르세요';
+  const changed = '그 칸이 바뀌었습니다. 다시 고르세요';
 
   it('기존 시트의 빈 칸: a pane filled after the dialog opened is not overwritten; the dialog stays open with the reason', async () => {
     seed(boardOf([sheet('roomy', { name: 'roomy', layout: '1x2', panes: [beta, null] })]));
@@ -270,7 +270,7 @@ describe('V1 storage (#575 D1)', () => {
     localStorage.setItem(V2_KEY, newer);
     fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
     await settle();
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.');
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드 · 이 화면에서는 조회 전용');
     expect(localStorage.getItem(V2_KEY)).toBe(newer);
     expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();
   });
@@ -283,7 +283,7 @@ describe('V1 storage (#575 D1)', () => {
     const dialog = await openDialog();
     fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
     await settle();
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드라 이 화면에서는 저장하지 않습니다.');
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('더 새 버전에서 저장한 보드 · 이 화면에서는 조회 전용');
     expect(localStorage.getItem(V2_KEY)).toBe(newer);
     expect(window.location.pathname).toBe('/mars/alpha');
     expect(screen.getByRole('dialog', { name: '분석 보드에 열기' })).toBeInTheDocument();

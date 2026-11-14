@@ -10,13 +10,13 @@ import { evidenceFor, exportRange, sourceReadable } from './explorerModel';
 import { KnowledgeHandoffDialog, knowledgeHandoffBlock } from './KnowledgeHandoffDialog';
 import { useSourceRead } from './useSourceRead';
 
-const SOURCE_REASON: Record<string, string> = { source_not_connected: 'Source가 연결되지 않았습니다.', source_missing: '파일을 찾을 수 없습니다.', capability_not_held: '원본 조회 권한이 없습니다.', source_owner_not_granted: '이 Source의 접근 권한이 없습니다.', source_denied: 'Source 접근 권한이 철회되었습니다.', parser_not_connected: 'Parser가 연결되지 않았습니다.', periods_not_supported: '기간 행을 제공하지 않습니다.', capability_missing: '이 조회를 지원하지 않습니다.' };
+const SOURCE_REASON: Record<string, string> = { source_not_connected: 'Source가 연결되지 않았습니다.', source_missing: '파일을 찾을 수 없습니다.', capability_not_held: '원본 조회 권한이 없습니다.', source_owner_not_granted: '이 Source의 접근 권한이 없습니다.', source_denied: 'Source 접근 권한이 철회되었습니다.', parser_not_connected: 'Parser가 연결되지 않았습니다.', periods_not_supported: '기간 행 미지원', capability_missing: '이 조회 미지원' };
 export function SourceNotice({ answer }: { answer: SourceAnswer | null | undefined }) {
   if (!answer || answer.state === 'ok') return null;
-  const labels = { partial: '일부 결과 · 원본 범위를 모두 읽지 못했습니다.', truncated: '원문 잘림 · 줄당 8,000자 한도입니다.', source_absent: '원본 없음 · Source 연결 또는 파일을 확인하세요.', permission_denied: '권한 철회 · 원문을 열 수 없습니다.', unsupported: '미지원 · Source가 이 보기를 제공하지 않습니다.' };
+  const labels = { partial: '일부 결과 · 원본 범위를 모두 읽지 못했습니다.', truncated: '원문 잘림 · 줄당 8,000자 한도입니다.', source_absent: '원본 없음 · Source 연결 또는 파일을 확인하세요.', permission_denied: '권한 철회 · 원문을 열 수 없습니다.', unsupported: '미지원 · Source의 보기 미지원' };
   return <StateMessage compact icon={<Info aria-hidden className="size-4" />} tone={answer.state === 'permission_denied' ? 'warning' : 'neutral'} title={labels[answer.state]} body={answer.reason ? SOURCE_REASON[answer.reason] : undefined} />;
 }
-export const HANDOFF_CONFIRM = '근거 위치 참조만 전달합니다. 공식 FAIL이나 지식 발행을 확정하지 않습니다. 받는 쪽에서 원본 접근 권한을 다시 확인합니다.';
+export const HANDOFF_CONFIRM = '근거 위치 참조만 전달 · 공식 FAIL·지식 발행은 별도 확정 · 받는 쪽에서 원본 접근 권한 재확인';
 const HANDOFF_ERROR: Record<string, string> = { source_unavailable: '원본 연결을 확인할 수 없어 넘기지 못했습니다', source_forbidden: '원본 접근 권한이 없습니다', round_closed: '닫힌 Round입니다', not_in_sample_set: 'Round 샘플 목록에 없는 파일이 있습니다', forbidden: '넘기기 권한이 없습니다' };
 /** Why 「Round」 is not offered, in the order a person can act on it; null = offered. */
 export function roundHandoffBlock(investigation: Investigation): string | null {
@@ -38,7 +38,7 @@ function RoundHandoffDialog({ investigation, onOpenChange, onDone, onCloseAutoFo
   function settle(r: HandoffAnswer) {
     setBusy(false);
     if (r.outcome === 'ok' && r.data?.targetKind === 'round') { setAgain(null); onDone(`Round에 ${r.data.handedOff}개 넘김 · 이미 있던 위치 ${r.data.alreadyAttached}개 · 원본 없음 ${r.data.byStatus.unresolved}개`); return; }
-    if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '넘기지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'); return; }
+    if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 넘겨졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '넘기지 못했습니다. 같은 요청으로 다시 시도하세요.'); return; }
     setAgain(null);
     setError(r.outcome === 'conflict' ? '조사가 바뀌었습니다. 다시 열어 주세요' : r.outcome === 'forbidden' ? HANDOFF_ERROR.forbidden! : HANDOFF_ERROR[r.fieldErrors[0]?.code ?? ''] ?? '근거 위치를 넘기지 못했습니다');
   }
@@ -49,7 +49,7 @@ function RoundHandoffDialog({ investigation, onOpenChange, onDone, onCloseAutoFo
     if (again) { void again().then(settle).catch(fail); return; }
     void send.run({ id: investigation.id, refs, target: { kind: 'round', roundId: investigation.roundId } }, { expectedVersion: investigation.version }).then(settle).catch(fail);
   }
-  return <AlertDialog open onOpenChange={open => { if (!open && !pending) onOpenChange(false); }}><AlertDialogContent onCloseAutoFocus={onCloseAutoFocus} onEscapeKeyDown={event => { if (pending) event.preventDefault(); }}><AlertDialogHeader><AlertDialogTitle>Round에 근거 위치 {refs.length}개 넘기기</AlertDialogTitle><AlertDialogDescription className="break-keep">참조만 전달됩니다. 공식 FAIL·기술 지식 확정이 아닙니다</AlertDialogDescription></AlertDialogHeader>
+  return <AlertDialog open onOpenChange={open => { if (!open && !pending) onOpenChange(false); }}><AlertDialogContent onCloseAutoFocus={onCloseAutoFocus} onEscapeKeyDown={event => { if (pending) event.preventDefault(); }}><AlertDialogHeader><AlertDialogTitle>Round에 근거 위치 {refs.length}개 넘기기</AlertDialogTitle><AlertDialogDescription className="break-keep">근거 위치 참조만 전달 · 공식 FAIL·기술 지식은 별도 확정</AlertDialogDescription></AlertDialogHeader>
     <p className="break-keep text-xs text-text-secondary">fileRef · line · fileSha256만 전달 · 본문 없음</p>
     {error && <p role="alert" className="break-keep text-sm text-text-danger-label">{error}</p>}
     <AlertDialogFooter><AlertDialogCancel disabled={pending}>취소</AlertDialogCancel>{/* A plain button, not AlertDialogAction: a refusal keeps the dialog open. */}<Button disabled={pending} onClick={confirm}>{pending ? '전달 중…' : again ? '같은 요청 다시 시도' : '참조 전달'}</Button></AlertDialogFooter>
@@ -124,7 +124,7 @@ export function ExportDialog({ open, onOpenChange, set, querySummary, onCloseAut
       {!range && <p role="alert">1–10,000행 범위를 입력하세요. 초과 범위를 자르지 않습니다.</p>}
       <Label htmlFor="explorer-export-format">형식</Label><Select value={format} onValueChange={setFormat}><SelectTrigger id="explorer-export-format"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="csv">CSV</SelectItem><SelectItem value="jsonl">JSONL</SelectItem></SelectGroup></SelectContent></Select>
       <p className="text-xs text-text-secondary">행 10,000 · 5MB · 일일 20회 · 동시 1건. 권한과 남은 한도는 요청마다 다시 확인합니다.</p>
-      <p id="explorer-export-reason" className="text-xs text-text-secondary">현재 어댑터에서 내보내기를 지원하지 않습니다. 내보내기 권한과 연결이 필요합니다.</p>
+      <p id="explorer-export-reason" className="text-xs text-text-secondary">현재 어댑터는 내보내기 미지원 · 연결·내보내기 권한 필요</p>
     </div><DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>닫기</Button><Button disabled aria-describedby="explorer-export-reason">내보내기</Button></DialogFooter>
   </DialogContent></Dialog>;
 }
@@ -141,7 +141,7 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const edit = (set: (value: string) => void) => (value: string) => { set(value); setAgain(null); setError(''); };
   function settle(r: ActionResult<{ id: string }>) {
     if (r.outcome === 'ok' && r.data) { setAgain(null); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
-    if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 만들어졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '조사를 만들지 못했습니다. 같은 요청으로 다시 시도할 수 있습니다.'); return; }
+    if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 만들어졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '조사를 만들지 못했습니다. 같은 요청으로 다시 시도하세요.'); return; }
     setAgain(null); setError('조사를 만들지 못했습니다. 입력과 권한을 확인하세요.');
   }
   function submit() {
@@ -150,7 +150,7 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     if (!title.trim() || title.trim().length > 200 || !sourceOwner.trim() || !files.length || files.length > 1000 || files.some(f => !f.fileRef || !/^[0-9a-f]{64}$/.test(f.sha256)) || new Set(files.map(f => f.fileRef)).size !== files.length) { setError('조사 이름·Source 소유자·중복 없는 파일 참조와 SHA-256을 확인하세요.'); return; }
     void create.run({ title: title.trim(), origin: 'standalone', sampleSet: { sourceOwner: sourceOwner.trim(), files } }).then(settle).catch(() => undefined);
   }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>조사 만들기</DialogTitle><DialogDescription>Source 소유자가 제공한 파일 참조와 SHA-256을 읽을 순서대로 입력하세요. 원문은 저장하지 않습니다.</DialogDescription></DialogHeader>
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>조사 만들기</DialogTitle><DialogDescription>Source 소유자가 제공한 파일 참조와 SHA-256을 읽을 순서대로 입력하세요. 참조만 저장합니다.</DialogDescription></DialogHeader>
     <Label htmlFor="explorer-title">조사 이름</Label><Input id="explorer-title" value={title} onChange={e => edit(setTitle)(e.target.value)} maxLength={200} />
     <Label htmlFor="explorer-owner">Source 소유자</Label><Input id="explorer-owner" value={sourceOwner} onChange={e => edit(setOwner)(e.target.value)} maxLength={200} />
     <Label htmlFor="explorer-files">파일 참조 · 탭 · SHA-256 · 한 줄에 한 파일</Label><Textarea id="explorer-files" value={text} onChange={e => edit(setText)(e.target.value)} />

@@ -126,7 +126,7 @@ export async function loadReplayInput(reads: ReplayReads, equipmentId: string, s
       if (!page.ok) {
         // An empty first page is an empty window; an empty later page leaves the batch incomplete.
         return pages.length > 0 && page.settled.kind === 'empty'
-          ? failure('danger', '데이터 오류', '연속 page가 비어 있어 batch가 완전하지 않습니다', acc, response.correlationId)
+          ? failure('danger', '데이터 오류', '연속 page 비어 있음 · 불완전한 batch', acc, response.correlationId)
           : page.settled;
       }
       pages.push(page.data);

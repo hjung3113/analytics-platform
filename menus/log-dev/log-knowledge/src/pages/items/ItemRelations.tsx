@@ -72,6 +72,6 @@ export function ItemRelations({ modelId, softwareId, ...props }: Omit<Parameters
   const options = data ? eventsOf(data).map(eventIdentity) : [];
   return <><RelationEditor {...props} options={options} specReady={ready} />
     {!!modelId && !response && <p role="status" className="text-xs text-text-secondary">{w('명세의 Event 키를 불러오는 중…', 'Loading specification Event keys…')}</p>}
-    {response && !ready && <div className="flex items-center gap-2 text-xs text-text-secondary"><span>{w('명세를 불러오지 못했습니다. Event 키를 직접 입력할 수 있습니다.', 'Could not load the specification. You can enter Event keys directly.')}</span><Button type="button" size="sm" variant="ghost" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div>}
+    {response && !ready && <div className="flex items-center gap-2 text-xs text-text-secondary"><span>{w('명세를 불러오지 못했습니다. Event 키를 직접 입력하세요.', 'Could not load the specification. Enter Event keys directly.')}</span><Button type="button" size="sm" variant="ghost" onClick={query.refetch}>{w('다시 시도', 'Retry')}</Button></div>}
   </>;
 }

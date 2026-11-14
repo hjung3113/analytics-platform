@@ -124,7 +124,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
     {recovery && <div role="group" aria-label={recovery.kind === 'published' ? w(`현재 발행본 r${recovery.revisionNo}`, `Current publication r${recovery.revisionNo}`) : w(`열린 초안 r${recovery.revisionNo} (다른 사람이 저장)`, `Open draft r${recovery.revisionNo} (saved by someone else)`)} className="grid gap-2 rounded-md border p-3">
       <p className="text-sm font-medium">{recovery.kind === 'published' ? w(`현재 발행본 r${recovery.revisionNo}`, `Current publication r${recovery.revisionNo}`) : w(`열린 초안 r${recovery.revisionNo} (다른 사람이 저장)`, `Open draft r${recovery.revisionNo} (saved by someone else)`)}</p>
       <pre className="max-h-60 overflow-auto whitespace-pre text-xs">{recovery.text}</pre>
-      <p className="text-sm">{w('아무것도 저장하지 않았습니다. 하나를 고르면 이어서 편집할 수 있습니다.', 'Nothing has been saved. Pick one to continue editing.')}</p>
+      <p className="text-sm">{w('아직 저장하지 않음. 하나를 골라 이어서 편집하세요.', 'Not saved yet. Pick one to continue editing.')}</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" disabled={pending} onClick={() => { void choose('replace').catch(() => setRecovering(false)); }}>{recovery.kind === 'published' ? w('발행본으로 바꾸기', 'Replace with the publication') : w('그 초안으로 바꾸기', 'Replace with that draft')}</Button>
         <Button variant="secondary" disabled={pending} onClick={() => { void choose('keep').catch(() => setRecovering(false)); }}>{w('내 입력 유지', 'Keep my input')}</Button>
@@ -135,7 +135,7 @@ export function DraftDrawer({ modelId, modelLabel, revisionId, onClose, onDirtyC
     <SpecField id={`${id}-link`} label={w('원본 링크 (선택)', 'Source link (optional)')} value={source.link} onChange={link => setSource({ ...source, link })} disabled={!editable} error={fieldErrors['sourceDocRef.link']} />
     {revisionId && <>
       <SpecField id={`${id}-text`} label={w('명세 TSV', 'Specification TSV')} value={text} onChange={value => { setText(value); setTextDirty(true); setFileFormat('paste'); }} multiline disabled={!editable} error={textError}
-        hint={w('kind: module / event / relation. 전체 내용으로 저장하면 새 초안으로 교체됩니다. 파일은 저장하지 않습니다.', 'kind: module / event / relation. Saving the full content replaces the draft. Files are not stored.')} />
+        hint={w('kind: module / event / relation · 전체 내용 저장 시 새 초안으로 교체 · 초안 내용만 저장', 'kind: module / event / relation · saving full content replaces the draft · only draft content is saved')} />
       <label className="grid gap-1 text-sm">{w('TSV 형식 .txt 읽기', 'Read a TSV .txt file')}<Input type="file" accept=".txt,text/plain" disabled={!editable} onChange={event => {
         const file = event.target.files?.[0]; if (!file) return;
         if (file.size > SPEC_SAVE_LIMITS.bodyBytes) { setProblem(w('파일은 512 KiB 이하여야 합니다.', 'The file must be at most 512 KiB.')); return; }
