@@ -80,6 +80,7 @@ export const renderFiles = (i: MenuInputs, date = new Date().toISOString().slice
   { relPath: 'src/endpoints.ts', content: endpointsTs(i) },
   { relPath: 'src/mock/index.ts', content: mockIndexTs(i) },
   { relPath: 'src/index.ts', content: indexTs(i) },
+  { relPath: 'src/messages.ts', content: messagesTs(i) },
   { relPath: `src/pages/${i.page}.tsx`, content: pageTsx(i) },
   { relPath: 'src/manifest.test.ts', content: manifestTest(i) },
   { relPath: 'src/mock/index.test.ts', content: mockIndexTest(i) },
@@ -251,13 +252,30 @@ export const ${i.group}WriteSamples: Readonly<Record<string, () => Record<string
 `;
 }
 
+// #2174: a menu's ko/en copy lives in its own message table, never in a `lang === 'ko' ? … : …` ternary (the menu lint
+// preset bans those). The slot rows keep `ko`/`en` beside their id, so each row is itself a `Text`.
+function messagesTs(i: MenuInputs): string {
+  return `// ${menuPackage(i.folder)} — the package's ko/en copy (one entry per phrase, values typed Text; docs/contract/components.md §23).
+import type { Text } from '${PACKAGE_PREFIX}contracts';
+
+export const MESSAGES = {
+  caption: { ko: ${str(i.labelKo)}, en: ${str(i.labelEn)} },
+} satisfies Record<string, Text>;
+
+// 06 §12 ${i.pageType} skeleton: content slots in reading order. Replace each section with the platform component it names.
+export const SLOTS = [
+${slotsLiteral(PAGE_SLOTS[i.pageType])}
+] satisfies readonly (Text & { id: string })[];
+`;
+}
+
 function pageTsx(i: MenuInputs): string {
   const layoutImport = i.pageType === 'management' ? ', ManagementLayout'
     : i.pageType === 'analysis' ? ', AnalysisLayout' : '';
   const usesLayoutSlots = i.pageType === 'management' || i.pageType === 'analysis';
   const slotHelpers = usesLayoutSlots ? `  const slotLabel = (id: typeof SLOTS[number]['id']) => {
     const slot = SLOTS.find(candidate => candidate.id === id);
-    return slot ? (lang === 'ko' ? slot.ko : slot.en) : id;
+    return slot ? formatText(slot, lang) : id;
   };
   const slotPlaceholder = (id: (typeof SLOTS)[number]['id']) => <section key={id} data-slot={id} className="rounded-lg border border-dashed border-border-subtle p-4">
     <h2 className="t-caption font-medium text-text-secondary">{slotLabel(id)}</h2>
@@ -284,22 +302,19 @@ function pageTsx(i: MenuInputs): string {
         {/* Replace Data Trust with DataTrustIndicator. */}
       </div>`
       : `      {SLOTS.map(slot => <section key={slot.id} data-slot={slot.id} className="rounded-lg border border-dashed border-border-subtle p-4">
-        <h2 className="t-caption font-medium text-text-secondary">{lang === 'ko' ? slot.ko : slot.en}</h2>
+        <h2 className="t-caption font-medium text-text-secondary">{formatText(slot, lang)}</h2>
       </section>)}`;
-  return `import { useI18n, useMenuQuery } from '${PACKAGE_PREFIX}kernel';
+  return `import { formatText, useI18n, useMenuQuery, useMessages } from '${PACKAGE_PREFIX}kernel';
 import { PlatformPage, QueryView${layoutImport} } from '${PACKAGE_PREFIX}components';
 import { sampleEndpoint } from '../endpoints';
-
-// 06 §12 ${i.pageType} skeleton: content slots in reading order. Replace each section with the platform component it names.
-const SLOTS = [
-${slotsLiteral(PAGE_SLOTS[i.pageType])}
-];
+import { MESSAGES, SLOTS } from '../messages';
 
 // The Screen suffix keeps the component name clear of the imports above (review F5).
 export default function ${i.page}Screen() {
   const { lang } = useI18n();
+  const m = useMessages(MESSAGES);
   const query = useMenuQuery(sampleEndpoint, {});
-  const caption = lang === 'ko' ? '${i.labelKo}' : '${i.labelEn}';
+  const caption = m('caption');
 ${slotHelpers}  return <PlatformPage>
     <QueryView query={query}>{() => <div className="space-y-3">
       <p className="t-caption text-text-muted">{caption}</p>
