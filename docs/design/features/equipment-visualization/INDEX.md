@@ -15,7 +15,7 @@ Moved from the EV repository when EV merged into the platform ([ADR-0132](../../
 | [DELIVERY-PLAN](DELIVERY-PLAN.md) | EV delivery slices (history; AP planning is `.planning/`) |
 | [RESEARCH](RESEARCH.md) | Background research (reference only) |
 | [GLOSSARY](GLOSSARY.md) | EV-only terms; the root `GLOSSARY.md` wins on conflict («EV Occurrence», «EV Template», «EV Coverage») |
-| [absorption-checklist](absorption-checklist.md) | What must be true before the EV repository is archived |
+| [absorption-checklist](history/absorption-checklist.md) | What had to be true before the EV repository was archived (Done, history) |
 | [agents/](agents/domain.md) | Agent notes of the EV repository (issue tracker, labels, domain-doc reading). History: AP uses `docs/agents/`; the EV repository's issue tracker is not used after archive |
 
 Decisions are in [`docs/adr/history/eqv/`](../../../adr/history/eqv/README.md) (frozen, `EV ADR-NNNN`); new EV decisions are AP ADRs.

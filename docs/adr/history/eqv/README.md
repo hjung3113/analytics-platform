@@ -35,4 +35,4 @@ The EV history was imported once with `git filter-repo` (PR #1622, merge `24846c
 
 ## Open EV issues at absorption
 
-Sixteen EV issues were open on 2026-11-10. Their disposition (imported, carried to a step, backlog or dropped) is owned by the [absorption checklist](../../../design/features/equipment-visualization/absorption-checklist.md) ([ADR-0132](../../0132-eqv-merges-into-platform.md)); this folder keeps only the frozen ADRs.
+Sixteen EV issues were open on 2026-11-10. Their disposition (imported, carried to a step, backlog or dropped) is owned by the [absorption checklist](../../../design/features/equipment-visualization/history/absorption-checklist.md) ([ADR-0132](../../0132-eqv-merges-into-platform.md)); this folder keeps only the frozen ADRs.

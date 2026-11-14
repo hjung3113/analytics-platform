@@ -1,6 +1,6 @@
 # 검증 진단 리포트 보존 설계 (#1815)
 
-**Decided 구조 · 대부분 미구현.** 공개 코드의 정적 대조와 구현 분할을 담는다. 사내 Validator의 실제 출력은 확인하지 않았고, 소유자 결정에 따라 플랫폼이 진단 구조를 정의하며 사내가 그 구조에 맞춘다(R1·R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)). 기존 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)·[ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)는 Decided로 유지한다. API 규칙은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815), 공통 근거 위치는 [기존 설계 §3](README.md#rule_result)가 소유한다.
+**Decided 구조 · backend As-built(A1·A2·B1), 화면(A3 summary 표시·B2)과 첨부(R4)는 미구현.** 공개 코드의 정적 대조와 구현 분할을 담는다. 사내 Validator의 실제 출력은 확인하지 않았고, 소유자 결정에 따라 플랫폼이 진단 구조를 정의하며 사내가 그 구조에 맞춘다(R1·R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)). 기존 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)·[ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)는 Decided로 유지한다. API 규칙은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815), 공통 근거 위치는 [기존 설계 §3](README.md#rule_result)가 소유한다.
 
 ## 1. Worker → 저장 → 읽기 → 화면 손실 매트릭스
 
@@ -52,7 +52,7 @@ Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. �
 
 ## 5. 구현 노드와 의존성
 
-아래는 후속 구현 그래프이며 이 문서 변경에서 구현하지 않는다. 병렬 가능한 노드라도 배정 범위 밖 착수는 별도 승인 대상이다.
+아래는 구현 그래프다. 각 노드의 상태는 행에 적는다. 병렬 가능한 노드라도 배정 범위 밖 착수는 별도 승인 대상이다.
 
 | 노드 | 선행 / 게이트 | 변경 위치와 충돌 |
 | --- | --- | --- |

@@ -75,3 +75,4 @@ docs/.llmwiki/
 # Any .env anywhere (examples stay tracked)
 **/.env
 !**/.env.example
+/*.log

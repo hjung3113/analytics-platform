@@ -51,7 +51,7 @@ _Avoid_: 과제 — «과제» 단독은 Quest 전용이다. 모델 카탈로그
 개발 건이 놓인 닫힌 단계 집합 `registered → kickoff → alpha → beta → completed`와 어느 단계에서든 `cancelled`. 되돌림은 reopen 한 동작만, 이력에 남긴다.
 
 **Round** (검증 Round, 코드 `validation_round`):
-한 개발 건 안에서 샘플 목록과 명세 고정값(`spec_pin`)을 고정하고 검증 요청을 거는 한 회차. Round를 열 때 샘플 목록과 명세 고정값이 고정되고(삽입 뒤 불변), 바꾸려면 새 Round를 연다.
+한 개발 건 안에서 샘플 목록과 명세 고정값(`spec_pin`)을 고정하고 검증 요청을 거는 한 회차. Round를 열 때 샘플 목록과 명세 고정값이 고정되고(삽입 뒤 불변), 바꾸려면 새 Round를 연다. Round는 만들 때 개발 건의 모델·SW(`owner_model_id`·`owner_software_id`)를 불변으로 기록하고, 읽기·쓰기·Gate 권한은 개발 건의 현재 SW가 아니라 이 기록으로 판정한다. 소유를 알 수 없는 옛 Round는 관리자만 본다([log-lifecycle API](docs/architecture/platform-api/api/log-lifecycle.md#immutable-round-ownership-2111)).
 
 **샘플 목록** (코드 `sample_set`):
 순서 있는 파일 참조(`fileRef`)·순서·해시와 Source 소유자. 사용자가 확정한 순서를 시간순으로 다시 정렬하지 않는다. 모양 정의는 log-lifecycle 설계 §3 한 곳이고 다른 설계는 링크한다.
