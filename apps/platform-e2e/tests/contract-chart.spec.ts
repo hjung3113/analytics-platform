@@ -304,6 +304,17 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
         await timeline.focus(); await timeline.press('Enter');
         await expect(summary).toContainText(/Lane 1 · .*2026-\d\d-\d\d \d\d:\d\d:\d\d – 2026-\d\d-\d\d \d\d:\d\d:\d\d/);
         await timeline.press('Escape'); await expect(summary).toContainText('선택 없음');
+        // #1860: the opt-in range brush. While `구간 선택` is on, a drag picks a time range (chart-local: the URL stays put).
+        const brush = timeline.getByRole('button', { name: '구간 선택', exact: true });
+        await brush.click(); await expect(brush).toHaveAttribute('aria-pressed', 'true');
+        const box = (await timeline.getByRole('img').boundingBox())!;
+        const y = box.y + 60;
+        await page.mouse.move(box.x + box.width * 0.4, y); await page.mouse.down();
+        for (const f of [0.45, 0.55, 0.65, 0.7]) await page.mouse.move(box.x + box.width * f, y);
+        await page.mouse.up();
+        await expect(summary).toContainText(/선택 구간: 2026-\d\d-\d\d \d\d:\d\d:\d\d–2026-\d\d-\d\d \d\d:\d\d:\d\d/);
+        await timeline.focus(); await timeline.press('Escape');
+        await expect(summary).toContainText('선택 없음'); await expect(brush).toHaveAttribute('aria-pressed', 'false');
       } else {
         if (kind === 'topNBar') {
           await expect(workspace.getByRole('button', { name: '숨기기', exact: true })).toHaveAttribute('aria-expanded', 'true');

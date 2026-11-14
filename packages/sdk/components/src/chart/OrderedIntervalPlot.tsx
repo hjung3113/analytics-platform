@@ -13,6 +13,7 @@ import {
 } from './orderedIntervalGeometry';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import type { OrderedIntervalTrackProps, OrderedTrackItem } from './orderedIntervalTypes';
+import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
 
 type PlotProps = Pick<
   OrderedIntervalTrackProps,
@@ -33,13 +34,13 @@ type PlotProps = Pick<
   focused: string | null;
   timeLabels: boolean;
   brushMode: boolean;
-  brush: [number, number] | null;
+  brush: AxisRange | null;
   focusedLane: number;
   laneReveal: number;
   onHover: (item: OrderedTrackItem | null, x: number, y: number) => void;
   onSelect: (item: OrderedTrackItem) => void;
   onView: (view: [number, number]) => void;
-  onBrush: (view: [number, number]) => void;
+  onBrush: (from: number, to: number) => void;
   onZoom: (factor: number, anchor?: number) => void;
 };
 const AXIS_HEIGHT = 48;
@@ -431,9 +432,9 @@ export function OrderedIntervalPlot(props: PlotProps) {
               if (!start || event.pointerId !== start.pointer) return;
               drag.current = null;
               const { order, hit } = position(event);
-              if (Math.abs(event.clientX - start.x) > 3) {
+              if (Math.abs(event.clientX - start.x) > RANGE_BRUSH_DRAG_THRESHOLD) {
                 if (props.brushMode)
-                  props.onBrush([Math.min(start.order, order), Math.max(start.order, order)]);
+                  props.onBrush(start.order, order);
                 else props.onView([view[0] + start.order - order, view[1] + start.order - order]);
               } else if (!props.brushMode && hit) props.onSelect(hit);
               if (event.currentTarget.hasPointerCapture?.(event.pointerId))

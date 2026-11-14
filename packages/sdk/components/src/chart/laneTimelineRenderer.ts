@@ -3,11 +3,14 @@ import type { LaneTimelineProps } from './LaneTimeline';
 import { drawOverlays, resolveOverlays, type ResolvedOverlays, type ValidOverlay } from './laneTimelineOverlays';
 import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, RectBuffer, ROW_HEIGHT, segmentRect, segmentText, type LaneModel } from './laneTimelineGeometry';
 import { createLaneStyle, paintFrame, type LaneStyle } from './laneTimelineLod';
+import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
 
 /** Everything the renderer reads from React. `update()` takes the same fields (without the elements) on every render. */
 export type RendererState = {
   model: LaneModel; props: LaneTimelineProps; selectedId: string | null; lang: 'ko' | 'en'; overlays: readonly ValidOverlay[];
   onSelect: (id: string | null) => void; onHover: (text: string | null) => void;
+  /** The opt-in range brush (#1860): null without `rangeBrush`. While `mode` is on, a drag picks a time range instead of panning. */
+  brush?: { mode: boolean; range: AxisRange | null; onSelect: (from: number, to: number) => void } | null;
 };
 type RendererInput = RendererState & {
   root: HTMLElement; scroll: HTMLDivElement; canvas: HTMLCanvasElement; overlay: HTMLCanvasElement; axis: HTMLCanvasElement;
@@ -26,7 +29,9 @@ export function createLaneRenderer(input: RendererInput) {
   const { root, canvas, overlay, axis, scroll, spacer, tooltip } = input;
   // Latest React values. Callbacks and `formatTick`/`formatTooltip` are read at use, so a new identity never triggers a draw.
   let model = input.model; let props = input.props; let selectedId = input.selectedId; let lang = input.lang; let overlays = input.overlays;
-  let onSelect = input.onSelect; let onHover = input.onHover;
+  let onSelect = input.onSelect; let onHover = input.onHover; let brush = input.brush ?? null;
+  // The range under an unfinished brush drag (time, in drag order); drawn instead of the committed range until the pointer lifts.
+  let brushDraft: [number, number] | null = null;
   let view: [number, number] = [...model.domain];
   let width = 600; let height = 320; let raf: number | null = null; let destroyed = false;
   let dataDirty = true; let overlayDirty = true; let sizeKey = '';
@@ -34,7 +39,7 @@ export function createLaneRenderer(input: RendererInput) {
   let hasDrawn = false;
   const lodLanes = new Set<number>();
   const hit = (x: number, y: number) => !hasDrawn ? undefined : hitTest(model, drawn.view, drawn.width, drawn.height, drawn.scroll, x, y, undefined, lodLanes);
-  let drag: { pointer: number; x: number; view: [number, number]; moved: boolean } | null = null;
+  let drag: { pointer: number; x: number; time: number; view: [number, number]; moved: boolean } | null = null;
   let tooltipFrame: number | null = null;
   let lastHover: string | null = null;
   let styleKey = ''; let colors = defaultPalette; let neutral: ThemeColorToken = 'chart-no-data';
@@ -128,6 +133,14 @@ export function createLaneRenderer(input: RendererInput) {
       const computed = getComputedStyle(root);
       drawOverlays(top, resolvedOverlays(), { model, view, width, height, scroll: scroll.scrollTop, resolve: color, font: `${computed.fontSize || '12px'} ${computed.fontFamily || 'sans-serif'}` });
     }
+    const band = brushDraft ?? brush?.range;
+    if (band) {
+      const x = (time: number) => GUTTER + (time - view[0]) / (view[1] - view[0]) * plotWidth;
+      const from = Math.min(band[0], band[1]); const to = Math.max(band[0], band[1]);
+      top.save(); top.beginPath(); top.rect(GUTTER, 0, plotWidth, height); top.clip();
+      top.strokeStyle = color('chart-selection-outline'); top.lineWidth = 2; top.strokeRect(x(from), 1, x(to) - x(from), height - 2);
+      top.restore();
+    }
     const item = selectedId ? model.byId.get(selectedId) : undefined;
     if (!item) return;
     const rect = segmentRect(model, item.index, view, width, height, scroll.scrollTop);
@@ -150,15 +163,21 @@ export function createLaneRenderer(input: RendererInput) {
     const anchor = event.clientX ? Math.max(0, Math.min(1, (event.clientX - bounds.left - GUTTER) / (width - GUTTER))) : 0.5;
     zoom(Math.exp(Math.max(-1, Math.min(1, event.deltaY * 0.002))), anchor);
   }
+  /** The time under a client x, clamped to the plot. */
+  function timeAt(clientX: number) {
+    const ratio = Math.max(0, Math.min(1, (clientX - canvas.getBoundingClientRect().left - GUTTER) / Math.max(1, width - GUTTER)));
+    return view[0] + ratio * (view[1] - view[0]);
+  }
   function pointerDown(event: PointerEvent) {
     if (event.button !== 0 || event.clientX - canvas.getBoundingClientRect().left < GUTTER) return;
-    drag = { pointer: event.pointerId, x: event.clientX, view: [...view], moved: false };
+    drag = { pointer: event.pointerId, x: event.clientX, time: timeAt(event.clientX), view: [...view], moved: false };
     canvas.setPointerCapture?.(event.pointerId); root.focus({ preventScroll: true });
   }
   function pointerMove(event: PointerEvent) {
     if (drag) {
       if (event.pointerId !== drag.pointer) return;
-      const delta = event.clientX - drag.x; drag.moved ||= Math.abs(delta) > 3;
+      const delta = event.clientX - drag.x; drag.moved ||= Math.abs(delta) > RANGE_BRUSH_DRAG_THRESHOLD;
+      if (drag.moved && brush?.mode) { brushDraft = [drag.time, timeAt(event.clientX)]; schedule(false); return; }
       if (drag.moved) { const offset = delta / (width - GUTTER) * (drag.view[1] - drag.view[0]); setView([drag.view[0] - offset, drag.view[1] - offset]); }
       return;
     }
@@ -182,10 +201,15 @@ export function createLaneRenderer(input: RendererInput) {
   }
   function endDrag(event: PointerEvent) {
     if (!drag || event.pointerId !== drag.pointer) return;
-    if (!drag.moved && event.type === 'pointerup') {
+    if (brush?.mode) {
+      // Brush mode: a drag picks a range and a click does nothing (as on OrderedIntervalTrack); a cancelled drag leaves no range.
+      if (drag.moved && event.type === 'pointerup') brush.onSelect(drag.time, timeAt(event.clientX));
+    } else if (!drag.moved && event.type === 'pointerup') {
       const bounds = canvas.getBoundingClientRect(); const rect = hit(event.clientX - bounds.left, event.clientY - bounds.top);
       onSelect(rect?.segment.id ?? null);
     }
+    // Whatever the mode is now (Escape mid-drag turns it off), an unfinished band never outlives its drag.
+    if (brushDraft) { brushDraft = null; schedule(false); }
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     drag = null;
   }
@@ -212,9 +236,12 @@ export function createLaneRenderer(input: RendererInput) {
   /** Applies new React values. Each field is compared by value or identity as its role needs; see the file comment. */
   function update(next: RendererState) {
     onSelect = next.onSelect; onHover = next.onHover; lang = next.lang;
+    const prevBrush = brush; brush = next.brush ?? null;
+    if (!brush?.mode) brushDraft = null;
+    if (prevBrush?.mode !== brush?.mode || prevBrush?.range?.[0] !== brush?.range?.[0] || prevBrush?.range?.[1] !== brush?.range?.[1]) schedule(false);
     const modelChanged = next.model !== model; const prevProps = props; props = next.props;
     if (modelChanged) {
-      model = next.model; view = [...model.domain]; drag = null; lastHover = null; invalidateHover(); onHover(null);
+      model = next.model; view = [...model.domain]; drag = null; brushDraft = null; lastHover = null; invalidateHover(); onHover(null);
       // The new model has not been painted: close the hit gate until drawData() runs, so hits never mix it with the old view.
       hasDrawn = false; overlayCache = null;
       sizeKey = ''; resize(); styleCache = null; schedule();
@@ -229,6 +256,10 @@ export function createLaneRenderer(input: RendererInput) {
     /** Internal (tests): the model the overlay cache holds, or null. */
     overlayCacheModel: () => overlayCache?.model ?? null,
     resetZoom: () => setView([...model.domain]), zoom, reveal,
+    /** The visible time window (the keyboard brush steps within it). */
+    view: (): AxisRange => [view[0], view[1]],
+    /** Shows a time window, clamped to the data (`선택 구간 확대`). */
+    showRange: (range: AxisRange) => setView([range[0], range[1]]),
     // Escape clears the React tooltip; the cache must follow or the next same-segment move would keep it empty (C3).
     clearHover: () => { lastHover = null; tooltip.hidden = true; },
     revealById: (id: string) => { const item = model.byId.get(id); if (item) reveal(item.index); },
