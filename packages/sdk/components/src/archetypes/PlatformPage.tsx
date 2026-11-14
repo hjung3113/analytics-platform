@@ -92,9 +92,11 @@ function HeaderOverflow({ actions }: { actions: ReactNode }) {
       <PopoverContent ref={content} align="end" role="group" aria-label={group} className="min-w-56" padding="compact"
         onOpenAutoFocus={event => {
           // Radix's default autofocus skips anchors; secondary actions can be links.
-          const first = Array.from(content.current?.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]') ?? [])
-            .find(control => control.tabIndex >= 0 && !control.matches(':disabled, input[type="hidden"]')
+          const focusable = Array.from(content.current?.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]') ?? [])
+            .filter(control => control.tabIndex >= 0 && !control.matches(':disabled, input[type="hidden"]')
               && !control.closest('[hidden], [inert]') && getComputedStyle(control).display !== 'none' && getComputedStyle(control).visibility !== 'hidden');
+          // A blocked (`aria-disabled`) row is reachable by Tab, but the menu lands on an enabled row when there is one.
+          const first = focusable.find(control => control.getAttribute('aria-disabled') !== 'true') ?? focusable[0];
           if (first) { event.preventDefault(); first.focus(); }
         }}
         onCloseAutoFocus={event => {

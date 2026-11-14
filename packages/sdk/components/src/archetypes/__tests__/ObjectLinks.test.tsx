@@ -64,7 +64,7 @@ describe('ObjectLinks body placements (#1930)', () => {
     await user.keyboard('{Enter}');
     const group = await screen.findByRole('group', { name: 'E1 다른 화면에서 열기' });
     expect(within(group).getAllByRole('button').length).toBe(3);
-    expect(within(group).getByRole('button', { name: 'denied' })).toBeDisabled();
+    expect(within(group).getByRole('button', { name: 'denied' })).toHaveAttribute('aria-disabled', 'true');
     expect(within(group).getByRole('button', { name: 'denied' })).toHaveAccessibleDescription('이 메뉴에 대한 권한이 없습니다');
     expect(within(group).getByText('MARS')).toHaveClass('text-tiny', 'text-text-secondary');
     expect(within(group).getByText('OTHER')).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe('PlatformPage inbound header groups (#1930)', () => {
     expect(within(group).getByText('E1')).toHaveClass('font-mono');
     expect(screen.getByRole('button', { name: 'Own action' }).compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(group.previousElementSibling).toHaveAttribute('role', 'separator');
-    expect(within(group).getByRole('button', { name: 'denied' })).toBeDisabled();
+    expect(within(group).getByRole('button', { name: 'denied' })).toHaveAttribute('aria-disabled', 'true');
   });
   it('uses the existing main-screen analysisActions gate and draws no group in a pane', () => {
     mount(<PlatformPage>body</PlatformPage>, '/source', true);
