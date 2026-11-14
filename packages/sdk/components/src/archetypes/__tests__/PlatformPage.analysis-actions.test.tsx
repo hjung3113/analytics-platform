@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type AnalysisActionsProps } from '@ap/kernel';
@@ -81,16 +81,37 @@ describe('PlatformPage ⋯ for the analysisActions slot (#1424)', () => {
     expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
   });
 
-  it('keeps a not-allowed item as a disabled row with its reason, and a click does nothing', async () => {
+  it('keeps a not-allowed item as an aria-disabled row Tab reaches, with its reason; a click does nothing and keeps the menu open (#2186)', async () => {
     onPick.mockClear();
     mount('/trend');
     await settle();
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     const blocked = await screen.findByRole('button', { name: '막힌 동작' });
-    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAttribute('aria-disabled', 'true');
+    expect(blocked).not.toBeDisabled();
+    expect(blocked.tabIndex).toBe(0);
     expect(blocked).toHaveAccessibleDescription('권한이 없습니다');
+    await waitFor(() => expect(screen.getByRole('button', { name: '개선 아이템 남기기' })).toHaveFocus());
     fireEvent.click(blocked);
     expect(onPick).not.toHaveBeenCalled();
+    expect(screen.getByRole('group', { name: '기타 페이지 동작' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['lands on the enabled row after a blocked first row', [false, true], '열 수 있는 동작'],
+    ['falls back to the first row when every row is blocked', [false, false], '막힌 첫 동작'],
+  ] as const)('⋯ opening focus %s (#2186)', async (_name, allowed, focused) => {
+    function Blocked() {
+      return <>
+        <HeaderOverflowItem label="막힌 첫 동작" allowed={allowed[0]} reason="권한이 없습니다" onSelect={onPick} />
+        <HeaderOverflowItem label="열 수 있는 동작" allowed={allowed[1]} reason="권한이 없습니다" onSelect={onPick} />
+      </>;
+    }
+    mount('/trend', { analysisActions: { Actions: Blocked } });
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    await screen.findByRole('group', { name: '기타 페이지 동작' });
+    await waitFor(() => expect(screen.getByRole('button', { name: focused })).toHaveFocus());
   });
 
   it.each([
