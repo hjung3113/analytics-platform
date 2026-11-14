@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download,
 import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useHostPlatform } from '@ap/kernel/host';
+import { formatNumber } from '@ap/contracts';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
@@ -716,8 +717,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
         : !success ? '—'
         : p.externalPagination ? p.externalPagination.summary
         : outOfRange
-          ? m('tableSummaryOutOfRange', { total: data.total.toLocaleString(), pages: pageCount })
-          : m('tableSummaryPage', { total: data.total.toLocaleString(), page: shownPage + 1, pages: pageCount })}</span>;
+          ? m('tableSummaryOutOfRange', { total: formatNumber(data.total, lang), pages: pageCount })
+          : m('tableSummaryPage', { total: formatNumber(data.total, lang), page: shownPage + 1, pages: pageCount })}</span>;
   const resultLine = (
     <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', p.fill && 'shrink-0', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
       {!mergeToolbar && filterLine}
@@ -750,13 +751,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     {selectedCount > 0 && <div className="flex min-h-10 flex-wrap items-center gap-3 border-t border-border-subtle bg-accent-primary-soft px-3 py-2 text-xs">
       <span className="font-semibold tabular" data-testid="selected-count">{selectionState.all
         ? (selectionState.excludedIds.length > 0
-          ? m('tableSelectedExcluded', { total: selectionState.all.total.toLocaleString(), excluded: selectionState.excludedIds.length.toLocaleString() })
-          : m('tableSelectedAll', { total: selectionState.all.total.toLocaleString() }))
+          ? m('tableSelectedExcluded', { total: formatNumber(selectionState.all.total, lang), excluded: formatNumber(selectionState.excludedIds.length, lang) })
+          : m('tableSelectedAll', { total: formatNumber(selectionState.all.total, lang) }))
         : m('tableSelectedCount', { count: selectedCount })}</span>
       {selectionState.selection?.kind === 'ids' && p.bulkActions?.(selectionState.selection.ids)}
       {selectionState.selection && p.bulkSelectionActions?.(selectionState.selection, { filters: effectiveFilters, sorting: activeSorting })}
       {!selectionState.all && <Button variant="ghost" size="toolbar" onClick={clearSelection}>{m('tableClearSelection')}</Button>}
-      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{m('tableSelectedCollapsedNote', { count: hiddenSelected.toLocaleString() })}</span>}
+      {hiddenSelected > 0 && <span className="tabular" data-testid="selected-collapsed-note">{m('tableSelectedCollapsedNote', { count: formatNumber(hiddenSelected, lang) })}</span>}
       <span className="text-text-secondary">{m('tableSelectionPolicy')}</span>
     </div>}
 

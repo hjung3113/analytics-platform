@@ -1,3 +1,4 @@
+import { formatNumber } from '@ap/contracts';
 import { useMessages } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -19,18 +20,18 @@ type Props = {
 };
 
 /** Gmail-style bar of the opt-in `selectAllResults` (#556c, ADR-0104): offers 「필터 결과 전체 M행 선택」 and, once chosen, states it and clears it. Renders nothing otherwise. */
-export function SelectAllBar({ pageRows, total, offer, all, excluded, onSelectAll, onClear }: Props) {
+export function SelectAllBar({ lang, pageRows, total, offer, all, excluded, onSelectAll, onClear }: Props) {
   const m = useMessages(COMPONENTS_MESSAGES);
   if (!offer && !all) return null;
   return <div data-testid="select-all-bar" className="flex min-h-9 flex-wrap items-center gap-2 border-t border-border-subtle bg-surface-card px-3 py-1.5 text-xs" role="status">
     {all ? <>
       <span className="tabular">{excluded > 0
-        ? m('tableSelectBarExcluded', { total: all.total.toLocaleString(), excluded: excluded.toLocaleString() })
-        : m('tableSelectBarAll', { total: all.total.toLocaleString() })}</span>
+        ? m('tableSelectBarExcluded', { total: formatNumber(all.total, lang), excluded: formatNumber(excluded, lang) })
+        : m('tableSelectBarAll', { total: formatNumber(all.total, lang) })}</span>
       <Button variant="ghost" size="toolbar" onClick={onClear}>{m('tableClearSelection')}</Button>
     </> : <>
-      <span className="tabular">{m('tableSelectBarPage', { count: pageRows.toLocaleString() })}</span>
-      <Button variant="ghost" size="toolbar" onClick={onSelectAll}>{m('tableSelectBarSelectAll', { total: total.toLocaleString() })}</Button>
+      <span className="tabular">{m('tableSelectBarPage', { count: formatNumber(pageRows, lang) })}</span>
+      <Button variant="ghost" size="toolbar" onClick={onSelectAll}>{m('tableSelectBarSelectAll', { total: formatNumber(total, lang) })}</Button>
     </>}
   </div>;
 }
