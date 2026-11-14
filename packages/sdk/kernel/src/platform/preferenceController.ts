@@ -367,8 +367,9 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     lane.queued.push({ key, apply: edit.apply });
     return true;
   };
-  /** A newer absolute `set`/`remove` of `key` supersedes its held edit; `drainQueued` never calls this, so an earlier queued edit still materializes. */
-  const dropHeld = (key: string) => {
+  /** A newer absolute `set`/`remove` supersedes earlier relative edits of this key; draining relative edits never calls this. */
+  const dropEdits = (key: string) => {
+    lane.queued = lane.queued.filter(edit => edit.key !== key);
     const edit = held.get(key);
     if (!edit) return;
     clearTimeout(edit.timer);
@@ -421,8 +422,8 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       lane.queued.push({ key, apply });
       notifyQueued();
     },
-    set: (key, value) => { dropHeld(key); write(key, { remove: false, value, seq: ++lane.seq }); },
-    remove: key => { dropHeld(key); write(key, { remove: true, seq: ++lane.seq }); },
+    set: (key, value) => { dropEdits(key); write(key, { remove: false, value, seq: ++lane.seq }); },
+    remove: key => { dropEdits(key); write(key, { remove: true, seq: ++lane.seq }); },
     tableKey: ensureHash,
     setTable(rawKey, value) {
       const seq = ++lane.seq;
@@ -467,10 +468,10 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
       if (lane.active === adopt) lane.active = null;
       if (lane.receive === receive) lane.receive = null;
       if (lane.poke === poke) lane.poke = null;
-      // A held edit becomes an ordinary intent now (or waits on the lane while the value is unknown): a visit is never lost or sent for another account.
+      // Held edits follow queued predecessors. Without a relative queue, a known value still becomes an intent for detached saving.
       for (const [key, edit] of held) {
         clearTimeout(edit.timer);
-        if (loaded) {
+        if (loaded && lane.queued.length === 0) {
           const seq = ++lane.seq;
           lane.applied.set(key, seq);
           pending.set(key, { remove: false, value: edit.apply(effective(key)), seq });
