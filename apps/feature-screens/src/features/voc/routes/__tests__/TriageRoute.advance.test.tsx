@@ -17,7 +17,7 @@ const rows: VocListItem[] = [1, 2, 3, 4].map((n) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
   display_id: `VOC-${n}`,
   title: `Queue item ${n}`,
-  primary_managed_system_id: 'scope-a',
+  primary_managed_system_id: 'bbbbbbbb-0000-4000-8000-00000000000a',
   analytics_area_id: null,
   reporter_id: 'reporter',
   owner_user_id: null,
@@ -103,7 +103,7 @@ function mount({
         if (holdTab && url.searchParams.get('tab') === 'high') return holdTab.promise;
         const pin = url.searchParams.get('pin_voc_id');
         if (holdPin && pin === third.id) return holdPin.promise;
-        // All rows belong to scope-a: a processed pin would be unioned back in.
+        // All rows belong to bbbbbbbb-0000-4000-8000-00000000000a: a processed pin would be unioned back in.
         return json({
           items: (compensationAware ? [...serverRows.values()] : items).filter(
             (row) =>
@@ -290,7 +290,7 @@ it('confirms the middle row, focuses the next row and replaces selected without 
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000a' }),
     });
   });
   await screen.findByRole('button', { name: /VOC-3/ });
@@ -388,7 +388,7 @@ it('keeps successful progress across a real permission gate unmount', async () =
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000a' }),
     });
   });
   await screen.findByText('불러오는 중…');
@@ -419,7 +419,7 @@ it('settled undo preserves the new scope selection after a permission gate unmou
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000a' }),
     });
   });
   await screen.findByText('불러오는 중…');
@@ -438,7 +438,7 @@ it('settled undo preserves the new scope selection after a permission gate unmou
   });
   await waitFor(() => expect(screen.queryByText(/1건 처리됨/)).toBeNull());
   expect(router.state.location.search.selected).toBe(rows[3]?.id);
-  expect(router.state.location.search.managedSystem).toBe('scope-a');
+  expect(router.state.location.search.managedSystem).toBe('bbbbbbbb-0000-4000-8000-00000000000a');
   expect(fourth).toHaveFocus();
 });
 
@@ -501,7 +501,7 @@ it('counts a successful response arriving while the screen is unmounted by the p
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-a' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000a' }),
     });
   });
   await screen.findByText('불러오는 중…');
@@ -577,12 +577,12 @@ it.each(['row click', 'action advance'])(
         search: (prev: Record<string, unknown>) => ({
           ...prev,
           tab: 'untriaged',
-          managedSystem: 'scope-b',
+          managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000b',
           selected: third.id,
         }),
       });
     });
-    const scopeKey = [...initialKey.slice(0, 2), 'scope-b', ...destinationKey.slice(3)];
+    const scopeKey = [...initialKey.slice(0, 2), 'bbbbbbbb-0000-4000-8000-00000000000b', ...destinationKey.slice(3)];
     await waitFor(
       () => {
         expect(client.getQueryState(scopeKey)?.status).toBe('error');
@@ -634,10 +634,10 @@ it('clears populated retained rows on a failed 시스템 change in the same tab'
   await act(async () => {
     await router.navigate({
       to: '/vocs',
-      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'scope-b' }),
+      search: (prev: Record<string, unknown>) => ({ ...prev, managedSystem: 'bbbbbbbb-0000-4000-8000-00000000000b' }),
     });
   });
-  const scopeKey = [...pinKey.slice(0, 2), 'scope-b', ...pinKey.slice(3)];
+  const scopeKey = [...pinKey.slice(0, 2), 'bbbbbbbb-0000-4000-8000-00000000000b', ...pinKey.slice(3)];
   await waitFor(
     () => {
       expect(client.getQueryState(scopeKey)?.status).toBe('error');
