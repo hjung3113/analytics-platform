@@ -16,15 +16,6 @@ export const IMPROVEMENT_ITEMS_MESSAGES = {
   improvementItemsQuestLink: { ko: '과제(Quest) 연결', en: 'Quest link' },
   improvementItemsAnalysisSource: { ko: '분석 출처', en: 'Analysis source' },
 
-  statusOpen: { ko: '문제 기록', en: 'Problem recorded' },
-  statusInProgress: { ko: '조치 중', en: 'In progress' },
-  statusDone: { ko: '조치 완료', en: 'Action done' },
-  statusVerified: { ko: '효과 확인됨', en: 'Effect verified' },
-  statusDropped: { ko: '취소', en: 'Dropped' },
-  effectEffective: { ko: '효과 있음', en: 'Effective' },
-  effectIneffective: { ko: '효과 없음', en: 'Ineffective' },
-  effectInconclusive: { ko: '판단 보류', en: 'Inconclusive' },
-
   // ImprovementDetail events
   eventCreated: { ko: '개선 아이템 생성', en: 'Item created' },
   eventUpdated: { ko: '내용 변경', en: 'Content updated' },
