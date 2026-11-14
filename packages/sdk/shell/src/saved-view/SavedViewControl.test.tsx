@@ -4,8 +4,8 @@ import { House } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewSupport } from '@ap/kernel';
-import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
+import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
+import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
 import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
 import { GlobalContextBar } from '../context/GlobalContextBar';
 
@@ -712,4 +712,22 @@ it('uses the shell language for sharing and the nested group editor', async () =
   const picker = await screen.findByRole('dialog', { name: 'Share targets' });
   await user.click(within(picker).getByRole('button', { name: 'New group' }));
   expect(screen.getByRole('dialog', { name: 'New group' })).toHaveTextContent('Group name');
+});
+
+it('KER-18 held view selection raises no failure warning and selects only after confirm', async () => {
+  let request: ReturnType<typeof useLeaveRequest> = null;
+  function Guard() { useUnsavedGuard(true, { leaves: 'address' }); request = useLeaveRequest(); return null; }
+  const other = { ...L1, id: 'l2', name: 'ETCH 뷰', context: { ...L1.context, roomNames: ['ETCH'] } };
+  window.sessionStorage.setItem('platform:saved-view:selected:u1:home', 'l1');
+  mount(createFakeViewStore([L1, other]), `/?scopeId=MEM&${period}&roomNames=PHOTO`, <><Guard /><GlobalContextBar /></>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+  const user = userEvent.setup();
+  await user.click(selector());
+  await pick(user, 'ETCH 뷰');
+  expect(request).not.toBeNull();
+  expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰');
+  expect(toasts()).not.toContain('뷰를 불러오지 못했습니다.');
+  act(() => request!.confirm());
+  await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: ETCH 뷰'));
 });

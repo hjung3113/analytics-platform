@@ -80,7 +80,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     return result.ok;
   };
   const pickFailed = (outcome: SelectOutcome) => {
-    if (outcome.ok) return;
+    if (outcome.ok || outcome.reason === 'held' || outcome.reason === 'cancelled') return;
     const keys = {
       'wrong-menu': 'savedViewWrongMenu',
       'stale-schema': 'savedViewStaleSchema',

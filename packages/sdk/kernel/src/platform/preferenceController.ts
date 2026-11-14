@@ -1,11 +1,15 @@
-import { instantEpochMs, PREFERENCE_KEYS_MAX, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, type ApiResponse, type JsonValue, type PlatformAdapter, type PreferencesSnapshot } from '@ap/contracts';
+import { sha256Hex, instantEpochMs, PREFERENCE_KEYS_MAX, PREFERENCE_REQUEST_MAX_BYTES, PREFERENCE_VALUE_MAX_BYTES, type ApiResponse, type JsonValue, type PlatformAdapter, type PreferencesSnapshot } from '@ap/contracts';
 import { collectLegacyPreferences, type LegacyCandidates } from './preferenceLegacy';
 
 export type PreferenceStatus = 'loading' | 'ready' | 'failed';
 /** The reason of the last failure; `null` while healthy. Safe to show: it carries no server text. */
 export type PreferenceFailure = 'read' | 'import' | 'import_too_large' | 'import_unavailable' | 'write' | null;
 
-export type PreferenceState = { status: PreferenceStatus; failure: PreferenceFailure; version: number };
+export type PreferenceState = {
+  status: PreferenceStatus; failure: PreferenceFailure; version: number;
+  /** This controller acknowledged a reduced import; originals remain in the browser and are not automatically retried. */
+  partialImport?: boolean;
+};
 
 /** Server-held account preferences of ONE session user (ADR-0098). One controller = one generation: a new adapter, user or revision gets a new one. */
 export type PreferenceController = {
@@ -15,7 +19,7 @@ export type PreferenceController = {
   readonly get: (key: string) => JsonValue | undefined;
   readonly set: (key: string, value: JsonValue) => void;
   readonly remove: (key: string) => void;
-  /** Table keys (`columns:h1_<sha256>`) are derived asynchronously; `null` when WebCrypto is unavailable. */
+  /** Table keys (`columns:h1_<sha256>`) are derived asynchronously; `null` if hashing fails. */
   readonly tableKey: (rawKey: string) => Promise<string | null>;
   readonly setTable: (rawKey: string, value: JsonValue) => void;
   readonly start: () => void;
@@ -41,7 +45,7 @@ export type UpdatingPreferenceController = PreferenceController & {
 export type PreferenceControllerOptions = {
   adapter: PlatformAdapter;
   userId: string;
-  /** Test seam: the SHA-256 of UTF-8 bytes as a lowercase hex string; defaults to WebCrypto. */
+  /** Test seam: the SHA-256 of UTF-8 bytes as a lowercase hex string; defaults to WebCrypto with a pure-JS fallback. */
   sha256?: (text: string) => Promise<string>;
   storage?: () => Storage | null;
 };
@@ -50,7 +54,7 @@ const TABLE_PREFIX = 'columns:h1_';
 
 export async function webCryptoSha256(text: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
-  if (!subtle) throw new Error('webcrypto_unavailable');
+  if (!subtle) return sha256Hex(new TextEncoder().encode(text));
   const digest = await subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -65,7 +69,7 @@ function jsonDepthOk(value: unknown, depth = 1): boolean {
 }
 const bytes = (text: string) => new TextEncoder().encode(text).length;
 
-/** Is the complete import request inside the server limits? Used BEFORE sending, so nothing is sent partially. */
+/** Is the complete import request inside the server limits? Used BEFORE sending, including reduced imports. */
 export function importFits(serverKeys: readonly string[], values: Record<string, JsonValue>): boolean {
   const keys = Object.keys(values);
   if (new Set([...serverKeys, ...keys]).size > PREFERENCE_KEYS_MAX) return false;
@@ -118,6 +122,7 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
   let status: PreferenceStatus = 'loading';
   let failure: PreferenceFailure = null;
   let version = 0;
+  let partialImport = false;
   let server: Record<string, JsonValue> = {};
   let importedAt: string | null = null;
   let loaded = false;
@@ -131,7 +136,7 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
   const listeners = new Set<() => void>();
   const hashes = new Map<string, Promise<string | null>>();
   let tableChain: Promise<void> = Promise.resolve();
-  let snapshotState: PreferenceState = { status, failure, version };
+  let snapshotState: PreferenceState = { status, failure, version, partialImport };
   // Set by stop(), cleared by start(): the controller is gone (or replaying), so a late write cannot use the queue.
   let released = false;
   const lane = laneOf(adapter, userId);
@@ -202,7 +207,7 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
 
   const emit = () => {
     version++;
-    snapshotState = { status, failure, version };
+    snapshotState = { status, failure, version, partialImport };
     for (const l of [...listeners]) l();
   };
   const setHealth = (nextStatus: PreferenceStatus, nextFailure: PreferenceFailure) => {
@@ -292,15 +297,20 @@ export function createPreferenceController({ adapter, userId, sha256 = webCrypto
     if (importedAt === null) {
       const legacy = await convertLegacy();
       if (!current(gen)) return;
-      // A candidate that could not be converted now (no WebCrypto) is retried later; no import, no acknowledgement.
+      // A candidate that could not be converted now (hashing failed) is retried later; no import, no acknowledgement.
       if (legacy.failed) { setHealth('failed', 'import_unavailable'); return; }
-      const missing: Record<string, JsonValue> = {};
+      let missing: Record<string, JsonValue> = {};
       for (const [key, value] of Object.entries(legacy.values)) if (!(key in server)) missing[key] = value;
-      if (!importFits(Object.keys(server), missing)) { setHealth('failed', 'import_too_large'); return; }
+      const reduced = !importFits(Object.keys(server), missing);
+      if (reduced) {
+        missing = Object.fromEntries(Object.entries(missing).filter(([key]) => ['favorites', 'recents', 'lastScope', 'lang'].includes(key)));
+        if (!importFits(Object.keys(server), missing)) missing = {};
+      }
       let snapshot: PreferencesSnapshot | null = null;
       try { snapshot = okSnapshot(await adapter.importPreferences({ values: missing }, abort.signal)); } catch { snapshot = null; }
       if (!current(gen)) return;
       if (!snapshot || snapshot.importedAt === null) { setHealth('failed', 'import'); return; }
+      partialImport = reduced;
       server = snapshot.values;
       serverStamp = ++lane.clock;
       importedAt = snapshot.importedAt;

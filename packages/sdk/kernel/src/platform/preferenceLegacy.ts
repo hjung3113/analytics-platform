@@ -4,7 +4,7 @@ import { decodeFavorites, decodeRecent, decodeScopeId } from './preferences';
 export type LegacyCandidates = {
   /** Server key → converted value, ready to import. Only records that were positively identified and well-formed. */
   values: Record<string, JsonValue>;
-  /** An eligible record could not be converted now (no WebCrypto); the import waits so the record is not skipped for good. */
+  /** An eligible record could not be converted now (hashing failed); the import waits so the record is not skipped for good. */
   failed: boolean;
 };
 

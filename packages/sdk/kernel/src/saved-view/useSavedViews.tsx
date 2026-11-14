@@ -5,7 +5,8 @@ import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
 import { comparableApplied, overwritePatch, restoreSavedView,savedStateOf, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
 
-export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' };
+/** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
+export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
 export type SaveInput = { name: string; kind: 'condition-set' | 'menu-view'; chartOptions?: Record<string, JsonValue>; layout?: JsonValue; panels?: unknown };
 export type SavedViews = {
   /** `disabled`: no store injected, the menu does not declare `features.savedView`, or it registered no support. */
@@ -79,7 +80,9 @@ const entryOf = (item: SavedViewListItem | null | undefined): SavedViewEntry | n
  */
 export function useSavedViews(): SavedViews {
   const host = useHostPlatform();
-  const registry = useContext(AppContext)?.internal.savedViewSupports;
+  const app = useContext(AppContext);
+  const registry = app?.internal.savedViewSupports;
+  const guard = app?.internal.guard;
   const store = host.savedViewStore;
   const menu = host.route?.menu ?? null;
   const menuId = menu?.id ?? '';
@@ -140,16 +143,31 @@ export function useSavedViews(): SavedViews {
   const [rearmed, setRearmed] = useState(0);
   const retries = useRef<{ entry: object; n: number }>({ entry: entryGen, n: 0 });
   const intent = useRef(0);
+  const heldRequest = useRef<ReturnType<NonNullable<typeof guard>['getRequest']>>(null);
+  const [arrivingSelection, setArrivingSelection] = useState<{ gen: object; mine: number; href: string; entry: SavedViewEntry } | null>(null);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const stale = (at: object) => !alive.current || live.current.gen !== at;
   const clearSelection = useCallback(() => { intent.current += 1; setSelected(null); }, [setSelected]);
   const differs = (view: SavedViewEntry['view'], support: SavedViewSupport) => viewState({ applied: comparableApplied(view, captureApplied(applied, support)), saved: savedStateOf(view, support, anchor), draftDirty: [] }).modified;
 
+  // The guard's replay runs before the address commits. Select only once that exact applied state has arrived.
+  useEffect(() => {
+    if (!arrivingSelection) return;
+    const arrival = arrivingSelection;
+    setArrivingSelection(null);
+    if (arrival.gen !== gen || arrival.mine !== intent.current || !alive.current) return;
+    if (host.pathname + buildQuery(host.global, host.page, host.extras) !== arrival.href) return;
+    setFresh({ gen, entry: arrival.entry });
+    setSelected(arrival.entry.view.id);
+  }, [arrivingSelection, gen, host.pathname, host.global, host.page, host.extras, setSelected]);
+
   const apply = useCallback(async (id: string, source: 'selected' | 'default'): Promise<SelectOutcome> => {
     if (!enabled || !support || blocked || stale(gen)) return { ok: false, reason: 'unavailable' };
     const at = gen;
     const mine = ++intent.current;
+    if (heldRequest.current && guard?.getRequest() === heldRequest.current) guard.dropRequest();
+    heldRequest.current = null;
     const startUrl = live.current.host.appliedUrl;
     // Always asks the store: a restore is judged on the view's current capabilities, never on an earlier list answer or the cached copy.
     let found: SavedViewListItem | null;
@@ -160,7 +178,7 @@ export function useSavedViews(): SavedViews {
         if (retries.current.entry !== entryGen) retries.current = { entry: entryGen, n: 0 };
         if (retries.current.n < MAX_DEFAULT_RETRIES) { retries.current.n += 1; entered.current = null; setRearmed(n => n + 1); }
       }
-      return { ok: false, reason: 'unavailable' };
+      return { ok: false, reason: source === 'selected' ? 'cancelled' : 'unavailable' };
     }
     const fail = (reason: Exclude<SelectOutcome, { ok: true }>['reason']): SelectOutcome => { clearSelection(); return { ok: false, reason }; };
     if (!found) return fail('unavailable');
@@ -175,11 +193,28 @@ export function useSavedViews(): SavedViews {
     // The address omits hidden page keys (ADR-0105), so "already here" also compares the full applied state.
     // With no hidden pair the address is the whole state; with some, only the full rebuilt query can equal the target.
     const sameAddress = (current.appliedUrl === current.url && result.href === current.url) || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
-    if (!sameAddress && !current.navigate(result.href, { replace: source === 'default' })) return fail('unavailable');
+    if (!sameAddress) {
+      const before = guard?.getRequest();
+      let held = false;
+      const moved = current.navigate(result.href, { replace: source === 'default', run: () => {
+        if (stale(at) || intent.current !== mine || live.current.host.appliedUrl !== startUrl) return false;
+        if (held) setArrivingSelection({ gen: at, mine, href: result.href, entry: found });
+        return true;
+      } });
+      if (!moved) {
+        const request = guard?.getRequest();
+        if (request) {
+          held = true;
+          if (request !== before) heldRequest.current = request;
+          return { ok: false, reason: 'held' };
+        }
+        return fail('unavailable');
+      }
+    }
     setFresh({ gen: at, entry: found });
     setSelected(id);
     return { ok: true, unsupported: result.unsupported };
-  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected]);
+  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard]);
   const validated = useRef<object | null>(null);
 
   // Entering a screen: a selection that no longer matches the address is dropped (the address wins), then the personal default fills a bare route once.
@@ -201,7 +236,6 @@ export function useSavedViews(): SavedViews {
   // Back/Forward is an address arrival too: the arrived address wins over the selected view.
   // Fed by the Kernel's accepted-traversal signal, not the raw popstate: a Back the unsaved-edit guard cancelled (ADR-0115) is no arrival.
   const traversed = useRef(false);
-  const guard = useContext(AppContext)?.internal.guard;
   useEffect(() => guard?.onTraversal(() => { traversed.current = true; }), [guard]);
   useEffect(() => {
     if (!traversed.current) return;

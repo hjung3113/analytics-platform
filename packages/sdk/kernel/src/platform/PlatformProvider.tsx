@@ -264,6 +264,10 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   useEffect(() => {
     if (failure !== null && preferences) toast(textFor('preferencesUnsaved', preferences.get('lang') === 'en' ? 'en' : 'ko'), 'warning');
   }, [failure, preferences, toast]);
+  const partialImport = preferenceState.partialImport;
+  useEffect(() => {
+    if (partialImport && preferences) toast(textFor('preferencesPartialImport', preferences.get('lang') === 'en' ? 'en' : 'ko'), 'warning');
+  }, [partialImport, preferences, toast]);
   // A bounded recovery trigger: the browser coming back online retries the failed step once per event (no timer, no loop). A permanent too-large import is not retried.
   useEffect(() => {
     if (failure === null || failure === 'import_too_large' || !preferences) return;
