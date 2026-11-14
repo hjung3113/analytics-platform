@@ -17,7 +17,7 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { hashToken } from '../../api-tokens/token-format.js';
-import { attemptOwner } from '../../log-lifecycle/repositories/queue-write.js';
+import { attemptOwner } from '../../log-lifecycle/index.js';
 import { purgeExpiredExcerpts } from '../../log-lifecycle/excerpt-purge-job.js';
 import { toCodeKey } from '../../log-knowledge/domain/code-key.js';
 import type { DatasetSourceRead, DescribeFileResponse } from '../source-check.js';

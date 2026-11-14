@@ -28,6 +28,7 @@ export { sampleManifestDigest, parseSampleSet } from './domain/sample-set.js';
 export type { SampleSet } from './domain/sample-set.js';
 export { LOG_MODELS_MENU_ID, LOG_VALIDATION_REQUESTS_MENU_ID } from './menu.js';
 export { VALIDATION_QUEUE_ROUTE_PREFIX, VALIDATION_WORKER_SCOPE, workerRoutes } from './worker-routes.js';
+export { attemptOwner } from './repositories/queue-write.js';
 export { createQueueService } from './queue-service.js';
 export type { QueueService } from './queue-service.js';
 export { LIFECYCLE_PROJECT_MENU_PERMISSION, LIFECYCLE_PROJECT_PERMISSION } from './project-actions.js';
