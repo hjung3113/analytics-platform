@@ -78,7 +78,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function cleanAttrs(
   attrSchemas: Readonly<Record<string, AttrSchema>> | undefined,
   rawAttrs: unknown,
-  dropNull = false,
+  writeSide = false,
 ): Record<string, unknown> {
   if (!isPlainObject(rawAttrs)) return {};
   if (!attrSchemas) return {};
@@ -90,16 +90,30 @@ function cleanAttrs(
     if (!Object.prototype.hasOwnProperty.call(rawAttrs, key)) continue;
 
     const value = rawAttrs[key];
-    const coerced = coerceAttrValue(schema, value, key);
+    const coerced = writeSide && schema.kind === 'url'
+      ? cleanWriteUrl(schema, value)
+      : coerceAttrValue(schema, value, key);
     if (coerced === DROP) continue;
     // Write side (#2043): a null attr is the editor's unset default; leaving it out stores the same document.
-    if (dropNull && coerced === null) continue;
+    if (writeSide && coerced === null) continue;
     out[key] = coerced;
   }
   return out;
 }
 
 const DROP = Symbol('drop');
+
+// Write-side URLs must match the server validator; read-side coercion stays permissive.
+function cleanWriteUrl(schema: Extract<AttrSchema, { kind: 'url' }>, value: unknown): unknown {
+  if (typeof value !== 'string' || value.length > schema.maxLen) return DROP;
+  try {
+    const parsed = new URL(value);
+    if (!schema.schemes.has(parsed.protocol) || parsed.username !== '' || parsed.password !== '') return DROP;
+    return value;
+  } catch {
+    return DROP;
+  }
+}
 
 function coerceAttrValue(schema: AttrSchema, value: unknown, key: string): unknown {
   if (schema.kind === 'uuid') {
@@ -160,7 +174,7 @@ function cleanMark(
   raw: unknown,
   allowedMarks: ReadonlySet<string>,
   markAttrSchemas: Readonly<Record<string, Readonly<Record<string, AttrSchema>>>>,
-  dropNull: boolean,
+  writeSide: boolean,
 ): CleanMark | null {
   if (!isPlainObject(raw)) return null;
   if (typeof raw.type !== 'string') return null;
@@ -168,7 +182,13 @@ function cleanMark(
   if (!allowedMarks.has(markType)) return null;
 
   const schemas = markAttrSchemas[markType];
-  const attrs = cleanAttrs(schemas, raw.attrs, dropNull);
+  const attrs = cleanAttrs(schemas, raw.attrs, writeSide);
+  // Unwrap invalid links without losing text or any other marks on the text node.
+  if (writeSide && schemas) {
+    for (const [key, schema] of Object.entries(schemas)) {
+      if (schema.required && !Object.hasOwn(attrs, key)) return null;
+    }
+  }
 
   const out: CleanMark = { type: markType };
   if (Object.keys(attrs).length > 0) out.attrs = attrs;
@@ -276,6 +296,7 @@ export function sanitizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): 
  * reported in `overLimit`, never applied by dropping what the author typed. The server stays the
  * authority and rejects an over-limit document with an error. It is the send-ready cleanup of every
  * surface (#2043): only attr keys the surface allowlist defines are kept, and null attrs are left out.
+ * Links with missing or server-invalid URLs are unwrapped while preserving their text.
  */
 export function normalizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): { doc: TipTapDoc; overLimit: boolean } {
   return walkDoc(doc, surface, false);

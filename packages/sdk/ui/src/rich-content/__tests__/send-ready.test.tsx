@@ -7,6 +7,7 @@ import type { Editor } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
 import { RichEditor, type RichEditorSurface, type TipTapDoc } from '../RichEditor';
 import { UI_ALLOWLISTS, type AttrSchema } from '../allowlist-local';
+import { normalizeClient } from '../sanitizeClient';
 // Load the lazy editor module up front so the first test does not spend its waitFor budget on the import.
 import '../RichEditorImpl';
 
@@ -15,7 +16,8 @@ const ACTOR = '11111111-1111-4111-8111-111111111111';
 
 // Test-local copy of the two server attr rules (apps/platform-api/src/lib/rich-content/sanitize.ts:154-195),
 // which @ap/ui cannot import: a node or mark with no attr definition carries no attrs, and one with a
-// definition carries only defined keys and every required key. Node and mark types must be allowed too.
+// definition carries only defined keys and every required key. URL values must pass the server validator.
+// Node and mark types must be allowed too.
 function serverRuleViolations(doc: TipTapDoc, surface: RichEditorSurface): string[] {
   const allow = UI_ALLOWLISTS[surface];
   const errors: string[] = [];
@@ -27,6 +29,17 @@ function serverRuleViolations(doc: TipTapDoc, surface: RichEditorSurface): strin
     }
     for (const [key, schema] of Object.entries(schemas)) if (schema.required && !keys.includes(key)) errors.push(`${where}: missing ${key}`);
     for (const key of keys) if (!Object.hasOwn(schemas, key)) errors.push(`${where}: attr ${key} not allowed`);
+    for (const [key, schema] of Object.entries(schemas)) {
+      if (schema.kind !== 'url' || !keys.includes(key)) continue;
+      const value = (attrs as Record<string, unknown>)[key];
+      try {
+        if (typeof value !== 'string' || value.length > schema.maxLen) throw new Error('invalid URL');
+        const parsed = new URL(value);
+        if (!schema.schemes.has(parsed.protocol) || parsed.username !== '' || parsed.password !== '') throw new Error('invalid URL');
+      } catch {
+        errors.push(`${where}: invalid ${key}`);
+      }
+    }
   };
   const walk = (node: TipTapDoc, path: string) => {
     if (!allow.nodes.has(node.type)) errors.push(`${path}: node ${node.type} not allowed`);
@@ -121,4 +134,44 @@ describe('RichEditor emits a server-valid document on every surface (#2043)', ()
     await waitFor(() => expect(host.emitted.length).toBeGreaterThan(0));
     expect(serverRuleViolations(live.getJSON() as TipTapDoc, 'internal-comment')).not.toEqual([]);
   }, 30_000);
+});
+
+const INVALID_LINKS = [
+  ['mailto', 'mailto:person@example.com'],
+  ['relative', '/guide'],
+  ['javascript', 'javascript:alert(1)'],
+  ['credentials', 'https://person:password@example.com/guide'],
+  ['overlong', `https://example.com/${'a'.repeat(4096)}`],
+] as const;
+
+describe('send-ready link values (#2043 C1)', () => {
+  it.each(['', '/guide'])('the checker rejects href %j', href => {
+    const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'guide', marks: [{ type: 'link', attrs: { href } }] }] }] } as TipTapDoc;
+    expect(serverRuleViolations(doc, 'internal-comment')).toContain('doc.0.0.mark(link): invalid href');
+  });
+
+  it.each(INVALID_LINKS)('pasted %s link keeps text without a link mark', async (_name, href) => {
+    const host = mount('internal-comment');
+    const live = await host.editor();
+    act(() => { live.commands.insertContent(`<p><a href="${href}">guide</a></p>`); });
+    const last = host.emitted.at(-1) as TipTapDoc;
+    expect(serverRuleViolations(last, 'internal-comment')).toEqual([]);
+    expect(last.content).toEqual([{ type: 'paragraph', content: [{ type: 'text', text: 'guide' }] }]);
+  });
+
+  it.each([...INVALID_LINKS, ['missing', undefined], ['empty', '']] as const)('normalization unwraps %s href', (_name, href) => {
+    const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'guide', marks: [{ type: 'bold' }, { type: 'link', attrs: href === undefined ? {} : { href } }] }] }] } as TipTapDoc;
+    const cleaned = normalizeClient(doc, 'internal-comment').doc;
+    expect(serverRuleViolations(cleaned, 'internal-comment')).toEqual([]);
+    expect(cleaned.content).toEqual([{ type: 'paragraph', content: [{ type: 'text', text: 'guide', marks: [{ type: 'bold' }] }] }]);
+  });
+
+  it.each(['https://example.com/guide', 'http://example.com/guide'])('pasted allowed URL %s keeps its link', async href => {
+    const host = mount('internal-comment');
+    const live = await host.editor();
+    act(() => { live.commands.insertContent(`<p><a href="${href}">guide</a></p>`); });
+    const last = host.emitted.at(-1) as TipTapDoc;
+    expect(serverRuleViolations(last, 'internal-comment')).toEqual([]);
+    expect(last.content).toEqual([{ type: 'paragraph', content: [{ type: 'text', text: 'guide', marks: [{ type: 'link', attrs: { href } }] }] }]);
+  });
 });

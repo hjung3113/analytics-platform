@@ -75,7 +75,8 @@ export interface RichEditorProps {
   /**
    * Display name of a mentioned actor. A mention stores only `actor_id`; without a resolver, or when it
    * returns nothing, the chip shows the neutral fallback `@멘션`, never the id. The editor reads the latest
-   * resolver when a mention is drawn.
+   * resolver when a mention is drawn. Already-drawn chips do not refresh when resolver results change;
+   * callers should have labels ready before mounting the editor.
    */
   resolveMentionLabel?: (actorId: string) => string | null | undefined;
 }
