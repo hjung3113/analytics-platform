@@ -20,7 +20,7 @@ export type { TableFilterDeclaration, TableFilterColumnProps } from './table/use
 export { useClearFiltersAction } from './table/useClearFiltersAction';
 export type { ClearFiltersActionOptions } from './table/useClearFiltersAction';
 export { RecoverButton } from './state/RecoverButton';
-export { AccessRequestEntry, scopeRequestTarget, useScopeAccessRequest } from './state/AccessRequestEntry';
+export { AccessRequestEntry, scopeRequestTarget, useAccessRequestRetry, useScopeAccessRequest } from './state/AccessRequestEntry';
 export { focusPageFallback } from './state/pageFocus';
 export { checkWorkbook, toWorkbookXlsx, WorkbookError, WORKBOOK_LIMITS, type WorkbookCell, type WorkbookErrorCode, type WorkbookSheet } from './table/workbook';
 export { useWorkbookExport, WorkbookRefusal, type WorkbookExport, type WorkbookExportOptions, type WorkbookExportResult } from './table/useWorkbookExport';

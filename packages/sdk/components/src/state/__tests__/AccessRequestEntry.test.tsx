@@ -435,6 +435,54 @@ describe('request state unknown (#1933): checking and error', () => {
     expect(await screen.findByText('요청 대기 중')).toBeTruthy();
   });
 
+  it('keeps the failure sentence in the body while a retry runs, and focus stays on the pressed 다시 시도 (#1933 review C4)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    let phase: 'error' | 'checking' | 'plain' = 'error';
+    const listeners = new Set<() => void>();
+    const bump = () => { for (const listener of listeners) listener(); };
+    const slot: AccessRequestSlot = {
+      Pending: ({ children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
+        const current = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => phase);
+        if (current === 'checking') return <>{children({ pending: null, statusHref: null, read: 'checking' })}</>;
+        if (current === 'error') return <>{children({ pending: null, statusHref: null, read: 'error', retry: () => { phase = 'checking'; bump(); } })}</>;
+        return <>{children({ pending: null, statusHref: null })}</>;
+      },
+      Dialog: () => null,
+    };
+    gate(slot);
+    const retry = await screen.findByRole('button', { name: '다시 시도' });
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByRole('button', { name: '다시 시도' }).getAttribute('aria-busy')).toBe('true'));
+    expect(screen.getByText('요청 상태를 확인하지 못했습니다. 이미 요청했다면 중복으로 접수되지 않습니다.')).toBeTruthy();
+    expect(screen.queryByText('요청 상태를 확인하는 중입니다.')).toBeNull();
+    // The read settles into the plain entry: the retry button is gone and the focus it held goes to the request button (review C2).
+    retry.focus();
+    act(() => { phase = 'plain'; bump(); });
+    await waitFor(() => expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull());
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '권한 요청' }));
+  });
+
+  it('the request button is the same element while checking turns into error, so its focus stays (#1933 review C2)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    let phase: 'checking' | 'error' = 'checking';
+    const listeners = new Set<() => void>();
+    const bump = () => { for (const listener of listeners) listener(); };
+    const slot: AccessRequestSlot = {
+      Pending: ({ children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
+        const current = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => phase);
+        return <>{children(current === 'checking' ? { pending: null, statusHref: null, read: 'checking' } : { pending: null, statusHref: null, read: 'error', retry: () => {} })}</>;
+      },
+      Dialog: () => null,
+    };
+    gate(slot);
+    const button = await screen.findByRole('button', { name: '권한 요청' });
+    button.focus();
+    act(() => { phase = 'error'; bump(); });
+    await screen.findByRole('button', { name: '다시 시도' });
+    expect(screen.getByRole('button', { name: '권한 요청' })).toBe(button);
+    expect(document.activeElement).toBe(button);
+  });
+
   it('place (e) banner while checking keeps the request button busy and says why', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     pendingAnswer = 'checking';

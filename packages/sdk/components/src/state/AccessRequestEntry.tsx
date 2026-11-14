@@ -108,11 +108,46 @@ function EntryView({ state, size, label, holder, onRequest, children }: {
   children: ((state: AccessRequestState, action: ReactNode) => ReactNode) | undefined;
 }) {
   const { t } = useI18n();
+  const { shown, retrying, canRetry, run: retryNow } = useAccessRequestRetry(state);
+  const phase = shown.pending ? 'pending' : shown.read ?? 'request';
+  // The pressed retry button disappears when the read settles into pending or plain; focus it held goes to the surviving action.
+  const retryFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (phase === 'error' || !retryFocus.current) return;
+    retryFocus.current = false;
+    if (isFocusLost()) holder.current?.querySelector<HTMLElement>('a[href], button')?.focus({ preventScroll: true });
+  }, [phase, holder]);
+  const buttonSize = size === 'field' ? 'toolbar' : 'sm';
+  const variant = size === 'field' ? 'ghost' : 'secondary';
+  const checking = phase === 'checking';
+  const action = <span ref={holder} data-access-request={phase} className="contents">{phase === 'pending'
+    ? <span className="inline-flex flex-wrap items-center gap-2">
+      <StatusBadge tone="neutral">{t('accessRequestPending')}</StatusBadge>
+      {shown.statusHref !== null && <PlatformLink href={shown.statusHref} className="text-xs font-medium text-accent-primary hover:underline">{t('accessRequestStatus')}</PlatformLink>}
+    </span>
+    // One flat child list in every non-pending phase, so the request button is the same element while checking, failed and plain.
+    : <span className={phase === 'error' ? 'inline-flex flex-wrap items-center gap-2' : 'contents'}>
+      {phase === 'error' && size === 'field' && <span className="text-xs text-text-muted">{t('accessRequestReadErrorShort')}</span>}
+      {phase === 'error' && canRetry && <Button type="button" size={buttonSize} variant="ghost" aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
+        onBlur={event => { if (event.relatedTarget) retryFocus.current = false; }}
+        onClick={() => { if (retrying) return; retryFocus.current = true; retryNow(); }}>{retrying && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('retry')}</Button>}
+      <Button type="button" size={buttonSize} variant={variant} aria-label={label} {...(checking ? { 'aria-disabled': true, 'aria-busy': true } : {})} onClick={checking ? event => event.preventDefault() : onRequest}>
+        {checking && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('accessRequest')}
+      </Button>
+    </span>}</span>;
+  return <>{children ? children(shown, action) : action}</>;
+}
+
+/**
+ * The retry of a failed state read, shared by every place that offers 「다시 시도」 (#1933). The slot reports `checking` while the retry runs and gives no
+ * `retry` then, so the hook keeps the last one, and `shown` keeps the failure look (body and action alike) until the read settles. `run` does nothing when
+ * there is nothing to re-run (`canRetry` false) or one retry is already running.
+ */
+export function useAccessRequestRetry(state: AccessRequestState): { shown: AccessRequestState; retrying: boolean; canRetry: boolean; run: () => void } {
   const [retry, setRetry] = useState<null | 'pressed' | 'running'>(null);
-  // The state carries `retry` only while it reads `error`; the pressed button must survive the `checking` phase of its own retry.
   const retryAction = useRef(state.retry);
   if (state.retry) retryAction.current = state.retry;
-  const retryNow = state.retry ?? (retry !== null ? retryAction.current : undefined);
+  const action = state.retry ?? (retry !== null ? retryAction.current : undefined);
   useEffect(() => {
     if (retry === 'pressed' && state.read === 'checking') setRetry('running');
     else if (retry === 'running' && state.read !== 'checking') setRetry(null);
@@ -123,27 +158,7 @@ function EntryView({ state, size, label, holder, onRequest, children }: {
     const timer = window.setTimeout(() => setRetry(null), 3000);
     return () => window.clearTimeout(timer);
   }, [retry]);
-  const phase = state.pending ? 'pending' : retry !== null ? 'error' : state.read ?? 'request';
-  const buttonSize = size === 'field' ? 'toolbar' : 'sm';
-  const variant = size === 'field' ? 'ghost' : 'secondary';
-  const request = phase === 'checking'
-    ? <Button key="request" type="button" size={buttonSize} variant={variant} aria-label={label} aria-disabled="true" aria-busy="true" onClick={event => event.preventDefault()}>
-      <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequest')}
-    </Button>
-    : <Button key="request" type="button" size={buttonSize} variant={variant} aria-label={label} onClick={onRequest}>{t('accessRequest')}</Button>;
-  const retrying = retry !== null;
-  const action = <span ref={holder} data-access-request={phase} className="contents">{phase === 'pending'
-    ? <span className="inline-flex flex-wrap items-center gap-2">
-      <StatusBadge tone="neutral">{t('accessRequestPending')}</StatusBadge>
-      {state.statusHref !== null && <PlatformLink href={state.statusHref} className="text-xs font-medium text-accent-primary hover:underline">{t('accessRequestStatus')}</PlatformLink>}
-    </span>
-    : phase === 'error'
-      ? <span className="inline-flex flex-wrap items-center gap-2">
-        {size === 'field' && <span className="text-xs text-text-muted">{t('accessRequestReadErrorShort')}</span>}
-        {retryNow && <Button key="retry" type="button" size={buttonSize} variant="ghost" aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
-          onClick={() => { if (retrying) return; setRetry('pressed'); retryNow(); }}>{retrying && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('retry')}</Button>}
-        {request}
-      </span>
-      : request}</span>;
-  return <>{children ? children(state, action) : action}</>;
+  const shown: AccessRequestState = retry !== null && state.read === 'checking' ? { ...state, read: 'error' } : state;
+  const run = () => { if (action === undefined || retry !== null) return; setRetry('pressed'); action(); };
+  return { shown, retrying: retry !== null, canRetry: action !== undefined, run };
 }

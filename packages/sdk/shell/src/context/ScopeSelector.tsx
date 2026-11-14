@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-react';
-import { useI18n, useMessages, type AccessRequestSlot } from '@ap/kernel';
-import { useScopeAccessRequest } from '@ap/components';
+import { useI18n, useMessages, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
+import { useAccessRequestRetry, useScopeAccessRequest } from '@ap/components';
 import { useHostPlatform } from '@ap/kernel/host';
 import { ShellBoundary } from '../frame/ShellBoundary';
 import { SHELL_MESSAGES } from '../messages';
@@ -126,21 +126,38 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
 function SiteRequestItem({ slot, site, onRequest, onStatus }: { slot: AccessRequestSlot; site: { id: string; label: string; missing: number }; onRequest: () => void; onStatus: (href: string) => void }) {
   const { t } = useI18n();
   const { Pending } = slot;
-  return <ShellBoundary fallback={null}><Pending target={{ kind: 'site', site: site.id }}>{state => state.pending
-    ? <DropdownMenuItem data-access-request="pending" disabled={state.statusHref === null} onSelect={() => { if (state.statusHref !== null) onStatus(state.statusHref); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+  return <ShellBoundary fallback={null}><Pending target={{ kind: 'site', site: site.id }}>{state => <SiteRows state={state} site={site} onRequest={onRequest} onStatus={onStatus} />}</Pending></ShellBoundary>;
+}
+
+/** One site's rows by the request state (#1933). While a retry runs the rows keep their failure look; the focus the retry row held goes to the request row. */
+function SiteRows({ state, site, onRequest, onStatus }: { state: AccessRequestState; site: { id: string; label: string; missing: number }; onRequest: () => void; onStatus: (href: string) => void }) {
+  const { t } = useI18n();
+  const { shown, retrying, canRetry, run } = useAccessRequestRetry(state);
+  const requestRow = useRef<HTMLDivElement>(null);
+  const retryFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (shown.read === 'error' || !retryFocus.current) return;
+    retryFocus.current = false;
+    if (document.activeElement === null || document.activeElement === document.body) requestRow.current?.focus();
+  }, [shown.read, shown.pending]);
+  if (shown.pending) {
+    return <DropdownMenuItem data-access-request="pending" disabled={shown.statusHref === null} onSelect={() => { if (shown.statusHref !== null) onStatus(shown.statusHref); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
       {t('accessRequestSitePending', { site: site.label })}
+    </DropdownMenuItem>;
+  }
+  if (shown.read === 'checking') {
+    // The row keeps its place and stays focusable; selecting it does nothing until the read answers.
+    return <DropdownMenuItem data-access-request="checking" aria-disabled="true" aria-busy="true" onSelect={event => event.preventDefault()} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+      <Loader2 className="mr-2 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequestSiteChecking', { site: site.label })}
+    </DropdownMenuItem>;
+  }
+  return <>
+    <DropdownMenuItem ref={requestRow} data-access-request={shown.read === 'error' ? 'error' : 'request'} onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+      {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
     </DropdownMenuItem>
-    : state.read === 'checking'
-      // The row keeps its place and stays focusable; selecting it does nothing until the read answers (#1933).
-      ? <DropdownMenuItem data-access-request="checking" aria-disabled="true" aria-busy="true" onSelect={event => event.preventDefault()} className="opacity-60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-        <Loader2 className="mr-2 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequestSiteChecking', { site: site.label })}
-      </DropdownMenuItem>
-      : <>
-        <DropdownMenuItem data-access-request={state.read === 'error' ? 'error' : 'request'} onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-          {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
-        </DropdownMenuItem>
-        {state.read === 'error' && state.retry && <DropdownMenuItem onSelect={event => { event.preventDefault(); state.retry?.(); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-          <RotateCw className="mr-2 size-3.5" aria-hidden />{t('accessRequestRecheck')}
-        </DropdownMenuItem>}
-      </>}</Pending></ShellBoundary>;
+    {shown.read === 'error' && canRetry && <DropdownMenuItem aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
+      onSelect={event => { event.preventDefault(); if (retrying) return; retryFocus.current = true; run(); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+      {retrying ? <Loader2 className="mr-2 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : <RotateCw className="mr-2 size-3.5" aria-hidden />}{t('accessRequestRecheck')}
+    </DropdownMenuItem>}
+  </>;
 }
