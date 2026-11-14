@@ -141,3 +141,45 @@ it('keeps selection local when selectedId is absent', async () => {
   await screen.findByRole('img');
   expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('선택 없음');
 });
+it('keeps following when the followed id and the rows change together, when rows arrive later and when N grows (#2187 review C1)', async () => {
+  const summary = () => screen.getByRole('region', { name: '선택 요약' }).textContent;
+  const one = (id: string) => [{ id, label: `Only ${id}`, value: 5, colorToken: 'chart-series-1' as const }];
+  const view = mount({ kind: 'topNBar', items: one('a'), expanded: true, selectedId: 'a' });
+  await screen.findByRole('img');
+  expect(summary()).toContain('Only a · 1개 선택');
+  view.update({ kind: 'topNBar', items: one('b'), expanded: true, selectedId: 'b' });
+  expect(summary()).toContain('Only b · 1개 선택');
+  view.update({ kind: 'topNBar', items: [], expanded: true, selectedId: 'c' });
+  view.update({ kind: 'topNBar', items: one('c'), expanded: true, selectedId: 'c' });
+  expect(summary()).toContain('Only c · 1개 선택');
+  view.update({ kind: 'topNBar', items, expanded: true, topN: 8, selectedId: '3' });
+  expect(summary()).toContain('Item 3 · 상위 8개 밖');
+  view.update({ kind: 'topNBar', items, expanded: true, topN: 10, selectedId: '3' });
+  expect(summary()).toContain('Item 3 · 1개 선택');
+});
+it('Reset and a local deselect end following until the followed id changes (#2187 review C2)', async () => {
+  const summary = () => screen.getByRole('region', { name: '선택 요약' }).textContent;
+  const view = mount({ kind: 'topNBar', items, expanded: true, selectedId: '3' });
+  await screen.findByRole('img');
+  expect(summary()).toContain('Item 3 · 상위 8개 밖');
+  fireEvent.click(screen.getByRole('button', { name: '차트 초기화' }));
+  expect(summary()).toContain('선택 없음');
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  const box = screen.getByRole('checkbox', { name: /Item 9/ });
+  fireEvent.click(box);
+  expect(summary()).toContain('Item 9 · 1개 선택');
+  fireEvent.click(box);
+  expect(summary()).toContain('선택 없음');
+  view.update({ kind: 'topNBar', items, expanded: true, selectedId: '9' });
+  expect(summary()).toContain('Item 9 · 1개 선택');
+});
+it('names only a valid input item as outside the top N (#2187 review C4)', async () => {
+  const summary = () => screen.getByRole('region', { name: '선택 요약' }).textContent;
+  const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const view = mount({ kind: 'topNBar', items: [...items, { id: 'bad', label: 'Bad', value: -1, colorToken: 'chart-series-1' }], expanded: true, selectedId: 'bad' });
+  await screen.findByRole('img');
+  expect(summary()).toContain('선택 없음');
+  view.update({ kind: 'topNBar', items: [...items, { ...items[3], label: 'Duplicate label' }], expanded: true, topN: 8, selectedId: '3' });
+  expect(summary()).toContain('Item 3 · 상위 8개 밖');
+  diagnostic.mockRestore();
+});

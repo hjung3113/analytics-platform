@@ -14,6 +14,8 @@ export type OperationTimeData = {
   equipmentId: string | null;
   /** The requested `eqp` that is not in the current Scope and room conditions. It is never replaced by another equipment: `lanes` is empty and the page says so. */
   missingEquipment: string | null;
+  /** The shown equipment's own row when it ranks below the `ranking` cap (not in `ranking`); otherwise absent. Its value is real, never invented. */
+  equipmentRow?: OperationRankRow;
   lanes: OperationLane[];
 };
 

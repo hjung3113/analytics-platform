@@ -75,9 +75,10 @@ export type TopNBarSpec = {
   onExpandedChange?: (next: boolean) => void; hideWhenEmpty?: boolean;
   onItemClick?: (id: string) => void;
   /**
-   * The item the page currently shows (for example the one an address names). Present → the chart starts with that bar selected and
-   * selects it again whenever this value or the global Context changes; `null` clears the selection. Clicks still change the selection
-   * locally in between. An item outside the drawn top N is named in the selection summary as outside it. Absent → selection is local only.
+   * The item the page currently shows (for example the one an address names). Present → the chart follows it: its bar is the selection
+   * whenever it is drawn (also when rows arrive or N grows later); while it is not drawn but is a valid input item, the selection summary
+   * names it as outside the drawn top N. A click, Reset or brush makes the selection local until this value or the global Context
+   * changes, which returns to following. `null` follows nothing (no selection). Absent → selection is local only, as before.
    */
   selectedId?: string | null;
 };
@@ -114,12 +115,15 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const titleId = useId(); const summaryId = useId();
   const [table, setTable] = useState(false);
   const chart = useRef<ECharts | null>(null);
-  // A top-N bar may follow the page's current item (`selectedId`); otherwise selection is local only.
+  // A top-N bar may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
+  // selection whenever its bar is drawn, so rows that arrive or grow later still show it. A click, Reset or brush makes the selection
+  // local until the followed value or the Context changes. Without `selectedId` the selection is local only, as before.
   const followed = p.spec.kind === 'topNBar' && p.spec.selectedId !== undefined ? p.spec.selectedId : undefined;
-  const followedSelection = followed == null ? [] : [JSON.stringify(['topNBar', followed])];
-  const [selected, setSelected] = useState<string[]>(followedSelection);
+  const followedKey = followed == null ? null : JSON.stringify(['topNBar', followed]);
+  const unfollowed: string[] | null = followed === undefined ? [] : null;
+  const [selected, setSelected] = useState<string[] | null>(unfollowed);
   const [previousFollowed, setPreviousFollowed] = useState(followed);
-  if (previousFollowed !== followed) { setPreviousFollowed(followed); setSelected(followedSelection); }
+  if (previousFollowed !== followed) { setPreviousFollowed(followed); setSelected(unfollowed); }
   const brushedKeys = useRef<string[]>([]);
   const [brushMode, setBrushMode] = useState(false);
   const [instanceReady, setInstanceReady] = useState(0);
@@ -134,13 +138,19 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
-  const active = useMemo(() => previousContext === contextKey ? selected.filter(key => keys.includes(key)) : [], [previousContext, contextKey, selected, keys]);
-  if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected(followedSelection); }
-  else if (active.length !== selected.length) setSelected(active);
+  const following = selected === null;
+  const active = useMemo(() => previousContext !== contextKey ? []
+    : selected === null ? (followedKey !== null && keys.includes(followedKey) ? [followedKey] : [])
+    : selected.filter(key => keys.includes(key)), [previousContext, contextKey, selected, followedKey, keys]);
+  if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected(unfollowed); }
+  else if (selected !== null && active.length !== selected.length) setSelected(active);
   useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
   const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); };
-  const toggle = (key: string) => setSelected(old => old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key]);
+  const toggle = (key: string) => setSelected(previous => {
+    const old = previous ?? active;
+    return old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key];
+  });
   const format = useCallback((v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v), [spec]);
   const unknown = unknownLabel(lang);
   const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
@@ -210,10 +220,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
     selectionSummary = m('chartSelectionOverflow', { count: active.length, labels, more: active.length - 3 });
   }
-  if (spec.kind === 'topNBar' && followed != null && !active.length && !keys.includes(followedSelection[0])) {
-    const item = spec.items.find(candidate => candidate.id === followed);
-    if (item) selectionSummary = m('chartSelectionOutsideTopN', { label: item.label, count: rows.length });
-  }
+  // Still following an item whose bar is not drawn: name it as outside the drawn top N (only a valid input item; a rejected one is no rank).
+  const outsideLabel = following && followed != null && !active.length ? extended?.labels?.get(followed) : undefined;
+  if (outsideLabel !== undefined) selectionSummary = m('chartSelectionOutsideTopN', { label: outsideLabel, count: rows.length });
   if (spec.kind === 'heatmap' && active.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
       const selectedLabels = labels.filter(label => selectedRows.some(row => row[axis] === label));
@@ -275,7 +284,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
           finished: (_, instance) => measureGrid(instance),
           takeglobalcursor: params => { if (brushable) setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
           brushselected: params => { if (!brushable) return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
-          brushEnd: () => { if (!brushable) return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
+          brushEnd: () => { if (!brushable) return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old !== null && old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
           <p>{selectedRows[0]?.label ?? spec.centerLabel ?? m('chartTotal')}</p>

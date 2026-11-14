@@ -15,6 +15,8 @@ export type KindProjection = {
   legend: { label: string; color: ThemeColorToken; symbol: string; stroke?: ThemeColorToken; unknown?: boolean }[];
   seriesKeys: (string | undefined)[][];
   option: (active: string[]) => EChartsCoreOption;
+  /** topNBar: every valid, de-duplicated input item's label by id, drawn or not (the outside-top-N selection summary). */
+  labels?: ReadonlyMap<string, string>;
 };
 const rowKey = (kind: string, id: string) => JSON.stringify([kind, 'row', id]);
 function unique<T extends { id: string }>(items: T[]): T[] {

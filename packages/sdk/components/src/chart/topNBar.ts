@@ -12,12 +12,14 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
   const seen = new Set<string>();
   const validN = spec.topN === undefined || (Number.isInteger(spec.topN) && spec.topN >= 1);
   if (!validN) chartDiagnostic('invalid TopN limit; using 8');
-  const items = spec.items.filter(item => {
+  const valid = spec.items.filter(item => {
     if (seen.has(item.id) || !Number.isFinite(item.value) || item.value < 0 || !isThemeColorToken(item.colorToken)) {
       chartDiagnostic('invalid or duplicate TopN item dropped'); return false;
     }
     seen.add(item.id); return true;
-  }).sort((a, b) => b.value - a.value).slice(0, validN ? spec.topN ?? 8 : 8);
+  });
+  const labels = new Map(valid.map(item => [item.id, item.label]));
+  const items = [...valid].sort((a, b) => b.value - a.value).slice(0, validN ? spec.topN ?? 8 : 8);
   const rows = items.map(item => ({ key: JSON.stringify(['topNBar', item.id]), label: item.label, value: item.value, color: item.colorToken, drill: spec.onItemClick ? () => spec.onItemClick?.(item.id) : undefined }));
   const legendSeen = new Set<string>();
   const legend = (spec.legend ?? []).filter(entry => {
@@ -31,7 +33,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
     headers: [formatText(COMPONENTS_MESSAGES.chartHeaderName, resolved), formatText(COMPONENTS_MESSAGES.chartHeaderValue, resolved)],
     tableValues,
     csvHeaders: [formatText(COMPONENTS_MESSAGES.chartHeaderName, resolved), `${formatText(COMPONENTS_MESSAGES.chartHeaderValue, resolved)} (${unit})`], csvValues: rows.map(row => [row.label, row.value]),
-    legend, seriesKeys: [rows.map(row => row.key)],
+    legend, seriesKeys: [rows.map(row => row.key)], labels,
     option: active => {
       const theme = chartTheme();
       return {

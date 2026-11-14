@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, headerMore } from './contract-helpers';
-import { evidence, expectScopeValid, mainHeading } from './support';
+import { evidence, expectScopeValid, mainHeading, signInAs } from './support';
 
 test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
   test('생산성 행 목록에서 설비 상세를 열고 분석 Selection을 보존한다', async ({ page }, testInfo) => {
@@ -61,5 +61,12 @@ test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
     await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText(id);
     await (await headerMore(page)).getByRole('link', { name: '← 생산성 개요', exact: true }).click();
     await expect(page).toHaveURL(/\/mars\/productivity-overview\?/);
+  });
+  test('주소로 연 설비가 순위 차트 상위 N 밖이어도 선택 요약이 그 설비를 말한다 (#2187)', async ({ page }) => {
+    // Admin sees every MEM room (54 synthetic equipment): this one ranks below the response's 30-row cap. Its flow draws, and the ranking says where it is.
+    await signInAs(page, 'admin');
+    await page.goto(`/clas/operation-time?v=1&scopeId=MEM&${PERIOD}&eqp=MEM-ETCH-0122`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText('MEM-ETCH-0122 · 상위 10개 밖');
   });
 });
