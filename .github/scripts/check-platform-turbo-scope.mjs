@@ -46,8 +46,12 @@ export function planErrors(task, plan, packages = manifests) {
   return errors;
 }
 
-// A task can hash a workspace dependency through its graph, or an explicit whole source-folder input.
-export function workspaceDependencyErrors(task, plan, packages) {
+const gitTracked = (directory) => execFileSync('git', ['ls-files', '--', directory], { cwd: repoRoot, encoding: 'utf8' }).split('\n').filter(Boolean);
+
+// A task covers a workspace dependency through its graph, or by hashing every tracked source file of it: its `src/` files,
+// or its non-Markdown files when it has no `src/`. Coverage reads the files Turbo really hashed (`inputs` of the dry run),
+// so an exclusion or a manifest-only input does not count.
+export function workspaceDependencyErrors(task, plan, packages, trackedFiles = gitTracked) {
   if (!['test', 'typecheck', 'lint'].includes(task)) return [];
   const errors = [];
   const byName = new Map(packages.map(pkg => [pkg.name, pkg]));
@@ -63,17 +67,22 @@ export function workspaceDependencyErrors(task, plan, packages) {
     };
     visit(entry);
     const entries = [...closure.values()];
-    const inputs = entries.flatMap(node => (node.resolvedTaskDefinition?.inputs ?? [])
-      .filter(input => !input.startsWith('!'))
-      .map(input => posix.normalize(posix.join(node.directory ?? pkg.directory, input))));
+    const hashed = new Set(entries.flatMap(node => Object.keys(node.inputs ?? {})
+      .map(file => posix.normalize(posix.join(node.directory ?? pkg.directory, file)))));
+    const covered = (directory) => {
+      const files = trackedFiles(directory);
+      const src = files.filter(file => file.startsWith(`${directory}/src/`));
+      const needed = src.length > 0 ? src : files.filter(file => !file.endsWith('.md'));
+      return needed.length > 0 && needed.every(file => hashed.has(file));
+    };
     const dependencies = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
     for (const [name, version] of Object.entries(dependencies)) {
       if (!version.startsWith('workspace:')) continue;
       const dependency = byName.get(name);
       if (!dependency) { errors.push(`${entry.taskId}: unknown workspace dependency ${name}`); continue; }
       if (entries.some(node => node.package === name)) continue;
-      if (inputs.includes(`${dependency.directory}/**`) || inputs.includes(`${dependency.directory}/src/**`)) continue;
-      errors.push(`${entry.taskId}: workspace dependency ${name} is absent from the task closure and source-folder inputs`);
+      if (covered(dependency.directory)) continue;
+      errors.push(`${entry.taskId}: workspace dependency ${name} is absent from the task closure, and its source files are not all hashed`);
     }
   }
   return errors;

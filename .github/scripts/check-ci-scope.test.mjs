@@ -15,6 +15,8 @@ test('SDK self-test scope uses the push range and runs on unknown diffs or manua
   const scope = job.split('        run: |\n')[1].split('\n      - ')[0].replace(/^          /gm, '');
   assert.match(job, /BEFORE: \$\{\{ github.event.before \}\}/);
   assert.match(job, /SHA: \$\{\{ github.sha \}\}/);
+  // The test runs the script under bash, so the step must too (a container job defaults to sh).
+  assert.match(job, /- name: Scope\n        id: scope\n(?:        #[^\n]*\n)?        shell: bash\n/);
   const dir = mkdtempSync(join(tmpdir(), 'w2030-scope-'));
   try {
     // A fake diff process tests shell exit handling without repository mutations.
@@ -75,6 +77,12 @@ test('workspace dependencies must enter task closures or have their source folde
   const plan = { tasks: [leaf, transit] };
   assert.match(workspaceDependencyErrors('test', plan, packages).join('\n'), /@ap\/consumer#test.*@ap\/source/);
   assert.deepEqual(workspaceDependencyErrors('test', { tasks: [leaf, { ...transit, dependencies: ['@ap/source#transit'] }, { taskId: '@ap/source#transit', package: '@ap/source' }] }, packages), []);
-  assert.deepEqual(workspaceDependencyErrors('test', { tasks: [leaf, { ...transit, resolvedTaskDefinition: { inputs: ['../../packages/source/src/**', '../../packages/source/package.json'] } }] }, packages), []);
-  assert.ok(workspaceDependencyErrors('test', { tasks: [leaf, { ...transit, resolvedTaskDefinition: { inputs: ['../../packages/source/package.json'] } }] }, packages).length > 0);
+  // Effective inputs (Turbo dry-run `inputs`, relative to the task directory); tracked files come from the stub.
+  const tracked = () => ['packages/source/src/a.ts', 'packages/source/src/b.ts', 'packages/source/package.json', 'packages/source/README.md'];
+  const hashing = (files) => ({ tasks: [leaf, { ...transit, inputs: Object.fromEntries(files.map(f => [`../../packages/source/${f}`, 'h'])) }] });
+  assert.deepEqual(workspaceDependencyErrors('test', hashing(['src/a.ts', 'src/b.ts', 'package.json']), packages, tracked), []);
+  // An exclusion left one source file out of the hash: not covered.
+  assert.ok(workspaceDependencyErrors('test', hashing(['src/a.ts', 'package.json']), packages, tracked).length > 0);
+  // The manifest alone is not coverage.
+  assert.ok(workspaceDependencyErrors('test', hashing(['package.json']), packages, tracked).length > 0);
 });

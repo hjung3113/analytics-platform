@@ -515,6 +515,8 @@ jobs:
           fetch-depth: 0
       - name: Scope
         id: scope
+        # A container job's default shell is `sh`; the zero-SHA test below needs bash.
+        shell: bash
         env:
           BEFORE: ${{ github.event.before }}
           SHA: ${{ github.sha }}
