@@ -3,6 +3,7 @@ import {
   buildPlatformInboundLink,
   ContractError,
   DEFAULT_PLATFORM_DESTINATIONS,
+  inboundDestinationsOf,
   emptyGlobal,
   parsePlatformInboundLink,
   type GlobalContext,
@@ -191,6 +192,29 @@ it('history restores only draft and leaves the applied address query untouched',
     expect(platform.url).toBe('/mars/cycle-time?scopeId=MEM');
     expect(platform.url).not.toContain('granularity'); expect(platform.global.from).toBeNull();
   } finally { cleanup(); }
+});
+
+describe('inbound destinations come from the menus\' opensObject (#2230, ADR-0162)', () => {
+  const menus = [
+    { id: 'order-list', path: '/orders' },
+    { id: 'order-detail', path: '/orders/:orderId', opensObject: { order: { param: 'orderId' } }, pageKeys: ['tab', 'returnTo'] },
+    { id: 'metric', path: '/metrics/:metricId', opensObject: { metric: { param: 'metricId' } } },
+    { id: 'by-key', path: '/lots', opensObject: { lot: { pageKey: 'lotId' } } },
+    { id: 'two', path: '/x/:a', opensObject: { one: { param: 'a' }, other: { param: 'b' } } },
+    { id: 'nested', path: '/s/:site/items/:itemId', opensObject: { item: { param: 'itemId' } } },
+  ];
+  it('derives one destination per object-opening menu with a single trailing id param, and drops the rest', () => {
+    expect(inboundDestinationsOf(menus)).toEqual([
+      { menuId: 'order-detail', path: '/orders', idField: 'orderId', acceptsReturnTo: true },
+      { menuId: 'metric', path: '/metrics', idField: 'metricId' },
+    ]);
+  });
+  it('builds and parses a link through the derived list, and refuses returnTo where the menu does not list it', () => {
+    const list = inboundDestinationsOf(menus);
+    const url = buildPlatformInboundLink({ origin: P, hop: { menuId: 'order-detail', orderId: 'A1' }, context: PERIOD, returnTo: '/orders', destinations: list });
+    expect(parsePlatformInboundLink(url, P, list).hop).toEqual({ menuId: 'order-detail', orderId: 'A1' });
+    expect(code(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'metric', metricId: 'm1' }, context: PERIOD, returnTo: '/metrics', destinations: list }))).toBe('unsupported_page_key');
+  });
 });
 
 describe('platform inbound destinations are injected (#1890 item 4)', () => {

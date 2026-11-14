@@ -13,7 +13,7 @@ import {
   snapshotSessionDrafts,
   takeSessionDraft,
 } from '../registry';
-import { draftRecord, draftString, useSessionDraft } from '../useSessionDraft';
+import { draftRecord, draftString, useFormDraftAcrossExpiry } from '../useFormDraftAcrossExpiry';
 
 const draftKeys = () => Object.keys(sessionStorage).filter((key) => key.startsWith('draft:')).sort();
 
@@ -139,7 +139,7 @@ describe('session draft registry', () => {
 
 function Form({ initial = '' }: { initial?: string }) {
   const [text, setText] = useState(initial);
-  useSessionDraft({
+  useFormDraftAcrossExpiry({
     key: 'form',
     read: () => (text === '' ? null : { text }),
     parse: (value) => {
@@ -151,7 +151,7 @@ function Form({ initial = '' }: { initial?: string }) {
   return <input aria-label="text" value={text} onChange={(event) => setText(event.target.value)} />;
 }
 
-describe('useSessionDraft', () => {
+describe('useFormDraftAcrossExpiry', () => {
   it('registers the latest value while mounted and leaves nothing registered after unmount', () => {
     const view = render(<Form initial="typed" />);
     snapshotSessionDrafts('u1');
@@ -178,7 +178,7 @@ describe('useSessionDraft', () => {
     let submitted = () => {};
     function Submitting() {
       const [text] = useState('typed');
-      const { discard } = useSessionDraft({ key: 'form', read: () => ({ text }), parse: () => null, restore: () => {} });
+      const { discard } = useFormDraftAcrossExpiry({ key: 'form', read: () => ({ text }), parse: () => null, restore: () => {} });
       submitted = discard;
       return null;
     }
@@ -195,7 +195,7 @@ describe('useSessionDraft', () => {
     beginSessionDraftOwner('u1');
     let submitted = () => {};
     function Submitting() {
-      const { discard } = useSessionDraft({ key: 'form', read: () => 'x', parse: () => null, restore: () => {} });
+      const { discard } = useFormDraftAcrossExpiry({ key: 'form', read: () => 'x', parse: () => null, restore: () => {} });
       submitted = discard;
       return null;
     }

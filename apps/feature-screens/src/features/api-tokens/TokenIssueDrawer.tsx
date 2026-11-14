@@ -14,7 +14,7 @@ import { issueApiToken } from '@/lib/api/api-tokens';
 import { mapUnknownError } from '@/lib/api/errorMapper';
 import { ApiError } from '@/lib/api/types';
 import { API_TOKEN_COPY as COPY } from '@/lib/copy/api-tokens';
-import { draftRecord, draftString, draftStrings, useSessionDraft } from '@/lib/session-draft/useSessionDraft';
+import { draftRecord, draftString, draftStrings, useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
 import type { ApiTokenDrawerParts } from './ApiTokensScreen';
 
 type Field = { path: string; message: string };
@@ -56,7 +56,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   const [fields, setFields] = useState<Field[]>([]);
   // Kept across a session expiry (#1887): only the typed name, the chosen scopes and expiry. The issued token value is never kept,
   // and once it is shown there is nothing to keep (the system Actor choice is not kept either).
-  const { discard: discardDraft } = useSessionDraft({
+  const { discard: discardDraft } = useFormDraftAcrossExpiry({
     key: `api-token-issue:${service ? 'service' : 'personal'}`,
     read: () => secret !== null || (name === '' && expiry === '90' && date === '' && selected.join('\n') === initialScopes.join('\n'))
       ? null
