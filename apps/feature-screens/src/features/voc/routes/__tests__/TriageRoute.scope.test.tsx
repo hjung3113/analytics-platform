@@ -168,6 +168,23 @@ describe('TriageRoute effective scoped eligibility (#1170a)', () => {
     await waitFor(() => expect(fetchNavCounts).toHaveBeenCalled());
   });
 
+  it('does not project the inbox-only out-of-scope summary into triage (#2052 FEA-26)', async () => {
+    server();
+    const fetchWithoutSummary = globalThis.fetch;
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (new URL(String(input), 'http://localhost').pathname === '/vocs') {
+        return json({
+          items: [QUEUED_VOC],
+          out_of_scope_summary: { count: 2, severity_distribution: { high: 2 } },
+        });
+      }
+      return fetchWithoutSummary(input, init);
+    });
+    mountRoute(client());
+    expect(await screen.findByRole('button', { name: /VOC-101/ }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText('범위 밖 VOC · 요약 미리보기')).toBeNull();
+  });
+
   it('blocks an empty effective scope without fetching the queue or counts', async () => {
     const api = server([]);
     mountRoute(client());

@@ -135,7 +135,6 @@ export function TriageScreen(): React.ReactElement {
   // no rows to show — a failed background refetch over cached rows keeps
   // showing them (same rule as VocList).
   const queueError = isError && items.length === 0;
-  const outOfScopeSummary = data?.out_of_scope_summary;
   // The nav-count endpoint ignores Analytics Area, so its numbers would not match a
   // filtered queue: omit them (unknown-total presentation) until the filter is cleared.
   const areaFiltered = area !== undefined;
@@ -282,7 +281,6 @@ export function TriageScreen(): React.ReactElement {
       {...(queueTotal !== undefined ? { queueTotal } : {})}
       {...(queueTotal === undefined ? { queueTotalUnavailableState } : {})}
       {...(tabCounts !== undefined ? { tabCounts } : {})}
-      {...(outOfScopeSummary !== undefined ? { outOfScopeSummary } : {})}
       processedCount={processedCount}
       onProcessed={handleProcessed}
       onAdvanceVoc={handleAdvanceVoc}
