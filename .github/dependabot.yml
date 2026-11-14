@@ -35,8 +35,13 @@ updates:
       time: "08:00"
       timezone: Asia/Seoul
     open-pull-requests-limit: 1
+    ignore:
+      # Majors are judged one at a time, never opened automatically (same rule as npm above).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       github-actions:
         patterns: ["*"]
+        update-types: [minor, patch]
     commit-message:
       prefix: "chore(ci)"
