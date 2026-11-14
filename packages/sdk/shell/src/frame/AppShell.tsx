@@ -9,6 +9,7 @@ import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
 import { AppSidebar } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
+import { UndeclaredProvider } from './undeclared';
 import { useVocDrawer, VocDrawer, VocDrawerContext } from '../voc/VocDrawer';
 import { BoardRestoreChip } from '../board/BoardRestoreChip';
 import { useBoardPresentation } from '../board/boardPresentation';
@@ -79,7 +80,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   }, []);
 
   // The provider wraps the whole layout (not only the rail), so a screen's error view can open the drawer too (#606).
-  return <DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
+  return <UndeclaredProvider><DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     {/* The menu is the second stop after the content link: Enter focuses the first menu link (the nav itself is not a focus stop). */}
     {(showSidebar || showPlatformSidebar) && <a href="#platform-nav" onClick={e => { const first = document.querySelector<HTMLElement>('#platform-nav a[href]'); if (first) { e.preventDefault(); first.focus(); } }} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToMenu')}</a>}
@@ -104,7 +105,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
     {voc && <VocDrawer voc={voc} lang={lang} expandedStyle={expandedStyle} />}
     <CommandPalette />
     <LeaveConfirmDialog />
-  </div></VocDrawerContext.Provider></DetailPanelFullscreenContext.Provider>;
+  </div></VocDrawerContext.Provider></DetailPanelFullscreenContext.Provider></UndeclaredProvider>;
 }
 
 /** Measure the actual header and content box; the page owns inert below its header. */

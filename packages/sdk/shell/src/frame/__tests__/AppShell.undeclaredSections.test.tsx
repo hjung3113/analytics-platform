@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
@@ -30,8 +30,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-function mount(slots: PlatformSlots = {}) {
-  const session = testSession(['platform:view']);
+function mount(slots: PlatformSlots = {}, permissions: Parameters<typeof testSession>[0] = ['platform:view']) {
+  const session = testSession(permissions);
   render(<I18nProvider><PlatformProvider registry={registry()} adapter={testAdapter({ session: () => session })} slots={{ topBarTools: <span>fixture tools</span>, ...slots }}>
     <AppShell><p>screen content</p></AppShell>
   </PlatformProvider></I18nProvider>);
@@ -80,5 +80,28 @@ describe('section- and space-wide undeclared (#2201)', { timeout: 15_000 }, () =
     await screen.findByText('screen content');
     expect(sectionButton()).not.toBeNull();
     expect(screen.getByRole('button', { name: '열린 섹션 · 예정' })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('keeps focus inside the switcher when only dimmed cards are left, also when the list arrives after the dialog opened', async () => {
+    mount(slot(LISTED), []);
+    await screen.findByText('screen content');
+    openSwitcher();
+    const dialog = await screen.findByRole('dialog');
+    await vi.waitFor(() => expect(dialog.querySelector('[data-switcher-undeclared]')).not.toBeNull());
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(dialog.querySelector('[data-switcher-card]')).toBeNull();
+  });
+
+  it('reads the slot once for the whole shell, however often the switcher opens', async () => {
+    let mounts = 0;
+    const Counting = ({ children }: { children: (l: readonly UndeclaredMenu[]) => ReactNode }) => { useEffect(() => { mounts += 1; }, []); return <>{children(LISTED)}</>; };
+    mount({ undeclaredMenus: { Read: Counting } });
+    await screen.findByText('screen content');
+    openSwitcher();
+    await screen.findByRole('dialog');
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    openSwitcher();
+    await screen.findByRole('dialog');
+    expect(mounts).toBe(1);
   });
 });

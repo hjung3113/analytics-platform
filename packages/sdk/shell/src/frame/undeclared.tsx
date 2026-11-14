@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from 'react';
+import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { SpaceDef } from '@ap/contracts';
 import type { GroupDef, MenuEntry, UndeclaredMenu } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -11,14 +11,27 @@ import { ShellBoundary } from './ShellBoundary';
 const NO_UNDECLARED: readonly UndeclaredMenu[] = [];
 export type UndeclaredRender = (list: readonly UndeclaredMenu[]) => ReactNode;
 const NoUndeclared = ({ children }: { children: UndeclaredRender }) => <>{children(NO_UNDECLARED)}</>;
-/** The app's operator-only list wraps its region once (`undeclaredMenus.Read`); when it throws, the same region renders without those entries (#1876 shape). */
-export function UndeclaredBoundary({ children }: { children: UndeclaredRender }) {
-  return <ShellBoundary fallback={<NoUndeclared>{children}</NoUndeclared>}><UndeclaredHostSlot>{children}</UndeclaredHostSlot></ShellBoundary>;
-}
+/** The list read once by the shell (`UndeclaredProvider`); `null` outside it, where each region reads the slot itself (a bare `AppRail` or `AppSidebar`). */
+const UndeclaredContext = createContext<readonly UndeclaredMenu[] | null>(null);
 function UndeclaredHostSlot({ children }: { children: UndeclaredRender }) {
   const { slots } = useHostPlatform();
   const Host: ComponentType<{ children: UndeclaredRender }> = slots.undeclaredMenus?.Read ?? NoUndeclared;
   return <Host>{children}</Host>;
+}
+/**
+ * The app's operator-only list is read ONCE for the whole shell (`undeclaredMenus.Read`, one request in the app), and the rail, sidebar and switcher share it.
+ * When the slot throws, the same regions render with an empty list (#1876 shape).
+ */
+export function UndeclaredProvider({ children }: { children: ReactNode }) {
+  return <ShellBoundary fallback={<UndeclaredContext.Provider value={NO_UNDECLARED}>{children}</UndeclaredContext.Provider>}>
+    <UndeclaredHostSlot>{list => <UndeclaredContext.Provider value={list}>{children}</UndeclaredContext.Provider>}</UndeclaredHostSlot>
+  </ShellBoundary>;
+}
+/** A region's read of the list: the shell's shared one, or its own read of the slot when it is mounted alone. */
+export function UndeclaredBoundary({ children }: { children: UndeclaredRender }) {
+  const shared = useContext(UndeclaredContext);
+  if (shared !== null) return <>{children(shared)}</>;
+  return <ShellBoundary fallback={<NoUndeclared>{children}</NoUndeclared>}><UndeclaredHostSlot>{children}</UndeclaredHostSlot></ShellBoundary>;
 }
 
 export type UndeclaredEntry = { menu: MenuEntry; undeclaredPermission: string };
