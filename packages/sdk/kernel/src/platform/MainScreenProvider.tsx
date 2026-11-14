@@ -74,8 +74,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     // A return trip restores the hidden pairs the origin held, checked against what the destination declares (F1).
     const nextHidden = options.redirect ? hiddenRef.current : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
     if ((split.url ===(location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
-    const moveBlocked = how === 'push' && !options.redirect && !options.materialize && !options.bypassGuard;
-    // Leaving with unsaved edits asks first (ADR-0115). Redirects, arrival materialization, `replace` and the confirmed replay are never held.
+    const moveBlocked = (how === 'push' || options.guard === true) && !options.redirect && !options.materialize && !options.bypassGuard;
+    // Leaving with unsaved edits asks first (ADR-0115). Redirects, arrival materialization, `replace` and the confirmed replay are never held;
+    // a host `replace` with `guard` (opening the board, #2061) is held like a push.
     if (moveBlocked) {
       const change = { from: location.read() ?? '', to: split.url };
       if (guard.shouldBlock(change)) {
@@ -87,6 +88,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
         return false;
       }
     }
+    // The host's own step (#2061): after any confirmed leave and before the write, so a cancelled leave never runs it; it may still refuse.
+    if (options.run && !options.run()) { pageNavigation.cancel(); return false; }
     // An accepted write changes the origin the pending request was made from (a replace, a Scope change, a confirmed replay): that request is stale (F3).
     guard.dropRequest();
     if (options.redirect) pageNavigation.redirect(split.url);
@@ -121,7 +124,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     return true;
   }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping]);
   useLayoutEffect(() => { commitRef.current = commit; }, [commit]);
-  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[] }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden }), [commit]);
+  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean; run?: () => boolean }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run }), [commit]);
 
   const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);

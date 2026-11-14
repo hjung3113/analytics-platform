@@ -119,6 +119,37 @@ describe('menu leave guard: links and navigate (ADR-0115)', () => {
     expect(request).toBeNull();
   });
 
+  it('a host replace with guard: true asks first; cancel stays, confirm replaces once with onDiscard (#2061)', () => {
+    const onDiscard = vi.fn();
+    guardOptions = { onDiscard };
+    mount('/mars/editor');
+    act(() => setDirty(true));
+    const length = window.history.length;
+    let moved = true;
+    act(() => { moved = platform.navigate('/mars/other', { replace: true, guard: true }); });
+    expect(moved).toBe(false);
+    expect(here()).toBe('/mars/editor');
+    expect(request?.destination).toEqual({ ko: 'other', en: 'other' });
+    act(() => request!.cancel());
+    expect(here()).toBe('/mars/editor');
+    expect(onDiscard).not.toHaveBeenCalled();
+    act(() => { platform.navigate('/mars/other', { replace: true, guard: true }); });
+    act(() => request!.confirm());
+    expect(here()).toBe('/mars/other');
+    expect(window.history.length).toBe(length);
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+    expect(request).toBeNull();
+  });
+
+  it('a host replace with guard: true and no dirty editor moves at once (#2061)', () => {
+    mount('/mars/editor');
+    let moved = false;
+    act(() => { moved = platform.navigate('/mars/other', { replace: true, guard: true }); });
+    expect(moved).toBe(true);
+    expect(here()).toBe('/mars/other');
+    expect(request).toBeNull();
+  });
+
   it("leaves 'address' also asks for a push to the same path with another query", () => {
     guardOptions = { leaves: 'address' };
     mount('/mars/editor');

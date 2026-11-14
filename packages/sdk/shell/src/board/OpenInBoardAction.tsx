@@ -58,39 +58,78 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
   const paneChoices = sheet ? sheet.panes.map((slot, index) => ({ pane: slot.screen, index })).filter(({ pane }) => (destination === 'empty') === (pane === null)) : [];
   const ready = destination === 'new' ? !full : sheet !== null && paneIndex !== null && paneChoices.some(c => c.index === paneIndex);
 
+  /**
+   * The board this confirm would produce from `held`, or null when the chosen target is no longer there (`plannedSheetId`: for a new sheet, the
+   * id the address already names; the sheet id is random, so the one planned is kept unless another tab took it meanwhile).
+   */
+  const planFor = (held: Board, plannedSheetId: string | null): Board | null => {
+    if (!screen) return null;
+    if (destination === 'new') {
+      const added = openScreenInNewSheet(held, text.sheetPrefix, screen);
+      if (!added || plannedSheetId === null || added.activeSheetId === plannedSheetId) return added;
+      if (held.sheets.some(s => s.id === plannedSheetId)) return null;
+      const id = added.activeSheetId;
+      return { ...added, activeSheetId: plannedSheetId, sheets: added.sheets.map(s => (s.id === id ? { ...s, id: plannedSheetId } : s)) };
+    }
+    if (paneIndex === null || !sheet) return null;
+    // The pane the user was shown must still be what they chose: empty for 빈 칸, the same screen for 바꾸기.
+    const live = held.sheets.find(s => s.id === sheet.id)?.panes[paneIndex]?.screen;
+    const shown = sheet.panes[paneIndex]?.screen ?? null;
+    const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
+    return unchanged ? { ...setPane(held, sheet.id, paneIndex, screen), activeSheetId: sheet.id } : null;
+  };
+  type Verdict = { board: Board; refusal: 'readOnly' | 'busy' | 'target' | null };
+  /** Takes a change another tab made in first, then judges the session: nothing is written. */
+  const judge = (plannedSheetId: string | null): Verdict => {
+    reloadBoardSession(user.id, text.sheetPrefix);
+    const held = readBoardSession(user.id, text.sheetPrefix);
+    // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
+    if (held.readOnly) return { board: held.board, refusal: 'readOnly' };
+    // Moves still only in memory (a splitter drag) are never written over what another tab saved meanwhile: that is a conflict, not a retry-able pane change.
+    if (held.unsaved) return { board: held.board, refusal: 'busy' };
+    return { board: held.board, refusal: planFor(held.board, plannedSheetId) ? null : 'target' };
+  };
+  const refuse = ({ board, refusal }: Verdict) => {
+    if (refusal === 'readOnly') setProblem(text.boardNotSaved);
+    else if (refusal === 'busy') setProblem(text.boardBusy);
+    else if (refusal === 'target') {
+      setBoard(board);
+      setPaneIndex(null);
+      if (destination === 'new') { setDestination(initialDestination(board)); setProblem(text.maxSheets); } else setProblem(text.paneChanged);
+    }
+  };
+  /** The one write: the check, the change and the save are one update on the reloaded session. */
+  const save = (plannedSheetId: string | null): Verdict => {
+    const verdict = judge(plannedSheetId);
+    if (verdict.refusal !== null) return verdict;
+    const after = updateBoardSession(user.id, text.sheetPrefix, held => planFor(held, plannedSheetId) ?? held);
+    return { board: after.board, refusal: after.readOnly ? 'readOnly' : null };
+  };
+
   const confirm = () => {
     if (!screen || !ready) return;
-    // The one session the board screen uses; a change made in another tab is taken in first, and the check, the change and the save are one update.
-    reloadBoardSession(user.id, text.sheetPrefix);
-    // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
-    const held = readBoardSession(user.id, text.sheetPrefix);
-    if (held.readOnly) { setProblem(text.boardNotSaved); return; }
-    // Moves still only in memory (a splitter drag) are never written over what another tab saved meanwhile: that is a conflict, not a retry-able pane change.
-    if (held.unsaved) { setProblem(text.boardBusy); return; }
-    const run: { current: Board | null; next: Board | null } = { current: null, next: null };
-    const after = updateBoardSession(user.id, text.sheetPrefix, held => {
-      run.current = held;
-      if (destination === 'new') run.next = openScreenInNewSheet(held, text.sheetPrefix, screen);
-      else if (paneIndex !== null && sheet) {
-        // The pane the user was shown must still be what they chose: empty for 빈 칸, the same screen for 바꾸기.
-        const live = held.sheets.find(s => s.id === sheet.id)?.panes[paneIndex]?.screen;
-        const shown = sheet.panes[paneIndex]?.screen ?? null;
-        const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
-        if (unchanged) run.next = { ...setPane(held, sheet.id, paneIndex, screen), activeSheetId: sheet.id };
-      }
-      return run.next ?? held;
+    // Judged now so a stale target is told while this dialog is open; nothing is saved here.
+    const verdict = judge(null);
+    if (verdict.refusal !== null) { refuse(verdict); return; }
+    const plannedSheetId = destination === 'new' ? openScreenInNewSheet(verdict.board, text.sheetPrefix, screen)?.activeSheetId ?? null : null;
+    const target = destination === 'new' ? plannedSheetId : sheet?.id ?? null;
+    if (target === null) return;
+    // The same transition as the rail's open and the chip's restore: a replace, so a board opened from here never adds a history entry,
+    // held like them by unsaved edits (`guard`, #2061). The board is written in `run`, which the Kernel calls only once the move is certain:
+    // after a confirmed leave and just before the write, so staying (or a session change) saves nothing and an approval saves once.
+    let refused = false;
+    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(target)}`, {
+      replace: true, focus: 'page', via: 'board', guard: true,
+      run: () => {
+        const done = save(plannedSheetId);
+        if (done.refusal === null) return true;
+        refused = true;
+        refuse(done);
+        return false;
+      },
     });
-    const { current, next } = run;
-    if (!next || !current) {
-      setBoard(current ?? after.board);
-      setPaneIndex(null);
-      if (destination === 'new') { setDestination(initialDestination(current ?? after.board)); setProblem(text.maxSheets); } else setProblem(text.paneChanged);
-      return;
-    }
-    if (after.readOnly) { setProblem(text.boardNotSaved); return; }
-    control.close();
-    // The same transition as the rail's open and the chip's restore: a replace, so a board opened from here never adds a history entry.
-    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(next.activeSheetId)}`, { replace: true, focus: 'page', via: 'board' });
+    // Held for the leave confirmation, this dialog gives way to it; refused by the final check, it stays with the reason.
+    if (!refused) control.close();
   };
   const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 

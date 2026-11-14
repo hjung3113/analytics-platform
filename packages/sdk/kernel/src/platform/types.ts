@@ -184,7 +184,12 @@ export type HostPlatform = {
   /** Every value of a page key in address order; `[]` when absent. At most one for a key that is not in the menu's `repeatedPageKeys`. Includes hidden keys. */
   pageParams: (key: string) => string[];
   pageNavigation: PageNavigation;
-  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => boolean;
+  /**
+   * `guard` (host only, #2061): this `replace` is held by the unsaved-edit guard like a push (ADR-0115) — for a replace that leaves the menu screen,
+   * such as opening the analysis board (ADR-0087). Without it a `replace` is never held.
+   * `run` (host only): a step that must happen only if the move does, such as saving the board before opening it. It runs once, after a confirmed leave and just before the write; returning `false` cancels the move.
+   */
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean; run?: () => boolean }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
   /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
   setPage: (patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
@@ -262,7 +267,10 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'navigate' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'>;
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
+  /** The host's `navigate` without its host-only `guard` option (#2061). */
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => boolean;
+};
 
 /** Context items named by return notifications, separate from menu capabilities. */
 export type ReturnContextKey = ContextKey | 'scope';

@@ -31,6 +31,7 @@
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |
+| 다음 릴리스 (#2061) | kernel · shell | 추가(선택, 기본 동작 불변): `HostPlatform.navigate`의 호스트 전용 옵션 `guard?: boolean` — 그 `replace`를 미저장 편집 가드가 push처럼 보류한다([kernel §6.4](../../docs/contract/kernel.md)). 호스트 전용 `run?: () => boolean`은 떠나기를 승인한 뒤 이동 직전에 한 번 불리고 `false`면 이동을 취소한다(`분석 보드에 열기…`가 보드 저장을 여기서 한다). `MenuPlatform.navigate`는 이 두 옵션 없이 따로 적힌다(같은 런타임 함수). 셸의 보드 열기·복원·창 최대화·`분석 보드에 열기…` 확인이 쓴다. 스냅샷 `kernel.root`·`kernel.host` | 없음 |
 | 다음 릴리스 (#2022) | kernel, shell | **기본 동작 변경** — 셸이 사이드바 아래에 «통합 프로토타입 · 합성 데이터»를 더는 고정으로 적지 않는다. 추가: `PlatformSlots.sidebarNotice?: ReactNode`(펼친 사이드바 맨 아래 안내, 기본 없음). 스냅샷 `kernel.root` | 그 줄이 필요한 앱은 `sidebarNotice`로 넘긴다. 넘기지 않으면 아무것도 그리지 않는다 |
 | 다음 릴리스 (#1944) | shell, kernel | **기본 동작 변경** — 사이드바가 접힌 채 시작하는 기준 폭이 1440px에서 1200px로 낮아졌다(저장된 선택이 우선). 셸이 `document.title`을 `<메뉴> — <시스템> · <제품>`으로 쓴다. 페이지 머리 경로에 섹션(그룹) 이름이 들어간다. 예정 메뉴만 가진 레일 섹션은 흐리게 보이고 이름에 「예정」이 붙는다. 화면 없는 메뉴는 최근 방문·이어서에 기록하지 않는다. 추가: `AppShell`의 선택 prop `productName`, app-host `AppRoot`·`StartAppHostOptions`의 선택 `productName`, 테스트 지원 `testScreen`(`@ap/kernel/testing`). 스냅샷 `shell.root`·`app-host.root`·`kernel.testing` | 없음 — `productName`을 넘기면 제품 이름이 붙는다. 화면 없는 메뉴를 쓰는 테스트 고정값은 `component`를 선언해야 최근 방문에 남는다 |
 | 다음 릴리스 (#2025) | kernel | 추가(기본 동작 불변): `@ap/kernel/host`의 `isChunkLoadFailure(error)`(거절된 청크 import 판정, 셸·컴포넌트·앱 호스트가 한 벌을 쓴다). `PanelWorkspace`·도크 패널의 렌더 오류는 그 패널에만 오류 상태로 그려지고 Kernel에 보고된다. 스냅샷 `kernel.host` | 없음 — 메뉴가 맞출 선언은 없다 |

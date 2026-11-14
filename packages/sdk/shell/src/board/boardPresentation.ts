@@ -142,13 +142,15 @@ export function useBoardPresentation() {
   };
   return {
     live: state.live, maximized, floating, minimized, geometry: state.geometry, windowFill: state.windowFill, sheetId: state.lastSheetId, sheetName: state.lastSheetName, announcement: state.announcement,
-    /** Closed → open: arrives like any page (title focus). */
-    open: () => { navigate(sheetHref(read(user.id).lastSheetId), { replace: true, focus: 'page', via: 'sidebar' }); },
+    /**
+     * Closed → open: arrives like any page (title focus). Opening, restoring and maximizing unmount the menu screen, so their replace passes
+     * `guard` and a menu with unsaved edits asks first (ADR-0115, #2061); minimize, `창으로 보기` and close go back to the screen and never ask.
+     */
+    open: () => { navigate(sheetHref(read(user.id).lastSheetId), { replace: true, focus: 'page', via: 'sidebar', guard: true }); },
     /** Minimized → the mode it was minimized from: a window needs no address change; maximized is a display change, not an arrival (the board puts focus back itself). */
     restore: (text: string) => {
-      announce(text);
-      if (read(user.id).lastMode === 'floating') write(user.id, { floating: true });
-      else navigate(sheetHref(read(user.id).lastSheetId), { replace: true });
+      if (read(user.id).lastMode === 'floating') { announce(text); write(user.id, { floating: true }); }
+      else if (navigate(sheetHref(read(user.id).lastSheetId), { replace: true, guard: true })) announce(text);
     },
     /** The board's own button: a window just stops being shown (no address change); a maximized board leaves for the last ordinary path. Focus goes to the chip. */
     minimize: (text: string) => {
@@ -160,7 +162,13 @@ export function useBoardPresentation() {
     /** Maximized → window: back to the last ordinary path (replace), then the window shows; the stored geometry (or the default) places it. */
     toWindow: (text: string) => { displayFocus.set(user.id, 'window'); announce(text); navigate(leaveHref(), { replace: true }); write(user.id, { floating: true, lastMode: 'floating' }); },
     /** Window → maximized: the background path is already in `returnHref`; the address becomes `/board?sheet=`. */
-    maximize: (text: string) => { displayFocus.set(user.id, 'maximized'); announce(text); navigate(sheetHref(read(user.id).lastSheetId), { replace: true }); write(user.id, { floating: false, lastMode: 'maximized' }); },
+    /** Held by a menu with unsaved edits (`guard`): nothing changes until the person confirms; a confirmed replay arrives at `/board`, which ends the window. */
+    maximize: (text: string) => {
+      displayFocus.set(user.id, 'maximized');
+      if (!navigate(sheetHref(read(user.id).lastSheetId), { replace: true, focus: 'page', guard: true })) { displayFocus.delete(user.id); return; }
+      announce(text);
+      write(user.id, { floating: false, lastMode: 'maximized' });
+    },
     /** The window's position and size, written only by the user's own gestures. */
     setGeometry: (geometry: BoardWindowGeometry) => { write(user.id, { geometry }); },
     /** The rail button of a window already on screen: focus its title bar (the frame registered how). */

@@ -171,6 +171,27 @@ test.describe('메뉴 이동 가드 — 편집 중 시뮬레이션 (06 §6.4, §
     await stay(page).click();
   });
 
+  test('레일 분석 보드(replace 이동)도 묻는다: 머무르면 메뉴와 입력을 지키고 버리면 보드를 연다 (#2061)', async ({ page }, testInfo) => {
+    await makeDirty(page);
+    const before = page.url();
+    const boardButton = page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '분석 보드', exact: true });
+
+    await boardButton.click();
+    await expect(dialog(page)).toBeVisible();
+    await expect(dialog(page)).toContainText('이동하면 변경이 사라집니다.');
+    await evidence(page, testInfo, '보드 열기 이동 확인');
+    await stay(page).click();
+    await expect(dialog(page)).toHaveCount(0);
+    expect(page.url()).toBe(before);
+    await expect(mainHeading(page)).toHaveText('차트 카탈로그');
+    await expectDraft(page, '규칙 A 수정');
+
+    await boardButton.click();
+    await leave(page).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(page).toHaveURL(/\/board(\?|$)/);
+  });
+
   test('초안을 지우면 등록이 풀려 확인 없이 이동한다', async ({ page }) => {
     await makeDirty(page);
     await openDemoTools(page);
