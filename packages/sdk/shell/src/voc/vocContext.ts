@@ -1,4 +1,4 @@
-import { emptyGlobal, formatDateTime, formatMetricVersion, parseDateTime, withoutReturnTo, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
+import { emptyGlobal, formatMetricVersion, formatWallClock, withoutReturnTo, type ContextKey, type EquipmentAxisDescriptor, type GlobalContext, type Pair } from '@ap/contracts';
 import { CONTEXT_LABELS, labelledCondition, RETURN_CONTEXT_LABELS, type Lang, type VocComposeContext, type VocComposeContextItem } from '@ap/kernel';
 import type { HostPlatform } from '@ap/kernel/host';
 import { buildShareLink } from '../context/shareLink';
@@ -21,7 +21,7 @@ function values(ids: readonly string[], text: (typeof TEXT)[Lang]): string {
   return ids.length > MAX_VALUES ? `${shown} ${text.more(ids.length - MAX_VALUES)}` : shown;
 }
 /** Naive wall-clock text with minutes, from the stored `YYYY-MM-DDTHH:mm:ss`. */
-const clock = (value: string) => formatDateTime(parseDateTime(value, 'time')).replace('T', ' ').slice(0, 16);
+const clock = (value: string) => formatWallClock(value, 'minute');
 
 type SetField = 'roomNames' | 'lineNames' | 'prcGroups' | 'selection' | 'lotIds' | 'recipeIds';
 

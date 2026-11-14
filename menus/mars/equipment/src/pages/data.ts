@@ -1,11 +1,18 @@
 import { EQUIPMENT_STATUS_VALUES, equipmentFilterSpecs, type Equipment, type EquipmentExportFilter, type EquipmentFilter } from '../endpoints';
 import { tableExportParams, type TableExportRequest } from '@ap/components';
-import { parseDateTime, shift, type ColumnFilterSpec } from '@ap/contracts';
+import { formatWallClock, parseDateTime, shift, type ColumnFilterSpec } from '@ap/contracts';
 export const statusText = {
   active: { ko: '사용중', en: 'Active' }, idle: { ko: '대기', en: 'Idle' },
   maintenance: { ko: '정비', en: 'Maintenance' }, retired: { ko: '사용중지', en: 'Retired' },
 };
 export const statusTone = { active: 'success', idle: 'neutral', maintenance: 'warning', retired: 'neutral' } as const;
+/** The text of one date-like field, shared by the table cell, its export and the detail view: the validity dates as `YYYY-MM-DD`, `updatedAt` with minutes, anything else as stored (#2229). */
+export function equipmentDateText(key: keyof Equipment, value: string): string {
+  if (key === 'validFrom' || key === 'validTo') return formatWallClock(value.length === 10 ? `${value}T00:00:00` : value).slice(0, 10);
+  if (key === 'updatedAt' && value.length > 10) return formatWallClock(value, 'minute');
+  return value;
+}
+
 export const fields: { key: keyof Equipment; ko: string; en: string }[] = [
   { key: 'equipmentId', ko: '설비 ID', en: 'Equipment ID' },
   { key: 'room', ko: '공정', en: 'Process' }, { key: 'line', ko: '라인', en: 'Line' },

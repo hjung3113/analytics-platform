@@ -5,7 +5,7 @@ import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatform } from '@ap/kernel';
-import { canClientSum, formatDateTime, formatNumber, type Reaggregation } from '@ap/contracts';
+import { canClientSum, formatDateTime, formatNumber, formatWallClock, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -51,7 +51,7 @@ const stopPlainWheel = (event: WheelEvent) => { if (!event.shiftKey) event.stopP
 const NOTE_FALLBACK_WIDTH = 640;
 const TICK_ROOM_STEP = 64;
 const TICK_ROOM_CAP = 1024;
-const fmt = (v: string) => v.replace('T', ' ').slice(0, 16);
+const fmt = (v: string) => formatWallClock(v, 'minute');
 const HOUR_MS = 3_600_000;
 
 /** Current-period bar starts, plus the query end, plus a query start that precedes the first bar. No invented spacing. Without a query end there are no boundaries: snapping falls back to raw seconds (06 §16). */
@@ -815,7 +815,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
       </p>}
       {clipNotice && <p className="mt-1 text-text-secondary">{m(clipNotice === 'partial' ? 'chartCutPreviousPeriod' : 'chartOnlyPreviousPeriod')}</p>}
       {preview && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
-        <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{preview.from.replace('T', ' ')} → {preview.to.replace('T', ' ')}</b></span>
+        <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{formatWallClock(preview.from)} → {formatWallClock(preview.to)}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
         <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(m('chartAppliedGlobalPeriodToast')); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
         <Button size="toolbar" variant="secondary" onClick={() => { rangeActions.setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>

@@ -1,4 +1,3 @@
-import { formatDateTime, parseDateTime } from '@ap/contracts';
 import { useMemo } from 'react';
 import type { ColumnFilter } from '@ap/contracts';
 import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
@@ -7,7 +6,7 @@ import { PanelRight } from 'lucide-react';
 import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableQuickSearch, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
 import { EquipmentPanel, EquipmentStatus } from './EquipmentDetail';
-import { columnFilter, exportFilterSummary, exportParams, fields, pinnedFilterKeys, sortFields, statusText } from './data';
+import { columnFilter, equipmentDateText, exportFilterSummary, exportParams, fields, pinnedFilterKeys, sortFields, statusText } from './data';
 
 const NO_PARAMS = {} as const;
 const NO_FILTERS: ColumnFilter[] = [];
@@ -47,11 +46,10 @@ export default function EquipmentMaster() {
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const columns = useMemo<PlatformColumn<Equipment>[]>(() => fields.map(f => ({
     size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'equipmentId' ? 184 : 128,
-    cell: row => f.key === 'status' ? <EquipmentStatus equipment={row} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row[f.key] == null ? '—' : f.key === 'validFrom' || f.key === 'validTo' ? formatDateTime(parseDateTime(`${row[f.key]}${row[f.key]!.length === 10 ? 'T00:00:00' : ''}`, f.key)).slice(0, 10) : f.key === 'updatedAt' && row.updatedAt.length > 10 ? formatDateTime(parseDateTime(row.updatedAt, f.key)).slice(0, 16).replace('T', ' ') : row[f.key]}</span>,
+    cell: row => f.key === 'status' ? <EquipmentStatus equipment={row} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row[f.key] == null ? '—' : equipmentDateText(f.key, String(row[f.key]))}</span>,
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang]
-      : f.key === 'validFrom' || f.key === 'validTo' ? (row: Equipment) => row[f.key] == null ? '' : formatDateTime(parseDateTime(`${row[f.key]}${row[f.key]!.length === 10 ? 'T00:00:00' : ''}`, f.key)).slice(0, 10)
-      : f.key === 'updatedAt' ? (row: Equipment) => row.updatedAt.length > 10 ? formatDateTime(parseDateTime(row.updatedAt, f.key)).slice(0, 16).replace('T', ' ') : row.updatedAt : undefined,
+      : f.key === 'validFrom' || f.key === 'validTo' || f.key === 'updatedAt' ? (row: Equipment) => row[f.key] == null ? '' : equipmentDateText(f.key, String(row[f.key])) : undefined,
     // ADR-0104/0105: filter fields — 상태 and Maker (pinned), the line enum, two text columns and the validity dates; the server applies them.
     ...filterColumnProps(f.key, f.key === 'maker' ? makerOptions : undefined),
     // #556d: rows can be grouped by line (a column filter, not a page filter); the export stays flat rows.
