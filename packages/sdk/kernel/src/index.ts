@@ -24,3 +24,5 @@ export { useQueryDraft, type QueryDraft, type QueryMissing } from './query/query
 export { useAxisOptions, useEquipmentSearch, useResolvedSelection } from './scope/selection-ports';
 export type { PortContext, PortFailure, PortStatus, AxisOptionsParams, EquipmentSearchParams, PortPageResult, ResolvedSelectionParams, ResolvedSelectionResult } from './scope/selection-ports';
 
+
+export { useSessionDraft } from './platform/useSessionDraft';

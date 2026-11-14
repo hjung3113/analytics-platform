@@ -1,6 +1,6 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
-import { useMenuAction, usePlatform } from '@ap/kernel';
+import { useI18n, useMenuAction, usePlatform, useSessionDraft } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
 import { Button, Callout, Input, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
 import { ITEM_LIMITS, ITEM_TYPE_CODES, ITEM_TYPE_LABEL, itemCreate, itemDerive, itemRevise, type ItemDetail, type ItemTypeCode, type ItemWriteResult } from '../../endpoints';
@@ -16,6 +16,7 @@ import {
   type FormErrors, type WriteForm, type WriteMode,
 } from './itemWriteModel';
 
+const sameInput = (value: unknown, initial: unknown) => JSON.stringify(value) === JSON.stringify(initial);
 const CONTENT_FIELDS = ['typeCode', 'title', 'observation', 'expected', 'analysisOpinion', 'improvement', 'changeNote'] as const;
 type Banner = { kind: 'conflict' } | { kind: 'failed'; text: string; retry?: () => void };
 const failureText = (outcome: string) => (outcome === 'unknown' ? '저장됐는지 확인하지 못했습니다. 다시 시도하기 전에 목록을 확인해 주세요.' : outcome === 'forbidden' ? '이 작업을 할 권한이 없습니다.' : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
@@ -31,12 +32,23 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
   const create = useMenuAction(itemCreate), revise = useMenuAction(itemRevise), derive = useMenuAction(itemDerive);
   const uid = useId(), w = useSpecWords();
   const mode: WriteMode = target.mode;
-  const [form, setForm] = useState<WriteForm>(() => (target.mode === 'create' ? emptyForm(target.ownerModelId) : target.mode === 'revise' ? reviseForm(target.detail) : deriveForm(target.detail)));
+  const [initialForm] = useState<WriteForm>(() => (target.mode === 'create' ? emptyForm(target.ownerModelId) : target.mode === 'revise' ? reviseForm(target.detail) : deriveForm(target.detail)));
   // The version this form was built on: a re-read after a conflict must not let a retry overwrite what the user has not seen.
   const [baseVersion, setBaseVersion] = useState(() => (target.mode === 'create' ? '' : target.detail.item.version));
-  const [picks, setPicks] = useState<SubjectPick[]>(() => target.mode === 'revise' ? picksOf(target.detail.subjects) : []);
-  const [relations, setRelations] = useState(() => relationRowsOf(target.mode === 'revise' ? target.detail.relations : []));
-  const [initialRelations] = useState(() => JSON.stringify(relations));
+  const [initialPicks] = useState<SubjectPick[]>(() => target.mode === 'revise' ? picksOf(target.detail.subjects) : []);
+  const [initialRelationRows] = useState(() => relationRowsOf(target.mode === 'revise' ? target.detail.relations : []));
+  const [initialDraft] = useState(() => ({ form: initialForm, picks: initialPicks, relations: initialRelationRows }));
+  // Revise/derive targets are passed only after ItemDetail's current-generation access read succeeds.
+  const draftKey = target.mode === 'create' ? 'item:create' : `item:${target.mode}:${target.detail.item.id}:${target.mode === 'derive' ? target.detail.revision.revisionNo : ''}`;
+  const [draft, setDraft, { restored, discard }] = useSessionDraft(draftKey, initialDraft, { ready: target.mode === 'create' || !!target.detail, isEqual: sameInput });
+  const { form, picks, relations } = draft;
+  const setForm = (update: (value: WriteForm) => WriteForm) => setDraft(held => ({ ...held, form: update(held.form) }));
+  const setPicks = (next: SubjectPick[]) => setDraft(held => ({ ...held, picks: next }));
+  const setRelations = (next: typeof initialRelationRows) => setDraft(held => ({ ...held, relations: next }));
+  const [initialRelations] = useState(() => JSON.stringify(initialRelationRows));
+  const { t } = useI18n();
+  const { setDiscard } = guard;
+  useEffect(() => setDiscard(discard), [setDiscard, discard]);
   const [subjectOwner, setSubjectOwner] = useState(form.modelId);
   const ownerModelId = target.mode === 'revise' ? target.detail.item.owner.modelId : form.modelId;
   if (subjectOwner !== form.modelId) { setSubjectOwner(form.modelId); setPicks([]); }
@@ -44,7 +56,7 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
   const [errors, setErrors] = useState<FormErrors>({});
   const [banner, setBanner] = useState<Banner | null>(null);
   if (reloadRequested && target.mode === 'revise' && target.detail.item.version !== baseVersion) { setBaseVersion(target.detail.item.version); setReloadRequested(false); setBanner(null); }
-  useDirtyReport({ form, picks, relations }, guard.markDirty);
+  useDirtyReport(draft, guard.markDirty, initialDraft);
   const busy = create.pending || revise.pending || derive.pending;
   const set = (patch: Partial<WriteForm>) => { setForm(f => ({ ...f, ...patch })); };
   const err = (key: string) => errors[key];
@@ -55,7 +67,7 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
     else guard.force();
   };
   function settle<T>(res: ActionResult<T>, onOk: (data: T | null) => void) {
-    if (res.outcome === 'ok') { setBanner(null); setErrors({}); onOk(res.data); return; }
+    if (res.outcome === 'ok') { discard(); setBanner(null); setErrors({}); onOk(res.data); return; }
     if (res.outcome === 'conflict') { setBanner({ kind: 'conflict' }); return; }
     const subjectErrors = res.outcome === 'invalid' ? res.fieldErrors.filter(e => e.path[0] === 'subjects') : [];
     const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors.filter(e => e.path[0] !== 'subjects' && e.path[0] !== 'relations'), CONTENT_FIELDS, form.evidence.length) : {};
@@ -88,6 +100,7 @@ function WriteFormBody({ target, onReload, guard }: { target: ItemWriteTarget; o
 
   const latest = target.mode === 'revise' ? target.detail.item.latestRevisionNo : 0;
   return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy && banner?.kind !== 'conflict') save(); }}>
+    {restored && <Callout tone="blue" title={t('sessionDraftRestoredTitle')}>{t('sessionDraftRestored')}</Callout>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다"
       action={<Button type="button" size="sm" variant="secondary" onClick={() => { setReloadRequested(true); onReload(); }}>최신 불러오기</Button>}>
       작성 중인 입력은 유지됩니다. 최신 상태를 확인한 뒤 다시 저장하세요.

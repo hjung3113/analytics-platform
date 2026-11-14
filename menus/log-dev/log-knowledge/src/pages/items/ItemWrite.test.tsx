@@ -935,3 +935,27 @@ describe('쓰기는 불러온 리비전 기준으로만 (#1365 F5)', () => {
     expect(input()).toMatchObject({ sourceItemId: ITEM(1), sourceRevisionNo: 2 });
   });
 });
+
+describe('item input across a same-user session generation (#2108)', () => {
+  it('restores typed input after the replacement item access read succeeds', async () => {
+    window.history.replaceState(null, '', `/log/knowledge/items/${ITEM(1)}?v=1&drawer=revise`);
+    const listeners = new Set<() => void>();
+    let blocked = false;
+    let deliver = (_: ApiResponse<never>) => {};
+    const port = testAdapter({ session: () => publisher, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, menuQuery: req => {
+      if (req.endpoint !== 'logKnowledge.itemDetail') return Promise.resolve(ok({ rows: [], total: 0 }));
+      return blocked ? new Promise(resolve => { deliver = resolve; }) : Promise.resolve(ok(detailOf(store[0]!)));
+    } });
+    render(tree(<ItemDetail params={{ itemId: ITEM(1) }} />, port));
+    await screen.findByRole('heading', { name: '기술 Item 수정' });
+    type(/^제목/, 'my unsaved title');
+    blocked = true;
+    reactAct(() => listeners.forEach(listener => listener()));
+    expect(screen.queryByDisplayValue('my unsaved title')).toBeNull();
+    await reactAct(async () => deliver(ok(detailOf(store[0]!))));
+    await waitFor(() => expect((field(/^제목/) as HTMLInputElement).value).toBe('my unsaved title'));
+    expect(screen.getByText('세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.')).toBeTruthy();
+    fireEvent.click(within(drawer()).getByRole('button', { name: '취소' }));
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+  });
+});

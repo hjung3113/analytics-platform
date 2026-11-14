@@ -8,6 +8,8 @@ export type { Text };
 
 // UI copy only (docs/06 §23): master values and identifiers are never translated.
 const dict = {
+  sessionDraftRestoredTitle: { ko: '입력 복원', en: 'Input restored' },
+  sessionDraftRestored: { ko: '세션이 바뀌어 화면을 다시 열었습니다. 저장하지 않은 입력을 되살렸습니다.', en: 'The session changed and the screen reopened. Your unsaved input was restored.' },
   hierarchyBack: { ko: '뒤로', en: 'Back' },
   hierarchySearch: { ko: '항목 검색…', en: 'Search items…' },
   hierarchyLoading: { ko: '불러오는 중…', en: 'Loading…' },
