@@ -27,11 +27,14 @@ test('kit, app-host, mock-server and browser driver changes select the kit gate'
     'tooling/sdk/fixtures/out-of-repo-assembly/kit/menus.ts',
     'packages/app-host/src/start.tsx',
     'packages/adapters/mock-server/src/index.ts',
-    'apps/platform-e2e/tests-kit/kit.spec.ts',
-    'apps/platform-e2e/playwright.kit.config.ts',
   ]) {
     // The kit gate follows the conservative full-selection verdict, including every dependency above.
     assert.equal(select({ event: 'pull_request', files: [file], exists: () => true }).e2e, 'all', file);
+  }
+  for (const file of ['apps/platform-e2e/tests-kit/kit.spec.ts', 'apps/platform-e2e/playwright.kit.config.ts']) {
+    // Kit-only files need no mock run on a PR, where the kit gate never runs (#1931, #2048 CI--12); a push selects all, so the kit gate runs.
+    assert.equal(select({ event: 'pull_request', files: [file], exists: () => true }).e2e, 'none', file);
+    assert.equal(select({ event: 'push', files: [file], exists: () => true }).e2e, 'all', file);
   }
   const run = spawnSync(process.execPath, ['.github/scripts/select-e2e.mjs'], {
     cwd: new URL('../../..', import.meta.url), encoding: 'utf8',
