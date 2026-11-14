@@ -48,7 +48,8 @@ test('mock-dist readers precede real production build; folded feature coverage s
   assert.match(staticJob, /docker run --rm --memory 256m platform-release-web:ci nginx -t/);
   for (const name of ['Real build keeps heavy engines out of the start-up closure', 'Edge image builds and nginx -t passes']) {
     const step = staticJob.slice(staticJob.indexOf(`- name: ${name}`)).split('\n      - ')[0];
-    assert.match(step, /if: \$\{\{ env\.DOCS_ONLY != 'true' \}\}/, name);
+    // #2182: production-assembly checks run on main push and manual runs only, never on a PR.
+    assert.match(step, /if: \$\{\{ env\.DOCS_ONLY != 'true' && github\.event_name != 'pull_request' \}\}/, name);
   }
   assert.match(staticJob, /fetch-depth: 0/);
   assert.match(staticJob, /FEATURE_LINT_BASE:.*pull_request.base.sha.*github.event.before/);
