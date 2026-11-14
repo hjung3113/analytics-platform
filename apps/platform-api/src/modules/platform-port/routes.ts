@@ -38,7 +38,7 @@ import {
   installPlatformTransport,
   platformActorOf,
 } from './transport.js';
-import { createPlatformUsageService, parseUsageBatch } from './usage.js';
+import { type PlatformUsageServiceDeps, createPlatformUsageService, parseUsageBatch } from './usage.js';
 
 export const PLATFORM_PORT_PREFIX = '/api/v1/platform';
 
@@ -53,6 +53,7 @@ export interface PlatformPortOptions {
   tasksService: TasksService;
   /** This server's permission rules; bootstrap, session-state and the access directory resolve through it. */
   permissions: PlatformPermissionResolver;
+  undeclaredMenuPermissions?: PlatformUsageServiceDeps['undeclaredMenuPermissions'];
   scopeCatalog?: ScopeCatalog;
   scopeResolver?: ScopeResolver;
   now?: () => Date;
@@ -71,7 +72,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
     entityReader,
   });
   const access = createAccessDirectoryService({ db: opts.db, checkService: opts.checkService, permissions: opts.permissions });
-  const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService });
+  const usage = createPlatformUsageService({ db: opts.db, checkService: opts.checkService, undeclaredMenuPermissions: opts.undeclaredMenuPermissions });
   const clientErrors = createPlatformClientErrorService({ db: opts.db });
   const prefs = createPlatformPreferencesService({ db: opts.db });
   const csrf = requireCsrf(opts.sessionService);

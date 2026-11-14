@@ -160,6 +160,7 @@ import {
 } from './modules/permissions/index.js';
 import {
   PLATFORM_PORT_PREFIX,
+  type PlatformPortOptions,
   platformFilesRoutes,
   platformPortRoutes,
 } from './modules/platform-port/index.js';
@@ -256,6 +257,8 @@ export interface BuildServerOptions {
    * registration validation stops the boot. Tests pass their own pair here.
    */
   menuDispatch?: readonly MenuDispatchContribution[];
+  /** Snapshot diagnostics from production menu-declaration setup, exposed only to console operators. */
+  undeclaredMenuPermissions?: PlatformPortOptions['undeclaredMenuPermissions'];
   /**
    * Site/room Scope resolver shared by session, checks and dispatch (ADR-0154). Production
    * selects the grant table with a catalog, or the optional HTTP service; synthetic resolvers are test-only.
@@ -1007,6 +1010,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     ...scopeDeps,
     prefix: PLATFORM_PORT_PREFIX,
     permissions: platformPermissions,
+    undeclaredMenuPermissions: opts.undeclaredMenuPermissions,
     sessionService,
     checkService,
     workspaceId,
