@@ -3,7 +3,7 @@
 //   code  'false' only for a pull request with a non-empty diff whose every file is Markdown or under .agents/ and none is a Markdown file
 //         that code or a test reads (CODE_READS_MD, #1884); the heavy steps then skip.
 //   site  'false' only for a pull request with a non-empty diff that touches nothing the intro-site captures depend on (#608).
-//   full  'true' for a manual run with full=true (release gate), and whenever this script cannot decide: the consumers then run cold
+//   full  'true' for a manual run with full=true (weekly cold run), and whenever this script cannot decide: the consumers then run cold
 //         (turbo --force, no cache restore).
 // Fail-safe: any exception or git failure prints code=true site=true full=true and exits 0 (stderr says why). If the job itself fails the
 // outputs are empty and every consumer treats a value other than exactly 'false' as "run it".

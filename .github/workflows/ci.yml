@@ -6,11 +6,11 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
-  # Release gate (#1019): the only run that is cold and whole. `gh workflow run ci.yml -f full=true` before the release tag.
+  # Cold whole run (#1019): `gh workflow run ci.yml -f full=true`, once a week by hand (#2153); a release tags on the tag SHA's main-push result, not on this run.
   workflow_dispatch:
     inputs:
       full:
-        description: 'Run everything cold: no turbo cache restore, turbo --force (release gate)'
+        description: 'Run everything cold: no turbo cache restore, turbo --force (weekly manual run)'
         type: boolean
         default: false
 
@@ -30,15 +30,17 @@ concurrency:
 # 건너뛰면 Success로 보고되어, `changes`가 실패해도 필수 검사가 통과해 버린다 — 그래서 쓰지 않는다. 판정은 fail-safe다: `code`가
 # 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다.
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다(바뀐 패키지가 많은 보통 PR은 20분대까지 걸릴 수 있고, 서버 시험은 `Platform test`가 아니라 `integration`이 한 번만 돈다):
-# `workflow_dispatch`의 `full=true`(릴리스 태그 전 수동), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
+# `workflow_dispatch`의 `full=true`(주 1회 수동, #2153), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
 # `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 3개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
 # E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 8개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
-# `full=true`(릴리스 태그 전)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
+# `full=true`(주 1회 수동)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
 # 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
 
 # PR 최소 모드(#1931, 소유자 지시: 운영 전까지 PR CI 벽시계 약 10분, 운영 시점은 소유자가 정한다): 아래 검사는 PR에서 돌지 않고 main push와
-# `workflow_dispatch`(릴리스 `full=true` 포함)에서만 돈다 — SDK upgrade gate와 그 self-test, Platform static의 SDK 릴리스 tarball·외부 소비자·키트 검사,
-# E2E shard 1의 키트 브라우저 검사, Intro site captures, Backend images. 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
+# `workflow_dispatch`(주 1회 `full=true` 포함)에서만 돈다 — SDK upgrade gate와 그 self-test, Platform static의 SDK 릴리스 tarball·외부 소비자·키트 검사,
+# E2E shard 1의 키트 브라우저 검사, Backend images. 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
+# 소개 사이트 캡처(`Intro site captures`, #608)는 CI에서 뺐다(#2153, 소유자 2026-11-14: 소유자가 소개 사이트 재개를 말할 때까지 관리하지 않는다). 미구현(보류): `shots.mjs`의
+# testid 전환과 캡처 갱신. 다시 열 조건: 소유자가 재개를 말할 때 — job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터. `classify-changes.mjs`의 `site` 판정은 그때를 위해 남긴다.
 
 jobs:
   changes:
@@ -51,7 +53,6 @@ jobs:
       actions: read
     outputs:
       code: ${{ steps.classify.outputs.code }}
-      site: ${{ steps.classify.outputs.site }}
       full: ${{ steps.classify.outputs.full }}
       e2e: ${{ steps.e2e.outputs.e2e }}
       e2e_base_path: ${{ steps.e2e.outputs.e2e_base_path }}
@@ -63,7 +64,7 @@ jobs:
         with:
           fetch-depth: 0
       # The rules live in the script (with --self-test): code=false only for a PR whose every changed file is Markdown or under .agents/;
-      # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608);
+      # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608; no job reads it while captures are out of CI, #2153);
       # full=true for a manual full=true run, and for anything the script cannot decide (it then prints code=true site=true full=true).
       - id: classify
         env:
@@ -105,7 +106,7 @@ jobs:
       # 'false' only for a Markdown-only PR; empty (changes failed) or 'true' runs every step.
       FEATURE_LINT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
-      # Cold and whole when `full` is 'true' (release gate) or empty (changes failed): the turbo cache is neither restored nor trusted.
+      # Cold and whole when `full` is 'true' (weekly manual run) or empty (changes failed): the turbo cache is neither restored nor trusted.
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
     steps:
       - uses: actions/checkout@v5
@@ -748,45 +749,3 @@ jobs:
           E2E_BASE_PATH: ${{ needs.changes.outputs.e2e_base_path }}
           SHARD_RESULT: ${{ needs.platform-contracts-e2e-shard.result }}
         run: .github/scripts/e2e-verdict.sh
-
-  # #608: the Pages workflow captures the intro site only on release, so a menu or shell change that broke `shots.mjs`
-  # surfaced at the next deploy. This runs the same build → capture → assemble → check chain on the PR. Not a required
-  # check (skipping is safe); the Playwright image avoids `playwright install --with-deps` (#669) and must carry the same
-  # tag as the E2E shards (their guard step fails when it drifts from @playwright/test).
-  site-shots:
-    name: Intro site captures
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.site != 'false' && github.event_name != 'pull_request' }}
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
-      options: --ipc=host
-    timeout-minutes: 20
-    defaults:
-      run:
-        # A container job's default shell is `sh` (dash): no `${var::n}`, no pipefail.
-        shell: bash
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Build demo (mock, sub-path)
-        env:
-          AP_BASE_PATH: /analytics-platform/demo/
-        run: pnpm --filter @ap/platform-web build
-      - name: Capture, assemble and check the site
-        run: |
-          # No `git rev-parse` here: inside the container job git refuses the checkout (dubious ownership) and prints nothing.
-          node site/scripts/shots.mjs --demo apps/platform-web/dist --out _shots
-          node site/scripts/assemble.mjs --out "$RUNNER_TEMP/_site" --site-base /analytics-platform/ --ref "$GITHUB_SHA" --commit "${GITHUB_SHA::7}" --demo apps/platform-web/dist --shots _shots
-          node site/scripts/check-assembled.mjs --site "$RUNNER_TEMP/_site" --captures _shots --browser
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() }}
-        with:
-          name: site-shots
-          path: _shots/
-          retention-days: 3
