@@ -1,7 +1,7 @@
 // Snapshot the public declarations represented by the SDK packages' built dist entries.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -637,43 +637,45 @@ function unifiedDiff(before, after, path) {
   return lines.join('\n');
 }
 
-function checkSnapshots(snapshots) {
-  const currentNames = existsSync(snapshotDirectory)
-    ? readdirSync(snapshotDirectory).filter((name) => apiFilePattern.test(name))
+export function checkSnapshots(snapshots, { directory = snapshotDirectory, report = false, summaryPath = process.env.GITHUB_STEP_SUMMARY, write = (text) => process.stdout.write(text) } = {}) {
+  let output = '';
+  const emit = (text) => { output += text; };
+  const currentNames = existsSync(directory)
+    ? readdirSync(directory).filter((name) => apiFilePattern.test(name))
     : [];
   const expectedNames = new Set(snapshots.keys());
   let mismatches = 0;
 
   for (const name of [...snapshots.keys()].sort(compareText)) {
     const expected = snapshots.get(name);
-    const path = join(snapshotDirectory, name);
+    const path = join(directory, name);
     const actual = existsSync(path) ? readFileSync(path, 'utf8') : '';
     if (actual === expected) continue;
     mismatches += 1;
-    process.stdout.write(unifiedDiff(actual, expected, 'tooling/sdk/api/' + name) + '\n');
+    emit(unifiedDiff(actual, expected, 'tooling/sdk/api/' + name) + '\n');
   }
 
   for (const name of currentNames.sort(compareText)) {
     if (expectedNames.has(name)) continue;
     mismatches += 1;
-    const actual = readFileSync(join(snapshotDirectory, name), 'utf8');
-    process.stdout.write('stale snapshot: ' + name + ' (its export entry no longer exists)\n');
-    process.stdout.write(unifiedDiff(actual, '', 'tooling/sdk/api/' + name) + '\n');
+    const actual = readFileSync(join(directory, name), 'utf8');
+    emit('stale snapshot: ' + name + ' (its export entry no longer exists)\n');
+    emit(unifiedDiff(actual, '', 'tooling/sdk/api/' + name) + '\n');
   }
 
   if (mismatches > 0) {
-    const tick = String.fromCharCode(96);
-    process.stdout.write(
-      '의도한 공개 API 변경이면 ' +
-        tick +
-        'pnpm sdk:api --update' +
-        tick +
-        ' 후, 지우거나 바뀐 줄은 소비 안내의 변경 기록에 적는다\n',
-    );
-    process.exitCode = 1;
-    return;
+    emit(`sdk:api ${report ? 'report' : 'FAILED'}: ${mismatches} snapshot(s) differ from the released baseline\n`);
+    emit('Record intended changes in packages/sdk/changes/<issue>.md; the release lead refreshes the baseline with pnpm sdk:api --update.\n');
+  } else {
+    emit('sdk:api passed: ' + snapshots.size + ' snapshots match\n');
   }
-  process.stdout.write('sdk:api passed: ' + snapshots.size + ' snapshots match\n');
+  write(output);
+  if (report && summaryPath) {
+    // A declaration can contain backticks; use a fence longer than any run in the diff.
+    const fence = '`'.repeat(Math.max(3, ...[...output.matchAll(/`+/g)].map(match => match[0].length + 1)));
+    appendFileSync(summaryPath, `\n### SDK public API diff\n\n${fence}diff\n${output}${fence}\n`);
+  }
+  return mismatches > 0 && !report ? 1 : 0;
 }
 
 function updateSnapshots(snapshots) {
@@ -809,11 +811,12 @@ function runSelfTest(ts) {
   process.stdout.write('sdk:api self-test passed: function, interface, re-export, removal, reachable private type, type-only export, relocation, name collision, member order\n');
 }
 
-function parseMode(args) {
+export function parseMode(args) {
   if (args.length === 0) return 'check';
+  if (args.length === 1 && args[0] === '--report') return 'report';
   if (args.length === 1 && args[0] === '--update') return 'update';
   if (args.length === 1 && args[0] === '--self-test') return 'self-test';
-  fail('usage: pnpm sdk:api [--update | --self-test]');
+  fail('usage: pnpm sdk:api [--report | --update | --self-test]');
 }
 
 function main() {
@@ -825,7 +828,7 @@ function main() {
   }
   const snapshots = collectSnapshots(ts);
   if (mode === 'update') updateSnapshots(snapshots);
-  else checkSnapshots(snapshots);
+  else process.exitCode = checkSnapshots(snapshots, { report: mode === 'report' });
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

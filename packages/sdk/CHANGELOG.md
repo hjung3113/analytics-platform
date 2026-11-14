@@ -27,7 +27,7 @@
 
 팀장은 SDK 태그를 낼 때 `pnpm sdk:schemas --version X.Y.Z --out <empty-or-absent-schemas-dir>`로 자산을 만들고 `gh release upload sdk-vX.Y.Z <schemas-dir>/contract-schemas-X.Y.Z.tgz <schemas-dir>/SHA256SUMS-schemas`로 함께 올린다. [릴리스 순서](../../.agents/conductor/PROFILE.md#slice-close)를 따른다.
 
-스냅샷 줄이 삭제되거나 바뀌면 같은 PR에서 이 표에 기록하고, [ADR-0044](../../docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)에 따라 한 SDK 릴리스 전에 소비자에게 예고한다.
+공개 API가 바뀌는 PR은 이 표를 고치지 않고 `packages/sdk/changes/<이슈 번호>.md` 조각에 같은 꼴의 줄을 쓴다(릴리스 때 `pnpm sdk:changelog --release`가 이 표로 합친다). 스냅샷 줄이 삭제되거나 바뀌면 그 조각에 이전 방법을 적고, [ADR-0044](../../docs/adr/0044-sdk-source-in-platform-repo-released-separately.md)에 따라 한 SDK 릴리스 전에 소비자에게 예고한다.
 
 | 버전 | 패키지 | 바뀐 공개 API | 이전 방법 |
 | --- | --- | --- | --- |

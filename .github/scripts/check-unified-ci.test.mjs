@@ -101,3 +101,14 @@ test('typecheck runs in its own job, not in Platform static', () => {
   assert.match(typecheckJob, /-typecheck-\$\{\{ github\.sha \}\}/);
   assert.match(aggregate, /"typecheck=\$TYPECHECK"/);
 });
+
+test('SDK drift reports on PR/main; strict comparison only on full manual release gate', () => {
+  const step = workflow.slice(workflow.indexOf('- name: SDK public API snapshots')).split('\n      # #430:')[0];
+  assert.match(step, /github.event_name == 'workflow_dispatch' && inputs.full == true/);
+  assert.match(step, /pnpm sdk:api --report/);
+  assert.match(step, /\n\s+pnpm sdk:api\n/);
+  assert.match(step, /pnpm sdk:api --self-test/);
+  assert.match(step, /pnpm sdk:test/);
+  assert.match(workflow, /node tooling\/sdk\/sdk-changelog.mjs --check/);
+  assert.doesNotMatch(step, /pnpm build|--update/);
+});

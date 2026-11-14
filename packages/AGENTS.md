@@ -44,7 +44,7 @@ Folders are grouped one level (ADR-0090): `app-host/` sits directly under `packa
 
 ## Verification
 
-- After a build, check the public API snapshot with `pnpm sdk:api` (it reads each package's built `dist`).
+- For public API changes, follow [SDK change notes and release baselines](sdk/AGENTS.md). After a build, read the diff with `pnpm sdk:api --report` (it reads each package's built `dist`).
 - Narrow with `pnpm --filter @ap/<package> test`, then run the root checks (root `AGENTS.md`). CI `CSS selectors (build diff)` compares the built CSS selector sets of move/refactor PRs automatically; label `css-removal-ok` only for intended removals ([tooling/AGENTS.md](../tooling/AGENTS.md)).
 - When you touch the release shape (package `exports`, CSS `@source`, `tsconfig.build.json`, a new file kind), run `pnpm sdk:pack --out <temp folder>` then `pnpm sdk:consumer-check <same folder>`. The first builds the five packages to `dist` and makes tarballs and `SHA256SUMS`; the second has a clean external consumer install them and run `tsc`, a Vite build, CSS class checks and Vitest (CI runs the same order, ADR-0056).
 
