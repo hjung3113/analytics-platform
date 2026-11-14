@@ -1,3 +1,4 @@
+import { sameBinding } from '../binding-values.js';
 import { bindingProblems, scalarOnlyProblems, type ParamType } from './bindings.js';
 import { type Call, callBindings, callKind, isEnvelope, statementProblems } from './calls.js';
 import { type Routing, routeCall } from './routing.js';
@@ -127,6 +128,9 @@ export function routingProblems(bundle: {
     if (owner.scopeCheck?.mode === 'resolve-keys') {
       for (const problem of bindingProblems([...callBindings(owner.scopeCheck.lookup), owner.scopeCheck.keys], endpoint)) add(problem);
       for (const problem of mappedScalarProblems(owner.scopeCheck.lookup)) add(problem);
+      const check = owner.scopeCheck;
+      const keyless = typeof check.keys !== 'string' && Array.isArray(check.keys.const) && check.keys.const.length === 0;
+      if (!keyless && !callBindings(check.lookup).some((binding) => sameBinding(binding, check.keys))) add('scopeCheck.lookup must bind scopeCheck.keys');
       if (isEnvelope(owner.scopeCheck.lookup)) add('scopeCheck.lookup must be a non-envelope call');
       for (const problem of resolveKeysFanOutProblems(owner)) add(problem);
     }
@@ -134,6 +138,11 @@ export function routingProblems(bundle: {
     for (const [index, route] of owner.routes.entries()) {
       const prefix = `route ${index}`;
       const call = routeCall(owner, route);
+      const check = owner.scopeCheck;
+      if (check?.mode === 'resolve-keys' && !isEnvelope(call)) {
+        const keyless = typeof check.keys !== 'string' && Array.isArray(check.keys.const) && check.keys.const.length === 0;
+        if (!keyless && !callBindings(call).some((binding) => sameBinding(binding, check.keys))) add(`${prefix}: resolve-keys call must bind scopeCheck.keys`);
+      }
       if (endpoint.requiresScope && route.sites === undefined) add(`${prefix}: requiresScope route needs sites`);
       if (!endpoint.requiresScope && (route.sites !== undefined || route.rooms !== undefined)) add(`${prefix}: scope-free route cannot declare sites or rooms`);
       if (new Set(route.targets).size !== route.targets.length) add(`${prefix}: duplicate target id`);
