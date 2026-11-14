@@ -10,8 +10,9 @@ import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
-  DetailDrawer, DrillLayout, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
+  DetailDrawer, DrillLayout, PageKeyWarning, usePageKeyRules, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
 } from '@ap/components';
+import { Button } from '@ap/ui';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
 import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
 import { shownDrill } from '../../shared/shownDrill';
@@ -63,6 +64,7 @@ export default function TablePage(_props: PageProps) {
   const motion = drill.levels[1]?.value ?? null;
   const level = levelOf(module, motion);
   const focus = pageParam('focus');
+  const focusKeys = usePageKeyRules([{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }]);
   const { urlState, invalid: tableInvalid, sentences } = useTableUrlState(SORT_FIELDS);
 
   const pages = useMenuFetch(hwTime.tableRows);
@@ -72,7 +74,7 @@ export default function TablePage(_props: PageProps) {
   const levelQ = useHwTimeLevel(drillParams(module, motion));
   // The row counts below describe the kept level result (#1365): they name the Module/Motion it was loaded with.
   const kept = shownDrill(levelQ, drillParams(module, motion));
-  const response: HwTimeLevelData | null = levelQ.response?.outcome === 'ok' ? levelQ.response.data : null;
+  const response: HwTimeLevelData | null = levelQ.response && ['ok', 'empty'].includes(levelQ.response.outcome) ? levelQ.response.data : null;
   const listed = response ? levelRowsOf(response) : NO_ROWS;
   const dataRows = listed.filter(row => !row.auxiliary);
   const partial = dataRows.filter(row => Object.values(row.values).some(value => value === null)).length;
@@ -147,7 +149,10 @@ export default function TablePage(_props: PageProps) {
   return <PlatformPage layout="fill">
     <DrillLayout fill summary={summary}>
       {levelFailure && <QueryView query={levelQ} widgetName={m('tablePageLevelSummary')} compact>{() => null}</QueryView>}
-      {table}
+      {focusKeys.invalid ? <PageKeyWarning sentences={focusKeys.sentences} onRecover={focusKeys.recover} /> : <>
+        {focus !== null && response !== null && !focusRow && <div role="status" className="text-sm"><p>{m('tablePageRowNotInThisLevel')}</p><Button variant="secondary" size="sm" onClick={closeDrawer}>{m('tablePageClearRowSelection')}</Button></div>}
+        {table}
+      </>}
     </DrillLayout>
     {detailPending && <DetailDrawer key={focus} title={<span className="t-mono">{rowIdLabel(focus)}</span>} subtitle={m('tablePageRowDetailsSyntheticData')}
       onClose={closeDrawer}

@@ -45,6 +45,7 @@ let store: Rec[] = [];
 let writes: MenuAction[] = [];
 let queries: MenuQuery[] = [];
 let failLatest = false;
+let ownerFailure = false;
 let profileActive = true;
 let nextError: { outcome: 'invalid'; fieldErrors: FieldError[] } | { outcome: 'conflict' } | null = null;
 function seed() {
@@ -134,6 +135,7 @@ const adapter = testAdapter({
     if (req.endpoint === 'logKnowledge.items') return ok(listOf(p));
     if (req.endpoint === 'logKnowledge.models' || req.endpoint === 'logKnowledge.softwareVersions') {
       const pool: Record<string, unknown>[] = req.endpoint === 'logKnowledge.models' ? MODELS : SOFTWARE;
+      if (ownerFailure && p.pageSize === 1) return { ...ok(null), outcome: 'error' };
       const byId = cond(p.filters, 'id')?.value, byModel = cond(p.filters, 'modelId')?.value, byActive = cond(p.filters, 'active')?.value;
       const q = (p.q ?? '').toLowerCase();
       const rows = pool.filter(r => (!byId || byId.includes(r.id as string)) && (!byModel || byModel.includes(r.modelId as string)) && (!byActive || byActive.includes(String(r.active))) && (q === '' || `${r.code} ${r.name}`.toLowerCase().includes(q)))
@@ -154,7 +156,7 @@ const adapter = testAdapter({
 });
 
 let restoreGeometry: () => void;
-beforeEach(() => { holdDetail = null; seed(); failLatest = false; profileActive = true; MODELS.length = 3; writes = []; queries = []; nextError = null; session = publisher; restoreGeometry = stubCompactTableGeometry(); });
+beforeEach(() => { holdDetail = null; ownerFailure = false; seed(); failLatest = false; profileActive = true; MODELS.length = 3; writes = []; queries = []; nextError = null; session = publisher; restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 
 const tree = (ui: React.ReactNode, selected = adapter) => treeWith({ registry, adapter: selected, ui, slot: true, slotLabel: '상세 패널' });
@@ -1086,4 +1088,16 @@ describe('Item drawer address navigation guards (#2037 MEN-17)', () => {
     expect(window.location.pathname + window.location.search).toBe(before);
     expect((field(label) as HTMLInputElement).value).toBe('unsaved address regression');
   });
+});
+
+
+it('MEN-49 distinguishes an unknown owner lookup and supports retry', async () => {
+  ownerFailure = true;
+  mountList(`${published}&focus=new&owner=${MODEL_A}`);
+  expect(await screen.findByText('소유 대상(owner)을 확인하지 못했습니다.')).toBeTruthy();
+  expect(screen.queryByText(/활성 모델이 아니어서/)).toBeNull();
+  ownerFailure = false;
+  fireEvent.click(screen.getByRole('button', { name: '소유 대상 다시 확인' }));
+  await waitFor(() => expect(screen.queryByText('소유 대상(owner)을 확인하지 못했습니다.')).toBeNull());
+  expect(await screen.findByRole('heading', { name: '새 기술 Item' })).toBeTruthy();
 });

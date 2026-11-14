@@ -6,6 +6,11 @@ import type { AnalysisChartFrameProps } from '@ap/components';
 import { StackPanel } from './StackPanel';
 import { TrendPanel } from './TrendPanel';
 
+vi.mock('@ap/kernel', async importOriginal => ({
+  ...await importOriginal<typeof import('@ap/kernel')>(),
+  usePlatform: () => ({ setPage: vi.fn() }),
+}));
+
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   return { ...actual, AnalysisChartFrame: (p: AnalysisChartFrameProps) => <div data-testid={p.chartId}>{p.emphasisFocus}</div> };

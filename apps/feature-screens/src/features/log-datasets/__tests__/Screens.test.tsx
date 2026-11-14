@@ -252,3 +252,16 @@ function historyButton(name: string) {
   if (!element) throw new Error(`Missing history button ${name}`);
   return element;
 }
+
+
+it('MEN-51 preserves approval feedback after the server advances the baseline version', async () => {
+  const data: Record<string, unknown> = { baselines: { rows: [baseline] }, baselineDetail: baseline };
+  const p = props(data);
+  const view = render(<BaselinePanel {...p} dataset={dataset} revisionId="rev" />);
+  await userEvent.setup().type(screen.getByLabelText('승인 사유'), '검토 완료');
+  await userEvent.setup().click(screen.getByRole('button', { name: '초안 b2 승인' }));
+  expect(await screen.findByText('Baseline을 승인했습니다.')).toBeVisible();
+  data.baselineDetail = { ...baseline, status: 'approved', version: '5' };
+  view.rerender(<BaselinePanel {...p} dataset={dataset} revisionId="rev" />);
+  expect(screen.getByText('Baseline을 승인했습니다.')).toBeVisible();
+});

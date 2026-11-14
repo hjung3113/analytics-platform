@@ -1,5 +1,5 @@
 /** Deterministic synthetic HW Time data. The package mock never reads real equipment names or records. */
-import { shift, type PageSort } from '@ap/contracts';
+import { bucketStart, shift, type PageSort } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import {
   HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, MODULE_IDS, MOTION_IDS, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
@@ -181,13 +181,16 @@ function trendValues(id: string): number[] {
   return Array.from({ length: 8 }, (_, dayIndex) => items.reduce((sum, item) => sum + item[dayIndex]!, 0));
 }
 
-function trendRows(equipmentIds: readonly string[], rowIds: string[], to: string) {
+function trendRows(equipmentIds: readonly string[], rowIds: string[], from: string, to: string) {
+  const endDay = bucketStart(to, 'day');
+  const lastDay = to === endDay ? shift(endDay, -24) : endDay;
   return {
     rows: rowIds.filter(id => equipmentIds.includes(id.slice(0, 6))).map(id => {
       const values = trendValues(id);
       return {
         id,
-        points: values.map((value, dayIndex) => ({ at: shift(to, -24 * (8 - dayIndex)).slice(0, 10), value })),
+        points: values.map((value, dayIndex) => ({ at: shift(lastDay, -24 * (7 - dayIndex)).slice(0, 10), value }))
+          .filter(point => point.at >= from.slice(0, 10)),
       };
     }),
     limits: { maxRows: HW_TIME_MAX_TREND_ROWS },
@@ -232,7 +235,7 @@ export const hwTimeMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.trend, {
-    handle: ({ params, context, equipment }) => trendRows(syntheticEquipmentIds(equipment), params.rowIds, context.to!),
+    handle: ({ params, context, equipment }) => trendRows(syntheticEquipmentIds(equipment), params.rowIds, context.from!, context.to!),
     validate: ({ params }) => validateTrend(params.rowIds),
     isEmpty: data => data.rows.length === 0,
   }),

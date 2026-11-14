@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { cycleMock, percentile, population, slowExecutions } from './cycle';
-import { CYCLE_MAX_HOURS, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, executionKey, type CycleKpi, type SlowRow } from '../endpoints';
+import { CYCLE_MAX_HOURS, cycleDistEndpoint, cycleTrendEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, executionKey, type CycleKpi, type SlowRow } from '../endpoints';
 import { EQUIPMENT } from '@ap/mock-server';
 import { emptyGlobal, groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
 
@@ -97,5 +97,17 @@ describe('cycle-time endpoints', () => {
     const rows = [10, 40, 80, 95].map((cycleMin, i) => ({ equipmentId: 'E', room: 'R', recipe: 'r', lotId: 'l', ppid: 'p', anchor: String(i + 1), startedAt: `2026-09-25T0${i}:00:00`, cycleMin, quality: 'unknown' as const }));
     expect(slowExecutions(rows, 'all', null, null, null, { from: '75-90', to: '90+' }).map(r => r.cycleMin)).toEqual([80, 95]);
     expect(slowExecutions(rows, 'p95', 40, 90, null, null).map(r => r.cycleMin)).toEqual([95]);
+  });
+});
+
+
+describe('MEN-45 cycle version validation', () => {
+  it.each([
+    [cycleKpiEndpoint.id, {}], [cycleTrendEndpoint.id, { granularity: 'hour' }],
+    [cycleDistEndpoint.id, {}], [cycleSlowPageEndpoint.id, { ...allFilter, ...page0, sorting: [] }],
+    [cycleExportEndpoint.id, allFilter],
+  ])('validates values for %s', async (endpoint, params) => {
+    const response = await adapter.menuQuery({ endpoint, context: { ...context, metricId: 'cycle_time', metricVersion: '7' }, params });
+    expect(response.outcome).toBe('error');
   });
 });

@@ -40,7 +40,7 @@ function Count({ n, label, text, onOpen }: { n: number; label: string; text?: st
   return <span className="tabular"><Button type="button" variant="link" size="sm" aria-label={label} onClick={onOpen}>{text ?? n}</Button></span>;
 }
 
-export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onTotal, onImport }: {
+export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onImport }: {
   kind: CatalogKind; q: string; focus: string | null;
   /** 「가져오기」 in the toolbar line (maker, process and model tabs only); absent = no button. */
   onImport?: (() => void) | undefined;
@@ -50,7 +50,6 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
   /** Names seen so far by id, for chosen filter values the bounded option list lacks. */
   labels: ReadonlyMap<string, string>;
   remember: (id: string, label: string) => void;
-  onTotal: (kind: CatalogKind, total: number) => void;
 }) {
   const { setPage, pageParams } = usePlatform();
   const endpoint = ENDPOINTS[kind] as unknown as Parameters<typeof useMenuFetch<CatalogPageParams, GroupedPageResult<CatalogRow>>>[0];
@@ -107,7 +106,6 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
     const response = await pages.fetch({ q: q === '' ? null : q, ...query }, signal);
     if (response.outcome === 'ok' && response.data) {
       for (const row of response.data.rows) rowsRef.current.set(row.id, row);
-      onTotal(kind, response.data.total);
     }
     return response;
   };

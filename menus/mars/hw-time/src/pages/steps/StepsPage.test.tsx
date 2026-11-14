@@ -403,3 +403,13 @@ describe('HW Time steps page keeps the previous level honest (#1365 F4)', () => 
     expect(searchParams().get('drillMotion')).toBe('Pump');
   });
 });
+
+
+it('MEN-48 counts returned trend rows and lets unavailable rows be removed', async () => {
+  data.trend.mockImplementation(() => done(trendData(['EQ-001.H1'])));
+  await renderPage('&drillModule=PM1&trend=EQ-001.H1,EQ-020.H1');
+  expect(screen.getByRole('button', { name: /^추세 \(1행\)/ })).toBeTruthy();
+  expect(screen.getByText(/현재 Scope·조건에 없는 행/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '추세에서 제거 EQ-020 · H1' }));
+  expect(searchParams().get('trend')).toBe('EQ-001.H1');
+});

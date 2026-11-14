@@ -27,12 +27,14 @@ export function ChangeDrawer({ modelId, software, row, mode, selectedSoftware, o
   const latest = useMenuFetch(modelSpecEndpoint), changes = useMenuFetch(specChangesEndpoint);
   const initial = { softwareId: row?.softwareId ?? selectedSoftware ?? software[0]?.id ?? '', end: row?.endsBeforeSoftwareId ?? 'none', targetKind: row?.targetKind ?? 'event' as SpecTargetKind, changeKind: row?.changeKind ?? 'behavior' as SpecChangeKind,
     target: JSON.stringify(row ? targetOf(row) : { module: '', event: '' }, null, 2), before: JSON.stringify(row?.change.before ?? {}, null, 2), after: JSON.stringify(row?.change.after ?? {}, null, 2), note: row?.note ?? '', evidenceRef: row?.evidenceRef ?? '' };
+  const [currentRow, setCurrentRow] = useState(row);
+  const shownRow = currentRow ?? row;
   const [input, setInput] = useState(initial), [replace, setReplace] = useState(false), [version, setVersion] = useState(String(row?.version ?? ''));
   const [problem, setProblem] = useState(''), [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}), [conflict, setConflict] = useState(false), [recovering, setRecovering] = useState(false), [discard, setDiscard] = useState(false);
   const dirty = JSON.stringify(input) !== JSON.stringify(initial) || replace;
   useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
   const pending = add.pending || retire.pending || confirm.pending || recovering;
-  const disabled = pending || conflict || !!row?.retiredAt;
+  const disabled = pending || conflict || !!shownRow?.retiredAt;
   const change = <K extends keyof typeof input>(key: K, value: (typeof input)[K]) => setInput({ ...input, [key]: value });
   function settle(result: ActionResult<unknown>) {
     if (result.outcome === 'ok' && result.data) { onClose(); return; }
@@ -77,25 +79,26 @@ export function ChangeDrawer({ modelId, software, row, mode, selectedSoftware, o
       if (row) {
         let page = 0, found: SpecChangeRow | undefined;
         do { const result = await changes.fetch({ modelId, status: 'all', page, pageSize: 200 });
-          if (result.outcome !== 'ok' || !result.data) return;
+          if (result.outcome !== 'ok' || !result.data) { setProblem(w('최신 변경점을 확인하지 못했습니다. 다시 시도해 주세요.', 'Could not check the latest change. Try again.')); return; }
           found = result.data.rows.find(c => c.id === row.id);
           if (found || (page + 1) * 200 >= result.data.total) break; page++;
         } while (page < 100);
         if (!found || found.retiredAt) { setProblem(w('이미 닫힌 변경점입니다. 입력을 복사해 새 변경점으로 작성해 주세요.', 'This change is retired. Copy your input to a new change.')); return; }
         setVersion(String(found.version));
+        setCurrentRow(found);
       }
       setConflict(false); setProblem(w('최신 상태를 확인했습니다. 유지된 입력을 검토한 뒤 다시 확인해 주세요.', 'Latest state checked. Review the preserved input before confirming again.'));
-    } finally { setRecovering(false); }
+    } catch { setProblem(w('최신 변경점을 확인하지 못했습니다. 다시 시도해 주세요.', 'Could not check the latest change. Try again.')); } finally { setRecovering(false); }
   }
   const example = (side: 'target' | 'before' | 'after') => `${w('예', 'Example')}: ${JSON.stringify(JSON_EXAMPLES[input.targetKind][side])}`;
   const close = () => { if (dirty) setDiscard(true); else onClose(); };
   return <>
-    <DetailDrawer title={mode === 'add' ? w('변경점 추가', 'Add change') : mode === 'retire' ? w('변경점 닫기·대체', 'Retire or replace change') : w('변경점 재검토 확인', 'Confirm revalidation')} subtitle={row?.targetKey} onClose={close}
+    <DetailDrawer title={mode === 'add' ? w('변경점 추가', 'Add change') : mode === 'retire' ? w('변경점 닫기·대체', 'Retire or replace change') : w('변경점 재검토 확인', 'Confirm revalidation')} subtitle={shownRow?.targetKey} onClose={close}
       footer={<div className="flex justify-end gap-2"><Button variant="secondary" disabled={pending} onClick={close}>{w('취소', 'Cancel')}</Button><Button aria-busy={pending || undefined} disabled={disabled || mode === 'add' && !input.softwareId} onClick={submit}>{pending ? w('처리 중…', 'Working…') : mode === 'add' ? w('추가', 'Add') : w('확인', 'Confirm')}</Button></div>}
       tabs={[{ id: 'change', label: w('내용', 'Content'), content: <div className="grid gap-4" aria-busy={pending || undefined}>
         {problem && <Callout tone="amber" title={w('확인 필요', 'Review required')}><p role="alert" className="whitespace-pre-wrap text-sm">{problem}</p></Callout>}
         {conflict && <Button disabled={pending} variant="secondary" onClick={() => { void recover().catch(() => setRecovering(false)); }}>{w('최신 확인 후 다시 검토', 'Check latest and review again')}</Button>}
-        {row && <><p className="text-sm">{row.softwareLabel}{w('부터', ' onward')} · r{row.basedOnRevNo} · {row.needsRevalidation ? w('재검토 필요', 'Needs revalidation') : w('확인됨', 'Reviewed')}</p><ChangeComparison row={row} /></>}
+        {shownRow && <><p className="text-sm">{shownRow.softwareLabel}{w('부터', ' onward')} · r{shownRow.basedOnRevNo} · {shownRow.needsRevalidation ? w('재검토 필요', 'Needs revalidation') : w('확인됨', 'Reviewed')}</p><ChangeComparison row={shownRow} /></>}
         {mode === 'confirm' ? <p className="text-sm">{w('내용을 바꾸지 않고 재검토 필요 표시만 해제합니다.', 'Clear the revalidation flag without changing the content.')}</p> : <>
           {mode === 'retire' && <label className="flex items-center gap-2 text-sm"><Checkbox checked={replace} onCheckedChange={value => setReplace(value === true)} disabled={disabled} />{w('같은 대상의 새 변경점으로 대체', 'Replace with a new change for the same target')}</label>}
           {(mode === 'add' || replace) && <>

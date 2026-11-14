@@ -3,7 +3,7 @@ import { ExternalLink, Plus } from 'lucide-react';
 import { type ApiResponse, type ColumnFilterSpec, type PageResult, type TableQuery, isAnswered } from '@ap/contracts';
 import { PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
-import { Button, SearchInput } from '@ap/ui';
+import { Button, Callout, SearchInput } from '@ap/ui';
 import { isUuid, ITEM_PUBLISH_PERMISSION, ITEM_SORT_IDS, itemFilterSpecs, itemsEndpoint, modelsEndpoint, type CatalogPageParams, type ItemRow, type ModelRow } from '../../endpoints';
 import { OwnerChip, StateBadge, TypeBadge } from './ItemBadges';
 import { ItemWriteDrawer } from './ItemWriteDrawer';
@@ -34,30 +34,32 @@ function useModelNames(ids: readonly string[]): ReadonlyMap<string, string> {
   return names;
 }
 
-type OwnerPreset = { state: 'none' } | { state: 'pending' } | { state: 'ok'; id: string } | { state: 'refused' };
+type OwnerPreset = { state: 'none' } | { state: 'pending' } | { state: 'ok'; id: string } | { state: 'refused' } | { state: 'failed'; retry: () => void };
 /**
  * The `owner` address value is accepted as the create form's owner only after it resolves to an active model (the picker offers active
- * ones only). A malformed, unknown or inactive id, or a failed lookup, gives `refused` and the form starts with no owner.
+ * ones only). A malformed, unknown or inactive id gives `refused`; failed reads remain unknown and can be retried.
  */
 function useOwnerPreset(raw: string | null): OwnerPreset {
   const { fetch } = useMenuFetch(modelsEndpoint) as unknown as ReturnType<typeof useMenuFetch<CatalogPageParams, PageResult<ModelRow>>>;
   const fetchRef = useRef(fetch);
   useEffect(() => { fetchRef.current = fetch; });
-  const [done, setDone] = useState<{ raw: string; ok: boolean } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [done, setDone] = useState<{ raw: string; attempt: number; state: 'ok' | 'refused' | 'failed' } | null>(null);
   useEffect(() => {
     if (raw === null || !isUuid(raw)) return;
     const controller = new AbortController();
     void fetchRef.current({ q: null, page: 0, pageSize: 1, sorting: [{ id: 'createdAt', desc: false }], filters: [{ id: 'id', op: 'in', value: [raw] }] }, controller.signal).then(res => {
       if (controller.signal.aborted) return;
       const row = (isAnswered(res.outcome)) ? res.data?.rows.find(r => r.id === raw) : undefined;
-      setDone({ raw, ok: !!row && row.active });
-    }).catch(() => { if (!controller.signal.aborted) setDone({ raw, ok: false }); });
+      setDone({ raw, attempt, state: !isAnswered(res.outcome) || !res.data ? 'failed' : row?.active ? 'ok' : 'refused' });
+    }).catch(() => { if (!controller.signal.aborted) setDone({ raw, attempt, state: 'failed' }); });
     return () => controller.abort();
-  }, [raw]);
+  }, [raw, attempt]);
   if (raw === null) return { state: 'none' };
   if (!isUuid(raw)) return { state: 'refused' };
-  if (done?.raw !== raw) return { state: 'pending' };
-  return done.ok ? { state: 'ok', id: raw } : { state: 'refused' };
+  if (done?.raw !== raw || done.attempt !== attempt) return { state: 'pending' };
+  if (done.state === 'failed') return { state: 'failed', retry: () => setAttempt(n => n + 1) };
+  return done.state === 'ok' ? { state: 'ok', id: raw } : { state: 'refused' };
 }
 
 function ItemTable({ q }: { q: string }) {
@@ -123,7 +125,8 @@ export default function ItemList() {
   return <PlatformPage description="모든 모델·SW 버전의 기술 Item을 찾습니다. Item마다 소유 대상은 하나입니다."
     primaryAction={canWrite ? <Button type="button" onClick={() => setPage({ focus: 'new' })}><Plus className="size-3.5" aria-hidden />새 기술 Item</Button> : undefined}>
     {creating && owner.state === 'refused' && <PageKeyWarning sentences={['소유 대상(owner)이 활성 모델이 아니어서 비워 두었습니다. 목록에서 모델을 골라 주세요.']} onRecover={() => setPage({ owner: null })} />}
-    {creating && owner.state !== 'pending' && <ItemWriteDrawer target={{ mode: 'create', ownerModelId: owner.state === 'ok' ? owner.id : '' }} onClose={() => setPage({ focus: null, owner: null })} />}
+    {creating && owner.state === 'failed' && <Callout tone="amber" title="소유 대상 확인 필요"><p role="alert">소유 대상(owner)을 확인하지 못했습니다.</p><Button variant="secondary" size="sm" onClick={owner.retry}>소유 대상 다시 확인</Button><Button variant="secondary" size="sm" onClick={() => setPage({ owner: null })}>소유 대상 직접 선택</Button></Callout>}
+    {creating && owner.state !== 'pending' && owner.state !== 'failed' && <ItemWriteDrawer target={{ mode: 'create', ownerModelId: owner.state === 'ok' ? owner.id : '' }} onClose={() => setPage({ focus: null, owner: null })} />}
     <ManagementLayout table={<ItemTable q={q} />} />
   </PlatformPage>;
 }

@@ -5,11 +5,11 @@ import { CYCLE_SERIES_VERSIONS, isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEnd
 import { lookupOccurrence } from './cycle';
 
 export const executionOccurrence: AnyMockEndpoint = defineMockEndpoint(occurrenceEndpoint, {
-  handle: ({ equipment, params }): OccurrenceResult => {
+  handle: ({ equipment, params, context }): OccurrenceResult => {
     // The identity is (equipmentId, entityType, anchor) (06 §22): an entityType the page cannot open
     // or a malformed anchor is missing — never another entity's occurrence.
     if (!OCCURRENCE_ENTITY_TYPES.includes(params.entityType) || !isAnchor(params.anchor)) return { access: 'missing' };
-    return lookupOccurrence(equipment, params.equipmentId, params.anchor, params.metricVersion);
+    return lookupOccurrence(equipment, params.equipmentId, params.anchor, params.metricVersion, context.scopeId ?? undefined);
   },
   isEmpty: data => data.access === 'missing',
   provisional: ({ data }) => data.access === 'ok' && data.execution.startedAt >= shift(DATA_THROUGH, -24),

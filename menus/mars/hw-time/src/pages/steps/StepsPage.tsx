@@ -42,6 +42,7 @@ export default function StepsPage(_props: PageProps) {
   const { invalid, sort, sortText, trendRows, hidden, setHidden, notice } = state;
   const levelQ = useHwTimeLevel(params, invalid === null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
+  const trendCount = trendRows.length === 0 ? 0 : trendQ.response && ['ok', 'empty'].includes(trendQ.response.outcome) ? trendQ.response.data?.rows.length : undefined;
   // While the previous level is kept (#1365), titles and drill actions follow the Module/Motion the rows were loaded with; drilling from old rows is off.
   const kept = shownDrill(levelQ, params);
 
@@ -165,7 +166,7 @@ export default function StepsPage(_props: PageProps) {
             <Button type="button" variant="ghost" size="sm" aria-expanded={trendOpen} aria-controls={trendId} className="justify-start"
               onClick={() => setTrendOpen(open => !open)}>
               <ChevronDown aria-hidden className={cn('size-4 transition-transform', !trendOpen && '-rotate-90')} />
-              {m('stepsPageTrendRows', { length: String(trendRows.length) })}
+              {m('stepsPageTrendRows', { length: String(trendCount ?? '–') })}
             </Button>
             {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
           </div>

@@ -71,6 +71,7 @@ export default function ComparePage(_props: PageProps) {
   const moduleQ = useHwTimeLevel({ drillModule: module ?? '' }, enabled && module !== null);
   const detailQ = useHwTimeLevel({ drillModule: module ?? '', drillMotion: motion ?? '' }, enabled && module !== null && motion !== null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
+  const trendCount = trendRows.length === 0 ? 0 : trendQ.response && ['ok', 'empty'].includes(trendQ.response.outcome) ? trendQ.response.data?.rows.length : undefined;
   // Each panel's query changes params with the drill (#1365): while a previous result is kept, its title, summary and drill actions use the Module/Motion it was loaded with.
   const moduleKept = shownDrill(moduleQ, { drillModule: module ?? '' });
   const detailKept = shownDrill(detailQ, { drillModule: module ?? '', drillMotion: motion ?? '' });
@@ -170,7 +171,7 @@ export default function ComparePage(_props: PageProps) {
 
   const trendPanel: PanelWorkspacePanel = {
     id: 'trend', title: HW_TIME_MESSAGES.comparePageTrend,
-    badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: formatText(HW_TIME_MESSAGES.comparePageRowsInTheTrend, 'ko', { length: String(trendRows.length) }), en: formatText(HW_TIME_MESSAGES.comparePageRowsInTheTrend, 'en', { length: String(trendRows.length) }) } } : undefined,
+    badge: trendCount !== undefined && trendCount > 0 ? { count: trendCount, description: { ko: formatText(HW_TIME_MESSAGES.comparePageRowsInTheTrend, 'ko', { length: String(trendCount) }), en: formatText(HW_TIME_MESSAGES.comparePageRowsInTheTrend, 'en', { length: String(trendCount) }) } } : undefined,
     render: () => <div className="flex h-full min-h-0 flex-col gap-1 p-2">
       {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
       <TrendPanel chartId="hw-compare-trend" title={m('comparePageDailyTrendByRow')} rowIds={trendRows} query={trendQ} level={drill.depth} fillMin={COMPARE_TREND_FILL_MIN} />

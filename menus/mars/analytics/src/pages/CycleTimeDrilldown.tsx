@@ -397,7 +397,7 @@ function MetricBanner({ metric }: { metric: ResolvedMetric }) {
     <span className="t-mono">{metric.metricId} v{metric.metricVersion}</span>
     <span>{metric.versionIsPageDefault
       ? (m('cycleTimeDrilldownTheGlobalCycleTimePairIsApplied'))
-      : (m('cycleTimeDrilldownTheRequestedVersionLabelIsShownSynthetic'))}</span>
+      : (m('cycleTimeDrilldownCalculatedWithTheRequestedVersion'))}</span>
     <span>{versionNote}</span>
   </p>;
 }

@@ -136,6 +136,8 @@ export const HW_TIME_MESSAGES = {
   tablePageView2: { ko: "보기", en: "View" },
   tablePageRowsOfTheCurrentLevelValuesNot: { ko: "현재 단계의 행이며 미측정 값은 ‘미측정’으로 적힙니다", en: "Rows of the current level; values not measured are written as “Not measured”" },
   tablePageLevelSummary: { ko: "단계 요약", en: "Level summary" },
+  tablePageRowNotInThisLevel: { ko: "이 단계에 없는 행입니다.", en: "This row is not in this level." },
+  tablePageClearRowSelection: { ko: "행 선택 해제", en: "Clear row selection" },
   tablePageRowDetailsSyntheticData: { ko: "행 상세 · 합성 데이터", en: "Row details · synthetic data" },
   tablePageBreakdown: { ko: "구성", en: "Breakdown" },
   tablePageRowDetails: { ko: "행 상세", en: "Row details" },
@@ -164,6 +166,9 @@ export const HW_TIME_MESSAGES = {
   trendPanelAddARow: { ko: "행을 추가하세요", en: "Add a row" },
   trendPanelPickAModuleToDrillInThen: { ko: "Module을 골라 들어간 뒤 행을 추세에 추가하세요.", en: "Pick a Module to drill in, then add a row to the trend." },
   trendPanelPickADetailRowAndAddIt: { ko: "상세 행을 골라 추세에 추가하세요.", en: "Pick a detail row and add it to the trend." },
+  trendPanelRowsOutsideScope: { ko: "현재 Scope·조건에 없는 행", en: "Rows outside the current Scope or conditions" },
+  trendPanelRemoveRowFromTrend: { ko: "추세에서 제거 {row}", en: "Remove from trend {row}" },
+  trendPanelRemove: { ko: "제거", en: "Remove" },
 
   // selectionCounts
   selectionCountsSelectedEvaluated: { ko: "선택 {selected} · 평가 {evaluated}", en: "Selected {selected} · Evaluated {evaluated}" },

@@ -12,7 +12,7 @@ const GROUP = groupId('topview');
  * Read-only screens (EV ADR-0012 first scope). `eqv:topview` is the group's primary screen and `eqv:focus` its child. The equipment id
  * travels as the page key `equipment` (`?equipment=`), not a route param: the Registry rejects a parent whose route needs params.
  * `aliases` keep the links of the former host-module mount (`/tools/topview`, `/tools/topview/focus`). `requiresScope: false`: an
- * equipment is addressed by that page key, not by a Scope selection; the server currently enforces capability checks; Site Scope enforcement is tracked by #1087 (ADR-0135).
+ * equipment is addressed by that page key, not by a Scope selection; the server validates capability and Hub model access; Site Scope enforcement is tracked by #1087 (ADR-0135).
  */
 export const manifests: PlatformMenuEntry[] = [
   {

@@ -82,11 +82,12 @@ describe('model ID filter and IME Enter', () => {
     render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} state={{}} setState={setState} />);
     fireEvent.click(screen.getByText('추가 필터'));
     const field = screen.getByLabelText('모델 ID');
-    fireEvent.change(field, { target: { value: '식각' } });
+    // Synthetic UUID: the field only applies a well-formed model ID (#2077 MEN).
+    fireEvent.change(field, { target: { value: '00000000-0000-4000-8000-0000000000aa' } });
     composingEnter(field);
     expect(setState).not.toHaveBeenCalled();
     fireEvent.keyDown(field, { key: 'Enter' });
-    expect(setState).toHaveBeenCalledWith(expect.objectContaining({ modelId: '식각' }));
+    expect(setState).toHaveBeenCalledWith(expect.objectContaining({ modelId: '00000000-0000-4000-8000-0000000000aa' }));
   });
 });
 
