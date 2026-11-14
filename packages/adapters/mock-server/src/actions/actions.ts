@@ -152,7 +152,7 @@ export async function serveAction(
   } catch {
     return shape('input cannot be canonicalized');
   }
-  const stored = store.get(`${actor}\n${key}`);
+  const stored = store.get(`${actor}\n${key.toLowerCase()}`);
   if (stored) return stored.hash === hash ? { ...structuredClone(stored.response), replayed: true } : shape('idempotency_key_reuse');
 
   const unexpectedFields = Object.keys(req.input).filter(k => !Object.prototype.hasOwnProperty.call(spec.inputKeys, k));
@@ -170,7 +170,7 @@ export async function serveAction(
     const done = action.handleAsync ? await action.handleAsync(full) : action.handle(full);
     const response = answer('ok', { data: done.data, version: done.version });
     // The record is a snapshot: a later handler write or a caller mutating its answer must not change a replay.
-    store.set(`${actor}\n${key}`, { hash, response: structuredClone(response) });
+    store.set(`${actor}\n${key.toLowerCase()}`, { hash, response: structuredClone(response) });
     return structuredClone(response);
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError') throw error;

@@ -28,6 +28,10 @@ afterEach(() => {
 });
 
 describe('auditTrail (issue #50: the console audit log)', () => {
+  it('rejects a page outside the safe integer range', async () => {
+    expect((await auditTrail({ page: 2 ** 53 }, undefined, { role: 'admin', latency: 0 })).outcome).toBe('error');
+  });
+
   it('pages the newest-first log for admin with trust null, no assessments and a corr- id', async () => {
     const res = await auditTrail({ pageSize: 2 }, undefined, { role: 'admin', latency: 0 });
     expect(res.outcome).toBe('ok');

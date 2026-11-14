@@ -199,7 +199,10 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 - 오류 보고: 유효 표본 적재(positive), `spaceId: null` 수락, 거부(자유 문장 message·절대 URL path·query 붙은 path·자유 문장 name·누락 필드·제거된 `feedback`과 알 수 없는 공간 id)
 - 응답 모양 — 거부에 데이터 없음, 누락된 envelope 키 지적(`assessments`·`trust`), 평가 항목 06 §19, Trust 06 §18
 
-- 쓰기(`menuAction`, `harness.actions`): 동작마다 성공 뒤 같은 키·입력의 재생(`replayed: true`와 같은 `data`), 같은 키에 다른 입력 `error`, 키 없음·빈 키·UUID 아님 `invalid`(경로 `idempotencyKey`), `inputKeys` 밖 키 `invalid`(`unexpected_field`), 버전 방식의 낡은 `expectedVersion` `conflict`(현재 `version` 포함), 권한이 재생보다 앞섬(같은 키로 성공한 뒤 권한을 뺀 계정의 같은 요청이 `forbidden`), `requiresScope` 동작의 미부여 site `forbidden`, `invalid` 답은 기록되지 않음(같은 키로 유효 요청이 새로 `ok`). 표본(`ActionCase`)은 동작 선언과 부여 계정이 성공하는 `input`이고, 버전 방식이면 대상의 현재 버전을 읽는 `currentVersion`도 필요하다(없으면 그 동작의 검사는 건너뛴 것으로 표시된다). 표본이 없으면 `actions: no sample` 한 건이 건너뛴 것으로 표시된다. 계정: `asGranted`는 동작 권한도 가져야 하고 `currentVersion` 읽기도 그 안에서 돈다. `withoutPermission`은 동작 권한으로도 불린다 — 부여 계정과 같은 계정을 돌려줘도(§4 위 설명) 권한이 재생보다 앞서는지가 증명되고, 권한 하나씩만 뺀 계정을 쓰면 `forbidden`만 증명된다. **묶음은 테스트 서버에 동작 표본을 실제로 쓴다.**
+- 공지 쓰기: `saveNotice`의 UUID가 아닌 멱등 키와 없는 날짜는 `invalid`, 같은 UUID 키의 대소문자 변경은 같은 공지를 `replayed: true`로 반환.
+- 감사 목록: `auditTrail({ page: 2 ** 53 })`는 안전 정수 밖이므로 `error`.
+
+- 쓰기(`menuAction`, `harness.actions`): 동작마다 성공 뒤 같은 키·입력의 재생(`replayed: true`와 같은 `data`), 같은 UUID 키의 대소문자 변경도 재생, 같은 키에 다른 입력 `error`, 키 없음·빈 키·UUID 아님 `invalid`(경로 `idempotencyKey`), `inputKeys` 밖 키 `invalid`(`unexpected_field`), 버전 방식의 낡은 `expectedVersion` `conflict`(현재 `version` 포함), 권한이 재생보다 앞섬(같은 키로 성공한 뒤 권한을 뺀 계정의 같은 요청이 `forbidden`), `requiresScope` 동작의 미부여 site `forbidden`, `invalid` 답은 기록되지 않음(같은 키로 유효 요청이 새로 `ok`). 표본(`ActionCase`)은 동작 선언과 부여 계정이 성공하는 `input`이고, 버전 방식이면 대상의 현재 버전을 읽는 `currentVersion`도 필요하다(없으면 그 동작의 검사는 건너뛴 것으로 표시된다). 표본이 없으면 `actions: no sample` 한 건이 건너뛴 것으로 표시된다. 계정: `asGranted`는 동작 권한도 가져야 하고 `currentVersion` 읽기도 그 안에서 돈다. `withoutPermission`은 동작 권한으로도 불린다 — 부여 계정과 같은 계정을 돌려줘도(§4 위 설명) 권한이 재생보다 앞서는지가 증명되고, 권한 하나씩만 뺀 계정을 쓰면 `forbidden`만 증명된다. **묶음은 테스트 서버에 동작 표본을 실제로 쓴다.**
 
 **주의: 묶음은 테스트 서버에 주석·활용률 이벤트·오류 보고를 실제로 쓴다 — 운영 서버에 돌리지 않는다.**
 

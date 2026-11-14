@@ -65,7 +65,7 @@ function invalidAuditQuery(query: AuditTrailQuery): boolean {
     return true;
   }
   if (fromMs !== null && toMs !== null && fromMs >= toMs) return true;
-  if (query.page !== undefined && (typeof query.page !== 'number' || !Number.isInteger(query.page) || query.page < 1)) return true;
+  if (query.page !== undefined && (typeof query.page !== 'number' || !Number.isSafeInteger(query.page) || query.page < 1)) return true;
   if (query.pageSize !== undefined && (typeof query.pageSize !== 'number' || !Number.isInteger(query.pageSize) || query.pageSize < 1 || query.pageSize > 100)) return true;
   return false;
 }

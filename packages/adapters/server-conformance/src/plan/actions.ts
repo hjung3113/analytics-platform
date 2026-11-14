@@ -60,6 +60,19 @@ export function planActionChecks(harness: ServerConformanceHarness): Conformance
       },
     });
     checks.push({
+      id: name('UUID key letter case → the stored answer with replayed: true'),
+      mode: 'sequential', uses: ['menuAction'],
+      run: async () => {
+        const req = await prepare({ key: `abcdefab${crypto.randomUUID().slice(8)}` });
+        const first = await sendGranted(req);
+        const bad = want(first, 'ok', 'a granted write');
+        if (bad) return bad;
+        const again = await sendGranted({ ...req, idempotencyKey: req.idempotencyKey.toUpperCase() });
+        return again.outcome === 'ok' && again.replayed === true && JSON.stringify(again.data) === JSON.stringify(first.data)
+          ? null : 'UUID key letter case must replay the stored answer';
+      },
+    });
+    checks.push({
       id: name('the same key with a different input → error'),
       mode: 'sequential',
       uses: ['menuAction'],

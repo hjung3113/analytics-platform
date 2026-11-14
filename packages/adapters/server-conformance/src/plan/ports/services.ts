@@ -152,6 +152,33 @@ export function planServiceChecks(harness: ServerConformanceHarness): Conformanc
     },
   });
 
+  for (const [what, over] of [
+    ['a non-UUID key', { idempotencyKey: 'not-a-uuid' }],
+    ['an impossible date', { until: '2026-02-30T00:00:00' }],
+  ] as const) {
+    checks.push({
+      id: `port · saveNotice rejects ${what}`,
+      uses: ['saveNotice'], mode: 'console',
+      run: async () => {
+        const input = { ...draft(), idempotencyKey: crypto.randomUUID() };
+        const result = await adapter.saveNotice({ ...input, ...over });
+        return result.outcome === 'invalid' ? null : `${what}: expected invalid, got ${describeAction(result)}`;
+      },
+    });
+  }
+  checks.push({
+    id: 'port · saveNotice replays a UUID key regardless of letter case',
+    uses: ['saveNotice', 'deleteNotice'], mode: 'console',
+    run: async () => {
+      const input = { ...draft(), idempotencyKey: `abcdefab${crypto.randomUUID().slice(8)}` };
+      const first = await adapter.saveNotice(input);
+      if (first.outcome !== 'ok' || first.data === null) return `first save: expected ok, got ${describeAction(first)}`;
+      const retry = await adapter.saveNotice({ ...input, idempotencyKey: input.idempotencyKey.toUpperCase() });
+      await adapter.deleteNotice({ id: first.data.id, expectedVersion: first.data.version, idempotencyKey: crypto.randomUUID() });
+      return retry.outcome === 'ok' && retry.replayed === true && retry.data?.id === first.data.id ? null : 'UUID key letter case must replay the same notice';
+    },
+  });
+
   const noticeProblem = (r: ActionResponse<Notice>, name: string): string | null => {
     if (r.outcome !== 'ok') return `${name}: expected ok, got ${describeAction(r)}`;
     const n = r.data;
