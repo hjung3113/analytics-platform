@@ -218,4 +218,31 @@ describe('platform inbound destinations are injected (#1890 item 4)', () => {
     expect(DEFAULT_PLATFORM_DESTINATIONS.map(d => d.menuId)).toEqual(['equipment-detail', 'equipment-master', 'cycle-time']);
     expect(parsePlatformInboundLink(`${P}/equipment/EQ-1?v=1`, P).hop).toEqual({ menuId: 'equipment-detail', equipmentId: 'EQ-1' });
   });
+  it.each(['@evil.example/orders', 'orders', '//evil.example/orders', '/orders?x=1', '/orders#top', '/a/../b', '/a/./b', '/a%2Fb', '/a\\b', '/orders/'])(
+    'rejects the unsafe destination path %j before any URL is built or parsed', path => {
+      const bad: readonly PlatformDestination[] = [{ menuId: 'orders', path, idField: 'id' }];
+      expect(code(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'orders', id: 'A' }, context: PERIOD, destinations: bad }))).toBe('invalid_destination');
+      expect(code(() => parsePlatformInboundLink(`${P}/orders/A?v=1`, P, bad))).toBe('invalid_destination');
+    });
+  it('rejects a menuId declared twice', () => {
+    const twice: readonly PlatformDestination[] = [{ menuId: 'a', path: '/a' }, { menuId: 'a', path: '/b' }];
+    expect(code(() => parsePlatformInboundLink(`${P}/a?v=1`, P, twice))).toBe('invalid_destination');
+  });
+  it.each([0, 1])('round-trips nested id destinations in either declaration order (order %i)', order => {
+    const pair: PlatformDestination[] = [{ menuId: 'order', path: '/orders', idField: 'id' }, { menuId: 'line', path: '/orders/lines', idField: 'id' }];
+    if (order === 1) pair.reverse();
+    for (const hop of [{ menuId: 'order', id: 'A' }, { menuId: 'line', id: 'A' }]) {
+      const url = buildPlatformInboundLink({ origin: P, hop, context: PERIOD, destinations: pair });
+      expect(parsePlatformInboundLink(url, P, pair).hop).toEqual(hop);
+    }
+  });
+  it('keeps the historical returnTo refusal message on the default destinations and uses the general one on an injected list', () => {
+    const message = (fn: () => unknown) => { try { fn(); } catch (e) { return (e as Error).message; } return ''; };
+    expect(message(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'cycle-time' }, context: PERIOD, returnTo: '/equipment' })))
+      .toBe('returnTo is a page key of equipment-detail only, not cycle-time');
+    expect(message(() => parsePlatformInboundLink(`${P}/equipment?v=1&returnTo=%2Fequipment`, P)))
+      .toBe('returnTo is a page key of equipment-detail only, not equipment-master');
+    expect(message(() => buildPlatformInboundLink({ origin: P, hop: { menuId: 'order-list' }, context: PERIOD, returnTo: '/orders', destinations: mine })))
+      .toBe('returnTo is not a page key of order-list');
+  });
 });
