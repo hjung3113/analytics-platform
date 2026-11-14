@@ -2,7 +2,7 @@
 
 - 상태: Decided (2026-11-14, 되돌릴 수 있음). 이슈 [#1890](https://github.com/hjung3113/analytics-platform/issues/1890) 항목 3.
 - 결정자: 소유자 — 시안 결정을 Opus(high) 리뷰에 맡겼고 리뷰가 레인 추천(오류가 도움말을 대신)을 뒤집었다(2026-11-14).
-- 계약 원천: [components.md §13 FormField](../contract/components.md#formfield--라벨입력도움말오류-decided-1890-adr-0160).
+- 계약 원천: [components.md §13 FormField](../contract/components.md#formfield--라벨입력도움말오류-decided-1890-adr-0161).
 
 ## 맥락
 
