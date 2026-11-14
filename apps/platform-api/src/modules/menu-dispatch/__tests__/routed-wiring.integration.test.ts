@@ -114,11 +114,14 @@ describe.skipIf(!runIntegration)('single-target routing through production setup
     behavior = kind; const hit = await query('syn.shared', 'SITE-A', ['RA1']); expect(hit.statusCode).toBe(status); expect(hit.json()).toMatchObject(body);
   });
   it('returns timely 504 while the HTTP Scope resolver is still pending and aborts it', async () => {
+    // The deadline must outlast the work before the resolver's fetch (session, permission check). At 100 ms a loaded CI
+    // runner reached the deadline first, so fetch was never called and `resolverSignal` stayed undefined (#1991).
+    const DEADLINE_MS = 400;
     const factoryCalls: unknown[] = [];
     let resolverSignal: AbortSignal | null | undefined;
     let release: () => void = () => {};
     const held = new Promise<void>((resolve) => { release = resolve; });
-    const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: join(dir, 'bundle.json'), MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: 100 };
+    const config = { ...loadConfig(), MENU_DECLARATIONS_FILE: join(dir, 'bundle.json'), MENU_SCOPE_GRANT_SERVICE_URL: 'https://grants.test', MENU_UPSTREAM_TIMEOUT_MS: DEADLINE_MS };
     const setup = await loadMenuDeclarationSetup(withMenuSnapshotFile(config), {
       checkService: createCheckService({ db: db.db }),
       fetch: (async (_url: unknown, init?: RequestInit) => {
@@ -132,13 +135,14 @@ describe.skipIf(!runIntegration)('single-target routing through production setup
     const deadlineApp = await buildServer({ config, dbHandle: db, menuDispatch: setup.menuDispatch, ...(setup.scopeResolver ? { scopeResolver: setup.scopeResolver } : {}) });
     await deadlineApp.ready();
     // A finite release makes a missing race fail with forbidden rather than hanging the suite.
-    const watchdog = setTimeout(release, 1000);
+    const watchdog = setTimeout(release, 3000);
     const started = performance.now();
     try {
       const hit = await deadlineApp.inject({ method: 'POST', url: '/api/v1/menu-query', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, payload: { endpoint: 'syn.shared', context: { scopeId: 'SITE-A', roomNames: ['RA1'] }, params: {} } });
       expect(hit.statusCode).toBe(504);
       expect(hit.json()).toMatchObject({ code: 'upstream.timeout', correlationId: expect.any(String) });
-      expect(performance.now() - started).toBeLessThan(800);
+      expect(performance.now() - started).toBeLessThan(2000);
+      expect(resolverSignal, 'the resolver fetch started before the deadline').toBeDefined();
       expect(resolverSignal?.aborted).toBe(true);
       expect(factoryCalls).toEqual([]);
     } finally {
