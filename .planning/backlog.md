@@ -24,6 +24,8 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — RichEditor 멘션 이름 변경 시 기존 칩 다시 그리기 (#2043 C2):** 이유: ProseMirror 노드 DOM을 정적으로 그리므로 `resolveMentionLabel` 결과가 바뀌어도 이미 그린 칩은 갱신되지 않는다. 소비자는 마운트 전에 이름을 준비해야 한다. 다시 여는 조건: 편집기를 마운트한 채로 이름을 비동기로 받거나 바꿔야 하는 소비자가 생길 때(reactive redraw).
+
 - **구현 안 함 — zod 한 버전으로 맞추기:** `zod` 3.25.67(`apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/sdk/contract-schemas`)과 4.6.5(`packages/eqv/core`)가 함께 있다. `contract-schemas`는 3.25의 `zod/v4` 하위 경로를 일부러 쓴다(ADR-0096). 두 버전이 만나는 곳은 `apps/platform-api/src/modules/eqv/`가 `@eqv/core` 스키마에 `.safeParse`를 부르는 곳뿐이다. 이유: 지금은 parse 호출만 경계를 넘어 문제가 없고, 맞추려면 약 200개 파일과 `fastify-type-provider-zod`를 함께 올려야 한다. 다시 여는 조건: 3.x 패키지가 `@eqv/core` 스키마를 다른 스키마에 합성해야 할 때, 또는 zod 3.x 지원이 끝날 때(#1977).
 - **구현 안 함 — 표·차트 공개 prop 묶기(`PlatformDataTable`, `AnalysisChartFrame`의 최상위 옵션 각 약 40개):** 이유: 메뉴가 따라 고쳐야 하는 공개 prop 변경이고, 옵션 조합이 깨진 사례가 없다(소유자 2026-11-13, #1977). 다시 여는 조건: 공개 prop을 어차피 깨는 다음 큰 SDK 버전, 또는 옵션 조합 결함이 나올 때.
 - **구현 안 함 — 서버 `/metrics` 엔드포인트:** 이유: 서버의 「로그 우선」 결정을 바꾸는 일이고, 필요한 점검은 #1973의 CLI가 맡는다(소유자 2026-11-13, #1977). 다시 여는 조건: 사내 모니터링이 수집 엔드포인트를 요구할 때.

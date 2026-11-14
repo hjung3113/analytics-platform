@@ -78,6 +78,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function cleanAttrs(
   attrSchemas: Readonly<Record<string, AttrSchema>> | undefined,
   rawAttrs: unknown,
+  writeSide = false,
 ): Record<string, unknown> {
   if (!isPlainObject(rawAttrs)) return {};
   if (!attrSchemas) return {};
@@ -89,14 +90,30 @@ function cleanAttrs(
     if (!Object.prototype.hasOwnProperty.call(rawAttrs, key)) continue;
 
     const value = rawAttrs[key];
-    const coerced = coerceAttrValue(schema, value, key);
+    const coerced = writeSide && schema.kind === 'url'
+      ? cleanWriteUrl(schema, value)
+      : coerceAttrValue(schema, value, key);
     if (coerced === DROP) continue;
+    // Write side (#2043): a null attr is the editor's unset default; leaving it out stores the same document.
+    if (writeSide && coerced === null) continue;
     out[key] = coerced;
   }
   return out;
 }
 
 const DROP = Symbol('drop');
+
+// Write-side URLs must match the server validator; read-side coercion stays permissive.
+function cleanWriteUrl(schema: Extract<AttrSchema, { kind: 'url' }>, value: unknown): unknown {
+  if (typeof value !== 'string' || value.length > schema.maxLen) return DROP;
+  try {
+    const parsed = new URL(value);
+    if (!schema.schemes.has(parsed.protocol) || parsed.username !== '' || parsed.password !== '') return DROP;
+    return value;
+  } catch {
+    return DROP;
+  }
+}
 
 function coerceAttrValue(schema: AttrSchema, value: unknown, key: string): unknown {
   if (schema.kind === 'uuid') {
@@ -157,6 +174,7 @@ function cleanMark(
   raw: unknown,
   allowedMarks: ReadonlySet<string>,
   markAttrSchemas: Readonly<Record<string, Readonly<Record<string, AttrSchema>>>>,
+  writeSide: boolean,
 ): CleanMark | null {
   if (!isPlainObject(raw)) return null;
   if (typeof raw.type !== 'string') return null;
@@ -164,7 +182,13 @@ function cleanMark(
   if (!allowedMarks.has(markType)) return null;
 
   const schemas = markAttrSchemas[markType];
-  const attrs = cleanAttrs(schemas, raw.attrs);
+  const attrs = cleanAttrs(schemas, raw.attrs, writeSide);
+  // Unwrap invalid links without losing text or any other marks on the text node.
+  if (writeSide && schemas) {
+    for (const [key, schema] of Object.entries(schemas)) {
+      if (schema.required && !Object.hasOwn(attrs, key)) return null;
+    }
+  }
 
   const out: CleanMark = { type: markType };
   if (Object.keys(attrs).length > 0) out.attrs = attrs;
@@ -178,6 +202,15 @@ interface WalkCtx {
   nodeCount: number;
   markCount: number;
   textBytes: number;
+  /** false = report a size limit instead of dropping (the editor's outgoing value, #2021). */
+  enforceLimits: boolean;
+  overLimit: boolean;
+}
+
+// A size limit is either enforced (drop: the read side) or only reported (keep: the write side).
+function limitHit(ctx: WalkCtx): boolean {
+  ctx.overLimit = true;
+  return ctx.enforceLimits;
 }
 
 const EMPTY_DOC: TipTapDoc = { type: 'doc', content: [] } as unknown as TipTapDoc;
@@ -185,7 +218,7 @@ const EMPTY_DOC: TipTapDoc = { type: 'doc', content: [] } as unknown as TipTapDo
 function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null {
   const allow = UI_ALLOWLISTS[ctx.surface];
 
-  if (depth > allow.maxDepth) return null;
+  if (depth > allow.maxDepth && limitHit(ctx)) return null;
   if (!isPlainObject(raw)) return null;
 
   const node = raw as RawNode;
@@ -195,24 +228,24 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
   if (allow.leafNodes.has(node.type) && Array.isArray(node.content) && node.content.length > 0) return null;
 
   ctx.nodeCount++;
-  if (ctx.nodeCount > allow.maxNodes) return null;
+  if (ctx.nodeCount > allow.maxNodes && limitHit(ctx)) return null;
 
   // text byte cap (defence-in-depth; truncate by dropping further text).
   let text: string | undefined;
   if (typeof node.text === 'string') {
     const bytes = new TextEncoder().encode(node.text).length;
-    if (ctx.textBytes + bytes > allow.maxTextBytes) return null;
+    if (ctx.textBytes + bytes > allow.maxTextBytes && limitHit(ctx)) return null;
     ctx.textBytes += bytes;
     text = node.text;
   }
 
-  const attrs = cleanAttrs(allow.nodeAttrs[node.type], node.attrs);
+  const attrs = cleanAttrs(allow.nodeAttrs[node.type], node.attrs, !ctx.enforceLimits);
 
   const marks: CleanMark[] = [];
   if (Array.isArray(node.marks)) {
     for (const rawMark of node.marks) {
-      if (ctx.markCount >= allow.maxMarks) break;
-      const m = cleanMark(rawMark, allow.marks, allow.markAttrs);
+      const m = cleanMark(rawMark, allow.marks, allow.markAttrs, !ctx.enforceLimits);
+      if (m && ctx.markCount >= allow.maxMarks && limitHit(ctx)) break;
       if (m) {
         marks.push(m);
         ctx.markCount++;
@@ -254,11 +287,27 @@ function cleanNode(raw: unknown, depth: number, ctx: WalkCtx): CleanNode | null 
  * Unrecognised input shapes coerce to an empty `doc`.
  */
 export function sanitizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): TipTapDoc {
-  if (!UI_ALLOWLISTS[surface]) return EMPTY_DOC;
-  if (!isPlainObject(doc as unknown)) return EMPTY_DOC;
+  return walkDoc(doc, surface, true).doc;
+}
 
-  const ctx: WalkCtx = { surface, nodeCount: 0, markCount: 0, textBytes: 0 };
+/**
+ * Write-side variant for the editor's outgoing value (#2021): the same node, mark and attribute
+ * normalisation as `sanitizeClient`, but the size limits (text bytes, nodes, marks, depth) are only
+ * reported in `overLimit`, never applied by dropping what the author typed. The server stays the
+ * authority and rejects an over-limit document with an error. It is the send-ready cleanup of every
+ * surface (#2043): only attr keys the surface allowlist defines are kept, and null attrs are left out.
+ * Links with missing or server-invalid URLs are unwrapped while preserving their text.
+ */
+export function normalizeClient(doc: TipTapDoc, surface: ClientSanitizeSurface): { doc: TipTapDoc; overLimit: boolean } {
+  return walkDoc(doc, surface, false);
+}
+
+function walkDoc(doc: TipTapDoc, surface: ClientSanitizeSurface, enforceLimits: boolean): { doc: TipTapDoc; overLimit: boolean } {
+  if (!UI_ALLOWLISTS[surface]) return { doc: EMPTY_DOC, overLimit: false };
+  if (!isPlainObject(doc as unknown)) return { doc: EMPTY_DOC, overLimit: false };
+
+  const ctx: WalkCtx = { surface, nodeCount: 0, markCount: 0, textBytes: 0, enforceLimits, overLimit: false };
   const cleaned = cleanNode(doc, 0, ctx);
-  if (!cleaned || cleaned.type !== 'doc') return EMPTY_DOC;
-  return cleaned as unknown as TipTapDoc;
+  if (!cleaned || cleaned.type !== 'doc') return { doc: EMPTY_DOC, overLimit: ctx.overLimit };
+  return { doc: cleaned as unknown as TipTapDoc, overLimit: ctx.overLimit };
 }

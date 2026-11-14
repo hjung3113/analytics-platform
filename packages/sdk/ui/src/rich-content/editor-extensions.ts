@@ -18,6 +18,7 @@ import { richContentOutline } from './outline';
 interface EditingOptions {
   resolveAttachmentUrl: (id: string) => string | null;
   onFiles: (editor: Editor, files: File[], pos?: number) => void;
+  resolveMentionLabel?: (actorId: string) => string | null | undefined;
 }
 export function buildExtensionsForSurface(surface: RichEditorSurface, placeholder: string, options: EditingOptions) {
   const capabilities = new Set(getExtensionsForSurface(surface));
@@ -69,7 +70,7 @@ export function buildExtensionsForSurface(surface: RichEditorSurface, placeholde
   }).configure({ resolveAttachmentUrl: options.resolveAttachmentUrl });
   return [StarterKit.configure(starter),
     ...(has('link') ? [Link.configure({ openOnClick: false })] : []), ...(has('underline') ? [Underline] : []),
-    Placeholder.configure({ placeholder }), ...(has('attachmentRef') ? [AttachmentRef] : []), ...(has('mention') ? [Mention] : []),
+    Placeholder.configure({ placeholder }), ...(has('attachmentRef') ? [AttachmentRef] : []), ...(has('mention') ? [Mention.configure({ label: id => options.resolveMentionLabel?.(id) })] : []),
     ...(has('highlight') ? [PaletteHighlight] : []), ...(has('color') ? [PaletteColor] : []),
     ...(has('taskList') ? [TaskList, TaskItem.configure({ nested: true, HTMLAttributes: { 'data-type': 'taskItem' } })] : []),
     ...(has('table') ? [TableKit.configure({ table: { resizable: true, cellMinWidth: 25 } })] : []),
