@@ -1,7 +1,7 @@
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
 import { useCompactPageDensity } from './pageDensity';
-import { useSharedOutcome } from './filters/OutcomeScope';
+import { useSharedOutcomeNotice } from './filters/OutcomeScope';
 import { useQueryBarStatus } from './filters/QueryBarStatus';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
 import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
@@ -11,7 +11,7 @@ import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 
-type WidgetStateProps = { grouped?: boolean; widgetName?: string; hideWidgetName?: boolean };
+type WidgetStateProps = { grouped?: boolean; bannerId?: string; multipleGroups?: boolean; statusLabel?: string; widgetName?: string; hideWidgetName?: boolean };
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean; detail?: string };
 
@@ -42,12 +42,13 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
   </div>;
 }
 
-function GroupedStateMessage({ action, correlationId, detail, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
+function GroupedStateMessage({ action, correlationId, detail, bannerId, multipleGroups, statusLabel, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
   const { t } = useI18n();
   const nameId = useId();
-  return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
+  const notice = multipleGroups && statusLabel ? t('sharedOutcomeNoticeFor', { status: statusLabel }) : t('sharedOutcomeNotice');
+  return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} aria-describedby={bannerId} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
     {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
-    <p className="text-xs leading-4">{t('sharedOutcomeNotice')}</p>
+    <p className="text-xs leading-4">{notice}</p>
     {(action || correlationId || detail) && <div className="mt-2 flex flex-wrap items-center gap-3">
       {action}
       <ServerDetail detail={detail} correlationId={correlationId} />
@@ -55,14 +56,14 @@ function GroupedStateMessage({ action, correlationId, detail, widgetName, hideWi
   </div>;
 }
 
-function OutcomeStateMessage({ grouped, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
+function OutcomeStateMessage({ grouped, bannerId, multipleGroups, statusLabel, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
   const nameId = useId();
   // Non-grouped compact states otherwise look identical to every sibling's error box; draw the same
   // name line the grouped path draws (UXA-3). Grouping decision and alert/status roles stay untouched.
   if (!grouped && props.compact && widgetName && !hideWidgetName) {
     return <div role="group" aria-labelledby={nameId} className="min-w-0"><p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p><StateMessage {...props} /></div>;
   }
-  return grouped ? <GroupedStateMessage {...props} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
+  return grouped ? <GroupedStateMessage {...props} bannerId={bannerId} multipleGroups={multipleGroups} statusLabel={statusLabel} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
 }
 
 export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: number; height?: number; className?: string }) {
@@ -76,12 +77,17 @@ export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: numb
 }
 
 /** Maps the exclusive outcome to the §19 taxonomy. Only `ok` renders children. Package-internal (not re-exported by `index.ts`): QueryView and PlatformDataTable draw their outcome through it. */
-export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, widgetName, hideWidgetName, children }: {
-  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; widgetName?: string; hideWidgetName?: boolean;
+export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, bannerId, multipleGroups, widgetName, hideWidgetName, children }: {
+  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; bannerId?: string; multipleGroups?: boolean; widgetName?: string; hideWidgetName?: boolean;
 }) {
   const { t } = useI18n();
   const icon = 'size-4';
-  const widget = { grouped, widgetName, hideWidgetName };
+  const statusLabel = response.outcome === 'error' ? t('sharedOutcomeError')
+    : response.outcome === 'timeout' ? t('sharedOutcomeTimeout')
+    : response.outcome === 'forbidden' ? t('sharedOutcomeForbidden')
+    : response.outcome === 'empty' ? t('sharedOutcomeEmpty')
+    : undefined;
+  const widget = { grouped, bannerId, multipleGroups, statusLabel, widgetName, hideWidgetName };
   const detail = response.message || undefined;
   switch (response.outcome) {
     case 'ok': return <>{children(response.data as T)}</>;
@@ -127,7 +133,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   // In a workspace panel the wrapper takes the panel's height so a `size="fill"` chart inside has a bounded parent.
   const inPanel = useInWorkspacePanel();
   const compactPage = useCompactPageDensity();
-  const grouped = useSharedOutcome(query.response, query.refetch, widgetName, query.status);
+  const { grouped, bannerId, multiple } = useSharedOutcomeNotice(query.response, query.refetch, widgetName, query.status);
   const barStatus = useQueryBarStatus();
   // The page's query bar already draws these reasons (#1170): only when it covers every idle item is the list left to the bar.
   const barCoversMissing = query.missing.length > 0 && barStatus !== null && query.missing.every(item => barStatus.reasonKeys.includes(item.key));
@@ -139,7 +145,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const refreshingLabel = t(query.showingPrevious ? 'refreshingPrevious' : 'refreshing');
   const showingPrevious = query.status === 'refreshing' && query.showingPrevious === true;
   const noticeVisible = showingPrevious && !grouped && refreshNotice === 'visible';
-  const content = <OutcomeContent grouped={grouped} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>;
+  const content = <OutcomeContent grouped={grouped} bannerId={bannerId} multipleGroups={multiple} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>;
   return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', (fill || (inPanel && query.showingPrevious !== undefined)) && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && ['grid gap-y-0', noticeVisible ? 'grid-rows-[auto_auto_minmax(0,1fr)]' : 'grid-rows-subgrid'], analysisSection && response.outcome !== 'ok' && 'pr-12')}>
     {noticeVisible && <QueryRefreshNotice label={refreshingLabel} />}
     {query.status === 'refreshing' && !showingPrevious && !grouped && refreshNotice === 'visible' && (analysisSection && analysisSection.kind !== 'kpi'

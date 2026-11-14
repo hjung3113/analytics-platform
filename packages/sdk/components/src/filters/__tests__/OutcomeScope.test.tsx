@@ -545,3 +545,109 @@ it('puts timeout advice in the thin strip details, once (#1994)', () => {
   expect(screen.getByRole('dialog')).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요');
   expect(screen.getAllByText(/기간을 줄이거나 집계 단위를 키워 다시 시도하세요/)).toHaveLength(1);
 });
+
+describe('multi-group banner linkage (#1994 C1)', () => {
+  it('connects each grouped widget to its own banner with status notice and member names for error + timeout', () => {
+    const e1 = query(response('error', 'err'));
+    const e2 = query(response('error', 'err'));
+    const t1 = query(response('timeout', 'to'));
+    const t2 = query(response('timeout', 'to'));
+    function LangToggle() {
+      const { setLang } = useI18n();
+      return <><button onClick={() => setLang('en')}>English</button><button onClick={() => setLang('ko')}>Korean</button></>;
+    }
+    const view = render(<Page>
+      <LangToggle />
+      <Widget q={e1} name="Error A" /><Widget q={e2} name="Error B" />
+      <Widget q={t1} name="Timeout C" /><Widget q={t2} name="Timeout D" />
+    </Page>);
+    const banners = Array.from(view.container.querySelectorAll<HTMLElement>('[data-outcome-banner]'));
+    expect(banners).toHaveLength(2);
+    const [errBanner, toBanner] = banners;
+    expect(errBanner.id).toBeTruthy();
+    expect(toBanner.id).toBeTruthy();
+    expect(errBanner.id).not.toBe(toBanner.id);
+    expect(errBanner).toHaveTextContent('서버가 데이터를 보내지 못했습니다.');
+    expect(errBanner).toHaveTextContent('Error A');
+    expect(errBanner).toHaveTextContent('Error B');
+    expect(errBanner).not.toHaveTextContent('Timeout C');
+    expect(toBanner).toHaveTextContent('기간을 줄이거나 집계 단위를 키워 다시 시도하세요.');
+    expect(toBanner).toHaveTextContent('Timeout C');
+    expect(toBanner).toHaveTextContent('Timeout D');
+    expect(toBanner).not.toHaveTextContent('Error A');
+
+    for (const name of ['Error A', 'Error B']) {
+      const state = screen.getByRole('group', { name });
+      expect(state).toHaveAttribute('aria-describedby', errBanner.id);
+      expect(state).toHaveTextContent('위 안내 참고(서버 오류)');
+    }
+    for (const name of ['Timeout C', 'Timeout D']) {
+      const state = screen.getByRole('group', { name });
+      expect(state).toHaveAttribute('aria-describedby', toBanner.id);
+      expect(state).toHaveTextContent('위 안내 참고(시간 초과)');
+    }
+
+    fireEvent.click(within(errBanner).getByRole('button', { name: '다시 시도' }));
+    expect(e1.refetch).toHaveBeenCalledTimes(1);
+    expect(e2.refetch).toHaveBeenCalledTimes(1);
+    expect(t1.refetch).not.toHaveBeenCalled();
+    expect(t2.refetch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'English' }));
+    expect(screen.getByRole('group', { name: 'Error A' })).toHaveTextContent('See the notice above (server error)');
+    expect(screen.getByRole('group', { name: 'Timeout C' })).toHaveTextContent('See the notice above (timeout)');
+    fireEvent.click(screen.getByRole('button', { name: 'Korean' }));
+  });
+
+  it('connects two different forbidden evidence groups to separate banners', () => {
+    const view = render(<Page>
+      <Widget q={query(response('forbidden', 'one'))} name="Alpha" />
+      <Widget q={query(response('forbidden', 'one'))} name="Beta" />
+      <Widget q={query(response('forbidden', 'two'))} name="Gamma" />
+      <Widget q={query(response('forbidden', 'two'))} name="Delta" />
+    </Page>);
+    const banners = Array.from(view.container.querySelectorAll<HTMLElement>('[data-outcome-banner]'));
+    expect(banners).toHaveLength(2);
+    expect(banners[0].id).toBeTruthy();
+    expect(banners[1].id).toBeTruthy();
+    expect(banners[0].id).not.toBe(banners[1].id);
+    const alphaBanner = document.getElementById(screen.getByRole('group', { name: 'Alpha' }).getAttribute('aria-describedby')!)!;
+    const betaBanner = document.getElementById(screen.getByRole('group', { name: 'Beta' }).getAttribute('aria-describedby')!)!;
+    const gammaBanner = document.getElementById(screen.getByRole('group', { name: 'Gamma' }).getAttribute('aria-describedby')!)!;
+    const deltaBanner = document.getElementById(screen.getByRole('group', { name: 'Delta' }).getAttribute('aria-describedby')!)!;
+    expect(alphaBanner).toBe(betaBanner);
+    expect(gammaBanner).toBe(deltaBanner);
+    expect(alphaBanner).not.toBe(gammaBanner);
+    expect(alphaBanner).toHaveTextContent('Alpha');
+    expect(alphaBanner).toHaveTextContent('Beta');
+    expect(alphaBanner).not.toHaveTextContent('Gamma');
+    expect(gammaBanner).toHaveTextContent('Gamma');
+    expect(gammaBanner).toHaveTextContent('Delta');
+    expect(gammaBanner).not.toHaveTextContent('Alpha');
+    for (const name of ['Alpha', 'Beta', 'Gamma', 'Delta']) {
+      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고(권한 없음)');
+    }
+  });
+
+  it('links each widget to its thin strip and lists members in the details popover on compact fill pages', () => {
+    const view = render(<I18nProvider><div data-outcome-focus-target role="region" aria-label="Page content" tabIndex={-1}><OutcomeScope><OutcomeBanners compact />
+      <Widget q={query(response('error', 'err'))} name="Error A" />
+      <Widget q={query(response('error', 'err'))} name="Error B" />
+      <Widget q={query(response('timeout', 'to'))} name="Timeout C" />
+      <Widget q={query(response('timeout', 'to'))} name="Timeout D" />
+    </OutcomeScope></div></I18nProvider>);
+    const strips = Array.from(view.container.querySelectorAll<HTMLElement>('[data-outcome-banner]'));
+    expect(strips).toHaveLength(2);
+    expect(strips[0].id).toBeTruthy();
+    expect(strips[1].id).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Error A' })).toHaveAttribute('aria-describedby', strips[0].id);
+    expect(screen.getByRole('group', { name: 'Error A' })).toHaveTextContent('위 안내 참고(서버 오류)');
+    expect(screen.getByRole('group', { name: 'Timeout C' })).toHaveAttribute('aria-describedby', strips[1].id);
+    expect(screen.getByRole('group', { name: 'Timeout C' })).toHaveTextContent('위 안내 참고(시간 초과)');
+    fireEvent.click(within(strips[0]).getByRole('button', { name: '자세히' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('Error A');
+    expect(dialog).toHaveTextContent('Error B');
+    expect(dialog).not.toHaveTextContent('Timeout C');
+  });
+});

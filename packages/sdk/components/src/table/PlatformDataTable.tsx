@@ -12,7 +12,7 @@ import { toColumnDef } from './columnDef';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useElementSize } from '../state/useElementSize';
 import { OutcomeContent } from '../StateView';
-import { useSharedOutcome } from '../filters/OutcomeScope';
+import { useSharedOutcomeNotice } from '../filters/OutcomeScope';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
@@ -320,7 +320,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });
   // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
-  const groupedOutcome = useSharedOutcome(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
+  const { grouped: groupedOutcome, bannerId: outcomeBannerId, multiple: multipleOutcomeGroups } = useSharedOutcomeNotice(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
   const selectionState = useTableSelection<T>({ enabled: selectable, selectAllResults: !!p.selectAllResults, rows: data.rows, getRowId: p.getRowId, total: data.total, resultOk: shown?.outcome === 'ok' });
   const { selectedIds, rowSelection: effectiveSelection } = selectionState;
   const selectedCount = selectionState.count;
@@ -760,7 +760,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
 
     {/* Stable widget wrapper (like QueryView's): the busy state survives the outcome/rows switch. A grouped table's refresh is announced by the scope only (components.md §공유 위젯 응답). */}
     <div aria-busy={loading} className={p.fill ? 'flex min-h-0 flex-col' : undefined}>
-    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction ?? (effectiveFilters.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { columnFilters.clear(); droppedNote.reset(); }}>{t('clearConditions')}</Button> : undefined)} grouped={groupedOutcome} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
+    {shown && shown.outcome !== 'ok' ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className="border-t border-border-subtle p-3"><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction ?? (effectiveFilters.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { columnFilters.clear(); droppedNote.reset(); }}>{t('clearConditions')}</Button> : undefined)} grouped={groupedOutcome} bannerId={outcomeBannerId} multipleGroups={multipleOutcomeGroups} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> :
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined && !p.fill ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('overflow-auto border-t border-border-subtle [overflow-anchor:none]', p.fill && 'min-h-0', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? (p.fill ? undefined : fit.cap ?? ROW_AREA_FALLBACK) }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
