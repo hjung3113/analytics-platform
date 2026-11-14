@@ -22,7 +22,7 @@ export function ActiveFilterBar({ items, onClearAll, className, messages, return
   const bar = useRef<HTMLFieldSetElement>(null);
   const clear = useRef<HTMLButtonElement>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
-  const pending = useRef<{ key: string | null; nextKey?: string; fallback: HTMLElement | null; trigger: HTMLElement } | null>(null);
+  const pending = useRef<{ key: string | null; nextKey?: string | undefined; fallback: HTMLElement | null; trigger: HTMLElement } | null>(null);
   const findFallback = () => {
     if (!bar.current) return null;
     const candidates = [...document.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]')];
