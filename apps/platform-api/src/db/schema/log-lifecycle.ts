@@ -119,6 +119,9 @@ export const validationRounds = logLifecycleSchema.table(
       .notNull()
       .references(() => workspaces.id),
     projectId: uuid('project_id').notNull(),
+    /** Immutable creation owner; null model means unresolved legacy ownership (admin-only). */
+    ownerModelId: uuid('owner_model_id'),
+    ownerSoftwareId: uuid('owner_software_id'),
     /** 1..n per project without gaps, allocated under the project row lock. */
     seq: integer('seq').notNull(),
     /** The project's stage when the round opened. */

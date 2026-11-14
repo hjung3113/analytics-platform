@@ -106,16 +106,16 @@ function textFilter(q: string | null): SQL | undefined {
   return or(like(m.codeKey, `${escapeLikePattern(key)}%`), ilike(m.name, `%${escapeLikePattern(q.trim())}%`));
 }
 
-// The latest Round alone supplies validation; the human Gate remains a separate axis.
-const latestRoundId = sql`(select lr.id from log_lifecycle.validation_round lr where lr.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} order by lr.seq desc limit 1)`;
-const latestRequestState = sql`(select eq.state from log_lifecycle.execution_request eq where eq.workspace_id = ${m.workspaceId} and eq.round_id = ${latestRoundId} order by eq.created_at desc, eq.id desc limit 1)`;
-const latestVerdict = sql`(select ea.verdict from log_lifecycle.execution_attempt ea join log_lifecycle.execution_request eq on eq.workspace_id = ea.workspace_id and eq.id = ea.request_id where eq.workspace_id = ${m.workspaceId} and eq.round_id = ${latestRoundId} order by ea.started_at desc, ea.id desc limit 1)`;
-const validation = sql<string>`case when ${latestRequestState} in ('queued','claimed') then ${latestRequestState} else coalesce(${latestVerdict}, 'none') end`;
-const pendingRequests = sql<number>`(select count(*)::int from log_lifecycle.execution_request eq join log_lifecycle.validation_round lr on lr.workspace_id = eq.workspace_id and lr.id = eq.round_id where eq.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} and eq.state in ('queued','claimed'))`;
-const gateDecision = sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${m.workspaceId} and gd.round_id = ${latestRoundId} order by gd.at desc, gd.id desc limit 1)`;
-
 /** Every knowledge model as a base row with its open project and that project's latest round. */
 export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?: boolean }, viewer: Viewer): Promise<Page<ModelRow>> {
+  // The latest Round alone supplies validation; the human Gate remains a separate axis.
+  const latestRoundId = sql`(select lr.id from log_lifecycle.validation_round lr where lr.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} and ${roundVisibleSql(viewer, sql`lr.id`)} order by lr.seq desc limit 1)`;
+  const latestRequestState = sql`(select eq.state from log_lifecycle.execution_request eq where eq.workspace_id = ${m.workspaceId} and eq.round_id = ${latestRoundId} order by eq.created_at desc, eq.id desc limit 1)`;
+  const latestVerdict = sql`(select ea.verdict from log_lifecycle.execution_attempt ea join log_lifecycle.execution_request eq on eq.workspace_id = ea.workspace_id and eq.id = ea.request_id where eq.workspace_id = ${m.workspaceId} and eq.round_id = ${latestRoundId} order by ea.started_at desc, ea.id desc limit 1)`;
+  const validation = sql<string>`case when ${latestRequestState} in ('queued','claimed') then ${latestRequestState} else coalesce(${latestVerdict}, 'none') end`;
+  const pendingRequests = sql<number>`(select count(*)::int from log_lifecycle.execution_request eq join log_lifecycle.validation_round lr on lr.workspace_id = eq.workspace_id and lr.id = eq.round_id where eq.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} and ${roundVisibleSql(viewer, sql`lr.id`)} and eq.state in ('queued','claimed'))`;
+  const gateDecision = sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${m.workspaceId} and gd.round_id = ${latestRoundId} order by gd.at desc, gd.id desc limit 1)`;
+
   const where = and(
     eq(m.workspaceId, q.workspaceId),
     visibleModelSql(viewer, ref(m.id)),
@@ -131,7 +131,7 @@ export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?
     ? eq(p.id, sql`(select dp.id from ${p} dp where dp.workspace_id = ${m.workspaceId} and dp.model_id = ${m.id} and ${projectVisibleSql(viewer, sql`dp.id`)} order by (dp.stage not in ('completed','cancelled')) desc, dp.created_at desc, dp.id desc limit 1)`)
     : sql`${p.stage} not in ('completed','cancelled')`;
   const round = (column: string) =>
-    sql`(select lr.${sql.raw(column)} from ${r} lr where lr.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} order by lr.seq desc limit 1)`;
+    sql`(select lr.${sql.raw(column)} from ${r} lr where lr.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} and ${roundVisibleSql(viewer, sql`lr.id`)} order by lr.seq desc limit 1)`;
   const softwareCount = sql<number>`(select count(*)::int from ${softwareVersions} s where s.workspace_id = ${m.workspaceId} and s.model_id = ${m.id} and s.active and ${visibleSoftwareSql(viewer, sql`s.id`)})`;
   const sortable: Record<string, SQL | AnyPgColumn> = {
     code: m.codeKey,
@@ -253,7 +253,7 @@ export async function getProjectDetail(tx: Tx, workspaceId: string, projectId: s
   const [open] = await tx
     .select({ id: r.id, seq: r.seq })
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.projectId, x.id), eq(r.status, 'open')))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.projectId, x.id), eq(r.status, 'open'), roundVisibleSql(viewer, ref(r.id))))
     .limit(1);
   const before = x.stage === 'cancelled' ? await stageBeforeLastCancel(tx, workspaceId, x.id) : null;
   return {
@@ -294,7 +294,14 @@ export async function listProjectEvents(tx: Tx, workspaceId: string, q: EventQue
   const actor = alias(actors, 'event_actor');
   const where = and(eq(e.workspaceId, workspaceId), eq(e.projectId, q.projectId), projectVisibleSql(viewer, ref(e.projectId)),
     sql`((${e.before}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.before)}->>'softwareId')::uuid`)})`,
-    sql`((${e.after}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.after)}->>'softwareId')::uuid`)})`);
+    sql`((${e.after}->>'softwareId') is null or ${visibleSoftwareSql(viewer, sql`(${ref(e.after)}->>'softwareId')::uuid`)})`,
+    // Gate events copy Round-owned prose. Missing or unrelated decisions fail closed for rows and totals alike.
+    sql`(${e.kind} <> 'gate_decided' or exists (
+      select 1 from log_lifecycle.gate_decision event_gd
+      join log_lifecycle.validation_round event_r on event_r.workspace_id = event_gd.workspace_id and event_r.id = event_gd.round_id
+      where event_gd.workspace_id = ${e.workspaceId} and event_r.project_id = ${e.projectId}
+        and event_gd.id::text = ${e.after}->>'gateDecisionId' and ${roundVisibleSql(viewer, sql`event_r.id`)}
+    ))`);
   const rows = await tx
     .select({ event: e, actorName: actor.displayName })
     .from(e)
@@ -351,6 +358,8 @@ export interface RoundEvidenceRefRow {
   at: string;
 }
 export interface RoundDetail extends Omit<RoundSummary, 'sampleCount'> {
+  ownerModelId: string | null;
+  ownerSoftwareId: string | null;
   /** Files in the user's order (`order` 1..n) and the owner of the source. */
   sampleSet: { files: { fileRef: string; order: number; sha256: string }[]; sourceOwner: string };
   /** Evidence locations handed to this round, newest first (a round holds at most 1000). */
@@ -386,7 +395,7 @@ export async function listRounds(tx: Tx, workspaceId: string, projectId: string,
       gateDecision: sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${sql.raw('"validation_round"."workspace_id"')} and gd.round_id = ${sql.raw('"validation_round"."id"')} order by gd.at desc, gd.id desc limit 1)`,
     })
     .from(r)
-    .where(and(eq(r.workspaceId, workspaceId), eq(r.projectId, projectId), projectVisibleSql(viewer, ref(r.projectId))))
+    .where(and(eq(r.workspaceId, workspaceId), eq(r.projectId, projectId), roundVisibleSql(viewer, ref(r.id))))
     .orderBy(desc(r.seq));
   return { rows: rows.map(({ row, validation, gateDecision }) => ({ ...baseRound(row), sampleCount: filesOf(row).files.length, validation, gateDecision })) };
 }
@@ -416,7 +425,7 @@ export async function getRoundDetail(tx: Tx, workspaceId: string, roundId: strin
     handedOffBy: x.handedOffBy,
     at: iso(x.at),
   }));
-  return { ...baseRound(row), sampleSet: filesOf(row), evidenceRefs };
+  return { ...baseRound(row), ownerModelId: row.ownerModelId, ownerSoftwareId: row.ownerSoftwareId, sampleSet: filesOf(row), evidenceRefs };
 }
 
 /** The sample set of a round in the workspace, or null (the cross-module read port: no evidence locations are read). */

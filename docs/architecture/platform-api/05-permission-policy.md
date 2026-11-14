@@ -643,3 +643,9 @@ A deployment's declaration bundle may declare its own capabilities in a `capabil
 - **Export:** 10,000 rows and 5 MB per request, 1 concurrent export and 20 a day per token and per Actor (the Actor-wide count holds session and token exports together). Refusals are codes, not cut files.
 - **Revocation:** a revoked or expired token is refused at authentication on the next call; a reduced permission or revoked Source-owner grant at the next judgment; a running export stream is judged again at every chunk boundary and stops there.
 - **Admin aggregation** `logExplorer.usage` is gated by `console:access` (`workspace.admin`, session-only, so no token can call it).
+
+### Log lifecycle historical owner visibility (#2111)
+
+Round authorization follows the immutable creation model/SW, not the project's mutable current SW. The current knowledge object ACL still applies to that recorded owner on every Round/request/attempt/evidence read or write, including queue workers, attachment downloads and summary/count projections. Project SW removal or replacement cannot expose historical validation records to a viewer without access to their owning SW. This changes object ownership resolution only; capability, Admin-bypass and Source-owner decisions remain unchanged.
+
+Unresolved legacy Round ownership is admin-only and still requires access to the project's immutable model, including derived records; it is never assumed model-public when the project SW is cleared. Even Admin cannot approve from unresolved ownership. The migration's evidence limits and the Gate owner-mismatch errors are owned by [log-lifecycle.md](api/log-lifecycle.md#immutable-round-ownership-2111).

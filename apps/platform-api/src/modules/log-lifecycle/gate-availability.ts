@@ -6,14 +6,14 @@ import type { PlatformActor } from '../platform-port/permissions.js';
 import type { LogLifecycleDeps } from './deps.js';
 import { buildBasis, decisiveAttempt, GATE_DECISIONS, judgeDecision, judgeTarget, movesStage } from './domain/gate-rules.js';
 import { gateTargetFor, isOpenStage } from './domain/stage-transitions.js';
-import { actorIsHuman, latestRequest, latestRoundId, succeededAttempts } from './repositories/gate.js';
-import { getProjectDetail, type RoundDetail } from './repositories/lifecycle-read.js';
+import { actorIsHuman, gateProject, latestRequest, latestRoundId, succeededAttempts } from './repositories/gate.js';
+import { type RoundDetail } from './repositories/lifecycle-read.js';
 import { readRoundEvidenceLinks } from './round-evidence-links.js';
 
 export async function gateAvailability(deps: LogLifecycleDeps, actor: PlatformActor, round: RoundDetail) {
   const ws = actor.workspace_id;
   const [project, attempts, request, latest, links] = await Promise.all([
-    getProjectDetail(deps.db, ws, round.projectId, viewerOf(actor)), succeededAttempts(deps.db, ws, round.id, viewerOf(actor)), latestRequest(deps.db, ws, round.id, viewerOf(actor)), latestRoundId(deps.db, ws, round.projectId, viewerOf(actor)), readRoundEvidenceLinks(deps, actor, round.id),
+    gateProject(deps.db, ws, round.id, viewerOf(actor)), succeededAttempts(deps.db, ws, round.id, viewerOf(actor)), latestRequest(deps.db, ws, round.id, viewerOf(actor)), latestRoundId(deps.db, ws, round.projectId, viewerOf(actor)), readRoundEvidenceLinks(deps, actor, round.id),
   ]);
   const reasons: string[] = [];
   if (currentAuthContext().kind !== 'session' || !(await actorIsHuman(deps.db, ws, actor.actor_id))) reasons.push('session_required');
@@ -29,7 +29,8 @@ export async function gateAvailability(deps: LogLifecycleDeps, actor: PlatformAc
   const decisions = Object.fromEntries(GATE_DECISIONS.map(decision => {
     const refusal = judgeDecision({ decision, verdict: decisive?.verdict ?? null });
     const target = project && targetStage ? judgeTarget(project.stage, targetStage, project.softwareId, movesStage(decision)) : null;
-    const ownReasons = [...reasons, ...(refusal ? [refusal.code] : []), ...(target && !target.ok ? [target.error.code] : [])];
+    const ownerReason = !movesStage(decision) ? null : round.ownerModelId === null ? 'round_owner_unresolved' : project && (round.ownerModelId !== project.modelId || round.ownerSoftwareId !== project.softwareId) ? 'round_owner_mismatch' : null;
+    const ownReasons = [...reasons, ...(ownerReason ? [ownerReason] : []), ...(refusal ? [refusal.code] : []), ...(target && !target.ok ? [target.error.code] : [])];
     return [decision, { allowed: ownReasons.length === 0 && targetStage !== null, reasons: ownReasons }];
   }));
   return {

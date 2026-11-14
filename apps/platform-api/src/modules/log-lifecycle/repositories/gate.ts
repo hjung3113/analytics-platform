@@ -1,14 +1,15 @@
 import { type Viewer, ref } from '../../log-knowledge/index.js';
-import { projectVisibleSql, roundVisibleSql } from './access-visibility.js';
+import { lockRoundOwner, roundVisibleSql } from './access-visibility.js';
 // Gate decision storage (#1446 e). Writes run on the caller's transaction after the project and Round rows are locked;
 // `platform_app` holds SELECT and INSERT on `gate_decision` and nothing else (migration 0113 + the append-only trigger).
 // Reads are scoped to the session workspace.
 
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { actors } from '../../../db/schema/core.js';
 import {
+  developmentProjects,
   executionAttempts,
   executionRequests,
   gateDecisions,
@@ -23,13 +24,33 @@ const iso = (d: Date | string): string => (d instanceof Date ? d : new Date(d)).
 
 /** The newest Round (highest seq) of a project: the one a Gate decision may rest on. */
 export async function latestRoundId(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<string | null> {
+  // Authorization comes from a visible Round of the project; recency includes hidden Rounds too.
+  // Selecting the newest *visible* Round could approve an older result when a later Round is hidden.
   const [row] = await tx
-    .select({ id: validationRounds.id })
+    .select({ id: sql<string>`(select newest.id from log_lifecycle.validation_round newest where newest.workspace_id = ${workspaceId}::uuid and newest.project_id = ${projectId}::uuid order by newest.seq desc limit 1)` })
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId), projectVisibleSql(viewer, ref(validationRounds.projectId))))
-    .orderBy(desc(validationRounds.seq))
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId), roundVisibleSql(viewer, ref(validationRounds.id))))
     .limit(1);
   return row?.id ?? null;
+}
+
+/** Gate changes the project, but authority belongs to its immutable Round owner, not the current project SW. */
+export async function lockGateProject(tx: Tx, workspaceId: string, projectId: string, roundId: string, viewer: Viewer) {
+  const [project] = await tx.select().from(developmentProjects)
+    .where(and(eq(developmentProjects.workspaceId, workspaceId), eq(developmentProjects.id, projectId),
+      sql`exists (select 1 from log_lifecycle.validation_round gate_r where gate_r.workspace_id = ${workspaceId}::uuid and gate_r.project_id = ${projectId}::uuid and gate_r.id = ${roundId}::uuid and ${roundVisibleSql(viewer, sql`gate_r.id`)})`))
+    .for('update');
+  return project && await lockRoundOwner(tx, viewer, roundId) ? project : null;
+}
+
+/** Minimal internal Gate projection; the public project detail keeps its current-owner ACL. */
+export async function gateProject(tx: Tx, workspaceId: string, roundId: string, viewer: Viewer) {
+  const [project] = await tx.select({ modelId: developmentProjects.modelId, softwareId: developmentProjects.softwareId, stage: developmentProjects.stage, version: sql<string>`${developmentProjects.rowVersion}::text` })
+    .from(developmentProjects)
+    .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, developmentProjects.workspaceId), eq(validationRounds.projectId, developmentProjects.id)))
+    .where(and(eq(developmentProjects.workspaceId, workspaceId), eq(validationRounds.id, roundId), roundVisibleSql(viewer, ref(validationRounds.id))))
+    .limit(1);
+  return project ?? null;
 }
 
 /** The project of a Round without locking either row (the action locks the project first, then the Round). */
@@ -203,7 +224,7 @@ export async function projectGateState(tx: Tx, workspaceId: string, projectId: s
   const rounds = await tx
     .select({ id: validationRounds.id })
     .from(validationRounds)
-    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId), projectVisibleSql(viewer, ref(validationRounds.projectId))))
+    .where(and(eq(validationRounds.workspaceId, workspaceId), eq(validationRounds.projectId, projectId), roundVisibleSql(viewer, ref(validationRounds.id))))
     .orderBy(desc(validationRounds.seq));
   const all = await readDecisions(tx, workspaceId, rounds.map((r) => r.id), viewer);
   const last = all.length === 0 ? null : (all[all.length - 1] as GateDecisionOut);

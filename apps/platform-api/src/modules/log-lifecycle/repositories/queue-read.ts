@@ -88,7 +88,7 @@ export async function listRequests(
     query.to ? sql`${q.createdAt} < ${query.to}` : undefined,
   );
   const base = tx
-    .select({ request: q, projectId: validationRounds.projectId, modelId: p.modelId, modelCode: sql<string>`(select m.code from ${equipmentModels} m where m.workspace_id = ${q.workspaceId} and m.id = ${developmentProjects.modelId})`, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${q.workspaceId} and s.id = ${developmentProjects.softwareId})`, roundSeq: validationRounds.seq, requesterName: who.displayName, latestVerdict: verdictOfLatest })
+    .select({ request: q, projectId: validationRounds.projectId, modelId: p.modelId, modelCode: sql<string>`(select m.code from ${equipmentModels} m where m.workspace_id = ${q.workspaceId} and m.id = ${developmentProjects.modelId})`, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${q.workspaceId} and s.id = ${validationRounds.ownerSoftwareId})`, roundSeq: validationRounds.seq, requesterName: who.displayName, latestVerdict: verdictOfLatest })
     .from(q)
     .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
     .innerJoin(p, and(eq(p.workspaceId, validationRounds.workspaceId), eq(p.id, validationRounds.projectId)))
@@ -215,7 +215,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
 async function listRequestsById(tx: Tx, workspaceId: string, requestId: string, viewer: Viewer) {
   const who = alias(actors, 'requester');
   const [found] = await tx
-    .select({ request: q, projectId: validationRounds.projectId, modelId: developmentProjects.modelId, modelCode: sql<string>`(select m.code from ${equipmentModels} m where m.workspace_id = ${q.workspaceId} and m.id = ${developmentProjects.modelId})`, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${q.workspaceId} and s.id = ${developmentProjects.softwareId})`, roundSeq: validationRounds.seq, requesterName: who.displayName, latestVerdict: verdictOfLatest })
+    .select({ request: q, projectId: validationRounds.projectId, modelId: developmentProjects.modelId, modelCode: sql<string>`(select m.code from ${equipmentModels} m where m.workspace_id = ${q.workspaceId} and m.id = ${developmentProjects.modelId})`, softwareLabel: sql<string | null>`(select s.version_label from ${softwareVersions} s where s.workspace_id = ${q.workspaceId} and s.id = ${validationRounds.ownerSoftwareId})`, roundSeq: validationRounds.seq, requesterName: who.displayName, latestVerdict: verdictOfLatest })
     .from(q)
     .innerJoin(validationRounds, and(eq(validationRounds.workspaceId, q.workspaceId), eq(validationRounds.id, q.roundId)))
     .innerJoin(developmentProjects, and(eq(developmentProjects.workspaceId, validationRounds.workspaceId), eq(developmentProjects.id, validationRounds.projectId)))

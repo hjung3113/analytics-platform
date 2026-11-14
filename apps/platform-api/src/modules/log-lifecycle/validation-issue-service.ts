@@ -46,7 +46,7 @@ export async function lockValidationIssueTarget(tx: Tx, viewer: Viewer, action: 
     await lockIssueRound(tx, viewer, i.project_id, 'roundId' in v ? v.roundId : i.first_round_id);
     return;
   }
-  if ('roundId' in v) await lockIssueRound(tx, viewer, await roundOwner(tx, viewer, v.roundId), v.roundId);
+  if ('roundId' in v) await lockIssueRound(tx, viewer, await roundOwner(tx, viewer, v.roundId), v.roundId, 'round');
 }
 export function createValidationIssueService(deps: { db: Db }) {
   /** Called by the menu-action handler inside its transaction/idempotency frame. */
