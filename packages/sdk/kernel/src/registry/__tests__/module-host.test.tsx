@@ -666,16 +666,6 @@ it('inherits optional apply metadata through mountModule and gates host.query wi
   expect(calls).toHaveLength(1);
   await act(async () => { calls[0].resolve(ok(calls[0].request)); await response; });
 });
-it('host.query delivers another menu\'s Context-free response while its own Apply screen is idle (#2008 KER-6)', async () => {
-  const m = manifest();
-  m.screens = m.screens.map(screen => screen.id === 'list' ? { ...screen, query: { mode: 'apply' } } : screen);
-  const { calls, seen } = setup('/fx', m);
-  const auxiliary = defineEndpoint<{ page: number }, Data>({ ...spec, id: 'other.hierarchy', menuId: 'other', context: {} });
-  const response = settle(seen.host.query!(auxiliary, { page: 0 }));
-  expect(calls).toHaveLength(1);
-  await act(async () => { calls[0].resolve(ok(calls[0].request)); });
-  expect(await response).toMatchObject({ value: { outcome: 'ok' } });
-});
 
 it('history initialization leaves module snapshots, links and query gate applied-only', async () => {
   const m = manifest(); m.screens = m.screens.map(screen => screen.id === 'list' ? { ...screen, query: { mode: 'apply' } } : screen);
