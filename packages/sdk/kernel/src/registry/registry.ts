@@ -75,6 +75,8 @@ export type Registry = {
   /** Carry set the menu joined with `carrySet`, or null. Independent of the menu's space. */
   carrySetOf: (menu: MenuEntry) => CarrySetDef | null;
   menuById: (id: string) => MenuEntry;
+  /** True when this assembly registers a menu with this id; unlike `menuById` it never throws. */
+  has: (menuId: string) => boolean;
   /**
    * Declared `linkTargets` this assembly does not register, in menu then declaration order (06 §22, ADR-0158). With the default check only
    * `optional` entries appear (an unregistered `required` one is rejected); with `linkTargetCheck: 'report'` both do.
@@ -434,6 +436,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   };
   const carrySetOf = (menu: MenuEntry): CarrySetDef | null => (menu.carrySet === undefined ? null : carrySetByIdMap.get(menu.carrySet) ?? null);
   const menuById = (id: string) => byId.get(id) ?? fail(`Unknown menu ${id}`);
+  const has = (menuId: string) => byId.has(menuId);
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.
   const compiled = menus.flatMap(menu => [{ menu, pattern: segments(menu.path), canonical: segments(menu.path), viaAlias: false }, ...(menu.aliases ?? []).map(alias => ({ menu, pattern: segments(alias), canonical: segments(menu.path), viaAlias: true }))]);
@@ -485,7 +488,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, missingLinkTargets, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, missingLinkTargets, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */
