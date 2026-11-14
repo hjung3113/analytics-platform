@@ -141,6 +141,20 @@ describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () =
     expect(await screen.findByText(text)).toBeTruthy();
   });
 
+  it('print follows the same standalone gate and reports its failure to notify or the status line', async () => {
+    const notify = vi.fn();
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    bare(lane({ imagePrint: true, imageActions: { exportAllowed: true, notify } }));
+    expect(button()).toBeNull();
+    fireEvent.click(printButton()!);
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), 'warning'));
+    cleanup();
+    bare(lane({ imagePrint: true, imageActions: { exportAllowed: true } }));
+    fireEvent.click(printButton()!);
+    await waitFor(() => expect(printButton()!.parentElement!.textContent).toMatch(/[^\s]{2,}/));
+    expect(printButton()!.parentElement!.querySelectorAll('[role="status"]').length).toBeGreaterThan(0);
+  });
+
   it('inside a platform the menu manifest decides: exportAllowed never opens a closed menu, and notify is not used', async () => {
     const notify = vi.fn();
     mount(lane({ imageCopy: true, imagePrint: true, imageActions: { exportAllowed: true, notify } }), false);
