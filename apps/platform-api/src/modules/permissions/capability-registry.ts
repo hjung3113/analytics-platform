@@ -20,7 +20,7 @@ import {
   isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 
-import { NOT_FOR_USER_ROLE } from './supported-scope-policy.js';
+import { NOT_FOR_USER_ROLE, isOrdinarilyRequestable } from './supported-scope-policy.js';
 
 /** A declared capability after the bundle defaults are applied (ADR-0157 decision 2). */
 export interface DeclaredCapability {
@@ -177,7 +177,7 @@ export function createCapabilityRegistry(rows: readonly DeclaredCapabilityInput[
       return !(row.roleLevels as readonly string[]).includes(roleLevel);
     },
     isOrdinarilyRequestable(name) {
-      if (isCapability(name)) return name !== 'workspace.admin' && name !== 'scope.read';
+      if (isCapability(name)) return isOrdinarilyRequestable(name);
       if (!byId.has(name)) throw new UnknownCapabilityError(name);
       return true;
     },
@@ -190,8 +190,3 @@ export function createCapabilityRegistry(rows: readonly DeclaredCapabilityInput[
 
 /** The registry of a server whose bundle declares nothing: exactly the platform capabilities. */
 export const PLATFORM_CAPABILITY_REGISTRY: CapabilityRegistry = createCapabilityRegistry([]);
-
-/** Narrowing helper for code that holds a platform-only list. */
-export function isPlatformCapability(name: string): name is Capability {
-  return isCapability(name);
-}
