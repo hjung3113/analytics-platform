@@ -106,7 +106,7 @@ export function requestActions(deps: RequestActionDeps): MenuActionDeclaration[]
         requestDigest: requestDigest(round.id, round.sampleManifestDigest, engineProfileRef),
         engineProfileRef,
         requestedByActorId: actor.actor_id,
-        idempotencyKey: ctx.correlationId,
+        idempotencyKey: ctx.idempotencyKey,
         maxAttempts,
       });
       await audit.record(tx, {

@@ -25,6 +25,10 @@
 - **e «탐색에서 열기» 연결**: log-explorer #1473의 안정 ID 딥링크가 아직 없다. 버튼은 사유와 함께 비활성이다. 재개: 탐색 목적지·딥링크 계약 구현.
 - **Dataset 감사 투영**: `dataset`·`dataset_revision`·`dataset_candidate` 감사는 `core.audit_log`에만 남는다. 비공개 Dataset의 존재를 `console:access` Admin에게 노출하지 않으려면 호출자 가시성을 아는 투영이 필요하다. 재개: Dataset 감사 화면 요청과 가시성 투영 설계 확정.
 
+### 묶음 시도 발췌 삭제
+
+발췌 삭제는 읽기 경로와 별개다. 관리자의 세션 전용 `logLifecycle.excerptDelete { scope: 'attempt', id, reason }`는 같은 워크스페이스의 묶음 시도도 받는다. 다른 항목이 대기 중이어도 즉시 본문을 지우고 사유는 삭제 행에 저장하고, 감사에는 범위·id·개수만 남긴다. Round 시도의 객체 접근 검사는 유지한다. 기한 삭제는 모든 형제 요청이 끝난 뒤 묶음 종료 시각부터 계산하므로, 형제가 `queued`·`claimed`이면 시작하지 않는다.
+
 ## 1. 이 설계가 하는 것
 
 Round에 묶이지 않고 여러 모델·Round·Validator 버전에서 되풀이해 쓰는 **테스트 자산과 기대 결과**를 별도 도메인으로 둔다.

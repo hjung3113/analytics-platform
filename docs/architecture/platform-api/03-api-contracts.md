@@ -41,6 +41,8 @@ Detailed schemas may later move into OpenAPI; until they do, `api/*.md` remains 
 
 ## Global API Rules
 
+Menu-action handlers receive the validated, lowercase `idempotencyKey` in `ActionHandlerContext`. Persisted command identity uses this dispatcher key; `correlationId` is tracing metadata and may be shared by independent commands. Replays remain owned by the dispatcher and do not invoke the handler.
+
 ```text
 - All workspace-scoped endpoints validate workspace context.
 - All mutating endpoints check permission before writing.

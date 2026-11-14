@@ -14,6 +14,8 @@ import { createCheckService } from '../../permissions/check-service.js';
 import type { PlatformActor } from '../../platform-port/permissions.js';
 import { toCodeKey } from '../domain/code-key.js';
 import { HASH_MISMATCH_MARKER } from '../domain/evidence-intake.js';
+import { parseProposal } from '../domain/draft-input.js';
+import { draftCores } from '../draft-core.js';
 import { draftEvidenceIntake } from '../draft-evidence-intake.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -217,6 +219,27 @@ describe.skipIf(!runIntegration)('knowledge draft evidence intake (#1474 X-h)', 
     const rows = await audit(first.draftId);
     expect(rows.map((r) => r.event_type)).toEqual(['knowledge.draft.created', 'knowledge.draft.updated']);
     expect(rows[1]).toMatchObject({ detail: { draftRevNo: 2, statusBefore: 'draft', handoff: { originKind: 'log_explorer', originId: ORIGIN.id, refCount: 2 } } });
+  });
+
+  it('append: preserves normalized subjects while adding evidence (SER-29)', async () => {
+    const parsed = parseProposal('create', {
+      ownerModelId: modelId, typeCode: 'needs_check', title: 'Synthetic subject draft', observation: 'Synthetic observation',
+      subjects: [{ modelId, targetKind: 'module', target: { module: 'SYN-MODULE' }, relation: 'about' }], evidence: [],
+    });
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    const core = draftCores({ checkService: createCheckService({ db: dbHandle.db }) });
+    const created = await run((tx) => core.createDraft(tx, author, {
+      proposalType: 'create', targetItemId: null, proposal: parsed.value, authKind: 'session', actorType: 'internal_member', validatorRef: undefined,
+    }));
+    const id = (created.data as { id: string }).id;
+    const result = await run((tx) => intake.append(tx, author, {
+      draftId: id, expectedVersion: String(created.version), refs: [ref()], sourceOwner: 'fab-team', origin: ORIGIN,
+    }));
+    expect(result.version).not.toBe(created.version);
+    const revs = await revisions(id);
+    expect(revs).toHaveLength(2);
+    expect(revs[1]?.proposal_json).toMatchObject({ subjects: parsed.value.subjects, evidence: [expect.objectContaining({ sourceRef: ref().fileRef })] });
+    expect((await audit(id)).map((row) => row.event_type)).toEqual(['knowledge.draft.created', 'knowledge.draft.updated']);
   });
 
   it('append: pointers that are all stored already change and audit nothing (same version, same digest)', async () => {

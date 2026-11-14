@@ -313,6 +313,50 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout
     });
   });
 
+  describe('Round validation summaries (SER-25)', () => {
+    async function summaries(round: Awaited<ReturnType<typeof makeRound>>, expected: string) {
+      const models = await read('models', { filters: [{ id: 'id', op: 'in', value: [round.modelId] }] });
+      const rounds = await read('rounds', { projectId: round.projectId });
+      expect(models.data.rows[0].validation).toBe(expected);
+      expect(rounds.data.rows[0].validation).toBe(expected);
+    }
+
+    it('keeps the completed verdict after a newer request is cancelled without an attempt', async () => {
+      const round = await makeRound();
+      const first = await makeRequest(round.roundId);
+      const claimed = (await claim()).json();
+      expect((await post(workerA, `/requests/${first.id}/result`, resultBody(claimed, [rule('SYN-PASS', 'PASS')]))).statusCode).toBe(200);
+      const second = await makeRequest(round.roundId);
+      await summaries(round, 'queued');
+      expect((await act('requestCancel', { id: second.id, reason: 'synthetic cancellation' }, { expectedVersion: second.version })).outcome).toBe('ok');
+      await summaries(round, 'pass');
+    });
+
+    it('uses the last completed successful attempt when priority reverses request order', async () => {
+      const round = await makeRound();
+      const first = await makeRequest(round.roundId, { priority: 0 });
+      const second = await makeRequest(round.roundId, { priority: 2 });
+      const high = (await claim()).json();
+      expect(high.request.id).toBe(second.id);
+      expect((await post(workerA, `/requests/${second.id}/result`, resultBody(high, [rule('SYN-FAIL', 'FAIL')]))).statusCode).toBe(200);
+      const low = (await claim()).json();
+      expect(low.request.id).toBe(first.id);
+      expect((await post(workerA, `/requests/${first.id}/result`, resultBody(low, [rule('SYN-PASS', 'PASS')]))).statusCode).toBe(200);
+      await summaries(round, 'pass');
+    });
+    it('uses completion order when two workers finish in the reverse of their start order', async () => {
+      const round = await makeRound();
+      const first = await makeRequest(round.roundId);
+      const older = (await claim()).json();
+      const second = await makeRequest(round.roundId);
+      const newer = (await claim(workerB)).json();
+      expect(newer.request.id).toBe(second.id);
+      expect((await post(workerB, `/requests/${second.id}/result`, resultBody(newer, [rule('SYN-FAIL', 'FAIL')]))).statusCode).toBe(200);
+      expect((await post(workerA, `/requests/${first.id}/result`, resultBody(older, [rule('SYN-PASS', 'PASS')]))).statusCode).toBe(200);
+      await summaries(round, 'pass');
+    });
+  });
+
   describe('register and cancel (human side)', () => {
     it('registers a request on an open round with the right, audits it, and lists it', async () => {
       const round = await makeRound();

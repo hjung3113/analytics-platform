@@ -106,13 +106,18 @@ function textFilter(q: string | null): SQL | undefined {
   return or(like(m.codeKey, `${escapeLikePattern(key)}%`), ilike(m.name, `%${escapeLikePattern(q.trim())}%`));
 }
 
+/** One Round summary for both lists; completed results use the Gate's decisive-attempt ordering. */
+function roundValidationSql(workspaceId: SQL, roundId: SQL): SQL<string> {
+  const latestRequestState = sql`(select eq.state from log_lifecycle.execution_request eq where eq.workspace_id = ${workspaceId} and eq.round_id = ${roundId} order by eq.created_at desc, eq.id desc limit 1)`;
+  const latestVerdict = sql`(select ea.verdict from log_lifecycle.execution_attempt ea join log_lifecycle.execution_request eq on eq.workspace_id = ea.workspace_id and eq.id = ea.request_id where eq.workspace_id = ${workspaceId} and eq.round_id = ${roundId} and ea.outcome = 'succeeded' order by ea.ended_at desc, ea.started_at desc, ea.id desc limit 1)`;
+  return sql<string>`case when ${latestRequestState} in ('queued','claimed') then ${latestRequestState} else coalesce(${latestVerdict}, 'none') end`;
+}
+
 /** Every knowledge model as a base row with its open project and that project's latest round. */
 export async function listModels(tx: Tx, q: ListQuery & { includeClosedProjects?: boolean }, viewer: Viewer): Promise<Page<ModelRow>> {
   // The latest Round alone supplies validation; the human Gate remains a separate axis.
   const latestRoundId = sql`(select lr.id from log_lifecycle.validation_round lr where lr.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} and ${roundVisibleSql(viewer, sql`lr.id`)} order by lr.seq desc limit 1)`;
-  const latestRequestState = sql`(select eq.state from log_lifecycle.execution_request eq where eq.workspace_id = ${m.workspaceId} and eq.round_id = ${latestRoundId} order by eq.created_at desc, eq.id desc limit 1)`;
-  const latestVerdict = sql`(select ea.verdict from log_lifecycle.execution_attempt ea join log_lifecycle.execution_request eq on eq.workspace_id = ea.workspace_id and eq.id = ea.request_id where eq.workspace_id = ${m.workspaceId} and eq.round_id = ${latestRoundId} order by ea.started_at desc, ea.id desc limit 1)`;
-  const validation = sql<string>`case when ${latestRequestState} in ('queued','claimed') then ${latestRequestState} else coalesce(${latestVerdict}, 'none') end`;
+  const validation = roundValidationSql(ref(m.workspaceId), latestRoundId);
   const pendingRequests = sql<number>`(select count(*)::int from log_lifecycle.execution_request eq join log_lifecycle.validation_round lr on lr.workspace_id = eq.workspace_id and lr.id = eq.round_id where eq.workspace_id = ${m.workspaceId} and lr.project_id = ${p.id} and ${roundVisibleSql(viewer, sql`lr.id`)} and eq.state in ('queued','claimed'))`;
   const gateDecision = sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${m.workspaceId} and gd.round_id = ${latestRoundId} order by gd.at desc, gd.id desc limit 1)`;
 
@@ -391,7 +396,7 @@ const baseRound = (row: RoundDbRow) => ({
 export async function listRounds(tx: Tx, workspaceId: string, projectId: string, viewer: Viewer): Promise<{ rows: RoundSummary[] }> {
   const rows = await tx
     .select({ row: r,
-      validation: sql<string>`coalesce((select coalesce(ea.verdict, case when eq.state in ('queued','claimed') then eq.state end) from log_lifecycle.execution_request eq left join lateral (select a.verdict from log_lifecycle.execution_attempt a where a.workspace_id = eq.workspace_id and a.request_id = eq.id order by a.attempt_no desc limit 1) ea on true where eq.workspace_id = ${sql.raw('"validation_round"."workspace_id"')} and eq.round_id = ${sql.raw('"validation_round"."id"')} order by eq.created_at desc, eq.id desc limit 1), 'none')`,
+      validation: roundValidationSql(ref(r.workspaceId), ref(r.id)),
       gateDecision: sql<string | null>`(select gd.decision from log_lifecycle.gate_decision gd where gd.workspace_id = ${sql.raw('"validation_round"."workspace_id"')} and gd.round_id = ${sql.raw('"validation_round"."id"')} order by gd.at desc, gd.id desc limit 1)`,
     })
     .from(r)

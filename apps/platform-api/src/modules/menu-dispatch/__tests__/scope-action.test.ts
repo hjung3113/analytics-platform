@@ -68,7 +68,7 @@ describe('action Scope before transaction/replay', () => {
       registry: createMenuDispatchRegistry([{ actions: [declaration] }], { scopeResolver: resolver }),
     });
     expect(await engine.run(actor, body('MEM'), 'cid')).toMatchObject({ outcome: 'ok' });
-    expect(handle).toHaveBeenCalledWith(tx, actor, {}, { correlationId: 'cid', scopeId: 'MEM', scopes: grants });
+    expect(handle).toHaveBeenCalledWith(tx, actor, {}, { correlationId: 'cid', idempotencyKey: expect.any(String), scopeId: 'MEM', scopes: grants });
     expect(await engine.run(actor, body('MEM'), 'cid2')).toMatchObject({ outcome: 'forbidden' });
     expect(handle).toHaveBeenCalledTimes(1);
     expect(resolver.resolve).toHaveBeenCalledTimes(2);
