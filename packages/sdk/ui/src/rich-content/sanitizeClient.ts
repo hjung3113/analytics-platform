@@ -115,6 +115,13 @@ function cleanWriteUrl(schema: Extract<AttrSchema, { kind: 'url' }>, value: unkn
   }
 }
 
+// Internal shared input/write check; deliberately not exported from the package entry point.
+export function isValidWriteHref(value: unknown, surface: ClientSanitizeSurface): boolean {
+  const allow = UI_ALLOWLISTS[surface];
+  const schema = allow.markAttrs.link?.href;
+  return schema?.kind === 'url' && cleanWriteUrl({ ...schema, schemes: allow.allowedLinkSchemes }, value) !== DROP;
+}
+
 function coerceAttrValue(schema: AttrSchema, value: unknown, key: string): unknown {
   if (schema.kind === 'uuid') {
     if (typeof value === 'string' && UUID_RE.test(value)) return value;
