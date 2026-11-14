@@ -7,9 +7,12 @@ import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, us
 import { useHostPlatform, useLeaveRequest, useSavedViews, type SavedViews, type LeaveRequest } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
 
-const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: ['filter'] };
+const baseSupport: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: ['filter'] };
+let support = baseSupport;
 const base = { group: groupId('g'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], features: { export: false, savedView: true, annotate: false, compare: false } };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('g'), label: base.label, icon: House, space: spaceId('mars') }], menus: [{ ...base, id: 'home', path: '/', primary: true }, { ...base, id: 'other', path: '/other' }] });
+const makeRegistry = (home: Record<string, unknown> = {}) => createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('g'), label: base.label, icon: House, space: spaceId('mars') }], menus: [{ ...base, id: 'home', path: '/', primary: true, ...home }, { ...base, id: 'other', path: '/other' }] });
+let registry = makeRegistry();
+let rows = () => [row('a'), row('b'), row('c')];
 const row = (id: string) => testSavedView({ id, name: id, kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: {}, page: [['filter', id]], chartOptions: {}, layout: null, panels: null } as never);
 let views: SavedViews;
 let host: ReturnType<typeof useHostPlatform>;
@@ -26,13 +29,13 @@ async function mount() {
   const listeners = new Set<() => void>();
   let session = testSession(['platform:view']);
   const adapter = testAdapter({ session: () => session, subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; } });
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} savedViews={createFakeSavedViewStore([row('a'), row('b'), row('c')])}><Probe /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} savedViews={createFakeSavedViewStore(rows())}><Probe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(views.status).toBe('ready'));
   await act(async () => { await views.select('a'); });
   act(() => dirty(true));
   return { revise: (account = false) => { if (account) session = testSession(['platform:view'], { user: { id: 'u2', name: 'u2' } }); listeners.forEach(l => l()); } };
 }
-afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); support = baseSupport; registry = makeRegistry(); rows = () => [row('a'), row('b'), row('c')]; });
 it.each(['confirm', 'cancel'] as const)('KER-18 holds selection silently and handles %s', async action => {
   await mount();
   let outcome: unknown;
@@ -81,4 +84,19 @@ it('KER-18 a superseded pending read returns silent cancelled without clearing t
   await act(async () => { release(); outcome = await pending; });
   expect(outcome).toEqual({ ok: false, reason: 'cancelled' });
   expect(views.selected?.view.id).toBe('a');
+});
+
+// C2 (review-final): the held restore's expected address lists the visible pairs first, then the hidden ones, as the arrived page is rebuilt (ADR-0105).
+it('KER-18 a held restore of a view with a hidden key before a visible key still selects on confirm', async () => {
+  support = { ...baseSupport, pageKeys: ['filter', 'preset'] };
+  registry = makeRegistry({ pageKeys: ['filter', 'preset'], hiddenPageKeys: ['filter'] });
+  const mixed = (id: string) => testSavedView({ id, name: id, kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: {}, page: [['filter', id], ['preset', id]], chartOptions: {}, layout: null, panels: null } as never);
+  rows = () => [mixed('a'), mixed('b')];
+  await mount();
+  let outcome: unknown;
+  await act(async () => { outcome = await views.select('b'); });
+  expect(outcome).toEqual({ ok: false, reason: 'held' });
+  expect(views.selected?.view.id).toBe('a');
+  act(() => request!.confirm());
+  await waitFor(() => expect(views.selected?.view.id).toBe('b'));
 });

@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { buildQuery, validateSavedView, type JsonValue, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport } from '@ap/contracts';
+import { buildQuery, validateSavedView, type JsonValue, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport } from '@ap/contracts';
 import { useHostPlatform } from '../platform/platform';
 import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
@@ -162,6 +162,12 @@ export function useSavedViews(): SavedViews {
     setSelected(arrival.entry.view.id);
   }, [arrivingSelection, gen, host.pathname, host.global, host.page, host.extras, setSelected]);
 
+  const arrivalHref = (page: readonly (readonly [string, string])[], from: typeof host) => {
+    const hidden = from.route?.menu.hiddenPageKeys ?? [];
+    const pairs = page.map(([key, value]): Pair => [key, value]);
+    return from.pathname + buildQuery(from.global, [...pairs.filter(([key]) => !hidden.includes(key)), ...pairs.filter(([key]) => hidden.includes(key))], from.extras);
+  };
+
   const apply = useCallback(async (id: string, source: 'selected' | 'default'): Promise<SelectOutcome> => {
     if (!enabled || !support || blocked || stale(gen)) return { ok: false, reason: 'unavailable' };
     const at = gen;
@@ -198,7 +204,8 @@ export function useSavedViews(): SavedViews {
       let held = false;
       const moved = current.navigate(result.href, { replace: source === 'default', run: () => {
         if (stale(at) || intent.current !== mine || live.current.host.appliedUrl !== startUrl) return false;
-        if (held) setArrivingSelection({ gen: at, mine, href: result.href, entry: found });
+        // The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too.
+        if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next.page, current), entry: found });
         return true;
       } });
       if (!moved) {
