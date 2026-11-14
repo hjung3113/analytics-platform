@@ -70,6 +70,15 @@ describe('declaration bundle is checked against the menu declarations at boot (#
     await expect(boot(bundle(), snapshot())).resolves.toBeDefined();
   });
 
+  it('#1846: a menu whose permission the bundle does not declare boots, and is reported', async () => {
+    const withMenu = (permission: string) => ({ ...snapshot(), menus: [...snapshot().menus, { id: 'syn-b', permission, requiresScope: false, context: {} }] });
+    const rebuilt = (permission: string) => { const { digest: _digest, ...body } = withMenu(permission); return menuSnapshot(body); };
+    const missing = await boot(bundle(), rebuilt('syn:undeclared'));
+    expect(missing?.undeclaredMenuPermissions.map((row) => [row.menuId, row.permission])).toEqual([['syn-b', 'syn:undeclared']]);
+    const declared = await boot(bundle(), rebuilt('syn:view'));
+    expect(declared?.undeclaredMenuPermissions).toEqual([]);
+  });
+
   it('H5: refuses an endpoint whose permission is weaker than the menu declaration', async () => {
     const weak = bundle();
     first(weak.endpoints).permission = 'platform:view';
