@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { isThemeColorToken, readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import {
   intervalShape,
@@ -44,7 +45,8 @@ type PlotProps = Pick<
 const AXIS_HEIGHT = 48;
 /** Draws only the current horizontal and vertical window; no per-item DOM nodes. */
 export function OrderedIntervalPlot(props: PlotProps) {
-  const { tx } = useI18n();
+  const { lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const canvas = useRef<HTMLCanvasElement>(null);
   const axis = useRef<HTMLCanvasElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
@@ -237,7 +239,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
       ctx.fillStyle = color('surface-sunken');
       ctx.fillRect(start, 0, gapWidth, height);
       head.fillStyle = color('--text-secondary');
-      head.fillText(tx({ ko: '미수신', en: 'Unreceived' }), start + 4, 24 + captionOffset, gapWidth);
+      head.fillText(m('intervalUnreceived'), start + 4, 24 + captionOffset, gapWidth);
     }
     const pointCounts = new Map<string, number>();
     for (const item of visible)
@@ -364,7 +366,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
       ctx.strokeRect(x(props.brush[0]), 1, x(props.brush[1]) - x(props.brush[0]), height - 2);
     }
     ctx.restore();
-  }, [props, height, width, top, plotWidth, theme, dpr, tx]);
+  }, [props, height, width, top, plotWidth, theme, dpr, m, lang]);
   function position(event: React.PointerEvent<HTMLCanvasElement>) {
     const box = event.currentTarget.getBoundingClientRect();
     const px = event.clientX - box.left;

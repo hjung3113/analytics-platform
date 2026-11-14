@@ -1,4 +1,6 @@
 import { encodeFilterParams, filterParamLimit, FILTER_PARAM_LIMITS, parseFilterParams, validateFilters, type ColumnFilter, type ColumnFilterSpec, type FilterParamRejection, type Text } from '@ap/contracts';
+import { formatText, type Lang } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 /**
  * A page-declared old single key (`status=active`) read for one release and rewritten into the filter key (ADR-0105 §6). The SDK has
@@ -30,21 +32,23 @@ export type TableFilterRead =
   | { ok: false; problems: TableFilterProblem[] };
 
 /** Why a filter state was refused, in the user's words (the sentence's cause; never the enum token). */
-export const FILTER_PROBLEM_CAUSES: Readonly<Record<TableFilterProblem['reason'], { ko: string; en: string }>> = {
-  'invalid-id': { ko: '필드 이름이 올바르지 않습니다.', en: 'The field name is not valid.' },
-  'undeclared-field': { ko: '이 화면에 없는 항목입니다.', en: 'This screen has no such field.' },
-  'duplicate-field': { ko: '같은 항목에 조건이 둘 이상 있습니다.', en: 'The same field has more than one condition.' },
-  'op-not-allowed': { ko: '이 항목에서 쓸 수 없는 조건 방식입니다.', en: 'This field does not support that condition.' },
-  'bad-value': { ko: '값의 형식이 맞지 않습니다.', en: 'The value has the wrong format.' },
-  'multiple-not-allowed': { ko: '이 항목은 값을 하나만 고를 수 있습니다.', en: 'This field accepts only one value.' },
-  'requires-unmet': { ko: '먼저 필요한 다른 조건이 없습니다.', en: 'A condition this one depends on is missing.' },
-  malformed: { ko: '조건을 읽을 수 없습니다.', en: 'The condition cannot be read.' },
-  'too-many-conditions': { ko: `조건은 ${FILTER_PARAM_LIMITS.conditions}개까지 쓸 수 있습니다.`, en: `At most ${FILTER_PARAM_LIMITS.conditions} conditions are allowed.` },
-  'too-many-values': { ko: `한 조건의 값은 ${FILTER_PARAM_LIMITS.listValues}개까지 쓸 수 있습니다.`, en: `A condition takes at most ${FILTER_PARAM_LIMITS.listValues} values.` },
-  'too-long': { ko: '조건이 너무 길어 링크로 공유할 수 없습니다.', en: 'The conditions are too long to share as a link.' },
-  'value-invalid': { ko: '이 항목에서 쓸 수 없는 값입니다.', en: 'This value cannot be used for this field.' },
-  'legacy-invalid': { ko: '예전 주소의 값을 조건으로 바꿀 수 없습니다.', en: 'The old address value cannot be turned into a condition.' },
-};
+export function filterProblemCause(reason: TableFilterProblem['reason'], lang: Lang): string {
+  switch (reason) {
+    case 'invalid-id': return formatText(COMPONENTS_MESSAGES.tableFilterProblemInvalidId, lang);
+    case 'undeclared-field': return formatText(COMPONENTS_MESSAGES.tableFilterProblemUndeclared, lang);
+    case 'duplicate-field': return formatText(COMPONENTS_MESSAGES.tableFilterProblemDuplicate, lang);
+    case 'op-not-allowed': return formatText(COMPONENTS_MESSAGES.tableFilterProblemOpNotAllowed, lang);
+    case 'bad-value': return formatText(COMPONENTS_MESSAGES.tableFilterProblemBadValue, lang);
+    case 'multiple-not-allowed': return formatText(COMPONENTS_MESSAGES.tableFilterProblemMultipleNotAllowed, lang);
+    case 'requires-unmet': return formatText(COMPONENTS_MESSAGES.tableFilterProblemRequiresUnmet, lang);
+    case 'malformed': return formatText(COMPONENTS_MESSAGES.tableFilterProblemMalformed, lang);
+    case 'too-many-conditions': return formatText(COMPONENTS_MESSAGES.tableFilterProblemTooManyConditions, lang, { limit: FILTER_PARAM_LIMITS.conditions });
+    case 'too-many-values': return formatText(COMPONENTS_MESSAGES.tableFilterProblemTooManyValues, lang, { limit: FILTER_PARAM_LIMITS.listValues });
+    case 'too-long': return formatText(COMPONENTS_MESSAGES.tableFilterProblemTooLong, lang);
+    case 'value-invalid': return formatText(COMPONENTS_MESSAGES.tableFilterProblemValueInvalid, lang);
+    case 'legacy-invalid': return formatText(COMPONENTS_MESSAGES.tableFilterProblemLegacyInvalid, lang);
+  }
+}
 
 /** Field id of a raw condition as entered (`status:equals:x` → `status`), for naming it in a sentence even when the rest is broken. */
 const rawField = (raw: string): string => raw.slice(0, Math.max(raw.indexOf(':'), 0)) || raw;

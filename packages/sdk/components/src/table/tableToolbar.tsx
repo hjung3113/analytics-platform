@@ -5,13 +5,13 @@
  */
 import { type ReactNode, type Ref } from 'react';
 import { ChevronDown, Info, MoreHorizontal } from 'lucide-react';
-import { TABLE_SIZES, TABLE_SIZE_STEPS, parseTableSize, type TableSize } from './tableSize';
+import { useI18n, useMessages, type Lang } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
+import { TABLE_SIZES, parseTableSize, type TableSize } from './tableSize';
 import {
   Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
   DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@ap/ui';
-
-type Lang = 'ko' | 'en';
 /** The toolbar controls that can move into `⋯`, in the order they leave the bar as the toolbar narrows (the menu lists them in toolbar order). 표 크기 (1217d) leaves right after 그룹: both change what the rows show and sit side by side. */
 export const COLLAPSE_ORDER = ['copy', 'group', 'size', 'columns', 'export'] as const;
 export type Collapsible = typeof COLLAPSE_ORDER[number];
@@ -33,13 +33,14 @@ export function ToolbarTitle({ title, subtitle, srOnly, lang, descriptionId }: {
 }
 
 /** The same tooltip and accessible description beside either the title or the merged result count. */
-export function ToolbarDescription({ subtitle, lang, descriptionId }: { subtitle?: ReactNode; lang: Lang; descriptionId?: string }) {
+export function ToolbarDescription({ subtitle, descriptionId }: { subtitle?: ReactNode; lang: Lang; descriptionId?: string }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   if (!subtitle) return null;
   return <>
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" data-table-description aria-describedby={descriptionId} aria-label={lang === 'ko' ? '설명' : 'Description'}
+          <button type="button" data-table-description aria-describedby={descriptionId} aria-label={m('tableDescription')}
             className="inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-text-muted hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
             <Info className="size-3.5" aria-hidden />
           </button>
@@ -53,66 +54,76 @@ export function ToolbarDescription({ subtitle, lang, descriptionId }: { subtitle
 }
 
 type GroupOption = { id: string; header: string };
-const groupLabel = (lang: Lang) => lang === 'ko' ? '그룹' : 'Group by';
-const noGroup = (lang: Lang) => lang === 'ko' ? '없음' : 'None';
-const groupValueText = (value: string, options: GroupOption[], lang: Lang) => options.find(o => o.id === value)?.header ?? noGroup(lang);
 
-function GroupRadios({ lang, value, options, onChange }: { lang: Lang; value: string; options: GroupOption[]; onChange: (id: string) => void }) {
+function useGroupLabel(value: string, options: GroupOption[]) {
+  const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const chosen = options.find(o => o.id === value)?.header ?? t('none');
+  return `${m('tableGroupBy')}: ${chosen}`;
+}
+
+function GroupRadios({ value, options, onChange }: { value: string; options: GroupOption[]; onChange: (id: string) => void }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   return <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-    <DropdownMenuRadioItem value="">{lang === 'ko' ? '그룹 없음' : 'No grouping'}</DropdownMenuRadioItem>
+    <DropdownMenuRadioItem value="">{m('tableNoGrouping')}</DropdownMenuRadioItem>
     {options.map(o => <DropdownMenuRadioItem key={o.id} value={o.id}>{o.header}</DropdownMenuRadioItem>)}
   </DropdownMenuRadioGroup>;
 }
 
 /** 「그룹: 없음 ▾」: a 32px menu button (▾ because it picks a value) over a radio list. The server groups; this only chooses the column. */
-export function GroupMenu({ lang, value, options, onChange }: { lang: Lang; value: string; options: GroupOption[]; onChange: (id: string) => void }) {
+export function GroupMenu({ value, options, onChange }: { lang: Lang; value: string; options: GroupOption[]; onChange: (id: string) => void }) {
+  const label = useGroupLabel(value, options);
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="secondary" size="toolbar" data-row-group-select>{groupLabel(lang)}: {groupValueText(value, options, lang)}<ChevronDown className="size-3.5" aria-hidden /></Button>
+      <Button variant="secondary" size="toolbar" data-row-group-select>{label}<ChevronDown className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="min-w-40"><GroupRadios lang={lang} value={value} options={options} onChange={onChange} /></DropdownMenuContent>
+    <DropdownMenuContent align="end" className="min-w-40"><GroupRadios value={value} options={options} onChange={onChange} /></DropdownMenuContent>
   </DropdownMenu>;
 }
 
 /** The same choice inside `⋯`, as a submenu. */
-export function GroupSubmenu({ lang, value, options, onChange }: { lang: Lang; value: string; options: GroupOption[]; onChange: (id: string) => void }) {
+export function GroupSubmenu({ value, options, onChange }: { lang: Lang; value: string; options: GroupOption[]; onChange: (id: string) => void }) {
+  const label = useGroupLabel(value, options);
   return <DropdownMenuSub>
-    <DropdownMenuSubTrigger data-row-group-select>{groupLabel(lang)}: {groupValueText(value, options, lang)}</DropdownMenuSubTrigger>
-    <DropdownMenuSubContent><GroupRadios lang={lang} value={value} options={options} onChange={onChange} /></DropdownMenuSubContent>
+    <DropdownMenuSubTrigger data-row-group-select>{label}</DropdownMenuSubTrigger>
+    <DropdownMenuSubContent><GroupRadios value={value} options={options} onChange={onChange} /></DropdownMenuSubContent>
   </DropdownMenuSub>;
 }
 
-const sizeLabel = (lang: Lang) => lang === 'ko' ? '표 크기' : 'Table size';
-const sizeName = (size: TableSize, lang: Lang) => TABLE_SIZE_STEPS[size][lang];
-function SizeRadios({ lang, value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+const SIZE_KEY = { small: 'tableSizeSmall', normal: 'tableSizeNormal', large: 'tableSizeLarge' } as const;
+function SizeRadios({ value, onChange }: { value: TableSize; onChange: (size: TableSize) => void }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   return <DropdownMenuRadioGroup value={value} onValueChange={v => { const size = parseTableSize(v); if (size) onChange(size); }}>
-    {TABLE_SIZES.map(size => <DropdownMenuRadioItem key={size} value={size}>{sizeName(size, lang)}</DropdownMenuRadioItem>)}
+    {TABLE_SIZES.map(size => <DropdownMenuRadioItem key={size} value={size}>{m(SIZE_KEY[size])}</DropdownMenuRadioItem>)}
   </DropdownMenuRadioGroup>;
 }
 
 /** 「표 크기: 보통 ▾」: a 32px menu button like 그룹 (▾ because it picks a value) over a radio list: 작게 / 보통 / 크게. One per-user setting for every table. */
-export function TableSizeMenu({ lang, value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+export function TableSizeMenu({ value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="secondary" size="toolbar" data-table-size-select>{sizeLabel(lang)}: {sizeName(value, lang)}<ChevronDown className="size-3.5" aria-hidden /></Button>
+      <Button variant="secondary" size="toolbar" data-table-size-select>{m('tableSizeLabel')}: {m(SIZE_KEY[value])}<ChevronDown className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="min-w-40"><SizeRadios lang={lang} value={value} onChange={onChange} /></DropdownMenuContent>
+    <DropdownMenuContent align="end" className="min-w-40"><SizeRadios value={value} onChange={onChange} /></DropdownMenuContent>
   </DropdownMenu>;
 }
 
 /** The same choice inside `⋯`, as a submenu. */
-export function TableSizeSubmenu({ lang, value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+export function TableSizeSubmenu({ value, onChange }: { lang: Lang; value: TableSize; onChange: (size: TableSize) => void }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   return <DropdownMenuSub>
-    <DropdownMenuSubTrigger data-table-size-select>{sizeLabel(lang)}: {sizeName(value, lang)}</DropdownMenuSubTrigger>
-    <DropdownMenuSubContent><SizeRadios lang={lang} value={value} onChange={onChange} /></DropdownMenuSubContent>
+    <DropdownMenuSubTrigger data-table-size-select>{m('tableSizeLabel')}: {m(SIZE_KEY[value])}</DropdownMenuSubTrigger>
+    <DropdownMenuSubContent><SizeRadios value={value} onChange={onChange} /></DropdownMenuSubContent>
   </DropdownMenuSub>;
 }
 
 /** `⋯`: the controls that no longer fit, as menu items in toolbar order. Rendered only when something collapsed. */
-export function MoreMenu({ lang, children, onCloseAutoFocus, triggerRef }: { lang: Lang; children: ReactNode; onCloseAutoFocus?: (event: Event) => void; triggerRef?: Ref<HTMLButtonElement> }) {
+export function MoreMenu({ children, onCloseAutoFocus, triggerRef }: { lang: Lang; children: ReactNode; onCloseAutoFocus?: (event: Event) => void; triggerRef?: Ref<HTMLButtonElement> }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button ref={triggerRef} variant="secondary" size="toolbar" data-table-more aria-label={lang === 'ko' ? '더보기' : 'More'}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+      <Button ref={triggerRef} variant="secondary" size="toolbar" data-table-more aria-label={m('tableMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="min-w-48" onCloseAutoFocus={onCloseAutoFocus}>{children}</DropdownMenuContent>
   </DropdownMenu>;

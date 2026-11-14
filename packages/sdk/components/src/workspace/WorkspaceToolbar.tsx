@@ -2,12 +2,12 @@ import { createPortal } from 'react-dom';
 import { useContext, useId, useRef } from 'react';
 import { MoreHorizontal, TriangleAlert } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@ap/ui';
-import { useI18n } from '@ap/kernel';
+import { useMessages } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { SegmentedRadio } from '../RadioGroup';
-import { WorkspaceQueryBarContext, workspaceQueryText } from '../archetypes/WorkspaceQueryBar';
+import { WorkspaceQueryBarContext } from '../archetypes/WorkspaceQueryBar';
 import { useInWorkspacePanel } from './panelContext';
-import { workspaceText } from './text';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 export const SHOW_PREFIX = 'show:';
 export const PRESET_PREFIX = 'preset:';
@@ -25,7 +25,7 @@ function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
  * (`WorkspaceCommandsHost`), so the two surfaces cannot differ.
  */
 export function WorkspaceToolbar({ commands, onShown, label }: { label: string; commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
-  const { tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const workspace = useContext(WorkspaceQueryBarContext);
   const inPanel = useInWorkspacePanel();
   const presets = commands.filter(command => command.kind === 'radio' && command.group !== 'mode');
@@ -36,18 +36,18 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
   const current = presets.find(command => command.checked)?.id ?? null;
   // Presets cannot be changed while the compact arrangement shows (it is the preset): they are off, with the reason on the control.
   const compactOff = presets.length > 0 && presets.every(command => command.disabled);
-  const reason = tx(workspaceText.compactPresetOff);
+  const reason = m('workspaceCompactPresetOff');
   const reasonId = useId();
   // The height mode follows the same rule: while the narrow display shows, it is off and says why.
   const modeOff = modes.length > 0 && modes.every(command => command.disabled);
-  const modeReason = tx(workspaceText.modeOff);
+  const modeReason = m('workspaceModeOff');
   const modeReasonId = useId();
   // A hidden panel with a warning badge: the button shows the mark and says so in its description (its name stays `숨긴 패널 n`).
   const warned = hidden.filter(command => command.warning);
   const warnedId = useId();
-  const toolbar = <div role="toolbar" aria-label={tx(workspaceText.layout)} data-workspace-toolbar className="flex flex-wrap items-center gap-2">
+  const toolbar = <div role="toolbar" aria-label={m('workspaceLayout')} data-workspace-toolbar className="flex flex-wrap items-center gap-2">
     {presets.length > 1 && <span className="inline-flex" title={compactOff ? reason : undefined}>
-      <SegmentedRadio label={tx(workspaceText.layout)} value={current} disabled={compactOff} describedBy={compactOff ? reasonId : undefined} onChange={next => { presets.find(command => command.id === next)?.run(); }}
+      <SegmentedRadio label={m('workspaceLayout')} value={current} disabled={compactOff} describedBy={compactOff ? reasonId : undefined} onChange={next => { presets.find(command => command.id === next)?.run(); }}
         options={presets.map(command => ({ value: command.id, label: command.label }))} />
       {compactOff && <span id={reasonId} className="sr-only">{reason}</span>}
     </span>}
@@ -55,11 +55,11 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
       {warned.length > 0 && <span id={warnedId} className="sr-only">{warned.map(command => command.description ?? command.label).join(' · ')}</span>}
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="secondary" size="toolbar" disabled={hidden.length === 0} aria-describedby={warned.length > 0 ? warnedId : undefined}>
-          {tx(workspaceText.hiddenPanels(hidden.length))}
+          {m('workspaceHiddenPanels', { count: hidden.length })}
           {warned.length > 0 && <TriangleAlert className="size-3.5 text-text-warning-label" aria-hidden data-hidden-warning />}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" aria-label={tx(workspaceText.hiddenPanelsList)} onCloseAutoFocus={event => {
+      <DropdownMenuContent align="start" aria-label={m('workspaceHiddenPanelsList')} onCloseAutoFocus={event => {
         const next = afterClose.current;
         afterClose.current = null;
         if (next === null) return;
@@ -72,10 +72,10 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
     {reset && <Button type="button" variant="ghost" size="toolbar" disabled={reset.disabled} onClick={reset.run}>{reset.label}</Button>}
     {modes.length > 1 && <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" className="ml-auto size-7" data-workspace-height-mode aria-label={tx(workspaceText.heightMode)} title={tx(workspaceText.heightMode)}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+        <Button type="button" variant="ghost" size="icon-sm" className="ml-auto size-7" data-workspace-height-mode aria-label={m('workspaceHeightMode')} title={m('workspaceHeightMode')}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{tx(workspaceText.heightMode)}</DropdownMenuLabel>
+        <DropdownMenuLabel>{m('workspaceHeightMode')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={modes.find(command => command.checked)?.id ?? ''} aria-describedby={modeOff ? modeReasonId : undefined} onValueChange={next => { modes.find(command => command.id === next)?.run(); }}>
           {modes.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup>
@@ -84,6 +84,6 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
     </DropdownMenu>}
   </div>;
   return workspace?.toolbarTarget && !inPanel
-    ? createPortal(<div role="group" aria-label={label} className="flex items-center gap-2 break-keep"><span className="text-xs text-text-secondary">{tx(workspaceQueryText.screenLayout)}</span>{toolbar}</div>, workspace.toolbarTarget)
+    ? createPortal(<div role="group" aria-label={label} className="flex items-center gap-2 break-keep"><span className="text-xs text-text-secondary">{m('workspaceScreenLayout')}</span>{toolbar}</div>, workspace.toolbarTarget)
     : toolbar;
 }

@@ -3,15 +3,14 @@ import { AlertTriangle } from 'lucide-react';
 import { invalidValueSentence, useI18n, usePlatform, type Text } from '@ap/kernel';
 import { encodeFilterParams, type ColumnFilter } from '@ap/contracts';
 import { encodeTableSort, parsePageIndex, parseTableSort, type TableUrlState } from './PlatformDataTable';
-import { FILTER_PROBLEM_CAUSES, readTableFilters, type TableFilterOption, type TableFilterRead } from './tableFilterUrl';
+import { filterProblemCause, readTableFilters, type TableFilterOption, type TableFilterRead } from './tableFilterUrl';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { StateMessage } from '../StateView';
 import { RecoverButton } from '../state/RecoverButton';
 
 /** What is wrong in the address: `sortPage` (default), `filter` (only a condition) or `both`; names the warning's title. */
 export type TableUrlWarningCause = 'sortPage' | 'filter' | 'both';
 const WARNING_TITLE = { sortPage: 'invalidTableTitle', filter: 'invalidFilterTitle', both: 'invalidTableFilterTitle' } as const;
-
-const GENERIC_FILTER_LABEL: Text = { ko: '필터', en: 'Filter' };
 
 /**
  * §6.1 `sort`/`page` raw values parsed against the page's allowed sort columns, plus the ADR-0034 sentences
@@ -45,8 +44,8 @@ export function useTableUrlWarning(allowedSort: readonly string[], filters?: Tab
     !parsedSort.ok ? invalidValueSentence(lang, 'value', text('invalidTableSort'), sortRaw ?? '') : null,
     !parsedPage.ok ? invalidValueSentence(lang, 'value', text('invalidTablePage'), pageRaw ?? '') : null,
     ...(filterRead && !filterRead.ok ? filterRead.problems.map(({ field, raw, reason, detail }) => {
-      const name = field === '' ? GENERIC_FILTER_LABEL : { ko: filters?.labels?.[field] ?? field, en: filters?.labels?.[field] ?? field };
-      return `${invalidValueSentence(lang, 'filter', name, raw)} ${(detail ?? FILTER_PROBLEM_CAUSES[reason])[lang]}`;
+      const name = field === '' ? COMPONENTS_MESSAGES.tableFilterGenericLabel : { ko: filters?.labels?.[field] ?? field, en: filters?.labels?.[field] ?? field };
+      return `${invalidValueSentence(lang, 'filter', name, raw)} ${detail ? detail[lang] : filterProblemCause(reason, lang)}`;
     }) : []),
   ].filter((sentence): sentence is string => sentence !== null);
   const recoverKeys = [

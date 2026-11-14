@@ -1,6 +1,6 @@
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useI18n, usePlatform, type Text } from '@ap/kernel';
+import { useI18n, useMessages, usePlatform, type Text } from '@ap/kernel';
 import { cn, isProductionEnv } from '@ap/ui';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
 import { focusTabSoon } from '../dock/focusTab';
@@ -12,7 +12,7 @@ import { dockGroupsInReadingOrder } from '../dock/schema';
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
-import { workspaceText } from './text';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS } from './workspaceStorage';
@@ -138,9 +138,10 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
 function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const depth = useWorkspaceDepth() + 1;
   const primaryId = (panels.find(panel => panel.primary) ?? panels[0]!).id;
-  const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: workspaceText.layout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
+  const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: COMPONENTS_MESSAGES.workspaceLayout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
   const panelMinimums = new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }]));
   const rowMinimum = rowMinimumOf(panelMinimums);
   const declaredHeights = new Map(panels.flatMap(panel => (panel.preferredHeight === undefined ? [] : [[panel.id, panel.preferredHeight] as const])));
@@ -296,23 +297,23 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const preset = (id: string) => live.current.presets.find(candidate => candidate.id === id);
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
-        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow, description: parsed.narrow ? tx(workspaceText.compactPresetOff) : undefined,
+        id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow, description: parsed.narrow ? m('workspaceCompactPresetOff') : undefined,
         run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next), 'enter'); },
       })),
       ...(['fit', 'stack'] as const).map((mode): WorkspaceCommand => ({
-        id: `${MODE_PREFIX}${mode}`, label: tx(mode === 'fit' ? workspaceText.modeFit : workspaceText.modeStack), kind: 'radio', group: 'mode', groupLabel: tx(workspaceText.heightMode),
-        checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, description: parsed.narrow ? tx(workspaceText.modeOff) : undefined, run: () => { setMode(mode); },
+        id: `${MODE_PREFIX}${mode}`, label: m(mode === 'fit' ? 'workspaceModeFit' : 'workspaceModeStack'), kind: 'radio', group: 'mode', groupLabel: m('workspaceHeightMode'),
+        checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, description: parsed.narrow ? m('workspaceModeOff') : undefined, run: () => { setMode(mode); },
       })),
       ...parsed.hidden.map(([id, text, description, warning]): WorkspaceCommand => ({
-        id: `${SHOW_PREFIX}${id}`, label: tx(workspaceText.showPanel(text)), kind: 'action', description: description ?? undefined, warning: warning || undefined,
+        id: `${SHOW_PREFIX}${id}`, label: m('workspaceShowPanel', { title: text }), kind: 'action', description: description ?? undefined, warning: warning || undefined,
         run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!)); },
       })),
       {
-        id: RESET_ID, label: tx(workspaceText.resetLayout), kind: 'action',
+        id: RESET_ID, label: m('workspaceResetLayout'), kind: 'action',
         run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next), 'enter'); },
       },
     ];
-  }, [shape, update, setMode, tx]);
+  }, [shape, update, setMode, m]);
   const hosted = useRegisterWorkspaceCommands(commands, depth);
 
   // Local preference: only the stored state, never the compact overlay.
@@ -393,7 +394,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         return withRows(previous, 'stack', next.map((px, index) => clampRow(px, minimums[index]!, Math.max(live.current.maxRow, px))));
       });
     },
-    onDropBelow: moveBelow, onPanelDrop, dropBelowLabel: tx(workspaceText.dropBelow),
+    onDropBelow: moveBelow, onPanelDrop, dropBelowLabel: m('workspaceDropBelow'),
     maximizedHeight: maximizeChrome !== null && maximizedId !== null ? Math.max(0, maxRow - maximizeChrome) : undefined,
   } : undefined;
 
@@ -465,7 +466,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions}
-          separatorLabel={info => tx(info.after.length === 0 ? workspaceText.separatorRowBottom(titleOf(info.before[0]!)) : (info.dir === 'row' ? workspaceText.separatorColumns : workspaceText.separatorRows)(titleOf(info.before[0]!), titleOf(info.after[0]!)))}
+          separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
           stackBelow={compactSpec ? undefined : compactBelow} />
       </div>
     </div>

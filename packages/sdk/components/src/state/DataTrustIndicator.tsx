@@ -1,30 +1,31 @@
 import { Info } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { type Assessment, formatMetricVersion, type Trust } from '@ap/contracts';
 import { cn, Dot, Popover, PopoverContent, PopoverTrigger, StatusBadge, type Tone } from '@ap/ui';
 import { trustCoverageText, trustInstantText } from './trustFormat';
+import { COMPONENTS_MESSAGES } from '../messages';
 
-const KIND: Record<Assessment['kind'], { ko: string; en: string }> = {
-  collection: { ko: '수집', en: 'Collection' },
-  processing_delay: { ko: '처리 지연', en: 'Processing delay' },
-  coverage: { ko: '커버리지', en: 'Coverage' },
-  time_domain: { ko: '시간역', en: 'Time domain' },
-  respondent_history: { ko: '응답 이력', en: 'Respondent history' },
+const KIND_KEY: Record<Assessment['kind'], keyof typeof COMPONENTS_MESSAGES> = {
+  collection: 'trustKindCollection',
+  processing_delay: 'trustKindProcessingDelay',
+  coverage: 'trustKindCoverage',
+  time_domain: 'trustKindTimeDomain',
+  respondent_history: 'trustKindRespondentHistory',
 };
 
 function assessmentTone(a: Assessment): Tone {
   return a.state === 'confirmed' ? 'warning' : a.state === 'clear' ? 'success' : 'neutral';
 }
 
-const STATE_LABEL: Record<Assessment['state'], { ko: string; en: string }> = {
-  confirmed: { ko: '확인됨', en: 'Confirmed' },
-  clear: { ko: '문제 없음', en: 'No issue' },
-  unknown: { ko: '미확인', en: 'Not confirmed' },
+const STATE_KEY: Record<Assessment['state'], keyof typeof COMPONENTS_MESSAGES> = {
+  confirmed: 'trustStateConfirmed',
+  clear: 'trustStateClear',
+  unknown: 'trustNotConfirmed',
 };
 
-const REASON_LABEL: Record<NonNullable<Assessment['reason']>, { ko: string; en: string }> = {
-  source_unavailable: { ko: '원천을 확인하지 못했습니다', en: 'The source could not be checked' },
-  check_failed: { ko: '확인에 실패했습니다', en: 'The check failed' },
+const REASON_KEY: Record<NonNullable<Assessment['reason']>, keyof typeof COMPONENTS_MESSAGES> = {
+  source_unavailable: 'trustReasonSourceUnavailable',
+  check_failed: 'trustReasonCheckFailed',
 };
 
 /**
@@ -46,32 +47,33 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   /** When `trust` is null and `assessments` is non-empty, show the assessment items alone. The line and popover claim no update time, coverage or final/provisional status and say the response carried no Trust. Off by default: a null `trust` renders nothing. */
   showWithoutTrust?: boolean;
 }) {
-  const { t, tx, lang } = useI18n();
+  const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   if (!trust && !(showWithoutTrust && assessments.length)) return null;
   const confirmed = assessments.filter(a => a.state === 'confirmed');
   const unknown = assessments.filter(a => a.state === 'unknown');
   const mixed = (trust?.sourceLogicVersions?.length ?? 0) >= 2;
-  const mixedText = lang === 'ko' ? '로직 버전 혼재' : 'Logic versions mixed';
+  const mixedText = m('trustLogicMixed');
   const collapsed = compact || summary;
   const tone: Tone = (collapsed && mixed) || confirmed.length ? 'warning' : unknown.length ? 'neutral' : 'success';
   const headline = confirmed.length
-    ? (lang === 'ko' ? `확인된 이슈 ${confirmed.length}건` : `${confirmed.length} confirmed issue(s)`)
+    ? m('trustConfirmedIssues', { count: confirmed.length })
     : unknown.length
-      ? (lang === 'ko' ? `일부 상태를 확인하지 못했습니다 (${unknown.length})` : `Some status could not be confirmed (${unknown.length})`)
-      : (lang === 'ko' ? '확인된 이슈 없음' : 'No confirmed issues');
+      ? m('trustPartialUnconfirmedCount', { count: unknown.length })
+      : m('trustNoConfirmedIssues');
   const coverageText = trust ? `${t('coverage')} ${trustCoverageText(trust.coverage, lang)}` : '';
   const updatedText = trust ? `${t('updated')} ${trustInstantText(trust.updatedAt, lang)}` : '';
-  const noTrustText = lang === 'ko' ? '응답에 Trust 없음' : 'No Trust in the response';
+  const noTrustText = m('trustNoTrust');
   const shortStatus = confirmed.length
-    ? (lang === 'ko' ? `이슈 ${confirmed.length}건` : `${confirmed.length} issue(s)`)
-    : unknown.length ? (lang === 'ko' ? '일부 미확인' : 'Partly unconfirmed') : (lang === 'ko' ? '이슈 없음' : 'No issues');
+    ? m('trustIssues', { count: confirmed.length })
+    : unknown.length ? m('trustPartlyUnconfirmed') : m('trustNoIssues');
   // Wrapping form: a line break may fall between the fragments, never inside one.
   const fragment = cn('tabular', wrap && 'whitespace-nowrap');
   // Wrapping form (not collapsed): the dot travels with the headline and the info icon with the last fragment, so a break falls only between fragments and neither sits alone on a line.
   const grouped = wrap && !collapsed;
   const unit = 'inline-flex items-center gap-2 whitespace-nowrap';
   const infoIcon = <Info className="size-3.5 text-text-muted" aria-hidden />;
-  const detailsText = lang === 'ko' ? '자세히' : 'Details';
+  const detailsText = t('outcomeDetails');
   const summaryName = `${trust ? `${headline} · ${coverageText} · ${updatedText}` : `${headline} · ${noTrustText}`}${collapsed && mixed ? ` · ${mixedText}` : ''}`;
   if (probe) {
     // The words come from `data-text` through a pseudo-element: they size the line but are not text nodes, so nothing else finds them twice.
@@ -113,20 +115,20 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
         <dt className="text-text-secondary">{t('dataThrough')}</dt><dd>{trustInstantText(trust.dataThrough, lang, 'minute')}</dd>
         <dt className="text-text-secondary">{t('coverage')}</dt><dd>{trustCoverageText(trust.coverage, lang)}</dd>
         {trust.metricVersion && <><dt className="text-text-secondary">{t('metricVersion')}</dt><dd>{/^\d+$/.test(trust.metricVersion) ? formatMetricVersion(trust.metricVersion) : trust.metricVersion}</dd></>}
-        {!!trust.sourceLogicVersions?.length && <><dt className="text-text-secondary">{lang === 'ko' ? '원천 로직 버전' : 'Source logic versions'}</dt><dd>{trust.sourceLogicVersions.join(', ')}</dd></>}
+        {!!trust.sourceLogicVersions?.length && <><dt className="text-text-secondary">{m('trustSourceLogicVersions')}</dt><dd>{trust.sourceLogicVersions.join(', ')}</dd></>}
         <dt className="text-text-secondary">{t('status')}</dt><dd>{trust.provisional ? t('provisional') : t('final')}</dd>
         <dt className="text-text-secondary">{t('source')}</dt><dd className="t-mono">{trust.source}</dd>
-      </dl> : <p className="text-text-secondary">{noTrustText}{lang === 'ko' ? ' · 갱신 시각·커버리지·확정 여부를 알 수 없습니다.' : ' · update time, coverage and final status are unknown.'}</p>}
+      </dl> : <p className="text-text-secondary">{m('trustNoTrustSummary')}</p>}
       <ul className="mt-3 space-y-1.5 border-t border-border-subtle pt-2">
         {assessments.map(a => <li key={a.kind} className="flex items-start justify-between gap-2">
-          <span>{tx(KIND[a.kind])}</span>
+          <span>{m(KIND_KEY[a.kind])}</span>
           <span className="text-right">
-            <StatusBadge tone={assessmentTone(a)}>{tx(STATE_LABEL[a.state])}</StatusBadge>
-            <span className="mt-0.5 block text-tiny text-text-secondary">{a.state === 'unknown' ? (a.reason ? tx(REASON_LABEL[a.reason]) : (lang === 'ko' ? '이유를 확인하지 못했습니다' : 'The reason could not be confirmed')) : `${a.statusSource} · ${trustInstantText(a.observedAt, lang)}`}</span>
+            <StatusBadge tone={assessmentTone(a)}>{m(STATE_KEY[a.state])}</StatusBadge>
+            <span className="mt-0.5 block text-tiny text-text-secondary">{a.state === 'unknown' ? (a.reason ? m(REASON_KEY[a.reason]) : m('trustUnknownReasonFallback')) : `${a.statusSource} · ${trustInstantText(a.observedAt, lang)}`}</span>
           </span>
         </li>)}
       </ul>
-      <p className="mt-2 text-tiny text-text-secondary">{lang === 'ko' ? '문제 없음은 그 항목의 문제가 없음을 원천이 확인했다는 뜻입니다.' : 'No issue means the source confirmed that kind of problem is absent.'}</p>
+      <p className="mt-2 text-tiny text-text-secondary">{m('trustClearExplanation')}</p>
     </PopoverContent>
   </Popover>;
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { useI18n, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { useMessages, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import type { Selection } from './useChartRange';
 
 /**
@@ -8,7 +9,7 @@ import type { Selection } from './useChartRange';
  * every local delete state and in-flight call, and the Reset button must not use it.
  */
 export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId: string; scopeId: string | null; canAnnotate: boolean }) {
-  const { lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const { adapter, toast } = usePlatform();
   const [note, setNote] = useState<string | null>(null);
   // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
@@ -40,14 +41,14 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId
     const text = (note ?? '').trim();
     if (!text || scopeId === null || saving) return;
     const gen = draftGen.current;
-    const failed = () => { if (gen === draftGen.current) toast(lang === 'ko' ? '주석을 저장하지 못했습니다. 입력은 유지됩니다.' : 'Could not save the annotation. Your text is kept.'); };
+    const failed = () => { if (gen === draftGen.current) toast(m('chartAnnotationSaveError')); };
     setSaving(true);
     try {
       const res = await adapter.saveAnnotation({ chartId, scopeId, from: range.from, to: range.to, text });
       if (res.outcome !== 'ok') failed();
       else {
         refetch();
-        if (gen === draftGen.current) { closeEditor(); toast(lang === 'ko' ? '주석을 저장했습니다.' : 'Annotation saved.'); }
+        if (gen === draftGen.current) { closeEditor(); toast(m('chartAnnotationSaved')); }
       }
     } catch { failed(); } finally { setSaving(false); }
   }
@@ -60,7 +61,7 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId
     const stale = () => gen !== deleteGen.current;
     const failed = () => {
       if (stale()) return;
-      toast(lang === 'ko' ? '주석을 삭제하지 못했습니다.' : 'Could not delete the annotation.');
+      toast(m('chartAnnotationDeleteError'));
       setPendingDelete(null); setDeleting(false);
       if (focusOnConfirm.current) setRestoreFocus(id);
       focusOnConfirm.current = false;
@@ -74,7 +75,7 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId
         return;
       }
       if (res.outcome !== 'ok') { failed(); return; }
-      toast(lang === 'ko' ? '주석을 삭제했습니다.' : 'Annotation deleted.');
+      toast(m('chartAnnotationDeleted'));
       setSettled({ id, nextId });
       refetch();
     } catch { failed(); }

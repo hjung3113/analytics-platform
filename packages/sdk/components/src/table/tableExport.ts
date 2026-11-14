@@ -1,3 +1,6 @@
+import { formatText } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
+
 /**
  * Table-owned export serialization (#173, 06 §15). Internal module: index.ts does not export it, so the
  * serializer stays a PlatformDataTable implementation detail — menus never build files themselves.
@@ -80,6 +83,7 @@ export function xlsxText(text: string): string {
   if (unit >= 0xd800 && unit <= 0xdbff) cut -= 1;
   return text.slice(0, cut) + XLSX_TRUNCATED;
 }
+
 /**
  * The one XLSX cell rule for the table export and the workbook export (#891): a finite number stays a number cell; a non-finite number,
  * `''` or `null` is a blank cell; a string is a string cell as-is (no formula guard — a string cell is never evaluated; a wall-clock
@@ -96,16 +100,16 @@ export function xlsxCell(value: string | number | null): string | number | null 
  * (key/value rows describing what was exported). Sheet names follow the UI language. `write-excel-file/browser` is loaded with a runtime `import()` so it lands in its
  * own chunk — pages that never export never download it.
  */
-const SHEET_NAMES = { ko: { data: '데이터', info: '조회 정보' }, en: { data: 'Data', info: 'Query info' } } as const;
 export async function toXlsx(headers: string[], rows: (string | number)[][], info: [string, string | number][], lang: 'ko' | 'en' = 'ko'): Promise<Blob> {
   const { default: writeXlsxFile } = await import('write-excel-file/browser');
   return writeXlsxFile([
-    { sheet: SHEET_NAMES[lang].data, data: [headers.map(xlsxText), ...rows.map(row => row.map(xlsxCell))] },
-    { sheet: SHEET_NAMES[lang].info, data: info.map(([key, value]) => [key, xlsxCell(value)]) },
+    { sheet: formatText(COMPONENTS_MESSAGES.tableSheetData, lang), data: [headers.map(xlsxText), ...rows.map(row => row.map(xlsxCell))] },
+    { sheet: formatText(COMPONENTS_MESSAGES.tableSheetInfo, lang), data: info.map(([key, value]) => [key, xlsxCell(value)]) },
   ]).toBlob();
 }
 
 const escapeHtml = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+
 /**
  * Clipboard `text/html` (#174): a plain `<table>` of the same cells as the TSV. Spreadsheets paste this flavor when it
  * is present and re-read it like typed input, so string cells get the same formula guard as the TSV (review P1-2).

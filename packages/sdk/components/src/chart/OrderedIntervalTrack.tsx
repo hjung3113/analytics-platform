@@ -13,7 +13,8 @@ import { Ban, Inbox, Info, ServerCrash } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
 import { formatNumber } from '@ap/contracts';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { LoadingBlock, StateMessage } from '../StateView';
 import { ChartTrustFooter } from './analysisChartFrameParts';
@@ -35,7 +36,8 @@ import {
 
 /** Consumer-declared order intervals. No pairing, timestamp sorting or domain interpretation. */
 export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
-  const { tx, lang } = useI18n();
+  const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const section = useContext(AnalysisSectionContext);
   const domainValid = validOrderDomain(props.domain);
   const domainFrom = domainValid ? props.domain[0] : 0;
@@ -173,13 +175,13 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     props.onSelect?.(item);
   }
   function itemState(item: OrderedTrackItem) {
-    return `${props.states[item.state]?.label ?? item.state}${item.kind === 'point' ? ` · ${tx({ ko: '점 이벤트', en: 'Point event' })}` : item.orderEnd === undefined ? ` · ${tx({ ko: '종료 미확인 · 불완전', en: 'End unknown · Incomplete' })}` : ''}${item.carryover ? ` · ${tx({ ko: '파일 경계 이월 · 불완전', en: 'Boundary carryover · Incomplete' })}` : ''}`;
+    return `${props.states[item.state]?.label ?? item.state}${item.kind === 'point' ? ` · ${m('intervalPointEvent')}` : item.orderEnd === undefined ? ` · ${m('intervalEndUnknownIncomplete')}` : ''}${item.carryover ? ` · ${m('intervalBoundaryCarryoverIncomplete')}` : ''}`;
   }
   function itemOrder(item: OrderedTrackItem) {
-    return `${displayOrder(item.orderStart)}${item.kind === 'point' ? '' : `–${item.orderEnd === undefined ? tx({ ko: '종료 미확인 · 불완전', en: 'End unknown · Incomplete' }) : displayOrder(item.orderEnd)}`}`;
+    return `${displayOrder(item.orderStart)}${item.kind === 'point' ? '' : `–${item.orderEnd === undefined ? m('intervalEndUnknownIncomplete') : displayOrder(item.orderEnd)}`}`;
   }
   function itemText(item: OrderedTrackItem) {
-    return `${props.lanes.find((lane) => lane.laneKey === item.laneKey)?.label ?? ''} · ${item.label} · ${props.states[item.state]?.label ?? item.state} · ${itemOrder(item)}${item.kind === 'point' ? ` · ${tx({ ko: '점 이벤트', en: 'Point event' })}` : ''}${item.carryover ? ` · ${tx({ ko: '파일 경계 이월 · 불완전', en: 'Boundary carryover · Incomplete' })}` : ''}`;
+    return `${props.lanes.find((lane) => lane.laneKey === item.laneKey)?.label ?? ''} · ${item.label} · ${props.states[item.state]?.label ?? item.state} · ${itemOrder(item)}${item.kind === 'point' ? ` · ${m('intervalPointEvent')}` : ''}${item.carryover ? ` · ${m('intervalBoundaryCarryoverIncomplete')}` : ''}`;
   }
   function rangeAnnotations() {
     return (
@@ -188,17 +190,19 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
           .filter((marker) => marker.order >= view[0] && marker.order <= view[1])
           .map((marker) => (
             <span className="block" key={`${marker.kind}:${marker.order}:${marker.label}`}>
-              {marker.kind === 'boundary'
-                ? tx({ ko: '파일 경계', en: 'File boundary' })
-                : marker.kind === 'inversion'
-                  ? tx({ ko: '시간 역전', en: 'Time inversion' })
-                  : tx({ ko: '부분 결과 경계', en: 'Partial boundary' })}{' '}
+              {m(
+                marker.kind === 'boundary'
+                  ? 'intervalFileBoundary'
+                  : marker.kind === 'inversion'
+                    ? 'intervalTimeInversion'
+                    : 'intervalPartialBoundary',
+              )}{' '}
               · {marker.label} · {displayOrder(marker.order)}
             </span>
           ))}
         {visiblePartialGaps(props.partialGaps, view).map((gap) => (
           <span className="block" key={`${gap.orderStart}:${gap.orderEnd}`}>
-            {tx({ ko: '미수신', en: 'Unreceived' })}: {displayOrder(gap.orderStart)}–
+            {m('intervalUnreceived')}: {displayOrder(gap.orderStart)}–
             {displayOrder(gap.orderEnd)}
           </span>
         ))}
@@ -275,10 +279,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     }
     if (next) { setFocusId(next.id); setLaneReveal(n => n + 1); }
   }
-  const help = tx({
-    ko: 'Shift 또는 Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 구간 선택: 끌기 / Shift+←→ · 방향키: 줄·항목 탐색 · Enter: 선택 · Escape: 해제 · +/−: 확대·축소 · 촘촘한 점은 축 아래 밀도로 표시 · 항목 목록: 현재 범위의 텍스트 대안',
-    en: 'Shift or Ctrl/⌘ + wheel: Zoom · Drag: Pan · Brush: Drag / Shift+arrows · Arrows: Lanes/items · Enter: Select · Escape: Clear · +/−: Zoom · Dense points appear below the axis · Item list: Visible-range text alternative',
-  });
+  const help = m('intervalHelp');
   const pages = Math.max(1, Math.ceil(visible.length / 20));
   const page = Math.min(pageState, pages - 1);
   const retry = () => {
@@ -309,7 +310,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
         </div>
         <div
           role="toolbar"
-          aria-label={tx({ ko: '차트 동작', en: 'Chart actions' })}
+          aria-label={m('chartActions')}
           className="ml-auto flex flex-wrap items-center justify-end gap-1"
         >
           <TooltipProvider delayDuration={200}>
@@ -319,7 +320,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                   type="button"
                   size="icon-xs"
                   variant="ghost"
-                  aria-label={tx({ ko: '조작 방법', en: 'How to interact' })}
+                  aria-label={m('laneHowToInteract')}
                 >
                   <Info className="size-3.5" aria-hidden />
                 </Button>
@@ -328,10 +329,10 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             </Tooltip>
           </TooltipProvider>
           <Button type="button" size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(0.8)}>
-            {tx({ ko: '확대', en: 'Zoom in' })}
+            {m('laneZoomIn')}
           </Button>
           <Button type="button" size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(1.25)}>
-            {tx({ ko: '축소', en: 'Zoom out' })}
+            {m('laneZoomOut')}
           </Button>
           <Button
             type="button"
@@ -341,7 +342,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             aria-pressed={brushMode}
             onClick={() => setBrushMode(!brushMode)}
           >
-            {tx({ ko: '구간 선택', en: 'Brush' })}
+            {m('chartBrush')}
           </Button>
           <Button
             type="button"
@@ -354,7 +355,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
               setBrushMode(false);
             }}
           >
-            {tx({ ko: '확대 초기화', en: 'Zoom Reset' })}
+            {m('laneZoomReset')}
           </Button>
           {props.formatTime && (
             <Button
@@ -365,7 +366,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
               aria-pressed={timeLabels}
               onClick={() => setTimeLabels(!timeLabels)}
             >
-              {tx({ ko: '시간 라벨', en: 'Time labels' })}
+              {m('intervalTimeLabels')}
             </Button>
           )}
           <Button
@@ -376,7 +377,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             aria-pressed={textView}
             onClick={() => setTextView(!textView)}
           >
-            {tx({ ko: '항목 목록', en: 'Item list' })}
+            {m('intervalItemList')}
           </Button>
         </div>
       </header>
@@ -407,14 +408,14 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             <svg viewBox="0 0 8 8" className="size-2 fill-chart-no-data stroke-text-secondary" strokeWidth="1" aria-hidden="true">
               <path d="M4 1 7 4 4 7 1 4Z" />
             </svg>
-            {tx({ ko: '점 이벤트', en: 'Point event' })}
+            {m('intervalPointEvent')}
           </span>
           <span className="inline-flex items-center gap-1">
             <svg viewBox="0 0 12 12" className="size-3" aria-hidden="true">
               <path d="M0 1H9V11H0Z" className="fill-chart-no-data" />
               <path d="M10 0V12" className="stroke-text-secondary" strokeDasharray="2 2" />
             </svg>
-            {tx({ ko: '종료 미확인 · 불완전', en: 'End unknown · Incomplete' })}
+            {m('intervalEndUnknownIncomplete')}
           </span>
           <span className="inline-flex items-center gap-1">
             <svg
@@ -425,7 +426,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             >
               <path d="m5 1-3 3 3 3" />
             </svg>
-            {tx({ ko: '파일 경계 이월 · 불완전', en: 'Boundary carryover · Incomplete' })}
+            {m('intervalBoundaryCarryoverIncomplete')}
           </span>
         </div>
       )}
@@ -447,16 +448,13 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             }
             title={
               props.state?.title ||
-              tx({
-                ko: !domainValid ? '지원하지 않는 범위' : '구간 불러오기 실패',
-                en: !domainValid ? 'Unsupported range' : 'Range request failed',
-              })
+              m(!domainValid ? 'intervalUnsupportedRange' : 'intervalRangeFailed')
             }
             body={props.state?.body}
             action={
               (failed || kind === 'empty') && (props.onRangeRequest || props.state?.onRetry) ? (
                 <Button type="button" size="toolbar" variant="secondary" onClick={retry}>
-                  {props.state?.retryLabel ?? tx({ ko: '다시 시도', en: 'Retry' })}
+                  {props.state?.retryLabel ?? t('retry')}
                 </Button>
               ) : undefined
             }
@@ -468,13 +466,10 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
           <p className="px-4 py-1 t-caption text-text-secondary">
             {props.axisLabel && <>{props.axisLabel}{' '}</>}
             {displayOrder(view[0])}–{displayOrder(view[1])} ·{' '}
-            {tx({
-              ko: `${props.lanes.length}개 줄 · ${visible.length}개 항목`,
-              en: `${props.lanes.length} lanes · ${visible.length} items`,
-            })}
+            {m('intervalSummaryCount', { lanes: props.lanes.length, items: visible.length })}
             {loading && data.length > 0 && (
               <span className="ml-2 t-caption text-text-secondary">
-                {tx({ ko: '불러오는 중', en: 'Loading' })}
+                {m('intervalLoading')}
               </span>
             )}
           </p>
@@ -487,7 +482,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
               {textView ? (
                 <>
                   <p className="px-4 py-2 t-caption">
-                    {tx({ ko: '현재 범위 항목 목록', en: 'Visible item list' })} · {page + 1}/
+                    {m('intervalVisibleItemList')} · {page + 1}/
                     {pages}
                   </p>
                   <div className="mx-4 mb-2 rounded-md border border-border-subtle">
@@ -498,10 +493,10 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                       <thead className="bg-surface-sunken">
                         <tr>
                           {[
-                            tx({ ko: '줄', en: 'Lane' }),
-                            tx({ ko: '항목', en: 'Item' }),
-                            tx({ ko: '상태', en: 'State' }),
-                            tx({ ko: '순번', en: 'Order' }),
+                            m('intervalColLane'),
+                            m('intervalColItem'),
+                            m('intervalColState'),
+                            m('intervalColOrder'),
                           ].map((label, index) => (
                             <th
                               key={label}
@@ -554,7 +549,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                       disabled={page === 0}
                       onClick={() => setPage(page - 1)}
                     >
-                      {tx({ ko: '이전 쪽', en: 'Previous page' })}
+                      {m('intervalPreviousPage')}
                     </Button>
                     <Button
                       type="button"
@@ -563,7 +558,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
                       disabled={page === pages - 1}
                       onClick={() => setPage(page + 1)}
                     >
-                      {tx({ ko: '다음 쪽', en: 'Next page' })}
+                      {m('intervalNextPage')}
                     </Button>
                   </div>
                 </>
@@ -590,21 +585,21 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
             </div>
           )}
           <section
-            aria-label={tx({ ko: '선택 요약', en: 'Selection summary' })}
+            aria-label={m('chartSelectionSummaryRegion')}
             className="bg-surface-sunken px-4 py-2 text-text-secondary"
           >
             {brush ? (
               <>
-                {tx({ ko: '선택 구간', en: 'Selected range' })}: {displayOrder(brush[0])}–
+                {t('selectedRange')}: {displayOrder(brush[0])}–
                 {displayOrder(brush[1])}{' '}
                 <Button type="button" size="toolbar" variant="ghost" onClick={() => moveView(brush)}>
-                  {tx({ ko: '선택 구간 확대', en: 'Zoom to selection' })}
+                  {m('intervalZoomToSelection')}
                 </Button>
               </>
             ) : selected ? (
               itemText(selected)
             ) : (
-              tx({ ko: '선택 없음', en: 'No selection' })
+              m('chartNoSelection')
             )}
           </section>
         </>

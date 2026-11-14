@@ -17,11 +17,11 @@ export const BASE_ROW_HEIGHT = 32;
 /** The font of 보통 body text (`text-sm`) and the default column width unit. */
 const BASE_FONT = 'var(--text-sm)';
 
-type Step = { /** px added to the baseline row height. */ rowDelta: number; font: string; head: string; /** Default column widths are multiplied by this (크게: the font ratio 15/13); user-resized widths are not. */ widthScale: number; ko: string; en: string };
+type Step = { /** px added to the baseline row height. */ rowDelta: number; font: string; head: string; /** Default column widths are multiplied by this (크게: the font ratio 15/13); user-resized widths are not. */ widthScale: number };
 export const TABLE_SIZE_STEPS: Record<TableSize, Step> = {
-  small: { rowDelta: -4, font: 'var(--text-xs)', head: '11px', widthScale: 1, ko: '작게', en: 'Small' },
-  normal: { rowDelta: 0, font: BASE_FONT, head: '12px', widthScale: 1, ko: '보통', en: 'Medium' },
-  large: { rowDelta: 8, font: `calc(${BASE_FONT} + 2px)`, head: '14px', widthScale: 15 / 13, ko: '크게', en: 'Large' },
+  small: { rowDelta: -4, font: 'var(--text-xs)', head: '11px', widthScale: 1 },
+  normal: { rowDelta: 0, font: BASE_FONT, head: '12px', widthScale: 1 },
+  large: { rowDelta: 8, font: `calc(${BASE_FONT} + 2px)`, head: '14px', widthScale: 15 / 13 },
 };
 
 export function parseTableSize(raw: unknown): TableSize | null {

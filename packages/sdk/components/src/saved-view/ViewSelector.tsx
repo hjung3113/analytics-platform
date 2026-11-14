@@ -1,13 +1,14 @@
 import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type Ref } from 'react';
 import { Check, ChevronDown, MoreHorizontal, Star } from 'lucide-react';
 import type { SavedView, SavedViewListItem } from '@ap/contracts';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import {
   Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
   Input, Popover, PopoverContent, PopoverTrigger,
 } from '@ap/ui';
-import { approvalText, kindText, panelBadgeText, summarizeContext, visibilityShort, visibilityText, word } from './text';
+import { COMPONENTS_MESSAGES } from '../messages';
+import { approvalText, kindText, panelBadgeText, summarizeContext, visibilityShort, visibilityText } from './text';
 
 /** `clean` matches the saved view; `modified` differs from it; `unsaved` has no saved view; `unapplied` has a query draft not yet applied. */
 export type ViewSelectorState = 'clean' | 'modified' | 'unsaved' | 'unapplied';
@@ -66,7 +67,6 @@ const matches = (item: SavedViewListItem, query: string, filter: ViewFilter, use
 
 export function ViewSelector(props: ViewSelectorProps) {
   const { views, currentId, defaultId, state, loading, error, query, filter, userId, groups = [] } = props;
-  const { lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -141,14 +141,16 @@ export function ViewSelector(props: ViewSelectorProps) {
     rows[next].focus();
   };
 
-  const triggerLabel = current ? current.view.name : state === 'unsaved' || state === 'unapplied' ? word('unsavedCondition', lang) : word('noView', lang);
-  const badge = state === 'modified' ? word('modified', lang) : state === 'unapplied' ? word('unapplied', lang) : null;
+  const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const triggerLabel = current ? current.view.name : state === 'unsaved' || state === 'unapplied' ? m('svUnsavedCondition') : m('svNoView');
+  const badge = state === 'modified' ? m('svModified') : state === 'unapplied' ? m('svUnapplied') : null;
 
   const canEdit = current?.capabilities.canEdit ?? false;
   const canCopy = current?.capabilities.canCopy ?? false;
   const showNew = !current || canCopy;
   const pendingSave: 'current' | 'copy' | 'new' | null = current && canEdit && props.onSave ? 'current' : (!current || canCopy) && props.onSaveAs ? (current ? 'copy' : 'new') : null;
-  const newLabel = current && !canEdit && canCopy ? word('saveCopy', lang) : word('saveNew', lang);
+  const newLabel = current && !canEdit && canCopy ? m('svSaveCopy') : m('svSaveNew');
   const deleting = views.find((item): item is Entry => !item.denied && item.view.id === deleteId);
   const detail = detailId === null ? null : views.find((v): v is Entry => !v.denied && v.view.id === detailId) ?? null;
 
@@ -156,7 +158,7 @@ export function ViewSelector(props: ViewSelectorProps) {
     <div className="inline-flex items-center gap-1">
       <Popover open={open} onOpenChange={next => { setOpen(next); if (!next) setDetailId(null); }}>
         <PopoverTrigger asChild>
-          <Button ref={trigger} type="button" variant="ghost" size="toolbar" aria-label={`${word('trigger', lang)}: ${triggerLabel}`}>
+          <Button ref={trigger} type="button" variant="ghost" size="toolbar" aria-label={`${m('svTrigger')}: ${triggerLabel}`}>
             <span className="max-w-48 truncate">{triggerLabel}</span>
             {badge && <Badge variant="outline">{badge}</Badge>}
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
@@ -164,30 +166,30 @@ export function ViewSelector(props: ViewSelectorProps) {
         </PopoverTrigger>
         <PopoverContent onInteractOutside={event => { if (deleteId !== null) event.preventDefault(); }} align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
           {detail ? (
-            <section aria-label={word('details', lang)} className="space-y-2 text-xs">
-              <Button ref={back} type="button" variant="ghost" size="toolbar" onClick={() => { const id = detail.view.id; setDetailId(null); focusAfter.current = { kind: 'more', id }; }}>{word('backToList', lang)}</Button>
+            <section aria-label={m('svDetails')} className="space-y-2 text-xs">
+              <Button ref={back} type="button" variant="ghost" size="toolbar" onClick={() => { const id = detail.view.id; setDetailId(null); focusAfter.current = { kind: 'more', id }; }}>{m('svBackToList')}</Button>
               <DetailRows entry={detail} lang={lang} groupNames={groupNames} ownerLabel={props.ownerLabel} panels={props.panelCount?.(detail.view) ?? 0} />
             </section>
           ) : (
             <div className="space-y-2">
-              <Input ref={search} type="search" value={query} aria-label={word('search', lang)} placeholder={word('search', lang)} onChange={event => props.onQuery(event.target.value)} />
-              <div role="group" aria-label={word('filterGroup', lang)} className="flex flex-wrap gap-1">
-                {[...FILTER_KEYS.map(k => ({ key: k as ViewFilter, label: word(k === 'all' ? 'filterAll' : k === 'mine' ? 'filterMine' : 'filterOfficial', lang) })), ...groups.map(g => ({ key: `group:${g.id}` as ViewFilter, label: g.name }))].map(f => (
+              <Input ref={search} type="search" value={query} aria-label={m('svSearch')} placeholder={m('svSearch')} onChange={event => props.onQuery(event.target.value)} />
+              <div role="group" aria-label={m('svFilterGroup')} className="flex flex-wrap gap-1">
+                {[...FILTER_KEYS.map(k => ({ key: k as ViewFilter, label: k === 'all' ? t('all') : m(k === 'mine' ? 'svFilterMine' : 'svFilterOfficial') })), ...groups.map(g => ({ key: `group:${g.id}` as ViewFilter, label: g.name }))].map(f => (
                   <Button key={f.key} type="button" size="toolbar" variant={filter === f.key ? 'secondary' : 'ghost'} aria-pressed={filter === f.key} onClick={() => props.onFilter(f.key)}>{f.label}</Button>
                 ))}
               </div>
-              {loading && <p role="status" className="text-xs text-text-secondary">{word('loading', lang)}</p>}
+              {loading && <p role="status" className="text-xs text-text-secondary">{m('svLoading')}</p>}
               {!loading && error && (
                 <div role="alert" className="flex items-center gap-2 text-xs text-text-secondary">
-                  <span>{word('error', lang)}</span>
-                  {props.onRetry && <Button type="button" size="toolbar" variant="ghost" onClick={props.onRetry}>{word('retry', lang)}</Button>}
+                  <span>{m('svError')}</span>
+                  {props.onRetry && <Button type="button" size="toolbar" variant="ghost" onClick={props.onRetry}>{t('retry')}</Button>}
                 </div>
               )}
-              {!loading && !error && shown.length === 0 && <p role="status" className="text-xs text-text-secondary">{views.length === 0 ? word('empty', lang) : word('noResult', lang)}</p>}
+              {!loading && !error && shown.length === 0 && <p role="status" className="text-xs text-text-secondary">{views.length === 0 ? m('svEmpty') : m('svNoResult')}</p>}
               {!loading && !error && shown.length > 0 && (
-                <ul ref={list} aria-label={word('list', lang)} className="max-h-80 space-y-0.5 overflow-auto">
+                <ul ref={list} aria-label={m('svList')} className="max-h-80 space-y-0.5 overflow-auto">
                   {shown.map(item => item.denied ? (
-                    <li key={item.id} className="p-2 text-xs text-text-secondary">{word('denied', lang)} · {item.reason}</li>
+                    <li key={item.id} className="p-2 text-xs text-text-secondary">{m('svDenied')} · {item.reason}</li>
                   ) : (
                     <li key={item.view.id} data-view-id={item.view.id} className="flex items-start gap-1">
                       <button data-view-row type="button" className="flex min-w-0 flex-1 items-start gap-1.5 rounded-md p-2 text-left text-xs hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" aria-current={item.view.id === currentId ? 'true' : undefined} onClick={() => choose(item.view.id)}>
@@ -198,33 +200,33 @@ export function ViewSelector(props: ViewSelectorProps) {
                             <span>{kindText(item.view.kind, lang)}</span>
                             <Badge variant="outline">{visibilityShort(item.view.visibility, lang, groupNames)}</Badge>
                             {props.ownerLabel && item.view.ownerId !== userId && <span>{props.ownerLabel(item.view.ownerId)}</span>}
-                            {props.staleIds?.has(item.view.id) && <Badge variant="outline">{word('stale', lang)}</Badge>}
+                            {props.staleIds?.has(item.view.id) && <Badge variant="outline">{m('svStale')}</Badge>}
                             {item.view.approval === 'pending' && <Badge variant="secondary">{approvalText('pending', lang)}</Badge>}
-                            {item.view.id === defaultId && <Badge variant="secondary"><Star className="mr-1 h-3 w-3" aria-hidden />{word('myDefault', lang)}</Badge>}
+                            {item.view.id === defaultId && <Badge variant="secondary"><Star className="mr-1 h-3 w-3" aria-hidden />{m('svMyDefault')}</Badge>}
                           </span>
                         </span>
                       </button>
-                      <RowMenu item={item} lang={lang} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
+                      <RowMenu item={item} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
                     </li>
                   ))}
                 </ul>
               )}
-              {props.onManage && <Button type="button" size="toolbar" variant="ghost" onClick={() => { close(); props.onManage?.(); }}>{word('manage', lang)}</Button>}
+              {props.onManage && <Button type="button" size="toolbar" variant="ghost" onClick={() => { close(); props.onManage?.(); }}>{m('svManage')}</Button>}
             </div>
           )}
         </PopoverContent>
       </Popover>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button ref={props.saveTriggerRef} type="button" size="toolbar" variant="ghost">{word('save', lang)}</Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button ref={props.saveTriggerRef} type="button" size="toolbar" variant="ghost">{m('svSave')}</Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {current && !canEdit && current.capabilities.reason && <DropdownMenuLabel><span className="block max-w-64 whitespace-normal break-words">{current.capabilities.reason}</span></DropdownMenuLabel>}
-          {current && canEdit && <DropdownMenuItem disabled={state === 'clean'} onSelect={() => { void props.onSave?.(); }}>{word('saveCurrent', lang)}</DropdownMenuItem>}
+          {current && canEdit && <DropdownMenuItem disabled={state === 'clean'} onSelect={() => { void props.onSave?.(); }}>{m('svSaveCurrent')}</DropdownMenuItem>}
           {showNew && <DropdownMenuItem onSelect={() => props.onSaveAs?.()}>{newLabel}</DropdownMenuItem>}
-          {current && state === 'modified' && <DropdownMenuItem onSelect={() => props.onRevert?.()}>{word('revert', lang)}</DropdownMenuItem>}
+          {current && state === 'modified' && <DropdownMenuItem onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={deleteId !== null} onOpenChange={next => { if (!next) setDeleteId(null); }}>
-        <DialogContent closeLabel={word('close', lang)} onCloseAutoFocus={event => {
+        <DialogContent closeLabel={t('close')} onCloseAutoFocus={event => {
           event.preventDefault();
           const target = deleteReturn.current;
           const more = target && list.current?.querySelector<HTMLElement>(`[data-more-for="${CSS.escape(target.id)}"]`);
@@ -233,29 +235,29 @@ export function ViewSelector(props: ViewSelectorProps) {
           (more || fallback || trigger.current)?.focus();
         }}>
           <DialogHeader>
-            <DialogTitle>{word('deleteTitle', lang)}</DialogTitle>
-            <DialogDescription>{word('deleteBody', lang)}</DialogDescription>
+            <DialogTitle>{m('svDeleteTitle')}</DialogTitle>
+            <DialogDescription>{m('svDeleteBody')}</DialogDescription>
           </DialogHeader>
           {deleting && <p className="break-words text-sm">{deleting.view.name} · {visibilityText(deleting.view.visibility, lang, groupNames)}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeleteId(null)}>{word('cancel', lang)}</Button>
+            <Button type="button" variant="outline" onClick={() => setDeleteId(null)}>{t('cancel')}</Button>
             <Button type="button" disabled={!deleting?.capabilities.canEdit} onClick={() => {
               if (deleting?.capabilities.canEdit) props.onDelete?.(deleting.view.id);
               setDeleteId(null);
-            }}>{word('remove', lang)}</Button>
+            }}>{m('svRemove')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={pendingId !== null} onOpenChange={next => { if (!next) { setPendingId(null); trigger.current?.focus(); } }}>
-        <DialogContent closeLabel={word('close', lang)} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
+        <DialogContent closeLabel={t('close')} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
           <DialogHeader>
-            <DialogTitle>{word('discardTitle', lang)}</DialogTitle>
-            <DialogDescription>{word('discardBody', lang)}</DialogDescription>
+            <DialogTitle>{m('svDiscardTitle')}</DialogTitle>
+            <DialogDescription>{m('svDiscardBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => { setPendingId(null); trigger.current?.focus(); }}>{word('cancel', lang)}</Button>
-            <Button type="button" variant="secondary" onClick={() => { void settlePending(false); }}>{word('discardDrop', lang)}</Button>
-            {pendingSave && <Button type="button" onClick={() => { void settlePending(true); }}>{word(pendingSave === 'current' ? 'discardSave' : pendingSave === 'copy' ? 'discardSaveCopy' : 'discardSaveNew', lang)}</Button>}
+            <Button type="button" variant="ghost" onClick={() => { setPendingId(null); trigger.current?.focus(); }}>{t('cancel')}</Button>
+            <Button type="button" variant="secondary" onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
+            {pendingSave && <Button type="button" onClick={() => { void settlePending(true); }}>{m(pendingSave === 'current' ? 'svDiscardSave' : pendingSave === 'copy' ? 'svDiscardSaveCopy' : 'svDiscardSaveNew')}</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -263,20 +265,21 @@ export function ViewSelector(props: ViewSelectorProps) {
   );
 }
 
-function RowMenu({ item, lang, isDefault, onDetails, onMakeDefault, onDelete }: {
-  item: Extract<SavedViewListItem, { denied?: false }>; lang: 'ko' | 'en'; isDefault: boolean;
+function RowMenu({ item, isDefault, onDetails, onMakeDefault, onDelete }: {
+  item: Extract<SavedViewListItem, { denied?: false }>; isDefault: boolean;
   onDetails: () => void; onMakeDefault?: (id: string | null) => void; onDelete?: () => void;
 }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   const canDelete = onDelete && item.capabilities.canEdit;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button data-more-for={item.view.id} type="button" variant="ghost" size="icon-sm" aria-label={`${item.view.name} ${word('rowActions', lang)}`}><MoreHorizontal className="h-4 w-4" aria-hidden /></Button>
+        <Button data-more-for={item.view.id} type="button" variant="ghost" size="icon-sm" aria-label={`${item.view.name} ${m('svRowActions')}`}><MoreHorizontal className="h-4 w-4" aria-hidden /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onDetails}>{word('details', lang)}</DropdownMenuItem>
-        {onMakeDefault && <DropdownMenuItem onSelect={() => onMakeDefault(isDefault ? null : item.view.id)}>{word(isDefault ? 'clearDefault' : 'makeDefault', lang)}</DropdownMenuItem>}
-        {canDelete && <DropdownMenuItem onSelect={onDelete}>{word('remove', lang)}</DropdownMenuItem>}
+        <DropdownMenuItem onSelect={onDetails}>{m('svDetails')}</DropdownMenuItem>
+        {onMakeDefault && <DropdownMenuItem onSelect={() => onMakeDefault(isDefault ? null : item.view.id)}>{m(isDefault ? 'svClearDefault' : 'svMakeDefault')}</DropdownMenuItem>}
+        {canDelete && <DropdownMenuItem onSelect={onDelete}>{m('svRemove')}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -285,20 +288,21 @@ function RowMenu({ item, lang, isDefault, onDetails, onMakeDefault, onDelete }: 
 function DetailRows({ entry, lang, groupNames, ownerLabel, panels }: {
   entry: Extract<SavedViewListItem, { denied?: false }>; lang: 'ko' | 'en'; groupNames: Record<string, string>; ownerLabel?: (id: string) => string; panels: number;
 }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
   const { view } = entry;
   const content = summarizeContext(view.context, lang);
   const rows: [string, string][] = [
-    [word('detailName', lang), view.name],
-    [word('detailKind', lang), kindText(view.kind, lang)],
-    [word('detailOwner', lang), ownerLabel?.(view.ownerId) ?? view.ownerId],
-    [word('detailAudience', lang), visibilityText(view.visibility, lang, groupNames)],
-    [word('detailApproval', lang), approvalText(view.approval, lang)],
-    [word('detailContent', lang), content.length ? content.join(' · ') : word('noContent', lang)],
+    [m('svDetailName'), view.name],
+    [m('svDetailKind'), kindText(view.kind, lang)],
+    [m('svDetailOwner'), ownerLabel?.(view.ownerId) ?? view.ownerId],
+    [m('svDetailAudience'), visibilityText(view.visibility, lang, groupNames)],
+    [m('svDetailApproval'), approvalText(view.approval, lang)],
+    [m('svDetailContent'), content.length ? content.join(' · ') : m('svNoContent')],
   ];
   return (
     <dl className="space-y-1">
       {rows.map(([term, value]) => <div key={term}><dt className="text-text-secondary">{term}</dt><dd className="break-words">{value}</dd></div>)}
-      {panels > 0 && <div><dt className="sr-only">{word('panelsHeading', lang)}</dt><dd><Badge variant="outline">{panelBadgeText(panels, lang)}</Badge></dd></div>}
+      {panels > 0 && <div><dt className="sr-only">{m('svPanelsHeading')}</dt><dd><Badge variant="outline">{panelBadgeText(panels, lang)}</Badge></dd></div>}
     </dl>
   );
 }

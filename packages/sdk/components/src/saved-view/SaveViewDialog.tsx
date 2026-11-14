@@ -1,8 +1,9 @@
 import { useRef, useState, type RefObject } from 'react';
 import type { Result, SavedViewContext, SavedViewKind } from '@ap/contracts';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, RadioGroup, RadioGroupItem } from '@ap/ui';
-import { failureText, panelBadgeText, summarizeContext, word } from './text';
+import { COMPONENTS_MESSAGES } from '../messages';
+import { failureText, panelBadgeText, summarizeContext } from './text';
 
 export type SaveViewSubmit = { mode: 'new' | 'update'; unit: SavedViewKind; name: string; visibility: string };
 export type SaveViewDialogProps = {
@@ -38,6 +39,8 @@ export function SaveViewDialog(props: SaveViewDialogProps) {
 }
 
 function DialogBody({ units, updatable, initialMode, initialName = '', context, hasDraft, panels, visibilityOptions = [], onSubmit, onOpenChange, returnFocusRef, lang, opener }: SaveViewDialogProps & { lang: 'ko' | 'en'; opener: RefObject<HTMLElement | null> }) {
+  const { t, tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const [mode, setMode] = useState<'new' | 'update'>(updatable && initialMode !== 'new' ? 'update' : 'new');
   const [unit, setUnit] = useState<SavedViewKind>(units[0] ?? 'menu-view');
   const [name, setName] = useState(initialName);
@@ -58,12 +61,12 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
     const result = await onSubmit({ mode, unit, name: updating ? updatable?.name ?? name : name.trim(), visibility });
     setBusy(false);
     if (result.ok) onOpenChange(false);
-    else setFailure(failureText(result, text => text[lang]) + (result.detail ? ` (${result.detail})` : ''));
+    else setFailure(failureText(result, tx) + (result.detail ? ` (${result.detail})` : ''));
   };
 
   return (
     <DialogContent
-      closeLabel={word('close', lang)}
+      closeLabel={t('close')}
       onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
       onCloseAutoFocus={event => {
         event.preventDefault();
@@ -72,55 +75,55 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
       }}
     >
       <DialogHeader>
-        <DialogTitle>{word(updating ? 'dialogUpdateTitle' : 'dialogTitle', lang)}</DialogTitle>
-        <DialogDescription className="sr-only">{word('dialogTitle', lang)}</DialogDescription>
+        <DialogTitle>{m(updating ? 'svDialogUpdateTitle' : 'svDialogTitle')}</DialogTitle>
+        <DialogDescription className="sr-only">{m('svDialogTitle')}</DialogDescription>
       </DialogHeader>
       <form className="space-y-3 text-sm" onSubmit={event => { event.preventDefault(); void submit(); }}>
-        {hasDraft && <p role="note" className="text-xs text-text-secondary">{word('draftNotice', lang)}</p>}
+        {hasDraft && <p role="note" className="text-xs text-text-secondary">{m('svDraftNotice')}</p>}
         {updatable && (
           <fieldset className="space-y-1">
-            <legend className="text-xs text-text-secondary">{word('mode', lang)}</legend>
+            <legend className="text-xs text-text-secondary">{m('svMode')}</legend>
             <RadioGroup value={mode} onValueChange={value => setMode(value as 'new' | 'update')}>
-              <div className="flex items-center gap-2"><RadioGroupItem id="save-mode-update" value="update" /><Label htmlFor="save-mode-update">{word('modeUpdate', lang)}: {updatable.name}</Label></div>
-              <div className="flex items-center gap-2"><RadioGroupItem id="save-mode-new" value="new" /><Label htmlFor="save-mode-new">{word('modeNew', lang)}</Label></div>
+              <div className="flex items-center gap-2"><RadioGroupItem id="save-mode-update" value="update" /><Label htmlFor="save-mode-update">{m('svModeUpdate')}: {updatable.name}</Label></div>
+              <div className="flex items-center gap-2"><RadioGroupItem id="save-mode-new" value="new" /><Label htmlFor="save-mode-new">{m('svModeNew')}</Label></div>
             </RadioGroup>
           </fieldset>
         )}
         {!updating && units.length > 1 && (
           <fieldset className="space-y-1">
-            <legend className="text-xs text-text-secondary">{word('unit', lang)}</legend>
+            <legend className="text-xs text-text-secondary">{m('svUnit')}</legend>
             <RadioGroup value={unit} onValueChange={value => setUnit(value as SavedViewKind)}>
-              {units.map(u => <div key={u} className="flex items-center gap-2"><RadioGroupItem id={`save-unit-${u}`} value={u} /><Label htmlFor={`save-unit-${u}`}>{word(u === 'menu-view' ? 'unitMenuView' : 'unitConditionSet', lang)}</Label></div>)}
+              {units.map(u => <div key={u} className="flex items-center gap-2"><RadioGroupItem id={`save-unit-${u}`} value={u} /><Label htmlFor={`save-unit-${u}`}>{m(u === 'menu-view' ? 'svUnitMenuView' : 'svUnitConditionSet')}</Label></div>)}
             </RadioGroup>
           </fieldset>
         )}
         {!updating && (
           <div className="space-y-1">
-            <Label htmlFor="save-view-name">{word('name', lang)}</Label>
+            <Label htmlFor="save-view-name">{m('svName')}</Label>
             <Input id="save-view-name" value={name} aria-invalid={touched && nameMissing ? true : undefined} aria-describedby={touched && nameMissing ? 'save-view-name-error' : undefined} onChange={event => setName(event.target.value)} />
-            {touched && nameMissing && <p id="save-view-name-error" role="alert" className="text-xs text-text-danger-label">{word('nameRequired', lang)}</p>}
+            {touched && nameMissing && <p id="save-view-name-error" role="alert" className="text-xs text-text-danger-label">{m('svNameRequired')}</p>}
           </div>
         )}
         {!updating && visibilityOptions.length > 0 && (
           <fieldset className="space-y-1">
-            <legend className="text-xs text-text-secondary">{word('visibility', lang)} · {word('visibilityHint', lang)}</legend>
+            <legend className="text-xs text-text-secondary">{m('svVisibility')} · {m('svVisibilityHint')}</legend>
             <RadioGroup value={visibility} onValueChange={setVisibility}>
               {visibilityOptions.map(o => <div key={o.value} className="flex items-center gap-2"><RadioGroupItem id={`save-visibility-${o.value}`} value={o.value} /><Label htmlFor={`save-visibility-${o.value}`}>{o.label}</Label></div>)}
             </RadioGroup>
           </fieldset>
         )}
-        <section aria-label={word('includes', lang)} className="space-y-1 text-xs">
-          <h3 className="text-text-secondary">{word('includes', lang)}</h3>
+        <section aria-label={m('svIncludes')} className="space-y-1 text-xs">
+          <h3 className="text-text-secondary">{m('svIncludes')}</h3>
           <ul className="list-disc pl-4">
-            {summary.length ? summary.map(line => <li key={line}>{line}</li>) : <li>{word('noContent', lang)}</li>}
-            {withPanels && panels && panels.count > 0 && <li>{word('panelsHeading', lang)}: {panelBadgeText(panels.count, lang)}</li>}
-            {withPanels && panels?.excluded?.length ? <li>{word('excludedHeading', lang)}: {panels.excluded.join(', ')}</li> : null}
+            {summary.length ? summary.map(line => <li key={line}>{line}</li>) : <li>{m('svNoContent')}</li>}
+            {withPanels && panels && panels.count > 0 && <li>{m('svPanelsHeading')}: {panelBadgeText(panels.count, lang)}</li>}
+            {withPanels && panels?.excluded?.length ? <li>{m('svExcludedHeading')}: {panels.excluded.join(', ')}</li> : null}
           </ul>
         </section>
         {failure && <p role="alert" className="text-xs text-text-danger-label">{failure}</p>}
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{word('cancel', lang)}</Button>
-          <Button type="submit" disabled={busy}>{busy ? word('saving', lang) : word('submit', lang)}</Button>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
+          <Button type="submit" disabled={busy}>{busy ? m('svSaving') : m('svSubmit')}</Button>
         </DialogFooter>
       </form>
     </DialogContent>

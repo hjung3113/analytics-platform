@@ -1,11 +1,14 @@
+import { formatText, type Lang } from '@ap/kernel';
 import { isThemeColorToken } from '@ap/ui/theme';
+import { COMPONENTS_MESSAGES } from '../messages';
 import type { TopNBarSpec } from './AnalysisChart';
 import { chartDiagnostic } from './analysisChartData';
 import type { KindProjection } from './analysisChartKinds';
 import { chartTheme, token } from './EChart';
 
 /** Caller aggregates; this projection alone owns ordering, limiting, table and export. */
-export function topNData(spec: TopNBarSpec, ko: boolean, unit: string): KindProjection {
+export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string): KindProjection {
+  const resolved: Lang = typeof lang === 'string' ? lang : lang ? 'ko' : 'en';
   const seen = new Set<string>();
   const validN = spec.topN === undefined || (Number.isInteger(spec.topN) && spec.topN >= 1);
   if (!validN) chartDiagnostic('invalid TopN limit; using 8');
@@ -24,8 +27,10 @@ export function topNData(spec: TopNBarSpec, ko: boolean, unit: string): KindProj
   const tableValues = rows.map(row => [row.label, `${row.value} ${unit}`]);
   return {
     rows, total: rows.reduce((n, row) => n + row.value, 0), empty: !rows.length,
-    summary: `${rows.length}${ko ? '개 항목' : ' items'} · ${unit}`, headers: [ko ? '이름' : 'Name', ko ? '값' : 'Value'], tableValues,
-    csvHeaders: [ko ? '이름' : 'Name', `${ko ? '값' : 'Value'} (${unit})`], csvValues: rows.map(row => [row.label, row.value]),
+    summary: formatText(COMPONENTS_MESSAGES.chartTopNSummary, resolved, { count: rows.length, unit }),
+    headers: [formatText(COMPONENTS_MESSAGES.chartHeaderName, resolved), formatText(COMPONENTS_MESSAGES.chartHeaderValue, resolved)],
+    tableValues,
+    csvHeaders: [formatText(COMPONENTS_MESSAGES.chartHeaderName, resolved), `${formatText(COMPONENTS_MESSAGES.chartHeaderValue, resolved)} (${unit})`], csvValues: rows.map(row => [row.label, row.value]),
     legend, seriesKeys: [rows.map(row => row.key)],
     option: active => {
       const theme = chartTheme();

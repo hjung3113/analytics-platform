@@ -1,4 +1,6 @@
 import { formatInstant, type InstantForm, type Trust } from '@ap/contracts';
+import { formatText } from '@ap/kernel';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 type Lang = 'ko' | 'en';
 
@@ -8,7 +10,7 @@ export type TrustFooterText = { source: string; updated: string; coverage: strin
 const DASH = '—';
 
 /** The one wording for an unknown coverage (06 §18): header indicator and chart footer say the same thing. */
-export const unknownCoverageText = (lang: Lang): string => (lang === 'ko' ? '미확인' : 'Not confirmed');
+export const unknownCoverageText = (lang: Lang): string => formatText(COMPONENTS_MESSAGES.trustNotConfirmed, lang);
 
 /**
  * A Trust instant (`updatedAt`, `dataThrough`, `observedAt` — offset ISO-8601, contract-schemas `instant`) in the

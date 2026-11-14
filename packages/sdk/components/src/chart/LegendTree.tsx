@@ -1,8 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, CornerDownRight, Eye } from 'lucide-react';
-import { useI18n } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
+import { COMPONENTS_MESSAGES } from '../messages';
 
 export type LegendTreeNode = {
   id: string; label: ReactNode; color?: ThemeColorToken; children?: LegendTreeNode[];
@@ -86,7 +87,8 @@ const EMPTY = new Set<string>();
 export function LegendTree(props: LegendTreeProps) {
   const { nodes, visible, onVisibleChange, label, sortOf, onSortChange, onSelect, selectedId, onDrill, canDrill, currentId,
     expanded, defaultExpanded, onExpandedChange, emptyText, className } = props;
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const treeId = useId();
   const drillId = `${treeId}-drill`;
   const model = useMemo(() => describeNodes(nodes), [nodes]);
@@ -241,18 +243,16 @@ export function LegendTree(props: LegendTreeProps) {
     const expandLabelId = `${labelId}-expand`;
     const sortLabelId = `${labelId}-sort`;
     const isOpen = open.has(node.id);
-    const expandLabel = lang === 'ko' ? (isOpen ? '접기' : '펼치기') : (isOpen ? 'Collapse' : 'Expand');
+    const expandLabel = isOpen ? t('collapseShort') : t('expandShort');
     const isSelected = !!onSelect && !onDrill && selectedId === node.id;
     const isCurrent = currentId === node.id;
     const drillOnly = !!node.drillOnly;
     const name = typeof node.label === 'string' ? node.label : node.id;
-    const drillLabel = lang === 'ko' ? `${name} 단계로 이동` : `${name} go to this level`;
+    const drillLabel = m('legendDrillLabel', { name });
     const canDrillRow = drillable(entry);
     const describedBy = [canDrillRow ? drillId : undefined, sortOf && !onSortChange ? sortLabelId : undefined].filter(Boolean).join(' ') || undefined;
     const value = sortOf?.(node.id);
-    const sortLabel = lang === 'ko'
-      ? `정렬: ${value === 'asc' ? '오름차순' : value === 'desc' ? '내림차순' : '없음'}`
-      : `Sort: ${value === 'asc' ? 'ascending' : value === 'desc' ? 'descending' : 'none'}`;
+    const sortLabel = m(value === 'asc' ? 'legendSortAsc' : value === 'desc' ? 'legendSortDesc' : 'legendSortNone');
     const SortIcon = value === 'asc' ? ArrowUp : value === 'desc' ? ArrowDown : ArrowUpDown;
     return <div key={entry.key} role="treeitem" data-id={node.id} aria-labelledby={labelId}
       aria-describedby={describedBy} aria-current={isCurrent ? 'true' : undefined}
@@ -276,6 +276,7 @@ export function LegendTree(props: LegendTreeProps) {
         onClick={() => { focus(entry); if (drillOnly) onDrill?.(node.id); }}>
         {(isSelected || isCurrent) && <span aria-hidden className="absolute inset-y-0 start-0 w-0.5 bg-accent-primary" />}
         {entry.children.length ? <Button type="button" variant="ghost" size="icon-xs" tabIndex={active === entry ? 0 : -1}
+          // eslint-disable-next-line ap/no-lang-copy-ternary -- grammar, not copy: aria-labelledby ID order differs by language ("<label> 접기" vs "Collapse <label>")
           aria-labelledby={lang === 'ko' ? `${labelId} ${expandLabelId}` : `${expandLabelId} ${labelId}`}
           disabled={controlled && !onExpandedChange}
           onMouseDown={event => { event.preventDefault(); focus(entry); }}
@@ -327,7 +328,7 @@ export function LegendTree(props: LegendTreeProps) {
     className={cn('focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2', className)} tabIndex={shown.length ? -1 : 0}
     onFocusCapture={event => { focused.current = event.target; ownsFocus.current = true; }}>
     {shown.length ? model.roots.map(renderEntry) : <p className="text-xs text-text-muted">
-      {emptyText ?? (lang === 'ko' ? '표시할 항목이 없습니다.' : 'No items to show.')}
+      {emptyText ?? m('legendEmpty')}
     </p>}
   </div>;
   return <>
@@ -335,10 +336,10 @@ export function LegendTree(props: LegendTreeProps) {
     {allOff ? <div className="flex min-w-0 flex-col gap-1" data-legend-tree-wrap="">
       <div>
         <Button type="button" variant="secondary" size="toolbar" onClick={showAll} data-legend-show-all=""
-          onFocus={() => { showAllFocused.current = true; }}><Eye className="size-3.5" aria-hidden />{lang === 'ko' ? '모두 보이기' : 'Show all'}</Button>
+          onFocus={() => { showAllFocused.current = true; }}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
       {treeEl}
     </div> : treeEl}
-  {onDrill && <span id={drillId} className="sr-only">{lang === 'ko' ? 'Enter: 이 단계로 이동' : 'Enter: go to this level'}</span>}
+  {onDrill && <span id={drillId} className="sr-only">{m('legendEnterHint')}</span>}
   </>;
 }
