@@ -117,7 +117,17 @@ export type AnalysisActionsSlot = {
   pageTypes?: readonly PageType[];
 };
 /** A blocked place's request state from the server (the user's own requests): `pending` null = unknown, loading or failed (draw the plain request entry). `statusHref` is where the request status is read; null = no link. For a `permission` place it is the page where the missing capability is requested (the forbidden menu screen draws it as `권한 요청`). */
-export type AccessRequestState = { pending: boolean | null; statusHref: string | null };
+export type AccessRequestState = {
+  pending: boolean | null;
+  statusHref: string | null;
+  /**
+   * Why `pending` is null, when the app knows (#1933): `checking` = the read is running, `error` = it failed (`retry` re-reads it). Absent = unknown for
+   * another reason (a mock, a session not ready, a place with no mapping): the plain request entry, as before. Set `checking` only while a read really runs.
+   */
+  read?: 'checking' | 'error';
+  /** Re-reads the request state; the entry offers 「다시 시도」 only when it is given. */
+  retry?: () => void;
+};
 /**
  * The blocked-place request entry (ADR-0154 decision 6, contract/kernel.md §6.2 and §8). The shell and the page components own the entry's
  * place and look; the app owns the dialog, the pending read and the per-place pending rule. Absent slot → every place renders as without it.

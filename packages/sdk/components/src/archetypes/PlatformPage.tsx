@@ -12,7 +12,7 @@ import { type MenuEntry, PlatformLink, useConditionPreset, useI18n } from '@ap/k
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
-import { AccessRequestEntry, scopeRequestTarget, useScopeAccessRequest } from '../state/AccessRequestEntry';
+import { AccessRequestEntry, accessRequestBody, scopeRequestTarget, useScopeAccessRequest } from '../state/AccessRequestEntry';
 import { useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { drillDestinationOf, focusPageFallback } from '../state/pageFocus';
@@ -277,7 +277,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
           : accessRequest && scope.scopeId !== null
             // Place (c): the forbidden Scope itself is the request target (site only; the dialog lets the user pick the range kind, ADR-0154 decision 6).
             ? <AccessRequestEntry slot={accessRequest} target={{ kind: 'site', site: scope.scopeId }}>{(state, action) => <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
-                body={t(state.pending ? 'accessRequestPendingBody' : 'accessRequestBody')} action={action} />}</AccessRequestEntry>
+                body={accessRequestBody(t, state, true)} action={action} />}</AccessRequestEntry>
             : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
               body={t('stateForbiddenBody')} />;
   }
@@ -286,7 +286,7 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
   const scopeOption = scope.scopeId === null ? undefined : session.scopes.find(option => option.id === scope.scopeId);
   const forbiddenRequest = accessRequest && menu.requiresScope && scope.status === 'valid' && scope.scopeId !== null && scopeOption !== undefined && scopeOption.grantedRooms < scopeOption.totalRooms
     ? <AccessRequestEntry slot={accessRequest} target={scopeRequestTarget(scope.scopeId, global.roomNames, scope.grantedRooms)}>{(state, action) => <div data-access-request-banner className="mb-3">
-        <ForbiddenRequestMessage body={t(state.pending ? 'accessRequestPendingBody' : 'accessRequestBody')} action={action} />
+        <ForbiddenRequestMessage body={accessRequestBody(t, state, false)} action={action} />
       </div>}</AccessRequestEntry>
     : null;
 

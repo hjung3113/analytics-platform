@@ -130,7 +130,17 @@ function SiteRequestItem({ slot, site, onRequest, onStatus }: { slot: AccessRequ
     ? <DropdownMenuItem data-access-request="pending" disabled={state.statusHref === null} onSelect={() => { if (state.statusHref !== null) onStatus(state.statusHref); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
       {t('accessRequestSitePending', { site: site.label })}
     </DropdownMenuItem>
-    : <DropdownMenuItem data-access-request="request" onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-      {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
-    </DropdownMenuItem>}</Pending></ShellBoundary>;
+    : state.read === 'checking'
+      // The row keeps its place and stays focusable; selecting it does nothing until the read answers (#1933).
+      ? <DropdownMenuItem data-access-request="checking" aria-disabled="true" aria-busy="true" onSelect={event => event.preventDefault()} className="opacity-60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+        <Loader2 className="mr-2 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequestSiteChecking', { site: site.label })}
+      </DropdownMenuItem>
+      : <>
+        <DropdownMenuItem data-access-request={state.read === 'error' ? 'error' : 'request'} onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+          {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
+        </DropdownMenuItem>
+        {state.read === 'error' && state.retry && <DropdownMenuItem onSelect={event => { event.preventDefault(); state.retry?.(); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+          <RotateCw className="mr-2 size-3.5" aria-hidden />{t('accessRequestRecheck')}
+        </DropdownMenuItem>}
+      </>}</Pending></ShellBoundary>;
 }

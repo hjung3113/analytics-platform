@@ -19,10 +19,13 @@ const registry = createRegistry({
 
 /** The fake server read: the user's own pending requests. A place is pending when the fake says so for its exact target. */
 let pendingTargets: PermissionRequestTarget[] = [];
-let pendingAnswer: 'known' | 'unknown' = 'known';
+let pendingAnswer: 'known' | 'unknown' | 'checking' | 'error' = 'known';
+const retrySpy = vi.fn();
 const dialogs: { target: PermissionRequestTarget; returnTo: string }[] = [];
 const fakeSlot: AccessRequestSlot = {
   Pending: ({ target, children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
+    if (pendingAnswer === 'checking') return <>{children({ pending: null, statusHref: null, read: 'checking' })}</>;
+    if (pendingAnswer === 'error') return <>{children({ pending: null, statusHref: null, read: 'error', retry: retrySpy })}</>;
     const pending = pendingAnswer === 'unknown' ? null : pendingTargets.some(row => JSON.stringify(row) === JSON.stringify(target));
     return <>{children({ pending, statusHref: pending ? '/permission-requests?id=req-1' : null })}</>;
   },
@@ -44,7 +47,7 @@ const forbiddenQuery: QueryState<unknown> = { status: 'done', response: forbidde
 const partial = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 5 }];
 const full = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }];
 
-beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); pendingTargets = []; pendingAnswer = 'known'; dialogs.length = 0; });
+beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); pendingTargets = []; pendingAnswer = 'known'; dialogs.length = 0; retrySpy.mockReset(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('scopeRequestTarget: the room place target (ADR-0154 decision 5: room names only from the field)', () => {
@@ -371,5 +374,81 @@ describe('focus ownership with the real dialog (portal + autofocus)', () => {
     await waitFor(() => expect(view.container.querySelector('[data-access-request-banner]')).toBeNull());
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(onPageFallback()).toBe(true));
+  });
+});
+
+describe('request state unknown (#1933): checking and error', () => {
+  const gate = (slot: AccessRequestSlot = fakeSlot) => render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(), forbiddenCheck)} registry={registry} slots={{ accessRequest: slot }}>
+    <PlatformPage><p>page body</p></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+  const banner = (slot: AccessRequestSlot = fakeSlot) => render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: slot }}>
+    <PlatformPage><QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+
+  it('place (c) while checking: the request button keeps its place, busy and inert, and the body says why (no live role)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    pendingAnswer = 'checking';
+    gate();
+    expect(await screen.findByText('요청 상태를 확인하는 중입니다.')).toBeTruthy();
+    const button = screen.getByRole('button', { name: '권한 요청' });
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.getAttribute('aria-busy')).toBe('true');
+    expect(button.closest('[data-access-request]')?.getAttribute('data-access-request')).toBe('checking');
+    fireEvent.click(button);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText('요청 대기 중')).toBeNull();
+  });
+
+  it('place (c) after a failed read: says so, offers 다시 시도, and the request button still opens the dialog', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    pendingAnswer = 'error';
+    gate();
+    expect(await screen.findByText('요청 상태를 확인하지 못했습니다. 이미 요청했다면 중복으로 접수되지 않습니다.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(retrySpy).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
+    expect(screen.getByRole('dialog', { name: 'fake request dialog' })).toBeTruthy();
+  });
+
+  it('a retry keeps the failure layout and a busy 다시 시도 while the read runs, then settles on the new answer', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    let phase: 'error' | 'checking' | 'known' = 'error';
+    const listeners = new Set<() => void>();
+    const bump = () => { for (const listener of listeners) listener(); };
+    const slot: AccessRequestSlot = {
+      Pending: ({ children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
+        const current = useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => phase);
+        if (current === 'checking') return <>{children({ pending: null, statusHref: null, read: 'checking' })}</>;
+        if (current === 'error') return <>{children({ pending: null, statusHref: null, read: 'error', retry: () => { phase = 'checking'; bump(); } })}</>;
+        return <>{children({ pending: true, statusHref: '/permission-requests?id=req-1' })}</>;
+      },
+      Dialog: () => null,
+    };
+    gate(slot);
+    const retry = await screen.findByRole('button', { name: '다시 시도' });
+    retry.focus();
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByRole('button', { name: '다시 시도' }).getAttribute('aria-busy')).toBe('true'));
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBe(retry);
+    expect(document.activeElement).toBe(retry);
+    act(() => { phase = 'known'; bump(); });
+    expect(await screen.findByText('요청 대기 중')).toBeTruthy();
+  });
+
+  it('place (e) banner while checking keeps the request button busy and says why', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    pendingAnswer = 'checking';
+    banner();
+    expect(await screen.findByText('요청 상태를 확인하는 중입니다.', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '권한 요청' }).getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('place (e) banner after a failed read says so shortly, offers 다시 시도 and keeps the request button usable', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    pendingAnswer = 'error';
+    banner();
+    expect(await screen.findByText('요청 상태를 확인하지 못했습니다.', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '권한 요청' }).getAttribute('aria-disabled')).toBeNull();
   });
 });
