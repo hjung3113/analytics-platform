@@ -1,4 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { IdSet, PermissionRequestTarget } from '@ap/contracts';
 import { PlatformLink, useI18n, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
@@ -76,15 +77,7 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
   }, []);
   const { Pending, Dialog } = slot;
   return <>
-    <Pending target={target}>{state => {
-      const action = <span ref={holder} data-access-request={state.pending ? 'pending' : 'request'} className="contents">{state.pending
-        ? <span className="inline-flex flex-wrap items-center gap-2">
-          <StatusBadge tone="neutral">{t('accessRequestPending')}</StatusBadge>
-          {state.statusHref !== null && <PlatformLink href={state.statusHref} className="text-xs font-medium text-accent-primary hover:underline">{t('accessRequestStatus')}</PlatformLink>}
-        </span>
-        : <Button type="button" size={size === 'field' ? 'toolbar' : 'sm'} variant={size === 'field' ? 'ghost' : 'secondary'} aria-label={label} onClick={() => changeOpen(true)}>{t('accessRequest')}</Button>}</span>;
-      return children ? children(state, action) : action;
-    }}</Pending>
+    <Pending target={target}>{state => <EntryView state={state} size={size} label={label} holder={holder} onRequest={() => changeOpen(true)}>{children}</EntryView>}</Pending>
     <span ref={anchor} className="contents" onFocus={() => { dialogFocus.current = true; }} onBlur={() => { dialogFocus.current = false; }}><Dialog target={target} returnTo={url} open={open} onOpenChange={changeOpen} /></span>
   </>;
 }
@@ -92,3 +85,65 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
 const isFocusLost = () => document.activeElement === null || document.activeElement === document.body;
 // After the dialog's own close autofocus, which Radix schedules in a timer from its unmount.
 const later = (run: () => void) => { setTimeout(() => setTimeout(run)); };
+
+/** The body sentence of a place that words its message by the request state (#1933). `full` is the full-screen place, which also says a repeated request is not filed twice. */
+export function accessRequestBody(t: ReturnType<typeof useI18n>['t'], state: AccessRequestState, full: boolean): string {
+  if (state.pending) return t('accessRequestPendingBody');
+  if (state.read === 'checking') return t('accessRequestChecking');
+  if (state.read === 'error') return t(full ? 'accessRequestReadErrorDup' : 'accessRequestReadError');
+  return t('accessRequestBody');
+}
+
+/**
+ * One state of the entry. Checking keeps the request button in its place, busy and inert (focus stays, no line moves); an error offers
+ * 「다시 시도」 beside the request button, which still works (the server answers a repeated request, #1907). While a retry runs the error layout
+ * stays and the pressed button is busy, so focus is not lost when the state flips to checking and back.
+ */
+function EntryView({ state, size, label, holder, onRequest, children }: {
+  state: AccessRequestState;
+  size: 'action' | 'field';
+  label: string | undefined;
+  holder: RefObject<HTMLSpanElement | null>;
+  onRequest: () => void;
+  children: ((state: AccessRequestState, action: ReactNode) => ReactNode) | undefined;
+}) {
+  const { t } = useI18n();
+  const [retry, setRetry] = useState<null | 'pressed' | 'running'>(null);
+  // The state carries `retry` only while it reads `error`; the pressed button must survive the `checking` phase of its own retry.
+  const retryAction = useRef(state.retry);
+  if (state.retry) retryAction.current = state.retry;
+  const retryNow = state.retry ?? (retry !== null ? retryAction.current : undefined);
+  useEffect(() => {
+    if (retry === 'pressed' && state.read === 'checking') setRetry('running');
+    else if (retry === 'running' && state.read !== 'checking') setRetry(null);
+  }, [retry, state.read]);
+  useEffect(() => {
+    if (retry !== 'pressed') return;
+    // A retry that never starts a read (nothing to re-run) must not leave a busy button behind.
+    const timer = window.setTimeout(() => setRetry(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [retry]);
+  const phase = state.pending ? 'pending' : retry !== null ? 'error' : state.read ?? 'request';
+  const buttonSize = size === 'field' ? 'toolbar' : 'sm';
+  const variant = size === 'field' ? 'ghost' : 'secondary';
+  const request = phase === 'checking'
+    ? <Button key="request" type="button" size={buttonSize} variant={variant} aria-label={label} aria-disabled="true" aria-busy="true" onClick={event => event.preventDefault()}>
+      <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequest')}
+    </Button>
+    : <Button key="request" type="button" size={buttonSize} variant={variant} aria-label={label} onClick={onRequest}>{t('accessRequest')}</Button>;
+  const retrying = retry !== null;
+  const action = <span ref={holder} data-access-request={phase} className="contents">{phase === 'pending'
+    ? <span className="inline-flex flex-wrap items-center gap-2">
+      <StatusBadge tone="neutral">{t('accessRequestPending')}</StatusBadge>
+      {state.statusHref !== null && <PlatformLink href={state.statusHref} className="text-xs font-medium text-accent-primary hover:underline">{t('accessRequestStatus')}</PlatformLink>}
+    </span>
+    : phase === 'error'
+      ? <span className="inline-flex flex-wrap items-center gap-2">
+        {size === 'field' && <span className="text-xs text-text-muted">{t('accessRequestReadErrorShort')}</span>}
+        {retryNow && <Button key="retry" type="button" size={buttonSize} variant="ghost" aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
+          onClick={() => { if (retrying) return; setRetry('pressed'); retryNow(); }}>{retrying && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('retry')}</Button>}
+        {request}
+      </span>
+      : request}</span>;
+  return <>{children ? children(state, action) : action}</>;
+}
