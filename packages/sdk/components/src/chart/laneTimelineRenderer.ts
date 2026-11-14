@@ -32,7 +32,8 @@ export function createLaneRenderer(input: RendererInput) {
   let dataDirty = true; let overlayDirty = true; let sizeKey = '';
   let drawn: { view: [number, number]; width: number; height: number; scroll: number } = { view: [...view], width, height, scroll: 0 };
   let hasDrawn = false;
-  const hit = (x: number, y: number) => !hasDrawn ? undefined : hitTest(model, drawn.view, drawn.width, drawn.height, drawn.scroll, x, y);
+  const lodLanes = new Set<number>();
+  const hit = (x: number, y: number) => !hasDrawn ? undefined : hitTest(model, drawn.view, drawn.width, drawn.height, drawn.scroll, x, y, undefined, lodLanes);
   let drag: { pointer: number; x: number; view: [number, number]; moved: boolean } | null = null;
   let tooltipFrame: number | null = null;
   let lastHover: string | null = null;
@@ -114,7 +115,7 @@ export function createLaneRenderer(input: RendererInput) {
     hasDrawn = true; drawn = { view: [...view], width, height, scroll: scroll.scrollTop };
     if (ctx) {
       ctx.save(); ctx.beginPath(); ctx.rect(GUTTER, 0, plotWidth, height); ctx.clip();
-      paintFrame(ctx, laneStyle(), { view, width, height, scroll: scroll.scrollTop }, buf, Math.max(1, plotWidth));
+      paintFrame(ctx, laneStyle(), { view, width, height, scroll: scroll.scrollTop }, buf, Math.max(1, plotWidth), undefined, lodLanes);
       ctx.restore();
     }
   }

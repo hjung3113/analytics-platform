@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { createLaneStyle, paintFrame } from '../laneTimelineLod';
-import { fillVisibleRects, GUTTER, laneWindow, prepareLanes, RectBuffer, ROW_HEIGHT, outlineStyle, FLAG_OPEN, FLAG_ORPHAN } from '../laneTimelineGeometry';
+import { fillVisibleRects, hitTest, GUTTER, laneWindow, prepareLanes, RectBuffer, ROW_HEIGHT, outlineStyle, FLAG_OPEN, FLAG_ORPHAN } from '../laneTimelineGeometry';
 import type { TimelineLane } from '../LaneTimeline';
 import { oldPaintRects, oldPrepareLanes, oldVisibleRects, oldWinners, rng, type OldRect } from './laneTimelineOracle';
 import { benchLanes, count, pixelColours, rasterContext, recordingContext, type Op } from './laneTimelineLod.helpers';
@@ -331,4 +331,44 @@ describe('measure: canvas op counts of the full view, exact vs LOD (bench data)'
     expect(ops(lod).fillRect).toBeLessThan(ops(exact).fillRect / 2);
     expect(ops(lod).fillStyle).toBeLessThan(ops(exact).fillStyle);
   }, 60_000);
+});
+
+// #2045 SHE-33: the pointer must identify the opaque pixel-column winner.
+it.each([0.1, 0.9])('hits the painted winner across a dense pixel column at x=%s', fraction => {
+  const lanes: TimelineLane[] = [{ id: 'dense', label: 'Dense', segments: [
+    { id: 'wide', start: 20, end: 24, colorToken: COLORS[0] },
+    { id: 'short', start: 20.8, end: 21, colorToken: COLORS[1] },
+    ...FILLERS, ...ENDS,
+  ] }];
+  const f = frame(lanes, [0, 288]);
+  const raster = rasterContext(WIDTH, [12]);
+  const lodLanes = new Set<number>();
+  paintFrame(raster.ctx, f.style, { view: f.view, width: WIDTH, height: HEIGHT, scroll: 0 }, f.buf, PLOT, undefined, lodLanes);
+  expect(pixelColours(raster.pixels.get(12)![GUTTER + 20])).toEqual([[resolve(COLORS[0]), 1]]);
+  expect(hitTest(f.model, f.view, WIDTH, HEIGHT, 0, GUTTER + 20 + fraction, 12, undefined, lodLanes)?.segment.id).toBe('wide');
+});
+
+const laneFillers = (prefix: string) => [
+  ...FILLERS.map((s, i) => ({ ...s, id: `${prefix}-f${i}` })),
+  ...ENDS.map((s, i) => ({ ...s, id: `${prefix}-e${i}` })),
+];
+
+it.each([
+  { name: 'dense/dense', lane1Dense: true, scroll: 0, weight: 1 },
+  { name: 'dense/exact', lane1Dense: false, scroll: 0, weight: 0.2 },
+  { name: 'dense/dense scrolled', lane1Dense: true, scroll: 6, weight: 1 },
+])('keeps later-lane priority across a row boundary even when the preceding lane has higher coverage ($name)', ({ lane1Dense, scroll, weight }) => {
+  const lanes: TimelineLane[] = [
+    { id: 'l0', label: 'L0', segments: [{ id: 'wide', start: 20, end: 24, colorToken: COLORS[0] }, ...laneFillers('l0')] },
+    { id: 'l1', label: 'L1', segments: [{ id: 'short', start: 20.8, end: 21, colorToken: COLORS[1] }, ...(lane1Dense ? laneFillers('l1') : [])] },
+  ];
+  const f = frame(lanes, [0, 288]);
+  const y = ROW_HEIGHT - scroll;
+  const raster = rasterContext(WIDTH, [y]);
+  const lodLanes = new Set<number>();
+  paintFrame(raster.ctx, f.style, { view: f.view, width: WIDTH, height: HEIGHT, scroll }, f.buf, PLOT, undefined, lodLanes);
+  expect(lodLanes.has(0)).toBe(true);
+  expect(lodLanes.has(1)).toBe(lane1Dense);
+  expect(pixelColours(raster.pixels.get(y)![GUTTER + 20])).toEqual([[resolve(COLORS[1]), weight]]);
+  expect(hitTest(f.model, f.view, WIDTH, HEIGHT, scroll, GUTTER + 20 + 0.9, y, undefined, lodLanes)?.segment.id).toBe('short');
 });

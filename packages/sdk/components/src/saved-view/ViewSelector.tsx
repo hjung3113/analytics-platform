@@ -69,6 +69,8 @@ export function ViewSelector(props: ViewSelectorProps) {
   const { lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const deleteReturn = useRef<{ id: string; index: number } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -147,6 +149,7 @@ export function ViewSelector(props: ViewSelectorProps) {
   const showNew = !current || canCopy;
   const pendingSave: 'current' | 'copy' | 'new' | null = current && canEdit && props.onSave ? 'current' : (!current || canCopy) && props.onSaveAs ? (current ? 'copy' : 'new') : null;
   const newLabel = current && !canEdit && canCopy ? word('saveCopy', lang) : word('saveNew', lang);
+  const deleting = views.find((item): item is Entry => !item.denied && item.view.id === deleteId);
   const detail = detailId === null ? null : views.find((v): v is Entry => !v.denied && v.view.id === detailId) ?? null;
 
   return (
@@ -159,7 +162,7 @@ export function ViewSelector(props: ViewSelectorProps) {
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
+        <PopoverContent onInteractOutside={event => { if (deleteId !== null) event.preventDefault(); }} align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
           {detail ? (
             <section aria-label={word('details', lang)} className="space-y-2 text-xs">
               <Button ref={back} type="button" variant="ghost" size="toolbar" onClick={() => { const id = detail.view.id; setDetailId(null); focusAfter.current = { kind: 'more', id }; }}>{word('backToList', lang)}</Button>
@@ -201,7 +204,7 @@ export function ViewSelector(props: ViewSelectorProps) {
                           </span>
                         </span>
                       </button>
-                      <RowMenu item={item} lang={lang} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; props.onDelete?.(item.view.id); } : undefined} />
+                      <RowMenu item={item} lang={lang} isDefault={item.view.id === defaultId} onDetails={() => { setDetailId(item.view.id); focusAfter.current = { kind: 'back' }; }} onMakeDefault={props.onMakeDefault} onDelete={props.onDelete ? () => { lastRow.current = { id: item.view.id, index: shown.indexOf(item) }; deleteReturn.current = lastRow.current; setDeleteId(item.view.id); } : undefined} />
                     </li>
                   ))}
                 </ul>
@@ -220,6 +223,29 @@ export function ViewSelector(props: ViewSelectorProps) {
           {current && state === 'modified' && <DropdownMenuItem onSelect={() => props.onRevert?.()}>{word('revert', lang)}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog open={deleteId !== null} onOpenChange={next => { if (!next) setDeleteId(null); }}>
+        <DialogContent closeLabel={word('close', lang)} onCloseAutoFocus={event => {
+          event.preventDefault();
+          const target = deleteReturn.current;
+          const more = target && list.current?.querySelector<HTMLElement>(`[data-more-for="${CSS.escape(target.id)}"]`);
+          const rows = list.current?.querySelectorAll<HTMLElement>('[data-view-row]');
+          const fallback = rows?.length && target ? rows[Math.min(target.index, rows.length - 1)] : search.current;
+          (more || fallback || trigger.current)?.focus();
+        }}>
+          <DialogHeader>
+            <DialogTitle>{word('deleteTitle', lang)}</DialogTitle>
+            <DialogDescription>{word('deleteBody', lang)}</DialogDescription>
+          </DialogHeader>
+          {deleting && <p className="break-words text-sm">{deleting.view.name} · {visibilityText(deleting.view.visibility, lang, groupNames)}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteId(null)}>{word('cancel', lang)}</Button>
+            <Button type="button" disabled={!deleting?.capabilities.canEdit} onClick={() => {
+              if (deleting?.capabilities.canEdit) props.onDelete?.(deleting.view.id);
+              setDeleteId(null);
+            }}>{word('remove', lang)}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={pendingId !== null} onOpenChange={next => { if (!next) { setPendingId(null); trigger.current?.focus(); } }}>
         <DialogContent closeLabel={word('close', lang)} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
           <DialogHeader>

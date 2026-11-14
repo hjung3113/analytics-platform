@@ -285,6 +285,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       onSubmit={submit}
     />
     <ShareTargetPicker
+      lang={lang}
       open={shareOpen} onOpenChange={next => { setShareOpen(next); if (!next) { pending.current = null; created.current = null; setShareError(null); } }} value={{ mode: 'groups', people: [], groupIds: [] }}
       groups={{ ...groups, retry: () => setGroupTick(n => n + 1) }} currentUserId={userId} searchPeople={searchPeople}
       onCreateGroup={views.createGroup}
