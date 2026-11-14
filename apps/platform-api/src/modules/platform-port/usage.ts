@@ -35,13 +35,13 @@ const OPTIONAL_KEYS = ['source', 'stayId', 'via', 'fromMenuId'] as const;
 export const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
-/** False for anything but a string without `? # &` or whitespace, non-empty and within `max`. */
+/** False for anything but a string without `? # &`, whitespace or Unicode control-category characters, non-empty and within `max`. */
 export function validIdentifier(value: unknown, maxLength: number): value is string {
   return (
     typeof value === 'string' &&
     value.length > 0 &&
     value.length <= maxLength &&
-    !/[?#&\s]/.test(value)
+    !/[?#&\s\p{C}]/u.test(value)
   );
 }
 
@@ -89,7 +89,7 @@ function parseUsageEvent(raw: unknown): ParsedUsageEvent | null {
 
   const { menuId, spaceId, path, at, sessionId } = raw;
   if (!validIdentifier(menuId, 80) || !validIdentifier(path, 200)) return null;
-  if (typeof sessionId !== 'string' || !validSpaceId(spaceId)) return null;
+  if (!validIdentifier(sessionId, 80) || !validSpaceId(spaceId)) return null;
   // Client epoch ms land in bigint columns: a non-integer or unsafe number is a bad shape.
   if (typeof at !== 'number' || !Number.isSafeInteger(at)) return null;
 

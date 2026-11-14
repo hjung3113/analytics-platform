@@ -196,6 +196,22 @@ describe.skipIf(!runIntegration)(
     });
 
     describe('POST /usage-events', () => {
+      it('rejects unsafe usage identifiers with 200 accepted:0 and no partial writes (#2016 SER-7)', async () => {
+        await clearMine();
+        const invalid = [
+          entry({ sessionId: '' }), entry({ sessionId: 's'.repeat(81) }),
+          dwell({ sessionId: 's'.repeat(4096) }),
+          ...['sessionId', 'menuId', 'path', 'spaceId', 'stayId'].map((field) =>
+            entry({ source: 'board', stayId: 'pane', [field]: 'a\u0000b' })),
+        ];
+        for (const event of invalid) {
+          const res = await record([entry(), event]);
+          expect(res.statusCode).toBe(200);
+          expect(res.json()).toEqual({ accepted: 0 });
+        }
+        expect(await usageRows()).toHaveLength(0);
+      });
+
       it('stores a main entry and dwell with the server actor and received_at', async () => {
         await clearMine();
         const res = await record([entry(), dwell()]);

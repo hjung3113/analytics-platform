@@ -364,9 +364,9 @@ export type StoredUsageEvent = UsageEvent & { userId: string; receivedAt: number
 
 const usageEvents: StoredUsageEvent[] = [];
 
-/** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, too long. */
+/** True when the id is not a string, or carries anything the manifest route pattern must not: empty, `?`, `#`, `&`, whitespace, Unicode control-category characters, too long. */
 function invalidUsageId(value: string, max: number): boolean {
-  return typeof value !== 'string' || !value || value.length > max || /[?#&\s]/.test(value);
+  return typeof value !== 'string' || !value || value.length > max || /[?#&\s\p{C}]/u.test(value);
 }
 
 /**
@@ -426,7 +426,7 @@ export async function recordUsage(events: readonly UsageEvent[], opts?: { role?:
     hasUnknownUsageKeys(e)
     || invalidUsageId(e.menuId, 80)
     || invalidUsageId(e.path, 200)
-    || typeof e.sessionId !== 'string'
+    || invalidUsageId(e.sessionId, 80)
     || invalidUsageProvenance(e)
     || invalidUsageNavigation(e)
     || !validSpaceId(e.spaceId)
