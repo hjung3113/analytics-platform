@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -71,4 +71,13 @@ describe('DetailDrawer focus ring stays inside the clipped aside (#914 A1)', () 
     expect(panel.className).toContain('focus-visible:ring-offset-0');
     expect(panel.className).not.toContain('focus-visible:ring-offset-2');
   });
+});
+
+it.each([1, 2])('rejects an unknown controlled tab with %s declared tabs (#2028 SHE-16)', async count => {
+  const recover = vi.fn();
+  render(tree(<DetailDrawer title="상세" tab="unknown" onTabRecover={recover} onClose={() => {}} tabs={Array.from({ length: count }, (_, i) => ({ id: String(i), label: String(i), content: <p>Private content</p> }))} />));
+  expect(await screen.findByRole('alert')).toHaveTextContent('unknown');
+  expect(screen.queryByText('Private content')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '값 지우기' }));
+  expect(recover).toHaveBeenCalledOnce();
 });

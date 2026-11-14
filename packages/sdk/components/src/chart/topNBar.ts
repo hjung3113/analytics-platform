@@ -25,6 +25,7 @@ export function topNData(spec: TopNBarSpec, ko: boolean, unit: string): KindProj
   return {
     rows, total: rows.reduce((n, row) => n + row.value, 0), empty: !rows.length,
     summary: `${rows.length}${ko ? '개 항목' : ' items'} · ${unit}`, headers: [ko ? '이름' : 'Name', ko ? '값' : 'Value'], tableValues,
+    csvHeaders: [ko ? '이름' : 'Name', `${ko ? '값' : 'Value'} (${unit})`], csvValues: rows.map(row => [row.label, row.value]),
     legend, seriesKeys: [rows.map(row => row.key)],
     option: active => {
       const theme = chartTheme();

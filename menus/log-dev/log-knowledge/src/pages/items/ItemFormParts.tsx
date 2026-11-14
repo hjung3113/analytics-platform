@@ -37,22 +37,19 @@ function useChosenOption(endpoint: typeof modelsEndpoint | typeof softwareVersio
   return { known, remember: setPicked };
 }
 
-/** The next page of a picker's matches (and a failed page's retry), beside the combobox: the single-select `Combobox` has no load-more row of its own. */
+/** The menu owns failed-read recovery; Combobox owns paging controls. */
 function PickerPaging({ picker, label }: { picker: Pick<ReturnType<typeof useOptionPicker>, 'hasMore' | 'failed' | 'loading' | 'loadMore' | 'retry'>; label: string }) {
   if (picker.failed) return <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">{label} 목록을 불러오지 못했습니다</span><Button type="button" size="sm" variant="ghost" onClick={picker.retry}>다시 시도</Button></div>;
-  if (!picker.hasMore) return null;
-  return <div><Button type="button" size="sm" variant="ghost" disabled={picker.loading} onClick={picker.loadMore}>{picker.loading ? '불러오는 중…' : `${label} 더 보기`}</Button></div>;
+  return null;
 }
 
 type PickerShared = { id: string; invalid: boolean; describedBy: string | undefined };
 function ModelPicker({ value, onChange, id, invalid, describedBy }: PickerShared & { value: string; onChange: (value: string) => void }) {
   const picker = useOptionPicker(modelsEndpoint);
   const { known, remember } = useChosenOption(modelsEndpoint, value, picker.options);
-  const options = known && !picker.options.some(o => o.value === known.value) ? [known, ...picker.options] : picker.options;
-  return <><Combobox id={id} options={options} value={value || null} filterOptions={false}
-    onChange={next => { remember(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
+  return <><Combobox id={id} options={picker.options} getLabel={id => known?.value === id ? known.label : id} loading={picker.loading} hasMore={picker.hasMore} onLoadMore={picker.loadMore} moreLabel="모델 더 보기" value={value || null} filterOptions={false}
+    onChange={next => { remember(picker.options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록"
-    {...(picker.hasMore ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})}
     emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '결과가 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />
     <PickerPaging picker={picker} label="모델" /></>;
 }
@@ -60,11 +57,9 @@ function ModelPicker({ value, onChange, id, invalid, describedBy }: PickerShared
 function SoftwarePicker({ modelId, value, onChange, id, invalid, describedBy }: PickerShared & { modelId: string; value: string; onChange: (value: string) => void }) {
   const picker = useOptionPicker(softwareVersionsEndpoint, true, [{ id: 'modelId', op: 'in', value: [modelId] }]);
   const { known, remember } = useChosenOption(softwareVersionsEndpoint, value, picker.options);
-  const options = known && !picker.options.some(o => o.value === known.value) ? [known, ...picker.options] : picker.options;
-  return <><Combobox id={id} options={options} value={value || null} filterOptions={false}
-    onChange={next => { remember(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
+  return <><Combobox id={id} options={picker.options} getLabel={id => known?.value === id ? known.label : id} loading={picker.loading} hasMore={picker.hasMore} onLoadMore={picker.loadMore} moreLabel="SW 버전 더 보기" value={value || null} filterOptions={false}
+    onChange={next => { remember(picker.options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder="SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록"
-    {...(picker.hasMore ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})}
     emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '이 모델에 활성 SW 버전이 없습니다'} aria-invalid={invalid} aria-describedby={describedBy} />
     <PickerPaging picker={picker} label="SW 버전" /></>;
 }

@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, CornerUpLeft, MoreHorizontal } from 'lucide-react';
 import { Fragment, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
-import { radioGroupsOf, useWorkspaceCommands } from '@ap/components/dock';
+import { dockTabElements, isActiveDockTab, dockStripElement, radioGroupsOf, useWorkspaceCommands } from '@ap/components/dock';
 import {
   Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
@@ -68,8 +68,8 @@ const measuredFull = new WeakMap<HTMLElement, { title: string; full: number }>()
  */
 export function tabFloors(strip: HTMLElement | null): TabFloor[] {
   const width = (item: Element) => item.getBoundingClientRect().width;
-  return Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []).map(tab => {
-    const active = tab.classList.contains('dv-active-tab');
+  return dockTabElements(strip).map(tab => {
+    const active = isActiveDockTab(tab);
     const compact = tab.hasAttribute(COMPACT_TAB) && !active;
     const title = tab.textContent ?? '';
     const remembered = () => { const known = measuredFull.get(tab); return known && known.title === title ? known.full : TAB_FLOOR; };
@@ -118,10 +118,10 @@ export function compactTabCount(floors: readonly TabFloor[], width: number, fits
 /** Which tab elements are compact: the last `count` background tabs of the strip (set on the tab, read by dock.css). */
 export function markCompactTabs(strip: HTMLElement | null, count: number) {
   let left = count;
-  const tabs = Array.from(strip?.querySelectorAll<HTMLElement>('.dv-tab') ?? []);
+  const tabs = dockTabElements(strip);
   for (let i = tabs.length - 1; i >= 0; i--) {
     const tab = tabs[i]!;
-    const mark = !tab.classList.contains('dv-active-tab') && left > 0;
+    const mark = !isActiveDockTab(tab) && left > 0;
     if (mark) left--;
     tab.toggleAttribute(COMPACT_TAB, mark);
   }
@@ -153,7 +153,7 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
         setLayout({ visible: fit.visible, overflow: fit.overflow, compactCount: 0, wrap: false });
         return;
       }
-      const stripElement = element.closest<HTMLElement>('.dv-tabs-and-actions-container');
+      const stripElement = dockStripElement(element);
       const floors = tabFloors(stripElement);
       // The strip lists as many tabs as the group has; a count that disagrees (first paint) falls back to the spec's constants.
       const known: TabFloor[] = floors.length === tabs ? floors
@@ -170,7 +170,7 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
-    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(inDock ? element.closest('.dv-tabs-and-actions-container')?.querySelectorAll('.dv-tab') ?? [] : [])]) observer.observe(target);
+    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(inDock ? dockTabElements(dockStripElement(element)) : [])]) observer.observe(target);
     return () => observer.disconnect();
   }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, inDock, stripWidth, tabs]);
   return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow, compactCount: layout.compactCount, wrap: layout.wrap };

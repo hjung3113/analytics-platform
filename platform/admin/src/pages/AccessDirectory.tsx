@@ -26,9 +26,8 @@ export default function AccessDirectory() {
   const { adapter, registry, pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
   // §13 drawer tab is URL-owned like the other page keys (W-350): the default stays off the URL and an
-  // unknown value is the drawer alert — always controlled, so history traversal reselects the alert tab.
+  // unknown value is the drawer alert — always controlled, so history traversal restores the alert.
   const drawerTab = pageParam('tab') ?? 'permissions';
-  const validTab = ['permissions', 'sites'].includes(drawerTab);
   // ADR-0105: 역할 and 권한 are conditions of one hidden repeated page key `filter`.
   const filterDeclarations = useMemo<TableFilterDeclaration[]>(() => {
     const specs = accessFilterSpecs(registry.permissions);
@@ -72,8 +71,8 @@ export default function AccessDirectory() {
     ? <DetailDrawer key={active.id} title={active.name} subtitle={active.title[lang]}
         context={<span className="flex items-center gap-2"><span className="t-mono">{active.role}</span><StatusBadge tone="neutral">{ko ? '조회 전용' : 'Read-only'}</StatusBadge></span>}
         onClose={() => setPage({ focus: null, tab: null })}
-        tab={validTab ? drawerTab : 'invalid'} onTabChange={tab => setPage({ tab: tab === 'permissions' ? null : tab })}
-        tabs={validTab ? [
+        tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'permissions' ? null : tab })}
+        tabs={[
           {
             id: 'permissions',
             label: ko ? '권한' : 'Permissions',
@@ -114,11 +113,7 @@ export default function AccessDirectory() {
               </li>)}
             </ul>,
           },
-        ] : [{
-          id: 'invalid',
-          label: ko ? '알 수 없는 탭' : 'Unregistered tab',
-          content: <p role="alert">{ko ? '등록되지 않은 탭입니다.' : 'This tab is not registered.'} <Button size="sm" variant="secondary" onClick={() => setPage({ tab: null })}>{ko ? '권한 열기' : 'Open permissions'}</Button></p>,
-        }]} />
+        ]} />
     : <div role="alert" className="p-3">
         {/* Only the loaded page is known here: absence from it is not proof the principal does not exist. */}
         <p>{ko ? '이 페이지에 없는 주체입니다.' : 'Principal not on this page.'} <span className="t-mono">{focus}</span></p>

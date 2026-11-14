@@ -9,7 +9,7 @@ import { chartTheme, strokeToken, token } from './EChart';
 
 const shapes = ['circle', 'rect', 'triangle', 'diamond'] as const;
 export type KindProjection = {
-  rows: ChartRow[]; total: number; empty: boolean; summary: string; headers: string[]; tableValues: string[][];
+  rows: ChartRow[]; total: number; empty: boolean; summary: string; headers: string[]; tableValues: string[][]; csvHeaders: string[]; csvValues: (string | number)[][];
   legend: { label: string; color: ThemeColorToken; symbol: string; stroke?: ThemeColorToken; unknown?: boolean }[];
   seriesKeys: (string | undefined)[][];
   option: (active: string[]) => EChartsCoreOption;
@@ -56,6 +56,8 @@ export function scatterData(spec: ScatterSpec, ko: boolean, unit: string): KindP
   return {
     rows, total: 0, empty: !plotted.some(g => g.length),
     summary: ko ? `${points.length}개 점 · ${points.filter(p => p.x === null || p.y === null).length}개 미확인 · ${legend.map(g => g.label).join(', ')} · ${spec.xLabel} (${spec.xUnit}) · ${spec.yLabel} (${unit})` : `${points.length} points · ${points.filter(p => p.x === null || p.y === null).length} unknown · ${legend.map(g => g.label).join(', ')} · ${spec.xLabel} (${spec.xUnit}) · ${spec.yLabel} (${unit})`,
+    csvValues: points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, p.x ?? unknown, p.y ?? unknown]),
+    csvHeaders: ['ID', ko ? '이름' : 'Name', ko ? '그룹' : 'Group', `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`],
     headers: ['ID', ko ? '이름' : 'Name', ko ? '그룹' : 'Group', `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`], tableValues, legend,
     seriesKeys: plotted.map(g => g.map(p => rowKey('scatter', p.id))),
     option: active => {
@@ -109,6 +111,8 @@ export function boxPlotData(spec: BoxPlotSpec, ko: boolean, unit: string): KindP
   return {
     rows, total: 0, empty: !groups.some(g => g.stats),
     headers, tableValues,
+    csvHeaders: headers.map((header, i) => i > 0 && i !== 6 ? `${header} (${unit})` : header),
+    csvValues: groups.map(g => [g.label, ...[g.stats?.min, g.stats?.q1, g.stats?.median, g.stats?.q3, g.stats?.max].map(value => value ?? unknown), g.stats?.n ?? unknown, g.stats ? JSON.stringify(g.stats.outliers ?? []) : unknown]),
     summary: `${groups.length}${ko ? '개 그룹' : ' groups'} · ${groups.filter(g => !g.stats).length}${ko ? '개 미확인' : ' unknown'} · ${ko ? '수염: ' : 'Whiskers: '}${spec.whisker === 'tukey' ? '1.5×IQR' : ko ? '최소–최대' : 'min–max'} · ${unit}`,
     legend: groups.map((g, i) => ({ label: g.label, color: g.stats ? fills[i % 4] : 'chart-no-data', stroke: g.stats ? strokeToken(fills[i % 4]) : 'chart-no-data-pattern', unknown: !g.stats, symbol: 'rect' })),
     seriesKeys: [rows.map(r => r.key), outliers.map(o => rows[o.group].key), medianGroups.map(i => rows[i].key)],
@@ -159,6 +163,8 @@ export function paretoData(spec: ParetoSpec, ko: boolean, unit: string): KindPro
     rows, total, empty: total === 0,
     summary: `${rows.length}${ko ? '개 항목 · 합계' : ' items · Total'} ${total} ${unit}${total ? ko ? ` · 상위 ${reached}개 원본 항목이 ${pct(target * 100)} 도달` : ` · Top ${reached} original items reach ${pct(target * 100)}` : ''}`,
     headers: [ko ? '이름' : 'Name', ko ? '값' : 'Value', ko ? '누적 %' : 'Cumulative %'], tableValues,
+    csvHeaders: [ko ? '이름' : 'Name', `${ko ? '값' : 'Value'} (${unit})`, ko ? '누적 %' : 'Cumulative %'],
+    csvValues: rows.map((row, i) => [row.label, row.value!, cumulative[i]]),
     legend: [{ label: ko ? '값' : 'Value', color: 'chart-series-1', symbol: 'rect' }, ...(items.length > cap ? [{ label: ko ? '기타' : 'Other', color: 'chart-remainder' as const, symbol: 'rect' }] : []), { label: ko ? '누적 %' : 'Cumulative %', color: 'chart-series-2-stroke', symbol: 'line' }],
     seriesKeys: [rows.map(row => row.key), []],
     option: active => {

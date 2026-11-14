@@ -27,7 +27,7 @@ export async function startAppHost<A extends HostAssembly = HostAssembly>(option
       return;
     }
     if ('screen' in outcome) {
-      root.render(<StrictMode><StartupBoundary>{outcome.screen}</StartupBoundary></StrictMode>);
+      root.render(<StrictMode><StartupBoundary onStartupError={options.onStartupError}>{outcome.screen}</StartupBoundary></StrictMode>);
       return;
     }
     const assembly = outcome;
@@ -36,14 +36,14 @@ export async function startAppHost<A extends HostAssembly = HostAssembly>(option
     const location = base === undefined || base === '/' ? undefined : createBasePathLocation(base);
     root.render(
       <StrictMode>
-        <StartupBoundary>
+        <StartupBoundary onStartupError={options.onStartupError}>
           <I18nProvider>
             <HostRoot options={options} assembly={assembly} registry={registry} location={location} />
           </I18nProvider>
         </StartupBoundary>
       </StrictMode>,
     );
-  });
+  }, options.onStartupError);
 }
 
 /**

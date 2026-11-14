@@ -14,7 +14,9 @@ const actions: EditorAction[] = [
   { label: '접기', capability: 'details', run: e => { e.chain().focus().insertContent({ type: 'details', attrs: { open: true }, content: [{ type: 'detailsSummary', content: [{ type: 'text', text: '추가 확인 사항' }] }, { type: 'detailsContent', content: [{ type: 'paragraph' }] }] }).run(); } },
   { label: '목차', capability: 'tableOfContents', run: e => { e.chain().focus().insertContent({ type: 'tableOfContents' }).run(); } },
 ];
-export function actionsForSurface(surface: RichEditorSurface): EditorAction[] {
+export type EditorActionMessages = { label?: (defaultLabel: string) => string; detailsSummary?: string };
+export function actionsForSurface(surface: RichEditorSurface, messages?: EditorActionMessages): EditorAction[] {
   const capabilities = new Set(getExtensionsForSurface(surface));
-  return actions.filter(action => capabilities.has(action.capability));
+  const summary = messages?.detailsSummary;
+  return actions.filter(action => capabilities.has(action.capability)).map(action => ({ ...action, label: messages?.label?.(action.label) ?? action.label, ...(action.capability === 'details' && summary !== undefined ? { run: (editor: Editor) => { editor.chain().focus().insertContent({ type: 'details', attrs: { open: true }, content: [{ type: 'detailsSummary', content: [{ type: 'text', text: summary }] }, { type: 'detailsContent', content: [{ type: 'paragraph' }] }] }).run(); } } : {}) }));
 }

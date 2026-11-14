@@ -513,3 +513,16 @@ it.each([['ko', 'EquipmentID 전체로 되돌리기', '전체'], ['en', 'Reset E
   expect(screen.queryByRole('button', { name: clearLabel })).toBeNull();
   expect(screen.getByRole('button', { name: 'EquipmentID' })).toHaveFocus();
 });
+
+it('derives one period error and clears reference invalidity on a mode switch (#2028 SHE-15)', async () => {
+  mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  fireEvent.change(screen.getByLabelText('시작 시각'), { target: { value: '' } });
+  expect(screen.getAllByText('유효한 시작·종료 시각을 입력하세요.')).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: '최근 24시간' }));
+  fireEvent.click(screen.getByRole('button', { name: '기준일' }));
+  fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: '직접 범위' }));
+  expect(screen.queryByText('유효한 시작·종료 시각을 입력하세요.')).toBeNull();
+  expect(screen.getByLabelText('시작 시각')).not.toHaveAttribute('aria-invalid');
+});

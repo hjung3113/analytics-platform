@@ -330,7 +330,7 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
     expect(query(page).get('scopeId')).toBe('MEM');
   });
 
-  test('알 수 없는 drawer tab은 경고 탭으로 보이고 Back 복원 뒤에도 경고가 보인다 (W-350)', async ({ page }, testInfo) => {
+  test('알 수 없는 drawer tab은 경고로 보이고 Back 복원 뒤에도 경고가 보인다 (W-350)', async ({ page }, testInfo) => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
@@ -346,15 +346,15 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     }, `/mars/equipment-master?v=1&scopeId=MEM&focus=${focus}&tab=bogus`);
     await expect.poll(() => query(page).get('tab')).toBe('bogus');
-    await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
-    await dialog.getByRole('button', { name: '속성 열기' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('상세 탭 “bogus”');
+    await dialog.getByRole('button', { name: '값 지우기' }).click();
     await expect.poll(() => query(page).has('tab')).toBe(false);
     await expect(dialog.getByRole('tab', { name: '속성' })).toHaveAttribute('aria-selected', 'true');
 
-    // Back to the unknown tab with the same drawer mounted: the alert tab is selected again.
+    // Back to the unknown tab with the same drawer mounted: the shared alert is restored.
     await page.goBack();
     await expect.poll(() => query(page).get('tab')).toBe('bogus');
-    await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
+    await expect(dialog.getByRole('alert')).toContainText('상세 탭 “bogus”');
     await evidence(page, testInfo, 'equipment-unknown-tab-back-restore');
   });
 
@@ -373,8 +373,8 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     }, `/mars/equipment-master?v=1&scopeId=MEM&focus=${focus}&tab=bogus`);
     await expect.poll(() => query(page).get('tab')).toBe('bogus');
-    await expect(dialog.getByRole('alert')).toContainText('등록되지 않은 탭입니다.');
-    await dialog.getByRole('button', { name: '속성 열기' }).focus();
+    await expect(dialog.getByRole('alert')).toContainText('상세 탭 “bogus”');
+    await dialog.getByRole('button', { name: '값 지우기' }).focus();
     await page.keyboard.press('Enter');
     await expect(dialog.getByRole('tab', { name: '속성' })).toBeFocused();
     await evidence(page, testInfo, 'equipment-unknown-tab-recovery-focus');

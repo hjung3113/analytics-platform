@@ -41,6 +41,13 @@ export interface ComboboxOption {
 }
 
 export interface ComboboxProps {
+  /** Label of a selection that is outside the current options page. */
+  getLabel?: (value: string) => string | undefined;
+  loading?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingText?: string;
+  moreLabel?: string;
   options: ComboboxOption[];
   value: string | null;
   onChange: (value: string) => void;
@@ -71,6 +78,7 @@ export interface ComboboxProps {
 }
 
 export function Combobox({
+  getLabel, loading = false, hasMore = false, onLoadMore, loadingText = '불러오는 중…', moreLabel = '더 보기',
   options,
   value,
   onChange,
@@ -105,6 +113,7 @@ export function Combobox({
   }, [options, search, filterOptions]);
 
   const selected = options.find((o) => o.value === value);
+  const selectedLabel = selected?.label ?? (value === null ? undefined : getLabel?.(value));
 
   // Typing or opening starts a new choice: nothing stays highlighted.
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — search and open are signals, not values read here.
@@ -228,11 +237,11 @@ export function Combobox({
             font === 'mono' && 'font-mono',
             'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            !selected && 'text-text-muted',
+            selectedLabel === undefined && 'text-text-muted',
             className,
           )}
         >
-          <span className="min-w-0 truncate">{selected ? selected.label : placeholder}</span>
+          <span className="min-w-0 truncate">{selectedLabel ?? placeholder}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
@@ -260,12 +269,13 @@ export function Combobox({
           // biome-ignore lint/a11y/useSemanticElements: WAI-ARIA APG §combobox requires <ul role="listbox"> as scrollable container; native <select> does not support this layout
           // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: <ul role="listbox"> is canonical ARIA listbox per APG §combobox; keyboard managed via search input onKeyDown
           role="listbox"
+          aria-busy={loading || undefined}
           aria-label={listboxLabel}
           className="max-h-60 overflow-y-auto py-1"
         >
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-sm text-text-muted" role="presentation">
-              {emptyText}
+              {loading ? loadingText : emptyText}
             </li>
           ) : (
             filtered.map((option, idx) => (
@@ -302,6 +312,7 @@ export function Combobox({
             ))
           )}
         </ul>
+        {hasMore && <button type="button" disabled={loading || !onLoadMore} onClick={onLoadMore} className="w-full border-t border-border-subtle px-3 py-2 text-sm text-accent-primary disabled:opacity-50">{loading ? loadingText : moreLabel}</button>}
         {footerText && (
           <p className="border-t border-border-subtle px-3 py-2 text-xs text-text-muted">
             {footerText}

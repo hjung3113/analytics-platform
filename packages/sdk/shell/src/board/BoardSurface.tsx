@@ -122,7 +122,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     // A covered board says nothing yet; it is said, once, when it is shown.
     if (key === null || storageSaid.current === key || !visible) return;
     storageSaid.current = key;
-    notifyRef.current(storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
+    notifyRef.current(storageNotice === 'failed' ? text.storageFailed : storageNotice === 'newer' ? text.storageNewer : text.storageCorrupt);
   }, [storageNotice, user.id, text, visible]);
 
   // Said once per user, in the board's toast; a covered board says it when shown.

@@ -36,6 +36,8 @@ export type StartAppHostOptions<A extends HostAssembly = HostAssembly> = {
   queryHistory: QueryHistoryStore;
   /** App slots; the Host puts `contextBar`, `boardEntry` and `topBarTools` UNDER these, so an injected value wins. Called in the root's render on every render: it may use React hooks (keep the hook order fixed), so an assembler whose slots depend on a store subscribes there and returns the current slots. */
   slots?: (assembly: A) => PlatformSlots;
+  /** Startup or uncaught root-render error; defaults to console.error. Never shown in the failure screen. */
+  onStartupError?: (error: unknown) => void;
   /** Runs once after the Registry and the assembly exist and before the first render (the app wires its feature API and slot joins here). */
   onAssembly?: (assembly: A, registry: Registry) => void;
   /** Called once for a `{ redirect }` outcome; defaults to `window.location.replace`. */

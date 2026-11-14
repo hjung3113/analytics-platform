@@ -39,6 +39,8 @@ export interface RichEditorToolbarApi {
 }
 
 export interface RichEditorProps {
+  /** Copy of slash/block insertion actions; omitted preserves Korean labels and summary. */
+  actionMessages?: import('./editor-actions').EditorActionMessages;
   surface: RichEditorSurface;
   /**
    * Controlled value. Pass `null` (or an empty doc) to explicitly clear the

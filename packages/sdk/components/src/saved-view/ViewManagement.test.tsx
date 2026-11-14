@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { formatInstant } from '@ap/contracts';
 import type { SavedViewEntry, SavedViewListItem, ViewApproval, ViewCapabilities } from '@ap/contracts';
 import { I18nProvider, diagnoseSavedView } from '@ap/kernel';
 import { ViewManagement, type ViewManagementProps } from './ViewManagement';
@@ -265,4 +266,12 @@ describe('review round: the Kernel diagnosis feeds the surface directly', () => 
     await userEvent.click(screen.getAllByRole('button', { name: '이유 보기' })[0]!);
     expect(screen.getByText('이 Scope를 볼 권한이 없습니다')).toBeInTheDocument();
   });
+});
+
+it('formats the default saved-view time in the viewer locale (#2028 SHE-13)', () => {
+  vi.stubGlobal('localStorage', { getItem: () => 'en' });
+  const item = entry('time', 'none');
+  render(<I18nProvider><ViewManagement open onOpenChange={() => {}} entries={[item]} currentUserId="approver" /></I18nProvider>);
+  expect(screen.getByRole('button', { name: /뷰 time/ })).toHaveTextContent(formatInstant(item.view.updatedAt, 'en'));
+  vi.unstubAllGlobals();
 });

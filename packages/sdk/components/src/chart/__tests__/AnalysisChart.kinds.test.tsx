@@ -278,9 +278,9 @@ it.each([scatter, box, pareto])('gates $kind CSV on feature and an active route'
 });
 
 it.each<{ spec: ChartSpec; expected: string }>([
-  { spec: { ...scatter, points: [{ id: 'a', x: 1, y: 2 }, { id: 'b', x: null, y: null }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\nID,이름,그룹,X (s),Y (ea)\r\na,a,기본 그룹,1 s,2 ea\r\nb,b,기본 그룹,미확인,미확인\r\n' },
-  { spec: { ...box, groups: [{ id: 'a', label: 'A', stats: { ...stats, outliers: [8, 9] } }, { id: 'b', label: 'B', stats: null }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n그룹,Min,Q1,중앙값,Q3,Max,n,이상치\r\nA,1 ea,2 ea,3 ea,4 ea,5 ea,미확인,8 ea; 9 ea\r\nB,미확인,미확인,미확인,미확인,미확인,미확인,미확인\r\n' },
-  { spec: { ...pareto, maxItems: 2, items: [{ id: 'a', label: 'A', value: 3 }, { id: 'b', label: 'B', value: 2 }, { id: 'c', label: 'C', value: 1 }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n이름,값,누적 %\r\nA,3 ea,50%\r\n기타,3 ea,100%\r\n' },
+  { spec: { ...scatter, points: [{ id: 'a', x: 1, y: 2 }, { id: 'b', x: null, y: null }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\nID,이름,그룹,X (s),Y (ea)\r\na,a,기본 그룹,1,2\r\nb,b,기본 그룹,미확인,미확인\r\n' },
+  { spec: { ...box, groups: [{ id: 'a', label: 'A', stats: { ...stats, outliers: [8, 9] } }, { id: 'b', label: 'B', stats: null }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n그룹,Min (ea),Q1 (ea),중앙값 (ea),Q3 (ea),Max (ea),n,이상치 (ea)\r\nA,1,2,3,4,5,미확인,"[8,9]"\r\nB,미확인,미확인,미확인,미확인,미확인,미확인,미확인\r\n' },
+  { spec: { ...pareto, maxItems: 2, items: [{ id: 'a', label: 'A', value: 3 }, { id: 'b', label: 'B', value: 2 }, { id: 'c', label: 'C', value: 1 }] }, expected: '# Chart · scopeId=MEM · from= · to= · unit=ea\r\n이름,값 (ea),누적 %\r\nA,3,50\r\n기타,3,100\r\n' },
 ])('exports the $spec.kind table projection including unknown/synthetic/outlier values', async ({ spec, expected }) => {
   const blobs: Blob[] = [];
   class DownloadURL extends URL {
@@ -295,9 +295,10 @@ it.each<{ spec: ChartSpec; expected: string }>([
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
     const text = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]); });
     expect(text).toBe(expected);
-    for (const row of within(table).getAllByRole('row').slice(1)) {
-      for (const cell of within(row).getAllByRole('cell').slice(0, -1)) expect(text).toContain(cell.textContent!);
-    }
+    // The CSV keeps numbers as numbers with the unit in the header (#2028 SHE-19), so it has one line per table row, not the cell text.
+    expect(text.trimEnd().split('\r\n').length - 2).toBe(within(table).getAllByRole('row').length - 1);
+    // The shared download helper revokes the blob URL after the click settles; wait so it runs against this stub.
+    await vi.waitFor(() => expect(DownloadURL.revokeObjectURL).toHaveBeenCalledWith('blob:test'), { timeout: 2000 });
   } finally { vi.unstubAllGlobals(); }
 });
 

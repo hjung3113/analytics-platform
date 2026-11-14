@@ -68,7 +68,7 @@ it(
     );
 
     // Token color utility inlines the theme value.
-    expect(css).toContain('.bg-accent-primary { background-color: rgb(var(--color-neon-lime)); }');
+    expect(css).toContain('.bg-accent-primary { background-color: rgb(var(--accent-primary)); }');
     expect(css).toContain('.text-text-success-label { color: rgb(var(--text-success-label)); }');
     expect(css).toContain('.text-text-info-label { color: rgb(var(--text-info-label)); }');
     expect(css).toContain('.text-text-warning-label { color: rgb(var(--text-warning-label)); }');
@@ -211,3 +211,10 @@ it(
   },
   COMPILE_TIMEOUT,
 );
+
+it('resolves accent and focus utilities through the public semantic tokens (#2028 SHE-28)', async () => {
+  const css = await compileConsumerCss(['bg-accent-primary', 'ring-focus-ring']);
+  expect(css).toContain('.bg-accent-primary { background-color: rgb(var(--accent-primary)); }');
+  expect(css).toContain('--tw-ring-color: rgb(var(--focus-ring));');
+  expect(css).toContain('--accent-primary: var(--color-neon-lime);');
+});

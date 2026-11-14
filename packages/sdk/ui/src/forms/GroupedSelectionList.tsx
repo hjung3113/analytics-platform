@@ -67,7 +67,7 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
       {props.presets?.map(preset => <Tooltip key={preset.id}><TooltipTrigger asChild>
         <Button type="button" variant="secondary" size="toolbar" aria-describedby={`${prefix}-preset-${preset.id}`} onClick={() => toggle(preset.itemIds, true)}>{preset.label}</Button>
       </TooltipTrigger><TooltipContent>{preset.description}</TooltipContent><span id={`${prefix}-preset-${preset.id}`} className="sr-only">{preset.description}</span></Tooltip>)}
-    </TooltipProvider><Button type="button" variant="ghost" size="toolbar" disabled={props.value.length === 0} onClick={() => props.onChange([])}>{copy.clear}</Button></div> : null}
+    </TooltipProvider><Button type="button" variant="ghost" size="toolbar" disabled={!props.value.some(id => enabled.has(id))} onClick={() => props.onChange(props.value.filter(id => !enabled.has(id)))}>{copy.clear}</Button></div> : null}
   </div>;
   const rows = filtered.map(group => {
     const available = group.items.filter(item => !item.disabledReason).map(item => item.id);

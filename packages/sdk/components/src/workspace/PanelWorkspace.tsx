@@ -16,7 +16,7 @@ import { workspaceText } from './text';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS } from './workspaceStorage';
-import { applyPreset, changeMode, hidePanel, initialWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
@@ -151,6 +151,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
   const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec) : null) ?? initialWorkspaceState(spec));
+  const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort()]);
+  const [seenPanels, setSeenPanels] = useState(panelIdentity);
+  if (seenPanels !== panelIdentity) {
+    setSeenPanels(panelIdentity);
+    setStored(previous => normalizeWorkspaceState(previous, spec));
+  }
 
   // Width of the workspace: under `compactBelow` with a compact preset the arrangement is the preset's, in memory.
   const root = useRef<HTMLDivElement>(null);
@@ -171,6 +177,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
   const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
+  if (seenPanels !== panelIdentity && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec) : null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
   const state = compact ? (compactState ?? derived) : stored;

@@ -34,6 +34,7 @@ export interface ListToolbarTab {
 }
 
 export interface ListTabsProps {
+  messages?: Partial<{ previous: string; next: string; more: string; current: (label: string) => string }>;
   tabs: ListToolbarTab[];
   activeTab?: string;
   onTabChange?: (next: string) => void;
@@ -51,6 +52,7 @@ export interface ListTabsProps {
 const EDGE_FADE_PX = 16;
 
 export function ListTabs({
+  messages,
   tabs,
   activeTab,
   onTabChange,
@@ -148,7 +150,7 @@ export function ListTabs({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="이전 탭 보기"
+                  aria-label={messages?.previous ?? '이전 탭 보기'}
                   aria-hidden={!overflowState.canScrollLeft}
                   disabled={!overflowState.canScrollLeft}
                   className={cn(
@@ -161,7 +163,7 @@ export function ListTabs({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                이전 탭 보기
+                {messages?.previous ?? '이전 탭 보기'}
               </TooltipContent>
             </Tooltip>
           )}
@@ -231,12 +233,12 @@ export function ListTabs({
                   data-list-toolbar-more
                   className="ml-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 >
-                  더보기
+                  {messages?.more ?? '더보기'}
                   <span className="text-tiny tabular-nums">{hiddenTabs.length}</span>
                   <ChevronDown className="h-3 w-3" aria-hidden="true" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" aria-label="더보기">
+              <DropdownMenuContent align="start" aria-label={messages?.more ?? '더보기'}>
                 {hiddenTabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
@@ -272,7 +274,7 @@ export function ListTabs({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="다음 탭 보기"
+                  aria-label={messages?.next ?? '다음 탭 보기'}
                   aria-hidden={!overflowState.canScrollRight}
                   disabled={!overflowState.canScrollRight}
                   className={cn(
@@ -285,7 +287,7 @@ export function ListTabs({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                다음 탭 보기
+                {messages?.next ?? '다음 탭 보기'}
               </TooltipContent>
             </Tooltip>
           )}

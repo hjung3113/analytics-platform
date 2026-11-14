@@ -12,6 +12,22 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('the board session store (docs/16 §7)', () => {
+  it('retains a failed save without subscribers, announces it, and retries (#2028 SHE-11)', () => {
+    resetBoardSessionsForTests();
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('unavailable'); });
+    const after = updateBoardSession('u1', 'Sheet', board => addSheet(board, 'Sheet'));
+    expect(after.notice).toBe('failed');
+    expect(after.readOnly).toBe(false);
+    expect(readBoardSession('u1', 'Sheet').board).toBe(after.board);
+    const { result, unmount } = renderHook(() => useBoardSession('u1', 'Sheet'));
+    expect(result.current.storageNotice).toBe('failed');
+    write.mockRestore();
+    act(() => { result.current.update(board => board); });
+    expect(result.current.storageNotice).toBeNull();
+    expect(JSON.parse(localStorage.getItem(V2('u1'))!).sheets).toHaveLength(2);
+    unmount();
+  });
+
   it('two subscribers of one user see the same board, and one update shows in the other at once', () => {
     const a = renderHook(() => useBoardSession('u1', '시트'));
     const b = renderHook(() => useBoardSession('u1', '시트'));

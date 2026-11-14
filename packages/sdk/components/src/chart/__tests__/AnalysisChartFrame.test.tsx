@@ -297,7 +297,8 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
     const revoke = URL.revokeObjectURL;
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     URL.createObjectURL = (blob: Blob) => { blobs.push(blob); return 'blob:test'; };
-    URL.revokeObjectURL = () => {};
+    const revoked = vi.fn();
+    URL.revokeObjectURL = revoked;
     try {
       mount(fixture().adapter, on, '/?v=1&scopeId=MEM', { series: spread });
       fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
@@ -310,6 +311,8 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
         + '2026-10-02T00:00:00,10,,\r\n'
         + '2026-10-03T00:00:00,,,\r\n',
       );
+      // The shared download helper revokes after the click settles; wait so it runs before the original is restored.
+      await vi.waitFor(() => expect(revoked).toHaveBeenCalledWith('blob:test'), { timeout: 2000 });
     } finally {
       URL.createObjectURL = create;
       URL.revokeObjectURL = revoke;
@@ -1150,7 +1153,8 @@ it.each([['Export title', 'Export title'], [<strong>Rich title</strong>, 'sized'
       const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]);
     });
     expect(text.split('\r\n')[0]).toBe(`# ${expectedTitle} · scopeId=MEM · from=2026-10-01T00:00:00 · to=2026-10-02T00:00:00 · metricVersion=v2 · unit=kg`);
-    expect(DownloadURL.revokeObjectURL).toHaveBeenCalledWith('blob:metadata');
+    // The shared download helper releases the blob URL after the click settles (#2028 SHE-19).
+    await vi.waitFor(() => expect(DownloadURL.revokeObjectURL).toHaveBeenCalledWith('blob:metadata'), { timeout: 2000 });
   } finally { vi.unstubAllGlobals(); }
 });
 

@@ -46,7 +46,7 @@ export function useColumnPreferences(preferenceKey: string) {
       setSynced(null);
       setTouched(null);
       setPreferences(defaults);
-    }
+    } else setPreferences(readPreferences(preferenceKey));
   }
   const controllerRef = useRef(controller);
   useEffect(() => { controllerRef.current = controller; }, [controller]);

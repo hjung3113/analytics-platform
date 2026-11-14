@@ -79,6 +79,20 @@
   --focus-ring: var(--color-neon-lime);
   --focus-ring-danger: var(--color-warning-red);
 
+  /* Shared accent roles, available to both CSS entry recipes. */
+  --accent-primary: var(--color-neon-lime);          /* #1428a0 */
+  --accent-primary-hover: 16 32 128;                 /* #102080 */
+  --accent-primary-soft: 228 232 246;                /* #1428a0 ≈12% on white */
+  --accent-info: var(--color-cyan-spark);
+  --accent-success: var(--color-emerald);
+  --accent-success-soft: 227 245 237;
+  --accent-warn: var(--color-amber);
+  --accent-warn-soft: 244 236 224;
+  --accent-danger: var(--color-warning-red);
+  --accent-danger-soft: 250 229 231;
+  --accent-neutral: var(--color-storm-cloud);
+  --accent-neutral-soft: var(--color-deep-slate);
+
   /* #801 semantic DetailPanelHeader accents: roles stay distinct from the raw palette. */
   --accent-voc: var(--color-aether-blue);
   --accent-task: var(--color-amethyst);

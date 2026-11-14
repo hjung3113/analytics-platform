@@ -373,12 +373,14 @@ export function OrderedIntervalPlot(props: PlotProps) {
       view[0],
       Math.min(view[1], view[0] + ((px - ORDER_GUTTER) / plotWidth) * (view[1] - view[0])),
     );
+    const laneItems = lane ? visibleOrderedItems(props.items, view, [lane.laneKey]) : [];
+    const dense = laneItems.filter(item => item.kind === 'point').length * 24 > plotWidth;
     const hits =
       px < ORDER_GUTTER || !lane
         ? []
-        : visibleOrderedItems(props.items, view, [lane.laneKey]).filter((item) =>
+        : laneItems.filter((item) =>
             item.kind === 'point'
-              ? Math.abs(orderX(item.orderStart, view, plotWidth) - px) <= 5
+              ? (!dense || item.id === props.selected || item.id === props.focused) && Math.abs(orderX(item.orderStart, view, plotWidth) - px) <= 5
               : item.orderStart <= order && (item.orderEnd ?? view[1]) >= order,
           );
     const hit = hits.filter((item) => item.kind === 'point').at(-1) ?? hits.at(-1);

@@ -81,7 +81,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     const unchanged = live !== undefined && (destination === 'empty' ? live === null : live !== null && samePane(live, shown));
     return unchanged ? { ...setPane(held, sheet.id, paneIndex, screen), activeSheetId: sheet.id } : null;
   };
-  type Verdict = { board: Board; refusal: 'readOnly' | 'busy' | 'target' | null };
+  type Verdict = { board: Board; refusal: 'readOnly' | 'failed' | 'busy' | 'target' | null };
   /** Takes a change another tab made in first, then judges the session: nothing is written. */
   const judge = (plannedSheetId: string | null): Verdict => {
     reloadBoardSession(user.id, text.sheetPrefix);
@@ -89,11 +89,13 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
     if (held.readOnly) return { board: held.board, refusal: 'readOnly' };
     // Moves still only in memory (a splitter drag) are never written over what another tab saved meanwhile: that is a conflict, not a retry-able pane change.
+    if (held.notice === 'failed') return { board: held.board, refusal: 'failed' };
     if (held.unsaved) return { board: held.board, refusal: 'busy' };
     return { board: held.board, refusal: planFor(held.board, plannedSheetId) ? null : 'target' };
   };
   const refuse = ({ board, refusal }: Verdict) => {
     if (refusal === 'readOnly') setProblem(text.boardNotSaved);
+    else if (refusal === 'failed') setProblem(text.storageFailed);
     else if (refusal === 'busy') setProblem(text.boardBusy);
     else if (refusal === 'target') {
       setBoard(board);
@@ -106,7 +108,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     const verdict = judge(plannedSheetId);
     if (verdict.refusal !== null) return verdict;
     const after = updateBoardSession(user.id, text.sheetPrefix, held => planFor(held, plannedSheetId) ?? held);
-    return { board: after.board, refusal: after.readOnly ? 'readOnly' : null };
+    return { board: after.board, refusal: after.readOnly ? 'readOnly' : after.notice === 'failed' ? 'failed' : null };
   };
 
   const confirm = () => {

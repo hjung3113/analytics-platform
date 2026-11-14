@@ -3,6 +3,7 @@ import { isHierarchyFailure, type HierarchyFailure, type HierarchyNode, type Hie
 type Failure = HierarchyFailure['kind'];
 export type Load<T> = { status: 'loading' | 'ready' | Failure; value?: T };
 export type HierarchySnapshot = {
+  source?: HierarchySource;
   pages: Readonly<Record<string, Load<HierarchyPage>>>;
   ancestors: Readonly<Record<string, Load<HierarchyNode[]>>>;
   routeId: string | null | undefined;
@@ -26,6 +27,14 @@ export class HierarchyNavState {
   private requests = new Map<string, AbortController>();
   /** Cursors already sent per page chain; a repeat means a cycle. Reset when a chain restarts. */
   private cursors = new Map<string, Set<string>>();
+  private source: HierarchySource | undefined;
+  bindSource(source: HierarchySource) {
+    if (this.source === source) return;
+    this.source = source;
+    for (const controller of this.requests.values()) controller.abort();
+    this.requests.clear(); this.cursors.clear();
+    this.update({ source, pages: {}, ancestors: dict({}), routeId: undefined, locatedId: undefined, path: [], expanded: new Set(), query: '', readyQuery: '' });
+  }
   constructor(readonly identity: string) {}
   read = () => this.snapshot;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };

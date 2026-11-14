@@ -12,6 +12,7 @@ import { normalizeClient } from './sanitizeClient';
 
 export default function RichEditorImpl({
   surface,
+  actionMessages,
   value,
   defaultValue,
   onChange,
@@ -27,6 +28,8 @@ export default function RichEditorImpl({
 }: RichEditorProps) {
   const callbacks = React.useRef({ onAttach, resolveAttachmentUrl, resolveMentionLabel });
   React.useEffect(() => { callbacks.current = { onAttach, resolveAttachmentUrl, resolveMentionLabel }; }, [onAttach, resolveAttachmentUrl, resolveMentionLabel]);
+  const draftGeneration = React.useRef(0);
+  const completedAttachments = React.useRef<JSONContent[]>([]);
   const [uploadError, setUploadError] = React.useState(false);
   const [overLimit, setOverLimit] = React.useState(false);
   // The last value handed to onChange: a parent that echoes this same object needs no comparison.
@@ -35,6 +38,7 @@ export default function RichEditorImpl({
   const uploadFiles = React.useCallback(async (editor: Editor, files: File[], pos?: number) => {
     if (!editor.isEditable || !callbacks.current.onAttach) return;
     setUploadError(false);
+    const generation = draftGeneration.current;
     let insertion = pos ?? editor.state.selection.from;
     const mapPosition = ({ transaction }: { transaction: import('@tiptap/pm/state').Transaction }) => {
       insertion = transaction.mapping.map(insertion, 1);
@@ -43,8 +47,9 @@ export default function RichEditorImpl({
     try {
       for (const file of files) {
         try {
+          if (generation !== draftGeneration.current || editor.isDestroyed || !editor.isEditable) { setUploadError(true); continue; }
           const result = await callbacks.current.onAttach(file);
-          if (editor.isDestroyed || !editor.isEditable) return;
+          if (generation !== draftGeneration.current || editor.isDestroyed || !editor.isEditable) { setUploadError(true); continue; }
           if (file.type.startsWith('image/')) {
             editor.commands.insertContentAt(Math.min(insertion, editor.state.doc.content.size), { type: 'image', attrs: { id: result.attachment_id } });
           }
@@ -142,14 +147,16 @@ export default function RichEditorImpl({
     } catch {
       same = false;
     }
+    if (!same || value == null) {
+      draftGeneration.current += 1;
+      completedAttachments.current = [];
+    }
     if (!same) {
       editor.commands.setContent(targetDoc, { emitUpdate: false });
       // No update event fires for this replacement, so the size notice follows the new document here.
       setOverLimit(normalizeClient(targetDoc, surface).overLimit);
     }
   }, [editor, value, surface]);
-
-  const completedAttachments = React.useRef<JSONContent[]>([]);
 
   // Re-apply editable and flush completed uploads once editing resumes.
   React.useEffect(() => {
@@ -183,7 +190,10 @@ export default function RichEditorImpl({
         if (!uploader) {
           throw new Error('RichEditor: onAttach is not configured for this surface');
         }
+        const generation = draftGeneration.current;
+        const sourceEditor = liveEditor.current;
         const result = await uploader(file);
+        if (generation !== draftGeneration.current || sourceEditor !== liveEditor.current) return result;
         const target = liveEditor.current;
         const content: JSONContent = {
           type: getExtensionsForSurface(surface).includes('image') && file.type.startsWith('image/') ? 'image' : 'attachmentRef',
@@ -205,7 +215,7 @@ export default function RichEditorImpl({
       {toolbar ? toolbar(editor, toolbarApi) : editor && getExtensionsForSurface(surface).includes('heading') ? <RichEditorToolbar editor={editor} surface={surface} stickyOffset={toolbarStickyOffset} {...(onAttach ? { attach: toolbarApi.attach } : {})} /> : null}
       {uploadError && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">첨부 파일을 올리지 못했습니다. 다시 시도해 주세요.</p>}
       {overLimit && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">내용이 너무 깁니다. 줄여야 저장할 수 있습니다.</p>}
-      {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} onMenuChange={setSlashMenu} />}
+      {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} actionMessages={actionMessages} onMenuChange={setSlashMenu} />}
       {/*
         `minHeight` sizes this wrapper, but the editable element TipTap renders
         inside it (`.ProseMirror`) is only as tall as its content. Everything

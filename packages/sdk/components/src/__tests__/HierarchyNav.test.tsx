@@ -227,3 +227,41 @@ describe('HierarchyNav (#1448)', () => {
   });
 
 });
+
+it('drops cached pages when the supplied source changes (#2028 SHE-25)', async () => {
+  const old: HierarchySource = { resolveAncestors: async () => [], listChildren: async () => ({ nodes: [node('Old scope')] }) };
+  const next: HierarchySource = { resolveAncestors: async () => [], listChildren: vi.fn(async () => ({ nodes: [node('New scope')] })) };
+  const view = mount(old);
+  await screen.findByRole('link', { name: 'Old scope' });
+  view.rerender(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><TooltipProvider><HierarchyNav menuId="fixture-home" label="Items" source={next} /></TooltipProvider></PlatformProvider></I18nProvider>);
+  await screen.findByRole('link', { name: 'New scope' });
+  expect(screen.queryByRole('link', { name: 'Old scope' })).toBeNull();
+  expect(next.listChildren).toHaveBeenCalledOnce();
+});
+
+it('aborts in-flight requests and ignores late completions when the supplied source is replaced (#2028 SHE-25)', async () => {
+  let oldSignal: AbortSignal | undefined;
+  let resolveOld!: (page: { nodes: HierarchyNode[] }) => void;
+  const old: HierarchySource = {
+    resolveAncestors: async () => [],
+    listChildren: vi.fn(({ signal }) => {
+      oldSignal = signal;
+      return new Promise<{ nodes: HierarchyNode[] }>(resolve => { resolveOld = resolve; });
+    }),
+  };
+  const next: HierarchySource = {
+    resolveAncestors: async () => [],
+    listChildren: vi.fn(async () => ({ nodes: [node('New scope')] })),
+  };
+  const view = mount(old);
+  await waitFor(() => expect(oldSignal).toBeTruthy());
+  expect(oldSignal?.aborted).toBe(false);
+
+  view.rerender(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><TooltipProvider><HierarchyNav menuId="fixture-home" label="Items" source={next} /></TooltipProvider></PlatformProvider></I18nProvider>);
+  await screen.findByRole('link', { name: 'New scope' });
+  expect(oldSignal?.aborted).toBe(true);
+
+  await act(async () => resolveOld({ nodes: [node('Late old scope')] }));
+  expect(screen.queryByRole('link', { name: 'Late old scope' })).toBeNull();
+  expect(screen.getByRole('link', { name: 'New scope' })).toBeTruthy();
+});

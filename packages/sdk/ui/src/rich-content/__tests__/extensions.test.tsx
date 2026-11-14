@@ -200,3 +200,24 @@ describe('simulated composition boundaries (jsdom, not native Korean IME)', () =
     await waitFor(() => expect(screen.queryByRole('listbox', { name: '블록 추가' })).toBeNull());
   });
 });
+
+
+it.each(['clear', 'disable'] as const)('reports interrupted pasted uploads after draft %s (#2028 SHE-29)', async transition => {
+  let editor: Editor | null = null;
+  let finish!: (result: { attachment_id: string; name: string; size_bytes: number; mime_type: string }) => void;
+  const pending = new Promise<{ attachment_id: string; name: string; size_bytes: number; mime_type: string }>(resolve => { finish = resolve; });
+  const onAttach = vi.fn(() => pending);
+  const value: TipTapDoc = { type: 'doc', content: [paragraph('Old draft')] };
+  const toolbar = (current: Editor | null) => { editor = current; return null; };
+  const view = render(<RichEditor surface="voc-description" value={value} onAttach={onAttach} toolbar={toolbar} />);
+  await waitFor(() => expect(editor).not.toBeNull());
+  const live = editor as unknown as Editor;
+  const files = ['a.png', 'b.png'].map(name => new File(['x'], name, { type: 'image/png' }));
+  fireEvent.paste(live.view.dom, { clipboardData: { files, items: [], getData: () => '' } });
+  expect(onAttach).toHaveBeenCalledOnce();
+  view.rerender(<RichEditor surface="voc-description" value={transition === 'clear' ? null : value} disabled={transition === 'disable'} onAttach={onAttach} toolbar={toolbar} />);
+  await act(async () => { finish({ attachment_id: id, name: 'a.png', size_bytes: 1, mime_type: 'image/png' }); await pending; });
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+  expect(live.getJSON().content?.some(node => node.type === 'image')).toBe(false);
+  expect(onAttach).toHaveBeenCalledOnce();
+});

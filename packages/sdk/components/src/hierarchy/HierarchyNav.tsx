@@ -53,6 +53,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
   const own = useHierarchyNavState(menuId);
   // Refuse even a mistakenly retained cache from a different user/revision in this very render.
   const state = shared?.identity === own.identity ? shared : own;
+  useLayoutEffect(() => { state.bindSource(source); }, [state, source]);
   const snapshot = useSyncExternalStore(state.subscribe, state.read, state.read);
   const { resolveLink } = useHostPlatform();
   const { t } = useI18n();
@@ -111,6 +112,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
   const searchIdsKey = JSON.stringify(visibleSearchIds);
   const neededKey = JSON.stringify(needed);
   useEffect(() => {
+    if (snapshot.source !== source) return;
     state.retain(new Set([...needed, ...visibleSearchIds.map(ancestorKey)]));
     if (restoring) {
       if (currentNodeId !== null && !pathLoad) state.loadAncestors(source, currentNodeId);
@@ -126,8 +128,9 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
       state.loadPage(source, childrenKey(null), null, null, pageSize);
       expandedParents.forEach(id => state.loadPage(source, childrenKey(id), id, null, pageSize));
     } else state.loadPage(source, currentKey, parentId, null, pageSize);
-  }, [state, source, neededKey, needed, restoring, currentNodeId, pathLoad, waitingSearch, searching, currentKey, snapshot.readyQuery, mode, expandedParents, parentId, pageSize, snapshot.pages, snapshot.ancestors, searchIdsKey, visibleSearchIds]);
+  }, [state, source, snapshot.source, neededKey, needed, restoring, currentNodeId, pathLoad, waitingSearch, searching, currentKey, snapshot.readyQuery, mode, expandedParents, parentId, pageSize, snapshot.pages, snapshot.ancestors, searchIdsKey, visibleSearchIds]);
   useEffect(() => {
+    if (snapshot.source !== source) return;
     if (routeSteps.length === 0 || missingRoute) return;
     let located = true;
     for (const { id, parent } of routeSteps) {
@@ -139,7 +142,7 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
       else if (load.status === 'ready' && load.value?.nextCursor) state.loadPage(source, key, parent, null, pageSize, true);
     }
     if (located && currentNodeId) state.update({ locatedId: currentNodeId });
-  }, [routeSteps, missingRoute, snapshot.pages, state, source, pageSize, currentNodeId]);
+  }, [routeSteps, missingRoute, snapshot.source, snapshot.pages, state, source, pageSize, currentNodeId]);
   useEffect(() => () => state.retain(new Set()), [state]);
 
   useLayoutEffect(() => {

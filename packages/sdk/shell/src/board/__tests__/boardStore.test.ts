@@ -129,6 +129,12 @@ describe('loadBoard', () => {
 });
 
 describe('saveBoard', () => {
+  it('reports a refused storage write (#2028 SHE-11)', () => {
+    const storage = memoryStorage();
+    storage.setItem = () => { throw new Error('unavailable'); };
+    expect(saveBoard(storage, 'u1', freshBoard('Sheet'))).toBe(false);
+  });
+
   it('first write over a V1 board writes V2, leaves the V1 value byte-identical and backs it up once', () => {
     const storage = memoryStorage();
     const raw = JSON.stringify(v1());

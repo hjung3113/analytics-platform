@@ -56,3 +56,15 @@ describe('Combobox filterOptions (#821 fix1)', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+it('shows a selected label outside the current page and owns loading/more controls (#2028 SHE-17)', () => {
+  const load = vi.fn();
+  const view = render(<Combobox options={[]} value="saved" getLabel={() => 'Saved label'} onChange={() => {}} hasMore onLoadMore={load} moreLabel="More" loadingText="Loading" />);
+  expect(screen.getByRole('combobox')).toHaveTextContent('Saved label');
+  fireEvent.click(screen.getByRole('combobox'));
+  fireEvent.click(screen.getByRole('button', { name: 'More' }));
+  expect(load).toHaveBeenCalledOnce();
+  view.rerender(<Combobox options={[]} value="saved" getLabel={() => 'Saved label'} onChange={() => {}} hasMore onLoadMore={load} loading loadingText="Loading" />);
+  expect(screen.getByRole('listbox')).toHaveAttribute('aria-busy', 'true');
+  expect(screen.getByRole('button', { name: 'Loading' })).toBeDisabled();
+});

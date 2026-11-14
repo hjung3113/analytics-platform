@@ -25,7 +25,6 @@ export function HandoffOwnerFields({ uid, value, onChange, disabled, errors }: {
     const next = data.rows.filter(row => row.active).map(modelOption);
     setOptions(previous => page === 0 ? next : [...previous, ...next.filter(row => !previous.some(p => p.value === row.value))]);
   }, [data, page]);
-  const shown = picked && !options.some(row => row.value === picked.value) ? [picked, ...options] : options;
   const hasMore = data !== null && (page + 1) * 20 < data.total;
   return <div className="grid gap-1.5">
     <FieldLabel htmlFor={`${uid}-model`} required>소유 대상</FieldLabel>
@@ -33,12 +32,11 @@ export function HandoffOwnerFields({ uid, value, onChange, disabled, errors }: {
       <RadioGroup appearance="segmented" aria-label="소유 종류" disabled={disabled} value={value.ownerKind} onValueChange={kind => onChange({ ownerKind: kind === 'software' ? 'software' : 'model', softwareId: '' })}>
         <RadioGroupItem appearance="segmented" value="model">모델</RadioGroupItem><RadioGroupItem appearance="segmented" value="software">SW 버전</RadioGroupItem>
       </RadioGroup>
-      <Combobox id={`${uid}-model`} aria-invalid={!!errors.model} aria-describedby={`${uid}-owner-hint${errors.model ? ` ${uid}-model-error` : ''}`} options={shown} value={value.modelId || null} disabled={disabled} filterOptions={false}
-        onChange={modelId => { setPicked(shown.find(row => row.value === modelId) ?? null); onChange({ modelId, softwareId: '' }); }}
-        onSearchChange={q => { setSearch(q); setPage(0); setOptions([]); }} placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록" emptyText={models.loading ? '불러오는 중…' : '결과가 없습니다'} {...(hasMore ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})} />
+      <Combobox id={`${uid}-model`} aria-invalid={!!errors.model} aria-describedby={`${uid}-owner-hint${errors.model ? ` ${uid}-model-error` : ''}`} options={options} getLabel={id => picked?.value === id ? picked.label : id} value={value.modelId || null} disabled={disabled} filterOptions={false}
+        onChange={modelId => { setPicked(options.find(row => row.value === modelId) ?? null); onChange({ modelId, softwareId: '' }); }}
+        onSearchChange={q => { setSearch(q); setPage(0); setOptions([]); }} placeholder="모델 선택" searchPlaceholder="모델 코드·이름 검색" listboxLabel="모델 목록" emptyText={models.loading ? '불러오는 중…' : '결과가 없습니다'} loading={models.loading} hasMore={hasMore} onLoadMore={() => setPage(n => n + 1)} moreLabel="모델 더 보기" />
       {errors.model && <p id={`${uid}-model-error`} className="text-xs text-text-danger-label">{errors.model}</p>}
       {models.failed && <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">모델 목록을 불러오지 못했습니다</span><Button type="button" variant="ghost" size="sm" onClick={models.retry}>다시 시도</Button></div>}
-      {hasMore && <div><Button type="button" variant="ghost" size="sm" disabled={disabled || models.loading} onClick={() => setPage(n => n + 1)}>모델 더 보기</Button></div>}
       {value.ownerKind === 'software' && <SoftwarePicker key={value.modelId} id={`${uid}-software`} hintId={`${uid}-owner-hint`} error={errors.software} modelId={value.modelId} value={value.softwareId} disabled={disabled} onChange={softwareId => onChange({ softwareId })} />}
     </div>
     <p id={`${uid}-owner-hint`} className="text-xs text-text-muted">소유 대상은 모델 또는 SW 버전 하나입니다.</p>
@@ -54,14 +52,12 @@ function SoftwarePicker({ id, modelId, value, disabled, onChange, hintId, error 
   const rows = read.response?.outcome === 'ok' ? read.response.data ?? [] : [];
   const matches = rows.filter(row => row.active && `${row.versionLabel} ${row.name}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const options = matches.slice(0, limit).map(row => ({ value: row.id, label: `${row.versionLabel} · ${row.name}` }));
-  const shown = picked && !options.some(row => row.value === picked.value) ? [picked, ...options] : options;
   return <>
     <Label htmlFor={id} className="sr-only">SW 버전</Label>
-    <Combobox id={id} aria-invalid={!!error} aria-describedby={`${hintId}${error ? ` ${id}-error` : ''}`} options={shown} value={value || null} disabled={disabled || !modelId} filterOptions={false}
-      onChange={next => { setPicked(shown.find(row => row.value === next) ?? null); onChange(next); }} onSearchChange={q => { setSearch(q); setLimit(20); }}
-      placeholder="모델을 고른 뒤 SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록" emptyText={read.loading ? '불러오는 중…' : '이 모델에 활성 SW 버전이 없습니다'} {...(matches.length > limit ? { footerText: '일부만 표시. 검색하거나 아래 더 보기를 누르세요' } : {})} />
+    <Combobox id={id} aria-invalid={!!error} aria-describedby={`${hintId}${error ? ` ${id}-error` : ''}`} options={options} getLabel={id => picked?.value === id ? picked.label : id} value={value || null} disabled={disabled || !modelId} filterOptions={false}
+      onChange={next => { setPicked(options.find(row => row.value === next) ?? null); onChange(next); }} onSearchChange={q => { setSearch(q); setLimit(20); }}
+      placeholder="모델을 고른 뒤 SW 버전 선택" searchPlaceholder="버전 검색" listboxLabel="SW 버전 목록" emptyText={read.loading ? '불러오는 중…' : '이 모델에 활성 SW 버전이 없습니다'} loading={read.loading} hasMore={matches.length > limit} onLoadMore={() => setLimit(n => n + 20)} moreLabel="SW 버전 더 보기" />
     {error && <p id={`${id}-error`} className="text-xs text-text-danger-label">{error}</p>}
     {read.failed && <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">SW 버전 목록을 불러오지 못했습니다</span><Button type="button" size="sm" variant="ghost" onClick={read.retry}>다시 시도</Button></div>}
-    {matches.length > limit && <div><Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={() => setLimit(n => n + 20)}>SW 버전 더 보기</Button></div>}
   </>;
 }

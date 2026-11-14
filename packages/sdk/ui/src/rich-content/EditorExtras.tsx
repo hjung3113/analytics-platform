@@ -10,7 +10,7 @@ import { IconHelp } from './toolbar/IconHelp';
 import { EditorContextBars } from './EditorContextBars';
 import { Button } from '../components/Button';
 import type { RichEditorSurface } from './RichEditor';
-import { actionsForSurface, type EditorAction } from './editor-actions';
+import { actionsForSurface, type EditorAction, type EditorActionMessages } from './editor-actions';
 import { FormatButtons } from './RichEditorToolbar';
 import { richContentOutline } from './outline';
 import { getExtensionsForSurface } from './allowlist-local';
@@ -18,7 +18,7 @@ const slashKey = new PluginKey('richContentSlash');
 const bubbleOptions = { placement: 'bottom', flip: false } as const;
 interface MenuState { items: EditorAction[]; index: number; apply: (action: EditorAction) => void }
 export interface SlashMenuAssociation { id: string; activeId: string }
-export function EditorExtras({ editor, surface, onMenuChange }: { editor: Editor; surface: RichEditorSurface; onMenuChange: (menu: SlashMenuAssociation | null) => void }) {
+export function EditorExtras({ editor, surface, onMenuChange, actionMessages }: { actionMessages?: EditorActionMessages | undefined; editor: Editor; surface: RichEditorSurface; onMenuChange: (menu: SlashMenuAssociation | null) => void }) {
   const [menu, setMenu] = React.useState<MenuState | null>(null);
   const menuId = React.useId();
   const blockPosition = React.useRef(-1);
@@ -46,7 +46,7 @@ export function EditorExtras({ editor, surface, onMenuChange }: { editor: Editor
   React.useEffect(() => {
     // `setEditable` (the `disabled` prop) emits `update` without a transaction; re-render so the slash-menu association drops with editing.
     editor.on('transaction', update); editor.on('update', update);
-    const actions = actionsForSurface(surface);
+    const actions = actionsForSurface(surface, actionMessages);
     if (!actions.length) return () => { editor.off('transaction', update); editor.off('update', update); };
     editor.registerPlugin(Suggestion<EditorAction>({ editor, pluginKey: slashKey, char: '/',
       allow: () => editor.isEditable,
@@ -69,14 +69,14 @@ export function EditorExtras({ editor, surface, onMenuChange }: { editor: Editor
       },
     }), (plugin, plugins) => [plugin, ...plugins]); // before the keymap, or Enter splits the block instead of running the command
     return () => { editor.off('transaction', update); editor.off('update', update); editor.unregisterPlugin(slashKey); };
-  }, [editor, surface]);
+  }, [editor, surface, actionMessages]);
   // The stacked controls are taller than a one-line block. Without this lock the lower one re-anchors to the next block under the pointer.
   const blockMenuOpen = React.useRef(false);
   const unlockBlockHandle = React.useCallback(() => { editor.commands.setMeta('lockDragHandle', false); }, [editor]); // stable: a new prop identity re-registers the plugin and dismisses an open slash menu
   const outline = capabilities.includes('tableOfContents') ? richContentOutline(editor.getJSON()) : [];
   return <>
     {outline.length > 0 && <details className="border-b border-border-subtle p-3 text-xs break-keep"><summary>목차</summary><div className="flex flex-col items-start gap-1">{outline.map((entry, index) => <Button type="button" key={entry.id} size="toolbar" variant="subtle" onClick={() => editor.view.dom.querySelectorAll('h1,h2,h3')[index]?.scrollIntoView({ block: 'center' })}>{entry.text}</Button>)}</div></details>}
-    {editor.isEditable && actionsForSurface(surface).length > 0 && <DragHandle editor={editor} onNodeChange={rememberBlock} onElementDragEnd={unlockBlockHandle}><div className="flex flex-col items-center" onMouseEnter={() => { editor.commands.setMeta('lockDragHandle', true); }} onMouseLeave={() => { if (!blockMenuOpen.current) editor.commands.setMeta('lockDragHandle', false); }}><DropdownMenu onOpenChange={open => { blockMenuOpen.current = open; editor.commands.setMeta('lockDragHandle', open); }}><IconHelp label="블록 추가"><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label="블록 추가"><Plus className="size-4" /></Button></DropdownMenuTrigger></IconHelp><DropdownMenuContent align="start"><DropdownMenuGroup>{actionsForSurface(surface).map(action => <DropdownMenuItem key={action.label} onSelect={() => {
+    {editor.isEditable && actionsForSurface(surface, actionMessages).length > 0 && <DragHandle editor={editor} onNodeChange={rememberBlock} onElementDragEnd={unlockBlockHandle}><div className="flex flex-col items-center" onMouseEnter={() => { editor.commands.setMeta('lockDragHandle', true); }} onMouseLeave={() => { if (!blockMenuOpen.current) editor.commands.setMeta('lockDragHandle', false); }}><DropdownMenu onOpenChange={open => { blockMenuOpen.current = open; editor.commands.setMeta('lockDragHandle', open); }}><IconHelp label="블록 추가"><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label="블록 추가"><Plus className="size-4" /></Button></DropdownMenuTrigger></IconHelp><DropdownMenuContent align="start"><DropdownMenuGroup>{actionsForSurface(surface, actionMessages).map(action => <DropdownMenuItem key={action.label} onSelect={() => {
       const pos = blockPosition.current;
       const node = pos >= 0 ? editor.state.doc.nodeAt(pos) : null;
       if (!node) return;

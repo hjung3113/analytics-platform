@@ -77,9 +77,8 @@ function ParentPicker({ kind, value, onChange, id, invalid, describedBy }: Picke
   const label = kind === 'model' ? '설비사' : '모델';
   const picker = useOptionPicker(kind === 'model' ? vendorsEndpoint : modelsEndpoint);
   const [picked, setPicked] = useState<Option | null>(null);
-  const options = picked && !picker.options.some(o => o.value === picked.value) ? [picked, ...picker.options] : picker.options;
-  return <Combobox id={id} options={options} value={value || null} filterOptions={false}
-    onChange={next => { setPicked(options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
+  return <Combobox id={id} options={picker.options} getLabel={id => picked?.value === id ? picked.label : id} loading={picker.loading} hasMore={picker.hasMore} onLoadMore={picker.loadMore} moreLabel={`${label} 더 보기`} value={value || null} filterOptions={false}
+    onChange={next => { setPicked(picker.options.find(o => o.value === next) ?? null); onChange(next); }} onSearchChange={picker.setSearch}
     placeholder={`${label} 선택`} searchPlaceholder={`${label} 검색`} listboxLabel={`${label} 목록`} emptyText={picker.loading ? '불러오는 중…' : picker.failed ? '불러오지 못했습니다' : '결과가 없습니다'}
     aria-invalid={invalid} aria-describedby={describedBy} />;
 }
