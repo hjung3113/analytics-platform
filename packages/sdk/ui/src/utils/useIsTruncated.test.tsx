@@ -45,4 +45,14 @@ describe('useIsTruncated', () => {
     render(<Probe text="label" scrollWidth={120} clientWidth={100} />);
     expect(screen.getByTestId('label')).toHaveAttribute('data-truncated', 'true');
   });
+
+  it('adds no component renders when an unrelated parent re-renders and the label still fits', () => {
+    let bodies = 0;
+    function Counted({ tick }: { tick: number }) { bodies += 1; const ref = useRef<HTMLSpanElement>(null); useIsTruncated(ref); return <span ref={ref}>{tick}</span>; }
+    sizes(100, 100);
+    const { rerender } = render(<Counted tick={0} />);
+    const afterMount = bodies;
+    for (let tick = 1; tick <= 4; tick += 1) rerender(<Counted tick={tick} />);
+    expect(bodies - afterMount).toBe(4);
+  });
 });

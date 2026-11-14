@@ -346,7 +346,7 @@ Cell padding     4px 16px
 
 대규모 데이터에서는 브라우저에 전체 데이터를 전달하지 않는다. 서버가 선언 행 상한(`limits.maxRows`)으로 판정한다 — [실서버 연결 체크리스트](../integration/real-server-checklist.md) §3(#175).
 
-메모리 정렬(`sortRows`·`sortAndPage`, mock 서버·내보내기·행을 직접 넘기는 표, #2218)은 문자열 쌍을 `Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })`로 비교해 자연 순서(`EQ-2`가 `EQ-10` 앞, 대소문자 무시)를 쓰고, 숫자와 날짜는 `<`, null은 오름차순 맨 뒤, 같으면 안정 순서다. locale은 실행 환경 기본이다(`PageQuery`에 언어가 없다). mock의 정렬 순서는 실서버와 맞춰야 하는 계약이 아니다 — 실서버는 DB collation으로 정렬한다.
+메모리 정렬(`sortRows`·`sortAndPage`, mock 서버·내보내기·행을 직접 넘기는 표, #2218)은 문자열 쌍을 `Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })`로 비교해 자연 순서(`EQ-2`가 `EQ-10` 앞, 대소문자 무시)를 쓰고, 숫자와 날짜는 `<`, 값 종류가 섞인 열은 종류 순서(숫자, 불리언, 문자열, 그 밖의 값)를 먼저 따라 순서가 순환하지 않게 하며(결정: 리뷰 지적 반영, 되돌릴 수 있음), null은 오름차순 맨 뒤, 같으면 안정 순서다. locale은 실행 환경 기본이다(`PageQuery`에 언어가 없다). mock의 정렬 순서는 실서버와 맞춰야 하는 계약이 아니다 — 실서버는 DB collation으로 정렬한다.
 
 표 URL 상태: 페이지 키 `page`는 1부터이며 생략=1, 정렬 키는 `<열 id>:asc|desc` 한 개다. 허용 열·키 이름은 페이지가 소유하고, 형식 오류는 보정하지 않고 거부한다(§6.4). 성공 응답(`ok`·`empty`)이 범위 밖 페이지이면 표가 마지막 페이지로 맞추고 페이지는 URL `page`를 replace로 고친다(0건이면 첫 페이지, 실패 응답은 맞추지 않음 — §19). 결정: 사용자, 2026-10-15, #314.
 

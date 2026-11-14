@@ -8,16 +8,18 @@ import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 're
 export function useIsTruncated<T extends HTMLElement>(ref: RefObject<T | null>): boolean {
   const [truncated, setTruncated] = useState(false);
   const observed = useRef<{ element: T; observer: ResizeObserver } | null>(null);
+  const last = useRef(false);
+  // The state is written only when the measured boolean changes: an unchanged value still re-enters the component body when it is set after every commit.
+  const set = (next: boolean) => { if (last.current !== next) { last.current = next; setTruncated(next); } };
   // No dependency list on purpose: a content change that does not resize the box still changes `scrollWidth`; an unchanged result bails out of the state update.
   useLayoutEffect(() => {
     const element = ref.current;
-    const measure = () => setTruncated(element !== null && element.scrollWidth > element.clientWidth);
-    measure();
+    set(element !== null && element.scrollWidth > element.clientWidth);
     if (observed.current?.element === element) return;
     observed.current?.observer.disconnect();
     observed.current = null;
     if (element === null || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => setTruncated(element.scrollWidth > element.clientWidth));
+    const observer = new ResizeObserver(() => set(element.scrollWidth > element.clientWidth));
     observer.observe(element);
     observed.current = { element, observer };
   });
