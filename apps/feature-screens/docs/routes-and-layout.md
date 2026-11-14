@@ -156,6 +156,12 @@ Admin Home:
 - Policy-driven recovery queues that need administrative action
 ```
 
+The Dashboard's `내게 배정됨` preview fetches up to four open Tasks for the
+current assignee (`status_group=open`) and up to four pending Task Requests
+assigned to the current reviewer (`reviewer=me`). It displays at most four rows,
+with review requests first and Tasks filling the remaining rows. Done and Released
+Tasks are excluded by the Task-owned open-status predicate.
+
 Frontend Home renders only backend-provided queue groups. It may choose layout,
 empty states, and ordering affordances, but it must not infer hidden queues from
 role labels alone.

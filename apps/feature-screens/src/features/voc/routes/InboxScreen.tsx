@@ -13,7 +13,9 @@ import { PERMISSION_BLOCKED_REASONS } from '@/lib/copy/permission-reasons';
 import { VOC_INBOX_LABEL } from '@/lib/copy/voc-views';
 import { HostLink, useHostSeam } from '@/lib/host/host-seam';
 import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
+import { SEVERITY_LABELS } from '@ap/feature-ui';
 import {
+  type SeverityEnum,
   ActiveFilterBar,
   Button,
   ListFilterButton,
@@ -80,7 +82,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
           <p className="text-xs text-text-muted">
             심각도 분포:{' '}
             {Object.entries(outOfScopeSummary.severity_distribution)
-              .map(([sev, n]) => `${sev}=${String(n)}`)
+              .map(([sev, n]) => `${SEVERITY_LABELS[sev as SeverityEnum] ?? sev}=${String(n)}`)
               .join(', ')}
           </p>
         </div>

@@ -91,6 +91,7 @@ export function useDashboardData(actorId: string | undefined, managedSystemId?: 
     enabled: actorId !== undefined,
     queryFn: ({ signal }) =>
       listTasks({
+        status_group: 'open',
         ...(actorId !== undefined ? { assignee: actorId } : {}),
         ...(managedSystemId === undefined ? {} : { managed_system_id: managedSystemId }),
         limit: MY_WORK_LIMIT,
@@ -541,18 +542,19 @@ function MyWorkPanel({
   tasks,
   requests,
 }: { tasks: TaskDto[]; requests: TaskRequestDto[] }): React.ReactElement {
+  // Pending reviews lead this bounded preview so assigned Tasks cannot hide them.
   const rows = [
-    ...tasks.map((task) => ({
-      id: task.id,
-      label: `${task.display_id} — ${task.title}`,
-      meta: TASK_STATUS_LABELS[task.status],
-      href: `/tasks?view=board&param=${task.id}`,
-    })),
     ...requests.map((request) => ({
       id: request.id,
       label: `${request.display_id} — ${request.requested_outcome}`,
       meta: TASK_REQUEST_STATUS_LABELS[request.status],
       href: `/tasks?view=requests&param=${request.id}`,
+    })),
+    ...tasks.map((task) => ({
+      id: task.id,
+      label: `${task.display_id} — ${task.title}`,
+      meta: TASK_STATUS_LABELS[task.status],
+      href: `/tasks?view=board&param=${task.id}`,
     })),
   ].slice(0, MY_WORK_LIMIT);
   const { canLink } = useHostSeam();
