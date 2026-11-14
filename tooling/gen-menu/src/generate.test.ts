@@ -376,7 +376,7 @@ describe('generate in a temp workspace', () => {
 
 describe('global Line/PRC capabilities (#552)', () => {
   // #673: every key (Line/PRC included) is `unsupported` through the shared contracts default; its key list is
-  // pinned by apps/platform-web/src/contracts-helpers.test.ts. The scaffold declares no capability of its own.
+  // pinned by apps/platform-web/src/__tests__/assembly/contracts-helpers.test.ts. The scaffold declares no capability of its own.
   it('new menus take the shared all-unsupported context and no-feature defaults', () => {
     const files = renderFiles(INPUTS);
     const manifest = files.find(f => f.relPath === 'src/index.ts')!.content;

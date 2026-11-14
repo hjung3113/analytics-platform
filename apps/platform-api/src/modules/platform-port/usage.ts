@@ -49,7 +49,7 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
  * A `fromMenuId`: the Registry's own id rule (`createRegistry` accepts any non-empty id without whitespace and without `? # & /`) plus the leak
  * shapes a usage field must not carry: `=` (so no `key=value`) and control characters, at most 80 code points. Trade-off: a Registry id that
  * contains `=` is rejected here. Kept in step with `MENU_ID_PATTERN` in the reference server (`packages/adapters/mock-server/src/server.ts`);
- * `apps/platform-web/src/server-conformance.test.ts` proves the app's menu ids, and ids the public Registry accepts, match.
+ * `apps/platform-web/src/__tests__/query/server-conformance.test.ts` proves the app's menu ids, and ids the public Registry accepts, match.
  */
 export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
 

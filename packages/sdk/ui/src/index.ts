@@ -80,7 +80,7 @@ export { DetailPanelSectionNav, type DetailPanelSectionNavProps, type PanelSecti
 export { StatusBadgeFrame, type StatusBadgeFrameProps, type StatusBadgeAppearance, type StatusBadgeTone } from './badges/StatusBadgeFrame';
 
 // Domain-neutral feature UI retained in #443 (ADR-0046); domain-coupled parts returned by ADR-0050.
-// Rich content (ADR-0046, restored by ADR-0052): editor, renderer and sanitizer. The sanitizer allowlist original is the platform API; `apps/platform-web/src/rich-content-allowlist-parity.test.ts` keeps this copy equal.
+// Rich content (ADR-0046, restored by ADR-0052): editor, renderer and sanitizer. The sanitizer allowlist original is the platform API; `apps/platform-web/src/__tests__/assembly/rich-content-allowlist-parity.test.ts` keeps this copy equal.
 export { RichEditor, type RichEditorProps, type RichEditorSurface, type RichEditorToolbarApi, type RichEditorAttachmentResult, type TipTapDoc } from './rich-content/RichEditor';
 export { AttachButton, type AttachButtonProps } from './rich-content/toolbar/AttachButton';
 export type { Editor as TipTapEditor } from '@tiptap/react';

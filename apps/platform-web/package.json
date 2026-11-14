@@ -8,7 +8,7 @@
     "dev": "vite --host 127.0.0.1",
     "dev:real": "vite --host 127.0.0.1 --mode real",
     "typecheck": "tsc --noEmit",
-    "gen:platform-systems": "UPDATE_PLATFORM_SYSTEMS=1 vitest run src/platform-systems.test.ts",
+    "gen:platform-systems": "UPDATE_PLATFORM_SYSTEMS=1 vitest run src/__tests__/space-systems/platform-systems.test.ts",
     "test": "vitest run",
     "build": "tsc --noEmit && vite build --mode mock",
     "build:prod": "tsc --noEmit && node scripts/typecheck-assembly.ts && vite build",

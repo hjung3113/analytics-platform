@@ -18,7 +18,7 @@ Before adding or changing a screen, read and follow the [`ap-sdk-consumer`](../.
 
 - Group IDs: `dashboard`, `voc`, `findings`, `tasks`, `integration`, `surveys`, `flowSettings` (업무 흐름 `설정` group), `access` (운영 콘솔 `권한` group), `systems` (운영 콘솔 `시스템` group).
 - Menu IDs are the former `fo-*` IDs without the prefix, except `survey-management` and `permission-request-review` (the personal menus keep `surveys` and `permission-requests`).
-- Canonical URLs: 업무 흐름 menus live in the `flow` space at `/flow/<menu id>`. 운영 콘솔 (`operations` space) holds only 플랫폼 관리 (`admin`), 권한 (`access`) and 시스템 (`systems`), at `/operations/<menu id>` (ADR-0093). No old `/feedbackops/…` paths or aliases exist; check values in `apps/platform-web/src/canonical-paths.test.ts` and the Registry.
+- Canonical URLs: 업무 흐름 menus live in the `flow` space at `/flow/<menu id>`. 운영 콘솔 (`operations` space) holds only 플랫폼 관리 (`admin`), 권한 (`access`) and 시스템 (`systems`), at `/operations/<menu id>` (ADR-0093). No old `/feedbackops/…` paths or aliases exist; check values in `apps/platform-web/src/__tests__/links/canonical-paths.test.ts` and the Registry.
 - `my-tasks` is declared by `@ap/menu-tasks` in the global `myActivity` group (`/my-tasks`, F only). The app composition (`menus.ts`) orders the 내 활동 entries.
 
 ## Common rules for bridge menus
