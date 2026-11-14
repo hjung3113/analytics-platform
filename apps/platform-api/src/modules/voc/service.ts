@@ -18,9 +18,10 @@ import { createVocUpdateTriageCommands } from './commands/update-triage.js';
 import type { VocEmbeddingEnqueuer } from './embedding/enqueue.js';
 import type { VocReadService } from './read-service.js';
 import type { ReporterFacingStatus } from './transitions.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export interface CreateVocActor {
-  role_level?: 'admin' | 'developer' | 'user';
+  role_level?: RoleLevel;
   actor_id: string;
   workspace_id: string;
 }

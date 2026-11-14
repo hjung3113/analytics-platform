@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ListTasksResponse } from '@ap/feature-shared';
+import type { ListTasksResponse, RoleLevel } from '@ap/feature-shared';
 import {
   type AssignTaskMilestoneRequest,
   type AssignTaskResponsibilityRequest,
@@ -85,7 +85,7 @@ import {
 export interface TasksActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export interface TasksServiceDeps {

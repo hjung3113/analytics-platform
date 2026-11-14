@@ -1,4 +1,4 @@
-import type { ListVocsQuery } from '@ap/feature-shared';
+import type { ListVocsQuery, RoleLevel } from '@ap/feature-shared';
 
 import type { Scope } from './authorization.js';
 import type { VocPublicReadService } from './public-read/service.js';
@@ -32,7 +32,7 @@ export type VocGroupedCountArgs = {
   actor: {
     actor_id: string;
     workspace_id: string;
-    role_level: 'admin' | 'developer' | 'user';
+    role_level: RoleLevel;
   };
   /**
    * Must be the actor's `voc.read` scope from `actorScopeForCapability(…, 'voc.read')` /

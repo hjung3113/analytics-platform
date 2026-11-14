@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import type { RoleLevel } from '@ap/feature-shared';
 import {
   type ListSurveysQuery,
   type SurveyStartingPoint,
@@ -391,7 +392,7 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
             : m.default_survey_operator_actor_id
               ? 'managed_system_default'
               : 'creator';
-          const op = await tx.execute<{ id: string; role_level: 'admin' | 'developer' | 'user' }>(
+          const op = await tx.execute<{ id: string; role_level: RoleLevel }>(
             sql`select id,role_level from core.actors where id=${operator} and workspace_id=${a.actor.workspace_id} for update`,
           );
           if (!op.rows[0])
@@ -836,7 +837,7 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           if (a.input.operator_actor_id) {
             const operator = await tx.execute<{
               id: string;
-              role_level: 'admin' | 'developer' | 'user';
+              role_level: RoleLevel;
             }>(
               sql`select id,role_level from core.actors where id=${operatorActorId} and workspace_id=${a.actor.workspace_id} for update`,
             );

@@ -27,6 +27,7 @@ import { HttpError } from '../../lib/errors.js';
 import { requireSession } from '../../middleware/require-session.js';
 import { requireWorkspace } from '../../middleware/require-workspace.js';
 import type { SessionService } from './session-service.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 // Pinned sentinel. Future iterations may resolve other workspace tokens, but
 // today the only legal value is `current` (== caller's session workspace).
@@ -90,7 +91,7 @@ export const listActorsRoutes: FastifyPluginAsync<ListActorsRoutesOptions> = asy
           id: r.id,
           display_name: r.displayName,
           email: r.email,
-          role_level: r.roleLevel as 'admin' | 'developer' | 'user',
+          role_level: r.roleLevel as RoleLevel,
           actor_type: r.actorType as 'internal_member' | 'system',
         })),
       };

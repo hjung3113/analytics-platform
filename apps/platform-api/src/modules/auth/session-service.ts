@@ -13,10 +13,11 @@ import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { actors, sessions } from '../../db/schema/core.js';
 import { HttpError } from '../../lib/errors.js';
+import type { RoleLevel } from '@ap/feature-shared';
 import type { AuthClaims } from './auth-provider.js';
 
 /** Role vocab — matches `core.actors.role_level` CHECK constraint. */
-export type RoleLevel = 'admin' | 'developer' | 'user';
+export type { RoleLevel };
 
 export interface ActorRecord {
   id: string;

@@ -22,6 +22,7 @@ import {
 import { createAreaReportReader } from './area-report.js';
 import { recoveryHistoryWindowStart } from './history-window.js';
 
+import type { RoleLevel } from '@ap/feature-shared';
 import {
   type CoverageMetricId,
   type CoverageThresholdPair,
@@ -74,7 +75,7 @@ import * as repo from './repo.js';
 export interface DashboardActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 const ownerRecoveryReaders = {

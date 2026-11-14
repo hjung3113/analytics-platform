@@ -3,6 +3,7 @@ import type {
   EntityLinkRef,
   EntityLinkTargetSummary,
   TaskReporterSummary,
+  RoleLevel,
 } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
@@ -18,7 +19,7 @@ export function requireEndpointManagedSystemId(subject: Pick<LinkEndpointRow, 'm
 export interface EntityLinksActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export type ReporterSummaryResult =

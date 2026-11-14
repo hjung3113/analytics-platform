@@ -23,11 +23,12 @@ import {
   upsertRecommendationConfirmation,
 } from './repo.js';
 import { dismissalScopeKey } from './scope.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export interface VocRecommendationsActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export interface VocRecommendationItem {

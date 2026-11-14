@@ -8,6 +8,7 @@ import {
   isCapability,
   isDeclaredCapabilityId,
 } from '../enums/capabilities.js';
+import { ROLE_LEVEL_VALUES } from '../enums/index.js';
 
 /**
  * A capability name on the wire: a platform capability or a name under the declared prefix (ADR-0157). Whether the server
@@ -113,7 +114,7 @@ export const permissionGrantOptionsSchema = z
       .object({
         id: z.string().uuid(),
         display_name: z.string(),
-        role_level: z.enum(['admin', 'developer', 'user']),
+        role_level: z.enum(ROLE_LEVEL_VALUES),
       })
       .strict(),
     self_policy: z.enum(['allowed', 'forbidden']),

@@ -3,6 +3,7 @@ import { sqlUuidArray } from '../../db/sql-arrays.js';
 import { hasElevatedFindingRole } from '../findings/authorization.js';
 import type { Scope } from '../permissions/scope-service.js';
 import { releasedTaskUnresolvedVocPredicate, releasedTaskVocRecoverySql } from '../voc/index.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export function taskRecoveryPredicate(workspaceId: string): SQL {
   return sql`t.status = 'released' AND ${releasedTaskUnresolvedVocPredicate(workspaceId, sql`t.id`)}`;
@@ -13,7 +14,7 @@ export function taskRecoveryProjection(args: {
   vocReadScope: Scope;
   vocRepairScope: Scope;
   actorId: string;
-  roleLevel: 'admin' | 'developer' | 'user';
+  roleLevel: RoleLevel;
   sourceId?: string;
 }): SQL {
   const sourceReadable = hasElevatedFindingRole({

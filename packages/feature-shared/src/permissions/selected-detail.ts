@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { requestedPermissionScopeFields, grantedPermissionScopeFields, permissionScopeFields } from './scope-kinds.js';
 import { permissionScopeCandidateSchema } from './submit-more-info.js';
+import { ROLE_LEVEL_VALUES } from '../enums/index.js';
 
 export const permissionRequestStatusSchema = z.enum([
   'pending',
@@ -131,7 +132,7 @@ export const permissionRequestAdminDetailSchema = permissionSelectedRequestSchem
     .object({
       id: z.string().uuid(),
       display_name: z.string(),
-      role_level: z.enum(['admin', 'developer', 'user']),
+      role_level: z.enum(ROLE_LEVEL_VALUES),
     })
     .strict(),
   effective_access: z

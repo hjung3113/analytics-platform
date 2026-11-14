@@ -9,11 +9,12 @@ import { createFindingComments } from './comments.js';
 import { createFindingCreation } from './creation.js';
 import { createFindingEvidence } from './evidence.js';
 import { createFindingRecord } from './record.js';
+import type { RoleLevel } from '@ap/feature-shared';
 
 export interface FindingsActor {
   actor_id: string;
   workspace_id: string;
-  role_level: 'admin' | 'developer' | 'user';
+  role_level: RoleLevel;
 }
 
 export interface FindingsServiceDeps {
