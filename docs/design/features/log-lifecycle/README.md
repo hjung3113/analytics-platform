@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | #1809 결과 중심 Round workbench | [화면·URL·Gate 계약](#121-결과-중심-round-workbench-1809) | Decided · 수정 A, 소유자 2026-11-12 |
 | #1807 분리 작업자 입력 바이트 전달 | [ADR-0152](../../../adr/0152-worker-input-delivery-source-owner-step.md), [API 상세·Open decisions](../../../architecture/platform-api/api/log-lifecycle.md#작업자-입력-전달-1807) | Candidate · 미구현, 공급자 미선택 |
-| #1815 진단 보존·상세·근거표·선택 첨부 | [손실 매트릭스·Slice A/B·노드·Open decisions](diagnostic-report-parity.md), [API 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815) | A2 상태 읽기·A3 두 상태 축 구현. A1·Slice B 진단/첨부는 미구현 |
+| #1815 진단 보존·상세·근거표·선택 첨부 | [손실 매트릭스·Slice A/B·노드·Open decisions](diagnostic-report-parity.md), [API 읽기 투영](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815) | A1 summary 투영·A2 상태 읽기·A3 두 상태 축 구현. Slice B 진단/첨부는 미구현 |
 | #1808 사람 등록 항목·Round/항목별 토론 | [논리 모델·권한·노드·Open decisions](validation-issues-discussion.md) | 저장(N1)·API(N2)·Round 화면(N3) 구현. H3 상태·담당 서버 계약(#1917)도 구현. 상태 변경 화면·심각도와 N4–N6은 미구현 |
 
 아래 v0.30.0의 비범위는 이 후보 설계로 구현 상태가 바뀌지 않는다. #1809의 Round 탐색 구현과 충돌하는 화면 노드는 각 문서의 그래프를 따른다.

@@ -1,5 +1,6 @@
 import { evidenceStateRows } from '../domain/evidence-states.js';
 import type { SampleSet } from '../domain/sample-set.js';
+import { projectWorkerSummary, type WorkerSummaryProjection } from '../domain/worker-summary-projection.js';
 import { type Viewer, ref } from '../../log-knowledge/index.js';
 import { requestVisibleSql, roundVisibleSql, attemptVisibleSql } from './access-visibility.js';
 // Read side of the validation request queue (#1445 d). These reads are the ROUND requests': every list and detail joins the round, so a
@@ -129,7 +130,7 @@ export async function listRequests(
   };
 }
 
-export interface AttemptOut {
+export interface AttemptOut extends WorkerSummaryProjection {
   id: string;
   attemptNo: number;
   workerActorId: string;
@@ -207,6 +208,7 @@ export async function getRequestDetail(tx: Tx, workspaceId: string, requestId: s
         ruleCount: mine.reduce((s, t) => s + Number(t.n), 0),
         counts: Object.fromEntries(mine.map((t) => [t.result, Number(t.n)])),
         opinionCount: opinionByAttempt.get(x.id) ?? 0,
+        ...projectWorkerSummary(x.workerSummary),
       };
     }),
   };
