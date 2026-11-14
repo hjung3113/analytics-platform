@@ -1,4 +1,4 @@
-import type { PageFocus, PageNavigation } from '@ap/kernel/host';
+import type { PageNavigation } from '@ap/kernel/host';
 
 export const PANE_ROOT_SELECTOR = '[data-pane-id]';
 
@@ -40,8 +40,4 @@ export function focusPageFallback(source: HTMLElement | null) {
 // ReturnLink calls this after its synchronous Kernel navigation, before the destination commits.
 export function requestReturnFocus(navigation: PageNavigation, href: string) {
   navigation.requestReturn(href);
-}
-
-export function consumePageFocus(navigation: PageNavigation, path: string): PageFocus | null {
-  return navigation.consume(path);
 }

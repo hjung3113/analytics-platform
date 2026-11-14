@@ -4,7 +4,7 @@ import { PaneQueryDraftProvider } from '@ap/kernel/host';
 import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { AppWindow, HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
-import { paneHref, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
+import { paneHref, useArrivalFocus, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
@@ -48,7 +48,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   /** False while the host keeps the board minimized (hidden, inert): no arrival focus, no size taken from the hidden container. */
   visible?: boolean; windowed?: boolean; onMinimize?: () => void; onFloat?: () => void; onClose?: () => void;
 }) {
-  const { user, pathname, navigate, registry, readRecent, pageNavigation, canOpen, toast, dismissToast } = useHostPlatform();
+  const { user, navigate, registry, readRecent, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
   const text = useMemo(() => boardText(lang), [lang]);
   const { board, update, storageNotice } = useBoardSession(user.id, text.sheetPrefix);
@@ -70,12 +70,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   // Arriving at the board takes page-arrival focus like any screen (06 §26); the kernel left the request for it.
   // Not while minimized: the arrival then belongs to the ordinary screen that the address names.
   const arrived = useRef(false);
-  useLayoutEffect(() => {
-    if (!visible || windowed) { arrived.current = false; return; }
-    const focus = () => { if (pageNavigation.consume(pathname)) { arrived.current = true; heading.current?.focus({ preventScroll: true }); } };
-    focus();
-    return pageNavigation.subscribe(focus);
-  }, [arrivalKey, pathname, pageNavigation, visible, windowed]);
+  useLayoutEffect(() => { if (!visible || windowed) arrived.current = false; }, [visible, windowed]);
+  useArrivalFocus(() => { arrived.current = true; heading.current?.focus({ preventScroll: true }); }, { enabled: visible && !windowed, rereadKey: arrivalKey });
 
   // The chip names the sheet shown; the focus that was inside the visible board comes back with it (heading when that element is gone).
   useEffect(() => { rememberSheet(user.id, sheet.id, sheet.name); }, [user.id, sheet.id, sheet.name]);
