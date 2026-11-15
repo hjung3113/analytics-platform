@@ -232,3 +232,17 @@ describe('opaque input safety', () => {
     expect(isPgSafeDeep({ a: ['\udc00'] })).toBe(false);
   });
 });
+
+describe('the Scope a view was saved in belongs to the content version (#2175)', () => {
+  it('the owner sees the pending edit’s Scope, other readers the approved copy’s, and a view without one has none', () => {
+    const official = view({
+      visibilityKind: 'official',
+      approval: 'approved',
+      content: { ...view().content, savedScopeId: 'MEM' },
+      pending: { name: 'x', content: { ...view().content, savedScopeId: 'FDRY' }, approval: 'pending', note: null },
+    });
+    expect(savedViewOf(official, owner, none)).toMatchObject({ savedScopeId: 'FDRY' });
+    expect(savedViewOf(official, other, none)).toMatchObject({ savedScopeId: 'MEM' });
+    expect(savedViewOf(view(), owner, none)).not.toHaveProperty('savedScopeId');
+  });
+});

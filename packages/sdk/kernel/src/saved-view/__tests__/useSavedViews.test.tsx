@@ -81,7 +81,7 @@ it('picking a view writes its Context to the address and keeps the id in the tab
   await waitFor(() => expect(views.status).toBe('ready'));
   let outcome: Awaited<ReturnType<SavedViews['select']>> | undefined;
   await act(async () => { outcome = await views.select('l2'); });
-  expect(outcome).toEqual({ ok: true, unsupported: [] });
+  expect(outcome).toEqual({ ok: true, unsupported: [], excludedByScope: [] });
   expect(window.location.search).toBe(query(['L2']));
   expect(window.location.href).not.toContain('l2');
   expect(window.sessionStorage.getItem(KEY)).toBe('l2');
@@ -622,7 +622,7 @@ it('without a server anchor a relative view is unavailable and writes nothing; a
   expect(outcome).toEqual({ ok: false, reason: 'unavailable' });
   expect(window.location.href).toBe(before);
   await act(async () => { outcome = await views.select('l2'); });
-  expect(outcome).toEqual({ ok: true, unsupported: [] });
+  expect(outcome).toEqual({ ok: true, unsupported: [], excludedByScope: [] });
   expect(window.location.search).toBe(query(['L2']));
 });
 
@@ -819,4 +819,83 @@ it.each(['update', 'createGroup'] as const)('%s kept from before a user change s
   await act(async () => { slow.release(); result = await pending; });
   expect(result).toBe(answer);
   expect(listCount(store)).toBe(before);
+});
+
+// #2175: a view records the Scope its content was saved in; another Scope leaves the Site-bound values out and the surface says so.
+const inScope = (scopeId: string, lineNames: string[] = [], filter?: string) => `/${buildQuery({ ...emptyGlobal, scopeId, ...period, lineNames: lineNames.length ? lineNames : null }, filter ? [['filter', filter]] : [])}`;
+const MEM_VIEW = viewOf({ id: 'm1', name: 'MEM 뷰', context: { ...period, lineNames: ['L1'] }, savedScopeId: 'MEM' });
+
+it('a view saved in another Scope opens without its Line, says why, and is not 수정됨 (#2175)', async () => {
+  const store = createFakeStore([MEM_VIEW]);
+  mount(store, inScope('FDRY'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('m1'); });
+  expect(host.global.lineNames).toBeNull();
+  expect(host.global.scopeId).toBe('FDRY');
+  expect(window.location.search).not.toContain('lineNames');
+  expect(views.scopeExcluded).toEqual({ savedScopeId: 'MEM', keys: ['line'] });
+  expect(views.unsupported).toEqual([]);
+  expect(views.state.modified).toBe(false);
+  act(() => host.setGlobal({ lineNames: ['L7'] }));
+  await waitFor(() => expect(views.state.modified).toBe(true));
+});
+
+it('the same Scope and a view with no recorded Scope apply everything and report nothing excluded (#2175)', async () => {
+  const store = createFakeStore([MEM_VIEW, viewOf({ id: 'old', name: '옛 뷰', context: { ...period, lineNames: ['L2'] } })]);
+  mount(store, inScope('MEM'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('m1'); });
+  await waitFor(() => expect(host.global.lineNames).toEqual(['L1']));
+  expect(views.scopeExcluded).toBeNull();
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => expect(host.global.scopeId).toBe('FDRY'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('old'); });
+  await waitFor(() => expect(host.global.lineNames).toEqual(['L2']));
+  expect(views.scopeExcluded).toBeNull();
+});
+
+it('switching Scope while a view is selected gives the same answer as opening it there (#2175)', async () => {
+  const store = createFakeStore([MEM_VIEW]);
+  mount(store, inScope('MEM'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('m1'); });
+  expect(views.scopeExcluded).toBeNull();
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => expect(views.scopeExcluded).toEqual({ savedScopeId: 'MEM', keys: ['line'] }));
+  expect(views.state.modified).toBe(false);
+});
+
+it('both save paths record the current Scope, and an overwrite across Scopes asks first and writes the new Scope (#2175)', async () => {
+  const store = createFakeStore([MEM_VIEW]);
+  mount(store, inScope('MEM', ['L1'], 'a'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.saveAs({ name: '새 뷰', kind: 'menu-view' }); });
+  expect(store.rows.get('v2')?.savedScopeId).toBe('MEM');
+  await act(async () => { await views.saveAs({ name: '새 조건', kind: 'condition-set' }); });
+  expect(store.rows.get('v3')?.savedScopeId).toBe('MEM');
+
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => expect(host.global.scopeId).toBe('FDRY'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('m1'); });
+  expect(views.crossScopeSave).toEqual({ savedScopeId: 'MEM', keys: ['line'] });
+  act(() => host.setGlobal({ lineNames: ['L7'] }));
+  await waitFor(() => expect(host.global.lineNames).toEqual(['L7']));
+  await act(async () => { await views.saveToSelected(); });
+  expect(store.rows.get('m1')).toMatchObject({ savedScopeId: 'FDRY', context: { lineNames: ['L7'] } });
+  await waitFor(() => expect(views.crossScopeSave).toBeNull());
+});
+
+it('a save made with no current Scope records none, and an overwrite with none clears the recorded one (#2175)', async () => {
+  const store = createFakeStore([MEM_VIEW]);
+  mount(store, `/${query(['L1'], 'a')}`);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.saveAs({ name: '무 Scope', kind: 'menu-view' }); });
+  expect(store.rows.get('v2')).not.toHaveProperty('savedScopeId');
+  await act(async () => { await views.select('m1'); });
+  act(() => host.setGlobal({ lineNames: ['L7'] }));
+  await waitFor(() => expect(views.state.modified).toBe(true));
+  await act(async () => { await views.saveToSelected(); });
+  expect(store.rows.get('m1')).not.toHaveProperty('savedScopeId');
 });

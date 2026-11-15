@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
-import { diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
+import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
@@ -177,8 +177,13 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
 
   // A save holds the applied conditions only; with an unapplied draft the user is told the draft is lost, and cancelling saves nothing.
   const confirmDraft = () => new Promise<boolean>(resolve => { setDraftAsk(() => resolve); });
+  const [scopeAsk, setScopeAsk] = useState<((ok: boolean) => void) | null>(null);
+  const confirmScope = () => new Promise<boolean>(resolve => { setScopeAsk(() => resolve); });
+  const keyText = (keys: readonly string[]) => keys.map(key => key in CONTEXT_LABELS ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
   const saveCurrent = async (): Promise<boolean> => {
     if (unapplied && !(await confirmDraft())) return false;
+    // Saving across Scopes drops the Site-bound values saved elsewhere: ask first, and point at 새 뷰로 저장 (#2175).
+    if (views.crossScopeSave && !(await confirmScope())) return false;
     return report(await views.saveToSelected(), m('savedViewUpdated'));
   };
   const openSave = (mode: 'new' | 'update') => new Promise<boolean>(resolve => { saveAsDone.current = { resolve, ok: false }; setSaveMode(mode); setSaveOpen(true); });
@@ -192,7 +197,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   };
   const submit = async (input: { mode: 'new' | 'update'; unit: 'condition-set' | 'menu-view'; name: string; visibility: string }): Promise<Result<unknown>> => {
     let result: Result<unknown>;
-    if (input.mode === 'update') result = await views.saveToSelected();
+    if (input.mode === 'update') { if (views.crossScopeSave && !(await confirmScope())) return { ok: false, reason: 'unavailable' }; result = await views.saveToSelected(); }
     else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name }; setHandoff(true); return { ok: true, value: null }; }
     else result = await views.saveAs({ name: input.name, kind: input.unit });
     if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name }), 'info'); if (saveAsDone.current) saveAsDone.current.ok = true; }
@@ -258,12 +263,21 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     report(await views.update(id, patch, { expectedVersion: item.view.version }), done);
   };
 
-  const excluded = views.unsupported.map(item => item.key);
+  // Context keys read as Korean condition names; a menu-declared page key has no shared label and stays as declared.
+  const excluded = views.unsupported.map(item => item.kind === 'context' ? keyText([item.key]) : item.key);
   const panelCount = (view: SavedView) => view.kind === 'menu-view' && Array.isArray(view.panels) ? view.panels.length : 0;
   const panels = selected ? panelCount(selected.view) : 0;
-  const note = (excluded.length > 0 || panels > 0)
-    ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : ''].filter(Boolean).join(' · ')
+  const scoped = views.scopeExcluded;
+  // The unsupported list and the other-Scope list stay apart: one is the menu's limit, the other a rule of the Scope (#2175).
+  const scopeNote = scoped ? m('savedViewScopeExcluded', { keys: keyText(scoped.keys) }) : '';
+  // The saved Scope is named only when the viewer's own Scope list has it; a shared viewer gets no raw id of a Scope they hold no grant for (#2175).
+  const scopeName = (id: string) => host.session.scopes.find(option => option.id === id)?.label ?? null;
+  const savedIn = scoped ? scopeName(scoped.savedScopeId) : null;
+  const scopeFull = scoped ? (savedIn === null ? m('savedViewScopeExcludedOther', { keys: keyText(scoped.keys) }) : m('savedViewScopeExcludedFull', { scope: savedIn, keys: keyText(scoped.keys) })) : '';
+  const note = (excluded.length > 0 || panels > 0 || scoped)
+    ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : '', scopeNote].filter(Boolean).join(' · ')
     : '';
+  const noteTitle = [note, scopeFull].filter(Boolean).join('\n');
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
     <ViewSelector
@@ -277,7 +291,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       onDelete={id => { void views.remove(id).then(result => report(result, m('savedViewDeleted'))); }}
       onManage={() => setManageOpen(true)}
     />
-    {note && <span role="status" className="max-w-56 truncate text-xs text-text-secondary" title={note}>{note}</span>}
+    {note && <span role="status" className="max-w-56 truncate text-xs text-text-secondary" title={noteTitle}>{note}</span>}
     <SaveViewDialog
       key={saveMode} open={saveOpen} onOpenChange={closeSave} units={['menu-view', 'condition-set']} {...(updatable ? { updatable } : {})} initialMode={saveMode}
       context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={saveTrigger}
@@ -296,6 +310,12 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       onDecide={async (id, decision, noteText, expectedVersion) => { return views.decide(id, decision, noteText, { expectedVersion }); }}
       onRevoke={async (id, expectedVersion) => { return views.revoke(id, { expectedVersion }); }}
       onMigrate={id => { void migrate(id); }}
+    />
+    <DirtyConfirmation
+      open={scopeAsk !== null} onCancel={() => { scopeAsk?.(false); setScopeAsk(null); }} onConfirm={() => { scopeAsk?.(true); setScopeAsk(null); }}
+      title={m('savedViewCrossScopeTitle')}
+      message={views.crossScopeSave ? (scopeName(views.crossScopeSave.savedScopeId) === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(views.crossScopeSave.keys) }) : m('savedViewCrossScopeMessage', { scope: scopeName(views.crossScopeSave.savedScopeId) ?? '', keys: keyText(views.crossScopeSave.keys) })) : ''}
+      confirmLabel={m('savedViewCrossScopeConfirm')} cancelLabel={t('cancel')}
     />
     <DirtyConfirmation
       open={draftAsk !== null} onCancel={() => { draftAsk?.(false); setDraftAsk(null); }} onConfirm={() => { draftAsk?.(true); setDraftAsk(null); }}
