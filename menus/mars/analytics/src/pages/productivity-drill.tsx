@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import type { QueryState } from '@ap/kernel';
 import { PlatformLink } from '@ap/kernel';
 import { DetailDrawer, QueryView } from '@ap/components';
-import { Button, cn, FieldList, FieldRow } from '@ap/ui';
+import { Button, cn, FieldList, FieldRow, Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@ap/ui';
 import type { DrillData, DrillEquipmentRow, DrillStgroupRow, KpiSet } from '../endpoints';
 
 type Fmt = { n1: (value: number) => string; ni: (value: number) => string };
@@ -34,33 +34,33 @@ function EnterButton({ ko, value, onClick }: { ko: boolean; value: string; onCli
 
 function tableShell(caption: string, head: ReactNode, body: ReactNode) {
   return <div className="overflow-auto rounded-lg border border-border-subtle bg-surface-card">
-    <table className="w-full text-xs">
-      <caption className="sr-only">{caption}</caption>
-      <thead className="bg-surface-sunken"><tr>{head}</tr></thead>
-      <tbody className="tabular">{body}</tbody>
-    </table>
+    <Table density="compact">
+      <TableCaption srOnly>{caption}</TableCaption>
+      <TableHeader><TableRow>{head}</TableRow></TableHeader>
+      <TableBody>{body}</TableBody>
+    </Table>
   </div>;
 }
 
-function Th({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
-  return <th scope="col" className={cn('t-table-header px-3 py-1.5 text-text-secondary', align === 'right' ? 'text-right' : 'text-left')}>{children}</th>;
+function Th({ children, align = 'start' }: { children: ReactNode; align?: 'start' | 'end' }) {
+  return <TableHead scope="col" align={align}>{children}</TableHead>;
 }
 
 function StgroupTable({ ko, rows, onEnter, n1, ni }: { ko: boolean; rows: DrillStgroupRow[]; onEnter: (stgroup: string) => void } & Fmt) {
   const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
   return tableShell(m('productivityDrillStgroupOccupancy'), <>
     <Th>StGroup</Th>
-    <Th align="right">{m('productivityDrillEquipment')}</Th>
-    <Th align="right">{m('productivityDrillOccupancy')}</Th>
-    <Th align="right">{m('productivityDrillJobs')}</Th>
+    <Th align="end">{m('productivityDrillEquipment')}</Th>
+    <Th align="end">{m('productivityDrillOccupancy')}</Th>
+    <Th align="end">{m('productivityDrillJobs')}</Th>
     <Th><span className="sr-only">{m('productivityDrillEnter2')}</span></Th>
-  </>, rows.map(row => <tr key={row.stgroup} className="border-t border-border-subtle">
-    <td className="t-mono px-3 py-1.5">{row.stgroup}</td>
-    <td className="px-3 py-1.5 text-right">{ni(row.equipmentCount)}</td>
-    <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>
-    <td className="px-3 py-1.5 text-right">{ni(row.jobs)}</td>
-    <td className="px-2 py-1.5 text-right"><EnterButton ko={ko} value={row.stgroup} onClick={() => onEnter(row.stgroup)} /></td>
-  </tr>));
+  </>, rows.map(row => <TableRow key={row.stgroup}>
+    <TableCell><span className="t-mono">{row.stgroup}</span></TableCell>
+    <TableCell align="end">{ni(row.equipmentCount)}</TableCell>
+    <TableCell align="end">{pctHint(ko, row.occupancyPct, n1)}</TableCell>
+    <TableCell align="end">{ni(row.jobs)}</TableCell>
+    <TableCell align="end"><EnterButton ko={ko} value={row.stgroup} onClick={() => onEnter(row.stgroup)} /></TableCell>
+  </TableRow>));
 }
 
 function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
@@ -69,24 +69,24 @@ function EquipmentTable({ ko, rows, current, onEnter, n1, ni }: {
   const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], (ko ? 'ko' : 'en'), params);
   return tableShell(m('productivityDrillEquipmentOccupancy'), <>
     <Th>EquipmentID</Th>
-    <Th align="right">{m('productivityDrillOccupancy2')}</Th>
-    <Th align="right">{m('productivityDrillJobs2')}</Th>
-    <Th align="right">{m('productivityDrillP95CycleTime')}</Th>
+    <Th align="end">{m('productivityDrillOccupancy2')}</Th>
+    <Th align="end">{m('productivityDrillJobs2')}</Th>
+    <Th align="end">{m('productivityDrillP95CycleTime')}</Th>
     <Th><span className="sr-only">{m('productivityDrillEnter3')}</span></Th>
   </>, rows.map(row => {
     const isCurrent = current === row.equipmentId;
-    return <tr key={row.equipmentId} aria-current={isCurrent ? 'true' : undefined} className={cn('border-t border-border-subtle', isCurrent && 'bg-accent-primary-soft')}>
+    return <TableRow key={row.equipmentId} current={isCurrent}>
       {/* Shape + weight accompany the selected surface (06 §26, DESIGN Shell visual rules): 2px accent bar,
           drawn out of the text flow so the current row's ID keeps its column alignment. */}
-      <td className={cn('t-mono relative px-3 py-1.5', isCurrent && 'font-medium')}>
+      <TableCell className="relative">
         {isCurrent && <span aria-hidden className="absolute left-0 inset-y-1 w-0.5 rounded-full bg-accent-primary" />}
-        {row.equipmentId}
-      </td>
-      <td className="px-3 py-1.5 text-right">{pctHint(ko, row.occupancyPct, n1)}</td>
-      <td className="px-3 py-1.5 text-right">{ni(row.jobs)}</td>
-      <td className="px-3 py-1.5 text-right">{row.p95Min === null ? (m('productivityDrillNotConfirmed3')) : `${n1(row.p95Min)} ${m('productivityDrillMin2')}`}</td>
-      <td className="px-2 py-1.5 text-right"><EnterButton ko={ko} value={row.equipmentId} onClick={() => onEnter(row.equipmentId)} /></td>
-    </tr>;
+        <span className={cn('t-mono', isCurrent && 'font-medium')}>{row.equipmentId}</span>
+      </TableCell>
+      <TableCell align="end">{pctHint(ko, row.occupancyPct, n1)}</TableCell>
+      <TableCell align="end">{ni(row.jobs)}</TableCell>
+      <TableCell align="end">{row.p95Min === null ? (m('productivityDrillNotConfirmed3')) : `${n1(row.p95Min)} ${m('productivityDrillMin2')}`}</TableCell>
+      <TableCell align="end"><EnterButton ko={ko} value={row.equipmentId} onClick={() => onEnter(row.equipmentId)} /></TableCell>
+    </TableRow>;
   }));
 }
 

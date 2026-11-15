@@ -231,7 +231,7 @@ Table은 플랫폼 핵심 UI다.
 
 Static `Table` is for small, fully given, read-only tables (summaries, previews, diffs, dialog lists) with no paging, filtering, export, column controls or selection; anything needing one of those, or whose row count is not bounded by the screen, uses `PlatformDataTable` (`rows` mode for given data).
 
-The static header uses the same tokens as `PlatformDataTable`: `t-table-header`, `bg-surface-sunken`, `text-text-secondary`, `h-8` / `px-4`. The piece carries no copy; captions, labels and sort handlers belong to the consumer. Numeric headers and cells use `align="end"`. Optional `density="compact"` matches PlatformDataTable table size 작게 (28px rows, 12px font); 12px side padding instead of 16px lets six-column summaries fit a side panel. There is no third size. Borders belong to header/body cells, with separate border layout, so a sticky header keeps its bottom line; final body-row cell bottom borders are omitted.
+The static header uses the same tokens as `PlatformDataTable`: `t-table-header`, `bg-surface-sunken`, `text-text-secondary`, `h-8` / `px-4`. The piece carries no copy; captions, labels and sort handlers belong to the consumer. Numeric headers and cells use `align="end"`. Optional `density="compact"` matches PlatformDataTable table size 작게 (28px rows, 12px font); 12px side padding instead of 16px lets six-column summaries fit a side panel. There is no third size. `TableRow current` marks the row the screen is on (accent surface and `aria-current`); the row's own text shape and weight stay with the consumer. Borders belong to header/body cells, with separate border layout, so a sticky header keeps its bottom line; final body-row cell bottom borders are omitted.
 
 ### PlatformDataTable features
 

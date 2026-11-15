@@ -12,6 +12,15 @@ describe('static Table', () => {
     expect(screen.getByRole('cell').closest('tbody')).toHaveClass('[&_tr:last-child>td]:border-b-0');
   });
 
+  it('marks the current row with the accent surface and aria-current, and leaves other rows plain', () => {
+    render(<Table><TableBody><TableRow current><TableCell>a</TableCell></TableRow><TableRow><TableCell>b</TableCell></TableRow></TableBody></Table>);
+    const [on, off] = screen.getAllByRole('row');
+    expect(on).toHaveAttribute('aria-current', 'true');
+    expect(on).toHaveClass('bg-accent-primary-soft');
+    expect(off).not.toHaveAttribute('aria-current');
+    expect(off).not.toHaveClass('bg-accent-primary-soft');
+  });
+
   it('aligns numeric headers and cells at the end with tabular figures', () => {
     render(<Table><TableHeader><TableRow><TableHead align="end">Count</TableHead></TableRow></TableHeader><TableBody><TableRow><TableCell align="end">12</TableCell></TableRow></TableBody></Table>);
     expect(screen.getByRole('columnheader')).toHaveClass('text-right', 'tabular');

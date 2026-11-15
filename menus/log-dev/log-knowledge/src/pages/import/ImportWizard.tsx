@@ -322,10 +322,10 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
       </div>
       <figure className="grid gap-1.5">
         <figcaption className="t-caption text-text-muted">예시</figcaption>
-        <table className="w-full max-w-xl border-collapse text-sm">
-          <thead><tr>{EXAMPLE.header.map(h => <th key={h} scope="col" className="border border-border-subtle bg-surface-sunken px-2 py-1 text-left font-semibold">{h}</th>)}</tr></thead>
-          <tbody>{EXAMPLE.rows.map(r => <tr key={r.join()}>{r.map((c, i) => <td key={i} className="border border-border-subtle px-2 py-1">{c}</td>)}</tr>)}</tbody>
-        </table>
+        <Table className="max-w-xl">
+          <TableHeader><TableRow>{EXAMPLE.header.map(h => <TableHead key={h} scope="col">{h}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>{EXAMPLE.rows.map(r => <TableRow key={r.join()}>{r.map((c, i) => <TableCell key={i}>{c}</TableCell>)}</TableRow>)}</TableBody>
+        </Table>
       </figure>
     </div>;
   } else if (step === 2 && job && plan) {

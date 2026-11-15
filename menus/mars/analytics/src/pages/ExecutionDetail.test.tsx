@@ -86,14 +86,13 @@ describe('ExecutionDetail identity', () => {
 });
 
 describe('ExecutionDetail panel rhythm and 구간 표 (#1166)', () => {
-  it('구간 표: one-line headers with the full label in title', async () => {
+  it('구간 표: six headers, each kept on one line', async () => {
     renderAt('&entityType=job&anchor=2456001');
     await screen.findByText('구간 표');
     const headers = screen.getAllByRole('columnheader');
     expect(headers.length).toBe(6);
     for (const header of headers) {
-      expect(header.className).toContain('truncate');
-      expect(header.getAttribute('title')).toBe(header.textContent);
+      expect(header.className).toContain('whitespace-nowrap');
     }
   });
 });
