@@ -270,7 +270,7 @@ function ConditionCategory(props: CategoryProps) {
         const groups = state.status === 'ready' && 'groups' in state.data ? state.data.groups : [];
         return <div className="space-y-3">{optionState()}
           {groups.map((group, groupIndex) => <section key={group.id} className="min-w-0 space-y-2" aria-labelledby={`${prefix}-group-${groupIndex}`}>
-            <h4 id={`${prefix}-group-${groupIndex}`} className="text-sm font-semibold">{group.label[lang]}</h4>
+            <h4 tabIndex={-1} id={`${prefix}-group-${groupIndex}`} className="text-sm font-semibold">{group.label[lang]}</h4>
             <div className="grid min-w-0 gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr))]">
               {kind.lists.map(list => {
                 const groupOptions = group.lists[list.id] ?? [];
@@ -294,7 +294,7 @@ function ConditionCategory(props: CategoryProps) {
   return <fieldset data-page-condition={category.id} disabled={disabled} aria-describedby={reasonsId} className="min-w-0 space-y-2 border-b border-border-subtle pb-3">
     <legend className="sr-only">{category.label[lang]}</legend>
     <div className="flex flex-wrap items-center justify-between gap-x-2">
-      <span aria-hidden className="text-sm font-semibold text-text-primary">{category.label[lang]}</span>
+      <span role="heading" aria-level={3} tabIndex={-1} className="text-sm font-semibold text-text-primary">{category.label[lang]}</span>
       <span className="flex items-center gap-2">
         <span className="text-xs text-text-secondary">{selectionSummary}</span>
         <Button type="button" variant="ghost" size="toolbar" disabled={disabled || kind.type === 'tree' || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>

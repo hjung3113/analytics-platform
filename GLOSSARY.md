@@ -581,7 +581,7 @@ _Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. Context 바와도 �
 _Avoid_: 페이지 필터 — 같은 막대를 부르던 옛 이름. 표의 열 필터와도 섞인다.
 
 **페이지 조건 레이어** (`MenuMeta.pageConditions`, Candidate):
-메뉴가 선언한 조건 범주를 순서대로 다루는 SDK 계약. 전역 Context와 구별하며 선언·인코딩 원본은 [Kernel §5·§6.4](docs/contract/kernel.md#5-menu-extension-contract)다.
+메뉴가 선언한 페이지 조건 범주를 순서대로 편집하는 비모달 본문 레이어. 화면 이름은 «페이지 조건»이며 범주별 요약 칩에서 연다. 전역 Context와 구별하며 선언·인코딩 원본은 [Kernel §5·§6.4](docs/contract/kernel.md#5-menu-extension-contract)다.
 _Avoid_: 필터 층 — 이슈 제목에 남은 작업 이름이다.
 
 **조건 범주** (`pageConditions.categories[]`, Candidate):

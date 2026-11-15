@@ -1,6 +1,22 @@
 import type { Text } from '@ap/kernel';
 
 export const ANALYTICS_MESSAGES = {
+  // Removable #2339 synthetic prototype labels.
+  sampleAlpha: { ko: '합성 Alpha', en: 'Synthetic Alpha' },
+  sampleBeta: { ko: '합성 Beta', en: 'Synthetic Beta' },
+  sampleCategory: { ko: '합성 분류', en: 'Synthetic category' },
+  sampleTargets: { ko: '합성 대상', en: 'Synthetic targets' },
+  sampleAmount: { ko: '합성 수량', en: 'Synthetic amount' },
+  sampleTime: { ko: '합성 시각', en: 'Synthetic time' },
+  sampleGroups: { ko: '합성 묶음', en: 'Synthetic groups' },
+  sampleList: { ko: '합성 목록', en: 'Synthetic list' },
+  sampleDisabled: { ko: '합성 비활성', en: 'Synthetic disabled' },
+  sampleDisabledReason: { ko: '이 합성 예제에서는 사용할 수 없습니다.', en: 'Unavailable in this synthetic example.' },
+  sampleDetailConditions: { ko: '합성 상세 조건', en: 'Synthetic detail conditions' },
+  sampleOptionGroup: { ko: '합성 그룹', en: 'Synthetic group' },
+  sampleFirstItem: { ko: '합성 항목 1', en: 'Synthetic item 1' },
+  sampleSecondItem: { ko: '합성 항목 2', en: 'Synthetic item 2' },
+
 
   // CycleTimeDrilldown
   cycleTimeDrilldownGrain: { ko: "집계", en: "Grain" },

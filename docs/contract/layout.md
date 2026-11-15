@@ -64,12 +64,15 @@ Page
 ├─ secondaryActions
 ├─ contextNotes
 ├─ contextExtension
+├─ pageConditionLayer (선언 메뉴의 본문 시작 가장자리 overlay, Candidate)
 ├─ content
 ├─ dataTrustSummary
 └─ detail (셸 소유 오른쪽 고정 슬롯, §13)
 ```
 
 `contextNotes`(`ReactNode[]`, 요소 하나가 안내 하나; `null`·`false` 요소는 세지도 그리지도 않는다)는 `contextExtension` 위에 그리는 설명 안내 슬롯이다. 페이지가 필터 컨트롤(`contextExtension`)과 설명 문장을 한 덩어리로 섞어 넘기면 접힌 줄이 안내 개수를 알 수 없고 안내만 따로 위·아래로 둘 수도 없다 — 그래서 별도 슬롯으로 둔다(#680, [ADR-0075](../adr/0075-page-head-one-line-fold-thin-outcome-strip.md)). 머리 영역은 `(contextNotes가 비어 있지 않음 || contextExtension) && 게이트 없음`일 때 그린다. flow 페이지는 안내를 확장 위에 항상 그리고(접기 없음), fill 페이지는 §12.8의 머리 접기를 쓴다.
+
+**페이지 조건 레이어(Candidate, #2339, 소유자 시각 확인 전):** `pageConditions`를 선언한 analysis/overview 메뉴에서만 `PlatformPage`가 자동 제공하는 본문 overlay 자리다. fill/flow 모두 sticky 머리·조회 바 아래 본문 시작 가장자리에 놓고, 보드에서는 칸의 본문 안에 둔다(ADR-0049). 폭은 `--page-condition-layer-width` 360px이며 칸이 더 좁으면 칸 폭을 따른다. 높이는 `visibleArea`와 `--page-sticky-offset`이 계산한 보이는 본문 끝까지다. 내부 스크롤은 하나이며 레이어를 열어도 본문의 폭과 결과를 바꾸지 않는다. scrim·바깥 클릭 닫기·본문 inert·포커스 가두기를 쓰지 않는다. 본문 콘텐츠 위 z-10, sticky 머리/조회 바 z-20 아래이며, 별도 오른쪽 DetailDrawer aside와 사이드바·Context 바를 덮지 않는다. 상세 크게 보기와 모달은 레이어보다 위에 놓이고 기존 상세의 본문 inert가 우선한다. 레이어의 상호작용 원본은 [Components §13](components.md#13-shared-component-layers)이다. pin/rail은 제공하지 않는다.
 
 이 Slot 외의 위치에 페이지가 직접 전역 UI를 삽입하지 않는다. 상세 내용은 등록 경계로 넘기고, 셸이 main 옆의 전체 높이 오른쪽 aside 배치를 소유한다(§13).
 
@@ -217,6 +220,8 @@ Data Trust
 
 둘째 줄은 왼쪽부터 요약 조회 상태(진행·완료·실패, 응답 시각), `페이지 조건` 칩, 오른쪽 `ml-auto`의 `화면 배치` 이름표와 기존 작업 영역 도구줄 순서다. 완료 문구는 `요약 조회 완료`다. 별도의 적용 조건 띠·파라미터 카드·배치 도구줄 행은 그리지 않는다. 칩은 고정 `페이지 조건` 뒤에 라벨·값 스타일의 요약을 붙이고 `max-w-80` 안에서 요약만 줄인다. 안내·미적용 변경·문제 건수는 잘리지 않는 별도 span으로, 끝에는 chevron을 둔다. 한 번 누르면 `align="start"` 팝오버에 같은 실제 파라미터 필드와 안내를 모두 연다. 접힌 필터를 한 번 더 펼칠 필요가 없으며 Esc로 닫으면 칩으로 포커스가 돌아간다. 편집기 입력 상태와 기존 페이지 머리 선호값은 유지한다.
 
+`pageConditions` 선언 메뉴는 위의 `페이지 조건` 팝오버 대신 같은 자리에 범주별 트리거 칩을 둔다(Candidate, #2339). 각 활성 범주가 선언 순서로 `라벨: 값 요약` 칩 하나를 차지하며, 항목 단위로 줄바꿈하고 `+n`·말줄임으로 숨기지 않는다. 누르면 §8의 비모달 레이어를 열고 ×는 그 범주를 지운다. 선언하지 않은 메뉴의 승인된 ADR-0160 팝오버는 그대로다.
+
 조회 막대를 펼치면 적용값 띠·페이지 머리·별도 도구줄의 기존 동작으로 돌아간다. live·apply 없는 화면·Overview·관문·보드 칸에는 이 배치를 적용하지 않는다. 이 접힌 상태의 작업 영역 패널 안 StatCard는 자기 테두리를 생략하고 패널 테두리 하나를 쓰되 둥근 선택 링·hover는 유지한다. Overview와 보드 칸의 독립 StatCard 테두리는 유지한다.
 
 ### 12.3 Management
@@ -310,6 +315,8 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 - `DrillLayout`의 선택 `fill`(`QueryView`의 선택 `fill`과 함께)은 부모 높이를 채우는 열을 만든다. 래퍼는 `flex min-h-0 flex-1 flex-col`, 본문 영역은 `min-h-0 flex-1`이고 경로 바·요약은 스크롤 밖에 남는다. 없으면 출력은 이전과 같다(`space-y-4`). `PlatformPage layout="fill"` 안에서 `size="fill"` 차트가 정해진 높이를 받게 하는 용도다.
 
 ### 12.8 PanelWorkspace (Decided, [ADR-0067](../adr/0067-dockview-layout-engine-board-v2.md) 결정 3–9·18–22)
+
+`pageConditions` 선언 메뉴의 페이지 조건 편집기는 작업 영역 패널이 아니라 §8의 본문 overlay다(Candidate, #2339). 접힌 조회 바에서는 §12.2의 요약 자리를, 그 밖에는 페이지 머리의 요약 줄을 쓴다. 보드 칸의 레이어는 칸 본문을 벗어나지 않으며 칸마다 열림 상태가 독립적이다. 기존 페이지 머리 접기 선호와 레이어의 열림 상태는 별개이며 레이어는 저장하지 않는다.
 
 패널이 4개 이상인 밀집 분석 메뉴가 쓰는 선택 레이아웃이다. 메뉴가 패널·프리셋·기본 패널을 선언하고, 탭·끌기·나누기·최대화·숨긴 패널 목록·기본 배치·브라우저 로컬 선호는 플랫폼이 소유한다. 그 밖의 메뉴는 `AnalysisLayout`(§12.6)을 그대로 쓴다. `@ap/components` 루트의 `PanelWorkspace`이고(메뉴는 `@ap/components/dock`을 import할 수 없다), 두 번째 실제 소비자(HW Time 비교·개요, #690)가 쓰면서 공개 API는 Decided다(ADR-0067 결정 22). 휠: 탭 줄은 넘치지 않으면 세로 휠을 바깥으로 넘기고([16 §4.1](../design/analysis-board.md)), 그림은 수정키 없는 휠을 막지 않으며(§16), 패널 안 표 행 영역은 끝에서 휠을 넘긴다(§15)(#700).
 

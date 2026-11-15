@@ -793,6 +793,9 @@ describe('pageConditions declarations (#2337)', () => {
   const label = { ko: '조건', en: 'Condition' };
   const category = { id: 'choice', label, kind: { type: 'select' as const, key: 'choice', options: { static: [{ value: 'a', label }] } } };
   const entry = (): PlatformMenuEntry => ({ ...catalog, pageType: 'analysis', pageKeys: ['choice'], pageConditions: { categories: [category] } }) as PlatformMenuEntry;
+  it('rejects workflow page conditions (#2339)', () => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...entry(), pageType: 'workflow' }] })).toThrow(/pageType/);
+  });
   it.each([
     ['undeclared key', { pageKeys: [] }, /declared page key/],
     ['single key repeated', { repeatedPageKeys: ['choice'] }, /single-valued/],

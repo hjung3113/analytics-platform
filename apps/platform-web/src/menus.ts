@@ -16,7 +16,7 @@ import { manifests as home } from '@ap/menu-home';
 import { manifests as myActivity } from '@ap/menu-my-activity';
 import { manifests as equipment } from '@ap/menu-equipment';
 import { manifests as masterData } from '@ap/menu-master-data';
-import { manifests as analytics } from '@ap/menu-analytics';
+import { manifests as analytics, withPageConditionSamples, PAGE_CONDITION_SAMPLE_SOURCES } from '@ap/menu-analytics';
 import { manifests as metrics } from '@ap/menu-metrics';
 import { manifests as noticeVoc } from '@ap/menu-notice-voc';
 import { manifests as admin } from '@ap/menu-admin';
@@ -127,7 +127,7 @@ export const MENUS: MenuEntry[] = [
   ...myActivity,
   ...equipment,
   ...masterData,
-  ...analytics,
+  ...(import.meta.env.VITE_PAGE_CONDITION_SAMPLES === '1' ? withPageConditionSamples(analytics) : analytics),
   ...metrics,
   ...noticeVoc,
   ...admin,
@@ -186,7 +186,7 @@ const CARRY_SETS: readonly CarrySetDef[] = [
 const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
 /** The whole `createRegistry` input (spaces, groups, menus, permissions, carrySets, platformHomeMenuId, reservedRoots): the Host (`startAppHost` in `main.tsx`) builds the mounted app's Registry from it. */
-export const declarations: CreateRegistryInput = { spaces: SPACES, groups: GROUPS, menus: placeGlobalGroups(configureHome(MENUS)), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS };
+export const declarations: CreateRegistryInput = { spaces: SPACES, groups: GROUPS, menus: placeGlobalGroups(configureHome(MENUS)), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS, endpoints: import.meta.env.VITE_PAGE_CONDITION_SAMPLES === '1' ? PAGE_CONDITION_SAMPLE_SOURCES : [] };
 
 /** Built once here for tests and any direct reader; the running app mounts the Registry the Host builds from the same `declarations` (one extra build, unchanged behaviour). */
 export const registry = createRegistry(declarations);

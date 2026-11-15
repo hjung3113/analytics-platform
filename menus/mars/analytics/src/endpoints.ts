@@ -1,3 +1,4 @@
+import { PAGE_CONDITION_SAMPLE_SOURCES } from './page-condition-samples';
 import { ANALYTICS_MESSAGES } from './messages';
 import type { ThemeColorToken } from '@ap/ui/theme';
 /**
@@ -343,3 +344,20 @@ export const chartCatalogEndpoint = defineEndpoint<{ kind: CatalogKind }, Catalo
   id: 'analytics.chartCatalog', menuId: 'chart-catalog', permission: PERMISSION, requiresScope: true,
   context: { time: 'apply' }, paramKeys: { kind: true }, kinds: ['collection', 'coverage'], mergeTimeDomain: true,
 });
+
+// #2339 synthetic prototype option reads. Only the host's opt-in assembly declares the categories.
+export const productivityConditionOptionsEndpoint = defineEndpoint<Record<never, never>, import('@ap/contracts').PageConditionGroupedOptionsResponse>({
+  ...PAGE_CONDITION_SAMPLE_SOURCES[0], permission: PERMISSION, requiresScope: true,
+  context: {}, paramKeys: {}, kinds: [], mergeTimeDomain: false,
+});
+export const catalogConditionOptionsEndpoint = defineEndpoint<Record<never, never>, import('@ap/contracts').PageConditionGroupedOptionsResponse>({
+  ...PAGE_CONDITION_SAMPLE_SOURCES[1], permission: PERMISSION, requiresScope: true,
+  context: {}, paramKeys: {}, kinds: [], mergeTimeDomain: false,
+});
+
+export const pageConditionSampleOptionData: import('@ap/contracts').PageConditionGroupedOptionsResponse = {
+  groups: [{ id: 'syntheticGroup', label: ANALYTICS_MESSAGES.sampleOptionGroup, lists: { first: [
+    { value: 'syntheticFirst', label: ANALYTICS_MESSAGES.sampleFirstItem },
+    { value: 'syntheticSecond', label: ANALYTICS_MESSAGES.sampleSecondItem },
+  ] } }],
+};

@@ -184,6 +184,7 @@
   --sidebar-width-collapsed: 56px;
   --rail-width: 52px;
   --detail-panel-width: 440px;
+  --page-condition-layer-width: 360px;
   --toolbar-height: 50px;
   --topbar-height: 50px;
   /* #867: the fixed TriageActions footer height; the bottom-centred toast

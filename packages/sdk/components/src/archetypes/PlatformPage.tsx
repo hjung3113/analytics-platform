@@ -1,5 +1,6 @@
+import { DeclaredPageConditions, PageConditionTriggerSlot, type PageConditionLayerOptions } from '../filters/DeclaredPageConditions';
 import { PageDensityProvider, pageInsetX, useCompactPageDensity } from '../pageDensity';
-import { carriesReturnTo, formatInstant } from '@ap/contracts';
+import { carriesReturnTo, formatInstant, pageConditionKeys } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
 import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
@@ -126,6 +127,8 @@ export type PlatformPageProps = {
   contextNotes?: readonly ReactNode[];
   dataTrustSummary?: ReactNode;
   queryBarExtension?: QueryBarExtension;
+  /** Optional S2 option adapter for declared page conditions; the SDK mounts the layer. */
+  pageConditionOptions?: PageConditionLayerOptions;
   /** Completion of the consumer's authoritative summary query, including terminal error responses. */
   queryResult?: { completedAt: number | null; status: QueryStatus; /** Whether the completed summary response failed. */ failed?: boolean };
   /** Extra crumbs between the menu and the current object. */
@@ -147,7 +150,16 @@ export type PlatformPageProps = {
 };
 
 /** §8 Shell Slots. Pages never insert global UI outside these slots. */
-export function PlatformPage({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children }: PlatformPageProps) {
+export function PlatformPage(props: PlatformPageProps) {
+  const { route } = useHostPlatform();
+  const declaration = route?.menu.pageConditions;
+  if (!declaration) return <PlatformPageFrame {...props} />;
+  return <DeclaredPageConditions declaration={declaration} options={props.pageConditionOptions} extension={props.queryBarExtension}>
+    {binding => <PlatformPageFrame {...props} queryBarExtension={binding.extension} conditionTrigger={binding.trigger} conditionLayer={binding.layer} />}
+  </DeclaredPageConditions>;
+}
+
+function PlatformPageFrame({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children, conditionTrigger, conditionLayer }: PlatformPageProps & { conditionTrigger?: ReactNode; conditionLayer?: ReactNode }) {
   const { global, page, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
   const accessRequest = useScopeAccessRequest();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
@@ -282,6 +294,8 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
 
   const notes = (contextNotes ?? []).filter(note => note != null && note !== false);
   const headVisible = (notes.length > 0 || Boolean(contextExtension)) && !gate;
+  // Declared keys already have their own chips and polite region; legacy head metadata keeps only menu-published keys.
+  const headSummary = (queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []).filter(item => !conditionTrigger || !menu.pageConditions?.categories.some(category => pageConditionKeys(category).includes(item.key)));
   const titleResolved = title ?? tx(menu.label);
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
@@ -365,12 +379,14 @@ export function PlatformPage({ title, description, primaryAction, secondaryActio
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
       {completionShown && <span>{queryResult!.failed ? t('stateError') : m('workspaceQueryCompleted')} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
+    {!gate && conditionTrigger && <PageConditionTriggerSlot>{conditionTrigger}</PageConditionTriggerSlot>}
     {headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
-          summary={queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []}
+          summary={headSummary}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
+    {!gate && conditionLayer}
     <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', fixedFill && bounding > 0 && 'min-h-0', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate
       ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
       : <OutcomeScope>

@@ -640,4 +640,30 @@ it('still runs a live menu whose declared page condition is well formed (#2337)'
   await settleQueries();
   expect(query.status).not.toBe('idle');
   expect(send).toHaveBeenCalled();
+
+it('edits repeated page-condition values in the shared draft and applies them atomically (#2339)', async () => {
+  const conditional = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...menu, repeatedPageKeys: ['filter'], pageConditions: { categories: [{ id: 'choices', label: menu.label, kind: { type: 'multi', key: 'filter', options: { static: [] } } }] } }] });
+  mount('/' + period, conditional);
+  act(() => draft.setDraftPage({ filter: ['alpha', 'beta'] }));
+  expect(draft.draft.page).toEqual([['filter', 'alpha'], ['filter', 'beta']]);
+  expect(platform.pageParams('filter')).toEqual([]);
+  act(() => draft.apply());
+  await waitFor(() => expect(platform.pageParams('filter')).toEqual(['alpha', 'beta']));
+  act(() => draft.setDraftPage({ filter: null }));
+  expect(draft.draft.page).toEqual([]);
+});
+
+it('loads declared category options before Apply while result endpoints stay idle (#2339)', async () => {
+  const options = defineEndpoint<{}, number>({ ...endpoint, id: 'fixture.options', context: {} });
+  const conditional = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], endpoints: [options], menus: [{ ...menu, pageConditions: { categories: [{ id: 'choices', label: menu.label, required: true, kind: { type: 'select', key: 'filter', options: { endpoint: options.id } } }] } }] });
+  let loader: ReturnType<typeof useMenuFetch<{}, number>>;
+  function OptionsProbe() { loader = useMenuFetch(options); return <Probe />; }
+  window.history.replaceState(null, '', '/');
+  const session = testSession(['platform:view']);
+  const send = vi.fn(async () => ({ outcome: 'ok' as const, data: 7, assessments: [], trust: null, correlationId: 'options' }));
+  render(<I18nProvider><PlatformProvider registry={conditional} adapter={testAdapter({ session: () => session, menuQuery: send })}><OptionsProbe /></PlatformProvider></I18nProvider>);
+  expect(query.status).toBe('idle');
+  expect(loader!.ready).toBe(true);
+  await act(async () => { await loader!.fetch({}); });
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({ endpoint: options.id }), undefined);
 });

@@ -7,6 +7,18 @@
 
 ## 13. Shared Component Layers
 
+### 페이지 조건 레이어 (Candidate, #2339)
+
+`PageConditionLayer`는 `PageConditionCategories`의 선언 순서·범주별 「지우기」·section 접기를 담는 비모달 편집 표면이다. 제목은 「페이지 조건」이며 전역 Context(기간·Scope·Condition·Selection 등)는 읽기 전용 요약과 「조회 조건에서 바꾸기」 진입으로만 제공한다. 전역 편집은 기존 Context 바에서 한다. body overlay의 위치·폭·쌓임은 [Layout §8](layout.md#8-shell-slots)이 소유한다.
+
+`PlatformPage`가 메뉴 선언을 읽어 자동 조립한다. 메뉴는 동적 옵션이 있으면 S2의 `usePageConditionOptionsLoader` 결과(`loadOptions`, `ready`)와 옵션 입력 신원(`inputsKey`)만 `pageConditionOptions`로 전달한다. SDK가 세션 세대·Scope·Context와 합쳐 옵션 요청을 취소/재시작한다. 선언 키의 요약은 S1 파생 함수가, 나머지 키의 요약은 메뉴의 `queryBarExtension`이 소유한다. 동적 요약에서 확인되지 않은 옵션은 원래 id를 보존한다.
+
+트리거는 `aria-expanded`·`aria-controls`를 가지고, 범주별 칩 ×와 「모두 지우기」는 레이어 소유 page key만 지운다. Apply 메뉴에서는 초안만 바꾸고 「미적용 변경 있음」을 남긴다. 전역 Context와 패널 필터는 지우지 않는다. 여러 키를 가진 date/groupedChecks도 범주당 칩 하나다. `~none`은 「선택한 항목 없음」이고 제약 없음과 다르다.
+
+레이어는 `role=dialog`, `aria-modal=false`, 제목 연결을 가지며, 열 때 제목으로 포커스를 옮긴다. 필수 범주 누락이나 codec 문제가 있으면 자동으로 열고 첫 문제 범주로 포커스를 옮긴다. 그 밖에는 닫힌 채 시작한다. 바깥 클릭으로 닫히지 않으며 결과를 읽거나 Tab으로 레이어 밖으로 나갈 수 있다. Esc는 포커스가 안에 있을 때만, 내부 Select/popover가 먼저 받은 뒤 한 단계씩 닫는다. 닫으면 트리거로 복귀한다. 닫힌 동안 적용 요약이 바뀐 경우만 마운트된 polite 영역에서 한 번 알리고, 열기·닫기 자체는 알리지 않는다.
+
+Apply footer의 「적용」·「되돌리기」는 Context 바와 같은 `useQueryDraft` 동작이다([Kernel §11](kernel.md#11-global-context-bar)). live 메뉴는 footer Apply가 없고 변경마다 `setPage`로 반영한다. 한 번 연 세션의 첫 변경만 push하고 나머지는 replace하여 뒤로가기 한 번으로 진입 전 조건으로 돌아간다. 열림 상태는 저장하지 않는다. tree·pin·전역 편집은 범위 밖이다. 시각은 소유자 캡처 확인 전 Candidate다.
+
 > 디자인 시스템 원본은 SDK `@ap/ui`가 소유한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 기능 화면은 SDK 부품을 `@ap/ui`에서 직접 소비하고, `src/ui`는 기능 도메인 표현 부품을 소유한다.
 
 
@@ -241,6 +253,8 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 ---
 
 ## 15. Platform Data Table Contract
+
+선언형 페이지 조건 레이어는 §13의 페이지 키 편집기다(Candidate, #2339). 표 열 필터·패널 필터와 별개이며 그 상태를 지우지 않는다. 기존 `PageFilterBar` 소비자를 자동 이관하지 않는다.
 
 Table은 플랫폼 핵심 UI다.
 

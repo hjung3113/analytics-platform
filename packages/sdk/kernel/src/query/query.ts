@@ -263,7 +263,12 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
   // `detached` (the sidebar `Source`'s `useMenuFetch`): the request is not part of the screen in view, so that screen's Apply/drill gate cannot block it unless the endpoint belongs to this very menu. A screen's own panels (`useMenuQuery`, the module host) keep the gate whatever menu their endpoint is declared under (HW Time's trend panel, #2007).
   const ownScreen = !options?.detached || spec.menuId === inputs.route?.menu.id;
-  const screenReady = !ownScreen || (queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap);
+  // Declared option sources are auxiliary reads: requiring a completed query to choose its required inputs deadlocks Apply.
+  const optionSource = options?.detached && spec.menuId === inputs.route?.menu.id && inputs.route.menu.pageConditions?.categories.some(({ kind }) => {
+    if (kind.type === 'groupedChecks' || kind.type === 'tree') return kind.source === spec.id;
+    return (kind.type === 'select' || kind.type === 'multi') && 'endpoint' in kind.options && kind.options.endpoint === spec.id;
+  });
+  const screenReady = !ownScreen || (queryPolicy.ready && (optionSource || (!queryPolicy.idle && !queryPolicy.drillGap)));
   const missing = ownScreen && queryPolicy.idle ? queryPolicy.missing : null;
   return { projected, ready: scopeReady && periodReady && screenReady, missing, send, notReady };
 }

@@ -85,3 +85,6 @@ export { ObjectLinks, type ObjectLinksProps } from './archetypes/ObjectLinks';
 
 export { browserPreferenceKey } from './preferences/browserPreference';
 export { useCollapsePreference, type CollapsePreference, type CollapsePreferenceOptions } from './filters/useCollapsePreference';
+
+export { PageConditionLayer, type PageConditionLayerProps } from './filters/PageConditionLayer';
+export type { PageConditionLayerOptions } from './filters/DeclaredPageConditions';
