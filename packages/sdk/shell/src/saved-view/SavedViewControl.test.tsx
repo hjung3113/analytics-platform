@@ -741,7 +741,9 @@ describe('a view saved in another Scope (#2175)', () => {
     await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
     await pick(user, '포토 뷰');
     const note = await screen.findByText(/다른 Scope라 제외: 공정/);
-    expect(note.getAttribute('title')).toContain('MEM에서 저장했습니다');
+    // The test session lists no Scope, so the saved Scope is not named (no raw id of a Scope the viewer may not hold).
+    expect(note.getAttribute('title')).toContain('현재와 다른 Scope에서 저장했습니다');
+    expect(note.getAttribute('title')).not.toContain('MEM');
     expect(screen.queryByText(/제외된 조건/)).toBeNull();
     expect(platform.global.roomNames).toBeNull();
   });

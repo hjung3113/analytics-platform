@@ -269,7 +269,10 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const scoped = views.scopeExcluded;
   // The unsupported list and the other-Scope list stay apart: one is the menu's limit, the other a rule of the Scope (#2175).
   const scopeNote = scoped ? m('savedViewScopeExcluded', { keys: keyText(scoped.keys) }) : '';
-  const scopeFull = scoped ? m('savedViewScopeExcludedFull', { scope: scoped.savedScopeId, keys: keyText(scoped.keys) }) : '';
+  // The saved Scope is named only when the viewer's own Scope list has it; a shared viewer gets no raw id of a Scope they hold no grant for (#2175).
+  const scopeName = (id: string) => host.session.scopes.find(option => option.id === id)?.label ?? null;
+  const savedIn = scoped ? scopeName(scoped.savedScopeId) : null;
+  const scopeFull = scoped ? (savedIn === null ? m('savedViewScopeExcludedOther', { keys: keyText(scoped.keys) }) : m('savedViewScopeExcludedFull', { scope: savedIn, keys: keyText(scoped.keys) })) : '';
   const note = (excluded.length > 0 || panels > 0 || scoped)
     ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : '', scopeNote].filter(Boolean).join(' · ')
     : '';
@@ -310,7 +313,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     <DirtyConfirmation
       open={scopeAsk !== null} onCancel={() => { scopeAsk?.(false); setScopeAsk(null); }} onConfirm={() => { scopeAsk?.(true); setScopeAsk(null); }}
       title={m('savedViewCrossScopeTitle')}
-      message={views.crossScopeSave ? m('savedViewCrossScopeMessage', { scope: views.crossScopeSave.savedScopeId, keys: keyText(views.crossScopeSave.keys) }) : ''}
+      message={views.crossScopeSave ? (scopeName(views.crossScopeSave.savedScopeId) === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(views.crossScopeSave.keys) }) : m('savedViewCrossScopeMessage', { scope: scopeName(views.crossScopeSave.savedScopeId) ?? '', keys: keyText(views.crossScopeSave.keys) })) : ''}
       confirmLabel={m('savedViewCrossScopeConfirm')} cancelLabel={t('cancel')}
     />
     <DirtyConfirmation

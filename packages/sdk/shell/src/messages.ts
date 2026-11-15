@@ -100,6 +100,8 @@ export const SHELL_MESSAGES = {
   savedViewExcludedKeys: { ko: '제외된 조건: {keys}', en: 'Left out: {keys}' },
   savedViewScopeExcluded: { ko: '다른 Scope라 제외: {keys}', en: 'Left out (other Scope): {keys}' },
   savedViewScopeExcludedFull: { ko: '이 뷰는 {scope}에서 저장했습니다. 현재 Scope에서는 {keys} 값을 적용하지 않았습니다.', en: 'This view was saved in {scope}. Its {keys} values are not applied in the current Scope.' },
+  savedViewScopeExcludedOther: { ko: '이 뷰는 현재와 다른 Scope에서 저장했습니다. 현재 Scope에서는 {keys} 값을 적용하지 않았습니다.', en: 'This view was saved in a different Scope. Its {keys} values are not applied in the current Scope.' },
+  savedViewCrossScopeMessageOther: { ko: '현재와 다른 Scope에서 저장한 뷰입니다. 현재 Scope로 저장하면 저장해 둔 {keys} 값이 지워지고, 이 뷰는 현재 Scope의 값으로 바뀝니다. 원래 값을 남기려면 취소하고 «새 뷰로 저장»을 쓰세요.', en: 'This view was saved in a different Scope. Saving it in the current Scope removes its saved {keys} values and replaces them with this Scope\'s. To keep the originals, cancel and use "Save as new view".' },
   savedViewCrossScopeTitle: { ko: '다른 Scope에서 저장한 뷰입니다', en: 'This view was saved in another Scope' },
   savedViewCrossScopeMessage: { ko: '{scope}에서 저장한 뷰입니다. 현재 Scope로 저장하면 {scope}에서 저장한 {keys} 값이 지워지고, 이 뷰는 현재 Scope의 값으로 바뀝니다. 원래 값을 남기려면 취소하고 «새 뷰로 저장»을 쓰세요.', en: 'This view was saved in {scope}. Saving it in the current Scope removes its {keys} values saved in {scope} and replaces them with this Scope\'s. To keep the originals, cancel and use "Save as new view".' },
   savedViewCrossScopeConfirm: { ko: '현재 Scope로 덮어쓰기', en: 'Overwrite in this Scope' },
