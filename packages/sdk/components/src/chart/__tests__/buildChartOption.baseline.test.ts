@@ -50,3 +50,9 @@ describe('gentle emphasis preserves selection and Min/Max (#1141)', () => {
     expect(axis.yAxis.axisLabel.formatter('R2')).toBe('{active|R2}');
   });
 });
+
+// New optional reading aids must not change a legacy consumer's serialized option.
+it('keeps the main baseline with rowGroups and pointStatus absent or explicitly undefined (#2326)', () => {
+  const option = buildChartOption(baselineInput({ rowGroups: undefined, pointStatus: undefined }));
+  expect(JSON.parse(JSON.stringify(option))).toEqual(main);
+});

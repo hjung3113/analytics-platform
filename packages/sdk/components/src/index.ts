@@ -1,3 +1,4 @@
+export type { ChartStatus, ChartRowGroups } from './chart';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem } from './chart/AnalysisChart';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction } from './chart/AnalysisChartFrame';
 export * from './drawer/AuditTimeline';
