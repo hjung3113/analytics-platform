@@ -12,7 +12,7 @@ import { ACTIVITY_KO, CursorStateList, Evidence, wallClockText } from '@eqv/repl
 import { Panel, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
-import { TrustBadge, stateFor } from './states.js';
+import { TrustBadge, TrustLine, stateFor } from './states.js';
 import { EquipmentBar, useEquipmentOptions, type OptionsState } from './EquipmentBar.js';
 import { usePageKeyRulesFor } from '../page-key-rules.js';
 
@@ -85,7 +85,8 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
     : stateFor(props, load, 'topview', retryLoad);
   if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <>{bar}<div>{state}</div></>;
   const { equipment } = props;
-  if (scene === null || 'error' in scene) return <>{bar}<StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
+  // The read itself succeeded: its trust and notices stay visible above the replay error.
+  if (scene === null || 'error' in scene) return <>{bar}<TrustLine trust={load.trust} assessments={load.assessments} /><NoticeList notices={load.notices} className="mb-2" /><StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
   return (
     <>
       {bar}
