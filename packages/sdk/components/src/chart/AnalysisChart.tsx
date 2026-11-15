@@ -1,3 +1,4 @@
+import type { ChartBounds, ChartBoundLabels } from './chartBounds';
 import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
@@ -65,9 +66,9 @@ export type ScatterSpec = {
     groups?: ChartRowGroups;
     /** Stable id-hash spread as a fraction of cell width; clamped to [0, 0.9], default 0.6. */
     jitter?: number;
-    bounds?: ReadonlyMap<string, { lower?: number; upper?: number }>;
+    bounds?: ChartBounds;
     /** Defaults: Upper bound / Lower bound / Bound range (localized). */
-    boundLabels?: { upper?: string; lower?: string; band?: string };
+    boundLabels?: ChartBoundLabels;
   };
 };
 export type BoxStats = {

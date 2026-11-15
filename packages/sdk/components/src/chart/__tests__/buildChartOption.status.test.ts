@@ -23,10 +23,12 @@ describe('consumer bar statuses (#2326)', () => {
     expect(tip).toContain('Recipe &lt;script&gt; &amp; &quot;unknown&quot;');
     expect(tip).not.toContain('<script>');
   });
-  it('leaves non-bar series and absent statuses unchanged', () => {
+  it('keeps the line itself unchanged while adding opt-in line status overlays', () => {
     const input = baselineInput({ horizontal: false, displayed: [{ ...baselineInput().displayed[0], kind: 'line' }] });
     const plain = JSON.parse(JSON.stringify(buildChartOption(input)));
-    expect(JSON.parse(JSON.stringify(buildChartOption({ ...input, pointStatus: () => status })))).toEqual(plain);
+    const withStatus = JSON.parse(JSON.stringify(buildChartOption({ ...input, pointStatus: () => status })));
+    expect(withStatus.series[0]).toEqual(plain.series[0]);
+    expect(withStatus.series.some((s: { id: string }) => s.id === '__line-status-a')).toBe(true);
   });
 });
 

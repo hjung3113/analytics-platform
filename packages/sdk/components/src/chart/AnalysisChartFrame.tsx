@@ -25,8 +25,11 @@ import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
 import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
 
+import { ChartBoundsLegend } from './ChartBoundsLegend';
+import { boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
+import { frameStatuses, frameStatusCsvLabel } from './linePointStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
-import { barStatuses, chartPointKey, distinctStatuses, statusText, type ChartStatus } from './chartStatus';
+import { chartPointKey, distinctStatuses, statusText, type ChartStatus } from './chartStatus';
 import { groupedRowText, rowGroup, rowLabel, type ChartRowGroups } from './chartRowGroups';
 export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
@@ -126,7 +129,7 @@ type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex
 export type AnalysisChartFrameProps = {
   /** Horizontal category charts only; ignored elsewhere with one dev warning. Read-only group spans, no hierarchy or group values. */
   rowGroups?: ChartRowGroups;
-  /** Consumer-given bar-piece status. Undefined = none. Keep the callback stable, like isPointSelectable; the Frame never judges. */
+  /** Consumer-given bar-piece or line-point status. Undefined = none. Keep the callback stable, like isPointSelectable; the Frame never judges. */
   pointStatus?: (point: ChartPoint) => ChartStatus | undefined;
   /** Transient bar hover focus; none keeps other series undimmed. Default series. */
   emphasisFocus?: 'series' | 'none';
@@ -166,6 +169,10 @@ export type AnalysisChartFrameProps = {
   pointClickHint?: string;
   /** A line whose `unit` or `metricVersion` is given and differs from this Frame's is not drawn; the Frame says so in a note. Omitted fields leave the line as it is. Not drawn with `startAlign` (x is not one value scale). */
   markLines?: { y: number; label: string; unit?: string; metricVersion?: string }[];
+  /** Vertical charts only. Per x (the exact point string), each entry holds until the next entry; an absent side clears that side. */
+  bounds?: ChartBounds;
+  /** Legend and reading-aid labels; defaults to localized Upper bound / Lower bound / Bound range. */
+  boundLabels?: ChartBoundLabels;
   extraActions?: ReactNode;
   /** A second value axis on the right for series with `axis: 'right'`: its own scale from 0, this unit in the axis name, in the tooltip, the table and CSV headers (`name (unit)`), and `valueFormat` for tooltip, point selector and table values (default: the Frame's `valueFormat`). Vertical, unstacked charts only; with `orientation="horizontal"` or `stacked` every series is drawn on the left, with a dev warning. `markLines` stay on the left axis. */
   rightAxis?: { unit: string; valueFormat?: (v: number) => string };
@@ -332,6 +339,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const [pointerRequest, setPointerRequest] = useState<string | null>(null);
   const revealedCategory = useRef<string | null | undefined>(undefined);
   const { startAlign: rawStartAlign, stacked: rawStacked, minMax: rawMinMax, valueLabels: rawValueLabels, reaggregation: rawReaggregation } = p;
+  const rawBounds = p.bounds !== undefined;
   const rawRightAxis = p.rightAxis !== undefined; const rawHasRight = [...p.series, ...(p.compareSeries ?? [])].some(s => s.axis === 'right');
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
   // A misuse warns once while it lasts (an unrelated active-row or callback change re-runs this effect), and again if it goes away and comes back.
@@ -344,6 +352,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     if (!horizontal && (rawRowPitch !== undefined || rawActive !== undefined || onActiveCategoryChange || revealActive)) rowFocusDiagnostic('activeCategory, onActiveCategoryChange, revealActive and rowPitch apply only to orientation="horizontal" with a category x axis; ignored.');
     if (rawStartAlign && !(horizontal && rawStacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
     if (rawMinMax && !horizontal) rowFocusDiagnostic('minMax applies only to orientation="horizontal" with a category x axis; ignored.');
+    once('bounds', rawBounds && horizontal, 'bounds applies only to vertical charts; ignored.');
     once('rowGroups', rawRowGroups && !horizontal, 'rowGroups applies only to orientation="horizontal" with a category x axis; ignored.');
     once('valueLabels', !!rawValueLabels && !(horizontal && rawStacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
     once('nonAdditive', !!rawStacked && rawReaggregation !== undefined && !canClientSum({ reaggregation: rawReaggregation }), `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
@@ -351,7 +360,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!rawStacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
     once('rightAxisMissing', rawHasRight && !rawRightAxis && !horizontal && !rawStacked, 'a series has axis: "right" but rightAxis is not given; it is drawn on the left.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -380,7 +389,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
   const pointActions = p.pointActions;
   const hasPointActions = typeof pointActions === 'function' || !!pointActions?.length;
-  const pointControls = !!p.pointActivation || hasPointActions || !!p.pointStatus;
+  const pointControls = !!p.pointActivation || hasPointActions || !!p.pointStatus || (rawBounds && !horizontal);
   const isPointSelectable = p.isPointSelectable;
   const categories = useMemo(() => (xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : []), [xType, p.series]);
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
@@ -392,13 +401,16 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
     return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
   }) : visible, [xType, visible, categories]);
-  const statuses = useMemo(() => barStatuses(displayed, horizontal, p.pointStatus), [displayed, horizontal, p.pointStatus]);
+  const boundsProp = p.bounds; const boundLabels = p.boundLabels;
+  const bounds = useMemo(() => projectChartBounds({ bounds: boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories }), [boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories]);
+  const pointBoundsText = (point: ChartPoint) => bounds && !previousIds.has(point.seriesId) ? ` · ${boundText(bounds, point.x, format)}` : '';
+  const statuses = useMemo(() => frameStatuses(displayed, horizontal, p.pointStatus), [displayed, horizontal, p.pointStatus]);
   const statusLegend = useMemo(() => distinctStatuses([...statuses.values()]), [statuses]);
-  const statusEnabled = !!p.pointStatus && displayed.some(s => horizontal || s.kind === 'bar');
+  const statusEnabled = !!p.pointStatus && displayed.length > 0;
   const resolvedStatus = useCallback((point: ChartPoint) => statuses.get(chartPointKey(point)), [statuses]);
   const pointStatusOption = p.pointStatus ? resolvedStatus : undefined;
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
-  const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status }] : []; });
+  const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
   const startAlign = horizontal && !!p.stacked && !!p.startAlign && displayed.length >= 2;
   // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
@@ -585,10 +597,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      rowGroups, pointStatus: pointStatusOption, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
+      bounds: boundsProp, boundLabels, rowGroups, pointStatus: pointStatusOption, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
       palette: resolveChartPalette(displayed),
     });
-  }, [rowGroups, pointStatusOption, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, pointStatusOption, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -711,9 +723,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   }
 
   function exportCsv() {
-    const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : [])];
+    const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(bounds ? [bounds.labels.lower, bounds.labels.upper] : []), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : [])];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
-    const body = rows.map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => (v === null ? '' : v)), ...(statusEnabled ? [statusParts(x).map(({ name, status }) => `${name}: ${status.label}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : [])]);
+    const body = rows.map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => (v === null ? '' : v)), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : [])]);
     downloadChartCsv({ ...p, context: global }, header, body);
     notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
@@ -728,7 +740,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
   const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
-  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || ((rowGroups || statusEnabled) && !!selectedPoint) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
+  const showSummary = rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || ((rowGroups || statusEnabled || bounds) && !!selectedPoint) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -779,7 +791,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           <select aria-label={m('chartSelectPoint')} value={selectedPoint ? chartPointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
             className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => chartPointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
             {!points.length && <option value="">{m('chartNoPoints')}</option>}
-            {points.map(point => <option key={chartPointKey(point)} value={chartPointKey(point)}>{labelOf(point.x)} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang) : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
+            {points.map(point => <option key={chartPointKey(point)} value={chartPointKey(point)}>{labelOf(point.x)} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang) : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}{pointBoundsText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
@@ -834,6 +846,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </> : allSeries.map(s => renderLegendSeries(s, false))}
+      {p.legend !== false && <ChartBoundsLegend bounds={bounds} />}
       {p.legend !== false && <ChartStatusLegend statuses={statusLegend} />}
       {brushMode && <span className="text-tiny text-accent-primary">{m('chartBrushHint')}</span>}
       {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
@@ -867,11 +880,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table aria-labelledby={titleId} className="w-full text-xs tabular">
-        <thead className="sticky top-0 bg-surface-sunken"><tr>{rowGroups && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{rowGroups.header}</th>}<th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{xType === 'time' ? m('chartAxisTime') : m('chartAxisCategory')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}{statusEnabled && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{m('chartHeaderStatus')}</th>}</tr></thead>
+        <thead className="sticky top-0 bg-surface-sunken"><tr>{rowGroups && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{rowGroups.header}</th>}<th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{xType === 'time' ? m('chartAxisTime') : m('chartAxisCategory')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}{bounds && [bounds.labels.lower, bounds.labels.upper].map((label, index) => <th key={`bound-${index}`} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{label}</th>)}{statusEnabled && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{m('chartHeaderStatus')}</th>}</tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <>{rowGroups && <td className="px-3 py-1">{rowGroup(rowGroups, x)}</td>}<td className="px-3 py-1">{xType === 'time' ? fmt(x) : rowLabel(rowGroups, x)}</td></>
           {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : fmtOf(visible[i])(v)}</td>)}
           {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
+          {bounds && [bounds.at(x).lower, bounds.at(x).upper].map((value, index) => <td key={`bound-${index}`} className="px-3 py-1 text-right">{value === undefined ? '' : format(value)}</td>)}
           {statusEnabled && <td className="px-3 py-1">{statusParts(x).map(({ id, name, status }) => <div key={id}>{name}: {statusText(status)}</div>)}</td>}
         </tr>)}</tbody>
       </table>
@@ -901,6 +915,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       </div>}
       {drawnActive !== null && <p className="mb-1 font-semibold">{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
       {(rowGroups || statusEnabled) && selectedPoint && <p className="mb-1">{labelOf(selectedPoint.x)} · {allSeries.find(s => s.id === selectedPoint.seriesId)?.name}{resolvedStatus(selectedPoint) ? `: ${statusText(resolvedStatus(selectedPoint))}` : ''}</p>}
+      {bounds && selectedPoint && !previousIds.has(selectedPoint.seriesId) && <p className="mb-1">{m('chartCurrentBounds', { bounds: boundText(bounds, selectedPoint.x, format) })}</p>}
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {m('chartMin')} {e.min.x} {format(e.min.value)} · {m('chartMax')} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
       {!selection ? rangeUi && <span className="text-text-secondary">{startAlign ? m('chartNoRangeSelection') : showKeyboard

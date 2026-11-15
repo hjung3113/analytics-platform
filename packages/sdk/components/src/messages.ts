@@ -19,6 +19,7 @@ export const COMPONENTS_MESSAGES = {
   chartDefaultGroup: { ko: '기본 그룹', en: 'Default group' },
   chartUpperBound: { ko: '상한', en: 'Upper bound' },
   chartLowerBound: { ko: '하한', en: 'Lower bound' },
+  chartCurrentBounds: { ko: '현재 기간 기준 · {bounds}', en: 'Current period bounds · {bounds}' },
   chartBoundRange: { ko: '기준 범위', en: 'Bound range' },
   chartScatterCategorySummary: {
     ko: '{total}개 점 · {unknown}개 미확인 · {legend} · {xLabel} · {yLabel} ({unit})',

@@ -3,11 +3,13 @@ import { formatText, type Lang } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { chartTheme, strokeToken, token } from './EChart';
+import { boundSeries, boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
+import { frameStatuses, lineStatusSeries } from './linePointStatus';
 import { noteLabelWidths } from './annotationLayout';
 import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry';
 import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
-import { barStatuses, chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import { chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import type { ChartPoint } from './AnalysisChartFrame';
 import { escapeHtml } from './chartText';
 import { barStatusBackingSeries } from './chartStatusBacking';
@@ -84,6 +86,8 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
 }
 
 export type ChartOptionInput = {
+  bounds?: ChartBounds;
+  boundLabels?: ChartBoundLabels;
   rowGroups?: ChartRowGroups;
   pointStatus?: (point: ChartPoint) => ChartStatus | undefined;
   emphasisFocus?: 'series' | 'none';
@@ -138,7 +142,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const groupLayout = groups ? rowGroupLayout(groups, categories) : undefined;
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
-  const statuses = barStatuses(i.displayed, horizontal, i.pointStatus);
+  const statuses = frameStatuses(i.displayed, horizontal, i.pointStatus);
+  const bounds = projectChartBounds(i);
   const chips = !!i.extremes?.size && horizontal;
   const segments = !chips && horizontal && !!i.stacked && i.displayed.length > 1 && (i.valueLabels === 'segment' || i.valueLabels === 'both');
   const totalTexts = horizontal && !!i.stacked && (i.valueLabels === 'total' || i.valueLabels === 'both') && i.totals?.size ? i.totals : null;
@@ -219,18 +224,21 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       const group = groups ? `${groups.header}: ${groups.byCategory.get(x)?.group ?? ''} · ` : '';
       const text = `${group}${rowLabel(groups, x)} · ${s.name}: ${value}`;
       const status = statuses.get(chartPointKey({ seriesId: s.id, x }));
-      return [escapeHtml(`${text}${status ? ` · ${statusText(status)}` : ''}`)];
+      const bound = bounds && !i.previousIds.has(s.id) ? ` · ${boundText(bounds, x, i.valueFormat)}` : '';
+      return [escapeHtml(`${text}${status ? ` · ${statusText(status)}` : ''}${bound}`)];
     });
     return rows.join('<br/>');
   }
-  const valueAxis = { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine };
+  const valueAxis = { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
+    ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
+  };
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
     grid: groupLayout ? { left: groupLayout.gutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false } : horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-      ...(groups || statuses.size ? { formatter: statusTooltip } : {}),
+      ...(groups || statuses.size || bounds ? { formatter: statusTooltip } : {}),
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
@@ -293,6 +301,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         return [...spacer, real];
       }),
       ...barStatusBackingSeries(i, statuses, lanes),
+      ...lineStatusSeries(i, statuses),
+      ...(bounds ? boundSeries(bounds, palette) : []),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),
       ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.axisLine.lineStyle.color)] : []),
       {
