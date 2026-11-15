@@ -25,6 +25,11 @@ export default defineConfig({
   // group, so every test would land in shard 1. With one worker it changes nothing locally: tests still run one at a
   // time in file order, and each shard runs its contiguous slice the same way.
   fullyParallel: true,
+  // Locally the dev server compiles each lazy chunk on its first request. On a busy machine (a lane host with other test runs going) the first
+  // screen of a cold server took up to a minute, longer than Playwright's 30 s test and 5 s expect defaults, so the same specs that pass in CI
+  // failed locally with an unloaded screen (#2129). CI keeps the defaults, so the gate's timing is unchanged; a missing element fails either way, only later.
+  timeout: process.env.CI ? 30_000 : 240_000,
+  expect: { timeout: process.env.CI ? 5_000 : 60_000 },
   // A contract gate does not retry: an intermittent violation is a violation. The reporter still marks flaky if retries are enabled locally.
   retries: 0,
   // A leftover `.only` would make the required E2E check pass on one test; CI refuses it, local runs still allow it.

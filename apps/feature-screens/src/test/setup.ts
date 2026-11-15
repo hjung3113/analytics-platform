@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeAll } from 'vitest';
 import { registerDefaultHost } from '../lib/host/host-seam';
 
@@ -10,6 +10,11 @@ beforeAll(async () => {
   const { tanstackHost } = await import('@/test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost(tanstackHost);
 });
+
+// The real rich editor is a lazy chunk (`React.lazy(() => import('./RichEditorImpl'))`): its first load in a test file is a cold transform of tiptap
+// and ProseMirror, which takes seconds on a busy machine and about one on a free CI runner. RTL's 1 s default for waitFor/findBy then fails with the
+// editor still on its loading placeholder (#2150). Waiting longer costs nothing when the editor is quick; a missing element still fails.
+configure({ asyncUtilTimeout: 10_000 });
 
 // Vitest's `globals: false` config means @testing-library/react does NOT
 // auto-register cleanup. Wire it explicitly so DOM nodes from prior tests
