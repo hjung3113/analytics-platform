@@ -58,6 +58,7 @@ stage_static_extra() {
   step node "$FEATURE_OPS/scripts/release/production-preflight.test.mjs"
   step node --test "$FEATURE_OPS/scripts/release/slow-query.test.mjs"
   step node --test "$FEATURE_OPS/scripts/release/menu-assembly.test.mjs"
+  step node --test "$FEATURE_OPS/scripts/release/storage-account.test.mjs"
   step node --test "$FEATURE_OPS/scripts/release/build-web-image.test.mjs"
   step node "$FEATURE_OPS/edge/nginx.test.mjs"
   step node "$FEATURE_OPS/scripts/db/cutover-0076.test.mjs"
