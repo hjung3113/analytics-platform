@@ -9,6 +9,7 @@ export const SURVEY_REPORT_FILTER_COPY = {
 } as const;
 
 export const SURVEY_BUILDER_COPY = {
+  saveFailed: '저장하지 못했습니다.',
   notDraft: '설문이 더 이상 초안 상태가 아닙니다. 변경 내용을 따로 보관한 뒤 설문을 다시 불러와 주세요.',
   questionsChanged: '질문 목록이 변경되었습니다. 변경 내용을 따로 보관한 뒤 설문을 다시 불러와 주세요.',
 } as const;

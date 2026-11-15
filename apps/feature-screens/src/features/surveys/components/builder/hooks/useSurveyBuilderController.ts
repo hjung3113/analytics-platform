@@ -305,7 +305,7 @@ export function useSurveyBuilderController(args: {
         if (!field || typeof field !== 'object') return false;
         return field.code === 'not_draft' || (Array.isArray(field.path) && field.path[0] === 'question_ids' && field.code === 'invalid');
       });
-      let message = mapUnknownError(cause).message;
+      let message = cause instanceof ApiError ? mapUnknownError(cause).message : SURVEY_BUILDER_COPY.saveFailed;
       if (reloadReason?.code === 'not_draft') message = SURVEY_BUILDER_COPY.notDraft;
       else if (reloadReason) message = SURVEY_BUILDER_COPY.questionsChanged;
       setSaveError(message);

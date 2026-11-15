@@ -213,7 +213,7 @@ describe.skipIf(!(APP_URL && MIGRATE_URL && WS))('access review regressions (#15
     ];
     expect(await pins()).toEqual([pin, pin, pin, pin]);
     await mode(kind === 'model' ? 'equipment_model' : 'software_version', kind === 'model' ? model : sw1);
-    expect(await pins()).toEqual(Array.from({ length: 4 }, () => ({ parserVersion: 'fixture-parser' })));
+    expect(await pins()).toEqual(Array.from({ length: 4 }, () => ({ parserVersion: 'fixture-parser', specPinHidden: true })));
     for (const [table, column, id] of [['expected_baseline', 'profile_pin', baseline], ['regression_suite', 'required_pin', suite], ['suite_run', 'required_pin', run]]) {
       expect((await sql(`select ${column} as pin from log_datasets.${table} where id = $1`, [id])).rows[0].pin).toEqual(pin);
     }

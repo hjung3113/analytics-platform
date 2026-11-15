@@ -690,7 +690,7 @@ describe.skipIf(!runIntegration)('log test dataset baselines (#1478 D-b)', () =>
     const d = await newDraft(rev.id);
     expect((await bdetail(d.id)).data.profilePin).toEqual({});
     const pin = { specPin: { modelId: model, softwareId: software, revisionId: randomUUID(), changeSetDigest: H('a') }, parserVersion: 'synthetic-parser' };
-    await sql('update log_datasets.expected_baseline set profile_pin = $2::jsonb where id = $1', [d.id, JSON.stringify(pin)]);
+    await sql('update log_datasets.expected_baseline set profile_pin = $2::jsonb, row_version = row_version + 1 where id = $1', [d.id, JSON.stringify(pin)]);
     expect((await bdetail(d.id)).data.profilePin).toEqual(pin);
     await sql(`update knowledge.${table} set access_mode = 'restricted' where id = $1`, [table === 'equipment_model' ? model : software]);
     const hidden = { specPinHidden: true, parserVersion: 'synthetic-parser' };
