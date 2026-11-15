@@ -1,7 +1,7 @@
-import { TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
-import { GLOSSARY } from '@/lib/copy/glossary';
-import { VOC_FOLLOW_UP_COPY } from '@/lib/copy/voc';
-import { formatDateOnly, formatRelativeTime } from '@/lib/format/datetime';
+import { TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
+import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { VOC_FOLLOW_UP_COPY } from '../../../../lib/copy/voc';
+import { formatDateOnly, formatRelativeTime } from '../../../../lib/format/datetime';
 import type {
   EntityLinkDto,
   EntityLinkTargetSummary,

@@ -41,6 +41,7 @@ function makeEvaluate(opts) {
   const devPattern = opts.denyDev && opts.devRegex ? new RegExp(opts.devRegex, 'i') : null;
   return (source) => {
     if (typeof source !== 'string') return null;
+    if (opts.denyFeatureAlias && source.startsWith('@/')) return 'Use a public feature-screens entry.';
     // eqvOnly: layers without an import allowlist (feature packages) take the EV ban alone.
     if (opts.eqvOnly) return isEqvPackage(source) && !eqvAllowed(source) ? opts.eqvMessage : null;
     if (devPattern !== null && devPattern.test(source)) return opts.devMessage;

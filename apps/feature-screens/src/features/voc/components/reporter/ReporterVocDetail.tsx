@@ -1,5 +1,5 @@
-import { apiPath, isApiPathId } from '@/lib/api/path';
-import { apiHref } from '@/lib/api/client';
+import { apiPath, isApiPathId } from '../../../../lib/api/path';
+import { apiHref } from '../../../../lib/api/client';
 // ReporterVocDetail — one VOC as its reporter sees it, for the platform 내 VOC page (platform ADR-0071).
 //
 // The backend sends a reporter who also holds an operator capability the operator envelope (severity,
@@ -8,12 +8,12 @@ import { apiHref } from '@/lib/api/client';
 // Reporter Reply on the signed-in actor's own VOC (09-permission-access: every role); no public update,
 // internal comment, triage or Finding is drawn here.
 
-import { useMeBridge } from '@/lib/api/me';
-import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
-import { useSignedInActor } from '@/lib/cross-system/useSignedInActor';
-import { useVocDetail } from '@/lib/cross-system/useVocDetail';
-import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
-import { formatDateTime } from '@/lib/format/datetime';
+import { useMeBridge } from '../../../../lib/api/me';
+import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
+import { useSignedInActor } from '../../../../lib/cross-system/useSignedInActor';
+import { useVocDetail } from '../../../../lib/cross-system/useVocDetail';
+import { useWorkspaceActors } from '../../../../lib/cross-system/useWorkspaceActors';
+import { formatDateTime } from '../../../../lib/format/datetime';
 import { isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { ReporterStatusBadge } from '@ap/feature-ui';
 import {

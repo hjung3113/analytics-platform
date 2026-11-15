@@ -1,17 +1,17 @@
-import { errorMapper, mapUnknownError } from '@/lib/api/errorMapper';
+import { errorMapper, mapUnknownError } from '../../../../lib/api/errorMapper';
 import {
   fetchAnalyticsAreas,
   fetchManagedSystems,
   walkAnalyticsAreaPages,
-} from '@/lib/api/registry-reads';
-import type { ApiError, ApiErrorEnvelope } from '@/lib/api/types';
-import { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS, fetchVocCreateTargets } from '@/lib/api/voc-create-targets';
-import { useAttachmentUploadQueue } from '@/lib/attachments/useAttachmentUploadQueue';
-import { VOC_CREATE_COPY } from '@/lib/copy/voc';
-import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
-import { useHostSeam } from '@/lib/host/host-seam';
-import type { DraftJson } from '@/lib/session-draft/registry';
-import { useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
+} from '../../../../lib/api/registry-reads';
+import type { ApiError, ApiErrorEnvelope } from '../../../../lib/api/types';
+import { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS, fetchVocCreateTargets } from '../../../../lib/api/voc-create-targets';
+import { useAttachmentUploadQueue } from '../../../../lib/attachments/useAttachmentUploadQueue';
+import { VOC_CREATE_COPY } from '../../../../lib/copy/voc';
+import { useIdempotencyKey } from '../../../../lib/api/useIdempotencyKey';
+import { useHostSeam } from '../../../../lib/host/host-seam';
+import type { DraftJson } from '../../../../lib/session-draft/registry';
+import { useFormDraftAcrossExpiry } from '../../../../lib/session-draft/useFormDraftAcrossExpiry';
 import {
   MAX_ATTACHMENT_IDS_PER_PARENT,
   createVocRequestSchema,

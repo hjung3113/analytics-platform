@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Bookmark, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { useI18n, usePlatform } from '@ap/kernel';
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { createSavedView, deleteSavedView, fetchSavedViews, type SavedView } from '@/lib/api/saved-views';
-import { savedViewFilterToVocSearch, vocSearchToSavedViewFilter } from '@/features/voc/lib/saved-view-keys';
-import { searchHref } from '@/lib/host/search';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMessages, usePlatform } from '@ap/kernel';
+import { mapUnknownError, createSavedView, deleteSavedView, fetchSavedViews, type SavedView, savedViewFilterToVocSearch, vocSearchToSavedViewFilter, searchHref } from '@ap/feature-screens/global-screens/saved-views';
+import { Button, Input } from '@ap/ui';
+import { SAVED_VIEWS_MESSAGES } from './saved-views-messages';
 import { featureQueryClient } from '../feature/session';
 import { isReachable } from '../feature/reachable';
 import { operatorHostLinks } from '../feature/operator-links';
@@ -13,6 +12,7 @@ import { inboxRoute, triageRoute } from '../feature/voc-routes';
 
 const NO_VIEWS: SavedView[] = [];
 const QUERY_KEY = ['saved-views', 'voc'] as const;
+const SAVE_KEY = [...QUERY_KEY, 'create'] as const;
 const SAVE_ROUTES = { 'inbox': inboxRoute, 'triage': triageRoute } as const;
 
 type Recovery = { order: string[]; deletedIndex: number };
@@ -22,11 +22,11 @@ type Recovery = { order: string[]; deletedIndex: number };
  * Applying lands on the menu the stored `view` maps to with exactly the stored keys; every other key, a carried `managedSystem` included, is cleared.
  */
 export default function SavedViews() {
-  const { lang } = useI18n();
+  const m = useMessages(SAVED_VIEWS_MESSAGES);
   const { route, page, registry, linkTo, navigate, toast } = usePlatform();
-  const ko = lang === 'ko';
   const [name, setName] = useState('');
   const [recovery, setRecovery] = useState(() => new Map<string, Recovery>());
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const sectionRef = useRef<HTMLDivElement | null>(null);
   // A recovery belongs to the route it was armed on: a route (menu or page) change drops the armed ones and rejects deletes still in flight.
   const routeKey = `${route?.menu.id ?? ''}|${JSON.stringify([...page])}`;
@@ -62,7 +62,7 @@ export default function SavedViews() {
       if (rowTarget === null) inputFallback = true;
     }
     let target = rowTarget;
-    if (target === null && inputFallback) target = section?.querySelector<HTMLElement>('input[aria-label="저장된 보기 이름"]') ?? null;
+    if (target === null && inputFallback) target = inputRef.current;
     if (next !== null) setRecovery(next);
     const active = document.activeElement;
     const free = active === null || active === document.body || (section?.contains(active) ?? false);
@@ -73,6 +73,13 @@ export default function SavedViews() {
     const mapped = mapUnknownError(error);
     toast(mapped.message, mapped.tone === 'error' ? 'danger' : mapped.tone);
   };
+
+  const saving = useMutation({
+    mutationKey: SAVE_KEY,
+    mutationFn: createSavedView,
+    onSuccess: () => { setName(''); void refetch(); },
+    onError: fail,
+  }, featureQueryClient);
 
   const apply = (view: SavedView) => {
     const record: Record<string, string> = {};
@@ -104,12 +111,12 @@ export default function SavedViews() {
   const save = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim();
-    if (trimmed === '' || saveRoute === null) return;
+    if (trimmed === '' || saveRoute === null || featureQueryClient.isMutating({ mutationKey: SAVE_KEY }) > 0) return;
     const record: Record<string, string> = {};
     // First pair wins, as `pageParam` reads it.
     for (const [key, value] of page) if (!(key in record)) record[key] = value;
     const filter = vocSearchToSavedViewFilter(saveRoute.toFoSearch(record), 'inbox');
-    createSavedView({ surface: 'voc', name: trimmed, filter }).then(() => { setName(''); void refetch(); }, fail);
+    saving.mutate({ surface: 'voc', name: trimmed, filter });
   };
 
   const showHint = views.length === 0 && saveRoute === null && !isPending;
@@ -119,18 +126,18 @@ export default function SavedViews() {
         className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-text-secondary hover:bg-surface-row-hover hover:text-text-primary">
         <Bookmark className="size-3.5 shrink-0" aria-hidden /><span className="block truncate">{view.name}</span>
       </button>
-      <button type="button" aria-label={`저장된 보기 ${view.name} 삭제`} onClick={() => remove(view)}
+      <button type="button" aria-label={m('remove', { name: view.name })} onClick={() => remove(view)}
         className="mr-1 rounded p-1 text-text-muted opacity-0 hover:text-accent-danger group-hover:opacity-100 focus:opacity-100">
         <X className="size-3.5" aria-hidden />
       </button>
     </div>)}
-    {isPending && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '불러오는 중…' : 'Loading…'}</p>}
-    {isError && views.length === 0 && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? '저장된 보기를 불러오지 못했습니다.' : 'Could not load saved views.'}</p>}
-    {showHint && !isError && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{ko ? 'VOC 처리함이나 분류에서 현재 필터를 저장할 수 있습니다.' : 'Save the current filter from Inbox or Triage.'}</p>}
+    {isPending && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{m('loading')}</p>}
+    {isError && views.length === 0 && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{m('loadError')}</p>}
+    {showHint && !isError && <p className="px-3 py-1 text-xs leading-4 text-text-muted">{m('hint')}</p>}
     {saveRoute !== null && <form className="mt-1 flex gap-1 px-2" onSubmit={save}>
-      <input value={name} onChange={event => setName(event.target.value)} maxLength={120} required aria-label="저장된 보기 이름" placeholder="현재 필터 저장"
-        className="min-w-0 flex-1 rounded border border-border-subtle bg-surface-canvas px-2 py-1 text-xs" />
-      <button type="submit" className="rounded px-2 py-1 text-xs text-accent-primary hover:bg-surface-row-hover">저장</button>
+      <Input ref={inputRef} value={name} onChange={event => setName(event.target.value)} maxLength={120} required disabled={saving.isPending} aria-label={m('name')} placeholder={m('placeholder')}
+        className="min-w-0 flex-1" />
+      <Button type="submit" variant="ghost" size="sm" disabled={saving.isPending}>{saving.isPending ? m('saving') : m('save')}</Button>
     </form>}
   </div>;
 }

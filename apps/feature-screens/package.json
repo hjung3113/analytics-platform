@@ -6,6 +6,7 @@
   "exports": {
     "./styles.css": "./bridge-sources.css",
     "./global-screens": "./src/global-screens/index.ts",
+    "./global-screens/saved-views": "./src/global-screens/saved-views.ts",
     "./global-screens/core": "./src/global-screens/core.ts",
     "./global-screens/inbox-panel": "./src/global-screens/inbox-panel.ts",
     "./operator-screens/scope-picker": "./src/operator-screens/scope-picker/index.ts",

@@ -5,7 +5,7 @@
 // into the paginated tail. The server already enforces visibility per actor role,
 // so an empty array here for Reporter-only viewers is expected.
 
-import { useVocConversation } from '@/features/voc/hooks/useVocConversation';
+import { useVocConversation } from '../../hooks/useVocConversation';
 import type { ConversationEntry } from '@ap/feature-shared';
 import { Button, EmptyState } from '@ap/ui';
 import type * as React from 'react';

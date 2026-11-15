@@ -1,9 +1,9 @@
 // TimelineEntry — single conversation entry with kind chip + rich body.
 
-import { useMentionLabelResolver } from '@/lib/cross-system/useMentionLabelResolver';
-import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
-import { GLOSSARY } from '@/lib/copy/glossary';
-import { formatRelativeTime } from '@/lib/format/datetime';
+import { useMentionLabelResolver } from '../../../../lib/cross-system/useMentionLabelResolver';
+import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
+import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { formatRelativeTime } from '../../../../lib/format/datetime';
 import type { ConversationEntry } from '@ap/feature-shared';
 import { OutlineBadge, type ReporterFacingStatusEnum, ReporterStatusBadge } from '@ap/feature-ui';
 import {

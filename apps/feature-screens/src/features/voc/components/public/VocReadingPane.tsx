@@ -3,7 +3,7 @@
 // detail (conversation and reply input). A VOC that is not the actor's own is drawn from that projection alone, so no
 // reporter or operator route is requested for it. While the answer is pending, or when it is a denial, the reporter detail is never mounted.
 
-import { ApiError } from '@/lib/api/types';
+import { ApiError } from '../../../../lib/api/types';
 import { SkeletonBlocks, EmptyState } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import type * as React from 'react';

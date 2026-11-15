@@ -22,11 +22,11 @@ import { cn } from '@ap/ui';
 import { Check, Paperclip, X } from 'lucide-react';
 import type * as React from 'react';
 
-import { formatFileSize } from '@/features/voc/lib/format-file-size';
+import { formatFileSize } from '../../lib/format-file-size';
 import {
   type AttachmentUploadQueueRow,
   useAttachmentUploadQueue,
-} from '@/lib/attachments/useAttachmentUploadQueue';
+} from '../../../../lib/attachments/useAttachmentUploadQueue';
 
 const COPY = {
   dropHint: '파일을 드래그하거나 클릭해서 추가',

@@ -4,18 +4,18 @@
 //
 // Bridge-safe: no router, no `@/lib/api` barrel, no `lib/auth`, no `sonner`; links go through the host seam.
 
-import { notificationTarget } from '@/features/home/InboxPanel';
-import { useAnswerableSurveysFirstPage } from '@/features/surveys/hooks/useSurveys';
-import { fetchNotifications, notificationsQueryKey } from '@/lib/api/notifications';
+import { notificationTarget } from '../InboxPanel';
+import { useAnswerableSurveysFirstPage } from '../../surveys/hooks/useSurveys';
+import { fetchNotifications, notificationsQueryKey } from '../../../lib/api/notifications';
 import {
   fetchPermissionRequestsMine,
   permissionRequestsMineAllKey,
-} from '@/lib/api/permission-requests';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
-import { permissionRequestStatusLabel } from '@/lib/copy/enum-labels';
-import { HOME_TODO_COPY as COPY } from '@/lib/copy/home-todo';
-import { formatRelativeTime } from '@/lib/format/datetime';
-import { HostLink } from '@/lib/host/host-seam';
+} from '../../../lib/api/permission-requests';
+import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
+import { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';
+import { HOME_TODO_COPY as COPY } from '../../../lib/copy/home-todo';
+import { formatRelativeTime } from '../../../lib/format/datetime';
+import { HostLink } from '../../../lib/host/host-seam';
 import {
   type MinePermissionRequestRow,
   type NotificationDto,

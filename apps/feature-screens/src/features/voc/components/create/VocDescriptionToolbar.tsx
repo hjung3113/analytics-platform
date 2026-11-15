@@ -4,8 +4,8 @@
 // editor rejects the pick and the error is swallowed when `onAttachError` is absent). A surface
 // that cannot take inline attachments opts out with `vocDescriptionToolbar({ hideAttach: true })`.
 
-import { ComposerToolbarButton } from '@/features/cross-system/composer-editor/ComposerToolbarButton';
-import { promptForLink } from '@/features/cross-system/composer-editor/promptForLink';
+import { ComposerToolbarButton } from '../../../cross-system/composer-editor/ComposerToolbarButton';
+import { promptForLink } from '../../../cross-system/composer-editor/promptForLink';
 import type { TipTapEditor as Editor } from '@ap/feature-ui';
 import { AttachButton, type RichEditorToolbarApi } from '@ap/ui';
 import {

@@ -1,5 +1,5 @@
-import { apiPath } from '@/lib/api/path';
-import { apiClient } from '@/lib/api/client';
+import { apiPath } from '../api/path';
+import { apiClient } from '../api/client';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 

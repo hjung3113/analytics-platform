@@ -6,10 +6,10 @@ import {
   isTokenOnlyCapability,
 } from '@ap/feature-shared';
 
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
-import { API_TOKEN_COPY as COPY } from '@/lib/copy/api-tokens';
-import { fetchPermissionGrants } from '@/lib/api/permission-admin';
-import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+import { getCapabilityDisplayLabel } from '../../lib/copy/capabilities';
+import { API_TOKEN_COPY as COPY } from '../../lib/copy/api-tokens';
+import { fetchPermissionGrants } from '../../lib/api/permission-admin';
+import { HostLink, useHostSeam } from '../../lib/host/host-seam';
 import { permissionGrantsListKey } from '../admin/permissions/useRevokePermission.js';
 
 /** #1806: token-only capabilities are usable only when the Actor holds the grant

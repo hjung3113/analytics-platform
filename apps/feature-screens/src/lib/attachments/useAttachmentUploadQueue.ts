@@ -1,10 +1,10 @@
 import * as React from 'react';
 
-import { uploadAttachment } from '@/lib/api/attachments';
-import { errorMapper } from '@/lib/api/errorMapper';
-import { mintIdempotencyKey, randomUuidV4 } from '@/lib/api/idempotency';
-import type { ApiError } from '@/lib/api/types';
-import { useHostSeam } from '@/lib/host/host-seam';
+import { uploadAttachment } from '../api/attachments';
+import { errorMapper } from '../api/errorMapper';
+import { mintIdempotencyKey, randomUuidV4 } from '../api/idempotency';
+import type { ApiError } from '../api/types';
+import { useHostSeam } from '../host/host-seam';
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024;
 

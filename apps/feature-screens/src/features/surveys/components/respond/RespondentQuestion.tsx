@@ -1,4 +1,4 @@
-import { SURVEY_PARTICIPATION_COPY } from '@/lib/copy/survey-participation';
+import { SURVEY_PARTICIPATION_COPY } from '../../../../lib/copy/survey-participation';
 import type { SurveyQuestionKind } from '@ap/feature-shared';
 import { Textarea } from '@ap/ui';
 

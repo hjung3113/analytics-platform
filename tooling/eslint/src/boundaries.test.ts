@@ -729,6 +729,15 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/feature-bridge/home-todo-page';`, rule: 'no-restricted-imports' },
 );
 
+// FEA-6: feature internals must be reached through declared public entries.
+for (const file of ['nav-counts.tsx', 'pages/SavedViews.tsx']) {
+  rows.push(
+    { file: `${FEATURE_PKG}/${file}`, code: `import { x } from '@/lib/api/nav';`, rule: 'no-restricted-imports' },
+    { file: `${FEATURE_PKG}/${file}`, code: `void import('@/lib/api/nav');`, rule: 'ap/restricted-import-source' },
+    { file: `${FEATURE_PKG}/${file}`, code: `import { x } from '../../../../../../apps/feature-screens/src/lib/api/nav';`, rule: 'ap/no-relative-package-escape' },
+  );
+}
+
 // A bridge menu's src/mock/** tests keep the mock policy (contracts + mock-server only): the bridge test-entry override must not replace it.
 const BRIDGE_MOCK_TEST = 'platform/my-activity/src/mock/x.test.ts';
 rows.push(

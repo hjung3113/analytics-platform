@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -67,6 +67,23 @@ describe('Feature bridge entry graph (ADR-0071)', () => {
     // An entry that imports feature at all imports only the `core` subset; `voc-compose-slot.tsx` imports none (it lazy-loads its page).
     if (FEATURE_SCREENS_IMPORT.test(text)) expect(text).toMatch(/from\s*['"]@ap\/feature-screens\/global-screens\/core['"]/);
     expect(FULL_ENTRY_IMPORT.test(text)).toBe(false);
+  });
+
+  it('uses public entries rather than feature aliases or relative package escapes', () => {
+    const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
+    const src = join(root, 'src');
+    const violations: string[] = [];
+    for (const name of readdirSync(src, { recursive: true }) as string[]) {
+      if (!/\.tsx?$/.test(name)) continue;
+      const file = join(src, name);
+      for (const [, specifier] of readFileSync(file, 'utf8').matchAll(SPECIFIER)) {
+        const escapes = specifier!.startsWith('.') && !resolve(dirname(file), specifier!).startsWith(`${root}/`);
+        if (specifier!.startsWith('@/') || escapes) violations.push(`${name}: ${specifier}`);
+      }
+    }
+    expect(violations).toEqual([]);
+    const config = JSON.parse(readFileSync(join(root, 'tsconfig.json'), 'utf8'));
+    expect(config.compilerOptions?.paths?.['@/*']).toBeUndefined();
   });
 
   it('reaches the 목록 범위 picker and its bridge-safe reads', () => {

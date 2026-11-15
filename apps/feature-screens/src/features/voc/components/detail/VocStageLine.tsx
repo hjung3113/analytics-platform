@@ -1,7 +1,7 @@
 // VocStageLine — the reporter-facing progress stages of a VOC with the current one marked (prototype ② B).
 // Shared by the public detail and the reporter's own detail so both read the same.
 
-import { REPORTER_FACING_STATUS_ALL, REPORTER_STATUS_LABELS } from '@/lib/copy/reporter-status-labels';
+import { REPORTER_FACING_STATUS_ALL, REPORTER_STATUS_LABELS } from '../../../../lib/copy/reporter-status-labels';
 import type * as React from 'react';
 
 // `reopened` is a step back, not a stage of its own: it sits at the reviewing stage.

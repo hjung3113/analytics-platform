@@ -8,7 +8,7 @@
 // composer's chips are inserted from MentionPickerButton, which only lists
 // actors once the same cached list is loaded.
 
-import { useWorkspaceActors } from '@/lib/cross-system/useWorkspaceActors';
+import { useWorkspaceActors } from './useWorkspaceActors';
 import * as React from 'react';
 
 export function useMentionLabelResolver(

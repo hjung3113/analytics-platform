@@ -13,20 +13,20 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { Archive, Check } from 'lucide-react';
 import * as React from 'react';
 
-import { ListStateMessage } from '@/components/ListStateMessage';
-import { useDeclaredCapabilities } from '@/lib/api/declared-capabilities';
-import { mapUnknownError } from '@/lib/api/errorMapper';
+import { ListStateMessage } from '../../components/ListStateMessage';
+import { useDeclaredCapabilities } from '../../lib/api/declared-capabilities';
+import { mapUnknownError } from '../../lib/api/errorMapper';
 import {
   archiveNotification,
   fetchNotifications,
   markNotificationRead,
   notificationsQueryKey,
-} from '@/lib/api/notifications';
-import type { ApiError } from '@/lib/api/types';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
-import { HOME_INBOX_COPY } from '@/lib/copy/home';
-import { formatRelativeTime } from '@/lib/format/datetime';
-import { HostLink, useHostSeam } from '@/lib/host/host-seam';
+} from '../../lib/api/notifications';
+import type { ApiError } from '../../lib/api/types';
+import { getCapabilityDisplayLabel } from '../../lib/copy/capabilities';
+import { HOME_INBOX_COPY } from '../../lib/copy/home';
+import { formatRelativeTime } from '../../lib/format/datetime';
+import { HostLink, useHostSeam } from '../../lib/host/host-seam';
 
 type InboxFilter = 'unread' | 'all';
 

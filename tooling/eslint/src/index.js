@@ -120,7 +120,7 @@ const MENU_RESTRICTION = { allow: MENU_ALLOW, denyReact: false, denyTableEngine:
 // allowFeature: exact feature package sources exempted from the feature ban (only the bridge menu, FEATURE_BRIDGE_ENTRIES).
 const FEATURE_BRIDGE_RESTRICTION = { ...MENU_RESTRICTION, allow: [...MENU_ALLOW, 'feature-bridge'], allowFeature: FEATURE_BRIDGE_ENTRIES };
 // The feature-bridge package (consumer-side runtime, not SDK): the menu layer's workspace allowlist, `/core` only; its lazy pages see the screen barrel.
-const FEATURE_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngine: false, allowFeature: FEATURE_BRIDGE_PACKAGE_ENTRIES };
+const FEATURE_BRIDGE_PACKAGE_RESTRICTION = { ...MENU_RESTRICTION, denyQueryEngine: false, denyFeatureAlias: true, allowFeature: FEATURE_BRIDGE_PACKAGE_ENTRIES };
 const FEATURE_BRIDGE_PAGES_RESTRICTION = { ...FEATURE_BRIDGE_PACKAGE_RESTRICTION, denyQueryEngine: false, allowFeature: FEATURE_BRIDGE_ENTRIES };
 const MENU_MOCK_RESTRICTION = { allow: ['contracts'], denyReact: true, denyTableEngine: true, denyQueryEngine: true, mockAllowed: true };
 // #154: the real-server adapter reaches the app through src/real/** only (APP_REAL_FILES below).
@@ -147,7 +147,7 @@ const eqvRegex = (allowEqv = [], allowEqvPackages = []) => {
   return `^${exact}${roots}(?:${EQV_PACKAGES.map(escapeRegex).join('|')})(?:/|$)`;
 };
 
-function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowEqv = [], allowEqvPackages = [], eqvMessage = EQV_MESSAGE, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
+function importRestrictions({ denyFeatureAlias = false, allow, denyReact, denyTableEngine, denyQueryEngine = false, mockAllowed, allowSubpaths = [], denyDev = false, devAllow = [], denyHttpAdapter = false, allowEqv = [], allowEqvPackages = [], eqvMessage = EQV_MESSAGE, allowDockEngine = false, allowRadix = false, allowFeature = [] }) {
   const negations = [
     ...(allow === null ? [] : allow.map((name) => `!${pkg(name)}`)),
     ...new Set(allowFeature.map((source) => `!${source.split('/').slice(0, 2).join('/')}`)),
@@ -171,6 +171,7 @@ function importRestrictions({ allow, denyReact, denyTableEngine, denyQueryEngine
         ...(allowDockEngine ? [] : DOCK_ENGINE_PACKAGES.map((name) => ({ name, message: DOCK_ENGINE_MESSAGE }))),
       ],
       patterns: [
+        ...(denyFeatureAlias ? [{ regex: "^@/", message: "Use a public feature-screens entry." }] : []),
         ...featurePatterns,
         // First, so a layer that may not import the host-only entry gets its own message instead of the generic deep-subpath one.
         ...(allowSubpaths.includes(DOCK_ENTRY_SUBPATH) ? [] : [{ group: [pkg(DOCK_ENTRY_SUBPATH)], message: DOCK_ENTRY_MESSAGE }]),

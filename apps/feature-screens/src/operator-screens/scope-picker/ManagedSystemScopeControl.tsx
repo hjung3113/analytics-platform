@@ -6,10 +6,10 @@ import { Button } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 
-import { useMeBridge } from '@/lib/api/me';
-import { fetchCapabilityScopeViaClient } from '@/lib/api/permission-reads';
-import { fetchManagedSystems } from '@/lib/api/registry-reads';
-import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
+import { useMeBridge } from '../../lib/api/me';
+import { fetchCapabilityScopeViaClient } from '../../lib/api/permission-reads';
+import { fetchManagedSystems } from '../../lib/api/registry-reads';
+import { SCOPE_SELECTOR_COPY } from '../../lib/copy/managed-system-scope';
 
 import { ManagedSystemScopePicker } from './ManagedSystemScopePicker';
 

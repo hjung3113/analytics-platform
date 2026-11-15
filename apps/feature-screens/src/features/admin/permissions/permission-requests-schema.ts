@@ -1,4 +1,4 @@
-import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '@/lib/host/search-fields';
+import { isSearchFieldValueValid, parseRouteSearch, returnToField } from '../../../lib/host/search-fields';
 import { z } from 'zod';
 
 // Router-free (and free of the copy/enum-labels barrel) so the bridge's admin-search entry imports it; permission-requests-search.ts re-exports it.

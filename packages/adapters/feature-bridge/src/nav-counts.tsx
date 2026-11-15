@@ -1,8 +1,7 @@
 import { type ComponentType, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePlatform, type NavCountsSlot } from '@ap/kernel';
-import { fetchNavCounts } from '@/lib/api/nav';
-import { NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
+import { fetchNavCounts, NAV_COUNTS_QUERY_KEY } from '@ap/feature-screens/global-screens/core';
 import { featureQueryClient, useFeatureSession } from './feature/session';
 import { isUuid } from './feature/uuid';
 import { SCOPE_KEY, usesNavCounts } from './operator-menus';

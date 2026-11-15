@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { carrySetId, groupId, spaceId } from '@ap/contracts';
-import { useHostSeam } from '@/lib/host/host-seam';
+import { useHostSeam } from '@ap/feature-screens/global-screens/core';
 import type { HostSeam } from '@ap/feature-screens/global-screens/core';
 import { setFeatureApi } from '../feature-api';
 import { FeatureBridge } from './FeatureBridge';

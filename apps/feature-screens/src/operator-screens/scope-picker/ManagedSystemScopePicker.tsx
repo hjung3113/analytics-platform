@@ -2,7 +2,7 @@
 // only displays what the server returned (`granted`, `workspaceWideScope`) and never decides access. Lives outside
 // `lib/layout/` so the platform bridge can reach it (`./operator-screens/scope-picker`); the standalone sidebar renders it too.
 
-import { SCOPE_SELECTOR_COPY } from '@/lib/copy/managed-system-scope';
+import { SCOPE_SELECTOR_COPY } from '../../lib/copy/managed-system-scope';
 import { cn } from '@ap/ui';
 import { ChevronDown, Shield } from 'lucide-react';
 import * as React from 'react';

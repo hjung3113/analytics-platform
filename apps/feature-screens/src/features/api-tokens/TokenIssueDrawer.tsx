@@ -8,14 +8,14 @@ import {
   copyText, useImeEnterGuard,
 } from '@ap/ui';
 import { GroupedSelectionList } from '@ap/ui';
-import { tokenSelectionGroups } from '@/lib/copy/permission-selection';
+import { tokenSelectionGroups } from '../../lib/copy/permission-selection';
 import { Copy } from 'lucide-react';
-import { useHostUnsavedGuard } from '@/lib/host/host-seam';
-import { issueApiToken } from '@/lib/api/api-tokens';
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { ApiError } from '@/lib/api/types';
-import { API_TOKEN_COPY as COPY } from '@/lib/copy/api-tokens';
-import { draftRecord, draftString, draftStrings, useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
+import { useHostUnsavedGuard } from '../../lib/host/host-seam';
+import { issueApiToken } from '../../lib/api/api-tokens';
+import { mapUnknownError } from '../../lib/api/errorMapper';
+import { ApiError } from '../../lib/api/types';
+import { API_TOKEN_COPY as COPY } from '../../lib/copy/api-tokens';
+import { draftRecord, draftString, draftStrings, useFormDraftAcrossExpiry } from '../../lib/session-draft/useFormDraftAcrossExpiry';
 import type { ApiTokenDrawerParts } from './ApiTokensScreen';
 
 type Field = { path: string; message: string };

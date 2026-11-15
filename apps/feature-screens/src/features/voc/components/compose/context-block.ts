@@ -2,7 +2,7 @@
 // (platform ADR-0045 amendment): no field or entity link exists for it, and the triager reads the description.
 
 import type { TipTapDoc } from '@ap/feature-shared';
-import { VOC_CREATE_COPY } from '@/lib/copy/voc';
+import { VOC_CREATE_COPY } from '../../../../lib/copy/voc';
 
 export interface VocComposeContextBlock {
   items: readonly { label: string; value: string }[];

@@ -4,7 +4,7 @@
 // `@/lib/api` barrel, which `src/global-screens` must not reach. One query, own key (never ['me']: that key's
 // queryFn is useMe's).
 
-import { apiRequest } from '@/lib/api/client';
+import { apiRequest } from '../api/client';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 

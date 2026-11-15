@@ -10,7 +10,7 @@
 // FO ADR-0018: the actor list has no teams, so pickers that need `kind` map
 // every row to `'user'` at the call site.
 
-import { apiClient } from '@/lib/api/client';
+import { apiClient } from '../api/client';
 import type { ActorType, ListActorsResponse, RoleLevel } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 

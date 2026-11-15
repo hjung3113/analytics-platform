@@ -4,13 +4,13 @@
 // permission. The host owns the URL: this screen takes the query and reports changes. Rows carry the public list
 // fields only (display id, title, system, reporter-facing status, update time, own-VOC marker).
 
-import { ListLoadMore } from '@/components/ListLoadMore';
-import { ListStateMessage } from '@/components/ListStateMessage';
-import { LIST_SEARCH_PLACEHOLDER } from '@/lib/copy/list-search';
-import { VOC_LIST_LOAD_ERROR_LABELS, VOC_SEARCH_EMPTY_LABEL } from '@/lib/copy/voc';
-import { fetchManagedSystems } from '@/lib/api/registry-reads';
-import { formatRelativeTime } from '@/lib/format/datetime';
-import { useCommittedSearchDraft } from '@/lib/useCommittedSearchDraft';
+import { ListLoadMore } from '../../../../components/ListLoadMore';
+import { ListStateMessage } from '../../../../components/ListStateMessage';
+import { LIST_SEARCH_PLACEHOLDER } from '../../../../lib/copy/list-search';
+import { VOC_LIST_LOAD_ERROR_LABELS, VOC_SEARCH_EMPTY_LABEL } from '../../../../lib/copy/voc';
+import { fetchManagedSystems } from '../../../../lib/api/registry-reads';
+import { formatRelativeTime } from '../../../../lib/format/datetime';
+import { useCommittedSearchDraft } from '../../../../lib/useCommittedSearchDraft';
 import { ManagedSystemPill, ReporterStatusBadge } from '@ap/feature-ui';
 import {
   Button, EmptyState, ListToolbar, SearchInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,

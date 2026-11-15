@@ -1,12 +1,12 @@
-import { apiPath, isApiPathId } from '@/lib/api/path';
+import { apiPath, isApiPathId } from '../../../../lib/api/path';
 // VocComposeScreen — the VOC form for the platform's `VOC 등록` drawer (platform ADR-0070 decisions 4–5, platform ADR-0071).
 //
 // One column for a 360–520px container (no viewport breakpoints). It is the only VOC creation screen: no router, no
 // `@/lib/api` barrel, no reporter card and no similar/semantic panels. The host seam carries the toasts.
 
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { apiHref } from '@/lib/api/client';
-import { VOC_CREATE_COPY } from '@/lib/copy/voc';
+import { mapUnknownError } from '../../../../lib/api/errorMapper';
+import { apiHref } from '../../../../lib/api/client';
+import { VOC_CREATE_COPY } from '../../../../lib/copy/voc';
 import { createVocRequestSchema, isTipTapDocBlank } from '@ap/feature-shared';
 import { AnalyticsAreaPicker, ManagedSystemPicker } from '@ap/feature-ui';
 import { Button, FieldLabel, Input, RichEditor, Skeleton, type TipTapDoc, useImeEnterGuard } from '@ap/ui';

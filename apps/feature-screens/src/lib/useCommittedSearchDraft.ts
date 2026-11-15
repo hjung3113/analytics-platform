@@ -27,7 +27,7 @@
 // cleared on commit and on acknowledgement, except when `committed` equals the
 // flagged draft: then it stays set so a StrictMode replay still refuses.
 
-import { searchDebounceMs } from '@/lib/forms/search-debounce';
+import { searchDebounceMs } from './forms/search-debounce';
 import * as React from 'react';
 
 export interface UseCommittedSearchDraftOptions {
