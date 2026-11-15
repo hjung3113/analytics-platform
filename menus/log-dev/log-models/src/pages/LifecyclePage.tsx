@@ -44,8 +44,8 @@ function useAction(name: string): Action {
   return useMenuAction(spec);
 }
 const api: LifecycleApi = { useRead, useAction };
-function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true, embedded = false, pageControls }: TableParts<T>) {
-  const table = <div className="grid min-w-0 shrink-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} pageControls={pageControls} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true, embedded = false, pageControls, emptyAction, filterKey }: TableParts<T>) {
+  const table = <div className="grid min-w-0 shrink-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} pageControls={pageControls} emptyAction={emptyAction} filterKey={filterKey} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
   return embedded ? <EmbeddedPane>{table}</EmbeddedPane> : table;
 }
 const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };

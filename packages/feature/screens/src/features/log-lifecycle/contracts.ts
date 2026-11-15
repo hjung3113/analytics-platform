@@ -59,7 +59,7 @@ export type Action = { pending: boolean; run(input: Params, options?: { expected
 /** Host supplies Kernel query/action hooks, so native menu dispatch owns session, idempotency and invalidation. */
 export type LifecycleApi = { useRead<T>(name: string, params: Params, enabled?: boolean): ReadState<T>; useAction(name: string): Action };
 export type Column<T> = { id: string; header: string; size?: number; align?: 'right'; cell: (row: T) => ReactNode; sortable: false; exportValue?: (row: T) => string | number | boolean | null };
-export type TableParts<T extends { id: string }> = { title: string; hideTitle?: boolean; embedded?: boolean; rows: T[]; columns: Column<T>[]; rowAction?: (row: T) => ReactNode; activeRowId?: string | undefined; pageControls?: ReactNode; pagination?: ReactNode; summary?: ReactNode; preferenceKey: string; fill?: boolean };
+export type TableParts<T extends { id: string }> = { title: string; hideTitle?: boolean; embedded?: boolean; rows: T[]; columns: Column<T>[]; rowAction?: (row: T) => ReactNode; activeRowId?: string | undefined; pageControls?: ReactNode; emptyAction?: ReactNode; pagination?: ReactNode; summary?: ReactNode; preferenceKey: string; fill?: boolean; /** Identity of the list read (filters, sort, page, subject): a change drops the previous read's rows. */ filterKey?: string };
 export type DrawerParts = { title: ReactNode; subtitle?: ReactNode; body: ReactNode; requestClose(): void; returnFocusRef?: RefObject<HTMLElement | null> };
 export type PageAction = { label: string; onSelect(): void; allowed?: boolean; reason?: string };
 export type PageParts = {
