@@ -29,6 +29,7 @@ import {
   updateFindingStatus,
 } from './repo.js';
 import { canManageFinding, canReadFinding, sanitizeCommentBody, toDto } from './service-shared.js';
+import { checkFindingManage } from './authorization.js';
 import type { FindingsActor, FindingsServiceDeps } from './service.js';
 
 import { validateOwner } from './responsibility.js';
@@ -385,10 +386,15 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
           });
           if (!finding) throw new HttpError('not_found.record', 'finding not found');
 
-          const canManage = await canManageFinding(deps, actor, finding.primary_managed_system_id, {
-            tx,
-          });
-          if (!canManage) {
+          // Finding Link Task is an Admin/Developer command (05 permission policy): a bare finding.manage grant is not enough.
+          const decision = await checkFindingManage(
+            deps.checkService,
+            actor,
+            finding.primary_managed_system_id,
+            { requireElevatedRole: true },
+            { tx },
+          );
+          if (!decision.allow) {
             throw new HttpError('permission.denied', 'finding.manage capability required');
           }
 
