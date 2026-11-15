@@ -12,7 +12,7 @@ const round: RoundDetail = { id: 'round', projectId: 'project', seq: 3, stage: '
 
 const page = vi.fn<Presentation['page']>(p => <section data-testid="page"><h1>{p.title}</h1>{p.primaryAction ? <button type="button" onClick={p.primaryAction.onSelect}>{p.primaryAction.label}</button> : null}{p.children}</section>);
 function Table<T extends { id: string }>(p: TableParts<T>) {
-  return <div data-testid="table-frame"><div data-testid="controls">{p.pageControls}</div><table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.rows.length === 0 ? p.emptyAction : null}{p.pagination}</div>;
+  return <div data-testid="table-frame" data-filter-key={p.filterKey}><div data-testid="controls">{p.pageControls}</div><table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.rows.length === 0 ? p.emptyAction : null}{p.pagination}</div>;
 }
 const ui: Presentation = { page, table: Table, drawer: () => null, timeline: () => null, trust: () => null };
 function setup() {
@@ -59,6 +59,15 @@ it('keeps the same table and controls through loading and error', () => {
     expect(screen.getByTestId('controls')).toBe(controls);
     expect(within(table).queryByRole('button', { name: 'SYN-R001 상세 열기' }) !== null).toBe(status === 'done');
   }
+});
+it('changes the table read identity with the result scope so the previous read\'s rows are dropped', () => {
+  setup();
+  const before = screen.getByTestId('table-frame').getAttribute('data-filter-key');
+  expect(before).toBeTruthy();
+  fireEvent.click(within(screen.getByTestId('controls')).getByRole('radio', { name: '전체' }));
+  const after = screen.getByTestId('table-frame').getAttribute('data-filter-key');
+  expect(after).toBeTruthy();
+  expect(after).not.toBe(before);
 });
 it('returns from zero problems to all results through the empty action', () => {
   const mounted = setup(); mounted.update({ empty: true });
