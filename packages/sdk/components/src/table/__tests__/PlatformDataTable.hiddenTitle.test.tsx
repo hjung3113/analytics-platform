@@ -168,6 +168,22 @@ describe('PlatformDataTable hidden page title (#1234)', () => {
       expect(follows(view(), document.querySelector('[data-filter-line]')!)).toBe(true);
     });
 
+    it('lets the filters wrap under the controls instead of shrinking to nothing (#2299 review C1)', async () => {
+      render(<Table controls />);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      const filters = document.querySelector('[data-filter-line]')!.parentElement!;
+      expect(filters).toHaveClass('basis-80');
+      expect(view().closest('[data-table-page-controls]')!.parentElement).toHaveClass('flex-wrap');
+    });
+
+    it('keeps the merged left group and filter wrapper classes without page controls', async () => {
+      render(<Table />);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      const filters = document.querySelector('[data-filter-line]')!.parentElement!;
+      expect(filters).not.toHaveClass('basis-80');
+      expect(filters.parentElement).not.toHaveClass('flex-wrap');
+    });
+
     it('stays visible in a merged band without filterable fields', async () => {
       render(<Table controls filters={false} />);
       await screen.findByText(/1건 · 1\/1 페이지/);

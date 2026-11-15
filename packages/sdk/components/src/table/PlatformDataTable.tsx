@@ -727,7 +727,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}
   </>;
-  const filterLine = filterFields.length > 0 && <div className={cn('min-w-0 flex-1', !mergeToolbar && 'basis-80')}><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>;
+  const filterLine = filterFields.length > 0 && <div className={cn('min-w-0 flex-1', (!mergeToolbar || !!p.pageControls) && 'basis-80')}><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>;
   const resultCount = <span ref={countSpan.ref} className={cn('tabular whitespace-nowrap', !mergeToolbar && 'ml-auto')}>{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : p.externalPagination ? p.externalPagination.summary
@@ -748,7 +748,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
     {/* R2: hideTitle without search merges filters (left) and description/results + controls (right). Titled tables and workspace panels retain two bands. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
-      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && (filterFields.length > 0 ? (leftBasis ? 'basis-(--ap-table-left-basis)' : 'basis-80') : !p.pageControls && 'sr-only'))}
+      {/* With page controls the merged left group wraps: the filters (basis 320) drop under the controls instead of shrinking to nothing. */}
+      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && p.pageControls && 'flex-wrap', mergeToolbar && (filterFields.length > 0 ? (leftBasis ? 'basis-(--ap-table-left-basis)' : 'basis-80') : !p.pageControls && 'sr-only'))}
         style={leftBasis}>
         <ToolbarTitle title={p.title} subtitle={mergeToolbar ? undefined : p.subtitle} srOnly={inPanel || !!p.hideTitle} lang={lang} descriptionId={descriptionId} />
         {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
