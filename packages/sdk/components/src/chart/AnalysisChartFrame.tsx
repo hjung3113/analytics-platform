@@ -4,8 +4,8 @@ import { toMs, unknownLabel } from './analysisChartShared';
 import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { useI18n, useMessages, usePlatform } from '@ap/kernel';
-import { canClientSum, formatDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
+import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
+import { canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -13,12 +13,12 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { ChartImageCopyButton, ChartImagePrintButton } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton, type ChartExportActionsPolicy } from './ChartImageCopyButton';
 import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { assignNoteLevels } from './annotationLayout';
 import { buildChartOption, linePattern, resolveChartPalette } from './buildChartOption';
-import { useAnnotationDeleteFocus, useAnnotationEditor } from './useAnnotationEditor';
+import { useAnnotationDeleteFocus, useAnnotationEditor, useNoAnnotationEditor, type AnnotationEditor } from './useAnnotationEditor';
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
@@ -160,10 +160,22 @@ export type AnalysisChartFrameProps = {
   extraActions?: ReactNode;
   /** A second value axis on the right for series with `axis: 'right'`: its own scale from 0, this unit in the axis name, in the tooltip, the table and CSV headers (`name (unit)`), and `valueFormat` for tooltip, point selector and table values (default: the Frame's `valueFormat`). Vertical, unstacked charts only; with `orientation="horizontal"` or `stacked` every series is drawn on the left, with a dev warning. `markLines` stay on the left axis. */
   rightAxis?: { unit: string; valueFormat?: (v: number) => string };
-  /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. */
+  /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. Without a `PlatformProvider` it shows only when `exportActions.exportAllowed` is true (#1953). */
   imageCopy?: boolean;
-  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Shown only when the current menu manifest enables `features.export`. */
+  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Same gate as `imageCopy`. */
   imagePrint?: boolean;
+  /**
+   * Outside a platform only (#1953 C): allows the export actions — `내보내기` (visible CSV) and, when asked for, `이미지 복사`/`인쇄` — (default off) and
+   * says where their result text goes (default a status line beside the button). Inside a `PlatformProvider` it is ignored and the menu's `features.export`
+   * decides; it never widens a menu's permission.
+   */
+  exportActions?: ChartExportActionsPolicy;
+  /**
+   * Outside a platform only (#1953 C): the period the series cover, wall-clock `YYYY-MM-DDTHH:mm:ss` like the points (not converted, ADR-0064). Its `to`
+   * turns on the keyboard range picker and the 1h/4h presets on a time axis, as the global period's end does inside a platform. A value in another form (Z, an offset,
+   * a date only) is not used, with a dev warning. Ignored inside a `PlatformProvider`.
+   */
+  period?: { from?: string | null; to?: string | null };
   stacked?: boolean;
   /**
    * Horizontal category charts only (ignored elsewhere, with a dev warning). Controlled row highlight: while the prop is present (null = no row)
@@ -191,11 +203,72 @@ export type AnalysisChartFrameProps = {
 };
 
 /**
+ * What the frame takes from its host (#1953 C): the period and Scope its local state is keyed by, the actions the host allows, and where results are said.
+ * Inside a platform this is the global Context, the menu manifest and the toast; outside one it comes from props, with Compare, Annotate and Apply off.
+ */
+type FrameHost = {
+  /** Inside a `PlatformProvider` (the CSV note then names the applied Context). */
+  inPlatform: boolean;
+  global: { scopeId: string | null; from: string | null; to: string | null };
+  /** A change resets the chart's local state (it described the previous result). */
+  contextKey: string;
+  features: { compare: boolean; annotate: boolean; export: boolean };
+  /** Promotes a brushed range to the period; null = no `분석 구간 적용`. */
+  applyPeriod: ((range: Selection) => void) | null;
+  notify: (text: string, tone?: 'warning') => void;
+  url: string;
+  /** The standalone result line (no `notify`): shown beside 내보내기. */
+  status: string;
+};
+
+/**
  * §16 Chart Frame: Title/Actions → Description/Metric Version → Legend → Plot → Selection Summary → Source·Updated·Coverage.
  * State layers stay separate: Global Context (URL) · Page Filter (page) · Chart Local State (here) · Persistent Annotation (server, keyed by chartId + Scope).
  * Compare/Annotate/Export follow the current menu's manifest `features`; a chart outside a routed menu offers none of them.
+ * Without a `PlatformProvider` (#1953 C) the chart behaviour (Zoom, Brush, local selection, point actions, tooltip, table) works on its own;
+ * Compare, Annotate and `분석 구간 적용` are not drawn, and export follows `exportActions`.
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
+  const platform = usePlatformOptional();
+  return platform ? <PlatformFrame {...p} platform={platform} /> : <StandaloneFrame {...p} />;
+}
+
+function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform: MenuPlatform }) {
+  const { setGlobal, toast, global, route, url } = platform;
+  const features = route?.menu.features;
+  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate: !!features?.annotate });
+  const host: FrameHost = {
+    inPlatform: true, global, contextKey: JSON.stringify(global), url, status: '', notify: toast,
+    features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
+    applyPeriod: range => setGlobal({ from: range.from, to: range.to }),
+  };
+  return <FrameBody {...p} host={host} editor={editor} />;
+}
+
+/** A period end the range code can order and measure: naive wall-clock only (ADR-0064); anything else is dropped with a dev warning. */
+function wallClockOrNull(value: string | null | undefined, field: string): string | null {
+  if (value == null) return null;
+  try { parseDateTime(value, field); return value; } catch { rowFocusDiagnostic(`${field} "${value}" is not YYYY-MM-DDTHH:mm:ss wall-clock time; ignored.`); return null; }
+}
+
+function StandaloneFrame(p: AnalysisChartFrameProps) {
+  const editor = useNoAnnotationEditor(p.chartId);
+  const [status, setStatus] = useState('');
+  const rawFrom = p.period?.from; const rawTo = p.period?.to;
+  // Checked once per value, so a bad value warns once rather than on every render.
+  const from = useMemo(() => wallClockOrNull(rawFrom, 'period.from'), [rawFrom]); const to = useMemo(() => wallClockOrNull(rawTo, 'period.to'), [rawTo]);
+  const global = useMemo(() => ({ scopeId: null, from, to }), [from, to]);
+  // A new period resets the local state (as a Context change does), and the old result line with it.
+  useEffect(() => { setStatus(''); }, [from, to]);
+  const host: FrameHost = {
+    inPlatform: false, global, contextKey: JSON.stringify(global), url: '', status, notify: p.exportActions?.notify ?? (text => setStatus(text)),
+    features: { compare: false, annotate: false, export: p.exportActions?.exportAllowed === true },
+    applyPeriod: null,
+  };
+  return <FrameBody {...p} host={host} editor={editor} />;
+}
+
+function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: FrameHost; editor: AnnotationEditor }) {
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const compactEmbedded = useEmbeddedChrome();
@@ -206,11 +279,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const fillMin = p.fillMin === undefined ? FILL_CHART_MIN_HEIGHT : Math.max(FILL_MIN_FLOOR, p.fillMin);
   const loweredFill = fillMin !== FILL_CHART_MIN_HEIGHT;
   const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillMin, fill.height ?? 0) : analysisChartHeight(size, 260));
-  const { setGlobal, toast, global, adapter, route, url } = usePlatform();
-  const features = route?.menu.features;
-  const canCompare = !!features?.compare && !!p.compareSeries?.length;
-  const canAnnotate = !!features?.annotate;
-  const canExport = !!features?.export;
+  const { global, features, notify, url, applyPeriod } = host;
+  const canCompare = features.compare && !!p.compareSeries?.length;
+  const canAnnotate = features.annotate;
+  const canExport = features.export;
   const titleId = useId();
   const currentPeriodId = useId();
   const previousPeriodId = useId();
@@ -285,7 +357,6 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const zoomsBackToFull = zoom[1] - zoom[0] >= 50;
   const [showTable, setShowTable] = useState(false);
   const scopeId = global.scopeId;
-  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId, canAnnotate });
   const { annotations, note, closeEditor } = editor;
 
   const allSeries = useMemo(() => [...p.series, ...(compare && canCompare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare, canCompare]);
@@ -371,7 +442,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); closeEditor();
   }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions]);
   // Global Context changes invalidate local selection (it described the previous result).
-  const contextKey = JSON.stringify(global);
+  const contextKey = host.contextKey;
   const appliedActive = useRef<string | null>(null);
   useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint(); appliedActive.current = null;
   }, [contextKey, closeEditor, cancelDelete, resetPoint, rangeActions]);
@@ -614,7 +685,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
     const body = rows.map(([x, values]) => [x, ...values.map(v => (v === null ? '' : v))]);
     downloadChartCsv({ ...p, context: global }, header, body);
-    toast(m('chartExportedVisibleCsv', { chartId: p.chartId }));
+    notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
 
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
@@ -710,8 +781,9 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         </div>
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{t('export')}</Button>}
-          {p.imageCopy && <ChartImageCopyButton fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
-          {p.imagePrint && <ChartImagePrintButton title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+          {canExport && host.status !== '' && <span role="status" className="t-caption text-text-muted">{host.status}</span>}
+          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
           <Popover>
             <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
             <PopoverContent align="end" className="w-72">
@@ -806,7 +878,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
           <span className="ml-auto flex flex-wrap gap-2">
             {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>}
+            {xType === 'time' && p.canApplyRange !== false && applyPeriod && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>}
             <Button size="toolbar" variant="ghost" onClick={rangeActions.clear}>{t('clear')}</Button>
           </span>
         </div>}
@@ -814,10 +886,10 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
         {m('chartNoValuesInRange')}
       </p>}
       {clipNotice && <p className="mt-1 text-text-secondary">{m(clipNotice === 'partial' ? 'chartCutPreviousPeriod' : 'chartOnlyPreviousPeriod')}</p>}
-      {preview && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
+      {preview && applyPeriod && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{formatWallClock(preview.from)} → {formatWallClock(preview.to)}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
-        <Button size="toolbar" onClick={() => { setGlobal({ from: preview.from, to: preview.to }); toast(m('chartAppliedGlobalPeriodToast')); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
+        <Button size="toolbar" onClick={() => { applyPeriod(preview); notify(m('chartAppliedGlobalPeriodToast')); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
         <Button size="toolbar" variant="secondary" onClick={() => { rangeActions.setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void editor.saveNote(selection); }}>
