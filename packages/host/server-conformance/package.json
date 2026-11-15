@@ -16,13 +16,13 @@
     "@ap/contracts": "workspace:*"
   },
   "peerDependencies": {
-    "vitest": "^3.2.7"
+    "vitest": "^2.1.9"
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
     "@ap/tsconfig": "workspace:*",
-    "eslint": "^10.11.0",
+    "eslint": "^10.14.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "vitest": "^2.1.9"
   }
 }
