@@ -339,7 +339,7 @@ async function main() {
 }
 
 // Unit tests import the helpers above; main runs only when invoked as the check.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     process.stderr.write(`sdk:consumer-check FAILED at step "${step}": ${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;

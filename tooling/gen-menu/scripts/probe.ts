@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   GenMenuError, MOCK_ASSEMBLY_TSX, MENUS_TS, MOCK_ACTION_IMPORTS_END, MOCK_ACTION_IMPORTS_START, MOCK_ACTION_SPREADS_END, MOCK_ACTION_SPREADS_START,
@@ -214,7 +214,7 @@ function verifyGeneratedScaffold(placement: ProbePlacement): void {
   console.log('probe: generated endpoints/mock + mock-assembly.tsx mock registration (genProbe + analytics) and action/sample wiring (genProbe) verified');
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
     // One run proves both placement roots; each placement is generated, gated and reverted on its own.
     for (const placement of PROBE_PLACEMENTS) main(placement);

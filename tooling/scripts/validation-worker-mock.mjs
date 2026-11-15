@@ -7,6 +7,8 @@
 // Command line (a running server, a service token holding the scope `validation.worker`):
 //   node tooling/scripts/validation-worker-mock.mjs --base-url http://localhost:3000 --token ap_… [--mode pass|fail|incomplete] [--heartbeats 1]
 
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 export const MOCK_QUEUE_PREFIX = '/api/v1/validation-queue';
 export const MODES = ['pass', 'fail', 'incomplete'];
 
@@ -103,7 +105,7 @@ async function main(argv) {
   );
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exitCode = 1;

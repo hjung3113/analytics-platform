@@ -6,7 +6,7 @@
 // `dev` serves the first screen → the README «둘째 메뉴» steps (copy menus/sample, change its three constants, add two
 // import lines) → `check` renders the second menu → `build`. The first failing step is named.
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
@@ -246,7 +246,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     process.stderr.write(`sdk:kit-check FAILED at step "${step}": ${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
