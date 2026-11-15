@@ -5,7 +5,7 @@ import { ESLint } from 'eslint';
 import type { Linter, Rule } from 'eslint';
 import { glob, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -34,6 +34,7 @@ import {
   ui,
 } from './index.js';
 import { PACKAGE_PREFIX } from './prefix.js';
+import * as allPresets from './index.js';
 import { featureBridgeEntrySources, featureBridgeEntrySubpaths } from './feature-bridge-entries.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -1322,51 +1323,49 @@ describe('bridge entry list (#1640)', () => {
   });
 });
 
-// Release units are folder boundaries, including packages added after this test (#2210).
+// Release units are folder boundaries, including packages added after this test (#2210). A package "uses" a preset when its
+// loaded config contains every config object of that preset (by identity), so comments, renames or an emptied copy cannot pass.
 describe('release-unit folder presets', () => {
   const sdkPresets = ['contracts', 'contractSchemas', 'ui', 'kernel', 'components', 'shell'];
   const hostPresets = ['appHost', 'mockServer', 'httpAdapter', 'serverConformance'];
+  const named = Object.entries(allPresets).filter((entry): entry is [string, Linter.Config[]] => Array.isArray(entry[1]) && entry[1].length > 0);
 
-  function exportedPreset(config: string): string {
-    const reexport = config.match(/export\s*\{\s*(\w+)\s+as\s+default\s*\}\s*from\s*['"]@ap\/eslint-config['"]/);
-    if (reexport) return reexport[1]!;
-    const exported = config.match(/export\s+default\s+(?:\[\s*\.\.\.)?(\w+)/)?.[1];
-    const imports = config.match(/import\s*\{([^}]+)\}\s*from\s*['"]@ap\/eslint-config['"]/)?.[1];
-    return exported && imports?.split(',').some(name => name.trim() === exported) ? exported : '';
+  const presetsIn = (config: readonly unknown[]): string[] =>
+    named.filter(([, preset]) => preset.every(part => config.includes(part))).map(([name]) => name);
+
+  async function presetsOf(dir: string): Promise<string[] | null> {
+    const file = path.join(REPO_ROOT, dir, 'eslint.config.js');
+    const exists = await readFile(file, 'utf8').then(() => true, () => false);
+    if (!exists) return null;
+    const loaded = (await import(pathToFileURL(file).href)) as { default: unknown };
+    return presetsIn(Array.isArray(loaded.default) ? loaded.default : [loaded.default]);
   }
 
   it.each([
-    ["export { ui as default } from '@ap/eslint-config';", 'ui'],
-    ["import { appHost } from '@ap/eslint-config'; export default [...appHost];", 'appHost'],
-    ["import { hostModuleDir, shell } from '@ap/eslint-config'; export default [...shell, ...hostModuleDir('src/fixture')];", 'shell'],
-    ["import { menu } from '@ap/eslint-config'; export default menu;", 'menu'],
-    ["const ui = []; export default ui;", ''],
-  ])('reads the exported preset from %s', (config, expected) => {
-    expect(exportedPreset(config)).toBe(expected);
-  });
-
-  it.each([
-    ['sdk', sdkPresets, 'menu'],
-    ['sdk', sdkPresets, 'mockServer'],
-    ['host', hostPresets, 'featureBridgePreset'],
-    ['host', hostPresets, 'contracts'],
-  ] as const)('rejects %s folder using %s / %s', (_folder, presets, preset) => {
-    const config = `export { ${preset} as default } from '@ap/eslint-config';`;
-    expect(presets).not.toContain(exportedPreset(config));
+    ['the preset itself', () => [...allPresets.appHost], ['appHost']],
+    ['a preset plus extra blocks', () => [...allPresets.shell, { rules: {} }], ['shell']],
+    ['an emptied copy', () => allPresets.appHost.slice(0, 0), []],
+    ['a menu preset', () => [...allPresets.menu], ['menu']],
+    ['a same-shaped copy of an SDK preset', () => allPresets.ui.map(part => ({ ...part })), []],
+  ] as const)('identifies presets in %s', (_name, build, expected) => {
+    expect(presetsIn(build())).toEqual(expected);
   });
 
   it.each([
     ['sdk', sdkPresets],
     ['host', hostPresets],
-  ] as const)('requires every %s package to export a release-unit preset', async (folder, presets) => {
+  ] as const)('every %s package uses only release-unit presets of its folder', async (folder, presets) => {
     const manifests = [];
     for await (const manifest of glob(`packages/${folder}/*/package.json`, { cwd: REPO_ROOT })) {
       manifests.push(manifest);
       const dir = path.dirname(manifest);
-      expect(presets, dir).toContain(exportedPreset(await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8')));
+      const used = await presetsOf(dir);
+      expect(used, dir).not.toBeNull();
+      expect(used!.filter(name => presets.includes(name)), dir).not.toEqual([]);
+      expect(used!.filter(name => sdkPresets.includes(name) || hostPresets.includes(name)).every(name => presets.includes(name)), dir).toBe(true);
     }
     expect(manifests.length).toBeGreaterThan(0);
-  });
+  }, 120_000);
 
   it('reserves Host presets for packages/host', async () => {
     const patterns = ['packages/*/package.json', 'packages/*/*/package.json', 'apps/*/package.json',
@@ -1375,9 +1374,9 @@ describe('release-unit folder presets', () => {
     for await (const manifest of glob(patterns, { cwd: REPO_ROOT })) {
       const dir = path.dirname(manifest);
       if (dir.startsWith('packages/host/')) continue;
-      const config = await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8').catch(() => '');
-      if (hostPresets.some((preset) => new RegExp(`\\b${preset}\\b`).test(config))) offenders.push(dir);
+      const used = await presetsOf(dir);
+      if (used?.some(name => hostPresets.includes(name))) offenders.push(dir);
     }
     expect(offenders).toEqual([]);
-  });
+  }, 120_000);
 });
