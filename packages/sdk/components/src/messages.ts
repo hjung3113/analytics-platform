@@ -13,6 +13,8 @@ export const COMPONENTS_MESSAGES = {
   chartUnclassified: { ko: '미분류', en: 'Unclassified' },
   chartTopNSummary: { ko: '{count}개 항목 · {unit}', en: '{count} items · {unit}' },
   chartHeaderName: { ko: '이름', en: 'Name' },
+  chartHeaderStatus: { ko: '상태', en: 'Status' },
+  chartHeaderReason: { ko: '사유', en: 'Reason' },
   chartHeaderValue: { ko: '값', en: 'Value' },
   chartDefaultGroup: { ko: '기본 그룹', en: 'Default group' },
   chartScatterSummary: {

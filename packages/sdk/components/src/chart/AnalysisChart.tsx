@@ -16,9 +16,11 @@ import { KindLegend } from './analysisChartKinds';
 import { heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
+import { ChartStatusLegend } from './ChartStatusLegend';
+import { distinctStatuses, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
-export type HeatmapCell = { x: string; y: string; value: number | null };
+export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus };
 export type HeatmapSpec = {
   kind: 'heatmap';
   /** Explicit axis order. Missing coordinates remain empty; null is an unknown cell. */
@@ -140,6 +142,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang, p.unit), [spec, lang, p.unit]);
+  const statusLegend = useMemo(() => distinctStatuses(cells.map(c => c.status)), [cells]);
+  const hasStatuses = statusLegend.length > 0;
   // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
   const fill = useElementSize(size === 'fill');
   const height = p.height ?? (size === 'fill' && fill.height !== null ? fillChartHeight(fill.height) : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
@@ -188,14 +192,15 @@ export function AnalysisChart(p: AnalysisChartProps) {
       return tone(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
     }
     const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
-      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}` : ''; } },
+      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}${c.status ? ` · ${statusText(c.status)}` : ''}` : ''; } },
       grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
       xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
       yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
-        itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid' },
+        itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderColor: statusBorderColor(c.status, cellColor(c.value)), borderWidth: 2, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
+        ...(c.status ? { label: { ...statusMarker(c.status), position: 'inside' } } : {}),
       })) }],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
@@ -239,11 +244,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
     selectionSummary = m('chartHeatmapRangeSelection', { count: active.length, yRange: range(spec.yLabels, 'y'), xRange: range(spec.xLabels, 'x') });
   }
   const empty = extended ? extended.empty : spec.kind === 'heatmap' ? !cells.length : total === 0;
-  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue')] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
-  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value)] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
+  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue'), ...(hasStatuses ? [m('chartHeaderStatus')] : [])] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
+  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
-    const csvHeaders = extended?.csvHeaders ?? headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header);
-    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang)] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
+    const csvHeaders = extended?.csvHeaders ?? [...headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header), ...(hasStatuses ? [m('chartHeaderReason')] : [])];
+    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
     try { downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues); } catch {
       exportGate.say(m('chartExportCsvFailed', { chartId: p.chartId }), 'warning');
       return;
@@ -282,6 +287,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
           </div>
         </>}
         <span className="flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
+        {hasStatuses && <div className="flex flex-wrap gap-3" role="group" aria-label={m('chartLegend')}><ChartStatusLegend statuses={statusLegend} /></div>}
       </div>}
       {extended && <KindLegend compact={compact} items={extended.legend} label={m('chartLegend')} />}
       {spec.kind === 'donut' && <ul aria-label={m('chartLegend')} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
@@ -305,6 +311,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
         {selectionSummary}
+        {hasStatuses && selectedRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {selectedRows.length === 1 && selectedRows[0].drill && <Button size="toolbar" variant="ghost" onClick={selectedRows[0].drill}>{m('chartDetails')}</Button>}
       </section>
       {table && <div className="overflow-auto px-4 py-2"><table className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>

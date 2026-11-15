@@ -7,6 +7,9 @@ import { noteLabelWidths } from './annotationLayout';
 import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry';
 import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
+import { barStatuses, chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import type { ChartPoint } from './AnalysisChartFrame';
+import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
@@ -79,6 +82,8 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
 }
 
 export type ChartOptionInput = {
+  rowGroups?: ChartRowGroups;
+  pointStatus?: (point: ChartPoint) => ChartStatus | undefined;
   emphasisFocus?: 'series' | 'none';
   displayed: readonly ChartSeries[];
   previousIds: ReadonlySet<string>;
@@ -130,8 +135,11 @@ const escapeHtml = (text: string) => text.replace(/[&<>"']/g, ch => HTML_ESCAPES
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
   const theme = palette.theme;
+  const groups = horizontal && xType === 'category' ? i.rowGroups : undefined;
+  const groupLayout = groups ? rowGroupLayout(groups, categories) : undefined;
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
+  const statuses = barStatuses(i.displayed, horizontal, i.pointStatus);
   const chips = !!i.extremes?.size && horizontal;
   const segments = !chips && horizontal && !!i.stacked && i.displayed.length > 1 && (i.valueLabels === 'segment' || i.valueLabels === 'both');
   const totalTexts = horizontal && !!i.stacked && (i.valueLabels === 'total' || i.valueLabels === 'both') && i.totals?.size ? i.totals : null;
@@ -154,13 +162,13 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   };
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
-  const plotWidth = Math.max(0, i.chartWidth - PLOT_MARGIN - (i.rightAxis ? RIGHT_AXIS_ROOM : 0));
+  const plotWidth = Math.max(0, i.chartWidth - (groupLayout ? groupLayout.gutter + 20 : PLOT_MARGIN) - (i.rightAxis ? RIGHT_AXIS_ROOM : 0));
   const zoomed = Math.max((i.zoom[1] - i.zoom[0]) / 100, 0.01);
   const units = xType === 'time' ? i.timeExtent : categories.length;
   const pxPerUnit = units > 0 ? plotWidth / (units * zoomed) : 0;
   // A narrow plot (a 400px drawer) cannot hold five numeric ticks: fewer ticks, and any that still touch are dropped; a wide plot keeps ECharts' defaults instead of printing `1,0002,000`.
   // Without rowPitch the grid is `containLabel`, so the category labels also eat plot width; their real width is unknown here, so the longest category is estimated (capped) and taken off.
-  const categoryRoom = i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52 + Math.min(MAX_CATEGORY_ROOM, Math.max(0, ...categories.map(labelWidth)));
+  const categoryRoom = groupLayout?.gutter ?? (i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52 + Math.min(MAX_CATEGORY_ROOM, Math.max(0, ...categories.map(labelWidth))));
   const gridPlotWidth = (i.tickRoom ?? i.chartWidth) - categoryRoom - gridRight;
   const tickCount = Math.floor(gridPlotWidth / MIN_TICK_PITCH);
   const valueAxisTicks = tickCount < DEFAULT_TICKS ? { splitNumber: Math.max(1, tickCount), axisLabel: { hideOverlap: true } } : {};
@@ -200,13 +208,30 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       }),
     };
   }
+  function statusTooltip(params: { seriesId?: string; name?: string; dataIndex?: number }[] | { seriesId?: string; name?: string; dataIndex?: number }) {
+    const items = Array.isArray(params) ? params : [params];
+    const rows = items.flatMap(p => {
+      const s = i.displayed.find(series => series.id === p.seriesId);
+      const point = s?.points[p.dataIndex ?? s.points.findIndex(([x]) => x === p.name)];
+      if (!s || !point) return [];
+      const [x, y] = point;
+      const axis = i.rightAxis && s.axis === 'right' ? i.rightAxis : i;
+      const value = y === null ? unknownLabel(lang) : `${axis.valueFormat(y)} ${axis.unit}`;
+      const group = groups ? `${groups.header}: ${groups.byCategory.get(x)?.group ?? ''} · ` : '';
+      const text = `${group}${rowLabel(groups, x)} · ${s.name}: ${value}`;
+      const status = statuses.get(chartPointKey({ seriesId: s.id, x }));
+      return [escapeHtml(`${text}${status ? ` · ${statusText(status)}` : ''}`)];
+    });
+    return rows.join('<br/>');
+  }
   const valueAxis = { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine };
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
-    grid: horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
+    grid: groupLayout ? { left: groupLayout.gutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false } : horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
+      ...(groups || statuses.size ? { formatter: statusTooltip } : {}),
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
@@ -214,9 +239,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
-    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
+    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${rowLabel(groups, v)}}` : rowLabel(groups, v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
     // Row-pitch mode: the inner scroller is the only viewport. A dataZoom window on top would make the selection summary, Brush and export ambiguous (ADR-0079).
-    dataZoom: horizontal && i.rowPitch !== undefined ? [] : [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), start: i.zoom[0], end: i.zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !i.brushMode }],
+    dataZoom: horizontal && i.rowPitch !== undefined ? [] : [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), ...(groups ? { filterMode: 'weakFilter' } : {}), start: i.zoom[0], end: i.zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !i.brushMode }],
     // Selection and annotation fills keep echarts-native opacity.
     brush: { ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), brushType: horizontal ? 'lineY' : 'lineX', brushMode: 'single', throttleType: 'debounce', throttleDelay: 120,
       brushStyle: { color: palette.brushFill, borderColor: palette.brushBorder } },
@@ -230,8 +255,18 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         const datum = (x: string, y: number | null) => {
           const isActive = active !== null && x === active;
           const mark = extreme?.min.x === x ? 'min' : extreme?.max.x === x ? 'max' : null;
-          if (!isActive && !mark) return y;
+          const status = kind === 'bar' ? statuses.get(chartPointKey({ seriesId: s.id, x })) : undefined;
+          if (!isActive && !mark && !status) return y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
+          if (status) {
+            // Status owns the solid outline; active adds a wider dashed outline. Min/Max retains its own coloured outer glow and named chip.
+            // This keeps all three cues when a status, an extreme and the controlled active row coincide.
+            const marker = statusMarker(status);
+            const extremeChip = mark ? extremeLabel(mark, lanes !== null, palette, lang) : undefined;
+            return { value: y, itemStyle: { color: palette.series[n].fill, borderColor: statusBorderColor(status, palette.series[n].fill), borderWidth: isActive ? 4 : 2, borderType: isActive ? 'dashed' : 'solid', ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) },
+              label: { ...extremeChip, ...marker, position: extremeChip?.position ?? 'insideRight', formatter: `${marker.formatter}${mark ? ` ${extremeName(mark, lang)}` : ''}`, rich: marker.rich },
+            };
+          }
           return { value: y, itemStyle: {
             color: palette.series[n].fill,
             borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2,
@@ -248,9 +283,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           ...(right ? { yAxisIndex: 1, tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${right.valueFormat(v)} ${right.unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
             label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
-            labelLayout: segmentLayout,
+            labelLayout: (p: { dataIndex: number; labelRect: LabelRect; rect: LabelRect }) => statuses.has(chartPointKey({ seriesId: s.id, x: s.points[p.dataIndex]?.[0] })) ? {} : segmentLayout(p),
           } : {}),
-          data: xType === 'time' ? s.points.map(([x, y]) => [toMs(x), y]) : s.points.map(([x, y]) => datum(x, y)),
+          data: xType === 'time' ? s.points.map(([x, y]) => { const point = datum(x, y); return typeof point === 'object' && point !== null ? { ...point, value: [toMs(x), y] } : [toMs(x), y]; }) : s.points.map(([x, y]) => datum(x, y)),
         };
         // Transparent, silent, no emphasis and out of the axis tooltip (`tooltip.show === false`, ECharts 6): it only pushes the next piece to its lane start.
         const spacer = lanes && n > 0 ? [{
@@ -260,10 +295,11 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         return [...spacer, real];
       }),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),
+      ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.axisLine.lineStyle.color)] : []),
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
-        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (i.rowPitch !== undefined ? ROW_LABEL_GUTTER + gridRight : 52 + gridRight))
+        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (groupLayout?.gutter ?? (i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52)) - gridRight)
           : i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
       },
     ],
