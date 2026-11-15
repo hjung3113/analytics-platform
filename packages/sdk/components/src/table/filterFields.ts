@@ -25,12 +25,12 @@ const pinRankOf = (pinned: boolean | number | undefined): number => (typeof pinn
 export const pinnedInRank = (fields: readonly ResolvedFilterField[]): ResolvedFilterField[] => fields.filter(f => f.pinned).sort((a, b) => (a.pinRank === b.pinRank ? 0 : a.pinRank < b.pinRank ? -1 : 1));
 
 /** Columns with `filter` first (column order), then `filterFields`. A duplicate or `:`-containing id is a declaration bug and throws. */
-export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fields: readonly TableFilterField[] | undefined, lang: 'ko' | 'en'): ResolvedFilterField[] {
+export function resolveFilterFields<T>(columns: readonly PlatformColumn<T>[], fields: readonly TableFilterField[] | undefined, lang: 'ko' | 'en', owner = 'PlatformDataTable'): ResolvedFilterField[] {
   const out: ResolvedFilterField[] = [];
   const seen = new Set<string>();
   const add = (field: ResolvedFilterField) => {
-    if (field.id.includes(':')) throw new Error(`PlatformDataTable: filter field id "${field.id}" must not contain ":"`);
-    if (seen.has(field.id)) throw new Error(`PlatformDataTable: filter field id "${field.id}" is declared twice (columns and filterFields share one id space)`);
+    if (field.id.includes(':')) throw new Error(`${owner}: filter field id "${field.id}" must not contain ":"`);
+    if (seen.has(field.id)) throw new Error(`${owner}: filter field id "${field.id}" is declared twice (columns and filterFields share one id space)`);
     seen.add(field.id);
     out.push(field);
   };

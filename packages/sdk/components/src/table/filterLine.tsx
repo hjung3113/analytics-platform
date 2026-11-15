@@ -1,7 +1,7 @@
 /**
  * The filter line of PlatformDataTable (ADR-0105, 06 §15): pinned field buttons that become chips when set, the other conditions as
  * chips, `+ 필터` (searchable field list), 모두 지우기 — and the header funnel. Every entry opens the same editor (`filterEditor.tsx`).
- * Internal module: renders only when the table has at least one filterable field.
+ * Internal module: the table renders it only when it has at least one filterable field; the public `FilterLine` (`../filters/FilterLine.tsx`) wraps it for screens outside a table.
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, ChevronDown, ListFilter, Plus, X } from 'lucide-react';
@@ -129,8 +129,12 @@ export function useDroppedNote(fields: readonly ResolvedFilterField[], filters: 
   return { dropped, change, reset: () => setDropped([]) };
 }
 
-export function FilterLine({ fields, filters, lang, dropped, onChange, onClear, limit, check }: {
+export function FilterLine({ fields, filters, lang, dropped, onChange, onClear, limit, check, ariaLabel, scope }: {
   fields: readonly ResolvedFilterField[]; filters: readonly ColumnFilter[]; lang: Lang; dropped: readonly string[]; onChange: (field: ResolvedFilterField, next: ColumnFilter | null) => void; onClear: () => void; limit: Limit; check?: ValueCheck;
+  /** The group's accessible name; absent = the shared 「필터」 word (the table's line). */
+  ariaLabel?: string;
+  /** A visible scope marker before the conditions (public `FilterLine`'s `scopeLabel`, e.g. 「이 패널만」); absent = none. */
+  scope?: string;
 }) {
   // Sits inside the result line (06 §15, 1217c): the line owns the border and the padding.
   const { t } = useI18n();
@@ -150,7 +154,8 @@ export function FilterLine({ fields, filters, lang, dropped, onChange, onClear, 
   };
   const pinned = pinnedInRank(fields);
   const others = filters.flatMap(f => { const field = fields.find(x => x.id === f.id); return field && !field.pinned ? [{ field, filter: f }] : []; });
-  return <div ref={root} role="group" aria-label={t('filters')} data-filter-line className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+  return <div ref={root} role="group" aria-label={ariaLabel ?? t('filters')} data-filter-line className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+    {scope && <span data-filter-scope className="inline-flex h-6 shrink-0 items-center rounded-md bg-surface-sunken px-2 font-medium text-text-secondary">{scope}</span>}
     {pinned.map(f => <FieldSlot key={f.id} field={f} active={filters.find(c => c.id === f.id)} lang={lang} onApply={next => change(f, next)} onRemove={() => change(f, null)} limit={limit} check={fieldCheck(f, filters, fields, check)} />)}
     {others.map(({ field, filter }) => <FieldSlot key={field.id} field={field} active={filter} lang={lang} onApply={next => change(field, next)} onRemove={() => change(field, null)} limit={limit} check={fieldCheck(field, filters, fields, check)} />)}
     <AddFilter fields={fields} filters={filters} lang={lang} limit={limit} check={check} onApply={(id, next) => change(fields.find(f => f.id === id)!, next)} />
