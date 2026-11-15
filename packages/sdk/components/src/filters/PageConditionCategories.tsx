@@ -290,11 +290,15 @@ function ConditionCategory(props: CategoryProps) {
   }
   let selectionSummary: string | null = null;
   if (repeated) selectionSummary = explicitEmpty ? m('explicitEmpty') : m('selected', { count });
+  // The fieldset keeps native disabled semantics for every nested control; its legend is the accessible name and the visible label sits in the same row as the count and 지우기.
   return <fieldset data-page-condition={category.id} disabled={disabled} aria-describedby={reasonsId} className="min-w-0 space-y-2 border-b border-border-subtle pb-3">
-    <legend className="text-sm font-semibold text-text-primary">{category.label[lang]}</legend>
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className="text-xs text-text-secondary">{selectionSummary}</span>
-      <Button type="button" variant="ghost" size="toolbar" disabled={disabled || kind.type === 'tree' || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
+    <legend className="sr-only">{category.label[lang]}</legend>
+    <div className="flex flex-wrap items-center justify-between gap-x-2">
+      <span aria-hidden className="text-sm font-semibold text-text-primary">{category.label[lang]}</span>
+      <span className="flex items-center gap-2">
+        <span className="text-xs text-text-secondary">{selectionSummary}</span>
+        <Button type="button" variant="ghost" size="toolbar" disabled={disabled || kind.type === 'tree' || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
+      </span>
     </div>
     <div id={reasonsId} className="space-y-1 text-xs text-text-secondary">{description.filter(Boolean).map((reason, index) => <p key={index}>{reason}</p>)}
       {localIssues.length > 0 && raw.map(([, value], index) => <p key={`raw:${index}`}>{m('retained', { value })}</p>)}
