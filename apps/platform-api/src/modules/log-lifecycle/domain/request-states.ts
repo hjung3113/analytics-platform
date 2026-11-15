@@ -2,13 +2,11 @@
 // `log_lifecycle.request_guard` carries the same pairs between the LEGAL_REQUEST_PAIRS markers (drift test).
 //   queued -> claimed (claim) · claimed -> succeeded (result ok) · claimed -> failed (fail)
 //   claimed -> queued (lease expired, attempts left) · claimed -> expired (lease expired, attempts used up)
-//   queued | claimed -> cancelled (human). A terminal state never moves again.
-//   queued -> succeeded | failed only for the late result / fail of the latest, lease-expired attempt (decision 4).
+//   queued | claimed -> cancelled (human). Succeeded, failed and cancelled never move again.
+//   queued | expired -> succeeded | failed only for the late result / fail of the latest, lease-expired attempt (decision 4).
 
 export const REQUEST_STATES = ['queued', 'claimed', 'succeeded', 'failed', 'cancelled', 'expired'] as const;
 export type RequestState = (typeof REQUEST_STATES)[number];
-
-export const TERMINAL_REQUEST_STATES: readonly RequestState[] = ['succeeded', 'failed', 'cancelled', 'expired'];
 
 export const LEGAL_REQUEST_PAIRS: Readonly<Record<RequestState, readonly RequestState[]>> = {
   // queued -> succeeded | failed: the late result / fail of an attempt whose lease expired while nobody else took the request (decision 4).
@@ -17,8 +15,10 @@ export const LEGAL_REQUEST_PAIRS: Readonly<Record<RequestState, readonly Request
   succeeded: [],
   failed: [],
   cancelled: [],
-  expired: [],
+  expired: ['succeeded', 'failed'],
 };
+
+export const TERMINAL_REQUEST_STATES: readonly RequestState[] = REQUEST_STATES.filter((state) => LEGAL_REQUEST_PAIRS[state].length === 0);
 
 export const ATTEMPT_OUTCOMES = ['running', 'succeeded', 'failed', 'lease_expired'] as const;
 export type AttemptOutcome = (typeof ATTEMPT_OUTCOMES)[number];

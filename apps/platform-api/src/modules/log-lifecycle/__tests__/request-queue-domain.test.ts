@@ -32,13 +32,21 @@ describe('request state table', () => {
     ['claimed', 'cancelled'],
     ['queued', 'succeeded'],
     ['queued', 'failed'],
+    ['expired', 'succeeded'],
+    ['expired', 'failed'],
   ] as const)('%s -> %s is legal', (from, to) => {
     expect(canMoveRequest(from, to)).toBe(true);
   });
 
-  it.each(['succeeded', 'failed', 'cancelled', 'expired'] as const)('%s is terminal and never moves', (state) => {
+  it.each(['succeeded', 'failed', 'cancelled'] as const)('%s is terminal and never moves', (state) => {
     expect(isTerminalRequest(state)).toBe(true);
     for (const to of REQUEST_STATES) expect(canMoveRequest(state, to)).toBe(false);
+  });
+
+  it('expired can finish only through a late result or fail', () => {
+    expect(isTerminalRequest('expired')).toBe(false);
+    expect(canMoveRequest('expired', 'claimed')).toBe(false);
+    expect(canMoveRequest('expired', 'queued')).toBe(false);
   });
 
   it('a lease expiry requeues while attempts remain, else expires', () => {
@@ -49,7 +57,7 @@ describe('request state table', () => {
 
   it('LEGAL_REQUEST_PAIRS equals the guard trigger SQL (drift)', () => {
     const dir = new URL('../../../../migrations/', import.meta.url);
-    const file = readdirSync(dir).find((f) => f.endsWith('.sql') && readFileSync(new URL(f, dir), 'utf8').includes('log_lifecycle.request_guard()'));
+    const file = readdirSync(dir).sort().reverse().find((f) => f.endsWith('.sql') && readFileSync(new URL(f, dir), 'utf8').includes('log_lifecycle.request_guard()'));
     expect(file).toBeDefined();
     const sql = readFileSync(new URL(file as string, dir), 'utf8');
     const block = /-- LEGAL_REQUEST_PAIRS begin\n([\s\S]*?)-- LEGAL_REQUEST_PAIRS end/.exec(sql)?.[1] ?? '';
@@ -77,9 +85,9 @@ describe('computeVerdict', () => {
   it('a manifest mismatch is incomplete', () => {
     expect(computeVerdict([r('PASS')], false)).toBe('incomplete');
   });
-  it('WARN and NOT_APPLICABLE pass; no results at all passes', () => {
+  it('WARN and NOT_APPLICABLE pass; no results is incomplete', () => {
     expect(computeVerdict([r('WARN'), r('NOT_APPLICABLE')], true)).toBe('pass');
-    expect(computeVerdict([], true)).toBe('pass');
+    expect(computeVerdict([], true)).toBe('incomplete');
   });
 });
 
@@ -128,6 +136,11 @@ describe('run window (Asia/Seoul, weekdays 22-06, weekend all day)', () => {
 });
 
 describe('parseResultBody', () => {
+  it('accepts an empty result list and keeps its digest', () => {
+    const parsed = parseResultBody(body({ results: [] }), REFS);
+    expect(parsed).toMatchObject({ ok: true, value: { results: [], resultDigest: expect.any(String) } });
+  });
+
   it('normalises and digests a valid body, order-independent for keys', () => {
     const a = parseResultBody(body({}, { evidence: [{ fileRef: 's3://x/f1.log', line: 3, fileSha256: H('b'), excerpt: 'line one\nline two' }] }), REFS);
     expect(a.ok).toBe(true);
