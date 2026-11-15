@@ -115,7 +115,7 @@ Round에 묶이지 않고 여러 모델·Round·Validator 버전에서 되풀이
 | `not_comparable` | 관측 `NOT_CHECKED`/`SKIPPED`/`ERROR`/원본 부재인데 기대가 검사였음 — **PASS로 세지 않음** |
 | `missing` | 기대한 `rule_id`가 결과에 없음(미검사) |
 
-- **실행 커버리지**: `expected_scope` 대비 실행된 Rule / 미검사 Rule 수와 목록. 필수 Rule 미검사는 비교 요약 맨 위에 보인다.
+- **실행 커버리지**: `expected_scope` 대비 실행된 Rule / 미검사 Rule 수와 목록. 필수 Rule 미검사는 비교 표 결과 줄에 경고색 수치와 규칙 목록으로 보인다.
 - `false positive`/`false negative`는 **계산 값이 아니라 사람의 결과 검토 라벨**이다: `suite_review_label`(추가 전용: `suite_run_id`, `ordinal`, `rule_id`, `dataset_revision_id`, `label`(`false_positive`·`false_negative`·`accepted_change`·`needs_review`), `reason`, `actor_id`, `at`). 결과 검토 라벨이 Baseline이나 규칙 결과를 바꾸지 않는다. 기대를 바꾸려면 새 Baseline draft → 승인.
 - 스크립트 판정과 LLM 가설은 별도 열이다. 이 슬라이스에는 LLM 열이 없고 자리만 정한다(§9).
 
@@ -222,7 +222,7 @@ log-dev > 기준 (logRules)
 - 개요: 목적·소유·공유 범위·태그, 가용성 배지(`available`·`unavailable`·`hash_mismatch`·`unverified`), 파일 목록(순서·해시·«탐색에서 열기» = log-explorer 딥링크 구현 전에는 사유와 함께 비활성).
 - Baseline: 기대 표(Rule, 기대, 예외, 근거 위치), 상태 이력(`AuditTimeline`), 기준 낡음 사유 배지, 승인 패널(세션 전용; 승인 불가 이유를 `DataTrustIndicator` 문구로).
 - 실행: 페이지 상단의 «회귀 실행 요청»에서 Suite 실행 요청 서랍(고정될 revision·baseline 요약 표시, 동시 실행 한도 안내), 요청 상태.
-- 비교: 상단 실행 커버리지 띠(실행 / 미검사 / 필수 미검사 강조), 분류 필터(`regressed`·`new`·`fixed`·`not_comparable`·`missing`·`unchanged`), 행 서랍에서 결과 검토 라벨. 같은 Revision 재실행 비교는 API의 Suite 전체 항목을 페이지하므로 별도 표에 그 범위와 Revision ID를 명시한다. **스크립트 판정 열과 LLM 열을 분리**(LLM 열은 이 슬라이스에서 «없음» 대신 숨김; 자리만 계약에 정의).
+- 비교: 표 결과 줄의 실행 커버리지(실행 / 미검사 / 필수 미검사 강조), 항목당 `FieldList layout="inline"` 비교 대상 고정값, 표 `pageControls`의 분류 필터(`regressed`·`new`·`fixed`·`not_comparable`·`missing`·`unchanged`), 행 서랍에서 결과 검토 라벨. 같은 Revision 재실행 비교는 API의 Suite 전체 항목을 페이지하므로 별도 표에 그 범위와 Revision ID를 명시한다. **스크립트 판정 열과 LLM 열을 분리**(LLM 열은 이 슬라이스에서 «없음» 대신 숨김; 자리만 계약에 정의).
 - 비교에 고정된 실행의 `suiteId`가 Suite 선택·재실행 비교·요청 서랍의 공통 대상이다. 직접 링크·새로고침에서도 해당 Suite를 읽으며, Suite를 바꾸면 기존 실행 고정을 해제한다. 실행 목록은 서버 페이지를 유지하고, 실행을 바꿔도 현재 페이지와 고정 실행 선택을 보존한다.
 - 성공한 시도가 없어 실행 커버리지가 없으면 수치·분류를 `0`으로 표시하지 않는다. `미산출`·`—`와 «성공한 시도 없음»을 표시하고, 조건 불일치 빈 표 대신 완료 대기·상태 새로 읽기·회귀 실행 재요청 경로를 안내한다. 계산된 실제 `0`은 그대로 표시한다.
 - 기대 표의 예외 사유·범위와 모든 근거 위치는 키보드로 전체 내용을 열 수 있다. 결과 검토 조작 이름에는 Rule ID를 포함한다.
