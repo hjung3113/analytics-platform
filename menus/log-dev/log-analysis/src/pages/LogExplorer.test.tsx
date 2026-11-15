@@ -19,6 +19,7 @@ const ok = <T,>(data: T): ApiResponse<T> => ({ outcome: 'ok', data, assessments:
 let sourceState: SourceState;
 let deniedWindow: boolean;
 let pause: boolean;
+let recordsCursor: string | null;
 let lastSignal: AbortSignal | undefined;
 let pendingSource: ((value: ApiResponse<unknown>) => void) | null;
 let investigation: Investigation;
@@ -27,7 +28,7 @@ const read = vi.fn<PlatformAdapter['menuQuery']>(async (request, signal) => {
   const base = { state: sourceState, synthetic: true, label: '합성', reason: null };
   if (request.endpoint === 'logExplorer.investigations') return ok({ rows: [{ ...investigation, evidenceCount: investigation.evidence.length }], total: 1 });
   if (request.endpoint === 'logExplorer.investigationDetail') return ok(structuredClone(investigation));
-  if (request.endpoint === 'logExplorer.records') { lastSignal = signal; if (pause) return new Promise(resolve => { pendingSource = resolve; }); return ok({ ...base, rows: ['ok', 'partial', 'truncated'].includes(sourceState) ? [row] : [], nextCursor: null, partial: sourceState === 'partial', truncated: sourceState === 'truncated' }); }
+  if (request.endpoint === 'logExplorer.records') { lastSignal = signal; if (pause) return new Promise(resolve => { pendingSource = resolve; }); return ok({ ...base, rows: ['ok', 'partial', 'truncated'].includes(sourceState) ? [row] : [], nextCursor: (request.params as { cursor: string | null }).cursor ? null : recordsCursor, partial: sourceState === 'partial', truncated: sourceState === 'truncated' }); }
   if (request.endpoint === 'logExplorer.window') return ok({ ...base, state: deniedWindow ? 'permission_denied' : sourceState, rows: deniedWindow ? [] : [row], truncated: false });
   if (request.endpoint === 'logExplorer.parsed') return ok({ ...base, extractedFields: { Module: 'private-field' }, parserIn: 'private-parser-in', parserOut: 'private-parser-out', truncated: false });
   return ok({ ...base, rows: [{ fileRef: 'source-b', startLine: 1, endLine: null, state: 'open', incomplete: true, synthetic: true }], nextCursor: null });
@@ -50,7 +51,7 @@ beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(new Proxy({ measureText: () => ({ width: 30 }) }, { get: (target, key) => key in target ? target[key as keyof typeof target] : () => undefined }) as unknown as CanvasRenderingContext2D);
   window.history.replaceState(null, '', '/log/explorer?v=1');
-  read.mockClear(); write.mockClear(); sourceState = 'ok'; deniedWindow = false; pause = false; pendingSource = null;
+  read.mockClear(); write.mockClear(); sourceState = 'ok'; deniedWindow = false; pause = false; pendingSource = null; recordsCursor = null;
   investigation = { id, title: '합성 샘플', origin: 'standalone', roundId: null, status: 'open', version: '1', createdAt: '2026-11-08T00:00:00Z', updatedAt: '2026-11-08T00:00:00Z', sampleSet: set, sampleSetState: 'inline', canInvestigate: true, handoff: { round: true, knowledgeDraft: false }, filters: {}, evidence: [] };
 });
 afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); });
@@ -121,6 +122,19 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     sourceState = state; mount();
     expect(await screen.findByText(new RegExp(label))).toBeTruthy();
     if (state === 'source_absent' || state === 'permission_denied') expect(screen.queryByText(row.text)).toBeNull();
+  });
+  it('shows the read range in the table result line and pages the keyset cursor from the table footer (#2305)', async () => {
+    recordsCursor = 'synthetic-cursor-1'; mount();
+    const table = await screen.findByRole('region', { name: '원본 이벤트 목록' });
+    expect(within(table).getByText('현재 읽은 범위 · 1행 · 요청당 최대 200행')).toBeTruthy();
+    const cursors = () => read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').map(([r]) => (r.params as { cursor: string | null }).cursor);
+    const previous = within(table).getByRole('button', { name: '이전 범위' }) as HTMLButtonElement;
+    expect(previous.disabled).toBe(true);
+    fireEvent.click(within(table).getByRole('button', { name: '다음 범위' }));
+    await waitFor(() => expect(cursors().at(-1)).toBe('synthetic-cursor-1'));
+    await waitFor(() => expect((within(screen.getByRole('region', { name: '원본 이벤트 목록' })).getByRole('button', { name: '이전 범위' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(screen.getByRole('region', { name: '원본 이벤트 목록' })).getByRole('button', { name: '이전 범위' }));
+    await waitFor(() => expect(cursors().at(-1)).toBeNull());
   });
   it('hides parser text when the window read refuses source access', async () => {
     deniedWindow = true; mount();
