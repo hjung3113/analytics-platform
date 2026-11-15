@@ -9,7 +9,7 @@ test.describe('Page condition layer S3', () => {
   const period = 'v=1&scopeId=MEM&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00';
 
   test('apply sample: open, focus, edit, apply and close', async ({ page }, testInfo) => {
-    await page.goto(`/mars/analytics/productivity?${period}&sampleChoice=syntheticAlpha`);
+    await page.goto(`/mars/productivity-overview?${period}&sampleChoice=syntheticAlpha`);
     const trigger = page.getByRole('button', { name: '페이지 조건', exact: true });
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await trigger.click();
@@ -27,7 +27,7 @@ test.describe('Page condition layer S3', () => {
   });
 
   test('live sample: changes write through and one Back restores the opening conditions', async ({ page }, testInfo) => {
-    await page.goto(`/mars/analytics/chart-catalog?${period}`);
+    await page.goto(`/mars/chart-catalog?${period}`);
     const trigger = page.getByRole('button', { name: '페이지 조건', exact: true });
     await trigger.click();
     const layer = page.getByRole('dialog', { name: '페이지 조건', exact: true });
