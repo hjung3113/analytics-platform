@@ -15,6 +15,7 @@ export { token } from './chart/EChart';
 /** @deprecated use '@ap/components/host'; removed next SDK minor */
 export { type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
+export { FilterLine, type FilterLineProps } from './filters/FilterLine';
 export * from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
 export { TableQuickSearch, type TableQuickSearchProps } from './table/TableQuickSearch';
