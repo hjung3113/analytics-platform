@@ -458,12 +458,12 @@ describe.skipIf(!runIntegration)('catalog import staging (#1195 a)', () => {
       expect(await jobCountByName(noCsrf.fileName)).toBe(0);
       expect(await jobCountByName(badCsrf.fileName)).toBe(0);
 
-      await sql("update core.sessions set workspace_id = $2 where id = $1", [probe.cookie, otherWorkspace]);
+      await sql("update core.sessions set workspace_id = $2 where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')", [probe.cookie, otherWorkspace]);
       const foreign = await upload({ who: probe });
       expect(foreign.res.statusCode).toBe(403);
       expect(foreign.body.code).toBe('auth.workspace_mismatch');
       expect(await jobCountByName(foreign.fileName)).toBe(0);
-      await sql("update core.sessions set workspace_id = $2, expires_at = now() - interval '1 hour' where id = $1", [probe.cookie, WORKSPACE_ID]);
+      await sql("update core.sessions set workspace_id = $2, expires_at = now() - interval '1 hour' where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')", [probe.cookie, WORKSPACE_ID]);
       const expired = await upload({ who: probe });
       expect(expired.res.statusCode).toBe(401);
       expect(await jobCountByName(expired.fileName)).toBe(0);

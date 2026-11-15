@@ -3,7 +3,10 @@
 //   prefix = 8 lowercase hex chars (stored, shown in lists); secret = 32 CSPRNG bytes as base64url (43 chars).
 // Only the SHA-256 (hex) of the whole value is stored. The value is a long random lookup key, so no slow hash.
 
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { hashToken } from '../../lib/token-hash.js';
+
+export { hashToken };
 
 export const TOKEN_PATTERN = /^ap_([0-9a-f]{8})_([A-Za-z0-9_-]{43,})$/;
 
@@ -12,10 +15,6 @@ export function generateToken(): { value: string; prefix: string; hash: string }
   const secret = randomBytes(32).toString('base64url');
   const value = `ap_${prefix}_${secret}`;
   return { value, prefix, hash: hashToken(value) };
-}
-
-export function hashToken(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 /** The prefix of a well-formed value, else null. Never returns any part of the secret. */

@@ -163,6 +163,8 @@ Another module is reached only through one of these:
 - an `authorization.ts` module
 - a symbol the owner exports from its public barrel (`index.ts`)
 
+Auth reuses the pure `api-tokens/token-format.ts` `hashToken` function for session-cookie digests (#2016); this grants no token service or repository access.
+
 Importing another module's `repo.ts` or `repo-read.ts` is not a surface. A module reading its own repo, including `voc/jobs` reading `voc/embedding/repo.ts`, is internal.
 
 Log-lifecycle screen projections (#1447) read knowledge model codes/vendor names and software version labels directly for lists and detail metadata; they write no knowledge tables. Existence/active checks for writes continue through `knowledgeLookup`.

@@ -91,7 +91,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
   const lastSeen = async (cookie: string) =>
     (
       await dbHandle.pool.query<{ last_seen_at: Date }>(
-        'select last_seen_at from core.sessions where id = $1',
+        'select last_seen_at from core.sessions where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')',
         [cookie],
       )
     ).rows[0]?.last_seen_at.getTime();
@@ -440,7 +440,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
     const tokenInDb = async (cookie: string) =>
       (
         await dbHandle.pool.query<{ csrf_token: string | null }>(
-          'select csrf_token from core.sessions where id = $1',
+          'select csrf_token from core.sessions where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')',
           [cookie],
         )
       ).rows[0]?.csrf_token;
@@ -451,7 +451,7 @@ describe.skipIf(!runIntegration)('platform port /api/v1/platform (#620)', () => 
       expect(await tokenInDb(a.cookie)).toBeTruthy();
       expect(await tokenInDb(a.cookie)).not.toBe(await tokenInDb(b.cookie));
 
-      await dbHandle.pool.query('update core.sessions set csrf_token = null where id = $1', [
+      await dbHandle.pool.query('update core.sessions set csrf_token = null where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')', [
         a.cookie,
       ]);
       const filled = (await bootstrap(a.cookie)).csrfToken;

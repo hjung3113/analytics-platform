@@ -249,6 +249,28 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
     }
   });
 
+  it.each(['private', 'people', 'groups', 'official'] as const)(
+    'owner deletion of %s view audits only shared metadata', async (visibility) => {
+      let v = await save(alice, menuDraft('synthetic deleted view'));
+      if (visibility === 'official') {
+        const requested = await call(alice, 'requestOfficial', { id: v.id, expectedVersion: v.version });
+        v = (await call(admin, 'decide', { id: v.id, expectedVersion: requested.value.view.version, decision: 'approve' })).value.view;
+      } else if (visibility !== 'private') {
+        const audience = visibility === 'people'
+          ? { kind: 'people', userIds: [bob.id] }
+          : { kind: 'groups', groupIds: [(await call(alice, 'createGroup', { name: 'synthetic deletion group', memberIds: [bob.id] })).value.group.id] };
+        v = (await call(alice, 'setVisibility', { id: v.id, expectedVersion: v.version, visibility: audience })).value.view;
+      }
+      const before = await audits(['saved_view_deleted']);
+      expect((await call(bob, 'remove', { id: v.id })).ok).toBe(false);
+      expect(await audits(['saved_view_deleted'])).toEqual(before);
+      expect((await call(alice, 'remove', { id: v.id })).ok).toBe(true);
+      const events = (await audits(['saved_view_deleted'])).filter(row => row.subject_id === v.id);
+      expect(events.map(row => row.detail)).toEqual(visibility === 'private' ? [] : [{ view_id: v.id, version: v.version, visibility }]);
+      expect(await call(alice, 'get', { id: v.id })).toBeNull();
+    },
+  );
+
   describe('transport and identity', () => {
     it('session user id, ownerId, lookup, search and sharing targets are one id (core.actors.id)', async () => {
       const boot = await app.inject({

@@ -196,7 +196,7 @@ describe.skipIf(!runIntegration)('POST /survey-responses/:id/mark-no-follow-up (
     const sessionId = randomUUID();
     await migrateDb.pool.query(
       `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary)
-       values ($1, $2, $3, now() + interval '1 hour', now(), now(), 'integration-test')`,
+       values (encode(sha256(convert_to($1, 'UTF8')), 'hex'), $2, $3, now() + interval '1 hour', now(), now(), 'integration-test')`,
       [sessionId, id, WORKSPACE_ID],
     );
     return { id, externalId, roleLevel, cookie: sessionId };

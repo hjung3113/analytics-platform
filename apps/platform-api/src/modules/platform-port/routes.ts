@@ -9,6 +9,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { ScopeCatalog } from '../permissions/index.js';
 import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { Db } from '../../db/client.js';
+import { SESSION_COOKIE_NAME } from '../../middleware/require-session.js';
 import { sendError } from '../../lib/errors.js';
 import type { SessionService } from '../auth/session-service.js';
 import type { FindingsService } from '../findings/index.js';
@@ -121,7 +122,7 @@ export const platformPortRoutes: FastifyPluginAsync<PlatformPortOptions> = async
   app.get('/bootstrap', { preHandler: guard.preHandler }, async (req, reply) => {
     const loaded = loadedOf(req);
     const { session, version } = await buildSession(loaded);
-    const csrfToken = await opts.sessionService.ensureCsrfToken(loaded.session.id);
+    const csrfToken = await opts.sessionService.ensureCsrfToken(req.cookies?.[SESSION_COOKIE_NAME] ?? '');
     if (!csrfToken) return sendError(reply, 'auth.session_invalid', 'session not active');
     return {
       session,

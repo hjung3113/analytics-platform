@@ -17,6 +17,7 @@ export const PLATFORM_AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'de
 export type PlatformAuditAction = (typeof PLATFORM_AUDIT_ACTIONS)[number];
 
 export const AUDIT_ACTION_BY_EVENT_TYPE: Record<AuditEventType, PlatformAuditAction> = {
+  saved_view_deleted: 'delete',
   permission_requested: 'create',
   permission_approved: 'update',
   permission_rejected: 'update',

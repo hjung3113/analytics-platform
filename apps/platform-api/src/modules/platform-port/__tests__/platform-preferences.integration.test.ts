@@ -152,7 +152,7 @@ describe.skipIf(!runIntegration)('platform port preferences (#1104)', () => {
 
       const who = await newPerson();
       await migrateHandle.pool.query(
-        "update core.sessions set expires_at = now() - interval '1 minute' where id = $1",
+        "update core.sessions set expires_at = now() - interval '1 minute' where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')",
         [who.cookie],
       );
       const expired = await read(who);
@@ -178,7 +178,7 @@ describe.skipIf(!runIntegration)('platform port preferences (#1104)', () => {
       const csrf = `${PREFIX}-foreign-csrf`;
       await migrateHandle.pool.query(
         `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, csrf_token)
-         values ($1, $2, $3, now() + interval '1 hour', now(), now(), $4)`,
+         values (encode(sha256(convert_to($1, 'UTF8')), 'hex'), $2, $3, now() + interval '1 hour', now(), now(), $4)`,
         [cookie, id, workspaceId, csrf],
       );
       const foreign: Person = { id, cookie, csrf };

@@ -352,7 +352,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
             'revoked session',
             async (who) => {
               await migrateHandle.pool.query(
-                'update core.sessions set revoked_at = now() where id = $1',
+                'update core.sessions set revoked_at = now() where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')',
                 [who.cookie],
               );
               return {};
@@ -362,7 +362,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
             'expired session',
             async (who) => {
               await migrateHandle.pool.query(
-                "update core.sessions set expires_at = now() - interval '1 second' where id = $1",
+                "update core.sessions set expires_at = now() - interval '1 second' where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')",
                 [who.cookie],
               );
               return {};
@@ -405,7 +405,7 @@ describe.skipIf(!runIntegration)('platform notices and home.notices (#1106)', ()
         ).rows[0].id as string;
         workspaceIds.push(other);
         const who = await newPerson('admin');
-        await migrateHandle.pool.query('update core.sessions set workspace_id = $2 where id = $1', [
+        await migrateHandle.pool.query('update core.sessions set workspace_id = $2 where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')', [
           who.cookie,
           other,
         ]);

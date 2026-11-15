@@ -53,6 +53,13 @@ Validation errors keep the `422` envelope for both body types.
 `POST /auth/logout` revokes the session from the request cookie when present,
 clears the cookie, and returns `204`.
 
+The cookie holds a random opaque credential. `core.sessions.id` stores only its
+SHA-256 hex digest, using the shared token hash function. Every cookie lookup
+(including CSRF, rate limiting and logout) hashes its input; internal
+`req.session.session_id` is the digest and cannot authenticate a request.
+Migration `0137_session_cookie_hash` deletes all old sessions; everyone must
+log in again once after the upgrade (owner decision, 2026-11-15).
+
 `GET /me` requires a valid session and workspace membership; it returns the
 session Actor's identity, `workspace_id` and `platform_return_origins`:
 the origins configured in `PLATFORM_RETURN_ORIGINS` (FO ADR-0071), `[]` when

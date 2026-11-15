@@ -1109,3 +1109,7 @@ in every product schema, including `knowledge`, `eqv` and `platform`. A coverage
 assertion compares the registry with live non-system schemas (excluding infrastructure
 `pgboss` and `drizzle`). Every intentional restriction belongs in `EXPECTED_GRANTS`;
 new tables otherwise require full DML and cannot silently escape the drift check.
+
+### Session credential hashing
+
+Migration `0137_session_cookie_hash` deletes all existing sessions before the hashed-cookie backend starts. The text primary key remains unchanged in shape: it now holds the SHA-256 hex digest of the raw random cookie, never the credential itself. No table references this key. Stop request-serving backend processes during the migration and restart with the new image; every user signs in again once. On rollback to a raw-cookie backend, clear sessions again rather than restoring credential rows.

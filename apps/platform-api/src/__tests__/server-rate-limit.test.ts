@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -106,7 +107,8 @@ function createDbHandle(opts: {
         throw new Error('simulated session lookup failure');
       }
       const token = extractSqlParams(query).find((param) => typeof param === 'string');
-      const session = typeof token === 'string' ? sessions[token] : undefined;
+      // The session id is the SHA-256 digest of the cookie value.
+      const session = typeof token === 'string' ? Object.entries(sessions).find(([cookie]) => createHash('sha256').update(cookie).digest('hex') === token)?.[1] : undefined;
       return { rows: session ? [session] : [] };
     },
   } as unknown as Db;

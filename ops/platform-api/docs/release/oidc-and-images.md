@@ -56,6 +56,10 @@ The provider README for tag 6.0.4 documents interactive login, tokenCallbacks/re
 
 The release stack publishes host ports 8080 (OIDC provider) and 3001 (backend, through the provider's network namespace). Stop a local development backend on port 3001 before `image-smoke.sh`, or `docker compose up` cannot bind the port.
 
+## Session cookie hash upgrade
+
+Migration `0137_session_cookie_hash` deletes every existing `core.sessions` row (owner-approved, 2026-11-15). Stop all backend writers before migration and start only the new backend image afterward. Every user signs in again once. The cookie stays a random opaque credential; only its SHA-256 hex digest is stored. Do not mix old and new backend versions against this table. If rolling back the backend, clear the session table again before starting the older image and require another login; never restore live credential rows.
+
 ## Production stack
 
 `ops/platform-api/docker-compose.production.yml` runs `NODE_ENV=production` with a real OIDC provider only: no mock IdP, no fixture seed (`core`, `personas`, `scale` do not exist in this file) and no `network_mode` sharing. Only the `edge` service is published, as `${EDGE_BIND}:${EDGE_PORT:-8080}:80` (see «Edge» below); the backend has no `ports`. The backend never receives `DATABASE_URL_MIGRATE` or the Postgres superuser password, only the job services do. Role passwords come from `PLATFORM_APP_DB_PASSWORD` and `PLATFORM_MIGRATE_DB_PASSWORD` in the env file; the backend gets only the app one. `postgres`, `minio`, `backend` and `edge` use `restart: unless-stopped`; jobs use `restart: "no"`; `backend` has `stop_grace_period: 45s` (the API bounds its shutdown at 40 s); every service logs through `json-file` with `max-size: 10m`, `max-file: 5`. The backend DB and HTTP budgets (`DB_POOL_MAX`, `DB_POOL_ACQUIRE_TIMEOUT_MS`, `DB_STATEMENT_TIMEOUT_MS`, `DB_LOCK_TIMEOUT_MS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS`, `HTTP_REQUEST_TIMEOUT_MS`) pass through with the defaults of `.env.example`. The compose healthcheck probes `/health/ready` so dependents wait for database, pg-boss and storage; the image keeps its `/health/live` check.

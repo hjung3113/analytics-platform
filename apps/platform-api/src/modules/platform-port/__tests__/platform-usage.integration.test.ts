@@ -434,13 +434,13 @@ describe.skipIf(!runIntegration)(
       it('touches the session: navigation is activity', async () => {
         const person = await newPerson('user');
         await dbHandle.pool.query(
-          "update core.sessions set last_seen_at = now() - interval '10 minutes' where id = $1",
+          "update core.sessions set last_seen_at = now() - interval '10 minutes' where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')",
           [person.cookie],
         );
         const read = async () =>
           (
             await dbHandle.pool.query<{ last_seen_at: Date }>(
-              'select last_seen_at from core.sessions where id = $1',
+              'select last_seen_at from core.sessions where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')',
               [person.cookie],
             )
           ).rows[0]?.last_seen_at.getTime() as number;

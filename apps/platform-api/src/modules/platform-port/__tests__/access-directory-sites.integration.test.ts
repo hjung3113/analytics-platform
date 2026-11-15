@@ -56,7 +56,7 @@ describe.skipIf(!runIntegration)('access directory site grants (#2015)', () => {
     const cookie = randomUUID();
     await migrateHandle.pool.query(
       `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary)
-       values ($1, $2, $3, now() + interval '1 hour', now(), now(), 'integration-test')`,
+       values (encode(sha256(convert_to($1, 'UTF8')), 'hex'), $2, $3, now() + interval '1 hour', now(), now(), 'integration-test')`,
       [cookie, id, WORKSPACE_ID],
     );
     return { id, cookie };

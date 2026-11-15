@@ -26,6 +26,7 @@ declare module 'fastify' {
   }
   interface FastifyRequest {
     session?: {
+      /** Cookie sessions: SHA-256 row key, never a raw credential. Bearer calls: token:<id>. */
       session_id: string;
       actor_id: string;
       workspace_id: string;

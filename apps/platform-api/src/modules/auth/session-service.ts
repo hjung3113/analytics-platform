@@ -15,6 +15,7 @@ import { actors, sessions } from '../../db/schema/core.js';
 import { HttpError } from '../../lib/errors.js';
 import { isUniqueViolation } from '../../lib/pg-unique-violation.js';
 import type { RoleLevel } from '@ap/feature-shared';
+import { hashToken } from '../../lib/token-hash.js';
 import type { AuthClaims } from './auth-provider.js';
 
 /** Role vocab — matches `core.actors.role_level` CHECK constraint. */
@@ -31,6 +32,7 @@ export interface ActorRecord {
 }
 
 export interface SessionRecord {
+  /** SHA-256 row key. Never a cookie credential. */
   id: string;
   actorId: string;
   workspaceId: string;
@@ -118,6 +120,7 @@ export interface CreateSessionInput {
 export function createSessionService(deps: SessionServiceDeps) {
   const now = deps.now ?? (() => new Date());
 
+  // All lookup/revoke inputs are raw cookie credentials; hash once at each SQL boundary.
   async function readCsrfToken(sessionId: string): Promise<string | null> {
     const rightNow = now();
     const rows = await deps.db
@@ -125,7 +128,7 @@ export function createSessionService(deps: SessionServiceDeps) {
       .from(sessions)
       .where(
         and(
-          eq(sessions.id, sessionId),
+          eq(sessions.id, hashToken(sessionId)),
           isNull(sessions.revokedAt),
           gt(sessions.expiresAt, rightNow),
         ),
@@ -141,13 +144,14 @@ export function createSessionService(deps: SessionServiceDeps) {
      *  2. If found, update email/display_name if the claim differs.
      *  3. If not found, insert with role_level='user', actor_type='internal_member'.
      *
-     * Returns the issued session id (opaque, set as the cookie value) and the
+     * Returns the raw cookieValue separately from the hashed session row id and the
      * resolved actor record. All writes happen inside one transaction.
      */
     async provisionAndIssueSession(input: CreateSessionInput): Promise<{
       session: SessionRecord;
       actor: ActorRecord;
       expiresAt: Date;
+      cookieValue: string;
     }> {
       const { claims } = input;
       return deps.db.transaction(async (tx) => {
@@ -239,7 +243,7 @@ export function createSessionService(deps: SessionServiceDeps) {
         const sessionId = newSessionId();
 
         await tx.insert(sessions).values({
-          id: sessionId,
+          id: hashToken(sessionId),
           actorId: actor.id,
           workspaceId: deps.workspaceId,
           expiresAt,
@@ -252,13 +256,14 @@ export function createSessionService(deps: SessionServiceDeps) {
 
         return {
           session: {
-            id: sessionId,
+            id: hashToken(sessionId),
             actorId: actor.id,
             workspaceId: deps.workspaceId,
             roleLevel: actor.roleLevel as RoleLevel,
           },
           actor,
           expiresAt,
+          cookieValue: sessionId,
         };
       });
     },
@@ -299,7 +304,7 @@ export function createSessionService(deps: SessionServiceDeps) {
         WITH touched AS (
           UPDATE core.sessions
              SET last_seen_at = ${rightNow}
-           WHERE id = ${sessionId}
+           WHERE id = ${hashToken(sessionId)}
              AND revoked_at IS NULL
              AND expires_at > ${rightNow}
              AND NOT EXISTS (
@@ -377,7 +382,7 @@ export function createSessionService(deps: SessionServiceDeps) {
           FROM core.sessions s
           JOIN core.actors a
             ON a.id = s.actor_id
-         WHERE s.id = ${sessionId}
+         WHERE s.id = ${hashToken(sessionId)}
            AND s.revoked_at IS NULL
            AND s.expires_at > ${rightNow}
          LIMIT 1
@@ -420,7 +425,7 @@ export function createSessionService(deps: SessionServiceDeps) {
         .set({ csrfToken: newCsrfToken() })
         .where(
           and(
-            eq(sessions.id, sessionId),
+            eq(sessions.id, hashToken(sessionId)),
             isNull(sessions.csrfToken),
             isNull(sessions.revokedAt),
             gt(sessions.expiresAt, rightNow),
@@ -450,7 +455,7 @@ export function createSessionService(deps: SessionServiceDeps) {
         SELECT actor_id,
                workspace_id
           FROM core.sessions
-         WHERE id = ${sessionId}
+         WHERE id = ${hashToken(sessionId)}
            AND revoked_at IS NULL
            AND expires_at > ${rightNow}
          LIMIT 1
@@ -464,7 +469,7 @@ export function createSessionService(deps: SessionServiceDeps) {
       await deps.db
         .update(sessions)
         .set({ revokedAt: rightNow })
-        .where(and(eq(sessions.id, sessionId), isNull(sessions.revokedAt)));
+        .where(and(eq(sessions.id, hashToken(sessionId)), isNull(sessions.revokedAt)));
     },
   };
 }
