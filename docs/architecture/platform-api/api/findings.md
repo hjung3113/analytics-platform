@@ -29,12 +29,20 @@ Finding-to-Milestone linking is future cross-system behavior and is not an MVP
 Finding endpoint.
 
 `PATCH /findings/:id` accepts strict body `{ status?, reason?, owner_actor_id?, owner_team_id? }` and returns the
-updated `FindingDto`. Slice 6 supports only `draft -> active`,
+updated `FindingDto` only when the caller currently passes Finding read authorization.
+A caller allowed to write but unable to read receives exactly `{ id, updated_at }`
+(`PatchFindingResponse`), including owner-only edits and same-status no-ops.
+Write eligibility retains its existing explicit-grant semantics. Idempotent replay
+checks current Finding read access and projects an unreadable result to the same
+metadata-only shape while current write permission remains. A caller with neither
+read nor write permission is denied; cached private Finding DTOs are never replayed
+to an unreadable caller.
+Slice 6 supports only `draft -> active`,
 `draft -> not_actionable`, `active -> not_actionable`, and
 `not_actionable -> active`; `converted` and `archived` remain stored statuses but
 are rejected as user-directed targets here. Authz reuses `finding.manage`.
 Successful non-no-op transitions audit `finding_status_changed`; same-status
-requests are `200` no-ops returning the current Finding. At least a status or owner key
+requests are `200` no-ops returning the same read-filtered response. At least a status or owner key
 is required. Owner-only edits preserve status and use current destination `finding.manage`
 (Admin always bypasses even explicit deny), internal Actor/same-workspace active-team and
 XOR validation. Omitted PATCH owner keys preserve their current value; both null clears.

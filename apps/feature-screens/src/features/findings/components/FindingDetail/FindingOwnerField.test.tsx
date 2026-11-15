@@ -229,3 +229,15 @@ it('maps an ineligible_actor 422 to the specific owner copy', async () => {
   );
   expect(screen.getByRole('combobox', { name: '담당자' })).toBeInTheDocument();
 });
+
+it('accepts metadata-only owner mutation success without replacing detail cache', async () => {
+  globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ id: finding.id, updated_at: finding.updated_at }), { status: 200 }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['finding', finding.id], finding);
+  render(<QueryClientProvider client={client}><FindingOwnerField finding={finding} canManage actorsById={new Map([[ACTOR, '분석가']])} eligibleOwners={[{ id: ACTOR, name: '분석가' }]} /></QueryClientProvider>);
+  const user = userEvent.setup();
+  await openEditor(user);
+  await user.click(screen.getByRole('button', { name: '저장' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: '저장' })).not.toBeInTheDocument());
+  expect(client.getQueryData(['finding', finding.id])).toEqual(finding);
+});

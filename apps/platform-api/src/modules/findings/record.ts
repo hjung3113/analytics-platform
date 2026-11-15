@@ -5,6 +5,7 @@ import {
   LIST_DEFAULT_LIMIT,
   type LinkTaskRequest,
   type PatchFindingRequest,
+  type PatchFindingResponse,
   registeredEntityLinkPairSchema,
 } from '@ap/feature-shared';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
@@ -170,12 +171,12 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
     input: PatchFindingRequest;
     idempotencyKey: string;
     requestHash: string;
-  }): Promise<{ status: number; body: FindingDto }> {
+  }): Promise<{ status: number; body: PatchFindingResponse }> {
     const { actor, findingId, input, idempotencyKey, requestHash } = args;
 
     return deps.db.transaction(async (tx) => {
       await lockRecoveryCommand(tx, actor.workspace_id);
-      return deps.idempotencyService.runIdempotent(
+      return deps.idempotencyService.runIdempotent<PatchFindingResponse>(
         tx,
         actor.actor_id,
         idempotencyKey,
@@ -201,6 +202,14 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
           if (!canManage) {
             throw new HttpError('permission.denied', 'finding.manage capability required');
           }
+
+          const readable = await canReadFinding(deps, actor, finding.primary_managed_system_id, { tx });
+          const responseBody = (
+            row: Parameters<typeof toDto>[0],
+            source: Parameters<typeof toDto>[1],
+          ): PatchFindingResponse => readable
+            ? toDto(row, source)
+            : { id: row.id, updated_at: row.updated_at.toISOString() };
 
           if (input.owner_actor_id !== undefined || input.owner_team_id !== undefined) {
             const ownerActorId =
@@ -259,7 +268,7 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
               );
             if (recovery)
               await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'patchFinding');
-            return { status: 200, body: toDto(finding, source) };
+            return { status: 200, body: responseBody(finding, source) };
           }
 
           if (!isUserDirectedStatusTarget(input.status)) {
@@ -285,7 +294,7 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
               );
             if (recovery)
               await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'patchFinding');
-            return { status: 200, body: toDto(finding, source) };
+            return { status: 200, body: responseBody(finding, source) };
           }
 
           if (!isUserDirectedStatusTarget(finding.status)) {
@@ -346,13 +355,17 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
             );
           if (recovery)
             await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'patchFinding');
-          return { status: 200, body: toDto(updated, source) };
+          return { status: 200, body: responseBody(updated, source) };
         },
         {
           beforeReplay: async ({ body }) => {
-            if (!(await canReadFinding(deps, actor, body.primary_managed_system_id, { tx }))) {
+            const current = await findFindingById(tx, { workspaceId: actor.workspace_id, findingId });
+            if (!current) throw new HttpError('not_found.record', 'finding not found');
+            if (await canReadFinding(deps, actor, current.primary_managed_system_id, { tx })) return;
+            if (!(await canManageFinding(deps, actor, current.primary_managed_system_id, { tx }))) {
               throw new HttpError('permission.denied', 'finding.read capability required');
             }
+            return { id: body.id, updated_at: body.updated_at };
           },
         },
       );

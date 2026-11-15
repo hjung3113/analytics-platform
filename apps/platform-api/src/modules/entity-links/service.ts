@@ -739,15 +739,20 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
 
     const result = args.tx ? await persist(args.tx) : await deps.db.transaction(persist);
 
-    const endpointSummaries = await getEndpointInternalSummaries(
-      deps.providers,
-      db,
-      actor,
-      result.row,
+    const readDeps = readDependencies(args.tx);
+    const resolvedByEndpoint = new Map<string, LinkEndpointRow | null>();
+    const { reporterSummaries, sourceReadabilityByEndpoint } = await preloadReporterSummaries(
+      readDeps, actor, [result.row], resolvedByEndpoint,
     );
+    const { decision, summary } = await evaluateRowVisibility(
+      readDeps, actor, result.row, resolvedByEndpoint, reporterSummaries, sourceReadabilityByEndpoint,
+    );
+    const endpointSummaries = decision === 'allowed'
+      ? await getEndpointInternalSummaries(deps.providers, db, actor, result.row)
+      : undefined;
 
     return {
-      link: toAllowedDto(result.row, endpointSummaries),
+      link: toDtoForDecision(result.row, decision, summary, endpointSummaries),
       status: result.inserted ? 201 : 200,
     };
   }
