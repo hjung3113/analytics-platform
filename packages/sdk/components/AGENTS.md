@@ -19,6 +19,8 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
 - `testing.ts` is the test-only entry `@ap/components/testing` (`stubCompactTableGeometry`: 220px row-area width and 1280×800 page stub, with a restore function; extends ADR-0040). Never export it from `src/index.ts`; this package's tests import `./testing`. The row-area name comes from `scrollportLabel.ts`, shared with the table.
 - `table/__tests__/xlsxTestReader.ts` is a test-only XLSX reader (fflate, devDependency).
 
+- `filters/PageConditionCategories.tsx` renders declared page-condition categories (Candidate): controlled decoded key maps, raw codec recovery, per-category option lifecycles and section folds. `pageConditionOptions.ts` validates loader responses; `usePageConditionOptionsLoader.ts` adapts declared endpoints through Kernel. It owns no URL, draft store, overlay or Apply action.
+
 ## Table
 
 ### `table/PlatformDataTable.tsx` — server-paged table
