@@ -103,5 +103,8 @@ function cli(argv) {
   else fail('usage: pg-target.mjs canonical <ENV_VAR> | part <ENV_VAR> <host|port|user|db>');
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)))
+if (
+  process.argv[1] &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+)
   cli(process.argv.slice(2));
