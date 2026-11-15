@@ -1,3 +1,4 @@
+import { registerPageConditions } from './page-conditions';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
@@ -128,7 +129,7 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [], linkTargetCheck = 'enforce' }: { spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[]; /** `'report'` lists unregistered `linkTargets.required` in `missingLinkTargets` instead of rejecting them — only for a Registry that holds just its own menus (package tests, a start kit before other menus are added). A deployed assembly omits it (06 §22, ADR-0158). */ linkTargetCheck?: 'enforce' | 'report' }): Registry {
+export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [], linkTargetCheck = 'enforce', endpoints = [] }: { /** Endpoint ownership declarations used by pageConditions sources; no lookup or permission grant. */ endpoints?: readonly { id: string; menuId: string }[]; spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[]; /** `'report'` lists unregistered `linkTargets.required` in `missingLinkTargets` instead of rejecting them — only for a Registry that holds just its own menus (package tests, a start kit before other menus are added). A deployed assembly omits it (06 §22, ADR-0158). */ linkTargetCheck?: 'enforce' | 'report' }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
   // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
   if (linkTargetCheck !== 'enforce' && linkTargetCheck !== 'report') fail(`linkTargetCheck must be "enforce" or "report"`);
@@ -190,7 +191,8 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   }
   // Canonical paths (ADR-0093): a menu in a space lives at /{space}/{menu-slug} + its manifest's :param segments; the manifest path becomes a legacy alias.
   const slugs = new Map<string, string>();
-  const menus: MenuEntry[] = menusIn.map(m => {
+  const menus: MenuEntry[] = menusIn.map(input => {
+    const m = registerPageConditions(input, { carried: input.carrySet === undefined ? [] : carrySetByIdMap.get(input.carrySet)?.pageKeys ?? [], endpoints, fail });
     const space = groupSpace.get(m.group) ?? null;
     const declaredAliases = m.aliases ?? [];
     const own = [m.path, ...declaredAliases];

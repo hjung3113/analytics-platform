@@ -35,3 +35,6 @@ export * from './values/number.js';
 export { sha256Hex } from './values/sha256.js';
 
 export { PORT_INPUT_PATTERNS, AUDIT_TYPE_TOKEN, MENU_ID_PATTERN, FILTER_TEXT_PATTERN, invalidFilterText } from './adapter/input-patterns';
+
+export { pageConditionKeys, isRepeatedPageCondition } from './menu/page-conditions.js';
+export type { EndpointId, PageConditionCategory, PageConditions, PageConditionOption, PageConditionOptionSource, PageConditionOptionsResponse, PageConditionGroupedOptionsResponse, PageConditionTreeSource } from './menu/page-conditions.js';

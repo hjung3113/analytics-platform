@@ -1,3 +1,5 @@
+import { pageConditionOptionsResponseSchema, pageConditionGroupedOptionsResponseSchema } from './page-conditions.ts';
+export { pageConditionOptionsResponseSchema, pageConditionGroupedOptionsResponseSchema } from './page-conditions.ts';
 import * as diagnostic from './validation-diagnostic.ts';
 import { apiResponseSchema, assessmentKindSchema, assessmentSchema, outcomeSchema, trustSchema } from './response.ts';
 import { endpointDeclarationSchema, menuQueryContextSchema, menuQuerySchema } from './menu-query.ts';
@@ -205,6 +207,8 @@ export {
   knowledgeSearchSuggestionSchema,
 } from './knowledge-search.ts';
 export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
+  pageConditionOptionsResponse: pageConditionOptionsResponseSchema,
+  pageConditionGroupedOptionsResponse: pageConditionGroupedOptionsResponseSchema,
   outcome: outcomeSchema,
   assessmentKind: assessmentKindSchema,
   assessment: assessmentSchema,

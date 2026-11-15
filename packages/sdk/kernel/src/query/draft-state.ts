@@ -1,3 +1,4 @@
+import { decodePageConditions, PageConditionError } from './page-conditions';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
@@ -58,7 +59,10 @@ export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page
 }
 export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext, page: Pair[], invalid: boolean) {
   const missing = queryMissing(menu, global, page);
-  return { idle: menu?.query?.mode === 'apply' && (invalid || missingRequiredContext(['time'], global).length > 0 || missing.length > 0), missing };
+  const invalidConditions = decodePageConditions(menu ?? {}, page).issues.length > 0;
+  // Malformed declared conditions are refused in every query mode (kernel §6.4: reject, never repair); the other checks are Apply-only.
+  const applyBlocked = menu?.query?.mode === 'apply' && (invalid || missingRequiredContext(['time'], global).length > 0 || missing.length > 0);
+  return { idle: applyBlocked || invalidConditions, missing };
 }
 
 /** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */
@@ -71,6 +75,8 @@ function normalize(input: DraftInputs, values: Values): Values {
   if (metric.phase === 'confirm') g = { ...g, metricVersion: metric.metricVersion };
   const pairError = incompleteMetricPair(input.menu, g.metricId, g.metricVersion);
   if (pairError) throw pairError;
+  const conditions = decodePageConditions(input.menu ?? {}, values.page);
+  if (conditions.issues.length) throw new PageConditionError(conditions.issues);
   const parsed = parseQuery(buildQuery(g, values.page), input.menu?.pageKeys, { repeated: input.menu?.repeatedPageKeys });
   for (const axisId of Object.keys(parsed.global.condition ?? {})) {
     const axis = input.axes.find(a => a.id === axisId);

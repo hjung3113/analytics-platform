@@ -105,6 +105,28 @@ Registry는 `navTree`와 `navHidden`의 병존, `navViews`의 병존(빈 배열 
 
 **조회 실행 선언(Decided, [ADR-0061](../adr/0061-query-draft-applied-address-and-required-gate.md)):** 선택적 `query: { mode: 'apply', required?: { context?: ContextKey[], page?: {key,label: Text}[] } }`로 일괄 적용을 선택한다. 부재는 live 모드다. Apply는 time capability가 apply여야 하며 필수 Context는 메뉴가 apply하는 알려진 키, 필수 page는 `pageKeys`와 비어 있지 않은 ko/en label이어야 한다. Scope는 `requiresScope`로 선언한다. 엔드포인트의 선택적 `requiredContext`도 그 엔드포인트가 apply하는 키만 받는다. Apply 메뉴와 엔드포인트가 함께 apply하는 키의 명시적 required 선언은 일치해야 한다(등록 검증). 보조 엔드포인트의 작은 투영에는 메뉴의 다른 필수 키를 강요하지 않는다. 서버는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 모든 투영 필드 구조적 존재 검사에 더해 required의 의미적 존재를 검사한다. 초안 API·실행은 §11, 서버 표본은 [연결 체크리스트](../integration/real-server-checklist.md) §4를 따른다.
 
+### 페이지 조건 레이어 (Candidate, #2337; 필드명 Candidate)
+
+`MenuMeta.pageConditions`는 메뉴 소유 페이지 조건을 JSON으로 선언한다. `categories` 선언 순서가 레이어·요약 순서다. 범주는 `{ id, label: Text, disabled?: { reason: Text }, required?: true, kind }`이며 id는 `^[a-z][a-zA-Z0-9]*$`다. 선택적 `sections: { id, label: Text, categories: string[] }[]`는 범주 id의 시각적 묶음만 선언한다. `disabled`는 표시하되 편집하지 않는 상태다. 관리·카탈로그는 기존 표 필터 계약을 따르므로 이 선언을 받지 않는다.
+
+| `kind.type` | 선언 |
+| --- | --- |
+| `select` | `key`, `options`, 선택 `default: string` |
+| `multi` | 반복 `key`, `options` |
+| `search` | 단일 `key` |
+| `range` | 단일 `key`, 선택 `unit: Text`, `min`, `max`, `step` |
+| `date` | 단일 키 `from`, `to` |
+| `groupedChecks` | `source: EndpointId`, `lists: { id, key, label: Text }[]`; 각 key는 반복 키 |
+| `tree` | 반복 `key`, `source: EndpointId`, `value: 'leaves'`(지정 잎만) 또는 `'nodes'`(지정 노드와 자손) |
+
+`options`는 `{ static: { value, label: Text }[] }` 또는 `{ endpoint: EndpointId }` 중 하나다. `EndpointId`는 기존 `EndpointSpec.id`와 같은 열린 문자열이다. Registry의 선택 입력 `endpoints: { id, menuId }[]`가 소유권 근거이며 참조한 id는 목록에 정확히 한 번 있고 해당 메뉴 소유여야 한다. 이 입력은 권한 부여가 아니며 서버의 요청별 검증을 대신하지 않는다. 트리 데이터는 새 프로토콜 없이 `HierarchySource`/`HierarchyPage`를 쓴다.
+
+Registry는 범주 id 중복·잘못된 id, 빈 ko/en 라벨(비활성 이유·옵션·목록·섹션 포함), 선언되지 않은 page key, 두 범주 또는 두 목록이 같은 키를 소유하는 경우, 드릴 level·carry set 키, kind와 `repeatedPageKeys`의 불일치를 거부한다. 범위의 경계는 유한수이고 min ≤ max, step은 양수여야 한다. 정적 옵션 값은 비어 있지 않고 중복이 없어야 하며 정적 select 기본값은 그 옵션 중 하나다. 섹션은 존재하는 범주만 한 번씩 묶는다. `required`는 Apply 메뉴에서 기존 `query.required.page`에 범주의 모든 키를 합치며 기존 선언 객체를 변경하지 않는다. 같은 키의 필수 라벨은 범주 선언이 소유한다. 선언이 없는 메뉴의 Registry 출력·URL은 그대로다.
+
+옵션 응답은 `PageConditionOptionsResponse { options: { value, label: Text, disabledReason?: Text }[], truncated?: boolean }`, 묶음 응답은 `PageConditionGroupedOptionsResponse { groups: { id, label: Text, lists: Record<listId, option[]> }[] }`다. 값은 범주 전체(다른 group/list 포함)에서 유일하다. 타입은 `@ap/contracts`, 대응 Zod 및 JSON Schema는 `@ap/contract-schemas`에 둔다.
+
+범주끼리는 AND, multi·목록 내부 값은 OR, 서로 다른 목록 키는 AND다. 범주 간 OR·NOT·저장된 조합은 제공하지 않는다. 전역 Context는 편집하지 않는다. 레이어 ADR(S0)과 UI·메뉴 도입은 이 Candidate 선언의 범위 밖이다.
+
 ### 금지
 
 - 신규 메뉴 추가 때 Sidebar JSX 직접 수정
@@ -273,6 +295,14 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 **실제 시점은 wall-clock이 아니다 (Decided, 2026-09-28):** 설비 업무 시각이 아닌 실제 시점(epoch·timestamptz — 예: 메뉴 활용률 마지막 사용, 기능 VOC 접수 시각)은 이 절의 wall-clock 계약 대상이 아니다. 화면에는 `@ap/contracts`의 `formatInstant`로 보는 사람의 시간대에 맞춰 표시하고, `formatDateTime`(naive wall-clock 전용)으로 표시하지 않는다. `formatInstant`는 offset 없는 문자열을 거부해 두 종류가 섞이지 않게 한다(#88).
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
+
+**페이지 조건 codec (Candidate, #2337; API 이름 Candidate):** `@ap/kernel`의 `decodePageConditions`/`encodePageConditions`는 §5의 선언 키만 해석한다. 부재는 제약 없음이며 select의 선언 기본값도 URL에 자동 삽입하지 않는다. select/search는 단일 pair, multi·묶음 목록·tree는 값마다 하나의 pair를 쓰고 순서를 유지한다. 명시적 빈 선택은 예약 토큰 `~none` 하나다. 실제 값의 첫 글자가 `~`면 `~`를 하나 더 붙여 쓴다(`~none` 값 → `~~none`). 다른 값과 `~none`을 섞거나 이스케이프하지 않은 다른 `~` 토큰을 쓰면 오류다.
+
+range는 `min..max`로 쓴다. 한쪽 경계는 비울 수 있으나 둘 다 비울 수 없고, 숫자는 유한수이며 min ≤ max다. date는 §6.3의 `YYYY-MM-DDTHH:mm:ss` wall-clock 문자열을 각 from/to 키에 쓰며 시간대 변환을 하지 않는다. 양쪽이 있으면 from < to다. 잘못된 달력·숫자·역전·단일 키 반복·빈 문자열은 거부하며 추정·보정하지 않는다. codec은 오류 범주의 값을 반환하지 않고 `issues`에 key·categoryId·reason을 반환한다. 원래 pairs는 변경하지 않는다. 인코더는 오류가 있으면 `PageConditionError`로 거부하고 Apply 초안 검증도 같은 판정을 쓴다.
+
+옵션에 없는 문법상 유효한 id는 그대로 보존한다(ADR-0059 결정 2). 서버가 유효성·권한을 최종 판정하며 표시 문구는 UI가 맡는다. `PAGE_CONDITION_LIMITS`는 표 필터의 `FILTER_PARAM_LIMITS`와 같은 예산을 사용한다: 범주당 모든 목록을 합쳐 최대 50값, 메뉴의 선언 키 전체는 `URLSearchParams`의 `<key>=<value>&` 합계 최대 2400자다. 초과는 사유와 함께 거부하며 자르지 않는다. `hiddenPageKeys`는 기존 숨김·공유·저장 규칙을 그대로 따른다.
+
+`derivePageConditionExtension`/`summarizePageConditions`는 렌더링 없는 순수 함수다. 선언된 키의 `pageSummary`·`appliedPageSummary`·`issues`·임의 후보의 `historyPageSummary`는 SDK가 소유하고, 그 밖의 키는 메뉴가 제공한 항목을 유지한다. 초안·적용값·이력 후보를 각각 해석하며 로드되지 않은 옵션이나 알 수 없는 id 때문에 값을 버리지 않는다. 비동기 옵션 조회·후보별 메타데이터 수명과 표시 연결은 S2가 소유한다.
 
 상태 저장소(deferred) 단계 전까지 일반 주소는 계속 v1 쿼리를 싣는다. 공유 링크는 주소창 문자열이 아니라 적용된 상태를 §11의 `buildShareLink`로 다시 직렬화한 것이다.
 
