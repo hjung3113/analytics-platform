@@ -21,6 +21,14 @@ describe('static Table', () => {
     expect(off).not.toHaveClass('bg-accent-primary-soft');
   });
 
+  it('keeps aria-current on a current row even when the caller passes a conflicting aria-current', () => {
+    render(<Table><TableBody><TableRow current aria-current={undefined}><TableCell>a</TableCell></TableRow><TableRow current aria-current={false}><TableCell>b</TableCell></TableRow><TableRow aria-current="page"><TableCell>c</TableCell></TableRow></TableBody></Table>);
+    const [first, second, third] = screen.getAllByRole('row');
+    expect(first).toHaveAttribute('aria-current', 'true');
+    expect(second).toHaveAttribute('aria-current', 'true');
+    expect(third).toHaveAttribute('aria-current', 'page');
+  });
+
   it('aligns numeric headers and cells at the end with tabular figures', () => {
     render(<Table><TableHeader><TableRow><TableHead align="end">Count</TableHead></TableRow></TableHeader><TableBody><TableRow><TableCell align="end">12</TableCell></TableRow></TableBody></Table>);
     expect(screen.getByRole('columnheader')).toHaveClass('text-right', 'tabular');

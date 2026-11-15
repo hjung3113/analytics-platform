@@ -37,7 +37,7 @@ interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
 }
 
 export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
-  ({ className, current, ...props }, ref) => <tr ref={ref} className={cn(current && 'bg-accent-primary-soft', className)} aria-current={current ? 'true' : props['aria-current']} {...props} />,
+  ({ className, current, ...props }, ref) => <tr ref={ref} className={cn(current && 'bg-accent-primary-soft', className)} {...props} aria-current={current ? 'true' : props['aria-current']} />,
 );
 TableRow.displayName = 'TableRow';
 
