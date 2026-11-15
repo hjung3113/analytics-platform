@@ -730,7 +730,10 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
     assert.ok(r.err.includes(warning), r.err);
     assert.ok(r.err.indexOf(warning) < r.err.indexOf('Switch traffic:'), r.err);
     // Only the storage account is provisioned (minio-bootstrap); neither migrate nor the DB bootstrap runs.
-    assert.doesNotMatch(r.log, /run --rm --no-deps migrate|run --rm --no-deps bootstrap\b|db-bootstrap/);
+    assert.doesNotMatch(
+      r.log,
+      /run --rm --no-deps migrate|run --rm --no-deps bootstrap\b|db-bootstrap/,
+    );
     assert.match(r.log, /run --rm --no-deps minio-bootstrap/);
   });
   test('F1: images differing from the manifest are refused before anything starts', () => {
