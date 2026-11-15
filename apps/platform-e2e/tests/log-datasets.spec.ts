@@ -11,16 +11,15 @@ test.describe('log-datasets screens (06 §6·§15·§17·§18·§19)', () => {
     await signInAs(page, 'admin');
     await page.goto('/log-dev/log-datasets');
     const table = page.getByRole('table', { name: '테스트 데이터셋 목록', exact: true });
-    await expect(table).toBeVisible();
-    const searchBox = page.getByRole('searchbox', { name: '데이터셋 검색' });
-    const statusBox = page.getByRole('combobox', { name: '상태', exact: true });
-    // The toolbar controls can render after the table; boundingBox() does not wait (#2313).
-    await expect(searchBox).toBeVisible();
-    await expect(statusBox).toBeVisible();
-    const search = await searchBox.boundingBox();
-    const status = await statusBox.boundingBox();
-    expect(Math.abs(search!.y - status!.y)).toBeLessThan(10);
+    // The screen mounts a loading table and replaces it, toolbar included, when the list arrives (#2286).
+    // Measure only after the loaded rows show: a control resolved during loading is detached by then and boundingBox() returns null.
     await expect(table.getByRole('link', { name: '전원 복구 경계 01', exact: true })).toBeVisible();
+    await expect(table).not.toHaveAttribute('aria-busy', 'true');
+    const search = await page.getByRole('searchbox', { name: '데이터셋 검색' }).boundingBox();
+    const status = await page.getByRole('combobox', { name: '상태', exact: true }).boundingBox();
+    expect(search, 'search box laid out').not.toBeNull();
+    expect(status, 'status filter laid out').not.toBeNull();
+    expect(Math.abs(search!.y - status!.y)).toBeLessThan(10);
     await table.getByRole('link', { name: '전원 복구 경계 01', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(detail));
     await page.getByRole('tab', { name: 'Baseline', exact: true }).click();
