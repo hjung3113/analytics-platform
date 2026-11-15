@@ -5,6 +5,7 @@ import type { ScatterPoint, ScatterSpec } from './AnalysisChart';
 import type { KindProjection } from './analysisChartKinds';
 import { rowKey } from './analysisChartShared';
 import { escapeHtml } from './chartText';
+import { BOUND_DASH, BOUND_OPACITY } from './chartBounds';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import { distinctStatuses, STATUS_GLYPHS, statusBacking, statusBorderColor, statusFill, statusKey, statusMarker, statusText } from './chartStatus';
@@ -18,10 +19,7 @@ const FNV_OFFSET = 2166136261;
 const FNV_PRIME = 16777619;
 const UINT32_MAX = 0xffffffff;
 const RANGE_PADDING = 0.05;
-const BAND_OPACITY = 0.12;
 const SCATTER_FILL_OPACITY = 0.8;
-const UPPER_DASH = [8, 4];
-const LOWER_DASH = [2, 4];
 const GROUP_LABEL_OFFSET = 34;
 const GROUP_FONT_SIZE = 11;
 type Bound = { lower?: number; upper?: number };
@@ -127,9 +125,9 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const lower = spans(cells?.bounds ?? [], 'lower');
   const bands = spans(cells?.bounds ?? [], 'band');
   const legend: KindProjection['legend'] = [...base.legend,
-    ...(upper.length ? [{ label: labels.upper, color: 'chart-no-data-pattern' as const, symbol: 'line', dash: UPPER_DASH.join(' ') }] : []),
-    ...(lower.length ? [{ label: labels.lower, color: 'chart-no-data-pattern' as const, symbol: 'line', dash: LOWER_DASH.join(' ') }] : []),
-    ...(bands.length ? [{ label: labels.band, color: 'chart-no-data-pattern' as const, symbol: 'rect', opacity: BAND_OPACITY }] : []),
+    ...(upper.length ? [{ label: labels.upper, color: 'chart-no-data-pattern' as const, symbol: 'line', dash: BOUND_DASH.upper.join(' ') }] : []),
+    ...(lower.length ? [{ label: labels.lower, color: 'chart-no-data-pattern' as const, symbol: 'line', dash: BOUND_DASH.lower.join(' ') }] : []),
+    ...(bands.length ? [{ label: labels.band, color: 'chart-no-data-pattern' as const, symbol: 'rect', opacity: BOUND_OPACITY }] : []),
     ...statuses.map(status => ({ label: status.label, color: 'chart-no-data-pattern' as const, symbol: 'status', status })),
   ];
   const headers = [...base.headers];
@@ -206,8 +204,8 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
           { name: labels[part], coord: [span.start - HALF_CELL, span[part]!], lineStyle: { ...theme.referenceLine.lineStyle, color: token('chart-no-data-pattern'), type: dash }, label: { show: false } },
           { coord: [span.end + HALF_CELL, span[part]!] },
         ]);
-        series[0].markLine = { ...theme.referenceLine, ...series[0].markLine, data: [...(series[0].markLine?.data ?? []), ...lines(upper, 'upper', UPPER_DASH), ...lines(lower, 'lower', LOWER_DASH)] };
-        series[0].markArea = { silent: true, itemStyle: { color: token('chart-no-data-pattern'), opacity: BAND_OPACITY }, label: { show: false }, data: bands.map(span => [
+        series[0].markLine = { ...theme.referenceLine, ...series[0].markLine, data: [...(series[0].markLine?.data ?? []), ...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
+        series[0].markArea = { silent: true, itemStyle: { color: token('chart-no-data-pattern'), opacity: BOUND_OPACITY }, label: { show: false }, data: bands.map(span => [
           { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
         ]) };
       }
