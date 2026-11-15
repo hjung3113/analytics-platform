@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { I18nProvider } from '@ap/kernel';
 import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -711,4 +712,35 @@ it('hit-tests only drawn dense points and leaves the interval reachable (#2028 S
   fireEvent.pointerMove(screen.getByRole('img', { name: 'Track' }), { clientX: 356, clientY: 12 });
   expect(screen.getByRole('tooltip')).toHaveTextContent('Visible interval');
   expect(screen.getByRole('tooltip')).not.toHaveTextContent('Hidden point');
+});
+
+it('drops loaded items, selection, navigation and Brush when sourceKey changes', async () => {
+  const loader = vi.fn(async () => items);
+  const props = { ...base, sourceKey: 'source-a', onRangeRequest: loader };
+  const { rerender } = mount(props);
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(1));
+  const root = screen.getByRole('region', { name: 'Track' });
+  fireEvent.keyDown(root, { key: 'ArrowRight' });
+  fireEvent.keyDown(root, { key: 'Enter' });
+  fireEvent.keyDown(root, { key: 'ArrowRight', shiftKey: true });
+  fireEvent.click(screen.getByRole('button', { name: '확대' }));
+  await waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
+  const failed = vi.fn(async () => { throw new Error('New source failed'); });
+  rerender(<I18nProvider><OrderedIntervalTrack {...props} {...{ sourceKey: "source-b" }} items={[]} onRangeRequest={failed} /></I18nProvider>);
+  await screen.findByText('구간 불러오기 실패');
+  expect(failed).toHaveBeenCalledWith(0, 100, expect.any(AbortSignal));
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('선택 없음');
+  expect(screen.getByRole('button', { name: '구간 선택' })).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.queryByRole('button', { name: '선택 구간 확대' })).toBeNull();
+  expect(screen.getByText('0–100 · 2개 줄 · 0개 항목')).toBeVisible();
+});
+it('does not repeat a range request when an unmemoized loader reports state to its parent', async () => {
+  const loader = vi.fn(async (_from: number, _to: number, _signal: AbortSignal) => items);
+  function Parent() {
+    const [state, setState] = useState('initial');
+    return <><output>{state}</output><OrderedIntervalTrack {...base} onRangeRequest={(...args) => loader(...args)} onLoadStateChange={setState} /></>;
+  }
+  render(<I18nProvider><Parent /></I18nProvider>);
+  await screen.findByText('ready');
+  expect(loader).toHaveBeenCalledTimes(1);
 });

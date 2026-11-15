@@ -71,15 +71,22 @@ export function normalizeSet(values: string[], field = 'set', urlKey?: string): 
 }
 
 const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
-/** Naive wall-clock `YYYY-MM-DDTHH:mm:ss` only (§6.3) — no Z, offset, fraction or date-only. */
-export function parseDateTime(value: string, field: string, urlKey?: string): Date {
-  const raw = urlKey === undefined ? undefined : value;
+/** Nonthrowing naive wall-clock conversion (§6.3); invalid grammar/calendar values return null. */
+export function wallClockEpochMs(value: string): number | null {
   const m = DATETIME.exec(value);
-  if (!m) return fail('invalid_time', `${field}: use YYYY-MM-DDTHH:mm:ss (no Z/offset/fraction)`, urlKey, raw);
+  if (!m) return null;
   const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
   const date = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
-  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d || h > 23 || mi > 59 || s > 59) fail('invalid_time', `${field}: not a real calendar time`, urlKey, raw);
-  return date;
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d || h > 23 || mi > 59 || s > 59) return null;
+  return date.getTime();
+}
+/** Naive wall-clock `YYYY-MM-DDTHH:mm:ss` only (§6.3) — no Z, offset, fraction or date-only. */
+export function parseDateTime(value: string, field: string, urlKey?: string): Date {
+  const ms = wallClockEpochMs(value);
+  if (ms !== null) return new Date(ms);
+  const raw = urlKey === undefined ? undefined : value;
+  const message = DATETIME.test(value) ? 'not a real calendar time' : 'use YYYY-MM-DDTHH:mm:ss (no Z/offset/fraction)';
+  return fail('invalid_time', `${field}: ${message}`, urlKey, raw);
 }
 /** Naive wall-clock only (§6.3): prints the stored UTC digits as calendar text. Never a real instant —
  *  those are formatInstant's domain. */

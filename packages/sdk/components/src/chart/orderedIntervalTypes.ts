@@ -31,6 +31,8 @@ export type OrderedTrackStatus =
   | 'unsupported';
 export type OrderedTrackLoadState = 'loading' | 'ready' | 'error';
 export type OrderedIntervalTrackProps = {
+  /** Change with the data source or Scope to reset loaded data and local interaction state. */
+  sourceKey?: string;
   ariaLabel: string;
   description?: ReactNode;
   lanes: readonly OrderedTrackLane[];

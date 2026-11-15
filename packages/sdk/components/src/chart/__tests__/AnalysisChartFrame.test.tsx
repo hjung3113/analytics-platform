@@ -575,7 +575,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
   it('saves under the current Scope, then shows the row from the server', async () => {
     const f = fixture();
     mount(f.adapter, on);
-    await waitFor(() => expect(f.list).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'MEM' }, expect.anything()));
+    await waitFor(() => expect(f.list).toHaveBeenCalledWith({ chartId: 'chart-1', scopeId: 'MEM', axisKind: 'time', from: null, to: null }, expect.anything()));
     await brushAndOpenNote();
     fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: 'PM 작업' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
@@ -604,7 +604,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     mount(f.adapter, on);
     expect(await screen.findByText(/MEM 전용 메모/)).toBeTruthy();
     fireEvent.click(screen.getByText('to-fdry'));
-    await waitFor(() => expect(f.list).toHaveBeenLastCalledWith({ chartId: 'chart-1', scopeId: 'FDRY' }, expect.anything()));
+    await waitFor(() => expect(f.list).toHaveBeenLastCalledWith({ chartId: 'chart-1', scopeId: 'FDRY', axisKind: 'time', from: null, to: null }, expect.anything()));
     await waitFor(() => expect(screen.queryByText(/MEM 전용 메모/)).toBeNull());
   });
 
@@ -1250,4 +1250,52 @@ it('offers keyboard zoom out and pan without clearing the selection (#2065)', as
   expect(screen.queryByRole('button', { name: '왼쪽으로 이동' })).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: '확대' }));
   expect(screen.getByRole('button', { name: '분석 구간 적용…' })).toBeTruthy();
+});
+
+it.each([['time', 'absent'], ['time', '2026-09-01T00:00:00Z'], ['time', '2026-02-30T00:00:00'], ['category', 'absent']] as const)('omits unresolved %s annotation geometry (%s), reports the count and keeps author deletion reachable', async (axis, coordinate) => {
+  const f = fixture();
+  const row = { id: 'bad', chartId: 'chart-1', scopeId: 'MEM', from: coordinate, to: coordinate, text: 'Unresolved note', at: '2026-09-29T10:00', mine: true };
+  f.rows.push(row);
+  const points: ChartSeries[] = axis === 'category' ? [{ ...series[0], points: [['Present', 1]] }] : series;
+  mount(f.adapter, on, '/?v=1&scopeId=MEM&from=2026-09-01T00%3A00%3A00&to=2026-09-03T00%3A00%3A00', { series: points, frame: { xType: axis } });
+  expect(await screen.findByText('현재 축이나 기간에 맞지 않는 주석 1개는 차트에서 제외했습니다.')).toBeVisible();
+  expect(plottedSeries.flatMap(s => s.markArea?.data ?? [])).toHaveLength(0);
+  expect(screen.getByText(/Unresolved note/)).toBeVisible();
+  expect(screen.getByRole('button', { name: /Unresolved note.*삭제|삭제.*Unresolved note/ })).toBeVisible();
+  expect(f.list).toHaveBeenCalledWith(expect.objectContaining({ axisKind: axis, ...(axis === 'time' ? { from: '2026-09-01T00:00:00', to: '2026-09-03T00:00:00' } : {}) }), expect.anything());
+});
+it('does not draw annotations wholly outside the shown period', async () => {
+  const f = fixture();
+  f.rows.push({ id: 'outside', chartId: 'chart-1', scopeId: 'MEM', from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00', text: 'Outside note', at: '2026-09-29T10:00', mine: true });
+  mount(f.adapter, on, '/?v=1&scopeId=MEM&from=2026-09-01T00%3A00%3A00&to=2026-09-03T00%3A00%3A00');
+  expect(await screen.findByText('현재 축이나 기간에 맞지 않는 주석 1개는 차트에서 제외했습니다.')).toBeVisible();
+  expect(plottedSeries.flatMap(s => s.markArea?.data ?? [])).toHaveLength(0);
+});
+
+it('keeps annotation geometry when current categories reverse', async () => {
+  const f = fixture();
+  f.rows.push({ id: 'reorder', chartId: 'chart-1', scopeId: 'MEM', from: 'A', to: 'B', text: 'Reordered note', at: '2026-09-29T10:00', mine: true });
+  const registry = registryWith(on);
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const view = (labels: string[]) => <I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}><AnalysisChartFrame chartId="chart-1" title="Chart" unit="ea" xType="category" series={[{ ...series[0], points: labels.map(label => [label, 1]) }]} /></PlatformProvider></I18nProvider>;
+  const mounted = render(view(['A', 'B']));
+  await screen.findByText(/Reordered note/);
+  mounted.rerender(view(['B', 'A']));
+  await waitFor(() => expect(plottedSeries.flatMap(s => s.markArea?.data ?? [])).toHaveLength(1));
+  const areas = plottedSeries.flatMap(s => s.markArea?.data ?? []);
+  expect(areas[0]).toMatchObject([{ xAxis: 'B' }, { xAxis: 'A' }]);
+  expect(screen.queryByText(/현재 축이나 기간에 맞지 않는 주석/)).toBeNull();
+});
+it.each([
+  ['2026-08-31T00:00:00', '2026-09-01T00:00:00', false],
+  ['2026-09-03T00:00:00', '2026-09-04T00:00:00', false],
+  ['2026-08-31T00:00:00', '2026-09-02T00:00:00', true],
+])('uses half-open returned annotation overlap %s–%s and keeps deletion', async (from, to, included) => {
+  const f = fixture();
+  f.rows.push({ id: 'boundary', chartId: 'chart-1', scopeId: 'MEM', from, to, text: 'Boundary note', at: '2026-09-29T10:00', mine: true });
+  mount(f.adapter, on, '/?v=1&scopeId=MEM&from=2026-09-01T00%3A00%3A00&to=2026-09-03T00%3A00%3A00');
+  await screen.findByText(/Boundary note/);
+  expect(plottedSeries.flatMap(s => s.markArea?.data ?? [])).toHaveLength(included ? 1 : 0);
+  expect(screen.queryByText(/현재 축이나 기간에 맞지 않는 주석 1개/ ) !== null).toBe(!included);
+  expect(screen.getByRole('button', { name: /Boundary note.*삭제|삭제.*Boundary note/ })).toBeVisible();
 });
