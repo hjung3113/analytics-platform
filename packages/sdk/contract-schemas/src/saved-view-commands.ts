@@ -50,23 +50,21 @@ const idList = strings.nullable();
 const version = z.number().int();
 
 /** Supported Context keys only. `scopeId` is not savable (Scope is revalidated at restore), so strict rejects it. */
-const contextSchema = noForbiddenKeys(
-  z.strictObject({
-    from: z.string().nullable().optional(),
-    to: z.string().nullable().optional(),
-    selection: idList.optional(),
-    lineNames: idList.optional(),
-    prcGroups: idList.optional(),
-    roomNames: idList.optional(),
-    membershipBasis: z.literal('asOf').nullable().optional(),
-    condition: z.record(z.string(), z.array(z.string()).min(1)).nullable().optional(),
-    relativePeriod: z.strictObject({ hours: z.number() }).optional(),
-  }),
-);
-/** Pairs or a key map; the logical key (pair[0] / map key) must not be forbidden. */
+const contextSchema = z.strictObject({
+  from: z.string().nullable().optional(),
+  to: z.string().nullable().optional(),
+  selection: idList.optional(),
+  lineNames: idList.optional(),
+  prcGroups: idList.optional(),
+  roomNames: idList.optional(),
+  membershipBasis: z.literal('asOf').nullable().optional(),
+  condition: z.record(z.string(), z.array(z.string()).min(1)).nullable().optional(),
+  relativePeriod: z.strictObject({ hours: z.number() }).optional(),
+});
+/** Applied page keys, as pairs or a key map, are independent of their names. */
 const pageSchema = z.union([
-  z.array(z.tuple([z.string(), z.string()])).refine((pairs) => pairs.every(([key]) => !isForbiddenSavedViewWireKey(key)), { message: 'page key must not be saved' }),
-  z.record(z.string(), strings).refine((map) => Object.keys(map).every((key) => !isForbiddenSavedViewWireKey(key)), { message: 'page key must not be saved' }),
+  z.array(z.tuple([z.string(), z.string()])),
+  z.record(z.string(), strings),
 ]);
 const chartOptionsSchema = noForbiddenKeys(z.record(z.string(), json));
 const layoutSchema = noForbiddenKeys(json);

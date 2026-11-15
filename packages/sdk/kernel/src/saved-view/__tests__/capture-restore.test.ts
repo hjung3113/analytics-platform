@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyGlobal, type SavedViewSupport } from '@ap/contracts';
+import { emptyGlobal, parseQuery, validateSavedView, type SavedViewSupport } from '@ap/contracts';
 import { captureApplied, stateKey, viewState } from '../capture';
 import { hasExplicitContext, restoreSavedView, savedStateOf, unsupportedOf } from '../restore';
 import { resolveContext } from '../capture';
@@ -172,5 +172,23 @@ describe('support registry ownership (C8)', () => {
     expect(registry.get('home')).toBe(b);
     latest();
     expect(registry.get('home')).toBe(a);
+  });
+});
+
+
+describe('KER-26 declared applied names', () => {
+  it.each(['zoomFrom', 'draftId', 'rows', 'dockSide', 'hoverSeries', 'rawData', 'engineState', 'modalOpen', 'openModal'])('round-trips declared page key and Condition axis %s', key => {
+    const declared: SavedViewSupport = { ...support, contextKeys: ['condition'], pageKeys: [key, 'returnTo'] };
+    const current = { global: { ...emptyGlobal, condition: { [key]: ['E1'] } }, page: [[key, 'applied'], ['returnTo', '/back'], ['draftUndeclared', 'ignored']] as [string, string][] };
+    const state = captureApplied(current, declared);
+    expect(state).toEqual({ context: { condition: { [key]: ['E1'] } }, page: [[key, 'applied']] });
+    const view = viewOf({ id: 'names', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 2, chartOptions: {}, layout: null, panels: null, ...state });
+    expect(validateSavedView(view).ok).toBe(true);
+    const restored = run({ view, support: declared });
+    if (!restored.ok || !restored.applied) throw new Error('view was not restored');
+    expect(captureApplied(restored.next, declared)).toEqual(state);
+    const decoded = parseQuery(restored.href.slice(restored.href.indexOf('?')), [key]);
+    expect(captureApplied(decoded, declared)).toEqual(state);
+    expect(viewState({ applied: captureApplied(restored.next, declared), saved: state, draftDirty: [] }).modified).toBe(false);
   });
 });

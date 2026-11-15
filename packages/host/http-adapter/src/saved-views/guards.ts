@@ -79,24 +79,22 @@ const textList: Guard = arrayOf(text);
 /** Command target id: the schema's non-empty string, plus the server's refusal of unsafe Unicode. */
 const cmdId: Guard = (v) => typeof v === 'string' && v.length > 0 && isWellFormedText(v);
 
-const context: Guard = noForbiddenKeys(
-  strict(
-    {},
-    {
-      from: nullable(text),
-      to: nullable(text),
-      selection: nullable(textList),
-      lineNames: nullable(textList),
-      prcGroups: nullable(textList),
-      roomNames: nullable(textList),
-      membershipBasis: nullable(lit('asOf')),
-      condition: nullable((v) => isRecord(v) && Object.entries(v).every(([k, axis]) => isWellFormedText(k) && Array.isArray(axis) && axis.length > 0 && axis.every(text))),
-      relativePeriod: strict({ hours: num }),
-    },
-  ),
+const context: Guard = strict(
+  {},
+  {
+    from: nullable(text),
+    to: nullable(text),
+    selection: nullable(textList),
+    lineNames: nullable(textList),
+    prcGroups: nullable(textList),
+    roomNames: nullable(textList),
+    membershipBasis: nullable(lit('asOf')),
+    condition: nullable((v) => isRecord(v) && Object.entries(v).every(([k, axis]) => isWellFormedText(k) && Array.isArray(axis) && axis.length > 0 && axis.every(text))),
+    relativePeriod: strict({ hours: num }),
+  },
 );
-const pairs: Guard = (v) => Array.isArray(v) && v.every((pair) => Array.isArray(pair) && pair.length === 2 && text(pair[0]) && text(pair[1]) && !isForbiddenSavedViewKey(pair[0] as string));
-const keyMap: Guard = (v) => isRecord(v) && Object.entries(v).every(([k, list]) => isWellFormedText(k) && !isForbiddenSavedViewKey(k) && textList(list));
+const pairs: Guard = (v) => Array.isArray(v) && v.every((pair) => Array.isArray(pair) && pair.length === 2 && text(pair[0]) && text(pair[1]));
+const keyMap: Guard = (v) => isRecord(v) && Object.entries(v).every(([k, list]) => isWellFormedText(k) && textList(list));
 const page = anyOf(pairs, keyMap);
 const chartOptions = noForbiddenKeys((v) => isRecord(v) && json(v));
 const layout = noForbiddenKeys(json);

@@ -106,9 +106,9 @@ describe('canTransition (승인 상태 전이표)', () => {
 const FORBIDDEN = ['hover', 'hoverPoint', 'zoom', 'zoomRange', 'modalOpen', 'openModal', 'draftName', 'draftContext', 'rows', 'rawData', 'dockview', 'engineState'];
 
 describe('validateSavedView page 논리 키 (C1)', () => {
-  it.each(FORBIDDEN)('금지 키 %s는 Pair[]·Record 두 표현 모두 거부', key => {
-    expect(validateSavedView({ ...menuView, page: [[key, 'x']] })).toMatchObject({ ok: false, reason: 'invalid' });
-    expect(validateSavedView({ ...menuView, page: { [key]: ['x'] } })).toMatchObject({ ok: false, reason: 'invalid' });
+  it.each(FORBIDDEN)('이름 제한과 겹치는 page 키 %s도 Pair[]·Record 두 표현 모두 통과', key => {
+    expect(validateSavedView({ ...menuView, page: [[key, 'x']] }).ok).toBe(true);
+    expect(validateSavedView({ ...menuView, page: { [key]: ['x'] } }).ok).toBe(true);
   });
   it('정상 키 drillRoom은 두 표현 모두 통과', () => {
     expect(validateSavedView({ ...menuView, page: [['drillRoom', 'R1']] }).ok).toBe(true);
