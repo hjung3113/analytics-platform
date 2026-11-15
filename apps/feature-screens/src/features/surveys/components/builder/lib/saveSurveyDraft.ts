@@ -143,7 +143,8 @@ export async function saveSurveyDraft(deps: {
     let sentSignature = questionSignature(createQuestion);
     const created = await mutations.create(toInput(createQuestion), attempt.key).catch((cause: unknown) => {
       // A definitive client rejection made no creation; allow a corrected draft to start a new request.
-      if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500) deps.creationAttempts.delete(local.id);
+      // A replay conflict (response too large to cache) may hide a committed creation: keep the attempt so a retry never duplicates it.
+      if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500 && cause.code !== 'conflict.idempotency_key_reuse') deps.creationAttempts.delete(local.id);
       throw cause;
     });
     deps.creationAttempts.delete(local.id);
@@ -157,7 +158,8 @@ export async function saveSurveyDraft(deps: {
       const nextSignature = questionSignature(updateQuestion);
       if (nextSignature === sentSignature) break;
       sentSignature = nextSignature;
-      await mutations.update({ id: created.id, body: toInput(updateQuestion) });
+      // The server holds `createQuestion` (a replayed creation keeps its original branch); a cleared branch must cross the wire as null.
+      await mutations.update({ id: created.id, body: toUpdateInput(updateQuestion, { ...createQuestion, id: created.id }) });
       rememberSavedQuestion(updateQuestion);
       rememberSavedOptions(updateQuestion);
       latest = questionsRef.current.find((question) => question.id === created.id);

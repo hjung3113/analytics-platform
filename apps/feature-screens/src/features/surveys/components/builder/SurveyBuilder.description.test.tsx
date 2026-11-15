@@ -192,3 +192,24 @@ it('allows correcting a definitively rejected question creation', async () => {
   expect(creates[1]?.[2].body.prompt).toBe('Corrected prompt');
   expect(creates[1]?.[2].idempotencyKey).not.toBe(creates[0]?.[2].idempotencyKey);
 });
+
+it('keeps replaying the same creation key after a replay conflict instead of creating a duplicate', async () => {
+  apiClient.mockReset();
+  const keys: unknown[] = [];
+  apiClient.mockImplementation(async (method, path, options) => {
+    if (method === 'POST' && path.endsWith('/questions')) {
+      keys.push(options.idempotencyKey);
+      if (keys.length === 1) throw new Error('Synthetic response loss');
+      throw new ApiError(409, { code: 'conflict.idempotency_key_reuse', message: 'Synthetic replay conflict' });
+    }
+    return { data: { id: SURVEY_ID } };
+  });
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook(() => useSurveyBuilderController({ survey, canManage: true, onBack: vi.fn() }), { wrapper });
+  act(() => result.current.add('text'));
+  act(() => { const question = result.current.questions[0]; if (!question) throw new Error('Missing synthetic question'); result.current.patch({ ...question, prompt: 'Large prompt' }); });
+  for (let attempt = 0; attempt < 3; attempt += 1) await act(async () => { expect(await result.current.save()).toBe(false); });
+  expect(keys).toHaveLength(3);
+  expect(new Set(keys).size).toBe(1);
+});
