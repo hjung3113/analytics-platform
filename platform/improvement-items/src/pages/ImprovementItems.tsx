@@ -1,5 +1,5 @@
-import { useMessages, PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { IMPROVEMENT_ITEMS_MESSAGES } from '../messages';
+import { useI18n, PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { encodeFilterParam, type ColumnFilterSpec, type Pair } from '@ap/contracts';
@@ -13,13 +13,14 @@ import { CreateDrawer } from './CreateDrawer';
 import { Field, ItemStatus } from './parts';
 import { QuestReference } from './QuestReference';
 function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () => void }) {
-  const m = useMessages(IMPROVEMENT_ITEMS_MESSAGES);
-  const c = useCopy(), { setPage, linkTo } = usePlatform();
+  const { tx } = useI18n();
+  const c = useCopy(), { setPage, linkTo, registry, canOpen } = usePlatform();
+  const origins = useMemo(() => registry.menus.filter(menu => canOpen(menu.id)).map(menu => ({ value: menu.id, label: tx(menu.label) })), [registry, canOpen, tx]);
   const uid = useId();
   const pages = useMenuFetch(itemsEndpoint);
   const [draft, setDraft] = useState({ applied: q, value: q });
   if (draft.applied !== q) setDraft({ applied: q, value: q });
-  const specs = useMemo<Record<string, ColumnFilterSpec>>(() => ({ ...filterSpecs, status: { ...filterSpecs.status as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: Object.entries(c.statuses).map(([value, label]) => ({ value, label })) }, assignee: { ...filterSpecs.assignee as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'me', label: c.mine }] }, questLinked: { ...filterSpecs.questLinked as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'true', label: c.quest }, { value: 'false', label: c.questNone }] }, origin: { ...filterSpecs.origin as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'cycle-time', label: m('improvementItemsCycleTimeDetail') }] } }), [c, m]);
+  const specs = useMemo<Record<string, ColumnFilterSpec>>(() => ({ ...filterSpecs, status: { ...filterSpecs.status as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: Object.entries(c.statuses).map(([value, label]) => ({ value, label })) }, assignee: { ...filterSpecs.assignee as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'me', label: c.mine }] }, questLinked: { ...filterSpecs.questLinked as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: [{ value: 'true', label: c.quest }, { value: 'false', label: c.questNone }] }, origin: { ...filterSpecs.origin as Extract<ColumnFilterSpec, { kind: 'enum' }>, options: origins } }), [c, origins]);
   const labels = useMemo(() => ({ status: c.status, assignee: c.assignee, questLinked: c.questLinked, origin: c.origin }), [c]);
   const filters = useMemo(() => ({ key: 'filter', specs, labels }), [specs, labels]);
   // Clearing a preset's last condition records the transition to the all view in the same write (C4):
