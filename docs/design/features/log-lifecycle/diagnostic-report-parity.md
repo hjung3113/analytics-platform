@@ -13,7 +13,7 @@
 | 실행/저장 `queue-service.ts` → `repositories/queue-write.ts` (동일 모듈) | summary→workerSummary, 규칙 기대/관측·근거 저장, 발췌는 별도 행. 실패 reason도 `{ reason }`으로 workerSummary에 저장. 같은 정규화 digest 재제출은 재사용 | 저장은 이미 가능. evidence 파일 참조는 sample에 있는지 검사하나 **각 evidence hash를 샘플 hash와 같도록 강제하지 않음**. 화면의 mismatch 검사가 필요 |
 | 읽기 `repositories/queue-read.ts` | AttemptOut은 workerSummary를 허용 목록으로 투영함(A1 As-built). RuleResultOut은 기대/관측·EvidenceRef/hasExcerpt·의견 요약 반환 | 원본 summary는 DTO에 내지 않음. 현재 Round 요청 읽기만 대상이며 회귀 항목은 이 경로에서 제외 |
 | 발췌 읽기 `request-endpoints.ts` / `readExcerpt` | 사람 세션·객체 가시성·Source별 `lifecycle.excerpt.read` 후 읽기와 감사. `{ deleted, excerpt }` 또는 null, 권한 거절은 forbidden | Source 원본을 fetch하지 않음. deleted는 보관 삭제와 관리자 삭제를 구별하지 못함. 원본 부재·원본 현재 hash도 이 응답으로 알 수 없음 |
-| `apps/feature-screens/src/features/log-lifecycle/RoundScreen.tsx` | 규칙 ID·Badge는 비클릭, 기대/관측은 truncate + title. 첫 근거는 행에, 나머지는 근거 drawer에 있음. 발췌는 pre. hash 일치·sourceView 주입 시 `원본에서 보기`로 파일 순서·줄 이동 | **근거 전체 열기와 원본/시퀀스 이동은 이미 존재**. 근거가 아예 없거나 이동 기능 자체가 없다는 주장은 부정확. 진단 상세·표는 없음. deleted를 전부 보관 만료로 표시하는 것은 현재 DTO보다 강한 해석 |
+| `packages/feature/screens/src/features/log-lifecycle/RoundScreen.tsx` | 규칙 ID·Badge는 비클릭, 기대/관측은 truncate + title. 첫 근거는 행에, 나머지는 근거 drawer에 있음. 발췌는 pre. hash 일치·sourceView 주입 시 `원본에서 보기`로 파일 순서·줄 이동 | **근거 전체 열기와 원본/시퀀스 이동은 이미 존재**. 근거가 아예 없거나 이동 기능 자체가 없다는 주장은 부정확. 진단 상세·표는 없음. deleted를 전부 보관 만료로 표시하는 것은 현재 DTO보다 강한 해석 |
 | `RequestsScreen.tsx`의 RequestDrawer | 메타데이터·Gate·ResultSummary·Attempts·Round 이동·취소 | 요약/시도만 있다는 표현은 축약이다. 규칙 진단 상세는 여기에도 없음 |
 | [Attachments](../../../architecture/platform-api/api/attachments.md) / [ADR-0140](../../../adr/0140-generic-file-upload-port.md) | 수동 Round 연결과 세션 전용 uploadFile은 존재 | worker 토큰의 attempt/규칙별 리포트 자동 발행·연결 경로는 보장되지 않음 |
 

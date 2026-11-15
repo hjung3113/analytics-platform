@@ -65,7 +65,7 @@ This document owns what must be tested, not the commands. Run commands, environm
 - docs/agents/feature-implementation.md -> Verification: feature-specific gates
 - apps/platform-api/AGENTS.md -> Verification: backend integration env, database reset contract, skip opt-out
 - ops/platform-api/scripts/gates/AGENTS.md: frontend typecheck and lint gates, baselines, allowlists
-- apps/feature-screens/AGENTS.md -> Visual Verification: retired standalone harness and current platform verification
+- packages/feature/screens/AGENTS.md -> Visual Verification: retired standalone harness and current platform verification
 ```
 
 ## Integration Flows
@@ -112,7 +112,7 @@ Flow E: Survey result -> Finding, never VOC
 Frontend implementation should verify:
 
 ```text
-- desktop 1440 layout (tablet and mobile are out of scope until responsive lands; apps/feature-screens/AGENTS.md)
+- desktop 1440 layout (tablet and mobile are out of scope until responsive lands; packages/feature/screens/AGENTS.md)
 - selected row and detail panel visibility
 - focus-visible states
 - light theme contrast

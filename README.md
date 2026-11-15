@@ -2,7 +2,7 @@
 
 `context_recognized_parser`가 적재한 설비 로그 데이터를 소비하는 분석 플랫폼. 설비관리, 기준정보관리, 생산성 분석, 지표관리, 공지, VOC를 아우르는 다중 메뉴 플랫폼.
 
-플랫폼은 루트 pnpm workspace로 개발하며 mock과 real 어댑터를 조립한다. 코어 서버 `apps/platform-api`, 기능 화면 `apps/feature-screens`, `packages/feature-*`는 같은 workspace의 코드다. UI primitive는 `@ap/ui`가 소유하고(ADR-0046), 역할별 이름과 독립 앱 은퇴는 ADR-0097을 따른다.
+플랫폼은 루트 pnpm workspace로 개발하며 mock과 real 어댑터를 조립한다. 코어 서버 `apps/platform-api`, 기능 화면 `packages/feature/screens`, `packages/feature-*`는 같은 workspace의 코드다. UI primitive는 `@ap/ui`가 소유하고(ADR-0046), 역할별 이름과 독립 앱 은퇴는 ADR-0097을 따른다.
 
 시작점: 아래 「누가 어디부터 읽나」 · [플랫폼 문서](docs/INDEX.md) · [저장소 구조와 기능 패키지 사용법](docs/integration/repository-layout.md) · [기능 개발 진입점](docs/integration/feature-development.md)
 

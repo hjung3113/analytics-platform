@@ -1,6 +1,6 @@
 # Feature addendum to 00-IMPL-RULES.md (read both) — launch mode `feature`
 
-The feature code is `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared`, `packages/feature-ui` and the documentation roots in `ops/platform-api/paths.mjs`, with tools in `ops/platform-api/` (`@ap/platform-api-ops`); all are in the root pnpm workspace (ADR-0066), so the launcher's root install covers them. Lint: ESLint for the four packages (package `lint`, whole package); Biome only for the feature documentation roots and `ops/platform-api` (`FEATURE_BIOME_SCOPE`). Run every feature command **from the repository root** (`pnpm --filter @ap/platform-api-ops <script>`); root lint/typecheck/test/build stay conductor-owned.
+The feature code is `apps/platform-api`, `packages/feature/screens`, `packages/feature/shared` and the documentation roots in `ops/platform-api/paths.mjs`, with tools in `ops/platform-api/` (`@ap/platform-api-ops`); all are in the root pnpm workspace (ADR-0066), so the launcher's root install covers them. Lint: ESLint for the three packages (package `lint`, whole package); Biome only for the feature documentation roots and `ops/platform-api` (`FEATURE_BIOME_SCOPE`). Run every feature command **from the repository root** (`pnpm --filter @ap/platform-api-ops <script>`); root lint/typecheck/test/build stay conductor-owned.
 
 1. Read `docs/agents/feature-implementation.md`, `apps/platform-api/AGENTS.md` and every module `AGENTS.md`
    you touch, plus `apps/platform-api/docs/02-domain-module-boundaries.md` §Approved cross-module
@@ -20,7 +20,7 @@ The feature code is `apps/platform-api`, `apps/feature-screens`, `packages/featu
 4. Behaviour-preserving refactor: the error code, HTTP status and `fields[].path`/`code` of every existing failure
    path stay byte-identical.
 5. Shared seed helpers live in `apps/platform-api/src/test-support/`; reuse them instead of new ad-hoc seeds.
-6. You may run `pnpm --filter @ap/platform-api-ops feature:typecheck`, `pnpm --filter @ap/platform-api exec tsc --noEmit`, `pnpm --filter <@ap/platform-api|@ap/feature-screens|@ap/feature-shared|@ap/feature-ui> lint` for files under those packages, `ops/platform-api/node_modules/.bin/biome format --config-path=ops/platform-api --write
+6. You may run `pnpm --filter @ap/platform-api-ops feature:typecheck`, `pnpm --filter @ap/platform-api exec tsc --noEmit`, `pnpm --filter <@ap/platform-api|@ap/feature-screens|@ap/feature-shared|src/ui> lint` for files under those packages, `ops/platform-api/node_modules/.bin/biome format --config-path=ops/platform-api --write
    <your files>` for residual-scope files only, unit tests that need no DB, and rule 2's integration files; never `git`, DB commands
    (`db:migrate`, `db:seed`, `psql`) or the full integration suite (the conductor runs that). Generate migration snapshots with `pnpm --filter @ap/platform-api db:generate`; do not
    hand-write them.
@@ -31,6 +31,6 @@ The feature code is `apps/platform-api`, `apps/feature-screens`, `packages/featu
    assert `body.detail.fields`, not `body.fields`. Routes under `/api/v1/platform` follow ADR-0069 instead.
 9. **Rate-limit keys** are `<workspace_id>:<actor_id>`.
 10. Before finishing, lint what you touched:
-    - Under `apps/platform-api`, `apps/feature-screens`, `packages/feature-shared` or `packages/feature-ui`: run that package's `pnpm --filter <pkg> lint` (ESLint, whole package, `--max-warnings 0`) and fix what it reports. Never pass these files to Biome (`check` or `format`); ESLint has no formatter step. Rule correspondence with the former Biome lint: `docs/integration/platform-packages.md` §6.
-    - Under a feature documentation root from `FEATURE_DOCS` or `ops/platform-api` (the residual Biome scope): run `ops/platform-api/node_modules/.bin/biome check --config-path=ops/platform-api --write <file> …` with the explicit path of every file you created or changed (format and import order — the FE Biome gate fails on either: #603, #620, #621). Never pass a directory: `biome format --write apps/feature-screens/src` rewrote 51 files the task did not own (#621).
+    - Under `apps/platform-api`, `packages/feature/screens` or `packages/feature/shared`: run that package's `pnpm --filter <pkg> lint` (ESLint, whole package, `--max-warnings 0`) and fix what it reports. Never pass these files to Biome (`check` or `format`); ESLint has no formatter step. Rule correspondence with the former Biome lint: `docs/integration/platform-packages.md` §6.
+    - Under a feature documentation root from `FEATURE_DOCS` or `ops/platform-api` (the residual Biome scope): run `ops/platform-api/node_modules/.bin/biome check --config-path=ops/platform-api --write <file> …` with the explicit path of every file you created or changed (format and import order — the FE Biome gate fails on either: #603, #620, #621). Never pass a directory: `biome format --write packages/feature/screens/src` rewrote 51 files the task did not own (#621).
     - Root `pnpm lint` and the DB/integration checks stay conductor-owned.

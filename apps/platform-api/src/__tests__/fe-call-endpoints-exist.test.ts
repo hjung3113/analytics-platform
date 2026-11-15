@@ -1,7 +1,7 @@
 /**
  * FE→BE reverse drift check (post-#21 hotfix).
  *
- * Inverse of `apps/feature-screens/src/__tests__/vite-proxy-completeness.test.ts`:
+ * Inverse of `packages/feature/screens/src/__tests__/vite-proxy-completeness.test.ts`:
  * that test catches "BE shipped a route, FE proxy missing"; this one catches
  * "FE called an endpoint, BE never registered it". The bug it would have
  * caught: Slice 3 #21 shipped `useWorkspaceActors` calling `GET /actors` —
@@ -9,7 +9,7 @@
  * empty in dev and would have 404'd in prod.
  *
  * Implementation:
- *   - Scan `apps/feature-screens/src/**\/*.{ts,tsx}` for literal URL strings:
+ *   - Scan `packages/feature/screens/src/**\/*.{ts,tsx}` for literal URL strings:
  *       - `apiClient('METHOD', '/foo'...)` / template literal `\`/foo/...\``
  *       - `fetch('/foo', ...)` / `fetch(\`/foo/...\`)`
  *   - Reduce each match to its root prefix (`/foo`).
@@ -38,7 +38,7 @@ const KNOWN_FE_ONLY = new Set<string>([
 // Roots of the monorepo + the two relevant trees.
 // __dirname = apps/platform-api/src/__tests__  →  repoRoot = ../../../..
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
-const FE_SRC = path.join(REPO_ROOT, 'apps/feature-screens/src');
+const FE_SRC = path.join(REPO_ROOT, 'packages/feature/screens/src');
 const BE_SRC = path.join(REPO_ROOT, 'apps/platform-api/src');
 
 // ─── BE-side route discovery ───────────────────────────────────────────────

@@ -295,10 +295,10 @@ Entity Linking uses providers to enforce:
 ## Frontend Boundary Rules
 
 ```text
-- packages/feature-ui implements reusable visual and interaction primitives.
-- apps/feature-screens/src/features/{home,my-work,voc,findings,voc-cluster,surveys,tasks,cross-system,integration,admin} own route and screen composition.
+- packages/feature/screens/src/ui implements reusable visual and interaction primitives.
+- packages/feature/screens/src/features/{home,my-work,voc,findings,voc-cluster,surveys,tasks,cross-system,integration,admin} own route and screen composition.
 - Evidence, Coverage, and Links are Integration feature surfaces. Findings is its own feature surface (features/findings/).
-- Finding detail composes `FindingDetailPanel` → `FullFindingDetail` → `useFindingDetailController` under `apps/feature-screens/src/features/findings`; shared UI and hooks are under `apps/feature-screens/src/features/cross-system` and `apps/feature-screens/src/lib/cross-system`.
+- Finding detail composes `FindingDetailPanel` → `FullFindingDetail` → `useFindingDetailController` under `packages/feature/screens/src/features/findings`; shared UI and hooks are under `packages/feature/screens/src/features/cross-system` and `packages/feature/screens/src/lib/cross-system`.
 - Analytics Areas, Permission Requests, Managed System Registry, and settings are Admin feature surfaces.
 - Frontend features represent UI surfaces for product systems; they do not own domain rules or writes.
 - Feature screens compose UI primitives and call typed API hooks.
@@ -321,7 +321,7 @@ Permission may compose those projections but does not copy foreign-table queries
 or mutate Role Level. Source-owner summary authorization remains mandatory.
 Home owns requester UI composition; Admin owns review/direct-grant composition.
 Shared typed contracts carry server scope options/revisions/risk; neither frontend
-nor packages/feature-ui owns permission truth or computes risk scores.
+nor packages/feature/screens/src/ui owns permission truth or computes risk scores.
 
 Selected Permission context (#1081) uses Auth's public
 `findWorkspaceActorDisplay` projection and Core's

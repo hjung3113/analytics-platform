@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { contracts, featureScreensPreset, featureServerPreset, featureServerUntypedPreset, featureSharedPreset, featureUiPreset } from './index.js';
+import { contracts, featureScreensPreset, featureServerPreset, featureServerUntypedPreset, featureSharedPreset } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
@@ -15,9 +15,8 @@ const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 const PACKAGES = {
   // Probes lint text under paths that do not exist; the typed block cannot open them (#1972). It is pinned on its own below.
   'apps/platform-api': { name: '@ap/platform-api', preset: featureServerUntypedPreset },
-  'packages/feature-shared': { name: '@ap/feature-shared', preset: featureSharedPreset },
-  'packages/feature-ui': { name: '@ap/feature-ui', preset: featureUiPreset },
-  'apps/feature-screens': { name: '@ap/feature-screens', preset: featureScreensPreset },
+  'packages/feature/shared': { name: '@ap/feature-shared', preset: featureSharedPreset },
+  'packages/feature/screens': { name: '@ap/feature-screens', preset: featureScreensPreset },
 } as const;
 type PackageDir = keyof typeof PACKAGES;
 
@@ -29,9 +28,10 @@ async function lint(dir: PackageDir, relFile: string, code: string, preset?: Lin
 }
 
 const SERVER = 'apps/platform-api' as const;
-const SHARED = 'packages/feature-shared' as const;
-const UI = 'packages/feature-ui' as const;
-const SCREENS = 'apps/feature-screens' as const;
+const SHARED = 'packages/feature/shared' as const;
+const SCREENS = 'packages/feature/screens' as const;
+// The feature UI primitives live in the screens package since #2211 (src/ui); the shared-policy tests below probe the same package directory.
+const UI = SCREENS;
 
 describe('feature full-source presets: correctness policy carried over from the Biome lint', () => {
   it.each([
@@ -99,7 +99,7 @@ describe('feature full-source presets: correctness policy carried over from the 
   it('does not apply the SDK allowlists: platform-api may import react, the contracts layer preset would not', async () => {
     const code = "import { useState } from 'react';\nexport const s = useState;\n";
     expect(await lint(SERVER, 'src/probe.ts', code)).toEqual([]);
-    expect(await lint('packages/feature-shared', 'src/probe.ts', code, contracts)).not.toEqual([]);
+    expect(await lint('packages/feature/shared', 'src/probe.ts', code, contracts)).not.toEqual([]);
   });
 });
 
@@ -282,7 +282,7 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     const restyled = button('className="text-xs"');
     expect(await lint(SCREENS, 'src/probe.tsx', restyled)).toContain('shadcn/no-restyle');
     expect(await lint(SCREENS, 'src/probe.tsx', button('className="mt-2"'))).toEqual([]);
-    expect(await lint(UI, 'src/probe.tsx', restyled, featureUiPreset)).not.toContain('shadcn/no-restyle');
+    expect(await lint(SCREENS, 'src/ui/probe.tsx', restyled)).not.toContain('shadcn/no-restyle');
   });
 
   it('forbids the browser crypto.randomUUID() call, which is missing on plain HTTP, in sources and tests (#2017)', async () => {
@@ -290,21 +290,21 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => globalThis.crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
     expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => window.crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
     expect(await lint(SCREENS, 'src/__tests__/probe.test.ts', 'export const k = () => crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
-    expect(await lint(UI, 'src/probe.ts', 'export const k = () => crypto.randomUUID();\n', featureUiPreset)).not.toContain('ap/no-browser-random-uuid');
+    expect(await lint(SCREENS, 'src/ui/probe.ts', 'export const k = () => crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
   }, 60_000);
 
   it('requires the IME Enter guard on a text field\'s Enter handler in screen sources, not in tests (#2217)', async () => {
     const field = "import { Input } from '@ap/ui';\nexport const A = ({ go }: { go: () => void }) => <Input onKeyDown={e => { if (e.key === 'Enter') go(); }} />;\n";
     expect(await lint(SCREENS, 'src/probe.tsx', field)).toContain('ap/ime-enter-guard');
     expect(await lint(SCREENS, 'src/__tests__/probe.test.tsx', field)).not.toContain('ap/ime-enter-guard');
-    expect(await lint(UI, 'src/probe.tsx', field, featureUiPreset)).not.toContain('ap/ime-enter-guard');
+    expect(await lint(SCREENS, 'src/ui/probe.tsx', field)).toContain('ap/ime-enter-guard');
   }, 60_000);
 
   it('lets a form carry the IME Enter guard onKeyDown, and still reports other handlers on a form (#2243)', async () => {
     const form = (attrs: string) => `export const A = ({ k }: { k: () => void }) => <form ${attrs}><input /></form>;\n`;
     const rule = 'jsx-a11y/no-noninteractive-element-interactions';
     expect(await lint(SCREENS, 'src/probe.tsx', form('onKeyDown={k}'))).not.toContain(rule);
-    expect(await lint(UI, 'src/probe.tsx', form('onKeyDown={k}'), featureUiPreset)).not.toContain(rule);
+    expect(await lint(SCREENS, 'src/ui/probe.tsx', form('onKeyDown={k}'))).not.toContain(rule);
     expect(await lint(SCREENS, 'src/probe.tsx', form('onClick={k}'))).toContain(rule);
     expect(await lint(SCREENS, 'src/probe.tsx', `export const A = ({ k }: { k: () => void }) => <section aria-label="x" onKeyDown={k} />;\n`)).toContain(rule);
   }, 60_000);
@@ -316,8 +316,8 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     expect(await lint(SCREENS, 'src/probe.ts', 'export const k = () => crypto.getRandomValues(new Uint8Array(16));\n')).toEqual([]);
   }, 60_000);
 
-  it('checks components imported from @ap/feature-ui as well', async () => {
-    const code = "import { SeverityBadge } from '@ap/feature-ui';\nexport const C = () => <SeverityBadge className=\"text-xs\" />;\n";
+  it('checks components imported from the feature UI (src/ui) as well', async () => {
+    const code = "import { SeverityBadge } from '../ui';\nexport const C = () => <SeverityBadge className=\"text-xs\" />;\n";
     expect(await lint(SCREENS, 'src/probe.tsx', code)).toContain('shadcn/no-restyle');
   });
 
@@ -335,15 +335,22 @@ describe('feature screens preset: the UI rules plus the restyled-component check
 // scratch tree and every other repo entry is a symlink, because the design-system lint reads components.json,
 // the Tailwind theme CSS and tsconfig bases from elsewhere in the repo.
 function copyPackage(dir: string, into: string): string {
-  const [top = ''] = dir.split('/');
-  for (const entry of readdirSync(REPO_ROOT)) {
-    if (entry === '.git' || entry === top) continue;
-    symlinkSync(path.join(REPO_ROOT, entry), path.join(into, entry));
-  }
-  mkdirSync(path.join(into, top));
-  for (const entry of readdirSync(path.join(REPO_ROOT, top))) {
-    if (`${top}/${entry}` !== dir) symlinkSync(path.join(REPO_ROOT, top, entry), path.join(into, top, entry));
-  }
+  // Walk the package's path level by level (a package may sit two or three folders deep): each level symlinks every sibling
+  // and creates the folder that leads to the package.
+  const parts = dir.split('/');
+  let realBase = REPO_ROOT;
+  let scratchBase = into;
+  parts.forEach((keep, level) => {
+    for (const entry of readdirSync(realBase)) {
+      if ((level === 0 && entry === '.git') || entry === keep) continue;
+      symlinkSync(path.join(realBase, entry), path.join(scratchBase, entry));
+    }
+    if (level < parts.length - 1) {
+      mkdirSync(path.join(scratchBase, keep));
+      realBase = path.join(realBase, keep);
+      scratchBase = path.join(scratchBase, keep);
+    }
+  });
   const source = path.join(REPO_ROOT, dir);
   const target = path.join(into, dir);
   cpSync(source, target, {

@@ -367,7 +367,7 @@ runCase(
   'rule 11 allows @ap/ui in source and other @ap/* packages in tests only',
   {
     ...zero,
-    [join(FEATURE_UI, 'src', 'index.ts')]:
+    [join(FEATURE_UI, 'index.ts')]:
       "export { Button } from '@ap/ui';\nimport '@ap/ui/styles.css';\n",
     [join(MODULES, 'platform-port', '__tests__', 'conformance.test.ts')]: [
       "import { describeServerConformance } from '@ap/server-conformance';",
@@ -452,7 +452,7 @@ runCase(
     [join(FEATURE_OPS, 'package.json')]: JSON.stringify({
       dependencies: { '@ap/kernel': 'workspace:*' },
     }),
-    [join(FEATURE_UI, 'package.json')]: JSON.stringify({
+    [join(FEATURE_FRONTEND, 'package.json')]: JSON.stringify({
       peerDependencies: { react: '^19.0.0', '@ap/contracts': 'workspace:*' },
       optionalDependencies: { '@ap/http-adapter': 'workspace:*' },
     }),
@@ -460,8 +460,8 @@ runCase(
   false,
   [
     `${FEATURE_OPS}/package.json: dependencies may list only @ap/ui from the platform; @ap/kernel`,
-    `${FEATURE_UI}/package.json: peerDependencies may list only @ap/ui from the platform; @ap/contracts`,
-    `${FEATURE_UI}/package.json: optionalDependencies may list only @ap/ui from the platform; @ap/http-adapter`,
+    `${FEATURE_FRONTEND}/package.json: peerDependencies may list only @ap/ui from the platform; @ap/contracts`,
+    `${FEATURE_FRONTEND}/package.json: optionalDependencies may list only @ap/ui from the platform; @ap/http-adapter`,
   ],
 );
 
@@ -470,7 +470,7 @@ runCase(
   {
     ...zero,
     [join(FEATURE_FRONTEND, 'src', 'probe.ts')]:
-      "import x from '../../platform-api/src/server.js';\n",
+      "import x from '../../../../apps/platform-api/src/server.js';\n",
   },
   false,
   [`${FEATURE_FRONTEND}/src/probe.ts:`, 'must not import apps/platform-api'],
@@ -481,10 +481,10 @@ runCase(
   {
     ...zero,
     [join(FEATURE_BACKEND, 'src', 'probe.ts')]:
-      "import x from '../../feature-screens/src/main.js';\n",
+      "import x from '../../../../packages/feature/screens/src/main.js';\n",
   },
   false,
-  [`${FEATURE_BACKEND}/src/probe.ts:`, 'apps/feature-screens'],
+  [`${FEATURE_BACKEND}/src/probe.ts:`, 'packages/feature/screens'],
 );
 
 // ADR-0097 partially supersedes rule 11 only for the core server.
@@ -503,7 +503,7 @@ runCase(
   true,
   'boundaries: OK',
 );
-for (const scope of [FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI, FEATURE_OPS]) {
+for (const scope of [FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_OPS]) {
   runCase(
     `${scope} cannot import server schemas`,
     {
@@ -555,7 +555,6 @@ runCase(
     [join(FEATURE_BACKEND, 'eslint.config.js')]: LINT_PRESET,
     [join(FEATURE_SHARED, 'eslint.config.js')]:
       "import { featureSharedPreset } from '@ap/eslint-config';\nexport default featureSharedPreset;\n",
-    [join(FEATURE_UI, 'eslint.config.js')]: LINT_PRESET,
     [join(FEATURE_FRONTEND, 'eslint.config.js')]:
       "export { featureScreensPreset as default } from '@ap/eslint-config';\n",
   },
@@ -567,7 +566,7 @@ runCase(
   {
     ...zero,
     [join(FEATURE_BACKEND, 'src', 'eslint.config.js')]: LINT_PRESET,
-    [join(FEATURE_UI, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
+    [join(FEATURE_FRONTEND, 'src', 'nested', 'eslint.config.js')]: LINT_PRESET,
     [join(FEATURE_BACKEND, 'src', 'lint.ts')]:
       "import { featureServerPreset } from '@ap/eslint-config';\n",
     [join(FEATURE_OPS, 'eslint.config.js')]: LINT_PRESET,
@@ -579,7 +578,7 @@ runCase(
   false,
   [
     `${FEATURE_BACKEND}/src/eslint.config.js:1`,
-    `${FEATURE_UI}/src/nested/eslint.config.js:1`,
+    `${FEATURE_FRONTEND}/src/nested/eslint.config.js:1`,
     `${FEATURE_BACKEND}/src/lint.ts:1`,
     `${FEATURE_OPS}/eslint.config.js:1`,
     `${FEATURE_FRONTEND}/src/eslint.config.js:1`,
@@ -594,8 +593,6 @@ runCase(
     [join(FEATURE_BACKEND, 'eslint.config.js')]: "export * from '@ap/eslint-config/feature';\n",
     [join(FEATURE_SHARED, 'eslint.config.js')]:
       "import { PERMISSIONS } from '@ap/contracts';\nconst k = await import('@ap/kernel');\n",
-    [join(FEATURE_UI, 'eslint.config.js')]:
-      "export * from '@ap/eslint-config-extra';\nconst c = require('@ap/ui/../shell');\n",
     [join(FEATURE_FRONTEND, 'eslint.config.js')]:
       "export { featureScreensPreset } from '@ap/eslint-config/feature';\nimport '@ap/kernel';\n",
   },
@@ -606,7 +603,6 @@ runCase(
     `${FEATURE_BACKEND}/eslint.config.js:1`,
     `${FEATURE_SHARED}/eslint.config.js:1`,
     `${FEATURE_SHARED}/eslint.config.js:2`,
-    `${FEATURE_UI}/eslint.config.js:1`,
   ],
 );
 

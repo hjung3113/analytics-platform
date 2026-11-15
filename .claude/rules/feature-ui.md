@@ -1,10 +1,10 @@
 ---
 paths:
-  - "packages/feature-ui/src/**"
-  - "apps/feature-screens/src/features/**/*.tsx"
+  - "packages/feature/screens/src/ui/**"
+  - "packages/feature/screens/src/features/**/*.tsx"
 ---
 
-# @ap/ui / @ap/feature-ui traps
+# @ap/ui / feature `src/ui` traps
 
 Paths below are relative to the repository root (feature code was integrated in ADR-0072).
 

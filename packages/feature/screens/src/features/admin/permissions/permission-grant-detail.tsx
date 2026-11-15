@@ -1,0 +1,211 @@
+import { OutlineBadge } from '../../../ui/index';
+import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
+import type { ReactNode } from 'react';
+
+import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
+import { GLOSSARY } from '../../../lib/copy/glossary';
+import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
+import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '../../../lib/copy/permission-scope';
+import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
+import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
+import { shortId } from '../../../lib/identity';
+import { type PermissionDenyAdminItem, type PermissionGrantAdminItem, isDeclaredCapabilityId } from '@ap/feature-shared';
+
+import { DeclaredCapabilityName } from './declared-capability-name.js';
+import { PermissionGrantActionForm } from './permission-grant-action-form.js';
+import type { ActivePermission } from './use-permission-grants-console.js';
+
+export function PermissionGrantDetail({
+  permission,
+  actorNames,
+  managedSystemNames,
+  onClose,
+  onGrantRevoked,
+  onSuccess,
+  onGrantReadFollowUp,
+  renderDetail,
+}: {
+  permission: ActivePermission;
+  actorNames: Record<string, string>;
+  managedSystemNames: Record<string, string>;
+  onClose: () => void;
+  onGrantRevoked: (id: string) => void;
+  onSuccess: () => void;
+  onGrantReadFollowUp?: () => void;
+  /** Absent = the standalone panel. Present = the host draws the parts (its own header, close and fullscreen). */
+  renderDetail?: (parts: ClosableDetailParts) => ReactNode;
+}) {
+  const { kind, item } = permission;
+  const actorName = actorNames[item.actor_id] ?? GLOSSARY.unknownUser;
+
+  const body = (
+    <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-2">
+        <PanelSectionTitle>
+          {kind === 'grants' ? ADMIN_PERMISSIONS_COPY.grantInfo : ADMIN_PERMISSIONS_COPY.denyInfo}
+        </PanelSectionTitle>
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.target} inset="none">
+          <span className="flex flex-col gap-0.5">
+            <span>{actorName}</span>
+            <span className="font-mono text-xs text-text-muted">{shortId(item.actor_id)}</span>
+          </span>
+        </FieldRow>
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.permission} inset="none">
+          <span className="flex flex-col gap-0.5">
+            {isDeclaredCapabilityId(item.capability) ? (
+              <DeclaredCapabilityName id={item.capability} />
+            ) : (
+              <span>{getCapabilityDisplayLabel(item.capability)}</span>
+            )}
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs text-text-muted">{item.capability}</span>
+              {item.in_declarations === false ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
+            </span>
+          </span>
+        </FieldRow>
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.scope} inset="none">
+          {kind === 'grants' && scopeTargetLabelOf(item) !== null ? (
+            <span className="flex flex-wrap items-center gap-2">
+              <span>{scopeTargetLabelOf(item)}</span>
+              {item.in_catalog === false ? (
+                <OutlineBadge>{PERMISSION_SCOPE_COPY.notInCatalog}</OutlineBadge>
+              ) : null}
+            </span>
+          ) : (
+            <PermissionScope
+              id={item.managed_system_id}
+              name={item.managed_system_id ? managedSystemNames[item.managed_system_id] : undefined}
+            />
+          )}
+        </FieldRow>
+        {kind === 'grants' ? (
+          <GrantFields item={item} actorNames={actorNames} />
+        ) : (
+          <DenyFields item={item} actorNames={actorNames} />
+        )}
+        <FieldRow label={ADMIN_PERMISSIONS_COPY.id} inset="none">
+          <span className="font-mono text-xs text-text-muted">{shortId(item.id)}</span>
+        </FieldRow>
+      </section>
+      {kind === 'grants' && onGrantReadFollowUp ? (
+        <Button type="button" variant="secondary" onClick={onGrantReadFollowUp}>
+          {ADMIN_PERMISSIONS_COPY.directGrant.grantReadFollowUp}
+        </Button>
+      ) : null}
+      <PermissionGrantActionForm
+        key={`${kind}:${item.id}`}
+        kind={kind}
+        id={item.id}
+        actorId={item.actor_id}
+        onGrantRevoked={onGrantRevoked}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+  const heading =
+    kind === 'grants' ? ADMIN_PERMISSIONS_COPY.activeTitle : ADMIN_PERMISSIONS_COPY.deniesTab;
+  const title = `${actorName} · ${getCapabilityDisplayLabel(item.capability)}`;
+
+  if (renderDetail) {
+    return renderDetail({ title, subtitle: heading, body, requestClose: onClose });
+  }
+
+  return (
+    <aside
+      className="flex h-full min-h-0 flex-col bg-surface-detail"
+      data-testid="permission-grants-detail-panel"
+    >
+      <header className="flex h-toolbar items-center gap-3 border-b border-border-subtle px-6">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-text-muted">{heading}</p>
+          <p className="truncate text-sm font-medium text-text-primary">
+            {actorName} · {getCapabilityDisplayLabel(item.capability)}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <DetailPanelFullscreenToggle />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label={ADMIN_PERMISSIONS_COPY.closePanel}
+          >
+            {ADMIN_PERMISSIONS_COPY.close}
+          </Button>
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto p-6">{body}</div>
+    </aside>
+  );
+}
+
+function PermissionScope({ id, name }: { id: string | null; name?: string | undefined }) {
+  if (!id) return <span>{SCOPE_SELECTOR_COPY.workspaceAll}</span>;
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span>{name ?? GLOSSARY.managedSystem}</span>
+      {!name ? <span className="font-mono text-xs text-text-muted">{shortId(id)}</span> : null}
+    </span>
+  );
+}
+
+function GrantFields({
+  item,
+  actorNames,
+}: {
+  item: PermissionGrantAdminItem;
+  actorNames: Record<string, string>;
+}) {
+  return (
+    <>
+      <FieldRow label={ADMIN_PERMISSIONS_COPY.grantor} inset="none">
+        <ActorValue id={item.granted_by_actor_id} actorNames={actorNames} />
+      </FieldRow>
+      <FieldRow label={ADMIN_PERMISSIONS_COPY.grantedAt} inset="none">
+        <span>{formatDateTime(item.granted_at)}</span>
+      </FieldRow>
+      <FieldRow label={ADMIN_PERMISSIONS_COPY.expiration} inset="none">
+        <span>
+          {item.expires_at
+            ? formatDateOnly(item.expires_at.slice(0, 10))
+            : ADMIN_PERMISSIONS_COPY.noExpiration}
+        </span>
+      </FieldRow>
+    </>
+  );
+}
+
+function DenyFields({
+  item,
+  actorNames,
+}: {
+  item: PermissionDenyAdminItem;
+  actorNames: Record<string, string>;
+}) {
+  return (
+    <>
+      <FieldRow label={ADMIN_PERMISSIONS_COPY.denier} inset="none">
+        <ActorValue id={item.created_by_actor_id} actorNames={actorNames} />
+      </FieldRow>
+      <FieldRow label={ADMIN_PERMISSIONS_COPY.deniedAt} inset="none">
+        <span>{formatDateTime(item.created_at)}</span>
+      </FieldRow>
+      <FieldRow label={ADMIN_PERMISSIONS_COPY.denyReason} inset="none">
+        <span className="whitespace-pre-wrap">{item.reason}</span>
+      </FieldRow>
+    </>
+  );
+}
+
+function ActorValue({ id, actorNames }: { id: string; actorNames: Record<string, string> }) {
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span>{actorNames[id] ?? GLOSSARY.unknownUser}</span>
+      {!actorNames[id] ? (
+        <span className="font-mono text-xs text-text-muted">{shortId(id)}</span>
+      ) : null}
+    </span>
+  );
+}

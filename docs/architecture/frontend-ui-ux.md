@@ -10,12 +10,12 @@
 
 ## 프론트엔드 기술 스택 (Decided, 2026-09-25)
 
-**결정 근거**: 기능(`apps/feature-screens`, `packages/feature-ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 기능에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `archive/kernel-chart-frame/`, Unit C `archive/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`; 프로토타입은 #1787에서 지웠고 git 이력에 남아 있다). 기능 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md 기능 서브모듈 경계).
+**결정 근거**: 기능(`packages/feature/screens`, `packages/feature/screens/src/ui`)가 실사용 중인 비-백엔드 스택을 그대로 가져온다 — 이미 검증되고 채택 경험이 있어 마이그레이션 부담이 적다는 것이 사용자 판단이다. 테이블/차트는 기능에 선례가 없어, 이 세션에서 Astra↔Opus 교차 검토로 실제 동작을 검증한 것을 그대로 채택한다(Unit B `archive/kernel-chart-frame/`, Unit C `archive/kernel-platform-table/`, 별도 worktree/브랜치 `hjung3113/kernel-context-url-scope`; 프로토타입은 #1787에서 지웠고 git 이력에 남아 있다). 기능 자체 코드는 이 결정으로 소급 변경하지 않는다(AGENTS.md 기능 서브모듈 경계).
 
 | 계층 | 채택(2026-09-25 결정) | 근거 | 현재 코드(2026-10-05) |
 | --- | --- | --- | --- |
-| Frontend 기반 | React + TypeScript + Vite | 기능 `apps/feature-screens`와 동일 | 사용 중(Vite 7) |
-| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). 기능 화면도 v4다(옛 저장소 이슈 #743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `@ap/feature-ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
+| Frontend 기반 | React + TypeScript + Vite | 기능 `packages/feature/screens`와 동일 | 사용 중(Vite 7) |
+| 스타일링 | **Tailwind CSS v4** | Tailwind CSS v4(CSS-first `@theme`). 기능 화면도 v4다(옛 저장소 이슈 #743, ADR-0058). 플랫폼은 `@ap/ui/styles.css`에서 `src/ui/styles/*`를 import한다([ADR-0010](../adr/0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[0011](../adr/0011-design-direction-feedbackops-shell.md)) | 사용 중(Tailwind 4.3, `@theme`) |
 | UI 컴포넌트 | **shadcn/ui + Radix**(`@ap/ui` 소유) + 플랫폼 공용 부품(`@ap/components`) | 디자인 시스템 primitive는 `@ap/ui`가 소유한다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md), ADR-0050). 플랫폼 자체: `StatusBadge`·`DetailPanelSlot` | 사용 중 — `@ap/ui`와 `@ap/components`가 플랫폼 UI를 제공한다 |
 | 라우팅 | TanStack Router | 기능과 동일. 타입 있는 검색 파라미터로 06 §6.4 URL 계약을 타입 안전하게 관리하되, 버전·폐기 필드·미지원 필터 처리는 이 문서 §6.4 메커니즘을 별도로 구현해야 한다 | **미도입** — Kernel 자체 History + URL codec이 06 §6.4를 소유(Unit A부터 알려진 divergence). 도입·미채택 확정은 Open(05) |
 | 서버 상태 | TanStack Query | 기능과 동일 | **Kernel 내부 채택** — Kernel `usePlatformQuery`·`useMenuQuery` 등 조회 훅의 수명주기가 `@tanstack/react-query` 5.62.7로 돈다([ADR-0086](../adr/0086-kernel-query-engine-tanstack.md)). 메뉴에는 노출하지 않는다(lint `denyQueryEngine`). 5분 폴링·계산 세대 재검증(#165)은 아직 미구현 |

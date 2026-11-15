@@ -25,7 +25,7 @@ export function registerHttpErrorHandler(app: FastifyInstance): void {
           req.log.warn({ code: parsed.data }, 'rate limit exceeded');
         }
         // F3: `requestable_permission` belongs at the top level of ErrorEnvelope
-        // (FO ADR-0012 / packages/feature-shared/src/errors/codes.ts:67-71). Hoist it out
+        // (FO ADR-0012 / packages/feature/shared/src/errors/codes.ts:67-71). Hoist it out
         // of `detail` when present so the wire format matches the typed contract.
         let hoisted: Record<string, unknown> | undefined;
         let cleanDetail: Record<string, unknown> | undefined = errDetail;

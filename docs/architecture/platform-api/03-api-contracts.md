@@ -75,7 +75,7 @@ Menu-action handlers receive the validated, lowercase `idempotencyKey` in `Actio
 Error codes are `<subject>.<verb-or-state>`, lowercase dotted (e.g. `validation.failed`,
 `permission.denied`, `conflict.stale_write`) — not the underscore names this section used to list.
 The authoritative, currently-evolving list is the `ERROR_CODES` Zod enum in
-`packages/feature-shared/src/errors/codes.ts`; do not hand-copy it here, it will drift. The stable
+`packages/feature/shared/src/errors/codes.ts`; do not hand-copy it here, it will drift. The stable
 family → HTTP status mapping and full envelope shape are in `docs/adr/history/feedbackops/0012-error-code-contract.md`.
 
 ## Endpoint Contract Template

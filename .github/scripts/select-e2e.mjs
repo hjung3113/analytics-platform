@@ -16,7 +16,7 @@
 //   apps/platform-e2e/tests-kit/** or playwright.kit.config.ts → none on PR, all on push
 //   a deleted or renamed spec                                                  → needs nothing
 //   apps/platform-api/** or ops/platform-api/** except ops/platform-api/tsconfig.base.json → needs nothing (the mock E2E web server is `@ap/platform-web` on the mock adapter and its workspace
-//     dependency graph reaches neither tree; the one exception is tsconfig.base.json, which packages/feature-shared, feature-ui and apps/feature-screens extend)
+//     dependency graph reaches neither tree; the one exception is tsconfig.base.json, which packages/feature/shared and packages/feature/screens extend)
 //   a spec file name outside [A-Za-z0-9_.-] (it would become a regex filter)    → all
 //   everything else → all: packages/**, apps/**, menus/** and platform/** (the contract-*.spec.ts files read many menus, so there is no menu→spec table), tooling/**, patches/**,
 //   the rest of ops/**, root manifests, .github/**, the e2e helpers/configs (contract-helpers.ts, support.ts, playwright*.config.ts, contract-reporter.ts, package.json), style.css,
@@ -162,8 +162,8 @@ function selfTest() {
   check('e2e: helper + spec → all', pr([`${T}support.ts`, `${T}hw-time.spec.ts`]), ALLV);
   // Everything that is not provably limited → all.
   for (const f of [
-    'packages/sdk/kernel/src/a.ts', 'packages/host/mock-server/src/a.ts', 'packages/host/app-host/src/a.ts', 'packages/host/http-adapter/src/a.ts', 'packages/host/server-conformance/src/a.ts', 'packages/adapters/feature-bridge/src/a.ts', 'packages/feature-ui/src/a.ts', 'apps/platform-web/src/a.ts', 'apps/platform-web/vite.config.ts',
-    'apps/feature-screens/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'platform/home/src/a.ts', 'platform/dashboard/package.json', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/tsconfig.base.json', 'ops/other/x.sh', 'apps/platform-api-x/src/a.ts', 'ops/platform-api-x/a.sh',
+    'packages/sdk/kernel/src/a.ts', 'packages/host/mock-server/src/a.ts', 'packages/host/app-host/src/a.ts', 'packages/host/http-adapter/src/a.ts', 'packages/host/server-conformance/src/a.ts', 'packages/feature/bridge/src/a.ts', 'packages/feature/screens/src/ui/a.ts', 'apps/platform-web/src/a.ts', 'apps/platform-web/vite.config.ts',
+    'packages/feature/screens/src/a.ts', 'menus/mars/hw-time/src/a.ts', 'platform/home/src/a.ts', 'platform/dashboard/package.json', 'tooling/x.mjs', 'patches/x.patch', 'ops/platform-api/tsconfig.base.json', 'ops/other/x.sh', 'apps/platform-api-x/src/a.ts', 'ops/platform-api-x/a.sh',
     'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'turbo.json', '.nvmrc', '.github/workflows/ci.yml', '.github/scripts/select-e2e.mjs',
     'packages/sdk/shell/src/style.css', 'site/index.html', 'docs/diagram.png', 'unknown/file.bin', '.gitignore',
   ]) check(`all: ${f}`, pr([f]), ALLV);

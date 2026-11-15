@@ -2,7 +2,7 @@
 
 ## 현재 구조
 
-플랫폼 프론트엔드, 코어 서버, 기능 화면은 같은 루트 pnpm workspace의 코드다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). 기능(`apps/{platform-api,feature-screens}`·`packages/feature-*`)는 루트 workspace의 일부다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 패키지 이름과 루트 작업·CI는 #1098 r에서 통합했다. 인프라 이름 전환은 #1100의 별도 범위다.
+플랫폼 프론트엔드, 코어 서버, 기능 화면은 같은 루트 pnpm workspace의 코드다. 패키지 추출은 완료됐다([패키지 경계](platform-packages.md)). 기능(`apps/platform-api`·`packages/feature/*`)는 루트 workspace의 일부다([ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 패키지 이름과 루트 작업·CI는 #1098 r에서 통합했다. 인프라 이름 전환은 #1100의 별도 범위다.
 
 ## 폴더별 역할
 
@@ -14,20 +14,20 @@
 | `DESIGN.md`, `GLOSSARY.md` | 플랫폼 디자인 방향, 도메인 용어 |
 | `.planning/` | 남은 일·결정 대기(원본은 GitHub 이슈) |
 | `.agents/` | 플랫폼 에이전트 스킬·참고자료·보고서 |
-| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`(기능 `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `packages/eqv/*`, `menus/*/*`, `platform/*`, `tooling/*`, `ops/*`) |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | 플랫폼 pnpm workspace 루트(`apps/*`, `packages/*`, `packages/feature/*`(기능), `packages/sdk/*`, `packages/host/*`, `packages/eqv/*`, `menus/*/*`, `platform/*`, `tooling/*`, `ops/*`) |
 | `apps/platform-web/` | 플랫폼 앱(조립 지점, dev 도구) |
 | `apps/platform-e2e/` | 플랫폼 계약 E2E(Playwright 블랙박스) |
 | `packages/sdk/` | SDK 패키지 `contracts`·`ui`·`kernel`·`components`·`shell`(`@ap/*`, 공개 API). 경계는 [패키지 경계](platform-packages.md) |
-| `packages/adapters/` | 어댑터·소비자 쪽 패키지 `mock-server`·`http-adapter`·`server-conformance`·`feature-bridge`(`@ap/*`, SDK 아님). 경계는 [패키지 경계](platform-packages.md) |
+| `packages/feature/` | 기능 코드 한 폴더: `screens`(`@ap/feature-screens`, `src/ui`에 기능 UI 부품), `shared`(`@ap/feature-shared`), `bridge`(`@ap/feature-bridge`, 메뉴가 쓰는 소비자 쪽 런타임). 경계는 [패키지 경계](platform-packages.md) |
 | `packages/eqv/` | 설비 시각화 패키지(`@eqv/*`, [ADR-0132](../adr/0132-eqv-merges-into-platform.md)) |
 | `menus/` | 업무 시스템 메뉴 Consumer 패키지 `menus/<system>/<group>/`(`@ap/menu-<group>`). 공간은 폴더가 원본이고 `GROUPS`와 일치를 검사 |
 | `platform/` | 플랫폼 기능 Consumer 패키지 `platform/<feature>/`(`@ap/menu-<name>`: 홈·내 활동·공지·운영 콘솔·기능 화면). 한 단계, SDK 아님. 공간은 `GROUPS`만 정한다 |
 | `tooling/` | 공유 도구: tsconfig, eslint 경계 규칙, `gen-menu`, `css-selectors` |
-| `apps/{platform-api,feature-screens}`, `packages/feature-*` | 기능 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
-| `apps/feature-screens/` | 기능 화면 라이브러리(플랫폼이 탑재, #597). `src/features/`에 업무 화면 구성. 새 화면은 만들지 않는다([ADR-0133](../adr/0133-feature-screens-frozen-new-screens-on-sdk.md)) |
+| `apps/platform-api`, `packages/feature/*` | 기능 앱·패키지·문서(루트 workspace의 일부, 이력 합류 `c73c55c5`, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
+| `packages/feature/screens/` | 기능 화면 라이브러리(플랫폼이 탑재, #597). `src/features/`에 업무 화면 구성. 새 화면은 만들지 않는다([ADR-0133](../adr/0133-feature-screens-frozen-new-screens-on-sdk.md)) |
 | `apps/platform-api/` | 코어 서버(Fastify). `src/modules/`에 업무 및 공통 기능 구현 |
-| `packages/feature-shared/` | 기능 화면·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
-| `packages/feature-ui/` | 기능 UI 패키지(`@ap/feature-ui`). 공용 primitive의 원본은 `@ap/ui`(`packages/sdk/ui`)다(ADR-0046) |
+| `packages/feature/shared/` | 기능 화면·백엔드 공유 계약. 아직 플랫폼 공통 계약은 아님 |
+| `packages/feature/screens/src/ui/` | 기능 UI 패키지(`src/ui`). 공용 primitive의 원본은 `@ap/ui`(`packages/sdk/ui`)다(ADR-0046) |
 | `docs/{product/features,architecture/platform-api,design/features,user-guide}` | 플랫폼 기능의 요구·구현·화면·사용 안내; 과거 기록은 [보존 색인](feature-history.md) |
 | `ops/platform-api/` | 기능 루트 도구(워크스페이스 패키지 `@ap/platform-api-ops`): 스크립트·게이트·compose·conductor, 앱·패키지 위치 지도 `paths.sh`/`paths.mjs`(713p1, [ADR-0090](../adr/0090-repo-structure-by-branch.md)) |
 
@@ -47,7 +47,7 @@
 
 `ci.yml`이 정적·단위·통합 게이트를 함께 소유한다. 정적 Job은 루트 lint/typecheck/build와 추가 경계 fixture·통합 실행기 guard·migration drift·FE typecheck를, test Job은 루트 단위 suite를, 통합 Job은 Postgres16+pgvector의 격리 DB에서 backend 적합성까지 검사한다. 필수 `Platform workspace (pnpm monorepo)`는 세 결과가 성공해야 통과한다(의도한 docs-only 통합 생략 제외). classifier 오류는 전체 검사로 간다. E2E 선택·필수 상태명·main push만 cache 저장하는 정책은 유지한다.
 
-`platform-api`·`feature-shared`·`feature-ui`·`feature-screens`는 패키지 `lint`(ESLint 전체 소스, #1102 a·b)를 루트 lint가 turbo로 돌린다. 루트 lint의 ops leaf는 경계 검사와 변경 파일 Biome allowlist(docs·ops 범위만)를 사용한다. `FEATURE_LINT_BASE`(기본 `origin/main`)와 전체 이력이 필요하며 기준 계산 실패는 실패로 끝난다. PR은 base SHA, push는 before SHA, 수동 실행은 `HEAD^`를 기준으로 제공한다. 비교 기준이 turbo 입력 해시에 없으므로 ops lint는 캐시하지 않는다. 전체 Biome `lint:all`·`format`도 같은 잔여 범위(docs·ops)만 본다. Oxlint 디자인 패스는 없다. 대응 규칙표: [platform-packages §6](platform-packages.md#6-경계-강제와-도구). `gate.sh static --base <ref>`, `unit`, `integration`은 명시적 운영 진입점이며 CI는 루트가 이미 증명하는 suite를 중복 실행하지 않고 `static-extra`만 추가한다.
+`platform-api`·`feature-shared`·`feature-screens`는 패키지 `lint`(ESLint 전체 소스, #1102 a·b)를 루트 lint가 turbo로 돌린다. 루트 lint의 ops leaf는 경계 검사와 변경 파일 Biome allowlist(docs·ops 범위만)를 사용한다. `FEATURE_LINT_BASE`(기본 `origin/main`)와 전체 이력이 필요하며 기준 계산 실패는 실패로 끝난다. PR은 base SHA, push는 before SHA, 수동 실행은 `HEAD^`를 기준으로 제공한다. 비교 기준이 turbo 입력 해시에 없으므로 ops lint는 캐시하지 않는다. 전체 Biome `lint:all`·`format`도 같은 잔여 범위(docs·ops)만 본다. Oxlint 디자인 패스는 없다. 대응 규칙표: [platform-packages §6](platform-packages.md#6-경계-강제와-도구). `gate.sh static --base <ref>`, `unit`, `integration`은 명시적 운영 진입점이며 CI는 루트가 이미 증명하는 suite를 중복 실행하지 않고 `static-extra`만 추가한다.
 
 mock build의 lazy 검사와 SDK 산출물 검사를 먼저 끝낸 뒤 DB-free `build:real-prod` 성공 경로를 실행한다. 강제 mock graph/build 실패 guard도 유지한다. 같은 dist를 쓰므로 이 순서를 바꾸지 않는다.
 
@@ -55,7 +55,7 @@ mock build의 lazy 검사와 SDK 산출물 검사를 먼저 끝낸 뒤 DB-free `
 
 - 플랫폼 설계: 저장소 루트에서 시작하고 `AGENTS.md` → `docs/INDEX.md`를 읽는다.
 - 기능 도메인 탐색: `docs/INDEX.md` → `docs/agents/feature-implementation.md` → 해당 소유 계약을 읽는다.
-- 기능 개발: 이 저장소에서 브랜치를 만들어 `apps/{platform-api,feature-screens}`·`packages/feature-*`와 해당 플랫폼 소유 문서를 고친다(루트 `AGENTS.md`).
+- 기능 개발: 이 저장소에서 브랜치를 만들어 `apps/platform-api`·`packages/feature/*`와 해당 플랫폼 소유 문서를 고친다(루트 `AGENTS.md`).
 - 패키지 설치·개발·검사는 저장소 루트 workspace에서 실행한다. 코어 서버·기능 화면·운영 도구도 같은 lockfile을 쓴다. 기능 도메인별 세부 검증은 해당 앱 AGENTS와 `docs/agents/feature-implementation.md`를 따른다.
 - DB 통합 테스트는 초기화·재시드 동작이 있으므로 기존 데이터를 가진 DB에 실행하지 않는다.
 

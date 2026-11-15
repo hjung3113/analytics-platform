@@ -5,7 +5,7 @@ One-level `platform/<feature>/` packages assemble the built-in home, activity, n
 ## Placement and wiring
 
 - Read each feature's space only from `GROUPS`. Directory placement does not determine space: null-space and named-space features coexist here. Check group ownership and duplicates across both consumer roots.
-- Declare only `manifests` here. Reusable screen/bridge runtime lives in `apps/feature-screens`, `packages/adapters/feature-bridge`, `packages/feature-ui` and `packages/feature-shared`; consume their permitted public entry points. The `featureBridgeMenuPreset` ESLint preset enforces the exact bridge exceptions.
+- Declare only `manifests` here. Reusable screen/bridge runtime lives in `packages/feature/screens`, `packages/feature/bridge` and `packages/feature/shared`; consume their permitted public entry points. The `featureBridgeMenuPreset` ESLint preset enforces the exact bridge exceptions.
 - SDK packages must not import either consumer root. The dependency direction stays `contracts → ui/kernel → components → shell → apps`; these consumers sit on the app side.
 - App wiring uses the shared marker regions in `menus.ts`, `style.css`, app `package.json` and `dev/mock-assembly.tsx`. Match actual imports with their spreads; never derive bindings from package names (`@ap/menu-dashboard` uses `dashboard`, `@ap/menu-feature-admin` uses `featureAdmin`).
 - Add the `GROUPS` row before `pnpm gen:menu <group> --platform …`. Null-space groups use this root automatically. Keep an explicit `/platform/<feature>/` CODEOWNERS entry. The package rules in [menus/AGENTS.md](../menus/AGENTS.md) (public exports, mock boundaries, versions, CHANGELOG) also apply here.

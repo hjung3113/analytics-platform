@@ -527,7 +527,7 @@ core.entity_links
 - source_id: uuid, required
 - target_type: text, required
 - target_id: uuid, required
-- relation_type: enum from docs/architecture/platform-api/06-entity-linking-contract.md (runtime registry in packages/feature-shared/src/entity-links.ts), required
+- relation_type: enum from docs/architecture/platform-api/06-entity-linking-contract.md (runtime registry in packages/feature/shared/src/entity-links.ts), required
 - visibility: enum(internal_only, summary_visible, visible_to_reporter, admin_only), required
 - status: enum(active, stale, detached, revoked), required, default active
 - managed_system_id: uuid, required
@@ -826,7 +826,7 @@ persisted source VOC, recommendation decision, Entity Link or domain audit row.
 Core owns `core.responsibility_default_failures`: UUID id, workspace/system FKs,
 workflow, responsibility, skipped rule, safe category, created_at. Closed values and
 Admin-only response contract live in `docs/architecture/platform-api/api/core.md` and
-`packages/feature-shared/src/managed-system-diagnostics.ts`. No candidate or source identity,
+`packages/feature/shared/src/managed-system-diagnostics.ts`. No candidate or source identity,
 private content, or membership is stored. Runtime SELECT/INSERT is append-only;
 configuration edits supersede earlier observations through the registry audit diff,
 without deleting historical input or changing assignments. Creation producers remain

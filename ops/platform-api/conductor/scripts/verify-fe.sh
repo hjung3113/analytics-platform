@@ -1,9 +1,9 @@
 #!/bin/bash
 [ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"  # zsh-invoked runs lost BASH_SOURCE (s61, s70)
-# verify-fe.sh <worktree> — FE host checks (<worktree> is the repository checkout root) (Node 22): full vitest (+packages/feature-ui if touched), FE typecheck gate, root typecheck,
+# verify-fe.sh <worktree> — FE host checks (<worktree> is the repository checkout root) (Node 22): full vitest (screens, including src/ui), FE typecheck gate, root typecheck,
 # boundaries + fixture test, screens ESLint (correctness, Hooks, accessibility, design-system rules), backend tsc, FE→BE route drift, worker hygiene (no new biome-ignore). Logs in $WAVE_STATE/verify-<basename>/. Prints a summary.
 here=$(cd "$(dirname "$0")" && pwd)
-# Feature path map (FEATURE_OPS, FEATURE_FRONTEND, FEATURE_UI); `feature_ops` runs a script of the @ap/platform-api-ops tool package (ops/platform-api).
+# Feature path map (FEATURE_OPS, FEATURE_FRONTEND); `feature_ops` runs a script of the @ap/platform-api-ops tool package (ops/platform-api).
 # shellcheck disable=SC1091
 . "$here/../../paths.sh"
 feature_ops() { pnpm -s --filter @ap/platform-api-ops run "$@"; }
@@ -27,10 +27,8 @@ print_summary() {
   done
 }
 run_check vitest "$log/vitest.log" run_vitest "$FEATURE_FRONTEND"
-if { git diff --name-only origin/develop...HEAD; git status --porcelain; } | grep -q "$FEATURE_UI"; then
-  run_check ui-vitest "$log/ui-vitest.log" run_vitest "$FEATURE_UI"; fi
 run_check fe-typecheck "$log/fe-typecheck.log" feature_ops gate:fe-typecheck
-# Root typecheck also builds packages/feature-ui with its tests (gate:fe-typecheck covers only the frontend; #661).
+# Root typecheck also builds every feature package with its tests (gate:fe-typecheck covers only the frontend; #661).
 run_check root-typecheck "$log/root-typecheck.log" feature_ops feature:typecheck
 run_check boundaries "$log/boundaries.log" node "$FEATURE_OPS/scripts/check-boundaries.mjs"
 run_check screens-lint "$log/screens-lint.log" pnpm -s --filter @ap/feature-screens run lint

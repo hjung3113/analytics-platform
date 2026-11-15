@@ -39,7 +39,7 @@ If the folder you work in has an `AGENTS.md`, follow it too (table below). If a 
 
 ## Code
 
-- Root pnpm workspace: `apps/*`, `packages/*` (features `feature-*`), `packages/sdk/*`, `packages/adapters/*`, `packages/eqv/*`, `menus/*/*`, `platform/*`, `tooling/*`, `ops/*`. Node 26.7.0, pnpm 11.1.1. Commands run from the root: `pnpm install|dev|lint|typecheck|test|build|e2e`.
+- Root pnpm workspace: `apps/*`, `packages/*`, `packages/feature/*` (feature code), `packages/sdk/*`, `packages/host/*`, `packages/eqv/*`, `menus/*/*`, `platform/*`, `tooling/*`, `ops/*`. Node 26.7.0, pnpm 11.1.1. Commands run from the root: `pnpm install|dev|lint|typecheck|test|build|e2e`.
 - The dependency direction is `contracts → ui/kernel → components → shell → apps`; reverse imports are forbidden (enforced by the boundary lint, source `docs/integration/platform-packages.md` §3). Feature packages consume primitives only through `@ap/ui`.
 - Kernel, common components and the shell know nothing of menus or mocks. The app injects the menu list through the Registry and the server through `PlatformAdapter`.
 
@@ -93,7 +93,7 @@ The procedure for designing a new screen (Requirements → IA → Screen Spec �
 | [`tooling/`](tooling/AGENTS.md) | Shared tsconfig, boundary lint, menu generator (`pnpm gen:menu`), CSS selector comparison |
 | [`ops/platform-api/`](ops/platform-api/scripts/gates/AGENTS.md) | Core-server and feature operations tools (compose, DB and backup scripts) and static check gates |
 | [`site/`](site/AGENTS.md) | Intro page (static, outside the workspace) and Pages assembly |
-| [`apps/platform-api/`](apps/platform-api/AGENTS.md) · [`apps/feature-screens/`](apps/feature-screens/AGENTS.md) | Core-server and feature-screen ownership; for feature domain work, read [feature implementation](docs/agents/feature-implementation.md) and its subject contracts. |
+| [`apps/platform-api/`](apps/platform-api/AGENTS.md) · [`packages/feature/screens/`](packages/feature/screens/AGENTS.md) | Core-server and feature-screen ownership; for feature domain work, read [feature implementation](docs/agents/feature-implementation.md) and its subject contracts. |
 
 ## Agent assets
 

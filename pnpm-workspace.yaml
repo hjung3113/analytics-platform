@@ -5,8 +5,8 @@ packages:
   - apps/*
   - packages/*
   - packages/eqv/*
+  - packages/feature/*
   - packages/sdk/*
-  - packages/adapters/*
   - packages/host/*
   - menus/*/*
   - platform/*

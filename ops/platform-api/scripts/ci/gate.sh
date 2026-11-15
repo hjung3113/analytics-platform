@@ -12,7 +12,7 @@
 #       files changed since merge-base(HEAD, <ref>). The Biome gate diffs
 #       committed history, so the checkout needs full history and <ref>.
 #   bash ops/platform-api/scripts/ci/gate.sh unit
-#       vitest for @ap/feature-screens, @ap/feature-ui and @ap/feature-shared. The backend
+#       vitest for @ap/feature-screens and @ap/feature-shared. The backend
 #       suite runs in `integration`, where its DB-backed suites are live.
 #   bash ops/platform-api/scripts/ci/gate.sh integration
 #       bootstraps a throwaway Postgres from ops/platform-api/scripts/db/init.sql, migrates it, and
@@ -75,7 +75,6 @@ stage_static_extra() {
 
 stage_unit() {
   step pnpm --filter @ap/feature-screens exec vitest run
-  step pnpm --filter @ap/feature-ui exec vitest run
   step pnpm --filter @ap/feature-shared exec vitest run
 }
 

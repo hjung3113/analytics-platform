@@ -7,11 +7,11 @@ import { RELEASE_UNIT2_PACKAGES, distTarget, releasePackages } from './sdk-expor
 
 test('release packages cover SDK, adapters and app-host except the explicit unpublished packages', () => {
   const repo = new URL('../../', import.meta.url).pathname;
-  const folders = ['packages/sdk', 'packages/adapters', 'packages/host'].flatMap(parent => readdirSync(join(repo, parent), { withFileTypes: true })
+  const folders = ['packages/sdk', 'packages/host'].flatMap(parent => readdirSync(join(repo, parent), { withFileTypes: true })
     .filter(entry => entry.isDirectory() && existsSync(join(repo, parent, entry.name, 'package.json')))
-    .map(entry => `${parent}/${entry.name}`));
+    .map(entry => `${parent}/${entry.name}`)).concat(existsSync(join(repo, 'packages/feature/bridge/package.json')) ? ['packages/feature/bridge'] : []);
   const released = new Set(releasePackages().map(entry => entry.dir));
-  assert.deepEqual(folders.filter(dir => !released.has(dir)).sort(), ['packages/adapters/feature-bridge', 'packages/sdk/contract-schemas']);
+  assert.deepEqual(folders.filter(dir => !released.has(dir)).sort(), ['packages/feature/bridge', 'packages/sdk/contract-schemas']);
   for (const dir of released) assert.ok(folders.includes(dir), `${dir} exists`);
 });
 

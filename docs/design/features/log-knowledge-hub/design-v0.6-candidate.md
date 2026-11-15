@@ -140,7 +140,7 @@ analytics-platform/
 │  └─ jobs/                      # 검색 outbox, 재검토 표시, import apply
 ├─ apps/platform-api/src/db/schema/knowledge.ts  # 또는 knowledge/ 여러 파일
 ├─ apps/platform-api/migrations/NNNN_*.sql      # Drizzle + meta/_journal.json 필수
-├─ packages/feature-shared/src/log-knowledge/    # 서버·화면 공유 DTO; 경계 규칙 준수
+├─ packages/feature/shared/src/log-knowledge/    # 서버·화면 공유 DTO; 경계 규칙 준수
 ├─ packages/sdk/contract-schemas/                # 플랫폼 계약의 허용된 소유 위치
 └─ docs/architecture/platform-api/api/log-knowledge.md  # 구현 시 endpoint authority 반영
 ```

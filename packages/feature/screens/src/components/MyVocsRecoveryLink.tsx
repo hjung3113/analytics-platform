@@ -1,0 +1,19 @@
+import { GLOSSARY } from '../lib/copy/glossary';
+import { HostLink } from '../lib/host/host-seam';
+import { Button } from '@ap/ui';
+import { ArrowRight } from 'lucide-react';
+
+/**
+ * The single blocked-state recovery affordance (#1264): permission-blocked
+ * screens that offer a reporter detour link to 내 VOC with this one Button.
+ */
+export function MyVocsRecoveryLink() {
+  return (
+    <Button asChild variant="secondary" size="sm" spacing="compact">
+      <HostLink to="/vocs?view=my">
+        {GLOSSARY.myVocs}
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </HostLink>
+    </Button>
+  );
+}

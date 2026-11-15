@@ -1,0 +1,93 @@
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const modalState = vi.hoisted(() => ({
+  candidates: [] as Array<{
+    voc_id: string;
+    display_id: string | null;
+    title: string;
+    severity?: string | null;
+    reporter_facing_status: string;
+  }>,
+  mutateAsync: vi.fn(),
+  data: undefined as undefined | { pages: Array<{ candidates: unknown[]; page: object }> },
+}));
+
+vi.mock('../../hooks/useAddClusterMember', () => ({
+  useAddClusterMember: () => ({ mutateAsync: modalState.mutateAsync, isPending: false }),
+}));
+
+vi.mock('../../hooks/useCandidatePeers', () => ({
+  useCandidatePeers: () => ({
+    data: modalState.data,
+    isLoading: false,
+    isError: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    isFetchNextPageError: false,
+    fetchNextPage: vi.fn(),
+  }),
+}));
+
+import { AddVocModal } from './AddVocModal.js';
+
+const candidateId = '60000000-0000-0000-0000-000000000006';
+
+describe('AddVocModal candidate identity', () => {
+  beforeEach(() => {
+    modalState.candidates = [
+      {
+        voc_id: candidateId,
+        display_id: null,
+        title: '결제 실패',
+        severity: 'high',
+        reporter_facing_status: 'received',
+      },
+    ];
+    // react-query hands back a stable data object; the mock must too.
+    modalState.data = { pages: [{ candidates: modalState.candidates, page: { has_more: false } }] };
+  });
+
+  it('keeps a candidate VOC number unbroken without preventing title wrapping', () => {
+    const candidate = modalState.candidates[0];
+    if (!candidate) throw new Error('fixture missing');
+    candidate.display_id = 'VOC-1021';
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+    expect(screen.getByText('VOC-1021')).toHaveClass('whitespace-nowrap', 'shrink-0');
+    expect(screen.getByRole('button', { name: 'VOC-1021 추가' })).toBeInTheDocument();
+  });
+
+  it('bounds a long candidate ID and allows the add action to wrap', () => {
+    const candidate = modalState.candidates[0];
+    if (!candidate) throw new Error('fixture missing');
+    const displayId = 'VOC-1234567890123456789';
+    candidate.display_id = displayId;
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+    const id = screen.getByText(displayId);
+    expect(id).toHaveClass('inline-block', 'max-w-full', 'truncate', 'whitespace-nowrap');
+    expect(id).toHaveAttribute('title', displayId);
+    expect(id.parentElement).toHaveClass('min-w-0', 'max-w-full');
+    expect(id.parentElement?.parentElement).toHaveClass('min-w-0', 'flex-1', 'basis-48');
+    expect(screen.getByRole('button', { name: `${displayId} 추가` }).parentElement).toHaveClass('flex-wrap', 'gap-2');
+  });
+
+  it('shows the VOC label with translated severity/status and a muted id fragment', () => {
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+
+    expect(screen.getByText('VOC · 결제 실패 · 높음 · 접수됨')).toBeInTheDocument();
+    expect(screen.getByText('60000000')).toHaveClass('font-mono', 'text-xs', 'text-text-muted');
+    expect(screen.getByRole('button', { name: 'VOC 추가' })).toBeInTheDocument();
+  });
+
+  it('renders no severity segment when the candidate omits severity (reporter arm)', () => {
+    const [candidate] = modalState.candidates;
+    if (!candidate) throw new Error('fixture missing');
+    const { severity: _omitted, ...withoutSeverity } = candidate;
+    modalState.candidates.splice(0, 1, withoutSeverity);
+
+    render(<AddVocModal open clusterId="cluster-1" onClose={() => undefined} />);
+
+    expect(screen.getByText('VOC · 결제 실패 · 접수됨')).toBeInTheDocument();
+    expect(screen.queryByText(/미지정/)).not.toBeInTheDocument();
+  });
+});

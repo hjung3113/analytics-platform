@@ -1,0 +1,27 @@
+import { apiPath } from '../../../lib/api/path';
+import { apiRequest } from '../../../lib/api/client';
+import {
+  type EvidenceHighlightDto,
+  listEvidenceHighlightsResponseSchema,
+} from '@ap/feature-shared';
+import { type UseQueryResult, useQuery } from '@tanstack/react-query';
+
+export function useEvidenceHighlights(
+  findingId: string | null | undefined,
+): UseQueryResult<EvidenceHighlightDto[]> {
+  return useQuery({
+    queryKey: ['finding', findingId, 'evidence-highlights'] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiRequest(
+        'GET',
+        apiPath`/findings/${findingId as string}/evidence-highlights`,
+        listEvidenceHighlightsResponseSchema,
+        { signal },
+      );
+      return res.data.items;
+    },
+    enabled: Boolean(findingId),
+    staleTime: 30_000,
+    retry: 1,
+  });
+}

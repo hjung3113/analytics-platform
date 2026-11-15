@@ -22,7 +22,6 @@ import {
   featureScreensPreset,
   featureServerUntypedPreset,
   featureSharedPreset,
-  featureUiPreset,
   hostModule,
   hostModuleDir,
   httpAdapter,
@@ -55,7 +54,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'platform/home': menu,
   'menus/mars/analytics': menu,
   'menus/bravo/metrics': menu,
-  'packages/adapters/feature-bridge': featureBridgePreset,
+  'packages/feature/bridge': featureBridgePreset,
   'platform/my-activity': featureBridgeMenuPreset,
   'platform/voc': featureBridgeMenuPreset,
   'menus/log-dev/log-models': featureBridgeMenuPreset,
@@ -66,7 +65,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
 };
 
 async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]> {
-  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') || /^packages\/(sdk|adapters|host)\//.test(relFile) ? 3 : 2).join('/');
+  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') || /^packages\/(sdk|host|feature)\//.test(relFile) ? 3 : 2).join('/');
   const preset = PRESETS[pkgDir];
   if (!preset) throw new Error(`no preset mapped for ${pkgDir}`);
   const eslint = new ESLint({
@@ -97,7 +96,7 @@ async function lintExternal(relFile: string, code: string): Promise<Linter.LintM
 }
 
 interface Row {
-  /** Repo-relative file path; space and group segments pick menu packages; packages/sdk, packages/host and packages/adapters packages use three, other packages two. */
+  /** Repo-relative file path; space and group segments pick menu packages; packages/sdk, packages/host and packages/feature packages use three, other packages two. */
   file: string;
   code: string;
   /** Expected rule id; '' means the code must lint clean; null is a linter report with no rule (an unused disable directive). */
@@ -288,8 +287,8 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `const m = await import('@tanstack/react-query');`, rule: 'ap/restricted-import-source' },
   { file: 'packages/sdk/kernel/src/x.ts', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
   { file: 'packages/sdk/kernel/src/x.ts', code: `const m = await import('@tanstack/react-query');`, rule: '' },
-  { file: 'packages/adapters/feature-bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
-  { file: 'packages/adapters/feature-bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/feature/bridge/src/nav-counts.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
+  { file: 'packages/feature/bridge/src/pages/SavedViews.tsx', code: `import { useQuery } from '@tanstack/react-query';`, rule: '' },
 
   // --- ADR-0067 (#575): `@ap/components/dock` is a host-only entry (shell, app); the dock engine is components-internal ---
   { file: 'packages/sdk/shell/src/x.ts', code: `import { DockLayout } from '@ap/components/dock';`, rule: '' },
@@ -638,10 +637,6 @@ const FEATURE_BOUNDARY_FILES = [
 
 for (const file of FEATURE_BOUNDARY_FILES) {
   rows.push(
-    { file, code: `import { Button } from '@ap/feature-ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-    { file, code: `import { Button } from '@ap/feature-ui/src/button';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-    { file, code: `void import('@ap/feature-ui');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-    { file, code: `void import('@ap/feature-ui/src/button');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   );
 }
 
@@ -668,21 +663,21 @@ rows.push(
   { file: BRIDGE, code: `void import('${OPERATOR_DASHBOARD}');`, rule: '' },
   { file: MENU, code: `import { DashboardScreen } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: MENU, code: `void import('${OPERATOR_DASHBOARD}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-  { file: `${'packages/adapters/feature-bridge/src'}/feature/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+  { file: `${'packages/feature/bridge/src'}/feature/session.ts`, code: `import { x } from '${OPERATOR_DASHBOARD}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
 );
 // The operator VOC entries (#761): the feature VOC bridge menu may import them (static and dynamic); a non-bridge menu and the feature-bridge runtime's eager code may not.
 const FEATURE_VOC = 'platform/voc/src/pages/x.tsx';
-// The entry list is `apps/feature-screens/package.json` `exports` (one list, #1640): adding an entry there adds its rows here.
+// The entry list is `packages/feature/screens/package.json` `exports` (one list, #1640): adding an entry there adds its rows here.
 for (const source of featureBridgeEntrySources().filter((entry) => entry.startsWith('@ap/feature-screens/operator-screens/'))) {
   rows.push(
     { file: FEATURE_VOC, code: `import { x } from '${source}';`, rule: '' },
     { file: FEATURE_VOC, code: `void import('${source}');`, rule: '' },
     { file: MENU, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
     { file: MENU, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
-    { file: `${'packages/adapters/feature-bridge/src'}/feature/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
+    { file: `${'packages/feature/bridge/src'}/feature/session.ts`, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   );
 }
-for (const source of ['@ap/feature-screens', '@ap/feature-screens/src/main', '@ap/feature-screens/global-screens/FeatureScreenRoot', '@ap/feature-ui', '@ap/feature-shared']) {
+for (const source of ['@ap/feature-screens', '@ap/feature-screens/src/main', '@ap/feature-screens/global-screens/FeatureScreenRoot', '@ap/feature-shared']) {
   rows.push(
     { file: BRIDGE, code: `import { x } from '${source}';`, rule: 'no-restricted-imports', token: '@ap/ui' },
     { file: BRIDGE, code: `void import('${source}');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
@@ -690,7 +685,7 @@ for (const source of ['@ap/feature-screens', '@ap/feature-screens/src/main', '@a
 }
 
 // `@ap/feature-bridge` (ADR-0071, ADR-0081): bridge runtime, importable by bridge menus (root) and the app; `/core` only, lazy pages may see the screen barrel.
-const FEATURE_PKG = 'packages/adapters/feature-bridge/src';
+const FEATURE_PKG = 'packages/feature/bridge/src';
 for (const source of ['@ap/kernel', '@ap/components', '@ap/ui', '@ap/contracts']) {
   rows.push({ file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '${source}';`, rule: '' });
 }
@@ -706,7 +701,6 @@ rows.push(
   { file: `${FEATURE_PKG}/notifications-slot.tsx`, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FEATURE_PKG}/notifications-slot.tsx`, code: `void import('@ap/feature-screens/global-screens/inbox-panel');`, rule: 'ap/restricted-import-source', token: '@ap/ui' },
   { file: MENU, code: `import { InboxPanel } from '@ap/feature-screens/global-screens/inbox-panel';`, rule: 'no-restricted-imports', token: '@ap/ui' },
-  { file: `${FEATURE_PKG}/pages/HomeTodo.tsx`, code: `import { x } from '@ap/feature-ui';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/feature-screens/global-screens/FeatureScreenRoot';`, rule: 'no-restricted-imports', token: '@ap/ui' },
   { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/shell';`, rule: 'no-restricted-imports' },
   { file: `${FEATURE_PKG}/feature/session.ts`, code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
@@ -734,7 +728,7 @@ for (const file of ['nav-counts.tsx', 'pages/SavedViews.tsx']) {
   rows.push(
     { file: `${FEATURE_PKG}/${file}`, code: `import { x } from '@/lib/api/nav';`, rule: 'no-restricted-imports' },
     { file: `${FEATURE_PKG}/${file}`, code: `void import('@/lib/api/nav');`, rule: 'ap/restricted-import-source' },
-    { file: `${FEATURE_PKG}/${file}`, code: `import { x } from '../../../../../../apps/feature-screens/src/lib/api/nav';`, rule: 'ap/no-relative-package-escape' },
+    { file: `${FEATURE_PKG}/${file}`, code: `import { x } from '../../../../../../packages/feature/screens/src/lib/api/nav';`, rule: 'ap/no-relative-package-escape' },
   );
 }
 
@@ -838,7 +832,7 @@ rows.push(
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/feature-bridge/src/saved-views';`, rule: 'no-restricted-imports' },
 );
 
-// The feature-bridge menu test harness (#951): `kernel/testing` for exactly `packages/adapters/feature-bridge/src/testing.tsx`; `@ap/feature-bridge/testing` for bridge-menu test and test-support files only.
+// The feature-bridge menu test harness (#951): `kernel/testing` for exactly `packages/feature/bridge/src/testing.tsx`; `@ap/feature-bridge/testing` for bridge-menu test and test-support files only.
 rows.push(
   { file: `${FEATURE_PKG}/testing.tsx`, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: `${FEATURE_PKG}/testing.tsx`, code: `const m = await import('@ap/kernel/testing');`, rule: '' },
@@ -1056,20 +1050,20 @@ describe('query engine version lock', () => {
     };
     const kernelVersion = await version('sdk/kernel');
     expect(kernelVersion).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(await version('adapters/feature-bridge')).toBe(kernelVersion);
+    expect(await version('feature/bridge')).toBe(kernelVersion);
   });
 });
 
 // Identity boundaries survive the move into the unrestricted app namespace.
 describe('feature identities', () => {
-  it.each(['@ap/platform-api', '@ap/feature-screens', '@ap/feature-shared', '@ap/feature-ui', '@ap/platform-api-ops'])('rejects %s roots and subpaths in every import form', async (source) => {
+  it.each(['@ap/platform-api', '@ap/feature-screens', '@ap/feature-shared', '@ap/platform-api-ops'])('rejects %s roots and subpaths in every import form', async (source) => {
     for (const entry of [source, `${source}/public`]) {
       for (const code of [`import { x } from '${entry}';`, `void import('${entry}');`, `type X = import('${entry}').X;`, `const x = require('${entry}');`]) {
         expect((await lint('apps/platform-web/src/menus.ts', code)).length).toBeGreaterThan(0);
       }
     }
   });
-  it.each(['@ap/platform-api-extra', '@ap/feature-screens-extra', '@ap/feature-shared-extra', '@ap/feature-ui-extra', '@ap/platform-api-ops-extra'])('allows near neighbor %s in app', async (source) => {
+  it.each(['@ap/platform-api-extra', '@ap/feature-screens-extra', '@ap/feature-shared-extra', '@ap/platform-api-ops-extra'])('allows near neighbor %s in app', async (source) => {
     expect(await lint('apps/platform-web/src/menus.ts', `import { x } from '${source}'; void import('${source}');`)).toEqual([]);
   });
 });
@@ -1089,7 +1083,7 @@ describe('EV ban outside the host slot', () => {
   const BANNED_FILES = [
     'packages/sdk/contracts/src/x.ts', 'packages/sdk/contract-schemas/src/x.ts', 'packages/sdk/ui/src/x.ts', 'packages/sdk/kernel/src/x.ts',
     'packages/sdk/components/src/x.ts', 'packages/sdk/shell/src/x.ts', 'packages/host/mock-server/src/x.ts', 'packages/host/http-adapter/src/x.ts',
-    'packages/host/server-conformance/src/x.ts', 'packages/adapters/feature-bridge/src/x.ts', 'modules/fixture/src/x.ts',
+    'packages/host/server-conformance/src/x.ts', 'packages/feature/bridge/src/x.ts', 'modules/fixture/src/x.ts',
     MENU, 'menus/mars/analytics/src/x.ts', 'platform/my-activity/src/pages/x.tsx', 'platform/my-activity/src/mock/x.ts',
   ];
   it.each(BANNED_FILES.flatMap((file) => importForms('@eqv/core').map((f) => ({ file, ...f }))))('$file rejects @eqv/core ($form)', async ({ file, code, rule }) => {
@@ -1099,8 +1093,8 @@ describe('EV ban outside the host slot', () => {
   });
 
   const FEATURE: [string, Linter.Config[]][] = [
-    ['apps/platform-api', featureServerUntypedPreset], ['packages/feature-shared', featureSharedPreset],
-    ['packages/feature-ui', featureUiPreset], ['apps/feature-screens', featureScreensPreset],
+    ['apps/platform-api', featureServerUntypedPreset], ['packages/feature/shared', featureSharedPreset],
+    ['packages/feature/screens', featureScreensPreset],
   ];
   it.each(FEATURE.flatMap(([dir, preset]) => importForms('@eqv/ui/sub').map((f) => ({ dir, preset, ...f }))))('$dir rejects @eqv/ui/sub ($form)', async ({ dir, preset, code, rule }) => {
     const cwd = path.join(REPO_ROOT, dir);
