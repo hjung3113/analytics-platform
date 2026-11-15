@@ -1,3 +1,4 @@
+import { assertNoOverlappingDeny } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 import { assertScopeNarrowing, requestScope, requestedScopeFields, grantedScopeFields, scopeFields } from './site-scope-policy.js';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
@@ -306,6 +307,11 @@ export function createDecisionService(deps: DecisionServiceDeps) {
               );
             }
           }
+        }
+
+        if (action === 'approve' && scope.kind === 'managed_system') {
+          // Judge the requested scope, even if approval narrows it: lift its deny before approval.
+          await assertNoOverlappingDeny(tx, actor.workspace_id, request.requesterActorId, capability, request.requestedManagedSystemId);
         }
 
         if (action === 'approve') validateRequestExpiration(grantedExpiration, 'expiration');

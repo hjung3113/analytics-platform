@@ -199,6 +199,42 @@ describe.skipIf(!runIntegration)('selected Permission request reads (FO ADR-0066
     });
   }
 
+  it.each([
+    ['workspace request / system deny', null, 'system'],
+    ['system request / workspace deny', 'system', null],
+    ['system request / same-system deny', 'system', 'system'],
+  ] as const)('SER-24: %s blocks creation and approval until explicit lift', async (_name, requested, denied) => {
+    const owner = await actor('user');
+    const scope = requested === null ? null : ms;
+    const denyId = await denyCapability(migrate, WORKSPACE_ID, owner.id, 'survey.export', denied === null ? null : ms, admin.id);
+    const create = await app.inject({
+      method: 'POST', url: '/permission-requests',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${owner.cookie}` },
+      payload: { requested_capability: 'survey.export', ...(scope === null ? {} : { requested_managed_system_id: scope }), reason: 'Synthetic denied request' },
+    });
+    expect(create.statusCode, create.body).toBe(409);
+    expect(create.json().code).toBe('conflict.capability_already_denied');
+    expect((await migrate.pool.query('select id from permission.permission_requests where requester_actor_id=$1', [owner.id])).rows).toEqual([]);
+    const { id } = await request({ owner: owner.id, capability: 'survey.export', scope });
+    const detail = await get(`/permissions/requests/${id}`);
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().allowed_actions).not.toContain('approve');
+    const approve = () => app.inject({
+      method: 'POST', url: `/permissions/requests/${id}/approve`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${admin.cookie}` },
+      payload: { expected_revision: 1, reason: 'Synthetic approval' },
+    });
+    const refused = await approve();
+    expect(refused.statusCode, refused.body).toBe(409);
+    expect(refused.json().code).toBe('conflict.capability_already_denied');
+    expect((await migrate.pool.query('select status, revision from permission.permission_requests where id=$1', [id])).rows).toEqual([{ status: 'pending', revision: 1 }]);
+    expect((await migrate.pool.query('select id from permission.permission_grants where actor_id=$1', [owner.id])).rows).toEqual([]);
+    expect(dispatcher.jobs.filter((job) => job.subject_id === id)).toEqual([]);
+    await revokeDeny(migrate, denyId, admin.id);
+    expect((await get(`/permissions/requests/${id}`)).json().allowed_actions).toContain('approve');
+    expect((await approve()).statusCode).toBe(200);
+  });
+
   it('owner receives current request and editable actions without Admin internals', async () => {
     const { id } = await request({ owner: user.id });
     const response = await get(`/permission-requests/${id}`, user);

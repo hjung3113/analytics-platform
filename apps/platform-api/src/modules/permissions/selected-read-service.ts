@@ -1,3 +1,4 @@
+import { overlappingDenies } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 import { requestScope, requestedScopeFields, grantedScopeFields, scopeFields, findCoveringSiteGrant, inScopeCatalog } from './site-scope-policy.js';
 import {
@@ -8,10 +9,9 @@ import {
   permissionRequestAdminDetailSchema,
   permissionRequestOwnerDetailSchema,
 } from '@ap/feature-shared';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import {
-  permissionDenies,
   permissionGrants,
   permissionRequests,
 } from '../../db/schema/permission.js';
@@ -261,29 +261,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
                 .limit(1)
             : [];
         // Overlap is deliberately separate from checkCapability's existing scope semantics.
-        const matching_denies = await tx
-          .select({
-            id: permissionDenies.id,
-            managed_system_id: permissionDenies.managedSystemId,
-          })
-          .from(permissionDenies)
-          .where(
-            and(
-              eq(permissionDenies.workspaceId, actor.workspace_id),
-              eq(permissionDenies.actorId, requester.id),
-              eq(permissionDenies.capability, cap),
-              isNull(permissionDenies.revokedAt),
-              ...(row.requestedManagedSystemId === null
-                ? []
-                : [
-                    or(
-                      isNull(permissionDenies.managedSystemId),
-                      eq(permissionDenies.managedSystemId, row.requestedManagedSystemId),
-                    ),
-                  ]),
-            ),
-          )
-          .orderBy(permissionDenies.id);
+        const matching_denies = await overlappingDenies(tx, actor.workspace_id, requester.id, cap, row.requestedManagedSystemId);
         const risk_indicators: PermissionRiskIndicator[] = [];
         if (capabilities.meta(cap).sensitive)
           risk_indicators.push({ code: 'sensitive_capability', evidence: { capability: cap } });
@@ -314,7 +292,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
         const is_requester = actor.actor_id === requester.id;
         const open = row.status === 'pending' || row.status === 'needs_more_info';
         const canApprove =
-          approval_scope_candidates.length > 0 &&
+          approval_scope_candidates.length > 0 && matching_denies.length === 0 &&
           !(is_requester && policy.permission_self_approval === 'forbidden');
         return permissionRequestAdminDetailSchema.parse({
           ...(await common(tx, actor, row)),

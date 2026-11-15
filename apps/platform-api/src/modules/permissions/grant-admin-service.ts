@@ -1,3 +1,4 @@
+import { overlappingDenies } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 import { grantScope, managedScope, scopeFields, inScopeCatalog, type GrantScope } from './site-scope-policy.js';
 import { and, asc, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
@@ -131,24 +132,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         review_route: `/admin/permissions/requests?selected=${request.id}`,
       };
     if (scope.kind !== 'managed_system') return { state: 'available' };
-    const denies = await tx
-      .select({ id: permissionDenies.id })
-      .from(permissionDenies)
-      .where(
-        and(
-          eq(permissionDenies.workspaceId, workspaceId),
-          eq(permissionDenies.actorId, actorId),
-          eq(permissionDenies.capability, capability),
-          isNull(permissionDenies.revokedAt),
-          managedSystemId === null
-            ? undefined
-            : or(
-                isNull(permissionDenies.managedSystemId),
-                eq(permissionDenies.managedSystemId, managedSystemId),
-              ),
-        ),
-      )
-      .orderBy(asc(permissionDenies.id));
+    const denies = await overlappingDenies(tx, workspaceId, actorId, capability, managedSystemId);
     if (denies.length > 0)
       return {
         state: 'deny_lift',

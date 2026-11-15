@@ -5,11 +5,11 @@
 // Lease rules (decision 4), in short:
 //   * a call for the CURRENT attempt of a claimed request is accepted, even when the lease ran out and no claim call has
 //     requeued it yet;
-//   * a result / fail for the latest attempt of a request that was requeued (state `queued`, attempt `lease_expired`) and
+//   * a result / fail for the latest attempt of a request that was requeued (state `queued` / `expired`, attempt `lease_expired`) and
 //     that nobody took meanwhile is accepted too: the work is kept, the request ends `succeeded` / `failed`;
 //   * a heartbeat in that requeued state takes the lease back for the same attempt (request `claimed`, attempt `running`),
 //     under the request row lock; a claim by another worker that got there first makes it `queue.lease_lost`;
-//   * anything else (another attempt exists, the request is cancelled / expired / finished, another worker's attempt) is
+//   * anything else (another attempt exists, the request is cancelled / finished, another worker's attempt) is
 //     `queue.lease_lost`;
 //   * a result whose digest differs from the stored one for the same attempt is `conflict.stale_write`.
 // `queue.lease_lost` is a queue-local code answered by the route (409), not an entry of the shared error registry.
@@ -116,7 +116,8 @@ export function createQueueService(deps: QueueServiceDeps) {
     request.state === 'claimed' && request.attemptCount === attempt.attemptNo && attempt.outcome === 'running';
   /** The lease ran out, the request went back to the queue, and nobody has claimed it again. */
   const isLate = (request: RequestRow, attempt: AttemptRow) =>
-    request.state === 'queued' && request.attemptCount === attempt.attemptNo && attempt.outcome === 'lease_expired';
+    (request.state === 'queued' || request.state === 'expired') &&
+    request.attemptCount === attempt.attemptNo && attempt.outcome === 'lease_expired';
 
   async function claim(caller: WorkerCaller): Promise<ClaimBody | null> {
     return deps.db.transaction(async (tx) => {
@@ -176,7 +177,7 @@ export function createQueueService(deps: QueueServiceDeps) {
     return deps.db.transaction(async (tx) => {
       const { request, attempt } = await locate(tx, caller, requestId, attemptNo);
       const settings = await getQueueSettings(tx, caller.workspaceId);
-      if (isLate(request, attempt)) {
+      if (request.state === 'queued' && isLate(request, attempt)) {
         // Decision 4: nobody took the request after the lease ran out, so the same attempt gets its lease back.
         const at = await reclaimLease(tx, request, attempt, settings.leaseSeconds);
         return { leaseExpiresAt: iso(at) };

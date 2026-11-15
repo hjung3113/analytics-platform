@@ -114,7 +114,11 @@ transaction; reject ordinary workspace.admin requests and unsupported object
 scope with `422 validation.failed`. Retain optional expiration, no default;
 non-null expiration must be future. Already-effective access is
 `409 conflict.capability_already_granted`; duplicate complete open scope/source
-is `409 conflict.permission_request_duplicate`. Request creation participates in
+is `409 conflict.permission_request_duplicate`. An overlapping active Explicit Deny
+returns `409 conflict.capability_already_denied` on creation and approval; lift
+the deny first. Admin selected detail omits `approve` while the requested scope
+overlaps a deny. Overlap follows [05 Permission Policy](../05-permission-policy.md).
+Request creation participates in
 recipient serialization with direct grant/approval (FO ADR-0066).
 
 ### `POST /permission-requests/:id/submit-more-info`

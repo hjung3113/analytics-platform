@@ -281,11 +281,13 @@ receives `permission.denied` (`403`). The caller-scoped variant
 `GET /permission-requests/mine` requires only a session (an Actor may always
 read their own open requests; `?status=all` adds the caller's own decided requests, owner-only, newest 50).
 
-Rejected Permission Requests must not be immediately resubmitted for the same
-source object, source action, and requested scope unless the rejection response
-allows appeal, requests more information, or provides `retry_after`. This keeps
-Admin review queues from becoming repeated-denial loops while still allowing
-corrected or supplemented requests.
+Creating or approving a Permission Request with an overlapping active Explicit
+Deny returns `409 conflict.capability_already_denied`; lift the deny explicitly
+before retrying. Admin detail omits `approve` while the requested scope overlaps
+a deny. Workspace requests overlap every deny for that capability; system
+requests overlap workspace and same-system denies. Rejection alone does not
+block a fresh request; the unimplemented appeal / `retry_after` policy is
+[deferred](../../../.planning/post-mvp-feature-backlog.md#permission-request-retry-policy-ser-24).
 
 After approval, the API response should provide enough route intent for the
 frontend to return the requester to the originally blocked object or action

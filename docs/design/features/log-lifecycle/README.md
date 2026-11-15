@@ -87,7 +87,7 @@ v0.30.0 묶음(소유자 2026-11-07): **#1108**([ADR-0118](../../../adr/0118-dyn
 
 `id`, `request_id`, `attempt_no`, `worker_actor_id`(토큰의 Actor), `started_at`, `ended_at?`, `outcome`(`running`·`succeeded`·`failed`·`lease_expired`), `executor_version?`, `executor_digest?`, `rule_set_revision?`, `input_manifest_digest`, `result_digest?`, `verdict?`.
 
-- `verdict`는 **서버가 `rule_result`에서 계산**한다(`pass`·`fail`·`incomplete`): `FAIL`이 하나라도 있으면 `fail`; `required`인 규칙에 `ERROR`·`NOT_CHECKED`·`SKIPPED`가 있거나 전달 샘플이 요청 매니페스트와 digest가 다르면 `incomplete`; 그 외 `pass`. 작업자가 보낸 요약은 저장하되 판정에 쓰지 않는다. 미지원·미검증이 `pass`에 섞이지 않게 하는 장치다.
+- `verdict`는 **서버가 `rule_result`에서 계산**한다(`pass`·`fail`·`incomplete`): `FAIL`이 하나라도 있으면 `fail`; `results`가 비었거나 `required`인 규칙에 `ERROR`·`NOT_CHECKED`·`SKIPPED`가 있거나 전달 샘플이 요청 매니페스트와 digest가 다르면 `incomplete`; 그 외 `pass`. 작업자가 보낸 요약은 저장하되 판정에 쓰지 않는다. 미지원·미검증이 `pass`에 섞이지 않게 하는 장치다.
 - `input_manifest_digest`는 작업자가 실제 쓴 샘플 매니페스트의 digest로, 요청의 `sample_manifest_digest`와 다르면 결과를 받되 `incomplete`로 표시한다.
 
 ### rule_result

@@ -79,6 +79,7 @@ const bodySchema = z
     executorDigest: text.nullish(),
     ruleSetRevision: text.nullish(),
     summary: z.record(z.unknown()).nullish(),
+    // Empty executions are retained; computeVerdict records them as incomplete.
     results: z.array(z.unknown(), { required_error: 'required', invalid_type_error: 'malformed' }),
   })
   .strict();
