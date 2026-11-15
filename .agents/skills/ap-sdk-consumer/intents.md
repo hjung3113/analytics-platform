@@ -14,7 +14,7 @@ Hand-written. Public names are checked against `tooling/sdk/api/*.api.txt` on ev
 | 관리 화면 배치 | `@ap/components#ManagementLayout` | [§12.3](../../../docs/contract/layout.md#123-management) | |
 | 패널 여러 개, 분할, 도킹, 패널 재배치, split | `@ap/components#PanelWorkspace` | [§12.8](../../../docs/contract/layout.md#128-panelworkspace-decided-adr-0067-결정-391822) | For dense analysis menus with several panels |
 | 드릴다운, 단계별로 내려가기 | `@ap/components#DrillLayout`, `@ap/kernel#useDrill` | [§12.7](../../../docs/contract/layout.md#127-드릴다운-레이아웃-decided-adr-0025) | The menu declares the steps |
-| 페이지 필터, 조건 입력, 적용된 필터, filter | `@ap/components#PageFilterBar`, `@ap/ui#ActiveFilterBar` | [Platform Component](../../../docs/contract/components.md#platform-component) | The page owns draft values and apply |
+| 페이지 조건, 페이지 필터, 조건 입력, 적용된 필터, filter | `@ap/components#PageFilterBar`, `@ap/ui#ActiveFilterBar` | [Platform Component](../../../docs/contract/components.md#platform-component) | The page owns draft values and apply |
 | 상세 패널, 서랍, drawer | `@ap/components#DetailDrawer` | [DetailDrawer](../../../docs/contract/components.md#detaildrawer--docked-shell-slot-decided-adr-0013) | URL-controlled, rendered in the shell slot |
 | 변경 이력, 감사, audit | `@ap/components#AuditTimeline`, `@ap/kernel#useEntityAudit` | [§13](../../../docs/contract/components.md#13-shared-component-layers) | |
 | 데이터 신뢰, 최신성, 출처 | `@ap/components#DataTrustIndicator` | [§18](../../../docs/contract/components.md#18-data-trust-contract) | |

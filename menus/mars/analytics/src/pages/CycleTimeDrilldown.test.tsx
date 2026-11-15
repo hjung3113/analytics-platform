@@ -93,8 +93,8 @@ describe('CycleTimeDrilldown applied condition line (#1218 LINE)', () => {
     expect(within(row).getByRole('group', { name: '느린 실행 기준 ≥ P95' })).toBeTruthy();
     expect(within(row).getByRole('group', { name: '정렬 사이클타임 내림차순' })).toBeTruthy();
     expect(new URLSearchParams(window.location.search).has('granularity')).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     expect(expand.textContent).toContain('집계 일');
     expect(expand.textContent).toContain('미적용 변경 있음');
     expect(row.closest('[hidden]')).toBeNull();
@@ -142,8 +142,8 @@ describe('CycleTimeDrilldown applied condition line (#1218 LINE)', () => {
     renderPage(`${base}&bucket=2026-09-26T05:00:00&bin=45-60..60-75`);
     const row = await screen.findByRole('group', { name: '적용된 조건' });
     fireEvent.click(screen.getByRole('button', { name: '일' }));
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     expect(expand.textContent).toContain('미적용 변경 있음');
     fireEvent.click(screen.getByRole('button', { name: clearLabel }));
     await waitFor(() => expect(screen.queryByRole('button', { name: clearLabel })).toBeNull());
@@ -161,8 +161,8 @@ describe('CycleTimeDrilldown applied condition line (#1218 LINE)', () => {
     </PlatformProvider></I18nProvider>);
     const row = await screen.findByRole('group', { name: '적용된 조건' });
     fireEvent.click(screen.getByRole('button', { name: 'Draft longer period' }));
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     expect(expand.textContent).toContain('집계 일');
     expect(within(row).getByRole('group', { name: '집계 시간' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '분포 필터 해제' }));
@@ -182,8 +182,8 @@ describe('CycleTimeDrilldown page filter summary', () => {
   it('shows the unknown percentile raw value in the collapsed summary instead of the default label', async () => {
     renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&percentile=zzz');
 
-    fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    fireEvent.click(await screen.findByRole('button', { name: '페이지 조건 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     // 9h period → hour grain; the summary repeats the edit fields, and the invalid tail shows the raw value.
     expect(expand.textContent).toContain('집계 시간');
     expect(expand.textContent).toContain('느린 실행 기준 이 화면에서 쓸 수 없는 값: zzz');
@@ -198,13 +198,13 @@ describe('CycleTimeDrilldown page filter summary', () => {
     vi.stubGlobal('localStorage', storage);
     renderPage('/analytics/cycle-time?v=1&scopeId=MEM&percentile=p50&sort=delta:desc');
 
-    fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    fireEvent.click(await screen.findByRole('button', { name: '페이지 조건 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     expect(expand.textContent).toContain('느린 실행 기준 ≥ P50');
     expect(expand.textContent).toContain('정렬 P95 대비 내림차순');
 
     fireEvent.click(screen.getByRole('button', { name: '페이지 조건 기본값' }));
-    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '페이지 조건 펼치기' })).toBeTruthy();
     const live = screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]');
     expect(live!.textContent).toContain('느린 실행 기준 ≥ P95');
   });
@@ -224,8 +224,8 @@ describe('CycleTimeDrilldown bucket and histogram text (#1218)', () => {
     renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&bucket=2026-09-26T05:00:00&bin=45-60..60-75');
     expect((await screen.findAllByText('2026-09-26 05:00 → 06:00')).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('45-60 – 60-75').length).toBeGreaterThanOrEqual(1);
-    fireEvent.click(await screen.findByRole('button', { name: '페이지 필터 접기' }));
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    fireEvent.click(await screen.findByRole('button', { name: '페이지 조건 접기' }));
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     expect(expand.textContent).toContain('버킷 2026-09-26 05:00 → 06:00');
     expect(expand.textContent).toContain('분포 구간 45-60 – 60-75');
   });
@@ -305,13 +305,13 @@ describe('CycleTimeDrilldown population caption (#397)', () => {
     const pending: PlatformAdapter = { ...adapter, menuQuery: () => new Promise<never>(() => undefined) };
     window.history.replaceState(null, '', url);
     render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={pending} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
-    expect((await screen.findByText(/페이지 필터 적용 목록입니다/)).textContent).toContain('모집단 …건.');
+    expect((await screen.findByText(/페이지 조건 적용 목록입니다/)).textContent).toContain('모집단 …건.');
   });
 
   it('says 확인할 수 없음 once the KPI query completed with an empty response', async () => {
     window.history.replaceState(null, '', url);
     render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
-    const caption = await screen.findByText(/페이지 필터 적용 목록입니다.*모집단 확인할 수 없음/);
+    const caption = await screen.findByText(/페이지 조건 적용 목록입니다.*모집단 확인할 수 없음/);
     expect(caption.textContent).not.toMatch(/모집단 …|건\./);
     expect(caption.textContent).not.toContain('URL sort');
   });

@@ -16,7 +16,7 @@ afterAll(() => {
 afterEach(cleanup);
 
 const collapsibleProps = {
-  label: '페이지 필터',
+  label: '페이지 조건',
   collapsible: true,
   preferenceKey: 'cycle-time',
   fields: [
@@ -55,11 +55,11 @@ describe('PageFilterBar collapsible', () => {
     mountBar();
     const bar = screen.getByTestId('page-filter-bar');
     expect(bar).toBeVisible();
-    expect(screen.getByRole('group', { name: '페이지 필터' })).toBe(bar);
-    expect(screen.getByText('페이지 필터')).not.toHaveClass('sr-only');
+    expect(screen.getByRole('group', { name: '페이지 조건' })).toBe(bar);
+    expect(screen.getByText('페이지 조건')).not.toHaveClass('sr-only');
     expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '페이지 조건 기본값' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 조건 접기' })).toBeInTheDocument();
     expect(document.activeElement).toBe(document.body);
 
     render(<I18nProvider><PageFilterBar {...collapsibleProps} label="두 번째 필터" preferenceKey="other-menu" /></I18nProvider>);
@@ -69,12 +69,12 @@ describe('PageFilterBar collapsible', () => {
   it('collapses to the full summary, removes the inputs, and hands focus to the expand button', () => {
     mountBar();
     const bar = screen.getByTestId('page-filter-bar');
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
 
-    const expand = screen.getByRole('button', { name: '페이지 필터 펼치기' });
+    const expand = screen.getByRole('button', { name: '페이지 조건 펼치기' });
     expect(expand).toHaveFocus();
     expect(screen.getByTestId('page-filter-bar')).toBe(bar);
-    expect(screen.getByText('페이지 필터')).toHaveClass('sr-only');
+    expect(screen.getByText('페이지 조건')).toHaveClass('sr-only');
     expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
     expect(screen.queryByRole('searchbox', { name: '검색' })).toBeNull();
     const summary = document.getElementById(expand.getAttribute('aria-describedby')!);
@@ -87,13 +87,13 @@ describe('PageFilterBar collapsible', () => {
     expect(storage.get('platform:page-filter-collapsed:v1:anon:cycle-time')).toBe('true');
 
     fireEvent.click(expand);
-    expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: '페이지 조건 접기' })).toHaveFocus();
     expect(screen.getByRole('combobox', { name: '느린 실행 기준' })).toBeInTheDocument();
   });
 
   it.each([
-    { collapsed: false, toggleName: '페이지 필터 접기', expanded: 'true' },
-    { collapsed: true, toggleName: '페이지 필터 펼치기', expanded: 'false' },
+    { collapsed: false, toggleName: '페이지 조건 접기', expanded: 'true' },
+    { collapsed: true, toggleName: '페이지 조건 펼치기', expanded: 'false' },
   ])('declares aria-expanded="$expanded" on "$toggleName" and points aria-controls at the input panel', ({ collapsed, toggleName, expanded }) => {
     if (collapsed) storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     mountBar();
@@ -117,20 +117,20 @@ describe('PageFilterBar collapsible', () => {
 
   it('restores the collapsed preference across remount', () => {
     const view = mountBar();
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
     view.unmount();
 
     mountBar();
-    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 조건 펼치기' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
   });
 
   it('re-reads the stored preference when preferenceKey changes', () => {
     const view = render(<I18nProvider><Harness preferenceKey="cycle-time" /></I18nProvider>);
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
     view.rerender(<I18nProvider><Harness preferenceKey="other-menu" /></I18nProvider>);
 
-    expect(screen.getByRole('button', { name: '페이지 필터 접기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 조건 접기' })).toBeInTheDocument();
     expect(storage.get('platform:page-filter-collapsed:v1:anon:cycle-time')).toBe('true');
     expect(storage.has('platform:page-filter-collapsed:v1:anon:other-menu')).toBe(false);
   });
@@ -142,7 +142,7 @@ describe('PageFilterBar collapsible', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '페이지 조건 기본값' }));
     expect(onReset).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '페이지 조건 펼치기' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '느린 실행 기준' })).toBeNull();
   });
 
@@ -153,8 +153,8 @@ describe('PageFilterBar collapsible', () => {
       removeItem: (key: string) => storage.delete(key),
     });
     mountBar();
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
-    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
+    expect(screen.getByRole('button', { name: '페이지 조건 펼치기' })).toHaveFocus();
   });
 
   it('has no `orientation` prop any more (the column rail form is removed, node 1217f)', () => {
@@ -170,14 +170,14 @@ describe('PageFilterBar collapsible', () => {
 
     expect(screen.getByText(longValue)).toBeInTheDocument();
     expect(screen.getByText(longValue)).not.toHaveClass('truncate');
-    expect(screen.getByRole('button', { name: '페이지 필터 펼치기' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: '페이지 조건 펼치기' })).not.toHaveAttribute('title');
   });
 
   it('marks unapplied changes at the end of the collapsed summary', () => {
     storage.set('platform:page-filter-collapsed:v1:anon:cycle-time', 'true');
     mountBar({ ...collapsibleProps, hasPendingChanges: true });
 
-    const summary = document.getElementById(screen.getByRole('button', { name: '페이지 필터 펼치기' }).getAttribute('aria-describedby')!);
+    const summary = document.getElementById(screen.getByRole('button', { name: '페이지 조건 펼치기' }).getAttribute('aria-describedby')!);
     expect(summary).toHaveTextContent('미적용 변경 있음');
   });
 
@@ -208,10 +208,10 @@ describe('PageFilterBar collapsible', () => {
 
   it('keeps the expanded hint out of the collapsed DOM and restores it on expansion', () => {
     mountBar({ ...collapsibleProps, hasPendingChanges: true });
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
     expect(screen.queryByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeNull();
     expect(screen.getByText('미적용 변경 있음')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 펼치기' }));
     expect(screen.getByText('미적용 변경 · 상단 적용으로 한 번에 조회')).toBeVisible();
   });
 
@@ -226,7 +226,7 @@ describe('PageFilterBar collapsible', () => {
     const live = () => screen.getByTestId('page-filter-bar').querySelector('[aria-live="polite"]')!;
     expect(live().textContent).toBe('');
 
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
     expect(live().textContent).toBe('');
 
     view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} summaryItems={[{ key: 'percentile', label: '느린 실행 기준', value: '≥ P50' }]} /></I18nProvider>);
@@ -235,9 +235,9 @@ describe('PageFilterBar collapsible', () => {
     view.rerender(<I18nProvider><PageFilterBar {...collapsibleProps} summaryItems={[{ key: 'percentile', label: '느린 실행 기준', value: '≥ P50' }]} /></I18nProvider>);
     expect(live().textContent).toContain('느린 실행 기준 ≥ P50');
 
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 펼치기' }));
     expect(live().textContent).toBe('');
-    fireEvent.click(screen.getByRole('button', { name: '페이지 필터 접기' }));
+    fireEvent.click(screen.getByRole('button', { name: '페이지 조건 접기' }));
     expect(live().textContent).toBe('');
   });
 
@@ -333,7 +333,7 @@ describe('PageFilterBar collapsible', () => {
     await user.keyboard('{Enter}');
     expect(screen.getByRole('button', { name: '분포 필터 해제' })).toHaveFocus();
     await user.keyboard('{Enter}');
-    expect(screen.getByRole('button', { name: collapsed ? '페이지 필터 펼치기' : '페이지 필터 접기' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: collapsed ? '페이지 조건 펼치기' : '페이지 조건 접기' })).toHaveFocus();
   });
 
   it('returns focus to the first field after the last removable chip in a parent-expanded popover (#1941 C3)', async () => {
@@ -383,8 +383,8 @@ describe('PageFilterBar collapsible', () => {
       { key: 'bin', label: '분포 구간', value: '45-60', onClear: vi.fn(), clearLabel: '분포 필터 해제' },
     ] });
     const stops = collapsed
-      ? [screen.getByRole('button', { name: '페이지 필터 펼치기' }), screen.getByRole('button', { name: '페이지 조건 기본값' })]
-      : [screen.getByRole('combobox', { name: '느린 실행 기준' }), screen.getByRole('searchbox', { name: '검색' }), screen.getByRole('button', { name: '페이지 조건 기본값' }), screen.getByRole('button', { name: '페이지 필터 접기' })];
+      ? [screen.getByRole('button', { name: '페이지 조건 펼치기' }), screen.getByRole('button', { name: '페이지 조건 기본값' })]
+      : [screen.getByRole('combobox', { name: '느린 실행 기준' }), screen.getByRole('searchbox', { name: '검색' }), screen.getByRole('button', { name: '페이지 조건 기본값' }), screen.getByRole('button', { name: '페이지 조건 접기' })];
     stops.push(screen.getByRole('button', { name: '버킷 필터 해제' }), screen.getByRole('button', { name: '분포 필터 해제' }));
     for (const stop of stops) { await user.tab(); expect(stop).toHaveFocus(); }
     await user.tab({ shift: true });

@@ -1044,11 +1044,11 @@ describe('PlatformDataTable table-owned export (#173)', () => {
   });
 
   it('appends exportNote to the completion toast', async () => {
-    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([]))} exportNote="페이지 필터가 적용된 목록입니다" />);
+    render(<ExportHarness loadPage={makeLoadPage(3)} exportRows={vi.fn(async () => ok([]))} exportNote="페이지 조건이 적용된 목록입니다" />);
     await screen.findByText(/1\/1/);
     await exportVia(FILTERED_CSV);
-    await waitFor(() => expect(screen.getByText(/페이지 필터가 적용된 목록입니다/)).toBeTruthy());
-    expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다 · 페이지 필터가 적용된 목록입니다')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/페이지 조건이 적용된 목록입니다/)).toBeTruthy());
+    expect(screen.getByText('필터 결과 전체 0행을 CSV 파일로 내보냈습니다 · 페이지 조건이 적용된 목록입니다')).toBeTruthy();
   });
 
   it('refuses to build a file over the defensive client cap and says why', async () => {

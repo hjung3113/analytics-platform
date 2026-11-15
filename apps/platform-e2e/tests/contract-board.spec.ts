@@ -1036,7 +1036,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await expect(row.or(page.getByRole('button', { name: '페이지 머리 펼치기' })).or(page.getByRole('button', { name: '페이지 머리 접기' })).first()).toBeVisible();
     if (await row.count()) return;
     await expandPageHead(page);
-    await page.getByRole('button', { name: '페이지 필터 접기' }).click();
+    await page.getByRole('button', { name: '페이지 조건 접기' }).click();
     await page.getByRole('button', { name: '페이지 머리 접기' }).click();
   }
   /** A fresh session starts stacked (ADR-0130); these checks are about the fitted arrangement, so `화면 맞춤` is chosen once the workspace shows. It applies the 기본 preset because the layout is still the 세로 one. */
@@ -1097,9 +1097,9 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.getByRole('button', { name: '조회 조건 펼치기' }).click();
     await expandPageHead(page);
     // collapseBars leaves the filter open when the folded bar carried the head (#1941); open it only if it is closed.
-    const filterExpand = page.getByRole('button', { name: '페이지 필터 펼치기' });
+    const filterExpand = page.getByRole('button', { name: '페이지 조건 펼치기' });
     if (await filterExpand.isVisible()) await filterExpand.click();
-    await expect(page.getByRole('button', { name: '페이지 필터 접기' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '페이지 조건 접기' })).toBeVisible();
     // The fill body keeps 520 px (toolbar included): the page scrolls instead of crushing the workspace.
     await expect.poll(async () => (await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
     expect(await mainScrolls(page)).toBe(true);
