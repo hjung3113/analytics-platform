@@ -69,10 +69,29 @@ describe('without a PlatformProvider', () => {
     expect(await screen.findByText(text)).toBeTruthy();
   });
 
+  it('reports a failed CSV download to notify as a warning and not as a success', () => {
+    vi.mocked(downloadChartCsv).mockImplementationOnce(() => { throw new Error('blocked'); });
+    const notify = vi.fn();
+    bare(chart(specs.topNBar!, { imageActions: { exportAllowed: true, notify } }));
+    fireEvent.click(exportButton()!);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('내보내지 못했습니다'), 'warning');
+    fireEvent.click(exportButton()!);
+    expect(notify).toHaveBeenCalledTimes(2);
+    expect(notify.mock.lastCall![0]).toContain('내보냄');
+    expect(notify.mock.lastCall![1]).toBeUndefined();
+  });
+
   it('keeps a topNBar selection local across rerenders without a Context to reset it', () => {
-    const view = bare(chart({ ...specs.topNBar!, defaultExpanded: true } as ChartSpec));
-    view.rerender(<I18nProvider>{chart({ ...specs.topNBar!, defaultExpanded: true } as ChartSpec)}</I18nProvider>);
-    expect(screen.getByRole('heading', { name: 'C' })).toBeTruthy();
+    const spec = { ...specs.topNBar!, defaultExpanded: true } as ChartSpec;
+    const view = bare(chart(spec));
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '선택 A' }));
+    expect(screen.getByRole('checkbox', { name: '선택 A' }).getAttribute('aria-checked')).toBe('true');
+    const summary = screen.getByRole('region', { name: '선택 요약' }).textContent;
+    view.rerender(<I18nProvider>{chart(spec)}</I18nProvider>);
+    expect(screen.getByRole('checkbox', { name: '선택 A' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toBe(summary);
   });
 });
 

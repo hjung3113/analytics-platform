@@ -244,7 +244,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header);
     const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang)] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
-    downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues);
+    try { downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues); } catch {
+      exportGate.say(m('chartExportCsvFailed', { chartId: p.chartId }), 'warning');
+      return;
+    }
     exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
