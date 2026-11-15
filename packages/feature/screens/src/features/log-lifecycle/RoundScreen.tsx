@@ -13,6 +13,7 @@ import { useRoundExecution } from './RoundExecution';
 import { RuleEvidence } from './EvidenceRows';
 import { Diagnostics } from './Diagnostics';
 import { diagnosticCopy } from './Diagnostics.messages';
+import { pageCopy } from './messages';
 
 function Excerpt({ api, ui, ruleResultId, evidenceIndex, onClose }: Pick<ScreenProps, 'api' | 'ui'> & { ruleResultId: string; evidenceIndex: number; onClose(): void }) {
   // Only mounted after the person's explicit read; every mount starts a fresh read with no prior answer. A deleted excerpt has no
@@ -66,7 +67,7 @@ function SelectedRuleDetail({ api, ui, round, attempt, item, returnFocusRef, onC
 }
 export function RoundScreen(props: ScreenProps & { roundId: string; project: Project }) {
   const round = props.api.useRead<RoundDetail>('roundDetail', { roundId: props.roundId });
-  return <ReadView query={round}>{r => r.projectId !== props.project.id ? <p role="alert">이 개발 건에 속한 Round가 아닙니다.</p> : <RoundWorkbench {...props} round={r} completedAt={round.completedAt ?? null} />}</ReadView>;
+  return props.ui.page({ title: pageCopy.roundTitle(props.project.model?.code ?? pageCopy.unknownModel, round.data?.seq), crumbs: [{ label: pageCopy.project, projectId: props.project.id }], layout: props.state?.view === 'diagnostics' ? 'fill' : 'flow', trust: { reasons: [], completedAt: round.completedAt }, children: <ReadView query={round}>{r => r.projectId !== props.project.id ? <p role="alert">이 개발 건에 속한 Round가 아닙니다.</p> : <RoundWorkbench {...props} round={r} completedAt={round.completedAt ?? null} />}</ReadView> });
 }
 function RoundWorkbench(props: ScreenProps & { round: RoundDetail; project: Project; completedAt: number | null }) {
   const { api, ui, round: r, project, canRound } = props;

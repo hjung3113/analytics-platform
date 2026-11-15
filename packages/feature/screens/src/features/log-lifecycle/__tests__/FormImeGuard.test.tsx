@@ -9,7 +9,7 @@ import { ModelsScreen } from '../ModelsScreen';
 // The form-level guard cancels that Enter's implicit submit; the next plain Enter submits as before.
 const run = vi.fn().mockResolvedValue({ outcome: 'ok', data: {}, fieldErrors: [], version: '2' });
 function Table<T extends { id: string }>(p: TableParts<T>) { return <table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>; }
-const ui: Presentation = { table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null };
+const ui: Presentation = { page: p => p.children, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null };
 function props(data: Record<string, unknown> = {}): ScreenProps {
   const api: LifecycleApi = { useRead: <T,>(name: string): ReadState<T> => ({ status: 'done', data: (data[name] ?? null) as T | null, retry: vi.fn() }) as ReadState<T>, useAction: () => ({ pending: false, run }) };
   return { api, ui, canProject: true, canRound: true, actorId: 'a', setSelection: vi.fn() };

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { Button, Input, Label, Textarea, useImeEnterGuard } from '@ap/ui';
 import { randomUuidV4 } from '../../lib/api/idempotency';
 import type { Model, Params, ScreenProps, WriteResult } from './contracts';
 import { Choice, writeFailure, WriteError } from './presentation';
 
 /** Form lifetime is keyed by subject/action by the caller; failed and conflicting writes retain the draft. */
-export function LifecycleForm({ api, ui, name, title, initial, version, model, onClose, onSuccess }: Pick<ScreenProps, 'api' | 'ui'> & { name: string; title: string; initial: Params; version?: string; model?: Model; onClose(): void; onSuccess?(result: WriteResult): void }) {
+export function LifecycleForm({ api, ui, name, title, initial, version, model, returnFocusRef, onClose, onSuccess }: Pick<ScreenProps, 'api' | 'ui'> & { name: string; title: string; initial: Params; version?: string; model?: Model; returnFocusRef?: RefObject<HTMLElement | null>; onClose(): void; onSuccess?(result: WriteResult): void }) {
   const ime = useImeEnterGuard();
   const action = api.useAction(name);
   const [values, setValues] = useState(initial);
@@ -32,5 +32,5 @@ export function LifecycleForm({ api, ui, name, title, initial, version, model, o
     <WriteError result={result} onRetry={() => { void result?.retry?.().then(next => { setResult(next); if (next.outcome === 'ok') { onSuccess?.(next); onClose(); } }).catch(cause => { const failure = writeFailure(cause); if (failure) setResult(failure); }); }} />
     <div className="flex justify-end gap-2"><Button type="button" variant="secondary" size="toolbar" disabled={action.pending} onClick={onClose}>닫기</Button><Button type="submit" variant="primary" size="toolbar" disabled={locked}>{action.pending ? '저장 중…' : title}</Button></div>
   </form>;
-  return ui.drawer({ title, body, requestClose: () => { if (!action.pending) onClose(); } });
+  return ui.drawer({ title, body, ...(returnFocusRef ? { returnFocusRef } : {}), requestClose: () => { if (!action.pending) onClose(); } });
 }
