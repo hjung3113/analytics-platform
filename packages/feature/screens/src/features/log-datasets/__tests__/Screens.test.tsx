@@ -18,7 +18,7 @@ const at = '2026-11-08T00:00:00Z';
 const ui: Presentation = {
   page: ({ children, primaryAction }) => <>{primaryAction}{children}</>,
   cellLink: ({ children, onClick, label }) => <button type="button" aria-label={label} onClick={onClick}>{children}</button>,
-  table: ({ title, rows, columns, search, pagination, loading }) => <section aria-label={title}>{search}{loading ? <p>불러오는 중…</p> : null}{rows.map(r => <div key={r.id}>{columns.map(c => <span key={c.id}>{c.cell(r)}</span>)}</div>)}{pagination}</section>,
+  table: ({ title, rows, columns, search, pageControls, summary, pagination, loading }) => <section aria-label={title}>{search}{pageControls}{loading ? <p>불러오는 중…</p> : summary}{rows.map(r => <div key={r.id}>{columns.map(c => <span key={c.id}>{c.cell(r)}</span>)}</div>)}{pagination}</section>,
   drawer: ({ title, body, footer, requestClose }) => <div role="dialog" aria-label={String(title)}><button type="button" onClick={requestClose}>닫기</button>{body}{footer}</div>,
   timeline: events => <div>{events.map(e => <p key={e.id}>{e.kind} {e.selfApproved ? '자기 승인' : ''}</p>)}</div>,
   trust: reasons => <div>{reasons.join(' ')}</div>,

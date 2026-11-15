@@ -91,6 +91,37 @@ describe('MEN-8 dataset menu assertions', () => {
     await tab('비교');
     expect(await screen.findByText('비교할 회귀 실행을 선택하세요.')).toBeTruthy();
   });
+  it('#2309 renders rich coverage in the result line and classification controls in the table toolbar', async () => {
+    mount({ datasetId: DS, suiteRunId: RUN });
+    await screen.findByRole('table', { name: 'Baseline 대비 규칙 결과' });
+    const coverage = await screen.findByRole('region', { name: '실행 커버리지' });
+    expect(coverage.closest('[data-table-status-line]')).toBeTruthy();
+    expect(within(coverage).getByText('필수 미검사 1', { exact: true }).className).toContain('text-text-warning-label');
+    expect(within(coverage).getByText(/필수 미검사: R-04/)).toBeTruthy();
+    const classification = screen.getByRole('group', { name: '비교 분류' });
+    expect(classification.closest('[data-table-page-controls]')).toBeTruthy();
+    expect(within(classification).getByRole('button', { name: /^전체 / }).getAttribute('aria-pressed')).toBe('true');
+    await click(/^not_comparable /);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^not_comparable / }).getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByRole('button', { name: /^전체 / }).getAttribute('aria-pressed')).toBe('false');
+      const table = screen.getByRole('table', { name: 'Baseline 대비 규칙 결과' });
+      expect(within(table).getAllByRole('row').filter(r => r.querySelector('td,[role="cell"]'))).toHaveLength(1);
+      expect(table.textContent).toContain('R-04');
+    });
+    await click(/^전체 /);
+    await waitFor(() => expect(within(screen.getByRole('table', { name: 'Baseline 대비 규칙 결과' })).getAllByRole('row').filter(r => r.querySelector('td,[role="cell"]')).length).toBeGreaterThan(1));
+  });
+  it('#2309 presents the pinned comparison item as inline definition metadata', async () => {
+    mount({ datasetId: DS, suiteRunId: RUN });
+    const label = await screen.findByText('비교 대상 고정', { exact: true });
+    expect(label.tagName).toBe('DT');
+    const list = label.closest('dl');
+    expect(list?.className).toContain('flex-wrap');
+    expect(list?.querySelector('dd')?.textContent).toContain('r3 · Baseline b2');
+    expect(list?.textContent).toContain(RUN);
+    expect(screen.getByRole('combobox', { name: '비교할 회귀 실행' })).toBeTruthy();
+  });
   it('comparison labels do not change the NOT_CHECKED script result', async () => {
     mount({ datasetId: DS, suiteRunId: RUN });
     await screen.findByRole('region', { name: '실행 커버리지' });
@@ -155,6 +186,20 @@ describe('MEN-8 dataset menu assertions', () => {
     expect(screen.getByRole('searchbox', { name: '데이터셋 검색' })).toBeTruthy();
     await act(async () => { release(); });
     await waitFor(() => expect(screen.getByRole('table', { name: '테스트 데이터셋 목록' }).getAttribute('aria-busy')).toBe('false'));
+  });
+  it('keeps the same toolbar search field, its focus and the typed text across loading to loaded', async () => {
+    mount(); await screen.findByRole('table', { name: '테스트 데이터셋 목록' });
+    const field = screen.getByRole('searchbox', { name: '데이터셋 검색' }) as HTMLInputElement;
+    let release!: () => void; readGate = new Promise<void>(resolve => { release = resolve; });
+    field.focus(); fireEvent.change(field, { target: { value: '경계' } });
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeTruthy());
+    fireEvent.change(screen.getByRole('searchbox', { name: '데이터셋 검색' }), { target: { value: '경계 값' } });
+    await act(async () => { release(); });
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
+    const after = screen.getByRole('searchbox', { name: '데이터셋 검색' }) as HTMLInputElement;
+    expect(after).toBe(field);
+    expect(document.activeElement).toBe(field);
+    expect(after.value).toBe('경계 값');
   });
   it('failure remains distinct from an empty list', async () => {
     mount(); await screen.findByRole('table', { name: '테스트 데이터셋 목록' }); fail = true;

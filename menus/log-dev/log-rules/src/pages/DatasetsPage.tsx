@@ -20,8 +20,8 @@ function useAction(name: string): Action {
   return useMenuAction(spec);
 }
 const api: DatasetApi = { useRead, useAction };
-function Table<T extends { id: string }>({ rows, title, columns, pagination, preferenceKey, fill, summary, search, rowAction, loading }: TableParts<T>) {
-  return <div className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col [&_[data-table-search]]:max-w-none' : 'grid min-w-0 grid-cols-1'}><PlatformDataTable title={title} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} rowsLoading={loading} preferenceKey={preferenceKey} fill={fill} search={search} rowAction={rowAction ? (r, { compact }) => <RowAction compact={compact} icon={ExternalLink} label={rowAction.label(r)} text="열기" onClick={() => rowAction.open(r)} /> : undefined} externalPagination={pagination ? { summary, controls: pagination } : undefined} /></div>;
+function Table<T extends { id: string }>({ rows, title, columns, pagination, preferenceKey, fill, summary, search, pageControls, rowAction, loading }: TableParts<T>) {
+  return <div className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col [&_[data-table-search]]:max-w-none' : 'grid min-w-0 grid-cols-1'}><PlatformDataTable title={title} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} rowsLoading={loading} preferenceKey={preferenceKey} fill={fill} search={search} pageControls={pageControls} rowAction={rowAction ? (r, { compact }) => <RowAction compact={compact} icon={ExternalLink} label={rowAction.label(r)} text="열기" onClick={() => rowAction.open(r)} /> : undefined} externalPagination={pagination ? { summary, controls: pagination } : undefined} /></div>;
 }
 const eventName: Record<string, string> = { created: '초안 생성', updated: '초안 변경', approved: '승인', superseded: '이전 기준으로 전환', self_approved: '자기 승인' };
 function timeline(events: BaselineEvent[], baselineId: string) {
