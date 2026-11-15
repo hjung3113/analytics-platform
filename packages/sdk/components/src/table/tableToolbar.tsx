@@ -4,13 +4,13 @@
  * Internal module: not exported from `index.ts`.
  */
 import { type ReactNode, type Ref } from 'react';
-import { ChevronDown, Info, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, MoreHorizontal } from 'lucide-react';
 import { useI18n, useMessages, type Lang } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { TABLE_SIZES, parseTableSize, type TableSize } from './tableSize';
 import {
   Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
-  DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+  DropdownMenuTrigger, InfoTip,
 } from '@ap/ui';
 /** The toolbar controls that can move into `⋯`, in the order they leave the bar as the toolbar narrows (the menu lists them in toolbar order). 표 크기 (1217d) leaves right after 그룹: both change what the rows show and sit side by side. */
 export const COLLAPSE_ORDER = ['copy', 'group', 'size', 'columns', 'export'] as const;
@@ -36,21 +36,8 @@ export function ToolbarTitle({ title, subtitle, srOnly, lang, descriptionId }: {
 export function ToolbarDescription({ subtitle, descriptionId }: { subtitle?: ReactNode; lang: Lang; descriptionId?: string }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   if (!subtitle) return null;
-  return <>
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button type="button" data-table-description aria-describedby={descriptionId} aria-label={m('tableDescription')}
-            className="inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-text-muted hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
-            <Info className="size-3.5" aria-hidden />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent portal size="sm" className="max-w-72">{subtitle}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-    {/* One persistent description for both the section and the ⓘ; the portaled tooltip shows the same text. */}
-    <p id={descriptionId} className="sr-only">{subtitle}</p>
-  </>;
+  // One persistent description for both the section and the ⓘ (`InfoTip` keeps it in its sr-only paragraph).
+  return <InfoTip data-table-description label={m('tableDescription')} descriptionId={descriptionId}>{subtitle}</InfoTip>;
 }
 
 type GroupOption = { id: string; header: string };

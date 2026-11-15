@@ -54,6 +54,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 
 `ListTabs`·`ListToolbar`(`@ap/ui`)의 선택 prop `maxVisible?: number`(`ListToolbar`는 `tabsMaxVisible`로 넘긴다, #1291)는 `TabsList overflow="menu"`와 별개인 개수 기준 접기다. 값이 없으면(기본) 지금과 같다. 값이 있고 탭이 그보다 많으면 앞 N개만 탭 줄에 두고 나머지는 「더보기 ‹숨은 수›」 메뉴 버튼 하나에 담는다(메뉴 항목은 아이콘·라벨·tip·숫자를 그대로 싣는다). 선택된 탭이 숨은 쪽이면 마지막 보이는 자리에 올리고 밀려난 탭이 메뉴로 간다(선택 필터는 항상 보인다). 탭 목록의 화살표 키는 그대로이고, 메뉴 버튼은 Tab으로 닿아 Enter·Space·↓로 열며 Esc로 닫으면 포커스가 그 버튼으로 돌아온다. 이유: 한 줄 툴바가 빠른 필터 몇 개만 보여 주고 나머지를 접을 수 있어야 메뉴마다 같은 방식으로 쓴다(도메인을 모르는 조각, [ADR-0052](../adr/0052-rich-content-stays-in-the-sdk.md)). `ListToolbar`는 `tabs`이나 `title`이 주어질 때만 탭·제목 블록(`data-list-toolbar-main`, `basis-[22rem]`)을 그리고, 둘 다 없으면 액션만의 한 줄(액션도 없으면 `min-h-toolbar`의 빈 막대)이다(#1364).
 
+`InfoTip`(`@ap/ui`, #2300): props `{ label: string; children: ReactNode; descriptionId?: string }`. 24px ⓘ 버튼(`<button type="button" aria-label={label}>`)이고, hover·포커스로 tooltip(`TooltipContent portal size="sm"`, 최대 18rem)이 열리며 Esc로 닫힌다. 같은 글은 늘 있는 `sr-only` 문단 하나에 두고 버튼이 `aria-describedby`로 가리킨다(`descriptionId`를 주면 그 id, 섹션도 같은 문단을 가리킬 수 있다). 정적 안내 문장에만 쓴다: 경고·부분 데이터·미완료 상태·권한 안내·상태 배지는 ⓘ로 숨기지 않고 보이는 글로 둔다(첫 화면 점검 원칙). 표 툴바 ⓘ(`ToolbarDescription`)는 이 조각에 기본 라벨 「설명」만 채운다.
+
 예:
 
 - Button
