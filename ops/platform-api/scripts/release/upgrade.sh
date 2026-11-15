@@ -257,6 +257,7 @@ if [ "$TARGET" != local ]; then
   docker tag "$NEW_WEB" "$WEB_REPO:local"
 fi
 if [ "$HAS_PINS" -eq 1 ]; then
+  # Replaces legacy minio-bootstrap backend pins with the configured MinIO image.
   # The target ids, for the migrate job and the final start; the restore pin file itself is replaced only after success.
   PINS_NEW="$PINS_FILE.new-$TS"
   bk_write_pins "$PINS_NEW" "${PIN_IDS[0]}" "${PIN_IDS[1]}" "${PIN_IDS[2]}" "Written by upgrade.sh for project $PROJECT (target $TARGET)."

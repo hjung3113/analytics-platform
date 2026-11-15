@@ -18,7 +18,7 @@
 #   from the env file) -> DELETE FROM core.sessions -> checks (row counts == manifest, sessions empty, roles, ownership,
 #   extension, grants) -> read active API token count + backup time for the access-reconciliation warning
 #   -> minio + bucket, mirror back, object count/bytes/sha256 == manifest -> backend /health/ready
-#   under platform_app -> journal digest == manifest. Verification never runs migrate or bootstrap. The restored stack
+#   under platform_app -> journal digest == manifest. Verification never runs migrate or DB bootstrap; it provisions the storage account. The restored stack
 #   is left STOPPED with its data; the switch-over commands are printed. On any failure the script stops and prints the
 #   failed-restore branch; the source is untouched and the half-built target is kept for inspection.
 #
@@ -316,7 +316,8 @@ bk_inventory "$TMP/export" | cmp -s - "$BACKUP_DIR/objects.sha256" || bk_die 're
 unset MC_HOST_bk
 bk_log "ok: $want_stats objects (count bytes) and sha256 inventory equal the backup"
 
-# 10. Backend under the runtime role, no migrate, no bootstrap, no dependencies started.
+# 10. Provision the storage account on the fresh MinIO volume before readiness. No DB bootstrap or migrate.
+bk_dc run --rm --no-deps minio-bootstrap >/dev/null || bk_die 'storage account provisioning failed; no backend was started'
 bk_log 'starting backend (platform_app) and waiting for /health/ready'
 bk_dc up -d --no-deps backend >/dev/null
 ready=0
