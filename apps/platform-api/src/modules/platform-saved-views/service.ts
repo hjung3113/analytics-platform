@@ -320,6 +320,13 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       if (!view || !isReachable(view, actor, standings)) return fail('invalid', 'not-found');
       if (view.ownerId !== actor.id) return fail('forbidden');
       await repo.deleteView(tx, actor.workspaceId, view.id);
+      if (view.visibilityKind !== 'private') {
+        await record(tx, actor, 'saved_view_deleted', 'saved_view', view.id, 'saved view deleted', {
+          view_id: view.id,
+          version: view.version,
+          visibility: view.visibilityKind,
+        });
+      }
       return ok(null);
     });
 

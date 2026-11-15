@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AUDIT_EVENT_DETAIL_SCHEMAS } from '../../enums/audit-events.js';
+import { auditEventTypeSchema, AUDIT_EVENT_DETAIL_SCHEMAS } from '../../enums/audit-events.js';
 
 const id = '11111111-1111-4111-8111-111111111111';
 
@@ -44,4 +44,13 @@ describe('platform saved-view audit detail schemas (ADR-0099)', () => {
   ] as const)('%s rejects payload, titles and non-ids', (type, detail) => {
     expect(AUDIT_EVENT_DETAIL_SCHEMAS[type].safeParse(detail).success).toBe(false);
   });
+});
+
+it.each(['people', 'groups', 'official'])('deleted %s view audit accepts metadata only', (visibility) => {
+  const type = auditEventTypeSchema.parse('saved_view_deleted');
+  const schema = AUDIT_EVENT_DETAIL_SCHEMAS[type];
+  const detail = { view_id: id, version: 3, visibility };
+  expect(schema.safeParse(detail).success).toBe(true);
+  expect(schema.safeParse({ ...detail, body: {} }).success).toBe(false);
+  expect(schema.safeParse({ ...detail, visibility: 'private' }).success).toBe(false);
 });
