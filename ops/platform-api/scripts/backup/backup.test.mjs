@@ -729,7 +729,9 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
       'WARNING: this restore brings back the state of 2026-01-01T00:00:00Z. 37 API token(s) are active in it. Before switching traffic, re-apply every API token revocation, capability grant/deny change and role change made after 2026-01-01T00:00:00Z (restore never revokes anything itself).';
     assert.ok(r.err.includes(warning), r.err);
     assert.ok(r.err.indexOf(warning) < r.err.indexOf('Switch traffic:'), r.err);
-    assert.doesNotMatch(r.log, /run --rm --no-deps migrate|bootstrap/);
+    // Only the storage account is provisioned (minio-bootstrap); neither migrate nor the DB bootstrap runs.
+    assert.doesNotMatch(r.log, /run --rm --no-deps migrate|run --rm --no-deps bootstrap\b|db-bootstrap/);
+    assert.match(r.log, /run --rm --no-deps minio-bootstrap/);
   });
   test('F1: images differing from the manifest are refused before anything starts', () => {
     const r = go({ STUB_BACKEND_ID: 'sha256:other' });
