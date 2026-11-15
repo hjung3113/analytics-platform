@@ -19,6 +19,7 @@ import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { distinctStatuses, heatmapStatusOutlines, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
+import type { ChartRowGroups } from './chartRowGroups';
 
 export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus };
 export type HeatmapSpec = {
@@ -45,12 +46,29 @@ export type DonutSpec = {
   /** Explicit drill from Details only; canvas clicks select. */
   onSliceClick?: (id: string) => void;
 };
-export type ScatterPoint = { id: string; x: number | null; y: number | null; group?: string; label?: string };
+export type ScatterPoint = {
+  id: string; x: number | null; y: number | null; group?: string; label?: string;
+  /** Category mode only: a cell in xCategories.order; x is ignored. */
+  category?: string;
+  /** Consumer-given judgement, never inferred by the SDK. */
+  status?: ChartStatus;
+};
 export type ScatterSpec = {
   kind: 'scatter'; points: ScatterPoint[]; xUnit: string; xLabel: string; yLabel: string;
   groups?: { id: string; label: string; color?: ThemeColorToken }[];
   referenceLines?: { axis: 'x' | 'y'; value: number; label: string }[];
   onPointClick?: (id: string) => void;
+  xCategories?: {
+    /** Left-to-right cells; points outside this order are diagnosed and dropped. */
+    order: readonly string[];
+    /** Consecutive group spans and short cell labels, also used in table/CSV/summary. */
+    groups?: ChartRowGroups;
+    /** Stable id-hash spread as a fraction of cell width; clamped to [0, 0.9], default 0.6. */
+    jitter?: number;
+    bounds?: ReadonlyMap<string, { lower?: number; upper?: number }>;
+    /** Defaults: Upper bound / Lower bound / Bound range (localized). */
+    boundLabels?: { upper?: string; lower?: string; band?: string };
+  };
 };
 export type BoxStats = {
   /** Caller-owned whisker endpoints: extrema for minMax, outermost inliers within Tukey fences for tukey. */

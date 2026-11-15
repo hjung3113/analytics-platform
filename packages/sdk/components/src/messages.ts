@@ -17,6 +17,13 @@ export const COMPONENTS_MESSAGES = {
   chartHeaderReason: { ko: '사유', en: 'Reason' },
   chartHeaderValue: { ko: '값', en: 'Value' },
   chartDefaultGroup: { ko: '기본 그룹', en: 'Default group' },
+  chartUpperBound: { ko: '상한', en: 'Upper bound' },
+  chartLowerBound: { ko: '하한', en: 'Lower bound' },
+  chartBoundRange: { ko: '기준 범위', en: 'Bound range' },
+  chartScatterCategorySummary: {
+    ko: '{total}개 점 · {unknown}개 미확인 · {legend} · {xLabel} · {yLabel} ({unit})',
+    en: '{total} points · {unknown} unknown · {legend} · {xLabel} · {yLabel} ({unit})',
+  },
   chartScatterSummary: {
     ko: '{total}개 점 · {unknown}개 미확인 · {legend} · {xLabel} ({xUnit}) · {yLabel} ({unit})',
     en: '{total} points · {unknown} unknown · {legend} · {xLabel} ({xUnit}) · {yLabel} ({unit})',
