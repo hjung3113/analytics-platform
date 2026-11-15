@@ -119,24 +119,24 @@ describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () =
   });
 
   it('shows exactly the allowed actions: the prop opts a button in and exportAllowed opens it', () => {
-    bare(lane({ imageCopy: true, imageActions: { exportAllowed: true } }));
+    bare(lane({ imageCopy: true, exportActions: { exportAllowed: true } }));
     expect(button()).not.toBeNull();
     expect(printButton()).toBeNull();
     cleanup();
-    bare(lane({ imageCopy: true, imagePrint: true, imageActions: { exportAllowed: false } }));
+    bare(lane({ imageCopy: true, imagePrint: true, exportActions: { exportAllowed: false } }));
     expect(button()).toBeNull();
   });
 
   it('reports the result to the injected notify, and to a status line when there is none', async () => {
     const notify = vi.fn();
     let text = '';
-    bare(lane({ imageCopy: true, imageActions: { exportAllowed: true, notify } }));
+    bare(lane({ imageCopy: true, exportActions: { exportAllowed: true, notify } }));
     fireEvent.click(button()!);
     await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
     text = notify.mock.calls[0]![0] as string;
     expect(screen.queryByText(text)).toBeNull();
     cleanup();
-    bare(lane({ imageCopy: true, imageActions: { exportAllowed: true } }));
+    bare(lane({ imageCopy: true, exportActions: { exportAllowed: true } }));
     fireEvent.click(button()!);
     expect(await screen.findByText(text)).toBeTruthy();
   });
@@ -144,12 +144,12 @@ describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () =
   it('print follows the same standalone gate and reports its failure to notify or the status line', async () => {
     const notify = vi.fn();
     vi.spyOn(window, 'open').mockReturnValue(null);
-    bare(lane({ imagePrint: true, imageActions: { exportAllowed: true, notify } }));
+    bare(lane({ imagePrint: true, exportActions: { exportAllowed: true, notify } }));
     expect(button()).toBeNull();
     fireEvent.click(printButton()!);
     await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), 'warning'));
     cleanup();
-    bare(lane({ imagePrint: true, imageActions: { exportAllowed: true } }));
+    bare(lane({ imagePrint: true, exportActions: { exportAllowed: true } }));
     fireEvent.click(printButton()!);
     await waitFor(() => expect(printButton()!.parentElement!.textContent).toMatch(/[^\s]{2,}/));
     expect(printButton()!.parentElement!.querySelectorAll('[role="status"]').length).toBeGreaterThan(0);
@@ -157,11 +157,11 @@ describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () =
 
   it('inside a platform the menu manifest decides: exportAllowed never opens a closed menu, and notify is not used', async () => {
     const notify = vi.fn();
-    mount(lane({ imageCopy: true, imagePrint: true, imageActions: { exportAllowed: true, notify } }), false);
+    mount(lane({ imageCopy: true, imagePrint: true, exportActions: { exportAllowed: true, notify } }), false);
     expect(button()).toBeNull();
     expect(printButton()).toBeNull();
     cleanup();
-    mount(lane({ imageCopy: true, imageActions: { exportAllowed: false, notify } }), true);
+    mount(lane({ imageCopy: true, exportActions: { exportAllowed: false, notify } }), true);
     expect(button()).not.toBeNull();
     fireEvent.click(button()!);
     await new Promise(resolve => setTimeout(resolve, 50));

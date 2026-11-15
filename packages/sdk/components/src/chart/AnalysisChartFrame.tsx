@@ -13,7 +13,7 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
-import { ChartImageCopyButton, ChartImagePrintButton, type ChartImageActionsPolicy } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton, type ChartExportActionsPolicy } from './ChartImageCopyButton';
 import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { assignNoteLevels } from './annotationLayout';
@@ -160,7 +160,7 @@ export type AnalysisChartFrameProps = {
   extraActions?: ReactNode;
   /** A second value axis on the right for series with `axis: 'right'`: its own scale from 0, this unit in the axis name, in the tooltip, the table and CSV headers (`name (unit)`), and `valueFormat` for tooltip, point selector and table values (default: the Frame's `valueFormat`). Vertical, unstacked charts only; with `orientation="horizontal"` or `stacked` every series is drawn on the left, with a dev warning. `markLines` stay on the left axis. */
   rightAxis?: { unit: string; valueFormat?: (v: number) => string };
-  /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. Without a `PlatformProvider` it shows only when `imageActions.exportAllowed` is true (#1953). */
+  /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. Without a `PlatformProvider` it shows only when `exportActions.exportAllowed` is true (#1953). */
   imageCopy?: boolean;
   /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Same gate as `imageCopy`. */
   imagePrint?: boolean;
@@ -169,7 +169,7 @@ export type AnalysisChartFrameProps = {
    * says where their result text goes (default a status line beside the button). Inside a `PlatformProvider` it is ignored and the menu's `features.export`
    * decides; it never widens a menu's permission.
    */
-  imageActions?: ChartImageActionsPolicy;
+  exportActions?: ChartExportActionsPolicy;
   /**
    * Outside a platform only (#1953 C): the period the series cover, wall-clock `YYYY-MM-DDTHH:mm:ss` like the points (not converted, ADR-0064). Its `to`
    * turns on the keyboard range picker and the 1h/4h presets on a time axis, as the global period's end does inside a platform. A value in another form (Z, an offset,
@@ -226,7 +226,7 @@ type FrameHost = {
  * State layers stay separate: Global Context (URL) · Page Filter (page) · Chart Local State (here) · Persistent Annotation (server, keyed by chartId + Scope).
  * Compare/Annotate/Export follow the current menu's manifest `features`; a chart outside a routed menu offers none of them.
  * Without a `PlatformProvider` (#1953 C) the chart behaviour (Zoom, Brush, local selection, point actions, tooltip, table) works on its own;
- * Compare, Annotate and `분석 구간 적용` are not drawn, and export follows `imageActions`.
+ * Compare, Annotate and `분석 구간 적용` are not drawn, and export follows `exportActions`.
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const platform = usePlatformOptional();
@@ -261,8 +261,8 @@ function StandaloneFrame(p: AnalysisChartFrameProps) {
   // A new period resets the local state (as a Context change does), and the old result line with it.
   useEffect(() => { setStatus(''); }, [from, to]);
   const host: FrameHost = {
-    inPlatform: false, global, contextKey: JSON.stringify(global), url: '', status, notify: p.imageActions?.notify ?? (text => setStatus(text)),
-    features: { compare: false, annotate: false, export: p.imageActions?.exportAllowed === true },
+    inPlatform: false, global, contextKey: JSON.stringify(global), url: '', status, notify: p.exportActions?.notify ?? (text => setStatus(text)),
+    features: { compare: false, annotate: false, export: p.exportActions?.exportAllowed === true },
     applyPeriod: null,
   };
   return <FrameBody {...p} host={host} editor={editor} />;
@@ -782,8 +782,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         <div className="flex items-center gap-1" data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{t('export')}</Button>}
           {canExport && host.status !== '' && <span role="status" className="t-caption text-text-muted">{host.status}</span>}
-          {p.imageCopy && <ChartImageCopyButton standalone={p.imageActions} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
-          {p.imagePrint && <ChartImagePrintButton standalone={p.imageActions} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
           <Popover>
             <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
             <PopoverContent align="end" className="w-72">

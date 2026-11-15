@@ -100,7 +100,7 @@ const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same
 
 `PlatformProvider` 없이 `I18nProvider`와 `@ap/ui` CSS만으로 `AnalysisChartFrame`을 그린다. Zoom·Brush·로컬 선택·지점 선택(`pointActivation`·`pointActions`·`isPointSelectable`)·툴팁·같은 데이터 표·`selectionActions`·`차트 초기화`는 플랫폼 안과 같다. 플랫폼 의미가 있는 Compare·Annotate·`분석 구간 적용`은 그리지 않는다(`compareSeries`·`canApplyRange`를 줘도). 구간 선택은 Chart Local State라 페이지가 `selectionActions`로 자기 동작을 붙인다.
 
-- 내보내기와 이미지: `imageActions={{ exportAllowed: true, notify? }}`일 때만 `내보내기`(보이는 CSV, 머리줄의 `from`·`to`는 `period`)와 `imageCopy`·`imagePrint` 버튼이 보인다. 기본은 꺼짐이고, 결과 문구는 `notify(text, tone?)`로, 없으면 버튼 옆 `role=status` 한 줄로 전한다.
+- 내보내기와 이미지: `exportActions={{ exportAllowed: true, notify? }}`일 때만 `내보내기`(보이는 CSV, 머리줄의 `from`·`to`는 `period`)와 `imageCopy`·`imagePrint` 버튼이 보인다. 기본은 꺼짐이고, 결과 문구는 `notify(text, tone?)`로, 없으면 버튼 옆 `role=status` 한 줄로 전한다.
 - `period?: { from?: string | null; to?: string | null }`: 시리즈가 덮는 기간(점과 같은 `YYYY-MM-DDTHH:mm:ss` wall-clock, 변환하지 않는다 — ADR-0064). `Z`·오프셋·날짜만 같은 다른 형식은 쓰지 않고 개발 경고를 낸다. `to`가 있으면 시간축에 키보드 구간 선택(시작·끝 선택, 1시간·4시간·전체)이 생긴다. 없으면 끌기만 된다. 값이 바뀌면 로컬 선택이 초기화된다(플랫폼 안의 전역 Context 변경과 같다).
 - `PlatformProvider` 안에서는 두 prop을 읽지 않는다: 메뉴 manifest `features.export·compare·annotate`와 전역 기간이 결정하고, prop으로 메뉴 권한을 넓히지 못한다.
 
@@ -108,7 +108,7 @@ const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same
 <I18nProvider>
   <AnalysisChartFrame chartId="flow" title="처리량" unit="ea" series={series}
     period={{ from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' }}
-    imageCopy imageActions={{ exportAllowed: true, notify: text => myToast(text) }}
+    imageCopy exportActions={{ exportAllowed: true, notify: text => myToast(text) }}
     selectionActions={sel => <Button size="toolbar" onClick={() => filterTable(sel)}>표 거르기</Button>} />
 </I18nProvider>
 ```
@@ -128,6 +128,6 @@ const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same
 2026-11-15 / #1861: 추가(기존 동작 불변). 순서 기반 유사 구간 찾기 계산 조각 `findSequenceMatches`·`findRepeatedSequences`·`sequenceSteps`·`itemsInRange`·`SEQUENCE_MAX_LENGTH`와 타입 `SequenceLane`·`SequenceMatch`·`SequenceMatchOptions`·`RepeatedSequence`·`RepeatedSequenceOptions`.
 
 2026-11-15 / #1860: 선택 옵션 추가(기본 동작 불변). `LaneTimelineProps.rangeBrush?: RangeBrushOptions`(구간 끌어 고르기)와 차트 밖 표면용 `useRangeBrush`·`AxisRange`·`RangeBrush`·`RangeBrushOptions`·`RangeBrushKey`·`RANGE_BRUSH_DRAG_THRESHOLD` 추가. `OrderedIntervalTrack`의 구간 선택이 같은 훅을 쓴다(동작 같음).
-2026-11-15 / #1953 C: 선택 옵션 추가(기본 동작 불변). `AnalysisChartFrame`이 `PlatformProvider` 없이 그려진다(순수 차트 동작만, Compare·Annotate·`분석 구간 적용` 없음). `imageActions?: ChartImageActionsPolicy`(내보내기·이미지, 기본 꺼짐)와 `period?: { from?, to }`(키보드 구간 선택의 끝) — 둘 다 플랫폼 안에서는 무시. 소비자 조치 없음.
+2026-11-15 / #1953 C: 선택 옵션 추가(기본 동작 불변). `AnalysisChartFrame`이 `PlatformProvider` 없이 그려진다(순수 차트 동작만, Compare·Annotate·`분석 구간 적용` 없음). `exportActions?: ChartExportActionsPolicy`(내보내기·이미지, 기본 꺼짐)와 `period?: { from?, to }`(키보드 구간 선택의 끝) — 둘 다 플랫폼 안에서는 무시. 슬라이스 A의 `imageActions`·`ChartImageActionsPolicy`는 미배포라 별칭 없이 `exportActions`·`ChartExportActionsPolicy`로 이름을 바꿨다(CSV까지 덮으므로). 소비자 조치 없음.
 
-2026-11-15 / #1953 A: 선택 옵션 추가(기본 동작 불변). `LaneTimeline`의 `imageActions?: ChartImageActionsPolicy`(`{ exportAllowed, notify? }`) — `PlatformProvider` 없이 `I18nProvider`만으로 `imageCopy`·`imagePrint`를 쓰려면 `exportAllowed: true`를 준다(기본 꺼짐, 결과는 `notify` 또는 버튼 옆 상태 줄). 플랫폼 안에서는 무시되고 메뉴 `features.export`가 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.
+2026-11-15 / #1953 A: 선택 옵션 추가(기본 동작 불변). `LaneTimeline`의 `exportActions?: ChartExportActionsPolicy`(`{ exportAllowed, notify? }`) — `PlatformProvider` 없이 `I18nProvider`만으로 `imageCopy`·`imagePrint`를 쓰려면 `exportAllowed: true`를 준다(기본 꺼짐, 결과는 `notify` 또는 버튼 옆 상태 줄). 플랫폼 안에서는 무시되고 메뉴 `features.export`가 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.

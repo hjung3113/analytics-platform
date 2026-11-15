@@ -89,7 +89,7 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
     URL.createObjectURL = create; URL.revokeObjectURL = () => {};
     onTestFinished(() => { URL.createObjectURL = keep.create; URL.revokeObjectURL = keep.revoke; });
     const notify = vi.fn();
-    bare(frame({ imageActions: { exportAllowed: true, notify }, period: { from: hours[0], to: '2026-09-01T06:00:00' } }));
+    bare(frame({ exportActions: { exportAllowed: true, notify }, period: { from: hours[0], to: '2026-09-01T06:00:00' } }));
     expect(button('이미지 복사')).toBeNull();
     fireEvent.click(button('내보내기')!);
     expect(create).toHaveBeenCalledTimes(1);
@@ -97,12 +97,12 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
     expect((await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]!); })).split('\n')[0]).toContain('scopeId= · from=2026-09-01T00:00:00 · to=2026-09-01T06:00:00');
     expect(notify).toHaveBeenCalledWith('flow.csv 내보냄 (보이는 시리즈)');
     cleanup();
-    bare(frame({ imageCopy: true, imageActions: { exportAllowed: true } }));
+    bare(frame({ imageCopy: true, exportActions: { exportAllowed: true } }));
     expect(button('이미지 복사')).not.toBeNull();
     fireEvent.click(button('내보내기')!);
     expect(screen.getByRole('status').textContent).toBe('flow.csv 내보냄 (보이는 시리즈)');
     cleanup();
-    bare(frame({ imageCopy: true, imageActions: { exportAllowed: false, notify } }));
+    bare(frame({ imageCopy: true, exportActions: { exportAllowed: false, notify } }));
     expect(button('내보내기')).toBeNull();
     expect(button('이미지 복사')).toBeNull();
   });
@@ -115,9 +115,9 @@ describe('AnalysisChartFrame inside a platform keeps the manifest gate (#1953 C)
     window.history.replaceState(null, '', '/?v=1');
     return render(<I18nProvider><PlatformProvider adapter={adapter} registry={exportRegistry(canExport)}>{element}</PlatformProvider></I18nProvider>);
   };
-  it('imageActions never opens a menu whose features.export is off, and period is ignored', async () => {
+  it('exportActions never opens a menu whose features.export is off, and period is ignored', async () => {
     const notify = vi.fn();
-    mount(frame({ imageCopy: true, imageActions: { exportAllowed: true, notify }, period: { from: hours[0], to: '2026-09-01T06:00:00' } }), false);
+    mount(frame({ imageCopy: true, exportActions: { exportAllowed: true, notify }, period: { from: hours[0], to: '2026-09-01T06:00:00' } }), false);
     await screen.findByRole('region', { name: 'Flow' });
     expect(button('내보내기')).toBeNull();
     expect(button('이미지 복사')).toBeNull();
@@ -125,7 +125,7 @@ describe('AnalysisChartFrame inside a platform keeps the manifest gate (#1953 C)
     expect(notify).not.toHaveBeenCalled();
   });
   it('a closed policy does not hide what the manifest opens, and Apply stays', async () => {
-    mount(frame({ imageCopy: true, imageActions: { exportAllowed: false } }), true);
+    mount(frame({ imageCopy: true, exportActions: { exportAllowed: false } }), true);
     await screen.findByRole('region', { name: 'Flow' });
     expect(button('내보내기')).not.toBeNull();
     expect(button('이미지 복사')).not.toBeNull();
