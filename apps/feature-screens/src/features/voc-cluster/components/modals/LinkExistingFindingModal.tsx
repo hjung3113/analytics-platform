@@ -1,7 +1,5 @@
-// Link an existing Finding to a VOC Cluster. Mounted only when the detail panel
-// is canMutate (the `open` prop only toggles the dialog's own visibility) —
-// useFindingsList has no `enabled` flag, so mounting this for every role and
-// loading state would run the picker query for users who can never open it.
+// Link an existing Finding from the cluster Managed System. Without the cluster
+// system, disable the read instead of falling back to the unscoped inventory.
 
 import {
   Button,
@@ -33,16 +31,19 @@ const NO_FINDING = '__none__';
 export function LinkExistingFindingModal({
   open,
   clusterId,
+  managedSystemId,
   onClose,
 }: {
   open: boolean;
   clusterId: string;
+  managedSystemId?: string;
   onClose: () => void;
 }): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const [findingId, setFindingId] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const findings = useFindingsList();
+  const findings = useFindingsList(managedSystemId, undefined, !!managedSystemId);
+  const findingItems = managedSystemId ? (findings.data?.items ?? []) : [];
   const { key, markConsumed } = useIdempotencyKey();
   const mutation = useLinkExistingFindingToVocCluster({ idempotencyKey: key });
   function closeAndReset() {
@@ -107,7 +108,7 @@ export function LinkExistingFindingModal({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_FINDING}>연결할 Finding을 선택하세요.</SelectItem>
-                {(findings.data?.items ?? []).map((finding) => (
+                {findingItems.map((finding) => (
                   <SelectItem key={finding.id} value={finding.id}>
                     {finding.display_id} · {finding.title}
                   </SelectItem>
@@ -133,7 +134,7 @@ export function LinkExistingFindingModal({
           <Button
             type="submit"
             form="link-existing-finding-form"
-            disabled={mutation.isPending || !findingId}
+            disabled={mutation.isPending || !managedSystemId || !findingId}
             data-testid="link-existing-finding-submit"
           >
             연결

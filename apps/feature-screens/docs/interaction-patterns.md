@@ -383,3 +383,26 @@ Cross-system mutation failure:
   retryable, permission-requestable, stale-version, action-unavailable, and
   already-resolved states.
 ```
+
+## Save and selection recovery
+
+- Survey builder failures retain the draft and show the mapped API error. A
+  `not_draft` failure or an invalid `question_ids` order asks the author to keep
+  their edits separately and reload the Survey. Each local question creation
+  retains its original body and idempotency key after an ambiguous failure;
+  retry replays that creation before saving newer local edits. A definitive
+  client rejection clears that attempt so corrected input can use a new key.
+- Existing-Finding selection in a Cluster queries only its primary Managed
+  System. A missing system disables that read and hides any cached unscoped
+  choices; server authorization still owns
+  link eligibility.
+- Finding status writes refresh the progress-note timeline. Finding Task Request
+  creation refreshes the Task Request queues. Cluster Finding creation refreshes
+  Cluster detail and lists; membership writes refresh the Cluster lists too.
+- Paging the model picker in validation-request registration clears the selected
+  development project and Round, requiring a new selection before registration.
+- Rerun comparison reads inspect the field errors in an error response’s data. `same_run`
+  and `revision_mismatch` show why the selection cannot be compared and omit the
+  retry action. Other read failures retain the existing retry behavior.
+- One-time token values use the SDK `copyText` helper. Success feedback follows
+  its boolean result, including the HTTP clipboard fallback.

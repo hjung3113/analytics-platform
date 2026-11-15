@@ -1,3 +1,4 @@
+import { DATASET_PIN_COPY } from '../../lib/copy/log-dataset-pins';
 import { useState } from 'react';
 import { Button, Popover, PopoverContent, PopoverTrigger, Textarea } from '@ap/ui';
 import type { Baseline, BaselineRow, Dataset, Page, ScreenProps } from './contracts';
@@ -22,7 +23,10 @@ function BaselineBody(props: ScreenProps & { dataset: Dataset; baseline: Baselin
   const write = useDatasetWrite(props.api.useAction('baselineApprove'));
   const blocked = !props.canApprove ? 'Baseline 승인 권한이 없습니다. 관리자에게 세션 승인 권한을 요청하세요.' : dataset.status === 'archived' ? '보관된 데이터셋의 Baseline은 승인할 수 없습니다.' : b.status !== 'draft' ? '초안 Baseline만 승인할 수 있습니다.' : b.expectationCount === 0 ? '기대 결과가 없어 승인할 수 없습니다.' : null;
   const approved = props.approvedBaseline;
-  const pinText = (row: BaselineRow) => `Spec ${row.profilePin.specPin?.revisionId ?? '미고정'} · RuleSet ${row.profilePin.ruleSetRevision ?? '미고정'} · Parser ${row.profilePin.parserVersion ?? '미고정'} · 실행 프로파일 ${row.profilePin.engineProfileRef ?? '미고정'}`;
+  const pinText = (row: BaselineRow) => {
+    const spec = row.profilePin.specPinHidden ? DATASET_PIN_COPY.hidden : row.profilePin.specPin?.revisionId ?? DATASET_PIN_COPY.unpinned;
+    return `Spec ${spec} · RuleSet ${row.profilePin.ruleSetRevision ?? '미고정'} · Parser ${row.profilePin.parserVersion ?? '미고정'} · 실행 프로파일 ${row.profilePin.engineProfileRef ?? '미고정'}`;
+  };
   const selfApproved = b.events.some(e => e.selfApproved);
   return <div className="grid min-w-0 grid-cols-3 items-start gap-4 break-keep"><div className="col-span-2 min-w-0 space-y-3"><p className="text-xs text-text-muted">로그 탐색 메뉴가 아직 연결되지 않았습니다.</p>{ui.table({ title: `Baseline b${b.seq} 기대 결과`, rows: b.expectations.map(e => ({ ...e, id: e.ruleId })), preferenceKey: 'log-datasets-expectations', columns: [
     { id: 'rule', header: 'Rule', size: 100, sortable: false, cell: r => <span className="font-mono text-xs">{r.ruleId}</span>, exportValue: r => r.ruleId },

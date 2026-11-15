@@ -1,3 +1,5 @@
+import { ApiError } from '@/lib/api/types';
+import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import type { QuestionInput, SurveyQuestion } from '../../../types';
 import {
   denseQuestions,
@@ -7,7 +9,10 @@ import {
   toUpdateInput,
 } from './questionDraft';
 
+export type QuestionCreationAttempt = { question: SurveyQuestion; key: string };
+
 export async function saveSurveyDraft(deps: {
+  creationAttempts: Map<string, QuestionCreationAttempt>;
   questionsRef: { current: SurveyQuestion[] };
   titleRef: { current: string };
   savedTitleRef: { current: string };
@@ -19,7 +24,7 @@ export async function saveSurveyDraft(deps: {
   mutations: {
     updateSurvey: (body: { title?: string; description?: string }) => Promise<unknown>;
     remove: (id: string) => Promise<unknown>;
-    create: (body: QuestionInput) => Promise<{ id: string }>;
+    create: (body: QuestionInput, idempotencyKey: string) => Promise<{ id: string }>;
     update: (args: { id: string; body: QuestionInput }) => Promise<unknown>;
     reorder: (questionIds: string[]) => Promise<unknown>;
   };
@@ -128,9 +133,21 @@ export async function saveSurveyDraft(deps: {
     const current = questionsRef.current.find((question) => question.id === local.id);
     if (!current) continue;
     const deferBranch = shouldDeferBranch(current);
-    const createQuestion = deferBranch ? clearBranch(current) : current;
+    let attempt = deps.creationAttempts.get(local.id);
+    if (!attempt) {
+      attempt = { question: deferBranch ? clearBranch(current) : current, key: mintIdempotencyKey() };
+      deps.creationAttempts.set(local.id, attempt);
+    }
+    // Replay an ambiguous creation verbatim before applying any newer local edits.
+    const createQuestion = attempt.question;
     let sentSignature = questionSignature(createQuestion);
-    const created = await mutations.create(toInput(createQuestion));
+    const created = await mutations.create(toInput(createQuestion), attempt.key).catch((cause: unknown) => {
+      // A definitive client rejection made no creation; allow a corrected draft to start a new request.
+      // A replay conflict (response too large to cache) may hide a committed creation: keep the attempt so a retry never duplicates it.
+      if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500 && cause.code !== 'conflict.idempotency_key_reuse') deps.creationAttempts.delete(local.id);
+      throw cause;
+    });
+    deps.creationAttempts.delete(local.id);
     rememberSavedQuestion({ ...createQuestion, id: created.id });
     replaceLocalId(local.id, created.id);
     rememberSavedOptions({ ...createQuestion, id: created.id });
@@ -141,7 +158,8 @@ export async function saveSurveyDraft(deps: {
       const nextSignature = questionSignature(updateQuestion);
       if (nextSignature === sentSignature) break;
       sentSignature = nextSignature;
-      await mutations.update({ id: created.id, body: toInput(updateQuestion) });
+      // The server holds `createQuestion` (a replayed creation keeps its original branch); a cleared branch must cross the wire as null.
+      await mutations.update({ id: created.id, body: toUpdateInput(updateQuestion, { ...createQuestion, id: created.id }) });
       rememberSavedQuestion(updateQuestion);
       rememberSavedOptions(updateQuestion);
       latest = questionsRef.current.find((question) => question.id === created.id);

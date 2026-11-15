@@ -368,6 +368,7 @@ export function useTaskDetailParts({
                     ].filter((id): id is string => id != null),
                   ),
                 ]}
+                onStaleWrite={() => queryClient.refetchQueries({ queryKey: ['task', task.id], exact: true })}
                 onSave={(actorId, teamId, key) =>
                   assignTaskResponsibility(
                     task.id,

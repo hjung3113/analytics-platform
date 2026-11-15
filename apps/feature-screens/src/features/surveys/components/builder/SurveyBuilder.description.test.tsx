@@ -1,6 +1,8 @@
+import { useSurveyBuilderController } from './hooks/useSurveyBuilderController';
+import { ApiError } from '@/lib/api/types';
 import { apiPath } from '@/lib/api/path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Survey } from '../../types';
 import { SurveyBuilder } from './SurveyBuilder';
@@ -126,4 +128,88 @@ describe('Survey builder description', () => {
     const dialog = await screen.findByRole('dialog', { name: '응답자 미리보기' });
     expect(dialog).toHaveTextContent('미리보기 설명');
   });
+});
+
+
+it.each([
+  ['not_draft', 'status', '설문이 더 이상 초안 상태가 아닙니다. 변경 내용을 따로 보관한 뒤 설문을 다시 불러와 주세요.'],
+  ['invalid', 'question_ids', '질문 목록이 변경되었습니다. 변경 내용을 따로 보관한 뒤 설문을 다시 불러와 주세요.'],
+])('keeps the draft and explains %s with reload guidance', async (code, path, message) => {
+  apiClient.mockRejectedValueOnce(new ApiError(422, { code: 'validation.failed', message: 'Synthetic failure', detail: { fields: [{ path: [path], code }] } }));
+  renderBuilder();
+  fireEvent.change(screen.getByRole('textbox', { name: '설명 (선택)' }), { target: { value: 'Unsaved description' } });
+  fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(message);
+  expect(screen.getByRole('textbox', { name: '설명 (선택)' })).toHaveValue('Unsaved description');
+});
+
+it('shows the mapped save failure instead of dropping its cause', async () => {
+  apiClient.mockRejectedValueOnce(new ApiError(403, { code: 'permission.denied', message: 'Synthetic denial' }));
+  renderBuilder();
+  fireEvent.change(screen.getByRole('textbox', { name: '설명 (선택)' }), { target: { value: 'Unsaved description' } });
+  fireEvent.click(screen.getByRole('button', { name: '초안 저장' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('권한이 없습니다.');
+});
+
+it('replays a lost question creation response with the original body and key, then saves newer edits', async () => {
+  const posts: { body: unknown; idempotencyKey: unknown }[] = [];
+  apiClient.mockImplementation(async (method, path, options) => {
+    if (method === 'POST' && path.endsWith('/questions')) {
+      posts.push(options);
+      if (posts.length === 1) throw new Error('Synthetic response loss');
+      return { data: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } };
+    }
+    return { data: { id: SURVEY_ID } };
+  });
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook(() => useSurveyBuilderController({ survey, canManage: true, onBack: vi.fn() }), { wrapper });
+  act(() => result.current.add('text'));
+  act(() => { const question = result.current.questions[0]; if (!question) throw new Error('Missing synthetic question'); result.current.patch({ ...question, prompt: 'Original prompt' }); });
+  await act(async () => { expect(await result.current.save()).toBe(false); });
+  act(() => { const question = result.current.questions[0]; if (!question) throw new Error('Missing synthetic question'); result.current.patch({ ...question, prompt: 'Newer prompt' }); });
+  await act(async () => { expect(await result.current.save()).toBe(true); });
+  expect(posts).toHaveLength(2);
+  expect(posts[0]?.idempotencyKey).toEqual(expect.any(String));
+  expect(posts[1]).toEqual(posts[0]);
+  expect(apiClient).toHaveBeenCalledWith('PATCH', `/surveys/${SURVEY_ID}/questions/cccccccc-cccc-4ccc-8ccc-cccccccccccc`, expect.objectContaining({ body: expect.objectContaining({ prompt: 'Newer prompt' }) }));
+});
+
+
+it('allows correcting a definitively rejected question creation', async () => {
+  apiClient.mockReset();
+  apiClient.mockRejectedValueOnce(new ApiError(422, { code: 'validation.failed', message: 'Synthetic validation rejection' })).mockResolvedValue({ data: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } });
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook(() => useSurveyBuilderController({ survey, canManage: true, onBack: vi.fn() }), { wrapper });
+  act(() => result.current.add('text'));
+  const patchPrompt = (prompt: string) => { const question = result.current.questions[0]; if (!question) throw new Error('Missing synthetic question'); result.current.patch({ ...question, prompt }); };
+  act(() => patchPrompt('Rejected prompt'));
+  await act(async () => { expect(await result.current.save()).toBe(false); });
+  act(() => patchPrompt('Corrected prompt'));
+  await act(async () => { expect(await result.current.save()).toBe(true); });
+  const creates = apiClient.mock.calls.filter(([method, path]) => method === 'POST' && path.endsWith('/questions'));
+  expect(creates[1]?.[2].body.prompt).toBe('Corrected prompt');
+  expect(creates[1]?.[2].idempotencyKey).not.toBe(creates[0]?.[2].idempotencyKey);
+});
+
+it('keeps replaying the same creation key after a replay conflict instead of creating a duplicate', async () => {
+  apiClient.mockReset();
+  const keys: unknown[] = [];
+  apiClient.mockImplementation(async (method, path, options) => {
+    if (method === 'POST' && path.endsWith('/questions')) {
+      keys.push(options.idempotencyKey);
+      if (keys.length === 1) throw new Error('Synthetic response loss');
+      throw new ApiError(409, { code: 'conflict.idempotency_key_reuse', message: 'Synthetic replay conflict' });
+    }
+    return { data: { id: SURVEY_ID } };
+  });
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook(() => useSurveyBuilderController({ survey, canManage: true, onBack: vi.fn() }), { wrapper });
+  act(() => result.current.add('text'));
+  act(() => { const question = result.current.questions[0]; if (!question) throw new Error('Missing synthetic question'); result.current.patch({ ...question, prompt: 'Large prompt' }); });
+  for (let attempt = 0; attempt < 3; attempt += 1) await act(async () => { expect(await result.current.save()).toBe(false); });
+  expect(keys).toHaveLength(3);
+  expect(new Set(keys).size).toBe(1);
 });

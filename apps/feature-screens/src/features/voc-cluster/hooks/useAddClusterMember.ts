@@ -27,6 +27,7 @@ export function useAddClusterMember(): UseMutationResult<
     onSuccess: async (_data, { clusterId }) => {
       invalidateRecovery(qc);
       invalidateNavCounts(qc);
+      void qc.invalidateQueries({ queryKey: ['voc-clusters'] });
       await qc.invalidateQueries({ queryKey: ['voc-cluster', clusterId] });
       void qc.invalidateQueries({ queryKey: ['voc-cluster-candidate-peers', clusterId] });
     },

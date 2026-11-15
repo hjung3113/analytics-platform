@@ -32,6 +32,7 @@ export function useRequestTaskFromFinding(
       invalidateNavCounts(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['finding', findingId] });
       void queryClient.invalidateQueries({ queryKey: ['findings'] });
+      void queryClient.invalidateQueries({ queryKey: ['task-requests'] });
       void queryClient.invalidateQueries({ queryKey: ['entity-links'] });
       onSuccess?.(data);
     },

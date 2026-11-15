@@ -283,3 +283,10 @@ only in the permission-blocked states that already offered the detour.
 
 The host retains PageShell ownership. Inbox unregisters Home's slot, resolved selections
 stay readable, and late personal PATCH completion cannot close a newer selection.
+
+### ResponsibilityEditor stale-write recovery
+
+Task detail supplies `onStaleWrite` to refetch its exact Task query. A rejected
+409 stale write retains the assignment draft, clears the submission key, and waits
+for the read before enabling another save. The next attempt uses the refreshed
+Task version; ambiguous failures retain the existing key.

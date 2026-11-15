@@ -562,6 +562,7 @@ export function useClusterDetailParts({
         )}
         {canMutate && (
           <LinkExistingFindingModal
+            managedSystemId={data.primary_managed_system_id}
             open={linkFindingOpen}
             clusterId={clusterId}
             onClose={() => setLinkFindingOpen(false)}

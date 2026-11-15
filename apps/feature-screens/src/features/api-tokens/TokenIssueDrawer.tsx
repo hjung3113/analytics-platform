@@ -5,7 +5,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, Checkbox, Input,
   Label, RadioGroup, RadioGroupItem,
-  useImeEnterGuard,
+  copyText, useImeEnterGuard,
 } from '@ap/ui';
 import { GroupedSelectionList } from '@ap/ui';
 import { tokenSelectionGroups } from '@/lib/copy/permission-selection';
@@ -78,8 +78,8 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   async function copySecret() {
     if (!secret) return;
     try {
-      await navigator.clipboard.writeText(secret);
-      setCopyMessage(COPY.copied);
+      const copied = await copyText(secret);
+      setCopyMessage(copied ? COPY.copied : COPY.copyFailed);
     } catch { setCopyMessage(COPY.copyFailed); }
   }
   async function submit(event: FormEvent) {

@@ -1,4 +1,6 @@
-import type { ApiError } from '@/lib/api/types';
+import { ApiError } from '@/lib/api/types';
+import { mapUnknownError } from '@/lib/api/errorMapper';
+import { SURVEY_BUILDER_COPY } from '@/lib/copy/surveys';
 import * as React from 'react';
 import { useOpenSurvey, useSurveyQuestionMutations } from '../../../hooks/useSurveys';
 import type { QuestionKind, Survey, SurveyQuestion } from '../../../types';
@@ -10,7 +12,7 @@ import {
   questionSignature,
 } from '../lib/questionDraft';
 import { hasInvalidRatingRange } from '../lib/questionValidation';
-import { saveSurveyDraft } from '../lib/saveSurveyDraft';
+import { type QuestionCreationAttempt, saveSurveyDraft } from '../lib/saveSurveyDraft';
 
 function hasInvalidQuestion(question: SurveyQuestion): boolean {
   return (
@@ -40,6 +42,7 @@ export function useSurveyBuilderController(args: {
   savedAt: Date | null;
   isSaving: boolean;
   saveFailed: boolean;
+  saveError: string | null;
   preview: boolean;
   setPreview: (open: boolean) => void;
   launchOpen: boolean;
@@ -72,7 +75,10 @@ export function useSurveyBuilderController(args: {
   const [dirty, setDirty] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<Date | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
-  const [saveFailed, setSaveFailed] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const saveFailed = saveError !== null;
+  const clearSaveError = () => setSaveError(null);
+  const creationAttempts = React.useRef(new Map<string, QuestionCreationAttempt>());
   const [preview, setPreview] = React.useState(false);
   const [launchOpen, setLaunchOpenState] = React.useState(false);
   const [pendingRemoval, setPendingRemoval] = React.useState<{
@@ -130,7 +136,7 @@ export function useSurveyBuilderController(args: {
       });
     });
     updateDirty(true);
-    setSaveFailed(false);
+    clearSaveError();
   };
 
   const add = (kind: QuestionKind = 'single_choice') => {
@@ -138,7 +144,7 @@ export function useSurveyBuilderController(args: {
     updateQuestions((all) => [...all, localQuestion]);
     setSelectedId(localQuestion.id);
     updateDirty(true);
-    setSaveFailed(false);
+    clearSaveError();
   };
 
   const removeQuestion = (id: string) => {
@@ -159,7 +165,7 @@ export function useSurveyBuilderController(args: {
       return denseQuestions(next);
     });
     updateDirty(true);
-    setSaveFailed(false);
+    clearSaveError();
   };
 
   const remove = (id: string) => {
@@ -192,7 +198,7 @@ export function useSurveyBuilderController(args: {
       return denseQuestions(next);
     });
     updateDirty(true);
-    setSaveFailed(false);
+    clearSaveError();
   };
 
   const replaceLocalId = (localId: string, serverId: string) => {
@@ -204,14 +210,14 @@ export function useSurveyBuilderController(args: {
     titleRef.current = value;
     setTitle(value);
     updateDirty(true);
-    setSaveFailed(false);
+    clearSaveError();
   };
 
   const onDescriptionChange = (value: string) => {
     descriptionRef.current = value;
     setDescription(value);
     updateDirty(true);
-    setSaveFailed(false);
+    clearSaveError();
   };
 
   const confirmLaunch = () => {
@@ -245,19 +251,20 @@ export function useSurveyBuilderController(args: {
 
   const save = async (): Promise<boolean> => {
     if (!titleRef.current.trim()) {
-      setSaveFailed(false);
+      clearSaveError();
       return false;
     }
     const invalidQuestion = questionsRef.current.find(hasInvalidQuestion);
     if (invalidQuestion) {
       setSelectedId(invalidQuestion.id);
-      setSaveFailed(false);
+      clearSaveError();
       return false;
     }
     setIsSaving(true);
-    setSaveFailed(false);
+    clearSaveError();
     try {
       const savedAt = await saveSurveyDraft({
+        creationAttempts: creationAttempts.current,
         questionsRef,
         titleRef,
         savedTitleRef,
@@ -269,7 +276,7 @@ export function useSurveyBuilderController(args: {
         mutations: {
           updateSurvey: (body) => mutations.updateSurvey.mutateAsync(body),
           remove: (id) => mutations.remove.mutateAsync(id),
-          create: (body) => mutations.create.mutateAsync(body),
+          create: (body, idempotencyKey) => mutations.create.mutateAsync({ body, idempotencyKey }),
           update: (args) => mutations.update.mutateAsync(args),
           reorder: (questionIds) => mutations.reorder.mutateAsync(questionIds),
         },
@@ -291,9 +298,17 @@ export function useSurveyBuilderController(args: {
         questionsAreSaved;
       updateDirty(!isClean);
       return isClean;
-    } catch {
+    } catch (cause) {
       updateDirty(true);
-      setSaveFailed(true);
+      const fields = cause instanceof ApiError && Array.isArray(cause.detail?.fields) ? cause.detail.fields : [];
+      const reloadReason = fields.find((field: { path?: unknown; code?: unknown }) => {
+        if (!field || typeof field !== 'object') return false;
+        return field.code === 'not_draft' || (Array.isArray(field.path) && field.path[0] === 'question_ids' && field.code === 'invalid');
+      });
+      let message = cause instanceof ApiError ? mapUnknownError(cause).message : SURVEY_BUILDER_COPY.saveFailed;
+      if (reloadReason?.code === 'not_draft') message = SURVEY_BUILDER_COPY.notDraft;
+      else if (reloadReason) message = SURVEY_BUILDER_COPY.questionsChanged;
+      setSaveError(message);
       return false;
     } finally {
       setIsSaving(false);
@@ -314,6 +329,7 @@ export function useSurveyBuilderController(args: {
     savedAt,
     isSaving,
     saveFailed,
+    saveError,
     preview,
     setPreview,
     launchOpen,

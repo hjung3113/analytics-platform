@@ -26,7 +26,9 @@ export function useCreateFindingFromCluster(args?: {
       });
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, { clusterId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['voc-cluster', clusterId] });
+      void queryClient.invalidateQueries({ queryKey: ['voc-clusters'] });
       void queryClient.invalidateQueries({ queryKey: ['findings'] });
       invalidateRecovery(queryClient);
       invalidateNavCounts(queryClient);
