@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { StatusBadge, cn } from '@ap/ui';
+import { PlatformDataTable, type PlatformColumn } from '@ap/components';
+import { StatusBadge } from '@ap/ui';
 import type { ModelProfileData } from '../../endpoints';
 import { instantText, statusText } from './modelPresentation';
 
@@ -43,16 +44,17 @@ export function ModelSummary({ model }: { model: ModelProfileData['model'] }) {
   </dl>;
 }
 
-/** Rows are not interactive: the SW profile is #1196. */
+type SoftwareVersionRow = ModelProfileData['softwareVersions'][number];
+
+const SOFTWARE_COLUMNS: PlatformColumn<SoftwareVersionRow>[] = [
+  { id: 'versionLabel', header: '버전', sortable: false, cell: v => <span className="t-mono">{v.versionLabel}</span> },
+  { id: 'name', header: '이름', sortable: false, cell: v => v.name || '—' },
+  { id: 'itemCount', header: '기술 Item 수', align: 'right', sortable: false },
+  { id: 'active', header: '상태', sortable: false, value: v => statusText(v.active), cell: v => <StatusBadge tone={v.active ? 'success' : 'neutral'}>{statusText(v.active)}</StatusBadge> },
+  { id: 'updatedAt', header: '최종 변경', sortable: false, value: v => instantText(v.updatedAt), cell: v => <span className="tabular">{instantText(v.updatedAt)}</span> },
+];
+
+/** The list is the server's newest `SOFTWARE_LIST_CAP` rows, not a screen-bounded set, so it is a `PlatformDataTable` in `rows` mode (the table pages it). Rows are not interactive: the SW profile is #1196. */
 export function SoftwareTable({ versions }: { versions: ModelProfileData['softwareVersions'] }) {
-  return <table className="w-full text-sm">
-    <thead><tr className="h-8 border-b border-border-subtle text-left text-xs text-text-muted">
-      <th scope="col" className="font-medium">버전</th><th scope="col" className="font-medium">이름</th>
-      <th scope="col" className="text-right font-medium">기술 Item 수</th><th scope="col" className="pl-6 font-medium">상태</th><th scope="col" className="font-medium">최종 변경</th>
-    </tr></thead>
-    <tbody>{versions.map(v => <tr key={v.id} className={cn('h-9 border-b border-border-subtle last:border-b-0', !v.active && 'text-text-muted')}>
-      <td className="t-mono">{v.versionLabel}</td><td>{v.name || '—'}</td><td className="tabular text-right">{v.itemCount}</td>
-      <td className="pl-6"><StatusBadge tone={v.active ? 'success' : 'neutral'}>{statusText(v.active)}</StatusBadge></td><td className="tabular">{instantText(v.updatedAt)}</td>
-    </tr>)}</tbody>
-  </table>;
+  return <PlatformDataTable title="SW 버전" hideTitle ariaLabel="SW 버전 목록" columns={SOFTWARE_COLUMNS} rows={versions} preferenceKey="log-knowledge-model-software" getRowId={v => v.id} isRowMuted={v => !v.active} />;
 }

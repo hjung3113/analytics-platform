@@ -4,7 +4,7 @@ import type { RemovalImpact } from '@eqv/editor';
 import type { FieldError } from '@ap/contracts';
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  Button, Callout, FieldLabel, FieldList, FieldRow, Input, useImeEnterGuard,
+  Button, Callout, FieldLabel, FieldList, FieldRow, Input, Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, useImeEnterGuard,
 } from '@ap/ui';
 import { TEMPLATE_ID_PATTERN } from '../endpoints';
 import { COLLECTIONS } from '../model/layout-changes';
@@ -12,6 +12,7 @@ import { shortHash, type PublishBaseline } from '../model/status';
 import { errorFor, fieldErrorCode } from '../model/text';
 
 const COLLECTION_LABELS: Record<string, string> = { levels: 'Level', components: 'Component', physicalInterfaces: 'Physical Interface', transferCapabilities: 'Transfer Capability', processRoutes: '공정 경로' };
+const CHANGE_COLUMNS = ['항목', 'ID', '변경'] as const;
 const CHANGE_LABEL = { added: '추가', removed: '삭제', changed: '변경' } as const;
 
 function ChangeList({ changes }: { changes: Extract<PublishBaseline, { kind: 'compared' }>['changes'] }) {
@@ -22,9 +23,9 @@ function ChangeList({ changes }: { changes: Extract<PublishBaseline, { kind: 'co
   if (rows.length === 0) return <p className="text-xs text-text-secondary">변경 없음</p>;
   const count = (change: string) => rows.filter(r => r.change === change).length;
   return <div className="space-y-2">
-    <div className="max-h-64 overflow-y-auto"><table className="w-full text-left text-xs"><caption className="sr-only">Layout 변경 목록</caption>
-      <thead><tr>{['항목', 'ID', '변경'].map(label => <th key={label} className="t-table-header border-b border-border-subtle bg-surface-sunken p-2 text-text-secondary">{label}</th>)}</tr></thead>
-      <tbody>{rows.map(row => <tr key={`${row.item}/${row.id}/${row.change}`}><td className="p-2">{row.item}</td><td className="p-2 font-mono">{row.id}</td><td className="p-2">{row.change}</td></tr>)}</tbody></table></div>
+    <div className="max-h-64 overflow-y-auto"><Table density="compact"><TableCaption srOnly>Layout 변경 목록</TableCaption>
+      <TableHeader className="sticky top-0"><TableRow>{CHANGE_COLUMNS.map(label => <TableHead key={label} scope="col">{label}</TableHead>)}</TableRow></TableHeader>
+      <TableBody>{rows.map(row => <TableRow key={`${row.item}/${row.id}/${row.change}`}><TableCell>{row.item}</TableCell><TableCell><span className="font-mono">{row.id}</span></TableCell><TableCell>{row.change}</TableCell></TableRow>)}</TableBody></Table></div>
     <p className="text-xs">{Object.values(CHANGE_LABEL).map(change => `${change} ${count(change)}`).join(' · ')}</p>
   </div>;
 }

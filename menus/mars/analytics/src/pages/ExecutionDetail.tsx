@@ -6,7 +6,7 @@ import { AlertTriangle, Ban } from 'lucide-react';
 import { formatNumber, parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { DataTrustIndicator, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
-import { Button, StatusBadge } from '@ap/ui';
+import { Button, StatusBadge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ap/ui';
 import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, resolveMetric, type Segment, type SegmentKind } from '../endpoints';
 
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
@@ -81,6 +81,10 @@ const PANEL_GAP = 'space-y-3';
 
 function OccurrenceBody({ execution, segments, lang }: { execution: { room: string; recipe: string; lotId: string; ppid: string; anchor: string; startedAt: string; cycleMin: number; quality: 'unknown' | 'review' }; segments: Segment[]; ko: boolean; lang: 'ko' | 'en' }) {
   const m = (key: keyof typeof ANALYTICS_MESSAGES, params?: TextParams) => formatText(ANALYTICS_MESSAGES[key], lang, params);
+  const segmentColumns = [
+    { key: 'kind', label: m('executionDetailSegment2'), align: 'start' }, { key: 'module', label: 'Module', align: 'start' }, { key: 'slot', label: 'Slot', align: 'start' },
+    { key: 'start', label: m('executionDetailStart'), align: 'start' }, { key: 'end', label: m('executionDetailEnd'), align: 'start' }, { key: 'duration', label: m('executionDetailDurationMin'), align: 'end' },
+  ] as const;
   const spanEnd = segments.reduce((max, segment) => segment.end > max ? segment.end : max, execution.startedAt);
   const axisEnd = spanEnd;
   const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
@@ -117,23 +121,23 @@ function OccurrenceBody({ execution, segments, lang }: { execution: { room: stri
 
     <Panel title={m('executionDetailSegmentTable')} subtitle={m('executionDetailTheParentOccurrenceIsTheIdentityAbove')}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-border-subtle text-left text-text-muted">
-              {['', 'Module', 'Slot', m('executionDetailStart'), m('executionDetailEnd'), m('executionDetailDurationMin')].map(label => <th key={label || 'kind'} title={label || (m('executionDetailSegment'))} className={`t-table-header truncate whitespace-nowrap px-4 py-1.5 ${label.startsWith('길이') || label.startsWith('Duration') ? 'text-right' : ''}`}>{label || (m('executionDetailSegment2'))}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {segments.map(segment => <tr key={`${segment.kind}-${segment.start}`} className="border-b border-border-subtle">
-              <td className="px-4 py-1"><span className="t-mono">{segment.kind}</span></td>
-              <td className="t-mono px-4 py-1">{segment.module}</td>
-              <td className="t-mono px-4 py-1">{segment.slot}</td>
-              <td className="t-mono px-4 py-1 tabular">{formatWallClock(segment.start)}</td>
-              <td className="t-mono px-4 py-1 tabular">{formatWallClock(segment.end)}</td>
-              <td className="px-4 py-1 text-right tabular">{formatNumber(segment.durationMin, lang, { decimals: 1 })}</td>
-            </tr>)}
-          </tbody>
-        </table>
+        <Table className="min-w-[720px]">
+          <TableHeader>
+            <TableRow>
+              {segmentColumns.map(column => <TableHead key={column.key} scope="col" align={column.align}>{column.label}</TableHead>)}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {segments.map(segment => <TableRow key={`${segment.kind}-${segment.start}`}>
+              <TableCell><span className="t-mono">{segment.kind}</span></TableCell>
+              <TableCell><span className="t-mono">{segment.module}</span></TableCell>
+              <TableCell><span className="t-mono">{segment.slot}</span></TableCell>
+              <TableCell><span className="t-mono tabular">{formatWallClock(segment.start)}</span></TableCell>
+              <TableCell><span className="t-mono tabular">{formatWallClock(segment.end)}</span></TableCell>
+              <TableCell align="end">{formatNumber(segment.durationMin, lang, { decimals: 1 })}</TableCell>
+            </TableRow>)}
+          </TableBody>
+        </Table>
       </div>
     </Panel>
 

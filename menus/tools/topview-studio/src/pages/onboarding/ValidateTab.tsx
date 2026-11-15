@@ -4,7 +4,7 @@ import { conflictHighlight, describeConflict, type DryRun, type PublishPlan } fr
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, FieldLabel,
-  FieldList, FieldRow, Input, PanelSectionTitle, cn,
+  FieldList, FieldRow, Input, PanelSectionTitle, Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, cn,
 } from '@ap/ui';
 import { WALL_CLOCK_PATTERN, publishMapping, publishRevision, type RevisionRow } from '../../endpoints';
 import { WINDOW_NOT_ACTIVE_REASON, percent, rangeShort, windowHex } from '../../model/onboarding';
@@ -71,6 +71,8 @@ export function ValidateTab({ data, layout, run, plan, error, effectiveFrom, onE
   </div>;
 }
 
+const ALIAS_DIFF_COLUMNS = ['alias', '변경', '이전 → 이후'] as const;
+
 /** §6 Diff: alias added/removed/changed (target, certainty, rule), unchanged count, the Layout Revision line and the Binding lines. */
 function DiffSummary({ plan }: { plan: PublishPlan }) {
   const count = (change: keyof typeof CHANGE_WORD) => plan.diff.entries.filter((e) => e.change === change).length;
@@ -82,9 +84,9 @@ function DiffSummary({ plan }: { plan: PublishPlan }) {
       <FieldRow layout="property" label="Binding">{plan.diff.binding.length ? plan.diff.binding.map((line) => <span key={line} className="block"><NoBreakStamps text={line} /></span>) : '—'}</FieldRow>
       <FieldRow layout="property" label="Mapping Conflict">{plan.diff.conflicts}</FieldRow>
     </FieldList>
-    {plan.diff.entries.length > 0 && <table className="w-full text-left text-xs"><caption className="sr-only">alias 변경</caption>
-      <thead><tr>{['alias', '변경', '이전 → 이후'].map((h) => <th key={h} className="t-table-header border-b border-border-subtle bg-surface-sunken p-2 text-text-secondary">{h}</th>)}</tr></thead>
-      <tbody>{plan.diff.entries.map((e) => <tr key={e.alias}><td className="p-2 font-mono">{e.alias}</td><td className="p-2">{CHANGE_WORD[e.change]}</td><td className="p-2 break-all">{e.before ?? '—'} → {e.after ?? '—'}</td></tr>)}</tbody></table>}
+    {plan.diff.entries.length > 0 && <Table density="compact"><TableCaption srOnly>alias 변경</TableCaption>
+      <TableHeader><TableRow>{ALIAS_DIFF_COLUMNS.map((h) => <TableHead key={h} scope="col">{h}</TableHead>)}</TableRow></TableHeader>
+      <TableBody>{plan.diff.entries.map((e) => <TableRow key={e.alias}><TableCell><span className="font-mono">{e.alias}</span></TableCell><TableCell>{CHANGE_WORD[e.change]}</TableCell><TableCell className="break-all">{e.before ?? '—'} → {e.after ?? '—'}</TableCell></TableRow>)}</TableBody></Table>}
   </div>;
 }
 

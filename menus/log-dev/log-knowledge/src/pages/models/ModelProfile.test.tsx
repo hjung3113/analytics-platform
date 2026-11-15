@@ -1,14 +1,32 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { instantText } from './modelPresentation';
 import ModelProfile from './ModelProfile';
 import { MODEL_ID, Providers, admin, makeAdapter, profileOf, viewer, type Kit } from './test-support';
 
+// jsdom has no layout: give the table's virtual rows a viewport, as the SDK table tests do.
+const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 800; } });
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const height = this.getAttribute('role') === 'row' ? 32 : 420;
+    return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+  });
+});
+afterAll(() => {
+  vi.unstubAllGlobals();
+  if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
+  if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
+});
+
 let kit: Kit;
 let session = admin;
 beforeEach(() => { kit = { queries: [], profile: () => profileOf() }; session = admin; });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); });
 
 const slow = { timeout: 8000 };
 vi.setConfig({ testTimeout: 20000 });
@@ -52,7 +70,8 @@ describe('모델 프로파일 sections', () => {
     await screen.findByRole('heading', { level: 1, name: 'Alpha 100' }, slow);
     const table = within(section('SW 버전')).getByRole('table');
     expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['버전', '이름', '기술 Item 수', '상태', '최종 변경']);
-    const [first, second] = within(table).getAllByRole('row').slice(1);
+    // The table answers its rows after its own read, so wait for them.
+    const [first, second] = (await within(table).findAllByRole('row', {}, slow)).slice(1);
     expect(first!.textContent).toBe(`v2.0Major3활성${instantText('2026-10-03T00:00:00.000Z')}`);
     expect(second!.textContent).toBe(`v1.0—0비활성${instantText('2026-10-01T00:00:00.000Z')}`);
     expect(within(table).queryByRole('link')).toBeNull();

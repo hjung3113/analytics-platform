@@ -31,8 +31,13 @@ export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAtt
 );
 TableBody.displayName = 'TableBody';
 
-export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
-  ({ className, ...props }, ref) => <tr ref={ref} className={className} {...props} />,
+interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  /** The row the screen is on (a drill target, the open item): accent surface and `aria-current`. Shape and weight for the row's own text stay with the consumer (06 §26). */
+  current?: boolean;
+}
+
+export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
+  ({ className, current, ...props }, ref) => <tr ref={ref} className={cn(current && 'bg-accent-primary-soft', className)} {...props} aria-current={current ? 'true' : props['aria-current']} />,
 );
 TableRow.displayName = 'TableRow';
 
