@@ -134,7 +134,7 @@ export default function StepsPage(_props: PageProps) {
     const chartTitle = data.level === 0 ? (m('stepsPageOperationTimeByModule'))
       : data.level === 1 ? (m('stepsPageModuleOperationTimeByMotion', { module: String(kept.module) }))
         : (m('stepsPageModuleMotionDetail', { module: String(kept.module), motion: String(kept.motion) }));
-    return <StackPanel chartId={`hw-time-steps-L${data.level + 1}`} title={chartTitle} block={shown}
+    return <StackPanel showJudgement chartId={`hw-time-steps-L${data.level + 1}`} title={chartTitle} block={shown}
       visibleSeriesIds={shown.series.map(item => item.id).filter(id => !hidden.includes(id))}
       onVisibleSeriesChange={ids => setHidden(shown.series.map(item => item.id).filter(id => !ids.includes(id)))}
       sort={sort} startAlign={align} minMax={minmax}

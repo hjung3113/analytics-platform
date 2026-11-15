@@ -1,6 +1,15 @@
 import type { Text } from '@ap/kernel';
 
 export const HW_TIME_MESSAGES = {
+  viewLabel: { ko: 'View', en: 'View' },
+  viewOverview: { ko: '개요', en: 'Overview' },
+  viewSteps: { ko: '단계별', en: 'Steps' },
+  viewCompare: { ko: '비교', en: 'Compare' },
+  viewTable: { ko: '표', en: 'Table' },
+  judgement: { ko: '판정', en: 'Judgement' },
+  judgementSummary: { ko: '판정: {summary}', en: 'Judgement: {summary}' },
+  judgementCount: { ko: '{label} {count}', en: '{label} {count}' },
+
 
   // ComparePage
   comparePageDefault: { ko: "기본", en: "Default" },
@@ -195,4 +204,20 @@ export const HW_TIME_MESSAGES = {
   comparePageFitAll: { ko: "전체 맞춤", en: "Fit all" },
   // Endpoint display copy
   endpointHwTimeUnit: { ko: "초", en: "s" },
+  // HTM judgement (shared/htm.ts)
+  htmStatusOver: { ko: "HTM 상한 초과", en: "Above HTM upper" },
+  htmStatusUnder: { ko: "HTM 하한 미달", en: "Below HTM lower" },
+  htmStatusNormal: { ko: "정상", en: "Normal" },
+  htmStatusRecipeUnsplit: { ko: "Recipe 미구분 — 판정 불가", en: "Recipe not split — not judgeable" },
+  htmStatusNoCriteria: { ko: "HTM 미등록 — 판정 불가", en: "No HTM registered — not judgeable" },
+  htmReasonRecipeUnsplit: { ko: "Recipe·PPID별 통계가 아직 없어 HTM과 비교할 수 없습니다.", en: "There are no per-Recipe/PPID statistics yet, so the value cannot be compared with an HTM." },
+  htmReasonNoCriteria: { ko: "이 Motion에 등록된 HTM이 없습니다.", en: "No HTM is registered for this Motion." },
+  // Filter panel keys (shared/useHwTimeFilter.ts)
+  filterModuleType: { ko: "Module 타입", en: "Module type" },
+  filterModule: { ko: "선택한 Module", en: "Selected Module" },
+  filterMotion: { ko: "선택한 Motion", en: "Selected Motion" },
+  filterNoneSelected: { ko: "선택한 항목 없음", en: "Nothing selected" },
+  filterNoneSelectedBody: { ko: "필터 패널에서 Module과 Motion을 하나 이상 고르세요.", en: "Check at least one Module and one Motion in the filter panel." },
+  filterUnusable: { ko: "이 화면에서 쓸 수 없는 값", en: "Values this page cannot use" },
+  filterSplit: { ko: "Recipe/PPID 구분", en: "Recipe/PPID split" },
 } satisfies Record<string, Text>;

@@ -705,8 +705,9 @@
   },
   {
     "id": "hwTime.exportRows",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "drillModule",
       "drillMotion",
       "ids",
@@ -732,8 +733,9 @@
   },
   {
     "id": "hwTime.levelRows",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "drillModule",
       "drillMotion"
     ],
@@ -754,8 +756,9 @@
   },
   {
     "id": "hwTime.tableRows",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "drillModule",
       "drillMotion",
       "page",
@@ -779,8 +782,9 @@
   },
   {
     "id": "hwTime.trend",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "rowIds"
     ],
     "permission": "analytics:view",

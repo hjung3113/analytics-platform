@@ -10,9 +10,14 @@ import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
-  DetailDrawer, DrillLayout, PageKeyWarning, usePageKeyRules, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
+  DetailDrawer, DrillLayout, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
 } from '@ap/components';
-import { Button } from '@ap/ui';
+import { Button, StatusBadge } from '@ap/ui';
+import { useHwTimeFilterContext } from '../../shared/HwTimeFilterContext';
+import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
+import { filterRow } from '../../shared/filterData';
+import { worstJudgement } from '../../shared/JudgementSummary';
+import { htmStatusText, htmStatusView } from '../../shared/htm';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
 import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
 import { shownDrill } from '../../shared/shownDrill';
@@ -59,19 +64,23 @@ export default function TablePage(_props: PageProps) {
   const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
   const { pageParam, setPage } = usePlatform();
+  const filter = useHwTimeFilterContext();
   const drill = useDrill();
   const module = drill.levels[0]?.value ?? null;
   const motion = drill.levels[1]?.value ?? null;
   const level = levelOf(module, motion);
+  const checkedSeries = level === 0 ? filter?.modules : filter?.motions;
+  const activeSeries = checkedSeries ?? seriesIds(level, motion);
+  const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}) };
   const focus = pageParam('focus');
-  const focusKeys = usePageKeyRules([{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }]);
+  const focusKeys = useHwTimeDrillRules([{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }]);
   const { urlState, invalid: tableInvalid, sentences } = useTableUrlState(SORT_FIELDS);
 
   const pages = useMenuFetch(hwTime.tableRows);
   const exports = useMenuFetch(hwTime.exportRows);
 
   // The level response gives the empty/partial states and the drawer's row at every level; the table pages through its own fetch.
-  const levelQ = useHwTimeLevel(drillParams(module, motion));
+  const levelQ = useHwTimeLevel(drillParams(module, motion), !focusKeys.invalid);
   // The row counts below describe the kept level result (#1365): they name the Module/Motion it was loaded with.
   const kept = shownDrill(levelQ, drillParams(module, motion));
   const response: HwTimeLevelData | null = levelQ.response && ['ok', 'empty'].includes(levelQ.response.outcome) ? levelQ.response.data : null;
@@ -85,20 +94,21 @@ export default function TablePage(_props: PageProps) {
   const detailPending = focus !== null && focusRow === undefined && response === null;
 
   const trendable = focusRow !== undefined && isHwTimeTrendId(focusRow.id);
-  const trendQ = useHwTimeTrend(trendable ? [focusRow.id] : [], trendable);
+  const trendQ = useHwTimeTrend(trendable ? [focusRow.id] : [], trendable && !focusKeys.invalid);
 
   const columns = useMemo<PlatformColumn<HwTimeTableRow>[]>(() => {
+    const project = (row: HwTimeTableRow) => filter ? filterRow(row, activeSeries) : row;
     const unit = unitOf(lang);
     const size = columnSizeOf(level);
     const enter = (value: string) => drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
-    const series: PlatformColumn<HwTimeTableRow>[] = seriesIds(level, motion).map(id => ({
+    const series: PlatformColumn<HwTimeTableRow>[] = (filter ? activeSeries.filter(id => level !== 2 || id === motion) : seriesIds(level, motion)).map(id => ({
       id, header: `${id} (${unit})`, align: 'right', size: size.value,
-      value: row => (row[id] as number | null | undefined) ?? null,
+      value: row => project(row).values[id] ?? null,
       cell: row => row.auxiliary ? null : <span className="inline-flex items-center justify-end gap-1">
-        <span className="tabular whitespace-nowrap">{valueText(row.values[id], lang)}</span>
+        <span className="tabular whitespace-nowrap">{valueText(project(row).values[id], lang)}</span>
         {level < 2 && <EnterButton ko={(lang === 'ko')} value={id} onClick={() => enter(id)} />}
       </span>,
-      exportValue: row => row.auxiliary ? null : exportNumber(row.values[id], lang),
+      exportValue: row => row.auxiliary ? null : exportNumber(project(row).values[id], lang),
     }));
     return [
       { id: 'equipmentId', header: 'EquipmentID', size: size.equipmentId, cell: row => <span className="t-mono">{row.equipmentId}</span> },
@@ -109,13 +119,23 @@ export default function TablePage(_props: PageProps) {
       }]),
       ...series,
       {
+        id: 'judgement', header: m('judgement'), size: 160, sortable: false,
+        value: row => { const judgement = worstJudgement(project(row).judgements); return judgement ? htmStatusText(judgement, lang) : ''; },
+        cell: row => {
+          const judgement = worstJudgement(project(row).judgements);
+          if (!judgement || row.auxiliary) return null;
+          const status = htmStatusView(judgement, lang);
+          return <StatusBadge tone={status?.tone ?? 'neutral'}>{htmStatusText(judgement, lang)}</StatusBadge>;
+        },
+      },
+      {
         id: 'total', header: `${m('tablePageTotal')} (${unit})`, align: 'right', size: size.total,
-        value: row => row.total,
-        cell: row => row.auxiliary ? null : <span className="tabular whitespace-nowrap">{valueText(row.total, lang)}</span>,
-        exportValue: row => row.auxiliary ? null : exportNumber(row.total, lang),
+        value: row => project(row).total,
+        cell: row => row.auxiliary ? null : <span className="tabular whitespace-nowrap">{valueText(project(row).total, lang)}</span>,
+        exportValue: row => row.auxiliary ? null : exportNumber(project(row).total, lang),
       },
     ];
-  }, [m, lang, level, motion, drill]);
+  }, [m, lang, level, motion, drill, filter, activeSeries]);
 
   const megRows = listed.length - dataRows.length;
   const rowCount = megRows > 0 ? (m('tablePageSubItemRowsMegRows', { length: String(dataRows.length), megRows: String(megRows) }))
@@ -135,12 +155,15 @@ export default function TablePage(_props: PageProps) {
       : <PlatformDataTable<HwTimeTableRow>
         title={m('tablePageHwTimeTable')} ariaLabel={m('tablePageHwTimeOperationTimeTable')}
         subtitle={level === 2 ? undefined : (m('tablePageUseTheArrowBesideAValueTo'))}
-        columns={columns} getRowId={row => row.id} filterKey={`${module ?? ''}/${motion ?? ''}`} preferenceKey={`hw-time-table:columns:v1:L${level + 1}`}
+        columns={columns} getRowId={row => row.id} filterKey={JSON.stringify(queryDrill)} preferenceKey={`hw-time-table:columns:v1:L${level + 1}`}
         activeRowId={focus} pageSize={25} urlState={urlState}
-        loadPage={(query, signal) => pages.fetch({ ...drillParams(module, motion), ...query }, signal)}
+        loadPage={(query, signal) => pages.fetch({ ...queryDrill, ...query }, signal)}
         rowAction={(row, { compact }) => row.auxiliary ? null
           : <RowAction compact={compact} icon={PanelRight} label={m('tablePageView', { value: String(rowIdLabel(row.id)) })} text={m('tablePageView2')} onClick={() => setPage({ focus: row.id })} />}
-        exportRows={(request, signal) => exports.fetch(exportParams(drillParams(module, motion), request), signal)}
+        exportRows={async (request, signal) => {
+          const response = await exports.fetch(exportParams(queryDrill, request), signal);
+          return response.data && filter ? { ...response, data: response.data.map(row => filterRow(row, activeSeries)) } : response;
+        }}
         exportNote={m('tablePageRowsOfTheCurrentLevelValuesNot')}
         exportFilterSummary={exportFilterSummary(module, motion, lang === 'ko')}
         exportContext={hwTime.exportRows.context}

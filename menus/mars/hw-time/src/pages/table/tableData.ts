@@ -1,13 +1,13 @@
 import { formatText } from '@ap/kernel';
 import { HW_TIME_MESSAGES } from '../../messages';
 import { tableExportParams, type TableExportRequest } from '@ap/components';
-import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
+import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, HW_TIME_MODULE_TYPES, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { formatSeconds, missingText } from '../../shared/format';
 
 export type TableLevel = 0 | 1 | 2;
 
 /** The columns the server sorts by; a series column sorts the flat field of the same id on the table row. */
-export const SORT_FIELDS = ['equipmentId', 'subItem', ...MODULE_IDS, ...MOTION_IDS, 'total'] as const;
+export const SORT_FIELDS = ['equipmentId', 'subItem', ...new Set(HW_TIME_MODULE_TYPES.flatMap(type => [...type.modules, ...type.motions])), 'total'] as const;
 
 export const levelOf = (module: string | null, motion: string | null): TableLevel => (module === null ? 0 : motion === null ? 1 : 2);
 

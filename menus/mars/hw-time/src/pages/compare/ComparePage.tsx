@@ -190,7 +190,7 @@ export default function ComparePage(_props: PageProps) {
       ? { ko: formatText(HW_TIME_MESSAGES.comparePageByModuleSelected, 'ko', { module: String(module) }), en: formatText(HW_TIME_MESSAGES.comparePageByModuleSelected, 'en', { module: String(module) }) }
       : HW_TIME_MESSAGES.comparePageByModule, render: () =>
       <PanelFill><QueryView fill query={summaryQ} widgetName={m('comparePageOperationTimeByModule')} hideWidgetName skeletonRows={6}>
-        {data => <StackPanel chartId="hw-compare-summary" title={m('comparePageOperationTimeByModule2')} block={data}
+        {data => <StackPanel showJudgement chartId="hw-compare-summary" title={m('comparePageOperationTimeByModule2')} block={data}
           visibleSeriesIds={visibleOf(data, summaryHidden)} onVisibleSeriesChange={setVisible(data, setSummaryHidden)} {...stackProps}
           onActivate={({ seriesId }) => drill.enter('drillModule', seriesId)} />}
       </QueryView></PanelFill> },
@@ -201,7 +201,7 @@ export default function ComparePage(_props: PageProps) {
       : HW_TIME_MESSAGES.comparePageModuleComposition2, render: () => !module
       ? waiting(m('comparePageChooseAModule'))
       : <PanelFill><QueryView fill query={moduleQ} widgetName={m('comparePageModuleComposition3', { module: String(moduleKept.module) })} hideWidgetName skeletonRows={6}>
-        {data => <StackPanel chartId="hw-compare-module" title={m('comparePageModuleOperationTimeByMotion', { module: String(moduleKept.module) })} block={data}
+        {data => <StackPanel showJudgement chartId="hw-compare-module" title={m('comparePageModuleOperationTimeByMotion', { module: String(moduleKept.module) })} block={data}
           visibleSeriesIds={visibleOf(data, moduleHidden)} onVisibleSeriesChange={setVisible(data, setModuleHidden)} {...stackProps} {...rowFocus}
           onActivate={moduleKept.previous ? undefined : ({ seriesId }) => drill.enter('drillMotion', seriesId)} rowActions={state.rowActionsOf} />}
       </QueryView></PanelFill> },
@@ -213,7 +213,7 @@ export default function ComparePage(_props: PageProps) {
           return det.rows.length === 0
             ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('comparePageNoRecordsForModule', { module: String(detailKept.module), motion: String(detailKept.motion) })}
               body={m('comparePageOtherMotionsOfThisModuleAreOne')} />
-            : <StackPanel chartId="hw-compare-detail" title={m('comparePageModuleMotionDetail', { module: String(detailKept.module), motion: String(detailKept.motion) })} block={det}
+            : <StackPanel showJudgement chartId="hw-compare-detail" title={m('comparePageModuleMotionDetail', { module: String(detailKept.module), motion: String(detailKept.motion) })} block={det}
               visibleSeriesIds={visibleOf(det, moduleHidden)} onVisibleSeriesChange={setVisible(moduleBlock, setModuleHidden)} {...stackProps} {...rowFocus} rowActions={state.rowActionsOf} />;
         }}
       </QueryView></PanelFill> },

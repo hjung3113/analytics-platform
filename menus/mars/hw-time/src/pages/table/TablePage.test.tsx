@@ -11,6 +11,7 @@ import { HW_TIME_CONTEXT, hwTime, type HwTimeLevelData, type HwTimeRow } from '.
 import { manifests } from '../../index';
 import TablePage from './TablePage';
 import { exportNumber } from './tableData';
+import { HW_TIME_CARRY_SET } from '../../test-support';
 
 // jsdom has no canvas: the Frame is replaced by a stub that exposes the series and the rows the drawer hands it.
 vi.mock('@ap/components', async importOriginal => {
@@ -67,7 +68,7 @@ const adapter = testAdapter({
   session: () => session,
 });
 
-const registry = createRegistry({
+const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET],
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],

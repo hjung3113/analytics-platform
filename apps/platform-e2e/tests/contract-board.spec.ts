@@ -804,6 +804,9 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(page.locator('[data-pane-id]')).toHaveCount(2);
     // The lazy HW Time screen draws its own dock after the first paint; wait for it so the check below cannot pass on an empty pane.
     await expect(page.locator('[data-pane-id]').nth(1).locator('.dv-groupview').first()).toBeVisible();
+    // Saved legacy ids still render their matching View in place (#2328).
+    await expect(page.locator('[data-pane-id]').nth(1).getByRole('region', { name: 'Module별 동작시간', exact: true })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/board');
     const visibilityOf = (selector: string) => page.locator(selector).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).visibility));
     await maximizeOf(page, 1).click();
     await expect(page.getByRole('button', { name: '원래 크기로' })).toBeVisible();
@@ -1825,7 +1828,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 // tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
 test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const COMPARE = '/mars/hw-time-compare?v=1&scopeId=MEM';
+  const COMPARE = '/mars/hw-time?view=compare&v=1&scopeId=MEM';
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
   const ROUNDING = 2;
@@ -2082,7 +2085,7 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
 test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
   test('1440×900 HW Time 표의 행 영역이 fill 슬롯 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/mars/hw-time-table?v=1&scopeId=MEM&drillModule=PM1');
+    await page.goto('/mars/hw-time?view=table&v=1&scopeId=MEM&drillModule=PM1');
     const rows = page.getByLabel('스크롤 가능한 행 영역');
     await expect(rows).toBeVisible();
     await expect(rows.getByRole('row').nth(2)).toBeVisible();

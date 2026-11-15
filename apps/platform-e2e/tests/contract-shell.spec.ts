@@ -594,7 +594,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await evidence(page, testInfo, 'admin-back');
   });
 
-  test('옛 메뉴 주소는 정식 주소로 replace되고 search(v1·returnTo)는 바이트 그대로 남으며 기록 길이는 늘지 않는다 (ADR-0093)', async ({ page }) => {
+  test('옛 HW Time 주소는 해당 View로 replace되고 Context·returnTo를 보존하며 기록 길이는 늘지 않는다 (ADR-0093)', async ({ page }) => {
     await signInAs(page, 'engineer');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expect(page.getByRole('main')).toBeVisible();
@@ -602,8 +602,8 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     // from/to are given, so the default-period write that follows a redirect has nothing to add.
     const search = '?v=1&scopeId=MEM&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00&returnTo=%2Fequipment%3Fv%3D1';
     await page.goto(`/hw-time/steps${search}`);
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/mars/hw-time-steps');
-    expect(new URL(page.url()).search).toBe(search);
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/mars/hw-time');
+    expect(new URL(page.url()).search).toBe(`${search}&view=steps`);
     // goto adds exactly one entry; a push by the alias redirect would make it two.
     expect(await page.evaluate(() => history.length)).toBe(before + 1);
   });

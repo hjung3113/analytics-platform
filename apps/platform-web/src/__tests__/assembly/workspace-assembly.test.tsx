@@ -153,8 +153,13 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[6]).toMatchObject({ label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '플랫폼 관리 · 권한', en: 'Platform administration · Access' }, homeMenuId: 'admin-roles' });
     expect(SPACE_DEFS[6].permission).toBeUndefined();
     expect(SPACE_DEFS[6].subtitle).toBeUndefined();
-    // #1099b: the one production carry set; every 업무 흐름 menu is a member, no other menu is, and the space declares nothing.
-    expect(registry.carrySets).toEqual([{ id: 'features', pageKeys: ['managedSystem', 'returnTo'] }]);
+    // #1099b: the `features` carry set; every 업무 흐름 menu is a member, no other menu is, and the space declares nothing.
+    expect(registry.carrySets).toEqual([
+      { id: 'features', pageKeys: ['managedSystem', 'returnTo'] },
+      { id: 'hwTime', pageKeys: ['drillModule', 'drillMotion', 'moduleType', 'module', 'motion', 'split'] },
+    ]);
+    // #2328: the one HW Time menu is the only `hwTime` member (its sidebar View links keep the drill and the filter panel).
+    expect(registry.menus.filter(menu => menu.carrySet === 'hwTime').map(menu => menu.id)).toEqual(['hw-time']);
     expect(SPACE_DEFS[5]).not.toHaveProperty('carriedPageKeys');
     expect(SPACE_DEFS[6]).not.toHaveProperty('carriedPageKeys');
     // Members: every 업무 흐름 menu and the two access menus (carry set `features`), plus global 내 Task; platform administration (group admin) is not a member.
@@ -168,7 +173,7 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menuById('service-tokens').carrySet).toBeUndefined();
     expect(accessCarryMenus.every(menu => menu.carrySet === 'features')).toBe(true);
     expect(operationsMenus.filter(menu => menu.group === 'admin').every(menu => menu.carrySet === undefined)).toBe(true);
-    expect(registry.menus.filter(menu => menu.carrySet !== undefined).map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessCarryMenus.map(menu => menu.id), 'my-tasks'].sort());
+    expect(registry.menus.filter(menu => menu.carrySet === 'features').map(menu => menu.id).sort()).toEqual([...flowMenus.map(menu => menu.id), ...accessCarryMenus.map(menu => menu.id), 'my-tasks'].sort());
     // Every group has exactly one primary menu (the Kernel enforces it; pinned here so a moved menu cannot leave a group without one).
     for (const group of registry.groups) expect(registry.menus.filter(menu => menu.group === group.id && menu.primary === true)).toHaveLength(1);
     expect(registry.menuById('dashboard')).toMatchObject({ group: 'dashboard', path: '/flow/dashboard', permission: 'features:access', requiresScope: false, pageKeys: ['managedSystem', 'returnTo'] });

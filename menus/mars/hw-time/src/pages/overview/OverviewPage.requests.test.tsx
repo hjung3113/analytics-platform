@@ -7,6 +7,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { LayoutDashboard } from 'lucide-react';
 import type { HwTimeBlock, HwTimeRow } from '../../endpoints';
 import { manifests } from '../../index';
+import { HW_TIME_CARRY_SET } from '../../test-support';
 
 // jsdom has no canvas: only the Frame is replaced (its props are not under test here). The real data hooks, the real adapter port and the real PanelWorkspace run.
 vi.mock('@ap/components', async importOriginal => {
@@ -31,7 +32,7 @@ const previousObserver = (globalThis as { ResizeObserver?: unknown }).ResizeObse
 beforeAll(() => { (globalThis as { ResizeObserver?: unknown }).ResizeObserver = FakeResizeObserver; });
 afterAll(() => { (globalThis as { ResizeObserver?: unknown }).ResizeObserver = previousObserver; });
 
-const registry = createRegistry({
+const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET],
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],

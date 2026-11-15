@@ -41,3 +41,12 @@ SDK 조각:
 ## 보충(2026-10-26, #912)
 
 비교 메뉴는 드릴해도 위 단계 패널을 남긴다(B 주-상세, 사용자가 독립 리뷰로 결정). 요약(Module별)이 왼쪽 전체 높이, 오른쪽 위가 Module 구성, 오른쪽 아래가 Motion 상세이며 추세는 상세 옆 탭이다. 패널마다 자기 조회만 가진다: 요약 `{}`, 구성 `{drillModule}`(Module이 있을 때만), 상세 `{drillModule, drillMotion}`(둘 다 있을 때만). 아래 단계가 비면 패널을 없애지 않고 기다림 문구를 보인다. `persistKey`는 단계와 무관한 하나(`hw-compare`)이고 이전 `hw-compare-l1|l2|l3` 저장값은 읽지 않는다. 06 §12.7: `DrillLayout`은 단계마다 본문을 다시 마운트하지 않고 단계별 본문은 메뉴가 정한다(`DrillLayout.test.tsx`가 고정). 단계별·개요·표는 바뀌지 않는다.
+
+
+## 개정(2026-11-16, #2328)
+
+소유자 결정(2026-11-16): 메뉴 4개를 메뉴 하나 `hw-time`(정식 주소 `/mars/hw-time`)의 View 네 개로 통합한다. `view` page key는 `overview|steps|compare|table`이며 생략하면 `overview`다. `navViews` 순서는 개요 / 단계별 / 비교 / 표다. 잘못된 `view`는 경고로 거절하며 자동 보정하지 않는다.
+
+각 View는 기존 레이아웃 레시피를 유지한다. 단계별은 `DrillLayout`, 비교는 `PanelWorkspace` 프리셋, 표는 `PlatformDataTable` + `DetailDrawer`다. 개요 본문 개편은 #2329 소관이다. 여러 레이아웃을 보여 주는 견본 목적은 View 단위로 유지한다. 설비 선택 Context와 필터 상태는 View 전환에도 유지한다.
+
+옛 id `hw-time-steps|compare|overview|table`은 `navHidden` 호환 항목으로 남긴다. 옛 정식 주소와 `/hw-time/<view>` 별칭은 Context·page key를 보존해 해당 View로 replace한다. 저장된 옛 id 보드 칸은 그 View를 칸 안에서 렌더한다. #2330 해결 전까지 옛 주소 진입의 최근 방문·usage entry가 옛 id로 기록될 수 있는 제한을 수용한다. 호환 항목 정리는 #2330 후 재검토한다.

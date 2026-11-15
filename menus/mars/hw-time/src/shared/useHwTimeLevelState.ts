@@ -1,12 +1,13 @@
 import { useMessages } from '@ap/kernel';
 import { HW_TIME_MESSAGES } from '../messages';
 import { useMemo, useState } from 'react';
-import { usePageKeyRules, type PageKeyRule } from '@ap/components';
+import type { PageKeyRule } from '@ap/components';
 import { usePlatform, type Text } from '@ap/kernel';
 import { HW_TIME_MAX_TREND_ROWS, isHwTimeRowId, type HwTimeBlock } from '../endpoints';
 import type { StackSort } from './panels/StackPanel';
 import { selectionCounts } from './selectionCounts';
 import { formatTrendKey, parseTrendKey } from './trendKey';
+import { useHwTimeDrillRules } from './useHwTimeDrillRules';
 import { useKeyedHidden } from './useKeyedHidden';
 
 const SORTS: readonly string[] = ['total-desc', 'total-asc'];
@@ -40,7 +41,7 @@ export function useHwTimeLevelState({ hiddenKey = '', row: hasRow = false, revea
   const rawSort = pageParam('sort');
   const rawTrend = pageParam('trend');
   const rawRow = hasRow ? pageParam('row') : null;
-  const keys = usePageKeyRules(hasRow ? RULES_WITH_ROW : RULES);
+  const keys = useHwTimeDrillRules(hasRow ? RULES_WITH_ROW : RULES);
   // The rules are the one validity check; the values below only read what they accepted.
   const invalid = keys.invalid ? keys.sentences : null;
   const { recover } = keys;

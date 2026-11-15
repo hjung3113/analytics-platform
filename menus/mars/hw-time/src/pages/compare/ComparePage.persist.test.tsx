@@ -8,6 +8,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { LayoutDashboard } from 'lucide-react';
 import type { HwTimeBlock, HwTimeDrill, HwTimeLevelData, HwTimeRow, HwTimeSeries, HwTimeTrendData } from '../../endpoints';
 import { manifests } from '../../index';
+import { HW_TIME_CARRY_SET } from '../../test-support';
 
 const data = vi.hoisted(() => ({ level: vi.fn(), trend: vi.fn() }));
 /** Mounts per chart (a Frame that stays mounted counts once). */
@@ -98,7 +99,7 @@ const trendData = (ids: string[]): HwTimeTrendData => ({
   rows: ids.map(id => ({ id, points: Array.from({ length: 8 }, (_, i) => ({ at: `2026-09-${18 + i}`, value: 1 + i })) })),
 });
 
-const registry = createRegistry({
+const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET],
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],

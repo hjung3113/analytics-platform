@@ -8,9 +8,10 @@ import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import { useHwTimeLevel, useHwTimeTrend } from './data';
+import { HW_TIME_CARRY_SET } from '../test-support';
 
 // The drill, level and trend selections of all four HW Time screens go through these two hooks, so the real hooks run on the real Kernel here.
-const registry = createRegistry({
+const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET],
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],

@@ -9,7 +9,7 @@ export const SUB_ITEM_IDS = ['H1', 'H2', 'H3', 'H4'] as const;
 export type ModuleId = typeof MODULE_IDS[number];
 export type MotionId = typeof MOTION_IDS[number];
 export type SubItemId = typeof SUB_ITEM_IDS[number];
-export type HwTimeDrill = { drillModule?: string; drillMotion?: string };
+export type HwTimeDrill = { drillModule?: string; drillMotion?: string; moduleType?: HwTimeModuleTypeId };
 export type HwTimeSeries = { id: string; name: string; color: string };
 export type HwTimeRow = {
   id: string;
@@ -18,6 +18,7 @@ export type HwTimeRow = {
   auxiliary?: { kind: 'MEG'; label: string };
   values: Record<string, number | null>;
   total: number | null;
+  judgements?: Record<string, HtmJudgement>;
 };
 export type HwTimeTotals = { values: Record<string, number | null>; total: number | null };
 export type HwTimeBlock = { series: HwTimeSeries[]; rows: HwTimeRow[]; totals: HwTimeTotals };
@@ -38,6 +39,34 @@ export type HwTimeTableParams = HwTimeTableFilter & PageQuery;
 export type HwTimeTableData = PageResult<HwTimeTableRow>;
 export type HwTimeExportParams = HwTimeTableFilter & { ids: string[] | null; sorting: PageSort[] };
 export type HwTimeExportRow = HwTimeTableRow;
+
+/**
+ * Synthetic Module types (#2329): each type lists its Modules and the Motions those Modules record. Identifiers are synthetic. `PM` keeps the
+ * Modules and Motions above. `LK` is the mock's demo of the future Recipe-split state: the mock judges it against HTM bounds, every other type
+ * answers `unjudgeable` / `recipe-unsplit` (advisor decision, PR Decisions). Screens never branch on a type id.
+ */
+export const HW_TIME_MODULE_TYPES = [
+  { id: 'PM', modules: ['PM1', 'PM2', 'PM3', 'PM4'], motions: ['Chuck', 'Dechuck', 'Pump', 'Vent', 'Transfer'] },
+  { id: 'TR', modules: ['TR1', 'TR2'], motions: ['Pick', 'Place', 'Rotate', 'Extend'] },
+  { id: 'LK', modules: ['LK1', 'LK2'], motions: ['Pump', 'Vent', 'DoorOpen', 'DoorClose'] },
+] as const;
+export type HwTimeModuleType = typeof HW_TIME_MODULE_TYPES[number];
+export type HwTimeModuleTypeId = HwTimeModuleType['id'];
+
+/**
+ * HTM judgement status, decided by the server (#1794): `over` = the Motion average is above the HTM upper bound, `under` = below the lower
+ * bound (a weaker caution than `over`), `unjudgeable` = no judgement (see `HtmUnjudgeableReason`). A Module's status is the server's roll-up of
+ * its Motions. The screen draws the status as given and never compares a value with the bounds itself.
+ */
+export const HTM_STATUSES = ['normal', 'over', 'under', 'unjudgeable'] as const;
+export type HtmStatus = typeof HTM_STATUSES[number];
+/** Why a value is not judged: `recipe-unsplit` = the statistics are not split by Recipe/PPID yet; `no-criteria` = no HTM is registered for the key. */
+export type HtmUnjudgeableReason = 'recipe-unsplit' | 'no-criteria';
+/**
+ * One server judgement: the averaged value (seconds), the HTM bounds of its key (Maker + Model + PPID + Recipe + Module + Motion; `null` when
+ * unknown) and the status. `reason` is present exactly when `status` is `unjudgeable`.
+ */
+export type HtmJudgement = { value: number | null; lower: number | null; upper: number | null; status: HtmStatus; reason?: HtmUnjudgeableReason };
 
 export const HW_TIME_UNIT = HW_TIME_MESSAGES.endpointHwTimeUnit;
 export const HW_TIME_MAX_ROWS = { level: 120, export: 120 } as const;
@@ -62,7 +91,7 @@ export const HW_TIME_CONTEXT = {
   time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply',
 } as const;
 const common = {
-  menuId: 'hw-time-steps', permission: PERMISSION, requiresScope: true,
+  menuId: 'hw-time', permission: PERMISSION, requiresScope: true,
   context: HW_TIME_CONTEXT,
   kinds: ['collection', 'processing_delay', 'coverage'],
   mergeTimeDomain: true,
@@ -72,22 +101,22 @@ export const hwTime = {
   levelRows: defineEndpoint<HwTimeDrill, HwTimeLevelData>({
     ...common,
     id: 'hwTime.levelRows',
-    paramKeys: { drillModule: true, drillMotion: true },
+    paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
-  trend: defineEndpoint<{ rowIds: string[] }, HwTimeTrendData>({
+  trend: defineEndpoint<{ rowIds: string[]; moduleType?: HwTimeModuleTypeId }, HwTimeTrendData>({
     ...common,
     id: 'hwTime.trend',
-    paramKeys: { rowIds: true },
+    paramKeys: { moduleType: true, rowIds: true },
   }),
   tableRows: defineEndpoint<HwTimeTableParams, HwTimeTableData>({
     ...common,
     id: 'hwTime.tableRows',
-    paramKeys: { drillModule: true, drillMotion: true, page: true, pageSize: true, sorting: true },
+    paramKeys: { moduleType: true, drillModule: true, drillMotion: true, page: true, pageSize: true, sorting: true },
   }),
   exportRows: defineEndpoint<HwTimeExportParams, HwTimeTableRow[]>({
     ...common,
     id: 'hwTime.exportRows',
-    paramKeys: { drillModule: true, drillMotion: true, ids: true, sorting: true },
+    paramKeys: { moduleType: true, drillModule: true, drillMotion: true, ids: true, sorting: true },
     limits: { maxRows: HW_TIME_MAX_ROWS.export },
   }),
 } as const;

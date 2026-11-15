@@ -1,4 +1,5 @@
 import { useMessages } from '@ap/kernel';
+import { JudgementSummary } from '../JudgementSummary';
 import { HW_TIME_MESSAGES } from '../../messages';
 import { useCallback, useMemo } from 'react';
 import { useI18n } from '@ap/kernel';
@@ -10,6 +11,7 @@ import { formatSeconds, missingText, rowIdLabel } from '../format';
 export type StackSort = 'total-desc' | 'total-asc' | null;
 
 export type StackPanelProps = {
+  showJudgement?: boolean;
   chartId: string;
   title: string;
   block: HwTimeBlock;
@@ -67,7 +69,7 @@ export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow
 }
 
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
-export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, rowPitch = DEFAULT_ROW_PITCH, activeRowId, onActiveRowChange, revealActive, fillMin = DETAIL_FILL_MIN, onActivate, rowActions }: StackPanelProps) {
+export function StackPanel({ showJudgement, chartId, title, block, visibleSeriesIds, onVisibleSeriesChange, sort = null, startAlign, minMax, rowPitch = DEFAULT_ROW_PITCH, activeRowId, onActiveRowChange, revealActive, fillMin = DETAIL_FILL_MIN, onActivate, rowActions }: StackPanelProps) {
   const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
   const rows = useMemo(() => sortRows(block.rows, sort), [block.rows, sort]);
@@ -101,5 +103,6 @@ export function StackPanel({ chartId, title, block, visibleSeriesIds, onVisibleS
         return rowId ? rowActions(rowId).map(action => ({ id: action.id, label: action.label, keepsFocus: action.keepsFocus, onSelect: () => action.onSelect(rowId) })) : [];
       })}
     />
+    {showJudgement && <JudgementSummary block={block} />}
   </div>;
 }

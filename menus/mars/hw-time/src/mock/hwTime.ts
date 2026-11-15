@@ -2,9 +2,10 @@
 import { bucketStart, shift, type PageSort } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import {
-  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, MODULE_IDS, MOTION_IDS, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
-  type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type ModuleId, type MotionId,
+  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, HW_TIME_MODULE_TYPES, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
+  type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type HwTimeModuleType,
 } from '../endpoints';
+import { judge, rollUp } from './htm';
 
 const MAX_SYNTHETIC_EQUIPMENT = 24;
 const SYNTHETIC_PER_EQUIPMENT = 3;
@@ -18,14 +19,11 @@ function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
   const count = Math.min(MAX_SYNTHETIC_EQUIPMENT, equipment.length * SYNTHETIC_PER_EQUIPMENT);
   return Array.from({ length: count }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
 }
-const MODULE_COLORS: Record<ModuleId, string> = {
-  PM1: 'chart-blue', PM2: 'chart-teal', PM3: 'chart-purple', PM4: 'chart-series-1',
-};
-const MOTION_COLORS: Record<MotionId, string> = {
-  Chuck: 'chart-blue', Dechuck: 'chart-teal', Pump: 'chart-purple', Vent: 'cat-amber', Transfer: 'chart-series-1',
-};
-const MODULE_SERIES: HwTimeSeries[] = MODULE_IDS.map(id => ({ id, name: id, color: MODULE_COLORS[id] }));
-const MOTION_SERIES: HwTimeSeries[] = MOTION_IDS.map(id => ({ id, name: id, color: MOTION_COLORS[id] }));
+const SERIES_COLORS = ['chart-blue', 'chart-teal', 'chart-purple', 'cat-amber', 'chart-series-1'];
+const typeOf = (params: { moduleType?: string }): HwTimeModuleType => HW_TIME_MODULE_TYPES.find(type => type.id === params.moduleType) ?? HW_TIME_MODULE_TYPES[0];
+const seriesOf = (ids: readonly string[], kind: 'module' | 'motion' = 'motion'): HwTimeSeries[] => ids.map((id, index) => ({
+  id, name: id, color: kind === 'module' && index === 3 ? 'chart-series-1' : SERIES_COLORS[index]!,
+}));
 
 function seconds(seed: number, phase: number): number {
   return 2.125 + ((seed * 131_071 + phase * 52_429) % 1_000_003) / 10_000;
@@ -43,20 +41,20 @@ function totalOf(values: Record<string, number | null>): number | null {
 }
 
 /** PM4 records no Vent at all (its L3 detail is empty), so no PM4 row at any level carries a Vent value or counts one in a total. */
-function hasRecords(module: ModuleId, motion: MotionId): boolean {
+function hasRecords(module: string, motion: string): boolean {
   return !(module === 'PM4' && motion === 'Vent');
 }
 
-function motionValue(equipmentNumber: number, subItemIndex: number, module: ModuleId, motionIndex: number): number | null {
+function motionValue(equipmentNumber: number, subItemIndex: number, module: string, motionIndex: number, type: HwTimeModuleType): number | null {
   const seed = equipmentNumber * 4 + subItemIndex;
   if (module === 'PM3' && (seed + motionIndex) % 19 === 0) return null;
-  const moduleIndex = MODULE_IDS.indexOf(module);
+  const moduleIndex = (type.modules as readonly string[]).indexOf(module);
   return seconds(seed, moduleIndex * 113 + motionIndex * 29);
 }
 
-function moduleValue(equipmentNumber: number, module: ModuleId): number | null {
+function moduleValue(equipmentNumber: number, module: string, type: HwTimeModuleType): number | null {
   return completeSum(SUB_ITEM_IDS.flatMap((_, subItemIndex) =>
-    MOTION_IDS.flatMap((motion, motionIndex) => hasRecords(module, motion) ? [motionValue(equipmentNumber, subItemIndex, module, motionIndex)] : [])));
+    type.motions.flatMap((motion, motionIndex) => hasRecords(module, motion) ? [motionValue(equipmentNumber, subItemIndex, module, motionIndex, type)] : [])));
 }
 
 function aggregate(rows: HwTimeRow[], series: HwTimeSeries[]): HwTimeBlock {
@@ -72,30 +70,36 @@ function aggregate(rows: HwTimeRow[], series: HwTimeSeries[]): HwTimeBlock {
   };
 }
 
-function equipmentRows(equipmentIds: readonly string[]): HwTimeRow[] {
+function equipmentRows(equipmentIds: readonly string[], type: HwTimeModuleType): HwTimeRow[] {
   return equipmentIds.map((equipmentId, index) => {
     const equipmentNumber = index + 1;
-    const values = Object.fromEntries(MODULE_IDS.map(module => [module, moduleValue(equipmentNumber, module)]));
-    return { id: equipmentId, equipmentId, values, total: totalOf(values) };
+    const values = Object.fromEntries(type.modules.map(module => [module, moduleValue(equipmentNumber, module, type)]));
+    const judgements = Object.fromEntries(type.modules.map(module => {
+      const motions = SUB_ITEM_IDS.flatMap((_, subIndex) => type.motions.flatMap((motion, motionIndex) => hasRecords(module, motion)
+        ? [judge(type.id, motion, motionValue(equipmentNumber, subIndex, module, motionIndex, type))] : []));
+      return [module, rollUp(values[module] ?? null, motions)];
+    }));
+    return { id: equipmentId, equipmentId, values, total: totalOf(values), judgements };
   });
 }
 
-function moduleRows(equipmentIds: readonly string[], module: ModuleId, includeMeg: boolean): HwTimeRow[] {
+function moduleRows(equipmentIds: readonly string[], module: string, includeMeg: boolean, type: HwTimeModuleType): HwTimeRow[] {
   return equipmentIds.flatMap((equipmentId, equipmentIndex) => {
     const equipmentNumber = equipmentIndex + 1;
     const rows: HwTimeRow[] = SUB_ITEM_IDS.map((subItem, subItemIndex) => {
-      const values = Object.fromEntries(MOTION_IDS.flatMap((motion, motionIndex) => hasRecords(module, motion)
-        ? [[motion, motionValue(equipmentNumber, subItemIndex, module, motionIndex)]] : []));
+      const values = Object.fromEntries(type.motions.flatMap((motion, motionIndex) => hasRecords(module, motion)
+        ? [[motion, motionValue(equipmentNumber, subItemIndex, module, motionIndex, type)]] : []));
       return {
         id: `${equipmentId}.${subItem}`,
         equipmentId,
         subItem,
         values,
         total: totalOf(values),
+        judgements: Object.fromEntries(Object.entries(values).map(([motion, value]) => [motion, judge(type.id, motion, value)])),
       } satisfies HwTimeRow;
     });
     if (includeMeg) {
-      const moduleIndex = MODULE_IDS.indexOf(module);
+      const moduleIndex = (type.modules as readonly string[]).indexOf(module);
       const label = String(seconds(equipmentNumber * 4, 251 + moduleIndex));
       rows.push({ id: `${equipmentId}.MEG`, equipmentId, auxiliary: { kind: 'MEG', label }, values: {}, total: null });
     }
@@ -103,47 +107,42 @@ function moduleRows(equipmentIds: readonly string[], module: ModuleId, includeMe
   });
 }
 
-function detailRows(equipmentIds: readonly string[], module: ModuleId, motion: MotionId): HwTimeRow[] {
+function detailRows(equipmentIds: readonly string[], module: string, motion: string, type: HwTimeModuleType): HwTimeRow[] {
   if (!hasRecords(module, motion)) return [];
-  return moduleRows(equipmentIds, module, false).map(row => {
+  return moduleRows(equipmentIds, module, false, type).map(row => {
     const value = row.values[motion] ?? null;
     const values = { [motion]: value };
-    return { ...row, values, total: totalOf(values) };
+    return { ...row, values, total: totalOf(values), judgements: { [motion]: row.judgements![motion]! } };
   });
 }
 
-function isModuleId(value: string | undefined): value is ModuleId {
-  return value !== undefined && MODULE_IDS.includes(value as ModuleId);
-}
-
-function isMotionId(value: string | undefined): value is MotionId {
-  return value !== undefined && MOTION_IDS.includes(value as MotionId);
-}
-
 function validateDrill(drill: HwTimeDrill): string | null {
-  if (drill.drillModule !== undefined && !isModuleId(drill.drillModule)) return 'drillModule must be PM1, PM2, PM3, or PM4';
-  if (drill.drillMotion !== undefined && !isMotionId(drill.drillMotion)) return 'drillMotion is not a supported Motion';
+  const type = typeOf(drill);
+  if (drill.moduleType !== undefined && !HW_TIME_MODULE_TYPES.some(type => type.id === drill.moduleType)) return 'moduleType is not supported';
+  if (drill.drillModule !== undefined && !(type.modules as readonly string[]).includes(drill.drillModule)) return 'drillModule is not supported by moduleType';
+  if (drill.drillMotion !== undefined && !(type.motions as readonly string[]).includes(drill.drillMotion)) return 'drillMotion is not supported by moduleType';
   if (drill.drillMotion !== undefined && drill.drillModule === undefined) return 'drillMotion requires drillModule';
   return null;
 }
 
 function levelRows(equipmentIds: readonly string[], drill: HwTimeDrill) {
+  const type = typeOf(drill);
   const invalid = validateDrill(drill);
   if (invalid) throw new Error(invalid);
 
   if (drill.drillModule === undefined) {
-    return { ...aggregate(equipmentRows(equipmentIds), MODULE_SERIES), level: 0 as const, limits: { maxRows: HW_TIME_MAX_ROWS.level } };
+    return { ...aggregate(equipmentRows(equipmentIds, type), seriesOf(type.modules, 'module')), level: 0 as const, limits: { maxRows: HW_TIME_MAX_ROWS.level } };
   }
 
-  const module = drill.drillModule as ModuleId;
+  const module = drill.drillModule!;
   if (drill.drillMotion === undefined) {
-    return { ...aggregate(moduleRows(equipmentIds, module, true), MOTION_SERIES), level: 1 as const, limits: { maxRows: HW_TIME_MAX_ROWS.level } };
+    return { ...aggregate(moduleRows(equipmentIds, module, true, type), seriesOf(type.motions)), level: 1 as const, limits: { maxRows: HW_TIME_MAX_ROWS.level } };
   }
 
-  const context = aggregate(moduleRows(equipmentIds, module, false), MOTION_SERIES);
-  const motion = drill.drillMotion as MotionId;
-  const detailSeries = MOTION_SERIES.filter(series => series.id === motion);
-  const detail = aggregate(detailRows(equipmentIds, module, motion), detailSeries);
+  const context = aggregate(moduleRows(equipmentIds, module, false, type), seriesOf(type.motions));
+  const motion = drill.drillMotion!;
+  const detailSeries = seriesOf(type.motions).filter(series => series.id === motion);
+  const detail = aggregate(detailRows(equipmentIds, module, motion, type), detailSeries);
   return {
     ...context,
     level: 2 as const,
@@ -164,29 +163,29 @@ function validateTrend(rowIds: string[]): string | null {
  * A sub-item's daily total over all Modules and Motions: the latest day equals its L1 total (the measured values summed, as the
  * table shows them per Module), earlier days vary deterministically within ±15% so a trend reads next to the table value.
  */
-function subItemTrend(equipmentNumber: number, subItem: number): number[] {
+function subItemTrend(equipmentNumber: number, subItem: number, type: HwTimeModuleType): number[] {
   const seed = equipmentNumber * 4 + subItem - 1;
   const subItemIndex = subItem - 1;
-  const total = MODULE_IDS.reduce((sum, module) => sum + MOTION_IDS.reduce((inner, motion, motionIndex) =>
-    inner + (hasRecords(module, motion) ? motionValue(equipmentNumber, subItemIndex, module, motionIndex) ?? 0 : 0), 0), 0);
+  const total = type.modules.reduce((sum, module) => sum + type.motions.reduce((inner, motion, motionIndex) =>
+    inner + (hasRecords(module, motion) ? motionValue(equipmentNumber, subItemIndex, module, motionIndex, type) ?? 0 : 0), 0), 0);
   return Array.from({ length: 8 }, (_, dayIndex) => dayIndex === 7 ? total : total * (1 + (((seed * 37 + dayIndex * 53) % 301) - 150) / 1_000));
 }
 
 /** A sub-item id gives its own daily values; an equipment id gives their per-day sum over H1–H4. */
-function trendValues(id: string): number[] {
+function trendValues(id: string, type: HwTimeModuleType): number[] {
   const match = /^EQ-(\d{3})(?:\.H([1-4]))?$/.exec(id)!;
   const equipmentNumber = Number(match[1]);
-  if (match[2] !== undefined) return subItemTrend(equipmentNumber, Number(match[2]));
-  const items = [1, 2, 3, 4].map(item => subItemTrend(equipmentNumber, item));
+  if (match[2] !== undefined) return subItemTrend(equipmentNumber, Number(match[2]), type);
+  const items = [1, 2, 3, 4].map(item => subItemTrend(equipmentNumber, item, type));
   return Array.from({ length: 8 }, (_, dayIndex) => items.reduce((sum, item) => sum + item[dayIndex]!, 0));
 }
 
-function trendRows(equipmentIds: readonly string[], rowIds: string[], from: string, to: string) {
+function trendRows(equipmentIds: readonly string[], rowIds: string[], from: string, to: string, type: HwTimeModuleType) {
   const endDay = bucketStart(to, 'day');
   const lastDay = to === endDay ? shift(endDay, -24) : endDay;
   return {
     rows: rowIds.filter(id => equipmentIds.includes(id.slice(0, 6))).map(id => {
-      const values = trendValues(id);
+      const values = trendValues(id, type);
       return {
         id,
         points: values.map((value, dayIndex) => ({ at: shift(lastDay, -24 * (7 - dayIndex)).slice(0, 10), value }))
@@ -199,9 +198,10 @@ function trendRows(equipmentIds: readonly string[], rowIds: string[], from: stri
 
 /** The rows of the level the drill keys name, each with its series values as flat fields. */
 function tableLevelRows(equipmentIds: readonly string[], drill: HwTimeDrill): HwTimeTableRow[] {
-  const rows = drill.drillModule === undefined ? equipmentRows(equipmentIds)
-    : drill.drillMotion === undefined ? moduleRows(equipmentIds, drill.drillModule as ModuleId, true)
-      : detailRows(equipmentIds, drill.drillModule as ModuleId, drill.drillMotion as MotionId);
+  const type = typeOf(drill);
+  const rows = drill.drillModule === undefined ? equipmentRows(equipmentIds, type)
+    : drill.drillMotion === undefined ? moduleRows(equipmentIds, drill.drillModule!, true, type)
+      : detailRows(equipmentIds, drill.drillModule!, drill.drillMotion!, type);
   return rows.map(row => ({ ...row, ...row.values }));
 }
 
@@ -235,8 +235,8 @@ export const hwTimeMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.trend, {
-    handle: ({ params, context, equipment }) => trendRows(syntheticEquipmentIds(equipment), params.rowIds, context.from!, context.to!),
-    validate: ({ params }) => validateTrend(params.rowIds),
+    handle: ({ params, context, equipment }) => trendRows(syntheticEquipmentIds(equipment), params.rowIds, context.from!, context.to!, typeOf(params)),
+    validate: ({ params }) => validateDrill({ moduleType: params.moduleType }) ?? validateTrend(params.rowIds),
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.tableRows, {
