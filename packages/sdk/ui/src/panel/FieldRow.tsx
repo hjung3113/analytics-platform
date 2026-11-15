@@ -6,8 +6,9 @@ export interface FieldRowProps {
   label: React.ReactNode;
   children: React.ReactNode;
   inset?: 'default' | 'none';
-  /** `detail`: the detail-panel property list — 9rem label column, divided rows, string labels fold at camelCase, tabular values (#891). */
-  layout?: 'default' | 'property' | 'detail';
+  /** `detail`: the detail-panel property list — 9rem label column, divided rows, string labels fold at camelCase, tabular values (#891).
+   * `inline`: a muted small label beside its value, for one wrapping meta line (#2300); a `FieldList layout="inline"` sets it for its rows. */
+  layout?: 'default' | 'property' | 'detail' | 'inline';
   /** The value is an identifier or code: monospace instead of tabular figures. */
   mono?: boolean;
   className?: string;
@@ -35,13 +36,23 @@ export function FieldRow({
   label,
   children,
   inset = 'default',
-  layout = 'default',
+  layout: layoutProp,
   mono = false,
   className,
 }: FieldRowProps) {
-  const inList = React.useContext(FieldListContext);
+  const { inList, layout: listLayout } = React.useContext(FieldListContext);
+  const layout = layoutProp ?? listLayout ?? 'default';
   const Label = inList ? 'dt' : 'span';
-  const Value = inList ? 'dd' : 'div';
+  const Value = inList ? 'dd' : layout === 'inline' ? 'span' : 'div';
+  if (layout === 'inline') {
+    // The value wraps instead of truncating: an inline meta line never hides part of a value.
+    return (
+      <div className={cn('inline-flex min-w-0 items-baseline gap-1.5', className)}>
+        <Label className="shrink-0 text-xs text-text-muted">{label}</Label>
+        <Value className={cn('m-0 min-w-0 break-words text-sm text-text-primary', mono ? 't-mono' : 'tabular')}>{children}</Value>
+      </div>
+    );
+  }
   if (layout === 'detail') {
     return (
       <div className={cn('grid grid-cols-[9rem_1fr] gap-3 border-b border-border-subtle py-1.5 text-sm last:border-0', className)}>

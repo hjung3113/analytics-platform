@@ -9,6 +9,8 @@ export interface CalloutProps {
   title?: string;
   children: React.ReactNode;
   action?: React.ReactNode;
+  /** `compact`: a thin one-line notice inside a content card — smaller padding and text only; tone, icon, title and action are unchanged. Default `default`. */
+  size?: 'default' | 'compact';
   className?: string;
 }
 
@@ -59,8 +61,9 @@ const TONE_STYLES: Record<
   },
 };
 
-export function Callout({ tone, icon, title, children, action, className }: CalloutProps) {
+export function Callout({ tone, icon, title, children, action, size = 'default', className }: CalloutProps) {
   const toneStyle = TONE_STYLES[tone];
+  const compact = size === 'compact';
   const style = {
     // eslint-disable-next-line shadcn/no-inline-styles -- exact-alpha tone tint stays a custom property per #784
     '--callout-background': `rgb(var(${toneStyle.colorVar}) / ${toneStyle.backgroundAlpha})`,
@@ -73,18 +76,21 @@ export function Callout({ tone, icon, title, children, action, className }: Call
     <div
       data-tone={tone}
       className={cn(
-        'rounded-md p-3 text-xs leading-note text-text-secondary bg-(--callout-background) shadow-(--callout-ring)',
+        // compact keeps the 12px floor and tightens padding and line height; its title drops to 12px.
+        compact
+          ? 'rounded-md px-2.5 py-1.5 text-xs leading-normal text-text-secondary bg-(--callout-background) shadow-(--callout-ring)'
+          : 'rounded-md p-3 text-xs leading-note text-text-secondary bg-(--callout-background) shadow-(--callout-ring)',
         className,
       )}
       style={style}
     >
       {title !== undefined ? (
         <>
-          <div className="mb-1.5 flex items-center gap-2">
+          <div className={cn('flex items-center gap-2', compact ? 'mb-1' : 'mb-1.5')}>
             {icon !== undefined && (
               <span className={cn('shrink-0', toneStyle.colorClass)}>{icon}</span>
             )}
-            <strong className={cn('text-sm font-semibold', toneStyle.titleClass)}>{title}</strong>
+            <strong className={cn(compact ? 'text-xs' : 'text-sm', 'font-semibold', toneStyle.titleClass)}>{title}</strong>
           </div>
           <div>{children}</div>
           {action !== undefined && <div className="mt-2">{action}</div>}

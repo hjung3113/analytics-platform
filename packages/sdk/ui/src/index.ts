@@ -77,6 +77,7 @@ export { FieldRow, type FieldRowProps } from './panel/FieldRow';
 export { FieldList, type FieldListProps } from './panel/FieldList';
 export { PanelSectionTitle, type PanelSectionTitleProps } from './panel/PanelSectionTitle';
 export { Callout, type CalloutProps, type CalloutTone } from './panel/Callout';
+export { InfoTip, type InfoTipProps } from './panel/InfoTip';
 export { DetailPanelHeaderActions, type DetailPanelHeaderActionsProps } from './panel/DetailPanelHeaderActions';
 export { DetailPanelSectionNav, type DetailPanelSectionNavProps, type PanelSection } from './panel/DetailPanelSectionNav';
 export { StatusBadgeFrame, type StatusBadgeFrameProps, type StatusBadgeAppearance, type StatusBadgeTone } from './badges/StatusBadgeFrame';
