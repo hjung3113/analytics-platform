@@ -44,9 +44,17 @@ export function SpecBody({ spec, modelId, freshness, onOpenEvent, conceptCounts 
     })}</ul>;
   }
   return <div className="grid min-w-0 gap-3">
-    <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="secondary" aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}>{collapsed ? w('Module 트리 펼치기', 'Expand Module tree') : w('Module 트리 접기', 'Collapse Module tree')}</Button><p className="min-w-0 break-words text-sm text-text-secondary">{path.join(' / ') || w('모든 Module', 'All Modules')}</p>{selected && <Button size="sm" variant="ghost" onClick={() => setPage({ module: null })}>{w('모든 Module', 'All Modules')}</Button>}</div>
     <div className={collapsed ? 'grid min-w-0 gap-3' : 'grid min-w-0 grid-cols-[minmax(9rem,1fr)_minmax(0,4fr)] items-start gap-3'}>
-      {!collapsed && <nav aria-label={w('Module 계층', 'Module hierarchy')} className="min-w-0 overflow-x-auto rounded-md border border-border-subtle bg-surface-card p-3">{branch(null)}</nav>}
+      <section className="min-w-0 rounded-md border border-border-subtle bg-surface-card">
+        <header className="flex flex-wrap items-center gap-2 p-3">
+          <p className="min-w-0 break-words text-sm text-text-secondary">{path.join(' / ') || w('모든 Module', 'All Modules')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="secondary" aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}>{collapsed ? w('Module 트리 펼치기', 'Expand Module tree') : w('Module 트리 접기', 'Collapse Module tree')}</Button>
+            {selected && <Button size="sm" variant="ghost" onClick={() => setPage({ module: null })}>{w('모든 Module', 'All Modules')}</Button>}
+          </div>
+        </header>
+        {!collapsed && <nav aria-label={w('Module 계층', 'Module hierarchy')} className="min-w-0 overflow-x-auto border-t border-border-subtle p-3">{branch(null)}</nav>}
+      </section>
       <div role="region" aria-label={w('Event 표 영역', 'Event table region')} tabIndex={0} className="min-w-0 max-w-full overflow-x-auto">
       <PlatformDataTable title="Event" ariaLabel={w('명세 Event 목록', 'Specification events')} columns={columns} getRowId={eventIdentity} loadPage={loadPage} pageSize={20} filterKey={`${modelId}:${spec.revision.id}:${pageParam('software')}:${selected}:${freshness}`} preferenceKey="log-spec-events"
         rowAction={(row, { compact }) => <RowAction compact={compact} icon={PanelRight} label={`${row.name} ${w('상세', 'details')}`} text={w('상세', 'Details')} onClick={() => open(eventIdentity(row))} />} />

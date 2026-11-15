@@ -6,6 +6,7 @@ import { stubCompactTableGeometry } from '@ap/components/testing';
 import { type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow } from '../../endpoints';
 import SpecScreen from './SpecScreen';
+import { SpecSelect } from './SpecControls';
 import { knowledgeRegistry, mountWith } from '../test-support';
 const modelId = '00000003-0000-4000-8000-000000000008', sw = '00000004-0000-4000-8000-00000000000e', rev = '00000007-0000-4000-8000-000000000001';
 const ok = (data: unknown) => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'spec-test' }) as ApiResponse<never>;
@@ -43,6 +44,47 @@ function mount(search = '', draft: Record<string, unknown> | null = null, id = m
   return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId: id }} />, slot: true });
 }
 describe('production model spec screen', () => {
+  it.each([
+    [{ computable: false, reason: 'no_catalog' }, '명세 커버리지 계산 불가', '검증 규칙 카탈로그를 아직 받지 못했습니다'],
+    [{ computable: true, counts: { no_rule: 3, unsupported: 0, unknown: 0, partial: 0, covered: 5, total: 8 }, coverageDigest: 'd' }, '규칙 없음 3 · 요구사항 8', '통과가 아니라 구성 정보입니다'],
+  ] as const)('keeps the named SW picker, metadata and full warning chips on one wrapping line (%j)', async (data, chip, explanation) => {
+    coverage = data;
+    mount();
+    const picker = await screen.findByRole('combobox', { name: 'SW 버전' });
+    const meta = screen.getByText('r1', { exact: true }).closest('dl');
+    expect(meta).not.toBeNull();
+    expect(meta?.className).toContain('flex-wrap');
+    const line = meta!.parentElement!;
+    expect(line.contains(picker)).toBe(true);
+    expect(picker.className).toContain('w-auto');
+    expect(within(line).getByText('SW 버전', { exact: true })).toBeTruthy();
+    expect(within(line).getByRole('link', { name: '모델 프로파일' })).toBeTruthy();
+    expect(within(line).getByText('재검토 필요', { exact: true }).closest('dl')).toBeNull();
+    expect((await within(line).findByText(chip)).closest('dl')).toBeNull();
+    expect(within(line).getByText(explanation)).toBeTruthy();
+    expect(line.className).toContain('flex-wrap');
+  });
+  it('keeps tree actions in the card header through collapse, reset and expansion', async () => {
+    mount('&module=ARM');
+    await screen.findByRole('button', { name: 'Move' });
+    const collapse = screen.getByRole('button', { name: 'Module 트리 접기' });
+    const header = collapse.closest('header');
+    expect(header).not.toBeNull();
+    expect(header?.parentElement?.contains(screen.getByRole('navigation', { name: 'Module 계층' }))).toBe(true);
+    expect(within(header!).getByText('Robot / Arm')).toBeTruthy();
+    fireEvent.click(collapse);
+    expect(within(header!).getByText('Robot / Arm')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Module 계층' })).toBeNull();
+    fireEvent.click(within(header!).getByRole('button', { name: '모든 Module' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).has('module')).toBe(false));
+    expect(within(header!).queryByRole('button', { name: '모든 Module' })).toBeNull();
+    fireEvent.click(within(header!).getByRole('button', { name: 'Module 트리 펼치기' }));
+    expect(screen.getByRole('navigation', { name: 'Module 계층' })).toBeTruthy();
+  });
+  it('keeps shared SpecSelect callers full width unless content sizing is requested', () => {
+    render(<SpecSelect label="기존 선택" value="one" options={[{ value: 'one', label: 'One' }]} onChange={() => {}} />);
+    expect(screen.getByRole('combobox', { name: '기존 선택' }).className).toContain('w-full');
+  });
   it('accepts ids in any spelling: an upper-case model id and software id deep link opens the spec', async () => {
     mount(`&software=${sw.toUpperCase()}`, null, modelId.toUpperCase());
     expect(await screen.findByRole('button', { name: 'Move' })).toBeTruthy();

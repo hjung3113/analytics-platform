@@ -74,9 +74,9 @@ export function useSpecFieldErrors() {
     return { fields: Object.fromEntries([...controls].map(control => [control, cut(lines[control] ?? [], totals[control]).join('\n')])), rest: cut(rest, restTotal) };
   };
 }
-export function SpecSelect({ label, value, options, onChange, disabled, hideLabel = false }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void; disabled?: boolean; hideLabel?: boolean }) {
+export function SpecSelect({ label, value, options, onChange, disabled, hideLabel = false, width = 'full' }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void; disabled?: boolean; hideLabel?: boolean; width?: 'full' | 'content' }) {
   return <div className="grid min-w-0 gap-1 text-sm">{!hideLabel && <span className="text-text-secondary">{label}</span>}<Select value={value} onValueChange={onChange} disabled={disabled}>
-    <SelectTrigger aria-label={label} className="w-full min-w-0"><SelectValue /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+    <SelectTrigger aria-label={label} className={width === 'content' ? 'w-auto min-w-0' : 'w-full min-w-0'}><SelectValue /></SelectTrigger><SelectContent>{options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
   </Select></div>;
 }
 export function SpecField({ id, label, value, onChange, multiline = false, disabled = false, hint, error, required = false }: { id: string; label: string; value: string; onChange: (value: string) => void; multiline?: boolean; disabled?: boolean; hint?: ReactNode; error?: string; required?: boolean }) {
