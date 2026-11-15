@@ -61,7 +61,7 @@ describe('scatter categories (#2332)', () => {
     expect(o.yAxis.min({ min: 4, max: 4 })).toBeLessThan(-10); expect(o.yAxis.max({ min: 4, max: 4 })).toBeGreaterThan(50);
     expect(p.legend.map(l => l.label)).toEqual(['G', 'Upper bound', 'Lower bound', 'Bound range']);
     expect(p.csvHeaders.slice(-2)).toEqual(['Lower bound', 'Upper bound']); expect(p.csvValues[0].slice(-2)).toEqual([-10, 40]);
-    expect(p.summary).toContain('Lower bound'); expect(p.summary).toContain('40');
+    expect(p.rows[0].label).toContain('Lower bound: -10 s'); expect(p.rows[0].label).toContain('Upper bound: 40 s'); expect(p.summary).not.toContain('Lower bound');
   });
   it.each([{ upper: 5 }, { lower: -2 }, {}])('only advertises the bounds present: %j', bound => {
     const p = scatterData(category({ bounds: new Map([['a', bound]]), boundLabels: { upper: 'Ceiling', lower: 'Floor', band: 'Allowed' } }), 'en', 's');
@@ -74,7 +74,7 @@ describe('scatter categories (#2332)', () => {
     const p = scatterData(spec, 'en', 's'); const o = p.option([]) as Option;
     expect(o.xAxis.axisLabel.formatter(0)).toBe('A'); expect(p.headers).toContain('Rack');
     expect(p.tableValues[0]).toEqual(['one', 'one', 'G', 'R1', 'A', '4 s']);
-    expect(p.csvValues[0]).toEqual(['one', 'one', 'G', 'R1', 'A', 4]); expect(p.summary).toContain('Rack: R1 · A');
+    expect(p.csvValues[0]).toEqual(['one', 'one', 'G', 'R1', 'A', 4]); expect(p.rows[0].label).toContain('Rack: R1 · A'); expect(p.summary).not.toContain('Rack: R1');
     const groups = o.series.find(s => s.id === '__scatterGroups')!; expect(groups.data).toEqual([[0, 1], [2, 2]]);
     const api = { coord: ([x, y]: number[]) => [100 + x * 50, 200 - y], size: () => [50, 20] };
     expect(groups.renderItem!({ dataIndex: 0, coordSys: { x: 75, y: 0, width: 150, height: 200 } }, api)).toMatchObject({ children: expect.arrayContaining([expect.objectContaining({ type: 'text', style: expect.objectContaining({ text: 'R1', x: 125 }) })]) });
@@ -108,7 +108,7 @@ describe('scatter categories (#2332)', () => {
     expect(p.legend.filter(l => l.label === 'Outside')).toHaveLength(1);
     expect(o.series[0].data[0].label?.formatter).toContain('▲'); expect(o.series[0].data[0].itemStyle).toMatchObject({ borderWidth: 2, shadowColor: expect.any(String) });
     expect(p.headers).toContain('Status'); expect(p.tableValues[0]).toContain('▲ Outside · Above range'); expect(p.csvValues[0]).toContain('▲ Outside · Above range');
-    expect(p.summary).toContain('▲ Outside · Above range'); expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 0 })).toContain('Above range');
+    expect(p.rows[0].label).toContain('▲ Outside · Above range'); expect(p.summary).toContain(`▲ Outside: ${spec.points.length}`); expect(p.summary).not.toContain('Above range'); expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 0 })).toContain('Above range');
     const changed = { ...spec, points: [...spec.points, { ...spec.points[0], id: 'another', status: { ...status, tone: 'warning' as const } }] };
     expect(scatterData(changed, 'en', 's').legend.filter(l => l.label === 'Outside')).toHaveLength(2);
   });

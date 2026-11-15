@@ -5,7 +5,7 @@ import type { ScatterPoint, ScatterSpec } from './AnalysisChart';
 import type { KindProjection } from './analysisChartKinds';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
-import { distinctStatuses, statusBorderColor, statusMarker, statusText } from './chartStatus';
+import { distinctStatuses, STATUS_GLYPHS, statusBorderColor, statusKey, statusMarker, statusText } from './chartStatus';
 import { chartTheme, token } from './EChart';
 import { COMPONENTS_MESSAGES } from '../messages';
 
@@ -158,7 +158,8 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   }) : base.summary;
   return {
     ...base, rows, headers, csvHeaders, tableValues, csvValues, legend,
-    summary: [summary, ...points.map(pointDetails).filter(Boolean)].join(' · '),
+    // Per-point detail lives in rows (keyboard table, point selector, selection summary); the visible summary stays an aggregate.
+    summary: [summary, ...statuses.map(status => `${STATUS_GLYPHS[status.tone]} ${status.label}: ${points.filter(point => point.status && statusKey(point.status) === statusKey(status)).length}`)].join(' · '),
     seriesKeys: [...base.seriesKeys, ...(groups ? [[]] : [])],
     option: active => {
       const original = base.option(active);
