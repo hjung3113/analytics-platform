@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal, parseQuery, validateSavedView, type SavedViewSupport } from '@ap/contracts';
 import { captureApplied, stateKey, viewState } from '../capture';
-import { hasExplicitContext, restoreSavedView, savedStateOf, unsupportedOf } from '../restore';
+import { hasExplicitContext, overwritePatch, restoreSavedView, savedStateOf, siteBoundDropped, unsupportedOf } from '../restore';
 import { resolveContext } from '../capture';
 import { createSupportRegistry } from '../useSavedViewSupport';
 import { testSavedView as viewOf } from '../../testing';
@@ -95,7 +95,7 @@ describe('restoreSavedView', () => {
   it('without a server anchor a relative period is left out, never dated from anywhere else', () => {
     const view = viewOf({ id: 'r', context: { relativePeriod: { hours: 24 }, lineNames: ['L1'] } });
     expect(resolveContext(view.context, null)).toEqual({ lineNames: ['L1'] });
-    expect(savedStateOf(view, support, null).context).toEqual({ lineNames: ['L1'] });
+    expect(savedStateOf(view, support, null, null).context).toEqual({ lineNames: ['L1'] });
     expect(unsupportedOf(view, support, null)).toEqual([]);
     const result = run({ view, anchor: null });
     if (!result.ok || !result.applied) throw new Error('unreachable');
@@ -190,5 +190,78 @@ describe('KER-26 declared applied names', () => {
     const decoded = parseQuery(restored.href.slice(restored.href.indexOf('?')), [key]);
     expect(captureApplied(decoded, declared)).toEqual(state);
     expect(viewState({ applied: captureApplied(restored.next, declared), saved: state, draftDirty: [] }).modified).toBe(false);
+  });
+});
+
+// #2175: a view records the Scope its content was saved in; opened in another Scope it leaves the Site-bound values out. One pure function of the view and the CURRENT Scope.
+describe('saved Scope rule (#2175)', () => {
+  const siteSupport: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 2, contextKeys: ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection'], pageKeys: ['filter'] };
+  const context = { from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00', roomNames: ['PHOTO'], lineNames: ['L1'], prcGroups: ['G1'], selection: ['E1'], membershipBasis: 'asOf' as const };
+  const menuView = (over: Record<string, unknown> = {}) => viewOf({ id: 'v', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 2, context, page: [['filter', 'saved']], savedScopeId: 'MEM', ...over } as never);
+  const at = (scopeId: string | null) => ({ global: { ...emptyGlobal, scopeId }, page: [] as [string, string][] });
+  const restore = (view: ReturnType<typeof menuView>, scopeId: string | null) => {
+    const result = restoreSavedView({ view, support: siteSupport, current: at(scopeId), extras: [], pathname: '/home', anchor, source: 'selected' });
+    if (!result.ok || !result.applied) throw new Error('unreachable');
+    return result;
+  };
+
+  it('opened in another Scope it leaves the Site-bound values out and keeps time and page keys', () => {
+    const result = restore(menuView(), 'FDRY');
+    expect(result.next.global).toMatchObject({ scopeId: 'FDRY', from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00', roomNames: null, lineNames: null, prcGroups: null, selection: null, membershipBasis: null });
+    expect(result.next.page).toEqual([['filter', 'saved']]);
+    expect(result.href).not.toMatch(/roomNames|lineNames|prcGroups|selection|membershipBasis/);
+    expect(result.excludedByScope.sort()).toEqual(['condition', 'line', 'prcGroup', 'roomNames', 'selection']);
+    expect(result.unsupported).toEqual([]);
+  });
+
+  it('the same Scope, an old view (no recorded Scope) and a condition set with nothing Site-bound apply as before', () => {
+    expect(restore(menuView(), 'MEM').next.global).toMatchObject({ roomNames: ['PHOTO'], lineNames: ['L1'], selection: ['E1'] });
+    expect(restore(menuView({ savedScopeId: undefined }), 'FDRY').next.global).toMatchObject({ roomNames: ['PHOTO'], lineNames: ['L1'] });
+    expect(restore(menuView({ context: { from: context.from, to: context.to } }), 'FDRY').excludedByScope).toEqual([]);
+  });
+
+  it('no current Scope against a recorded one counts as another Scope', () => {
+    expect(siteBoundDropped(menuView(), null).length).toBeGreaterThan(0);
+    expect(siteBoundDropped(menuView(), 'MEM')).toEqual([]);
+    expect(siteBoundDropped(menuView({ savedScopeId: undefined }), null)).toEqual([]);
+  });
+
+  it('the dropped set is the Kernel Site-bound list: a field a menu does not support is listed as unsupported, not as excluded', () => {
+    const narrow: SavedViewSupport = { ...siteSupport, contextKeys: ['time', 'line'] };
+    const result = restoreSavedView({ view: menuView(), support: narrow, current: at('FDRY'), extras: [], pathname: '/home', anchor, source: 'selected' });
+    if (!result.ok || !result.applied) throw new Error('unreachable');
+    expect(result.excludedByScope).toEqual(['line']);
+    expect(result.unsupported.map(u => u.key).sort()).toEqual(['condition', 'prcGroup', 'roomNames', 'selection']);
+  });
+
+  it('수정됨 is clear after the drop, and set after the user sets a Site-bound value in the new Scope', () => {
+    const view = menuView();
+    const restored = restore(view, 'FDRY');
+    const saved = savedStateOf(view, siteSupport, anchor, 'FDRY');
+    expect(saved.context.lineNames).toBeUndefined();
+    expect(viewState({ applied: captureApplied(restored.next, siteSupport), saved, draftDirty: [] }).modified).toBe(false);
+    const edited = { global: { ...restored.next.global, lineNames: ['L7'] }, page: restored.next.page };
+    expect(viewState({ applied: captureApplied(edited, siteSupport), saved, draftDirty: [] }).modified).toBe(true);
+    // Switching the Scope back while the view is selected compares against the full copy again (the same function of the current Scope).
+    expect(savedStateOf(view, siteSupport, anchor, 'MEM').context.lineNames).toEqual(['L1']);
+  });
+
+  describe('현재 뷰에 저장 across Scopes', () => {
+    const narrow: SavedViewSupport = { ...siteSupport, contextKeys: ['time', 'line'] };
+    const appliedIn = (scopeId: string) => captureApplied({ global: { ...emptyGlobal, scopeId, from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00', lineNames: ['L7'] }, page: [] }, narrow);
+    it('does not keep the stored Site-bound fields of the other Scope, supported or not, and records the current Scope', () => {
+      const patch = overwritePatch(menuView(), appliedIn('FDRY'), narrow, anchor, 'FDRY');
+      expect(patch.context).toEqual({ from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00', lineNames: ['L7'] });
+      expect(patch.savedScopeId).toBe('FDRY');
+    });
+    it('a same-Scope save still keeps what the menu does not support (06 §21.1) and keeps the Scope', () => {
+      const patch = overwritePatch(menuView(), appliedIn('MEM'), narrow, anchor, 'MEM');
+      expect(patch.context).toMatchObject({ roomNames: ['PHOTO'], prcGroups: ['G1'], selection: ['E1'], lineNames: ['L7'] });
+      expect(patch.savedScopeId).toBe('MEM');
+    });
+    it('an old view records the current Scope on its first save, and no current Scope clears it', () => {
+      expect(overwritePatch(menuView({ savedScopeId: undefined }), appliedIn('FDRY'), narrow, anchor, 'FDRY').savedScopeId).toBe('FDRY');
+      expect(overwritePatch(menuView(), captureApplied({ global: emptyGlobal, page: [] }, narrow), narrow, anchor, null).savedScopeId).toBeNull();
+    });
   });
 });

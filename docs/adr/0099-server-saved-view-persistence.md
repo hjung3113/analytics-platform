@@ -75,4 +75,5 @@
 
 - 0092 §3의 "열람·복원 때마다 서버가 Scope·room·메뉴 권한을 다시 판정"은 이 ADR §1로 부분 대체된다. 0092의 단위·단계·그룹 불변식은 유지한다.
 - `docs/contract/kernel.md` §21은 결정된 정책과 구현된 서버 모듈, 코드 구현되고 호스트 검사를 마친 HTTP 저장소·브라우저 이전 실행(#1105b; 실서버 rendered UI는 미검증)을 구분해 적는다. `real-server-checklist`·`platform-packages` 갱신은 서버 구현 단계가 한다.
+- 보충(#2175): `scopeId`는 `context` 안에서 계속 저장 불가 키다. 별도 메타데이터 `savedScopeId`가 내용 버전마다 저장 Scope를 기록하며, 권한·감사·`importLocal` 입력이 아니고 서버는 값을 읽기 전용 메모로만 돌려준다([kernel §21.1](../contract/kernel.md)).
 - 되돌리기: 정책 선택(회수 뒤 비공개, 승인 권한, 상한)은 이 ADR을 고쳐 바꾼다. 권한 권위 분리는 사용자 결정이다.

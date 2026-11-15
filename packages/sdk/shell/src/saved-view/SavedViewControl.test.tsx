@@ -731,3 +731,36 @@ it('KER-18 held view selection raises no failure warning and selects only after 
   act(() => request!.confirm());
   await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: ETCH 뷰'));
 });
+
+describe('a view saved in another Scope (#2175)', () => {
+  const MEM = viewOf({ id: 'm1', name: '포토 뷰', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: null, savedScopeId: 'MEM', context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO'] } } as never);
+
+  it('opens without the Site-bound values and says so in a segment apart from the menu-unsupported list', async () => {
+    const user = userEvent.setup();
+    mount(createFakeViewStore([MEM]), `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '포토 뷰');
+    const note = await screen.findByText(/다른 Scope라 제외: 공정/);
+    expect(note.getAttribute('title')).toContain('MEM에서 저장했습니다');
+    expect(screen.queryByText(/제외된 조건/)).toBeNull();
+    expect(platform.global.roomNames).toBeNull();
+  });
+
+  it('asks before an overwrite across Scopes, and cancelling saves nothing', async () => {
+    const user = userEvent.setup();
+    const store = createFakeViewStore([MEM]);
+    mount(store, `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '포토 뷰');
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
+    expect(await screen.findByText('다른 Scope에서 저장한 뷰입니다')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: '취소' }));
+    expect(store.rows.get('m1')).toMatchObject({ savedScopeId: 'MEM', context: { roomNames: ['PHOTO'] } });
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
+    await user.click(await screen.findByRole('button', { name: '현재 Scope로 덮어쓰기' }));
+    await waitFor(() => expect(store.rows.get('m1')).toMatchObject({ savedScopeId: 'FDRY', context: { roomNames: ['ETCH'] } }));
+  });
+});

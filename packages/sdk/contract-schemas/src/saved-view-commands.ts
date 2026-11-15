@@ -71,9 +71,11 @@ const layoutSchema = noForbiddenKeys(json);
 /** Opaque slot: finite JSON only; its content (including key names) is never inspected. */
 const panelsSchema = json;
 const name = z.string().refine((value) => value.trim() !== '', { message: 'name is empty' });
+/** The Scope a content version was saved in (#2175): opaque metadata, never an authority; the server stores it and checks no grant. Bounded like `SAVED_SCOPE_ID_MAX` in @ap/contracts. */
+const savedScopeId = z.string().min(1).max(200);
 
 export const savedViewDraftSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ schemaVersion: z.literal(1), kind: z.literal('condition-set'), name, context: contextSchema }),
+  z.strictObject({ schemaVersion: z.literal(1), kind: z.literal('condition-set'), name, context: contextSchema, savedScopeId: savedScopeId.optional() }),
   z.strictObject({
     schemaVersion: z.literal(1),
     kind: z.literal('menu-view'),
@@ -81,6 +83,7 @@ export const savedViewDraftSchema = z.discriminatedUnion('kind', [
     menuId: id,
     menuSchemaVersion: version,
     context: contextSchema,
+    savedScopeId: savedScopeId.optional(),
     page: pageSchema,
     chartOptions: chartOptionsSchema,
     layout: layoutSchema,
@@ -92,6 +95,8 @@ export const savedViewPatchSchema = z.strictObject({
   name: z.string().optional(),
   menuSchemaVersion: version.optional(),
   context: contextSchema.optional(),
+  /** `null` clears it. */
+  savedScopeId: savedScopeId.nullable().optional(),
   page: pageSchema.optional(),
   chartOptions: chartOptionsSchema.optional(),
   layout: layoutSchema.optional(),
@@ -161,6 +166,7 @@ const record = {
   approval: z.enum(['none', 'pending', 'approved', 'rejected']),
   approvalNote: z.string().optional(),
   context: contextSchema,
+  savedScopeId: savedScopeId.optional(),
 };
 export const savedViewSchema = z.discriminatedUnion('kind', [
   z.strictObject({ ...record, kind: z.literal('condition-set') }),

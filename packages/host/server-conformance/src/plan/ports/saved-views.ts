@@ -107,6 +107,30 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
     },
   });
 
+  // #2175: the Scope a view was saved in is stored with the content, comes back on read, and `null` in an update clears it.
+  checks.push({
+    id: 'port · savedViews: a view keeps the Scope it was saved in — it reads back, an update can replace it, and null clears it',
+    uses: ['save', 'update', 'get'],
+    mode: 'sequential',
+    nonEnvelope: true,
+    run: async () => {
+      const { user } = sample;
+      const saved = okOf(await user.save({ ...draft(), savedScopeId: 'MEM' }), 'save with a Scope');
+      if (typeof saved === 'string') return saved;
+      if (saved.view.savedScopeId !== 'MEM') return `a saved view answers the Scope it was saved in, got ${JSON.stringify(saved.view.savedScopeId)}`;
+      const moved = okOf(await user.update(saved.view.id, { savedScopeId: 'FDRY' }, { expectedVersion: saved.view.version }), 'update to another Scope');
+      if (typeof moved === 'string') return moved;
+      if (moved.view.savedScopeId !== 'FDRY') return 'an update replaces the recorded Scope';
+      const cleared = okOf(await user.update(saved.view.id, { savedScopeId: null }, { expectedVersion: moved.view.version }), 'update clearing the Scope');
+      if (typeof cleared === 'string') return cleared;
+      if (cleared.view.savedScopeId !== undefined) return 'null clears the recorded Scope — the view answers none';
+      const back = await user.get(saved.view.id);
+      if (back === null || back.denied === true || back.view.savedScopeId !== undefined) return 'the cleared Scope stays cleared on a read back';
+      await user.remove(saved.view.id);
+      return null;
+    },
+  });
+
   // ADR-0099 §2: ownership is the write path of a private view — the owner's rename and delete succeed and
   // persist, so a store that refuses every owner write, or answers ok without writing, cannot conform.
   checks.push({

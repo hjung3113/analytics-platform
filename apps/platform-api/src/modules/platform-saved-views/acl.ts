@@ -21,6 +21,8 @@ export const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 �
 
 export interface ViewBody {
   context: Record<string, unknown>;
+  /** The Scope the content was saved in (#2175): metadata for the viewer's notice, never an authority input and never audited. Carried with the content version it describes. */
+  savedScopeId?: string;
   menuSchemaVersion?: number;
   page?: unknown;
   chartOptions?: Record<string, unknown>;
@@ -191,6 +193,7 @@ export function savedViewOf(
     approval: shown.approval,
     ...(shown.note === null ? {} : { approvalNote: shown.note }),
     context: shown.content.context,
+    ...(shown.content.savedScopeId === undefined ? {} : { savedScopeId: shown.content.savedScopeId }),
   };
   if (view.kind === 'condition-set') return { ...base, kind: 'condition-set' } as SavedViewJson;
   return {

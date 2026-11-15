@@ -69,11 +69,15 @@ class Abort extends Error {
   }
 }
 
+const scopeOf = (draft: SavedViewDraftIn) =>
+  draft.savedScopeId === undefined ? {} : { savedScopeId: draft.savedScopeId };
+
 const bodyOf = (draft: SavedViewDraftIn): ViewBody =>
   draft.kind === 'condition-set'
-    ? { context: draft.context }
+    ? { context: draft.context, ...scopeOf(draft) }
     : {
         context: draft.context,
+        ...scopeOf(draft),
         menuSchemaVersion: draft.menuSchemaVersion,
         page: draft.page,
         chartOptions: draft.chartOptions,
@@ -280,6 +284,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         ...shown.content,
         ...patchBody,
       };
+      // `savedScopeId: null` clears the recorded Scope (#2175); the draft schema takes the key absent, not null.
+      if (candidate.savedScopeId === null) delete (candidate as { savedScopeId?: unknown }).savedScopeId;
       const checked = savedViewDraftSchema.safeParse(candidate);
       if (!checked.success)
         return fail('invalid', checked.error.issues[0]?.message ?? 'invalid view');

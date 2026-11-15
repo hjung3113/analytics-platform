@@ -47,6 +47,8 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       if (!old) return { ok: false, reason: 'unavailable' };
       if (old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
       const view = { ...old, ...patch, version: old.version + 1 } as SavedView;
+      // `savedScopeId: null` clears the recorded Scope, as a real store does (#2175).
+      if (patch.savedScopeId === null) delete (view as { savedScopeId?: string }).savedScopeId;
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },

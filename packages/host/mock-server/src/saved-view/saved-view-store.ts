@@ -248,7 +248,9 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch)) return fail('invalid', 'a condition set has no page');
       const { id: _id, ownerId: _o, version: _v, updatedAt: _u, visibility, approval, approvalNote, ...content } = view;
       void [_id, _o, _v, _u];
-      const merged = { ...content, ...patch };
+      const merged: Record<string, unknown> = { ...content, ...patch };
+      // `savedScopeId: null` clears the recorded Scope (#2175); the stored shape has the key absent.
+      if (merged['savedScopeId'] === null) delete merged['savedScopeId'];
       const checked = validateSavedView(merged); if (!checked.ok) return checked;
       // The edit is judged like a save: a context the editor may not read is refused before anything is written.
       if (denial(merged as SavedView, c.actor, menuPermissionsOf)) return fail('forbidden', 'context');

@@ -6,20 +6,28 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 export type SavedViewKind = 'condition-set' | 'menu-view';
 
 /**
- * Serializable partial map of the supported Context keys. Scope is not saved: restore re-validates it on the server.
+ * Serializable partial map of the supported Context keys. `scopeId` is never a key here: the Scope a content version was saved in is
+ * `savedScopeId` on the view (metadata, #2175), and restore still re-validates the current Scope on the server.
  * A relative period (`hours` back from the server anchor) and an absolute `from`/`to` are different rules.
  */
 export type SavedViewContext = Partial<Pick<GlobalContext, 'from' | 'to' | 'condition' | 'selection' | 'membershipBasis' | 'lineNames' | 'prcGroups' | 'roomNames'>> & {
   relativePeriod?: { hours: number };
 };
 
+/**
+ * The Scope the content (the current or approved copy, or an official view's pending proposal) was saved in, or absent when it was saved with no Scope or
+ * before this field existed (#2175). Metadata, never authority: nothing checks it against a grant. Restore uses it only to leave Site-bound values out of
+ * another Scope (`@ap/kernel` `siteBoundDropped`). Max length: `SAVED_SCOPE_ID_MAX`.
+ */
+export const SAVED_SCOPE_ID_MAX = 200;
 export type SavedViewBase = { id: string; schemaVersion: 1; kind: SavedViewKind; name: string; ownerId: string; version: number; updatedAt: number };
-export type ConditionSetView = SavedViewBase & { kind: 'condition-set'; context: SavedViewContext };
+export type ConditionSetView = SavedViewBase & { kind: 'condition-set'; context: SavedViewContext; savedScopeId?: string };
 export type MenuView = SavedViewBase & {
   kind: 'menu-view';
   menuId: string;
   menuSchemaVersion: number;
   context: SavedViewContext;
+  savedScopeId?: string;
   /** Page-owned URL keys, in the existing URL codec shape. */
   page: Pair[] | Record<string, string[]>;
   chartOptions: Record<string, JsonValue>;
@@ -36,11 +44,12 @@ export type ViewSharing = { visibility: ViewVisibility; approval: ViewApproval; 
 export type SavedView = (ConditionSetView | MenuView) & ViewSharing;
 
 /** What a caller proposes to save; the store assigns id, owner, version, time and starts private with approval `none`. */
-export type ConditionSetDraft = { schemaVersion: 1; kind: 'condition-set'; name: string; context: SavedViewContext };
+export type ConditionSetDraft = { schemaVersion: 1; kind: 'condition-set'; name: string; context: SavedViewContext; savedScopeId?: string };
 export type MenuViewDraft = Omit<MenuView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
 export type SavedViewDraft = ConditionSetDraft | MenuViewDraft;
 /** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
-export type SavedViewPatch = { name?: string; menuSchemaVersion?: number; context?: SavedViewContext; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
+/** `savedScopeId: null` clears the recorded Scope (an overwrite made with no current Scope). */
+export type SavedViewPatch = { name?: string; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
 
 export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string; memberCount: number; managerIds?: string[] };
 /** `affiliation` tells same-named people apart in people search and member lists. */
@@ -198,6 +207,7 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
   if (input.schemaVersion !== 1) return invalid('unknown schemaVersion');
   if (typeof input.name !== 'string' || input.name.trim() === '') return invalid('name is empty');
   if (!isObject(input.context)) return invalid('context must be an object');
+  if ('savedScopeId' in input && (typeof input.savedScopeId !== 'string' || input.savedScopeId === '' || input.savedScopeId.length > SAVED_SCOPE_ID_MAX)) return invalid('savedScopeId must be a non-empty Scope id');
   const badContext = invalidContext(input.context);
   if (badContext) return invalid(badContext);
   const menuOnly = ['page', 'chartOptions', 'layout', 'panels'];

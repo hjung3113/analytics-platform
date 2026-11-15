@@ -1,4 +1,4 @@
-import { isForbiddenSavedViewKey, isRecord } from '@ap/contracts';
+import { isForbiddenSavedViewKey, isRecord, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
 
 // Runtime guards that deeply match the wire schemas in `@ap/contract-schemas/src/saved-view-commands.ts` (ADR-0099 section 3).
 // This package has no runtime Zod dependency; `__tests__/saved-view-guards.test.ts` proves the equivalence against the schemas.
@@ -99,15 +99,16 @@ const page = anyOf(pairs, keyMap);
 const chartOptions = noForbiddenKeys((v) => isRecord(v) && json(v));
 const layout = noForbiddenKeys(json);
 const name: Guard = (v) => typeof v === 'string' && v.trim() !== '' && isWellFormedText(v);
+const savedScopeId: Guard = v => typeof v === 'string' && v.length > 0 && v.length <= SAVED_SCOPE_ID_MAX && isWellFormedText(v);
 const menuId: Guard = (v) => typeof v === 'string' && v.length > 0 && isWellFormedText(v);
 
 export const isSavedViewDraft: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'condition-set'
-    ? strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context })(v)
-    : strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json })(v));
+    ? strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId })(v)
+    : strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json }, { savedScopeId })(v));
 
-const patch = strict({}, { name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json });
+const patch = strict({}, { savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json });
 const visibility: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'private' || v['kind'] === 'official'
@@ -181,8 +182,8 @@ const approvalNote = { approvalNote: str };
 const savedView: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'condition-set'
-    ? strict({ ...record, kind: lit('condition-set') }, approvalNote)(v)
-    : strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: json }, approvalNote)(v));
+    ? strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId })(v)
+    : strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: json }, { ...approvalNote, savedScopeId })(v));
 const entry = strict({ view: savedView, capabilities }, { denied: lit(false) });
 const denied = strict({ id, denied: lit(true), reason: str });
 const listItem = anyOf(entry, denied);

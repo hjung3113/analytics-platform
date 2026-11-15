@@ -11,12 +11,11 @@ import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { drillGap, dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
-import { buildQuery, carriesReturnTo, clientCorrelationId, CONTEXT_FIELDS, ContractError, emptyGlobal, SITE_BOUND_CONTEXT_KEYS, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
+import { SITE_BOUND_FIELDS } from '../context/siteBound';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
-/** GlobalContext fields a Scope change clears: the fields of the site-bound keys plus `membershipBasis` (not a ContextKey). */
-const SITE_BOUND_FIELDS: readonly (keyof GlobalContext)[] = [...SITE_BOUND_CONTEXT_KEYS.flatMap(key => CONTEXT_FIELDS[key]), 'membershipBasis'];
 function hasSiteBound(g: GlobalContext): boolean { return SITE_BOUND_FIELDS.some(f => g[f] !== null); }
 function withoutSiteBound(g: GlobalContext): GlobalContext { return { ...g, ...Object.fromEntries(SITE_BOUND_FIELDS.map(f => [f, null])) }; }
 /** The pane's trail, replaced by a fresh one when the pane id changed. */

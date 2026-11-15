@@ -1,6 +1,7 @@
 # 백로그 — 이슈로 올리지 않은 것
 
 - **미구현 — mock 저장 뷰가 메뉴·공정 거부를 하지 않게 (#2042 FEA-18):** mock 저장소의 메뉴·공정 판정을 서버처럼 객체 ACL만 따르게 하는 변경은 만들어 두었으나 PR에서 뺐다. 이유: 계약 E2E(`contract-saved-view.spec.ts`의 「권한 밖 Scope 뷰는 열 수 없음」)와 `saved-view-assembly.test.tsx`가 지금의 거부 표시를 계약으로 확인하고, 보이는 기능(「볼 수 없는 뷰」 행)이 사라지므로 소유자·SDK 영역 결정이 필요하다. 다시 열 조건: 소유자가 mock과 서버의 저장 뷰 거부 방식 차이를 어느 쪽으로 맞출지 정할 때(되돌린 커밋 78baf1a25에 구현이 있다).
+- **구현 안 함 — Scope 기록 없는 옛 저장 뷰의 Site-bound 값 (#2175):** `savedScopeId`가 없는 기존 뷰는 어느 Scope에서든 전부 적용한다. 이유: 저장 당시 Scope를 알 수 없고, 추측해 값을 빼면 맞는 뷰까지 깨진다. 다시 열 조건: Scope 기록 없는 뷰가 잘못된 Site 값을 적용했다는 보고, 또는 출시 전 점검 때 실서버에 Site-bound 값을 가진 기록 없는 뷰가 남아 있을 때.
 - **구현 안 함 — 「Context 키 → GlobalContext 필드」 표 네 곳 한 곳으로 (#2008 KER-8):** contracts `required-context.ts`, kernel `module-host.ts`·`useScreenState.ts`·`capture.ts`에 같은 표가 따로 있다. 이유: 한 곳으로 모으려면 contracts에 표를 두고 내보내야 해서(공개 추가 export·API 기준선 갱신) kernel만의 정리로는 끝나지 않는다. 다시 열 조건: contracts+kernel 항목으로 배정될 때(제안: 값 존재 검사용 `CONTEXT_FIELDS`는 두고 membershipBasis를 포함한 전체 복사 표를 따로 둠).
 - **구현 안 함 — `sortRows` 비교가 `null`과 `undefined` 사이에서 대칭이 아님 (#2047 KER-23):** `packages/sdk/contracts/src/adapter/paging.ts:16`이 두 방향 모두 1을 돌려준다. 실제 결함이며 고칠 곳이 contracts라 kernel 묶음 범위 밖이다. 다시 열 조건: contracts 항목으로 배정될 때(nullish를 먼저 비교하고, null·undefined 섞인 오름·내림 시험을 옛 비교자에서 실패 확인; NaN·이종 값 순서는 별도 정책 질문).
 - **구현 안 함 — 가드가 이동을 붙잡은 Apply의 주소 확인 (#2047 KER-20 일부):** 숨은 page 키 확인은 고쳤지만, 가드가 붙잡아 `commit`이 false를 돌려줄 때 대기 중 제안을 지우는 부분은 그대로다(false가 거절·no-op도 뜻해서 모두 보존하면 취소된 Apply가 남음). 다시 열 조건: 가드를 아는 commit/확인 결과가 설계될 때.

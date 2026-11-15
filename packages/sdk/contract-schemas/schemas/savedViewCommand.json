@@ -209,6 +209,11 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "savedScopeId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
                 }
               },
               "required": [
@@ -362,6 +367,11 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "savedScopeId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
                 },
                 "page": {
                   "anyOf": [
@@ -610,6 +620,18 @@
                 }
               },
               "additionalProperties": false
+            },
+            "savedScopeId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "page": {
               "anyOf": [
@@ -1329,6 +1351,11 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "savedScopeId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
                       }
                     },
                     "required": [
@@ -1482,6 +1509,11 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      "savedScopeId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
                       },
                       "page": {
                         "anyOf": [

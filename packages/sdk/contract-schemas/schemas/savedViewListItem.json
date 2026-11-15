@@ -238,6 +238,11 @@
                   },
                   "additionalProperties": false
                 },
+                "savedScopeId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
                 "kind": {
                   "type": "string",
                   "const": "condition-set"
@@ -484,6 +489,11 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "savedScopeId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
                 },
                 "kind": {
                   "type": "string",
