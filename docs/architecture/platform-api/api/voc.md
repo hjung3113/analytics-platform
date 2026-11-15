@@ -231,6 +231,12 @@ POST /vocs/:id/internal-comments
 - Creates private Internal Comment.
 ```
 
+`GET /vocs/:id` (inline conversation) and `GET /vocs/:id/conversation`
+retain skipped Public Update rows and their status-before/status-after fields.
+Only readers with `canTriage` receive the stored `skip_reason`; all other
+conversation readers, including the reporter, receive `skip_reason: null`.
+The separate public-read surface continues to exclude skipped updates entirely.
+
 Conversation entries are append-only in MVP. The API does not expose general
 edit/delete, reaction, read receipt, or threaded reply behavior. Internal
 Comments accept `mentions` (Actor ids, validated in `conversation-service.ts`);

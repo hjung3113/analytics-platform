@@ -74,7 +74,7 @@ export async function selectConversationPage(
         pu.reporter_facing_status_before,
         pu.reporter_facing_status_after,
         pu.skip_public_update,
-        pu.skip_reason
+        CASE WHEN ${canTriage} THEN pu.skip_reason ELSE NULL::text END AS skip_reason
       FROM ${vocPublicUpdates} pu
       JOIN ${vocs} v ON v.id = pu.voc_id AND v.workspace_id = ${workspaceId} AND v.archived_at IS NULL
       WHERE pu.voc_id = ${vocId}
