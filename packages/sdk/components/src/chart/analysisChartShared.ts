@@ -5,6 +5,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import type { ChartSpec } from './AnalysisChart';
 
 export const seriesColors: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
+export const rowKey = (kind: string, id: string) => JSON.stringify([kind, 'row', id]);
 export const percent = (value: number) => `${Number(value.toFixed(1))}%`;
 export const unknownLabel = (lang: Lang) => formatText(COMPONENTS_MESSAGES.chartUnknown, lang);
 export const isBrushableKind = (kind: ChartSpec['kind']) => kind === 'heatmap' || kind === 'scatter';

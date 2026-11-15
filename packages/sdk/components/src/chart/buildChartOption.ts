@@ -9,6 +9,7 @@ import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
 import { barStatuses, chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import type { ChartPoint } from './AnalysisChartFrame';
+import { escapeHtml } from './chartText';
 import { barStatusBackingSeries } from './chartStatusBacking';
 import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import type { Selection } from './useChartRange';
@@ -129,9 +130,6 @@ export type ChartOptionInput = {
 /** What a label that does not fit lays out as: ECharts has no hide switch for a layout callback, so the label collapses to nothing. */
 const YIELDED = { fontSize: 0, width: 0, height: 0 };
 
-const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-/** Text for an HTML-mode ECharts tooltip: markup in a server-supplied name must stay text. */
-const escapeHtml = (text: string) => text.replace(/[&<>"']/g, ch => HTML_ESCAPES[ch]);
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;

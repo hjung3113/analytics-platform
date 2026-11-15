@@ -30,6 +30,28 @@ it('preserves the complete legacy projection without opt-in fields', () => {
   expect(o.yAxis.max({ min: 4, max: 4 })).toBe(10.3);
 });
 describe('scatter categories (#2332)', () => {
+  it('joins accepted rows to their own category bounds and keeps synthetic series out of tooltips and selection', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const spec = category({ order: ['b', 'a'], groups: { header: 'Rack', byCategory: new Map([['a', { group: 'R1', label: 'A' }]]) }, bounds: new Map([['a', { lower: 1, upper: 8 }], ['b', { upper: 3 }]]) });
+    spec.points = [
+      { id: 'invalid', category: 'a', x: null, y: NaN },
+      { id: 'b', category: 'b', x: null, y: null },
+      { id: 'a', category: 'a', x: null, y: 4, status: { tone: 'danger', label: 'High' } },
+      { id: 'a', category: 'b', x: null, y: 2 },
+    ];
+    const p = scatterData(spec, 'en', 's'); const o = p.option([]) as Option;
+    expect(error).toHaveBeenCalled();
+    expect(p.tableValues.map(row => row.slice(3))).toEqual([['', 'b', 'Unknown', '', '3 s', ''], ['R1', 'A', '4 s', '1 s', '8 s', '▲ High']]);
+    expect(p.csvValues.map(row => row.slice(-3))).toEqual([['', 3, ''], [1, 8, '▲ High']]);
+    expect(p.rows[1].label).toContain('Rack: R1 · A · Lower bound: 1 s · Upper bound: 8 s');
+    const pointSeries = p.seriesKeys.findIndex(keys => keys.includes(p.rows[1].key));
+    expect(o.tooltip.formatter({ seriesIndex: pointSeries, dataIndex: 0 })).toContain('Upper bound: 8 s');
+    o.series.forEach((series, index) => {
+      if (!series.id) return;
+      expect(p.seriesKeys[index]).toEqual([]);
+      expect(o.tooltip.formatter({ seriesIndex: index, dataIndex: 0 })).toBe('');
+    });
+  });
   it.each([undefined, 0, 0.2, 0.9, -1, 2, NaN])('keeps deterministic jitter %s inside its cell independent of order', jitter => {
     const spec = category({ jitter }); spec.points = Array.from({ length: 25 }, (_, i) => ({ id: `p${i}`, x: null, y: i, category: i % 2 ? 'b' : 'a', group: 'g' }));
     const actual = coordinates(spec); const width = Number.isFinite(jitter) ? Math.min(0.9, Math.max(0, jitter!)) : 0.6;

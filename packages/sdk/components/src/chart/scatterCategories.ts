@@ -3,9 +3,11 @@ import type { CustomSeriesOption, ScatterSeriesOption } from 'echarts/charts';
 import type { XAXisComponentOption, YAXisComponentOption } from 'echarts';
 import type { ScatterPoint, ScatterSpec } from './AnalysisChart';
 import type { KindProjection } from './analysisChartKinds';
+import { rowKey } from './analysisChartShared';
+import { escapeHtml } from './chartText';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
-import { distinctStatuses, STATUS_GLYPHS, statusBorderColor, statusKey, statusMarker, statusText } from './chartStatus';
+import { distinctStatuses, STATUS_GLYPHS, statusBacking, statusBorderColor, statusFill, statusKey, statusMarker, statusText } from './chartStatus';
 import { chartTheme, token } from './EChart';
 import { COMPONENTS_MESSAGES } from '../messages';
 
@@ -17,13 +19,11 @@ const FNV_PRIME = 16777619;
 const UINT32_MAX = 0xffffffff;
 const RANGE_PADDING = 0.05;
 const BAND_OPACITY = 0.12;
+const SCATTER_FILL_OPACITY = 0.8;
 const UPPER_DASH = [8, 4];
 const LOWER_DASH = [2, 4];
 const GROUP_LABEL_OFFSET = 34;
 const GROUP_FONT_SIZE = 11;
-const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const escapeHtml = (text: string) => text.replace(/[&<>"']/g, ch => ESCAPES[ch]);
-const pointKey = (id: string) => JSON.stringify(['scatter', 'row', id]);
 type Bound = { lower?: number; upper?: number };
 type Span = { start: number; end: number; lower?: number; upper?: number };
 
@@ -55,7 +55,8 @@ function categoryCells(spec: ScatterSpec) {
     }
     return finite;
   });
-  return { order, index, points, bounds };
+  const boundsByCategory = new Map(order.map((category, index) => [category, bounds[index]]));
+  return { order, points, bounds, boundsByCategory };
 }
 /** Merge consecutive equal segments, retaining holes and category boundaries. */
 function spans(bounds: Bound[], part: 'upper' | 'lower' | 'band'): Span[] {
@@ -100,9 +101,21 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const plain = { ...spec, xCategories: undefined, points: input.map(point => ({ ...point, status: undefined })) };
   const base = project(plain);
   const originals = new Map<string, ScatterPoint>();
-  for (const point of input) if (!originals.has(pointKey(point.id))) originals.set(pointKey(point.id), point);
-  const points = base.rows.map(row => originals.get(row.key)!);
-  const byKey = new Map(base.rows.map((row, i) => [row.key, i]));
+  for (const point of input) if (!originals.has(rowKey('scatter', point.id))) originals.set(rowKey('scatter', point.id), point);
+  const pointByRowKey = new Map(base.rows.map((row, rowIndex) => {
+    const point = originals.get(row.key);
+    if (!point) throw new Error('Scatter projection row has no accepted point');
+    const category = point.category ?? '';
+    const bound = cells?.boundsByCategory.get(category) ?? {};
+    return [row.key, { point, rowIndex, bound, categoryLabel: rowLabel(groups, category), categoryGroup: groups ? rowGroup(groups, category) : '', categoryText: groupedRowText(groups, category) }];
+  }));
+  const accepted = [...pointByRowKey.values()];
+  const points = accepted.map(record => record.point);
+  // Synthetic group/status series have no point and always resolve to undefined.
+  const pointForDatum = (seriesIndex: number, dataIndex: number) => {
+    const key = base.seriesKeys[seriesIndex]?.[dataIndex];
+    return key === undefined ? undefined : pointByRowKey.get(key);
+  };
   const statuses = distinctStatuses(points.map(point => point.status));
   const m = (key: keyof typeof COMPONENTS_MESSAGES) => formatText(COMPONENTS_MESSAGES[key], lang);
   const labels = {
@@ -125,51 +138,67 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   if (groups) { headers.splice(3, 0, groups.header); csvHeaders.splice(3, 0, groups.header); }
   if (categories?.bounds) { headers.push(labels.lower, labels.upper); csvHeaders.push(labels.lower, labels.upper); }
   if (statuses.length) { headers.push(m('chartHeaderStatus')); csvHeaders.push(m('chartHeaderStatus')); }
-  const boundFor = (point: ScatterPoint): Bound => cells?.bounds[cells.index.get(point.category!)!] ?? {};
   const tableValues = base.tableValues.map((values, i) => {
-    const point = points[i]; const row = [...values];
-    if (categories) row[3] = rowLabel(groups, point.category!);
-    if (groups) row.splice(3, 0, rowGroup(groups, point.category!));
-    if (categories?.bounds) row.push(...[boundFor(point).lower, boundFor(point).upper].map(value => value === undefined ? '' : `${value} ${unit}`));
+    const { point, bound, categoryLabel, categoryGroup } = accepted[i]; const row = [...values];
+    if (categories) row[3] = categoryLabel;
+    if (groups) row.splice(3, 0, categoryGroup);
+    if (categories?.bounds) row.push(...[bound.lower, bound.upper].map(value => value === undefined ? '' : `${value} ${unit}`));
     if (statuses.length) row.push(statusText(point.status));
     return row;
   });
   const csvValues = base.csvValues.map((values, i) => {
-    const point = points[i]; const row = [...values];
-    if (categories) row[3] = rowLabel(groups, point.category!);
-    if (groups) row.splice(3, 0, rowGroup(groups, point.category!));
-    if (categories?.bounds) row.push(boundFor(point).lower ?? '', boundFor(point).upper ?? '');
+    const { point, bound, categoryLabel, categoryGroup } = accepted[i]; const row = [...values];
+    if (categories) row[3] = categoryLabel;
+    if (groups) row.splice(3, 0, categoryGroup);
+    if (categories?.bounds) row.push(bound.lower ?? '', bound.upper ?? '');
     if (statuses.length) row.push(statusText(point.status));
     return row;
   });
-  const pointDetails = (point: ScatterPoint) => {
-    const detail = categories ? [groupedRowText(groups, point.category!)] : [];
+  const pointDetails = ({ point, bound, categoryText }: typeof accepted[number]) => {
+    const detail = categories ? [categoryText] : [];
     if (categories?.bounds) {
-      const bound = boundFor(point);
       detail.push(`${labels.lower}: ${bound.lower === undefined ? '' : `${bound.lower} ${unit}`}`, `${labels.upper}: ${bound.upper === undefined ? '' : `${bound.upper} ${unit}`}`);
     }
     if (point.status) detail.push(statusText(point.status));
     return detail.join(' · ');
   };
-  const rows = base.rows.map((row, i) => ({ ...row, label: [row.label, pointDetails(points[i])].filter(Boolean).join(' · ') }));
+  const rows = base.rows.map((row, i) => ({ ...row, label: [row.label, pointDetails(accepted[i])].filter(Boolean).join(' · ') }));
   const summary = cells ? formatText(COMPONENTS_MESSAGES.chartScatterCategorySummary, lang, {
     total: points.length, unknown: points.filter(point => point.y === null).length,
     legend: base.legend.map(item => item.label).join(', '), xLabel: spec.xLabel, yLabel: spec.yLabel, unit,
   }) : base.summary;
+  const statusOutlines: ScatterSeriesOption[] = base.seriesKeys.flatMap((keys, groupIndex) => {
+    const data = keys.flatMap(key => {
+      const point = key === undefined ? undefined : pointByRowKey.get(key)?.point;
+      return point?.status ? [{ value: [point.x, point.y], status: point.status }] : [];
+    });
+    if (!data.length) return [];
+    const group = base.legend[groupIndex];
+    const effectiveFill = statusFill(token(group.color), SCATTER_FILL_OPACITY);
+    const outline = { type: 'scatter' as const, symbol: group.symbol, silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: 1 } };
+    const backings = data.flatMap(datum => {
+      const backing = statusBacking(datum.status, effectiveFill);
+      return backing ? [{ value: datum.value, itemStyle: { borderColor: backing, borderWidth: 6 } }] : [];
+    });
+    return [
+      ...(backings.length ? [{ ...outline, id: `__scatterStatusBacking-${groupIndex}`, z: 3, data: backings }] : []),
+      { ...outline, id: `__scatterStatusOutline-${groupIndex}`, z: 4, data: data.map(datum => ({ value: datum.value, itemStyle: { borderColor: statusBorderColor(datum.status, effectiveFill), borderWidth: 2 } })) },
+    ];
+  });
   return {
     ...base, rows, headers, csvHeaders, tableValues, csvValues, legend,
     // Per-point detail lives in rows (keyboard table, point selector, selection summary); the visible summary stays an aggregate.
     summary: [summary, ...statuses.map(status => `${STATUS_GLYPHS[status.tone]} ${status.label}: ${points.filter(point => point.status && statusKey(point.status) === statusKey(status)).length}`)].join(' · '),
-    seriesKeys: [...base.seriesKeys, ...(groups ? [[]] : [])],
+    seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : [])],
     option: active => {
       const original = base.option(active);
       const theme = chartTheme();
       const series = (original.series as ScatterSeriesOption[]).map((series, s) => ({ ...series,
         data: (series.data as { value: number[]; itemStyle: { color: string; borderColor: string; borderWidth: number } }[]).map((datum, d) => {
-          const key = base.seriesKeys[s][d]; const point = points[byKey.get(key!)!];
+          const key = base.seriesKeys[s][d]; const point = pointForDatum(s, d)?.point;
           if (!point?.status) return datum;
           return { ...datum, itemStyle: { ...datum.itemStyle, borderColor: statusBorderColor(point.status, datum.itemStyle.color), borderWidth: 2,
-            ...(active.includes(key!) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
+            ...(key !== undefined && active.includes(key) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
         }),
       }));
       if (categories?.bounds && series.length) {
@@ -203,10 +232,10 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
         yAxis: boundValues.length ? { ...yAxis, min: (extent: { min: number; max: number }) => yRange(extent).min, max: (extent: { min: number; max: number }) => yRange(extent).max } : yAxis,
         // HTML mode escapes every consumer string; rich-text braces remain literal text, never style instructions.
         tooltip: { ...theme.tooltip, renderMode: 'html', formatter: (p: { seriesIndex: number; dataIndex: number }) => {
-          const key = base.seriesKeys[p.seriesIndex]?.[p.dataIndex]; const index = key === undefined ? undefined : byKey.get(key);
-          return index === undefined ? '' : tableValues[index].map((value, column) => escapeHtml(`${headers[column]}: ${value}`)).join(' · ');
+          const record = pointForDatum(p.seriesIndex, p.dataIndex);
+          return record === undefined ? '' : tableValues[record.rowIndex].map((value, column) => escapeHtml(`${headers[column]}: ${value}`)).join(' · ');
         } },
-        series: [...series, ...(groups && cells ? [categoryGroups(groups, cells.order)] : [])],
+        series: [...series, ...statusOutlines, ...(groups && cells ? [categoryGroups(groups, cells.order)] : [])],
       };
     },
   };

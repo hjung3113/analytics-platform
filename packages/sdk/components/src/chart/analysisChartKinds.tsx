@@ -1,6 +1,6 @@
 import { formatText, type Lang } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { seriesColors as fills, percent as pct, unknownLabel, brushOptions } from './analysisChartShared';
+import { seriesColors as fills, percent as pct, unknownLabel, brushOptions, rowKey } from './analysisChartShared';
 import { cn } from '@ap/ui';
 import type { EChartsCoreOption } from 'echarts/core';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -21,7 +21,6 @@ export type KindProjection = {
   /** topNBar: every valid, de-duplicated input item's label by id, drawn or not (the outside-top-N selection summary). */
   labels?: ReadonlyMap<string, string>;
 };
-const rowKey = (kind: string, id: string) => JSON.stringify([kind, 'row', id]);
 function unique<T extends { id: string }>(items: T[]): T[] {
   const seen = new Set<string>();
   return items.filter(item => {
