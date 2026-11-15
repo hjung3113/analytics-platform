@@ -276,7 +276,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
-          emphasis: { focus: i.emphasisFocus ?? 'series' },
+          emphasis: { focus: i.emphasisFocus ?? 'none' },
           // The tooltip's own formatter is the left axis'; a right series reads its unit and format.
           ...(right ? { yAxisIndex: 1, tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${right.valueFormat(v)} ${right.unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {

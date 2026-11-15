@@ -298,10 +298,11 @@ describe('gentle bar emphasis (#1141)', () => {
     expect(gentle.map(({ emphasis: _emphasis, ...s }) => s)).toEqual(normal.map(({ emphasis: _emphasis, ...s }) => s));
   });
 
-  it('keeps series focus by default', async () => {
+  it('dims no other series by default (#2342)', async () => {
     mount({ series: rows.map(s => ({ ...s, kind: 'bar' })) });
     await screen.findByRole('img');
-    expect(plotOption().series).toEqual(expect.arrayContaining([expect.objectContaining({ emphasis: { focus: 'series' } })]));
+    const real = plotOption().series.filter(s => s.id !== '__overlay') as (PlottedSeries & { emphasis: { focus: string } })[];
+    expect(real.map(s => s.emphasis.focus)).toEqual(['none', 'none']);
   });
 });
 
