@@ -3,7 +3,7 @@ import { METRICS_MESSAGES } from '../messages';
 import { useEffect, useId, useRef, useState } from 'react';
 import { type PageProps, PlatformLink, useEntityAudit, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AuditTimeline, Panel, PlatformPage, QueryView, ReturnLink, StateMessage, useCopyLink } from '@ap/components';
-import { Button, cn, FieldList, FieldRow, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
+import { Button, Callout, cn, FieldList, FieldRow, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import { MetricPairBanner } from './MetricCatalog';
 import {
   PERIOD_BASIS, definitionEndpoint, metricPairEndpoint, usageEndpoint, versionDiff,
@@ -81,6 +81,14 @@ export default function MetricDetailPage({ params }: PageProps) {
   const usageShown = usage.resultParams?.version ?? versionParam;
   const usageStale = usage.showingPrevious === true;
   const pairShown = pair.resultParams === undefined ? versionParam : pair.resultParams.pageVersion;
+  const shownDefinition = definition.response?.outcome === 'ok' ? definition.response.data : null;
+  const versionPrompt = shownDefinition?.problem === 'need-version' && shownDefinition.metric
+    ? shownDefinition.metric.publishedPointer
+      ? m('metricDetailTheReleasedPointerIsVPickA', { publishedPointer: String(shownDefinition.metric.publishedPointer) })
+      : m('metricDetailNoReleasedVersionChooseADraftOr')
+    : null;
+  // The banner shows the prompt only beside an answered absent pair; otherwise the definition section keeps it.
+  const promptJoined = versionPrompt !== null && pair.response?.outcome === 'ok' && pair.response.data?.kind === 'absent';
 
   const ready = definition.response?.outcome === 'ok' ? definition.response.data : null;
   const selected = ready?.version ?? null;
@@ -138,7 +146,8 @@ export default function MetricDetailPage({ params }: PageProps) {
   >
     <div className="space-y-3">
       {/* While the definition below shows its own previous-selection notice for this transition, the pair verdict skips a second label; the queries resolve independently, so a pair that is still previous after the definition arrived labels itself (usage always keeps its own). */}
-      <MetricPairBanner query={pair} pageVersion={pairShown} refreshNotice={definition.showingPrevious === true ? 'hidden' : 'visible'} />
+      {/* An absent pair and the version prompt share one line (#2303); any other verdict keeps the prompt below on its own. */}
+      <MetricPairBanner query={pair} pageVersion={pairShown} refreshNotice={definition.showingPrevious === true ? 'hidden' : 'visible'} absentNote={versionPrompt ?? undefined} />
       {global.selection !== null && <p className="text-xs text-text-secondary">
         {m('metricDetailEquipmentSelectionIsReferenceOnlyOnThis')}
       </p>}
@@ -157,11 +166,9 @@ export default function MetricDetailPage({ params }: PageProps) {
             {data.problem === 'version-not-member' && <StateMessage tone="danger" icon={<span className="t-mono">v{data.requestedVersion}</span>}
               title={m('metricDetailChooseAVersionOfThisMetric')}
               body={m('metricDetailCheckTheMetricVersionPickAVersion', { metricId: String(metricId), requestedVersion: String(data.requestedVersion) })} />}
-            {data.problem === 'need-version' && <StateMessage icon={<span className="t-mono">v?</span>}
-              title={m('metricDetailSelectAVersion')}
-              body={data.metric.publishedPointer
-                ? (m('metricDetailTheReleasedPointerIsVPickA', { publishedPointer: String(data.metric.publishedPointer) }))
-                : (m('metricDetailNoReleasedVersionChooseADraftOr'))} />}
+            {data.problem === 'need-version' && !promptJoined && <div role="status"><Callout size="compact" tone="blue">
+              <strong className="font-semibold text-text-primary">{m('metricDetailSelectAVersion')}</strong> · {versionPrompt}
+            </Callout></div>}
             <div className="grid items-start gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="space-y-3">
                 <VersionSection metric={data.metric} selected={data.version} chosen={versionParam} onSelect={version => setPage({ version })} />

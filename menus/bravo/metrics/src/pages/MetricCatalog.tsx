@@ -5,7 +5,7 @@ import { AlertTriangle, BookOpen, FilePen } from 'lucide-react';
 import type { ColumnFilter } from '@ap/contracts';
 import { CONTEXT_LABELS, type PageProps, PlatformLink, type QueryState, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { RowAction, type PlatformColumn, PlatformDataTable, PlatformPage, QueryView, StateMessage, TableQuickSearch, TableUrlWarning, useClearFiltersAction, useTableFilterDeclaration, useTableUrlState } from '@ap/components';
-import { Button } from '@ap/ui';
+import { Button, Callout } from '@ap/ui';
 import {
   catalogExportEndpoint, catalogListEndpoint, catalogPageEndpoint, metricPairEndpoint, sortColumns,
   type CatalogFilter, type CatalogRow, type Lang, type PairVerdict,
@@ -51,7 +51,7 @@ function pairText(verdict: PairVerdict, lang: 'ko' | 'en', pageVersion: string |
  *  The page owns the `metrics.pair` query and passes it in (#325-2): the banner is the first section of both
  *  pages, so the same single request also gates the detail page's anchor scroll — and the catalog, which reads
  *  the verdict for its active row, no longer sends the request twice. */
-export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: { query: QueryState<PairVerdict>; pageVersion?: string | null; refreshNotice?: 'visible' | 'hidden' }) {
+export function MetricPairBanner({ query, pageVersion = null, refreshNotice, absentNote }: { query: QueryState<PairVerdict>; pageVersion?: string | null; refreshNotice?: 'visible' | 'hidden'; absentNote?: string }) {
   const m = useMessages(METRICS_MESSAGES);
   const { setPage } = usePlatform();
   const { lang } = useI18n();
@@ -59,8 +59,8 @@ export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: {
   return <QueryView widgetName={m('metricCatalogMetricPairValidation')} query={query} compact skeletonRows={2} refreshNotice={refreshNotice}>
     {verdict => {
       const copy = pairText(verdict, lang, pageVersion);
-      const box = copy.tone === 'danger' ? 'border-border-strong bg-accent-danger-soft text-text-danger-label' : copy.tone === 'warning' ? 'border-border-strong bg-accent-warn-soft text-text-warning-label' : 'border-border-subtle bg-surface-card text-text-secondary';
-      return <div role={copy.tone === 'danger' ? 'alert' : 'status'} className={`rounded-md border px-3 py-2 text-xs ${box}`}>
+      // A danger verdict stays the full alert box (with the conflict action); informational and warning verdicts are one thin line (#2303).
+      if (copy.tone === 'danger') return <div role="alert" className="rounded-md border border-border-strong bg-accent-danger-soft px-3 py-2 text-xs text-text-danger-label">
         <p className="font-semibold text-text-primary">{copy.title}</p>
         <p className="mt-0.5">{copy.body}</p>
         {verdict.kind === 'conflict' && <div className="mt-2">
@@ -69,6 +69,11 @@ export function MetricPairBanner({ query, pageVersion = null, refreshNotice }: {
           </Button>
         </div>}
       </div>;
+      // `absentNote`: the detail page's own version prompt joins an absent pair on the same line.
+      const body = verdict.kind === 'absent' && absentNote ? absentNote : copy.body;
+      return <div role="status"><Callout size="compact" tone={copy.tone === 'warning' ? 'amber' : 'blue'}>
+        <strong className="font-semibold text-text-primary">{copy.title}</strong> · {body}
+      </Callout></div>;
     }}
   </QueryView>;
 }

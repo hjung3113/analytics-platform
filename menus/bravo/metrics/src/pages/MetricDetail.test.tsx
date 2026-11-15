@@ -206,6 +206,29 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 // 06 §18: Data Trust states a displayed number's status. The definition section shows no numbers, and the envelope
 // trust describes the catalog mart read — so no version state (draft, published, deprecated) gets a trust claim there
 // (user decision 2026-10-13, #299 UX review).
+describe('MetricDetail pair and version notices above the fold (#2303)', () => {
+  it('joins an absent pair and the version prompt on one status line', async () => {
+    renderDetail('/metrics/cycle_time', 'cycle_time');
+    const line = await screen.findByText(/발행 포인터는 v4/);
+    const status = line.closest('[role="status"]');
+    expect(status?.textContent).toContain('전역 지표 쌍 없음');
+    expect(screen.queryByText('버전을 선택하세요')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+  it('keeps a danger pair verdict as an alert and the version prompt as its own status line', async () => {
+    const base = fixtureAdapter();
+    const adapter: PlatformAdapter = { ...base, menuQuery: async (req, signal) => req.endpoint === 'metrics.pair'
+      ? asFixtureResponse({ outcome: 'ok', data: { kind: 'conflict', metricId: 'cycle_time', globalVersion: '3', pageVersion: '4' }, assessments: [...MART_ASSESSMENTS], trust: null, correlationId: 'corr-fixture' })
+      : base.menuQuery(req, signal) };
+    renderDetail('/metrics/cycle_time', 'cycle_time', adapter);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('3');
+    const prompt = (await screen.findByText('버전을 선택하세요')).closest('[role="status"]');
+    expect(prompt?.textContent).toContain('발행 포인터는 v4');
+    expect(alert.textContent).not.toContain('발행 포인터');
+  });
+});
+
 describe('MetricDetail change history reads the shared audit store (#90, ADR-0048)', () => {
   it('asks entityAudit for the metric with no site, never a menu history endpoint, and shows the recorded reason in English too', async () => {
     const storage = memoryStorage();
