@@ -142,7 +142,7 @@ function ConditionCategory(props: CategoryProps) {
     onChange(category.id, next);
   }
   function write(key: string, value: PageConditionValue | null) {
-    if (kind.type === 'groupedChecks' && localIssues.length > 0 && raw.length > 0) {
+    if (repeated && localIssues.length > 0 && raw.length > 0) {
       // S1 rejected the entire category. Replace only the edited key's pairs, then decode
       // the complete candidate so untouched siblings cannot disappear or be repaired.
       const menu = { pageConditions: { categories: [category] } };
@@ -167,7 +167,7 @@ function ConditionCategory(props: CategoryProps) {
   const valuesFor = (key: string) => {
     if (localIssues.length > 0 && raw.some(([name]) => name === key)) {
       const pairs = raw.filter(([name]) => name === key);
-      if (kind.type === 'groupedChecks') {
+      if (repeated) {
         const decoded = decodePageConditions({ pageConditions: { categories: [category] } }, pairs);
         if (decoded.issues.length === 0) return arrayValue(decoded.values[key]);
       }
@@ -297,7 +297,7 @@ function ConditionCategory(props: CategoryProps) {
       <Button type="button" variant="ghost" size="toolbar" disabled={disabled || kind.type === 'tree' || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
     </div>
     <div id={reasonsId} className="space-y-1 text-xs text-text-secondary">{description.filter(Boolean).map((reason, index) => <p key={index}>{reason}</p>)}
-      {localIssues.length > 0 && raw.map(([key, value], index) => <p key={`raw:${index}`}>{key}: {m('retained', { value })}</p>)}
+      {localIssues.length > 0 && raw.map(([, value], index) => <p key={`raw:${index}`}>{m('retained', { value })}</p>)}
     </div>
     {controls()}
     {state.status === 'ready' && 'options' in state.data && state.data.truncated && <p className="text-xs text-text-warning-label">{m('partial')}</p>}
@@ -318,7 +318,7 @@ function BoundInputs({ fields, onCommit, columns = 'stack', ...props }: {
     {fields.map((field, index) => <div key={index} className="grid min-w-0 gap-1">
       <Label htmlFor={`${prefix}-${index}`}>{field.label}</Label>
       <Input id={`${prefix}-${index}`} type={field.type} step={field.step} inputMode={field.inputMode} {...props} value={draft.texts[index]}
-        onChange={event => setDraft({ source, texts: draft.texts.map((text, i) => i === index ? event.target.value : text) })} onBlur={() => onCommit(draft.texts)} />
+        onChange={event => setDraft({ source, texts: draft.texts.map((text, i) => i === index ? event.target.value : text) })} onBlur={() => { if (JSON.stringify(draft.texts) !== source) onCommit(draft.texts); }} />
     </div>)}
   </div>;
 }

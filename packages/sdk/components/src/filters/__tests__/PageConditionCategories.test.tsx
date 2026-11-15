@@ -270,6 +270,13 @@ it('does not turn a retained malformed grouped token into a valid escaped id dur
   expect(screen.getByText('이 화면에서 쓸 수 없는 값: ~broken')).toBeVisible();
 });
 
+it('does not turn a retained malformed multi token into a valid escaped id during another toggle', async () => {
+  const { onChange } = mount({ declaration: { categories: [categories[1]] }, rawPairs: [['many', 'alpha'], ['many', '~broken']], issues: [{ key: 'many', categoryId: 'many', reason: 'invalid-value' }] });
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Beta' }));
+  expect(onChange).not.toHaveBeenCalled();
+  expect(screen.getByText('이 화면에서 쓸 수 없는 값: ~broken')).toBeVisible();
+});
+
 it('shows an explicit-empty grouped list even when a sibling list has a selection', async () => {
   mount({ declaration: { categories: [categories[5]] }, values: { modules: [], motions: ['b'] } });
   const list = await screen.findByRole('group', { name: 'Module' });
