@@ -20,5 +20,6 @@ const menuDeclarationSnapshot = () => menuDeclarationSnapshotPlugin({
 export default defineConfig(({ mode }) => ({
   resolve: { alias: { '#kit-assembly': fileURLToPath(new URL(mode === 'real' ? './real/assembly.tsx' : './mock/assembly.ts', import.meta.url)) } },
   plugins: [tailwindcss(), ...(mode === 'real' ? [menuDeclarationSnapshot()] : [])],
-  test: { environment: 'jsdom', include: ['src/**/*.test.tsx', 'real/**/*.test.tsx'] },
+  // 15 s a test: each render test mounts the whole Host and loads a lazy menu; the 5 s default ended `menu package … renders its mock rows` on a busy machine (4.1 to 7.7 s measured).
+  test: { environment: 'jsdom', include: ['src/**/*.test.tsx', 'real/**/*.test.tsx'], testTimeout: 15_000 },
 }));
