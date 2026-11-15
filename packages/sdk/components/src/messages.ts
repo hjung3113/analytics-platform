@@ -73,6 +73,7 @@ export const COMPONENTS_MESSAGES = {
     ko: '{chartId}.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)',
     en: 'Exported {chartId}.csv (visible series, applied context)',
   },
+  chartExportedVisibleCsvStandalone: { ko: '{chartId}.csv 내보냄 (보이는 시리즈)', en: 'Exported {chartId}.csv (visible series)' },
   chartSelectPoint: { ko: '차트 지점 선택', en: 'Select chart point' },
   chartNoPoints: { ko: '선택할 지점 없음', en: 'No points available' },
   chartActivatePoint: { ko: '선택 지점 실행', en: 'Activate selected point' },

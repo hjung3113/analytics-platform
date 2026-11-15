@@ -1,19 +1,39 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { useMessages, usePlatform, usePlatformQuery } from '@ap/kernel';
+import { useMessages, usePlatform, usePlatformQuery, type QueryState } from '@ap/kernel';
+import type { PlatformAdapter } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { Selection } from './useChartRange';
+
+type AnnotationList = Awaited<ReturnType<PlatformAdapter['listAnnotations']>>['data'];
+/** What the editor reads and writes: the platform's annotation port, or nothing outside a platform (#1953 C). */
+type AnnotationIo = {
+  query: Pick<QueryState<AnnotationList>, 'response' | 'refetch'>;
+  adapter: Pick<PlatformAdapter, 'saveAnnotation' | 'deleteAnnotation'> | null;
+  toast: (text: string) => void;
+};
+type EditorArgs = { chartId: string; scopeId: string | null; canAnnotate: boolean };
 
 /**
  * The annotation editor: the persisted notes (server-owned, keyed by chartId + Scope), the draft text, save, and the
  * inline delete confirm. `closeEditor` only ends the draft; `cancelDelete` is the Context change's cancellation of
  * every local delete state and in-flight call, and the Reset button must not use it.
  */
-export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId: string; scopeId: string | null; canAnnotate: boolean }) {
-  const m = useMessages(COMPONENTS_MESSAGES);
+export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: EditorArgs) {
   const { adapter, toast } = usePlatform();
-  const [note, setNote] = useState<string | null>(null);
   // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
   const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId }, signal), [chartId, scopeId], canAnnotate && scopeId !== null, 'session');
+  return useEditorState({ chartId, scopeId, canAnnotate }, { query, adapter, toast });
+}
+
+const NO_ANNOTATIONS: AnnotationIo = { query: { response: null, refetch: () => {} }, adapter: null, toast: () => {} };
+/** Outside a platform there is no annotation store: the same editor shape with no notes, and save or delete do nothing (Annotate is not drawn). */
+export function useNoAnnotationEditor(chartId: string) {
+  return useEditorState({ chartId, scopeId: null, canAnnotate: false }, NO_ANNOTATIONS);
+}
+
+function useEditorState({ chartId, scopeId }: EditorArgs, { query, adapter, toast }: AnnotationIo) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const [note, setNote] = useState<string | null>(null);
   const annotations = useMemo(() => query.response?.data?.items ?? [], [query.response]);
   const refetch = query.refetch;
   const [saving, setSaving] = useState(false);
@@ -39,7 +59,7 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId
 
   async function saveNote(range: Selection) {
     const text = (note ?? '').trim();
-    if (!text || scopeId === null || saving) return;
+    if (!text || scopeId === null || saving || !adapter) return;
     const gen = draftGen.current;
     const failed = () => { if (gen === draftGen.current) toast(m('chartAnnotationSaveError')); };
     setSaving(true);
@@ -54,7 +74,7 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId
   }
 
   async function deleteNote(id: string) {
-    if (scopeId === null || deleting) return;
+    if (scopeId === null || deleting || !adapter) return;
     const mineIds = annotations.filter(a => a.mine).map(a => a.id);
     const nextId = mineIds[mineIds.indexOf(id) + 1] ?? null;
     const gen = deleteGen.current;
@@ -99,11 +119,13 @@ export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: { chartId
   };
 }
 
+export type AnnotationEditor = ReturnType<typeof useEditorState>;
+
 /**
  * Focus handoff after a delete (06 §26). A separate hook so its effects run after the frame's Context-reset effect,
  * as they did when everything lived in the component.
  */
-export function useAnnotationDeleteFocus(editor: ReturnType<typeof useAnnotationEditor>, anchors: { annotateButton: RefObject<HTMLButtonElement | null>; brushToggle: RefObject<HTMLButtonElement | null> }) {
+export function useAnnotationDeleteFocus(editor: AnnotationEditor, anchors: { annotateButton: RefObject<HTMLButtonElement | null>; brushToggle: RefObject<HTMLButtonElement | null> }) {
   const { annotations, settled, endSettled, restoreFocus, setRestoreFocus, deleteButtons, focusOnConfirm } = editor;
   const { annotateButton, brushToggle } = anchors;
   // 06 §26: the confirm row unmounts, so focus moves only if it is still on that row — the next note's delete button, else Annotate.
