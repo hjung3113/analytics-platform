@@ -92,6 +92,9 @@ export const ANALYTICS_MESSAGES = {
   cycleTimeDrilldownPageDefault2: { ko: " · 페이지 기본", en: " page default" },
   cycleTimeDrilldownPageDefaultGlobalNotApplied: { ko: " · 페이지 기본(전역 지표 미적용)", en: " page default, global not applied" },
 
+  guidanceLabel: { ko: "설명", en: "Information" },
+  executionDetailIdentityBand: { ko: "식별(분석 Context와 별개)", en: "Identity (separate from analysis Context)" },
+  executionDetailDisplayBand: { ko: "표시", en: "Display" },
   // ExecutionDetail
   executionDetailCreateVocPlanned: { ko: "VOC 생성(예정)", en: "Create VOC (planned)" },
   executionDetailExecution: { ko: "실행", en: "Execution" },

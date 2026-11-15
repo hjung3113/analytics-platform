@@ -6,7 +6,7 @@ import { AlertTriangle, Ban } from 'lucide-react';
 import { formatNumber, parseDateTime } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { DataTrustIndicator, Panel, PlatformPage, QueryView, ReturnLink, StateMessage } from '@ap/components';
-import { Button, StatusBadge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ap/ui';
+import { Button, FieldList, FieldRow, InfoTip, StatusBadge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ap/ui';
 import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, resolveMetric, type Segment, type SegmentKind } from '../endpoints';
 
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
@@ -35,7 +35,8 @@ export default function ExecutionDetail({ params }: PageProps) {
   );
 
   const found = query.response?.data;
-  const startedAt = found && found.access === 'ok' ? found.execution.startedAt : null;
+  const execution = valid && query.status !== 'idle' && query.response?.outcome === 'ok' && found?.access === 'ok' ? found.execution : null;
+  const startedAt = execution?.startedAt;
 
   const back = <ReturnLink />;
   const voc = <Button asChild size="sm"><PlatformLink href={linkTo('voc')}>{m('executionDetailCreateVocPlanned')}</PlatformLink></Button>;
@@ -44,23 +45,43 @@ export default function ExecutionDetail({ params }: PageProps) {
     title={<span className="inline-flex items-baseline gap-2">{m('executionDetailExecution')} <span className="t-mono">{equipmentId}</span></span>}
     description={m('executionDetailAnOccurrenceIsIdentifiedOnlyByEquipmentid')}
     primaryAction={voc}
-    secondaryActions={<span className="flex flex-wrap gap-2">{back}</span>}
+    secondaryActions={<span className="flex flex-wrap items-center gap-2">
+      {back}
+      {!restored && <span className="text-xs text-text-secondary">{m('executionDetailReturntoIsAbsentSoBackOpensCycle')}</span>}
+    </span>}
     dataTrustSummary={query.response?.trust ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}
   >
     <div className="space-y-3">
-      <p className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-secondary">
-        {m('executionDetailTimeRoomConditionSelectionLotPpidRecipe')}
-        {restored ? '' : (m('executionDetailReturntoIsAbsentSoBackOpensCycle'))}
-      </p>
-
-      <Panel title={m('executionDetailOccurrenceIdentity')} subtitle={m('executionDetailIdentityKeySeparateFromTheAnalysisContext')}>
-        <div className="grid gap-3 sm:grid-cols-4" data-testid="occurrence-key">
-          <Identity label="EquipmentID" value={equipmentId} />
-          <Identity label="entityType" value={entityType ?? '—'} />
-          <Identity label="anchor" value={anchor ?? '—'} />
-          <Identity label={m('executionDetailStartTime')} value={startedAt ? formatWallClock(startedAt) : '—'} />
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 border-b border-border-subtle pb-3">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1" data-testid="occurrence-key">
+          <div className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary">
+            {m('executionDetailIdentityBand')}
+            <InfoTip label={m('guidanceLabel')}>
+              {m('executionDetailTimeRoomConditionSelectionLotPpidRecipe')}
+              {' '}{m('executionDetailIdentityKeySeparateFromTheAnalysisContext')}
+            </InfoTip>
+          </div>
+          <FieldList layout="inline">
+            <FieldRow label="EquipmentID" mono>{equipmentId}</FieldRow>
+            <FieldRow label="entityType" mono>{entityType ?? '—'}</FieldRow>
+            <FieldRow label="anchor" mono>{anchor ?? '—'}</FieldRow>
+            <FieldRow label={m('executionDetailStartTime')} mono>{startedAt ? formatWallClock(startedAt) : '—'}</FieldRow>
+          </FieldList>
         </div>
-      </Panel>
+        {execution && <>
+          <span aria-hidden className="h-4 border-l border-border-subtle" />
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-xs font-medium text-text-secondary">{m('executionDetailDisplayBand')}</span>
+            <FieldList layout="inline">
+              <FieldRow label={m('executionDetailProcess')} mono>{execution.room}</FieldRow>
+              <FieldRow label="Recipe" mono>{execution.recipe}</FieldRow>
+              <FieldRow label="Lot" mono>{execution.lotId}</FieldRow>
+              <FieldRow label="PPID" mono>{execution.ppid}</FieldRow>
+              <FieldRow label={m('executionDetailCycleTime')}>{formatNumber(execution.cycleMin, lang, { decimals: 1 })} {m('executionDetailMin')}</FieldRow>
+            </FieldList>
+          </div>
+        </>}
+      </div>
 
       {!valid ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={m('executionDetailLookupRequiresAValidIdentityKey')}
         body={<ul className="list-disc pl-4">{errors.map(error => <li key={error}>{error}</li>)}</ul>} />
@@ -89,16 +110,6 @@ function OccurrenceBody({ execution, segments, lang }: { execution: { room: stri
   const axisEnd = spanEnd;
   const totalSec = Math.max(1, secondsBetween(execution.startedAt, axisEnd));
   return <div className={PANEL_GAP}>
-    <Panel title={m('executionDetailDisplayAttributes')} subtitle={m('executionDetailDisplayAttributes2')}>
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Identity label={m('executionDetailProcess')} value={execution.room} />
-        <Identity label="Recipe" value={execution.recipe} />
-        <Identity label="Lot" value={execution.lotId} />
-        <Identity label="PPID" value={execution.ppid} />
-        <Identity label={m('executionDetailCycleTime')} value={`${formatNumber(execution.cycleMin, lang, { decimals: 1 })} ${m('executionDetailMin')}`} />
-      </div>
-    </Panel>
-
     <Panel title={m('executionDetailProcessTimeline')} subtitle={m('executionDetailXfrFncPrcBarsGapsUnclassifiedNo')}>
       <div className="mb-2 flex flex-wrap gap-3 text-xs text-text-secondary">
         {(['XFR', 'FNC', 'PRC'] as const).map(kind => <span key={kind} className="inline-flex items-center gap-1.5"><span aria-hidden className={`inline-block h-2 w-4 ${SEGMENT_CLASS[kind]}`} />{kind}</span>)}
@@ -152,13 +163,6 @@ function OccurrenceBody({ execution, segments, lang }: { execution: { room: stri
       <p className="t-mono text-xs text-text-secondary">occurrence_directory → mart.productivity_hourly → execution-detail</p>
       <p className="mt-2 text-xs text-text-muted">{m('executionDetailTheKeyAnchorIsOpaqueAndIs', { anchor: String(execution.anchor) })}</p>
     </Panel>
-  </div>;
-}
-
-function Identity({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0 rounded-sm bg-surface-sunken px-3 py-2">
-    <div className="text-xs text-text-muted">{label}</div>
-    <div className="t-mono break-all text-sm">{value}</div>
   </div>;
 }
 
