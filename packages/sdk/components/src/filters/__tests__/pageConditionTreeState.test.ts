@@ -82,6 +82,22 @@ describe('page condition tree request/transaction state', () => {
     expect(source.listChildren).toHaveBeenCalledTimes(3);
     state.dispose();
   });
+  it('binds an announced total to the whole cursor chain even when a later page omits it', async () => {
+    const source = sourceOf({ nodes: [] });
+    vi.mocked(source.listChildren).mockResolvedValueOnce({ nodes: [node('one')], nextCursor: 'a', totalCount: 3 }).mockResolvedValueOnce({ nodes: [node('two')] });
+    const state = new PageConditionTreeState(source, 50);
+    state.loadChildren(null); await ready(state);
+    state.loadChildren(null, { more: true });
+    expect((await ready(state))?.status).toBe('error');
+    state.dispose();
+  });
+  it('never commits an incomplete leaf list when the announced total is dropped by a later page', async () => {
+    const source = sourceOf({ nodes: [] });
+    vi.mocked(source.listChildren).mockResolvedValueOnce({ nodes: [node('a', 'root')], nextCursor: 'more', totalCount: 3 }).mockResolvedValueOnce({ nodes: [node('b', 'root')] });
+    const state = new PageConditionTreeState(source, 50);
+    await expect(state.leaves(node('root', null, true), new AbortController().signal, () => undefined)).rejects.toBeInstanceOf(HierarchyFailure);
+    state.dispose();
+  });
   it('stops leaf traversal as soon as the candidate validator refuses and never fetches the next page', async () => {
     const source = sourceOf({ nodes: [node('leaf', 'root')], nextCursor: 'more' });
     const state = new PageConditionTreeState(source, 50);

@@ -9,6 +9,11 @@ export type TreeSnapshot = {
 };
 const cancelled = () => new DOMException('Superseded', 'AbortError');
 function checkSignal(signal: AbortSignal) { if (signal.aborted) throw cancelled(); }
+/** A count announced by any page of a cursor chain binds the whole chain: a later page that omits or changes it cannot hide an incomplete list. */
+function reconcileTotal(previous: number | undefined, next: number | undefined): number | undefined {
+  if (previous !== undefined && next !== undefined && previous !== next) throw new HierarchyFailure('error');
+  return next ?? previous;
+}
 function checkNodes(nodes: HierarchyNode[]): void {
   if (!Array.isArray(nodes)) throw new HierarchyFailure('error');
   const seen = new Set<string>();
@@ -79,8 +84,9 @@ export class PageConditionTreeState {
       if (result.nextCursor && seen.has(result.nextCursor)) throw new HierarchyFailure('error');
       const nodes = [...(options.more ? old?.nodes ?? [] : []), ...result.nodes];
       checkNodes(nodes);
-      if (result.nextCursor === undefined && result.totalCount !== undefined && result.totalCount !== nodes.length) throw new HierarchyFailure('error');
-      const page = { ...result, nodes };
+      const total = reconcileTotal(options.more ? old?.totalCount : undefined, result.totalCount);
+      if (result.nextCursor === undefined && total !== undefined && total !== nodes.length) throw new HierarchyFailure('error');
+      const page = { ...result, nodes, ...(total === undefined ? {} : { totalCount: total }) };
       this.pages.set(parentId, page);
       return page;
     }, load => this.setPage(parentId, load.status === 'ready' ? load : { ...load, value: old }));
@@ -97,8 +103,9 @@ export class PageConditionTreeState {
       if (result.nextCursor && seen.has(result.nextCursor)) throw new HierarchyFailure('error');
       const nodes = [...(options.more && old.status === 'ready' ? old.value.nodes : []), ...result.nodes];
       checkNodes(nodes);
-      if (result.nextCursor === undefined && result.totalCount !== undefined && result.totalCount !== nodes.length) throw new HierarchyFailure('error');
-      return { ...result, nodes };
+      const total = reconcileTotal(options.more && old.status === 'ready' ? old.value.totalCount : undefined, result.totalCount);
+      if (result.nextCursor === undefined && total !== undefined && total !== nodes.length) throw new HierarchyFailure('error');
+      return { ...result, nodes, ...(total === undefined ? {} : { totalCount: total }) };
     }, search => this.update({ search: search.status === 'ready' || !options.more ? search : { ...search, value: old.value } }));
   }
   /** resolveAncestors excludes the target: look up its parent page to label even an unloaded deep value. */
@@ -134,7 +141,7 @@ export class PageConditionTreeState {
   }
   /** Iterate without a depth ceiling. Check the candidate after every leaf; failure emits nothing. */
   async leaves(root: HierarchyNode, signal: AbortSignal, accept: (leaves: readonly string[]) => void): Promise<string[]> {
-    type Task = { type: 'node'; node: HierarchyNode } | { type: 'page'; parent: string; cursor?: string; nodes: HierarchyNode[]; cursors: Set<string> };
+    type Task = { type: 'node'; node: HierarchyNode } | { type: 'page'; parent: string; cursor?: string; nodes: HierarchyNode[]; cursors: Set<string>; total?: number };
     const stack: Task[] = [{ type: 'node', node: root }];
     const visited = new Set<string>();
     const leaves: string[] = [];
@@ -152,14 +159,15 @@ export class PageConditionTreeState {
       const page = await this.fetchPage({ parentId: task.parent, cursor: task.cursor, signal });
       const nodes = [...task.nodes, ...page.nodes];
       checkNodes(nodes);
+      const total = reconcileTotal(task.total, page.totalCount);
       if (page.nextCursor) {
         if (task.cursors.has(page.nextCursor)) throw new HierarchyFailure('error');
         task.cursors.add(page.nextCursor);
-        stack.push({ ...task, nodes, cursor: page.nextCursor });
+        stack.push({ ...task, nodes, cursor: page.nextCursor, total });
       } else {
         // An empty authorized list beneath hasChildren is incomplete, never an empty successful selection.
-        if (nodes.length === 0 || (page.totalCount !== undefined && page.totalCount !== nodes.length)) throw new HierarchyFailure('error');
-        const complete = { ...page, nodes };
+        if (nodes.length === 0 || (total !== undefined && total !== nodes.length)) throw new HierarchyFailure('error');
+        const complete = { ...page, nodes, ...(total === undefined ? {} : { totalCount: total }) };
         this.pages.set(task.parent, complete);
         this.setPage(task.parent, { status: 'ready', value: complete });
       }
