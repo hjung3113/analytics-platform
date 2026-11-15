@@ -97,6 +97,13 @@ const TRUST_BUTTON_PADDING = 16;
 const STATUS_GAP = 8;
 /** The filter block's flex-basis on the result line (`basis-80` = 20rem); it shares the row with count and trust until the row wraps. */
 const FILTER_BASIS = 320;
+/** #2310: with a lead (title, search) in the band the filter line reserves the pinned buttons' room; more chips wrap inside the band. */
+const FILTER_BASIS_LEAD = 160;
+/** #2310: the one-band fit reserves fixed room for the result count (「1,234건 · 12/62 페이지」 is about 115px; a longer count wraps inside the band) and
+ * the collapsed trust summary (dot, short status, 자세히; about 150px in Korean) instead of measuring them, so loading and paging never
+ * switch the band and remount an open filter editor. */
+const COUNT_RESERVE = 120;
+const TRUST_SUMMARY_RESERVE = 160;
 const ACTION_COLUMN_WIDTH = 128;
 /** Icon-only action column: two 32px icon buttons and a 4px gap fit with `px-0`. */
 const COMPACT_ACTION_WIDTH = 72;
@@ -252,7 +259,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const widthScale = step.widthScale;
   const sizeVars = { '--ap-table-font': step.font, '--ap-table-mono-font': `calc(${step.font} - 1px)`, '--ap-table-head-font': step.head, '--ap-table-row-h': `${rowHeight}px` } as CSSProperties;
   const embedded = useEmbeddedChrome();
-  const mergeToolbar = !!p.hideTitle && !inPanel && !p.search;
+  // #2310: every table outside a workspace panel is one band when it fits — [title ⓘ][search][page controls][filters] … [count · trust][controls].
+  // A titled or searchable table falls back to its two bands when the measured lead, page controls, filter basis, count and controls do not fit
+  // (`mergeToolbar` below); a hidden title without search always merges (R2, #1234). Workspace panels keep two bands.
+  const canMerge = !inPanel;
+  const alwaysMerge = canMerge && !!p.hideTitle && !p.search;
+  // The visible title and the quick search lead the band; a hidden title keeps ⓘ beside the result count (R2).
+  const titleShown = !inPanel && !p.hideTitle;
+  const hasLead = canMerge && !alwaysMerge;
   const { route } = usePlatform();
   const { screenMode } = useHostPlatform();
   // §15: a workspace panel or board pane body scrolls too, so the row area chains the wheel outward at its edge; flow pages and drawers contain it.
@@ -276,8 +290,10 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // measured independently of what is shown, so the choice cannot feed back into its own input.
   const statusLine = useElementSize();
   const toolbar = useElementSize();
-  const toolbarControls = useElementSize(mergeToolbar);
-  const pageControls = useElementSize(mergeToolbar && !!p.pageControls);
+  // Lead, controls, page controls and count keep their own widths in both layouts, so the band choice cannot feed back into its input.
+  const toolbarControls = useElementSize(canMerge);
+  const pageControls = useElementSize(canMerge && !!p.pageControls);
+  const lead = useElementSize(hasLead);
   // P10 measures the whole toolbar content box, including the merged filter/result band; thresholds and order stay unchanged.
   const overflow = collapsedControls(toolbar.width);
   const openColumnsAfterMenu = useRef(false);
@@ -313,19 +329,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const droppedNote = useDroppedNote(filterFields, columnFilters.filters, columnFilters.apply);
   // Merged fit must not depend on the shown summary's intrinsic width: measure the whole band and the controls separately.
   // Reserve the existing 320px filter basis when count + description fit beside it; otherwise the right-hand group wraps.
-  const descriptionWidth = p.subtitle ? 24 + STATUS_GAP : 0;
+  const descriptionWidth = p.subtitle && alwaysMerge ? 24 + STATUS_GAP : 0;
   // Page controls share the left of the merged band with the filters: their measured width leaves the band before the filter basis is reserved.
   const pageControlsWidth = !p.pageControls ? 0 : pageControls.width === null ? null : pageControls.width + STATUS_GAP;
-  const mergedWidth = toolbar.width === null || toolbarControls.width === null || pageControlsWidth === null ? null : toolbar.width - toolbarControls.width - STATUS_GAP - pageControlsWidth;
-  // The merged band's left group (page controls + filters) reserves the filter basis beside the controls.
-  const leftBasis = mergeToolbar && filterFields.length > 0 && p.pageControls && pageControlsWidth !== null ? { '--ap-table-left-basis': `${FILTER_BASIS + pageControlsWidth}px` } as CSSProperties : undefined;
-  const mergedShared = mergedWidth === null ? null : mergedWidth - FILTER_BASIS - STATUS_GAP;
-  const mergedRoom = filterFields.length > 0 && mergedShared !== null && mergedShared >= (countSpan.width ?? 0) + descriptionWidth ? mergedShared : mergedWidth;
-  // With separate filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
-  const sharedWidth = statusLine.width === null ? null : statusLine.width - FILTER_BASIS - STATUS_GAP;
-  const trustRoom = mergeToolbar ? (mergedRoom === null ? null : mergedRoom - descriptionWidth) : statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
-  const statusNarrow = trustRoom !== null && trustRoom > 0 && probe.width !== null && probe.width > 0
-    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > trustRoom;
+  // The lead (title ⓘ + quick search) is measured at its own width the same way (#2310).
+  const leadWidth = !hasLead ? 0 : lead.width === null ? null : lead.width + STATUS_GAP;
+  const beforeFilters = pageControlsWidth === null || leadWidth === null ? null : pageControlsWidth + leadWidth;
+  const mergedWidth = toolbar.width === null || toolbarControls.width === null || beforeFilters === null ? null : toolbar.width - toolbarControls.width - STATUS_GAP - beforeFilters;
+  // The merged band's left group (lead + page controls + filters) reserves its measured lead plus the filter basis beside the controls.
   // #556d: one group column (a groupable column of this table), collapse state keyed by group key. A group change returns to page 1 and
   // expands every group; the selection is kept (it is by row id, and sorting/grouping do not change the result set).
   const groupColumns = useMemo(() => p.columns.filter(c => c.groupable), [p.columns]);
@@ -337,6 +348,18 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });
+  const filterBasis = hasLead ? FILTER_BASIS_LEAD : FILTER_BASIS;
+  const mergedShared = mergedWidth === null ? null : mergedWidth - filterBasis - STATUS_GAP;
+  // Only widths that hold while rows load or pages turn decide the band (toolbar, controls, lead, page controls); the count and trust get fixed room.
+  const fitsOneBand = mergedWidth === null || (filterFields.length > 0 ? mergedShared! : mergedWidth) >= COUNT_RESERVE + descriptionWidth + STATUS_GAP + TRUST_SUMMARY_RESERVE;
+  const mergeToolbar = alwaysMerge || (canMerge && fitsOneBand);
+  const leftBasis = mergeToolbar && beforeFilters !== null && beforeFilters > 0 ? { '--ap-table-left-basis': `${(filterFields.length > 0 ? filterBasis : -STATUS_GAP) + beforeFilters}px` } as CSSProperties : undefined;
+  const mergedRoom = filterFields.length > 0 && mergedShared !== null && mergedShared >= (countSpan.width ?? 0) + descriptionWidth ? mergedShared : mergedWidth;
+  // With separate filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
+  const sharedWidth = statusLine.width === null ? null : statusLine.width - FILTER_BASIS - STATUS_GAP;
+  const trustRoom = mergeToolbar ? (mergedRoom === null ? null : mergedRoom - descriptionWidth) : statusLine.width === null || filterFields.length === 0 || sharedWidth === null || sharedWidth < (countSpan.width ?? 0) ? statusLine.width : sharedWidth;
+  const statusNarrow = trustRoom !== null && trustRoom > 0 && probe.width !== null && probe.width > 0
+    && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > trustRoom;
   // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
   const { grouped: groupedOutcome, bannerId: outcomeBannerId, multiple: multipleOutcomeGroups } = useSharedOutcomeNotice(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
   const selectionState = useTableSelection<T>({ enabled: selectable, selectAllResults: !!p.selectAllResults, rows: data.rows, getRowId: p.getRowId, total: data.total, resultOk: shown?.outcome === 'ok' });
@@ -727,7 +750,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
         {/* Always mounted while export is available; only the text changes, so screen readers announce it (#173 review N-P3-2). */}
         {canExport && <span role="status" className="sr-only" data-testid="export-status">{[exportNote, copyNote].filter(Boolean).join(' · ')}</span>}
   </>;
-  const filterLine = filterFields.length > 0 && <div className={cn('min-w-0 flex-1', (!mergeToolbar || !!p.pageControls) && 'basis-80')}><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>;
+  const filterLine = filterFields.length > 0 && <div className={cn('min-w-0 flex-1', mergeToolbar && hasLead ? 'basis-40' : (!mergeToolbar || !!p.pageControls) && 'basis-80')}><FilterLine fields={filterFields} filters={columnFilters.filters} lang={lang} dropped={droppedNote.dropped} onChange={droppedNote.change} onClear={() => { columnFilters.clear(); droppedNote.reset(); }} limit={columnFilters.limit} check={p.urlState?.validate} /></div>;
   const resultCount = <span ref={countSpan.ref} className={cn('tabular whitespace-nowrap', !mergeToolbar && 'ml-auto')}>{!shown || (loading && outOfRange) ? t('loading')
         : !success ? '—'
         : p.externalPagination ? p.externalPagination.summary
@@ -737,7 +760,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const resultLine = (
     <div ref={statusLine.ref} data-table-status-line className={cn('relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted', p.fill && 'shrink-0', !mergeToolbar && 'min-h-9 border-t border-border-subtle px-3 py-1.5')} aria-live={groupedOutcome ? 'off' : 'polite'}>
       {!mergeToolbar && filterLine}
-      {mergeToolbar ? <span className="inline-flex items-center gap-2"><ToolbarDescription subtitle={p.subtitle} lang={lang} descriptionId={descriptionId} />{resultCount}</span> : resultCount}
+      {alwaysMerge ? <span className="inline-flex items-center gap-2"><ToolbarDescription subtitle={p.subtitle} lang={lang} descriptionId={descriptionId} />{resultCount}</span> : resultCount}
       <span className="flex min-w-0 flex-wrap items-center gap-2">
         {loading && shown && <span ref={refreshSpan.ref} role={groupedOutcome ? undefined : 'status'} className="inline-flex items-center gap-1"><Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />{t('refreshing')}</span>}
         {shown && <DataTrustIndicator trust={shown.trust} assessments={shown.assessments} className="min-h-6" wrap summary={statusNarrow} />}
@@ -746,19 +769,25 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     </div>
   );
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
-    {/* R2: hideTitle without search merges filters (left) and description/results + controls (right). Titled tables and workspace panels retain two bands. */}
+    {/* R2 (#1234, #2310): lead, page controls and filters (left), results + controls (right) in one band; workspace panels retain two bands. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
       {/* With page controls the merged left group wraps: the filters (basis 320) drop under the controls instead of shrinking to nothing. */}
-      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && p.pageControls && 'flex-wrap', mergeToolbar && (filterFields.length > 0 ? (leftBasis ? 'basis-(--ap-table-left-basis)' : 'basis-80') : !p.pageControls && 'sr-only'))}
-        style={leftBasis}>
-        <ToolbarTitle title={p.title} subtitle={mergeToolbar ? undefined : p.subtitle} srOnly={inPanel || !!p.hideTitle} lang={lang} descriptionId={descriptionId} />
-        {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
+      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && (p.pageControls || hasLead) && 'flex-wrap', mergeToolbar && (leftBasis ? 'basis-(--ap-table-left-basis)' : filterFields.length > 0 ? 'basis-80' : !p.pageControls && !hasLead && 'sr-only'))}
+        style={mergeToolbar ? leftBasis : undefined}>
+        {/* The lead keeps one shape (title ⓘ, fixed-width search) in both layouts so its measured width does not depend on the band choice. */}
+        {hasLead
+          ? <div ref={lead.ref} data-table-lead className="flex min-w-0 max-w-full shrink-0 items-center gap-2">
+              <div className="min-w-0 max-w-80"><ToolbarTitle title={p.title} subtitle={p.subtitle} srOnly={!titleShown} lang={lang} descriptionId={descriptionId} /></div>
+              {p.search && <div data-table-search className="w-56 min-w-0">{p.search}</div>}
+            </div>
+          : <ToolbarTitle title={p.title} subtitle={mergeToolbar ? undefined : p.subtitle} srOnly={inPanel || !!p.hideTitle} lang={lang} descriptionId={descriptionId} />}
+        {!hasLead && p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
         {p.pageControls && <div ref={pageControls.ref} data-table-page-controls className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{p.pageControls}</div>}
         {mergeToolbar && filterLine}
       </div>
       <div className={cn('flex items-center gap-2', mergeToolbar ? 'ml-auto min-w-0 max-w-full flex-wrap justify-end' : 'shrink-0')}>
         {mergeToolbar && resultLine}
-        {mergeToolbar ? <div ref={toolbarControls.ref} data-table-controls className="flex shrink-0 items-center gap-2">{toolbarActions}</div> : toolbarActions}
+        {canMerge ? <div ref={toolbarControls.ref} data-table-controls className="flex shrink-0 items-center gap-2">{toolbarActions}</div> : toolbarActions}
       </div>
     </div>
 

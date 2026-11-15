@@ -19,8 +19,14 @@ const adapter = testAdapter({ session: () => session });
 const columns: PlatformColumn<{ id: string }>[] = [{ id: 'id', header: 'ID', filter: { kind: 'text' }, filterPinned: true }];
 let width = 1440;
 let trustFit = false;
+// #2310: element widths for the one-band fit (toolbar = `width`).
+let bandFit = false;
 const observers: Array<{ cb: ResizeObserverCallback; target: Element }> = [];
-const measuredWidth = (target: Element) => !trustFit ? width
+const measuredWidth = (target: Element) => bandFit ? (target.hasAttribute('data-table-controls') ? 400
+    : target.hasAttribute('data-table-lead') ? 320
+    : target.hasAttribute('data-table-page-controls') ? 120
+    : target.classList.contains('tabular') ? 100 : width)
+  : !trustFit ? width
   : target.hasAttribute('data-trust-probe') ? 300
   : target.hasAttribute('data-table-controls') ? 160
   : target.hasAttribute('data-table-page-controls') ? 800
@@ -30,6 +36,7 @@ let restoreGeometry: () => void;
 beforeEach(() => {
   width = 1440;
   trustFit = false;
+  bandFit = false;
   observers.length = 0;
   restoreGeometry = stubCompactTableGeometry();
   vi.stubGlobal('localStorage', memoryStorage());
@@ -199,6 +206,66 @@ describe('PlatformDataTable hidden page title (#1234)', () => {
       render(<Table trusted controls />);
       await screen.findByText(/1건 · 1\/1 페이지/);
       expect(document.querySelector('[data-trust-short]')).not.toBeNull();
+    });
+  });
+
+  describe('one band by default (#2310)', () => {
+    const bands = () => document.querySelectorAll('section > [data-table-status-line]').length;
+    // Needs lead 320 + 8, controls 400 + 8, the lead filter basis 160 + 8, the count reserve 120 and the trust reserve 8 + 160: 1192px; page controls add 128.
+    it.each([{}, { search: true }, { search: true, controls: true }])('a titled table %j is one band when it fits, title ⓘ first', async props => {
+      bandFit = true;
+      render(<Table hidden={false} {...props} />);
+      const count = await screen.findByText(/1건 · 1\/1 페이지/);
+      expect(bands()).toBe(0);
+      expect(toolbar()).toContainElement(count);
+      expect(toolbar()).toContainElement(document.querySelector('[data-filter-line]'));
+      const lead = document.querySelector('[data-table-lead]')!;
+      expect(within(lead as HTMLElement).getByRole('heading', { name: '감사' })).not.toHaveClass('sr-only');
+      expect(lead).toContainElement(screen.getByRole('button', { name: '설명' }));
+      expect(count.closest('[data-table-status-line]')).not.toContainElement(screen.getByRole('button', { name: '설명' }));
+    });
+
+    it.each([[1192, 0], [1191, 1]])('at %ipx a titled table with filters has %i separate result band(s)', async (w, expected) => {
+      bandFit = true;
+      width = w;
+      render(<Table hidden={false} />);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      expect(bands()).toBe(expected);
+      // The live result line and its role stay the same element kind in both layouts.
+      expect(document.querySelector('[data-table-status-line]')).toHaveAttribute('aria-live', 'polite');
+    });
+
+    it('subtracts measured page controls before the fit', async () => {
+      bandFit = true;
+      width = 1192 + 127;
+      render(<Table hidden={false} controls />);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      expect(bands()).toBe(1);
+    });
+
+    it('the band does not change when rows arrive: count and trust have fixed room, so an open editor survives loading', async () => {
+      bandFit = true;
+      width = 1192;
+      render(<Table hidden={false} trusted />);
+      expect(bands()).toBe(0);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      expect(bands()).toBe(0);
+    });
+
+    it('a hidden title without search merges at any width (R2 unchanged)', async () => {
+      bandFit = true;
+      width = 600;
+      render(<Table />);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      expect(bands()).toBe(0);
+      expect(document.querySelector('[data-table-lead]')).toBeNull();
+    });
+
+    it('a workspace panel keeps two bands however wide', async () => {
+      bandFit = true;
+      render(<InWorkspacePanelProvider value><Table hidden={false} /></InWorkspacePanelProvider>);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      expect(bands()).toBe(1);
     });
   });
 });
