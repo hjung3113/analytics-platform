@@ -58,6 +58,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 
 `FieldList layout="inline"`(#2300, 선택): 객체 메타를 한 줄로 둔다. `dl`이 `flex flex-wrap`이 되고 안의 `FieldRow`는 라벨(muted, `text-xs`)·값(`text-sm`) 가로 쌍이 되며 `dt`/`dd`는 그대로다. 넘치면 줄을 바꾸고 값을 자르지 않는다. 행의 `layout`이 목록 값보다 우선하고, `FieldRow layout="inline"`은 목록 밖에서도 `span` 쌍으로 쓴다. stepper·Gate·경고 같은 배지는 `dl` 밖 형제로 둔다. 값을 주지 않은 `FieldList`·`FieldRow`는 바뀌지 않는다.
 
+`Callout size="compact"`(#2300, 선택, 기본 `default`): 주 내용 카드 안 얇은 알림 한 줄. 패딩(`px-2.5 py-1.5`)·줄 높이·제목 글자(12px)만 줄이고 tone·아이콘·제목·동작과 본문 글자(12px)는 그대로다. 글은 그대로 보인다(hover 전용 금지).
+
 예:
 
 - Button

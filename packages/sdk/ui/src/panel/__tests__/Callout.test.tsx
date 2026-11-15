@@ -127,3 +127,22 @@ describe('Callout — content rendering', () => {
     expect(container.firstElementChild).toHaveClass('custom-callout');
   });
 });
+
+describe('Callout size (#2300)', () => {
+  it('default keeps p-3 and the note line height', () => {
+    const { container } = render(<Callout tone="amber" title="제목">내용</Callout>);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el).toHaveClass('p-3', 'leading-note', 'text-xs');
+    expect(screen.getByText('제목')).toHaveClass('text-sm');
+  });
+
+  it('compact tightens padding, line height and title size only', () => {
+    const { container } = render(<Callout tone="amber" size="compact" title="제목" action={<button type="button">열기</button>}>내용</Callout>);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el).toHaveClass('px-2.5', 'py-1.5', 'leading-normal', 'text-xs');
+    expect(el).not.toHaveClass('p-3');
+    expect(el).toHaveAttribute('data-tone', 'amber');
+    expect(screen.getByText('제목')).toHaveClass('text-xs');
+    expect(screen.getByRole('button', { name: '열기' })).toBeInTheDocument();
+  });
+});
