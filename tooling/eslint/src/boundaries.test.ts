@@ -1367,6 +1367,24 @@ describe('release-unit folder presets', () => {
     expect(manifests.length).toBeGreaterThan(0);
   }, 120_000);
 
+  // Outside packages/host a config may not even name a Host preset: a copied or mapped preset escapes the identity check
+  // above, but it still has to be imported (or re-exported) from the shared config by name.
+  const namesHostPreset = (source: string): boolean => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    return [...code.matchAll(/(?:import|export)\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*eslint-config['"]/g)]
+      .some(([, names]) => names!.split(',').some(name => hostPresets.includes(name.trim().split(/\s+as\s+/)[0]!.trim())));
+  };
+
+  it.each([
+    ["import { appHost } from '@ap/eslint-config'; export default appHost.map(c => ({ ...c }));", true],
+    ["export { mockServer as default } from '@ap/eslint-config';", true],
+    ["import { menu, httpAdapter as h } from '@ap/eslint-config'; export default [...menu, ...h];", true],
+    ["// import { appHost } from '@ap/eslint-config';\nexport { menu as default } from '@ap/eslint-config';", false],
+    ["export { menu as default } from '@ap/eslint-config';", false],
+  ] as const)('names a Host preset: %s', (source, expected) => {
+    expect(namesHostPreset(source)).toBe(expected);
+  });
+
   it('reserves Host presets for packages/host', async () => {
     const patterns = ['packages/*/package.json', 'packages/*/*/package.json', 'apps/*/package.json',
       'menus/*/*/package.json', 'platform/*/package.json', 'tooling/*/package.json', 'ops/*/package.json'];
@@ -1375,7 +1393,8 @@ describe('release-unit folder presets', () => {
       const dir = path.dirname(manifest);
       if (dir.startsWith('packages/host/')) continue;
       const used = await presetsOf(dir);
-      if (used?.some(name => hostPresets.includes(name))) offenders.push(dir);
+      const source = await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8').catch(() => '');
+      if (used?.some(name => hostPresets.includes(name)) || namesHostPreset(source)) offenders.push(dir);
     }
     expect(offenders).toEqual([]);
   }, 120_000);
