@@ -7,7 +7,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import {
   bindingsFileSchema, layoutDocumentSchema, mappingVersionSchema, occurrenceBatchSchema, type ReplayInput,
 } from '@eqv/core';
-import { FocusView } from '../src/index.js';
+import { FocusView, NoticeList } from '../src/index.js';
+import { formatRangeDuration } from '../src/FocusView.js';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
@@ -30,8 +31,10 @@ const row = () => document.querySelector(`tr[data-occurrence-id="${OCCURRENCE}"]
 const shownAt = () => within(screen.getByRole('region', { name: '커서 시점 상태' })).getByText(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{3})?$/).textContent;
 
 it('renders the Top View, the Gantt and the Occurrence list from props', () => {
-  render(<FocusView input={input} notices={['안내 한 줄']} entityType={null} anchor={null} resetKey="a" />);
-  expect(screen.getByText('안내 한 줄').getAttribute('role')).toBe('status');
+  render(<FocusView input={input} notices={['안내 한 줄', '부분 데이터']} entityType={null} anchor={null} resetKey="a" />);
+  const panel = screen.getByRole('region', { name: 'Top View' });
+  expect(within(panel).getAllByRole('status')).toHaveLength(1);
+  expect(within(panel).getByRole('status').textContent).toBe('안내 한 줄 · 부분 데이터 · 진입 키가 없어 전체 구간을 표시합니다');
   screen.getByRole('heading', { name: 'Top View' });
   screen.getByRole('heading', { name: 'Gantt' });
   expect(row()).toBeTruthy();
@@ -149,9 +152,112 @@ it('selects the Occurrence whose RecordSequence is a job anchor (AP ADR-0094)', 
 // #2236: the Enter Safari sends right after compositionend in the range form is cancelled, so it never applies the range.
 it('the range form does not apply on the Enter that confirms a composition', () => {
   render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" />);
+  fireEvent.click(screen.getByRole('button', { name: '변경' }));
   const from = within(screen.getByRole('form', { name: '구간' })).getAllByRole('textbox')[0]!;
   fireEvent.compositionStart(from);
   fireEvent.compositionEnd(from);
   expect(fireEvent.keyDown(from, { key: 'Enter' })).toBe(false);
   expect(fireEvent.keyDown(from, { key: 'Enter' })).toBe(true);
+});
+
+
+const APPLIED = { from: input.batch.from, to: input.batch.to };
+const UPDATED = { from: '2026-01-01T10:05:00.000', to: '2026-01-01T10:12:00.000' } as const;
+function RangeHost() {
+  const [value, setValue] = useState(APPLIED);
+  return <FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" range={{ value, onChange: next => { rangeChanged(next); setValue(next); } }} />;
+}
+const rangeChanged = vi.fn();
+const changeRange = () => screen.getByRole('button', { name: '변경' });
+const summary = () => screen.getByText(/^재생 구간 /).textContent;
+
+it('summarizes the applied range, keeps its disclosure mounted and preserves drafts across toggles', () => {
+  render(<RangeHost />);
+  const button = changeRange();
+  expect(button.getAttribute('aria-expanded')).toBe('false');
+  const region = document.getElementById(button.getAttribute('aria-controls')!)!;
+  expect(region).not.toBeNull();
+  expect(region.hidden).toBe(true);
+  expect(summary()).toBe('재생 구간 2026-01-01 10:00:00 → 2026-01-01 10:30:00 (30분)');
+  fireEvent.click(button);
+  expect(button.getAttribute('aria-expanded')).toBe('true');
+  expect(region.hidden).toBe(false);
+  fireEvent.change(screen.getByLabelText('시작'), { target: { value: UPDATED.from } });
+  const applied = summary();
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect((screen.getByLabelText('시작') as HTMLInputElement).value).toBe(UPDATED.from);
+  expect(summary()).toBe(applied);
+});
+
+it('applies the expanded range, calls the host, collapses and focuses the change button', () => {
+  rangeChanged.mockClear();
+  render(<RangeHost />);
+  fireEvent.click(changeRange());
+  fireEvent.change(screen.getByLabelText('시작'), { target: { value: UPDATED.from } });
+  fireEvent.change(screen.getByLabelText('끝'), { target: { value: UPDATED.to } });
+  fireEvent.submit(screen.getByRole('form', { name: '구간' }));
+  expect(rangeChanged).toHaveBeenCalledExactlyOnceWith(UPDATED);
+  expect(summary()).toBe('재생 구간 2026-01-01 10:05:00 → 2026-01-01 10:12:00 (7분)');
+  expect(changeRange().getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(changeRange());
+});
+
+it('keeps an invalid range expanded with the original error and input associations', () => {
+  rangeChanged.mockClear();
+  render(<RangeHost />);
+  fireEvent.click(changeRange());
+  const from = screen.getByLabelText('시작');
+  fireEvent.change(from, { target: { value: 'invalid' } });
+  fireEvent.submit(screen.getByRole('form', { name: '구간' }));
+  expect(changeRange().getAttribute('aria-expanded')).toBe('true');
+  const error = screen.getByRole('alert');
+  expect(error.textContent).toBe('Site Wall-clock 형식(YYYY-MM-DDTHH:mm:ss.fff)이 아닙니다');
+  expect(from.getAttribute('aria-invalid')).toBe('true');
+  expect(from.getAttribute('aria-describedby')).toBe(error.id);
+  expect(rangeChanged).not.toHaveBeenCalled();
+});
+
+it.each(['reset', 'entry'])('collapses the range disclosure and clears its draft on %s changes', kind => {
+  const view = render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" />);
+  fireEvent.click(changeRange());
+  fireEvent.change(screen.getByLabelText('시작'), { target: { value: 'draft' } });
+  view.rerender(<FocusView input={input} notices={[]} entityType={null} anchor={kind === 'entry' ? OCCURRENCE : null} resetKey={kind === 'reset' ? 'b' : 'a'} />);
+  expect(changeRange().getAttribute('aria-expanded')).toBe('false');
+  fireEvent.click(changeRange());
+  expect((screen.getByLabelText('시작') as HTMLInputElement).value).not.toBe('draft');
+});
+
+it('shows trust first in the Top View header', () => {
+  render(<FocusView input={input} notices={[]} trust={<span>미확인 상태</span>} entityType={null} anchor={null} resetKey="a" />);
+  const header = screen.getByRole('heading', { name: 'Top View' }).parentElement!.parentElement!;
+  expect(within(header).getByText('미확인 상태').parentElement!.firstElementChild?.textContent).toBe('미확인 상태');
+});
+
+it('keeps trust and the joined notices above the view when Replay cannot render its Top View panel', () => {
+  const broken = { ...input, batch: { ...input.batch, to: input.batch.from } };
+  render(<FocusView input={broken} notices={['부분 데이터', '호스트 경고']} trust={<span>미확인 상태</span>} entityType={null} anchor={null} resetKey="a" />);
+  expect(screen.queryByRole('region', { name: 'Top View' })).toBeNull();
+  expect(screen.getAllByText(/Replay 오류:/).length).toBeGreaterThan(0);
+  screen.getByText('미확인 상태');
+  expect(screen.getAllByRole('status')).toHaveLength(1);
+  expect(screen.getByRole('status').textContent).toBe('부분 데이터 · 호스트 경고 · 진입 키가 없어 전체 구간을 표시합니다');
+});
+
+it.each([
+  ['2026-01-01T10:30:00.000', '30분'],
+  ['2026-01-01T11:30:00.000', '1시간 30분'],
+  ['2026-01-01T10:00:45.000', '45초'],
+  ['2026-01-01T12:00:00.000', '2시간'],
+  ['2026-01-01T10:00:00.001', '0.001초'],
+  ['2026-01-01T11:30:45.123', '1시간 30분 45.123초'],
+  ['2026-01-02T10:00:00.000', '24시간'],
+])('formats the Site Wall-clock duration ending at %s', (to, expected) => {
+  expect(formatRangeDuration({ from: APPLIED.from, to: to as typeof APPLIED.to })).toBe(expected);
+});
+
+
+it('renders no notice callout when there are no notices', () => {
+  const { container } = render(<NoticeList notices={[]} />);
+  expect(container.childElementCount).toBe(0);
 });

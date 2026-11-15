@@ -65,7 +65,7 @@ export function EquipmentBar({ props, state, refreshing, retry }: { props: HostP
   const focusTrigger = () => { restoreFocus.current = true; trigger.current?.focus(); };
   const options = state?.kind === 'ready' ? state.options : [];
   const chosen = options.find(option => option.id === props.equipment);
-  return <section aria-label="설비 선택" className="mb-4 space-y-3 border-b border-border-subtle pb-3 text-sm text-text-secondary">
+  return <section aria-label="설비 선택" className="mb-3 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
     <div className="flex flex-wrap items-center gap-3">
       <label htmlFor={id} className="font-medium text-text-primary">설비</label>
       <Select value={props.equipment ?? ''} onValueChange={equipment => { restoreFocus.current = true; setPage({ equipment }); }} disabled={options.length === 0}>

@@ -16,9 +16,15 @@ const NO_TRUST: Trust = { updatedAt: '—', dataThrough: null, coverage: null, p
  * The one Data Trust line of a read (EV#187): the assessments and Trust the server sent, with `unknown` never worded as clear.
  * A read with assessments but no Trust still gets its line, so «not verified» never looks like «nothing to report»; a read that said nothing at all gets none.
  */
-export function TrustLine({ trust, assessments }: Trusted) {
+export function TrustBadge({ trust, assessments }: Trusted) {
   if (trust === null && assessments.length === 0) return null;
-  return <div className="mb-3"><DataTrustIndicator trust={trust ?? NO_TRUST} assessments={assessments} wrap /></div>;
+  return <DataTrustIndicator trust={trust ?? NO_TRUST} assessments={assessments} wrap />;
+}
+
+/** The same read status above an empty or failed state, with page-body spacing. */
+export function TrustLine(props: Trusted) {
+  const badge = TrustBadge(props);
+  return badge === null ? null : <div className="mb-3">{badge}</div>;
 }
 
 /** The state to show instead of the screen body, or null when the screen has verified data to draw. */

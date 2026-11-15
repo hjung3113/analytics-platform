@@ -8,7 +8,7 @@ import { Button } from '@ap/ui';
 
 import { FocusView, type FocusTab } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
-import { TrustLine, stateFor } from './states.js';
+import { TrustBadge, stateFor } from './states.js';
 import { useEquipmentOptions } from './EquipmentBar.js';
 import { usePageKeyRulesFor } from '../page-key-rules.js';
 
@@ -39,10 +39,9 @@ function FocusBody() {
   const { equipment } = props;
   return (
     <>
-    <TrustLine trust={load.trust} assessments={load.assessments} />
     {detail && <DetailDrawer title={detail.label} onClose={() => setDetail(null)}
       tabs={[{ id: 'detail', label: m('focusScreenDetail'), content: detail.node }]} />}
-    <FocusView input={load.input} notices={load.notices} entityType={props.entityType} anchor={props.anchor} resetKey={resetKey}
+    <FocusView trust={<TrustBadge trust={load.trust} assessments={load.assessments} />} input={load.input} notices={load.notices} entityType={props.entityType} anchor={props.anchor} resetKey={resetKey}
       range={{ value: props.range, onChange: (range) => setPage({ rangeFrom: range.from, rangeTo: range.to }, { replace: true }) }}
       tab={tab} onTabChange={setTab} renderDetail={renderDetail}
       links={{ actions: <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:topview', { page: { equipment } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowLeft className="size-3.5" aria-hidden />Top View로</Button> }} />
