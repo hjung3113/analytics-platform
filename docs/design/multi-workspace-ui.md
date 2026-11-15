@@ -214,7 +214,7 @@ SDK가 제공하는 외부 기능 링크의 생성·검증·`platformReturn` 계
 
 | 계층 | 책임 | 기존/추가 |
 | --- | --- | --- |
-| `@ap/feature-ui` → `@ap/ui` | 토큰·Button·Badge·Shell형 primitives 등 | 기존 재사용, 도메인 코드 의존 금지 |
+| feature `src/ui` → `@ap/ui` | 토큰·Button·Badge·Shell형 primitives 등 | 기존 재사용, 도메인 코드 의존 금지 |
 | `@ap/kernel` | SpaceDef/GroupDef/MenuEntry, Registry, 권한·Context·URL·전환 | 기존 계약 확장 |
 | `@ap/shell` | AppRail·AppSidebar·Portal·CommandPalette·복귀 UX | 기존 셸 확장 |
 | `menus/*/*` | 각 워크스페이스의 고유 업무 메뉴/화면 | 메뉴 그룹별 Consumer 유지 |

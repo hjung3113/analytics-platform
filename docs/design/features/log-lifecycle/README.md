@@ -248,7 +248,7 @@ log-dev (기존 Space)
 | --- | --- | --- | --- |
 | 0 | ADR 0116·0117·0118 확정(소유자 답) + 이 문서 Candidate→As-built 전환 계획 | light | 소유자 답 |
 | a | **API 토큰 코어**([ADR-0116](../../../adr/0116-platform-api-tokens-personal-and-service.md)): 테이블·발급·폐기·인증 훅·scope ∩ 권한 판정·감사·고위험 거절. **As-built** #1442(PR #1456): `core.api_tokens`(0101), 토큰은 `menu-query`·`menu-action`과 검증 작업자 REST 4개(claim·heartbeat·result·fail, ADR-0117)를 호출할 수 있고 Gate 결정 같은 세션 전용 동작은 거절된다, 계약은 [auth.md](../../../architecture/platform-api/api/auth.md)·[05](../../../architecture/platform-api/05-permission-policy.md) | full, `impl-complex` (권한 경계) | 0 |
-| b | **As-built** #1443: 확인된 A안(표 + 발급 서랍), 개인 `/tokens`(내 활동)·`/operations/service-tokens`(운영 콘솔 권한), 복수 권한 묶음·일회 표시·폐기. 화면은 `apps/feature-screens/src/features/api-tokens/`, 묶음은 `packages/feature-shared/src/enums/api-token-bundles.ts`. 서비스 목록은 기본 서비스 토큰만, 「개인 토큰 포함」으로 전체(ADR-0116 3a); review-ux·일관성 점검·impeccable·mock/real E2E 통과. | full, `ux=required` | a |
+| b | **As-built** #1443: 확인된 A안(표 + 발급 서랍), 개인 `/tokens`(내 활동)·`/operations/service-tokens`(운영 콘솔 권한), 복수 권한 묶음·일회 표시·폐기. 화면은 `packages/feature/screens/src/features/api-tokens/`, 묶음은 `packages/feature/shared/src/enums/api-token-bundles.ts`. 서비스 목록은 기본 서비스 토큰만, 「개인 토큰 포함」으로 전체(ADR-0116 3a); review-ux·일관성 점검·impeccable·mock/real E2E 통과. | full, `ux=required` | a |
 | c | `log-lifecycle` 스키마·마이그레이션·개발 건·이벤트·Round 쓰기·읽기 — **As-built**(#1444; 수동 검증 첨부는 c2 #1451, 구현됨) | full, `impl-complex`(상태·순서 로직) | 0 (a와 독립) |
 | d **As-built** #1445 | 검증 요청 큐([ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)): `execution_request`·`attempt`·`rule_result`, claim/lease/heartbeat/멱등 결과, 실행 시간대, verdict 계산, 참조 작업자 모의 | full, `impl-complex` | a, c |
 | e **As-built** #1446 | Gate 결정 + 근거 스냅샷 + 단계 연동 | full, `impl-complex`(권한·승인 경계) | c, d |
@@ -308,7 +308,7 @@ log-dev (기존 Space)
 ## 12. 노드 f As-built (#1447, #1809)
 
 - 소유자 2026-11-12 확정 수정 A. 내부 단계 값은 그대로 두고 화면은 등록·착수·알파·베타·완료의 5단계, 취소는 별도 배지로 표시한다. 용어는 «개발 건». Gate는 헤더 상태와 우측 상세 슬롯으로 제공하고 검증 판정과 구분한다.
-- 모델 표(`/log/models`), 숨은 개발 건·Round 상세(`/log/models/:projectId[/rounds/:roundId]`), 검증 요청(`/log/validation-requests`). 화면은 `apps/feature-screens/src/features/log-lifecycle/`, 메뉴 조립은 `menus/log-dev/log-models/`. 조회·쓰기는 기존 Kernel menu-query/action 훅을 주입하고, 이동은 feature host seam을 통해 `linkTo`로 연결한다. 모델 표는 `includeClosedProjects: true`로 열린 개발 건을 우선하고 없으면 최근 종료·취소 건을 표시한다(A2). 기존 API의 기본값은 열린 개발 건만으로 유지하며, 종료·취소 행에서도 새 개발 건을 만들 수 있다.
+- 모델 표(`/log/models`), 숨은 개발 건·Round 상세(`/log/models/:projectId[/rounds/:roundId]`), 검증 요청(`/log/validation-requests`). 화면은 `packages/feature/screens/src/features/log-lifecycle/`, 메뉴 조립은 `menus/log-dev/log-models/`. 조회·쓰기는 기존 Kernel menu-query/action 훅을 주입하고, 이동은 feature host seam을 통해 `linkTo`로 연결한다. 모델 표는 `includeClosedProjects: true`로 열린 개발 건을 우선하고 없으면 최근 종료·취소 건을 표시한다(A2). 기존 API의 기본값은 열린 개발 건만으로 유지하며, 종료·취소 행에서도 새 개발 건을 만들 수 있다.
 - 모델 검색·단계/검증/설비사/공정/활성 필터·정렬·페이지, 요청 상태/우선순위/모델/기간 필터·선택, 규칙 결과/필수/정렬·선택 시도와 상세 탭을 주소에서 복원한다. 샘플 위치·해시·발췌·사유는 URL에 넣지 않는다.
 - Round의 요청 목록은 `requestsPage`, 규칙 결과는 `rulesPage`(각각 1부터 시작, 생략 = 첫 페이지)를 쓴다. 요청 페이지 변경은 요청·시도 선택과 규칙 페이지를, 요청 선택은 시도·규칙 페이지를, 시도 선택과 규칙 필터·정렬 변경은 규칙 페이지를 한 URL 변경에서 초기화한다. 모델·검증 요청 목록과 이력의 기존 `page`는 유지한다.
 - 신규 개발 건, 속성 수정, 서버 허용 단계 이동·재개, 샘플 순서 확정 후 Round 열기/종료, 고정 Round 또는 모델→Round 선택 요청 등록, 시도·결과·취소를 제공한다. 발췌는 명시적 클릭 때만 열며 권한 없음·삭제 상태를 구분한다. 주입된 원본 도구와 샘플 해시가 맞는 근거만 원본 탭으로 연결하고, 그렇지 않으면 원본 확인 불가로 표시한다.

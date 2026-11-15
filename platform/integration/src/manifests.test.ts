@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { coverageRoute, entityLinksRoute, integrationDashboardRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 
-const FRONTEND = '../../../apps/feature-screens/src/';
+const FRONTEND = '../../../packages/feature/screens/src/';
 const GLOSSARY = readFileSync(fileURLToPath(new URL(`${FRONTEND}lib/copy/glossary.ts`, import.meta.url)), 'utf8');
 const glossary = (key: string) => new RegExp(`\\b${key}: '([^']+)'`).exec(GLOSSARY)?.[1] ?? null;
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;

@@ -125,7 +125,7 @@ The design table fixes: PASS→FAIL/WARN/ERROR regressed, FAIL→PASS fixed, EXP
 
 ## Audit
 
-One `core.audit_log` row per write, in the same transaction, body-free (`packages/feature-shared/src/audit/log-datasets.ts`, strict schemas). Subject types `dataset`, `dataset_revision`, `dataset_candidate`, `dataset_baseline`. They are **not** in the `core.platform_audit_events` projection (migration 0110 adds only the capability `dataset.manage` to its permission-row allow-list): the platform audit trail (`POST /api/v1/platform/audit-trail/search`) never returns them, so a private dataset's existence does not reach `console:access` Admins. Not implemented: a dataset audit view needs a caller-aware projection (reopen when one is requested).
+One `core.audit_log` row per write, in the same transaction, body-free (`packages/feature/shared/src/audit/log-datasets.ts`, strict schemas). Subject types `dataset`, `dataset_revision`, `dataset_candidate`, `dataset_baseline`. They are **not** in the `core.platform_audit_events` projection (migration 0110 adds only the capability `dataset.manage` to its permission-row allow-list): the platform audit trail (`POST /api/v1/platform/audit-trail/search`) never returns them, so a private dataset's existence does not reach `console:access` Admins. Not implemented: a dataset audit view needs a caller-aware projection (reopen when one is requested).
 
 | Event | Subject | Detail |
 | --- | --- | --- |

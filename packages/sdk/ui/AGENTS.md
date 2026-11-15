@@ -45,7 +45,7 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 - **Extension boundary:** `RichEditor.tsx` is the lazy public wrapper. Editing plugins live in `RichEditorImpl.tsx` / `editor-extensions.ts`; `content-schema.ts` holds reader-safe schema/render definitions.
   - Drive all controls from the mirrored surface capabilities.
   - Inline images store only a UUID `id` and optional bounded `width`; resolve URLs through the optional editor/renderer prop.
-  - Keep full attr-schema and fixture parity with the feature original and the server ([ADR-0127](../../../docs/adr/0127-sdk-rich-editor-extensions-and-inline-attachment-images.md), [VOC §5.7](../../../apps/feature-screens/docs/specs/voc.md#57-richeditor-per-surface-contract)).
+  - Keep full attr-schema and fixture parity with the feature original and the server ([ADR-0127](../../../docs/adr/0127-sdk-rich-editor-extensions-and-inline-attachment-images.md), [VOC §5.7](../../../packages/feature/screens/docs/specs/voc.md#57-richeditor-per-surface-contract)).
   - Engine DOM styling belongs in `styles/compat.css`, which both CSS entry recipes include.
 
 ## Detail panel slot

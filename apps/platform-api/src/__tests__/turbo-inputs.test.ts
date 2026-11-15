@@ -187,7 +187,7 @@ describe('turbo inputs cover every file the package reads from outside itself', 
         'menus/log-dev/log-knowledge/src/endpoints.js',
         'tooling/scripts/validation-worker-mock.mjs',
         'docs/architecture/platform-api/api/log-knowledge.md',
-        'apps/feature-screens/src',
+        'packages/feature/screens/src',
         'ops/platform-api/.env.example',
       ]),
     );

@@ -55,12 +55,12 @@ const ROOT = REPO_ROOT;
 const BACKEND_MODULES = `${FEATURE_BACKEND}/src/modules`;
 // An app reaches its sibling app as `../../<folder>/…` (both live under apps/), so the pattern names the sibling by its
 // folder in the path map.
-const siblingImport = (dir) => new RegExp(`from\\s+['"]\\.\\./\\.\\./${basename(dir)}/`);
+const siblingImport = (dir) => new RegExp(`from\\s+['"](?:\\.\\./)+${dir.replaceAll('/', '\\/')}/`);
 const RULES = [
   {
     scope: FEATURE_SHARED,
-    forbid: [/from\s+['"]@ap\/feature-ui/, /from\s+['"]\.\.\/\.\.\/apps\//],
-    msg: 'packages/shared must not import apps/* or @ap/feature-ui',
+    forbid: [/from\s+['"]\.\.\/\.\.\/apps\//],
+    msg: 'packages/shared must not import apps/*',
   },
   {
     scope: FEATURE_UI,
@@ -79,8 +79,8 @@ const RULES = [
   },
   {
     scope: FEATURE_BACKEND,
-    forbid: [/from\s+['"]@ap\/feature-ui/, siblingImport(FEATURE_FRONTEND)],
-    msg: 'apps/backend must not import @ap/feature-ui or apps/feature-screens',
+    forbid: [siblingImport(FEATURE_FRONTEND)],
+    msg: 'apps/backend must not import packages/feature/screens',
   },
   {
     scope: BACKEND_MODULES,
@@ -108,7 +108,7 @@ const RULES = [
     kind: 'foreign-core-owner-table-access',
     msg: 'backend code must access Managed Systems and Analytics Areas through their owner surfaces',
   },
-  ...[FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI, FEATURE_OPS].map((scope) => ({
+  ...[FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_OPS].map((scope) => ({
     scope,
     kind: 'platform-package-imports',
     msg: 'Feature source may import only @ap/ui from the platform; core-server also permits @ap/contract-schemas; other SDK packages remain test-only (ADR-0097)',
@@ -118,7 +118,7 @@ const RULES = [
 // Lint-only exception to rule 11: these exact files (never nested lookalikes) may import exactly `@ap/eslint-config`.
 const LINT_CONFIG_PACKAGE = '@ap/eslint-config';
 const LINT_CONFIG_FILES = new Set(
-  [FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI].map((dir) =>
+  [FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED].map((dir) =>
     join(ROOT, dir, 'eslint.config.js'),
   ),
 );
@@ -693,7 +693,7 @@ violations += checkOffSurfaceBaseline();
 const RUNTIME_DEP_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'];
 const manifests = [
   join(ROOT, FEATURE_OPS, 'package.json'),
-  ...[FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI, FEATURE_OPS].map((dir) =>
+  ...[FEATURE_BACKEND, FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_OPS].map((dir) =>
     join(ROOT, dir, 'package.json'),
   ),
 ];

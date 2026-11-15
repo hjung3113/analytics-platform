@@ -131,7 +131,7 @@ FR-FIND-004). Rows live in `finding.finding_comments`. There is no edit or
 delete route. `platform_app` may only `SELECT` and `INSERT`. Task progress notes
 are a different contract: [tasks.md](tasks.md) §Progress notes.
 
-Shared DTO: `FindingCommentDto` in `packages/feature-shared/src/findings/comments.ts`.
+Shared DTO: `FindingCommentDto` in `packages/feature/shared/src/findings/comments.ts`.
 
 ```text
 id uuid

@@ -8,7 +8,7 @@ import { FEATURE_PACKAGES } from '../../tooling/eslint/src/feature-packages.js';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const taskNames = ['lint', 'typecheck', 'test', 'build'];
-const paths = ['apps/platform-api', 'apps/feature-screens', 'packages/feature-shared', 'packages/feature-ui', 'ops/platform-api'];
+const paths = ['apps/platform-api', 'packages/feature/screens', 'packages/feature/shared', 'ops/platform-api'];
 const read = (path) => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));
 const manifests = paths.map((path) => read(`${path}/package.json`));
 
@@ -90,7 +90,7 @@ export function workspaceDependencyErrors(task, plan, packages, trackedFiles = g
 
 function selfTest() {
   // Independent acceptance identities: do not build the fixture from FEATURE_PACKAGES.
-  const required = ['@ap/platform-api', '@ap/feature-screens', '@ap/feature-shared', '@ap/feature-ui', '@ap/platform-api-ops'];
+  const required = ['@ap/platform-api', '@ap/feature-screens', '@ap/feature-shared', '@ap/platform-api-ops'];
   assert.deepEqual([...FEATURE_PACKAGES].sort(), [...required].sort());
   const packages = required.map((name) => ({ name, scripts: Object.fromEntries((name.endsWith('-ops') ? ['lint'] : taskNames).map((task) => [task, `leaf-${task}`])) }));
   const root = { scripts: Object.fromEntries(taskNames.map((task) => [task, `turbo run ${task}`])) };
@@ -114,7 +114,7 @@ function selfTest() {
 
 function main() {
   const errors = configErrors(read('package.json'), manifests);
-  const workspacePackages = globSync(['apps/*/package.json', 'packages/*/package.json', 'packages/sdk/*/package.json', 'packages/adapters/*/package.json', 'packages/host/*/package.json', 'packages/eqv/*/package.json', 'menus/*/*/package.json', 'platform/*/package.json', 'tooling/*/package.json', 'ops/*/package.json'], { cwd: repoRoot })
+  const workspacePackages = globSync(['apps/*/package.json', 'packages/*/package.json', 'packages/sdk/*/package.json', 'packages/feature/*/package.json', 'packages/host/*/package.json', 'packages/eqv/*/package.json', 'menus/*/*/package.json', 'platform/*/package.json', 'tooling/*/package.json', 'ops/*/package.json'], { cwd: repoRoot })
     .map(path => ({ ...read(path), directory: posix.dirname(path) }));
   for (const task of taskNames) {
     const output = execFileSync('pnpm', [task, '--dry=json'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });

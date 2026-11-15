@@ -94,7 +94,7 @@ const SAVED_VIEWS_SLOT_SUBPATH = 'feature-bridge/saved-views';
 const ACCESS_REQUEST_SLOT_SUBPATH = 'feature-bridge/access-request-slot';
 // The feature-bridge menu test harness (`createFeatureMenuHarness`) subpath: test-only like `kernel/testing`, so only bridge-menu test files import it (FEATURE_BRIDGE_TEST_SUBPATHS).
 const FEATURE_BRIDGE_TESTING_SUBPATH = 'feature-bridge/testing';
-// Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries, read from `apps/feature-screens/package.json` `exports` (the one list; the screen barrel, its eager-code subset `/core`,
+// Rule 8 exception (platform ADR-0071, ADR-0081): a bridge menu imports exactly these entries, read from `packages/feature/screens/package.json` `exports` (the one list; the screen barrel, its eager-code subset `/core`,
 // the lazy notifications panel entry `/inbox-panel`, and the operator dashboard and VOC entries); no other feature package entry. the feature-bridge package imports `/core` only (FEATURE_BRIDGE_PACKAGE_ENTRIES)
 // except its lazy `src/pages/**`, which are screens too (the notifications slot loads `inbox-panel` through one of them).
 const FEATURE_BRIDGE_ENTRIES = featureBridgeEntrySources();
@@ -743,9 +743,6 @@ export const featureServerUntypedPreset = [...featureServer({ typed: false }), e
 /** @type {import('eslint').Linter.Config[]} */
 export const featureSharedPreset = [...featureShared(), eqvBanOnly];
 
-/** @type {import('eslint').Linter.Config[]} */
-export const featureUiPreset = [...featureUi({ reactHooks: REACT_HOOKS, design: designSystem({ componentSource: true }) }), eqvBanOnly];
-
 // feature-screens (#1102 b): the former Oxlint pass over the screens (ops/platform-api/.oxlintrc.json, removed) restyled-component
 // checks included, so `no-restyle` and `require-static-classes` stay on (only packages that define the primitives turn them
 // off). The screens also render the feature components of the feature UI package, which the old config named as its `ui` alias.
@@ -758,7 +755,8 @@ export const featureScreensPreset = [...featureUi({
     settings: {
       shadcn: {
         ...screensDesign.settings.shadcn,
-        componentImports: [...screensDesign.settings.shadcn.componentImports, `^${pkg('feature-ui')}(/|$)`],
+        // The feature UI components live in src/ui of this package (merged from the former feature-ui package, #2211): a relative import of them is a component import.
+        componentImports: [...screensDesign.settings.shadcn.componentImports, '^(\\.\\.?/)+ui(/|$)'],
       },
     },
   },
@@ -771,4 +769,10 @@ export const featureScreensPreset = [...featureUi({
   rules: {
     'ap/no-browser-random-uuid': ['error'],
   },
-}, IME_ENTER_GUARD];
+}, IME_ENTER_GUARD, {
+  // #2211: src/ui is where the feature primitives are defined (the former feature-ui package): they style themselves, so restyle and
+  // static-class checks are off there as for the ui package; arbitrary layout values stay allowed.
+  files: ['src/ui/**/*.{ts,tsx}'],
+  ignores: ['**/*.test.{ts,tsx}', '**/*.generated.ts', '**/__tests__/**'],
+  rules: { 'shadcn/no-restyle': 'off', 'shadcn/require-static-classes': 'off' },
+}];

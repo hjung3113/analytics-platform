@@ -15,13 +15,13 @@ apps/platform-api
 - migrations
 - background jobs
 
-apps/feature-screens
+packages/feature/screens
 - React/Vite UI
 - route composition
 - feature screens
 - typed API client usage
 
-packages/feature-shared
+packages/feature/shared
 - Zod schemas and inferred API/DTO types (no codegen, FO ADR-0007)
 - validation schemas
 - enum constants
@@ -29,7 +29,7 @@ packages/feature-shared
 - no DB access
 - no domain workflow orchestration
 
-packages/feature-ui
+packages/feature/screens/src/ui
 - reusable visual components from docs/design/features/*
 - no API calls
 - no domain mutation logic
@@ -62,11 +62,11 @@ Product systems:
 
 Deployable app shells:
 - apps/platform-api
-- apps/feature-screens
+- packages/feature/screens
 
 Implementation boundaries:
 - apps/platform-api/src/modules/{module}
-- apps/feature-screens/src/features/{feature}
+- packages/feature/screens/src/features/{feature}
 ```
 
 Product systems are independent in ownership and workflow rules, not separate
@@ -112,15 +112,15 @@ Allowed:
 - domain modules -> entity-linking application API
 - domain modules -> permission check API
 - dashboard -> domain read/query interfaces
-- frontend features -> typed API client + packages/feature-ui
-- packages/feature-ui -> design tokens
+- frontend features -> typed API client + packages/feature/screens/src/ui
+- packages/feature/screens/src/ui -> design tokens
 ```
 
 Forbidden:
 
 ```text
 - core -> voc/finding/task/survey/dashboard modules
-- packages/feature-shared -> apps/platform-api or apps/feature-screens
+- packages/feature/shared -> apps/platform-api or packages/feature/screens
 - frontend -> backend internals
 - domain repositories querying another domain's owned tables except through approved read models
 - UI components enforcing backend permission decisions as source of truth

@@ -126,7 +126,7 @@ function selfTest() {
   check('pr: css-selectors.yml → site=false', pr(['.github/workflows/css-selectors.yml']).site, F);
   check('pr: e2e package.json → site=true', pr(['apps/platform-e2e/package.json']).site, T);
   check('pr: e2e spec only → site=false code=true', pr(['apps/platform-e2e/tests/a.spec.ts']), out(T, F, F));
-  check('pr: feature-screens src → site=true', pr(['apps/feature-screens/src/a.ts']).site, T);
+  check('pr: feature-screens src → site=true', pr(['packages/feature/screens/src/a.ts']).site, T);
   check('pr: platform-api src → site=false', pr(['apps/platform-api/src/a.ts']).site, F);
   // #1884: Markdown that code reads counts as code.
   check('pr: menu CHANGELOG only → code=true', pr(['menus/mars/hw-time/CHANGELOG.md']).code, T);

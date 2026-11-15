@@ -3,7 +3,7 @@ import { viewerOf } from '../log-knowledge/index.js';
 // (`lifecycle.round.manage`, human session or token), plus the two admin settings of the queue: `queueSettingsUpdate`
 // (run window, lease, immediate limit, excerpt retention), `excerptDelete` (erase excerpt and diagnostic bodies of a Round or attempt) and `excerptAccessSet` (who may read the excerpts of a source
 // owner, the right `lifecycle.excerpt.read`). Every write is one transaction: row change + `core.audit_log` row.
-// Audit detail is body-free (packages/feature-shared/src/audit/log-lifecycle.ts).
+// Audit detail is body-free (packages/feature/shared/src/audit/log-lifecycle.ts).
 
 import { createHash } from 'node:crypto';
 

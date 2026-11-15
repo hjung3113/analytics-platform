@@ -1,0 +1,28 @@
+import { apiPath } from '../../../lib/api/path';
+// useVocClusterDetail — react-query wrapper for GET /voc-clusters/:id.
+// Returns the full VocClusterDto including the members array.
+
+import { apiRequest } from '../../../lib/api/client';
+import { ApiParseError } from '../../../lib/api/types';
+import { vocClusterDtoSchema } from '@ap/feature-shared';
+import type { VocClusterDto } from '@ap/feature-shared';
+import { type UseQueryResult, useQuery } from '@tanstack/react-query';
+
+export function useVocClusterDetail(id: string | null | undefined): UseQueryResult<VocClusterDto> {
+  return useQuery({
+    queryKey: ['voc-cluster', id] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiRequest<VocClusterDto>(
+        'GET',
+        apiPath`/voc-clusters/${id as string}`,
+        vocClusterDtoSchema,
+        { signal },
+      );
+      return res.data;
+    },
+    enabled: Boolean(id),
+    staleTime: 30_000,
+    // A parse failure is deterministic: retrying it only delays the error.
+    retry: (failureCount, error) => !(error instanceof ApiParseError) && failureCount < 1,
+  });
+}

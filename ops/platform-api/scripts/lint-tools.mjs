@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Runs Biome over the feature paths named in ../paths.mjs (the tool package and the documentation roots).
-// platform-api, feature-shared, feature-ui and feature-screens are ESLint packages (#1102): the Biome scope excludes them.
+// platform-api, feature-shared and feature-screens are ESLint packages (#1102): the Biome scope excludes them.
 // Usage: node scripts/lint-tools.mjs <biome-check|biome-format>
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';

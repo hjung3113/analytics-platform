@@ -58,7 +58,7 @@ test('CSS selector builds skip only a successful docs-only classification', () =
 });
 
 test('feature tasks hash the shared operations tsconfig', () => {
-  for (const dir of ['packages/feature-shared', 'packages/feature-ui', 'apps/feature-screens']) {
+  for (const dir of ['packages/feature/shared', 'packages/feature/screens']) {
     const config = JSON.parse(read(`${dir}/turbo.json`));
     for (const task of ['typecheck', 'build', 'test']) {
       assert.ok(config.tasks[task]?.inputs.includes('$TURBO_ROOT$/ops/platform-api/tsconfig.base.json'), `${dir}#${task}`);

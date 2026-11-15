@@ -27,7 +27,7 @@
 // The outcome follow-up review renders a row only when the survey is closed,
 // the response count meets the anonymity threshold (minimum 5, core.md), and
 // the reader holds survey.read_personal_responses. Admin does not bypass that
-// capability (packages/feature-shared/src/enums/capabilities.ts).
+// capability (packages/feature/shared/src/enums/capabilities.ts).
 
 import { randomUUID } from 'node:crypto';
 

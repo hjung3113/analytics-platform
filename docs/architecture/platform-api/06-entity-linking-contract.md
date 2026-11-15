@@ -27,7 +27,7 @@ Relation type meaning is owned by this contract, not by
 
 Allowed `relation_type` values and registered source/target pairs are the
 runtime registry: `entityLinkRelationTypeSchema` and
-`registeredEntityLinkPairs` in `packages/feature-shared/src/entity-links.ts`.
+`registeredEntityLinkPairs` in `packages/feature/shared/src/entity-links.ts`.
 
 Forbidden:
 
@@ -88,7 +88,7 @@ extends Entity Linking to ends that have no Managed System (log-lifecycle 개발
 
 ```text
 - core.entity_links.managed_system_id is NULL only for the registered no-Managed-System tuples
-  (noManagedSystemEntityLinkPairs in packages/feature-shared/src/entity-links.ts; today only
+  (noManagedSystemEntityLinkPairs in packages/feature/shared/src/entity-links.ts; today only
    manual_validation_attachment -> validation_round, evidence_of).
 - DB: entity_links_managed_system_check = (tuple is a no-Managed-System tuple) = (managed_system_id is null),
   so every other tuple still requires it; entity_links_tuple_check lists the new pair (14 tuples).

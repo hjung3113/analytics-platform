@@ -8,7 +8,7 @@
 // Usage:  node check-fo-adr-citations.mjs [--self-test]
 //
 // Scope: git-tracked text files (.md .ts .tsx .js .mjs .json .sh .yml .sql, symlinks skipped) under
-//   apps/platform-api, apps/feature-screens, packages/feature-shared, packages/feature-ui, ops/platform-api.
+//   apps/platform-api, packages/feature/screens, packages/feature/shared, ops/platform-api.
 //   Numbers above 0072 only exist in the platform space and are never checked.
 //
 // A bare `ADR-NNNN` (NNNN 0001..0072) is accepted only when it is
@@ -24,14 +24,14 @@
 import { execFileSync } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
 
-const SCOPE = ['apps/platform-api', 'apps/feature-screens', 'packages/feature-shared', 'packages/feature-ui', 'ops/platform-api'];
+const SCOPE = ['apps/platform-api', 'packages/feature/screens', 'packages/feature/shared', 'ops/platform-api'];
 const MIGRATIONS = 'apps/platform-api/migrations/';
 const SKIP_BINARY = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|pdf|gz|zip|snap)$/;
 const MAX_FO = 72;
 
 // Runtime message strings kept bare on purpose: file -> exact trimmed lines (a new citation in the same file still fails).
 const RUNTIME_STRINGS = {
-  'apps/feature-screens/src/features/admin/settings/__tests__/workspace-settings-screen.test.tsx': [
+  'packages/feature/screens/src/features/admin/settings/__tests__/workspace-settings-screen.test.tsx': [
     "expect(document.body.textContent).not.toMatch(/SELF_APPROVAL|ADR-0026|∩|합집합|교집합/);",
   ],
   'apps/platform-api/src/modules/analytics-areas/analytics-area-service.ts': [

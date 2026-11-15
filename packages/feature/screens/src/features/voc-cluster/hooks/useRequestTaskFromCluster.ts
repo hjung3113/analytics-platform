@@ -1,0 +1,45 @@
+import { apiPath } from '../../../lib/api/path';
+import { apiClient } from '../../../lib/api/client';
+import type { ApiError } from '../../../lib/api/types';
+import { invalidateNavCounts } from '../../../lib/query/navCounts';
+import { invalidateRecovery } from '../../../lib/query/recovery';
+import type { CreateTaskRequestFromVocClusterRequest, TaskRequestDto } from '@ap/feature-shared';
+import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
+
+export interface UseRequestTaskFromClusterArgs {
+  clusterId: string;
+  idempotencyKey: string;
+  onSuccess?: (data: TaskRequestDto) => void;
+  onError?: (err: ApiError) => void;
+}
+
+export function useRequestTaskFromCluster(
+  args: UseRequestTaskFromClusterArgs,
+): UseMutationResult<TaskRequestDto, ApiError, CreateTaskRequestFromVocClusterRequest> {
+  const { clusterId, idempotencyKey, onSuccess, onError } = args;
+  const queryClient = useQueryClient();
+
+  return useMutation<TaskRequestDto, ApiError, CreateTaskRequestFromVocClusterRequest>({
+    mutationFn: async (body) => {
+      const res = await apiClient<TaskRequestDto>(
+        'POST',
+        apiPath`/voc-clusters/${clusterId}/request-task`,
+        {
+          body,
+          idempotencyKey,
+        },
+      );
+      return res.data;
+    },
+    onSuccess: (data) => {
+      void invalidateRecovery(queryClient);
+      invalidateNavCounts(queryClient);
+      void queryClient.invalidateQueries({ queryKey: ['voc-cluster', clusterId] });
+      void queryClient.invalidateQueries({ queryKey: ['voc-clusters'] });
+      void queryClient.invalidateQueries({ queryKey: ['task-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['entity-links'] });
+      onSuccess?.(data);
+    },
+    ...(onError ? { onError } : {}),
+  });
+}

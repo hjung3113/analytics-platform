@@ -22,12 +22,12 @@ Frontend and migration gates. Root `AGENTS.md` owns verification sizing; feature
 
 ## Design-system lint (ESLint, `pnpm --filter @ap/feature-screens lint`)
 
-- `@shadcn/lint` runs inside the package ESLint presets (`featureScreensPreset` for `apps/feature-screens`, `featureUiPreset` for `packages/feature-ui`; FO ADR-0062) with: `rich-editor` allowed by `no-unknown-classes`, tests and `__tests__` not checked, every `shadcn/*` rule an error, `--max-warnings 0`. Old-rule table and the differences: `docs/integration/platform-packages.md` §6.
+- `@shadcn/lint` runs inside the package ESLint presets (`featureScreensPreset` for `packages/feature/screens`, whose `src/ui` subtree turns the restyle and static-class checks off; FO ADR-0062) with: `rich-editor` allowed by `no-unknown-classes`, tests and `__tests__` not checked, every `shadcn/*` rule an error, `--max-warnings 0`. Old-rule table and the differences: `docs/integration/platform-packages.md` §6.
 - `no-restyle` lets screens add layout classes by default. Its named container contract also permits spacing on `Card`, `EmptyState`, `PanelTitleBlock`, `ListToolbar`, and matching content/header/footer/group/panel/list/section-title components. The last matching contract wins.
 - Controls that own their internal spacing (`TabsList`, `ToggleGroup`, `RadioGroup`, `DialogFooter`, `AlertDialogFooter`, `TooltipContent`, `SelectContent`, `DropdownMenuContent`, `DropdownMenuSubContent`, `PopoverContent`, and `HoverCardContent`) have a later contract that permits layout only.
 - Use the control's existing spacing, padding, or size variant; add a variant to the control when a treatment repeats (the #783 pattern, e.g. `PopoverContent padding`, `RadioGroup spacing`); or move the spacing to a wrapper. `DetailPanelHeader`, `ShellHeader`, and `ListToolbar` keep their `h-*`, `min-h-*`, `max-h-*`, and `size-*` denial for the FO ADR-0020 50px rhythm.
 - `no-arbitrary-values` allows layout values (grid, width, viewport); its `scanAllStrings` setting also checks class strings kept in constants. Other categories must use theme tokens or scales.
-- `apps/feature-screens/components.json` and `packages/feature-ui/components.json` point the linter at `apps/feature-screens/src/styles.css`; without it, theme utilities such as `h-toolbar` read as unknown classes. They are not shadcn CLI configs.
+- `packages/feature/screens/components.json` points the linter at `packages/feature/screens/src/styles.css`; without it, theme utilities such as `h-toolbar` read as unknown classes. They are not shadcn CLI configs.
 - Messages suggest a variant, scale value, or token; they are hints, not an equivalence oracle (the theme's self-referencing aliases can make the "nearest" size wrong). Check the component API, the computed value, and line-height before applying one.
 - An intentional exception is `// eslint-disable-next-line shadcn/<rule> -- <reason>` immediately above the finding line (JSX children use `{/* ... */}`). Each comment needs a concrete reason tied to that treatment; file-wide or blanket disables are not accepted, and an unused one fails the lint.
 
@@ -42,4 +42,4 @@ Frontend and migration gates. Root `AGENTS.md` owns verification sizing; feature
 
 ## Other per-path allowlists
 
-`apps/feature-screens/src/lib/api/api-unparsed-allowlist.txt` (`<path> <unparsed apiClient call count>`, checked by `unparsed-endpoints.test.ts`) is separate from the Biome gate. When a screen split moves `apiClient` calls to another file, move its allowlist entry with them.
+`packages/feature/screens/src/lib/api/api-unparsed-allowlist.txt` (`<path> <unparsed apiClient call count>`, checked by `unparsed-endpoints.test.ts`) is separate from the Biome gate. When a screen split moves `apiClient` calls to another file, move its allowlist entry with them.

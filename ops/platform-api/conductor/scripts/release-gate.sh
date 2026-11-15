@@ -4,7 +4,7 @@
 set -uo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-# Feature path map (FEATURE_FRONTEND, FEATURE_SHARED, FEATURE_UI); <develop-checkout> is the repository checkout root.
+# Feature path map (FEATURE_FRONTEND, FEATURE_SHARED); <develop-checkout> is the repository checkout root.
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/../../paths.sh"
 MODE=release-gate
@@ -81,7 +81,7 @@ main() {
   [[ -n "${WAVE_STATE:-}" ]] || fail 'set WAVE_STATE to the wave scratch directory' 2
   local checkout
   checkout=$(cd -- "$1" 2>/dev/null && pwd) || fail "checkout does not exist: $1" 2
-  [[ -d "$checkout/$FEATURE_FRONTEND" && -d "$checkout/$FEATURE_SHARED" && -d "$checkout/$FEATURE_UI" ]] || fail "not a feature checkout: $checkout" 2
+  [[ -d "$checkout/$FEATURE_FRONTEND" && -d "$checkout/$FEATURE_SHARED" ]] || fail "not a feature checkout: $checkout" 2
   [[ -x "$SCRIPT_DIR/verify-db.sh" && -x "$SCRIPT_DIR/verify-be.sh" && -x "$SCRIPT_DIR/verify-fe.sh" ]] || fail 'release gate helper scripts are missing or not executable' 2
 
   git -C "$checkout" fetch origin develop main || fail 'could not refresh origin/develop and origin/main' 1
@@ -103,9 +103,8 @@ main() {
   run_check 'verify-db drop release' "$logdir/db-drop.log" env VERIFY_DB_ROOT="$checkout" "$SCRIPT_DIR/verify-db.sh" drop release
   run_check 'verify-db create release' "$logdir/db-create.log" env VERIFY_DB_ROOT="$checkout" "$SCRIPT_DIR/verify-db.sh" create release --migrate-from "$checkout"
   run_check 'verify-be release' "$logdir/verify-be.log" "$SCRIPT_DIR/verify-be.sh" "$checkout" release
-  run_check 'packages/feature-shared vitest' "$logdir/shared-vitest.log" bash -c 'cd "$1" && pnpm --filter @ap/feature-shared exec vitest run' bash "$checkout"
+  run_check 'packages/feature/shared vitest' "$logdir/shared-vitest.log" bash -c 'cd "$1" && pnpm --filter @ap/feature-shared exec vitest run' bash "$checkout"
   run_check 'verify-fe' "$logdir/verify-fe.log" "$SCRIPT_DIR/verify-fe.sh" "$checkout"
-  run_check 'packages/feature-ui vitest' "$logdir/ui-vitest.log" bash -c 'cd "$1" && pnpm --filter @ap/feature-ui exec vitest run' bash "$checkout"
   run_check 'gate:fe-lint --base origin/main' "$logdir/fe-lint.log" bash -c 'cd "$1" && pnpm -s --filter @ap/platform-api-ops run gate:fe-lint --base origin/main' bash "$checkout"
 
   printf "Next command: gh pr create --base main --head develop --title 'Release: develop -> main' --body 'Verified develop tip: %s'\n" "$TESTED_SHA"

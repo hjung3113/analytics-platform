@@ -12,7 +12,7 @@ import { chooseAssembly, MOCK_MODES, type AssemblyChoice } from './scripts/assem
 const MOCK_ASSEMBLY = fileURLToPath(new URL('./src/dev/mock-assembly.tsx', import.meta.url));
 const REAL_ASSEMBLY = fileURLToPath(new URL('./src/real/http-assembly.tsx', import.meta.url));
 /** Feature sources reached through @ap/feature-screens/global-screens import themselves with the `@/` alias (ADR-0071). */
-const FEATURE_SRC = fileURLToPath(new URL('../../apps/feature-screens/src', import.meta.url));
+const FEATURE_SRC = fileURLToPath(new URL('../../packages/feature/screens/src', import.meta.url));
 /** @eqv/core is workspace source on zod 4; all other consumers use zod 3 (ADR-0132, plan P12).
  * Keep core's resolution, and exclude bare zod from dev optimization below: the optimizer has one entry per
  * bare id, so whichever version it scans first would otherwise replace the other version for every importer.

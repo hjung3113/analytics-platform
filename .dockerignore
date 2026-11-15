@@ -12,7 +12,7 @@
 !packages/sdk/contract-schemas
 !packages/host/http-adapter/package.json
 !packages/host/server-conformance/package.json
-!packages/feature-shared
+!packages/feature/shared
 !packages/eqv/core
 !tooling/eslint/package.json
 !tooling/tsconfig

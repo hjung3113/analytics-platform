@@ -1,0 +1,458 @@
+// TriageRoute.test.tsx — RED tests for the Triage view routing.
+// Covers: URL → view=triage → renders queue; tab change updates URL; selected updates URL.
+// REV-1 #9: user role without voc.triage capability gets PermissionBlockedPanel.
+// TDD RED: written before TriageRoute.tsx implementation exists.
+
+import { LIST_SEARCH_PLACEHOLDER } from '../../../../lib/copy/list-search';
+import { registerTriageTestHost } from '../../../../test/triage-host';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type * as React from 'react';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// REV-3 Cluster Y: TriagePanel now uses useQueryClient (for the empty-body
+// compensate refetch path). Tests must wrap renders in QueryClientProvider.
+function renderWithQc(node: React.ReactElement) {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+}
+
+// ── Mocks ──────────────────────────────────────────────────────────────────────
+
+const navigateMock = vi.fn();
+let searchState: Record<string, unknown> = {};
+
+vi.mock('../../../../lib/api/nav', () => ({
+  fetchNavCounts: vi.fn(),
+}));
+
+// ── Stub useVocList ────────────────────────────────────────────────────────────
+
+const MOCK_TRIAGE_VOCS = [
+  {
+    id: '00000000-0000-0000-0000-000000000001',
+    display_id: 'VOC-001',
+    title: 'Triage VOC 1',
+    primary_managed_system_id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
+    analytics_area_id: null,
+    reporter_id: 'u1',
+    owner_user_id: null,
+    owner_team_id: null,
+    severity: 'high' as const,
+    reporter_facing_status: 'received' as const,
+    triage_state: 'untriaged' as const,
+    source_context: 'direct_use' as const,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    similar_count: 0,
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000002',
+    display_id: 'VOC-002',
+    title: 'Triage VOC 2',
+    primary_managed_system_id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
+    analytics_area_id: null,
+    reporter_id: 'u2',
+    owner_user_id: null,
+    owner_team_id: null,
+    severity: 'critical' as const,
+    reporter_facing_status: 'reviewing' as const,
+    triage_state: 'untriaged' as const,
+    source_context: 'proxy_report' as const,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    similar_count: 0,
+  },
+];
+
+vi.mock('../../hooks/useVocList', () => ({
+  useVocList: () => ({
+    data: { items: MOCK_TRIAGE_VOCS, page: { has_more: false } },
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
+
+// Stub useWorkspaceActors — added in Chunk 2; TriagePanel now calls it.
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
+  useWorkspaceActors: () => ({
+    actors: [],
+    isSuccess: true,
+    isLoading: false,
+    error: null,
+  }),
+}));
+
+// ── Stub useMe ────────────────────────────────────────────────────────────────
+
+const useMeMock = vi.hoisted(() => vi.fn());
+vi.mock('../../../../lib/auth/useMe', () => ({ useMe: useMeMock }));
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
+  useMeBridge: useMeMock,
+}));
+
+// ── Stub usePermissionCheck (REV-2 #9 capability gate) ────────────────────────
+
+vi.mock('../../../../lib/cross-system/usePermissionCheckBridge', () => ({
+  usePermissionCheckBridge: vi.fn(),
+  permissionCheckQueryKey: () => ['permission-check', 'voc.triage', null],
+  permissionRequestsMineKey: ['permission-requests-mine'],
+}));
+
+// ── Stub PermissionBlockedPanel (avoids JSDOM rendering issues with src/ui internals)
+vi.mock('@ap/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ap/ui')>();
+  return {
+    ...actual,
+    PermissionBlockedPanel: ({
+      category,
+      reason,
+      state,
+    }: {
+      category: string;
+      reason?: string;
+      state?: string;
+    }) => (
+      <div data-testid="permission-blocked-panel" data-state={state}>
+        <span>{category}</span>
+        {reason && <span>{reason}</span>}
+      </div>
+    ),
+  };
+});
+
+// ── Stub VocDetailPanel ───────────────────────────────────────────────────────
+
+vi.mock('../../../../test/host-adapters/features/voc/components/detail/VocDetailPanel', () => ({
+  VocDetailPanel: ({
+    vocId,
+    onClose,
+  }: {
+    vocId: string;
+    onClose: () => void;
+  }) => (
+    <div data-testid="voc-detail-panel-stub" data-voc-id={vocId}>
+      <button type="button" onClick={onClose}>
+        닫기
+      </button>
+    </div>
+  ),
+}));
+
+// ── Import subject ─────────────────────────────────────────────────────────────
+
+import { fetchNavCounts } from '../../../../lib/api/nav';
+import { useMe } from '../../../../lib/auth/useMe';
+import { usePermissionCheckBridge as usePermissionCheck } from '../../../../lib/cross-system/usePermissionCheckBridge';
+import { TriageRoute } from '../../../../test/screen-host/features/voc/routes/TriageRoute';
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+// Default me mock — admin actor who has voc.triage capability
+const ADMIN_ME = {
+  data: {
+    actor: {
+      id: 'admin-uuid-1',
+      external_id: 'admin-1',
+      email: 'admin@test.local',
+      display_name: '관리자',
+      role_level: 'admin',
+    },
+    workspace_id: 'ws-1',
+  },
+  isLoading: false,
+  isError: false,
+  isPending: false,
+  isSuccess: true,
+  error: null,
+  status: 'success' as const,
+  fetchStatus: 'idle' as const,
+  isFetching: false,
+  isRefetching: false,
+  isLoadingError: false,
+  isRefetchError: false,
+  isPlaceholderData: false,
+  isStale: false,
+  dataUpdatedAt: 0,
+  errorUpdatedAt: 0,
+  failureCount: 0,
+  failureReason: null,
+  errorUpdateCount: 0,
+  refetch: vi.fn(),
+};
+
+beforeAll(() => registerTriageTestHost(() => searchState, navigateMock));
+
+describe('TriageRoute', () => {
+  beforeEach(() => {
+    searchState = { view: 'triage' };
+    navigateMock.mockClear();
+    vi.mocked(fetchNavCounts)
+      .mockReset()
+      .mockResolvedValue({
+        counts: {
+          'voc.triage': 7,
+          'voc.tab.unassigned': 2,
+          'voc.tab.high': 1,
+        },
+      });
+    // Default: admin actor with voc.triage capability
+    vi.mocked(useMe).mockReturnValue(ADMIN_ME as unknown as ReturnType<typeof useMe>);
+    // Default: capability check approves (Admin/Developer with scope).
+    vi.mocked(usePermissionCheck).mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: {
+        state: 'approved',
+        decision: { allow: true, via: 'role' },
+      },
+    } as unknown as ReturnType<typeof usePermissionCheck>);
+  });
+
+  it('renders the triage queue with VOC rows when view=triage', async () => {
+    renderWithQc(<TriageRoute />);
+    // The title may appear in both the queue row and the panel; use getAllByText
+    await waitFor(() => {
+      expect(screen.getAllByText('Triage VOC 1').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Triage VOC 2').length).toBeGreaterThanOrEqual(1);
+    });
+    expect(screen.getAllByText('담당자 없음')[0]).toHaveClass(
+      'bg-surface-canvas',
+      'text-text-muted',
+    );
+  });
+
+  it('shows the whole queue total and both loaded tab counts', async () => {
+    renderWithQc(<TriageRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('triage-queue-total')).toHaveTextContent('7 VOC');
+    });
+    expect(screen.getByRole('tab', { name: /^미배정\s*,\s*2$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^높음\s*,\s*1$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /미분류/ })).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole('tab', { name: '보류' })).not.toHaveTextContent(/\d/);
+  });
+
+  it('keeps the queue total unavailable while nav counts are delayed', async () => {
+    let resolveCounts!: (result: Awaited<ReturnType<typeof fetchNavCounts>>) => void;
+    const delayedCounts = new Promise<Awaited<ReturnType<typeof fetchNavCounts>>>((resolve) => {
+      resolveCounts = resolve;
+    });
+    vi.mocked(fetchNavCounts).mockReturnValueOnce(delayedCounts);
+
+    renderWithQc(<TriageRoute />);
+
+    const total = await screen.findByTestId('triage-queue-total');
+    expect(total).toHaveTextContent('— VOC');
+    expect(total).toHaveAttribute('aria-label', '전체 대기열 불러오는 중');
+    expect(total).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole('tab', { name: '미배정' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '높음' })).toBeInTheDocument();
+
+    await act(async () => {
+      resolveCounts({
+        counts: {
+          'voc.triage': 7,
+          'voc.tab.unassigned': 2,
+          'voc.tab.high': 1,
+        },
+      });
+      await delayedCounts;
+    });
+
+    await waitFor(() => expect(total).toHaveTextContent('7 VOC'));
+    expect(screen.getByRole('tab', { name: /^미배정\s*,\s*2$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^높음\s*,\s*1$/ })).toBeInTheDocument();
+  });
+
+  it('shows an unavailable queue total after nav counts fail', async () => {
+    vi.mocked(fetchNavCounts).mockRejectedValueOnce(new Error('nav counts unavailable'));
+
+    renderWithQc(<TriageRoute />);
+
+    const total = await screen.findByTestId('triage-queue-total');
+    await waitFor(() => {
+      expect(total).toHaveTextContent('— VOC');
+      expect(total).toHaveAttribute('aria-label', '전체 대기열 알 수 없음');
+    });
+    expect(total).not.toHaveTextContent(/\d/);
+  });
+
+  it('uses the High nav count for the High tab', async () => {
+    searchState = { view: 'triage', tab: 'high' };
+
+    renderWithQc(<TriageRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: /^높음\s*,\s*1$/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(screen.getByRole('tab', { name: /^미배정\s*,\s*2$/ })).toBeInTheDocument();
+    });
+  });
+
+  it('omits a secondary count when the active tab has no nav count key', async () => {
+    searchState = { view: 'triage', tab: 'waiting' };
+
+    renderWithQc(<TriageRoute />);
+
+    await screen.findAllByText('Triage VOC 1');
+    expect(screen.getByRole('tab', { name: '보류' })).not.toHaveTextContent(/\d/);
+  });
+
+  it.each([
+    { tab: 'unassigned', label: '미배정', key: 'voc.tab.unassigned' as const, count: 2 },
+    { tab: 'untriaged', label: '미분류', key: 'voc.tab.untriaged' as const, count: 5 },
+    { tab: 'high', label: '높음', key: 'voc.tab.high' as const, count: 1 },
+    { tab: 'waiting', label: '보류', key: 'voc.tab.waiting' as const, count: 4 },
+  ])(
+    'shows the $tab badge from nav counts and no badge when $key is absent',
+    async ({ label, key, count }) => {
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const counts = {
+        'voc.triage': 7,
+        'voc.tab.unassigned': 2,
+        'voc.tab.untriaged': 5,
+        'voc.tab.high': 1,
+        'voc.tab.waiting': 4,
+      };
+      vi.mocked(fetchNavCounts).mockResolvedValue({ counts });
+      const present = renderWithQc(<TriageRoute />);
+      await waitFor(() => {
+        expect(
+          screen.getByRole('tab', { name: new RegExp(`^${escapedLabel}\\s*,\\s*${count}$`) }),
+        ).toBeInTheDocument();
+      });
+      present.unmount();
+
+      const { [key]: _omitted, ...withoutKey } = counts;
+      vi.mocked(fetchNavCounts).mockResolvedValue({ counts: withoutKey });
+      renderWithQc(<TriageRoute />);
+      await waitFor(() => {
+        expect(screen.getByTestId('triage-queue-total')).toHaveTextContent('7 VOC');
+      });
+      expect(screen.getByRole('tab', { name: label })).not.toHaveTextContent(/\d/);
+    },
+  );
+
+  it('selecting a tab calls navigate with tab param', async () => {
+    renderWithQc(<TriageRoute />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Triage VOC 1').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Select a different tab so Radix emits a value change.
+    const highTab = screen.getByRole('tab', { name: /높음/i });
+    fireEvent.mouseDown(highTab);
+
+    expect(navigateMock).toHaveBeenCalledWith('/vocs?view=triage&tab=high');
+  });
+
+  it('drops selected from the next search when the tab changes (#922)', async () => {
+    searchState = {
+      view: 'triage',
+      managedSystem: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
+      selected: '00000000-0000-4000-8000-000000000009',
+      returnTo: '/home',
+    };
+    renderWithQc(<TriageRoute />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Triage VOC 1').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const highTab = screen.getByRole('tab', { name: /높음/i });
+    fireEvent.mouseDown(highTab);
+
+    // #383 deep links enter with ?selected=…; switching tabs must drop the pin
+    // or the pinned VOC unions into every tab's list. The rest of the search survives.
+    const href = navigateMock.mock.calls[0]?.[0] as string;
+    const next = new URLSearchParams(href.split('?')[1]);
+    expect(href.startsWith('/vocs?')).toBe(true);
+    expect(next.get('tab')).toBe('high');
+    expect(next.has('selected')).toBe(false);
+    expect(next.get('managedSystem')).toBe('aaaaaaaa-aaaa-4aaa-8aaa-000000000001');
+    expect(next.get('returnTo')).toBe('/home');
+  });
+
+  it('clicking a row calls navigate with selected param', async () => {
+    renderWithQc(<TriageRoute />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Triage VOC 1').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const rows = screen.getAllByRole('button', { name: /VOC-00[12]/ });
+    if (rows[0]) fireEvent.click(rows[0]);
+
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    const href = navigateMock.mock.calls[0]?.[0] as string;
+    expect(new URLSearchParams(href.split('?')[1]).get('selected')).toBe(MOCK_TRIAGE_VOCS[0]?.id);
+  });
+
+  // REV-1 #9 / REV-2 #9: actor without voc.triage capability sees
+  // PermissionBlockedPanel instead of the queue. The gate is now driven by
+  // the authoritative usePermissionCheck decision, not by role_level.
+  it('[#9] no voc.triage capability: renders PermissionBlockedPanel instead of the queue', async () => {
+    searchState = { view: 'triage', managedSystem: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001' };
+    vi.mocked(usePermissionCheck).mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: {
+        state: 'blocked_non_requestable',
+        decision: { allow: false, reason: 'no scope' },
+      },
+    } as unknown as ReturnType<typeof usePermissionCheck>);
+
+    renderWithQc(<TriageRoute />);
+
+    await screen.findByRole('link', { name: 'VOC 생성' });
+    // PermissionBlockedPanel must be visible
+    await waitFor(() => {
+      // PermissionBlockedPanel renders some form of "권한" or blocked state copy.
+      // The component is from src/ui; check for its container testid or blocked text.
+      expect(screen.queryByText('Triage VOC 1')).not.toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /Analytics Area/ })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(LIST_SEARCH_PLACEHOLDER)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '필터' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '정렬' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'VOC 생성' })).toHaveAttribute(
+      'href',
+      '/vocs?action=create',
+    );
+    expect(screen.getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
+
+    // The queue items must NOT be rendered for user-role actor
+    expect(screen.queryByText('Triage VOC 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Triage VOC 2')).not.toBeInTheDocument();
+  });
+
+  // D5: a host that cannot link to the create form (the platform bridge) gets no create link.
+  it('[D5] draws no create link when the host cannot link to it', async () => {
+    await registerTriageTestHost(() => searchState, navigateMock, {
+      canLink: (to) => to !== '/vocs?action=create',
+    });
+    try {
+      searchState = { view: 'triage', managedSystem: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001' };
+      vi.mocked(usePermissionCheck).mockReturnValue({
+        isPending: false,
+        isError: false,
+        data: { state: 'blocked_non_requestable', decision: { allow: false, reason: 'no scope' } },
+      } as unknown as ReturnType<typeof usePermissionCheck>);
+
+      renderWithQc(<TriageRoute />);
+
+      expect(await screen.findByRole('link', { name: '내 VOC' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'VOC 생성' })).not.toBeInTheDocument();
+    } finally {
+      await registerTriageTestHost(() => searchState, navigateMock);
+    }
+  });
+});

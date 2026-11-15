@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { createServer, optimizeDeps, resolveConfig, type InlineConfig } from 'vite';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const feature = fileURLToPath(new URL('../../../packages/feature-shared/src/permissions/selected-detail.ts', import.meta.url));
-const featureScreen = fileURLToPath(new URL('../../../apps/feature-screens/src/lib/host/search-fields.ts', import.meta.url));
+const feature = fileURLToPath(new URL('../../../packages/feature/shared/src/permissions/selected-detail.ts', import.meta.url));
+const featureScreen = fileURLToPath(new URL('../../../packages/feature/screens/src/lib/host/search-fields.ts', import.meta.url));
 const sdk = fileURLToPath(new URL('../../../packages/sdk/contract-schemas/src/index.ts', import.meta.url));
 const core = fileURLToPath(new URL('../../../packages/eqv/core/src/inventory/schema.ts', import.meta.url));
 

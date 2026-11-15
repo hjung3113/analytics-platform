@@ -168,14 +168,14 @@ function selfTest() {
   const has = (text, file, want) => { assert.ok(referencedPaths(text, file).includes(want), `${file}: expected ${want} in ${referencedPaths(text, file)}`); count++; };
   const hasNot = (text, file, bad) => { assert.ok(!referencedPaths(text, file).includes(bad), `${file}: did not expect ${bad}`); count++; };
   // The three shapes of #2029 and the one of #2002.
-  has("const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..');\nconst R = [join(REPO_ROOT, 'apps', 'platform-api', 'src')];",
-    'packages/feature-shared/src/errors/__tests__/x.test.ts', 'apps/platform-api/src');
+  has("const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..', '..');\nconst R = [join(REPO_ROOT, 'apps', 'platform-api', 'src')];",
+    'packages/feature/shared/src/errors/__tests__/x.test.ts', 'apps/platform-api/src');
   has("const root = fileURLToPath(new URL('../../../..', import.meta.url));\nconst SCAN_ROOTS = ['platform', 'menus'];",
-    'packages/adapters/feature-bridge/src/x.test.ts', 'menus');
+    'packages/feature/bridge/src/x.test.ts', 'menus');
   has("const root = new URL('../../../', import.meta.url);\nsource('apps/platform-api/src/modules/a.ts');",
     'menus/log-dev/log-rules/x.test.mjs', 'apps/platform-api/src/modules/a.ts');
-  has("readFileSync(new URL('../../../menus/log-dev/log-models/src/mock/issues.ts', import.meta.url))",
-    'packages/feature-shared/src/x.test.ts', 'menus/log-dev/log-models/src/mock/issues.ts');
+  has("readFileSync(new URL('../../../../menus/log-dev/log-models/src/mock/issues.ts', import.meta.url))",
+    'packages/feature/shared/src/x.test.ts', 'menus/log-dev/log-models/src/mock/issues.ts');
   has("const p = path.resolve(process.cwd(), 'docs/contract/kernel.md');", 'apps/platform-web/src/x.test.ts', 'docs/contract/kernel.md');
   // Not a path: a bare folder word in a file that never anchors the repo root, and a permission string.
   hasNot("const area = 'menus';", 'packages/sdk/shell/src/x.ts', 'menus');
@@ -186,16 +186,16 @@ function selfTest() {
   has("const u = 'http://h/x'; const REPO_ROOT = 1; read('apps/x/y.ts');", 'tooling/eslint/src/x.test.ts', 'apps/x/y.ts');
   hasNot("const REPO_ROOT = '/'; const p = 'platform:view';", 'packages/sdk/shell/src/x.ts', 'platform:view');
   const isDir = (p) => !/\.[a-z]+$/.test(p);
-  const base = { pkgDir: 'packages/feature-shared', isDir };
+  const base = { pkgDir: 'packages/feature/shared', isDir };
   const err = (refs, hashed) => coverageErrors({ ...base, refs, hashed: new Set(hashed) });
-  const ref = (target) => [{ file: 'packages/feature-shared/src/x.test.ts', target }];
-  assert.equal(err(ref('apps/platform-api/src'), ['packages/feature-shared/src/a.ts']).length, 1); count++;
+  const ref = (target) => [{ file: 'packages/feature/shared/src/x.test.ts', target }];
+  assert.equal(err(ref('apps/platform-api/src'), ['packages/feature/shared/src/a.ts']).length, 1); count++;
   assert.equal(err(ref('apps/platform-api/src'), ['apps/platform-api/src/a.ts']).length, 0); count++;
   // A directory that holds the package itself is not covered by the package's own files.
-  assert.equal(err(ref('packages'), ['packages/feature-shared/src/a.ts']).length, 1); count++;
+  assert.equal(err(ref('packages'), ['packages/feature/shared/src/a.ts']).length, 1); count++;
   assert.equal(err(ref('menus/a/b/c.ts'), []).length, 1); count++;
   assert.equal(err(ref('menus/a/b/c.ts'), ['menus/a/b/c.ts']).length, 0); count++;
-  assert.equal(err(ref('packages/feature-shared/src/b.ts'), []).length, 0); count++;
+  assert.equal(err(ref('packages/feature/shared/src/b.ts'), []).length, 0); count++;
   console.log(`turbo cross-reads self-test: ${count} cases passed`);
 }
 
