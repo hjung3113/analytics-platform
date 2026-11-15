@@ -202,10 +202,19 @@ describe('MEN-8 dataset menu assertions', () => {
     expect(after.value).toBe('경계 값');
   });
   it('failure remains distinct from an empty list', async () => {
-    mount(); await screen.findByRole('table', { name: '테스트 데이터셋 목록' }); fail = true;
-    fireEvent.change(screen.getByRole('searchbox', { name: '데이터셋 검색' }), { target: { value: '경계' } });
+    mount(); const table = await screen.findByRole('table', { name: '테스트 데이터셋 목록' }); fail = true;
+    const field = screen.getByRole('searchbox', { name: '데이터셋 검색' }) as HTMLInputElement;
+    field.focus(); fireEvent.change(field, { target: { value: '경계' } });
     expect(await screen.findByText('데이터를 불러오지 못했습니다.')).toBeTruthy();
     expect(screen.queryByText('등록된 테스트 데이터셋이 없습니다.')).toBeNull();
+    expect(screen.getByRole('searchbox', { name: '데이터셋 검색' })).toBe(field);
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('경계');
+    expect(within(table).queryAllByRole('cell')).toHaveLength(0);
+    fail = false;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await waitFor(() => expect(screen.queryByText('데이터를 불러오지 못했습니다.')).toBeNull());
+    expect(screen.getByRole('searchbox', { name: '데이터셋 검색' })).toBe(field);
   });
 });
 
