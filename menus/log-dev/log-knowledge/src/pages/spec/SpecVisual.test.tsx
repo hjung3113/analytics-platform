@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { type ApiResponse } from '@ap/contracts';
+import { formatInstant, type ApiResponse } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow, type SpecTargetKind } from '../../endpoints';
 import SpecScreen from './SpecScreen';
 import { knowledgeRegistry, mountWith } from '../test-support';
@@ -32,6 +32,20 @@ function mount(search = '', lang: 'ko' | 'en' = 'ko', spec: unknown = basis, row
   return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId }} />, slot: true });
 }
 describe('confirmed A visual content', () => {
+  it.each(['ko', 'en'] as const)('keeps complete revision metadata in semantic inline pairs (%s)', async lang => {
+    const documentLabel = 'Alpha log specification with a long document reference';
+    mount(`&software=${sw}`, lang, { ...basis, revision: { ...basis.revision, sourceDocRef: { docLabel: documentLabel, docVersion: '2.1' }, publishedAt: '2026-11-01T00:00:00Z', publishedBy: 'specification-owner' } });
+    const documentValue = await screen.findByText(documentLabel, { exact: true });
+    const meta = documentValue.closest('dl');
+    expect(meta).not.toBeNull();
+    expect(documentValue.tagName).toBe('DD');
+    expect(meta!.querySelectorAll('dt')).toHaveLength(6);
+    expect(within(meta!).getByText('r4', { exact: true }).tagName).toBe('DD');
+    expect(within(meta!).getByText('2.1', { exact: true }).tagName).toBe('DD');
+    expect(within(meta!).getByText('specification-owner', { exact: true }).tagName).toBe('DD');
+    expect(within(meta!).getByText(formatInstant('2026-11-01T00:00:00Z', lang), { exact: true }).tagName).toBe('DD');
+    expect(within(meta!).getByText(lang === 'ko' ? '모델 명세 그대로' : 'Same as model specification').tagName).toBe('DD');
+  });
   it.each(['ko', 'en'] as const)('names the model, code and vendor even without a published spec (%s)', async lang => {
     mount('', lang, null);
     const context = await screen.findByRole('link', { name: /Alpha 100.*A-100.*Alpha Semicap/ });

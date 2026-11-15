@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Inbox, Loader2, LockKeyhole, ServerCrash } from 'lucide-react';
 import { PlatformLink, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, useUnsavedGuard, type PageProps } from '@ap/kernel';
 import { PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldList, FieldRow, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { isUuid, conceptMappingsEndpoint, conceptSuggestionsEndpoint, modelProfileEndpoint, modelSpecEndpoint, modelSpecRevisionsEndpoint, softwareVersionsEndpoint, specChangesEndpoint, SPEC_PUBLISH_PERMISSION, type SoftwareRow, type SpecChangeRow } from '../../endpoints';
 import { Pager, SpecSelect, useSpecInstant, useSpecWords } from './SpecControls';
 import { ChangeMark, ConnectedChanges, EventDrawer, SpecBody } from './SpecViews';
@@ -154,11 +154,21 @@ export default function SpecScreen({ params }: PageProps) {
   </Tabs>;
   return <PlatformPage title={w('모델 명세', 'Model specification')} crumbs={model ? [{ label: modelLabel, href: linkTo('log-knowledge-model', { params: { modelId } }) }] : []} secondaryActions={<ReturnLink />} primaryAction={enabled && canWrite && history.response?.outcome === 'ok' ? <Button onClick={openDraft}>{w('초안 편집', 'Edit draft')}</Button> : undefined}>
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
-      <PlatformLink href={linkTo('log-knowledge-model', { params: { modelId } })}>{w('모델 프로파일', 'Model profile')}</PlatformLink>
       {!canWrite && <p role="status" className="text-sm text-text-muted">{w('읽기 전용: 작성·발행·개념 검토는 명세 관리 권한을 관리자에게 요청하세요.', 'Read only: ask an administrator for specification management permission to edit, publish or review concepts.')}</p>}
-      <QueryView widgetName={w('SW 버전', 'Software versions')} query={swState}>{() => <SpecSelect label={w('SW 버전', 'Software version')} value={softwareId ?? 'model'} options={[{ value: 'model', label: w('모델 기준', 'Model basis') }, ...software.map(s => ({ value: s.id, label: `${s.releaseOrder}. ${s.versionLabel}` }))]} onChange={value => navigate({ software: value === 'model' ? null : value, drawer: null, change: null })} />}</QueryView>
-      {current && <p className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">r{current.revision.revisionNo} · {current.revision.sourceDocRef.docLabel} · {current.revision.sourceDocRef.docVersion} · {current.revision.publishedAt ? instant(current.revision.publishedAt) : '—'} · {current.revision.publishedBy ?? '—'} {softwareId && <span>{'effective' in current && current.effective ? w('실효 명세', 'Effective specification') : w('모델 명세 그대로', 'Same as model specification')}</span>}{changes.response?.outcome === 'ok' && changes.response.data?.rows.some(c => c.needsRevalidation && !c.retiredAt) && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}</p>}
-      {enabled && <SpecCoverageBadge modelId={modelId} softwareId={softwareId} enabled={enabled} />}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 items-center gap-2 text-sm"><span className="shrink-0 text-text-secondary">{w('SW 버전', 'Software version')}</span><QueryView widgetName={w('SW 버전', 'Software versions')} query={swState}>{() => <SpecSelect hideLabel width="content" label={w('SW 버전', 'Software version')} value={softwareId ?? 'model'} options={[{ value: 'model', label: w('모델 기준', 'Model basis') }, ...software.map(s => ({ value: s.id, label: `${s.releaseOrder}. ${s.versionLabel}` }))]} onChange={value => navigate({ software: value === 'model' ? null : value, drawer: null, change: null })} />}</QueryView></div>
+        {current && <FieldList layout="inline" className="min-w-0">
+          <FieldRow label={w('Revision', 'Revision')}>r{current.revision.revisionNo}</FieldRow>
+          <FieldRow label={w('원본 문서', 'Source document')}>{current.revision.sourceDocRef.docLabel}</FieldRow>
+          <FieldRow label={w('문서 버전', 'Document version')}>{current.revision.sourceDocRef.docVersion}</FieldRow>
+          <FieldRow label={w('발행 시각', 'Released at')}>{current.revision.publishedAt ? instant(current.revision.publishedAt) : '—'}</FieldRow>
+          <FieldRow label={w('발행자', 'Released by')}>{current.revision.publishedBy ?? '—'}</FieldRow>
+          {softwareId && <FieldRow label={w('명세', 'Specification')}>{'effective' in current && current.effective ? w('실효 명세', 'Effective specification') : w('모델 명세 그대로', 'Same as model specification')}</FieldRow>}
+        </FieldList>}
+        {current && changes.response?.outcome === 'ok' && changes.response.data?.rows.some(c => c.needsRevalidation && !c.retiredAt) && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}
+        {enabled && <SpecCoverageBadge modelId={modelId} softwareId={softwareId} enabled={enabled} />}
+        <PlatformLink href={linkTo('log-knowledge-model', { params: { modelId } })}>{w('모델 프로파일', 'Model profile')}</PlatformLink>
+      </div>
       {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : content}
       {enabled && eventOpen && current && <EventDrawer spec={current} modelId={modelId} identity={eventKey} rows={mappingRows} count={conceptReady ? conceptCounts.get(eventKey)?.proposed ?? 0 : boundedCount === 0 ? 0 : null} reload={reloadConcepts} onClose={close} connectedChanges={<QueryView widgetName={w('연결된 변경점', 'Connected changes')} query={eventChanges}>{data => <ConnectedChanges rows={data.rows} spec={current} identity={eventKey} onChange={id => navigate({ tab: 'changes', event: null, review: null, drawer: canWrite ? 'retire' : null, change: id })} />}</QueryView>} />}
       {enabled && drawer === 'draft' && canWrite && <DraftDrawer key={`draft:${discardEpoch}`} modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} />}
