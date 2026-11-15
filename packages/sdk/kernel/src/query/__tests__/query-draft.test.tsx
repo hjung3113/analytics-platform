@@ -640,6 +640,7 @@ it('still runs a live menu whose declared page condition is well formed (#2337)'
   await settleQueries();
   expect(query.status).not.toBe('idle');
   expect(send).toHaveBeenCalled();
+});
 
 it('edits repeated page-condition values in the shared draft and applies them atomically (#2339)', async () => {
   const conditional = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...menu, repeatedPageKeys: ['filter'], pageConditions: { categories: [{ id: 'choices', label: menu.label, kind: { type: 'multi', key: 'filter', options: { static: [] } } }] } }] });
