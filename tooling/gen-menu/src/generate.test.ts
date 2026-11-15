@@ -14,7 +14,7 @@ const INPUTS: MenuInputs = {
   placement: 'menus',
   menuId: 'gen-probe',
   page: 'GenProbe',
-  path: '/gen-probe',
+  path: '/mars/gen-probe',
   pageType: 'overview',
   labelKo: '생성 확인',
   labelEn: 'Gen probe',
@@ -26,7 +26,7 @@ describe('canonical path in generated manifest tests (#1073)', () => {
     { space: 'mars' as const, expectedPath: '/mars/gen-probe' },
     { space: null, expectedPath: '/gen-probe' },
   ])('expects $expectedPath for space $space', ({ space, expectedPath }) => {
-    const source = renderFiles({ ...INPUTS, space }).find(f => f.relPath === 'src/manifest.test.ts')!.content;
+    const source = renderFiles({ ...INPUTS, space, path: space === null ? '/gen-probe' : INPUTS.path }).find(f => f.relPath === 'src/manifest.test.ts')!.content;
     expect(source).toContain(
       "expect(registry.menuById('" + INPUTS.menuId + "').path).toBe('" + expectedPath + "');",
     );

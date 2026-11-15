@@ -6,7 +6,7 @@ import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import {
-  depLine, importLine, menuPackage, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, pageImportedIdentifiers, renderFiles,
+  canonicalPath, depLine, importLine, menuPackage, mockActionImportLine, mockActionSpreadLine, mockImportLine, mockSampleEntryLine, mockSpreadLine, pageImportedIdentifiers, renderFiles,
   spreadLine, styleLine, PAGE_TYPES, type MenuInputs, type PageType,
 } from './templates.ts';
 import { writeAppFile } from './app-write.ts';
@@ -61,7 +61,7 @@ export const kebab = (camel: string): string => camel.replace(/[A-Z]/g, c => `-$
 export const pageName = (menuId: string): string =>
   menuId.split('-').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
 
-/** Route shapes — mirrors packages/sdk/kernel/src/registry/registry.ts createRegistry: split on '/', drop empty
+/** Shape normalization only, matching createRegistry after canonical paths and aliases are expanded: split on '/', drop empty
  * segments (leading/trailing/double slashes), whole-segment params become ':'. Static-vs-param
  * overlaps are allowed by the kernel, so only identical shapes collide. */
 export const pathShape = (path: string): string =>
@@ -95,7 +95,15 @@ function readText(root: string, rel: string): string {
 }
 
 /** A plain string literal for the id/group/path properties of one manifest entry (F6). */
-export type ManifestEntry = { id: string; group: string; path: string };
+export type ManifestEntry = { id: string; group: string; path: string; aliases?: string[] };
+
+/** ADR-0093: explicit legacy paths and aliases remain routes alongside the derived canonical path. */
+export function manifestPaths(entry: ManifestEntry, groups: ReadonlyMap<string, string | null>): string[] {
+  const space = groups.get(entry.group);
+  const paths = [entry.path, ...(entry.aliases ?? [])];
+  paths.push(canonicalPath({ menuId: entry.id, path: entry.path, space: space ?? null }));
+  return [...new Set(paths)];
+}
 
 /**
  * F6/R2: collect id/group/path string literals from the `manifests` array of one index file with
@@ -128,13 +136,18 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
       }
       for (const element of init.elements) {
         if (!ts.isObjectLiteralExpression(element)) unsupportedEntry(rel);
-        const values: { id?: string; group?: string; path?: string } = {};
+        const values: Partial<ManifestEntry> = {};
         for (const prop of element.properties) {
           if (ts.isSpreadAssignment(prop) || ts.isComputedPropertyName(prop.name)) {
             unsupportedEntry(rel);
           }
           if (!ts.isPropertyAssignment(prop)) continue;
           const name = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : undefined;
+          if (name === 'aliases') {
+            if (!ts.isArrayLiteralExpression(prop.initializer) || !prop.initializer.elements.every(ts.isStringLiteral)) unsupportedEntry(rel);
+            values.aliases = prop.initializer.elements.map(value => (value as ts.StringLiteral).text);
+            continue;
+          }
           if (name === undefined || (name !== 'id' && name !== 'group' && name !== 'path')) continue;
           const value = name === 'group'
             ? (ts.isIdentifier(prop.initializer) ? groupConsts.get(prop.initializer.text) : idLiteral(prop.initializer, 'groupId'))
@@ -143,7 +156,7 @@ export function manifestEntries(sourceText: string, rel: string): ManifestEntry[
           values[name] = value;
         }
         if (values.id === undefined || values.group === undefined || values.path === undefined) unsupportedEntry(rel);
-        entries.push({ id: values.id, group: values.group, path: values.path });
+        entries.push({ id: values.id, group: values.group, path: values.path, ...(values.aliases ? { aliases: values.aliases } : {}) });
       }
     }
   }
@@ -616,7 +629,7 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   const labelKo = args.labelKo as string;
   const labelEn = args.labelEn as string;
 
-  const path = args.path ?? `/${folder}`;
+  let path = args.path ?? `/${folder}`;
   if (path === '/') throw new GenMenuError(`invalid --path '/' — home owns that route`);
   if (!PATH_RE.test(path)) {
     throw new GenMenuError(`invalid --path '${path}' — segments are [a-z0-9]+(-[a-z0-9]+)* or :[a-z][a-zA-Z0-9]*; no '?', '#', '\\', whitespace, empty segment`);
@@ -636,11 +649,15 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   // F7: markers must be unique, ordered, and in the right context before planning.
   checkAppMarkers(menusText, stylesText, mainText);
 
-  const groups = groupSpaces(menusText);
+  const spaces = new Set<string>();
+  const groups = groupSpaces(menusText, spaces);
   if (!groups.has(group)) {
     throw new GenMenuError(`unknown group '${group}' — no GROUPS row in ${MENUS_TS}; add it by hand first (the generator does not add sidebar groups)`);
   }
   const space = groups.get(group) as string | null;
+  if (args.path === undefined) path = space === null ? `/${folder}` : `/${space}/${menuId}`;
+  if (path.split('/')[1] === 'board') throw new GenMenuError(`path '${path}' is reserved for the analysis board`);
+  if (space === null && spaces.has(path.split('/')[1])) throw new GenMenuError(`space-less path '${path}' may not use a space's root`);
   const placement: PlacementRoot = space === null || args.platform === true ? 'platform' : 'menus';
   const packageRel = locationPath(placement, space, folder);
   checkInsideRoot(realRoot, join(root, packageRel, '..'), dirname(packageRel));
@@ -662,14 +679,14 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
     if (name === menuPackage(folder)) throw new GenMenuError(`package name '${name}' is already used by ${owner}`);
   }
 
-  const shape = pathShape(path);
+  const shapes = new Set(manifestPaths({ id: menuId, group, path }, groups).map(pathShape));
   for (const { folder: owner, entries } of manifests) {
     for (const entry of entries) {
       if (entry.id === menuId) {
         throw new GenMenuError(`menu id '${menuId}' is already used by ${owner}`);
       }
-      if (pathShape(entry.path) === shape) {
-        throw new GenMenuError(`path shape '${shape}' collides with ${owner} (menu '${entry.id}')`);
+      if (manifestPaths(entry, groups).some(existing => shapes.has(pathShape(existing)))) {
+        throw new GenMenuError(`path shape '${pathShape(path)}' collides with ${owner} (menu '${entry.id}')`);
       }
     }
   }

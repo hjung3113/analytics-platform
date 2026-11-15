@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useMessages, usePlatform, usePlatformQuery, type QueryState } from '@ap/kernel';
-import type { PlatformAdapter } from '@ap/contracts';
+import type { AnnotationQuery, PlatformAdapter } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { Selection } from './useChartRange';
 
@@ -11,17 +11,17 @@ type AnnotationIo = {
   adapter: Pick<PlatformAdapter, 'saveAnnotation' | 'deleteAnnotation'> | null;
   toast: (text: string) => void;
 };
-type EditorArgs = { chartId: string; scopeId: string | null; canAnnotate: boolean };
+type EditorArgs = { chartId: string; scopeId: string | null; canAnnotate: boolean; axisKind?: AnnotationQuery['axisKind']; from?: string | null; to?: string | null };
 
 /**
  * The annotation editor: the persisted notes (server-owned, keyed by chartId + Scope), the draft text, save, and the
  * inline delete confirm. `closeEditor` only ends the draft; `cancelDelete` is the Context change's cancellation of
  * every local delete state and in-flight call, and the Reset button must not use it.
  */
-export function useAnnotationEditor({ chartId, scopeId, canAnnotate }: EditorArgs) {
+export function useAnnotationEditor({ chartId, scopeId, canAnnotate, axisKind, from, to }: EditorArgs) {
   const { adapter, toast } = usePlatform();
   // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
-  const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId }, signal), [chartId, scopeId], canAnnotate && scopeId !== null, 'session');
+  const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId, axisKind, from, to }, signal), [chartId, scopeId, axisKind, from, to], canAnnotate && scopeId !== null, 'session');
   return useEditorState({ chartId, scopeId, canAnnotate }, { query, adapter, toast });
 }
 

@@ -331,7 +331,7 @@ function menuSlug(id: string): string {
 }
 
 /** Mirrors createRegistry's canonical path rule in packages/sdk/kernel/src/registry/registry.ts. */
-function registryPath(i: MenuInputs): string {
+export function canonicalPath(i: Pick<MenuInputs, 'space' | 'path' | 'menuId'>): string {
   if (i.space === null) return i.path;
   const params = i.path.split('/').filter(segment => segment.startsWith(':'));
   return '/' + [i.space, menuSlug(i.menuId), ...params].join('/');
@@ -340,7 +340,7 @@ function registryPath(i: MenuInputs): string {
 function manifestTest(i: MenuInputs): string {
   // The group's real space from GROUPS (#548): null is a global utility with no space to declare.
   const space = i.space === null ? 'null' : `spaceId('${i.space}')`;
-  const expectedPath = registryPath(i);
+  const expectedPath = canonicalPath(i);
   const spaces = i.space === null
     ? '[]'
     : `[{ id: spaceId('${i.space}'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }]`;

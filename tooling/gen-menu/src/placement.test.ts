@@ -109,7 +109,7 @@ describe('placement roots', () => {
   it.each([
     ['group ownership', `{ id: 'other-x', group: '${FIXTURE_GROUP}', path: '/other' }`, undefined, /already owned by platform\/other/],
     ['menu id', `{ id: 'gen-probe', group: 'metrics', path: '/other' }`, undefined, /menu id 'gen-probe' is already used by platform\/other/],
-    ['path shape', `{ id: 'other-x', group: 'metrics', path: '/gen-probe' }`, undefined, /path shape '\/gen-probe' collides with platform\/other/],
+    ['path shape', `{ id: 'other-x', group: 'metrics', path: '/mars/gen-probe' }`, undefined, /path shape '\/mars\/gen-probe' collides with platform\/other/],
     ['package name', `{ id: 'other-x', group: 'metrics', path: '/other' }`, `${PACKAGE_PREFIX}menu-gen-probe`, /package name '.*menu-gen-probe' is already used by platform\/other/],
   ])('refuses a duplicate %s held by a platform package when generating into menus/', async (_label, manifest, name, error) => {
     const root = fresh();

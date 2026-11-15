@@ -98,3 +98,12 @@ export function beforeAfterPeriods(at: string, windows: { before: PeriodLength; 
     after: to > at ? { from: at, to } : null,
   };
 }
+
+/** Ordered range overlap against half-open query bounds `[queryFrom, queryTo)`; null query bounds are open. A range
+ *  overlaps when it ends after the query start and starts before the query end; a point (`from === to`) overlaps when
+ *  it lies inside the query, so a point at the query start is in and one at the query end is out. */
+export function overlapsHalfOpen(from: number, to: number, queryFrom: number | null, queryTo: number | null): boolean {
+  if (from > to) return false;
+  const afterStart = queryFrom === null || (from === to ? from >= queryFrom : to > queryFrom);
+  return afterStart && (queryTo === null || from < queryTo);
+}

@@ -150,6 +150,7 @@ export const COMPONENTS_MESSAGES = {
   chartAnnotationLabel: { ko: '주석 내용', en: 'Annotation text' },
   chartAnnotationPlaceholder: { ko: '예: PM 작업으로 인한 대기 증가', en: 'e.g. queue spike due to PM' },
   chartSave: { ko: '저장', en: 'Save' },
+  chartAnnotationsOmitted: { ko: '현재 축이나 기간에 맞지 않는 주석 {count}개는 차트에서 제외했습니다.', en: '{count} annotations were left out of the chart because they do not match the current axis or period.' },
   chartAnnotationsLoadError: { ko: '주석을 불러오지 못했습니다. 차트는 그대로 유지됩니다.', en: 'Could not load annotations. The chart is unaffected.' },
   chartAnnotationDeleteConfirmGroup: { ko: '삭제 확인: {text}', en: 'Confirm delete: {text}' },
   chartAnnotationDeletePrompt: { ko: '이 주석을 삭제할까요?', en: 'Delete this note?' },

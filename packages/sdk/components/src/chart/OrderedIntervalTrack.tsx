@@ -37,6 +37,10 @@ import {
 
 /** Consumer-declared order intervals. No pairing, timestamp sorting or domain interpretation. */
 export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
+  return <OrderedIntervalTrackSource key={props.sourceKey} {...props} />;
+}
+
+function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const section = useContext(AnalysisSectionContext);
@@ -109,13 +113,16 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
   useEffect(() => {
     if (kind !== 'error') setRecovered(null);
   }, [kind]);
+  const rangeLoader = useRef(props.onRangeRequest);
+  useEffect(() => { rangeLoader.current = props.onRangeRequest; }, [props.onRangeRequest]);
+  const hasRangeLoader = !!props.onRangeRequest;
   useEffect(() => {
-    if (restricted || (kind === 'error' && !recoveringError) || !props.onRangeRequest) {
+    if (restricted || (kind === 'error' && !recoveringError) || !hasRangeLoader) {
       setRequest('ready');
       return;
     }
     const controller = new AbortController();
-    const loader = props.onRangeRequest;
+    const loader = rangeLoader.current!;
     setRequest('loading');
     reportLoad('loading');
     async function load() {
@@ -136,7 +143,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
     }
     void load();
     return () => controller.abort();
-  }, [restricted, kind, recoveringError, props.onRangeRequest, view, round, reportLoad]);
+  }, [restricted, kind, recoveringError, hasRangeLoader, view, round, reportLoad]);
   useEffect(() => {
     const element = tooltip.current;
     if (!element || !hover) return;

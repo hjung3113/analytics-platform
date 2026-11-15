@@ -136,6 +136,8 @@ export type ClientErrorReport = {
 export type ChartAnnotation = { id: string; chartId: string; scopeId: string; from: string; to: string; text: string; at: string; mine: boolean };
 /** Which chart's notes at which site. A null scope is not a request the server answers (forbidden), never "all sites". */
 export type AnnotationRef = { chartId: string; scopeId: string | null };
+/** Optional read metadata. Missing metadata preserves the adapter's legacy read behavior. */
+export type AnnotationQuery = AnnotationRef & { axisKind?: 'time' | 'category'; from?: string | null; to?: string | null };
 export type AnnotationInput = AnnotationRef & { from: string; to: string; text: string };
 /** from inclusive, to exclusive. */
 export type UsageRange = { preset: 'all' } | { from: number; to: number };
@@ -330,7 +332,7 @@ export type PlatformAdapter = {
    * both server-checked. Only rows written under `ref.scopeId` come back. Not mart data: trust stays null,
    * assessments stay empty. A zero is a meaningful answer (outcome 'empty').
    */
-  listAnnotations(ref: AnnotationRef, signal?: AbortSignal): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>>;
+  listAnnotations(ref: AnnotationQuery, signal?: AbortSignal): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>>;
   /**
    * Saves one note. The server stamps the session user and `at`, checks the same gates as `listAnnotations`,
    * and answers the stored row. A user/at/id in the input is an unknown key and rejects the call.

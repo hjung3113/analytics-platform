@@ -5,7 +5,7 @@ import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
-import { canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
+import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -236,7 +236,7 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform: MenuPlatform }) {
   const { setGlobal, toast, global, route, url } = platform;
   const features = route?.menu.features;
-  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate: !!features?.annotate });
+  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate: !!features?.annotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
   const host: FrameHost = {
     inPlatform: true, global, contextKey: JSON.stringify(global), url, status: '', notify: toast,
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
@@ -493,9 +493,20 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   }, [contextKey, xType, categories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor]);
   // Label geometry, cached by what it depends on: the spans and rows change with the notes only, the data extent with the series,
   // so zoom, resize, editor typing and busy state redo none of it. Nothing runs while there are no notes.
-  const noteSpans = useMemo(() => annotations.map(a => (xType === 'time'
-    ? { from: toMs(a.from), to: toMs(a.to) }
-    : { from: categories.indexOf(a.from), to: categories.indexOf(a.to) })), [annotations, xType, categories]);
+  const resolvedNotes = useMemo(() => annotations.flatMap(annotation => {
+    const from = xType === 'time' ? wallClockEpochMs(annotation.from) : categories.indexOf(annotation.from);
+    const to = xType === 'time' ? wallClockEpochMs(annotation.to) : categories.indexOf(annotation.to);
+    if (from === null || to === null) return [];
+    if (xType === 'category') {
+      if (from < 0 || to < 0) return [];
+      return [{ annotation, span: { from: Math.min(from, to), to: Math.max(from, to) } }];
+    }
+    if (!overlapsHalfOpen(from, to, global.from === null ? null : wallClockEpochMs(global.from), global.to === null ? null : wallClockEpochMs(global.to))) return [];
+    return [{ annotation, span: { from, to } }];
+  }), [annotations, xType, categories, global.from, global.to]);
+  const drawnAnnotations = useMemo(() => resolvedNotes.map(row => row.annotation), [resolvedNotes]);
+  const noteSpans = useMemo(() => resolvedNotes.map(row => row.span), [resolvedNotes]);
+  const omittedAnnotations = annotations.length - drawnAnnotations.length;
   const noteLevels = useMemo(() => (noteSpans.length ? assignNoteLevels(noteSpans) : []), [noteSpans]);
   const timeExtent = useMemo(() => {
     if (xType !== 'time' || annotations.length === 0) return 0;
@@ -555,10 +566,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
+      emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
       palette: resolveChartPalette(displayed),
     });
-  }, [p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
+  }, [p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -901,8 +912,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         {m('chartAnnotationsLoadError')}
         <Button size="toolbar" variant="ghost" onClick={editor.refetch}>{t('retry')}</Button>
       </p>}
+      {omittedAnnotations > 0 && <p className="mt-2 text-tiny text-text-secondary">{m('chartAnnotationsOmitted', { count: omittedAnnotations })}</p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
-        {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' ? `${fmt(a.from)}–${fmt(a.to)}` : `${a.from}–${a.to}`}: {a.text}
+        {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' && wallClockEpochMs(a.from) !== null && wallClockEpochMs(a.to) !== null ? `${a.from.replace('T', ' ').slice(0, 16)}–${a.to.replace('T', ' ').slice(0, 16)}` : `${a.from}–${a.to}`}: {a.text}
           {a.mine && (editor.pendingDelete === a.id
             ? <div role="group" aria-label={m('chartAnnotationDeleteConfirmGroup', { text: a.text })} className="ml-2 inline-flex items-center gap-1" onFocus={() => { editor.focusOnConfirm.current = true; }} onBlur={e => {
               if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;

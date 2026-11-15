@@ -7,7 +7,7 @@
  */
 import { checkScope, getRole, getScenario, nextCorrelation, defaultDelay, sleep } from '../server';
 import { activeWorld, type RoleId } from '../world';
-import { menuPermission, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type Permission } from '@ap/contracts';
+import { overlapsHalfOpen, wallClockEpochMs, menuPermission, type AnnotationQuery, type AnnotationInput, type AnnotationRef, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type Permission } from '@ap/contracts';
 
 export type AnnotationOptions = { role?: RoleId; latency?: number };
 /** `mine` is computed per response from the requesting role and never stored. */
@@ -77,10 +77,27 @@ async function gate(ref: AnnotationRef, signal: AbortSignal | undefined, opts: A
   return { requestRole, scenario, base };
 }
 
-export async function listAnnotations(ref: AnnotationRef, signal?: AbortSignal, opts?: AnnotationOptions, permissions: readonly Permission[] = DEFAULT_ANNOTATION_PERMISSIONS): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>> {
-  const g = await gate(ref, signal, opts, invalidRef(ref), permissions);
+function isTimeLabel(value: string): boolean {
+  return wallClockEpochMs(value) !== null;
+}
+function matchesQuery(row: StoredAnnotation, query: AnnotationQuery): boolean {
+  // Stored rows have no axis discriminator; any string can be a category label.
+  if (!query.axisKind || query.axisKind === 'category') return true;
+  const from = wallClockEpochMs(row.from); const to = wallClockEpochMs(row.to);
+  return from !== null && to !== null && overlapsHalfOpen(from, to, query.from == null ? null : wallClockEpochMs(query.from), query.to == null ? null : wallClockEpochMs(query.to));
+}
+function invalidQuery(query: AnnotationQuery): boolean {
+  if (invalidRef(query, [...REF_KEYS, 'axisKind', 'from', 'to'])) return true;
+  if (query.axisKind === undefined) return query.from !== undefined || query.to !== undefined;
+  if (query.axisKind !== 'time' && query.axisKind !== 'category') return true;
+  if (query.axisKind === 'category') return query.from != null || query.to != null;
+  return (query.from != null && !isTimeLabel(query.from)) || (query.to != null && !isTimeLabel(query.to)) || (query.from != null && query.to != null && query.from >= query.to);
+}
+
+export async function listAnnotations(ref: AnnotationQuery, signal?: AbortSignal, opts?: AnnotationOptions, permissions: readonly Permission[] = DEFAULT_ANNOTATION_PERMISSIONS): Promise<ApiResponse<{ items: readonly ChartAnnotation[] }>> {
+  const g = await gate(ref, signal, opts, invalidQuery(ref), permissions);
   if (g.fail) return g.fail;
-  const items = g.scenario === 'empty' ? [] : rows.filter(r => r.scopeId === ref.scopeId && r.chartId === ref.chartId).map(r => toWire(r, g.requestRole));
+  const items = g.scenario === 'empty' ? [] : rows.filter(r => r.scopeId === ref.scopeId && r.chartId === ref.chartId && matchesQuery(r, ref)).map(r => toWire(r, g.requestRole));
   if (items.length === 0) return { ...g.base, outcome: 'empty' };
   return { ...g.base, outcome: 'ok', data: { items } };
 }

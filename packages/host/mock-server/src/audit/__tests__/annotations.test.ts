@@ -227,3 +227,34 @@ describe('assembly-injected annotation permissions (#1863)', () => {
     expect((await b.listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM' })).data?.items).toHaveLength(1);
   });
 });
+
+it('filters annotation reads by optional axis and period, preserving legacy reads', async () => {
+  setRole('engineer');
+  await saveAnnotation(input(), undefined, fast);
+  await saveAnnotation(input({ from: 'Category A', to: 'Category B', text: 'Category note' }), undefined, fast);
+  await saveAnnotation(input({ from: '2026-08-01T00:00:00', to: '2026-08-02T00:00:00', text: 'Outside note' }), undefined, fast);
+  const ref = { chartId: 'cycle-time', scopeId: 'MEM' };
+  expect((await listAnnotations(ref, undefined, fast)).data?.items).toHaveLength(3);
+  const time = { ...ref, axisKind: 'time' as const, from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' };
+  expect((await listAnnotations(time, undefined, fast)).data?.items.map(r => r.text)).toEqual(['PM 작업']);
+  expect((await listAnnotations({ ...ref, axisKind: 'category' } as never, undefined, fast)).data?.items.map(r => r.text)).toEqual(['PM 작업', 'Category note', 'Outside note']);
+});
+
+it('retains timestamp-shaped category labels after save/read with author deletion', async () => {
+  setRole('engineer');
+  const saved = await saveAnnotation(input({ from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' }), undefined, fast);
+  const ref = { chartId: 'cycle-time', scopeId: 'MEM', axisKind: 'category' as const };
+  const read = await listAnnotations(ref, undefined, fast);
+  expect(read.data?.items).toEqual([expect.objectContaining({ id: saved.data?.id, mine: true })]);
+  expect((await deleteAnnotation({ chartId: ref.chartId, scopeId: ref.scopeId, id: saved.data!.id }, undefined, fast)).outcome).toBe('ok');
+});
+it.each([
+  ['2026-08-31T00:00:00', '2026-09-01T00:00:00', false],
+  ['2026-09-03T00:00:00', '2026-09-04T00:00:00', false],
+  ['2026-08-31T00:00:00', '2026-09-02T00:00:00', true],
+])('uses half-open annotation overlap %s–%s', async (from, to, included) => {
+  setRole('engineer');
+  await saveAnnotation(input({ from, to }), undefined, fast);
+  const read = await listAnnotations({ chartId: 'cycle-time', scopeId: 'MEM', axisKind: 'time', from: '2026-09-01T00:00:00', to: '2026-09-03T00:00:00' }, undefined, fast);
+  expect(read.data?.items.length ?? 0).toBe(included ? 1 : 0);
+});

@@ -194,8 +194,8 @@ export default function ProductivityOverview(_: PageProps) {
       kind: meta.kind,
       // Previous-period series mirror their current counterpart; the Chart Frame derives the previous pattern (06 §16, ADR-0014).
       dashed: meta.dashed?.[i] ?? false,
-      // Compare is x-aligned by bucket index onto the current period's axis.
-      points: data.current.map((c, idx) => [c.start, source[idx] ? trendValue(source[idx], i) : null] as [string, number | null]),
+      // Each period keeps its own bucket starts for the plot, table and CSV.
+      points: source.map(bucket => [bucket.start, trendValue(bucket, i)] as [string, number | null]),
     }));
     return {
       series: build(data.current, false),

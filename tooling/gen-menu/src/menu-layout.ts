@@ -13,7 +13,7 @@ export function idLiteral(expr: ts.Expression, constructor: 'groupId' | 'spaceId
 }
 
 /** Read only exported literal arrays. GROUPS rows must be single lines before their marker. */
-export function groupSpaces(text: string): Map<string, string | null> {
+export function groupSpaces(text: string, declaredSpaces?: Set<string>): Map<string, string | null> {
   const sf = ts.createSourceFile('menus.ts', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   // `[...] satisfies readonly SpaceDef[]` and `[...] as const` still hold a literal array.
   const unwrap = (expr: ts.Expression): ts.Expression => (ts.isSatisfiesExpression(expr) || ts.isAsExpression(expr) ? unwrap(expr.expression) : expr);
@@ -47,6 +47,7 @@ export function groupSpaces(text: string): Map<string, string | null> {
     const spaceName = idLiteral(id, 'spaceId');
     if (spaceName === undefined || !SPACE_ID.test(spaceName) || spaces.has(spaceName)) throw new Error('SPACES has an invalid or duplicate id');
     spaces.add(spaceName);
+    declaredSpaces?.add(spaceName);
   }
   const groups = array('GROUPS');
   if (groups.getStart(sf) >= marker || groups.end <= marker) throw new Error('GROUPS marker must be inside GROUPS');
