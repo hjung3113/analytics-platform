@@ -7,11 +7,11 @@ import viteConfig from '../../../vite.config.ts';
 
 // A bare `echarts/<x>` import that the dev server's dependency scan has not seen makes Vite re-optimize and reload the page when the lazy chunk first loads (#580 DIAG1).
 const PACKAGES = fileURLToPath(new URL('../../../../../packages', import.meta.url));
-// Platform packages sit one folder deeper (packages/sdk/*, packages/adapters/*); the feature packages stay at packages/feature-*.
+// Platform packages sit one folder deeper (packages/sdk/*, packages/host/*, packages/adapters/*); the feature packages stay at packages/feature-*.
 function packageDirs(): string[] {
   return readdirSync(PACKAGES, { withFileTypes: true })
     .filter(entry => entry.isDirectory())
-    .flatMap(entry => (entry.name === 'sdk' || entry.name === 'adapters' ? readdirSync(join(PACKAGES, entry.name)).map(name => join(PACKAGES, entry.name, name)) : [join(PACKAGES, entry.name)]));
+    .flatMap(entry => (entry.name === 'sdk' || entry.name === 'host' || entry.name === 'adapters' ? readdirSync(join(PACKAGES, entry.name)).map(name => join(PACKAGES, entry.name, name)) : [join(PACKAGES, entry.name)]));
 }
 const SPECIFIER = /\bfrom\s+['"](echarts\/[\w/]+)['"]/g;
 

@@ -1327,10 +1327,33 @@ describe('release-unit folder presets', () => {
   const sdkPresets = ['contracts', 'contractSchemas', 'ui', 'kernel', 'components', 'shell'];
   const hostPresets = ['appHost', 'mockServer', 'httpAdapter', 'serverConformance'];
 
-  async function exportedPreset(dir: string): Promise<string> {
-    const config = await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8');
-    return config.match(/export default (\w+);?/)?.[1] ?? '';
+  function exportedPreset(config: string): string {
+    const reexport = config.match(/export\s*\{\s*(\w+)\s+as\s+default\s*\}\s*from\s*['"]@ap\/eslint-config['"]/);
+    if (reexport) return reexport[1]!;
+    const exported = config.match(/export\s+default\s+(?:\[\s*\.\.\.)?(\w+)/)?.[1];
+    const imports = config.match(/import\s*\{([^}]+)\}\s*from\s*['"]@ap\/eslint-config['"]/)?.[1];
+    return exported && imports?.split(',').some(name => name.trim() === exported) ? exported : '';
   }
+
+  it.each([
+    ["export { ui as default } from '@ap/eslint-config';", 'ui'],
+    ["import { appHost } from '@ap/eslint-config'; export default [...appHost];", 'appHost'],
+    ["import { hostModuleDir, shell } from '@ap/eslint-config'; export default [...shell, ...hostModuleDir('src/fixture')];", 'shell'],
+    ["import { menu } from '@ap/eslint-config'; export default menu;", 'menu'],
+    ["const ui = []; export default ui;", ''],
+  ])('reads the exported preset from %s', (config, expected) => {
+    expect(exportedPreset(config)).toBe(expected);
+  });
+
+  it.each([
+    ['sdk', sdkPresets, 'menu'],
+    ['sdk', sdkPresets, 'mockServer'],
+    ['host', hostPresets, 'featureBridgePreset'],
+    ['host', hostPresets, 'contracts'],
+  ] as const)('rejects %s folder using %s / %s', (_folder, presets, preset) => {
+    const config = `export { ${preset} as default } from '@ap/eslint-config';`;
+    expect(presets).not.toContain(exportedPreset(config));
+  });
 
   it.each([
     ['sdk', sdkPresets],
@@ -1340,7 +1363,7 @@ describe('release-unit folder presets', () => {
     for await (const manifest of glob(`packages/${folder}/*/package.json`, { cwd: REPO_ROOT })) {
       manifests.push(manifest);
       const dir = path.dirname(manifest);
-      expect(presets, dir).toContain(await exportedPreset(dir));
+      expect(presets, dir).toContain(exportedPreset(await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8')));
     }
     expect(manifests.length).toBeGreaterThan(0);
   });

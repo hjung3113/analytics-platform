@@ -112,7 +112,7 @@ function createCompilerProgram(ts, declarationPaths, baseUrl, paths) {
 
 // The SDK package that owns a built declaration file, or undefined for third-party and lib files.
 function ownerPackage(fileName) {
-  const match = fileName.replace(/\\/g, '/').match(/\/packages\/(?:sdk\/([^/]+)|(app-host))\/dist\//);
+  const match = fileName.replace(/\\/g, '/').match(/\/packages\/(?:sdk\/([^/]+)|host\/(app-host))\/dist\//);
   return match ? match[1] ?? match[2] : undefined;
 }
 
