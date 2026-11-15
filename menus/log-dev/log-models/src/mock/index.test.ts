@@ -110,3 +110,24 @@ describe('minor mock parity (#2056)', () => {
     expect(read('requests', { to: all.rows[0]!.createdAt })).toMatchObject({ rows: all.rows.filter(r => Date.parse(r.createdAt) < Date.parse(all.rows[0]!.createdAt)) });
   });
 });
+
+describe('synthetic attempt diagnostics (#1815 B2)', () => {
+  it('preserves shape and locations after erasure and hides titles for a Source-denied reader', () => {
+    const list = read('diagnostics', { attemptId: ATTEMPT_ID }) as { rows: { producer: string; itemKey: string; bodyState: string; title: string | null }[] };
+    expect(list.rows).toHaveLength(4);
+    for (const row of list.rows.filter(r => r.bodyState !== 'live')) {
+      expect(row.title).toBeNull();
+      expect(read('diagnosticItem', { attemptId: ATTEMPT_ID, producer: row.producer, itemKey: row.itemKey })).toMatchObject({ item: { title: null, explanation: null, evidenceRefs: [{ line: 184 }], tables: [{ totalRows: 3, rows: [] }] } });
+    }
+    expect(readAs('viewer', 'diagnostics', { attemptId: ATTEMPT_ID })).toMatchObject({ access: 'no_permission', rows: list.rows.map(r => ({ producer: r.producer, itemKey: r.itemKey, title: null })) });
+    expect(readAs('viewer', 'diagnosticItem', { attemptId: ATTEMPT_ID, producer: 'synthetic-validator', itemKey: 'synthetic-timing' })).toBeNull();
+  });
+  it('filters by ruleResultId, supplies 16 columns and never substitutes an unknown item', () => {
+    expect(read('diagnostics', { attemptId: ATTEMPT_ID, ruleResultId: fixtureId(501) })).toMatchObject({ total: 1, rows: [{ itemKey: 'synthetic-timing' }] });
+    expect(read('diagnostics', { attemptId: ATTEMPT_ID, ruleResultId: fixtureId(999) })).toMatchObject({ total: 0, rows: [] });
+    const detail = read('diagnosticItem', { attemptId: ATTEMPT_ID, producer: 'synthetic-validator', itemKey: 'synthetic-long' }) as { item: { tables: { columns: unknown[] }[] } };
+    expect(detail.item.tables[0]!.columns).toHaveLength(16);
+    expect(read('diagnosticItem', { attemptId: ATTEMPT_ID, producer: 'synthetic-validator', itemKey: 'unknown' })).toBeNull();
+    expect(read('diagnostics', { attemptId: fixtureId(999) })).toBeNull();
+  });
+});

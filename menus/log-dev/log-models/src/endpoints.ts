@@ -8,6 +8,13 @@ export const GATE_DECIDE = menuPermission('lifecycle:gate-decide');
 export const ISSUE_CONTRIBUTE = menuPermission('lifecycle:issue-contribute');
 export const ISSUE_LINK = menuPermission('lifecycle:issue-link');
 export const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+/** API producer/item grammars; the item key itself may contain colons. */
+export const isDiagnosticProducer = (value: string) => /^[a-z0-9][a-z0-9._-]{0,63}$/.test(value);
+export const isDiagnosticItemKey = (value: string) => /^[A-Za-z0-9._:-]{1,200}$/.test(value);
+export function isDiagnosticSelection(value: string) {
+  const separator = value.indexOf(':');
+  return separator > 0 && isDiagnosticProducer(value.slice(0, separator)) && isDiagnosticItemKey(value.slice(separator + 1));
+}
 type Params = Record<string, unknown>;
 const keys = (names: string[]) => Object.fromEntries(names.map(n => [n, true as const]));
 const reads = {

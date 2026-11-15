@@ -45,6 +45,12 @@ export type IssueOccurrence = { id: string; roundId: string; attemptId: string |
 export type ValidationIssueDetail = { id: string; projectId: string; firstRoundId: string; title: string; body: string; expected: string | null; actual: string | null; repro: string | null; reporterActorId: string; createdAt: string; occurrences: CursorPage<IssueOccurrence> };
 export type DiscussionComment = { id: string; authorActorId: string; body: string; correctsCommentId: string | null; createdAt: string };
 export type IssueHistoryEvent = { id: string; kind: 'field_corrected'; field: string; body: string; correctsEventId: string | null; actorId: string; createdAt: string };
+export type DiagnosticBodyState = 'live' | 'erased_retention' | 'erased_admin';
+export type DiagnosticIdentity = { producer: string; itemKey: string; origin: 'rule' | 'analysis'; ruleResultId: string | null; bodyState: DiagnosticBodyState };
+export type DiagnosticListRow = DiagnosticIdentity & { title: string | null; evidenceCount: number; tableCount: number; rowCounts: number[] };
+export type DiagnosticList = { access: 'granted' | 'no_permission'; documents: { producer: string; producerVersion: string; schemaVersion: 1; itemCount: number; createdAt: string }[]; rows: DiagnosticListRow[]; total: number };
+export type DiagnosticTable = { tableKey: string; title: string | null; columns: { key: string; label: string | null; type: 'string' | 'number' | 'boolean' }[]; totalRows: number; rowOffset: number; rows: Record<string, string | number | boolean | null>[] };
+export type DiagnosticItem = DiagnosticIdentity & { title: string | null; explanation: string | null; evidenceRefs: OpinionEvidence[]; tables: DiagnosticTable[] };
 export type QueueStatus = { runWindow: { timezone: string; weekday: { fromHour: number; toHour: number }; weekendAllDay: boolean }; immediateLimit: number; serverAt: string; withinWindow: boolean };
 export type Params = Record<string, unknown>;
 export type ReadState<T> = { completedAt?: number | null; status: 'loading' | 'done' | 'error'; data: T | null; denied?: boolean; retry(): void };
@@ -52,8 +58,8 @@ export type WriteResult = { outcome: string; data: Record<string, unknown> | nul
 export type Action = { pending: boolean; run(input: Params, options?: { expectedVersion?: string }): Promise<WriteResult> };
 /** Host supplies Kernel query/action hooks, so native menu dispatch owns session, idempotency and invalidation. */
 export type LifecycleApi = { useRead<T>(name: string, params: Params, enabled?: boolean): ReadState<T>; useAction(name: string): Action };
-export type Column<T> = { id: string; header: string; size?: number; cell: (row: T) => ReactNode; sortable: false; exportValue?: (row: T) => string | number | boolean | null };
-export type TableParts<T extends { id: string }> = { title: string; rows: T[]; columns: Column<T>[]; rowAction?: (row: T) => ReactNode; activeRowId?: string | undefined; pagination?: ReactNode; summary?: ReactNode; preferenceKey: string; fill?: boolean };
+export type Column<T> = { id: string; header: string; size?: number; align?: 'right'; cell: (row: T) => ReactNode; sortable: false; exportValue?: (row: T) => string | number | boolean | null };
+export type TableParts<T extends { id: string }> = { title: string; hideTitle?: boolean; rows: T[]; columns: Column<T>[]; rowAction?: (row: T) => ReactNode; activeRowId?: string | undefined; pagination?: ReactNode; summary?: ReactNode; preferenceKey: string; fill?: boolean };
 export type DrawerParts = { title: ReactNode; subtitle?: ReactNode; body: ReactNode; requestClose(): void; returnFocusRef?: RefObject<HTMLElement | null> };
 export type Presentation = { table<T extends { id: string }>(parts: TableParts<T>): ReactNode; drawer(parts: DrawerParts): ReactNode; timeline(events: ProjectEvent[], projectId: string): ReactNode; trust(reasons: string[], completedAt?: number | null): ReactNode; /** The Round «원본/시퀀스» tab body; the app injects it (#1475). Absent → the Round detail has no such tab. */ sourceView?(parts: { roundId: string; sampleSet: RoundDetail['sampleSet'] }): ReactNode };
 export type ScreenProps = { RuleSetLink?(p: { ruleSetKey: string; children: ReactNode }): ReactNode; state?: Record<string, string>; setState?(patch: Record<string, string | undefined>): void; api: LifecycleApi; ui: Presentation; canProject: boolean; canRound: boolean; canGate?: boolean; /** `lifecycle:issue-contribute`: register and comment (#1808). */ canContribute?: boolean; /** `lifecycle:issue-link`: link a rule result and its evidence to an issue. */ canLink?: boolean; actorId: string; selection?: string; setSelection(id: string | undefined): void };

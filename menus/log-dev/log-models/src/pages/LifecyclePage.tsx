@@ -4,14 +4,15 @@ import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, use
 import { defineEndpoint, type AuditEvent, type EndpointSpec, isAnswered } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
-import { actions, endpoints, isUuid, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
+import { actions, endpoints, isUuid, isDiagnosticSelection, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
+import { lifecycleMessages } from '../messages';
 
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
 const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
 
 /** Source excerpts/evidence states and human validation records (#1808 N3: issue bodies, threads, history, Round discussion, titles). */
-const PROTECTED_READS = new Set(['excerpt', 'evidenceStates', 'validationIssues', 'validationIssueDetail', 'validationIssueThread', 'validationIssueHistory', 'roundDiscussion']);
+const PROTECTED_READS = new Set(['excerpt', 'evidenceStates', 'diagnostics', 'diagnosticItem', 'validationIssues', 'validationIssueDetail', 'validationIssueThread', 'validationIssueHistory', 'roundDiscussion']);
 function useRead<T>(name: string, params: Params, enabled = true): ReadState<T> {
   const { pageParam, route } = usePlatform();
   const listRead = name === 'models' && route?.menu.id === 'log-models';
@@ -42,8 +43,8 @@ function useAction(name: string): Action {
   return useMenuAction(spec);
 }
 const api: LifecycleApi = { useRead, useAction };
-function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey }: TableParts<T>) {
-  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true }: TableParts<T>) {
+  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
 }
 const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };
 const fieldLabels: Record<string, string> = { stage: '단계', ownerActorId: '담당 ID', targetDate: '목표일', softwareId: 'SW ID', decision: '결정', targetStage: '대상 단계', gateDecisionId: '결정 ID', selfApproved: '자기 승인' };
@@ -97,7 +98,9 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     { key: 'state', label: { ko: '요청 상태', en: 'Request state' }, valid: v => ['queued','claimed','succeeded','failed','cancelled','expired'].includes(v) },
     { key: 'priority', label: { ko: '우선순위', en: 'Priority' }, valid: v => ['0','1','2'].includes(v) },
     { key: 'tab', label: { ko: '탭', en: 'Tab' }, valid: v => ['rounds','history'].includes(v) },
-    { key: 'view', label: { ko: '보기', en: 'View' }, valid: v => ['source', 'discussion', 'history'].includes(v) },
+    { key: 'diagnosticRule', label: lifecycleMessages.diagnosticRuleLabel, valid: isUuid },
+    { key: 'diagnostic', label: lifecycleMessages.diagnosticLabel, valid: isDiagnosticSelection },
+    { key: 'view', label: { ko: '보기', en: 'View' }, valid: v => ['verify', 'diagnostics', 'source', 'discussion', 'history'].includes(v) },
     { key: 'sourceTab', label: { ko: '원본/시퀀스', en: 'Source tab' }, valid: v => v === 'raw' || v === 'sequence' },
     { key: 'sourceFocus', label: { ko: '근거 위치', en: 'Evidence location' }, valid: v => { const m = /^([1-9]\d{0,6}):([1-9]\d*)$/.exec(v); return !!m && Number.isSafeInteger(Number(m[2])); } },
     { key: 'sourceDrawer', label: { ko: '서랍', en: 'Drawer' }, valid: v => v === 'record' },

@@ -348,7 +348,7 @@ This read contains no body text and writes no audit row, verdict, Gate decision 
 
 모든 텍스트(제목·설명·라벨·셀·키)에 ADR-0117 결정 7의 비밀 패턴을 적용한다(`secret_detected`). HTML·Markdown·수식·URL은 해석하지 않는 글자일 뿐이며 서버는 어떤 주소도 fetch하지 않는다. 초과·미지 필드는 422 `validation.failed`, `detail.fields[{ path, code }]`이고 아무것도 쓰지 않는다. 자동 절단은 없다.
 
-**상한의 이유.** 셀 500자는 `expected`/`observed`와 같은 한 줄 기준이다. 설명 4,000자는 발췌 2,000자의 두 배로, 문단 몇 개의 «왜 문제인가»를 담고 원문 덤프는 막는다. 행 200·열 16은 한 화면 Drawer에서 읽는 표 크기다. 수량 상한만 곱하면 수 MB가 되므로 합계 512 KiB가 실제 상한이다: 같은 Source 유래 본문인 발췌의 시도당 256 KiB에 표 구조 오버헤드를 더한 두 배이고, 서버 JSON 본문 기본 한도(1 MiB) 안에서 한 요청으로 끝난다. summary 4,096 bytes는 표 하나도 못 담는 메타데이터 자리라 쓰지 않는다. items 500은 규칙 결과 상한 2,000의 4분의 1로, 진단은 주목할 항목만 담는다.
+**상한의 이유.** 셀 500자는 `expected`/`observed`와 같은 한 줄 기준이다. 설명 4,000자는 발췌 2,000자의 두 배로, 문단 몇 개의 «왜 문제인가»를 담고 원문 덤프는 막는다. 행 200·열 16은 화면의 표 영역에서 페이지·가로 스크롤로 읽는 표 크기다. 수량 상한만 곱하면 수 MB가 되므로 합계 512 KiB가 실제 상한이다: 같은 Source 유래 본문인 발췌의 시도당 256 KiB에 표 구조 오버헤드를 더한 두 배이고, 서버 JSON 본문 기본 한도(1 MiB) 안에서 한 요청으로 끝난다. summary 4,096 bytes는 표 하나도 못 담는 메타데이터 자리라 쓰지 않는다. items 500은 규칙 결과 상한 2,000의 4분의 1로, 진단은 주목할 항목만 담는다.
 
 **멱등과 고침.** 서버가 정규화 본문(제어 문자 제거)의 digest를 저장한다. 같은 `(시도, producer)`에 같은 digest → `200 { requestId, attemptNo, producer, itemCount, duplicate: true }`, 다른 digest → `409 conflict.stale_write`. 생산자당 문서는 한 번 쓰면 바뀌지 않으며 고침은 새 시도다. `404 not_found`(요청·시도 없음), `409 conflict.attempt_not_succeeded`는 의견 경로와 같다. 감사 `lifecycle.diagnostic.recorded`(subject `execution_request`; `attemptNo`, `producer`, `itemCount`, 본문 없음), 새 문서를 쓸 때만.
 
