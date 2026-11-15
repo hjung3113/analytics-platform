@@ -12,6 +12,7 @@ export interface PlatformVocab {
   usageVias: string[];
   auditActions: string[];
   outcomes: string[];
+  portInputPatterns: Record<'auditType' | 'menuId' | 'filterText', { source: string; flags: string }>;
 }
 
 export function platformVocab(): PlatformVocab {

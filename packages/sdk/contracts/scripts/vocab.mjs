@@ -12,6 +12,7 @@ const target = new URL('../src/vocab.json', import.meta.url);
 const { KERNEL_PERMISSIONS, SITE_BOUND_CONTEXT_KEYS } = await import('../src/menu/menu.ts');
 const { AUDIT_ACTIONS } = await import('../src/adapter/audit.ts');
 const { USAGE_VIAS } = await import('../src/adapter/adapter.ts');
+const { PORT_INPUT_PATTERNS } = await import('../src/adapter/input-patterns.ts');
 const { OUTCOMES } = await import('../src/adapter/response.ts');
 
 const vocab = {
@@ -20,6 +21,7 @@ const vocab = {
   usageVias: USAGE_VIAS,
   auditActions: AUDIT_ACTIONS,
   outcomes: OUTCOMES,
+  portInputPatterns: PORT_INPUT_PATTERNS,
 };
 const text = `${JSON.stringify(vocab, null, 2)}\n`;
 
