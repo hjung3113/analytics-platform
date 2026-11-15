@@ -211,7 +211,7 @@ jobs:
       - if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock 2>&1); then echo "$out"; exit 1; fi
-          echo "$out" | grep -q 'check:prod-graph FAILED (--force-mock)' && echo "$out" | grep -q '\[packages/adapters/mock-server/\]'
+          echo "$out" | grep -q 'check:prod-graph FAILED (--force-mock)' && echo "$out" | grep -q '\[packages/host/mock-server/\]'
       - if: ${{ env.DOCS_ONLY != 'true' && github.event_name != 'pull_request' }}
         run: |
           if out=$(pnpm --filter @ap/platform-web exec node scripts/check-prod-graph.ts --force-mock-build 2>&1); then echo "$out"; exit 1; fi

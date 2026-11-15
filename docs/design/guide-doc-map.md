@@ -43,7 +43,7 @@
 | | |
 | --- | --- |
 | 처음 | [사내 적용 가이드](../integration/in-house-rollout.md) |
-| 다음 | [실서버 연결 체크리스트](../integration/real-server-checklist.md) → [전송 형식](../integration/http-adapter-contract.md) → [`@ap/server-conformance`](../../packages/adapters/server-conformance/AGENTS.md) |
+| 다음 | [실서버 연결 체크리스트](../integration/real-server-checklist.md) → [전송 형식](../integration/http-adapter-contract.md) → [`@ap/server-conformance`](../../packages/host/server-conformance/AGENTS.md) |
 | 읽고 나면 | 어댑터가 적합성 묶음을 통과한다 |
 | 빠진 것 | 문서는 갖춰져 있다. 새 글은 만들지 않고 이 지도의 읽는 순서로 충분하다 |
 

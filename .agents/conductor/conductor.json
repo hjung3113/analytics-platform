@@ -54,7 +54,7 @@
           "regex": "^(packages/sdk/(ui|components|shell)/src|menus/[^/]+/[^/]+/src|platform/[^/]+/src|apps/platform-web/src)/"
         },
         {
-          "regex": "^packages/(sdk/(kernel|contracts)|adapters/mock-server)/src/"
+          "regex": "^packages/(sdk/(kernel|contracts)|host/mock-server)/src/"
         }
       ]
     },
@@ -75,7 +75,7 @@
         },
         {
           "match": {
-            "regex": "^(apps|packages|packages/sdk|packages/adapters|packages/eqv)/[^/]+/package\\.json$"
+            "regex": "^(apps|packages|packages/sdk|packages/adapters|packages/host|packages/eqv)/[^/]+/package\\.json$"
           },
           "reason": "dependency change: {file}"
         }
@@ -108,7 +108,7 @@
         "name": "e2e",
         "scope": "reviewed",
         "match": {
-          "regex": "^packages/(sdk/(kernel|shell|components)|adapters/mock-server)/src/"
+          "regex": "^packages/(sdk/(kernel|shell|components)|host/mock-server)/src/"
         }
       },
       {
@@ -273,9 +273,9 @@
   },
   "lanes": {
     "shared_paths_regex": "^(package\\.json$|packages/sdk/(contracts|kernel|components|shell)/package\\.json$|pnpm-lock\\.yaml$|turbo\\.json$|\\.github/workflows/)",
-    "small_unit_regex": "^(packages/(sdk|adapters|eqv)/[^/]+|packages/[^/]+|menus/[^/]+/[^/]+|platform/[^/]+|apps/[^/]+)/",
-    "small_exclude_regex": "^(packages/sdk/(kernel|contracts)/|tooling/sdk/api/|apps/platform-api/|packages/adapters/|ops/|\\.github/)",
-    "tier_full_regex": "^(packages/sdk/(kernel|components|shell|ui|contracts)/|packages/adapters/(mock-server|http-adapter|server-conformance|feature-bridge)/|apps/platform-web/|apps/platform-api/|apps/feature-screens/|packages/feature-shared/|packages/eqv/)",
+    "small_unit_regex": "^(packages/(sdk|host|adapters|eqv)/[^/]+|packages/[^/]+|menus/[^/]+/[^/]+|platform/[^/]+|apps/[^/]+)/",
+    "small_exclude_regex": "^(packages/sdk/(kernel|contracts)/|tooling/sdk/api/|apps/platform-api/|packages/adapters/|packages/host/(mock-server|http-adapter|server-conformance)/|ops/|\\.github/)",
+    "tier_full_regex": "^(packages/sdk/(kernel|components|shell|ui|contracts)/|packages/host/(mock-server|http-adapter|server-conformance)/|packages/adapters/feature-bridge/|apps/platform-web/|apps/platform-api/|apps/feature-screens/|packages/feature-shared/|packages/eqv/)",
     "verify": {
       "light": [
         {

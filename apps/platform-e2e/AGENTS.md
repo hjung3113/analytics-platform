@@ -6,7 +6,7 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
 
 - `tests/contract-<area>.spec.ts` (shell, context-links, components, chart, board, features): a `describe` is a contract area, a `test` is one report line. Do not copy the list here; the specs and `contract-report/README.md` (run output, also in the CI Job summary) are the source. Shared helpers are in `tests/contract-helpers.ts`. A new area's `describe` title names its 06 section.
 - Prove that a check really guards the contract by breaking the Kernel guard on purpose and seeing it fail (PR body "mutation check"). Do the same when you fix or add a check.
-- **Known gap:** server-side menu-permission denial is checked by the mock-server unit test (`packages/adapters/mock-server/src/__tests__/menu-permission.test.ts`). The client route gate renders first, so the UI cannot show a server denial; the "direct URL denied" check observes the client gate. Space-entry denial (§9.1) has the same gap: E2E observes the `RouteOutlet` client gate.
+- **Known gap:** server-side menu-permission denial is checked by the mock-server unit test (`packages/host/mock-server/src/__tests__/menu-permission.test.ts`). The client route gate renders first, so the UI cannot show a server denial; the "direct URL denied" check observes the client gate. Space-entry denial (§9.1) has the same gap: E2E observes the `RouteOutlet` client gate.
 
 ## Rules
 

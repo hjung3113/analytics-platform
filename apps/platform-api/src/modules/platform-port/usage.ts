@@ -1,6 +1,6 @@
 // Platform port `recordUsage` + `usageSummary` (platform ADR-0069 decisions 1, 2, 4; #622). The module
 // writes its own `platform.usage_events` table. Validation mirrors the reference server
-// (`packages/adapters/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
+// (`packages/host/mock-server/src/server.ts` recordUsage) and the binding UsageEvent rule of
 // http-adapter-contract §1: identity fields only, the whole batch or nothing.
 
 import { and, count, countDistinct, eq, gte, inArray, isNotNull, lt, max, or, sql } from 'drizzle-orm';
@@ -48,7 +48,7 @@ export function validIdentifier(value: unknown, maxLength: number): value is str
 /**
  * A `fromMenuId`: the Registry's own id rule (`createRegistry` accepts any non-empty id without whitespace and without `? # & /`) plus the leak
  * shapes a usage field must not carry: `=` (so no `key=value`) and control characters, at most 80 code points. Trade-off: a Registry id that
- * contains `=` is rejected here. Kept in step with `MENU_ID_PATTERN` in the reference server (`packages/adapters/mock-server/src/server.ts`);
+ * contains `=` is rejected here. Kept in step with `MENU_ID_PATTERN` in the reference server (`packages/host/mock-server/src/server.ts`);
  * `apps/platform-web/src/__tests__/query/server-conformance.test.ts` proves the app's menu ids, and ids the public Registry accepts, match.
  */
 export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;

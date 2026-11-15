@@ -3,10 +3,10 @@ export const SDK_PACKAGES = Object.freeze(['contracts', 'kernel', 'ui', 'compone
 
 // Release unit 2 (ADR-0143): same tag and SemVer as the SDK five, packed by the same release run.
 export const RELEASE_UNIT2_PACKAGES = Object.freeze([
-  { name: 'mock-server', dir: 'packages/adapters/mock-server' },
-  { name: 'http-adapter', dir: 'packages/adapters/http-adapter' },
-  { name: 'server-conformance', dir: 'packages/adapters/server-conformance' },
-  { name: 'app-host', dir: 'packages/app-host' },
+  { name: 'mock-server', dir: 'packages/host/mock-server' },
+  { name: 'http-adapter', dir: 'packages/host/http-adapter' },
+  { name: 'server-conformance', dir: 'packages/host/server-conformance' },
+  { name: 'app-host', dir: 'packages/host/app-host' },
 ]);
 
 /** All nine release packages in build order (SDK five first; app-host needs the @ap/shell dist). */

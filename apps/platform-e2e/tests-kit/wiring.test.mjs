@@ -25,8 +25,8 @@ test('Start kit browser check runs once inside the Playwright shard job', () => 
 test('kit, app-host, mock-server and browser driver changes select the kit gate', () => {
   for (const file of [
     'tooling/sdk/fixtures/out-of-repo-assembly/kit/menus.ts',
-    'packages/app-host/src/start.tsx',
-    'packages/adapters/mock-server/src/index.ts',
+    'packages/host/app-host/src/start.tsx',
+    'packages/host/mock-server/src/index.ts',
   ]) {
     // The kit gate follows the conservative full-selection verdict, including every dependency above.
     assert.equal(select({ event: 'pull_request', files: [file], exists: () => true }).e2e, 'all', file);

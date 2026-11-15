@@ -10,8 +10,8 @@
 # packages that are built or emitted.
 !packages/sdk/contracts/package.json
 !packages/sdk/contract-schemas
-!packages/adapters/http-adapter/package.json
-!packages/adapters/server-conformance/package.json
+!packages/host/http-adapter/package.json
+!packages/host/server-conformance/package.json
 !packages/feature-shared
 !packages/eqv/core
 !tooling/eslint/package.json

@@ -17,8 +17,8 @@ COPY ops/platform-api/tsconfig.base.json ./ops/platform-api/tsconfig.base.json
 # .dockerignore allows exactly these paths.
 COPY packages/sdk/contracts/package.json ./packages/sdk/contracts/package.json
 COPY packages/sdk/contract-schemas/package.json ./packages/sdk/contract-schemas/package.json
-COPY packages/adapters/http-adapter/package.json ./packages/adapters/http-adapter/package.json
-COPY packages/adapters/server-conformance/package.json ./packages/adapters/server-conformance/package.json
+COPY packages/host/http-adapter/package.json ./packages/host/http-adapter/package.json
+COPY packages/host/server-conformance/package.json ./packages/host/server-conformance/package.json
 COPY packages/feature-shared/package.json ./packages/feature-shared/package.json
 COPY packages/eqv/core/package.json ./packages/eqv/core/package.json
 COPY tooling/eslint/package.json ./tooling/eslint/package.json

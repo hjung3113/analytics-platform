@@ -1,6 +1,6 @@
 # @ap/app-host
 
-The Host assembly function ([host contract](../../docs/design/host-entry-contract.md) §3): `startAppHost` mounts what an assembler injects. Release unit 2; not in `SDK_PACKAGES`.
+The Host assembly function ([host contract](../../../docs/design/host-entry-contract.md) §3): `startAppHost` mounts what an assembler injects. Release unit 2; not in `SDK_PACKAGES`.
 
 ## Rules
 

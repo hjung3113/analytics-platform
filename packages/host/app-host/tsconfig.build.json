@@ -13,11 +13,11 @@
     "allowImportingTsExtensions": false,
     // Siblings resolve to their emitted declarations, not their src (build order: contracts, kernel, ui, components, shell, app-host).
     "paths": {
-      "@ap/contracts": ["../sdk/contracts/dist/index.d.ts"],
-      "@ap/kernel": ["../sdk/kernel/dist/index.d.ts"],
-      "@ap/ui": ["../sdk/ui/dist/index.d.ts"],
-      "@ap/components": ["../sdk/components/dist/index.d.ts"],
-      "@ap/shell": ["../sdk/shell/dist/index.d.ts"]
+      "@ap/contracts": ["../../sdk/contracts/dist/index.d.ts"],
+      "@ap/kernel": ["../../sdk/kernel/dist/index.d.ts"],
+      "@ap/ui": ["../../sdk/ui/dist/index.d.ts"],
+      "@ap/components": ["../../sdk/components/dist/index.d.ts"],
+      "@ap/shell": ["../../sdk/shell/dist/index.d.ts"]
     }
   },
   "include": ["src"],

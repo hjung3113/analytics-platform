@@ -9,10 +9,10 @@ test('SDK packages have one ordered shared list', () => {
 
 test('release unit 2 has its own ordered list with directories', () => {
   assert.deepEqual(RELEASE_UNIT2_PACKAGES, [
-    { name: 'mock-server', dir: 'packages/adapters/mock-server' },
-    { name: 'http-adapter', dir: 'packages/adapters/http-adapter' },
-    { name: 'server-conformance', dir: 'packages/adapters/server-conformance' },
-    { name: 'app-host', dir: 'packages/app-host' },
+    { name: 'mock-server', dir: 'packages/host/mock-server' },
+    { name: 'http-adapter', dir: 'packages/host/http-adapter' },
+    { name: 'server-conformance', dir: 'packages/host/server-conformance' },
+    { name: 'app-host', dir: 'packages/host/app-host' },
   ]);
 });
 
@@ -23,10 +23,10 @@ test('releasePackages returns all nine in build order', () => {
     { name: 'ui', dir: 'packages/sdk/ui' },
     { name: 'components', dir: 'packages/sdk/components' },
     { name: 'shell', dir: 'packages/sdk/shell' },
-    { name: 'mock-server', dir: 'packages/adapters/mock-server' },
-    { name: 'http-adapter', dir: 'packages/adapters/http-adapter' },
-    { name: 'server-conformance', dir: 'packages/adapters/server-conformance' },
-    { name: 'app-host', dir: 'packages/app-host' },
+    { name: 'mock-server', dir: 'packages/host/mock-server' },
+    { name: 'http-adapter', dir: 'packages/host/http-adapter' },
+    { name: 'server-conformance', dir: 'packages/host/server-conformance' },
+    { name: 'app-host', dir: 'packages/host/app-host' },
   ]);
 });
 

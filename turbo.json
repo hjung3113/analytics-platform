@@ -38,6 +38,7 @@
         "$TURBO_ROOT$/packages/eqv/*/package.json",
         "$TURBO_ROOT$/packages/sdk/*/package.json",
         "$TURBO_ROOT$/packages/adapters/*/package.json",
+        "$TURBO_ROOT$/packages/host/*/package.json",
         "$TURBO_ROOT$/menus/*/*/package.json",
         "$TURBO_ROOT$/platform/*/package.json"
       ],

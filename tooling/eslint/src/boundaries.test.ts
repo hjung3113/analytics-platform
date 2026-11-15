@@ -3,9 +3,9 @@
 // the stylesheets it imports, the UI components) are `test` inputs in tooling/eslint/turbo.json.
 import { ESLint } from 'eslint';
 import type { Linter, Rule } from 'eslint';
-import { readdir, readFile } from 'node:fs/promises';
+import { glob, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -34,6 +34,7 @@ import {
   ui,
 } from './index.js';
 import { PACKAGE_PREFIX } from './prefix.js';
+import * as allPresets from './index.js';
 import { featureBridgeEntrySources, featureBridgeEntrySubpaths } from './feature-bridge-entries.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -46,11 +47,11 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'packages/sdk/kernel': kernel,
   'packages/sdk/components': components,
   'packages/sdk/shell': shell,
-  'packages/app-host': appHost,
-  'packages/adapters/mock-server': mockServer,
-  'packages/adapters/http-adapter': httpAdapter,
+  'packages/host/app-host': appHost,
+  'packages/host/mock-server': mockServer,
+  'packages/host/http-adapter': httpAdapter,
   'modules/fixture': hostModule,
-  'packages/adapters/server-conformance': serverConformance,
+  'packages/host/server-conformance': serverConformance,
   'platform/home': menu,
   'menus/mars/analytics': menu,
   'menus/bravo/metrics': menu,
@@ -65,7 +66,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
 };
 
 async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]> {
-  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') || /^packages\/(sdk|adapters)\//.test(relFile) ? 3 : 2).join('/');
+  const pkgDir = relFile.split('/').slice(0, relFile.startsWith('menus/') || /^packages\/(sdk|adapters|host)\//.test(relFile) ? 3 : 2).join('/');
   const preset = PRESETS[pkgDir];
   if (!preset) throw new Error(`no preset mapped for ${pkgDir}`);
   const eslint = new ESLint({
@@ -96,7 +97,7 @@ async function lintExternal(relFile: string, code: string): Promise<Linter.LintM
 }
 
 interface Row {
-  /** Repo-relative file path; space and group segments pick menu packages; packages/sdk and packages/adapters packages use three, other packages two. */
+  /** Repo-relative file path; space and group segments pick menu packages; packages/sdk, packages/host and packages/adapters packages use three, other packages two. */
   file: string;
   code: string;
   /** Expected rule id; '' means the code must lint clean; null is a linter report with no rule (an unused disable directive). */
@@ -203,9 +204,9 @@ const rows: Row[] = [
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (r.menuId === 'home') render();`, rule: 'ap/no-shell-id-literal-comparison', token: 'Registry' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `const g = registry.groupById(route.menu.group);`, rule: '' },
   { file: 'packages/sdk/shell/src/frame/AppSidebar.tsx', code: `if (tst.tone === 'danger') render();`, rule: '' },
-  { file: 'packages/adapters/mock-server/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/mock-server/src/x.ts', code: `import type { X } from 'react';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/mock-server/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/host/mock-server/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/mock-server/src/x.ts', code: `import type { X } from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/mock-server/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
 
   // --- hostModule (ADR-0053): contracts and ui (with CSS subpaths) only ---
   { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
@@ -245,7 +246,7 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: 'packages/sdk/kernel/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/server-conformance/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/server-conformance/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
 
   // --- #413 (ADR-0040 extension): `@ap/components/testing` is test-only, for the layers above components ---
   { file: MENU, code: `import { stubCompactTableGeometry } from '@ap/components/testing';`, rule: 'no-restricted-imports' },
@@ -395,10 +396,10 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/__tests__/query/server-conformance.test.ts', code: `await import('@ap/menu-equipment/mock');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/__tests__/query/published-metrics.test.ts', code: `import { equipmentMock } from '@ap/menu-equipment/mock';`, rule: 'no-restricted-imports' },
   // #145: the conformance kit is adapter-agnostic — contracts only, never the mock it judges, never React.
-  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
-  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import React from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/server-conformance/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/host/server-conformance/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/server-conformance/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/server-conformance/src/x.ts', code: `import React from 'react';`, rule: 'no-restricted-imports' },
 
   // --- relative package escape (37-41) ---
   { file: MENU, code: `import { x } from '../../../../packages/sdk/contracts/src/url';`, rule: 'ap/no-relative-package-escape' },
@@ -432,7 +433,7 @@ const rows: Row[] = [
   { file: 'packages/sdk/kernel/src/x.ts', code: `localStorage.setItem('k', 'v');`, rule: '' },
   { file: 'packages/sdk/shell/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
   { file: 'packages/sdk/components/src/x.ts', code: `localStorage.setItem('k', 'v');`, rule: '' },
-  { file: 'packages/adapters/mock-server/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
+  { file: 'packages/host/mock-server/src/x.ts', code: `localStorage.getItem('k');`, rule: '' },
 
   // --- location writes and reads (64-73) ---
   { file: MENU, code: `window.location.href = '/x';`, rule: 'no-restricted-syntax', token: 'window.location' },
@@ -481,8 +482,8 @@ const rows: Row[] = [
   { file: MENU, code: `navigate(linkTo('home') ?? linkTo('equipment'));`, rule: '' },
 
   // --- N2: relative sources in TS import type / import-equals escape ---
-  { file: MENU, code: `type X = typeof import('../../../../../packages/adapters/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
-  { file: MENU, code: `import x = require('../../../../../packages/adapters/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `type X = typeof import('../../../../../packages/host/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
+  { file: MENU, code: `import x = require('../../../../../packages/host/mock-server/src/index');`, rule: 'ap/no-relative-package-escape' },
   { file: MENU, code: `type X = typeof import('../api');`, rule: '' },
 
   // --- menu mock handlers and composition-root registration (#113) ---
@@ -587,15 +588,15 @@ const rows: Row[] = [
   },
   { file: 'platform/home/src/pages/Sample.tsx', code: `import { sampleMock } from '../mock';`, rule: 'ap/no-menu-mock-import' },
   // --- #154: the real-server adapter is contracts-only and reaches the app through src/real/** only ---
-  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import { PortError } from '@ap/contracts';`, rule: '' },
-  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/http-adapter/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/http-adapter/src/x.ts', code: `import { PortError } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/host/http-adapter/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/http-adapter/src/x.ts', code: `import { x } from '@ap/mock-server';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/http-adapter/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/kernel/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/components/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/mock-server/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
-  { file: 'packages/adapters/server-conformance/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/mock-server/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/server-conformance/src/x.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: MENU, code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: 'platform/home/src/mock/handlers.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports' },
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/http-adapter';`, rule: 'no-restricted-imports', token: 'src/real' },
@@ -894,14 +895,14 @@ rows.push(
 );
 
 // #1702: the Host assembly package sees contracts, kernel (+ host entry), components, ui and shell only; an assembly injects everything else.
-const APP_HOST = 'packages/app-host/src/x.ts';
+const APP_HOST = 'packages/host/app-host/src/x.ts';
 rows.push(
   ...['@ap/feature-bridge', '@ap/menu-home', '@eqv/core', '@ap/mock-server', '@ap/http-adapter'].flatMap((source) => [
     { file: APP_HOST, code: `import { x } from '${source}';`, rule: 'no-restricted-imports' },
     { file: APP_HOST, code: `void import('${source}');`, rule: 'ap/restricted-import-source' },
   ]),
   ...['@ap/contracts', '@ap/kernel', '@ap/kernel/host', '@ap/components', '@ap/ui', '@ap/shell', 'react', 'react-dom/client', 'lucide-react', './local'].map((source) => ({ file: APP_HOST, code: `import { x } from '${source}';`, rule: '' })),
-  { file: 'packages/app-host/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
+  { file: 'packages/host/app-host/src/x.test.ts', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: APP_HOST, code: `import { testAdapter } from '@ap/kernel/testing';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/shell/src/x.ts', code: `import { x } from '@ap/app-host';`, rule: 'no-restricted-imports' },
 );
@@ -1078,8 +1079,8 @@ const importForms = (source: string) => [
 describe('EV ban outside the host slot', () => {
   const BANNED_FILES = [
     'packages/sdk/contracts/src/x.ts', 'packages/sdk/contract-schemas/src/x.ts', 'packages/sdk/ui/src/x.ts', 'packages/sdk/kernel/src/x.ts',
-    'packages/sdk/components/src/x.ts', 'packages/sdk/shell/src/x.ts', 'packages/adapters/mock-server/src/x.ts', 'packages/adapters/http-adapter/src/x.ts',
-    'packages/adapters/server-conformance/src/x.ts', 'packages/adapters/feature-bridge/src/x.ts', 'modules/fixture/src/x.ts',
+    'packages/sdk/components/src/x.ts', 'packages/sdk/shell/src/x.ts', 'packages/host/mock-server/src/x.ts', 'packages/host/http-adapter/src/x.ts',
+    'packages/host/server-conformance/src/x.ts', 'packages/adapters/feature-bridge/src/x.ts', 'modules/fixture/src/x.ts',
     MENU, 'menus/mars/analytics/src/x.ts', 'platform/my-activity/src/pages/x.tsx', 'platform/my-activity/src/mock/x.ts',
   ];
   it.each(BANNED_FILES.flatMap((file) => importForms('@eqv/core').map((f) => ({ file, ...f }))))('$file rejects @eqv/core ($form)', async ({ file, code, rule }) => {
@@ -1320,4 +1321,81 @@ describe('bridge entry list (#1640)', () => {
     expect(subpaths).toContain('global-screens/core');
     expect(subpaths).toContain('operator-screens/log-datasets');
   });
+});
+
+// Release units are folder boundaries, including packages added after this test (#2210). A package "uses" a preset when its
+// loaded config contains every config object of that preset (by identity), so comments, renames or an emptied copy cannot pass.
+describe('release-unit folder presets', () => {
+  const sdkPresets = ['contracts', 'contractSchemas', 'ui', 'kernel', 'components', 'shell'];
+  const hostPresets = ['appHost', 'mockServer', 'httpAdapter', 'serverConformance'];
+  const named = Object.entries(allPresets).filter((entry): entry is [string, Linter.Config[]] => Array.isArray(entry[1]) && entry[1].length > 0);
+
+  const presetsIn = (config: readonly unknown[]): string[] =>
+    named.filter(([, preset]) => preset.every(part => config.includes(part))).map(([name]) => name);
+
+  async function presetsOf(dir: string): Promise<string[] | null> {
+    const file = path.join(REPO_ROOT, dir, 'eslint.config.js');
+    const exists = await readFile(file, 'utf8').then(() => true, () => false);
+    if (!exists) return null;
+    const loaded = (await import(pathToFileURL(file).href)) as { default: unknown };
+    return presetsIn(Array.isArray(loaded.default) ? loaded.default : [loaded.default]);
+  }
+
+  it.each([
+    ['the preset itself', () => [...allPresets.appHost], ['appHost']],
+    ['a preset plus extra blocks', () => [...allPresets.shell, { rules: {} }], ['shell']],
+    ['an emptied copy', () => allPresets.appHost.slice(0, 0), []],
+    ['a menu preset', () => [...allPresets.menu], ['menu']],
+    ['a same-shaped copy of an SDK preset', () => allPresets.ui.map(part => ({ ...part })), []],
+  ] as const)('identifies presets in %s', (_name, build, expected) => {
+    expect(presetsIn(build())).toEqual(expected);
+  });
+
+  it.each([
+    ['sdk', sdkPresets],
+    ['host', hostPresets],
+  ] as const)('every %s package uses only release-unit presets of its folder', async (folder, presets) => {
+    const manifests = [];
+    for await (const manifest of glob(`packages/${folder}/*/package.json`, { cwd: REPO_ROOT })) {
+      manifests.push(manifest);
+      const dir = path.dirname(manifest);
+      const used = await presetsOf(dir);
+      expect(used, dir).not.toBeNull();
+      expect(used!.filter(name => presets.includes(name)), dir).not.toEqual([]);
+      expect(used!.filter(name => sdkPresets.includes(name) || hostPresets.includes(name)).every(name => presets.includes(name)), dir).toBe(true);
+    }
+    expect(manifests.length).toBeGreaterThan(0);
+  }, 120_000);
+
+  // Outside packages/host a config may not even name a Host preset: a copied or mapped preset escapes the identity check
+  // above, but it still has to be imported (or re-exported) from the shared config by name.
+  const namesHostPreset = (source: string): boolean => {
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    return [...code.matchAll(/(?:import|export)\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*eslint-config['"]/g)]
+      .some(([, names]) => names!.split(',').some(name => hostPresets.includes(name.trim().split(/\s+as\s+/)[0]!.trim())));
+  };
+
+  it.each([
+    ["import { appHost } from '@ap/eslint-config'; export default appHost.map(c => ({ ...c }));", true],
+    ["export { mockServer as default } from '@ap/eslint-config';", true],
+    ["import { menu, httpAdapter as h } from '@ap/eslint-config'; export default [...menu, ...h];", true],
+    ["// import { appHost } from '@ap/eslint-config';\nexport { menu as default } from '@ap/eslint-config';", false],
+    ["export { menu as default } from '@ap/eslint-config';", false],
+  ] as const)('names a Host preset: %s', (source, expected) => {
+    expect(namesHostPreset(source)).toBe(expected);
+  });
+
+  it('reserves Host presets for packages/host', async () => {
+    const patterns = ['packages/*/package.json', 'packages/*/*/package.json', 'apps/*/package.json',
+      'menus/*/*/package.json', 'platform/*/package.json', 'tooling/*/package.json', 'ops/*/package.json'];
+    const offenders = [];
+    for await (const manifest of glob(patterns, { cwd: REPO_ROOT })) {
+      const dir = path.dirname(manifest);
+      if (dir.startsWith('packages/host/')) continue;
+      const used = await presetsOf(dir);
+      const source = await readFile(path.join(REPO_ROOT, dir, 'eslint.config.js'), 'utf8').catch(() => '');
+      if (used?.some(name => hostPresets.includes(name)) || namesHostPreset(source)) offenders.push(dir);
+    }
+    expect(offenders).toEqual([]);
+  }, 120_000);
 });

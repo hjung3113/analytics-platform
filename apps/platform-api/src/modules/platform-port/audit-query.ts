@@ -1,5 +1,5 @@
 // Validation of `AuditTrailQuery` / `EntityRef` bodies (packages/sdk/contracts adapter.ts), mirroring
-// the reference semantics of packages/adapters/mock-server/src/audit.ts: unknown keys, wrong types, bad
+// the reference semantics of packages/host/mock-server/src/audit.ts: unknown keys, wrong types, bad
 // ranges and unparsable instants are all one malformed-query answer, never a coercion.
 
 import { PLATFORM_AUDIT_ACTIONS, type PlatformAuditAction } from './audit-actions.js';
@@ -7,7 +7,7 @@ import { PLATFORM_AUDIT_ACTIONS, type PlatformAuditAction } from './audit-action
 /**
  * An opaque, case-sensitive subject-type token (ADR-0101): no trimming or normalization. Accepting a filter never
  * releases a row; the SQL projection alone decides visibility. Keep in lockstep with the console
- * (`platform/admin/src/audit-query.ts`) and mock (`packages/adapters/mock-server/src/audit/audit.ts`) copies.
+ * (`platform/admin/src/audit-query.ts`) and mock (`packages/host/mock-server/src/audit/audit.ts`) copies.
  */
 const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 

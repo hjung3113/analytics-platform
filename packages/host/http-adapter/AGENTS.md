@@ -1,4 +1,4 @@
-# packages/adapters/http-adapter — real-server client
+# packages/host/http-adapter — real-server client
 
 `@ap/http-adapter` carries `PlatformAdapter` over HTTP. The wire format (paths, conversion table, bootstrap, polling, CSRF, Correlation ID) is owned by [transport format](../../../docs/integration/http-adapter-contract.md); per-method meaning is owned by [real-server checklist](../../../docs/integration/real-server-checklist.md) §2. This package turns those documents into code and sets no rules of its own.
 
