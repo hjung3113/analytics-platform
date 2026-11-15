@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
@@ -57,6 +57,7 @@ describe('ExecutionDetail return origin (#2008 KER-2)', () => {
     window.history.replaceState(null, '', `/analytics/executions/EQ-1?v=1&scopeId=MEM&returnTo=${encodeURIComponent('/restricted?v=1')}`);
     render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={restrictedRegistry}><ExecutionDetail params={{ equipmentId: 'EQ-1' }} /></PlatformProvider></I18nProvider>);
     await screen.findByTestId('occurrence-key');
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     expect(screen.getByText(/returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다/)).toBeTruthy();
   });
 });
@@ -94,5 +95,34 @@ describe('ExecutionDetail panel rhythm and 구간 표 (#1166)', () => {
     for (const header of headers) {
       expect(header.className).toContain('whitespace-nowrap');
     }
+  });
+});
+
+describe('ExecutionDetail compact identity band (#2302)', () => {
+  it.each([false, true])('keeps return guidance beside the return link only without an accepted returnTo (restored=%s)', async restored => {
+    const returnTo = restored ? `&returnTo=${encodeURIComponent('/analytics/productivity?v=1&scopeId=MEM')}` : '';
+    renderAt(`&entityType=job&anchor=2456001${returnTo}`);
+    await screen.findByTestId('occurrence-key');
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    const guidance = screen.queryByText(/returnTo가 없어 사이클타임 분석의 현재 Context로 돌아갑니다/);
+    expect(Boolean(guidance)).toBe(!restored);
+    if (guidance) expect(within(guidance.parentElement!).getByRole('link', { name: /사이클타임/ })).toBeTruthy();
+  });
+
+  it('keeps all four identity values as definition pairs and display fields in the same band', async () => {
+    renderAt('&entityType=job&anchor=2456001');
+    await screen.findByText('공정 타임라인');
+    const key = screen.getByTestId('occurrence-key');
+    expect([...key.querySelectorAll('dt')].map(node => node.textContent)).toEqual(['EquipmentID', 'entityType', 'anchor', '시작 시각']);
+    expect([...key.querySelectorAll('dd')].map(node => node.textContent)).toEqual(['EQ-1', 'job', '2456001', '2026-09-26 01:02:03']);
+    const band = key.parentElement!;
+    for (const value of ['PHOTO', 'R', 'L', 'P', '90.0 분']) expect(within(band).getByText(value)).toBeTruthy();
+    expect(within(band).getByText('식별(분석 Context와 별개)')).toBeTruthy();
+    expect(within(band).getByText('표시')).toBeTruthy();
+    const tip = within(band).getByRole('button', { name: '설명' });
+    const description = document.getElementById(tip.getAttribute('aria-describedby')!)!;
+    expect(description.className).toContain('sr-only');
+    expect(description.textContent).toContain('Time·room·condition');
+    expect(description.textContent).toContain('Lot은 검색 보조');
   });
 });

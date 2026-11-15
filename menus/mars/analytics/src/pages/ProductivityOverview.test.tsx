@@ -150,3 +150,26 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
     }
   });
 });
+
+describe('ProductivityOverview compact guidance (#2302)', () => {
+  it('puts static grain and KPI guidance behind named info buttons', async () => {
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    await screen.findByRole('radiogroup', { name: '집계 단위' });
+    const tips = screen.getAllByRole('button', { name: '설명' });
+    const descriptions = tips.map(tip => document.getElementById(tip.getAttribute('aria-describedby')!)!);
+    const grain = descriptions.find(node => node.textContent?.includes('이 화면의 집계 단위입니다'));
+    const kpi = descriptions.find(node => node.textContent?.includes('카드를 고르면'));
+    expect(grain?.className).toContain('sr-only');
+    expect(kpi?.className).toContain('sr-only');
+    expect(kpi?.textContent).toContain('완료 Job 건수는 버전과 무관');
+    expect(screen.getByRole('heading', { name: '지표 요약' }).parentElement).toBe(kpi?.parentElement);
+  });
+
+  it('keeps the unknown-grain warning visibly outside the info descriptions', async () => {
+    renderPage('/analytics/productivity?v=1&scopeId=MEM&granularity=zzz');
+    const warning = await screen.findByText(/집계 단위 “zzz”는 이 화면에서 쓸 수 없습니다/);
+    expect(warning.textContent).toContain('기본 집계 단위');
+    expect(warning.closest('.sr-only, [role="tooltip"]')).toBeNull();
+    expect(warning.className).toContain('text-text-warning-label');
+  });
+});

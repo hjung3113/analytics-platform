@@ -15,7 +15,7 @@ import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, PageKeyWarning, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
-import { Button, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
+import { Button, InfoTip, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import {
   CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
@@ -244,7 +244,10 @@ export default function ProductivityOverview(_: PageProps) {
       ? <DataTrustIndicator trust={trustResponse.trust} assessments={trustResponse.assessments} />
       : null}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span id="granularity-label" className="text-xs font-medium text-text-secondary">{m('productivityOverviewGranularity')}</span>
+      <div className="inline-flex items-center gap-1">
+        <span id="granularity-label" className="text-xs font-medium text-text-secondary">{m('productivityOverviewGranularity')}</span>
+        <InfoTip label={m('guidanceLabel')}>{m('productivityOverviewThisPageSGrainItIsChosen')}</InfoTip>
+      </div>
       <SegmentedRadio
         labelledBy="granularity-label"
         label={m('productivityOverviewGranularity2')}
@@ -252,9 +255,6 @@ export default function ProductivityOverview(_: PageProps) {
         onChange={g => setPage({ granularity: g })}
         options={GRANS.map(g => ({ value: g, label: g === 'hour' ? (m('productivityOverviewHour')) : g === 'day' ? (m('productivityOverviewDay')) : (m('productivityOverviewWeek')) }))}
       />
-      <span className="t-caption text-text-muted">
-        {m('productivityOverviewThisPageSGrainItIsChosen')}
-      </span>
       {/* #304 FIX1 (06 §19): the unknown raw value stays visible, and the default-grain fact is stated truthfully. */}
       {rawGran !== null && !granKnown && <StatusBadge tone="warning">{m('productivityOverviewGrainIsNotAValueThisPage', { rawGran: String(rawGran), granLabel: String(granLabel) })}</StatusBadge>}
     </div>}
@@ -263,12 +263,12 @@ export default function ProductivityOverview(_: PageProps) {
       : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="@container space-y-4">
       {/* Primary KPI / Summary */}
       <section aria-labelledby="kpi-heading">
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <div className="mb-2 flex items-center gap-1">
           <h2 id="kpi-heading" className="t-section-title">{m('productivityOverviewMetricSummary')}</h2>
-          <div>
-            <p className="t-caption text-text-muted">{m('productivityOverviewSelectACardToShowItsTrend')}</p>
-            <p className="t-caption text-text-muted">{CYCLE_VERSION_NOTE[lang]}</p>
-          </div>
+          <InfoTip label={m('guidanceLabel')}>
+            {m('productivityOverviewSelectACardToShowItsTrend')}
+            {' '}{CYCLE_VERSION_NOTE[lang]}
+          </InfoTip>
         </div>
         <QueryView widgetName={m('productivityOverviewMetricSummary2')} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-4">
