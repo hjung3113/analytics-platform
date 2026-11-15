@@ -95,6 +95,44 @@ describe('attempt diagnostics (#1815 B2)', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: '설정·이력' }), { button: 0 });
     expect(t.reads.filter(r => r.name.startsWith('diagnostic'))).toEqual([]);
   });
+  it('opens the first item immediately without writing selection state', () => {
+    const t = setup();
+    expect(screen.getByText(/<b>해석하지 않는 HTML<\/b>/)).toBeVisible();
+    expect(t.reads).toContainEqual({ name: 'diagnosticItem', params: { attemptId: attempt.id, producer: timingItem.producer, itemKey: timingItem.itemKey } });
+    expect(new Set(t.reads.filter(r => r.name === 'diagnosticItem').map(r => r.params.itemKey))).toEqual(new Set([timingItem.itemKey]));
+    expect(t.patches).not.toHaveBeenCalled();
+  });
+  it('auto-selects the only rule-filter row and still writes an explicit row click', async () => {
+    const t = setup({ state: { view: 'diagnostics', diagnosticRule: rule.id }, list: { ...listData, rows: [required(listData.rows[0])], total: 1 } });
+    expect(screen.getByText(/<b>해석하지 않는 HTML<\/b>/)).toBeVisible();
+    expect(t.patches).not.toHaveBeenCalled();
+    await userEvent.setup().click(screen.getByRole('button', { name: timingItem.title ?? '' }));
+    expect(t.patches).toHaveBeenCalledWith({ diagnostic: 'synthetic-validator:synthetic-timing' });
+  });
+  it('stretches matching list and detail frames and embeds the uncapped list table', () => {
+    const table = vi.spyOn(ui, 'table');
+    try {
+      setup();
+      const list = screen.getByTestId('diagnostic-list-frame');
+      const detail = screen.getByTestId('diagnostic-detail-frame');
+      for (const frame of [list, detail]) expect(frame).toHaveClass('rounded-lg', 'border', 'border-border-subtle', 'bg-surface-card', 'self-stretch');
+      expect(list.parentElement).toHaveClass('items-stretch', '@5xl:flex-1');
+      expect(list).toHaveClass('flex', 'flex-col');
+      expect(table).toHaveBeenCalledWith(expect.objectContaining({ preferenceKey: 'log-lifecycle-diagnostic-list', fill: true, embedded: true, activeRowId: 'synthetic-validator:synthetic-timing' }));
+    } finally { table.mockRestore(); }
+  });
+  it('does not auto-select or read detail from a denied list', () => {
+    const t = setup({ list: { ...listData, access: 'no_permission', rows: listData.rows.map(row => ({ ...row, title: null })) } });
+    expect(t.reads.some(r => r.name === 'diagnosticItem')).toBe(false);
+    expect(t.patches).not.toHaveBeenCalled();
+    expect(within(screen.getByTestId('diagnostic-detail-frame')).getByText('본문 열람 권한 없음')).toBeVisible();
+    expect(screen.queryByLabelText('형태 요약')).toBeNull();
+  });
+  it.each(['not-submitted', 'filter-empty'] as const)('shows the %s message inside the detail frame and offers no selection prompt without rows', state => {
+    setup({ state: { view: 'diagnostics', ...(state === 'filter-empty' ? { diagnosticRule: rule.id } : {}) }, list: { ...listData, documents: state === 'not-submitted' ? [] : listData.documents, rows: [], total: 0 } });
+    expect(within(screen.getByTestId('diagnostic-detail-frame')).getByText(state === 'not-submitted' ? '이 시도에 제출된 진단이 없습니다' : '이 규칙에 연결된 진단이 없습니다')).toBeVisible();
+    expect(screen.queryByText('진단 항목을 선택해 주세요.')).toBeNull();
+  });
   it('shows plain text, shape, producer slugs and evidence locations with a Source link', async () => {
     const t = setup(); const user = userEvent.setup();
     expect(screen.getByRole('heading', { name: '시도 진단 · 시도 #1' })).toBeVisible();

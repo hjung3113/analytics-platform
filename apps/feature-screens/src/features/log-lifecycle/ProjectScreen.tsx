@@ -17,7 +17,7 @@ export function ProjectScreen(props: ScreenProps & { projectId: string; roundId?
   const [eventPage, setEventPage] = usePageValue(props, 'page', 0);
   const events = api.useRead<Page<ProjectEvent>>('projectEvents', { projectId, page: eventPage, pageSize: 25 }, tab === 'history' && !roundId);
   const [form, setForm] = useState<{ name: string; title: string; initial: Params; version?: string } | null>(null);
-  return <div className="grid min-w-0 gap-5 break-keep" data-testid="log-model-project"><ReadView query={project}>{p => <>
+  return <div className={roundId && props.state?.view === 'diagnostics' ? 'flex min-w-0 flex-1 flex-col gap-5 break-keep' : 'grid min-w-0 gap-5 break-keep'} data-testid="log-model-project"><ReadView query={project}>{p => <>
     {!roundId ? <><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold">{p.model?.code ?? '모델 확인 불가'} · 개발 건{roundId ? ' · Round' : ''}</p><GateBadge decision={p.gate.latest?.decision} /></div>
     <dl className="flex flex-wrap gap-x-8 gap-y-3 text-sm"><div><dt className="text-xs text-text-muted">SW</dt><dd>{p.softwareLabel ?? (p.softwareId ? '버전 이름 확인 불가' : '미지정')}</dd></div><div><dt className="text-xs text-text-muted">담당</dt><dd>{p.owner.displayName || '이름 확인 불가'}</dd></div><div><dt className="text-xs text-text-muted">목표일</dt><dd>{p.targetDate ?? '미정'}</dd></div><div><dt className="text-xs text-text-muted">현재 단계</dt><dd><StageBadge stage={p.stage} /></dd></div></dl>
     <div><Button variant="link" size="toolbar" onClick={() => navigate('model-profile', p.modelId, p.softwareId ?? undefined)}>모델·SW 프로파일</Button></div>

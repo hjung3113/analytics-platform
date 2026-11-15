@@ -32,13 +32,13 @@ export function Diagnostics(props: Props) {
   const heading = `${copy.attemptDiagnostics}${attempt ? ` · ${copy.attempt} #${attempt.attemptNo}` : ''}`;
   if (!attempt) return <Section title={heading}><DiagnosticState state="no_attempt" /></Section>;
   if (attempt.outcome !== 'succeeded') return <Section title={heading}><DiagnosticState state="incomplete_attempt" /></Section>;
-  return <Section title={heading}><DiagnosticListView key={attempt.id} {...props} attempt={attempt} /></Section>;
+  return <section className="@container flex min-w-0 flex-1 flex-col gap-3"><h2 className="text-sm font-semibold">{heading}</h2><DiagnosticListView key={attempt.id} {...props} attempt={attempt} /></section>;
 }
 function DiagnosticListView(props: Props & { attempt: Attempt }) {
   const { attempt } = props;
   const [filter, setFilter] = usePageValue(props, 'diagnosticRule', '', ['diagnostic']);
   const [selected, setSelected] = usePageValue(props, 'diagnostic', '', []);
-  return <div className="grid min-w-0 grid-cols-1 gap-3">
+  return <div className="flex min-w-0 flex-col gap-3 @5xl:flex-1">
     {filter ? <div className="flex min-w-0 flex-wrap items-center gap-2"><span className="rounded-md bg-surface-card px-2 py-1 text-sm">{copy.filter} · {props.ruleLabels[filter] ?? filter}</span><Button variant="link" size="toolbar" onClick={() => setFilter('')}>{copy.clearFilter}</Button></div> : null}
     <DiagnosticListPage key={filter} {...props} attempt={attempt} filter={filter} selected={selected} onSelect={setSelected} />
   </div>;
@@ -58,28 +58,31 @@ function DiagnosticListReader(props: Props & { attempt: Attempt; filter: string;
     // A later detail denial also invalidates Source-derived titles from the already loaded list.
     const denied = sourceAccess === 'denied' || data.access === 'no_permission';
     const rows = data.rows.map(r => ({ ...r, id: `${r.producer}:${r.itemKey}` }));
-    const selectedRow = rows.find(r => r.id === selected);
+    // Explicit URL identities are authoritative, even when absent from this page. Only an absent key defaults locally.
+    const identity = selected || (!denied ? rows[0]?.id ?? '' : '');
+    const selectedRow = rows.find(r => r.id === identity);
     let detail: ReactNode = null;
     if (denied) detail = <DiagnosticState state="no_permission" {...(selectedRow ? { shape: selectedRow } : {})} />;
-    else if (selected) detail = <DiagnosticItemView key={selected} {...props} identity={selected} metadata={selectedRow} onDenied={onDenied} />;
-    else if (rows.length) detail = <p role="status" className="text-sm text-text-secondary">{copy.choose}</p>;
+    else if (identity) detail = <DiagnosticItemView key={identity} {...props} identity={identity} metadata={selectedRow} onDenied={onDenied} />;
+    else if (data.documents.length === 0) detail = <DiagnosticState state="empty" />;
+    else if (filter) detail = <div role="status" className="grid gap-2 text-sm"><p>{copy.emptyFilter}</p></div>;
     const rowTitle = (row: DiagnosticListRow) => {
       if (denied) return copy.hiddenTitle;
       const fallback = row.bodyState === 'live' ? copy.untitled : copy[row.bodyState];
       return row.title ?? fallback;
     };
-    // Parent is a size container: stack below 64rem of actual content width (including at 1280 with the sidebar).
-    return <div className="@container min-w-0">
-      {data.documents.length === 0 ? <DiagnosticState state="empty" /> : null}
-      {data.documents.length > 0 && data.total === 0 && filter ? <div role="status" className="grid gap-2 text-sm"><p>{copy.emptyFilter}</p></div> : null}
-      <div className="grid min-w-0 grid-cols-1 items-start gap-4 @5xl:grid-cols-4">
-        <div className="min-w-0">{rows.length ? ui.table({ title: copy.list, hideTitle: true, fill: true, preferenceKey: 'log-lifecycle-diagnostic-list', rows, activeRowId: selected, pagination: <Pager page={page} total={data.total} onChange={onPage} />, columns: [{ id: 'title', header: copy.title, sortable: false, cell: r => <div className="grid min-w-0 gap-1 break-keep">
+    // The page supplies the height budget; the shared grid row stretches both frames. Natural content can grow the
+    // row (one shell scroll layer), while a short list leaves its slack inside the frame. Stack to content below 64rem.
+    return <div className="flex min-w-0 flex-col @5xl:flex-1">
+      <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 @5xl:flex-1 @5xl:grid-cols-4">
+        <div data-testid="diagnostic-list-frame" className="flex min-w-0 flex-col self-stretch rounded-lg border border-border-subtle bg-surface-card">
+          {rows.length ? ui.table({ title: copy.list, hideTitle: true, fill: true, embedded: true, preferenceKey: 'log-lifecycle-diagnostic-list', rows, activeRowId: identity, pagination: <Pager page={page} total={data.total} onChange={onPage} />, columns: [{ id: 'title', header: copy.title, sortable: false, cell: r => <div className="grid min-w-0 gap-1 break-keep">
           <Button variant="link" size="toolbar" className="h-auto max-w-full justify-start whitespace-normal text-left" onClick={() => onSelect(r.id)}>{rowTitle(r)}</Button>
           <p className="break-all font-mono text-sm text-text-secondary">{r.producer}</p>
           <p className="text-sm text-text-secondary">{copy[r.origin]} · {copy.tables} {r.tableCount} · {r.rowCounts.join('/')} {copy.rows} · {copy.evidence} {r.evidenceCount} · {copy[r.bodyState]}</p>
           <p className="break-all font-mono text-sm text-text-muted">{r.itemKey}</p>
         </div> }] }) : null}</div>
-        <div className="grid min-w-0 gap-3 @5xl:col-span-3">
+        <div data-testid="diagnostic-detail-frame" className="grid min-w-0 content-start gap-3 self-stretch rounded-lg border border-border-subtle bg-surface-card p-3 @5xl:col-span-3">
           {detail}
         </div>
       </div>
