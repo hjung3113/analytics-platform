@@ -57,7 +57,7 @@ describe.skipIf(!runIntegration)('cross-site guard (#1674)', () => {
     const csrf = `csrf-${randomUUID()}`;
     await migrateDb.pool.query(
       `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary, csrf_token)
-       values ($1,$2,$3, now() + interval '1 hour', now(), now(), 'itest', $4)`,
+       values (encode(sha256(convert_to($1, 'UTF8')), 'hex'),$2,$3, now() + interval '1 hour', now(), now(), 'itest', $4)`,
       [sid, id, WORKSPACE_ID, csrf],
     );
     return { id, sid, csrf };
@@ -215,7 +215,7 @@ describe.skipIf(!runIntegration)('cross-site guard (#1674)', () => {
         if (sid) {
           await migrateDb.pool.query(
             `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary)
-             values ($1,$2,$3, now() + interval '1 hour', now(), now(), 'itest')`,
+             values (encode(sha256(convert_to($1, 'UTF8')), 'hex'),$2,$3, now() + interval '1 hour', now(), now(), 'itest')`,
             [sid, p.id, WORKSPACE_ID],
           );
         }
@@ -226,7 +226,7 @@ describe.skipIf(!runIntegration)('cross-site guard (#1674)', () => {
         expect(res.statusCode).toBe(403);
         expect(await target.probe?.()).toBe(before);
         if (sid) {
-          const row = await one('select revoked_at from core.sessions where id = $1', [sid]);
+          const row = await one('select revoked_at from core.sessions where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')', [sid]);
           expect(row.revoked_at).toBeNull();
         }
       }
@@ -240,7 +240,7 @@ describe.skipIf(!runIntegration)('cross-site guard (#1674)', () => {
         if (sid) {
           await migrateDb.pool.query(
             `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary)
-             values ($1,$2,$3, now() + interval '1 hour', now(), now(), 'itest')`,
+             values (encode(sha256(convert_to($1, 'UTF8')), 'hex'),$2,$3, now() + interval '1 hour', now(), now(), 'itest')`,
             [sid, p.id, WORKSPACE_ID],
           );
         }

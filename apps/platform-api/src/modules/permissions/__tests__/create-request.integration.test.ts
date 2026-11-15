@@ -73,7 +73,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
   afterEach(async () => {
     await cleanupFailedNotificationJobs();
     if (fixtureSessionIds.length > 0) {
-      await migrateHandle.pool.query('delete from core.sessions where id = any($1::text[])', [
+      await migrateHandle.pool.query('delete from core.sessions where id in (select encode(sha256(convert_to(value, \'UTF8\')), \'hex\') from unnest($1::text[]) as credentials(value))', [
         fixtureSessionIds,
       ]);
       fixtureSessionIds.length = 0;
@@ -149,7 +149,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     await migrateHandle.pool.query(
       `insert into core.sessions
          (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary)
-       values ($1, $2, $3, now() + interval '1 hour', now(), now(), 'permission-request-test')`,
+       values (encode(sha256(convert_to($1, 'UTF8')), 'hex'), $2, $3, now() + interval '1 hour', now(), now(), 'permission-request-test')`,
       [sessionId, actorId, WORKSPACE_ID],
     );
     fixtureSessionIds.push(sessionId);
@@ -566,7 +566,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
       const altActorId = altActor.rows[0]?.id ?? actor.rows[0]?.id;
       await ops.pool.query(
         `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at, created_user_agent_summary)
-         values ($1, $2, $3, now() + interval '1 hour', now(), now(), 'integration-test')`,
+         values (encode(sha256(convert_to($1, 'UTF8')), 'hex'), $2, $3, now() + interval '1 hour', now(), now(), 'integration-test')`,
         [cookieValue, altActorId, otherWs],
       );
     } finally {
@@ -588,7 +588,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     // re-runs. Order: sessions → actors → workspace (FK chain).
     const opsCleanup = createDb(migrateUrl);
     try {
-      await opsCleanup.pool.query('delete from core.sessions where id = $1', [cookieValue]);
+      await opsCleanup.pool.query('delete from core.sessions where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')', [cookieValue]);
       await opsCleanup.pool.query('delete from core.actors where workspace_id = $1', [otherWs]);
       await deleteRecoveryFixtureParents(opsCleanup, 'delete from core.workspaces where id = $1', [
         otherWs,

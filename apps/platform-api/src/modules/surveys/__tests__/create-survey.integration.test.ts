@@ -998,7 +998,7 @@ describe.skipIf(!runIntegration)('Survey built-in starting points (#1073)', () =
       foreignWorkspaceId,
       'Foreign session WS',
     ]);
-    await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=$2', [
+    await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=encode(sha256(convert_to($2, \'UTF8\')), \'hex\')', [
       foreignWorkspaceId,
       userCookie,
     ]);
@@ -1007,7 +1007,7 @@ describe.skipIf(!runIntegration)('Survey built-in starting points (#1073)', () =
       expect(mismatch.statusCode).toBe(403);
       expect(mismatch.json()).toMatchObject({ code: 'auth.workspace_mismatch' });
     } finally {
-      await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=$2', [
+      await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=encode(sha256(convert_to($2, \'UTF8\')), \'hex\')', [
         WORKSPACE_ID,
         userCookie,
       ]);

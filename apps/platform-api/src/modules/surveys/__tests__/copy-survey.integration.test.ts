@@ -847,7 +847,7 @@ describe.skipIf(!runIntegration)('Saved Survey definition reuse (#1074)', () => 
       `/surveys/${id}/copy-source`,
     ]) {
       expect((await app.inject({ method: 'GET', url })).statusCode).toBe(401);
-      await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=$2', [
+      await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=encode(sha256(convert_to($2, \'UTF8\')), \'hex\')', [
         foreignWorkspace,
         userCookie,
       ]);
@@ -856,7 +856,7 @@ describe.skipIf(!runIntegration)('Saved Survey definition reuse (#1074)', () => 
         expect(mismatch.statusCode).toBe(403);
         expect(mismatch.json()).toMatchObject({ code: 'auth.workspace_mismatch' });
       } finally {
-        await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=$2', [
+        await migrateHandle.pool.query('update core.sessions set workspace_id=$1 where id=encode(sha256(convert_to($2, \'UTF8\')), \'hex\')', [
           WORKSPACE_ID,
           userCookie,
         ]);

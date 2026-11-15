@@ -95,12 +95,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
           cookies: req.cookies as Record<string, string | undefined>,
         });
         const ua = req.headers['user-agent'];
-        const { session, expiresAt } = await sessionService.provisionAndIssueSession({
+        const { cookieValue, expiresAt } = await sessionService.provisionAndIssueSession({
           claims: completed,
           ...(typeof ua === 'string' ? { userAgent: ua } : {}),
           ip: req.ip,
         });
-        reply.setCookie(SESSION_COOKIE_NAME, session.id, {
+        reply.setCookie(SESSION_COOKIE_NAME, cookieValue, {
           httpOnly: true,
           sameSite: 'lax',
           secure: isProd,
@@ -183,12 +183,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       const { external_id, return_to } = req.body as { external_id: string; return_to?: string };
       const claims = await authProvider.completeLogin({ external_id });
       const ua = req.headers['user-agent'];
-      const { session, actor, expiresAt } = await sessionService.provisionAndIssueSession({
+      const { cookieValue, actor, expiresAt } = await sessionService.provisionAndIssueSession({
         claims,
         ...(typeof ua === 'string' ? { userAgent: ua } : {}),
         ip: req.ip,
       });
-      reply.setCookie(SESSION_COOKIE_NAME, session.id, {
+      reply.setCookie(SESSION_COOKIE_NAME, cookieValue, {
         httpOnly: true,
         sameSite: 'lax',
         secure: isProd,
@@ -245,7 +245,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       // exactOptionalPropertyTypes is happy without a non-null assertion.
       const sess = req.session;
       if (!sess) throw new Error('requireSession did not populate req.session');
-      const loaded = await sessionService.loadAndTouch(sess.session_id);
+      const loaded = await sessionService.loadAndTouch(req.cookies?.[SESSION_COOKIE_NAME] ?? '');
       // loadAndTouch can return null if the row was concurrently revoked
       // between the middleware call and here — treat as session_invalid.
       if (!loaded) {

@@ -17,6 +17,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
+import { hashToken } from '../../api-tokens/token-format.js';
+import { createSessionService } from '../session-service.js';
 import { buildServer } from '../../../server.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -57,6 +59,39 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
       `delete from core.sessions where created_user_agent_summary = 'integration-test'`,
     );
     await dbHandle.pool.query(`delete from core.rate_limits`);
+  });
+
+  it('stores only the cookie hash and rejects database row ids as credentials', async () => {
+    const login = await app.inject({ method: 'POST', url: '/auth/mock-login', headers: { 'user-agent': 'integration-test' }, payload: { external_id: 'mock-user-1' } });
+    const cookie = extractSessionCookie(login.headers['set-cookie']);
+    if (!cookie) throw new Error('login failed');
+    const id = hashToken(cookie);
+    const rows = await dbHandle.pool.query('select id, csrf_token from core.sessions where id = $1 or id = $2', [cookie, id]);
+    expect(rows.rows.map(row => row.id)).toEqual([id]);
+    const service = createSessionService({ db: dbHandle.db, workspaceId: WORKSPACE_ID });
+    expect((await service.loadAndTouch(cookie))?.session.id).toBe(id);
+    expect((await service.loadActive(cookie))?.session.id).toBe(id);
+    expect(await service.lookupActorIdByToken(cookie)).not.toBeNull();
+    expect(await service.getCsrfToken(cookie)).toBe(rows.rows[0].csrf_token);
+    await dbHandle.pool.query('update core.sessions set csrf_token = null where id = $1', [id]);
+    const csrf = await service.ensureCsrfToken(cookie);
+    expect(csrf).toBeTruthy();
+    expect(await service.getCsrfToken(cookie)).toBe(csrf);
+    const boot = await app.inject({ method: 'GET', url: '/api/v1/platform/bootstrap', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
+    expect(boot.statusCode).toBe(200);
+    expect(boot.json().csrfToken).toBe(csrf);
+    for (const url of ['/me', '/api/v1/platform/session-state']) {
+      expect((await app.inject({ method: 'GET', url, headers: { cookie: `${SESSION_COOKIE_NAME}=${id}` } })).statusCode).toBe(401);
+    }
+    expect(await service.loadAndTouch(id)).toBeNull();
+    expect(await service.loadActive(id)).toBeNull();
+    expect(await service.lookupActorIdByToken(id)).toBeNull();
+    expect(await service.getCsrfToken(id)).toBeNull();
+    expect(await service.ensureCsrfToken(id)).toBeNull();
+    await service.revoke(id);
+    expect(await service.loadActive(cookie)).not.toBeNull();
+    await app.inject({ method: 'POST', url: '/auth/logout', headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
+    expect(await service.loadActive(cookie)).toBeNull();
   });
 
   it('round-trip: login → /me → logout → /me 401', async () => {
@@ -138,7 +173,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
     const cookie = extractSessionCookie(login.headers['set-cookie']);
     expect(cookie).toBeTruthy();
 
-    await dbHandle.pool.query('update core.sessions set revoked_at = now() where id = $1', [
+    await dbHandle.pool.query('update core.sessions set revoked_at = now() where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')', [
       cookie,
     ]);
 
@@ -162,7 +197,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
     expect(cookie).toBeTruthy();
 
     await dbHandle.pool.query(
-      `update core.sessions set expires_at = now() - interval '1 second' where id = $1`,
+      `update core.sessions set expires_at = now() - interval '1 second' where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')`,
       [cookie],
     );
 
@@ -195,7 +230,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
       `insert into core.workspaces (id, name) values ($1, 'foreign') on conflict do nothing`,
       [foreignWorkspace],
     );
-    await dbHandle.pool.query('update core.sessions set workspace_id = $1 where id = $2', [
+    await dbHandle.pool.query('update core.sessions set workspace_id = $1 where id = encode(sha256(convert_to($2, \'UTF8\')), \'hex\')', [
       foreignWorkspace,
       cookie,
     ]);
@@ -210,7 +245,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
 
     // Cleanup: revoke the planted session and drop the foreign workspace so
     // FK constraints stay clean for the next test run.
-    await dbHandle.pool.query('delete from core.sessions where id = $1', [cookie]);
+    await dbHandle.pool.query('delete from core.sessions where id = encode(sha256(convert_to($1, \'UTF8\')), \'hex\')', [cookie]);
     await deleteRecoveryFixtureParents(dbHandle, 'delete from core.workspaces where id = $1', [
       foreignWorkspace,
     ]);

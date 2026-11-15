@@ -386,7 +386,7 @@ describe.skipIf(!runIntegration)('OIDC provider flow (#390)', () => {
     const sid = 'oidc-it-legacy-system-session';
     await dbHandle.pool.query(
       `insert into core.sessions (id, actor_id, workspace_id, expires_at, last_seen_at, created_at)
-       values ($1, $2, $3, now() + interval '1 hour', now() - interval '1 hour', now())`,
+       values (encode(sha256(convert_to($1, 'UTF8')), 'hex'), $2, $3, now() + interval '1 hour', now() - interval '1 hour', now())`,
       [sid, actorId, WORKSPACE_ID],
     );
     const cookie = `${SESSION_COOKIE_NAME}=${sid}`;
@@ -399,7 +399,7 @@ describe.skipIf(!runIntegration)('OIDC provider flow (#390)', () => {
     });
     expect(state.statusCode).toBe(401);
     const seen = await dbHandle.pool.query(
-      `select last_seen_at < now() - interval '30 minutes' as untouched from core.sessions where id = $1`,
+      `select last_seen_at < now() - interval '30 minutes' as untouched from core.sessions where id = encode(sha256(convert_to($1, 'UTF8')), 'hex')`,
       [sid],
     );
     expect((seen.rows[0] as { untouched: boolean }).untouched).toBe(true);
