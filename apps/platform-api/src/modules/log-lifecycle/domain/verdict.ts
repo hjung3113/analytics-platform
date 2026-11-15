@@ -2,7 +2,7 @@
 // rule results; the worker's own summary is stored for reference and never read here. There is no input for an AI
 // opinion: nothing but rule results and the manifest comparison reaches the verdict.
 //   fail        any result is FAIL
-//   incomplete  a required rule is ERROR / NOT_CHECKED / SKIPPED, or the worker's manifest digest differs from the request's
+//   incomplete  no results, a required rule is ERROR / NOT_CHECKED / SKIPPED, or the worker's manifest digest differs from the request's
 //   pass        otherwise (WARN, NOT_APPLICABLE and a non-required ERROR/NOT_CHECKED/SKIPPED do not block)
 
 import type { Verdict } from './request-states.js';
@@ -17,7 +17,7 @@ export function computeVerdict(
   manifestMatches: boolean,
 ): Verdict {
   if (results.some((r) => r.result === 'FAIL')) return 'fail';
-  if (!manifestMatches) return 'incomplete';
+  if (results.length === 0 || !manifestMatches) return 'incomplete';
   if (results.some((r) => r.required && INCOMPLETE_WHEN_REQUIRED.includes(r.result))) return 'incomplete';
   return 'pass';
 }

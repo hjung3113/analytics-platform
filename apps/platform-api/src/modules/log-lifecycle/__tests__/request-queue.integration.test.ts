@@ -615,6 +615,42 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout
   });
 
   describe('late results (lease expired, nobody else took the request)', () => {
+    it.each([
+      { action: 'result', maxAttempts: 1 },
+      { action: 'fail', maxAttempts: 1 },
+      { action: 'result', maxAttempts: 3 },
+      { action: 'fail', maxAttempts: 3 },
+    ] as const)('SER-27: keeps final attempt $maxAttempts via $action, but never reclaims its heartbeat', async ({ action, maxAttempts }) => {
+      const round = await makeRound();
+      const request = await makeRequest(round.roundId, { maxAttempts });
+      let claimed = (await claim(workerA)).json();
+      for (let attemptNo = 1; attemptNo < maxAttempts; attemptNo += 1) {
+        await expireLease(request.id);
+        claimed = (await claim(workerA)).json();
+      }
+      await expireLease(request.id);
+      expect((await claim(workerB)).statusCode).toBe(204);
+      expect((await requestRow(request.id)).state).toBe('expired');
+      const path = `/requests/${request.id}/${action}`;
+      const body = action === 'result' ? resultBody(claimed, [rule('R1', 'PASS')]) : { attemptNo: maxAttempts, reason: 'Synthetic execution failure' };
+      const other = await post(workerB, path, body);
+      expect(other.statusCode).toBe(409);
+      expect(other.json().code).toBe('queue.lease_lost');
+      const beat = await post(workerA, `/requests/${request.id}/heartbeat`, { attemptNo: maxAttempts });
+      expect(beat.statusCode).toBe(409);
+      expect(beat.json().code).toBe('queue.lease_lost');
+      const response = await post(workerA, path, body);
+      expect(response.statusCode, response.body).toBe(200);
+      const state = action === 'result' ? 'succeeded' : 'failed';
+      expect(response.json()).toMatchObject({ state, attemptNo: maxAttempts });
+      expect(await requestRow(request.id)).toMatchObject({ state, attempt_count: maxAttempts });
+      expect(await attempts(request.id)).toHaveLength(maxAttempts);
+      expect((await attempts(request.id))[maxAttempts - 1]).toMatchObject({ outcome: state });
+      const event = action === 'result' ? 'lifecycle.request.result_submitted' : 'lifecycle.request.failed';
+      expect((await audit(request.id)).find((entry) => entry.event_type === event)?.detail).toMatchObject({ late: true });
+      expect((await post(workerA, path, body)).json()).toEqual(response.json());
+    });
+
     it('a result after expiry is kept when no one else claimed; the request ends succeeded', async () => {
       const round = await makeRound();
       const request = await makeRequest(round.roundId);
@@ -742,6 +778,21 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout
   });
 
   describe('result: idempotency, conflict, verdicts, input checks', () => {
+    it('SER-28: stores an empty execution result as incomplete and replays it', async () => {
+      const round = await makeRound();
+      const request = await makeRequest(round.roundId);
+      const claimed = (await claim()).json();
+      const body = resultBody(claimed, []);
+      const response = await post(workerA, `/requests/${request.id}/result`, body);
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toMatchObject({ state: 'succeeded', verdict: 'incomplete', ruleCount: 0 });
+      expect((await attempts(request.id))[0]).toMatchObject({ outcome: 'succeeded', verdict: 'incomplete', result_digest: response.json().resultDigest });
+      const detail = await read('roundDetail', { roundId: round.roundId }, admin);
+      expect(detail.outcome).toBe('ok');
+      expect(detail.data.gateAvailability.decisions.approved).toMatchObject({ allowed: false, reasons: expect.arrayContaining(['verdict_not_pass']) });
+      expect((await post(workerA, `/requests/${request.id}/result`, body)).json()).toEqual(response.json());
+    });
+
     it('the same body again answers the same 200 and writes no new row; a different body for the attempt is conflict.stale_write', async () => {
       const round = await makeRound();
       const request = await makeRequest(round.roundId);
