@@ -7,7 +7,7 @@ export const diagnosticCopy = {
   denied: '원본 열람 권한이 없어 진단 본문을 볼 수 없습니다. 형태 메타데이터만 표시합니다.',
   retained: '보관 기간이 지나 본문이 삭제되었습니다.', admin: '관리자가 본문을 삭제했습니다.',
   hiddenTitle: '제목 열람 불가', untitled: '제목 없는 진단',
-  noItems: '이 시도에 제출된 진단이 없습니다', choose: '진단 항목을 선택해 주세요.', missing: '찾을 수 없음 · 진단 항목을 찾을 수 없습니다.',
+  noItems: '이 시도에 제출된 진단이 없습니다', missing: '찾을 수 없음 · 진단 항목을 찾을 수 없습니다.',
   noAttempt: '선택한 시도가 없습니다. 설정·이력에서 시도를 선택해 주세요.',
   incompleteAttempt: '선택한 시도는 결과 저장이 완료되지 않아 진단을 볼 수 없습니다.',
   explanation: '설명', openSource: '원본에서 보기', unavailableSource: '원본 확인 불가 · 샘플 위치 또는 해시를 확인해 주세요.',

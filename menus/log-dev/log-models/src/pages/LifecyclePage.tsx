@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
+import { EmbeddedPane, AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
 import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
 import { defineEndpoint, type AuditEvent, type EndpointSpec, isAnswered } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
@@ -43,8 +43,9 @@ function useAction(name: string): Action {
   return useMenuAction(spec);
 }
 const api: LifecycleApi = { useRead, useAction };
-function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true }: TableParts<T>) {
-  return <div className="grid min-w-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true, embedded = false }: TableParts<T>) {
+  const table = <div className="grid min-w-0 shrink-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+  return embedded ? <EmbeddedPane>{table}</EmbeddedPane> : table;
 }
 const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };
 const fieldLabels: Record<string, string> = { stage: '단계', ownerActorId: '담당 ID', targetDate: '목표일', softwareId: 'SW ID', decision: '결정', targetStage: '대상 단계', gateDecisionId: '결정 ID', selfApproved: '자기 승인' };
@@ -110,7 +111,7 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}:00+09:00`)) })),
   ]);
   const invalid = (projectId && !isUuid(projectId)) || (roundId && !isUuid(roundId)) || (selection && !isUuid(selection));
-  return <PlatformPage><LifecycleHost navigate={navigateScreen}><div key={`${user.id}:${revision}`} className="min-w-0">
+  return <PlatformPage layout={roundId && pageParam('view') === 'diagnostics' ? 'fill' : 'flow'}><LifecycleHost navigate={navigateScreen}><div key={`${user.id}:${revision}`} className={roundId && pageParam('view') === 'diagnostics' ? 'flex min-w-0 flex-1 flex-col' : 'min-w-0'}>
     {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : invalid ? <p role="alert" className="text-sm">주소의 ID가 올바르지 않습니다.</p> : projectId ? <ProjectScreen key={projectId} {...props} projectId={projectId} {...(roundId ? { roundId } : {})} /> : platform.route?.menu.id === 'log-validation-requests' ? <RequestsScreen {...props} /> : <ModelsScreen {...props} />}
   </div></LifecycleHost></PlatformPage>;
 }

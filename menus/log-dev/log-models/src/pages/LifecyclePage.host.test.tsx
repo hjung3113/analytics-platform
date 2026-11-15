@@ -878,7 +878,10 @@ describe('attempt diagnostics with the real Kernel host (#1815 B2)', () => {
     expect(query().get('diagnosticRule')).toBe(rules[1]!.id);
     expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnostics')).toHaveLength(1);
     expect(t.queries.find(q => q.endpoint === 'logLifecycle.diagnostics')?.params.ruleResultId).toBe(rules[1]!.id);
-    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(0);
+    await waitFor(() => expect(text('합성 보호 진단 본문')).toBe(true));
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(1);
+    expect(query().get('diagnostic')).toBeNull();
+    expect(t.history.mock.calls.length).toBe(before + 1);
     const beforeSelection = t.history.mock.calls.length;
     click(button('합성 진단'));
     await waitFor(() => expect(text('합성 보호 진단 본문')).toBe(true));
@@ -889,6 +892,33 @@ describe('attempt diagnostics with the real Kernel host (#1815 B2)', () => {
     click(button('R-002'));
     await waitFor(() => expect(query().get('view')).toBe('verify'));
     expect(query().get('rule')).toBe(rules[1]!.id);
+  });
+  it('opens the tab with one first-item read and no selection URL write', async () => {
+    const t = mount('', 1, 'round', diagnosticRead); await ready();
+    const before = t.history.mock.calls.length;
+    activateRoundTab('진단');
+    await waitFor(() => expect(text('합성 보호 진단 본문')).toBe(true));
+    expect(query().get('diagnostic')).toBeNull();
+    expect(t.history.mock.calls.length).toBe(before + 1);
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(1);
+    expect(element('[data-platform-page]').getAttribute('data-page-layout')).toBe('fill');
+    const list = element('[data-testid="diagnostic-list-frame"]');
+    const detail = element('[data-testid="diagnostic-detail-frame"]');
+    for (const frame of [list, detail]) for (const token of ['rounded-lg', 'border', 'border-border-subtle', 'bg-surface-card', 'self-stretch']) expect(frame.classList.contains(token)).toBe(true);
+    expect(list.querySelector('section[aria-label="진단 목록"]')?.classList.contains('border-0')).toBe(true);
+  });
+  it('keeps an explicit unknown diagnostic missing without substituting the first row', async () => {
+    const t = mount('&view=diagnostics&diagnostic=synthetic-validator:unknown', 1, 'round', diagnosticRead);
+    await waitFor(() => expect(text('찾을 수 없음 · 진단 항목을 찾을 수 없습니다.')).toBe(true));
+    expect(text('합성 보호 진단 본문')).toBe(false);
+    expect(query().get('diagnostic')).toBe('synthetic-validator:unknown');
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem').map(q => q.params.itemKey)).toEqual(['unknown']);
+  });
+  it('reads no detail or selection state for a denied diagnostic list', async () => {
+    const t = mount('&view=diagnostics', 1, 'round', q => q.endpoint === 'logLifecycle.diagnostics' ? ok({ ...diagnostics, access: 'no_permission', rows: [{ ...row, title: null }] }) : diagnosticRead(q));
+    await waitFor(() => expect(text('본문 열람 권한 없음')).toBe(true));
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(0);
+    expect(query().get('diagnostic')).toBeNull();
   });
   it.each(['bad producer:item', 'producer:', ':item', `${'a'.repeat(65)}:item`, `producer:${'a'.repeat(201)}`, 'producer:item/unsafe'])('rejects invalid diagnostic identity %s before reads', async diagnostic => {
     const t = mount(`&view=diagnostics&diagnostic=${encodeURIComponent(diagnostic)}`, 1, 'round', diagnosticRead);
