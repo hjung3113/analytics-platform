@@ -175,7 +175,7 @@ export const savedViews = coreSchema.table(
 
 // ─────────────────────────────────────────────────────────────────────────
 // core.sessions — SHA-256 cookie digest as text PK; the raw cookie is never persisted.
-// Cookie name 'platform_session' carries this opaque id.
+// Cookie name 'platform_session' carries the raw credential; its digest is the row id.
 // ─────────────────────────────────────────────────────────────────────────
 export const sessions = coreSchema.table(
   'sessions',

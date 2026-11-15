@@ -67,7 +67,7 @@ describe.skipIf(!runIntegration)('Slice 1 #3 auth integration', () => {
     if (!cookie) throw new Error('login failed');
     const id = hashToken(cookie);
     const rows = await dbHandle.pool.query('select id, csrf_token from core.sessions where id = $1 or id = $2', [cookie, id]);
-    expect(rows.rows.map(row => row.id)).toEqual([id]);
+    expect(rows.rows.map(row => row.id === id)).toEqual([true]); // booleans only: a failure must not print the raw cookie
     const service = createSessionService({ db: dbHandle.db, workspaceId: WORKSPACE_ID });
     expect((await service.loadAndTouch(cookie))?.session.id).toBe(id);
     expect((await service.loadActive(cookie))?.session.id).toBe(id);
