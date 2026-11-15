@@ -1,5 +1,5 @@
 import { useCompactPageDensity } from '../pageDensity';
-import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
@@ -352,7 +352,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const mergedShared = mergedWidth === null ? null : mergedWidth - filterBasis - STATUS_GAP;
   // Only widths that hold while rows load or pages turn decide the band (toolbar, controls, lead, page controls); the count and trust get fixed room.
   const fitsOneBand = mergedWidth === null || (filterFields.length > 0 ? mergedShared! : mergedWidth) >= COUNT_RESERVE + descriptionWidth + STATUS_GAP + TRUST_SUMMARY_RESERVE;
-  const mergeToolbar = alwaysMerge || (canMerge && fitsOneBand);
+  // Switching bands moves the filter and result lines to another parent, which remounts them: while a popover anchored there is open
+  // (a filter editor with its draft, + 필터, the trust details) the band holds, and the measured choice applies when it closes.
+  const anchoredOpen = useAnchoredOverlayOpen(section, canMerge && !alwaysMerge);
+  const heldBand = useRef<boolean | null>(null);
+  const measuredMerge = alwaysMerge || (canMerge && fitsOneBand);
+  const mergeToolbar = anchoredOpen && heldBand.current !== null ? heldBand.current : measuredMerge;
+  useEffect(() => { heldBand.current = mergeToolbar; });
   const leftBasis = mergeToolbar && beforeFilters !== null && beforeFilters > 0 ? { '--ap-table-left-basis': `${(filterFields.length > 0 ? filterBasis : -STATUS_GAP) + beforeFilters}px` } as CSSProperties : undefined;
   const mergedRoom = filterFields.length > 0 && mergedShared !== null && mergedShared >= (countSpan.width ?? 0) + descriptionWidth ? mergedShared : mergedWidth;
   // With separate filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
@@ -926,4 +932,21 @@ export function parseTableSort(raw: string | null, allowed: readonly string[]): 
 export function encodeTableSort(sorting: PageSort[]): string | null {
   const s = sorting[0];
   return s ? `${s.id}:${s.desc ? 'desc' : 'asc'}` : null;
+}
+
+const ANCHORED_OVERLAY = '[data-table-toolbar] [aria-expanded="true"], [data-table-status-line] [aria-expanded="true"]';
+
+/** #2310: whether a popover or menu anchored in the toolbar or result line is open (its trigger has `aria-expanded="true"`). */
+function useAnchoredOverlayOpen(section: RefObject<HTMLElement | null>, enabled: boolean) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const root = section.current;
+    if (!enabled || !root) { setOpen(false); return; }
+    const read = () => setOpen(root.querySelector(ANCHORED_OVERLAY) !== null);
+    const observer = new MutationObserver(read);
+    observer.observe(root, { subtree: true, attributes: true, attributeFilter: ['aria-expanded'] });
+    read();
+    return () => observer.disconnect();
+  }, [section, enabled]);
+  return open;
 }

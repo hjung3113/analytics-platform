@@ -252,6 +252,27 @@ describe('PlatformDataTable hidden page title (#1234)', () => {
       expect(bands()).toBe(0);
     });
 
+    it.each([[1192, 1000], [1000, 1192]])('crossing the threshold (%ipx → %ipx) with an editor open keeps the editor and its draft; the band follows on close', async (from, to) => {
+      bandFit = true;
+      width = from;
+      render(<Table hidden={false} />);
+      await screen.findByText(/1건 · 1\/1 페이지/);
+      const before = bands();
+      await userEvent.click(document.querySelector<HTMLElement>('[data-filter-body="id"]')!);
+      const dialog = await screen.findByRole('dialog');
+      const input = within(dialog).getByRole('textbox');
+      await userEvent.type(input, 'PM1');
+      act(() => {
+        width = to;
+        for (const { cb, target } of observers) if (target.isConnected) cb([{ target, contentRect: { width: measuredWidth(target), height: 800 } } as ResizeObserverEntry], {} as ResizeObserver);
+      });
+      expect(bands()).toBe(before);
+      expect(input.isConnected).toBe(true);
+      expect(input).toHaveValue('PM1');
+      await userEvent.keyboard('{Escape}');
+      expect(bands()).toBe(1 - before);
+    });
+
     it('a hidden title without search merges at any width (R2 unchanged)', async () => {
       bandFit = true;
       width = 600;
