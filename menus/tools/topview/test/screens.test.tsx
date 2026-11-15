@@ -237,6 +237,19 @@ describe('outcomes', () => {
     expect(screen.queryByTitle(/확인된 이슈 없음/)).toBeNull();
   });
 
+  it.each(SCREENS)('%s: ready trust and notices stay inside the Top View panel', async (name, Screen) => {
+    const fake = fakeFor(name, { query: async call => call.id === OPTIONS_ID ? knownList() : server()(call) });
+    fake.render(Screen);
+    const panel = await screen.findByRole('region', { name: 'Top View' });
+    const trust = within(panel).getByRole('button', { name: /Data Trust|데이터 신뢰/ });
+    const header = within(panel).getByRole('heading', { name: 'Top View' }).parentElement!.parentElement!;
+    expect(header.contains(trust)).toBe(true);
+    expect(screen.getAllByRole('button', { name: /Data Trust|데이터 신뢰/ })).toEqual([trust]);
+    const notice = within(panel).getByRole('status');
+    expect(notice.textContent).toMatch(/초안 레이아웃/);
+    expect(panel.lastElementChild!.firstElementChild!.contains(notice)).toBe(true);
+  });
+
   it('only unknown assessments say some status could not be confirmed, never «no issues»', async () => {
     const unknown = assessments({ coverage: { kind: 'coverage', state: 'unknown', reason: 'source_unavailable' } });
     const fake = fakeFor('focus', { query: server({ events: (token) => ok(token === undefined ? pages()[0] : pages()[1], unknown) }) });
@@ -251,6 +264,15 @@ describe('outcomes', () => {
     fake.render(FocusScreen);
     await screen.findByText('이 구간에 표시할 Occurrence가 없습니다');
     screen.getByTitle(/일부 상태를 확인하지 못했습니다 \(1\)/);
+  });
+
+  it.each(SCREENS.flatMap(([name, Screen]) => (['empty', 'error'] as const).map(outcome => [name, outcome, Screen] as const)))('%s: %s read retains trust without a Top View panel', async (name, outcome, Screen) => {
+    const unknown = assessments({ coverage: { kind: 'coverage', state: 'unknown' } });
+    const fake = fakeFor(name, { query: async call => call.id === OPTIONS_ID ? knownList() : server({ context: response(outcome, null, { assessments: unknown, message: 'read failed' }) })(call) });
+    fake.render(Screen);
+    await screen.findByTitle(/일부 상태를 확인하지 못했습니다/);
+    expect(screen.queryByRole('region', { name: 'Top View' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Data Trust|데이터 신뢰/ })).toHaveLength(1);
   });
 
   it.each(SCREENS)('%s: a tampered Mapping Version is an error state, not a partial replay', async (name, Screen) => {
@@ -436,6 +458,7 @@ describe('Focus 재생 구간 in the page keys', () => {
   it('applying a range writes rangeFrom/rangeTo to the address, and a remount reads the range back', async () => {
     const fake = fakeFor('focus');
     const first = fake.render(FocusScreen);
+    fireEvent.click(await screen.findByRole('button', { name: '변경' }));
     await screen.findByRole('form', { name: '구간' });
     const [from, to] = rangeInputs();
     fireEvent.change(from!, { target: { value: '2026-01-01T10:05:00.000' } });
@@ -444,6 +467,7 @@ describe('Focus 재생 구간 in the page keys', () => {
     await waitFor(() => expect([fake.page('rangeFrom'), fake.page('rangeTo')]).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000']));
     first.unmount();
     fake.render(FocusScreen);
+    fireEvent.click(await screen.findByRole('button', { name: '변경' }));
     await screen.findByRole('form', { name: '구간' });
     expect(rangeInputs().map((input) => input.value)).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000']);
   });
@@ -466,12 +490,14 @@ describe('Focus 재생 구간 in the page keys', () => {
     fireEvent.click(warning());
     await waitFor(() => expect([fake.page('rangeFrom'), fake.page('rangeTo')]).toEqual([null, null]));
     expect(fake.page('equipment')).toBe(EQUIPMENT);
+    fireEvent.click(await screen.findByRole('button', { name: '변경' }));
     await screen.findByRole('form', { name: '구간' });
   });
 
   it('a saved range survives a refresh of the same equipment, time and entry', async () => {
     const fake = fakeFor('focus', { page: SAVED });
     fake.render(FocusScreen);
+    fireEvent.click(await screen.findByRole('button', { name: '변경' }));
     await screen.findByRole('form', { name: '구간' });
     fake.setPage({ entityType: null });
     expect(rangeInputs().map((input) => input.value)).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000']);
@@ -485,6 +511,7 @@ describe('Focus 재생 구간 in the page keys', () => {
   ] as const)('a saved range is dropped when the %s changes', async (_name, change) => {
     const fake = fakeFor('focus', { page: SAVED });
     fake.render(FocusScreen);
+    fireEvent.click(await screen.findByRole('button', { name: '변경' }));
     await screen.findByRole('form', { name: '구간' });
     change(fake);
     await waitFor(() => expect(fake.page('rangeFrom')).toBeNull());

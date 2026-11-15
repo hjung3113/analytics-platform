@@ -1,4 +1,4 @@
-import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Assessment } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -51,6 +51,9 @@ describe('replay reads like the mock server answers them for eq-synth-01 (no Tru
     await waitFor(() => expect(document.querySelector('tr[data-occurrence-id], [data-layer="replay"]')).not.toBeNull());
     const lines = screen.getAllByRole('button', { name: /Data Trust|데이터 신뢰/ });
     expect(lines).toHaveLength(1);
+    const panel = screen.getByRole('region', { name: 'Top View' });
+    const header = within(panel).getByRole('heading', { name: 'Top View' }).parentElement!.parentElement!;
+    expect(header.contains(lines[0]!)).toBe(true);
     expect(lines[0]!.getAttribute('title')).toMatch(/일부 상태를 확인하지 못했습니다 \(2\)/);
     fireEvent.click(lines[0]!);
     const list = (await screen.findByText('수집')).closest('ul')!;

@@ -1,14 +1,14 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, ChartGantt, MapPinOff, ServerCrash } from 'lucide-react';
 import {
-  bindingLayout, replayTimeline, replayTimelineFrame, parseWallClockRange, seekSceneState, stepSceneState,
+  bindingLayout, replayTimeline, replayTimelineFrame, parseWallClockRange, wallClockToMillis, seekSceneState, stepSceneState,
   type ReplayInput, type ReplayTimeline, type ReplayTimelineFrame, type SceneState, type SiteWallClock,
 } from '@eqv/core';
 import { TopViewer } from '@eqv/renderer';
 import {
   CursorStateList, DataQualityList, entryOccurrence, EvidenceDetail, FocusGantt, focusRange, illustrativeGhosts, OccurrenceList, PlaybackControls, recordSteps,
-  usePlayback, type PlaybackScheduler,
+  usePlayback, wallClockText, type PlaybackScheduler,
 } from '@eqv/replay';
 import { Button, Checkbox, EmptyState, Input, Label, useImeEnterGuard } from '@ap/ui';
 import { EvidenceBadge, Panel, StateMessage, Tabs, TabsContent, TabsList, TabsTrigger, ViewerZoomControls } from '@eqv/ui';
@@ -26,6 +26,7 @@ type View = {
   applied: Range | null;
   draft: { from: string; to: string } | null;
   rangeError: string | null;
+  rangeExpanded: boolean;
   /** null means the entry's default cursor. */
   cursor: SiteWallClock | null;
   selectedOccurrenceId: string | null;
@@ -51,10 +52,29 @@ function parseRange(from: string, to: string): { range: Range } | { error: strin
   return { error: parsed.problem === 'format' ? 'Site Wall-clock 형식(YYYY-MM-DDTHH:mm:ss.fff)이 아닙니다' : '시작은 끝보다 앞서야 합니다' };
 }
 
+const MILLIS_PER_SECOND = 1_000;
+const MILLIS_PER_MINUTE = 60 * MILLIS_PER_SECOND;
+const MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE;
+
+/** A short Korean duration between Site Wall-clocks, preserving any remaining seconds and milliseconds. */
+export function formatRangeDuration({ from, to }: Range): string {
+  const millis = wallClockToMillis(to) - wallClockToMillis(from);
+  const hours = Math.floor(millis / MILLIS_PER_HOUR);
+  const minutes = Math.floor((millis % MILLIS_PER_HOUR) / MILLIS_PER_MINUTE);
+  const seconds = (millis % MILLIS_PER_MINUTE) / MILLIS_PER_SECOND;
+  const parts = [];
+  if (hours) parts.push(`${hours}시간`);
+  if (minutes) parts.push(`${minutes}분`);
+  if (seconds || parts.length === 0) parts.push(`${seconds}초`);
+  return parts.join(' ');
+}
+
 type FocusViewBaseProps = {
   input: ReplayInput;
-  /** Shown above the range form, one status line each (anchor choice, missing Binding, draft Layout). */
+  /** Joined with the entry notice in one status line at the top of the Top View panel body (or the view when no panel renders). */
   notices: readonly string[];
+  /** Status shown first in the Top View panel header; above the view when no panel renders. */
+  trust?: ReactNode;
   entityType: string | null;
   anchor: string | null;
   /** The host's load identity: a change resets every piece of view state (range, cursor, selections, mode). */
@@ -84,25 +104,26 @@ export type FocusViewProps = FocusViewBaseProps & (
 );
 
 /** Top View, Gantt and Occurrence list on one cursor, from props only (no page chrome, router or loader). */
-export function FocusView({ input, notices, entityType, anchor, resetKey, range: hostRange, renderDetail, tab: controlledTab, onTabChange, links, timelineBudget = TIMELINE_BUDGET, ganttSpanLimit = GANTT_SPAN_LIMIT, scheduler }: FocusViewProps) {
+export function FocusView({ input, notices, trust, entityType, anchor, resetKey, range: hostRange, renderDetail, tab: controlledTab, onTabChange, links, timelineBudget = TIMELINE_BUDGET, ganttSpanLimit = GANTT_SPAN_LIMIT, scheduler }: FocusViewProps) {
   const entryKey = JSON.stringify([entityType, anchor]);
   // An anchor naming an Occurrence of the batch is the entry: it starts selected (view state only; the cursor is the entry's own).
   const entryId = entryOccurrence(input.batch, { entityType, anchor })?.id ?? null;
-  const fresh = (): View => ({ resetKey, entryKey, applied: null, draft: null, rangeError: null, cursor: null,
+  const fresh = (): View => ({ resetKey, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursor: null,
     selectedOccurrenceId: entryId, selectedComponentId: null, expanded: new Set(), mode: { kind: 'time' }, illustrative: false });
   const [view, setView] = useState<View>(fresh);
   const [ownTab, setOwnTab] = useState<FocusTab>('list');
   // The zoom controls render into the Top View panel header (not over the fixed-width viewer, where a narrow page clips them).
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
   const rangeId = useId();
-  const rangeFormId = `${rangeId}-form`;
+  const rangeRegionId = `${rangeId}-region`;
+  const changeButton = useRef<HTMLButtonElement>(null);
   // The Enter that confirms a Korean composition (Safari: right after compositionend) does not apply the range (#2236).
   const ime = useImeEnterGuard();
   const rangeErrorId = `${rangeId}-error`;
   // Everything below belongs to the reset key and the entry key: a change clears it during render. The cursor, range and
   // selection belong to one batch.
   if (view.resetKey !== resetKey) setView(fresh());
-  else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, cursor: null, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
+  else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursor: null, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
 
   const entry = useMemo(() => focusRange(input.batch, { entityType, anchor }), [input.batch, entityType, anchor]);
   const range = (hostRange ? hostRange.value : view.applied) ?? entry.range ?? null;
@@ -195,7 +216,8 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
     if ('error' in parsed) { patch({ rangeError: parsed.error }); return; }
     const outside = cursor === null || cursor < parsed.range.from || cursor >= parsed.range.to;
     hostRange?.onChange(parsed.range);
-    patch({ applied: parsed.range, draft: null, rangeError: null, mode: { kind: 'time' }, ...(outside ? { cursor: parsed.range.from } : {}) });
+    patch({ applied: parsed.range, draft: null, rangeError: null, rangeExpanded: false, mode: { kind: 'time' }, ...(outside ? { cursor: parsed.range.from } : {}) });
+    changeButton.current?.focus();
   };
   const select = (id: string, moveCursor: boolean) => {
     const start = input.batch.occurrences.find((o) => o.id === id)?.start.at ?? null;
@@ -206,15 +228,22 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
   const tab = renderDetail && (controlledTab ?? ownTab) === 'detail' ? 'list' : controlledTab ?? ownTab;
   const tabs = renderDetail ? TABS.filter((item) => item.id !== 'detail') : TABS;
 
+  const showTopView = !!(frame && state && cursor);
+  const noticeLine = <NoticeList notices={[...notices, ...(entry.notice ? [entry.notice] : [])]} className="mb-2" />;
+
   return (
     <>
-      <NoticeList notices={[...notices, ...(entry.notice ? [entry.notice] : [])]} />
+      {!showTopView && <>{trust}{noticeLine}</>}
       {range && (
-        <Panel title="재생 구간" className="mb-4" actions={
-          <Button type="submit" form={rangeFormId} variant="secondary" size="toolbar"><ArrowRight className="size-3.5" aria-hidden />적용</Button>
-        }>
-          <form id={rangeFormId} aria-label="구간" className="grid gap-3" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => { event.preventDefault(); apply(); }}>
-            <div className="grid gap-3 sm:grid-cols-2">
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+            <span>재생 구간 {wallClockText(range.from)} → {wallClockText(range.to)} ({formatRangeDuration(range)})</span>
+            <Button ref={changeButton} type="button" variant="secondary" size="toolbar" aria-expanded={view.rangeExpanded} aria-controls={rangeRegionId}
+              onClick={() => patch({ rangeExpanded: !view.rangeExpanded })}>변경</Button>
+          </div>
+          <div id={rangeRegionId} role="region" aria-label="재생 구간 변경" hidden={!view.rangeExpanded} className="mb-3">
+          <form aria-label="구간" className="grid gap-3" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => { event.preventDefault(); apply(); }}>
+            <div className="flex flex-wrap items-end gap-3">
               <div className="grid gap-1">
                 <Label htmlFor={`${rangeId}-from`}>시작</Label>
                 <Input id={`${rangeId}-from`} type="text" className="w-full max-w-72" value={draft.from}
@@ -227,15 +256,17 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
                   aria-invalid={view.rangeError !== null} aria-describedby={view.rangeError ? rangeErrorId : undefined}
                   onChange={(event) => patch({ draft: { ...draft, to: event.target.value } })} />
               </div>
+              <Button type="submit" variant="secondary" size="toolbar"><ArrowRight className="size-3.5" aria-hidden />적용</Button>
             </div>
             {view.rangeError && <p id={rangeErrorId} role="alert" className="m-0 text-xs text-text-danger-label">{view.rangeError}</p>}
           </form>
-        </Panel>
+          </div>
+        </>
       )}
       {framed && 'error' in framed && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${framed.error}`} />}
       {computed && 'error' in computed && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${computed.error}`} />}
       {sceneState && 'error' in sceneState && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${sceneState.error}`} />}
-      {frame && state && cursor && (
+      {showTopView && (
         <>
           <PlaybackControls playing={playback.playing} onPlay={() => { patch({ mode: { kind: 'time' } }); playback.play(); }} onPause={playback.pause}
             speed={playback.speed} onSpeedChange={playback.setSpeed}
@@ -250,6 +281,7 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
           <div className="flex flex-wrap items-start gap-4">
             <Panel title="Top View" className="max-w-full min-w-0 flex-none overflow-auto"
               actions={<>
+                {trust}
                 <span ref={setZoomHost} className="contents" />
                 <Checkbox id={`${rangeId}-illustrative`} checked={view.illustrative} onCheckedChange={(value) => patch({ illustrative: value === true })} />
                 <Label htmlFor={`${rangeId}-illustrative`}>예시 이동 표시</Label>
@@ -257,6 +289,7 @@ export function FocusView({ input, notices, entityType, anchor, resetKey, range:
                 {journeyAnchor !== null && links?.journey?.(journeyAnchor)}
                 {links?.actions}
               </>}>
+              {noticeLine}
               {layout ? (
                 <TopViewer layout={layout} width={720} height={420} replay={replay} highlight={highlight}
                   selectedId={view.selectedComponentId} onSelectedChange={(id) => patch({ selectedComponentId: id })}

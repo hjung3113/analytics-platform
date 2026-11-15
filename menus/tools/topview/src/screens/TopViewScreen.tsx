@@ -12,7 +12,7 @@ import { ACTIVITY_KO, CursorStateList, Evidence, wallClockText } from '@eqv/repl
 import { Panel, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
-import { TrustLine, stateFor } from './states.js';
+import { TrustBadge, TrustLine, stateFor } from './states.js';
 import { EquipmentBar, useEquipmentOptions, type OptionsState } from './EquipmentBar.js';
 import { usePageKeyRulesFor } from '../page-key-rules.js';
 
@@ -85,12 +85,11 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
     : stateFor(props, load, 'topview', retryLoad);
   if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <>{bar}<div>{state}</div></>;
   const { equipment } = props;
-  if (scene === null || 'error' in scene) return <>{bar}<StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
+  // The read itself succeeded: its trust and notices stay visible above the replay error.
+  if (scene === null || 'error' in scene) return <>{bar}<TrustLine trust={load.trust} assessments={load.assessments} /><NoticeList notices={load.notices} className="mb-2" /><StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
   return (
     <>
       {bar}
-      <TrustLine trust={load.trust} assessments={load.assessments} />
-      <NoticeList notices={load.notices} />
       {scene.layout && selectedId !== null && (
         <DetailDrawer title={`Component · ${selectedId}`} onClose={() => setSelection({ key: selectionKey, id: null })}
           tabs={[{ id: 'detail', label: m('topViewScreenDetail'), content: <ComponentDetail layout={scene.layout} state={scene.state} componentId={selectedId} /> }]} />
@@ -98,9 +97,11 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
       <div className="flex flex-wrap items-start gap-4">
         <Panel title="Top View" subtitle={wallClockText(scene.state.at)} className="max-w-full min-w-0 flex-none overflow-auto"
           actions={<>
+            <TrustBadge trust={load.trust} assessments={load.assessments} />
             <span ref={setZoomHost} className="contents" />
             <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId) } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
           </>}>
+          <NoticeList notices={load.notices} className="mb-2" />
           {scene.layout ? (
             <TopViewer layout={scene.layout} width={720} height={420} replay={replay} selectedId={selectedId}
               onSelectedChange={(id) => setSelection({ key: selectionKey, id })}
