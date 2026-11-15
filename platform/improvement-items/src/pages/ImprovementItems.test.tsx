@@ -247,6 +247,25 @@ describe('fix round (1328 d)', () => {
     fireEvent.click(screen.getByRole('button', { name: '적용' }));
     await waitFor(() => expect(lastItemsParams(api).filters).toBeUndefined());
   });
+  it('puts the Quest ID entry in the table toolbar and applies it on Enter, ignoring an IME-composing Enter (#2306)', async () => {
+    const api = mount({ url: '/improvement-items?v=1&scopeId=MEM&view=all' });
+    const input = await screen.findByRole('textbox', { name: '과제(Quest) ID로 찾기' });
+    expect(input.closest('[data-table-page-controls]')).not.toBeNull();
+    expect(within(input.closest('[data-table-page-controls]') as HTMLElement).getByText('Quest ID')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'Q-7' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    await act(async () => { await Promise.resolve(); });
+    expect(lastItemsParams(api).filters).toBeUndefined();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(lastItemsParams(api).filters).toEqual(expect.arrayContaining([{ id: 'questId', op: 'in', value: ['Q-7'] }])));
+  });
+  it('keeps the no-permission note visible and moves only the static mine-view explanation behind ⓘ (#2306)', async () => {
+    mount({ allowed: false, url: '/improvement-items?v=1&scopeId=MEM&view=mine' });
+    expect((await screen.findByRole('note')).textContent).toBe('개선 아이템을 만들거나 상태를 바꾸려면 개선 아이템 관리 권한이 필요합니다.');
+    const tip = await screen.findByRole('button', { name: '내 담당 설명' });
+    expect(document.getElementById(tip.getAttribute('aria-describedby')!)!.textContent).toBe('담당: 나 · 효과 확인됨·취소 제외 · 조치 완료는 효과 확인까지 유지');
+  });
   it('re-applies a restored Quest exclusion keeping its operator and IDs (C1)', async () => {
     const api = mount({ url: '/improvement-items?v=1&scopeId=MEM&view=all&filter=questId:notIn:Q-1' });
     const input = await screen.findByLabelText('과제(Quest) ID로 찾기') as HTMLInputElement;
