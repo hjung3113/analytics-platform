@@ -1,6 +1,6 @@
 # SDK TopN·Lane 차트
 
-`@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../../../../docs/adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`는 기존과 같이 `PlatformProvider`도 필요하다. `AnalysisChartFrame`은 `PlatformProvider` 없이도 순수 차트 동작을 쓴다(아래 «플랫폼 밖의 Chart Frame»).
+`@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../../../../docs/adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`도 `PlatformProvider` 없이 `I18nProvider`만으로 그려진다(#1953 B). `내보내기`(CSV)·`imageCopy`·`imagePrint`는 `exportActions: { exportAllowed: true }`를 줄 때만 보이고, 플랫폼 안에서는 메뉴 `features.export`가 결정한다. `AnalysisChartFrame`은 `PlatformProvider` 없이도 순수 차트 동작을 쓴다(아래 «플랫폼 밖의 Chart Frame»).
 
 ## TopN
 
@@ -131,3 +131,5 @@ const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same
 2026-11-15 / #1953 C: 선택 옵션 추가(기본 동작 불변). `AnalysisChartFrame`이 `PlatformProvider` 없이 그려진다(순수 차트 동작만, Compare·Annotate·`분석 구간 적용` 없음). `exportActions?: ChartExportActionsPolicy`(내보내기·이미지, 기본 꺼짐)와 `period?: { from?, to }`(키보드 구간 선택의 끝) — 둘 다 플랫폼 안에서는 무시. 슬라이스 A의 `imageActions`·`ChartImageActionsPolicy`는 미배포라 별칭 없이 `exportActions`·`ChartExportActionsPolicy`로 이름을 바꿨다(CSV까지 덮으므로). 소비자 조치 없음.
 
 2026-11-15 / #1953 A: 선택 옵션 추가(기본 동작 불변). `LaneTimeline`의 `exportActions?: ChartExportActionsPolicy`(`{ exportAllowed, notify? }`) — `PlatformProvider` 없이 `I18nProvider`만으로 `imageCopy`·`imagePrint`를 쓰려면 `exportAllowed: true`를 준다(기본 꺼짐, 결과는 `notify` 또는 버튼 옆 상태 줄). 플랫폼 안에서는 무시되고 메뉴 `features.export`가 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.
+
+2026-11-15 / #1953 B: 선택 옵션 추가(기본 동작 불변). `AnalysisChartProps.exportActions?: ChartExportActionsPolicy`(`LaneTimeline`·`AnalysisChartFrame`과 같은 prop·타입) — `AnalysisChart`(topNBar·donut·scatter·pareto·heatmap·boxPlot)가 `PlatformProvider` 없이 `I18nProvider`만으로 그려진다. 플랫폼 밖에서는 `exportAllowed: true`일 때만 `내보내기`(CSV, 맥락은 비어 있다)·`imageCopy`·`imagePrint`가 보이고(기본 꺼짐) 결과는 `notify` 또는 버튼 옆 상태 줄로 전한다. 플랫폼 안에서는 무시되고 메뉴 `features.export`와 토스트가 그대로 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16. 다운로드가 실패하면 `warning`으로 전한다. 플랫폼 안에서는 무시되고 메뉴 `features.export`가 결정한다. 소비자 조치 없음. 규칙은 `docs/contract/chart.md` §16.

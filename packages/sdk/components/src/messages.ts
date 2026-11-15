@@ -50,6 +50,7 @@ export const COMPONENTS_MESSAGES = {
   chartSelectionOverflow: { ko: '{count}개 선택 · {labels} 외 {more}개', en: '{count} selected · {labels} +{more} more' },
   chartHeatmapRangeSelection: { ko: '{count}칸 선택 · {yRange} · {xRange}', en: '{count} cells selected · {yRange} · {xRange}' },
   chartExportedCsv: { ko: '{chartId}.csv 내보냄', en: 'Exported {chartId}.csv' },
+  chartExportCsvFailed: { ko: '{chartId}.csv를 내보내지 못했습니다', en: 'Could not export {chartId}.csv' },
   chartActions: { ko: '차트 동작', en: 'Chart actions' },
   chartHide: { ko: '숨기기', en: 'Hide' },
   chartShow: { ko: '표시', en: 'Show' },
