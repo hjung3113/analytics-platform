@@ -7,7 +7,7 @@ import { navCountsSlot } from './nav-counts';
 const state = vi.hoisted(() => ({ raw: null as string | null, status: 'ready' }));
 const fetchCounts = vi.hoisted(() => vi.fn<(options: { managedSystemId?: string; signal?: AbortSignal }) => Promise<{ counts: Record<string, number> }>>().mockResolvedValue({ counts: { 'voc.inbox': 7 } }));
 vi.mock('@ap/kernel', () => ({ usePlatform: () => ({ pageParam: () => state.raw }) }));
-vi.mock('@/lib/api/nav', () => ({ fetchNavCounts: fetchCounts }));
+vi.mock('@ap/feature-screens/global-screens/core', async importOriginal => ({ ...(await importOriginal<typeof import('@ap/feature-screens/global-screens/core')>()), fetchNavCounts: fetchCounts }));
 vi.mock('./operator-menus', () => ({ SCOPE_KEY: 'managedSystem', usesNavCounts: () => true }));
 vi.mock('./feature/session', () => ({
   featureQueryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }),

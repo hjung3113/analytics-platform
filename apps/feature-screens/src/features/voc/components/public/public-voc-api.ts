@@ -1,8 +1,8 @@
-import { apiPath } from '@/lib/api/path';
+import { apiPath } from '../../../../lib/api/path';
 // Reads of the public VOC projection (`GET /vocs/public`, `GET /vocs/public/:id`, ADR-0110). Each response is parsed with
 // the shared strict schema; the server decides what the actor may see, so nothing is filtered here.
 
-import { apiRequest } from '@/lib/api/client';
+import { apiRequest } from '../../../../lib/api/client';
 import {
   type PublicVocListResponse,
   type PublicVocView,

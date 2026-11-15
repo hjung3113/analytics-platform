@@ -3,20 +3,25 @@
 // `lib/layout/**`, `lib/auth/**`, `lib/api/auth.ts` or the `@/lib/api` barrel,
 // or reach the network outside `lib/api/client.ts` (a test in the bridge menu walks this graph).
 // Eagerly loaded bridge code (the notifications slot) imports this subset, so the screen barrel stays out of the main chunk.
-export { configureApiClient } from '@/lib/api/client';
-export { useUnreadNotificationCount } from '@/lib/cross-system/useUnreadNotificationCount';
-export type { DetailParts } from '@/lib/host/detail-parts';
-export type { HostLinkProps, HostNavigate, HostNotice, HostSeam } from '@/lib/host/host-seam';
-export type { HostSearch } from '@/lib/host/search';
-export { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS } from '@/lib/api/voc-create-targets';
-export { createFeatureQueryClient } from '@/lib/query/query-client';
+export { configureApiClient } from '../lib/api/client';
+export { useUnreadNotificationCount } from '../lib/cross-system/useUnreadNotificationCount';
+export type { DetailParts } from '../lib/host/detail-parts';
+export type { HostLinkProps, HostNavigate, HostNotice, HostSeam } from '../lib/host/host-seam';
+export type { HostSearch } from '../lib/host/search';
+export { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS } from '../lib/api/voc-create-targets';
+export { createFeatureQueryClient } from '../lib/query/query-client';
 export { FeatureScreenRoot } from './FeatureScreenRoot';
-export { scopeSwitchClears } from '@/lib/host/scope-switch';
-export type { ScopeSwitchInput } from '@/lib/host/scope-switch';
+export { scopeSwitchClears } from '../lib/host/scope-switch';
+export type { ScopeSwitchInput } from '../lib/host/scope-switch';
 // The blocked-place request slot's pending read (ADR-0154 decision 6): the caller's open requests under the shared mine key.
-export { fetchPermissionRequestsMine, permissionRequestsMineKey } from '@/lib/api/permission-requests';
-export type { MinePermissionRequestRow } from '@/lib/api/permission-requests';
+export { fetchPermissionRequestsMine, permissionRequestsMineKey } from '../lib/api/permission-requests';
+export type { MinePermissionRequestRow } from '../lib/api/permission-requests';
 // Session-expiry drafts (#1887): the session snapshots registered form drafts on a feature 401 and binds them to the next ready user.
 // `registerSessionDraft`/`takeSessionDraft` serve a bridge-side form outside feature screens (and the bridge's session tests).
-export { beginSessionDraftOwner, registerSessionDraft, snapshotSessionDrafts, takeSessionDraft } from '@/lib/session-draft/registry';
-export type { DraftJson } from '@/lib/session-draft/registry';
+export { beginSessionDraftOwner, registerSessionDraft, snapshotSessionDrafts, takeSessionDraft } from '../lib/session-draft/registry';
+export type { DraftJson } from '../lib/session-draft/registry';
+
+export { fetchNavCounts } from '../lib/api/nav';
+export { NAV_COUNTS_QUERY_KEY, invalidateNavCounts } from '../lib/query/navCounts';
+export { HostPrimaryAction } from '../lib/host/HostPrimaryAction';
+export { useHostSearch, useHostSeam } from '../lib/host/host-seam';

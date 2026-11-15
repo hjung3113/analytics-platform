@@ -1,14 +1,14 @@
-import { ListStateMessage } from '@/components/ListStateMessage';
-import { errorMapper, mapUnknownError } from '@/lib/api/errorMapper';
-import { ApiError } from '@/lib/api/types';
-import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
-import { SURVEY_TYPE_LABELS } from '@/lib/copy/enum-labels';
+import { ListStateMessage } from '../../../../components/ListStateMessage';
+import { errorMapper, mapUnknownError } from '../../../../lib/api/errorMapper';
+import { ApiError } from '../../../../lib/api/types';
+import { useIdempotencyKey } from '../../../../lib/api/useIdempotencyKey';
+import { SURVEY_TYPE_LABELS } from '../../../../lib/copy/enum-labels';
 import {
   SURVEY_PARTICIPATION_COPY,
   respondentIdentityNotice,
-} from '@/lib/copy/survey-participation';
-import { formatDate } from '@/lib/format/datetime';
-import { HostLink } from '@/lib/host/host-seam';
+} from '../../../../lib/copy/survey-participation';
+import { formatDate } from '../../../../lib/format/datetime';
+import { HostLink } from '../../../../lib/host/host-seam';
 import {
   type AnswerableSurveysResponse,
   type MySurveyResponsesResponse,

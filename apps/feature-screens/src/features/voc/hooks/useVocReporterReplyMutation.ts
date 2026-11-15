@@ -1,4 +1,4 @@
-import { apiPath } from '@/lib/api/path';
+import { apiPath } from '../../../lib/api/path';
 // useVocReporterReplyMutation — submit POST /vocs/:id/reporter-replies
 //
 // C5.3 (slice3 #21)
@@ -15,8 +15,8 @@ import { apiPath } from '@/lib/api/path';
 // On 201: caller should invalidate ['voc', vocId] and clear draft.
 // Toast copy: 답장이 등록되었습니다.
 
-import { apiClient } from '@/lib/api/client';
-import type { ApiError } from '@/lib/api/types';
+import { apiClient } from '../../../lib/api/client';
+import type { ApiError } from '../../../lib/api/types';
 import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
 import type { TipTapDoc } from '@ap/ui';
 import { type UseMutationResult, useMutation } from '@tanstack/react-query';

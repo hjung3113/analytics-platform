@@ -35,29 +35,29 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useMemo, useState } from 'react';
 
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { mintIdempotencyKey } from '@/lib/api/idempotency';
+import { mapUnknownError } from '../../../lib/api/errorMapper';
+import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import {
   type CreatePermissionRequestBody,
   type CreatePermissionRequestSuccess,
   createPermissionRequest,
   permissionRequestsMineKey,
-} from '@/lib/api/permission-requests';
-import { permissionScopeCandidatesKey } from '@/lib/api/permission-scope-candidates';
-import { ApiError } from '@/lib/api/types';
-import { PermissionScopeTargetFields } from '@/components/PermissionScopeTargetFields';
-import { PERMISSION_REQUESTS_PAGE_COPY } from '@/lib/copy/permission-requests';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
-import { GLOSSARY } from '@/lib/copy/glossary';
+} from '../../../lib/api/permission-requests';
+import { permissionScopeCandidatesKey } from '../../../lib/api/permission-scope-candidates';
+import { ApiError } from '../../../lib/api/types';
+import { PermissionScopeTargetFields } from '../../../components/PermissionScopeTargetFields';
+import { PERMISSION_REQUESTS_PAGE_COPY } from '../../../lib/copy/permission-requests';
+import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
+import { GLOSSARY } from '../../../lib/copy/glossary';
 import {
   PERMISSION_SCOPE_COPY,
   type PermissionScopeTargetKind,
   formatPermissionScopeTarget,
-} from '@/lib/copy/permission-scope';
-import { HostLink, useHostSeam } from '@/lib/host/host-seam';
-import { useManagedSystemNames } from '@/lib/cross-system/useManagedSystemNames';
-import { permissionCheckQueryKey } from '@/lib/cross-system/usePermissionCheckBridge';
-import { draftRecord, draftString, useFormDraftAcrossExpiry } from '@/lib/session-draft/useFormDraftAcrossExpiry';
+} from '../../../lib/copy/permission-scope';
+import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
+import { useManagedSystemNames } from '../../../lib/cross-system/useManagedSystemNames';
+import { permissionCheckQueryKey } from '../../../lib/cross-system/usePermissionCheckBridge';
+import { draftRecord, draftString, useFormDraftAcrossExpiry } from '../../../lib/session-draft/useFormDraftAcrossExpiry';
 import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
 /** A blocked Site or 공정 (ADR-0154 decision 6). A Site target lets the user pick the scope kind. */

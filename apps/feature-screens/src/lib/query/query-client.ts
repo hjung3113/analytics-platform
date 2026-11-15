@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 
-import { registerSurveyQueryDefaults } from '@/features/surveys/policy/resultsReadDenial';
-import { ApiError } from '@/lib/api/types';
+import { registerSurveyQueryDefaults } from '../../features/surveys/policy/resultsReadDenial';
+import { ApiError } from '../api/types';
 
 export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
   if (

@@ -37,14 +37,14 @@
 //   reporter_facing_status.gate_blocked → amber Callout inline
 //   conflict.idempotency_key_reuse      → lock Submit + Preview until VOC switch
 
-import { useComposerEditorFocus } from '@/features/cross-system/composer-editor/useComposerEditorFocus';
-import { useVocReporterReplyMutation } from '@/features/voc/hooks/useVocReporterReplyMutation';
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import type { MeResponse } from '@/lib/api/me';
-import type { ApiError } from '@/lib/api/types';
-import { uploadRichEditorAttachment } from '@/lib/attachments/rich-editor-upload';
-import { VOC_REPLY_COPY } from '@/lib/copy/voc';
-import { useHostSeam } from '@/lib/host/host-seam';
+import { useComposerEditorFocus } from '../../../cross-system/composer-editor/useComposerEditorFocus';
+import { useVocReporterReplyMutation } from '../../hooks/useVocReporterReplyMutation';
+import { mapUnknownError } from '../../../../lib/api/errorMapper';
+import type { MeResponse } from '../../../../lib/api/me';
+import type { ApiError } from '../../../../lib/api/types';
+import { uploadRichEditorAttachment } from '../../../../lib/attachments/rich-editor-upload';
+import { VOC_REPLY_COPY } from '../../../../lib/copy/voc';
+import { useHostSeam } from '../../../../lib/host/host-seam';
 import { type VocDetailEnvelope, isTipTapDocBlank } from '@ap/feature-shared';
 import { Callout, PreviewModal, RichEditor } from '@ap/ui';
 import type { TipTapDoc } from '@ap/ui';

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   type PermissionCheckResponse,
   fetchPermissionCheckViaClient,
-} from '@/lib/api/permission-reads';
+} from '../api/permission-reads';
 
 export interface UsePermissionCheckArgs {
   capability: string;

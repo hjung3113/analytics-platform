@@ -4,13 +4,13 @@
 // Bridge-safe: no router, no `@/lib/api` barrel, no `lib/auth`, no `sonner`. The toasts go through the host seam.
 // Supplement, edit and expiration stay in the standalone app (`OwnerPermissionRequestDialog`).
 
-import { ListStateMessage } from '@/components/ListStateMessage';
+import { ListStateMessage } from '../../../components/ListStateMessage';
 import {
   PermissionScopeTargetFields,
   scopeTargetMissing,
-} from '@/components/PermissionScopeTargetFields';
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { mintIdempotencyKey } from '@/lib/api/idempotency';
+} from '../../../components/PermissionScopeTargetFields';
+import { mapUnknownError } from '../../../lib/api/errorMapper';
+import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import {
   createPermissionRequest,
   fetchPermissionRequestOwnerDetail,
@@ -19,23 +19,23 @@ import {
   permissionRequestsMineAllKey,
   permissionRequestsMineKey,
   withdrawPermissionRequest,
-} from '@/lib/api/permission-requests';
-import { permissionScopeCandidatesKey } from '@/lib/api/permission-scope-candidates';
-import { fetchManagedSystems } from '@/lib/api/registry-reads';
-import { ApiError } from '@/lib/api/types';
-import { useIdempotencyKey } from '@/lib/api/useIdempotencyKey';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
-import { permissionRequestStatusLabel } from '@/lib/copy/enum-labels';
-import { HOME_PERMISSION_COPY } from '@/lib/copy/home';
-import { PERMISSION_REQUESTS_PAGE_COPY as COPY } from '@/lib/copy/permission-requests';
+} from '../../../lib/api/permission-requests';
+import { permissionScopeCandidatesKey } from '../../../lib/api/permission-scope-candidates';
+import { fetchManagedSystems } from '../../../lib/api/registry-reads';
+import { ApiError } from '../../../lib/api/types';
+import { useIdempotencyKey } from '../../../lib/api/useIdempotencyKey';
+import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
+import { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';
+import { HOME_PERMISSION_COPY } from '../../../lib/copy/home';
+import { PERMISSION_REQUESTS_PAGE_COPY as COPY } from '../../../lib/copy/permission-requests';
 import {
   PERMISSION_SCOPE_COPY,
   type PermissionScopeTargetKind,
   requestedScopeTargetLabel,
-} from '@/lib/copy/permission-scope';
-import { useDeclaredCapabilities } from '@/lib/api/declared-capabilities';
-import { formatDate } from '@/lib/format/datetime';
-import { useHostSeam } from '@/lib/host/host-seam';
+} from '../../../lib/copy/permission-scope';
+import { useDeclaredCapabilities } from '../../../lib/api/declared-capabilities';
+import { formatDate } from '../../../lib/format/datetime';
+import { useHostSeam } from '../../../lib/host/host-seam';
 import {
   CAPABILITIES,
   type Capability,

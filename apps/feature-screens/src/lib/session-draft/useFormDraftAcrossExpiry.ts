@@ -1,7 +1,7 @@
 import * as React from 'react';
 
-import { SESSION_DRAFT_COPY } from '@/lib/copy/session-draft';
-import { useHostSeam } from '@/lib/host/host-seam';
+import { SESSION_DRAFT_COPY } from '../copy/session-draft';
+import { useHostSeam } from '../host/host-seam';
 import { type DraftJson, type SessionDraftBinding, currentSessionDraftBinding, discardSessionDraft, registerSessionDraft, takeSessionDraft } from './registry';
 
 export type FormDraftAcrossExpiryOptions<T> = {

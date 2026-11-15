@@ -1,6 +1,6 @@
 import type { RichEditorAttachmentResult } from '@ap/ui';
 
-import { uploadAttachment } from '@/lib/api/attachments';
+import { uploadAttachment } from '../api/attachments';
 
 export async function uploadRichEditorAttachment(file: File): Promise<RichEditorAttachmentResult> {
   const result = await uploadAttachment(file);

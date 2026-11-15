@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchUnreadNotificationCount, notificationsQueryKey } from '@/lib/api/notifications';
+import { fetchUnreadNotificationCount, notificationsQueryKey } from '../api/notifications';
 
 export function useUnreadNotificationCount(options: { enabled?: boolean } = {}) {
   const query = useQuery({

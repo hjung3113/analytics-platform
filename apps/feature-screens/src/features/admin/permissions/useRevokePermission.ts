@@ -1,10 +1,10 @@
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { errorMapper } from '@/lib/api/errorMapper';
-import { revokePermission } from '@/lib/api/permission-admin';
-import type { ApiError } from '@/lib/api/types';
-import { ADMIN_PERMISSIONS_COPY } from '@/lib/copy/admin-permissions';
-import { useHostNotice } from '@/lib/host/host-seam';
+import { errorMapper } from '../../../lib/api/errorMapper';
+import { revokePermission } from '../../../lib/api/permission-admin';
+import type { ApiError } from '../../../lib/api/types';
+import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { useHostNotice } from '../../../lib/host/host-seam';
 import type { RevokePermissionResult } from '@ap/feature-shared';
 
 export const permissionGrantsListKey = ['permission-grants', 'admin'] as const;

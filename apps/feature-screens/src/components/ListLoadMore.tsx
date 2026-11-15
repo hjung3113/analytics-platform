@@ -1,4 +1,4 @@
-import { HOME_INBOX_COPY } from '@/lib/copy/home';
+import { HOME_INBOX_COPY } from '../lib/copy/home';
 import { Button } from '@ap/ui';
 
 // Same control placement and states as the shipped Entity Link inventory.

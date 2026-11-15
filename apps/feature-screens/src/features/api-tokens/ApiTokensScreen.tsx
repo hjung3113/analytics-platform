@@ -7,18 +7,18 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Callout, Checkbox, EmptyState,
   StatusBadge, UserChip,
 } from '@ap/ui';
-import { fetchAllServiceTokens, fetchApiTokens, fetchSystemActors, revokeApiToken } from '@/lib/api/api-tokens';
-import { resolveActors } from '@/lib/api/actors';
-import { useHostSearchWriter } from '@/lib/host/useHostSearchWriter';
-import type { HostSearch } from '@/lib/host/search';
-import { ApiError } from '@/lib/api/types';
-import { mapUnknownError } from '@/lib/api/errorMapper';
-import { API_TOKEN_COPY as COPY } from '@/lib/copy/api-tokens';
-import { formatDate, formatDateTime } from '@/lib/format/datetime';
-import { HostPrimaryAction } from '@/lib/host/HostPrimaryAction';
-import type { ClosableDetailParts } from '@/lib/host/detail-parts';
+import { fetchAllServiceTokens, fetchApiTokens, fetchSystemActors, revokeApiToken } from '../../lib/api/api-tokens';
+import { resolveActors } from '../../lib/api/actors';
+import { useHostSearchWriter } from '../../lib/host/useHostSearchWriter';
+import type { HostSearch } from '../../lib/host/search';
+import { ApiError } from '../../lib/api/types';
+import { mapUnknownError } from '../../lib/api/errorMapper';
+import { API_TOKEN_COPY as COPY } from '../../lib/copy/api-tokens';
+import { formatDate, formatDateTime } from '../../lib/format/datetime';
+import { HostPrimaryAction } from '../../lib/host/HostPrimaryAction';
+import type { ClosableDetailParts } from '../../lib/host/detail-parts';
 import { TokenIssueDrawer } from './TokenIssueDrawer';
-import { getCapabilityDisplayLabel } from '@/lib/copy/capabilities';
+import { getCapabilityDisplayLabel } from '../../lib/copy/capabilities';
 import { SystemActorGrantStatus } from './SystemActorGrantStatus';
 
 export type ApiTokenDrawerParts = ClosableDetailParts & { returnFocusRef: RefObject<HTMLElement | null> };

@@ -12,7 +12,6 @@ export const IMPROVEMENT_ITEMS_MESSAGES = {
   modelUnknownEnd: { ko: '종료 미상', en: 'Unknown end' },
 
   // ImprovementItems
-  improvementItemsCycleTimeDetail: { ko: '사이클타임 상세', en: 'Cycle time detail' },
   improvementItemsQuestLink: { ko: '과제(Quest) 연결', en: 'Quest link' },
   improvementItemsAnalysisSource: { ko: '분석 출처', en: 'Analysis source' },
 

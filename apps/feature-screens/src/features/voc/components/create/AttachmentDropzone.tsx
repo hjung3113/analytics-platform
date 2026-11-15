@@ -16,11 +16,11 @@ import { FieldLabel, cn } from '@ap/ui';
 import { Check, FileText, Paperclip, X } from 'lucide-react';
 import type * as React from 'react';
 
-import { formatFileSize } from '@/features/voc/lib/format-file-size';
+import { formatFileSize } from '../../lib/format-file-size';
 import {
   type AttachmentUploadQueueRow,
   useAttachmentUploadQueue,
-} from '@/lib/attachments/useAttachmentUploadQueue';
+} from '../../../../lib/attachments/useAttachmentUploadQueue';
 
 // Korean copy is verbatim from prototype lines 148, 170, 172.
 const COPY = {

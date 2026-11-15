@@ -1,4 +1,4 @@
-import { ApiError, isPermissionDenied } from '@/lib/api/types';
+import { ApiError, isPermissionDenied } from '../../../lib/api/types';
 import type { QueryClient } from '@tanstack/react-query';
 
 export interface SurveyReadDenial {

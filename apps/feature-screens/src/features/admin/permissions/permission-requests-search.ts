@@ -2,8 +2,8 @@ export {
   isPermissionRequestsSearchValueValid,
   permissionRequestsSearchSchema,
   validatePermissionRequestsSearch,
-} from '@/features/admin/permissions/permission-requests-schema';
-export type { PermissionRequestsSearch } from '@/features/admin/permissions/permission-requests-schema';
+} from './permission-requests-schema';
+export type { PermissionRequestsSearch } from './permission-requests-schema';
 
 export type ReviewTab = 'pending' | 'needs_more_info' | 'approved' | 'rejected' | 'all';
 
@@ -15,4 +15,4 @@ export const permissionRequestTabs: Array<{ value: ReviewTab; label: string }> =
   { value: 'all', label: '전체' },
 ];
 
-export { permissionRequestStatusLabel } from '@/lib/copy/enum-labels';
+export { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';

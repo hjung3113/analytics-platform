@@ -1,11 +1,11 @@
-import { apiPath, isApiPathId } from '@/lib/api/path';
-import { apiHref } from '@/lib/api/client';
+import { apiPath, isApiPathId } from '../../../../lib/api/path';
+import { apiHref } from '../../../../lib/api/client';
 // PublicVocDetail — one VOC as the public projection shows it (ADR-0110 decision 3): title, status with its stage line,
 // description and the public updates with attachments. It renders `PublicVocView` and nothing else; reporter replies,
 // internal comments and operator fields are not in that object, so there is nothing here to hide.
 
-import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
-import { formatDateTime } from '@/lib/format/datetime';
+import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
+import { formatDateTime } from '../../../../lib/format/datetime';
 import { type PublicVocView, isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { ManagedSystemPill, ReporterStatusBadge } from '@ap/feature-ui';
 import { PanelSectionTitle, PanelTitleBlock, RichContentRenderer, type TipTapDoc } from '@ap/ui';

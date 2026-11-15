@@ -1,5 +1,5 @@
-import { apiPath } from '@/lib/api/path';
-import { apiRequest } from '@/lib/api/client';
+import { apiPath } from '../../../lib/api/path';
+import { apiRequest } from '../../../lib/api/client';
 import { type ConversationPage, conversationPageSchema } from '@ap/feature-shared';
 import { type UseInfiniteQueryResult, useInfiniteQuery } from '@tanstack/react-query';
 

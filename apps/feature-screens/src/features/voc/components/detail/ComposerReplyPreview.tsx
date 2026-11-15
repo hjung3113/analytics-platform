@@ -48,8 +48,8 @@
 //   - bg-accent-primary/10 replaces rgba(94,106,210,0.12) (deep-violet @ 12% was the dark-pack
 //     aether-blue; in Pack 17 use bg-accent-primary/10 per PROTOTYPE-TO-PACK17 §1 notes)
 
-import { ATTACHMENT_FALLBACK_LABEL } from '@/lib/copy/attachments';
-import { formatDate } from '@/lib/format/datetime';
+import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
+import { formatDate } from '../../../../lib/format/datetime';
 import { type VocDetailEnvelope, isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { RichContentRenderer } from '@ap/ui';
 import type { TipTapDoc } from '@ap/ui';

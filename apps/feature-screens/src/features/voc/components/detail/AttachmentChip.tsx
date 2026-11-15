@@ -1,4 +1,4 @@
-import { apiPath, isApiPathId } from '@/lib/api/path';
+import { apiPath, isApiPathId } from '../../../../lib/api/path';
 // AttachmentChip — compact horizontal pill rendering a linked attachment
 // on the VOC body or a conversation entry. Paperclip icon + filename + size,
 // click → download via GET /attachments/:id/download (browser handles
@@ -13,7 +13,7 @@ import type * as React from 'react';
 
 import type { LinkedAttachment } from '@ap/feature-shared';
 
-import { apiHref } from '@/lib/api/client';
+import { apiHref } from '../../../../lib/api/client';
 
 import { formatFileSize } from '../../lib/format-file-size';
 

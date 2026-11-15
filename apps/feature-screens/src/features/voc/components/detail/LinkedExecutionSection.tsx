@@ -5,8 +5,8 @@ import { OutlineBadge } from '@ap/feature-ui';
 import { EmptyState, PanelSectionTitle, PermissionBlockedPanel } from '@ap/ui';
 import type * as React from 'react';
 
-import { TASK_STATUS_LABELS } from '@/lib/copy/enum-labels';
-import { getPermissionDecision } from '@/lib/cross-system/getPermissionDecision';
+import { TASK_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
+import { getPermissionDecision } from '../../../../lib/cross-system/getPermissionDecision';
 import { hasVisibleFollowUp } from './LinkedEntityTrailSection';
 
 export interface LinkedExecutionSectionProps {

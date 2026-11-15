@@ -9,8 +9,8 @@
 //
 // Mirrors PublicUpdateToolbar button pattern for visual consistency.
 
-import { ComposerToolbarButton } from '@/features/cross-system/composer-editor/ComposerToolbarButton';
-import { promptForLink } from '@/features/cross-system/composer-editor/promptForLink';
+import { ComposerToolbarButton } from '../../../../cross-system/composer-editor/ComposerToolbarButton';
+import { promptForLink } from '../../../../cross-system/composer-editor/promptForLink';
 import type { TipTapEditor } from '@ap/feature-ui';
 import { AttachButton } from '@ap/ui';
 import { Bold, Italic, Link } from 'lucide-react';

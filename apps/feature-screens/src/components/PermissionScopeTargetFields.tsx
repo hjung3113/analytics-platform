@@ -18,8 +18,8 @@ import * as React from 'react';
 import {
   type PermissionScopeCatalogCandidate,
   usePermissionScopeCandidates,
-} from '@/lib/api/permission-scope-candidates';
-import { PERMISSION_SCOPE_COPY as COPY, type PermissionScopeTargetKind } from '@/lib/copy/permission-scope';
+} from '../lib/api/permission-scope-candidates';
+import { PERMISSION_SCOPE_COPY as COPY, type PermissionScopeTargetKind } from '../lib/copy/permission-scope';
 
 export interface PermissionScopeTargetDraft {
   kind: PermissionScopeTargetKind;
