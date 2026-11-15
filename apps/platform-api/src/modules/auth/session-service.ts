@@ -15,7 +15,7 @@ import { actors, sessions } from '../../db/schema/core.js';
 import { HttpError } from '../../lib/errors.js';
 import { isUniqueViolation } from '../../lib/pg-unique-violation.js';
 import type { RoleLevel } from '@ap/feature-shared';
-import { hashToken } from '../api-tokens/token-format.js';
+import { hashToken } from '../../lib/token-hash.js';
 import type { AuthClaims } from './auth-provider.js';
 
 /** Role vocab — matches `core.actors.role_level` CHECK constraint. */
