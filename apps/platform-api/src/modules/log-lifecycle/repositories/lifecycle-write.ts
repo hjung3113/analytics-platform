@@ -12,6 +12,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { actors } from '../../../db/schema/core.js';
 import { developmentEvents, developmentProjects, validationRounds } from '../../../db/schema/log-lifecycle.js';
 import type { Tx } from '../../../db/tx.js';
+import { isUniqueViolation } from '../../../lib/pg-unique-violation.js';
 
 export type ProjectRow = typeof developmentProjects.$inferSelect;
 export type RoundRow = typeof validationRounds.$inferSelect;
@@ -192,27 +193,9 @@ export async function closeRound(tx: Tx, workspaceId: string, roundId: string, a
   return row.v;
 }
 
-/** The pg error behind a driver or drizzle wrapper. */
-function pgError(error: unknown): { code?: string; constraint?: string } | null {
-  let current: unknown = error;
-  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
-    const e = current as { code?: unknown; constraint?: unknown; cause?: unknown };
-    if (typeof e.code === 'string' && /^[0-9A-Z]{5}$/.test(e.code)) {
-      return { code: e.code, ...(typeof e.constraint === 'string' ? { constraint: e.constraint } : {}) };
-    }
-    current = e.cause;
-  }
-  return null;
-}
-
 /** A violated unique index, by NAME only: the two partial unique indexes are the races the service check cannot close. */
 export const OPEN_PROJECT_CONSTRAINT = 'development_project_open_model_uq';
 export const OPEN_ROUND_CONSTRAINT = 'validation_round_open_project_uq';
-
-export function isUniqueViolation(error: unknown, constraint: string): boolean {
-  const pg = pgError(error);
-  return pg?.code === '23505' && pg.constraint === constraint;
-}
 
 /**
  * Runs `work`; a violation of the named unique index becomes `toInvalid()` (the engine rolls the transaction back and

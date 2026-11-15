@@ -17,6 +17,7 @@ interface CatalogEntry {
 
 export const CATALOG: Partial<Record<ErrorCode, CatalogEntry>> = {
   // auth.*
+  'auth.email_conflict': { tone: 'error', message: '계정 이메일이 이미 사용 중이어서 로그인할 수 없습니다. 관리자에게 문의해 주세요.' },
   'auth.session_invalid':  { tone: 'error', message: '세션이 유효하지 않습니다. 다시 로그인해 주세요.' },
   'auth.session_required': { tone: 'error', message: '로그인이 필요합니다.' },
   'auth.session_expired':  { tone: 'warning', message: '세션이 만료되었습니다. 다시 로그인해 주세요.' },

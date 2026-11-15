@@ -13,6 +13,7 @@ import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import { actors, sessions } from '../../db/schema/core.js';
 import { HttpError } from '../../lib/errors.js';
+import { isUniqueViolation } from '../../lib/pg-unique-violation.js';
 import type { RoleLevel } from '@ap/feature-shared';
 import type { AuthClaims } from './auth-provider.js';
 
@@ -104,7 +105,7 @@ export interface SessionServiceDeps {
   db: Db;
   workspaceId: string;
   now?: () => Date;
-  /** Optional structured logger; a refused system-Actor login logs one warning. */
+  /** Optional structured logger; refused interactive logins log identifiers only. */
   log?: { warn: (msg: string, meta?: Record<string, unknown>) => void };
 }
 
@@ -150,79 +151,88 @@ export function createSessionService(deps: SessionServiceDeps) {
     }> {
       const { claims } = input;
       return deps.db.transaction(async (tx) => {
-        // Upsert-or-update actor.
-        const existing = await tx
-          .select()
-          .from(actors)
-          .where(and(eq(actors.workspaceId, deps.workspaceId), eq(actors.externalId, claims.sub)))
-          .limit(1);
+        const findBySub = async () => {
+          const [row] = await tx.select().from(actors)
+            .where(and(eq(actors.workspaceId, deps.workspaceId), eq(actors.externalId, claims.sub)))
+            .limit(1);
+          return row;
+        };
+        const refuseEmailConflict = async (
+          identity: { actorId: string } | { externalId: string },
+        ): Promise<never> => {
+          const [holder] = await tx
+            .select({ id: actors.id })
+            .from(actors)
+            .where(and(eq(actors.workspaceId, deps.workspaceId), eq(actors.email, claims.email)))
+            .limit(1);
+          deps.log?.warn('interactive login refused: account email already in use', {
+            conflictingActorId: holder?.id,
+            ...identity,
+          });
+          throw new HttpError(
+            'auth.email_conflict',
+            'login could not be completed: the account email is already in use',
+          );
+        };
 
-        let actor: ActorRecord;
-        if (existing[0]) {
-          const row = existing[0];
-          // A non-human (system) Actor never gets an interactive session. Refuse
-          // before any write; the message does not confirm the account exists.
-          if (row.actorType === 'system') {
-            deps.log?.warn('interactive login refused for system actor', {
-              externalId: claims.sub,
-            });
-            throw new HttpError('permission.denied', 'login is not permitted');
+        let row = await findBySub();
+        if (!row) {
+          try {
+            // A failed write rolls back only this savepoint, so lookups remain usable.
+            [row] = await tx.transaction((savepoint) => savepoint
+              .insert(actors)
+              .values({
+                workspaceId: deps.workspaceId,
+                externalId: claims.sub,
+                email: claims.email,
+                displayName: claims.display_name,
+                roleLevel: 'user', // FO ADR-0006:48
+                actorType: 'internal_member',
+              })
+              .returning());
+          } catch (error) {
+            if (isUniqueViolation(error, 'actors_workspace_external_id_uq')) {
+              // The winner committed before the unique check returned. Re-enter the
+              // same refusal/profile path as any existing subject.
+              row = await findBySub();
+            } else if (isUniqueViolation(error, 'actors_workspace_email_uq')) {
+              await refuseEmailConflict({ externalId: claims.sub });
+            } else {
+              throw error;
+            }
           }
-          if (row.email !== claims.email || row.displayName !== claims.display_name) {
-            await tx
+        }
+        if (!row) {
+          throw new HttpError('internal.unexpected', 'failed to provision actor on first login');
+        }
+        if (row.actorType === 'system') {
+          deps.log?.warn('interactive login refused for system actor', { externalId: claims.sub });
+          throw new HttpError('permission.denied', 'login is not permitted');
+        }
+        if (row.email !== claims.email || row.displayName !== claims.display_name) {
+          try {
+            await tx.transaction((savepoint) => savepoint
               .update(actors)
               .set({
                 email: claims.email,
                 displayName: claims.display_name,
                 updatedAt: now(),
               })
-              .where(eq(actors.id, row.id));
-            actor = {
-              id: row.id,
-              workspaceId: row.workspaceId,
-              externalId: row.externalId,
-              email: claims.email,
-              displayName: claims.display_name,
-              roleLevel: row.roleLevel,
-              actorType: row.actorType,
-            };
-          } else {
-            actor = {
-              id: row.id,
-              workspaceId: row.workspaceId,
-              externalId: row.externalId,
-              email: row.email,
-              displayName: row.displayName,
-              roleLevel: row.roleLevel,
-              actorType: row.actorType,
-            };
+              .where(eq(actors.id, row.id)));
+          } catch (error) {
+            if (!isUniqueViolation(error, 'actors_workspace_email_uq')) throw error;
+            await refuseEmailConflict({ actorId: row.id });
           }
-        } else {
-          const inserted = await tx
-            .insert(actors)
-            .values({
-              workspaceId: deps.workspaceId,
-              externalId: claims.sub,
-              email: claims.email,
-              displayName: claims.display_name,
-              roleLevel: 'user', // FO ADR-0006:48
-              actorType: 'internal_member',
-            })
-            .returning();
-          const row = inserted[0];
-          if (!row) {
-            throw new HttpError('internal.unexpected', 'failed to provision actor on first login');
-          }
-          actor = {
-            id: row.id,
-            workspaceId: row.workspaceId,
-            externalId: row.externalId,
-            email: row.email,
-            displayName: row.displayName,
-            roleLevel: row.roleLevel,
-            actorType: row.actorType,
-          };
         }
+        const actor: ActorRecord = {
+          id: row.id,
+          workspaceId: row.workspaceId,
+          externalId: row.externalId,
+          email: claims.email,
+          displayName: claims.display_name,
+          roleLevel: row.roleLevel,
+          actorType: row.actorType,
+        };
 
         const createdAt = now();
         const expiresAt = new Date(createdAt.getTime() + SESSION_TTL_MS);

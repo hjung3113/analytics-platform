@@ -13,10 +13,12 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../../../config.js';
-import { type DbHandle, createDb } from '../../../db/client.js';
+import { type DbHandle, createDb, dbOnClient } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
+import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { buildServer } from '../../../server.js';
 import { OIDC_TX_COOKIE_NAME, signOidcTx } from '../oidc-tx-cookie.js';
+import { createSessionService } from '../session-service.js';
 import { FakeOidcIdp } from './fake-oidc-idp.js';
 
 // Structural stand-in for light-my-request's response type (light-my-request
@@ -189,6 +191,93 @@ describe.skipIf(!runIntegration)('OIDC provider flow (#390)', () => {
     );
     return result.rows[0];
   }
+
+  it.each(['insert', 'update'] as const)('email conflict on %s → 401 without Actor/session changes', async (kind) => {
+    const savedProfile = { sub: IT_SUB, email: 'oidc.it.user@example.com', name: 'Oidc IT User' };
+    const holderSub = 'oidc-it-email-holder';
+    const loginSub = 'oidc-it-email-login';
+    const heldEmail = 'oidc.it.held@example.com';
+    await insertActorRow(dbHandle, {
+      workspaceId: WORKSPACE_ID, externalId: holderSub, email: heldEmail,
+      displayName: 'Email holder', roleLevel: 'user',
+    });
+    if (kind === 'update') {
+      await insertActorRow(dbHandle, {
+        workspaceId: WORKSPACE_ID, externalId: loginSub, email: 'oidc.it.original@example.com',
+        displayName: 'Original name', roleLevel: 'user',
+      });
+    }
+    const snapshot = async () => (await dbHandle.pool.query(
+      `select * from core.actors where workspace_id = $1 and external_id in ($2, $3) order by external_id`,
+      [WORKSPACE_ID, holderSub, loginSub],
+    )).rows;
+    const before = await snapshot();
+    const sessionRows = async () => (await dbHandle.pool.query(
+      `select * from core.sessions where workspace_id = $1 order by id`, [WORKSPACE_ID],
+    )).rows;
+    const sessionsBefore = await sessionRows();
+    idp.setProfile({ sub: loginSub, email: heldEmail, name: 'Changed name' });
+    try {
+      const { callbackRes } = await drive(app, idp);
+      expect(callbackRes.statusCode).toBe(401);
+      expect(callbackRes.json()).toEqual({
+        code: 'auth.email_conflict',
+        message: 'login could not be completed: the account email is already in use',
+      });
+      expect(findCookie(callbackRes, SESSION_COOKIE_NAME)).toBeUndefined();
+      const tx = findCookie(callbackRes, OIDC_TX_COOKIE_NAME);
+      expect(tx?.value).toBe('');
+      expect(tx?.attrs).toContain('Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+      expect(await snapshot()).toEqual(before);
+      expect(await sessionRows()).toEqual(sessionsBefore);
+    } finally {
+      idp.setProfile(savedProfile);
+    }
+  });
+
+  it('two first logins of the same sub cross an observed insert barrier and issue two sessions for one Actor', async () => {
+    const clients = await Promise.all([dbHandle.pool.connect(), dbHandle.pool.connect(), dbHandle.pool.connect()]);
+    const [first, second, blocker] = clients;
+    if (!first || !second || !blocker) throw new Error('missing checked-out clients');
+    const claims = { sub: 'oidc-it-race', email: 'oidc.it.race@example.com', display_name: 'Race user', raw_claims: {} };
+    let pending: Promise<PromiseSettledResult<Awaited<ReturnType<ReturnType<typeof createSessionService>['provisionAndIssueSession']>>>[]> | undefined;
+    try {
+      const pids = await Promise.all([first, second].map(async (client) => (await client.query('select pg_backend_pid() as pid')).rows[0].pid as number));
+      await blocker.query('begin');
+      await blocker.query('LOCK TABLE core.actors IN SHARE MODE');
+      pending = Promise.allSettled([first, second].map((client) =>
+        createSessionService({ db: dbOnClient(client), workspaceId: WORKSPACE_ID }).provisionAndIssueSession({ claims }),
+      ));
+      const barrierTimeoutMs = 15_000;
+      const pollIntervalMs = 25;
+      const deadline = Date.now() + barrierTimeoutMs;
+      for (;;) {
+        const waiting = await blocker.query(
+          `select distinct pid from pg_locks where pid = any($1::int[]) and relation = 'core.actors'::regclass
+           and mode = 'RowExclusiveLock' and not granted`, [pids],
+        );
+        if (waiting.rowCount === 2) break;
+        if (Date.now() >= deadline) throw new Error('both login inserts never observed waiting for RowExclusiveLock');
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      }
+      await blocker.query('rollback');
+      const results = await pending;
+      expect(results.map((result) => result.status)).toEqual(['fulfilled', 'fulfilled']);
+      const ids = results.flatMap((result) => result.status === 'fulfilled' ? [result.value.actor.id] : []);
+      expect(new Set(ids).size).toBe(1);
+      const rows = await dbHandle.pool.query(`select id from core.actors where workspace_id = $1 and external_id = $2`, [WORKSPACE_ID, claims.sub]);
+      expect(rows.rows.map((row) => row.id)).toEqual([ids[0]]);
+      const issued = await dbHandle.pool.query(`select id from core.sessions where actor_id = $1`, [ids[0]]);
+      expect(issued.rowCount).toBe(2);
+    } finally {
+      await blocker.query('rollback');
+      await pending;
+      for (const client of clients) {
+        await client.query('rollback');
+        client.release();
+      }
+    }
+  }, 20_000);
 
   it('happy path: login → IdP → callback → session, provisioning, /me, and a second login updating claims', async () => {
     const first = await drive(app, idp, { returnTo: '/vocs' });

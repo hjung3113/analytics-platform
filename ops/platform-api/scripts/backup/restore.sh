@@ -16,7 +16,8 @@
 #   -> CREATE DATABASE platform OWNER platform_migrate -> CREATE EXTENSION vector, pg_trgm -> pg_restore --exit-on-error
 #   (owners and ACLs; the extension entries are skipped, it exists) -> CONNECT grants -> set-role-passwords (passwords
 #   from the env file) -> DELETE FROM core.sessions -> checks (row counts == manifest, sessions empty, roles, ownership,
-#   extension, grants) -> minio + bucket, mirror back, object count/bytes/sha256 == manifest -> backend /health/ready
+#   extension, grants) -> read active API token count + backup time for the access-reconciliation warning
+#   -> minio + bucket, mirror back, object count/bytes/sha256 == manifest -> backend /health/ready
 #   under platform_app -> journal digest == manifest. Verification never runs migrate or bootstrap. The restored stack
 #   is left STOPPED with its data; the switch-over commands are printed. On any failure the script stops and prints the
 #   failed-restore branch; the source is untouched and the half-built target is kept for inspection.
@@ -296,6 +297,10 @@ pend="$(bk_journal_pending "$TMP/db-hashes" "$TMP/img-hashes")" || bk_die 'the r
 [ "$pend" = 0 ] || bk_die "the migrate image would apply $pend pending migration(s) to the restored data; restore refuses (a backend on an older schema is not verified). Use the matching images; no backend was started."
 bk_log 'ok: restored journal equals the migrate image (0 pending)'
 
+# 8c. Read while Postgres is running; keep these for the warning before traffic instructions.
+ACTIVE_API_TOKENS="$(bk_psql -d "$DB" -c 'select count(*) from core.api_tokens where revoked_at is null and (expires_at is null or expires_at > now())')"
+BACKUP_CREATED_AT="$(bk_m_scalar "$M" createdAt)"
+
 # 9. Objects: bucket first, mirror back, compare keys/bytes/sha256 through a second export.
 bk_log "restoring bucket $BUCKET"
 bk_dc up -d --no-deps --wait minio >/dev/null
@@ -326,6 +331,7 @@ bk_log 'ok: /health/ready 200'
 # 11. Leave the restored stack stopped, with its data.
 bk_dc stop >/dev/null
 bk_log "RESTORE VERIFIED into project '$PROJECT' (volumes $PG_VOL, $MINIO_VOL). Stack is stopped."
+bk_log "WARNING: this restore brings back the state of $BACKUP_CREATED_AT. $ACTIVE_API_TOKENS API token(s) are active in it. Before switching traffic, re-apply every API token revocation, capability grant/deny change and role change made after $BACKUP_CREATED_AT (restore never revokes anything itself)."
 bk_log "Switch traffic: stop the old stack's edge/backend, then start this one with the SAME env plus"
 bk_log "  RELEASE_POSTGRES_VOLUME=$PG_VOL RELEASE_MINIO_VOLUME=$MINIO_VOL (put both lines in .env.production),"
 bk_log "  and run (keep $PINS_FILE: it pins the verified images; use it on every start of this project; upgrade.sh keeps it current):"

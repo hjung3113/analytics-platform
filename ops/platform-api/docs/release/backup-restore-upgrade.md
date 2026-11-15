@@ -117,6 +117,10 @@ maintenance only: never set it on a serving stack. The **switch-over start
 uses the operator's real settings** from `.env.production`. It never runs
 `migrate` or `bootstrap`. On success the restored stack is left stopped with its data.
 
+The script prints the manifest's backup time (`createdAt`) and the count of active API tokens (unrevoked, with no expiry or an expiry still in the future), followed by a warning to reconcile access before switching traffic. Restore never revokes tokens automatically.
+
+**Reconcile access before traffic.** Re-revoke API tokens and re-apply every capability grant/deny and role change made after the printed backup time, before traffic goes to the restored stack. Revocations after the backup and their audit rows are not in the dump; tokens without `expires_at` never expire. Use the original stack's records or operator records to identify those changes; the restored audit trail cannot supply them. Start only the restored database for this operator work, using the printed volume settings and both compose files, before starting the serving backend/edge.
+
 **Switch traffic.** Put the two printed lines `RELEASE_POSTGRES_VOLUME=…` and `RELEASE_MINIO_VOLUME=…` into
 `.env.production`. Stop the old stack's `edge` (and `backend`), then start the restored stack on the published port:
 `docker compose --env-file .env.production -f docker-compose.production.yml -f docker-compose.restore-platform-restore.yml -p platform-restore up -d`

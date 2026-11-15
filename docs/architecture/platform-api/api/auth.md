@@ -21,6 +21,16 @@ session: OIDC callback returns HTTP 403 `permission.denied`, clears the OIDC
 transaction cookie, and neither redirects into the app nor issues a session
 or updates the Actor profile. Existing sessions belonging to a system Actor
 are rejected as unauthenticated (`/me` and `/session-state` return 401).
+If an OIDC claim email is already held by another Actor in the workspace,
+login returns HTTP 401 `auth.email_conflict` with a fixed message containing
+neither the email nor Actor ids. No Actor changes or session writes survive;
+the callback clears the transaction cookie and issues no session cookie.
+The warning identifies the holder (`conflictingActorId`) and either the existing
+login Actor (`actorId`) or new subject (`externalId`), never the email.
+An operator releases the old holder's email using the
+[conflict procedure](../../../../ops/platform-api/docs/release/first-admin-bootstrap.md#login-blocked-by-an-email-conflict);
+identities are never merged automatically. Concurrent first logins for the same
+subject resolve to the same Actor and both may issue sessions.
 The OIDC flow keeps its state, nonce and PKCE verifier in a signed,
 short-lived transaction cookie named `platform_oidc_tx` (Path=/auth, HttpOnly,
 SameSite=Lax, Max-Age 600, Secure in production). The signing-key domain label
