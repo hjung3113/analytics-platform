@@ -4,7 +4,7 @@ import { HW_TIME_MESSAGES } from '../messages';
 
 /**
  * How a server judgement is drawn (#1794). The shape matches the SDK `ChartStatus` of #2326 (`tone`, `label`, `reason?`), so a chart's
- * `pointStatus` / `HeatmapCell.status` can take it as is once that option lands. `over` is danger, `under` the weaker warning, a value that
+ * `pointStatus` / `HeatmapCell.status` take it as is (#2326). `over` is danger, `under` the weaker warning, a value that
  * cannot be judged is neutral, and a normal value carries no status (nothing to highlight).
  */
 export type HtmStatusView = { tone: 'danger' | 'warning' | 'neutral'; label: string; reason?: string };

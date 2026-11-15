@@ -2,7 +2,7 @@
 import { bucketStart, shift, type PageSort } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import {
-  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, HW_TIME_MODULE_TYPES, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
+  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLORS, HW_TIME_MOTION_COLOR_BY_ID, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
   type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type HwTimeModuleType,
 } from '../endpoints';
 import { judge, rollUp } from './htm';
@@ -19,11 +19,12 @@ function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
   const count = Math.min(MAX_SYNTHETIC_EQUIPMENT, equipment.length * SYNTHETIC_PER_EQUIPMENT);
   return Array.from({ length: count }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
 }
-const SERIES_COLORS = ['chart-blue', 'chart-teal', 'chart-purple', 'cat-amber', 'chart-series-1'];
 const typeOf = (params: { moduleType?: string }): HwTimeModuleType => HW_TIME_MODULE_TYPES.find(type => type.id === params.moduleType) ?? HW_TIME_MODULE_TYPES[0];
-const seriesOf = (ids: readonly string[], kind: 'module' | 'motion' = 'motion'): HwTimeSeries[] => ids.map((id, index) => ({
-  id, name: id, color: kind === 'module' && index === 3 ? 'chart-series-1' : SERIES_COLORS[index]!,
-}));
+const seriesOf = (ids: readonly string[], kind: 'module' | 'motion' = 'motion'): HwTimeSeries[] => ids.map((id, index) => {
+  if (kind === 'motion') return { id, name: id, color: HW_TIME_MOTION_COLOR_BY_ID[id]! };
+  const color = index === 3 ? 'chart-series-1' : HW_TIME_MOTION_COLORS[index]!;
+  return { id, name: id, color };
+});
 
 function seconds(seed: number, phase: number): number {
   return 2.125 + ((seed * 131_071 + phase * 52_429) % 1_000_003) / 10_000;

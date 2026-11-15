@@ -1,4 +1,5 @@
 import { useMessages, formatText } from '@ap/kernel';
+import { HwTimeViewFrame } from '../../shared/HwTimeViewFrame';
 import { HW_TIME_MESSAGES } from '../../messages';
 /**
  * HW Time 단계별 (ADR-0078, 06 §12.7): Module → Motion drill where the body is replaced per level, a pinned summary line,
@@ -144,6 +145,7 @@ export default function StepsPage(_props: PageProps) {
   };
 
   return <PlatformPage layout="fill">
+    <HwTimeViewFrame>
     <div className="flex h-full min-h-0 gap-3">
       <aside className="w-64 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <Inspector form="stack" persistKey="hw-time-steps" label={HW_TIME_MESSAGES.stepsPageAnalysisAids} sections={sections} />
@@ -177,5 +179,6 @@ export default function StepsPage(_props: PageProps) {
         </>}
       </div>
     </div>
+    </HwTimeViewFrame>
   </PlatformPage>;
 }

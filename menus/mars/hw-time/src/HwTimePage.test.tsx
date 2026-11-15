@@ -9,10 +9,10 @@ import { manifests } from './index';
 import HwTimePage from './HwTimePage';
 import { HW_TIME_VIEWS } from './views';
 import { HW_TIME_CARRY_SET } from './test-support';
-vi.mock('./pages/overview/OverviewPage', () => ({ default: () => <p>overview body</p> }));
-vi.mock('./pages/steps/StepsPage', () => ({ default: () => <p>steps body</p> }));
-vi.mock('./pages/compare/ComparePage', () => ({ default: () => <p>compare body</p> }));
-vi.mock('./pages/table/TablePage', () => ({ default: () => <p>table body</p> }));
+vi.mock('./pages/overview/OverviewPage', async () => { const { HwTimeViewFrame } = await import('./shared/HwTimeViewFrame'); return { default: () => <HwTimeViewFrame><p>overview body</p></HwTimeViewFrame> }; });
+vi.mock('./pages/steps/StepsPage', async () => { const { HwTimeViewFrame } = await import('./shared/HwTimeViewFrame'); return { default: () => <HwTimeViewFrame><p>steps body</p></HwTimeViewFrame> }; });
+vi.mock('./pages/compare/ComparePage', async () => { const { HwTimeViewFrame } = await import('./shared/HwTimeViewFrame'); return { default: () => <HwTimeViewFrame><p>compare body</p></HwTimeViewFrame> }; });
+vi.mock('./pages/table/TablePage', async () => { const { HwTimeViewFrame } = await import('./shared/HwTimeViewFrame'); return { default: () => <HwTimeViewFrame><p>table body</p></HwTimeViewFrame> }; });
 const registry = createRegistry({ permissions: [menuPermission('analytics:view')], carrySets: [HW_TIME_CARRY_SET],
   spaces: [{ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, description: { ko: '분석', en: 'Analysis' }, homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: 'HW Time', en: 'HW Time' }, icon: manifests[0].icon, space: spaceId('mars') }], menus: manifests });
@@ -76,6 +76,11 @@ describe('HW Time legacy routing and shell', () => {
     fireEvent.mouseDown(screen.getByRole('tab', { name: '단계별' }), { button: 0, ctrlKey: false });
     await screen.findByText('steps body');
     expect(new URLSearchParams(window.location.search).has('module')).toBe(false);
+    // 단계별 starts with the panel folded to a rail that counts the unchecked items; opening it shows the same selection.
+    const toggle = screen.getByRole('button', { name: /필터 펼치기/ });
+    expect(toggle.textContent).toContain('3개 해제');
+    expect(screen.queryByRole('checkbox', { name: 'PM2' })).toBeNull();
+    fireEvent.click(toggle);
     expect(screen.getByRole('checkbox', { name: 'PM2' }).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByRole('checkbox', { name: 'PM1' }).getAttribute('aria-checked')).toBe('false');
     expect(new URLSearchParams(window.location.search).get('selectedEquipmentIds')).toBe('EQ-001');
@@ -85,9 +90,11 @@ describe('HW Time legacy routing and shell', () => {
     expect(screen.queryByText('overview body')).toBeNull();
     expect(screen.getByText(/recipe/)).toBeTruthy();
   });
-  it('shows «선택한 항목 없음» instead of any View body for an explicit empty selection (#2336 §2.3)', async () => {
+  it('shows «선택한 항목 없음» and hides the mounted View body for an explicit empty selection (#2336 §2.3)', async () => {
     setup('/mars/hw-time?v=1&scopeId=MEM&view=steps&motion=~none', <HwTimePage params={{}} />);
     expect(await screen.findByText('선택한 항목 없음')).toBeTruthy();
-    expect(screen.queryByText('steps body')).toBeNull();
+    // 단계별 folds the panel by default, but an empty selection opens it so the fix is in reach.
+    expect(screen.getByRole('checkbox', { name: 'PM1' })).toBeTruthy();
+    expect(screen.getByText('steps body').closest('[hidden]')).not.toBeNull();
   });
 });

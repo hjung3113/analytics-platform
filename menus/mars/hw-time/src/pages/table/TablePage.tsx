@@ -1,5 +1,6 @@
 import type { TextParams } from '@ap/kernel';
 import { useMessages, formatText } from '@ap/kernel';
+import { HwTimeViewFrame } from '../../shared/HwTimeViewFrame';
 import { HW_TIME_MESSAGES } from '../../messages';
 /**
  * HW Time 표 (ADR-0078, 06 §13·§15): the same HW Time data as a Management-style table with a detail drawer, over existing SDK pieces.
@@ -170,13 +171,13 @@ export default function TablePage(_props: PageProps) {
       />;
 
   return <PlatformPage layout="fill">
-    <DrillLayout fill summary={summary}>
+    <HwTimeViewFrame><DrillLayout fill summary={summary}>
       {levelFailure && <QueryView query={levelQ} widgetName={m('tablePageLevelSummary')} compact>{() => null}</QueryView>}
       {focusKeys.invalid ? <PageKeyWarning sentences={focusKeys.sentences} onRecover={focusKeys.recover} /> : <>
         {focus !== null && response !== null && !focusRow && <div role="status" className="text-sm"><p>{m('tablePageRowNotInThisLevel')}</p><Button variant="secondary" size="sm" onClick={closeDrawer}>{m('tablePageClearRowSelection')}</Button></div>}
         {table}
       </>}
-    </DrillLayout>
+    </DrillLayout></HwTimeViewFrame>
     {detailPending && <DetailDrawer key={focus} title={<span className="t-mono">{rowIdLabel(focus)}</span>} subtitle={m('tablePageRowDetailsSyntheticData')}
       onClose={closeDrawer}
       tabs={[{ id: 'summary', label: m('tablePageBreakdown'), content: <QueryView query={levelQ} widgetName={m('tablePageRowDetails')} compact>{() => null}</QueryView> }]} />}

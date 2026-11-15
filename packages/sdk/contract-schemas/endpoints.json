@@ -755,6 +755,72 @@
     "mergeTimeDomain": true
   },
   {
+    "id": "hwTime.matrix",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.motionStats",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
+      "drillModule"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.runs",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
+      "drillModule",
+      "drillMotion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
     "id": "hwTime.tableRows",
     "menuId": "hw-time",
     "paramKeys": [

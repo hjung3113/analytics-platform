@@ -53,6 +53,14 @@ export const HW_TIME_MODULE_TYPES = [
 export type HwTimeModuleType = typeof HW_TIME_MODULE_TYPES[number];
 export type HwTimeModuleTypeId = HwTimeModuleType['id'];
 
+export const HW_TIME_MOTION_COLORS = ['chart-blue', 'chart-teal', 'chart-purple', 'cat-amber', 'chart-series-1'] as const;
+export type HwTimeMotionColor = typeof HW_TIME_MOTION_COLORS[number];
+export type HwTimeMotionColors = Readonly<Record<string, HwTimeMotionColor>>;
+/** One Motion-id colour catalog: repeated names (e.g. Pump) keep their colour across Module types. */
+export const HW_TIME_MOTION_COLOR_BY_ID: HwTimeMotionColors = Object.fromEntries(
+  [...new Set(HW_TIME_MODULE_TYPES.flatMap(type => [...type.motions]))].map((id, index) => [id, HW_TIME_MOTION_COLORS[index % HW_TIME_MOTION_COLORS.length]!]),
+);
+
 /**
  * HTM judgement status, decided by the server (#1794): `over` = the Motion average is above the HTM upper bound, `under` = below the lower
  * bound (a weaker caution than `over`), `unjudgeable` = no judgement (see `HtmUnjudgeableReason`). A Module's status is the server's roll-up of
@@ -118,5 +126,43 @@ export const hwTime = {
     id: 'hwTime.exportRows',
     paramKeys: { moduleType: true, drillModule: true, drillMotion: true, ids: true, sorting: true },
     limits: { maxRows: HW_TIME_MAX_ROWS.export },
+  }),
+} as const;
+
+// W-2329: overview contracts. Kept together for the parallel View integration.
+export const HW_TIME_OVERVIEW_MAX_ROWS = 96;
+export type HwTimeMatrixParams = { moduleType: string };
+export type HwTimeMotionParams = HwTimeMatrixParams & { drillModule: string };
+export type HwTimeRunParams = HwTimeMotionParams & { drillMotion: string };
+export type HwTimeMatrixCell = { equipmentId: string; moduleId: string; motions: Record<string, HtmJudgement>; module: HtmJudgement };
+export type HwTimeMatrix = {
+  equipment: string[]; modules: string[];
+  motions: { id: string; color: HwTimeMotionColor }[];
+  cells: HwTimeMatrixCell[]; limits: { maxRows: number };
+};
+export type HwTimeMotionStats = { rows: { motion: string; judgement: HtmJudgement }[] };
+/** Run timestamps support panel period narrowing only; scatter x is categorical. Daily records use wall-clock day start. */
+export type HwTimeRunObservation = {
+  id: string; equipmentId: string; moduleId: string; motion: string; at: string; seconds: number;
+  judgement: HtmJudgement;
+  /** Aligned Motion observations allow local checked-Motion sums without another request. */
+  motions: Record<string, HtmJudgement>; module: HtmJudgement;
+};
+export type HwTimeRunBounds = { equipmentId: string; moduleId: string; motion: string; lower: number | null; upper: number | null };
+export type HwTimeRuns = {
+  points: HwTimeRunObservation[];
+  /** Full-population daily averages, computed before scatter sampling, with server judgements. */
+  daily: HwTimeRunObservation[];
+  shown: number; total: number; bounds: HwTimeRunBounds[];
+};
+export const hwTimeOverview = {
+  matrix: defineEndpoint<HwTimeMatrixParams, HwTimeMatrix>({
+    ...common, id: 'hwTime.matrix', paramKeys: { moduleType: true },
+  }),
+  motionStats: defineEndpoint<HwTimeMotionParams, HwTimeMotionStats>({
+    ...common, id: 'hwTime.motionStats', paramKeys: { moduleType: true, drillModule: true },
+  }),
+  runs: defineEndpoint<HwTimeRunParams, HwTimeRuns>({
+    ...common, id: 'hwTime.runs', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
 } as const;

@@ -1,4 +1,5 @@
 import { useMessages, formatText } from '@ap/kernel';
+import { HwTimeViewFrame } from '../../shared/HwTimeViewFrame';
 import { HW_TIME_MESSAGES } from '../../messages';
 /**
  * HW Time 비교 (ADR-0078, 06 §12.7–§12.8, #912): the same Module → Motion drill as 단계별, but a drill step never replaces the body. One `PanelWorkspace`
@@ -221,6 +222,7 @@ export default function ComparePage(_props: PageProps) {
   ];
 
   return <PlatformPage layout="fill">
+    <HwTimeViewFrame>
     <div className="flex h-full min-h-0 gap-3">
       <aside className="shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <Inspector form="rail" persistKey="hw-time-compare" label={HW_TIME_MESSAGES.comparePageAnalysisAids} sections={sections} />
@@ -233,5 +235,6 @@ export default function ComparePage(_props: PageProps) {
         </DrillLayout>
       </div>
     </div>
+    </HwTimeViewFrame>
   </PlatformPage>;
 }

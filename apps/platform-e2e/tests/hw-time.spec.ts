@@ -2,15 +2,15 @@ import { expect, test, type Page } from '@playwright/test';
 import { evidence, expectScopeValid, fitWorkspace, nextFrames, query, setScenario, signInAs } from './support';
 
 /**
- * HW Time (#690, node 690m): the four Views share one drill contract (06 §12.7) and one workspace/board contract (§12.8).
- * One spec, parameterised by View: L1 → L2 → L3, Back, reload at L3, and the board pane at the same drill path.
+ * HW Time (#690, node 690m): the 단계별·비교·표 Views share one drill contract (06 §12.7) and one workspace/board contract (§12.8).
+ * One spec, parameterised by View: L1 → L2 → L3, Back, reload at L3, and the board pane at the same drill path. The 개요 View (#2329)
+ * drills bar → Motion table → runs and has its own describe below.
  * Mount and re-read assertions stay in the SDK tests; this only observes roles, names and the URL.
  */
 type Entry = 'table' | 'chart';
 const MENUS: { id: string; label: string; path: string; entry: Entry }[] = [
   { id: 'steps', label: 'HW Time 단계별', path: '/mars/hw-time?view=steps', entry: 'chart' },
   { id: 'compare', label: 'HW Time 비교', path: '/mars/hw-time?view=compare', entry: 'chart' },
-  { id: 'overview', label: 'HW Time 개요', path: '/mars/hw-time?view=overview', entry: 'chart' },
   { id: 'table', label: 'HW Time 표', path: '/mars/hw-time?view=table', entry: 'table' },
 ];
 const MODULE = 'PM1';
@@ -105,7 +105,7 @@ test.describe('HW Time View 4종 — 드릴 · 작업 영역 · 보드 (06 §12.
       // Closing returns focus to the trigger a moment later; focusing the tree before that lets it land after and Enter reopens the popover.
       await expect(more).toBeFocused();
       const tree = page.getByRole('tree', { name: '계층 범례' });
-      // The compare and overview Inspectors are rails: the legend of compare opens from its button, overview has the legend panel.
+      // The compare Inspector is a rail: its legend opens from its button.
       if (menu.id === 'compare') await page.getByRole('button', { name: '계층 범례' }).click();
       const moduleItem = tree.getByRole('treeitem', { name: new RegExp(MODULE) });
       await moduleItem.focus();
@@ -141,6 +141,83 @@ test.describe('HW Time View 4종 — 드릴 · 작업 영역 · 보드 (06 §12.
 });
 
 /** Approved B observes real layout/paint. No SDK or engine-instance imports. */
+test.describe('HW Time 개요 — 필터 패널 · 히트맵 · 막대 · Motion 표 · 회차 (#2329, #2336 §2.3)', () => {
+  const OVERVIEW = '/mars/hw-time?view=overview&v=1&scopeId=MEM';
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'engineer');
+  });
+
+  test('막대 Module → Motion 표 → 회차, Back, 새로고침, 분석 보드 칸', async ({ page }, testInfo) => {
+    await page.goto(OVERVIEW);
+    await expectScopeValid(page, 'MEM · 메모리');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
+    await expect(page.getByRole('region', { name: '설비 × Module' })).toBeVisible();
+    await expect(page.getByRole('radio', { name: '누적' })).toBeChecked();
+
+    await enter(page, 'chart', MODULE, 'Module별 Motion 구성');
+    await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
+    expect(query(page).has('drillMotion')).toBe(false);
+    await expect(page.getByRole('table', { name: `${MODULE} · Motion` })).toBeVisible();
+
+    await page.getByRole('button', { name: `${MOTION} 회차 보기`, exact: true }).click();
+    await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
+    const runs = page.getByRole('region', { name: `${MODULE} · ${MOTION} 회차` });
+    await expect(runs).toBeVisible();
+    await expect(runs.getByRole('tab', { name: '분포' })).toBeVisible();
+    await evidence(page, testInfo, 'overview-runs');
+
+    await page.goBack();
+    await expect.poll(() => query(page).has('drillMotion')).toBe(false);
+    expect(query(page).get('drillModule')).toBe(MODULE);
+    await expect(runs).toBeHidden();
+    await page.goForward();
+    await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
+
+    await page.reload();
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
+    await expect(runs).toBeVisible();
+
+    const more = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
+    await more.getByRole('button', { name: '더보기', exact: true }).click();
+    await page.getByRole('group', { name: '기타 페이지 동작' }).getByRole('button', { name: '분석 보드에 열기…' }).click();
+    const dialog = page.getByRole('dialog', { name: '분석 보드에 열기' });
+    await dialog.getByRole('radio', { name: '새 시트' }).click();
+    await dialog.getByRole('button', { name: '열기' }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/board');
+    const pane = page.getByRole('group', { name: '칸 1' });
+    await expect(page.getByRole('tab', { name: '칸 1 · HW Time' })).toHaveAttribute('aria-selected', 'true');
+    await expect(pane.getByRole('region', { name: `${MODULE} · ${MOTION} 회차` })).toBeVisible();
+    await evidence(page, testInfo, 'overview-board-pane');
+  });
+
+  test('Module·Motion 체크: 주소창 밖에 두고 새로고침·View 전환에 유지, 모두 해제면 «선택한 항목 없음»', async ({ page }) => {
+    await page.goto(OVERVIEW);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const panel = page.getByTestId('hw-time-filter-panel');
+    const dechuck = panel.getByRole('tree', { name: 'Motion' }).getByRole('checkbox', { name: /Dechuck/ });
+    await expect(dechuck).toHaveAttribute('aria-checked', 'true');
+    await dechuck.click();
+    await expect(dechuck).toHaveAttribute('aria-checked', 'false');
+    expect(query(page).has('motion')).toBe(false);
+    await page.reload();
+    await expect(dechuck).toHaveAttribute('aria-checked', 'false');
+    await page.getByRole('tab', { name: '단계별' }).click();
+    await expect.poll(() => query(page).get('view')).toBe('steps');
+    // 단계별 starts with the panel folded; the toggle in the tabs row counts the unchecked items.
+    const toggle = page.getByRole('button', { name: /필터 펼치기/ });
+    await expect(toggle).toContainText('1개 해제');
+    await expect(panel).toBeHidden();
+    await toggle.click();
+    await expect(dechuck).toHaveAttribute('aria-checked', 'false');
+
+    const modules = panel.getByRole('tree', { name: 'Module' });
+    for (const id of ['PM1', 'PM2', 'PM3', 'PM4']) await modules.getByRole('checkbox', { name: new RegExp(id) }).click();
+    await expect(page.getByText('선택한 항목 없음')).toBeVisible();
+    expect(query(page).has('module')).toBe(false);
+  });
+});
+
 test.describe('approved analysis B (06 §12.7·§12.8, #1141)', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 

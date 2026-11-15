@@ -40,10 +40,10 @@ async function data<T>(endpoint: string, params: Record<string, unknown>, applie
 }
 
 describe('HW Time mock endpoint registration', () => {
-  it('registers the level, trend, table, and export endpoints', () => {
+  it('registers the level, trend, table, export and overview endpoints', () => {
     expect(() => createMockAdapter({ endpoints: hwTimeMock, registry: { menus: [menu] } })).not.toThrow();
     expect(hwTimeMock.map(({ spec }) => spec.id)).toEqual([
-      'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows',
+      'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows', 'hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs',
     ]);
   });
 });

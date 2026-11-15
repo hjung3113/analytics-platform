@@ -217,6 +217,10 @@ Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속
 EquipmentID로 식별되는 설비 내부의 세부 단위. XFR/FNC/PRC 이벤트 로그는 Module/Slot 단위로 기록된다. 설비 분류값인 ChamberType과는 다른 개념이다.
 _Avoid_: 모듈·슬롯(단독) — 호스트 모듈·셸 슬롯과 섞인다.
 
+**Module 타입**:
+Module의 종류 묶음. 필터 패널에서 Module·Motion 목록을 이 단위로 나눈다. 합성 예 PM·TR·LK.
+_Avoid_: 모듈 타입(단독 한글).
+
 **Motion** (`drillMotion`):
 Module이 수행하는 동작 한 종류(예: Chuck·Dechuck·Pump·Vent·Transfer)로, 동작시간분석 드릴의 두 번째 단계다. Module → Motion 순으로 좁히고, 어떤 Module이 기록하지 않는 Motion은 그 Module에서 값이 없다.
 _Avoid_: 동작(단독) — CLAS의 `설비 동작시간` 메뉴와 섞인다.
