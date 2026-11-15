@@ -84,7 +84,7 @@ const dict = {
   cancel: { ko: '취소', en: 'Cancel' },
   reset: { ko: '초기화', en: 'Reset' },
   clear: { ko: '지우기', en: 'Clear' },
-  pageFilter: { ko: '페이지 필터', en: 'Page filters' },
+  pageFilter: { ko: '페이지 조건', en: 'Page conditions' },
   clearFilters: { ko: '필터 초기화', en: 'Clear filters' },
   clearConditions: { ko: '조건 초기화', en: 'Reset conditions' },
   skipToContent: { ko: '본문으로 건너뛰기', en: 'Skip to content' },

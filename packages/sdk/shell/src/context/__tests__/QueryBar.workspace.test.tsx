@@ -16,7 +16,7 @@ let draft: ReturnType<typeof useQueryDraft>;
 function Parameters() {
   draft = useQueryDraft();
   const [text, setText] = useState('시간');
-  return <PageFilterBar collapsible defaultCollapsed preferenceKey="parameters" label="페이지 필터" fields={[{ key: 'grain', kind: 'text', label: '집계', value: text, onValueChange: value => { setText(value); draft.setDraftPage({ grain: value }); } }]} summaryItems={summary} />;
+  return <PageFilterBar collapsible defaultCollapsed preferenceKey="parameters" label="페이지 조건" fields={[{ key: 'grain', kind: 'text', label: '집계', value: text, onValueChange: value => { setText(value); draft.setDraftPage({ grain: value }); } }]} summaryItems={summary} />;
 }
 function Workspace() {
   return <PanelWorkspace persistKey="main" initialPreset="default" label={{ ko: '작업 영역', en: 'Workspace' }} initialMode="fit"
@@ -79,8 +79,8 @@ it('folded apply Analysis Workspace places status, parameters and the real toolb
   expect(within(editor).getByRole('textbox', { name: '집계' })).toBeVisible();
   expect(editor).toHaveTextContent('첫 안내');
   expect(editor).toHaveTextContent('둘째 안내');
-  expect(within(editor).queryByRole('button', { name: '페이지 필터 펼치기' })).toBeNull();
-  expect(within(editor).queryByRole('button', { name: '페이지 필터 접기' })).toBeNull();
+  expect(within(editor).queryByRole('button', { name: '페이지 조건 펼치기' })).toBeNull();
+  expect(within(editor).queryByRole('button', { name: '페이지 조건 접기' })).toBeNull();
   fireEvent.change(within(editor).getByRole('textbox', { name: '집계' }), { target: { value: '일' } });
   expect(new Map(draft.draft.page).get('grain')).toBe('일');
   await userEvent.keyboard('{Escape}');
@@ -95,7 +95,7 @@ it('folded apply Analysis Workspace places status, parameters and the real toolb
   expect(document.querySelector('[data-page-head]')).not.toBeNull();
   expect(document.querySelector('[data-panel-workspace] [data-workspace-toolbar]')).not.toBeNull();
   await userEvent.click(screen.getByRole('button', { name: '페이지 머리 펼치기' }));
-  await userEvent.click(screen.getByRole('button', { name: '페이지 필터 펼치기' }));
+  await userEvent.click(screen.getByRole('button', { name: '페이지 조건 펼치기' }));
   expect(screen.getByRole('textbox', { name: '집계' })).toHaveValue('일');
 });
 

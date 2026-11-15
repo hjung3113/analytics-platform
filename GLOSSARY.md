@@ -331,6 +331,10 @@ _Avoid_: 그룹(단독) — 설비 그룹·PRC 그룹·StGroup·작업 영역의
 **메뉴** (manifest, `MenuEntry`):
 Registry에 등록된 진입점 하나. manifest에서 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 연다. 공간 메뉴의 manifest 경로는 별칭이 될 수 있고 Registry의 `path`는 정규 경로다([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). 화면이 아직 없는 메뉴는 **예정 메뉴**로, 사이드바에 `예정`으로 보이고 열리지 않는다.
 
+**권한 미선언 메뉴** (`undeclaredMenus`, 진단 필드 `undeclaredMenuPermissions`):
+메뉴가 요구하는 권한이 서버 권한 선언에 없어서 아무에게도 열리지 않는 메뉴. 메뉴가 권한을 선언하지 않았다는 뜻이 아니며 누구에게도 열리지 않는다(닫힌 쪽). 운영자(`console:access`)에게만 사이드바의 제자리에 회색 행으로 보인다([셸 슬롯 `undeclaredMenus`](docs/contract/layout.md)). 화면 라벨 «권한 미선언»은 그대로 둔다.
+_Avoid_: 권한 없는 메뉴 — 사용자에게 권한이 없는 메뉴와 섞인다.
+
 **정규 경로** (canonical path):
 Registry가 메뉴의 대표 주소로 제공하는 경로([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)).
 
@@ -369,6 +373,10 @@ _Avoid_: VOC 등록 패널 — 상세 패널과 섞인다.
 
 **링크 목적지 선언** (`linkTargets`):
 메뉴가 다른 메뉴로 이동하는 연결에서 의존하는 목적지 메뉴 목록. 주 흐름에 반드시 필요한 목적지와 없어도 되는 목적지를 구분하며, 여는 객체를 가리키는 목적지 객체 ID나 접근 권한과는 별개다([06 §22](docs/contract/cross-menu-links.md#22-cross-menu-context-link), [ADR-0158](docs/adr/0158-unregistered-link-destinations-and-declared-link-targets.md)).
+
+**들어오는 연결** (`opensObject` · `objectLinks` · `ObjectLinks`):
+목적지 메뉴가 «이 객체 종류의 ID 하나를 받아 연다»고 선언하고(`opensObject`), 출발 화면이 그 종류·ID로 열 수 있는 메뉴 목록을 얻는 연결. 화면 문구는 «다른 화면에서 열기»다. 목적지 객체 ID와 분석 Context를 따로 넘기는 06 §22 규칙을 그대로 따른다([ADR-0162](docs/adr/0162-inbound-links-destination-declares-object-kinds.md)).
+_Avoid_: inbound 링크(단독) — 외부 URL을 플랫폼 경로로 바꾸는 `platform-inbound-link` codec과 섞인다.
 
 **객체 종류 (object kind)**:
 같은 ID 공간을 가진 객체를 가리키는 공통 이름. `subjectPageKeys`·`opensObject`·`subjectLinks`, 개선 아이템 `Target['kind']`, 감사 `target.type`이 공유한다. 알려진 분석 대상은 `equipment` = 모든 site에서 유일한 EquipmentID, `metric` = 지표 정의 ID(버전과 별도), `process` = 현재 Scope의 room_name, `lot` = 현재 Scope의 Lot ID다. 기능·감사는 자체 객체 종류도 쓴다. 닫힌 enum이 아니며 메뉴 저자가 의미를 책임진다. 시스템 로컬 식별자는 플랫폼 공통 종류를 재사용하지 않고 `clasEquipment`처럼 한정한다. [06 §22](docs/contract/cross-menu-links.md#22-cross-menu-context-link).
@@ -522,7 +530,7 @@ _Avoid_: 접수 — 등록과 같은 동작을 다른 말로 부르지 않는다
 **분석 Context**:
 화면 하나가 따르는 분석 조건 전체 — 기간·Scope·설비 그룹·지표 같은 공통 키의 값. 본 화면에는 하나, 분석 보드에는 칸마다 하나 있다. 목적지 객체 ID와 구분한다.
 본 화면의 분석 Context 중 메뉴를 옮겨도 이어지는 공통 키 집합을 **전역 Context**라 한다(URL 전역 키). 보드에서는 칸마다 따로 있으므로 "칸의 분석 Context"라 쓴다.
-_Avoid_: 분석 조건(단독) — 메뉴 화면의 페이지 필터와 섞인다.
+_Avoid_: 분석 조건(단독) — 메뉴 화면의 페이지 조건과 섞인다.
 
 **Context 바** (`GlobalContextBar`):
 메뉴 화면 위에서 전역 Context(분석 보드에서는 선택된 칸의 분석 Context)를 보이고 바꾸는 셸 자리.
@@ -558,8 +566,12 @@ _Avoid_: 패널, 패인 — 상세 패널·작업 영역 패널과 섞인다. `p
 _Avoid_: 워크스페이스, 대시보드 — 분석 보드·Analysis Workspace 페이지 유형과 섞인다.
 
 **페이지 머리**:
-메뉴 화면 제목 줄 아래, 본문 위의 영역. 메뉴가 넘긴 안내(`contextNotes`)와 페이지 필터·칩(`contextExtension`)이 놓인다. 높이 채움(fill) 화면에서는 한 줄로 접힐 수 있다(06 §12.8, [ADR-0075](docs/adr/0075-page-head-one-line-fold-thin-outcome-strip.md)).
+메뉴 화면 제목 줄 아래, 본문 위의 영역. 메뉴가 넘긴 안내(`contextNotes`)와 페이지 조건·칩(`contextExtension`)이 놓인다. 높이 채움(fill) 화면에서는 한 줄로 접힐 수 있다(06 §12.8, [ADR-0075](docs/adr/0075-page-head-one-line-fold-thin-outcome-strip.md)).
 _Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. Context 바와도 다르다.
+
+**페이지 조건** (`PageFilterBar`):
+메뉴 화면이 자기 페이지 키로 거는 조회 조건과 그 입력 막대(초안·적용, 접으면 한 줄 요약). 전역 Context가 아니라 그 화면에만 있다. 화면 문구도 «페이지 조건»이다([ADR-0160](docs/adr/0160-folded-analysis-workspace-query-bar.md), [06 §13](docs/contract/components.md#13-shared-component-layers)).
+_Avoid_: 페이지 필터 — 같은 막대를 부르던 옛 이름. 표의 열 필터와도 섞인다.
 
 **패널**:
 작업 영역을 이루는 조각 하나. 제목(탭 이름)을 가지며 차트·표·요약 같은 내용 하나를 담는다. 예: 사이클타임 상세의 추세·요약·분포·느린 실행.

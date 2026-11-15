@@ -196,16 +196,16 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     await sidebarExpand.click();
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
 
-    const collapse = bar.getByRole('button', { name: '페이지 필터 접기' });
+    const collapse = bar.getByRole('button', { name: '페이지 조건 접기' });
     await collapse.click();
-    const expand = bar.getByRole('button', { name: '페이지 필터 펼치기' });
+    const expand = bar.getByRole('button', { name: '페이지 조건 펼치기' });
     await expect(expand).toBeFocused();
     await evidence(page, testInfo, 'page-filter-collapsed-summary');
 
     type Rect = { left: number; top: number; right: number; bottom: number };
     await page.evaluate(() => document.fonts.ready);
     const m = await page.evaluate((raw: string) => {
-      const button = [...document.querySelectorAll('button')].find(el => el.getAttribute('aria-label') === '페이지 필터 펼치기');
+      const button = [...document.querySelectorAll('button')].find(el => el.getAttribute('aria-label') === '페이지 조건 펼치기');
       const summaryId = button?.getAttribute('aria-describedby');
       const summary = summaryId ? document.getElementById(summaryId) : null;
       if (!button || !summary) throw new Error('접힘 요약 버튼이나 요약 span을 찾지 못했다');

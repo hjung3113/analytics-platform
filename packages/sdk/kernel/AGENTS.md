@@ -18,7 +18,7 @@ Platform Kernel runtime (contract/kernel.md §4). It knows neither the menu list
 
 ## Registry (`registry.ts`, `module.ts`, `module-host.ts`)
 
-- `opensObject` declares inbound kind destinations; `subjectLinks` opts into header lists. Registry validates both and builds `objectDestinations(kind)` once; screen-bound `objectLinks` reuses `resolveLink` with returnTo/page/global (06 §22).
+- `opensObject` declares which object kinds a menu opens (들어오는 연결; not the `platform-inbound-link` codec); `subjectLinks` opts into header lists. Registry validates both and builds `objectDestinations(kind)` once; screen-bound `objectLinks` reuses `resolveLink` with returnTo/page/global (06 §22).
 
 - `createRegistry({ spaces, groups, menus, permissions?, platformHomeMenuId?, reservedRoots?, carrySets? })`. Contract: platformHome designation and validation, canonical paths, aliases and redirects, and the `replace` option are in [contract/kernel.md §6.4](../../../docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate); `registry.canonical.test.ts` and `platform.alias-redirect.test.tsx` verify them.
   - `reservedRoots` are roots the app serves outside the Registry; a space id cannot take one. Kernel's own roots are only `board`·`api`·`auth`.
