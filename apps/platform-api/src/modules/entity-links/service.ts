@@ -226,12 +226,26 @@ const genericEntityLinkPairs = registeredEntityLinkPairs.filter(
     // ADR-0123: no-Managed-System tuples are written only by the owning module's command.
     !isNoManagedSystemEntityLinkPair(pair),
 );
-// #760: /vocs/:id/request-task and /voc-clusters/:id/request-task own these writes.
-const creatableEntityLinkPairs = genericEntityLinkPairs.filter(
+// Domain-owned conversions cannot be generically detached without reconciling state/audit.
+const detachableEntityLinkPairs = genericEntityLinkPairs.filter(
   (pair) =>
     !(
       (pair.source_type === 'voc' || pair.source_type === 'voc_cluster') &&
       pair.target_type === 'task_request' &&
+      pair.relation_type === 'requested_task'
+    ) &&
+    !(
+      pair.source_type === 'task_request' &&
+      pair.target_type === 'task' &&
+      pair.relation_type === 'converted_to'
+    ),
+);
+// Finding link-task owns creation; generic detach still reconciles its execution projection.
+const creatableEntityLinkPairs = detachableEntityLinkPairs.filter(
+  (pair) =>
+    !(
+      pair.source_type === 'finding' &&
+      pair.target_type === 'task' &&
       pair.relation_type === 'requested_task'
     ),
 );
@@ -1191,7 +1205,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     });
     if (
       !link ||
-      !isCreatableTuple({
+      !tupleListIncludes(detachableEntityLinkPairs, {
         sourceType: link.source_type,
         targetType: link.target_type,
         relationType: link.relation_type,

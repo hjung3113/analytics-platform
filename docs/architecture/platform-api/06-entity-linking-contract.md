@@ -190,7 +190,7 @@ POST /survey-responses/:id/create-finding -> (survey_response, finding, generate
 ```
 
 Direct `POST /entity-links` creation is narrower than the registered/DB tuple
-set. As of #134, direct creation is allowed for these tuples:
+set. Direct creation is allowed for these tuples:
 
 ```text
 (voc, voc, related_to)
@@ -198,8 +198,6 @@ set. As of #134, direct creation is allowed for these tuples:
 (voc, finding, evidence_of)
 (voc_cluster, finding, created_finding)
 (finding, task_request, requested_task)
-(task_request, task, converted_to)
-(finding, task, requested_task)
 (voc, task, evidence_of)
 ```
 
@@ -216,6 +214,14 @@ Generic `POST /entity-links` rejects these tuples, and generic `PATCH
 absent link. Generic endpoint and workspace listings continue to include their
 rows. Only `POST /vocs/:id/request-task` and
 `POST /voc-clusters/:id/request-task` create them.
+
+`(finding, task, requested_task)` is created only by the Finding `link-task`
+command or Task Request conversion. Generic `POST /entity-links` rejects it;
+generic detach remains available and reconciles the Finding execution projection.
+`(task_request, task, converted_to)` is owned by Task Request conversion: generic
+create rejects it and generic detach returns the same non-disclosing 404 envelope
+as an absent link, preserving conversion state and audit obligations. Both tuples
+remain visible in generic endpoint and workspace listings.
 
 Task Request conversion propagates a `(finding, task_request, requested_task)` link
 only when its Finding ID matches the request's own source (#768). Other Finding

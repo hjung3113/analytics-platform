@@ -634,6 +634,23 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
     },
   );
 
+  it('generic detach leaves a command-owned conversion link active without detach audit', async () => {
+    const { msA, endpoints } = await seedRegisteredTupleEndpoints();
+    const linkId = await seedEntityLinkDirectly({
+      sourceType: 'task_request', sourceId: endpoints.task_request.id,
+      targetType: 'task', targetId: endpoints.task.id, relationType: 'converted_to',
+      managedSystemId: msA, visibility: 'internal_only',
+    });
+    const absent = await patchEntityLink(adminCookie, randomUUID(), { reason: 'Synthetic probe' });
+    const response = await patchEntityLink(adminCookie, linkId, { reason: 'Synthetic probe' });
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toBe(absent.body);
+    const stored = await migrateHandle.pool.query('select status from core.entity_links where id = $1', [linkId]);
+    expect(stored.rows).toEqual([{ status: 'active' }]);
+    const audit = await migrateHandle.pool.query("select 1 from core.audit_log where subject_id = $1 and event_type = 'entity_link.detached'", [linkId]);
+    expect(audit.rows).toEqual([]);
+  });
+
   it('AC-388-2 POST honors generic tuples while leaving command-only tuples to their domain route', async () => {
     const { endpoints, vocTarget } = await seedRegisteredTupleEndpoints();
 
@@ -654,6 +671,8 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
         ((tuple.source_type === 'voc' || tuple.source_type === 'voc_cluster') &&
           tuple.target_type === 'task_request' &&
           tuple.relation_type === 'requested_task') ||
+        (tuple.source_type === 'finding' && tuple.target_type === 'task' && tuple.relation_type === 'requested_task') ||
+        (tuple.source_type === 'task_request' && tuple.target_type === 'task' && tuple.relation_type === 'converted_to') ||
         tuple.source_type === 'survey_response'
       ) {
         expect(created.statusCode, JSON.stringify(tuple)).toBe(422);
