@@ -1,3 +1,4 @@
+import { assertNoOverlappingDeny } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 import { findCoveringSiteGrant, requestScope, requestedScopeFields, scopeFields, scopeCatalogCandidates } from './site-scope-policy.js';
 import { lockRecoveryCommand } from '../../db/recovery-command-lock.js';
@@ -182,6 +183,9 @@ export function createRequestService(deps: RequestServiceDeps) {
           },
           { tx },
         );
+        if (scope.kind === 'managed_system') {
+          await assertNoOverlappingDeny(tx, actor.workspace_id, actor.actor_id, capability, body.requested_managed_system_id ?? null);
+        }
         if (decision.allow === true) {
           throw new HttpError(
             'conflict.capability_already_granted',

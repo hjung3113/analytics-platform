@@ -182,3 +182,16 @@ Not implemented.
 | Deferred item | Reason | Reopen when |
 | --- | --- | --- |
 | `EditDescriptionModal` loads a stored `{ id }` doc into `RichEditor`, which still shows the attachment UUID instead of the file name | #745 scope is the read surfaces (`RichContentRenderer` takes `attachments`/`attachmentFallbackLabel`); the editor does not get the option yet | The description edit modal is next touched, or `RichEditor` gets the same `attachments` option |
+
+## Permission Request retry policy (SER-24)
+
+**Deferred — not implemented.** Rejected Permission Requests were intended not
+to be immediately resubmitted for the same source object, source action and
+requested scope unless the rejection allows appeal, requests more information,
+or supplies `retry_after`. The API defines neither a retry interval nor an
+appeal envelope, so rejection alone currently permits a fresh request. Open
+request deduplication and overlapping Explicit Deny refusal remain enforced.
+
+Reopen when the owner defines the retry interval, the appeal / new-justification
+contract and how an Admin conveys them in the rejection response; then enforce
+that policy on the server with regression coverage.

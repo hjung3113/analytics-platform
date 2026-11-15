@@ -1042,7 +1042,7 @@ _Avoid_: Cluster member as a single bulk target, merged record, bare "candidate"
 - A **Permission Request** decision may be `approved`, `rejected`, or `needs_more_info`; `needs_more_info` preserves identity for resubmission. The requester may edit a pending ask or withdraw an open ask to `cancelled`, retaining identity and history (FO ADR-0066; implemented #1080–#1086).
 - A governed direct **Permission Grant** uses the same supported scope and self-approval policy as approval; an overlapping Explicit Deny must be lifted explicitly, and a matching open ask goes through review. Neither path changes **Role Level** (FO ADR-0066).
 - **Sensitive Permission** grants and uses require a reason and are audited.
-- Rejected **Permission Requests** must not be immediately resubmitted for the same scope without new justification.
+- Rejection alone permits a fresh **Permission Request**; overlapping Explicit Deny blocks creation and approval until lifted. Post-rejection retry restrictions are [deferred, not implemented](.planning/post-mvp-feature-backlog.md#permission-request-retry-policy-ser-24).
 
 ## Example Dialogue
 
