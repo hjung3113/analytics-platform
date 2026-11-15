@@ -7,7 +7,7 @@ import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permiss
 import { instantEpochMs, requiredContextError, SITE_BOUND_CONTEXT_KEYS } from '@ap/contracts';
 import { createSelectionPorts } from './query/selection-ports';
 import { contextShapeError } from './access/context-validation';
-import { checkScope, defaultDelay, getEntity, getRole, matchesCondition, recordUsage, reportClientError, setAdapterLatency, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
+import { checkScope, sleep, defaultDelay, getEntity, getRole, matchesCondition, recordUsage, reportClientError, setAdapterLatency, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
 import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
 import { AUDIT_EVENTS } from './audit/audit-fixtures';
 import { accessDirectory } from './access/access';
@@ -20,12 +20,7 @@ import { serveAction, type AnyMockAction } from './actions/actions';
 const siteBoundContextKeys = new Set<ContextKey>(SITE_BOUND_CONTEXT_KEYS);
 
 /** Short async hop so the shell exercises its loading path, as it would against a real server. */
-function pause(signal?: AbortSignal, ms = defaultDelay(80)) {
-  return new Promise<void>((resolve, reject) => {
-    const id = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
-  });
-}
+
 
 // One Session object per role per world, so the kernel's store snapshot only changes when the role does.
 function sessionsOf(world: World) {
@@ -182,7 +177,7 @@ export function createMockAdapter(o: {
     defaultRangeTo: () => DEFAULT_RANGE_TO,
     contextOptions: async (scopeId, signal) => {
       const role = getRole();
-      await pause(signal);
+      await sleep(defaultDelay(80), signal);
       // Only values present on equipment the session may see: a forbidden or partly granted site must not leak
       // groups, teams or models from denied rooms.
       const granted = checkScope(role, scopeId).grantedRooms;
@@ -196,7 +191,7 @@ export function createMockAdapter(o: {
     },
     evaluateSelection: async ({ scopeId, roomNames, lineNames, prcGroups, membershipBasis, condition, selection }, signal) => {
       const role = getRole();
-      await pause(signal);
+      await sleep(defaultDelay(80), signal);
       const invalidContext = contextShapeError({ roomNames, lineNames, prcGroups, membershipBasis, condition, selection });
       if (invalidContext) throw new Error(invalidContext);
       if (membershipBasis === 'asOf' && condition !== null) throw new Error('membership_basis_unsupported');
