@@ -59,7 +59,6 @@ The release stack publishes host ports 8080 (OIDC provider) and 3001 (backend, t
 ## Session cookie hash upgrade
 
 Migration `0137_session_cookie_hash` deletes every existing `core.sessions` row (owner-approved, 2026-11-15). Stop all backend writers before migration and start only the new backend image afterward. Every user signs in again once. The cookie stays a random opaque credential; only its SHA-256 hex digest is stored. Do not mix old and new backend versions against this table. If rolling back the backend, clear the session table again before starting the older image and require another login; never restore live credential rows.
-Migration `0136_session_cookie_hash` deletes every existing `core.sessions` row (owner-approved, 2026-11-15). Stop all backend writers before migration and start only the new backend image afterward. Every user signs in again once. The cookie stays a random opaque credential; only its SHA-256 hex digest is stored. Do not mix old and new backend versions against this table. If rolling back the backend, clear the session table again before starting the older image and require another login; never restore live credential rows.
 
 ## Production stack
 
