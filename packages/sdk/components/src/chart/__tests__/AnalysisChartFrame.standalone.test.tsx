@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { parseDateTime } from '@ap/contracts';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
-import { testAdapter, testSession } from '@ap/kernel/testing';
+import { testAdapter, testSession, ToastProbe } from '@ap/kernel/testing';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import type { EChartProps } from '../EChart';
 import { exportRegistry } from './test-support';
@@ -62,16 +62,39 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
     expect(screen.getByText(/선택 구간:/).textContent).toContain('05:00');
   });
 
-  it('opens exactly the allowed export actions; results go to notify, else a status line', () => {
+  it('the point actions menu works on its own', async () => {
+    const onSelect = vi.fn();
+    bare(frame({ pointActions: [{ id: 'open', label: '열기', onSelect }] }));
+    act(() => { button('지점 동작')!.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); });
+    fireEvent.click(await screen.findByRole('menuitem', { name: '열기' }));
+    expect(onSelect).toHaveBeenCalledWith({ x: hours[0], seriesId: 'a', value: 1 });
+  });
+
+  it('a new period resets the local selection; a period in another form is not used', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { rerender } = bare(frame({ period: { to: '2026-09-01T06:00:00' } }));
+    fireEvent.click(within(screen.getByRole('group', { name: '빠른 구간 선택' })).getByRole('button', { name: '1시간' }));
+    expect(screen.getByText(/선택 구간:/)).toBeTruthy();
+    rerender(<I18nProvider>{frame({ period: { to: '2026-09-01T07:00:00' } })}</I18nProvider>);
+    expect(screen.queryByText(/선택 구간:/)).toBeNull();
+    rerender(<I18nProvider>{frame({ period: { to: '2026-09-01T06:00:00Z' } })}</I18nProvider>);
+    expect(screen.queryByRole('group', { name: '빠른 구간 선택' })).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens exactly the allowed export actions; results go to notify, else a status line', async () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    const create = vi.fn(() => 'blob:csv'); const keep = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    const blobs: Blob[] = [];
+    const create = vi.fn((blob: Blob) => { blobs.push(blob); return 'blob:csv'; }); const keep = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
     URL.createObjectURL = create; URL.revokeObjectURL = () => {};
     onTestFinished(() => { URL.createObjectURL = keep.create; URL.revokeObjectURL = keep.revoke; });
     const notify = vi.fn();
-    bare(frame({ imageActions: { exportAllowed: true, notify } }));
+    bare(frame({ imageActions: { exportAllowed: true, notify }, period: { from: hours[0], to: '2026-09-01T06:00:00' } }));
     expect(button('이미지 복사')).toBeNull();
     fireEvent.click(button('내보내기')!);
     expect(create).toHaveBeenCalledTimes(1);
+    // The period goes into the header as given: wall-clock, not converted (ADR-0064).
+    expect((await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]!); })).split('\n')[0]).toContain('scopeId= · from=2026-09-01T00:00:00 · to=2026-09-01T06:00:00');
     expect(notify).toHaveBeenCalledWith('flow.csv 내보냄 (보이는 시리즈)');
     cleanup();
     bare(frame({ imageCopy: true, imageActions: { exportAllowed: true } }));
@@ -109,5 +132,15 @@ describe('AnalysisChartFrame inside a platform keeps the manifest gate (#1953 C)
     fireEvent.click(button('구간 선택')!);
     fireEvent.click(screen.getByRole('button', { name: 'fake-brush' }));
     expect(button('분석 구간 적용…')).not.toBeNull();
+  });
+
+  it('the CSV note inside a platform still names the applied Context', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const keep = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    URL.createObjectURL = () => 'blob:csv'; URL.revokeObjectURL = () => {};
+    onTestFinished(() => { URL.createObjectURL = keep.create; URL.revokeObjectURL = keep.revoke; });
+    mount(<>{frame()}<ToastProbe /></>, true);
+    fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    expect(await screen.findByText('flow.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)')).toBeTruthy();
   });
 });

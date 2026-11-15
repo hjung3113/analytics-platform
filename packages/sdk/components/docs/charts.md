@@ -101,7 +101,7 @@ const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same
 `PlatformProvider` 없이 `I18nProvider`와 `@ap/ui` CSS만으로 `AnalysisChartFrame`을 그린다. Zoom·Brush·로컬 선택·지점 선택(`pointActivation`·`pointActions`·`isPointSelectable`)·툴팁·같은 데이터 표·`selectionActions`·`차트 초기화`는 플랫폼 안과 같다. 플랫폼 의미가 있는 Compare·Annotate·`분석 구간 적용`은 그리지 않는다(`compareSeries`·`canApplyRange`를 줘도). 구간 선택은 Chart Local State라 페이지가 `selectionActions`로 자기 동작을 붙인다.
 
 - 내보내기와 이미지: `imageActions={{ exportAllowed: true, notify? }}`일 때만 `내보내기`(보이는 CSV, 머리줄의 `from`·`to`는 `period`)와 `imageCopy`·`imagePrint` 버튼이 보인다. 기본은 꺼짐이고, 결과 문구는 `notify(text, tone?)`로, 없으면 버튼 옆 `role=status` 한 줄로 전한다.
-- `period?: { from?: string | null; to: string | null }`: 시리즈가 덮는 기간(점과 같은 `YYYY-MM-DDTHH:mm:ss` wall-clock, 변환하지 않는다 — ADR-0064). `to`가 있으면 시간축에 키보드 구간 선택(시작·끝 선택, 1시간·4시간·전체)이 생긴다. 없으면 끌기만 된다. 값이 바뀌면 로컬 선택이 초기화된다(플랫폼 안의 전역 Context 변경과 같다).
+- `period?: { from?: string | null; to?: string | null }`: 시리즈가 덮는 기간(점과 같은 `YYYY-MM-DDTHH:mm:ss` wall-clock, 변환하지 않는다 — ADR-0064). `Z`·오프셋·날짜만 같은 다른 형식은 쓰지 않고 개발 경고를 낸다. `to`가 있으면 시간축에 키보드 구간 선택(시작·끝 선택, 1시간·4시간·전체)이 생긴다. 없으면 끌기만 된다. 값이 바뀌면 로컬 선택이 초기화된다(플랫폼 안의 전역 Context 변경과 같다).
 - `PlatformProvider` 안에서는 두 prop을 읽지 않는다: 메뉴 manifest `features.export·compare·annotate`와 전역 기간이 결정하고, prop으로 메뉴 권한을 넓히지 못한다.
 
 ```tsx

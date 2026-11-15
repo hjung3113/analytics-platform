@@ -5,7 +5,7 @@ import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
-import { canClientSum, formatDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
+import { canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -172,9 +172,10 @@ export type AnalysisChartFrameProps = {
   imageActions?: ChartImageActionsPolicy;
   /**
    * Outside a platform only (#1953 C): the period the series cover, wall-clock `YYYY-MM-DDTHH:mm:ss` like the points (not converted, ADR-0064). Its `to`
-   * turns on the keyboard range picker and the 1h/4h presets on a time axis, as the global period's end does inside a platform. Ignored inside a `PlatformProvider`.
+   * turns on the keyboard range picker and the 1h/4h presets on a time axis, as the global period's end does inside a platform. A value in another form (Z, an offset,
+   * a date only) is not used, with a dev warning. Ignored inside a `PlatformProvider`.
    */
-  period?: { from?: string | null; to: string | null };
+  period?: { from?: string | null; to?: string | null };
   stacked?: boolean;
   /**
    * Horizontal category charts only (ignored elsewhere, with a dev warning). Controlled row highlight: while the prop is present (null = no row)
@@ -206,6 +207,8 @@ export type AnalysisChartFrameProps = {
  * Inside a platform this is the global Context, the menu manifest and the toast; outside one it comes from props, with Compare, Annotate and Apply off.
  */
 type FrameHost = {
+  /** Inside a `PlatformProvider` (the CSV note then names the applied Context). */
+  inPlatform: boolean;
   global: { scopeId: string | null; from: string | null; to: string | null };
   /** A change resets the chart's local state (it described the previous result). */
   contextKey: string;
@@ -235,20 +238,30 @@ function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform:
   const features = route?.menu.features;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate: !!features?.annotate });
   const host: FrameHost = {
-    global, contextKey: JSON.stringify(global), url, status: '', notify: toast,
+    inPlatform: true, global, contextKey: JSON.stringify(global), url, status: '', notify: toast,
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
     applyPeriod: range => setGlobal({ from: range.from, to: range.to }),
   };
   return <FrameBody {...p} host={host} editor={editor} />;
 }
 
+/** A period end the range code can order and measure: naive wall-clock only (ADR-0064); anything else is dropped with a dev warning. */
+function wallClockOrNull(value: string | null | undefined, field: string): string | null {
+  if (value == null) return null;
+  try { parseDateTime(value, field); return value; } catch { rowFocusDiagnostic(`${field} "${value}" is not YYYY-MM-DDTHH:mm:ss wall-clock time; ignored.`); return null; }
+}
+
 function StandaloneFrame(p: AnalysisChartFrameProps) {
   const editor = useNoAnnotationEditor(p.chartId);
   const [status, setStatus] = useState('');
-  const from = p.period?.from ?? null; const to = p.period?.to ?? null;
+  const rawFrom = p.period?.from; const rawTo = p.period?.to;
+  // Checked once per value, so a bad value warns once rather than on every render.
+  const from = useMemo(() => wallClockOrNull(rawFrom, 'period.from'), [rawFrom]); const to = useMemo(() => wallClockOrNull(rawTo, 'period.to'), [rawTo]);
   const global = useMemo(() => ({ scopeId: null, from, to }), [from, to]);
+  // A new period resets the local state (as a Context change does), and the old result line with it.
+  useEffect(() => { setStatus(''); }, [from, to]);
   const host: FrameHost = {
-    global, contextKey: JSON.stringify(global), url: '', status, notify: p.imageActions?.notify ?? (text => setStatus(text)),
+    inPlatform: false, global, contextKey: JSON.stringify(global), url: '', status, notify: p.imageActions?.notify ?? (text => setStatus(text)),
     features: { compare: false, annotate: false, export: p.imageActions?.exportAllowed === true },
     applyPeriod: null,
   };
@@ -672,7 +685,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
     const body = rows.map(([x, values]) => [x, ...values.map(v => (v === null ? '' : v))]);
     downloadChartCsv({ ...p, context: global }, header, body);
-    notify(m(host.applyPeriod ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
+    notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
 
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
