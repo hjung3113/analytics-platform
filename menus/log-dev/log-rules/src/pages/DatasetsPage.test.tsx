@@ -188,12 +188,15 @@ describe('MEN-8 dataset menu assertions', () => {
     await waitFor(() => expect(screen.getByRole('table', { name: '테스트 데이터셋 목록' }).getAttribute('aria-busy')).toBe('false'));
   });
   it('keeps the same toolbar search field, its focus and the typed text across loading to loaded', async () => {
-    mount(); await screen.findByRole('table', { name: '테스트 데이터셋 목록' });
+    mount(); await screen.findByRole('table', { name: '테스트 데이터셋 목록' }); await screen.findByRole('link', { name: '전원 복구 경계 01' });
+    const table = screen.getByRole('table', { name: '테스트 데이터셋 목록' });
     const field = screen.getByRole('searchbox', { name: '데이터셋 검색' }) as HTMLInputElement;
     let release!: () => void; readGate = new Promise<void>(resolve => { release = resolve; });
     field.focus(); fireEvent.change(field, { target: { value: '경계' } });
     await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeTruthy());
     fireEvent.change(screen.getByRole('searchbox', { name: '데이터셋 검색' }), { target: { value: '경계 값' } });
+    expect(within(table).queryAllByRole('cell')).toHaveLength(0);
+    expect(within(table).queryByRole('link', { name: '전원 복구 경계 01' })).toBeNull();
     await act(async () => { release(); });
     await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
     const after = screen.getByRole('searchbox', { name: '데이터셋 검색' }) as HTMLInputElement;
