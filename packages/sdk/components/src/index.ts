@@ -41,7 +41,7 @@ export { LoadingBlock, OutcomeView, QueryView, StateMessage } from './StateView'
 export { ManagementLayout, type ManagementLayoutProps } from './archetypes/ManagementLayout';
 
 export { badgeCountText } from './workspace/PanelBadge';
-export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePreset, type PanelWorkspaceProps } from './workspace/PanelWorkspace';
+export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePersistence, type PanelWorkspacePreset, type PanelWorkspaceProps, type PanelWorkspaceStorage } from './workspace/PanelWorkspace';
 export { EmbeddedPane } from './workspace/panelContext';
 export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from './archetypes/AnalysisLayout';
 export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPathProps, type DrillSibling, type DrillSiblings } from './archetypes/DrillLayout';

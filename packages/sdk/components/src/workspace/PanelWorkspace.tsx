@@ -1,6 +1,6 @@
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useI18n, useMessages, usePlatform, type Text } from '@ap/kernel';
+import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
 import { cn, isProductionEnv } from '@ap/ui';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
 import { focusTabSoon } from '../dock/focusTab';
@@ -15,13 +15,22 @@ import { PanelBadge } from './PanelBadge';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
-import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS } from './workspaceStorage';
+import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
 import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
 
 export type { PanelWorkspaceLayout } from './workspaceState';
+export type { PanelWorkspaceStorage } from './workspaceStorage';
+
+/**
+ * Where a workspace outside a `PlatformProvider` keeps its local preference (#1953). `key` is used as it is, without `persistKey`: two
+ * workspaces on one page need two keys, and the app names the user in it when several people share a browser. A new `key` remounts the
+ * workspace and reads that key; a new `storage` under the same key is used from the next write on (nothing is re-read or copied).
+ * `storage` defaults to `localStorage`; every access is guarded and a refusing storage leaves the preference in memory.
+ */
+export type PanelWorkspacePersistence = { key: string; storage?: PanelWorkspaceStorage };
 
 export type PanelWorkspacePanel = {
   /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
@@ -76,6 +85,12 @@ export type PanelWorkspaceProps = {
    * never moves. An unknown `panelId`, a repeated `seq` and `null` do nothing. A request present on mount is not applied.
    */
   revealRequest?: { panelId: string; seq: number } | null;
+  /**
+   * Local preference of a standalone workspace (no `PlatformProvider`, #1953). Without it a standalone workspace keeps its layout in memory.
+   * Inside a `PlatformProvider` it is ignored: the platform key names the session user and the routed menu, so one person's layout never
+   * shows for another on a shared browser and two menus never share a key.
+   */
+  persistence?: PanelWorkspacePersistence;
 };
 
 const DEFAULT_COMPACT_BELOW = 900;
@@ -118,6 +133,8 @@ function useDevChecks(props: PanelWorkspaceProps) {
  * - **Local preference.** `platform:workspace:v1:<user>:<menu>:<persistKey>` in `localStorage` (written 300 ms after a change, flushed on
  *   unmount and `pagehide`); read once on mount, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
  *   the same menu and `persistKey` share it; the last writer wins. Maximize is never stored.
+ * - **Standalone.** Without a `PlatformProvider` (an app outside the platform, under `I18nProvider`) the layout stays in memory unless
+ *   `persistence` names a key and optionally a storage; inside a `PlatformProvider` `persistence` is ignored.
  * - **Fill.** Give the page `layout="fill"` so the workspace takes the height under the header.
  * - **Height mode.** `아래로 쌓기` (default, ADR-0130): the top-level rows keep
  *   their own px heights, the workspace is as tall as they are (plus a strip that takes a tab for a new row) and the page scrolls; a workspace with one
@@ -125,17 +142,24 @@ function useDevChecks(props: PanelWorkspaceProps) {
  *   toolbar's `⋯` or the host menu; it is stored with the layout. Below `compactBelow` stack is off (fit shows) and comes back on widening.
  */
 export function PanelWorkspace(props: PanelWorkspaceProps) {
-  const { session, route } = usePlatform();
+  const platform = usePlatformOptional();
   useDevChecks(props);
   if (props.panels.length === 0) return null;
-  const userId = session.user.id;
-  const menuId = route?.menu.id;
-  const storageKey = userId && menuId ? workspaceStorageKey(userId, menuId, props.persistKey) : null;
-  // A persistKey (or menu, or user) change is a different workspace: its body remounts and restores that key's state on its own.
-  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} />;
+  let storageKey: string | null;
+  let storage: PanelWorkspaceStorage | undefined;
+  if (platform) {
+    const userId = platform.session.user.id;
+    const menuId = platform.route?.menu.id;
+    storageKey = userId && menuId ? workspaceStorageKey(userId, menuId, props.persistKey) : null;
+  } else {
+    storageKey = props.persistence?.key || null;
+    storage = props.persistence?.storage;
+  }
+  // A persistKey (or menu, or user, or standalone key) change is a different workspace: its body remounts and restores that key's state on its own.
+  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey }: PanelWorkspaceProps & { storageKey: string | null }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -151,7 +175,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   /** The panel's badge with its description localised. */
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
-  const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec) : null) ?? initialWorkspaceState(spec));
+  const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec, storage) : null) ?? initialWorkspaceState(spec));
   const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort()]);
   const [seenPanels, setSeenPanels] = useState(panelIdentity);
   if (seenPanels !== panelIdentity) {
@@ -318,6 +342,9 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   // Local preference: only the stored state, never the compact overlay.
   const persisted = useRef(stored);
+  // The latest storage without re-arming the write timer when an app passes a new object each render.
+  const storageRef = useRef(storage);
+  useEffect(() => { storageRef.current = storage; });
   const pending = useRef<WorkspaceState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(() => {
@@ -325,7 +352,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    if (next && storageKey) { writeWorkspaceState(storageKey, next); persisted.current = next; }
+    if (next && storageKey) { writeWorkspaceState(storageKey, next, storageRef.current); persisted.current = next; }
   }, [storageKey]);
   useEffect(() => {
     if (!storageKey) return;

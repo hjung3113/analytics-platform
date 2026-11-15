@@ -7,16 +7,31 @@ import { normalizeWorkspaceState, sameWorkspaceState, type WorkspaceSpec, type W
 
 export const WORKSPACE_WRITE_DELAY_MS = 300;
 
+/** The Web Storage subset a standalone workspace writes through (`localStorage` and `sessionStorage` fit as they are). */
+export type PanelWorkspaceStorage = { getItem(key: string): string | null; setItem(key: string, value: string): void };
+
 /** `persistKey` is a static identifier (`WORKSPACE_ID`); user and menu ids come from the session and the registry. */
 export const workspaceStorageKey = (userId: string, menuId: string, persistKey: string) => `platform:workspace:v1:${userId}:${menuId}:${persistKey}`;
 
-/** The stored state repaired against `spec`, or null when there is none or storage cannot be read. */
-export function readWorkspaceState(key: string, spec: WorkspaceSpec): WorkspaceState | null {
-  return readLocalStorage(key, stored => stored === null ? null : normalizeWorkspaceState(JSON.parse(stored) as unknown, spec), null);
+/** The stored state repaired against `spec`, or null when there is none or storage cannot be read. Without `storage`, `localStorage`. */
+export function readWorkspaceState(key: string, spec: WorkspaceSpec, storage?: PanelWorkspaceStorage): WorkspaceState | null {
+  const decode = (stored: string | null) => stored === null ? null : normalizeWorkspaceState(JSON.parse(stored) as unknown, spec);
+  if (!storage) return readLocalStorage(key, decode, null);
+  try {
+    return decode(storage.getItem(key));
+  } catch {
+    return null;
+  }
 }
 
-export function writeWorkspaceState(key: string, state: WorkspaceState): void {
-  writeLocalStorage(key, JSON.stringify(state)); // a refusing storage leaves the preference in memory
+export function writeWorkspaceState(key: string, state: WorkspaceState, storage?: PanelWorkspaceStorage): void {
+  // a refusing storage leaves the preference in memory
+  if (!storage) { writeLocalStorage(key, JSON.stringify(state)); return; }
+  try {
+    storage.setItem(key, JSON.stringify(state));
+  } catch {
+    // same as localStorage: the preference stays in memory
+  }
 }
 
 export { sameWorkspaceState };

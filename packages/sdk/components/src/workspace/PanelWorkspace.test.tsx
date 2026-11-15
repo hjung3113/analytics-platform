@@ -1167,3 +1167,73 @@ it('reconciles added and removed panels without changing persistKey (#2028 SHE-2
   await waitFor(() => expect(screen.queryByRole('tab', { name: '추가' })).toBeNull());
   expect(screen.getByRole('tab', { name: '추세' })).toBeInTheDocument();
 });
+
+describe('PanelWorkspace: standalone, no PlatformProvider (#1953)', () => {
+  const standalone = (props: Partial<PanelWorkspaceProps> = {}) => render(<I18nProvider><PanelWorkspace {...BASE} {...props} /></I18nProvider>);
+  const appStorage = () => {
+    const memory = memoryStorage();
+    const writes: [string, string][] = [];
+    return { writes, memory, storage: { getItem: (key: string) => memory.getItem(key), setItem: (key: string, value: string) => { writes.push([key, value]); memory.setItem(key, value); } } };
+  };
+
+  it('renders under I18nProvider alone and keeps the layout in memory without persistence', async () => {
+    standalone();
+    await screen.findAllByRole('tab');
+    await choose('집중');
+    await waitFor(() => { expect(groups()).toEqual([['trend'], ['detail', 'kpi', 'selector']]); });
+    await sleep(400);
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('writes under the injected key through the injected storage, and restores it on the next mount', async () => {
+    const app = appStorage();
+    const view = standalone({ persistence: { key: 'app:alice:board', storage: app.storage } });
+    await screen.findAllByRole('tab');
+    await choose('집중');
+    await waitFor(() => { expect(app.writes).toHaveLength(1); }, { timeout: 1000 });
+    expect(app.writes[0]![0]).toBe('app:alice:board');
+    expect(JSON.parse(app.writes[0]![1])).toMatchObject({ v: 1, preset: 'focus' });
+    expect(setItem).not.toHaveBeenCalled();
+    view.unmount();
+    standalone({ persistence: { key: 'app:alice:board', storage: app.storage } });
+    await screen.findAllByRole('tab');
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+  });
+
+  it('flushes a change on unmount within the delay through the injected storage', async () => {
+    const app = appStorage();
+    const view = standalone({ persistence: { key: 'app:board', storage: app.storage } });
+    await screen.findAllByRole('tab');
+    await choose('집중');
+    expect(app.writes).toEqual([]);
+    view.unmount();
+    expect(app.writes.map(([key]) => key)).toEqual(['app:board']);
+    expect(JSON.parse(app.writes[0]![1])).toMatchObject({ preset: 'focus' });
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('defaults the injected key to localStorage and survives a storage that throws', async () => {
+    standalone({ persistence: { key: 'app:board' } });
+    await screen.findAllByRole('tab');
+    await choose('쌓기');
+    await waitFor(() => { expect(setItem.mock.calls.map(([key]) => key)).toEqual(['app:board']); }, { timeout: 1000 });
+    cleanup();
+    const failing = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
+    const view = standalone({ persistence: { key: 'app:board', storage: failing } });
+    await screen.findAllByRole('tab');
+    await choose('집중');
+    await waitFor(() => { expect(groups()).toEqual([['trend'], ['detail', 'kpi', 'selector']]); });
+    await sleep(400);
+    expect(() => { view.unmount(); }).not.toThrow();
+  });
+
+  it('ignores persistence inside a PlatformProvider: the platform key and localStorage stay', async () => {
+    const app = appStorage();
+    mountWorkspace({ persistence: { key: 'app:shared', storage: app.storage } });
+    await ready();
+    await choose('집중');
+    await waitFor(() => { expect(written()).toHaveLength(1); }, { timeout: 1000 });
+    expect(written()[0]![0]).toBe(KEY());
+    expect(app.writes).toEqual([]);
+  });
+});
