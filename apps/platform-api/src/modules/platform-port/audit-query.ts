@@ -6,10 +6,10 @@ import { PLATFORM_AUDIT_ACTIONS, type PlatformAuditAction } from './audit-action
 
 /**
  * An opaque, case-sensitive subject-type token (ADR-0101): no trimming or normalization. Accepting a filter never
- * releases a row; the SQL projection alone decides visibility. Keep in lockstep with the console
- * (`platform/admin/src/audit-query.ts`) and mock (`packages/host/mock-server/src/audit/audit.ts`) copies.
+ * releases a row; the SQL projection alone decides visibility. The vocabulary drift test compares
+ * this server copy with @ap/contracts/vocab.json.
  */
-const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
+export const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 
 /** Entity types `getEntity` and `entityAudit` answer (platform ADR-0069 decision 9): the shared read gate's types. */
 export const ENTITY_READABLE_TYPES = ['voc', 'finding', 'task'] as const;
@@ -77,9 +77,10 @@ function parseInstant(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** Not a plain search token: empty, over 80 chars, or URL/whitespace-bearing. */
+/** Pinned to @ap/contracts/vocab.json by the input-pattern vocabulary test. */
+export const FILTER_TEXT_PATTERN = /^[^?#&\s]{1,80}(?![\s\S])/;
 function invalidFilterText(value: unknown): boolean {
-  return typeof value !== 'string' || !value || value.length > 80 || /[?#&\s]/.test(value);
+  return typeof value !== 'string' || !FILTER_TEXT_PATTERN.test(value);
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>

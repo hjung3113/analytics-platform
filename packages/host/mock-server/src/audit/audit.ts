@@ -11,7 +11,7 @@
  * mart trust. `partial` and `too_large` do not apply to `auditTrail` (not a mart, no period budget);
  * `entityAudit` consults `partial` through getEntity's shared counter.
  */
-import { ENTITY_AUDIT_PAGE_MAX, compareAuditEvents, instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
+import { AUDIT_TYPE_TOKEN, invalidFilterText, ENTITY_AUDIT_PAGE_MAX, compareAuditEvents, instantEpochMs, menuPermission, type ApiResponse, type Assessment, type AuditAction, type AuditEvent, type AuditSortField, type AuditSource, type AuditTrailPage, type AuditTrailQuery, type EntityAuditPage, type EntityAuditRequest } from '@ap/contracts';
 import { checkScope, getRole, getScenario, nextCorrelation, partialFails, defaultDelay, sleep } from '../server';
 import { AUDIT_EVENTS } from './audit-fixtures';
 import { runtimeAuditEvents } from './annotations';
@@ -27,14 +27,6 @@ const AUDIT_SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'] as c
 /** Declared wire keys (issue #50) — anything else a client sends is an unknown key, not a silent no-op. */
 const AUDIT_QUERY_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'page', 'pageSize', 'sort'] as const;
 
-/** Opaque, case-sensitive subject-type token for the `type` FILTER (ADR-0101); `AUDIT_TYPES` stays the seed-registration list (ADR-0048). Keep in lockstep
- *  with the console (`platform/admin/src/audit-query.ts`) and server (`apps/platform-api/.../audit-query.ts`) copies. */
-const AUDIT_TYPE_TOKEN = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
-
-/** True when the filter text is not a plain search token: empty, over 80 chars, or URL/whitespace-bearing. */
-function invalidFilterText(value: unknown): boolean {
-  return typeof value !== 'string' || !value || value.length > 80 || /[?#&\s]/.test(value);
-}
 
 /**
  * One message for every malformed query (`Invalid audit filter`); never a coercion to page 1 or to "all",

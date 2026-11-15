@@ -44,5 +44,19 @@
     "forbidden",
     "too_large",
     "timeout"
-  ]
+  ],
+  "portInputPatterns": {
+    "auditType": {
+      "source": "^[A-Za-z][A-Za-z0-9_.:-]{0,79}$",
+      "flags": ""
+    },
+    "menuId": {
+      "source": "^[^\\s?#&/=\\p{C}]{1,80}$",
+      "flags": "u"
+    },
+    "filterText": {
+      "source": "^[^?#&\\s]{1,80}(?![\\s\\S])",
+      "flags": ""
+    }
+  }
 }

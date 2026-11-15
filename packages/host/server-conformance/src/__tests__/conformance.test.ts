@@ -299,6 +299,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       };
     },
     auditTrail: async query => {
+      if (state.console && ((query.page !== undefined && query.page < 1) || (query.pageSize !== undefined && query.pageSize > 100) || 'unknown' in query)) return err('Invalid audit filter');
       if (query.page !== undefined && !Number.isSafeInteger(query.page)) return err('Invalid audit page');
       // ADR-0101: `type` is an opaque token — a well-formed one nobody wrote is a zero (`empty`), a malformed one is `error`.
       // 'console-auditTrail-type-rejected' rejects a well-formed unknown type; 'console-auditTrail-malformed-widened' widens a malformed one.
@@ -310,7 +311,7 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       // adapter.ts zero rule: a zero is outcome `empty`. 'console-auditTrail-empty' empties the audit store
       // (still conforming); 'console-auditTrail-ok-zero' answers ok with an empty page — the kit must refuse it.
       if (breaks.has('console-auditTrail-ok-zero')) return consoleGate('auditTrail', { items: [], total: 0 });
-      const r = consoleGate('auditTrail', { items: [REF_EVENT], total: 1 });
+      const r = consoleGate('auditTrail', { items: (query.page ?? 1) > 1 ? [] : [REF_EVENT], total: 1 });
       const answered = breaks.has('console-auditTrail-empty') && r.outcome === 'ok'
         ? { ...r, outcome: 'empty' as const, data: null }
         : r;
@@ -322,7 +323,8 @@ function referenceAdapter(state: RefState, breaks: ReadonlySet<string> = new Set
       }
       return answered;
     },
-    accessDirectory: async () => {
+    accessDirectory: async query => {
+      if (state.console && ((query.page !== undefined && query.page < 1) || (query.pageSize !== undefined && query.pageSize > 100) || 'unknown' in query || (query.sort !== undefined && !['name', 'role', 'permissionCount', 'grantCount'].includes(query.sort.field)))) return err('Invalid access filter');
       // The reference directory holds no principals: a zero is outcome `empty` (adapter.ts) — the kit must
       // accept it. 'console-accessDirectory-mart' dresses a non-mart read up as mart data — the kit must refuse that.
       const r = consoleGate('accessDirectory', { items: [], total: 0 });
@@ -819,6 +821,12 @@ describe('server conformance kit (#145)', () => {
       'port · usageNextScreens with a malformed menu id → error, never widened',
       'port · auditTrail type filter: well-formed unknown → empty, malformed → error',
       'port · accessDirectory is not mart data: no assessments, null trust',
+      'port · auditTrail paging past the end preserves total',
+      'port · auditTrail paging rejects malformed requests',
+      'port · auditTrail paging has no duplicate rows',
+      'port · accessDirectory paging past the end preserves total',
+      'port · accessDirectory paging rejects malformed requests',
+      'port · accessDirectory paging has no duplicate rows',
       'port · saveAnnotation then listAnnotations at the same site returns the note',
       'port · a note saved at one site is not listed at another',
       'port · listAnnotations at a site without a grant → forbidden',

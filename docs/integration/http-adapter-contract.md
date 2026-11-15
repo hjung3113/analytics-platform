@@ -66,6 +66,8 @@
 **`signal` 전파(새 포트 공통):** 읽기 포트는 호출자의 `AbortSignal`을 전송에 그대로 연결한다(중단은 `AbortError`). 첫 인수가 `signal`인 `readPreferences`·`listNotices`는 실제 `AbortSignal`이 아닌 값이 와도(드리프트 점검의 자리표시 인수) 동기 예외나 요청 생략 없이 요청을 보낸다. 쓰기(`patchPreferences`·`importPreferences`·`saveNotice`·`deleteNotice`)도 같은 방식으로 신호를 전달하되 보낸 쓰기는 되돌리지 못한다. 어댑터는 본문을 보내기 전에 클라이언트 쪽에서 검증하지 않는다 — 판정은 서버 몫이다.
 
 
+`@ap/contracts`의 `PORT_INPUT_PATTERNS`는 기존 감사 type·메뉴 ID·필터 텍스트 문법의 원본이다. 콘솔과 mock은 같은 정규식·검증 함수를 사용한다. 다른 언어의 서버는 `vocab.json.portInputPatterns`의 `source`·`flags`를 기준으로 사본의 drift를 검사한다.
+
 코어 서버의 `auditTrail`·`entityAudit` 응답 필드, 필터, 공개 범위, 지원 type은 [코어 서버 포트](../architecture/platform-api/api/platform-port.md)가 소유한다.
 
 새 세 조회 경로도 다른 플랫폼 포트와 같은 `/api/v1/platform/...` 접두사 아래의 Candidate 매핑이다(#660, 플랫폼 API에 아직 구현 없음). 최종 경로는 백엔드 구현 때 확정한다. 성공은 HTTP 200 + 자기 JSON 타입(빈 페이지도 성공), 판정 실패는 4xx + `{code,message,field?}`다. invalid_input·invalid_cursor·invalid_period·unknown_axis·membership_basis_unsupported는 400, scope_forbidden·room_forbidden은 403, unknown_scope는 404다. 어댑터는 이를 PortError로 reject한다(HTTP 200 envelope 정책의 예외). 의미 원본은 [06 §6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)다.

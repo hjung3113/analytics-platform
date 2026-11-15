@@ -2,7 +2,7 @@
  * Mock request validation + response envelope (docs/06 §19): exclusive `outcome` plus declared `assessments[]`.
  * Every page query goes through `serve()` so Scope/room grants are re-validated per request (§6.2).
  */
-import { parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageNextDestination, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
+import { MENU_ID_PATTERN, parseDateTime, periodHours, type ApiResponse, type ClientErrorReport, type Assessment, type AssessmentKind, type Condition, type EntityRef, type GlobalContext, type Permission, type ScopeCheck, type SpaceId, type Trust, type UsageEvent, type UsageNextDestination, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type UsageVia, menuPermission } from '@ap/contracts';
 import { EQUIPMENT, SITES, TIME_DOMAIN_ASSERTIONS, activeWorld, type Equipment, type RoleId, type TimeDomainAssertion } from './world';
 
 /**
@@ -54,9 +54,16 @@ export const defaultDelay = (ms: number): number => adapterLatency ?? ms;
 export const queryDelay = (latency: number | undefined, s: Scenario) =>
   (latency === undefined && adapterLatency !== undefined ? adapterLatency : (latency ?? DEFAULT_QUERY_LATENCY_MS) + Math.random() * QUERY_LATENCY_JITTER_MS)
   + (s === 'slow' ? 2200 : 0);
+/** One abortable delay for server reads and adapter helpers; release the listener on either outcome. */
 export const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
-  const id = setTimeout(resolve, ms);
-  signal?.addEventListener('abort', () => { clearTimeout(id); reject(new DOMException('aborted', 'AbortError')); });
+  const abort = () => {
+    clearTimeout(id);
+    signal?.removeEventListener('abort', abort);
+    reject(new DOMException('aborted', 'AbortError'));
+  };
+  if (signal?.aborted) { reject(new DOMException('aborted', 'AbortError')); return; }
+  const id = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, ms);
+  signal?.addEventListener('abort', abort, { once: true });
 });
 
 export function checkScope(role: RoleId, scopeId: string | null): ScopeCheck {
@@ -371,9 +378,9 @@ function invalidUsageId(value: string, max: number): boolean {
 
 /**
  * A `fromMenuId`: the Registry's own id rule (non-empty, no whitespace, none of `? # & /`) plus `=` (no `key=value`) and control characters, at most 80
- * code points. Trade-off: a Registry id containing `=` is rejected. Kept in step with `MENU_ID_PATTERN` in `apps/platform-api/src/modules/platform-port/usage.ts`.
+ * code points. Trade-off: a Registry id containing `=` is rejected. Shared with the console and other port inputs in `@ap/contracts`.
  */
-export const MENU_ID_PATTERN = /^[^\s?#&/=\p{C}]{1,80}$/u;
+export { MENU_ID_PATTERN } from '@ap/contracts';
 
 /** The server does not know the app's spaces (ADR-0072): a space id is null or an id of the same shape as a menu id. */
 function validSpaceId(spaceId: unknown): spaceId is SpaceId | null {
