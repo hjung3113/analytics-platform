@@ -5,7 +5,7 @@ import { Button, FieldList, FieldRow, Tabs, TabsContent, TabsList, TabsTrigger }
 import { STAGE_LABEL, type Params, type Page, type Project, type ProjectEvent, type Round, type ScreenProps } from './contracts';
 import { GateBadge, Pager, ReadView, Section, StageBadge, StageStepper } from './presentation';
 import { LifecycleForm } from './forms';
-import { RoundScreen } from './RoundScreen';
+import { RoundFrame } from './RoundScreen';
 import { RoundSummaryCell } from './RoundExecution';
 import { pageCopy } from './messages';
 import type { PageAction } from './contracts';
@@ -20,7 +20,7 @@ export function ProjectScreen(props: ScreenProps & { projectId: string; roundId?
   const events = api.useRead<Page<ProjectEvent>>('projectEvents', { projectId, page: eventPage, pageSize: 25 }, tab === 'history' && !roundId);
   const [form, setForm] = useState<{ name: string; title: string; initial: Params; version?: string } | null>(null);
   const actionReturnFocusRef = useRef<HTMLElement>(null);
-  if (roundId && project.status === 'done' && project.data) return <RoundScreen key={roundId} {...props} roundId={roundId} project={project.data} />;
+  if (roundId) return <RoundFrame key={roundId} {...props} roundId={roundId} projectId={projectId} projectQuery={project} />;
   const p = project.status === 'done' ? project.data : null;
   const secondaryActions: PageAction[] = [];
   let primaryAction: PageAction | undefined;

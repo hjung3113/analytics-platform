@@ -145,6 +145,21 @@ describe('mutation and recovery boundaries', () => {
     expect(screen.getAllByText('데이터를 불러오지 못했습니다.').at(-1)).toBeVisible();
     expect(screen.getAllByRole('button', { name: '다시 시도' }).length).toBeGreaterThan(0);
   });
+  it('keeps the request filter controls through a failed read', () => {
+    render(<RequestsScreen {...props({}, { status: 'error', denied: false })} />);
+    expect(screen.getByRole('button', { name: /추가 필터/ })).toBeVisible();
+    expect(screen.getAllByText('데이터를 불러오지 못했습니다.').length).toBeGreaterThan(0);
+  });
+  it('keeps one page owner while the project read behind a Round resolves', () => {
+    const pages = { ...ui, page: (p: Parameters<Presentation['page']>[0]) => <main><button type="button" data-owner="title">{String(p.title)}</button>{p.children}</main> };
+    const read = (status: 'loading' | 'done') => ({ ...props({ projectDetail: status === 'done' ? project : null, roundDetail: gate() }), ui: pages, api: { useRead: <T,>(name: string): ReadState<T> => ({ status: name === 'projectDetail' ? status : 'done', data: (name === 'projectDetail' ? (status === 'done' ? project : null) : name === 'roundDetail' ? gate() : null) as T | null, retry: vi.fn() }) as ReadState<T>, useAction: () => ({ pending: false, run }) } });
+    const view = renderBase(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...read('loading')} projectId={ID} roundId={ID} /></LifecycleHost>);
+    const heading = view.container.querySelector('[data-owner="title"]') as HTMLElement;
+    heading.focus();
+    view.rerender(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...read('done')} projectId={ID} roundId={ID} /></LifecycleHost>);
+    expect(view.container.querySelector('[data-owner="title"]')).toBe(heading);
+    expect(document.activeElement).toBe(heading);
+  });
   it('explains an unreadable or missing project without inventing facts', () => {
     render(<ProjectScreen {...props()} projectId={ID} />);
     expect(screen.getByText('항목을 찾을 수 없거나 읽을 수 없습니다.')).toBeVisible();
