@@ -132,9 +132,13 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     expect(previous.disabled).toBe(true);
     fireEvent.click(within(table).getByRole('button', { name: '다음 범위' }));
     await waitFor(() => expect(cursors().at(-1)).toBe('synthetic-cursor-1'));
-    await waitFor(() => expect((within(screen.getByRole('region', { name: '원본 이벤트 목록' })).getByRole('button', { name: '이전 범위' }) as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(within(screen.getByRole('region', { name: '원본 이벤트 목록' })).getByRole('button', { name: '이전 범위' }));
+    const pager = (name: string) => within(screen.getByRole('region', { name: '원본 이벤트 목록' })).getByRole('button', { name }) as HTMLButtonElement;
+    await waitFor(() => expect(pager('이전 범위').disabled).toBe(false));
+    expect(pager('다음 범위').disabled).toBe(true);
+    fireEvent.click(pager('이전 범위'));
     await waitFor(() => expect(cursors().at(-1)).toBeNull());
+    await waitFor(() => expect(pager('이전 범위').disabled).toBe(true));
+    expect(pager('다음 범위').disabled).toBe(false);
   });
   it('hides parser text when the window read refuses source access', async () => {
     deniedWindow = true; mount();
