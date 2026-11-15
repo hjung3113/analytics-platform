@@ -72,7 +72,7 @@ describe('without a PlatformProvider', () => {
   it('reports a failed CSV download to notify as a warning and not as a success', () => {
     vi.mocked(downloadChartCsv).mockImplementationOnce(() => { throw new Error('blocked'); });
     const notify = vi.fn();
-    bare(chart(specs.topNBar!, { imageActions: { exportAllowed: true, notify } }));
+    bare(chart(specs.topNBar!, { exportActions: { exportAllowed: true, notify } }));
     fireEvent.click(exportButton()!);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('내보내지 못했습니다'), 'warning');
