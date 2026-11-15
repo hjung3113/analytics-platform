@@ -334,3 +334,23 @@ describe('Task detail parts through the host seam', () => {
     expect(within(screen.getByTestId('body')).getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
   });
 });
+
+
+it('recovers responsibility saving after stale-write with a fresh version and key', async () => {
+  const refreshed = { ...task, updated_at: '2026-10-14T00:00:00.000Z' };
+  api.getTask.mockResolvedValueOnce(task).mockResolvedValue(refreshed);
+  api.assignTaskResponsibility.mockRejectedValueOnce(new ApiError(409, { code: 'conflict.stale_write', message: 'stale' })).mockResolvedValue(refreshed);
+  const { seam, calls } = makeSeam();
+  renderParts(seam);
+  fireEvent.click(await screen.findByRole('button', { name: '배정 수정' }));
+  fireEvent.click(screen.getByRole('button', { name: '배정 저장' }));
+  await waitFor(() => expect(api.getTask).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole('button', { name: '배정 저장' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: '배정 저장' }));
+  await waitFor(() => expect(calls.success).toHaveBeenCalledWith('배정을 저장했습니다.'));
+  const first = api.assignTaskResponsibility.mock.calls[0];
+  const second = api.assignTaskResponsibility.mock.calls[1];
+  expect(first?.[3]).toBe(task.updated_at);
+  expect(second?.[3]).toBe(refreshed.updated_at);
+  expect(second?.[2]).not.toBe(first?.[2]);
+});

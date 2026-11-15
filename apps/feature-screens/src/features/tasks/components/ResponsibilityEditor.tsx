@@ -1,5 +1,6 @@
 import { resolveActors } from '@/lib/api/actors';
 import { mapUnknownError } from '@/lib/api/errorMapper';
+import { ApiError } from '@/lib/api/types';
 import { mintIdempotencyKey } from '@/lib/api/idempotency';
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { RESPONSIBILITY_COPY } from '@/lib/copy/tasks';
@@ -50,6 +51,7 @@ export function ResponsibilityEditor({
   label,
   teamCandidates,
   onSave,
+  onStaleWrite,
 }: {
   actorId: string | null;
   teamId: string | null;
@@ -57,6 +59,7 @@ export function ResponsibilityEditor({
   label: string;
   /** Team ids already known in context (current value, Managed System defaults). */
   teamCandidates?: readonly string[];
+  onStaleWrite?: () => Promise<unknown>;
   onSave: (actorId: string | null, teamId: string | null, key: string) => Promise<unknown>;
 }) {
   const client = useQueryClient();
@@ -81,6 +84,12 @@ export function ResponsibilityEditor({
         mode === 'team' ? value.trim() : null,
         submissionKey.current,
       );
+    },
+    onError: async (error) => {
+      if (error instanceof ApiError && error.status === 409 && error.code === 'conflict.stale_write') {
+        submissionKey.current = null;
+        await onStaleWrite?.();
+      }
     },
     onSuccess: () => {
       for (const queryKey of [
