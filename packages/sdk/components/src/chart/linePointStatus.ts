@@ -26,6 +26,7 @@ export function frameStatusCsvLabel(series: ChartSeries, horizontal: boolean, st
 }
 const STATUS_SIZE = 9;
 const HALO_SIZE = 13;
+const STATUS_OPACITY = 0.8; // ECharts scatter's normal opacity, also inherited by its label.
 /** Scatter overlays render even when the underlying line has showSymbol:false. Only status points have symbols. */
 export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>): ScatterSeriesOption[] {
   if (i.horizontal || !statuses.size) return [];
@@ -40,8 +41,8 @@ export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<stri
     if (!data.length) return [];
     const base = { type: 'scatter' as const, silent: true, animation: false, symbol: 'circle', tooltip: { show: false }, ...(i.rightAxis && s.axis === 'right' ? { yAxisIndex: 1 } : {}) };
     return [
-      { ...base, id: `__line-halo-${s.id}`, z: 4, symbolSize: HALO_SIZE, itemStyle: { color: surface, opacity: 1 }, data: data.map(d => d.value) },
-      { ...base, id: `__line-status-${s.id}`, z: 5, symbolSize: STATUS_SIZE, data },
+      { ...base, id: `__line-halo-${s.id}`, z: 4, symbolSize: HALO_SIZE, itemStyle: { color: surface, opacity: 1 }, blur: { itemStyle: { opacity: 1 } }, data: data.map(d => d.value) },
+      { ...base, id: `__line-status-${s.id}`, z: 5, symbolSize: STATUS_SIZE, blur: { itemStyle: { opacity: STATUS_OPACITY }, label: { opacity: STATUS_OPACITY } }, data },
     ];
   });
 }

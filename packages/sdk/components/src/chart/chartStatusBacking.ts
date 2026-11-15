@@ -58,8 +58,8 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
         ? { x: Math.min(from[0], to[0]) + inset, y: from[1] + layout.offset + inset, width: Math.max(0, Math.abs(to[0] - from[0]) - border), height: Math.max(0, layout.width - border) }
         : { x: from[0] + layout.offset + inset, y: Math.min(from[1], to[1]) + inset, width: Math.max(0, layout.width - border), height: Math.max(0, Math.abs(to[1] - from[1]) - border) };
       return { type: 'group', children: [
-        { type: 'rect', shape, style: { fill: 'none', stroke: piece.backing, lineWidth: BACKING_WIDTH } },
-        { type: 'rect', shape, style: { fill: 'none', stroke: piece.stroke, lineWidth: BORDER_WIDTH } },
+        { type: 'rect', shape, style: { fill: 'none', stroke: piece.backing, lineWidth: BACKING_WIDTH }, blur: { style: { opacity: 1 } } },
+        { type: 'rect', shape, style: { fill: 'none', stroke: piece.stroke, lineWidth: BORDER_WIDTH }, blur: { style: { opacity: 1 } } },
       ] };
     };
     return [{
