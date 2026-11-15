@@ -41,6 +41,8 @@ function TestBar() {
   const [expanded, setExpanded] = useState(false);
   useReportQueryBarStatus({ folded: !expanded, editing: false, reasonKeys: [] });
   return <section role="region" aria-label="조회 조건" data-query-bar>
+    {/* Mirrors the live Context bar: an inert, invisible measuring copy renders before the real controls. */}
+    <div inert aria-hidden className="invisible"><div data-context-measuring><button type="button" aria-expanded="false" aria-controls="test-measure-editor">조회 조건 측정</button></div></div>
     <button aria-expanded={expanded} aria-controls="test-query-editor" onClick={() => setExpanded(!expanded)}>조회 조건 바꾸기</button>
     <div id="test-query-editor" hidden={!expanded}>global editor</div>
     {!expanded && <WorkspaceQueryBarRow />}

@@ -44,7 +44,7 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   const fallback = useRef<HTMLButtonElement>(null);
   const wroteInSession = useRef(false);
   const extension = derivePageConditionExtension({ menu, lang, draft: query.draft.page, applied: host.page, extension: legacy });
-  const summary = extension.appliedPageSummary;
+  const summary = extension.appliedPageSummary ?? [];
   const summaryText = summary.map(item => `${item.label}: ${item.value || m('explicitEmpty')}`).join(' · ');
   const previousSummary = useRef<{ closed: boolean; text: string } | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -58,6 +58,7 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
     opener.current = button; wroteInSession.current = false; setState({ status: 'open', attentionKey });
   }
   function close() {
+    wroteInSession.current = false;
     setState({ status: 'closed', attentionKey });
     const target = opener.current?.isConnected ? opener.current : fallback.current;
     target?.focus({ preventScroll: true });
@@ -112,7 +113,9 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
       const page = fallback.current?.closest('[data-platform-page]');
       // A board has a single Context bar for the pane selected by the triggering focus/click.
       const surface = page?.querySelector('[data-query-bar]') ?? page?.querySelector('[data-context-key]')?.closest('[role="region"]') ?? document.querySelector('[data-board-context-row]');
-      const control = surface?.querySelector<HTMLButtonElement>('[data-query-bar] button[aria-controls], button[aria-controls], [data-context-key] button:not(:disabled)');
+      // The live Context bar renders an inert, invisible measuring copy first; only a control outside it can take focus.
+      const candidates = surface?.querySelectorAll<HTMLButtonElement>('[data-query-bar] button[aria-controls], button[aria-controls], [data-context-key] button:not(:disabled)') ?? [];
+      const control = Array.from(candidates).find(button => !button.closest('[inert], [hidden], [data-context-measuring]'));
       control?.focus({ preventScroll: true });
       if (control?.getAttribute('aria-expanded') === 'false') control.click();
     }} footer={query.mode === 'apply' ? <>
