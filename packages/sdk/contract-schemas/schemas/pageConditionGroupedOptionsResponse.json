@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "object",
+            "properties": {
+              "ko": {
+                "type": "string",
+                "minLength": 1
+              },
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "ko",
+              "en"
+            ],
+            "additionalProperties": false
+          },
+          "lists": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "type": "object",
+                    "properties": {
+                      "ko": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "en": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "ko",
+                      "en"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "disabledReason": {
+                    "type": "object",
+                    "properties": {
+                      "ko": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "en": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "ko",
+                      "en"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "value",
+                  "label"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "lists"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "groups"
+  ],
+  "additionalProperties": false
+}

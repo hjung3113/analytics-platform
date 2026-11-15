@@ -611,3 +611,13 @@ it('acknowledges Apply with hidden page keys once and preserves edits made after
     expect.objectContaining({ count: 1, query: period + '&filter=hidden&page=2' }),
   );
 });
+
+it('rejects malformed declared page conditions before an applied query runs (#2337)', async () => {
+  const conditional = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...menu, pageConditions: { categories: [{ id: 'interval', label: menu.label, kind: { type: 'range', key: 'filter' } }] } }] });
+  const { send } = mount('/' + period + '&filter=5..2', conditional);
+  await settleQueries();
+  expect(query.status).toBe('idle');
+  expect(send).not.toHaveBeenCalled();
+  expect(draft.canApply).toBe(false);
+  expect(() => act(() => draft.setDraftPage({ filter: 'x..2' }))).toThrow(/invalid-range/);
+});

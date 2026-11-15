@@ -573,6 +573,13 @@ _Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. Context 바와도 �
 메뉴 화면이 자기 페이지 키로 거는 조회 조건과 그 입력 막대(초안·적용, 접으면 한 줄 요약). 전역 Context가 아니라 그 화면에만 있다. 화면 문구도 «페이지 조건»이다([ADR-0160](docs/adr/0160-folded-analysis-workspace-query-bar.md), [06 §13](docs/contract/components.md#13-shared-component-layers)).
 _Avoid_: 페이지 필터 — 같은 막대를 부르던 옛 이름. 표의 열 필터와도 섞인다.
 
+**페이지 조건 레이어** (Candidate):
+메뉴가 선언한 페이지 조건 범주를 순서대로 다루는 SDK 계약. 전역 Context와 구별하며 선언·인코딩 원본은 [Kernel §5·§6.4](docs/contract/kernel.md#5-menu-extension-contract)다.
+
+**범주** (페이지 조건, Candidate):
+하나의 페이지 조건 선언 단위. 하나 이상의 page key를 소유하며, 묶음 체크 목록은 여러 키를 한 범주 안에 선언한다. 범주 사이의 결합 규칙은 같은 Kernel 계약을 따른다.
+
+
 **패널**:
 작업 영역을 이루는 조각 하나. 제목(탭 이름)을 가지며 차트·표·요약 같은 내용 하나를 담는다. 예: 사이클타임 상세의 추세·요약·분포·느린 실행.
 _Avoid_: 칸, 패인 — 칸은 분석 보드 시트의 자리다. 상세 패널(DetailDrawer)과 구분해 필요하면 "작업 영역 패널"이라 쓴다.

@@ -1,4 +1,5 @@
 import type { Text } from '../i18n.js';
+import type { PageConditions } from './page-conditions.js';
 
 /**
  * Menu manifest metadata (docs/06 §5): menus declare, the shell consumes. Field names are Candidates.
@@ -114,6 +115,8 @@ export type MenuMeta = {
   /** Opt-in deferred analysis execution. The address remains the applied query. */
   query?: { mode: 'apply'; required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] } };
   pageType: PageType;
+  /** Candidate: declarative page-owned conditions; absent preserves legacy behavior (§5/§6.4). */
+  pageConditions?: PageConditions;
   features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean; /** The menu can be shown in an analysis-board pane (ADR-0049). Absent = false. */ board?: boolean };
   /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */
   pageKeys: readonly string[];
