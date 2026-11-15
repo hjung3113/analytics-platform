@@ -135,7 +135,7 @@ describe('attempt diagnostics (#1815 B2)', () => {
   });
   it('shows plain text, shape, producer slugs and evidence locations with a Source link', async () => {
     const t = setup(); const user = userEvent.setup();
-    expect(screen.getByRole('heading', { name: '시도 진단 · 시도 #1' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: '시도 진단 · 시도 #1' })).toBeNull();
     expect(screen.queryByRole('heading', { name: '진단 목록' })).toBeNull();
     expect(screen.queryByText('합성 검증기')).toBeNull();
     await user.click(screen.getByRole('button', { name: '이벤트 간격 차이' }));

@@ -620,14 +620,14 @@ describe('review-final regressions (#1809)', () => {
     window.history.replaceState(null, '', `/logDev/log-model-round/${ID}/${ID}?v=1`);
     act(() => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><LifecyclePage params={{ projectId: ID, roundId: ID }} /><DetailHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
     await ready();
-    expect(element('[aria-label="선택 시도 서버 판정"]').textContent).toContain('전체 규칙 26건');
+    expect(element('section[aria-label="규칙 결과"] [data-table-status-line]').textContent).toContain('전체 규칙 26건');
     activateRoundTab('설정·이력'); click(button('요청 등록'));
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
     click(button('요청 등록', element('[role="dialog"]')));
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
     activateRoundTab('결과·결함');
     await waitFor(() => expect(element('[aria-label="최신 실행 상태"]').textContent).toContain('요청 대기'));
-    expect(element('[aria-label="선택 시도 서버 판정"]').textContent).toContain('전체 규칙 26건');
+    expect(element('section[aria-label="규칙 결과"] [data-table-status-line]').textContent).toContain('전체 규칙 26건');
     expect(text('R-002')).toBe(true);
     click(button('Gate 결정'));
     await waitFor(() => expect(element('[aria-label="서버 결정 근거"]').textContent).toContain('R-002'));
@@ -1036,7 +1036,8 @@ describe('F-1 lifecycle page head', () => {
   it.each(['project', 'round', 'requests'])('renders one native page for %s', async route => {
     mount('', 1, route);
     await waitFor(() => expect(document.querySelectorAll('[data-platform-page]')).toHaveLength(1));
-    await waitFor(() => expect(document.querySelector('h1')?.textContent).toContain(route === 'requests' ? '검증 요청' : 'ETCH-300 · 개발 건'));
+    const detailTitle = route === 'round' ? 'ETCH-300 · Round 3' : 'ETCH-300 · 개발 건';
+    await waitFor(() => expect(document.querySelector('h1')?.textContent).toContain(route === 'requests' ? '검증 요청' : detailTitle));
   });
   it('keeps blocked overflow reasons visible and returns form focus to more', async () => {
     mount('', 1, 'project');
@@ -1076,5 +1077,29 @@ describe('F-1 lifecycle page head', () => {
     });
     // The programmatic focus move alone never opens the heading tooltip.
     expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  });
+});
+
+
+describe('Round compact table toolbar (#2308)', () => {
+  it('keeps scope in the native table controls, one live line, and Gate in the page header', async () => {
+    mount();
+    await waitFor(() => expect(document.querySelector('[role="table"][aria-label="규칙 결과"]')).toBeTruthy());
+    const scope = element('[role="radiogroup"][aria-label="결과 범위"]');
+    expect(scope.closest('[data-table-page-controls]')).toBeTruthy();
+    expect(button('Gate 결정').closest('header')).toBeTruthy();
+    expect(document.querySelector('h1')?.textContent).toBe('ETCH-300 · Round 3');
+    expect([...document.querySelectorAll('h2')].some(h => h.textContent === '규칙 결과' && !h.classList.contains('sr-only'))).toBe(false);
+    expect(element('[data-testid="result-first-workbench"]').querySelectorAll('[aria-live="polite"]')).toHaveLength(1);
+    expect([...document.querySelectorAll('[aria-live="polite"]')].filter(node => node.textContent?.trim())).toHaveLength(1);
+  });
+  it('returns from zero problem rows without losing native pageControls', async () => {
+    const host = mount('', 1, 'round', q => q.endpoint === 'logLifecycle.ruleResults' && q.params.results ? ok({ rows: [], total: 0 }) : undefined);
+    await waitFor(() => expect(button('전체 보기')).toBeTruthy());
+    const controls = element('[data-table-page-controls]');
+    click(button('전체 보기'));
+    await waitFor(() => expect(host.queries.some(q => q.endpoint === 'logLifecycle.ruleResults' && !q.params.results)).toBe(true));
+    await waitFor(() => expect(document.body.textContent).toContain('R-001'));
+    expect(element('[data-table-page-controls]')).toBe(controls);
   });
 });
