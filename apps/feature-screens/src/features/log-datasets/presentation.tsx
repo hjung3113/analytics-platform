@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { formatDateTime } from '../../lib/format/datetime';
 import { Button, Callout, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
+import { DATASET_READ_COPY } from '../../lib/copy/log-datasets';
 import type { ReadState, Stale, WriteResult } from './contracts';
 
 export const TAG_LABEL: Record<string, string> = { normal: '정상', exception: '예외', boundary: '경계', regression: '회귀', file_boundary: '파일 경계', carryover: 'carryover', partial_support: '일부 Rule 미지원' };
@@ -18,8 +19,17 @@ export function StaleBadge({ stale }: { stale: Stale | null | undefined }) {
   if (!stale) return null;
   return <div className="flex flex-wrap items-center gap-2 text-xs break-keep"><StatusBadge tone={stale.state === 'stale' ? 'warning' : 'neutral'}>{stale.state === 'stale' ? '기준 낡음' : stale.state === 'unknown' ? '기준 확인 불가' : '기준 확인됨'}</StatusBadge>{stale.reasons.map(r => <span key={r}>{STALE_LABEL[r] ?? r}</span>)}{stale.unknown.length ? <span className="text-text-muted">확인 불가: {stale.unknown.map(r => STALE_LABEL[r] ?? r).join(' · ')}</span> : null}</div>;
 }
+function comparisonFailureMessage(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object' || !('fieldErrors' in data) || !Array.isArray(data.fieldErrors)) return undefined;
+  for (const field of data.fieldErrors) {
+    if (field && typeof field === 'object' && 'code' in field && typeof field.code === 'string' && Object.hasOwn(DATASET_READ_COPY, field.code)) return DATASET_READ_COPY[field.code];
+  }
+  return undefined;
+}
 export function ReadView<T>({ query, children, loading }: { query: ReadState<T>; children(data: T): ReactNode; loading?: ReactNode }) {
   if (query.status === 'loading') return loading ?? <p role="status" className="text-sm text-text-secondary">불러오는 중…</p>;
+  const comparisonError = comparisonFailureMessage(query.data);
+  if (query.status === 'error' && !query.denied && comparisonError) return <Callout tone="red" title={comparisonError}>{null}</Callout>;
   if (query.status === 'error') return <Callout tone="red" title={query.denied ? '읽기 권한이 없습니다. 관리자에게 요청해 주세요.' : '데이터를 불러오지 못했습니다.'} action={<Button variant="secondary" size="toolbar" onClick={query.retry}>다시 시도</Button>}>{null}</Callout>;
   if (!query.data) return <p role="status" className="text-sm text-text-secondary">항목을 찾을 수 없거나 읽을 수 없습니다.</p>;
   return children(query.data);

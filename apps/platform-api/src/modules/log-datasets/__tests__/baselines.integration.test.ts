@@ -680,6 +680,26 @@ describe.skipIf(!runIntegration)('log test dataset baselines (#1478 D-b)', () =>
     });
   });
 
+  it.each(['equipment_model', 'software_version'] as const)('marks a Spec pin hidden by %s access without exposing its identity', async table => {
+    const code = `${TAG}-hidden-${n++}`;
+    const vendor = (await sql('insert into knowledge.vendor (workspace_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$2,$4,$4) returning id', [WORKSPACE_ID, code, toCodeKey(code), admin.id])).rows[0].id as string;
+    const model = (await sql('insert into knowledge.equipment_model (workspace_id, vendor_id, code, code_key, name, created_by, updated_by) values ($1,$2,$3,$4,$3,$5,$5) returning id', [WORKSPACE_ID, vendor, code, toCodeKey(code), admin.id])).rows[0].id as string;
+    const software = (await sql("insert into knowledge.software_version (workspace_id, model_id, version_label, version_key, name, created_by, updated_by) values ($1,$2,$3,$4,'',$5,$5) returning id", [WORKSPACE_ID, model, code, toCodeKey(code), admin.id])).rows[0].id as string;
+    const ds = await makeDataset(admin, { shareScope: 'workspace' });
+    const rev = await revisionOf(ds.id);
+    const d = await newDraft(rev.id);
+    expect((await bdetail(d.id)).data.profilePin).toEqual({});
+    const pin = { specPin: { modelId: model, softwareId: software, revisionId: randomUUID(), changeSetDigest: H('a') }, parserVersion: 'synthetic-parser' };
+    await sql('update log_datasets.expected_baseline set profile_pin = $2::jsonb where id = $1', [d.id, JSON.stringify(pin)]);
+    expect((await bdetail(d.id)).data.profilePin).toEqual(pin);
+    await sql(`update knowledge.${table} set access_mode = 'restricted' where id = $1`, [table === 'equipment_model' ? model : software]);
+    const hidden = { specPinHidden: true, parserVersion: 'synthetic-parser' };
+    expect((await bdetail(d.id)).data.profilePin).toEqual(hidden);
+    const list = (await baselines(rev.id)).data.rows as { id: string; profilePin: unknown }[];
+    expect(list.find(baseline => baseline.id === d.id)?.profilePin).toEqual(hidden);
+    expect((await row(d.id)).profile_pin).toEqual(pin);
+  });
+
   describe('session-only: tokens are refused for reads and every baseline write, approval included', () => {
     const tokenIds: string[] = [];
     const TOKEN_IP = '10.78.0.1';

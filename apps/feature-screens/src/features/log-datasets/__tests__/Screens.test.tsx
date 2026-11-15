@@ -6,7 +6,7 @@ import { BaselinePanel } from '../BaselinePanel';
 import { ComparisonPanel } from '../ComparisonPanel';
 import { RequestDrawer, RunsPanel } from '../RunsPanel';
 import { useState } from 'react';
-import { DatasetBadge } from '../presentation';
+import { ReadView, DatasetBadge } from '../presentation';
 import type { Baseline, Comparison, Dataset, DatasetApi, Run, Params, Presentation, ScreenProps, SuiteDetail, WriteResult } from '../contracts';
 
 beforeAll(() => {
@@ -264,4 +264,15 @@ it('MEN-51 preserves approval feedback after the server advances the baseline ve
   data.baselineDetail = { ...baseline, status: 'approved', version: '5' };
   view.rerender(<BaselinePanel {...p} dataset={dataset} revisionId="rev" />);
   expect(screen.getByText('Baseline을 승인했습니다.')).toBeVisible();
+});
+
+it.each([
+  ['same_run', '같은 실행은 비교할 수 없습니다. 다른 실행을 선택해 주세요.'],
+  ['revision_mismatch', '데이터셋 Revision이 다른 실행은 비교할 수 없습니다. 같은 Revision의 실행을 선택해 주세요.'],
+])('explains %s without an ineffective retry', (code, message) => {
+  const p = props();
+  p.api.useRead = <T,>() => ({ status: 'error', data: { fieldErrors: [{ path: ['toRunId'], code }] } as T, retry: vi.fn() });
+  render(<ReadView query={p.api.useRead('rerunDiff', {})}>{() => null}</ReadView>);
+  expect(screen.getByText(message)).toBeVisible();
+  expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
 });
