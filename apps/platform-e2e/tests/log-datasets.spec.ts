@@ -12,8 +12,13 @@ test.describe('log-datasets screens (06 §6·§15·§17·§18·§19)', () => {
     await page.goto('/log-dev/log-datasets');
     const table = page.getByRole('table', { name: '테스트 데이터셋 목록', exact: true });
     await expect(table).toBeVisible();
-    const search = await page.getByRole('searchbox', { name: '데이터셋 검색' }).boundingBox();
-    const status = await page.getByRole('combobox', { name: '상태', exact: true }).boundingBox();
+    const searchBox = page.getByRole('searchbox', { name: '데이터셋 검색' });
+    const statusBox = page.getByRole('combobox', { name: '상태', exact: true });
+    // The toolbar controls can render after the table; boundingBox() does not wait (#2313).
+    await expect(searchBox).toBeVisible();
+    await expect(statusBox).toBeVisible();
+    const search = await searchBox.boundingBox();
+    const status = await statusBox.boundingBox();
     expect(Math.abs(search!.y - status!.y)).toBeLessThan(10);
     await expect(table.getByRole('link', { name: '전원 복구 경계 01', exact: true })).toBeVisible();
     await table.getByRole('link', { name: '전원 복구 경계 01', exact: true }).click();
