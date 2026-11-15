@@ -244,8 +244,8 @@ export function useSurveyQuestionMutations(surveyId: string) {
       queryKey: surveyKeys.detail(surveyId),
     });
   const create = useMutation({
-    mutationFn: async (body: QuestionInput) =>
-      (await apiClient<SurveyQuestionResponse>('POST', apiPath`/surveys/${surveyId}/questions`, { body }))
+    mutationFn: async ({ body, idempotencyKey }: { body: QuestionInput; idempotencyKey: string }) =>
+      (await apiClient<SurveyQuestionResponse>('POST', apiPath`/surveys/${surveyId}/questions`, { body, idempotencyKey }))
         .data,
     onSuccess: invalidate,
   });

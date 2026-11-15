@@ -86,3 +86,32 @@ describe('TokenIssueDrawer session-expiry draft (#1887)', () => {
     expect(draftKeys()).toEqual([]);
   });
 });
+
+
+it.each([true, false])('copies a one-time token on HTTP and reports command result %s', async copied => {
+  mount();
+  const user = await openIssue();
+  await user.type(screen.getByLabelText('토큰 이름'), 'Synthetic token');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
+  await screen.findByDisplayValue(SECRET);
+  Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+  const setData = vi.fn();
+  const command = vi.fn(() => {
+    const event = new Event('copy', { cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: { setData } });
+    document.dispatchEvent(event);
+    return copied;
+  });
+  Object.defineProperty(document, 'execCommand', { configurable: true, value: command });
+  try {
+    await user.click(screen.getByRole('button', { name: '복사' }));
+    expect(command).toHaveBeenCalledWith('copy');
+    expect(setData).toHaveBeenCalledWith('text/plain', SECRET);
+    expect(await screen.findByText(copied ? '복사했습니다' : '복사하지 못했습니다. 토큰 값을 직접 복사해 주세요.')).toBeVisible();
+  } finally {
+    Reflect.deleteProperty(window, 'isSecureContext');
+    Reflect.deleteProperty(navigator, 'clipboard');
+    Reflect.deleteProperty(document, 'execCommand');
+  }
+});

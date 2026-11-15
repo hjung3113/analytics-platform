@@ -1,3 +1,4 @@
+import { progressNotesQueryKey } from '@/features/cross-system/progress-notes/useProgressNotes';
 import { apiPath } from '@/lib/api/path';
 import { apiClient } from '@/lib/api/client';
 import type { ApiError } from '@/lib/api/types';
@@ -33,6 +34,7 @@ export function useFindingStatusMutation(
       queryClient.setQueryData(['finding', findingId], data);
       void queryClient.invalidateQueries({ queryKey: ['finding', findingId] });
       void queryClient.invalidateQueries({ queryKey: ['findings'] });
+      void queryClient.invalidateQueries({ queryKey: progressNotesQueryKey({ kind: 'finding', id: findingId }) });
       onSuccess?.(data);
     },
     ...(onError ? { onError } : {}),

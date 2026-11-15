@@ -79,6 +79,7 @@ export function SurveyBuilder({
     savedAt,
     isSaving,
     saveFailed,
+    saveError,
     preview,
     setPreview,
     launchOpen,
@@ -240,8 +241,8 @@ export function SurveyBuilder({
         </div>
       )}
       {saveFailed && (
-        <div className="border-b border-border-subtle px-4 py-2 text-sm text-text-danger-label">
-          저장하지 못했습니다.
+        <div role="alert" className="border-b border-border-subtle px-4 py-2 text-sm text-text-danger-label">
+          {saveError}
         </div>
       )}
       <div
