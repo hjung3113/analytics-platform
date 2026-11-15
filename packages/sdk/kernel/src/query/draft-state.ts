@@ -60,7 +60,9 @@ export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page
 export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext, page: Pair[], invalid: boolean) {
   const missing = queryMissing(menu, global, page);
   const invalidConditions = decodePageConditions(menu ?? {}, page).issues.length > 0;
-  return { idle: menu?.query?.mode === 'apply' && (invalid || invalidConditions || missingRequiredContext(['time'], global).length > 0 || missing.length > 0), missing };
+  // Malformed declared conditions are refused in every query mode (kernel §6.4: reject, never repair); the other checks are Apply-only.
+  const applyBlocked = menu?.query?.mode === 'apply' && (invalid || missingRequiredContext(['time'], global).length > 0 || missing.length > 0);
+  return { idle: applyBlocked || invalidConditions, missing };
 }
 
 /** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */

@@ -46,7 +46,7 @@ describe('page condition codec', () => {
     expect(result.pageSummary).toEqual([{ key: 'choice', label: 'Condition', value: 'A' }, legacy.pageSummary[0]]);
     expect(result.appliedPageSummary).toEqual([{ key: 'choice', label: 'Condition', value: 'other' }]);
     expect(result.issues).toEqual([]);
-    expect(result.historyPageSummary(emptyGlobal, [['choice', 'a']])).toEqual([{ key: 'choice', label: 'Condition', value: 'A' }, { key: 'custom', label: 'Custom', value: 'history' }]);
+    expect(result.historyPageSummary?.(emptyGlobal, [['choice', 'a']])).toEqual([{ key: 'choice', label: 'Condition', value: 'A' }, { key: 'custom', label: 'Custom', value: 'history' }]);
   });
   it('leaves an undeclared menu and its URL byte-identical', () => {
     const page: [string, string][] = [['q', '~none']];
@@ -61,11 +61,11 @@ it('uses candidate metadata independently for draft, applied and history summari
   const options = (name: string) => ({ choice: [{ value: 'a', label: { ko: name, en: name } }] });
   const result = derivePageConditionExtension({ menu: dynamic, lang: 'en', draft: [['choice', 'a']], applied: [['choice', 'a']], options: options('Draft'), appliedOptions: options('Applied'), historyOptions: () => options('History') });
   expect(result.pageSummary[0].value).toBe('Draft');
-  expect(result.appliedPageSummary[0].value).toBe('Applied');
-  expect(result.historyPageSummary(emptyGlobal, [['choice', 'a']])[0].value).toBe('History');
+  expect(result.appliedPageSummary?.[0].value).toBe('Applied');
+  expect(result.historyPageSummary?.(emptyGlobal, [['choice', 'a']])[0].value).toBe('History');
   const unloaded = derivePageConditionExtension({ menu: dynamic, lang: 'en', draft: [['choice', 'a']], applied: [['choice', 'a']], options: options('Draft') });
-  expect(unloaded.appliedPageSummary[0].value).toBe('a');
-  expect(unloaded.historyPageSummary(emptyGlobal, [['choice', 'a']])[0].value).toBe('a');
+  expect(unloaded.appliedPageSummary?.[0].value).toBe('a');
+  expect(unloaded.historyPageSummary?.(emptyGlobal, [['choice', 'a']])[0].value).toBe('a');
 });
 
 it('keeps valid categories and raw pairs while reporting a malformed category', () => {
@@ -122,4 +122,18 @@ it('accepts the exact encoded budget and refuses one extra character', () => {
   const maximum = 'a'.repeat(2397); // q= plus the final & cost three encoded characters.
   expect(encodePageConditions(menu, { q: [maximum] })).toEqual([['q', maximum]]);
   expect(() => encodePageConditions(menu, { q: [maximum + 'a'] })).toThrow(/too-long/);
+});
+
+it('reads option metadata from own entries only, so ids such as constructor keep the raw value', () => {
+  const dynamic = { pageConditions: { categories: ['constructor', 'toString'].map(id => ({ id, label, kind: { type: 'select' as const, key: id, options: { endpoint: 'options' } } })) } };
+  const result = derivePageConditionExtension({ menu: dynamic, lang: 'en', draft: [['constructor', 'a'], ['toString', 'b']], applied: [], options: {} });
+  expect(result.pageSummary.map(item => item.value)).toEqual(['a', 'b']);
+});
+
+it('passes the legacy extension through untouched when no category is declared', () => {
+  const legacy = { pageSummary: [{ key: 'custom', label: 'Custom', value: 'kept' }], issues: [] };
+  const result = derivePageConditionExtension({ menu: {}, lang: 'en', draft: [], applied: [], extension: legacy });
+  expect(result.pageSummary).toEqual(legacy.pageSummary);
+  expect(result.appliedPageSummary).toBeUndefined();
+  expect(result.historyPageSummary).toBeUndefined();
 });

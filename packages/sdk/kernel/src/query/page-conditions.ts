@@ -132,7 +132,9 @@ export type PageConditionSummaryInput = {
 function optionsFor(category: PageConditionCategory, input: PageConditionSummaryInput): readonly PageConditionOption[] | undefined {
   const kind = category.kind;
   if ((kind.type === 'select' || kind.type === 'multi') && 'static' in kind.options) return kind.options.static;
-  return input.options?.[category.id];
+  // Own entries only: a category id such as `constructor` must not read Object.prototype.
+  const loaded = input.options;
+  return loaded !== undefined && Object.hasOwn(loaded, category.id) ? loaded[category.id] : undefined;
 }
 /** Pure candidate summary: missing options never drop the original id or guess a replacement. */
 export function summarizePageConditions(input: PageConditionSummaryInput, pairs: readonly Pair[]) {
@@ -172,6 +174,8 @@ export function derivePageConditionExtension(input: PageConditionSummaryInput & 
 }) {
   const owned = new Set(input.menu.pageConditions?.categories.flatMap(pageConditionKeys) ?? []);
   const legacy = input.extension;
+  // Nothing declared: the SDK owns no keys, so keep the legacy fields as they are (an omitted applied summary must stay omitted for the page-head fallback).
+  if (owned.size === 0) return { pageSummary: legacy?.pageSummary ?? [], appliedPageSummary: legacy?.appliedPageSummary, issues: legacy?.issues ?? [], historyPageSummary: legacy?.historyPageSummary };
   const draft = summarizePageConditions(input, input.draft);
   const applied = summarizePageConditions({ ...input, options: input.appliedOptions }, input.applied);
   const other = <T extends { key: string }>(items: readonly T[] = []) => items.filter(item => !owned.has(item.key));
