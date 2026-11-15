@@ -276,16 +276,17 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       }
       const shown = shownTo(view, actor);
       const { name: patchName, ...patchBody } = patch;
+      const { savedScopeId: patchedScope, ...otherPatch } = patchBody as typeof patchBody & { savedScopeId?: string | null };
       const candidate = {
         schemaVersion: 1,
         kind: view.kind,
         name: patchName ?? shown.name,
         ...(view.kind === 'menu-view' ? { menuId: view.menuId } : {}),
         ...shown.content,
-        ...patchBody,
+        ...otherPatch,
+        // `savedScopeId: null` clears the recorded Scope (#2175); the draft schema takes the key absent, not null.
+        ...(patchedScope === undefined ? {} : { savedScopeId: patchedScope ?? undefined }),
       };
-      // `savedScopeId: null` clears the recorded Scope (#2175); the draft schema takes the key absent, not null.
-      if (candidate.savedScopeId === null) delete (candidate as { savedScopeId?: unknown }).savedScopeId;
       const checked = savedViewDraftSchema.safeParse(candidate);
       if (!checked.success)
         return fail('invalid', checked.error.issues[0]?.message ?? 'invalid view');
