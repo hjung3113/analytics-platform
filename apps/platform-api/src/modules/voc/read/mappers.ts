@@ -87,6 +87,7 @@ function mapConversationRow(
     entry.reporter_facing_status_before = row.reporterFacingStatusBefore;
     entry.reporter_facing_status_after = row.reporterFacingStatusAfter;
     entry.skip_public_update = row.skipPublicUpdate;
+    // The conversation query projects skipReason according to the reader's triage access.
     entry.skip_reason = row.skipReason ?? null;
   }
   return entry;

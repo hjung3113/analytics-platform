@@ -47,6 +47,8 @@ vi.mock('@/lib/api', () => ({
 vi.mock('@/lib/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/client')>()),
   apiClient: (...args: Parameters<typeof api.apiClient>) => api.apiClient(...args),
+  // The Finding PATCH is a parsed request now; the controller test keeps answering it through the same fixture.
+  apiRequest: (method: string, path: string, _schema: unknown, options?: unknown) => (api.apiClient as unknown as (...a: unknown[]) => unknown)(method, path, options),
 }));
 
 vi.mock('@/lib/api/registry-reads', () => ({

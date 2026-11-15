@@ -20,8 +20,10 @@ it('refreshes status-generated Finding progress notes', async () => {
   const { client, wrapper } = setup();
   const key = ['progress-notes', 'finding', id];
   client.setQueryData(key, { pages: [] });
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ id, updated_at: '2026-11-15T00:00:00.000Z' }), { status: 200, headers: { 'content-type': 'application/json' } })));
   const { result } = renderHook(() => useFindingStatusMutation({ findingId: id, idempotencyKey: 'key' }), { wrapper });
   await act(async () => { await result.current.mutateAsync({ status: 'active' }); });
+  vi.unstubAllGlobals();
   expect(client.getQueryState(key)?.isInvalidated).toBe(true);
 });
 it('refreshes the Task Request queue after requesting from a Finding', async () => {

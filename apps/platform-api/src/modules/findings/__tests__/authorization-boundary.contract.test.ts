@@ -381,6 +381,70 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
     await migrateHandle?.close();
   });
 
+  it('projects new and duplicate link responses with the same visibility as listing for a manage-only User', async () => {
+    const createdActor = await insertActorRow(migrateHandle, {
+      workspaceId, externalId: `authorization-boundary-manage-only-${workspaceId}`, roleLevel: 'user',
+    });
+    actorIds.manageOnly = createdActor.id;
+    await grant(createdActor.id, 'finding.manage', ids.activeMs);
+    const voc = await insertVocDirectly(migrateHandle, workspaceId, ids.activeMs, createdActor.id, 'Synthetic private link source');
+    vocIds.push(voc.id);
+    const caller = actor('manageOnly', 'user');
+    for (const status of [201, 200]) {
+      const result = await entityLinksService.createLink({
+        actor: caller, source: { type: 'voc', id: voc.id },
+        target: { type: 'finding', id: ids.activeFinding }, relation_type: 'evidence_of',
+      });
+      expect(result.status).toBe(status);
+      expect(result.link.visibility_state).toBe('hidden');
+      expect(result.link).not.toHaveProperty('target_summary');
+      expect(result.link).not.toHaveProperty('source_summary');
+      expect(result.link).not.toHaveProperty('target_id');
+      const list = await entityLinksService.listLinks({ actor: caller, endpoint: { type: 'voc', id: voc.id } });
+      expect(list.find((entry) => entry.id === result.link.id)).toEqual(result.link);
+    }
+  });
+
+  it.each([
+    { owner_actor_id: null, owner_team_id: null },
+    { status: 'draft' as const },
+    { status: 'not_actionable' as const },
+  ])('returns only mutation metadata to a User without Finding read for %j', async (input) => {
+    const finding = await insertFindingRow(migrateHandle, {
+      workspaceId, primaryManagedSystemId: ids.activeMs, sourceId: randomUUID(), createdBy: defined(actorIds.admin),
+    });
+    findingIds.push(finding.id);
+    const args = {
+      actor: actor('userWithGrant', 'user'), findingId: finding.id, input,
+      idempotencyKey: randomUUID(), requestHash: randomUUID(),
+    };
+    const result = await findingsService.patchFinding(args);
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ id: finding.id, updated_at: expect.any(String) });
+    expect(await findingsService.patchFinding(args)).toEqual(result);
+  });
+
+  it('redacts a cached full Finding response after read permission is revoked', async () => {
+    const finding = await insertFindingRow(migrateHandle, {
+      workspaceId, primaryManagedSystemId: ids.activeMs, sourceId: randomUUID(), createdBy: defined(actorIds.admin),
+    });
+    findingIds.push(finding.id);
+    const createdActor = await insertActorRow(migrateHandle, {
+      workspaceId, externalId: `authorization-boundary-replay-${workspaceId}`, roleLevel: 'developer',
+    });
+    actorIds.replay = createdActor.id;
+    await grant(createdActor.id, 'finding.manage', ids.activeMs);
+    await grant(createdActor.id, 'finding.read', ids.activeMs);
+    const args = { actor: actor('replay', 'developer'), findingId: finding.id,
+      input: { status: 'not_actionable' as const }, idempotencyKey: randomUUID(), requestHash: randomUUID() };
+    expect((await findingsService.patchFinding(args)).body).toHaveProperty('title');
+    await migrateHandle.pool.query("delete from permission.permission_grants where actor_id = $1 and capability = 'finding.read'", [createdActor.id]);
+    const replay = await findingsService.patchFinding(args);
+    expect(replay.body).toEqual({ id: finding.id, updated_at: expect.any(String) });
+    await migrateHandle.pool.query("delete from permission.permission_grants where actor_id = $1 and capability = 'finding.manage'", [createdActor.id]);
+    await expect(findingsService.patchFinding(args)).rejects.toMatchObject({ code: 'permission.denied' });
+  });
+
   it('uses the real Finding single-read consumer and its injected application clock', async () => {
     await expect(
       findingsService.getFinding({

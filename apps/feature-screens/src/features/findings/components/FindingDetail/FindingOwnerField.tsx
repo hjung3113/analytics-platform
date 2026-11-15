@@ -8,7 +8,7 @@ import { FINDING_RESPONSIBILITY_COPY as COPY } from '@/lib/copy/finding-responsi
 import { GLOSSARY } from '@/lib/copy/glossary';
 import { shortId } from '@/lib/identity';
 import { invalidateNavCounts } from '@/lib/query/navCounts';
-import { type FindingDto, findingDtoSchema } from '@ap/feature-shared';
+import { type FindingDto, patchFindingResponseSchema } from '@ap/feature-shared';
 import {
   Button,
   Callout,
@@ -81,7 +81,7 @@ export function FindingOwnerField({
   const mutation = useMutation({
     mutationFn: async () =>
       (
-        await apiRequest('PATCH', apiPath`/findings/${finding.id}`, findingDtoSchema, {
+        await apiRequest('PATCH', apiPath`/findings/${finding.id}`, patchFindingResponseSchema, {
           idempotencyKey: key,
           body: {
             owner_actor_id: value.startsWith('actor:') ? value.slice(6) : null,
@@ -91,7 +91,7 @@ export function FindingOwnerField({
       ).data,
     onSuccess: (updated) => {
       markConsumed();
-      client.setQueryData(['finding', finding.id], updated);
+      if ('source_type' in updated) client.setQueryData(['finding', finding.id], updated);
       void client.invalidateQueries({ queryKey: ['finding', finding.id] });
       void client.invalidateQueries({ queryKey: ['findings'] });
       void client.invalidateQueries({ queryKey: ['home'] });

@@ -144,6 +144,13 @@ export const findingDtoSchema = z.discriminatedUnion('source_type', [
 ]);
 export type FindingDto = z.infer<typeof findingDtoSchema>;
 
+// A successful write does not grant permission to read the Finding.
+export const patchFindingResponseSchema = z.union([
+  findingDtoSchema,
+  z.object({ id: z.string().uuid(), updated_at: z.string().datetime() }).strict(),
+]);
+export type PatchFindingResponse = z.infer<typeof patchFindingResponseSchema>;
+
 export const listFindingsResponseSchema = z
   .object({
     items: z.array(findingDtoSchema),

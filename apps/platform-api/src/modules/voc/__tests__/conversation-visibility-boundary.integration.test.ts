@@ -273,6 +273,31 @@ describe.skipIf(!runIntegration)('conversation visibility boundaries (#181)', ()
     expect(internalOnly.json<{ items: TimelineItem[] }>().items).toEqual([]);
   });
 
+  it.each(['conversation', 'detail'] as const)('redacts skipped update reasons from reporter %s reads while retaining status changes', async (surface) => {
+    const { vocId } = await seedConversation();
+    const inserted = await migrateHandle.pool.query<{ id: string }>(
+      `insert into voc.voc_public_updates
+        (voc_id, actor_id, reporter_facing_status_before, reporter_facing_status_after,
+         skip_public_update, skip_reason)
+       values ($1, $2, 'received', 'reviewing', true, 'Synthetic internal correction') returning id`,
+      [vocId, adminActorId],
+    );
+    const id = defined(inserted.rows[0]).id;
+    const url = surface === 'conversation' ? `/vocs/${vocId}/conversation` : `/vocs/${vocId}`;
+    for (const [session, skipReason] of [[reporterCookie, null], [operatorCookie, 'Synthetic internal correction']] as const) {
+      const response = await app.inject({ method: 'GET', url, headers: cookie(session) });
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      const entries = surface === 'conversation' ? body.items : body.conversation_timeline;
+      expect(entries.find((entry: { id: string }) => entry.id === id)).toMatchObject({
+        skip_public_update: true,
+        skip_reason: skipReason,
+        reporter_facing_status_before: 'received',
+        reporter_facing_status_after: 'reviewing',
+      });
+    }
+  });
+
   it('out-of-scope developer receives 404 to prevent a conversation existence probe', async () => {
     const { vocId } = await seedConversation();
     const response = await app.inject({

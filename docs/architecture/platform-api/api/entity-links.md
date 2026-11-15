@@ -52,6 +52,11 @@ link. Only Finding-domain commands may write these tuples; the shipped
 `generated_finding`. `created_finding` is not a Survey Response lineage
 relation.
 
+Successful generic creation responses (both new `201` and duplicate `200`)
+use the same provider read checks and visibility projection as generic listings.
+Write eligibility does not grant endpoint summaries: hidden/denied responses
+contain audit metadata only, with no endpoint IDs or internal summaries.
+
 Allowed entity-link DTOs may include optional `source_summary` and
 `target_summary` internal summaries. Each summary is resolved through its
 endpoint provider only after the row is authorized as `visibility_state=allowed`;

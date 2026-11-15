@@ -226,12 +226,26 @@ const genericEntityLinkPairs = registeredEntityLinkPairs.filter(
     // ADR-0123: no-Managed-System tuples are written only by the owning module's command.
     !isNoManagedSystemEntityLinkPair(pair),
 );
-// #760: /vocs/:id/request-task and /voc-clusters/:id/request-task own these writes.
-const creatableEntityLinkPairs = genericEntityLinkPairs.filter(
+// Domain-owned conversions cannot be generically detached without reconciling state/audit.
+const detachableEntityLinkPairs = genericEntityLinkPairs.filter(
   (pair) =>
     !(
       (pair.source_type === 'voc' || pair.source_type === 'voc_cluster') &&
       pair.target_type === 'task_request' &&
+      pair.relation_type === 'requested_task'
+    ) &&
+    !(
+      pair.source_type === 'task_request' &&
+      pair.target_type === 'task' &&
+      pair.relation_type === 'converted_to'
+    ),
+);
+// Finding link-task owns creation; generic detach still reconciles its execution projection.
+const creatableEntityLinkPairs = detachableEntityLinkPairs.filter(
+  (pair) =>
+    !(
+      pair.source_type === 'finding' &&
+      pair.target_type === 'task' &&
       pair.relation_type === 'requested_task'
     ),
 );
@@ -725,15 +739,20 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
 
     const result = args.tx ? await persist(args.tx) : await deps.db.transaction(persist);
 
-    const endpointSummaries = await getEndpointInternalSummaries(
-      deps.providers,
-      db,
-      actor,
-      result.row,
+    const readDeps = readDependencies(args.tx);
+    const resolvedByEndpoint = new Map<string, LinkEndpointRow | null>();
+    const { reporterSummaries, sourceReadabilityByEndpoint } = await preloadReporterSummaries(
+      readDeps, actor, [result.row], resolvedByEndpoint,
     );
+    const { decision, summary } = await evaluateRowVisibility(
+      readDeps, actor, result.row, resolvedByEndpoint, reporterSummaries, sourceReadabilityByEndpoint,
+    );
+    const endpointSummaries = decision === 'allowed'
+      ? await getEndpointInternalSummaries(deps.providers, db, actor, result.row)
+      : undefined;
 
     return {
-      link: toAllowedDto(result.row, endpointSummaries),
+      link: toDtoForDecision(result.row, decision, summary, endpointSummaries),
       status: result.inserted ? 201 : 200,
     };
   }
@@ -1191,7 +1210,7 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     });
     if (
       !link ||
-      !isCreatableTuple({
+      !tupleListIncludes(detachableEntityLinkPairs, {
         sourceType: link.source_type,
         targetType: link.target_type,
         relationType: link.relation_type,

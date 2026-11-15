@@ -47,7 +47,7 @@ it('source repair invalidates inactive recovery pages, detail, history and every
   await act(async () =>
     settle(
       new Response(
-        JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', status: 'not_actionable' }),
+        JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', updated_at: '2026-11-15T00:00:00.000Z' }),
       ),
     ),
   );
