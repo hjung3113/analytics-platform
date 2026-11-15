@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { WorkspaceQueryBarRow } from '../../archetypes/WorkspaceQueryBar';
 import { useReportQueryBarStatus } from '../QueryBarStatus';
+import { useQueryBarExtension } from '../QueryBarExtension';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contextCapabilities, groupId, spaceId, type PageConditions } from '@ap/contracts';
@@ -39,11 +40,13 @@ function mount({ mode = 'apply', query = '', required = false, pane = false, lay
 }
 function TestBar() {
   const [expanded, setExpanded] = useState(false);
+  const hint = useQueryBarExtension()?.applyHint;
   useReportQueryBarStatus({ folded: !expanded, editing: false, reasonKeys: [] });
   return <section role="region" aria-label="조회 조건" data-query-bar>
     {/* Mirrors the live Context bar: an inert, invisible measuring copy renders before the real controls. */}
     <div inert aria-hidden className="invisible"><div data-context-measuring><button type="button" aria-expanded="false" aria-controls="test-measure-editor">조회 조건 측정</button></div></div>
     <button aria-expanded={expanded} aria-controls="test-query-editor" onClick={() => setExpanded(!expanded)}>조회 조건 바꾸기</button>
+    <button type="button" disabled={hint !== undefined} title={hint}>조회 적용</button>
     <div id="test-query-editor" hidden={!expanded}>global editor</div>
     {!expanded && <WorkspaceQueryBarRow />}
   </section>;
@@ -165,6 +168,15 @@ describe('Page condition layer (#2339)', () => {
     expect(live.textContent).toBe('');
     fireEvent.click(within(dialog()).getByRole('button', { name: '페이지 조건 닫기' }));
     expect(live.textContent).toBe('');
+  });
+  it('offers one Apply while the layer is open: the query row Apply is disabled with a hint, and enabled again when closed', () => {
+    mount({ layout: 'fill', bar: true });
+    expect(screen.getByRole('button', { name: '조회 적용' })).toBeEnabled();
+    fireEvent.click(trigger());
+    expect(screen.getByRole('button', { name: '조회 적용' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '조회 적용' })).toHaveAttribute('title', '페이지 조건 층의 «적용»으로 함께 적용합니다.');
+    fireEvent.click(within(dialog()).getByRole('button', { name: '페이지 조건 닫기' }));
+    expect(screen.getByRole('button', { name: '조회 적용' })).toBeEnabled();
   });
   it('uses the existing folded workspace summary spot and sends Context editing to its existing control', () => {
     mount({ layout: 'fill', bar: true });

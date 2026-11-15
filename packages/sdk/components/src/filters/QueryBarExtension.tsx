@@ -12,6 +12,8 @@ export type QueryBarExtension = {
   /** Applied labels are separate: a draft label must never describe a result. */
   appliedPageSummary?: readonly PageFilterSummaryItem[];
   issues: readonly { key: string; label: string; reason: string }[];
+  /** The page applies from its own open surface (the page-condition layer): the bar's Apply stays in place but disabled, with this hint. */
+  applyHint?: string;
 };
 export const QueryBarExtensionContext = createContext<QueryBarExtension | undefined>(undefined);
 function createExtensions() {

@@ -87,7 +87,9 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
       return [key, values.length ? values : null];
     })));
   }
-  const globalSummary = <>{host.global.scopeId && <p>{m('scope')}: {host.global.scopeId}</p>}{querySummaryItems(host.global, { lang, axes: host.equipmentAxes, context: menu.context }).map(item => <p key={item.key}>{item.label}: {item.value}</p>)}</>;
+  // Unapplied Context edits are applied by the same Apply, so the layer says so instead of letting the footer imply page conditions only.
+  const pendingGlobal = query.mode === 'apply' ? query.dirty.filter(key => !menu.pageKeys.includes(key)).length : 0;
+  const globalSummary = <>{host.global.scopeId && <p>{m('scope')}: {host.global.scopeId}</p>}{querySummaryItems(host.global, { lang, axes: host.equipmentAxes, context: menu.context }).map(item => <p key={item.key}>{item.label}: {item.value}</p>)}{pendingGlobal > 0 && <p className="font-medium text-text-primary">{m('globalPending', { count: pendingGlobal })}</p>}</>;
   const inputsKey = JSON.stringify([host.session, host.revision, host.global.scopeId, query.draft.global, options?.inputsKey, options?.ready]);
   const trigger = <div data-page-condition-triggers className="flex min-w-0 flex-wrap items-center gap-2 py-2 text-xs">
     <Button ref={fallback} type="button" size="toolbar" variant="secondary" aria-expanded={open} aria-controls={id} onClick={event => show(event.currentTarget)}>{m('title')}</Button>
@@ -124,7 +126,9 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
       <Button type="button" size="toolbar" disabled={!query.canApply} aria-busy={query.applying} onClick={query.apply}>{m('apply')}</Button>
     </> : undefined} />
   </>;
-  return children({ trigger, layer, extension });
+  // One draft, one Apply: while the layer is open its footer is the Apply that is offered, and the query row's Apply says where to press it.
+  const applyHint = open && query.mode === 'apply' ? m('applyInLayer') : undefined;
+  return children({ trigger, layer, extension: applyHint === undefined ? extension : { ...extension, applyHint } });
 }
 function encodeCategory(category: PageConditions['categories'][number], values: PageConditionValues | null): Pair[] {
   return encodePageConditions({ pageConditions: { categories: [category] } }, values ?? {});

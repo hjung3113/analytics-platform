@@ -137,7 +137,10 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('resetContext')}</Button>
     {historySlot}
     {stableView.present && <span ref={stableView.adopt} className="contents" />}
-    <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0} aria-describedby={reasonId} onClick={apply}>{t('apply')}</Button>
+    <span className="inline-flex" title={extension?.applyHint}>
+      <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0 || extension?.applyHint !== undefined} aria-describedby={extension?.applyHint === undefined ? reasonId : `${reasonId} ${reasonId}-apply-hint`} onClick={apply}>{t('apply')}</Button>
+    </span>
+    {extension?.applyHint !== undefined && <span id={`${reasonId}-apply-hint`} className="sr-only">{extension.applyHint}</span>}
   </div>;
   const remove = (key: string) => {
     const fields: Record<string, Partial<GlobalContext>> = { time: { from: null, to: null }, roomNames: { roomNames: null }, line: { lineNames: null }, prcGroup: { prcGroups: null }, selection: { selection: null }, lot: { lotIds: null }, ppid: { ppid: null }, recipe: { recipeIds: null }, metric: { metricId: null, metricVersion: null } };
