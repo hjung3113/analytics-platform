@@ -172,6 +172,8 @@ describe('API token management', () => {
     mount(); const user = await openIssue();
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
     await screen.findByDisplayValue(SECRET);
+    // `copyText` uses the async clipboard only in a secure context (plain-HTTP deploys fall back to the copy event).
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
     const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
     expect(write).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: '복사' }));
