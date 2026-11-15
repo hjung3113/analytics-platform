@@ -58,6 +58,8 @@ export type ScatterPoint = {
 };
 export type ScatterSpec = {
   kind: 'scatter'; points: ScatterPoint[]; xUnit: string; xLabel: string; yLabel: string;
+  /** Opt-in calmer dense scatter; table, CSV and summary remain unchanged. */
+  density?: 'default' | 'quiet';
   groups?: { id: string; label: string; color?: ThemeColorToken }[];
   referenceLines?: { axis: 'x' | 'y'; value: number; label: string }[];
   onPointClick?: (id: string) => void;

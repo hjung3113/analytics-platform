@@ -10,6 +10,7 @@ import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import { distinctStatuses, STATUS_GLYPHS, statusBacking, statusBorderColor, statusFill, statusKey, statusMarker, statusText } from './chartStatus';
 import { chartTheme, token } from './EChart';
+import { QUIET_SCATTER } from './scatterDensity';
 import { COMPONENTS_MESSAGES } from '../messages';
 
 const DEFAULT_JITTER = 0.6;
@@ -92,6 +93,7 @@ function categoryGroups(groups: ChartRowGroups, order: readonly string[]): Custo
 
 /** Opt-in decorator: reuse legacy validation, group colours, symbols, selection keys and reference lines. */
 export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, project: (plain: ScatterSpec) => KindProjection): KindProjection {
+  const quiet = spec.density === 'quiet';
   const cells = categoryCells(spec);
   const categories = spec.xCategories;
   const groups = categories?.groups;
@@ -172,15 +174,15 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
     });
     if (!data.length) return [];
     const group = base.legend[groupIndex];
-    const effectiveFill = statusFill(token(group.color), SCATTER_FILL_OPACITY);
-    const outline = { type: 'scatter' as const, symbol: group.symbol, silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: 1 } };
-    const backings = data.flatMap(datum => {
+    const effectiveFill = statusFill(token(group.color), quiet ? QUIET_SCATTER.statusOpacity : SCATTER_FILL_OPACITY);
+    const outline = { type: 'scatter' as const, symbol: group.symbol, ...(quiet ? { symbolSize: QUIET_SCATTER.statusSize } : {}), silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: 1 } };
+    const backings = quiet ? [] : data.flatMap(datum => {
       const backing = statusBacking(datum.status, effectiveFill);
       return backing ? [{ value: datum.value, itemStyle: { borderColor: backing, borderWidth: 6 } }] : [];
     });
     return [
       ...(backings.length ? [{ ...outline, id: `__scatterStatusBacking-${groupIndex}`, z: 3, data: backings }] : []),
-      { ...outline, id: `__scatterStatusOutline-${groupIndex}`, z: 4, data: data.map(datum => ({ value: datum.value, itemStyle: { borderColor: statusBorderColor(datum.status, effectiveFill), borderWidth: 2 } })) },
+      { ...outline, id: `__scatterStatusOutline-${groupIndex}`, z: 4, data: data.map(datum => ({ value: datum.value, itemStyle: { borderColor: statusBorderColor(datum.status, effectiveFill), borderWidth: quiet ? QUIET_SCATTER.ringWidth : 2 } })) },
     ];
   });
   return {
@@ -195,6 +197,13 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
         data: (series.data as { value: number[]; itemStyle: { color: string; borderColor: string; borderWidth: number } }[]).map((datum, d) => {
           const key = base.seriesKeys[s][d]; const point = pointForDatum(s, d)?.point;
           if (!point?.status) return datum;
+          const selected = key !== undefined && active.includes(key);
+          if (quiet) return { ...datum, symbolSize: QUIET_SCATTER.statusSize,
+            itemStyle: { ...datum.itemStyle, opacity: QUIET_SCATTER.statusOpacity,
+              ...(selected ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) },
+            label: { ...statusMarker(point.status), show: selected, position: 'top' as const },
+            emphasis: { label: { ...statusMarker(point.status), position: 'top' as const } },
+          };
           return { ...datum, itemStyle: { ...datum.itemStyle, borderColor: statusBorderColor(point.status, datum.itemStyle.color), borderWidth: 2,
             ...(key !== undefined && active.includes(key) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
         }),
