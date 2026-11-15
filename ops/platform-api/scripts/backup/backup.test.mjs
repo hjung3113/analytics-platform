@@ -643,6 +643,7 @@ case "$*" in
   "image inspect --format"*registry.local/web*) echo sha256:w; exit 0 ;;
   *"psql"*"-f -"*) cat >/dev/null; exit 0 ;;
   *"pg_restore --exit-on-error"*) exit "\${STUB_PGRESTORE_RC:-0}" ;;
+  *"run --rm --no-deps minio-bootstrap"*) exit "\${STUB_STORAGE_BOOTSTRAP_RC:-0}" ;;
   *"exec -T backend node"*) exit 0 ;;
   *"pg_roles where rolname !~"*) echo 0; exit 0 ;;
   *"datname not in"*) echo 0; exit 0 ;;
@@ -728,7 +729,12 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
       'WARNING: this restore brings back the state of 2026-01-01T00:00:00Z. 37 API token(s) are active in it. Before switching traffic, re-apply every API token revocation, capability grant/deny change and role change made after 2026-01-01T00:00:00Z (restore never revokes anything itself).';
     assert.ok(r.err.includes(warning), r.err);
     assert.ok(r.err.indexOf(warning) < r.err.indexOf('Switch traffic:'), r.err);
-    assert.doesNotMatch(r.log, /run --rm --no-deps migrate|bootstrap/);
+    // Only the storage account is provisioned (minio-bootstrap); neither migrate nor the DB bootstrap runs.
+    assert.doesNotMatch(
+      r.log,
+      /run --rm --no-deps migrate|run --rm --no-deps bootstrap\b|db-bootstrap/,
+    );
+    assert.match(r.log, /run --rm --no-deps minio-bootstrap/);
   });
   test('F1: images differing from the manifest are refused before anything starts', () => {
     const r = go({ STUB_BACKEND_ID: 'sha256:other' });
@@ -1176,11 +1182,13 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
     const journal = r.calls.findIndex((c) => /run --rm --entrypoint cat sha256:m /.test(c));
     assert.ok(journal >= 0, `the journal check ran against the pinned migrate id:\n${r.log}`);
     assert.ok(journal < r.calls.findIndex(startsBackend), r.log);
-    for (const svc of ['backend', 'minio-bootstrap'])
-      assert.ok(pinned(r.pins, svc, 'sha256:b'), r.pins);
+    for (const svc of ['backend']) assert.ok(pinned(r.pins, svc, 'sha256:b'), r.pins);
     for (const svc of ['migrate', 'cutover', 'set-role-passwords', 'bootstrap', 'set-actor-role'])
       assert.ok(pinned(r.pins, svc, 'sha256:m'), r.pins);
     assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
+    assert.match(r.pins, /minio-bootstrap:\n {4}image: \$\{MINIO_IMAGE:\?/);
+    const provision = r.calls.findIndex((c) => /run --rm --no-deps minio-bootstrap/.test(c));
+    assert.ok(provision >= 0 && provision < r.calls.findIndex(startsBackend), r.log);
     // The target is started through the pin file (every start), and the switch-over command uses it too.
     assert.ok(
       r.calls.filter(startsBackend).every((c) => c.includes(`-f ${r.pinsPath}`)),
@@ -1193,6 +1201,14 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
         `-f ${r.compose.replace(/[.]/g, '\\.')} -f ${r.pinsPath.replace(/[.]/g, '\\.')} up -d`,
       ),
     );
+  });
+
+  test('storage provisioning failure refuses backend startup and readiness', () => {
+    const r = writeStubAndGo({ STUB_STORAGE_BOOTSTRAP_RC: '1' });
+    assert.equal(r.code, 1, r.err);
+    assert.match(r.err, /storage account provisioning failed/);
+    assert.equal(r.calls.findIndex(startsBackend), -1, r.log);
+    assert.ok(!r.calls.some((c) => c.includes('exec -T backend node')), r.log);
   });
 
   test('matching ids but a pending migration: refused, no backend start, no pin file left', () => {
@@ -1216,6 +1232,9 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
       r.pins,
     );
     assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
+    assert.match(r.pins, /minio-bootstrap:\n {4}image: \$\{MINIO_IMAGE:\?/);
+    const provision = r.calls.findIndex((c) => /run --rm --no-deps minio-bootstrap/.test(c));
+    assert.ok(provision >= 0 && provision < r.calls.findIndex(startsBackend), r.log);
     assert.doesNotMatch(r.pins, /:local/);
   });
 
@@ -1264,6 +1283,9 @@ describe('OPS-04 restore: journal check always, images pinned (stub docker)', ()
     assert.equal(r.code, 0, r.err + r.log);
     assert.match(r.err, /records no web image/);
     assert.ok(pinned(r.pins, 'edge', 'sha256:w'), r.pins);
+    assert.match(r.pins, /minio-bootstrap:\n {4}image: \$\{MINIO_IMAGE:\?/);
+    const provision = r.calls.findIndex((c) => /run --rm --no-deps minio-bootstrap/.test(c));
+    assert.ok(provision >= 0 && provision < r.calls.findIndex(startsBackend), r.log);
   });
 });
 
@@ -1772,7 +1794,8 @@ describe('b10b restore: web image, verification isolation, --replace-live lock (
 // Every test above writes under a temp directory. The repository directory must look exactly as it did when the suite
 // started (no pin files, no .maintenance lock directory, no stray backup).
 describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
-  const OLD_PINS = '# old pins\nservices:\n  backend:\n    image: sha256:old\n';
+  const OLD_PINS =
+    '# old pins\nservices:\n  backend:\n    image: sha256:old\n  minio-bootstrap:\n    image: sha256:old\n';
   function pinned(target, { pins = true, extraEnv = {}, extraBin = '' } = {}) {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
@@ -1822,6 +1845,7 @@ describe('b10b FIX3 upgrade owns the restore pin file (stub docker)', () => {
     assert.match(r.pins, /image: sha256:idplatformreleasebackend\n/);
     assert.match(r.pins, /migrate:\n {4}image: sha256:idplatformreleasemigrate\n/);
     assert.match(r.pins, /edge:\n {4}image: sha256:idplatformreleaseweb\n/);
+    assert.match(r.pins, /minio-bootstrap:\n {4}image: \$\{MINIO_IMAGE:\?/);
     assert.doesNotMatch(r.pins, /sha256:old/);
     assert.equal(r.pre.length, 1, r.files.join(','));
     assert.match(r.pre[0], /^docker-compose\.restore-platform-api\.yml\.pre-\d{8}T\d{6}Z$/);

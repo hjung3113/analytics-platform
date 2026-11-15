@@ -40,6 +40,22 @@ bash scripts/release/stack-status.sh .env.production
 | 9 | 앞으로 Admin이 될 사람이 플랫폼 주소로 한 번 로그인 | 계정이 `user`로 생깁니다 |
 | 10 | `$P run --rm set-actor-role --external-id <IdP sub> --role admin --reason "first admin"` | 최초 Admin을 부여합니다. 자세한 것은 [first-admin-bootstrap.md](first-admin-bootstrap.md) |
 
+### MinIO backend 키 분리·교체
+
+운영 backend에는 root 키 대신 `STORAGE_S3_ACCESS_KEY_ID`·`STORAGE_S3_SECRET_ACCESS_KEY`를 줍니다. `minio-bootstrap`은 기존 `MINIO_IMAGE`의 `mc`로 버킷을 만들고, root 아래 서비스 계정을 생성하거나 같은 access key의 secret·정책을 갱신합니다. 이미지에는 `mc admin user svcacct add/edit/info`가 있어야 합니다. 정책은 지정 버킷의 위치·목록 조회와 객체 get/put/delete와 실패한 multipart 업로드 중단만 허용하며, 다른 버킷·버킷 삭제·관리 API는 허용하지 않습니다. root 키는 MinIO 서버와 일회성 bootstrap에만 전달됩니다.
+
+복구 pin 파일을 쓰는 기존 설치도 먼저 아래 1~2단계로 새 키를 설정합니다. 그 뒤 이 버전의 `upgrade.sh`를 실행하면 예전 `minio-bootstrap`의 backend 이미지 pin을 `MINIO_IMAGE`로 교체합니다. 아래 3단계처럼 bootstrap을 직접 실행할 때는 먼저 pin 파일에서 해당 서비스의 `image`를 현재 `MINIO_IMAGE`로 고치고, 아래 명령에도 그 pin 파일을 `-f`로 포함합니다. 새 볼륨 복구는 객체 검증 뒤 같은 bootstrap을 실행하고 나서 backend 준비 상태를 확인합니다.
+
+기존 설치는 다음 순서로 전환합니다. 버킷·객체·DB 데이터는 바꾸지 않습니다.
+
+1. `.env.production`을 안전한 위치에 백업하고, 두 `STORAGE_S3_*` 키를 새 난수로 채웁니다. root user/password와 각각 다른 값이어야 하며 파일은 0600으로 유지합니다.
+2. `bash scripts/release/production-preflight.sh .env.production`을 실행합니다.
+3. `$P run --rm minio-bootstrap`으로 계정·정책을 먼저 적용합니다. 실패하면 backend를 바꾸지 않고 이미지의 `mc` 지원과 설정을 확인합니다.
+4. `$P up -d --force-recreate backend`로 새 키를 반영합니다. `restart`만으로 환경 변수는 바뀌지 않습니다. 첨부 파일 업로드·조회·삭제를 확인하고, 새 계정으로 다른 버킷 접근·버킷 삭제·관리 API가 거부되는지 확인합니다.
+5. 종전 root 키가 backend에 노출되었던 설치는 점검 창에서 root password도 교체하고 `$P up -d minio` 후 `$P run --rm minio-bootstrap`을 다시 실행합니다. 백업 작업의 root 설정도 함께 맞춥니다.
+
+다음 서비스 키 교체는 새 access key로 1~4단계를 반복한 뒤, 이전 서비스 계정을 관리자가 `mc admin user svcacct rm <alias> <old-access-key>`로 폐기합니다. 같은 access key의 secret만 갱신하면 계정 갱신과 backend 재생성 사이에 기존 프로세스의 요청이 실패하므로 점검 창에서만 수행합니다. 실패 시 이전 서비스 키와 정책을 bootstrap으로 복구하고 backend를 재생성합니다.
+
 ### `up -d`로 뜨는 것과 따로 돌리는 것
 
 | 서비스 | 어떻게 뜨나 | 하는 일 |
@@ -47,7 +63,7 @@ bash scripts/release/stack-status.sh .env.production
 | `postgres` | `up -d` | 데이터베이스 |
 | `migrate` | `up -d`가 자동으로 한 번 돌림 | 스키마 적용. 끝나야 backend가 뜹니다 |
 | `minio` | `up -d` | 첨부 파일 저장소 |
-| `minio-bootstrap` | `up -d`가 자동으로 한 번 돌림 | 버킷이 없으면 만듭니다. 끝나야 backend가 뜹니다 |
+| `minio-bootstrap` | `up -d`가 자동으로 한 번 돌림 | 버킷과 버킷 전용 서비스 계정을 준비합니다. 끝나야 backend가 뜹니다 |
 | `backend` | `up -d` | API |
 | `edge` | `up -d` | 웹과 `/api`·`/auth`를 한 주소로 내보내는 nginx. 이 서비스만 바깥에 열립니다 |
 | `set-role-passwords` | 프로파일 `roles`, `run --rm`으로만 | 4단계 |
@@ -61,7 +77,7 @@ bash scripts/release/stack-status.sh .env.production
 
 ### MinIO
 
-운영 구성에서 MinIO는 별도 지정 없이 `up -d`로 함께 뜹니다. 버킷도 `minio-bootstrap`이 만듭니다. 따로 할 일은 `.env.production`의 `MINIO_ROOT_USER`·`MINIO_ROOT_PASSWORD`를 채우는 것뿐입니다.
+운영 구성에서 MinIO는 별도 지정 없이 `up -d`로 함께 뜹니다. 버킷도 `minio-bootstrap`이 만듭니다. `.env.production`의 `MINIO_ROOT_USER`·`MINIO_ROOT_PASSWORD`와 별도 backend 계정인 `STORAGE_S3_ACCESS_KEY_ID`·`STORAGE_S3_SECRET_ACCESS_KEY`를 채웁니다. 설정·교체 순서는 위 「MinIO backend 키 분리·교체」를 따릅니다.
 
 빠졌을 때 나타나는 증상:
 

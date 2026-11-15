@@ -162,8 +162,10 @@ bk_write_pins() { # bk_write_pins <file> <backend-id> <migrate-id> <web-id> <ori
     printf '# Pins the images that were checked against the restored data (immutable ids). KEEP this file: every start of this\n'
     printf '# project must use it: docker compose -f docker-compose.production.yml -f %s ...\n' "$(basename "${file%%.new-*}")"
     printf 'services:\n'
-    for svc in backend minio-bootstrap; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$2"; done
+    for svc in backend; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$2"; done
     for svc in migrate cutover set-role-passwords bootstrap set-actor-role; do printf '  %s:\n    image: %s\n    pull_policy: never\n' "$svc" "$3"; done
+    # Override legacy restore pins that assigned the backend image to this job.
+    printf '  minio-bootstrap:\n    image: ${MINIO_IMAGE:?set MINIO_IMAGE in .env.production}\n'
     printf '  edge:\n    image: %s\n    pull_policy: never\n' "$4"
   } >"$file"
 }

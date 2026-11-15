@@ -94,9 +94,17 @@ secret_ok() { # name
   done < <(demo_values)
 }
 
-for name in POSTGRES_PASSWORD OIDC_CLIENT_SECRET MINIO_ROOT_PASSWORD MINIO_ROOT_USER MINIO_IMAGE OIDC_CLIENT_ID PLATFORM_APP_DB_PASSWORD PLATFORM_MIGRATE_DB_PASSWORD; do
+for name in POSTGRES_PASSWORD OIDC_CLIENT_SECRET MINIO_ROOT_PASSWORD MINIO_ROOT_USER MINIO_IMAGE STORAGE_S3_ACCESS_KEY_ID STORAGE_S3_SECRET_ACCESS_KEY OIDC_CLIENT_ID PLATFORM_APP_DB_PASSWORD PLATFORM_MIGRATE_DB_PASSWORD; do
   secret_ok "$name"
 done
+
+# Request-serving backend must never reuse the MinIO administrator's credentials.
+if [ -n "$(val_of STORAGE_S3_ACCESS_KEY_ID)" ] && [ "$(val_of STORAGE_S3_ACCESS_KEY_ID)" != "CHANGE_ME" ] && [ "$(val_of STORAGE_S3_ACCESS_KEY_ID)" = "$(val_of MINIO_ROOT_USER)" ]; then
+  fail "STORAGE_S3_ACCESS_KEY_ID must differ from MINIO_ROOT_USER"
+fi
+if [ -n "$(val_of STORAGE_S3_SECRET_ACCESS_KEY)" ] && [ "$(val_of STORAGE_S3_SECRET_ACCESS_KEY)" != "CHANGE_ME" ] && [ "$(val_of STORAGE_S3_SECRET_ACCESS_KEY)" = "$(val_of MINIO_ROOT_PASSWORD)" ]; then
+  fail "STORAGE_S3_SECRET_ACCESS_KEY must differ from MINIO_ROOT_PASSWORD"
+fi
 
 # DB login-role passwords sit unencoded in postgresql://user:pass@host URLs: restricted charset, and two different values.
 for name in PLATFORM_APP_DB_PASSWORD PLATFORM_MIGRATE_DB_PASSWORD; do

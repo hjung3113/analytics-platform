@@ -23,6 +23,8 @@ const GOOD = {
   OIDC_CLIENT_SECRET: 'oidc-Zx9-real-value',
   MINIO_ROOT_PASSWORD: 'minio-Zx9-real-value',
   MINIO_ROOT_USER: 'platform-minio',
+  STORAGE_S3_ACCESS_KEY_ID: 'backend-synthetic',
+  STORAGE_S3_SECRET_ACCESS_KEY: 'backend-secret-synthetic',
   MINIO_IMAGE: 'site/minio:1',
   PLATFORM_APP_DB_PASSWORD: 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
   PLATFORM_MIGRATE_DB_PASSWORD: 'f09e8d7c6b5a49382716f5e4d3c2b1a0',
@@ -478,3 +480,17 @@ test('preflight: the production backend passes the email settings through', () =
     assert.match(production, new RegExp(`${key}: \\$\\{${key}:-\\}`));
   }
 });
+
+for (const overrides of [
+  { STORAGE_S3_ACCESS_KEY_ID: undefined },
+  { STORAGE_S3_SECRET_ACCESS_KEY: '' },
+  { STORAGE_S3_ACCESS_KEY_ID: GOOD.MINIO_ROOT_USER },
+  { STORAGE_S3_SECRET_ACCESS_KEY: GOOD.MINIO_ROOT_PASSWORD },
+]) {
+  test(`preflight: refuses missing or root storage credentials ${Object.keys(overrides)[0]}`, () => {
+    const r = run(overrides);
+    assert.equal(r.code, 1);
+    assert.match(r.lines.join('\n'), /STORAGE_S3_/);
+    assert.ok(!r.lines.join('\n').includes(GOOD.MINIO_ROOT_PASSWORD));
+  });
+}
