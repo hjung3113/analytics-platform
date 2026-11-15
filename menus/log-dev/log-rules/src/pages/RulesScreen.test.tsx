@@ -20,6 +20,7 @@ const detail: RuleDetail = { ruleSetKey: 'core', ruleKey: 'R-001', revision: 'r2
 const row = { ...detail, firstTarget: detail.targets[0], targetCount: 1, requirementIdCount: 2 };
 const coverage: CoverageData = { computable: true, specPin: { revisionId: 'rev-1', changeSetDigest: 'digest' }, coverageDigest: 'coverage-digest', counts: { no_rule: 0, unsupported: 0, unknown: 0, partial: 0, covered: 1, total: 1 }, ruleSetRevisions: [], rows: [{ key: 'ROBOT/READY', state: 'covered', declaredCount: 1, declaredBy: [{ ruleSetKey: 'core', revision: 'r2', ruleKey: 'R-001', support: 'supported' }] }], total: 1, page: 0, pageSize: 50 };
 const registry = createRegistry({ spaces: [{ id: spaceId('logDev'), label: { ko: '로그', en: 'Log' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-rules' }], groups: [{ id: groupId('logRules'), label: { ko: '기준', en: 'Rules' }, icon: Ruler, space: spaceId('logDev') }], menus: [...manifests, { ...manifests[0]!, id: 'log-knowledge-spec', path: '/log/knowledge/models/:modelId/spec', pageKeys: ['module', 'event', 'software', 'returnTo'], repeatedPageKeys: [], hiddenPageKeys: [], contextResetKeys: [], primary: false }] });
+let setTotal = 1;
 let received = true, empty = false, missing = false, noIds = false;
 let data: CoverageData | null = coverage;
 let queries: MenuQuery[] = [];
@@ -27,17 +28,19 @@ let hold: Promise<void> | undefined;
 let softwareFailures = 0;
 let coverageAnswer: ((req: MenuQuery) => Promise<ApiResponse<never>>) | undefined;
 const ok = (value: unknown) => ({ outcome: 'ok', data: value, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
-const session = testSession(['platform:view']);
-const adapter = testAdapter({ session: () => session, menuQuery: async req => {
+let session = testSession(['platform:view']);
+const listeners = new Set<() => void>();
+let optionHold: Promise<void> | undefined;
+const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, menuQuery: async req => {
   queries.push(req);
   if (req.endpoint === 'logRules.catalogStatus') { await hold; return ok({ ...status, received }); }
-  if (req.endpoint === 'logRules.rules') return ok({ rows: empty ? [] : [row], total: empty ? 0 : 1 });
-  if (req.endpoint === 'logRules.ruleSets') return ok({ rows: [{ ruleSetKey: 'core' }], total: 1 });
+  if (req.endpoint === 'logRules.rules') return ok({ rows: empty ? [] : [row], total: empty ? 0 : 101 });
+  if (req.endpoint === 'logRules.ruleSets') return ok({ rows: [{ ruleSetKey: 'core' }], total: setTotal });
   if (req.endpoint === 'logRules.ruleDetail') return ok(missing ? null : { ...detail, targets: noIds ? [{ ...detail.targets[0], requirementIds: [] }] : detail.targets });
   if (req.endpoint === 'logRules.ruleSetDetail') return ok({ ruleSetKey: 'core', revisions: [{ revision: 'r1', retired: true, isCurrent: false, previousRevision: null, changes: null }, { revision: 'r2', retired: false, isCurrent: true, previousRevision: 'r1', changes: { added: ['R-002'], removed: ['R-003'], supportChanged: [{ ruleKey: 'R-001', from: 'unknown', to: 'supported' }], addedCount: 1, removedCount: 1, supportChangedCount: 1, truncated: false } }] });
   if (req.endpoint === 'logRules.coverage') return coverageAnswer ? coverageAnswer(req) : ok(data);
   if (req.endpoint === 'logRules.coverageSummary') return ok({ rows: [] });
-  if (req.endpoint === 'logRules.modelOptions') return ok({ rows: [{ id: modelId, code: 'MX-1', name: '합성 모델', vendorName: '합성 설비사', active: true }, { id: otherModelId, code: 'MX-2', name: '다른 모델', vendorName: '합성 설비사', active: true }], total: 2, page: 0, pageSize: 20 });
+  if (req.endpoint === 'logRules.modelOptions') { await optionHold; return ok({ rows: [{ id: modelId, code: 'MX-1', name: '합성 모델', vendorName: '합성 설비사', active: true }, { id: otherModelId, code: 'MX-2', name: '다른 모델', vendorName: '합성 설비사', active: true }], total: 2, page: 0, pageSize: 20 }); }
   if (req.endpoint === 'logRules.softwareOptions' && softwareFailures > 0) { softwareFailures -= 1; return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture' } as ApiResponse<never>; }
   if (req.endpoint === 'logRules.softwareOptions') return ok({ rows: [{ id: softwareId, versionLabel: '2.1', name: '', active: true }] });
   return ok(null);
@@ -49,7 +52,7 @@ const mount = (search = '', params = {}) => {
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider><RulesScreen params={params} /><LinkProbe /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 };
 let restore: () => void;
-beforeEach(() => { received = true; empty = false; missing = false; noIds = false; data = coverage; queries = []; hold = undefined; softwareFailures = 0; coverageAnswer = undefined; restore = stubCompactTableGeometry(); });
+beforeEach(() => { session = testSession(['platform:view']); optionHold = undefined; setTotal = 1; received = true; empty = false; missing = false; noIds = false; data = coverage; queries = []; hold = undefined; softwareFailures = 0; coverageAnswer = undefined; restore = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restore(); });
 
 describe('validation rules screen', () => {
@@ -305,4 +308,60 @@ describe('spec coverage', () => {
     mount(`&tab=coverage&modelId=${modelId}&focus=ARM%2FPICK`);
     expect(await screen.findByText('이 명세 요구사항을 선언한 규칙이 없습니다.')).toBeTruthy();
   });
+});
+
+describe('minor bundle regressions (#2056)', () => {
+  it('keeps the current page and history when unchanged search loses focus', async () => {
+    mount('&q=robot&page=2');
+    const search = await screen.findByRole('searchbox');
+    const before = window.history.length;
+    fireEvent.focus(search); fireEvent.blur(search);
+    await act(async () => {});
+    expect(new URLSearchParams(window.location.search).get('page')).toBe('2');
+    expect(window.history.length).toBe(before);
+  });
+  it('uses fixed coverage metadata and reads each table page once without remounting', async () => {
+    coverageAnswer = async req => ok({ ...coverage, total: 51, rows: [{ ...coverage.rows[0], key: (req.params as { page: number }).page ? 'SECOND/KEY' : 'FIRST/KEY' }] });
+    mount(`&tab=coverage&modelId=${modelId}`);
+    await screen.findByRole('button', { name: 'FIRST/KEY 상세 보기' });
+    expect(queries.filter(q => q.endpoint === 'logRules.coverage').map(q => q.params)).toEqual([
+      { modelId, softwareId: null, page: 0, pageSize: 1 },
+      { modelId, softwareId: null, page: 0, pageSize: 50 },
+    ]);
+    const next = screen.getByRole('button', { name: '다음' });
+    next.focus(); fireEvent.click(next);
+    fireEvent.click(await screen.findByRole('button', { name: 'SECOND/KEY 상세 보기' }));
+    expect(screen.getByRole('dialog').textContent).toContain('SECOND/KEY');
+    expect(queries.filter(q => q.endpoint === 'logRules.coverage' && (q.params as { page: number }).page === 1)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: '다음' })).toBe(next);
+  });
+  it('preserves table conditions when closing a direct-route drawer', async () => {
+    mount('&q=robot&filter=support:in:partial&sort=ruleKey:desc&page=2', { ruleSetKey: 'core', ruleKey: 'R-001' });
+    fireEvent.click(await screen.findByRole('button', { name: '상세 닫기' }));
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('robot'));
+    const page = new URLSearchParams(window.location.search);
+    expect(screen.getByLabelText('공유 주소').textContent).toContain('filter=support%3Ain%3Apartial');
+    expect(page.get('sort')).toBe('ruleKey:desc');
+    expect(page.get('page')).toBe('2');
+  });
+});
+
+it('discards previous model and SW options on a session switch (#2056)', async () => {
+  mount(`&tab=coverage&modelId=${modelId}&softwareId=${softwareId}`);
+  await screen.findByText('2.1');
+  await screen.findByText('합성 모델 · 합성 설비사');
+  let release!: () => void;
+  optionHold = new Promise<void>(resolve => { release = resolve; });
+  await act(async () => { session = testSession(['platform:view'], { user: { id: 'other-user' } }); listeners.forEach(listener => listener()); });
+  expect(screen.queryByText('합성 모델 · 합성 설비사')).toBeNull();
+  await waitFor(() => expect(queries.filter(q => q.endpoint === 'logRules.modelOptions').length).toBeGreaterThan(1));
+  await act(async () => { release(); });
+});
+
+it('labels truncated RuleSet candidates and highlights direct-route rows (#2056)', async () => {
+  setTotal = 201;
+  mount('', { ruleSetKey: 'core', ruleKey: 'R-001' });
+  expect(await screen.findByText(/RuleSet 후보는 처음 200개만/)).toBeTruthy();
+  const button = await screen.findByRole('button', { name: 'R-001 상세 보기' });
+  expect(button.closest('[role="row"]')?.getAttribute('aria-current')).toBe('true');
 });

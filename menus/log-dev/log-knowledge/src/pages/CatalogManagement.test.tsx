@@ -8,7 +8,7 @@ import { encodeFilterParams, type ActionResponse, type ApiResponse, type MenuAct
 import { CATALOG_MANAGE_PERMISSION, vendorsEndpoint } from '../endpoints';
 import { chosenIds } from './catalogModel';
 import { filterSpecsFor } from './CatalogTable';
-import { useOptionPicker } from './useCatalogOptions';
+import { useCatalogOptions, useOptionPicker } from './useCatalogOptions';
 import CatalogManagement from './CatalogManagement';
 import { knowledgeRegistry, mountWith } from './test-support';
 
@@ -105,10 +105,10 @@ describe('catalog management URL state', () => {
 describe('catalog table rows', () => {
   it('mutes inactive rows and keeps their 상태 badge', async () => {
     mount('');
-    const retired = (await screen.findByText('B-30', {}, slow)).closest('[role="row"]')!;
+    const retired = await screen.findByRole('row', { name: /B-30/ }, slow);
     expect(retired.getAttribute('data-muted')).toBe('true');
     expect(retired.textContent).toContain('비활성');
-    expect((await screen.findByText('A-100')).closest('[role="row"]')!.getAttribute('data-muted')).toBeNull();
+    expect((await screen.findByRole('row', { name: /A-100/ })).getAttribute('data-muted')).toBeNull();
     expect(screen.getByText('v2.0')).toBeTruthy();
   });
 });
@@ -418,4 +418,20 @@ describe('unsaved drawer input (#1519, ADR-0115)', () => {
     await waitFor(() => expect(url().get('focus')).toBeNull());
     expect(screen.queryByText('작성 중인 내용이 사라집니다. 닫을까요?')).toBeNull();
   });
+});
+
+
+it('MEN-49 returns failed option reads separately from empty choices', async () => {
+  const a = testAdapter({ session: () => session, menuQuery: async () => ({ ...ok(null), outcome: 'error' }) });
+  const { result } = renderHook(() => useCatalogOptions({ vendors: true, processes: false, models: false }), {
+    wrapper: ({ children }) => <I18nProvider><PlatformProvider registry={registry} adapter={a}>{children}</PlatformProvider></I18nProvider>,
+  });
+  await waitFor(() => expect(result.current.failed).toEqual(['설비사']));
+  expect(result.current.loading).toBe(false);
+});
+it('MEN-49 tab counts use unfiltered totals rather than the last filtered page', async () => {
+  mount('&tab=vendor&q=al');
+  await screen.findByText('ALPHA', {}, slow);
+  expect(await screen.findByRole('tab', { name: /설비사\s*121/ }, slow)).toBeTruthy();
+  expect(queries.some(q => q.endpoint === 'logKnowledge.vendors' && (q.params as Params).pageSize === 1 && (q.params as Params).q === null && !(q.params as Params).filters?.length)).toBe(true);
 });

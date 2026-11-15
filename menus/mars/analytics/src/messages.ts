@@ -87,7 +87,7 @@ export const ANALYTICS_MESSAGES = {
   cycleTimeDrilldownTheGlobalMetricIsNotSoIt: { ko: "전역 지표가 {PAGEMETRICID}이 아니라서 조회에 쓰지 않습니다. 계산은 페이지 기본값 {PAGEMETRICID} v{metricVersion}이며 전역 쌍은 유지합니다.", en: "The global metric is not {PAGEMETRICID}, so it is not used for this query. Calculations use the page default {PAGEMETRICID} v{metricVersion}; the global pair is left unchanged." },
   cycleTimeDrilldownApplied: { ko: "적용", en: "Applied" },
   cycleTimeDrilldownTheGlobalCycleTimePairIsApplied: { ko: "전역 cycle_time 쌍을 적용했습니다.", en: "The global cycle_time pair is applied." },
-  cycleTimeDrilldownTheRequestedVersionLabelIsShownSynthetic: { ko: "요청한 버전 라벨을 표시합니다. 합성 데이터는 v3 시계열만 있습니다.", en: "The requested version label is shown. Synthetic data has only the v3 series." },
+  cycleTimeDrilldownCalculatedWithTheRequestedVersion: { ko: "요청한 버전으로 계산했습니다.", en: "Calculated with the requested version." },
   cycleTimeDrilldownUnconfirmed: { ko: "{metricId} 버전 미확인", en: "{metricId} unconfirmed" },
   cycleTimeDrilldownPageDefault2: { ko: " · 페이지 기본", en: " page default" },
   cycleTimeDrilldownPageDefaultGlobalNotApplied: { ko: " · 페이지 기본(전역 지표 미적용)", en: " page default, global not applied" },

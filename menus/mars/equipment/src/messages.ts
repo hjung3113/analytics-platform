@@ -41,6 +41,7 @@ export const EQUIPMENT_MESSAGES = {
   equipmentMasterView: { ko: "{equipmentId} 보기", en: "View {equipmentId}" },
   equipmentMasterView2: { ko: "보기", en: "View" },
   equipmentMasterAnalyzeSelectedEquipment: { ko: "선택 설비로 분석", en: "Analyze selected equipment" },
+  equipmentMasterAnalyzeAllHint: { ko: "선택 설비로 분석은 개별 선택에서만 가능합니다. 필터 결과 전체는 내보내기를 이용하세요.", en: "Analysis requires individually selected equipment. Use export for all matching results." },
 
   // data
   dataActive: { ko: "사용중", en: "Active" },

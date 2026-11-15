@@ -11,6 +11,7 @@ export function ModelsScreen(props: ScreenProps) {
   const ime = useImeEnterGuard();
   const { api, ui, canProject, actorId } = props;
   const navigate = useLifecycleNavigate();
+  const [modelId, setModelId] = usePageValue(props, 'modelId', '');
   const [q, setQ] = usePageValue(props, 'q', '');
   const [draft, setDraft] = useState({ applied: q, text: q });
   if (draft.applied !== q) setDraft({ applied: q, text: q });
@@ -28,7 +29,8 @@ export function ModelsScreen(props: ScreenProps) {
       <Choice label="개발 단계" value={stage} onChange={setStage} options={[[ 'all', '전체 단계' ], ...STAGES.map(s => [s, STAGE_LABEL[s] ?? s] as const), ['cancelled', '취소'], ['empty', '개발 건 없음']]} /><Choice label="검증 상태" value={validation} onChange={setValidation} options={['all', 'fail', 'incomplete', 'claimed', 'queued', 'pass', 'none'].map(v => [v, STATE_LABEL[v] ?? '전체 상태'])} />
       <CatalogChoice api={api} name="vendors" label="설비사" value={vendorId} onChange={setVendorId} /><CatalogChoice api={api} name="processes" label="공정" value={processId} onChange={setProcessId} /><Choice label="활성" value={active} onChange={setActive} options={[[ 'all', '전체' ], ['true', '활성'], ['false', '비활성']]} /><Choice label="모델 정렬" value={sort} onChange={setSort} options={[[ 'code', '모델 코드순' ], ['vendorName', '설비사순'], ['stage', '개발 단계순'], ['updatedAt', '최근 갱신순']]} />
     </Disclosure></div>
-    <ReadView query={query}>{data => data.rows.length === 0 ? <p role="status" className="text-sm text-text-secondary">{q || stage !== 'all' || validation !== 'all' || vendorId !== 'all' || processId !== 'all' || active !== 'all' ? '조건에 맞는 모델이 없습니다. 검색·필터를 변경해 주세요.' : '등록된 모델이 없습니다.'}</p> : ui.table({ title: '모델 목록', rows: data.rows, preferenceKey: 'log-lifecycle-models', summary: `${data.total}개 모델`, pagination: <Pager page={page} total={data.total} onChange={setPage} />, columns: [
+    {modelId && <div className="flex flex-wrap items-center gap-2 text-sm"><span>모델 ID: {modelId}</span><Button variant="secondary" size="toolbar" onClick={() => setModelId('')}>모델 ID 조건 해제</Button></div>}
+    <ReadView query={query}>{data => data.rows.length === 0 ? <p role="status" className="text-sm text-text-secondary">{modelId || q || stage !== 'all' || validation !== 'all' || vendorId !== 'all' || processId !== 'all' || active !== 'all' ? '조건에 맞는 모델이 없습니다. 검색·필터를 변경해 주세요.' : '등록된 모델이 없습니다.'}</p> : ui.table({ title: '모델 목록', rows: data.rows, preferenceKey: 'log-lifecycle-models', summary: `${data.total}개 모델`, pagination: <Pager page={page} total={data.total} onChange={setPage} />, columns: [
       { id: 'model', size: 110, header: '모델', sortable: false, cell: m => <Button variant="link" size="toolbar" onClick={() => m.project ? navigate('project', m.project.projectId) : navigate('model-profile', m.id)}>{m.code}</Button> },
       { id: 'vendorName', size: 130, header: '제조사/설비사', sortable: false, cell: m => m.vendorName },
       { id: 'processes', size: 110, header: '공정', sortable: false, cell: m => m.processes.map(p => p.name).join(' · ') || '미분류' },

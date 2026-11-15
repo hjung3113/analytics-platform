@@ -353,9 +353,13 @@ export function checkWiring(shape: RepoShape): void {
     if (samples.length === 0) {
       // Actions without samples are the older hand-wired shape: accepted only when imported outside the generated markers.
       for (const action of actions) {
-        const handWired = new RegExp(`\\b${action}\\b[^;]*from '${name}/mock'`).test(shape.mockAssemblyTsx);
+        const active = ts.createSourceFile('assembly.tsx', shape.mockAssemblyTsx, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        const handWired = active.statements.some(stmt => ts.isImportDeclaration(stmt) && ts.isStringLiteral(stmt.moduleSpecifier) && stmt.moduleSpecifier.text === `${name}/mock` && stmt.importClause?.namedBindings && ts.isNamedImports(stmt.importClause.namedBindings) && stmt.importClause.namedBindings.elements.some(el => el.name.text === action && (el.propertyName ?? el.name).text === action));
         if (!handWired || actionImports.some(i => i.module === `${name}/mock` && i.imported === action)) throw new Error(`${folder}/src/mock exports '${action}' but no '*WriteSamples' (${name}): actions and write samples come as a pair, or the actions are hand-wired outside the generated markers`);
-        if (!new RegExp(`\\.\\.\\.${action}\\b`).test(shape.mockAssemblyTsx)) throw new Error(`${folder} (${name}): hand-wired '${action}' is imported but never spread into MOCK_ACTIONS in mock-assembly.tsx`);
+        let spread = false;
+        const walk = (node: ts.Node): void => { if (ts.isSpreadElement(node) && ts.isIdentifier(node.expression) && node.expression.text === action) spread = true; ts.forEachChild(node, walk); };
+        walk(active);
+        if (!spread) throw new Error(`${folder} (${name}): hand-wired '${action}' is imported but never spread into MOCK_ACTIONS in mock-assembly.tsx`);
       }
       continue;
     }

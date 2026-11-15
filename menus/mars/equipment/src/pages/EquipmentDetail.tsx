@@ -23,7 +23,7 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
   // An assembly without the EV module resolves to `none` (06 §22): no button. No permission ⇒ no link.
   const topViewLink = resolveLink(EV_TOP_VIEW_MENU_ID, { page: { equipment: id } });
   const topView = topViewLink.kind === 'link' && topViewLink.allowed ? topViewLink : null;
-  const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, kind, kind !== 'audit' && scope.status === 'valid');
+  const query = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, null, kind !== 'audit' && scope.status === 'valid');
   // #50: the audit tab reads the destination's changes from the port, not the entity payload. Session identity
   // (ADR-0085): the ref carries the scope, so a scope change reads again, a period change does not. Older pages are
   // appended by the timeline's own control; the first page's data below is not used.
@@ -66,7 +66,7 @@ export default function EquipmentDetail({ params }: PageProps) {
   const requestedTab = pageParam('tab') ?? 'attributes';
   const tabs = [{ id: 'attributes', label: m('equipmentDetailAttributes') }, { id: 'validity', label: m('equipmentDetailValidityHistory') }, { id: 'audit', label: m('equipmentDetailChangeHistory2') }, { id: 'analysis', label: m('equipmentDetailRelatedAnalysis') }] as const;
   const validTab = tabs.some(t => t.id === requestedTab);
-  const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, 'header', scope.status === 'valid');
+  const header = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id, scopeId: global.scopeId }, null, scope.status === 'valid');
   return <PlatformPage title={<span className="t-mono">{id}</span>}
     description={m('equipmentDetailThisEquipmentIsSeparateFromTheEquipment')}
     secondaryActions={<ReturnLink />}>

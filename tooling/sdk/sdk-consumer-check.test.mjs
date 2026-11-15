@@ -2,10 +2,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { removeInHouseMenus, singleCopyPeers } from './sdk-consumer-check.mjs';
+import { assertProductionSignal, removeInHouseMenus, singleCopyPeers, tiptapOverrides } from './sdk-consumer-check.mjs';
 
 const kit = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'out-of-repo-assembly', 'kit');
 
@@ -25,10 +26,39 @@ test('removeInHouseMenus rejects a source without or with unbalanced markers', (
   assert.throws(() => removeInHouseMenus('const IN_HOUSE_MENUS = [];\n// kit:inhouse-end'), /unbalanced/);
 });
 
-test('the single-copy table covers release unit 2 with the app copies of every @ap/* peer', () => {
-  const peers = Object.fromEntries(singleCopyPeers());
-  assert.deepEqual(peers['app-host'], ['shell', 'components', 'kernel', 'ui', 'contracts']);
-  assert.deepEqual(peers['mock-server'], ['contracts']);
-  assert.deepEqual(peers['http-adapter'], ['contracts']);
-  assert.deepEqual(peers['server-conformance'], ['contracts']);
+test('single-copy peers follow the installed tarballs, including a newly declared sibling', () => {
+  const root = mkdtempSync(join(tmpdir(), 'ap-peer-test-'));
+  try {
+    for (const name of ['contracts', 'kernel', 'ui', 'components', 'shell', 'app-host', 'mock-server', 'http-adapter', 'server-conformance']) {
+      const dir = join(root, 'node_modules', '@ap', name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ peerDependencies: name === 'app-host' ? { '@ap/contracts': '*', '@ap/ui': '*', '@ap/new-sibling': '*', react: '*' } : {} }));
+    }
+    const peers = Object.fromEntries(singleCopyPeers(root));
+    assert.deepEqual(peers['app-host'], ['contracts', 'ui', 'new-sibling']);
+    assert.deepEqual(peers['mock-server'], []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('production signal requires the dev probe in installed UI dist before inspecting the built output', () => {
+  const root = mkdtempSync(join(tmpdir(), 'ap-signal-test-'));
+  try {
+    const ui = join(root, 'node_modules/@ap/ui/dist');
+    const assets = join(root, 'dist/assets');
+    mkdirSync(ui, { recursive: true }); mkdirSync(assets, { recursive: true });
+    writeFileSync(join(assets, 'app.js'), 'production app');
+    writeFileSync(join(ui, 'button.js'), 'changed probe');
+    assert.throws(() => assertProductionSignal(root), /installed.*UI.*probe/);
+    writeFileSync(join(ui, 'button.js'), 'Slot enforces single-child contract');
+    assert.doesNotThrow(() => assertProductionSignal(root));
+    writeFileSync(join(assets, 'app.js'), 'Slot enforces single-child contract');
+    assert.throws(() => assertProductionSignal(root), /dev-only error/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('kit overrides contain only the tiptap pins', () => {
+  const lines = tiptapOverrides();
+  assert.ok(lines.length > 0);
+  assert.ok(lines.every(line => /^  "@tiptap\//.test(line)));
+  assert.ok(lines.some(line => line.includes('@tiptap/extension-bold')));
 });

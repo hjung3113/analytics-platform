@@ -9,7 +9,10 @@ import { spaceSystems, type SpaceSystemsSource } from './space-systems';
 export function SpaceSystemsSession({ source }: { source: SpaceSystemsSource | null }) {
   const { adapter, revision, user } = usePlatform();
   const userId = user?.id ?? null;
-  // Layout effect: a session change aborts the previous session's in-flight request during commit, before any response task can run, so "not aborted" means "current host session".
-  useLayoutEffect(() => { spaceSystems.start([adapter, revision, userId], source); }, [adapter, revision, userId, source]);
+  // Layout effect: a session change or host unmount aborts/resets the previous session during commit, before any response task or retry timer can run, so "not aborted" means "current host session".
+  useLayoutEffect(() => {
+    spaceSystems.start([adapter, revision, userId], source);
+    return () => { spaceSystems.reset(); };
+  }, [adapter, revision, userId, source]);
   return null;
 }

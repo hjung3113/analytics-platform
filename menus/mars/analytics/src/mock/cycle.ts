@@ -8,7 +8,7 @@ import { cycleMinutes, defineMockEndpoint, EQUIPMENT, findJobByAnchor, jobPercen
 import { jobsFor } from './job-context';
 import { sourceLogicVersionsFor } from './productivity';
 import {
-  BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
+  CYCLE_SERIES_VERSIONS, BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
   cycleVersionOf, executionKey, isAnchor, resolveMetric,
   type CycleKpi, type CycleTrend, type CycleTrendData, type Execution, type Granularity, type OccurrenceResult, type Segment,
   type SlowFilter, type SlowRow, type TailMode,
@@ -108,12 +108,12 @@ export function findExecution(equipmentId: string, anchor: string, version = '3'
 
 /**
  * Identity lookup. `equipment` must already be the grant set (selection/room/period not applied).
- * An id that exists but is outside that set is forbidden; an unknown id or unknown anchor is missing.
+ * An id in the requested site but outside that set is forbidden; an unknown id or unknown anchor is missing.
  * Neither case is replaced with a nearby execution.
  */
-export function lookupOccurrence(equipment: Equipment[], equipmentId: string, anchor: string, version = '3'): OccurrenceResult {
+export function lookupOccurrence(equipment: Equipment[], equipmentId: string, anchor: string, version = '3', site = equipment[0]?.site): OccurrenceResult {
   if (equipment.length === 0) return { access: 'missing' };
-  const known = EQUIPMENT.some(item => item.equipmentId === equipmentId);
+  const known = EQUIPMENT.some(item => item.site === site && item.equipmentId === equipmentId);
   const granted = equipment.some(item => item.equipmentId === equipmentId);
   if (known && !granted) return { access: 'forbidden' };
   if (!granted) return { access: 'missing' };
@@ -165,6 +165,11 @@ function slowRows(equipment: Equipment[], context: GlobalContext, { tail, granul
   return slowExecutions(rows, tail, percentile(values, 0.5), percentile(values, 0.95), range, bin);
 }
 
+const validate = ({ context }: { context: GlobalContext }) => {
+  const version = versionOf(context);
+  return version !== null && !CYCLE_SERIES_VERSIONS.includes(version) ? 'metricVersion is not a cycle_time version' : null;
+};
+
 const metricVersion = ({ context }: { context: GlobalContext }) => versionOf(context) ?? undefined;
 
 export const cycleMock: readonly AnyMockEndpoint[] = [
@@ -184,6 +189,7 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
       };
     },
     isEmpty: data => data.count === 0,
+    validate,
     metricVersion,
     sourceLogicVersions: ({ context }) => sourceLogicVersionsFor(context),
   }),
@@ -201,6 +207,7 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
       };
     },
     isEmpty: data => data.count === 0,
+    validate,
     metricVersion,
   }),
   defineMockEndpoint(cycleDistEndpoint, {
@@ -209,12 +216,14 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
       return { count: rows.length, bins: histogram(rows) };
     },
     isEmpty: data => data.count === 0,
+    validate,
     metricVersion,
   }),
   defineMockEndpoint(cycleSlowPageEndpoint, {
     handle: ({ equipment, context, params: { tail, granularity, bucket, bin, page, pageSize, sorting } }) =>
       sortAndPage(slowRows(equipment, context, { tail, granularity, bucket, bin }), { page, pageSize, sorting }),
     isEmpty: data => data.total === 0,
+    validate,
     metricVersion,
     sourceLogicVersions: ({ context }) => sourceLogicVersionsFor(context),
   }),
@@ -227,6 +236,7 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
       const selected = ids == null ? rows : rows.filter(row => ids.includes(executionKey(row)));
       return sortRows(selected, sorting);
     },
+    validate,
     metricVersion,
   }),
 ];

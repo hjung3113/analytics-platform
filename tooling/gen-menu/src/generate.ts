@@ -601,8 +601,8 @@ export function planGenerate(args: GenerateArgs): GeneratePlan {
   }
   const page = pageName(menuId);
   const pageImports = pageImportedIdentifiers();
-  if (pageImports.includes(page)) {
-    throw new GenMenuError(`invalid --menu '${menuId}' — page component '${page}' collides with the page template imports (${pageImports.join(', ')})`);
+  if (pageImports.includes(`${page}Screen`)) {
+    throw new GenMenuError(`invalid --menu '${menuId}' — page component '${page}Screen' collides with the page template imports (${pageImports.join(', ')})`);
   }
   const pageType = args.pageType ?? 'overview';
   if (!(PAGE_TYPES as readonly string[]).includes(pageType)) {

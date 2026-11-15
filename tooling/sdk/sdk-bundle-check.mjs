@@ -381,7 +381,7 @@ export function adoptPlan(kitPath, projectPath) {
   const copy = tree.files.filter((path) => path !== 'SHA256SUMS' && (isAssemblyPath(path) || !projectKit.has(path)));
   const copied = new Set(copy);
   const carriedFolders = new Set(copy.map(menuFolder).filter(Boolean));
-  const remove = [...newKit.keys()].filter((path) => isAssemblyPath(path) && !copied.has(path) && !carriedFolders.has(menuFolder(path))).sort();
+  const remove = [...newKit.keys()].filter((path) => isAssemblyPath(path) && !copied.has(path) && (projectKit.has(path) || !carriedFolders.has(menuFolder(path)))).sort();
   // The new kit's files after removal; a copy must not land on one of them, under one of them, or over a folder of them.
   const removed = new Set(remove);
   const kept = [...newKit.keys()].filter((path) => !removed.has(path));

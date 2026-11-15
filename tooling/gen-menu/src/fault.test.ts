@@ -77,3 +77,24 @@ describe('partial-write faults restore every snapshot (R1)', () => {
     });
   }
 });
+
+it('keeps app wiring removed when package deletion fails (#2056)', async () => {
+  const root = makeFixture();
+  const dir = mkdtempSync(join(tmpdir(), 'gen-menu-delete-fault-'));
+  try {
+    const pristine = appSnapshot(root);
+    expect((await runCli([FIXTURE_GROUP, ...GEN_ARGS], root)).status).toBe(0);
+    const target = join(root, 'menus/mars/gen-probe');
+    const preload = join(dir, 'delete-fault.mjs');
+    writeFileSync(preload, `import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+const original = fs.rmSync;
+fs.rmSync = (path, options) => { if (String(path) === ${JSON.stringify(target)}) throw new Error('injected deletion failure'); return original(path, options); };
+syncBuiltinESMExports();`);
+    const res = await spawnNode(['--import', `file://${preload}`, CLI_PATH, '--root', root, '--remove', FIXTURE_GROUP]);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain('package directory remains');
+    expect(appSnapshot(root)).toEqual(pristine);
+    expect(existsSync(target)).toBe(true);
+  } finally { removeFixture(root); rmSync(dir, { recursive: true, force: true }); }
+});

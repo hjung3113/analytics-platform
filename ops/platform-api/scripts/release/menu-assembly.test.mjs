@@ -228,6 +228,7 @@ test('build-web-image.sh --dist packages a prebuilt dist with the same Dockerfil
   const dist = join(dir, 'prebuilt-dist');
   mkdirSync(dist);
   writeFileSync(join(dist, 'index.html'), '<html></html>');
+  writeFileSync(join(dist, 'menu-declarations.snapshot.json'), '{}'); // non-mock build marker build-web-image.sh requires
   const { bin, log } = stubDocker();
   const r = spawnSync('bash', [BUILD_WEB, '--dist', dist, '--tag', 'v0.36.0'], {
     encoding: 'utf8',
@@ -246,6 +247,7 @@ test('build-web-image.sh --dist resolves a relative path from the caller cwd, sp
   const caller = join(dir, 'caller cwd');
   mkdirSync(join(caller, 'rel dist'), { recursive: true });
   writeFileSync(join(caller, 'rel dist', 'index.html'), '<html></html>');
+  writeFileSync(join(caller, 'rel dist', 'menu-declarations.snapshot.json'), '{}');
   const { bin, log } = stubDocker();
   const r = spawnSync('bash', [BUILD_WEB, '--dist', 'rel dist', '--tag', 'rel'], {
     cwd: caller,

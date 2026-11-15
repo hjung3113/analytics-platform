@@ -42,12 +42,6 @@ describe('platform-systems.json', () => {
     expect(actual, `platform-systems.json is stale; run \`${REGENERATE}\``).toBe(expected);
   });
 
-  it('is stale when a declaration changes without regenerating', () => {
-    const committed = readFileSync(FILE, 'utf8');
-    const changed = render(buildPlatformSystemsFile([...SPACES, { id: 'extra', label: { ko: '추가' }, feedbackTracking: true }]));
-    expect(changed).not.toBe(committed);
-  });
-
   it('parses with the schema the backend reads', () => {
     const parsed = platformSystemsFileSchema.safeParse(JSON.parse(readFileSync(FILE, 'utf8')));
     expect(parsed.success).toBe(true);

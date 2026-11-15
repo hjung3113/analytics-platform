@@ -163,7 +163,7 @@ function main(placement: ProbePlacement): { fallback: boolean; failures: { step:
     run('pnpm', ['lint']);
     run('pnpm', ['typecheck']);
     // Full gate: the wiring locks hold while the probe menu exists. GEN_MENU_PROBE (turbo
-    // globalPassThroughEnv) skips only the probe-name check and the two workspace-assembly tests
+    // task env) skips only the probe-name check and the two workspace-assembly tests
     // that pin the decided IA (apps/platform-web/src/__tests__/assembly/workspace-assembly.test.tsx), so this run is no
     // evidence for those two; the normal gate runs them. The locks are re-verified without the env
     // after the revert.

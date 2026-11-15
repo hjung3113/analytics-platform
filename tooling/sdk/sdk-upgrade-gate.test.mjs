@@ -82,7 +82,8 @@ test('named sequence runs rc/save, formal/restore, rollback/restore with one ass
   assert.ok(output.some(line => line.includes('save view')));
   assert.ok(output.some(line => line.includes('rollback')));
   assert.equal(output.at(-1), FINAL_REPORT);
-  assert.equal(FINAL_REPORT, 'rc-based replacement passed; first real N-1 to N is v0.37.0');
+  assert.equal(FINAL_REPORT, 'start-kit upgrade and rollback passed');
+  assert.equal(output.filter(line => line === FINAL_REPORT).length, 1);
 }));
 test('editing one assembly line between runs fails before replacement', () => fixture(async root => {
   const kit = project(root);

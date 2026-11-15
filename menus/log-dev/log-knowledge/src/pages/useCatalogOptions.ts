@@ -22,18 +22,20 @@ export function useCatalogOptions(need: { vendors: boolean; processes: boolean; 
   const vendors = useMenuQuery(vendorsEndpoint, OPTION_PARAMS, need.vendors);
   const processes = useMenuQuery(processesEndpoint, OPTION_PARAMS, need.processes);
   const models = useMenuQuery(modelsEndpoint, OPTION_PARAMS, need.models);
-  const rows = <T,>(q: { response: { outcome: string; data: { rows: T[] } | null } | null }): T[] | undefined => (q.response?.outcome === 'ok' ? q.response.data?.rows : undefined);
+  const rows = <T,>(q: { response: { outcome: string; data: { rows: T[] } | null } | null }): T[] | undefined => (q.response && ['ok', 'empty'].includes(q.response.outcome) ? q.response.data?.rows : undefined);
   const vendorRows = rows<VendorRow>(vendors), processRows = rows<ProcessRow>(processes), modelRows = rows<ModelRow>(models);
   const [labels] = useState(() => new Map<string, string>());
   const remember = useCallback((id: string, label: string) => { labels.set(id, label); }, [labels]);
+  const reads = [{ label: '설비사', enabled: need.vendors, query: vendors }, { label: '공정', enabled: need.processes, query: processes }, { label: '모델', enabled: need.models, query: models }];
+  const failures = reads.filter(r => r.enabled && r.query.response && !['ok', 'empty'].includes(r.query.response.outcome));
   const result = useMemo(() => ({
     vendors: toOptions(vendorRows), processes: toOptions(processRows), models: toOptions(modelRows),
-    loading: (need.vendors && !vendorRows) || (need.processes && !processRows) || (need.models && !modelRows),
-  }), [vendorRows, processRows, modelRows, need.vendors, need.processes, need.models]);
+    loading: (need.vendors && !vendors.response) || (need.processes && !processes.response) || (need.models && !models.response),
+  }), [vendorRows, processRows, modelRows, need.vendors, need.processes, need.models, vendors.response, processes.response, models.response]);
   useEffect(() => {
     for (const list of [result.vendors, result.processes, result.models]) for (const o of list) labels.set(o.value, o.label);
   }, [result, labels]);
-  return { ...result, labels, remember };
+  return { ...result, labels, remember, failed: failures.map(r => r.label), failures };
 }
 
 type Endpoint = typeof vendorsEndpoint | typeof processesEndpoint | typeof modelsEndpoint | typeof softwareVersionsEndpoint;

@@ -54,7 +54,7 @@ export const manifests: MenuEntry[] = [
     features: { ...NO_FEATURES, export: true, board: true },
     pageKeys: ['drillModule', 'drillMotion', 'sort', 'page', 'focus'],
     contextResetKeys: ['drillModule', 'drillMotion', 'page', 'focus'],
-    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }] },
+    drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }], resetKeys: ['focus'] },
     component: lazy(() => import('./pages/table/TablePage')),
   },
 ];

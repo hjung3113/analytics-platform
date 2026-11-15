@@ -4,7 +4,7 @@ import { useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type FilterValueCheck } from '@ap/components';
 import { Button, Input, useImeEnterGuard } from '@ap/ui';
 import { RULE_SORT_IDS, SUPPORTS, ruleFilterSpecs, rulesEndpoint, ruleSetsEndpoint, type RuleRow } from '../endpoints';
-import { Original, ScopeText, scopeSummary, SupportBadge } from './presentation';
+import { Original, ScopeText, SupportBadge } from './presentation';
 import { SnapshotTable } from './SnapshotTable';
 import { usePageWriter } from './usePageWriter';
 
@@ -29,7 +29,7 @@ export function CommittedSearch({ pageKey, placeholder }: { pageKey: string; pla
   const [draft, setDraft] = useState({ applied: q, text: q });
   const ime = useImeEnterGuard();
   if (draft.applied !== q) setDraft({ applied: q, text: q });
-  const commit = () => setPage({ [pageKey]: draft.text.trim() || null, page: null });
+  const commit = () => { if ((draft.text.trim() || null) === (q || null)) return; setPage({ [pageKey]: draft.text.trim() || null, page: null }); };
   return <Input type="search" inputSize="toolbar" placeholder={placeholder} aria-label={placeholder} value={draft.text}
     onChange={event => setDraft({ applied: q, text: event.target.value })} onBlur={commit} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={event => {
       if (event.defaultPrevented || ime.isComposingEnter(event)) return;
@@ -37,7 +37,7 @@ export function CommittedSearch({ pageKey, placeholder }: { pageKey: string; pla
       if (event.key === 'Escape' && draft.text !== '') { event.preventDefault(); setDraft({ applied: q, text: '' }); }
     }} />;
 }
-export function RulesTable({ onOpen }: { onOpen: () => void }) {
+export function RulesTable({ onOpen, activeRule }: { onOpen: () => void; activeRule?: { ruleSetKey: string; ruleKey: string | null } | null }) {
   const { pageParam, pageParams } = usePlatform();
   const setPage = usePageWriter();
   const q = pageParam('q');
@@ -57,20 +57,20 @@ export function RulesTable({ onOpen }: { onOpen: () => void }) {
     { id: 'ruleSetKey', header: 'RuleSet', size: 130, filter: specs.ruleSetKey, filterPinned: 1, cell: r => <Button type="button" variant="link" size="sm" aria-label={`${r.ruleSetKey} RuleSet 이력`} onClick={() => { onOpen(); setPage({ ruleSetKey: r.ruleSetKey, ruleKey: null }); }}>{r.ruleSetKey}</Button> },
     { id: 'ruleKey', header: 'Rule', size: 110, cell: r => <Button type="button" variant="link" size="sm" aria-label={`${r.ruleKey} 상세 보기`} onClick={() => { onOpen(); setPage({ ruleSetKey: r.ruleSetKey, ruleKey: r.ruleKey }); }}>{r.ruleKey}</Button> },
     { id: 'title', header: '짧은 이름', size: 180, cell: r => <span className="block truncate break-keep">{r.title}</span> },
-    { id: 'support', header: '지원', size: 100, filter: specs.support, filterPinned: 2, cell: r => <SupportBadge value={r.support} />, exportValue: r => r.support },
-    { id: 'scopeSummary', header: '지원 범위 요약', size: 180, sortable: false, cell: r => <ScopeText scope={r.scope} summary />, exportValue: r => scopeSummary(r.scope) },
-    { id: 'targetCount', header: '선언한 대상 범위', size: 250, filter: specs.targetCount, filterPinned: 4, filterLabel: '대상 범위 원문', cell: r => r.firstTarget ? <span className="t-mono block truncate">{r.firstTarget.format} · {r.firstTarget.target}{r.targetCount > 1 ? ` · 외 ${r.targetCount - 1}개` : ''}</span> : '선언 없음', exportValue: r => r.firstTarget ? `${r.firstTarget.format} · ${r.firstTarget.target} (총 ${r.targetCount})` : '선언 없음' },
+    { id: 'support', header: '지원', size: 100, filter: specs.support, filterPinned: 2, cell: r => <SupportBadge value={r.support} /> },
+    { id: 'scopeSummary', header: '지원 범위 요약', size: 180, sortable: false, cell: r => <ScopeText scope={r.scope} summary /> },
+    { id: 'targetCount', header: '선언한 대상 범위', size: 250, filter: specs.targetCount, filterPinned: 4, filterLabel: '대상 범위 원문', cell: r => r.firstTarget ? <span className="t-mono block truncate">{r.firstTarget.format} · {r.firstTarget.target}{r.targetCount > 1 ? ` · 외 ${r.targetCount - 1}개` : ''}</span> : '선언 없음' },
     { id: 'requirementIdCount', header: '요구사항 ID 수', size: 110, align: 'right' },
     { id: 'revision', header: 'Revision', size: 90, cell: r => <Original>{r.revision}</Original> },
   ], [specs, setPage, onOpen]);
   const fields = useMemo<TableFilterField[]>(() => (['scope', 'requirementIds'] as const).map((id, i) => ({ id, label: { ko: FIELD_LABELS[id], en: FIELD_LABELS[id] }, spec: specs[id]!, pinned: id === 'requirementIds' ? 3 : false, order: i })), [specs]);
   const search = <CommittedSearch pageKey="q" placeholder="Rule·이름·요약 검색" />;
   if (url.invalid) return <TableUrlWarning search={search} sentences={url.sentences} recoverKeys={url.recoverKeys} cause={url.cause} />;
-  return <SnapshotTable<RuleRow> title="규칙 카탈로그" ariaLabel="규칙 카탈로그" columns={columns} getRowId={r => JSON.stringify([r.ruleSetKey, r.ruleKey])}
+  return <>{sets.response?.data && sets.response.data.total > 200 && <p className="text-xs text-text-secondary">RuleSet 후보는 처음 200개만 표시합니다. 주소의 RuleSet 필터는 유지됩니다.</p>}<SnapshotTable<RuleRow> title="규칙 카탈로그" ariaLabel="규칙 카탈로그" columns={columns} getRowId={r => JSON.stringify([r.ruleSetKey, r.ruleKey])}
     preferenceKey="log-rules:v1" filterKey={JSON.stringify([q])} pageSize={50} urlState={url.urlState} filterFields={fields}
-    activeRowId={pageParam('ruleKey') ? JSON.stringify([pageParam('ruleSetKey'), pageParam('ruleKey')]) : null}
+    activeRowId={activeRule?.ruleKey ? JSON.stringify([activeRule.ruleSetKey, activeRule.ruleKey]) : null}
     loadPage={async (query, signal) => {
       const response = await rules.fetch({ q, page: query.page, pageSize: query.pageSize, sorting: query.sorting, ...ruleRequestFilters(query.filters ?? []) }, signal);
       return response.outcome === 'ok' && response.data?.total === 0 ? { ...response, outcome: 'empty' as const } : response;
-    }} search={search} emptyAction={<Button type="button" variant="secondary" size="toolbar" onClick={() => setPage({ q: null, filter: null, page: null })}>필터 지우기</Button>} />;
+    }} search={search} emptyAction={<Button type="button" variant="secondary" size="toolbar" onClick={() => setPage({ q: null, filter: null, page: null })}>필터 지우기</Button>} /></>;
 }

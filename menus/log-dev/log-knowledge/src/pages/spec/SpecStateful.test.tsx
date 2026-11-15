@@ -7,6 +7,7 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { type ActionResponse, type ApiResponse, type FieldError } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow } from '../../endpoints';
+import { ChangeDrawer } from './ChangeDrawer';
 import SpecScreen from './SpecScreen';
 import { knowledgeRegistry, mountWith } from '../test-support';
 
@@ -57,19 +58,19 @@ beforeEach(() => { memoryLang('ko'); restoreGeometry = stubCompactTableGeometry(
 afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
 /** This jsdom has no localStorage; the language preference seam needs a stand-in for `initialLang`. */
 const memoryLang = (lang: 'ko' | 'en') => Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: () => lang, setItem: () => undefined, removeItem: () => undefined } });
-type Handlers = { spec?: () => Promise<ApiResponse<never>> | ApiResponse<never>; draft?: (id: string) => unknown; action?: (name: string, input: Record<string, unknown>) => unknown };
+type Handlers = { changes?: () => ApiResponse<never>; child?: React.ReactNode; spec?: () => Promise<ApiResponse<never>> | ApiResponse<never>; draft?: (id: string) => unknown; action?: (name: string, input: Record<string, unknown>) => unknown };
 function mount(search: string, h: Handlers) {
   window.history.replaceState(null, '', `/logDev/log-knowledge-spec/${modelId}?v=1${search}`);
   const session = testSession(allowed ? ['platform:view', 'knowledge:spec-publish'] : ['platform:view']);
   const adapter = testAdapter({ session: () => session, menuQuery: async req => {
     if (req.endpoint === 'logKnowledge.modelSpec') return h.spec ? h.spec() : ok(published);
     if (req.endpoint === 'logKnowledge.softwareVersions') return ok({ rows: [{ id: sw, versionLabel: 'v1.0', releaseOrder: 1 }], total: 1 });
-    if (req.endpoint === 'logKnowledge.specChanges') return ok({ rows: [change], total: 1 });
+    if (req.endpoint === 'logKnowledge.specChanges') return h.changes ? h.changes() : ok({ rows: [change], total: 1 });
     if (req.endpoint === 'logKnowledge.modelSpecRevisions') return ok({ rows: [{ id: rev, revisionNo: 2, state: 'draft', version: 1 }], total: 1 });
     if (req.endpoint === 'logKnowledge.specDraft') return ok(h.draft?.(String((req.params as Record<string, unknown>)['revisionId'])) ?? null);
     return ok(null);
   }, menuAction: async req => (h.action?.(req.action.replace('logKnowledge.', ''), req.input as Record<string, unknown>) ?? { outcome: 'ok', data: { changeId: change.id }, version: '2' }) as unknown as ActionResponse<never> });
-  return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId }} />, slot: true });
+  return mountWith({ registry, adapter, ui: h.child ?? <SpecScreen params={{ modelId }} />, slot: true });
 }
 const textarea = () => screen.getByLabelText('명세 TSV') as HTMLTextAreaElement;
 const B = 'kind\tmodule\tevent\ttrigger_rule\nmodule\tArm\nevent\tArm\tMove\tsecond rule';
@@ -206,4 +207,15 @@ describe('nested server errors reach their controls (fix C5 / A2)', () => {
     expect(text(target)).toMatch(/module/);
     expect(within(dialog).getAllByRole('alert').map(el => el.textContent).join(' ')).toMatch(/겹칩니다/);
   });
+});
+
+
+it.each([false, true])('MEN-47 recovers the displayed row or explains a failed read (%s)', async fail => {
+  const fresh = { ...change, version: 2, note: 'latest observation', revalidationRevNo: 6 };
+  mount('', { child: <ChangeDrawer modelId={modelId} software={[]} row={change} mode="confirm" selectedSoftware={null} onClose={() => {}} />,
+    action: () => ({ outcome: 'conflict' }), changes: () => fail ? { ...ok(null), outcome: 'error' } : ok({ rows: [fresh], total: 1 }) });
+  fireEvent.click(await screen.findByRole('button', { name: '확인' }));
+  fireEvent.click(await screen.findByRole('button', { name: '최신 확인 후 다시 검토' }));
+  if (fail) expect(await screen.findByText('최신 변경점을 확인하지 못했습니다. 다시 시도해 주세요.')).toBeTruthy();
+  else { expect(await screen.findByText('latest observation')).toBeTruthy(); expect(screen.getByText(/재검토 기준.*r6/)).toBeTruthy(); }
 });

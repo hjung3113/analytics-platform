@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
-import { useI18n, useMenuAction, usePlatform, useSessionDraft } from '@ap/kernel';
+import { useI18n, useMenuAction, usePlatform, useSessionDraft, useUnsavedGuard } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
 import { Button, Callout, Input, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
 import { ITEM_LIMITS, ITEM_TYPE_CODES, ITEM_TYPE_LABEL, itemCreate, itemDerive, itemRevise, type ItemDetail, type ItemTypeCode, type ItemWriteResult } from '../../endpoints';
@@ -105,7 +105,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
     else guard.force();
   };
   function settle<T>(res: ActionResult<T>, onOk: (data: T | null) => void) {
-    if (res.outcome === 'ok') { discard(); setBanner(null); setErrors({}); onOk(res.data); return; }
+    if (res.outcome === 'ok') { discard(); setBanner(null); setErrors({}); guard.release(() => onOk(res.data)); return; }
     if (res.outcome === 'conflict') { setBanner({ kind: 'conflict' }); return; }
     const subjectErrors = res.outcome === 'invalid' ? res.fieldErrors.filter(e => e.path[0] === 'subjects') : [];
     const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors.filter(e => e.path[0] !== 'subjects' && e.path[0] !== 'relations'), CONTENT_FIELDS, form.evidence.length) : {};
@@ -197,6 +197,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
 function ItemWriteDrawerView({ target, onClose, draftState }: { target: ItemWriteTarget; onClose: () => void; draftState: WriteDraftHandle }) {
   const [, , { discard }] = draftState;
   const guard = useCloseGuard(() => { discard(); onClose(); });
+  useUnsavedGuard(guard.dirty && !guard.released, { leaves: 'address', onDiscard: discard });
   const title = target.mode === 'create' ? '새 기술 Item' : target.mode === 'revise' ? '기술 Item 수정' : '관련 Item으로 신규 작성';
   const subtitle = target.mode === 'create' ? '전체 기술 Item' : `${itemNoLabel(target.detail.item.itemNo)} · ${ownerText(target.detail.item.owner)}`;
   const key = target.mode === 'revise' ? `revise:${target.detail.item.id}` : target.mode === 'derive' ? `derive:${target.detail.item.id}:${target.detail.revision.revisionNo}` : 'create';

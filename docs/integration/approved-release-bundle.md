@@ -49,7 +49,7 @@
 
 아홉 tarball로 다시 확인한 것(macOS arm64, `0.0.0-bundle`, react·react-dom을 더한 임시 프로젝트, 서드파티 267개): `file:` 설치와 lockfile 생성, `verify` 통과, 다른 경로로 복사한 뒤 데워진 store로 `--offline --frozen-lockfile` 설치, `installed` 통과, 공개 npm 레지스트리를 미러 자리에 넣은 `mirror`에서 누락 0.
 
-확인하지 못한 것: 다른 pnpm 버전, 사내 미러에서의 설치, Windows·macOS 호스트에서의 오프라인 설치. 리눅스 컨테이너의 오프라인 설치는 아래 «공개 CI의 오프라인 설치»가 매 PR 확인한다.
+확인하지 못한 것: 다른 pnpm 버전, 사내 미러에서의 설치, Windows·macOS 호스트에서의 오프라인 설치. 리눅스 컨테이너의 오프라인 설치는 아래 «공개 CI의 오프라인 설치»가 main push와 수동 실행에서 확인한다(PR 제외).
 
 ## 설치 경로 둘
 

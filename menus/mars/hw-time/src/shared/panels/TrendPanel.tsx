@@ -2,8 +2,9 @@ import { useMessages } from '@ap/kernel';
 import { HW_TIME_MESSAGES } from '../../messages';
 import { LineChart } from 'lucide-react';
 import { useMemo } from 'react';
-import { useI18n, type QueryState } from '@ap/kernel';
+import { useI18n, usePlatform, type QueryState } from '@ap/kernel';
 import { AnalysisChartFrame, QueryView, StateMessage } from '@ap/components';
+import { Button } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeTrendData } from '../../endpoints';
 import { formatSeconds, rowIdLabel } from '../format';
@@ -29,13 +30,21 @@ const TREND_FILL_MIN = 160;
 /** Daily line per row. No rows → an instruction, not a query. Free of layout. */
 export function TrendPanel({ chartId, title, rowIds, query, level, description, fillMin = TREND_FILL_MIN }: TrendPanelProps) {
   const m = useMessages(HW_TIME_MESSAGES);
+  const { setPage } = usePlatform();
+  const response = query.response;
+  const missing = !query.showingPrevious && response && (response.outcome === 'ok' || response.outcome === 'empty') && response.data
+    ? rowIds.filter(id => !response.data!.rows.some(row => row.id === id)) : [];
   if (rowIds.length === 0) return <StateMessage compact icon={<LineChart className="size-4" aria-hidden />} title={m('trendPanelAddARow')}
     body={level === 0
       ? (m('trendPanelPickAModuleToDrillInThen'))
       : (m('trendPanelPickADetailRowAndAddIt'))} />;
-  return <QueryView query={query} widgetName={title} hideWidgetName skeletonRows={3} fill>
+  return <div className="flex min-h-0 flex-1 flex-col gap-2">
+    {missing.length > 0 && <div role="status" className="text-sm text-text-secondary"><p>{m('trendPanelRowsOutsideScope')}</p>
+      {missing.map(id => <div key={id} className="flex items-center gap-2"><span>{rowIdLabel(id)}</span><Button variant="secondary" size="sm" aria-label={m('trendPanelRemoveRowFromTrend', { row: rowIdLabel(id) })} onClick={() => setPage({ trend: rowIds.filter(row => row !== id).join(',') || null })}>{m('trendPanelRemove')}</Button></div>)}
+    </div>}
+    <QueryView query={query} widgetName={title} hideWidgetName skeletonRows={3} fill>
     {data => <TrendChart chartId={chartId} title={title} description={description} data={data} fillMin={fillMin} />}
-  </QueryView>;
+  </QueryView></div>;
 }
 
 function TrendChart({ chartId, title, description, data, fillMin }: { chartId: string; title: string; description?: string; data: HwTimeTrendData; fillMin: number }) {

@@ -15,7 +15,7 @@ const registry = createRegistry({
   permissions: [menuPermission('equipment:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('equipment:view'), homeMenuId: 'equipment-master' }],
   groups: [{ id: groupId('equipment'), label: { ko: '설비', en: 'Equipment' }, icon: Boxes, space: spaceId('mars') }],
-  menus: manifests,
+  menus: [...manifests, { ...manifests[0]!, id: 'productivity-overview', primary: false, path: '/mars/productivity-overview' }],
 });
 const session = testSession(['equipment:view', 'platform:view'], { user: { id: 'analyst-a', name: 'analyst-a', title: { ko: '분석가', en: 'Analyst' } }, scopes: [{ id: 'MEM', label: 'MEM', grantedRooms: 1, totalRooms: 1 }] });
 const row = { equipmentId: 'EQ-1', site: 'MEM', room: 'PHOTO', line: 'L1', stgroup: 'G', team: 'T', maker: 'M', model: 'X', chamberType: 'C', status: 'active', validFrom: '2026-01-01', validTo: null, updatedAt: '2026-01-02', updatedBy: 'u' };
@@ -23,7 +23,7 @@ const assessments = (['collection', 'processing_delay', 'coverage'] as const).ma
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments, trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' };
 const adapter = testAdapter({
-  menuQuery: async (req: MenuQuery) => req.endpoint === 'equipment.master.page' ? ok({ rows: [row], total: 1 }) : req.endpoint === 'equipment.master.makers' ? ok(['M']) : empty,
+  menuQuery: async (req: MenuQuery) => req.endpoint === 'equipment.master.page' ? ok({ rows: [row], total: 100 }) : req.endpoint === 'equipment.master.makers' ? ok(['M']) : empty,
   session: () => session,
 });
 
@@ -50,4 +50,13 @@ describe('EquipmentMaster compact action', () => {
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
     expect(await screen.findByRole('heading', { name: 'EQ-1' })).toBeTruthy();
   });
+});
+
+it('explains why all-result selection cannot be used as analysis IDs (#2056)', async () => {
+  window.history.replaceState(null, '', '/equipment?v=1&scopeId=MEM');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><EquipmentMaster /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  await screen.findByRole('button', { name: 'EQ-1 보기' });
+  fireEvent.click(screen.getByRole('checkbox', { name: /현재 페이지/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /필터 결과 전체.*선택/ }));
+  expect(await screen.findByText('선택 설비로 분석은 개별 선택에서만 가능합니다. 필터 결과 전체는 내보내기를 이용하세요.')).toBeTruthy();
 });

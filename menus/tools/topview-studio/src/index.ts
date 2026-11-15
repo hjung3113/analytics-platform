@@ -6,10 +6,10 @@ import type { PlatformMenuEntry } from '@ap/kernel';
 import { STUDIO_VIEW_PERMISSION } from './endpoints';
 
 /** URL page keys: the open Layout, Revision (`sha256:<64 hex>`) and EV Template. Component selection stays out of the address. */
-export const PAGE_KEYS = ['layout', 'revision', 'template'] as const;
+const PAGE_KEYS = ['layout', 'revision', 'template'] as const;
 
 /** 설비 온보딩 page keys: no `equipment` is the Fleet; `step` is the open tab; `window` the selected Sample Window (64 hex). Dialogs stay out of the address. */
-export const ONBOARDING_PAGE_KEYS = ['equipment', 'step', 'window'] as const;
+const ONBOARDING_PAGE_KEYS = ['equipment', 'step', 'window'] as const;
 
 export const manifests: PlatformMenuEntry[] = [
   {

@@ -82,7 +82,8 @@ function DetailSlotHost() {
 async function renderPage(search = '') {
   window.history.replaceState(null, '', `/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><TablePage params={{}} /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
-  await screen.findByRole('table', { name: 'HW Time 동작시간 표' }, { timeout: 8000 });
+  if (search.includes('focus=abc')) await screen.findByText(/열린 행.*abc/);
+  else await screen.findByRole('table', { name: 'HW Time 동작시간 표' }, { timeout: 8000 });
 }
 const searchParams = () => new URLSearchParams(window.location.search);
 const headers = () => screen.getAllByRole('columnheader').map(h => h.textContent ?? '');
@@ -348,4 +349,16 @@ describe('HW Time table page', () => {
     await renderPage('&drillModule=PM3&drillMotion=Pump');
     expect(await screen.findByText(/일부 미측정 1행/)).toBeTruthy();
   });
+});
+
+
+it('MEN-48 warns about malformed focus and can clear it', async () => {
+  await renderPage('&focus=abc');
+  expect(screen.getByText(/열린 행.*abc/)).toBeTruthy();
+});
+it('MEN-48 explains an unavailable focus and clears focus on drill', async () => {
+  await renderPage('&focus=EQ-001.H1');
+  expect(await screen.findByText('이 단계에 없는 행입니다.')).toBeTruthy();
+  fireEvent.click(screen.getAllByRole('button', { name: 'PM2 들어가기' })[0]!);
+  expect(searchParams().get('focus')).toBeNull();
 });

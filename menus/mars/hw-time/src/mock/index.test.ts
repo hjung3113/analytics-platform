@@ -118,15 +118,14 @@ describe('HW Time level rows', () => {
 });
 
 describe('HW Time trends and table endpoints', () => {
-  it('returns eight daily points whose values differ for adjacent rows', async () => {
+  it('returns daily points in the period whose values differ for adjacent rows', async () => {
     const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1', 'EQ-001.H2'] });
     expect(result.rows).toHaveLength(2);
     expect(result.limits.maxRows).toBe(8);
     expect(result.rows.map(({ id }) => id)).toEqual(['EQ-001.H1', 'EQ-001.H2']);
-    expect(result.rows[0]?.points).toHaveLength(8);
+    expect(result.rows[0]?.points).toHaveLength(2);
     expect(result.rows[0]?.points.map(point => point.at)).toEqual([
-      '2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21',
-      '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25',
+      '2026-09-25', '2026-09-26',
     ]);
     expect(result.rows[0]?.points.map(point => point.value)).not.toEqual(result.rows[1]?.points.map(point => point.value));
     expect(result.rows[0]?.points.every((point, i) => point.value !== result.rows[1]?.points[i]?.value)).toBe(true);
@@ -141,8 +140,8 @@ describe('HW Time trends and table endpoints', () => {
       known += Object.values(row.values).reduce<number>((sum, value) => sum + (value ?? 0), 0);
     }
     const values = trend.rows[0]!.points.map(point => point.value as number);
-    expect(values[7]).toBeCloseTo(known, 9);
-    values.slice(0, 7).forEach(value => expect(Math.abs(value / known - 1)).toBeLessThanOrEqual(0.15));
+    expect(values.at(-1)).toBeCloseTo(known, 9);
+    values.slice(0, -1).forEach(value => expect(Math.abs(value / known - 1)).toBeLessThanOrEqual(0.15));
     expect(new Set(values).size).toBeGreaterThan(1);
   });
 
@@ -152,7 +151,7 @@ describe('HW Time trends and table endpoints', () => {
     const again = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002'] });
     const [total, ...items] = result.rows;
     expect(total?.id).toBe('EQ-002');
-    expect(total?.points).toHaveLength(8);
+    expect(total?.points).toHaveLength(2);
     total?.points.forEach((point, day) => {
       expect(point.value).toBeCloseTo(items.reduce((sum, item) => sum + (item.points[day]?.value ?? 0), 0), 9);
     });
@@ -267,4 +266,12 @@ describe('HW Time population follows the applied Scope and Condition', () => {
     ]);
     expect(responses.map(response => response.outcome)).toEqual(['empty', 'empty', 'empty', 'empty', 'empty']);
   });
+});
+
+
+it('MEN-51 keeps daily trend dates in the applied half-open period', async () => {
+  const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] });
+  expect(result.rows[0]!.points.map(p => p.at)).toEqual(['2026-09-25', '2026-09-26']);
+  const midnight = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] }, { from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
+  expect(midnight.rows[0]!.points.map(p => p.at)).toEqual(['2026-09-25']);
 });

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScrollText } from 'lucide-react';
@@ -572,4 +573,64 @@ describe('knowledge draft handoff (#1474c, confirmed A)', () => {
     await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
     expect(write.mock.calls[1]![0]).toEqual(write.mock.calls[0]![0]);
   });
+});
+
+describe('minor bundle regressions (#2056)', () => {
+  it('uses the returned version for consecutive basket removals before a detail refresh', async () => {
+    investigation.evidence = [1, 2].map(line => ({ ref: { fileRef: 'source-b', line, fileSha256: 'b'.repeat(64) }, state: { code: 'available' as const }, sourceAccess: 'unchecked' as const }));
+    mount(<InvestigationScreen investigation={investigation} picker={null} />);
+    fireEvent.click(await screen.findByRole('button', { name: '근거 위치 바구니 · 2' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: '빼기' }))[0]!);
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('근거 위치를 뺐습니다.'));
+    fireEvent.click(screen.getAllByRole('button', { name: '빼기' })[1]!);
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write.mock.calls[1]![0].expectedVersion).toBe('2');
+  });
+  it('refuses a half-filled Context condition before applying or saving it', async () => {
+    mount(<InvestigationScreen investigation={investigation} picker={null} frame={({ contextExtension, children }) => <>{contextExtension}{children}</>} />); await screen.findByRole('button', { name: '근거 위치 바구니 · 0' });
+    const expand = screen.queryByRole('button', { name: /조회 조건.*펼치기/ });
+    if (expand) fireEvent.click(expand);
+    fireEvent.change(await screen.findByLabelText('Context 키'), { target: { value: 'job' } });
+    expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+  });
+  it('clears successful creation inputs when the dialog is reopened', async () => {
+    mount(); fireEvent.click(await screen.findByRole('button', { name: '조사 만들기' }));
+    let dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+    fireEvent.change(within(dialog).getByLabelText('조사 이름'), { target: { value: '새 조사' } });
+    fireEvent.change(within(dialog).getByLabelText('Source 소유자'), { target: { value: 'synthetic-ok' } });
+    fireEvent.change(within(dialog).getByLabelText(/파일 참조/), { target: { value: `source-b\t${'b'.repeat(64)}` } });
+    write.mockResolvedValueOnce({ outcome: 'ok', data: { id, version: '1' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'test' });
+    fireEvent.click(within(dialog).getByRole('button', { name: '조사 만들기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: '조사 만들기' }));
+    dialog = await screen.findByRole('dialog');
+    expect((within(dialog).getByLabelText('조사 이름') as HTMLInputElement).value).toBe('');
+    expect((within(dialog).getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('');
+    expect((within(dialog).getByLabelText(/파일 참조/) as HTMLInputElement).value).toBe('');
+  });
+});
+
+it('resets local Source filters when the host changes Round (#2056)', async () => {
+  function SwitchingRound() {
+    const [round, setRound] = useState('14750000-0000-4000-8000-000000000001');
+    return <><button onClick={() => setRound('14750000-0000-4000-8000-000000000002')}>다음 Round</button><RoundSourceView roundId={round} sampleSet={set} /></>;
+  }
+  mount(<SwitchingRound />, ['sourceTab', 'sourceFocus', 'sourceDrawer']);
+  fireEvent.click(await screen.findByRole('button', { name: '조회 조건 펼치기' }));
+  fireEvent.change(screen.getByLabelText('Module'), { target: { value: 'module-a' } });
+  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { module: 'module-a' } }));
+  fireEvent.click(screen.getByRole('button', { name: '다음 Round' }));
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: {} }));
+  expect((screen.getByLabelText('Module') as HTMLInputElement).value).toBe('');
+});
+
+it('reports an unknown basket write as unconfirmed rather than failed (#2056)', async () => {
+  investigation.evidence = [{ ref: { fileRef: 'source-b', line: 1, fileSha256: 'b'.repeat(64) }, state: { code: 'available' }, sourceAccess: 'unchecked' }];
+  mount(<InvestigationScreen investigation={investigation} picker={null} />);
+  fireEvent.click(await screen.findByRole('button', { name: '근거 위치 바구니 · 1' }));
+  write.mockResolvedValueOnce({ outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'test' });
+  fireEvent.click((await screen.findAllByRole('button', { name: '빼기' }))[0]!);
+  await waitFor(() => expect(screen.getByRole('status').textContent).toContain('응답을 받지 못했습니다. 근거 위치 삭제 여부를 다시 확인하세요.'));
 });

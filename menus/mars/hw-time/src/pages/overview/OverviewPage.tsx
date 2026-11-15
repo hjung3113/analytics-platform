@@ -87,6 +87,7 @@ export default function OverviewPage(_props: PageProps) {
   const { invalid, sort, sortText, row, trendRows, hidden, setHidden, notice, reveal } = state;
   const levelQ = useHwTimeLevel(params, invalid === null);
   const trendQ = useHwTimeTrend(trendRows, trendRows.length > 0 && invalid === null);
+  const trendCount = trendRows.length === 0 ? 0 : trendQ.response && ['ok', 'empty'].includes(trendQ.response.outcome) ? trendQ.response.data?.rows.length : undefined;
   // While the previous level is kept (#1365), titles and drill actions follow the Module/Motion the rows were loaded with; drilling from old rows is off.
   const kept = shownDrill(levelQ, params);
 
@@ -159,7 +160,7 @@ export default function OverviewPage(_props: PageProps) {
 
   const trendPanel: PanelWorkspacePanel = {
     id: 'trend', title: HW_TIME_MESSAGES.overviewPageTrend,
-    badge: trendRows.length > 0 ? { count: trendRows.length, description: { ko: formatText(HW_TIME_MESSAGES.overviewPageRowsInTheTrend, 'ko', { length: String(trendRows.length) }), en: formatText(HW_TIME_MESSAGES.overviewPageRowsInTheTrend, 'en', { length: String(trendRows.length) }) } } : undefined,
+    badge: trendCount !== undefined && trendCount > 0 ? { count: trendCount, description: { ko: formatText(HW_TIME_MESSAGES.overviewPageRowsInTheTrend, 'ko', { length: String(trendCount) }), en: formatText(HW_TIME_MESSAGES.overviewPageRowsInTheTrend, 'en', { length: String(trendCount) }) } } : undefined,
     render: () => <div className="flex h-full min-h-0 flex-col gap-1 p-2">
       {notice && <p role="status" className="t-caption text-text-warning-label">{notice}</p>}
       <TrendPanel chartId="hw-overview-trend" title={m('overviewPageDailyTrendByRow')} rowIds={trendRows} query={trendQ} level={drill.depth} />

@@ -349,7 +349,7 @@ describe('Top View', () => {
     ['pm-b', '19'],
     ['pm-a', '18'],
   ] as const)('Focus 열기 at 10:08:30 with %s selected opens Focus on that Component\'s open Occurrence (its RecordSequence), else the first one open at the cursor', async (id, anchor) => {
-    const fake = fakeFor('topview', { context: { from: HOST_TIME.from, to: '2026-01-01T10:08:30' } });
+    const fake = fakeFor('topview', { context: { from: HOST_TIME.from, to: '2026-01-01T10:08:30' }, query: server({ events: token => { const [first, second] = pages(); return ok({ ...(token === undefined ? first : second), to: '2026-01-01T10:08:30.000' }); } }) });
     fake.render(TopViewScreen);
     await screen.findAllByText('2026-01-01 10:08:30');
     if (id !== null) fireEvent.click(document.querySelector(`[data-component-id="${id}"]`)!);

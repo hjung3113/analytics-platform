@@ -328,3 +328,12 @@ describe('execution occurrence provisional follows the object anchor', () => {
     expect(response.trust?.provisional).toBe(false);
   });
 });
+
+
+it('MEN-46 keeps occurrence lookups inside the requested site', async () => {
+  const equipment = EQUIPMENT.find(e => e.site === 'FDRY')!;
+  const response = await adapter.menuQuery({ endpoint: occurrenceEndpoint.id,
+    context: { scopeId: 'MEM' },
+    params: occurrenceParams({ equipmentId: equipment.equipmentId }) });
+  expect(response.data).toEqual({ access: 'missing' });
+});

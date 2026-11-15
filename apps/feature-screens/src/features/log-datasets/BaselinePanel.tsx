@@ -14,7 +14,7 @@ export function BaselinePanel(props: ScreenProps & { dataset: Dataset; revisionI
 }
 function BaselineContent(props: ScreenProps & { dataset: Dataset; baselineId: string; approvedBaseline: BaselineRow | null }) {
   const query = props.api.useRead<Baseline>('baselineDetail', { baselineId: props.baselineId });
-  return <ReadView query={query}>{baseline => <BaselineBody key={`${baseline.id}:${baseline.version}`} {...props} baseline={baseline} completedAt={query.completedAt ?? null} />}</ReadView>;
+  return <ReadView query={query}>{baseline => <BaselineBody key={baseline.id} {...props} baseline={baseline} completedAt={query.completedAt ?? null} />}</ReadView>;
 }
 function BaselineBody(props: ScreenProps & { dataset: Dataset; baseline: Baseline; approvedBaseline: BaselineRow | null; completedAt?: number | null }) {
   const { baseline: b, dataset, ui } = props;

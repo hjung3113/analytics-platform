@@ -376,3 +376,16 @@ test('mirror: a network error is reported, not counted as present', async () => 
   assert.deepEqual(result.errors, ['react: ECONNREFUSED']);
   assert.deepEqual(result.missing, []);
 });
+
+
+test('adopt preserves a deleted sample file during upgrade and rollback', () => {
+  const extra = { 'menus/sample/DeletedPage.tsx': 'sample page\n' };
+  const project = makeProject({ extra });
+  rmSync(join(project, 'menus/sample/DeletedPage.tsx'));
+  for (const sample of ['sample v2', 'sample v1']) {
+    const kit = makeKit({ sample, extra });
+    assert.deepEqual(adoptAssembly(kit, project), []);
+    assert.ok(!existsSync(join(kit, 'menus/sample/DeletedPage.tsx')));
+    assert.equal(read(kit, 'menus/sample/menu.ts'), 'sample v1\n');
+  }
+});

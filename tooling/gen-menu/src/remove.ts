@@ -228,8 +228,8 @@ export function applyRemove(plan: RemovePlan): void {
     failedDeletingDir = wroteAllAppFiles;
   }
   if (originalError !== undefined) {
-    // R1/F3: restore every attempted target whose bytes drifted from its snapshot.
-    for (const rel of attemptedWrites) {
+    // R1/F3: restore attempted writes only when app-file updates failed. Directory deletion may be partial; keep its app wiring removed.
+    for (const rel of failedDeletingDir ? [] : attemptedWrites) {
       try {
         const snapshot = snapshots.get(rel) ?? '';
         if (readFileSync(join(plan.root, rel), 'utf8') !== snapshot) writeFileSync(join(plan.root, rel), snapshot);
@@ -238,19 +238,15 @@ export function applyRemove(plan: RemovePlan): void {
       }
     }
     if (failedDeletingDir) {
-      // Best-effort retry, then report the residual package directory.
-      try {
-        rmSync(plan.packageDir, { recursive: true, force: true });
-      } catch {
-        // reported below via the residual check
-      }
       if (existsSync(plan.packageDir)) {
         failures.push(`${plan.deleteDir}: could not be fully deleted — package directory remains`);
       }
     }
     const original = originalError instanceof Error ? originalError : new GenMenuError(String(originalError));
     if (failures.length > 0) {
-      throw new GenMenuError(`--remove failed (${original.message}) and rollback could not restore: ${failures.join('; ')}`);
+      throw new GenMenuError(failedDeletingDir
+        ? `--remove removed app wiring but package deletion failed (${original.message}): ${failures.join('; ')}`
+        : `--remove failed (${original.message}) and rollback could not restore: ${failures.join('; ')}`);
     }
     throw original;
   }

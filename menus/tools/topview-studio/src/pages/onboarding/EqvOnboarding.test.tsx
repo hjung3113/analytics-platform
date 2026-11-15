@@ -991,3 +991,27 @@ describe('equipment registration', () => {
     expect(maybe('Sample Window 가져오기')).toBeNull();
   });
 });
+
+
+describe('MEN-8 onboarding menu assertions', () => {
+  it('publish review names Mapping and confirms publishing', async () => {
+    mount('engineer', '&equipment=eq-synth-01&step=validate');
+    const review = await screen.findByRole('button', { name: '게시 검토' }, slow);
+    await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false), slow);
+    fireEvent.click(review);
+    const dialog = await screen.findByRole('alertdialog', {}, slow);
+    expect(within(dialog).getByText('Mapping을 게시할까요?', { exact: true })).toBeTruthy();
+    expect(within(dialog).getByText(textIs('열린 binding(2026-01-01T10:04:30.000 ~)을 2026-01-01T10:30:00.000에서 닫습니다'))).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: '게시' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Mapping을 게시했습니다', 'info'), slow);
+  });
+});
+
+
+describe('MEN-8 Fleet content', () => {
+  it('Fleet shows the published unknown Drift and no-observation status', async () => {
+    mount('engineer');
+    expect(await screen.findByText('게시됨 · Drift 미확인', { exact: true }, slow)).toBeTruthy();
+    expect(screen.getByText('관측 없음', { exact: true })).toBeTruthy();
+  });
+});

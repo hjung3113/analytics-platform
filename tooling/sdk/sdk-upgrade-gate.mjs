@@ -19,7 +19,7 @@ import { assemblyFiles, parseSums, readTarEntry } from './sdk-bundle-check.mjs';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const names = releasePackages().map(({ name }) => name);
 const digest = content => createHash('sha256').update(content).digest('hex');
-export const FINAL_REPORT = 'rc-based replacement passed; first real N-1 to N is v0.37.0';
+export const FINAL_REPORT = 'start-kit upgrade and rollback passed';
 
 /** Authenticate the checksum list before trusting any of its nine release entries. Start-kit assets are separate. */
 export function verifyBundle(directory, { version, sha256 } = {}) {
@@ -320,7 +320,6 @@ async function main(args) {
       } catch (error) {
         if (!error.message.includes('assembly code changed')) throw error;
         console.log('sdk:upgrade-gate PASS self-test: one changed assembly line rejected');
-        console.log(FINAL_REPORT);
         return;
       }
       throw new Error('Self-test accepted an assembly mutation');
@@ -331,7 +330,6 @@ async function main(args) {
     console.log(`sdk:upgrade-gate download previous bundle ${pin.version} (${pin.url})`);
     const previous = await downloadPrevious(pin, join(work, 'previous'));
     await integration(previous, formal, work);
-    console.log(FINAL_REPORT);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import type { Presentation, RoundDetail, ScreenProps } from '../contracts';
 import { GatePanel } from '../GatePanel';
+import { ModelsScreen } from '../ModelsScreen';
 import { RequestsScreen } from '../RequestsScreen';
 import { StageStepper } from '../presentation';
 
@@ -46,4 +47,23 @@ it('marks completed stages with checks while cancellation invents no completed h
   expect(within(upcoming).getByText('4')).toBeTruthy();
   view.rerender(<StageStepper stage="cancelled" />);
   expect(screen.queryAllByText('완료', { selector: '.sr-only' })).toHaveLength(0);
+});
+
+
+it('MEN-50 shows and clears the model ID condition even for empty results', async () => {
+  const p = props({ modelId: '00000003-0000-4000-8000-000000000001' });
+  render(<ModelsScreen {...p} />);
+  expect(screen.getByText('조건에 맞는 모델이 없습니다. 검색·필터를 변경해 주세요.')).toBeVisible();
+  await userEvent.setup().click(screen.getByRole('button', { name: '모델 ID 조건 해제' }));
+  expect(p.setState).toHaveBeenCalledWith({ modelId: undefined, page: undefined });
+});
+it('MEN-50 keeps invalid model input local instead of committing the URL', async () => {
+  const p = props(); render(<RequestsScreen {...p} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: '추가 필터' }));
+  await user.type(screen.getByLabelText('모델 ID'), 'A-100');
+  await user.tab();
+  expect(screen.getByLabelText('모델 ID')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByText('모델 ID는 UUID 형식이어야 합니다.')).toBeVisible();
+  expect(p.setState).not.toHaveBeenCalled();
 });

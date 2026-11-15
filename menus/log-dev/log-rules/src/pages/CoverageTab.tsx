@@ -19,8 +19,7 @@ function CoverageSelector({ modelId, softwareId, children }: { modelId: string |
 export function CoverageTab({ modelId, softwareId, onOpenRule }: { modelId: string | null; softwareId: string | null; onOpenRule: () => void }) {
   const { pageParam, setPage, linkTo } = usePlatform();
   const url = useTableUrlState([]);
-  const page = (url.urlState?.page ?? 1) - 1;
-  const query = useMenuQuery(coverageEndpoint, { modelId: modelId ?? '', softwareId, page, pageSize: 50 }, modelId !== null && !url.invalid);
+  const query = useMenuQuery(coverageEndpoint, { modelId: modelId ?? '', softwareId, page: 0, pageSize: 1 }, modelId !== null && !url.invalid);
   const summary = useMenuQuery(coverageSummaryEndpoint, { modelIds: modelId ? [modelId] : [] }, modelId !== null);
   const currentSummary = summary.response?.outcome === 'ok' ? summary.response.data?.rows.find(r => r.modelId === modelId) : undefined;
   return <div className="grid min-w-0 grid-cols-1 gap-3">
@@ -42,7 +41,8 @@ function ComputedCoverage({ onRefresh, onOpenRule, data, modelId, softwareId, ur
   const fetcher = useMenuFetch(coverageEndpoint);
   const [mismatch, setMismatch] = useState(false);
   const focus = pageParam('focus');
-  const row = data.rows.find(r => r.key === focus);
+  const [pageRows, setPageRows] = useState<RequirementRow[]>([]);
+  const row = pageRows.find(r => r.key === focus);
   const columns = useMemo<PlatformColumn<RequirementRow>[]>(() => [
     { id: 'key', header: '모듈/이벤트 키', sortable: false, size: 420, cell: r => <Button type="button" variant="link" size="sm" aria-label={`${r.key} 상세 보기`} onClick={() => setPage({ focus: r.key })}><Original>{r.key}</Original></Button> },
     { id: 'state', header: '상태', sortable: false, size: 140, cell: r => <CoverageBadge value={r.state} /> },
@@ -66,6 +66,7 @@ function ComputedCoverage({ onRefresh, onOpenRule, data, modelId, softwareId, ur
           return { ...response, outcome: 'error', data: null, message: '명세 커버리지 구성이 바뀌었습니다. 다시 조회해 주세요.' };
         }
         if (response.outcome !== 'ok' || !response.data?.computable) return { ...response, data: null };
+        if (!signal.aborted) setPageRows(response.data.rows);
         return { ...response, outcome: response.data.total === 0 ? 'empty' : 'ok', data: { rows: response.data.rows, total: response.data.total } };
       }} />
     {focus && (row ? <RequirementDrawer onOpenRule={onOpenRule} row={row} onClose={() => setPage({ focus: null })} /> : <MissingDrawer title="명세 요구사항을 찾을 수 없습니다" body="선택한 명세 또는 표 페이지에 없는 요구사항입니다." onClose={() => setPage({ focus: null })} />)}

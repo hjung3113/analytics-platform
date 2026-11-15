@@ -199,8 +199,8 @@ export function IssueDetailBody({ api, round, issue, actorId, canContribute, con
 }
 export function IssueDrawer({ api, ui, round, issueId, actorId, canContribute, controller, returnFocusRef, onClose, onOpenSource }: Pick<ScreenProps, 'api' | 'ui'> & { round: RoundDetail; issueId: string; actorId: string; canContribute: boolean; controller: DiscussionController; returnFocusRef: RefObject<HTMLElement | null>; onClose(): void; onOpenSource?: ((order: number, line: number) => void) | undefined }) {
   const detail = api.useRead<ValidationIssueDetail>('validationIssueDetail', { issueId, limit: ISSUE_LIMITS.pageDefault });
-  const title = detail.status === 'done' && detail.data ? detail.data.title : '검증 항목 상세';
-  return ui.drawer({ title, subtitle: `검증 항목 · Round ${round.seq}`, returnFocusRef, requestClose: onClose, body: <ReadView query={detail} empty="선택한 검증 항목을 찾을 수 없거나 읽을 수 없습니다.">{issue => <IssueDetailBody api={api} round={round} issue={issue} actorId={actorId} canContribute={canContribute} controller={controller} onOpenSource={onOpenSource} />}</ReadView> });
+  const title = detail.status === 'done' && detail.data?.projectId === round.projectId ? detail.data.title : '검증 항목 상세';
+  return ui.drawer({ title, subtitle: `검증 항목 · Round ${round.seq}`, returnFocusRef, requestClose: onClose, body: <ReadView query={detail} empty="선택한 검증 항목을 찾을 수 없거나 읽을 수 없습니다.">{issue => issue.projectId !== round.projectId ? <p role="alert" className="text-sm">이 개발 건에 속한 검증 항목이 아닙니다.</p> : <IssueDetailBody api={api} round={round} issue={issue} actorId={actorId} canContribute={canContribute} controller={controller} onOpenSource={onOpenSource} />}</ReadView> });
 }
 
 /** Registration without a rule: title and free description (optional expected/actual/repro). Saved → its thread opens. */

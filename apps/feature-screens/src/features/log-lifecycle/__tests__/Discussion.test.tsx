@@ -271,3 +271,13 @@ it('omits the link section without the link capability', async () => {
   await userEvent.setup().click(screen.getByRole('button', { name: 'SYN-R001 상세 열기' }));
   expect(within(screen.getByRole('dialog')).queryByText('검증 항목 연결')).toBeNull();
 });
+
+
+it('MEN-50 validates the issue project before displaying its body or composer', async () => {
+  const t = setup({ canContribute: true, reads: { validationIssueDetail: () => ({ ...detail, projectId: 'other-project' }) } });
+  await userEvent.setup().click(screen.getByRole('button', { name: '합성 관찰 항목' }));
+  expect(screen.getByText('이 개발 건에 속한 검증 항목이 아닙니다.')).toBeVisible();
+  expect(screen.queryByText('합성 설명 본문')).toBeNull();
+  expect(screen.queryByRole('form', { name: '항목 댓글' })).toBeNull();
+  expect(t.calls.some(c => c.name === 'validationIssueThread')).toBe(false);
+});

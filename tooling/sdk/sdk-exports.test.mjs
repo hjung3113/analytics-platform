@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-import { RELEASE_UNIT2_PACKAGES, SDK_PACKAGES, distTarget, releasePackages } from './sdk-exports.mjs';
+import { RELEASE_UNIT2_PACKAGES, distTarget, releasePackages } from './sdk-exports.mjs';
 
-test('SDK packages have one ordered shared list', () => {
-  assert.deepEqual(SDK_PACKAGES, ['contracts', 'kernel', 'ui', 'components', 'shell']);
+test('release packages cover SDK, adapters and app-host except the explicit unpublished packages', () => {
+  const repo = new URL('../../', import.meta.url).pathname;
+  const folders = ['packages/sdk', 'packages/adapters', 'packages/host'].flatMap(parent => readdirSync(join(repo, parent), { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && existsSync(join(repo, parent, entry.name, 'package.json')))
+    .map(entry => `${parent}/${entry.name}`));
+  const released = new Set(releasePackages().map(entry => entry.dir));
+  assert.deepEqual(folders.filter(dir => !released.has(dir)).sort(), ['packages/adapters/feature-bridge', 'packages/sdk/contract-schemas']);
+  for (const dir of released) assert.ok(folders.includes(dir), `${dir} exists`);
 });
 
 test('release unit 2 has its own ordered list with directories', () => {

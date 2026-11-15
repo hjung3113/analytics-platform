@@ -15,5 +15,5 @@ export default function RoundSourceBody({ roundId, sampleSet }: RoundSourceViewP
     id: roundId, title: 'Round 샘플', origin: 'round', roundId, status: 'open', version: '0', createdAt: '', updatedAt: '',
     sampleSet, sampleSetState: 'round', canInvestigate: false, handoff: { round: false, knowledgeDraft: false }, filters: {}, evidence: [],
   };
-  return <InvestigationScreen embedded picker={null} pageKeys={ROUND_SOURCE_PAGE_KEYS} frame={frame} investigation={investigation} />;
+  return <InvestigationScreen key={roundId} embedded picker={null} pageKeys={ROUND_SOURCE_PAGE_KEYS} frame={frame} investigation={investigation} />;
 }

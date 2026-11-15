@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
-import { renderFiles, type MenuInputs } from './templates.ts';
+import { renderFiles, type MenuInputs, type PageType } from './templates.ts';
 import { repoRoot } from './fixture.ts';
 
 /**
@@ -16,16 +16,16 @@ const ROOT = repoRoot();
 const VIRTUAL_DIR = join(ROOT, 'apps/platform-web/src/__gen-menu-typecheck__');
 
 /** One real platform group per space case, so no GroupId edit is needed. */
-const CASES: { space: string | null; group: string }[] = [
-  { space: 'mars', group: 'analytics' },
-  { space: 'bravo', group: 'metrics' },
-  { space: 'operations', group: 'admin' },
-  { space: null, group: 'noticeVoc' },
+const CASES: { space: string | null; group: string; pageType: PageType }[] = [
+  { space: 'mars', group: 'analytics', pageType: 'overview' },
+  { space: 'bravo', group: 'metrics', pageType: 'analysis' },
+  { space: 'operations', group: 'admin', pageType: 'management' },
+  { space: null, group: 'noticeVoc', pageType: 'catalog' },
 ];
 
-const inputsFor = ({ space, group }: { space: string | null; group: string }): MenuInputs => ({
+const inputsFor = ({ space, group, pageType }: (typeof CASES)[number]): MenuInputs => ({
   group, folder: 'gen-probe', space, menuId: 'gen-probe', page: 'GenProbe', path: '/gen-probe',
-  pageType: 'overview', labelKo: '생성 확인', labelEn: 'Gen probe', binding: group,
+  pageType, labelKo: '생성 확인', labelEn: 'Gen probe', binding: group,
 });
 
 type Case = (typeof CASES)[number];
