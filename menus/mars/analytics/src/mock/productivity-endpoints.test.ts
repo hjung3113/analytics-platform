@@ -99,6 +99,9 @@ describe('productivity-overview endpoint registration', () => {
   it('registers the analytics endpoint list without error', () => {
     expect(() => createMockAdapter({ endpoints: analyticsMock, registry })).not.toThrow();
     expect(analyticsMock.map((endpoint: AnyMockEndpoint) => endpoint.spec.id)).toEqual([
+      // #2339 removable prototype: synthetic option sources for the page-condition layer samples.
+      'analytics.productivity.conditionOptions',
+      'analytics.catalog.conditionOptions',
       'analytics.productivity.kpis',
       'analytics.productivity.trend',
       'analytics.productivity.breakdown',
