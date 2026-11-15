@@ -89,3 +89,46 @@ describe('FieldRow', () => {
     expect(container.querySelector('dt')).toHaveTextContent('소유 조직');
   });
 });
+
+describe('FieldRow inline layout (#2300)', () => {
+  it('FieldList layout="inline" makes one wrapping dl of dt/dd pairs', () => {
+    const { container } = render(
+      <FieldList layout="inline">
+        <FieldRow label="버전">v3</FieldRow>
+        <FieldRow label="담당">홍길동</FieldRow>
+      </FieldList>,
+    );
+    const dl = container.querySelector('dl')!;
+    expect(dl).toHaveClass('flex', 'flex-wrap');
+    const rows = Array.from(dl.children);
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toHaveClass('inline-flex');
+      expect(row.children[0]!.tagName).toBe('DT');
+      expect(row.children[0]).toHaveClass('text-xs', 'text-text-muted');
+      expect(row.children[1]!.tagName).toBe('DD');
+    }
+    expect(screen.getByText('버전').nextElementSibling).toHaveTextContent('v3');
+  });
+
+  it('a row layout overrides the list layout', () => {
+    const { container } = render(
+      <FieldList layout="inline"><FieldRow label="a" layout="detail">b</FieldRow></FieldList>,
+    );
+    expect(container.querySelector('dl > div')).toHaveClass('grid');
+  });
+
+  it('works alone outside a list with span label and value', () => {
+    const { container } = render(<FieldRow label="버전" layout="inline" mono>v3</FieldRow>);
+    const row = container.firstElementChild!;
+    expect(row).toHaveClass('inline-flex');
+    expect(row.children[0]!.tagName).toBe('SPAN');
+    expect(row.children[1]!.tagName).toBe('SPAN');
+    expect(row.children[1]).toHaveClass('t-mono');
+  });
+
+  it('a FieldList without layout keeps its className untouched', () => {
+    const { container } = render(<FieldList className="space-y-1"><FieldRow label="a">b</FieldRow></FieldList>);
+    expect(container.querySelector('dl')!.className).toBe('space-y-1');
+  });
+});

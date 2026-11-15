@@ -56,6 +56,8 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 
 `InfoTip`(`@ap/ui`, #2300): props `{ label: string; children: ReactNode; descriptionId?: string }`. 24px ⓘ 버튼(`<button type="button" aria-label={label}>`)이고, hover·포커스로 tooltip(`TooltipContent portal size="sm"`, 최대 18rem)이 열리며 Esc로 닫힌다. 같은 글은 늘 있는 `sr-only` 문단 하나에 두고 버튼이 `aria-describedby`로 가리킨다(`descriptionId`를 주면 그 id, 섹션도 같은 문단을 가리킬 수 있다). 정적 안내 문장에만 쓴다: 경고·부분 데이터·미완료 상태·권한 안내·상태 배지는 ⓘ로 숨기지 않고 보이는 글로 둔다(첫 화면 점검 원칙). 표 툴바 ⓘ(`ToolbarDescription`)는 이 조각에 기본 라벨 「설명」만 채운다.
 
+`FieldList layout="inline"`(#2300, 선택): 객체 메타를 한 줄로 둔다. `dl`이 `flex flex-wrap`이 되고 안의 `FieldRow`는 라벨(muted, `text-xs`)·값(`text-sm`) 가로 쌍이 되며 `dt`/`dd`는 그대로다. 넘치면 줄을 바꾸고 값을 자르지 않는다. 행의 `layout`이 목록 값보다 우선하고, `FieldRow layout="inline"`은 목록 밖에서도 `span` 쌍으로 쓴다. stepper·Gate·경고 같은 배지는 `dl` 밖 형제로 둔다. 값을 주지 않은 `FieldList`·`FieldRow`는 바뀌지 않는다.
+
 예:
 
 - Button
