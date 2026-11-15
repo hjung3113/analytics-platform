@@ -50,3 +50,18 @@ All commands run as one-off jobs from the migrate/tools image in the operator Co
 ## Why the migrate role
 
 The `platform_app` role holds UPDATE on `core.actors` and INSERT on `core.audit_log`, so the database would let the runtime change a role. The wall is operational: nothing in the running backend calls this code path, and the backend never receives `DATABASE_URL_MIGRATE`. Running it with the migrate URL keeps role changes an operator-only job. This is a convention, not a database grant.
+
+## Login blocked by an email conflict
+
+A login returning HTTP 401 `auth.email_conflict` means the IdP email is still held by another Actor, for example after address reuse or an IdP profile change. The warning records `conflictingActorId` (the old holder) plus `actorId` (the existing login Actor) or `externalId` (a new subject); it never logs the email. The update case therefore has two Actor ids.
+
+Verify the IdP identity and the old holder, then run this workspace-scoped correction as the migrate role (synthetic UUIDs):
+
+```sql
+UPDATE core.actors
+SET email = 'released+' || id::text || '@invalid'
+WHERE workspace_id = '11111111-1111-4111-8111-111111111111'::uuid
+  AND id = '22222222-2222-4222-8222-222222222222'::uuid;
+```
+
+`email` is NOT NULL, so use this unique placeholder for the OLD Actor, then retry login. The address is never moved automatically, on purpose: people must not be merged.

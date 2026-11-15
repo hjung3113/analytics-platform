@@ -8,6 +8,8 @@ import { z } from 'zod';
 export const ERROR_CODES = [
   // auth.* → 401
   'auth.session_invalid',
+  // #2040 SER-11: OIDC email held by another Actor; operator clears the old Actor's email
+  'auth.email_conflict',
   'auth.session_required',
   'auth.session_expired',
   // ADR-0116 (v0, provisional): Bearer API token missing/revoked/expired/unknown/inactive owner — one code, no distinction.

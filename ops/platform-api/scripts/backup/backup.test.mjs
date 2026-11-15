@@ -648,6 +648,7 @@ case "$*" in
   *"datname not in"*) echo 0; exit 0 ;;
   *"select count(*) from core.workspaces"*) echo 1; exit 0 ;;
   *"select count(*) from drizzle.__drizzle_migrations"*) echo 2; exit 0 ;;
+  *"select count(*) from core.api_tokens where revoked_at is null and (expires_at is null or expires_at > now())"*) echo 37; exit 0 ;;
   *"select count(*) from core.sessions"*) echo 0; exit 0 ;;
   *"string_agg(rolname"*) echo 'platform_app:true:true,platform_migrate:true:true'; exit 0 ;;
   *"like 'fops"*) echo 0; exit 0 ;;
@@ -723,6 +724,10 @@ describe('restore.sh image pair and cleanup (stub docker)', () => {
     const r = go();
     assert.equal(r.code, 0, r.err + r.log);
     assert.ok(r.calls.some(startsBackend));
+    const warning =
+      'WARNING: this restore brings back the state of 2026-01-01T00:00:00Z. 37 API token(s) are active in it. Before switching traffic, re-apply every API token revocation, capability grant/deny change and role change made after 2026-01-01T00:00:00Z (restore never revokes anything itself).';
+    assert.ok(r.err.includes(warning), r.err);
+    assert.ok(r.err.indexOf(warning) < r.err.indexOf('Switch traffic:'), r.err);
     assert.doesNotMatch(r.log, /run --rm --no-deps migrate|bootstrap/);
   });
   test('F1: images differing from the manifest are refused before anything starts', () => {
