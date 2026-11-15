@@ -44,12 +44,13 @@ export function savedStateOf(view: SavedView, support: SavedViewSupport, anchor:
   return { context, page: page.filter(([key]) => support.pageKeys.includes(key)) };
 }
 
+/** Saved fields as the Context keys the user reads in a notice or confirmation, each key once (`membershipBasis` reads as `condition`). */
+export const contextKeysOf = (fields: readonly (keyof SavedViewContext)[]): string[] => [...new Set(fields.map(field => KEY_OF[field]))];
+
 /** The Context keys (as the user reads them in the notice) a view saved in another Scope does not apply in this menu. Fields the menu does not support are listed by `unsupportedOf`, not here. */
 export function excludedByScope(view: SavedView, support: SavedViewSupport, scopeId: string | null): string[] {
   const fields = supportedFields(support);
-  const keys: string[] = [];
-  for (const field of siteBoundDropped(view, scopeId)) if (fields.has(field) && !keys.includes(KEY_OF[field])) keys.push(KEY_OF[field]);
-  return keys;
+  return contextKeysOf(siteBoundDropped(view, scopeId).filter(field => fields.has(field)));
 }
 
 /** What a view stores that this menu cannot restore (06 §6.4): derived from the saved copy, so it is the same right after a pick and after a reload. */

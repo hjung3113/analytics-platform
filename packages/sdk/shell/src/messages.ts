@@ -97,7 +97,7 @@ export const SHELL_MESSAGES = {
   savedViewSavedShared: { ko: '"{name}" 뷰를 저장하고 공유 대상을 정했습니다.', en: 'Saved "{name}" and set who can see it.' },
   savedViewMigrated: { ko: '"{name}" 뷰를 새 버전으로 갱신했습니다.', en: 'Updated "{name}" to the new version.' },
   savedViewPanelCount: { ko: '패널 {count}개 포함', en: '{count} panels included' },
-  savedViewExcludedKeys: { ko: '제외된 조건: {keys}', en: 'Left out: {keys}' },
+  savedViewExcludedKeys: { ko: '메뉴가 지원하지 않아 제외: {keys}', en: 'Not supported by this menu: {keys}' },
   savedViewScopeExcluded: { ko: '다른 Scope라 제외: {keys}', en: 'Left out (other Scope): {keys}' },
   savedViewScopeExcludedFull: { ko: '이 뷰는 {scope}에서 저장했습니다. 현재 Scope에서는 {keys} 값을 적용하지 않았습니다.', en: 'This view was saved in {scope}. Its {keys} values are not applied in the current Scope.' },
   savedViewScopeExcludedOther: { ko: '이 뷰는 현재와 다른 Scope에서 저장했습니다. 현재 Scope에서는 {keys} 값을 적용하지 않았습니다.', en: 'This view was saved in a different Scope. Its {keys} values are not applied in the current Scope.' },

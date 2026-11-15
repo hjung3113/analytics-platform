@@ -116,8 +116,8 @@ describe('SavedViewControl in the query tool row', () => {
     mount(createFakeViewStore([L1, other]), `/?scopeId=MEM&${period}`);
     await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
     await pick(user, '라인 뷰');
-    await waitFor(() => expect(screen.getByText(/제외된 조건: line/)).toBeTruthy());
-    expect(screen.getByText(/제외된 조건: line/).closest('button, input')).toBeNull();
+    await waitFor(() => expect(screen.getByText(/메뉴가 지원하지 않아 제외: Line/)).toBeTruthy());
+    expect(screen.getByText(/메뉴가 지원하지 않아 제외: Line/).closest('button, input')).toBeNull();
   });
 
   it('changes nothing when the store refuses the save, and reports it', async () => {
@@ -744,7 +744,7 @@ describe('a view saved in another Scope (#2175)', () => {
     // The test session lists no Scope, so the saved Scope is not named (no raw id of a Scope the viewer may not hold).
     expect(note.getAttribute('title')).toContain('현재와 다른 Scope에서 저장했습니다');
     expect(note.getAttribute('title')).not.toContain('MEM');
-    expect(screen.queryByText(/제외된 조건/)).toBeNull();
+    expect(screen.queryByText(/메뉴가 지원하지 않아/)).toBeNull();
     expect(platform.global.roomNames).toBeNull();
   });
 
@@ -764,5 +764,22 @@ describe('a view saved in another Scope (#2175)', () => {
     await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
     await user.click(await screen.findByRole('button', { name: '현재 Scope로 덮어쓰기' }));
     await waitFor(() => expect(store.rows.get('m1')).toMatchObject({ savedScopeId: 'FDRY', context: { roomNames: ['ETCH'] } }));
+  });
+
+  it('keeps the menu-unsupported reason and the Scope reason apart, both in Korean condition names, and names every dropped key in the confirmation', async () => {
+    const user = userEvent.setup();
+    const both = viewOf({ id: 'b1', name: '두 사유', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: null, savedScopeId: 'MEM', context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO'], lineNames: ['L1'], prcGroups: ['G1'], membershipBasis: 'asOf' } } as never);
+    mount(createFakeViewStore([both]), `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '두 사유');
+    const note = await screen.findByText(/다른 Scope라 제외: 공정/);
+    expect(note.textContent).toContain('메뉴가 지원하지 않아 제외: Line, PRC 그룹, 설비 그룹 조건');
+    expect(note.textContent).not.toMatch(/lineNames|prcGroups|membershipBasis/);
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog.textContent).toContain('공정, Line, PRC 그룹, 설비 그룹 조건');
+    expect(dialog.textContent).not.toMatch(/lineNames|prcGroups|membershipBasis/);
   });
 });

@@ -3,7 +3,7 @@ import { buildQuery, validateSavedView, type JsonValue, type Pair, type Result, 
 import { useHostPlatform } from '../platform/platform';
 import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
-import { comparableApplied, excludedByScope, overwritePatch, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
+import { comparableApplied, excludedByScope, contextKeysOf, overwritePatch, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
 
 /** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
 export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys a view saved in another Scope did not apply here (#2175). */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
@@ -160,7 +160,7 @@ export function useSavedViews(): SavedViews {
   const crossScopeSave = useMemo(() => {
     if (!selected || selected.view.savedScopeId === undefined || !savedInOtherScope(selected.view, currentScope)) return null;
     const stored = siteBoundDropped(selected.view, currentScope);
-    return stored.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys: [...new Set(stored)] as readonly string[] };
+    return stored.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys: contextKeysOf(stored) as readonly string[] };
   }, [selected, currentScope]);
 
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.

@@ -263,7 +263,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     report(await views.update(id, patch, { expectedVersion: item.view.version }), done);
   };
 
-  const excluded = views.unsupported.map(item => item.key);
+  // Context keys read as Korean condition names; a menu-declared page key has no shared label and stays as declared.
+  const excluded = views.unsupported.map(item => item.kind === 'context' ? keyText([item.key]) : item.key);
   const panelCount = (view: SavedView) => view.kind === 'menu-view' && Array.isArray(view.panels) ? view.panels.length : 0;
   const panels = selected ? panelCount(selected.view) : 0;
   const scoped = views.scopeExcluded;

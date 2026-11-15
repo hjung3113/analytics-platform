@@ -879,7 +879,7 @@ it('both save paths record the current Scope, and an overwrite across Scopes ask
   await waitFor(() => expect(host.global.scopeId).toBe('FDRY'));
   await waitFor(() => expect(views.status).toBe('ready'));
   await act(async () => { await views.select('m1'); });
-  expect(views.crossScopeSave).toEqual({ savedScopeId: 'MEM', keys: ['lineNames'] });
+  expect(views.crossScopeSave).toEqual({ savedScopeId: 'MEM', keys: ['line'] });
   act(() => host.setGlobal({ lineNames: ['L7'] }));
   await waitFor(() => expect(host.global.lineNames).toEqual(['L7']));
   await act(async () => { await views.saveToSelected(); });
