@@ -163,6 +163,15 @@ describe.skipIf(!runIntegration)('stored response current-access boundary (#2113
     expect({ status: allowed.statusCode, body: allowed.json() }).toEqual({ status: 200, body: stored });
     await denyCapability(db, WORKSPACE_ID, actor.id, c.capability, ms, admin);
     const denied = await send();
+    if (name === 'findings.patch' && c.capability === 'finding.read') {
+      // SER-18: a writer who can still manage but no longer read replays a metadata-only response, never the cached Finding.
+      expect(denied.statusCode).toBe(200);
+      expect(Object.keys(denied.json()).sort()).toEqual(['id', 'updated_at'].filter((key) => key in denied.json()).sort());
+      expect(JSON.stringify(denied.json())).not.toContain(name);
+      const kept = await db.pool.query('select response_body from core.idempotency_keys where actor_id=$1 and key=$2', [actor.id, key]);
+      expect(kept.rows).toEqual([{ response_body: stored }]);
+      return;
+    }
     expect(denied.json()).toMatchObject({ code: ['finding.manage'].includes(c.capability) && name.startsWith('tasks.') ? 'permission.denied' : c.capability === 'finding.read' && name.startsWith('findings.') ? 'permission.denied' : 'not_found.record' });
     expect([403, 404]).toContain(denied.statusCode);
     const receipts = await db.pool.query('select response_body from core.idempotency_keys where actor_id=$1 and key=$2', [actor.id, key]);
