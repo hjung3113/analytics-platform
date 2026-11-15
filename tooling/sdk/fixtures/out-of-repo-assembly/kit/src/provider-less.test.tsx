@@ -1,10 +1,14 @@
 // Provider-less chart consumption from the release tarballs (#1953): a consumer that has no platform at all (no PlatformProvider, no Registry, no
-// menu manifest) renders `LaneTimeline` inside `I18nProvider` alone, and its image actions stay off until the consumer opts in. The same spec, written
-// against the workspace source, is in packages/sdk/components (chartImageCopy.button.test.tsx); this one proves it for the packed, installed packages.
+// menu manifest) renders `LaneTimeline`, `AnalysisChart` and `AnalysisChartFrame` inside `I18nProvider` alone, and their export actions (CSV `내보내기`,
+// `이미지 복사`, `인쇄`) stay off until the consumer opts in with `exportActions`. The same specs, written against the workspace source, are in
+// packages/sdk/components (chartImageCopy.button.test.tsx and the provider-less chart tests); this one proves it for the packed, installed packages.
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { LaneTimeline } from '@ap/components';
+import { AnalysisChart, AnalysisChartFrame, LaneTimeline } from '@ap/components';
 import { I18nProvider } from '@ap/kernel';
+
+// The first AnalysisChart render loads the chart engine (ECharts) lazily, which took 20 s on a busy machine; later renders reuse it.
+vi.setConfig({ testTimeout: 60_000 });
 
 const lanes = [{ id: 'lane-1', label: 'Lane 1', segments: [{ id: 'seg-1', start: 0, end: 10 }, { id: 'seg-2', start: 12, end: 30 }] }];
 
@@ -35,4 +39,39 @@ it('the image actions stay off by default: imageCopy and imagePrint alone draw n
   expect(screen.getAllByLabelText('Provider-less timeline').length).toBeGreaterThan(0);
   expect(screen.queryByRole('button', { name: '이미지 복사' })).toBeNull();
   expect(screen.queryByRole('button', { name: '인쇄' })).toBeNull();
+});
+
+it('LaneTimeline: exportActions opens the image actions, and nothing else about the chart changes', () => {
+  render(<I18nProvider><LaneTimeline lanes={lanes} ariaLabel="Provider-less timeline" imageCopy imagePrint exportActions={{ exportAllowed: true }} /></I18nProvider>);
+  expect(screen.getByRole('button', { name: '이미지 복사' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '인쇄' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '확대' })).toBeTruthy();
+});
+
+const donut = { kind: 'donut' as const, slices: [{ id: 'a', label: 'A', value: 3 }, { id: 'b', label: 'B', value: 1 }] };
+const series = [{ id: 's1', name: 'S1', color: 'chart-blue' as const, points: [['2026-09-01T00:00:00', 1], ['2026-09-02T00:00:00', 2]] as [string, number][] }];
+const exportButtons = () => ['내보내기', '이미지 복사', '인쇄'].filter((name) => screen.queryByRole('button', { name }) !== null);
+
+it('AnalysisChart renders inside I18nProvider alone and opens no export action by default', () => {
+  render(<I18nProvider><AnalysisChart chartId="kit-donut" title="Provider-less donut" unit="ea" spec={donut} imageCopy imagePrint /></I18nProvider>);
+  expect(screen.getAllByText('Provider-less donut').length).toBeGreaterThan(0);
+  expect(exportButtons()).toEqual([]);
+});
+
+it('AnalysisChart: exportActions opens CSV and the image actions', () => {
+  render(<I18nProvider><AnalysisChart chartId="kit-donut" title="Provider-less donut" unit="ea" spec={donut} imageCopy imagePrint exportActions={{ exportAllowed: true }} /></I18nProvider>);
+  expect(exportButtons()).toEqual(['내보내기', '이미지 복사', '인쇄']);
+});
+
+it('AnalysisChartFrame renders inside I18nProvider alone and opens no export action by default', () => {
+  render(<I18nProvider><AnalysisChartFrame chartId="kit-frame" title="Provider-less frame" series={series} unit="ea" imageCopy imagePrint /></I18nProvider>);
+  expect(screen.getAllByText('Provider-less frame').length).toBeGreaterThan(0);
+  expect(exportButtons()).toEqual([]);
+});
+
+it('AnalysisChartFrame: exportActions opens the export actions, and Compare and Annotate stay out of a platform-less frame', () => {
+  render(<I18nProvider><AnalysisChartFrame chartId="kit-frame" title="Provider-less frame" series={series} unit="ea" imageCopy imagePrint exportActions={{ exportAllowed: true }} /></I18nProvider>);
+  expect(exportButtons()).toEqual(['내보내기', '이미지 복사', '인쇄']);
+  expect(screen.queryByRole('button', { name: '비교' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '주석' })).toBeNull();
 });

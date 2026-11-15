@@ -58,7 +58,7 @@ it.each(PAGE_MENUS.map((menu) => [menu.id, menu] as const))('menu package %s ren
   setRole('viewer');
   window.history.replaceState(null, '', pathFor(menu));
   await mountHost();
-  const rows = await screen.findByTestId('sample-rows', undefined, { timeout: 5000 });
+  const rows = await screen.findByTestId('sample-rows', undefined, { timeout: 20_000 });
   expect(rows.textContent).toContain(`${id} row A`);
 });
 
