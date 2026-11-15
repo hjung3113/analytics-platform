@@ -1,6 +1,6 @@
 // Per-issue SDK release notes; Node built-ins only, no build or Git required.
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,7 +80,7 @@ function main(args) {
   } else throw new Error('usage: pnpm sdk:changelog --check | --release X.Y.Z [--dry-run] | --self-test');
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try { main(process.argv.slice(2)); } catch (error) {
     console.error(`sdk:changelog FAILED: ${error.message}`);
     process.exitCode = 1;

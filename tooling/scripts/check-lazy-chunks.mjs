@@ -10,7 +10,7 @@
 //
 //   node tooling/scripts/check-lazy-chunks.mjs [distDir]     (default apps/platform-web/dist)
 //   node tooling/scripts/check-lazy-chunks.mjs --self-test
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,7 +165,7 @@ function selfTest() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const args = process.argv.slice(2);
   if (args.includes('--self-test')) process.exit(selfTest());
   const dist = args[0] ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'apps', 'platform-web', 'dist');

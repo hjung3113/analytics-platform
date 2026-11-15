@@ -11,6 +11,7 @@
 // The token comes from the environment only (never argv, never printed). The service token needs the scope
 // `validation.catalog.report` and its system Actor needs the grant of the same capability.
 
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const SYNTHETIC_SOURCE = '합성 fixture validator';
@@ -131,7 +132,7 @@ export async function run(argv, env = process.env, fetchImpl = fetch) {
   return res.ok ? 0 : 1;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   run(process.argv.slice(2)).then(
     (code) => process.exit(code),
     (error) => {

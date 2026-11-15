@@ -242,7 +242,7 @@ async function main(argv) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main(process.argv.slice(2)).catch((error) => {
     process.stderr.write(`sdk:consumer-negatives FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;

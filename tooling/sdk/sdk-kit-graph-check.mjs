@@ -70,7 +70,7 @@ export async function checkKitGraphs(givenRoot) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   checkKitGraphs(resolve(process.argv[2] ?? '.')).catch((error) => {
     process.stderr.write(`${error.stack ?? error}\n`);
     process.exitCode = 1;

@@ -15,7 +15,8 @@
 //   node pg-target.mjs canonical <ENV_VAR>        prints the canonical URL, exit 2 with a diagnosis otherwise
 //   node pg-target.mjs part <ENV_VAR> <host|port|user|db>   prints one effective part of the canonical URL
 
-import { pathToFileURL } from 'node:url';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 export const SSL_MODES = ['disable', 'require', 'verify-ca', 'verify-full'];
 const SSL_PARAMS = ['sslmode', 'sslrootcert', 'sslcert', 'sslkey'];
@@ -102,5 +103,5 @@ function cli(argv) {
   else fail('usage: pg-target.mjs canonical <ENV_VAR> | part <ENV_VAR> <host|port|user|db>');
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)))
   cli(process.argv.slice(2));

@@ -12,7 +12,7 @@
 // Containers run with --rm, a memory cap and the caller's uid; the temp folders are removed at the end.
 // The public CI runner is linux-x64, so CI covers linux-x64 only; another architecture runs the same steps on its own host.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -120,7 +120,7 @@ function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
     main();
   } catch (error) {
