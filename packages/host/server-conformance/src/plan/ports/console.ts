@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@ap/contracts';
+import type { ApiResponse, AuditTrailQuery, AccessDirectoryQuery } from '@ap/contracts';
 import type { ConformanceCheck, ServerConformanceHarness } from '../../types';
 import { CONSOLE_ACCESS, assessmentProblem, describeResponse, expectOutcome, missingEnvelopeKey, trustProblem } from '../../helpers';
 import { isAnswered } from '@ap/contracts';
@@ -173,5 +173,43 @@ export function planConsoleChecks(harness: ServerConformanceHarness): Conformanc
       return null;
     },
   });
+  // Existing 1-based console-port rules (adapter.ts), independent of domain data and row names.
+  const PAST_END_PAGE = 10_000;
+  for (const method of ['auditTrail', 'accessDirectory'] as const) {
+    const send = (query: AuditTrailQuery & AccessDirectoryQuery) => adapter[method](query);
+    checks.push({
+      id: `port · ${method} paging past the end preserves total`, uses: [method], mode: 'console',
+      run: async () => {
+        const first = await send({ page: 1, pageSize: 1 });
+        if (first.outcome === 'empty') return { skipped: `${method} has no rows to page` };
+        if (first.outcome !== 'ok' || first.data === null || first.data.total === 0) return { skipped: `${method} has no successful non-empty first page (${describeResponse(first)})` };
+        const last = await send({ page: Math.max(PAST_END_PAGE, first.data.total + 1), pageSize: 1 });
+        return last.outcome === 'ok' && last.data?.items.length === 0 && last.data.total === first.data.total
+          ? null : `past-end page must be ok with no items and total ${first.data.total}, got ${describeResponse(last)}`;
+      },
+    }, {
+      id: `port · ${method} paging rejects malformed requests`, uses: [method], mode: 'console',
+      run: async () => {
+        const invalid = [{ page: 0 }, { pageSize: 101 }, { unknown: true }];
+        if (method === 'accessDirectory') invalid.push({ sort: { field: 'unknown', desc: false } } as unknown as typeof invalid[number]);
+        for (const query of invalid) {
+          const result = await send(query as AuditTrailQuery & AccessDirectoryQuery);
+          if (result.outcome !== 'error' || result.data !== null) return `invalid query ${JSON.stringify(query)}: expected error with null data, got ${describeResponse(result)}`;
+        }
+        return null;
+      },
+    }, {
+      id: `port · ${method} paging has no duplicate rows`, uses: [method], mode: 'console',
+      run: async () => {
+        const first = await send({ page: 1, pageSize: 1 });
+        if (first.outcome === 'empty') return { skipped: `${method} has no rows to page` };
+        if (first.outcome !== 'ok' || first.data === null || first.data.total === 0) return { skipped: `${method} has no successful non-empty first page (${describeResponse(first)})` };
+        if (first.data.total < 2) return { skipped: `${method} needs at least two rows to compare pages` };
+        const second = await send({ page: 2, pageSize: 1 });
+        if (first.data.items.length !== 1 || second.outcome !== 'ok' || second.data?.items.length !== 1) return 'pageSize: 1 must return one row on each of the first two pages';
+        return first.data.items[0]!.id !== second.data.items[0]!.id ? null : 'the first two pages returned the same row id';
+      },
+    });
+  }
   return checks;
 }
