@@ -1200,6 +1200,18 @@ describe('PanelWorkspace: standalone, no PlatformProvider (#1953)', () => {
     expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
   });
 
+  it('flushes a change on unmount within the delay through the injected storage', async () => {
+    const app = appStorage();
+    const view = standalone({ persistence: { key: 'app:board', storage: app.storage } });
+    await screen.findAllByRole('tab');
+    await choose('집중');
+    expect(app.writes).toEqual([]);
+    view.unmount();
+    expect(app.writes.map(([key]) => key)).toEqual(['app:board']);
+    expect(JSON.parse(app.writes[0]![1])).toMatchObject({ preset: 'focus' });
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
   it('defaults the injected key to localStorage and survives a storage that throws', async () => {
     standalone({ persistence: { key: 'app:board' } });
     await screen.findAllByRole('tab');

@@ -25,9 +25,10 @@ export type { PanelWorkspaceLayout } from './workspaceState';
 export type { PanelWorkspaceStorage } from './workspaceStorage';
 
 /**
- * Where a workspace outside a `PlatformProvider` keeps its local preference (#1953). `key` is used as it is: the app names the user in it
- * when several people share a browser. `storage` defaults to `localStorage`; every access is guarded and a refusing storage leaves the
- * preference in memory.
+ * Where a workspace outside a `PlatformProvider` keeps its local preference (#1953). `key` is used as it is, without `persistKey`: two
+ * workspaces on one page need two keys, and the app names the user in it when several people share a browser. A new `key` remounts the
+ * workspace and reads that key; a new `storage` under the same key is used from the next write on (nothing is re-read or copied).
+ * `storage` defaults to `localStorage`; every access is guarded and a refusing storage leaves the preference in memory.
  */
 export type PanelWorkspacePersistence = { key: string; storage?: PanelWorkspaceStorage };
 
