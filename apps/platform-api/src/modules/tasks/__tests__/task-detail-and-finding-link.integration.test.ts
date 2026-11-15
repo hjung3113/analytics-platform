@@ -133,6 +133,12 @@ describe.skipIf(!runIntegration)('task-detail and finding link-task (#135)', () 
       [WORKSPACE_ID],
     );
     await migrateHandle.pool.query(
+      `delete from permission.permission_grants
+        where workspace_id = $1
+          and managed_system_id in (select id from core.managed_systems where workspace_id = $1 and slug like $2)`,
+      [WORKSPACE_ID, `${SLUG_PREFIX}%`],
+    );
+    await migrateHandle.pool.query(
       `delete from core.rate_limits
         where key like $1 || ':%'
            or key like '127.0.0.%'`,
@@ -451,6 +457,28 @@ describe.skipIf(!runIntegration)('task-detail and finding link-task (#135)', () 
 
     expect(res.statusCode).toBe(403);
     expect(res.json<{ code: string }>().code).toBe('permission.denied');
+  });
+
+  it('POST /findings/:id/link-task denies a User who only holds finding.manage (elevated role required) and changes nothing', async () => {
+    const msId = await insertMsDirectly(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX), 'Link Task Elevated MS');
+    const findingId = (await seedFinding(msId)).id;
+    const taskId = await seedTask(msId);
+    const user = await dbHandle.pool.query<{ id: string }>('select id from core.actors where workspace_id = $1 and external_id = $2', [WORKSPACE_ID, 'mock-user-1']);
+    const userId = user.rows[0]?.id;
+    if (!userId) throw new Error('missing synthetic user actor');
+    await grantCapability(dbHandle, WORKSPACE_ID, userId, 'finding.manage', msId, adminActorId);
+
+    const res = await linkFindingTask(userCookie, findingId, taskId);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json<{ code: string }>().code).toBe('permission.denied');
+    expect(res.body).not.toContain(findingId);
+    const linked = await dbHandle.pool.query<{ linked_task_id: string | null }>('select linked_task_id from finding.findings where id = $1', [findingId]);
+    expect(linked.rows[0]?.linked_task_id).toBeNull();
+    const links = await migrateHandle.pool.query<{ n: number }>("select count(*)::int as n from core.entity_links where workspace_id = $1 and source_type = 'finding' and source_id = $2", [WORKSPACE_ID, findingId]);
+    expect(links.rows[0]?.n).toBe(0);
+    const audit = await migrateHandle.pool.query<{ n: number }>("select count(*)::int as n from core.audit_log where workspace_id = $1 and event_type = 'finding_task_linked' and subject_id = $2", [WORKSPACE_ID, findingId]);
+    expect(audit.rows[0]?.n).toBe(0);
   });
 
   it('POST /findings/:id/link-task rejects already-linked findings and replays idempotently', async () => {
