@@ -98,3 +98,12 @@ describe('MEN-8 lifecycle menu assertions', () => {
     await waitFor(() => expect(document.body.textContent).toContain('SYNTHETIC FIXTURE · 이벤트 형식 해석 실패'));
   });
 });
+
+describe('F-1 list page ownership', () => {
+  it('the model screen supplies its single PlatformPage', async () => {
+    mount('models');
+    await waitFor(() => expect(document.querySelector('[aria-label="모델 목록"]')).toBeTruthy());
+    expect(document.querySelectorAll('[data-platform-page]')).toHaveLength(1);
+    expect(document.querySelectorAll('h1')).toHaveLength(1);
+  });
+});

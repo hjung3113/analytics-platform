@@ -1031,3 +1031,50 @@ describe('attempt diagnostics with the real Kernel host (#1815 B2)', () => {
   });
 
 });
+
+describe('F-1 lifecycle page head', () => {
+  it.each(['project', 'round', 'requests'])('renders one native page for %s', async route => {
+    mount('', 1, route);
+    await waitFor(() => expect(document.querySelectorAll('[data-platform-page]')).toHaveLength(1));
+    await waitFor(() => expect(document.querySelector('h1')?.textContent).toContain(route === 'requests' ? '검증 요청' : 'ETCH-300 · 개발 건'));
+  });
+  it('keeps blocked overflow reasons visible and returns form focus to more', async () => {
+    mount('', 1, 'project');
+    await waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('ETCH-300 · 개발 건'));
+    const more = element('header button[aria-haspopup="dialog"]');
+    act(() => { more.focus(); more.click(); });
+    await waitFor(() => expect(button('Round 열기').getAttribute('aria-disabled')).toBe('true'));
+    const blocked = button('Round 열기');
+    expect(document.getElementById(blocked.getAttribute('aria-describedby')!)?.textContent).toBe('이미 열린 Round가 있습니다.');
+    click(blocked);
+    expect(blocked.isConnected).toBe(true);
+    click(button('개발 건 수정'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"][aria-modal="false"]')).toBeTruthy());
+    click(button('닫기', element('[role="dialog"][aria-modal="false"]')));
+    await waitFor(() => expect(document.activeElement).toBe(more));
+  });
+  it('places counted filters in the table toolbar and restores focus on Escape', async () => {
+    mount('&priority=2', 1, 'requests', q => q.endpoint === 'logLifecycle.queueStatus' ? ok({ runWindow: { timezone: 'Asia/Seoul', weekday: { fromHour: 9, toHour: 18 }, weekendAllDay: true }, serverAt: AT, immediateLimit: 2, withinWindow: false }) : undefined);
+    await waitFor(() => expect(button('추가 필터 (1) ▾')).toBeTruthy());
+    const filters = button('추가 필터 (1) ▾');
+    expect(filters.closest('[data-table-page-controls]')).toBeTruthy();
+    expect(document.body.textContent).toContain('시간대 밖');
+    act(() => { filters.focus(); filters.click(); });
+    await waitFor(() => expect(document.getElementById('requests-model')).toBeTruthy());
+    act(() => document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    await waitFor(() => expect(document.activeElement).toBe(filters));
+  });
+  it('preserves a single page and arrival focus after the actor revision remount', async () => {
+    const host = mount('', 1, 'project');
+    await waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('ETCH-300 · 개발 건'));
+    // The initial load leaves focus alone: no heading ring or tooltip appears on entering the screen.
+    expect(document.activeElement).toBe(document.body);
+    host.switchSession();
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-platform-page]')).toHaveLength(1);
+      expect(document.activeElement).toBe(document.querySelector('h1'));
+    });
+    // The programmatic focus move alone never opens the heading tooltip.
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  });
+});

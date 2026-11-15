@@ -14,8 +14,8 @@ import { GatePanel } from '../GatePanel';
 const render = (node: ReactNode) => renderBase(<LifecycleHost navigate={vi.fn()}>{node}</LifecycleHost>);
 const ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const run = vi.fn().mockResolvedValue({ outcome: 'ok', data: {}, fieldErrors: [], version: '2' });
-function Table<T extends { id: string }>(p: TableParts<T>) { return <><table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}<td>{p.rowAction?.(r)}</td></tr>)}</tbody></table>{p.pagination}</>; }
-const ui: Presentation = { table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}<button type="button" onClick={p.requestClose}>상세 닫기</button></section>, timeline: () => <p>변경 이력이 없습니다.</p>, trust: reasons => <p>{reasons.join(' · ')}</p> };
+function Table<T extends { id: string }>(p: TableParts<T>) { return <>{p.pageControls}<table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}<td>{p.rowAction?.(r)}</td></tr>)}</tbody></table>{p.pagination}</>; }
+const ui: Presentation = { page: p => <>{p.primaryAction ? <button type="button" onClick={p.primaryAction.onSelect}>{p.primaryAction.label}</button> : null}{p.secondaryActions?.map(a => <button type="button" key={a.label} disabled={a.allowed === false} onClick={a.onSelect}>{a.label}</button>)}{p.children}</>, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}<button type="button" onClick={p.requestClose}>상세 닫기</button></section>, timeline: () => <p>변경 이력이 없습니다.</p>, trust: reasons => <p>{reasons.join(' · ')}</p> };
 function props(data: Record<string, unknown> = {}, state: Partial<ReadState<unknown>> = {}): ScreenProps {
   const api: LifecycleApi = { useRead: <T,>(name: string): ReadState<T> => ({ status: 'done', data: (data[name] ?? null) as T | null, retry: vi.fn(), ...state }) as ReadState<T>, useAction: () => ({ pending: false, run }) };
   return { api, ui, canProject: true, canRound: true, actorId: ID, setSelection: vi.fn() };
@@ -80,7 +80,7 @@ describe('model ID filter and IME Enter', () => {
   it.each(composingEnters)('a composition Enter does not apply the model ID (%s)', (_label, composingEnter) => {
     const setState = vi.fn();
     render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} state={{}} setState={setState} />);
-    fireEvent.click(screen.getByText('추가 필터'));
+    fireEvent.click(screen.getByText('추가 필터 (0) ▾'));
     const field = screen.getByLabelText('모델 ID');
     // Synthetic UUID: the field only applies a well-formed model ID (#2077 MEN).
     fireEvent.change(field, { target: { value: '00000000-0000-4000-8000-0000000000aa' } });
@@ -144,6 +144,21 @@ describe('mutation and recovery boundaries', () => {
     render(<Component {...props({}, { status: 'error', denied: false })} projectId={ID} />);
     expect(screen.getAllByText('데이터를 불러오지 못했습니다.').at(-1)).toBeVisible();
     expect(screen.getAllByRole('button', { name: '다시 시도' }).length).toBeGreaterThan(0);
+  });
+  it('keeps the request filter controls through a failed read', () => {
+    render(<RequestsScreen {...props({}, { status: 'error', denied: false })} />);
+    expect(screen.getByRole('button', { name: /추가 필터/ })).toBeVisible();
+    expect(screen.getAllByText('데이터를 불러오지 못했습니다.').length).toBeGreaterThan(0);
+  });
+  it('keeps one page owner while the project read behind a Round resolves', () => {
+    const pages = { ...ui, page: (p: Parameters<Presentation['page']>[0]) => <main><button type="button" data-owner="title">{String(p.title)}</button>{p.children}</main> };
+    const read = (status: 'loading' | 'done') => ({ ...props({ projectDetail: status === 'done' ? project : null, roundDetail: gate() }), ui: pages, api: { useRead: <T,>(name: string): ReadState<T> => ({ status: name === 'projectDetail' ? status : 'done', data: (name === 'projectDetail' ? (status === 'done' ? project : null) : name === 'roundDetail' ? gate() : null) as T | null, retry: vi.fn() }) as ReadState<T>, useAction: () => ({ pending: false, run }) } });
+    const view = renderBase(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...read('loading')} projectId={ID} roundId={ID} /></LifecycleHost>);
+    const heading = view.container.querySelector('[data-owner="title"]') as HTMLElement;
+    heading.focus();
+    view.rerender(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...read('done')} projectId={ID} roundId={ID} /></LifecycleHost>);
+    expect(view.container.querySelector('[data-owner="title"]')).toBe(heading);
+    expect(document.activeElement).toBe(heading);
   });
   it('explains an unreadable or missing project without inventing facts', () => {
     render(<ProjectScreen {...props()} projectId={ID} />);

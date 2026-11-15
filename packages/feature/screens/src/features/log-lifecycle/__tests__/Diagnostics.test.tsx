@@ -66,7 +66,7 @@ function required<T>(value: T | undefined): T { if (value === undefined) throw n
 function Table<T extends { id: string }>(p: TableParts<T>) {
   return <><table aria-label={p.title}><thead><tr>{p.columns.map(c => <th key={c.id}>{c.header}</th>)}</tr></thead><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.pagination}</>;
 }
-const ui: Presentation = { table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null, sourceView: () => <p>합성 원본</p> };
+const ui: Presentation = { page: p => p.children, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null, sourceView: () => <p>합성 원본</p> };
 function setup(options: { state?: Record<string, string>; list?: DiagnosticList; item?: DiagnosticItem | null; attempt?: Attempt | null; denied?: boolean } = {}) {
   const reads: { name: string; params: Record<string, unknown> }[] = [];
   const patches = vi.fn();

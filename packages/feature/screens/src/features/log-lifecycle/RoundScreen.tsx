@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { Button, Checkbox, Tabs, TabsContent, TabsList, TabsTrigger, ToggleGroup, ToggleGroupItem } from '@ap/ui';
-import { RESULT_ORDER, STATE_LABEL, type Attempt, type OpinionEvidence, type OpinionScale, type Page, type Project, type RequestRow, type RoundDetail, type RuleResult, type ScreenProps, type TableParts, type ValidationIssueRow } from './contracts';
+import { RESULT_ORDER, STATE_LABEL, type Attempt, type OpinionEvidence, type OpinionScale, type Page, type Project, type ReadState, type RequestRow, type RoundDetail, type RuleResult, type ScreenProps, type TableParts, type ValidationIssueRow } from './contracts';
 import { ISSUE_TOTAL_UNAVAILABLE, IssueDrawer, IssueLink, IssueRegister, IssueTablePage, RoundDiscussion, useDiscussionController, type DiscussionController } from './Discussion';
 import { OpinionCell, OpinionHistory, UnlinkedOpinions } from './Opinions';
 import { useGateController, GatePanel } from './GatePanel';
@@ -13,6 +13,7 @@ import { useRoundExecution } from './RoundExecution';
 import { RuleEvidence } from './EvidenceRows';
 import { Diagnostics } from './Diagnostics';
 import { diagnosticCopy } from './Diagnostics.messages';
+import { pageCopy } from './messages';
 
 function Excerpt({ api, ui, ruleResultId, evidenceIndex, onClose }: Pick<ScreenProps, 'api' | 'ui'> & { ruleResultId: string; evidenceIndex: number; onClose(): void }) {
   // Only mounted after the person's explicit read; every mount starts a fresh read with no prior answer. A deleted excerpt has no
@@ -65,8 +66,13 @@ function SelectedRuleDetail({ api, ui, round, attempt, item, returnFocusRef, onC
   return ui.drawer({ title: selectedRule ? `${selectedRule.ruleId} · 규칙 상세` : '규칙 상세', subtitle: `Round ${round.seq} · 시도 #${attempt.attemptNo}`, returnFocusRef, requestClose: onClose, body: <ReadView query={query}>{() => selectedRule ? <div className="grid min-w-0 gap-4 break-keep"><div className="flex flex-wrap items-center gap-2"><StateBadge value={selectedRule.result} /><span className="text-xs">{selectedRule.required ? '필수' : '선택'}</span></div><dl className="grid gap-2 text-sm"><dt className="font-semibold">기대</dt><dd className="whitespace-pre-wrap">{selectedRule.expected ?? '없음'}</dd><dt className="font-semibold">관측</dt><dd className="whitespace-pre-wrap">{selectedRule.observed ?? '없음'}</dd></dl><Button variant="link" size="toolbar" className="justify-self-start" onClick={() => onOpenDiagnostic(selectedRule.id)}>{diagnosticCopy.openDiagnostics}</Button><RuleEvidence api={api} rule={selectedRule} round={round} onOpenSource={onOpenSource} onExcerpt={index => onExcerpt(selectedRule.id, index)} /><Section title="의견">{selectedRule.opinion ? <OpinionCell itemKey={selectedRule.ruleId} opinion={selectedRule.opinion} onOpen={() => onOpinion(selectedRule.ruleId)} /> : <p className="text-xs text-text-secondary">의견 없음</p>}</Section>{link ? <IssueLink api={api} round={round} attemptId={attempt.id} rule={selectedRule} controller={link.controller} onOpenIssue={link.onOpenIssue} /> : null}</div> : searching ? <p role="status" className="text-sm">불러오는 중…</p> : <p role="alert" className="text-sm">선택한 규칙 결과를 찾을 수 없습니다. 목록에서 다시 선택해 주세요.</p>}</ReadView> });
 }
 export function RoundScreen(props: ScreenProps & { roundId: string; project: Project }) {
+  return <RoundFrame {...props} projectId={props.project.id} projectQuery={{ status: 'done', data: props.project, retry: () => undefined }} />;
+}
+/** One page owner for the whole project read, so arrival focus survives loading and error states. */
+export function RoundFrame(props: ScreenProps & { roundId: string; projectId: string; projectQuery: ReadState<Project> }) {
   const round = props.api.useRead<RoundDetail>('roundDetail', { roundId: props.roundId });
-  return <ReadView query={round}>{r => r.projectId !== props.project.id ? <p role="alert">이 개발 건에 속한 Round가 아닙니다.</p> : <RoundWorkbench {...props} round={r} completedAt={round.completedAt ?? null} />}</ReadView>;
+  const project = props.projectQuery.data;
+  return props.ui.page({ title: pageCopy.roundTitle(project?.model?.code ?? pageCopy.unknownModel, round.data?.seq), crumbs: [{ label: pageCopy.project, projectId: props.projectId }], layout: props.state?.view === 'diagnostics' ? 'fill' : 'flow', trust: { reasons: [], completedAt: round.completedAt }, children: <ReadView query={props.projectQuery}>{p => <ReadView query={round}>{r => r.projectId !== p.id ? <p role="alert">이 개발 건에 속한 Round가 아닙니다.</p> : <RoundWorkbench {...props} project={p} round={r} completedAt={round.completedAt ?? null} />}</ReadView>}</ReadView> });
 }
 function RoundWorkbench(props: ScreenProps & { round: RoundDetail; project: Project; completedAt: number | null }) {
   const { api, ui, round: r, project, canRound } = props;

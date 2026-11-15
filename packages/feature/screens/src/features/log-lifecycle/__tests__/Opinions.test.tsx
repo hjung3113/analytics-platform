@@ -21,7 +21,7 @@ const history: Opinion[] = [
   { id: 'older', itemKey: 'R-FAIL', ruleResultId: 'fail', grade: summary.grade, mark: summary.mark, at: '2026-11-06T00:00:00Z', author: { id: 'author1', displayName: '작성자 1' }, note: null, evidence: [], inputRevision: null, producer: null },
 ];
 function Table<T extends { id: string }>(p: TableParts<T>) { return <><table aria-label={p.title}><thead><tr>{p.columns.map(c => <th key={c.id}>{c.header}</th>)}</tr></thead><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.pagination}</>; }
-const ui: Presentation = { table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.subtitle}{p.body}<button type="button" onClick={p.requestClose}>닫기</button></section>, timeline: () => null, trust: () => null };
+const ui: Presentation = { page: p => p.children, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.subtitle}{p.body}<button type="button" onClick={p.requestClose}>닫기</button></section>, timeline: () => null, trust: () => null };
 function setup(options: { opinionCount?: number; undeclared?: boolean; grades?: { key: string; label: string }[]; ruleRows?: RuleResult[]; unlinkedRows?: Record<string, unknown>[]; scaleState?: 'loading' | 'error'; history?: Opinion[] } = {}) {
   const read = vi.fn((name: string, params: Record<string, unknown>, enabled = true): unknown => {
     if (!enabled) return null;
