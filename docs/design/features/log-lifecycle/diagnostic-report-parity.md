@@ -1,6 +1,6 @@
 # 검증 진단 리포트 보존 설계 (#1815)
 
-**Decided 구조 · backend As-built(A1·A2·B1), 화면(A3 summary 표시·B2)과 첨부(R4)는 미구현.** 공개 코드의 정적 대조와 구현 분할을 담는다. 사내 Validator의 실제 출력은 확인하지 않았고, 소유자 결정에 따라 플랫폼이 진단 구조를 정의하며 사내가 그 구조에 맞춘다(R1·R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)). 기존 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)·[ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)는 Decided로 유지한다. API 규칙은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815), 공통 근거 위치는 [기존 설계 §3](README.md#rule_result)가 소유한다.
+**Decided 구조 · backend As-built(A1·A2·B1), B2 진단 탭 구현, A3 summary 표시와 첨부(R4)는 미구현.** 공개 코드의 정적 대조와 구현 분할을 담는다. 사내 Validator의 실제 출력은 확인하지 않았고, 소유자 결정에 따라 플랫폼이 진단 구조를 정의하며 사내가 그 구조에 맞춘다(R1·R2, [ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md)). 기존 [ADR-0117](../../../adr/0117-validation-request-queue-claim-lease-heartbeat.md)·[ADR-0119](../../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md)는 Decided로 유지한다. API 규칙은 [log-lifecycle API](../../../architecture/platform-api/api/log-lifecycle.md#진단-읽기-투영-1815), 공통 근거 위치는 [기존 설계 §3](README.md#rule_result)가 소유한다.
 
 ## 1. Worker → 저장 → 읽기 → 화면 손실 매트릭스
 
@@ -63,10 +63,10 @@ Slice A는 풍부한 로컬 보고서 전체 parity를 약속하지 않는다. �
 | A4 parity 회귀 | P0 + A1/A2/A3 | 합성 DB/read/UI 검증. UI 사양은 A3 의존 |
 | B0 진단 계약 | **Decided** ([ADR-0159](../../../adr/0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md), API §시도 진단) | 문서만. #1807 공급자 선택과 동일시하지 않음 |
 | B1 버전 진단 쓰기/읽기 | B0 | **As-built backend 노드.** 마이그레이션(`attempt_diagnostic`·`attempt_diagnostic_item`, guard·삭제 함수 확장, `db:generate` 스냅샷), `domain/diagnostic-payload.ts`(파싱·상한·비밀 검사), `diagnostic-service.ts`, `repositories/diagnostic-write.ts`·`diagnostic-read.ts`, `worker-routes.ts`의 진단 경로, `request-endpoints.ts`의 `logLifecycle.diagnostics`·`diagnosticItem`, `excerpt-purge-job.ts`·`excerptDelete` 경로 확장, `@ap/contract-schemas` `validationDiagnostic*` 스키마, 메뉴 `log-validation-requests` 읽기 미러. RoundScreen 미접촉 |
-| B2 진단 표 상세 | B1 + A3 + `?variant=` 실제 앱 시안 + 소유자 질문 답 | 화면 노드. `RoundScreen.tsx`·상세 Drawer, #1809 뒤 stack |
+| B2 진단 표 상세 | B1 + 소유자 위임 결정 B(진단 탭), 조건 1–10·D1–D6 | **구현됨.** `RoundScreen.tsx`·`Diagnostics.tsx`와 메뉴 URL·보호 읽기. 표·근거·형태 상태는 탭 본문에서 읽으며 시도 행 바로가기는 없다. 브라우저 검증은 conductor가 수행한다 |
 | B3 첨부 참조 | Source 산출물 읽기 포트 + schemaVersion 2 | Deferred(backlog #1815 행) |
 
-**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1(summary 투영)은 backend As-built다. B1(진단 쓰기·읽기)은 화면 없이 구현했다. A3의 summary 표시와 B2(진단 표 상세)는 화면 노드라 `?variant=` 실제 앱 시안과 소유자 승인 뒤에 만든다(루트 AGENTS §UI 시험 A: 새 상세 영역).
+**A3 상태 · 부분 구현(A2 부분만).** 규칙 상세 Drawer의 «근거·원본 라인»이 `logLifecycle.evidenceStates`를 열 때마다 읽어 근거 행마다 발췌 축(`not_submitted`·`not_loaded`·`no_permission`·`unknown`)과 원본 축(`no_permission`·`hash_mismatch`·`not_checked`)을 따로 보인다. 발췌 보기는 `not_loaded`일 때만, 원본에서 보기는 `not_checked`일 때만 열린다. 근거 상태와 발췌 본문은 Drawer 인스턴스마다 따로 읽어, 다시 열면 이전 결과 없이 새로 읽는다(오프라인으로 다시 열어도 캐시된 본문·상태를 보이지 않고 연결 뒤 새 요청만 보인다). 상태 조회 뒤 삭제된 발췌도 원인을 단정하지 않고 «발췌 상태 알 수 없음»으로 보인다(R3). A1(summary 투영)은 backend As-built다. B1(진단 쓰기·읽기)과 B2(진단 표 상세)는 구현했다. B2는 소유자가 위임한 결정 B에 따라 결과·결함 옆 진단 탭이며, URL·보호 읽기·상태·근거·표를 제공한다. A3의 summary 표시는 아직 미구현이다.
 
 #1808은 [사람 등록/토론 설계](validation-issues-discussion.md)의 N1/N2 backend를 먼저 준비할 수 있지만 진단 연결 UI는 A3의 안정 참조를 따른다.
 

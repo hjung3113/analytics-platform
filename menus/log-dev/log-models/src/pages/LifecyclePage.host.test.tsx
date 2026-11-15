@@ -10,6 +10,9 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { groupId, spaceId, type ActionResponse, type ApiResponse, type MenuAction, type MenuQuery } from '@ap/contracts';
 import type { Model, Project, RequestDetail, RoundDetail, RuleResult } from '../endpoints';
 import { GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK, PROJECT_MANAGE, ROUND_MANAGE } from '../endpoints';
+
+// The real Kernel host renders the whole Round workbench per test (3–5 s under CI load); the 5 s default would end a test while its first lazy read is still pending.
+vi.setConfig({ testTimeout: 30_000 });
 import { manifests } from '../index';
 import { setRoundSourceView } from '../round-source-slot';
 import LifecyclePage from './LifecyclePage';
@@ -856,4 +859,145 @@ describe('human validation records with the real Kernel host (#1808 N3)', () => 
       expect(commentBox().value).toBe('');
     } finally { extraRead = null; }
   });
+});
+
+describe('attempt diagnostics with the real Kernel host (#1815 B2)', () => {
+  const row = { producer: 'synthetic-validator', itemKey: 'timing:segment:1', origin: 'rule', ruleResultId: rules[1]!.id, bodyState: 'live', title: '합성 진단', evidenceCount: 0, tableCount: 0, rowCounts: [] };
+  const diagnostics = { access: 'granted', documents: [{ producer: row.producer, producerVersion: '1', schemaVersion: 1, itemCount: 1, createdAt: AT }], rows: [row], total: 1 };
+  const diagnosticRead = (q: MenuQuery<Record<string, unknown>>) => q.endpoint === 'logLifecycle.diagnostics' ? ok(diagnostics) : q.endpoint === 'logLifecycle.diagnosticItem' ? ok({ item: { ...row, explanation: '합성 보호 진단 본문', evidenceRefs: [], tables: [] } }) : undefined;
+  it('reads only on the diagnostic tab, selects with one history push and round-trips from a rule in one patch', async () => {
+    const t = mount('', 1, 'round', diagnosticRead); await ready();
+    expect(t.queries.filter(q => q.endpoint.includes('diagnostic'))).toHaveLength(0);
+    click(element('button[aria-label="R-002 상세 열기"]'));
+    await waitFor(() => expect(text('이 규칙의 진단 보기')).toBe(true));
+    const before = t.history.mock.calls.length;
+    click(button('이 규칙의 진단 보기'));
+    await waitFor(() => expect(text('합성 진단')).toBe(true));
+    expect(t.history.mock.calls.length).toBe(before + 1);
+    expect(query().get('view')).toBe('diagnostics');
+    expect(query().get('diagnosticRule')).toBe(rules[1]!.id);
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnostics')).toHaveLength(1);
+    expect(t.queries.find(q => q.endpoint === 'logLifecycle.diagnostics')?.params.ruleResultId).toBe(rules[1]!.id);
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(0);
+    const beforeSelection = t.history.mock.calls.length;
+    click(button('합성 진단'));
+    await waitFor(() => expect(text('합성 보호 진단 본문')).toBe(true));
+    expect(t.history.mock.calls.length).toBe(beforeSelection + 1);
+    expect(query().get('diagnostic')).toBe('synthetic-validator:timing:segment:1');
+    expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(1);
+    expect(t.queries.find(q => q.endpoint === 'logLifecycle.diagnosticItem')?.params.itemKey).toBe('timing:segment:1');
+    click(button('R-002'));
+    await waitFor(() => expect(query().get('view')).toBe('verify'));
+    expect(query().get('rule')).toBe(rules[1]!.id);
+  });
+  it.each(['bad producer:item', 'producer:', ':item', `${'a'.repeat(65)}:item`, `producer:${'a'.repeat(201)}`, 'producer:item/unsafe'])('rejects invalid diagnostic identity %s before reads', async diagnostic => {
+    const t = mount(`&view=diagnostics&diagnostic=${encodeURIComponent(diagnostic)}`, 1, 'round', diagnosticRead);
+    await waitFor(() => expect(document.querySelector('[role="alert"]')).not.toBeNull());
+    expect(t.queries).toHaveLength(0);
+  });
+  it('rejects a malformed diagnosticRule before reads', async () => {
+    const t = mount('&view=diagnostics&diagnosticRule=invalid', 1, 'round', diagnosticRead);
+    await waitFor(() => expect(document.querySelector('[role="alert"]')).not.toBeNull());
+    expect(t.queries).toHaveLength(0);
+  });
+  it.each(['request', 'attempt', 'requestsPage'])('clears diagnostic selection and filter when %s changes', async key => {
+    mount(`&request=${ID}&attempt=${ID}&diagnostic=synthetic-validator:timing:segment:1&diagnosticRule=${rules[1]!.id}`, 26, 'round', diagnosticRead);
+    await ready();
+    activateRoundTab('설정·이력');
+    await waitFor(() => expect(document.querySelector('section[aria-label="Round 검증 요청"]')).not.toBeNull());
+    if (key === 'request') click(button(B.slice(0, 8), requestsRegion()));
+    else if (key === 'requestsPage') click(button('다음', requestsRegion()));
+    else {
+      await waitFor(() => expect(document.querySelector('section[aria-label="시도 이력"]')).not.toBeNull());
+      click(button('시도 1', element('section[aria-label="시도 이력"]')));
+    }
+    await waitFor(() => expect(query().get('diagnostic')).toBeNull());
+    expect(query().get('diagnosticRule')).toBeNull();
+  });
+  it('never re-shows protected titles or bodies after a same-session offline tab reopen', async () => {
+    let revoked = false;
+    const network = (online: boolean) => act(() => window.dispatchEvent(new Event(online ? 'online' : 'offline')));
+    try {
+      const t = mount('&view=diagnostics&diagnostic=synthetic-validator:timing:segment:1', 1, 'round', q => {
+        if (revoked && q.endpoint.startsWith('logLifecycle.diagnostic')) return ok(q.endpoint === 'logLifecycle.diagnostics' ? { ...diagnostics, access: 'no_permission', rows: [{ ...row, title: null }] } : null);
+        return diagnosticRead(q);
+      });
+      await waitFor(() => expect(text('합성 보호 진단 본문')).toBe(true));
+      activateRoundTab('결과·결함');
+      revoked = true; network(false);
+      const before = t.queries.filter(q => q.endpoint.startsWith('logLifecycle.diagnostic')).length;
+      activateRoundTab('진단');
+      await act(async () => { await settleQueries(); });
+      expect(document.body.textContent).not.toContain('합성 보호 진단 본문');
+      expect(document.body.textContent).not.toContain('합성 진단');
+      expect(t.queries.filter(q => q.endpoint.startsWith('logLifecycle.diagnostic'))).toHaveLength(before);
+      network(true);
+      await waitFor(() => expect(text('본문 열람 권한 없음')).toBe(true));
+      expect(document.body.textContent).not.toContain('합성 보호 진단 본문');
+    } finally { network(true); }
+  });
+  it('never replays cached diagnostic list pages offline and fetches fresh data on reconnect', async () => {
+    let revoked = false;
+    const network = (online: boolean) => act(() => window.dispatchEvent(new Event(online ? 'online' : 'offline')));
+    const listPageRow = (page: number, title: string | null) => ({ ...row, itemKey: `timing:segment:${page}`, title });
+    try {
+      const t = mount('&view=diagnostics', 1, 'round', q => {
+        if (q.endpoint !== 'logLifecycle.diagnostics') return undefined;
+        const page = Number((q.params as { page?: number }).page ?? 0);
+        if (revoked) return ok({ ...diagnostics, access: 'no_permission', total: 30, rows: [listPageRow(page, null)] });
+        return ok({ ...diagnostics, total: 30, rows: [listPageRow(page, `합성 목록 ${page}페이지`)] });
+      });
+      await waitFor(() => expect(text('합성 목록 0페이지')).toBe(true));
+      const listSection = () => element('section[aria-label="진단 목록"]');
+      click(button('다음', listSection()));
+      await waitFor(() => expect(text('합성 목록 1페이지')).toBe(true));
+      revoked = true; network(false);
+      const before = t.queries.filter(q => q.endpoint === 'logLifecycle.diagnostics').length;
+      click(button('이전', listSection()));
+      await act(async () => { await settleQueries(); });
+      expect(document.body.textContent).not.toContain('합성 목록 0페이지');
+      expect(document.body.textContent).not.toContain('합성 목록 1페이지');
+      expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnostics')).toHaveLength(before);
+      network(true);
+      await waitFor(() => expect(text('본문 열람 권한 없음')).toBe(true));
+      expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnostics')).toHaveLength(before + 1);
+      expect(document.body.textContent).not.toContain('합성 목록 0페이지');
+      expect(document.body.textContent).not.toContain('합성 목록 1페이지');
+    } finally { network(true); }
+  });
+  it('never replays cached table pages offline when returning to all tables and fetches fresh data on reconnect', async () => {
+    let revoked = false;
+    const network = (online: boolean) => act(() => window.dispatchEvent(new Event(online ? 'online' : 'offline')));
+    const denied = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' } as ApiResponse<never>;
+    const tableBase = { tableKey: 'timing', title: '합성 이벤트 간격', columns: [{ key: 'event', label: '보호 열 라벨', type: 'string' as const }], totalRows: 101 };
+    try {
+      const t = mount('&view=diagnostics&diagnostic=synthetic-validator:timing:segment:1', 1, 'round', q => {
+        if (q.endpoint === 'logLifecycle.diagnostics') return ok(diagnostics);
+        if (q.endpoint !== 'logLifecycle.diagnosticItem') return undefined;
+        if (revoked) return denied;
+        const p = q.params as { tableKey?: string; rowOffset?: number };
+        const rowOffset = p.tableKey === 'timing' ? Number(p.rowOffset ?? 0) : 0;
+        const cell = rowOffset === 100 ? '합성 표 2페이지 셀' : '합성 표 1페이지 셀';
+        return ok({ item: { ...row, title: '합성 보호 항목 제목', explanation: '합성 보호 항목 설명', evidenceRefs: [], tables: [{ ...tableBase, rowOffset, rows: [{ event: cell }] }] } });
+      });
+      await waitFor(() => expect(text('합성 표 1페이지 셀')).toBe(true));
+      click(button('다음', element('section[aria-label="합성 이벤트 간격"]')));
+      await waitFor(() => expect(text('합성 표 2페이지 셀')).toBe(true));
+      revoked = true; network(false);
+      const before = t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem').length;
+      click(button('전체 표 보기'));
+      await act(async () => { await settleQueries(); });
+      for (const leaked of ['합성 보호 항목 제목', '합성 보호 항목 설명', '보호 열 라벨', '합성 표 1페이지 셀', '합성 표 2페이지 셀']) {
+        expect(document.body.textContent).not.toContain(leaked);
+      }
+      expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(before);
+      network(true);
+      await waitFor(() => expect(text('본문 열람 권한 없음')).toBe(true));
+      expect(t.queries.filter(q => q.endpoint === 'logLifecycle.diagnosticItem')).toHaveLength(before + 1);
+      for (const leaked of ['합성 보호 항목 제목', '합성 보호 항목 설명', '보호 열 라벨', '합성 표 1페이지 셀', '합성 표 2페이지 셀']) {
+        expect(document.body.textContent).not.toContain(leaked);
+      }
+    } finally { network(true); }
+  });
+
 });

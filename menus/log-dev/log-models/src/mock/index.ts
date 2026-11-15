@@ -1,9 +1,10 @@
 import { type ColumnFilter, type FieldError, type PageSort } from '@ap/contracts';
 import { defineMockAction, defineMockEndpoint, MockActionInvalid, type AnyMockAction, type AnyMockEndpoint } from '@ap/mock-server';
-import { actions, endpoints, isUuid, type Project, type RoundDetail } from '../endpoints';
+import { actions, endpoints, isUuid, isDiagnosticProducer, isDiagnosticItemKey, type Project, type RoundDetail } from '../endpoints';
 import { ATTEMPT_ID, OPINION_ATTEMPT_ID, events, excerptReaders, excerpts, models, projects, requests, rounds, rules, resetLifecycle as resetFixtures } from './fixtures';
 import { ISSUE_ACTIONS, ISSUE_READS, handleIssueAction, readIssues, resetIssues, validateIssueAction, validateIssueRead } from './issues';
 import { opinionScale, opinionRules, unlinkedOpinions, opinionHistory } from './opinions';
+import { readDiagnostics } from './diagnostics';
 import { readHierarchy, validateHierarchy } from './hierarchy';
 export { PROJECT_ID, ROUND_ID, REQUEST_ID, ATTEMPT_ID, fixtureId, stageLifecycleFixture } from './fixtures';
 export { stageValidationIssue } from './issues';
@@ -43,6 +44,7 @@ function sourceTarget(ruleResultId: unknown) {
   return rule && round ? { rule, round } : null;
 }
 function read(name: string, p: Params, actor: string): unknown {
+  if (name === 'diagnostics' || name === 'diagnosticItem') return readDiagnostics(name, p, actor);
   if (name === 'hierarchy') return readHierarchy(p, actor);
   if (ISSUE_READS.has(name)) return readIssues(name, p, actor, rounds);
   if (name === 'queueStatus') return { runWindow: { timezone: 'Asia/Seoul', weekday: { fromHour: 22, toHour: 6 }, weekendAllDay: true }, immediateLimit: 5, serverAt: '2026-11-07T00:30:00Z', withinWindow: true };
@@ -118,6 +120,8 @@ function read(name: string, p: Params, actor: string): unknown {
 export const logLifecycleMock: readonly AnyMockEndpoint[] = Object.entries(endpoints).map(([name, spec]) => defineMockEndpoint(spec, { mart: false, validate: ({ params }) => {
   if (name === 'hierarchy') return validateHierarchy(params);
   if (ISSUE_READS.has(name)) return validateIssueRead(name, params, isUuid);
+  if (name === 'diagnostics' && params.ruleResultId !== undefined && (typeof params.ruleResultId !== 'string' || !isUuid(params.ruleResultId))) return 'ruleResultId must be UUID';
+  if (name === 'diagnosticItem' && (typeof params.producer !== 'string' || !isDiagnosticProducer(params.producer) || typeof params.itemKey !== 'string' || !isDiagnosticItemKey(params.itemKey))) return 'Invalid diagnostic identity';
   const idKey = { projectDetail: 'projectId', projectEvents: 'projectId', rounds: 'projectId', roundDetail: 'roundId', roundEvidence: 'roundId', requestDetail: 'requestId', ruleResults: 'attemptId', opinions: 'attemptId', diagnostics: 'attemptId', diagnosticItem: 'attemptId', excerpt: 'ruleResultId', evidenceStates: 'ruleResultId' }[name];
   return idKey && (typeof params[idKey] !== 'string' || !isUuid(params[idKey] as string)) ? `${idKey} must be UUID` : null;
 }, handle: ({ params, actor }) => read(name, params, actor) }));
