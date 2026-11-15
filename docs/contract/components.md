@@ -311,6 +311,8 @@ The static header uses the same tokens as `PlatformDataTable`: `t-table-header`,
   There is no separate result band.
   Tables with a visible title or quick search retain two bands.
   Workspace panels retain their current two bands and visible ⓘ (`useInWorkspacePanel` still hides their `h2`).
+  **Page controls slot (#2299)** — `PlatformDataTable.pageControls?: ReactNode` places screen keys that lie outside the table filter model (a view switch, a range) in the toolbar line: after the quick search in two bands, before the filter line in the merged band (the band still merges; its width fit subtracts the measured controls before reserving the filter basis). No width cap; the controls wrap.
+  Boundary: column conditions belong in `filterFields` ([ADR-0105](../adr/0105-one-table-filter-model.md)); `pageControls` carries only page-owned keys, which the page reads and writes itself, so moving them there keeps link state. Without the prop the markup is unchanged.
   **Quick search slot** — `PlatformDataTable.search?: ReactNode` (chosen over a declared config because the page already owns the field, its page key and its IME handling; the table only places it, max 20rem wide, shrinkable).
   `ManagementLayout` carries no search: the page puts its field on this prop.
   그 조각으로 `TableQuickSearch`(`src/table/TableQuickSearch.tsx`, #1232)이 있다: 메뉴가 자기 page key(`pageKey`, 예: `q`)와 `label`(접근 이름이자 기본 placeholder; 선택 `placeholder`·`resetKeys`, `resetKeys` 기본 `['page']`)을 주면 적용값을 `pageParam(pageKey)`로 읽고 `setPage` 한 번으로 쓴다(빈 문자열은 `null`로, `resetKeys`도 함께 지운다).

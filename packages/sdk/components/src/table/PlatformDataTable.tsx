@@ -145,6 +145,12 @@ type TableBaseProps<T> = {
    * query — the page does (`<Input inputSize="toolbar" …/>` bound to its page key); the slot only places it.
    */
   search?: ReactNode;
+  /**
+   * Page controls slot (06 §15, #2299): screen keys outside the table filter model (a view switch, a range) placed in the toolbar line —
+   * after the quick search in two bands, before the filter line in the merged band. Column conditions stay in `filterFields` (ADR-0105).
+   * No width cap; the controls wrap. Does not change when the band merges. Default: none.
+   */
+  pageControls?: ReactNode;
   rowAction?: (row: T, context: { compact: boolean }) => ReactNode;
   /** Bulk actions for an explicit id selection. Hidden while a `selectAllResults` selection covers the whole result — use `bulkSelectionActions` for that. */
   bulkActions?: (selectedIds: string[]) => ReactNode;
@@ -271,6 +277,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const statusLine = useElementSize();
   const toolbar = useElementSize();
   const toolbarControls = useElementSize(mergeToolbar);
+  const pageControls = useElementSize(mergeToolbar && !!p.pageControls);
   // P10 measures the whole toolbar content box, including the merged filter/result band; thresholds and order stay unchanged.
   const overflow = collapsedControls(toolbar.width);
   const openColumnsAfterMenu = useRef(false);
@@ -307,7 +314,11 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // Merged fit must not depend on the shown summary's intrinsic width: measure the whole band and the controls separately.
   // Reserve the existing 320px filter basis when count + description fit beside it; otherwise the right-hand group wraps.
   const descriptionWidth = p.subtitle ? 24 + STATUS_GAP : 0;
-  const mergedWidth = toolbar.width === null || toolbarControls.width === null ? null : toolbar.width - toolbarControls.width - STATUS_GAP;
+  // Page controls share the left of the merged band with the filters: their measured width leaves the band before the filter basis is reserved.
+  const pageControlsWidth = !p.pageControls ? 0 : pageControls.width === null ? null : pageControls.width + STATUS_GAP;
+  const mergedWidth = toolbar.width === null || toolbarControls.width === null || pageControlsWidth === null ? null : toolbar.width - toolbarControls.width - STATUS_GAP - pageControlsWidth;
+  // The merged band's left group (page controls + filters) reserves the filter basis beside the controls.
+  const leftBasis = mergeToolbar && filterFields.length > 0 && p.pageControls && pageControlsWidth !== null ? { '--ap-table-left-basis': `${FILTER_BASIS + pageControlsWidth}px` } as CSSProperties : undefined;
   const mergedShared = mergedWidth === null ? null : mergedWidth - FILTER_BASIS - STATUS_GAP;
   const mergedRoom = filterFields.length > 0 && mergedShared !== null && mergedShared >= (countSpan.width ?? 0) + descriptionWidth ? mergedShared : mergedWidth;
   // With separate filters the right-hand blocks get what the filter block (basis 320) leaves; when even the count does not fit beside it, the row wraps and they have the whole line.
@@ -737,10 +748,12 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
     {/* R2: hideTitle without search merges filters (left) and description/results + controls (right). Titled tables and workspace panels retain two bands. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
-      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && (filterFields.length > 0 ? 'basis-80' : 'sr-only'))}>
+      <div className={cn('flex min-w-0 flex-1 items-center gap-2', mergeToolbar && (filterFields.length > 0 ? (leftBasis ? 'basis-(--ap-table-left-basis)' : 'basis-80') : !p.pageControls && 'sr-only'))}
+        style={leftBasis}>
         <ToolbarTitle title={p.title} subtitle={mergeToolbar ? undefined : p.subtitle} srOnly={inPanel || !!p.hideTitle} lang={lang} descriptionId={descriptionId} />
-        {mergeToolbar && filterLine}
         {p.search && <div data-table-search className="min-w-0 max-w-xs flex-1">{p.search}</div>}
+        {p.pageControls && <div ref={pageControls.ref} data-table-page-controls className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{p.pageControls}</div>}
+        {mergeToolbar && filterLine}
       </div>
       <div className={cn('flex items-center gap-2', mergeToolbar ? 'ml-auto min-w-0 max-w-full flex-wrap justify-end' : 'shrink-0')}>
         {mergeToolbar && resultLine}
