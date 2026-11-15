@@ -102,3 +102,34 @@ it('deduplicates status legend entries by tone and label, independently of per-p
   expect(legend).toHaveTextContent('▲');
   expect(legend).toHaveTextContent('▼');
 });
+
+
+it.each([false, true])('keeps startAlign spacers out of status legends, tables and CSV, minMax=%s', async minMax => {
+  const pointStatus = vi.fn((_point: { seriesId: string }) => status);
+  const view = mount({ stacked: true, startAlign: true, rowGroups, pointStatus, minMax });
+  await screen.findByRole('img');
+  const plotted = plot.option as { series: { id: string; data: unknown[]; itemStyle?: { color: string } }[] };
+  expect(plotted.series.find(s => s.id === '__rowGroups')).toBeDefined();
+  const spacer = plotted.series.find(s => s.id === '__spacer-1')!;
+  expect(spacer.itemStyle?.color).toBe('transparent');
+  expect(spacer.data.every(value => typeof value === 'number')).toBe(true);
+  expect(pointStatus.mock.calls.every(([point]) => ['a', 'b'].includes(point.seriesId))).toBe(true);
+  const legend = screen.getByRole('group', { name: '범례' });
+  expect(within(legend).getAllByText('상한 초과')).toHaveLength(1);
+  expect(legend).not.toHaveTextContent('__spacer');
+  const table = await showTable();
+  expect(within(table).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['설비', '구간', 'M1', 'M2', '상태']);
+  const laneRows = within(table).getAllByRole('row').map(row => row.textContent);
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  const laneCsv = vi.mocked(downloadChartCsv).mock.calls.at(-1)!;
+  expect(laneCsv[1]).toEqual(['설비', 'x', 'M1', 'M2', '상태', '사유']);
+  expect(laneCsv[2]).toEqual([
+    ['EQ1', 'PM1', 3, 1, 'M1: 상한 초과\nM2: 상한 초과', 'M1: Recipe 미구분\nM2: Recipe 미구분'],
+    ['EQ1', 'PM2', 5, 2, 'M1: 상한 초과\nM2: 상한 초과', 'M1: Recipe 미구분\nM2: Recipe 미구분'],
+    ['EQ2', 'PM1', '', 4, 'M2: 상한 초과', 'M2: Recipe 미구분'],
+  ]);
+  view.update({ startAlign: false });
+  expect(within(screen.getByRole('table')).getAllByRole('row').map(row => row.textContent)).toEqual(laneRows);
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  expect(vi.mocked(downloadChartCsv).mock.calls.at(-1)!.slice(1)).toEqual(laneCsv.slice(1));
+});

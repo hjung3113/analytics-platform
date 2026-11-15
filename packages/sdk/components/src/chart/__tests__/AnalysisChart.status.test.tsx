@@ -49,3 +49,26 @@ describe('heatmap cell statuses (#2326)', () => {
     expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), ['x', 'y', '값 (s)'], [['PM1', 'EQ1', 15], ['PM2', 'EQ1', '미확인']]);
   });
 });
+
+it.each([
+  ['warning', 15, 'chart-status-warn'], ['neutral', null, 'chart-no-data'], ['danger', 25, 'chart-status-critical'],
+] as const)('draws an opaque contrasting %s outline without altering the heatmap fill', async (tone, value, fill) => {
+  mount({ ...heat, cells: [{ x: 'PM1', y: 'EQ1', value, status: { tone, label: 'Status' } }] });
+  await screen.findByRole('img');
+  const series = plot.option.series as { id?: string; itemStyle?: { opacity?: number; borderColor?: string; borderWidth?: number }; data: Datum[] }[];
+  expect(series[0].data[0].itemStyle.color).toBe(readColorToken(fill));
+  expect(series[0].itemStyle?.opacity).toBeUndefined(); // value scatter keeps its actual 0.8 default
+  const outline = series.find(s => s.id === '__statusOutline')!;
+  expect(outline).toBeDefined();
+  expect(outline.itemStyle?.opacity).toBe(1);
+  const rgb = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+  const surface = readColorToken('surface-card');
+  const effective = `rgb(${rgb(readColorToken(fill)).map((v, n) => v * 0.8 + rgb(surface)[n] * 0.2).join(',')})`;
+  const luminance = (color: string) => rgb(color).map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }).reduce((sum, v, n) => sum + v * [0.2126, 0.7152, 0.0722][n], 0);
+  const ratio = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+  const stroke = outline.data[0].itemStyle.borderColor;
+  const backing = series.find(s => s.id === '__statusBacking');
+  const background = backing?.data[0].itemStyle.borderColor ?? effective;
+  expect(ratio(stroke, background)).toBeGreaterThanOrEqual(3);
+  if (backing) expect(ratio(background, effective)).toBeGreaterThanOrEqual(3);
+});

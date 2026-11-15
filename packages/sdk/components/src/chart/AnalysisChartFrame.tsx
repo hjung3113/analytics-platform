@@ -122,7 +122,6 @@ export type ChartPointAction = { id: string; label: string; onSelect: (point: Ch
   /** The action may change page keys but does not move the user: when the menu closes, focus returns to `지점 동작` even though the URL changed (06 §16). */
   keepsFocus?: boolean };
 type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void } } };
-const pointKey = (point: ChartPoint) => JSON.stringify([point.seriesId, point.x]);
 
 export type AnalysisChartFrameProps = {
   /** Horizontal category charts only; ignored elsewhere with one dev warning. Read-only group spans, no hierarchy or group values. */
@@ -428,7 +427,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const extremes = useMemo(() => (horizontal && p.minMax ? seriesExtremes(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
   const equalIds = useMemo(() => (horizontal && p.minMax ? equalSeriesIds(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
   const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value })).filter(point => isPointSelectable?.(point) ?? true)) : [], [pointControls, displayed, isPointSelectable]);
-  const selectedPoint = points.find(point => pointKey(point) === selectedPointKey) ?? points[0];
+  const selectedPoint = points.find(point => chartPointKey(point) === selectedPointKey) ?? points[0];
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
@@ -476,7 +475,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     appliedActive.current = activeCategory;
     if (selectedPoint?.x === activeCategory) return;
     const target = inRow.find(point => point.seriesId === selectedPoint?.seriesId) ?? inRow[0]!;
-    setSelectedPointKey(pointKey(target));
+    setSelectedPointKey(chartPointKey(target));
   }, [activeCategory, points, selectedPoint, setSelectedPointKey]);
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
@@ -638,7 +637,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       if (brushMode) return;
       const point = eventPoint(params);
       if (!point) return;
-      if (pointControls) setSelectedPointKey(pointKey(point));
+      if (pointControls) setSelectedPointKey(chartPointKey(point));
       // Row focus first, then activation: a click focuses the row and (on: 'click') also activates the point.
       if (horizontal && onActiveCategoryChange) {
         setPointerRequest(point.x);
@@ -656,12 +655,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       const activation = p.pointActivation;
       if (brushMode || activation?.on !== 'dblclick') return;
       const point = eventPoint(params);
-      if (point) { setSelectedPointKey(pointKey(point)); activation.onActivate(point); }
+      if (point) { setSelectedPointKey(chartPointKey(point)); activation.onActivate(point); }
     },
     contextmenu: (params: PointEvent) => {
       if (brushMode || !hasPointActions) return;
       const point = eventPoint(params);
-      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(pointKey(point)); if (actionsFor(point).length > 0) openPointMenu(pointChart.current); }
+      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(chartPointKey(point)); if (actionsFor(point).length > 0) openPointMenu(pointChart.current); }
     },
   }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, p.onPointClick, p.pointActivation, hasPointActions, actionsFor, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
 
@@ -675,7 +674,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   /** ` · 최소` / ` · 최대` after a point that is its series' minimum or maximum, for the keyboard picker (colour is never the only cue). */
   function extremeText(point: ChartPoint) {
     const e = extremes?.get(point.seriesId);
-    if (equalIds?.has(point.seriesId) && selectedPoint && pointKey(point) === pointKey(selectedPoint)) return ` · ${allEqualText}`;
+    if (equalIds?.has(point.seriesId) && selectedPoint && chartPointKey(point) === chartPointKey(selectedPoint)) return ` · ${allEqualText}`;
     return e?.min.x === point.x ? ` · ${m('chartMin')}` : e?.max.x === point.x ? ` · ${m('chartMax')}` : '';
   }
 
@@ -777,10 +776,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
       <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
         {pointControls && <div className="flex flex-wrap items-center gap-1">
-          <select aria-label={m('chartSelectPoint')} value={selectedPoint ? pointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
-            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => pointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
+          <select aria-label={m('chartSelectPoint')} value={selectedPoint ? chartPointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
+            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => chartPointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
             {!points.length && <option value="">{m('chartNoPoints')}</option>}
-            {points.map(point => <option key={pointKey(point)} value={pointKey(point)}>{labelOf(point.x)} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang) : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
+            {points.map(point => <option key={chartPointKey(point)} value={chartPointKey(point)}>{labelOf(point.x)} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang) : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
           </select>
           {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>

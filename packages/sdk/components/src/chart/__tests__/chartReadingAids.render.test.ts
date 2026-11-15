@@ -41,3 +41,23 @@ describe('ECharts draws the reading aids (#2326)', () => {
     expect(drawn.some(t => t.includes('최대'))).toBe(true);
   });
 });
+
+it.each([26, undefined])('draws aligned run labels and separators in startAlign, rowPitch=%s', rowPitch => {
+  const svg = draw({ startAlign: true, rowGroups, rowPitch });
+  const drawn = texts(svg);
+  expect(drawn.filter(t => t === 'EQ1')).toHaveLength(2);
+  expect(drawn.filter(t => t === 'EQ2')).toHaveLength(1);
+  expect(drawn).toContain('PM2');
+  const rowYs = [...svg.matchAll(/<text[^>]*transform="translate\([^ ]+ ([^)]+)\)"[^>]*>PM[^<]*<\/text>/g)].map(m => Number(m[1]));
+  const groupYs = [...svg.matchAll(/<text[^>]*y="([^" ]+)"[^>]*>EQ[^<]*<\/text>/g)].map(m => Number(m[1]));
+  expect(rowYs).toHaveLength(4);
+  expect(groupYs).toEqual([(rowYs[0] + rowYs[1]) / 2, rowYs[2], rowYs[3]]);
+  const separators = [...svg.matchAll(/<path d="M12 ([^L]+)L[^ ]+ ([^" ]+)"[^>]*ecmeta_silent="true"/g)].map(m => [Number(m[1]), Number(m[2])]);
+  expect(separators).toEqual([[(rowYs[1] + rowYs[2]) / 2, (rowYs[1] + rowYs[2]) / 2], [(rowYs[2] + rowYs[3]) / 2, (rowYs[2] + rowYs[3]) / 2]]);
+});
+it.each([false, true])('draws startAlign status glyphs only on real pieces, minMax=%s', minMax => {
+  const drawn = texts(draw({ startAlign: true, extremes: minMax ? baselineInput().extremes : undefined, pointStatus: () => ({ tone: 'warning', label: 'High' }) }));
+  expect(drawn.filter(t => t === '▼')).toHaveLength(7);
+  expect(drawn.some(t => t.includes('최소'))).toBe(minMax);
+  expect(drawn.some(t => t.includes('최대'))).toBe(minMax);
+});

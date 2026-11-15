@@ -17,7 +17,7 @@ import { heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
-import { distinctStatuses, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import { distinctStatuses, heatmapStatusOutlines, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
 
 export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus };
@@ -201,7 +201,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
         itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderColor: statusBorderColor(c.status, cellColor(c.value)), borderWidth: 2, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
         ...(c.status ? { label: { ...statusMarker(c.status), position: 'inside' } } : {}),
-      })) }],
+      })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: cellColor(c.value) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
       series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],

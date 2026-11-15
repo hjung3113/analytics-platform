@@ -27,3 +27,14 @@ describe('read-only horizontal row group labels (#2326)', () => {
     expect(JSON.parse(JSON.stringify(buildChartOption({ ...plain, rowGroups })))).toEqual(JSON.parse(JSON.stringify(buildChartOption(plain))));
   });
 });
+
+it.each([26, undefined])('keeps row groups and category coordinates in startAlign, rowPitch=%s', rowPitch => {
+  const option = buildChartOption(baselineInput({ startAlign: true, rowGroups, rowPitch })) as {
+    yAxis: { data: string[]; axisLabel: { formatter: (x: string) => string } };
+    series: { id: string; data: unknown[] }[];
+  };
+  expect(option.yAxis.data).toEqual(['R1', 'R2', 'R3', 'R4']);
+  expect(option.yAxis.axisLabel.formatter('R2')).toBe('{active|PM2}');
+  expect(option.series.find(s => s.id === '__rowGroups')!.data).toEqual([[0, 1], [2, 2], [3, 3]]);
+  expect(option.series.filter(s => s.id.startsWith('__spacer-'))).toHaveLength(1);
+});

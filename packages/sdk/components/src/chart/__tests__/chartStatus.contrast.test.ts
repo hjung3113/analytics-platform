@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readColorToken } from '@ap/ui/theme';
 import { buildChartOption } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
+import { statusBacking } from '../chartStatus';
 
 const luminance = (rgb: string) => {
   const channels = rgb.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
@@ -21,4 +22,18 @@ describe('status non-text contrast (#2326)', () => {
     const marker = option.series[0].data[0].label.rich.status;
     expect(ratio(marker.color, marker.backgroundColor)).toBeGreaterThanOrEqual(3);
   });
+});
+
+it.each(['warning', 'danger'] as const)('backs a %s bar outline on its matching fill without changing that fill', tone => {
+  const input = baselineInput({ pointStatus: () => ({ tone, label: 'Status' }) });
+  const fill = readColorToken(tone === 'warning' ? 'chart-status-warn' : 'chart-status-critical');
+  input.palette = { ...input.palette, series: input.palette.series.map(s => ({ ...s, fill })) };
+  const option = buildChartOption(input) as { series: { id: string; data: { itemStyle: { color: string; borderColor: string } }[] }[] };
+  const piece = option.series[0].data[0];
+  expect(piece.itemStyle.color).toBe(fill);
+  expect(piece.itemStyle.borderColor).toBe(fill);
+  expect(option.series.find(s => s.id === '__statusBarBacking')).toBeDefined();
+  const backing = statusBacking({ tone, label: 'Status' }, fill)!;
+  expect(ratio(piece.itemStyle.borderColor, backing)).toBeGreaterThanOrEqual(3);
+  expect(ratio(backing, fill)).toBeGreaterThanOrEqual(3);
 });

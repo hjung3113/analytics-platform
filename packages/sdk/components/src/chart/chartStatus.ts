@@ -14,24 +14,49 @@ export type ChartStatus = {
 export const STATUS_GLYPHS = { danger: '▲', warning: '▼', neutral: '◆' } as const;
 const STATUS_TOKENS = { danger: 'chart-status-critical', warning: 'chart-status-warn', neutral: 'chart-no-data-pattern' } as const satisfies Record<ChartStatus['tone'], ThemeColorToken>;
 export const statusColor = (status: ChartStatus) => token(STATUS_TOKENS[status.tone]);
+const contrast = (a: string, b: string) => {
+  const luminance = (rgb: string) => {
+    const channels = rgb.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    if (!channels || channels.length !== 3) return null;
+    const [r, g, b] = channels.map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+    return r * 0.2126 + g * 0.7152 + b * 0.0722;
+  };
+  const x = luminance(a); const y = luminance(b);
+  return x === null || y === null ? 0 : (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
 /** Neutral has no severity hue: use the pattern token when it meets 3:1, otherwise an existing neutral foreground that does. */
 export function statusBorderColor(status: ChartStatus, fill: string) {
   const color = statusColor(status);
   if (status.tone !== 'neutral') return color;
-  const contrast = (a: string, b: string) => {
-    const luminance = (rgb: string) => {
-      const channels = rgb.match(/[\d.]+/g)?.slice(0, 3).map(Number);
-      if (!channels || channels.length !== 3) return null;
-      const [r, g, b] = channels.map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
-      return r * 0.2126 + g * 0.7152 + b * 0.0722;
-    };
-    const x = luminance(a); const y = luminance(b);
-    return x === null || y === null ? 0 : (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-  };
   if (contrast(color, fill) >= 3) return color;
   // Reuse the theme text foreground and the card surface as neutral high-contrast alternatives.
   const dark = chartTheme().tooltip.textStyle.color; const light = token('surface-card');
   return contrast(dark, fill) >= contrast(light, fill) ? dark : light;
+}
+/** Match scatter's effective fill without changing the value series or its default opacity. */
+export function statusFill(fill: string, opacity: number) {
+  const rgb = (color: string) => color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  const foreground = rgb(fill); const surface = rgb(token('surface-card'));
+  if (!foreground || !surface) return fill;
+  return `rgb(${foreground.map((v, n) => v * opacity + surface[n] * (1 - opacity)).join(',')})`;
+}
+/** Keep severity hue; a second, neutral stroke separates a low-contrast outline from its fill. */
+export function statusBacking(status: ChartStatus, fill: string) {
+  const stroke = statusBorderColor(status, fill);
+  if (contrast(stroke, fill) >= 3) return undefined;
+  const candidates = [token('surface-card'), chartTheme().tooltip.textStyle.color];
+  return candidates.sort((a, b) => Math.min(contrast(stroke, b), contrast(fill, b)) - Math.min(contrast(stroke, a), contrast(fill, a)))[0];
+}
+/** Opaque, silent borders above the scatter fill; only status cells participate. */
+export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string }[], symbolSize: number[]) {
+  if (!cells.length) return [];
+  const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, 0.8) }));
+  const base = { type: 'scatter', symbol: 'rect', symbolSize, silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: 1 } };
+  const backings = data.flatMap(c => { const backing = statusBacking(c.status, c.effective); return backing ? [{ value: c.value, itemStyle: { borderColor: backing, borderWidth: 6 } }] : []; });
+  return [
+    ...(backings.length ? [{ ...base, id: '__statusBacking', z: 3, data: backings }] : []),
+    { ...base, id: '__statusOutline', z: 4, data: data.map(c => ({ value: c.value, itemStyle: { borderColor: statusBorderColor(c.status, c.effective), borderWidth: 2 } })) },
+  ];
 }
 export const statusKey = (status: ChartStatus) => JSON.stringify([status.tone, status.label]);
 export const statusText = (status: ChartStatus | undefined) => status ? `${STATUS_GLYPHS[status.tone]} ${status.label}${status.reason ? ` · ${status.reason}` : ''}` : '';

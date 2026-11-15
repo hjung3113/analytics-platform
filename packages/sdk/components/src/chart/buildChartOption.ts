@@ -9,6 +9,7 @@ import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
 import { barStatuses, chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import type { ChartPoint } from './AnalysisChartFrame';
+import { barStatusBackingSeries } from './chartStatusBacking';
 import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
@@ -259,11 +260,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           if (!isActive && !mark && !status) return y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
-            // Status owns the solid outline; active adds a wider dashed outline. Min/Max retains its own coloured outer glow and named chip.
-            // This keeps all three cues when a status, an extreme and the controlled active row coincide.
+            // Status keeps its fixed solid border. The active label stays bold; Min/Max retains its glow and chip.
             const marker = statusMarker(status);
             const extremeChip = mark ? extremeLabel(mark, lanes !== null, palette, lang) : undefined;
-            return { value: y, itemStyle: { color: palette.series[n].fill, borderColor: statusBorderColor(status, palette.series[n].fill), borderWidth: isActive ? 4 : 2, borderType: isActive ? 'dashed' : 'solid', ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) },
+            return { value: y, itemStyle: { color: palette.series[n].fill, borderColor: statusBorderColor(status, palette.series[n].fill), borderWidth: 2, borderType: 'solid', ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) },
               label: { ...extremeChip, ...marker, position: extremeChip?.position ?? 'insideRight', formatter: `${marker.formatter}${mark ? ` ${extremeName(mark, lang)}` : ''}`, rich: marker.rich },
             };
           }
@@ -294,6 +294,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         }] : [];
         return [...spacer, real];
       }),
+      ...barStatusBackingSeries(i, statuses, lanes),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),
       ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.axisLine.lineStyle.color)] : []),
       {

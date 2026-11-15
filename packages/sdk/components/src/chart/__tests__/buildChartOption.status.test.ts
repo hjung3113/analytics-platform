@@ -16,7 +16,7 @@ describe('consumer bar statuses (#2326)', () => {
     expect(first.itemStyle.borderColor).toContain('rgb');
     expect(first.label.formatter).toContain('▲');
     expect(first.itemStyle.shadowColor).toBe('max');
-    expect(active.itemStyle).toMatchObject({ borderWidth: 4, borderType: 'dashed', shadowColor: 'min' });
+    expect(active.itemStyle).toMatchObject({ borderWidth: 2, borderType: 'solid', shadowColor: 'min' });
     expect(a.data[2]).toBeNull();
     const tip = option.tooltip.formatter([{ seriesId: 'a', name: 'R1', value: 800 }]);
     expect(tip).toContain('&lt;상한 초과&gt;');
@@ -47,4 +47,15 @@ it('escapes group headers, group names and short row labels in HTML tooltips', (
 it('keeps a bar option identical when the callback returns no statuses', () => {
   const plain = JSON.parse(JSON.stringify(buildChartOption(baselineInput())));
   expect(JSON.parse(JSON.stringify(buildChartOption(baselineInput({ pointStatus: () => undefined }))))).toEqual(plain);
+});
+
+it('keeps status styling fixed when the active row changes, including startAlign spacers', () => {
+  const make = (activeCategory: string | null) => buildChartOption(baselineInput({ startAlign: true, activeCategory, pointStatus: () => status })) as unknown as Option;
+  const active = make('R2'); const inactive = make(null);
+  expect((active.series.find(s => s.id === 'a')!.data[1] as Datum).itemStyle).toEqual((inactive.series.find(s => s.id === 'a')!.data[1] as Datum).itemStyle);
+  const spacer = active.series.find(s => s.id === '__spacer-1')!;
+  expect(spacer.data.every(d => typeof d === 'number')).toBe(true);
+  const tip = active.tooltip.formatter([{ seriesId: '__spacer-1', name: 'R1', value: 1 }, { seriesId: 'a', name: 'R1', value: 800 }]);
+  expect(tip).not.toContain('__spacer');
+  expect(tip.match(/▲/g)).toHaveLength(1);
 });
