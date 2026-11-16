@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
-import { parseDateTime, type AxisOption, type AxisOptionsInput, type Condition, type EquipmentSummary, type IdSet, type MembershipPeriod, type SelectionResolution } from '@ap/contracts';
+import { parseDateTime, type AxisOption, type AxisOptionsInput, type Condition, type EquipmentFacts, type EquipmentSummary, type IdSet, type MembershipPeriod, type SelectionResolution } from '@ap/contracts';
+import { useAdapterRequest, useKeptAnswers, type RequestState } from '../query/query';
 import { useHostPlatform, useSelectionPortCache } from '../platform/platform';
 import { idlePage, type PortFailure, type PortPageState, type PortStatus } from './selection-port-cache';
 
@@ -17,6 +18,26 @@ function canonical(value: unknown): unknown {
   return value;
 }
 const noop = () => {};
+
+/** Complete current facts, shared within a session generation and Scope; unrelated Context does not refetch. */
+export function useEquipmentFacts(scopeId: string): RequestState<EquipmentFacts> {
+  const platform = useHostPlatform();
+  const answers = useKeptAnswers();
+  const readiness = gate(platform, scopeId);
+  const result = useAdapterRequest(async signal => {
+    const send = platform.adapter.listEquipmentFacts;
+    if (!send) throw new Error('listEquipmentFacts is not implemented');
+    const facts = await send.call(platform.adapter, { scopeId }, signal);
+    if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const key = ['equipment-facts', scopeId, facts.version];
+    const kept = answers.read<EquipmentFacts>(key);
+    if (kept) return kept;
+    answers.keep(key, facts);
+    return facts;
+  }, ['equipment-facts', scopeId], readiness === null, { shared: true });
+  if (readiness !== null) return { status: readiness === 'idle' ? 'loading' : 'error', data: null, retry: noop };
+  return result;
+}
 const denied: PortFailure = { code: 'scope_forbidden', message: 'Override Scope must match the validated screen Scope', retryable: false };
 const invalid: PortFailure = { code: 'invalid_input', message: 'Invalid metadata request context', retryable: false };
 const validIds = (value: unknown) => value === null || (Array.isArray(value) && value.every(v => typeof v === 'string' && v.trim()));

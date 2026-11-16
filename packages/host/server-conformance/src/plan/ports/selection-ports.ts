@@ -155,7 +155,7 @@ export function planSelectionPortChecks(h: ServerConformanceHarness): Conformanc
       return option.items.length && candidates.items.length && resolved.items[0]?.status === 'ok' ? null : 'Global metadata incorrectly requires equipment:view';
     }),
   };
-  return names.map(name => ({
+  const checks: ConformanceCheck[] = names.map(name => ({
     id: `selection ports · ${name}`,
     mode: !sample || (name === 'global lineNames options' && !sample.globalOptions?.some(option => option.axisId === 'lineNames')) || (name === 'global prcGroups options' && !sample.globalOptions?.some(option => option.axisId === 'prcGroups')) || (name === 'dependent options' && !sample.parent) || (name === 'denied-room options' && !sample.deniedOption) || (name === 'options upper clamp' && !sample.upperOptions) || (name === 'search upper clamp' && !sample.upperEquipment) ? 'skipped' : name === 'global metadata needs no equipment permission' ? 'sequential' : 'granted',
     nonEnvelope: true,
@@ -163,6 +163,38 @@ export function planSelectionPortChecks(h: ServerConformanceHarness): Conformanc
     needsSites: true,
     run: runs[name],
   }));
+  const factsRuns: Record<string, ConformanceCheck['run']> = {
+    'facts complete authorized snapshot': async () => {
+      const facts = await a.listEquipmentFacts!({ scopeId: h.context.scopeId });
+      if (typeof facts.version !== 'string' || !facts.version.trim() || !Array.isArray(facts.items)) return 'Malformed facts snapshot';
+      const ids = new Set(facts.items.map(item => item.equipmentId));
+      if (ids.size !== facts.items.length) return 'Repeated equipment in facts';
+      const candidates: EquipmentSummary[] = [];
+      const cursors = new Set<string>();
+      let cursor: string | null = null;
+      do {
+        const page = await a.searchEquipment({ ...search, limit: 200, cursor });
+        candidates.push(...page.items);
+        cursor = page.nextCursor;
+        if (cursor !== null && cursors.has(cursor)) return 'Search cursor made no progress';
+        if (cursor !== null) cursors.add(cursor);
+      } while (cursor !== null);
+      const byId = (items: EquipmentSummary[]) => [...items].sort((left, right) => left.equipmentId < right.equipmentId ? -1 : left.equipmentId > right.equipmentId ? 1 : 0);
+      return same(byId(facts.items), byId(candidates)) ? null : 'Facts differ from all authorized search summaries';
+    },
+    'facts authorization': async () => await rejects(() => a.listEquipmentFacts!({ scopeId: h.foreignScopeId }), 'scope_forbidden')
+      ?? await rejects(() => a.listEquipmentFacts!({ scopeId: '__conformance_unknown_scope__' }), 'unknown_scope'),
+    'facts invalid input': () => rejects(() => a.listEquipmentFacts!({ scopeId: '' }), 'invalid_input'),
+  };
+  for (const [name, run] of Object.entries(factsRuns)) checks.push({
+    id: `selection ports · ${name}`,
+    mode: sample && a.listEquipmentFacts ? 'granted' : 'skipped',
+    nonEnvelope: true,
+    uses: name === 'facts complete authorized snapshot' ? ['listEquipmentFacts', 'searchEquipment'] : ['listEquipmentFacts'],
+    needsSites: true,
+    run,
+  });
+  return checks;
 }
 
 /** The selection port methods each named check calls (#674 `harness.implemented`), declared per check: a new name must add its row. */

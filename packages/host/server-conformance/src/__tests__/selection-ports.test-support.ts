@@ -11,7 +11,7 @@ export const optionSamples: OptionPortSamples = {
   parent: { axisId: 'parent', value: 'P', childValue: 'A' },
 };
 /** Independent literal reference; deliberately small and unrelated to the mock server's world. */
-export function referenceSelectionPorts(sample: OptionPortSamples = optionSamples): Pick<PlatformAdapter, 'listAxisOptions' | 'searchEquipment' | 'resolveSelection'> {
+export function referenceSelectionPorts(sample: OptionPortSamples = optionSamples): Pick<PlatformAdapter, 'listAxisOptions' | 'searchEquipment' | 'resolveSelection' | 'listEquipmentFacts'> {
   const check = (scope: string) => {
     if (scope === 'XIA') throw new PortError('scope_forbidden', 'denied');
     if (scope !== 'MEM' && scope !== 'FDRY') throw new PortError('unknown_scope', 'unknown');
@@ -28,6 +28,11 @@ export function referenceSelectionPorts(sample: OptionPortSamples = optionSample
     return { items: rows, nextCursor };
   }
   return {
+    async listEquipmentFacts(input) {
+      if (!input.scopeId) throw new PortError('invalid_input', 'scopeId');
+      check(input.scopeId);
+      return { items: [...sample.equipment], version: 'reference:1' };
+    },
     async listAxisOptions(input) {
       check(input.scopeId);
       if (input.axisId !== 'classification') throw new PortError('unknown_axis', 'axis');

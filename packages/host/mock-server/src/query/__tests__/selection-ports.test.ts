@@ -5,6 +5,49 @@ import { EQUIPMENT, USERS } from '../../world';
 
 const adapter = createMockAdapter({ endpoints: [], registry: { menus: [] } });
 const input = { scopeId: 'MEM', roomNames: null, lineNames: null, prcGroups: null, condition: null, membershipBasis: null, limit: 1 } as const;
+it('lists every granted current equipment fact without paging and versions world and authorization changes', async () => {
+  setRole('engineer');
+  const expected = EQUIPMENT.filter(e => e.site === 'MEM' && USERS.engineer.grants.MEM.includes(e.room));
+  const first = await adapter.listEquipmentFacts!({ scopeId: 'MEM' });
+  expect(first.items.map(e => e.equipmentId).sort()).toEqual(expected.map(e => e.equipmentId).sort());
+  expect(new Set(first.items.map(e => e.equipmentId)).size).toBe(first.items.length);
+  expect(first.version).toEqual(expect.any(String));
+  expect((await adapter.listEquipmentFacts!({ scopeId: 'MEM' })).version).toBe(first.version);
+  for (const row of first.items) {
+    const source = expected.find(e => e.equipmentId === row.equipmentId)!;
+    expect(row.axes).toMatchObject({ lineNames: [source.line], prcGroups: [source.prcGroup] });
+    expect((await adapter.resolveSelection({ scopeId: 'MEM', ids: [row.equipmentId] })).items).toEqual([{ id: row.equipmentId, status: 'ok', summary: row }]);
+  }
+  const rows = Array.from({ length: 205 }, (_, n) => ({ ...expected[0], equipmentId: `facts-${n}` }));
+  EQUIPMENT.push(...rows);
+  try {
+    const expanded = await adapter.listEquipmentFacts!({ scopeId: 'MEM' });
+    expect(expanded.items).toHaveLength(expected.length + rows.length);
+    expect(expanded.version).not.toBe(first.version);
+    rows[0].line = 'facts-new-line';
+    expect((await adapter.listEquipmentFacts!({ scopeId: 'MEM' })).version).not.toBe(expanded.version);
+  } finally { EQUIPMENT.splice(EQUIPMENT.length - rows.length, rows.length); }
+  setRole('viewer');
+  setRole('engineer');
+  expect((await adapter.listEquipmentFacts!({ scopeId: 'MEM' })).version).not.toBe(first.version);
+});
+
+it.each([null, [], {}, { scopeId: '' }, { scopeId: ' ' }, { scopeId: 'MEM', limit: 1 }])('rejects malformed facts input %j', async value => {
+  await expect(adapter.listEquipmentFacts!(value as never)).rejects.toMatchObject({ code: 'invalid_input' });
+});
+
+it('checks facts Scope and cancellation and never requires an equipment menu permission', async () => {
+  await expect(adapter.listEquipmentFacts!({ scopeId: 'unknown' })).rejects.toMatchObject({ code: 'unknown_scope' });
+  await expect(adapter.listEquipmentFacts!({ scopeId: 'XIA' })).rejects.toMatchObject({ code: 'scope_forbidden' });
+  const controller = new AbortController(); controller.abort();
+  await expect(adapter.listEquipmentFacts!({ scopeId: 'MEM' }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+  setRole('viewer');
+  expect((await adapter.listEquipmentFacts!({ scopeId: 'MEM' })).items.length).toBeGreaterThan(0);
+  const rooms = USERS.viewer.grants.MEM;
+  USERS.viewer.grants.MEM = [];
+  try { await expect(adapter.listEquipmentFacts!({ scopeId: 'MEM' })).rejects.toMatchObject({ code: 'scope_forbidden' }); }
+  finally { USERS.viewer.grants.MEM = rooms; }
+});
 beforeEach(() => setRole('engineer'));
 afterEach(() => setRole('engineer'));
 

@@ -41,6 +41,7 @@ export function testAdapter(over: Partial<PlatformAdapter> = {}): PlatformAdapte
     publishedMetrics: () => [],
     listAxisOptions: async () => ({ items: [], nextCursor: null }),
     searchEquipment: async () => ({ items: [], nextCursor: null }),
+    listEquipmentFacts: async () => ({ items: [], version: 'test-facts:1' }),
     resolveSelection: async ({ ids }) => ({ items: [...new Set(ids)].map(id => ({ id, status: 'not_found' as const })) }),
     contextOptions: async () => ({ stgroup: [], team: [], makerModel: [] }),
     evaluateSelection: async () => ({ inCondition: [], outOfCondition: [] }),

@@ -54,7 +54,7 @@ function pageInput(x: Record<string, unknown>) {
   if (x.cursor !== undefined && x.cursor !== null && !id(x.cursor)) invalid('cursor');
 }
 
-export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescriptor[] = defaults): Pick<PlatformAdapter, 'listAxisOptions' | 'searchEquipment' | 'resolveSelection'> {
+export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescriptor[] = defaults): Required<Pick<PlatformAdapter, 'listAxisOptions' | 'searchEquipment' | 'resolveSelection' | 'listEquipmentFacts'>> {
   const supported = new Map(equipmentAxes.map(a => [a.id, a]));
   for (const axis of equipmentAxes) {
     if (!Object.hasOwn(fieldValues(EQUIPMENT[0]), axis.id) || (axis.dependsOn && !supported.has(axis.dependsOn))) throw new Error(`Unsupported mock descriptor: ${axis.id}`);
@@ -69,6 +69,8 @@ export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescri
   const globalValue = (e: Equipment, key: string) => String(e[globalFields[key]]);
   const isGlobalOption = (key: string) => key === 'lineNames' || key === 'prcGroups';
   const summary = (e: Equipment): EquipmentSummary => ({ equipmentId: e.equipmentId, room: e.room, axes: { ...Object.fromEntries(equipmentAxes.map(a => [a.id, [fieldValues(e)[a.id]]])), lineNames: [e.line], prcGroups: [e.prcGroup] } });
+  let factsRevision = 0;
+  let factsIdentity = '';
   // Opaque issued tokens bind normalized inputs and authorization state. No expiry; limit may change.
   // Lexicographic JS string order (UTF-16), keyset by last ID; no naked live offset.
   const tokens = new Map<string, { identity: string; last: string }>();
@@ -96,6 +98,16 @@ export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescri
   }
   const cancelled = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException('aborted', 'AbortError'); };
   return {
+    async listEquipmentFacts(input, signal) {
+      cancelled(signal);
+      outer(input, ['scopeId'], ['scopeId']);
+      const rooms = granted(input.scopeId);
+      const items = EQUIPMENT.filter(e => e.site === input.scopeId && rooms.includes(e.room)).map(summary);
+      // Include row content (not just size) and grants so in-place mock-world edits also change the version.
+      const identity = JSON.stringify([authorizationRevision, getRole(), input.scopeId, rooms, items]);
+      if (factsIdentity !== identity) { factsIdentity = identity; factsRevision++; }
+      return { items, version: `mock-facts:${factsRevision}` };
+    },
     async listAxisOptions(input, signal) {
       cancelled(signal);
       outer(input, ['scopeId', 'axisId', 'query', 'parents', 'membershipBasis', 'period', 'cursor', 'limit'], ['scopeId', 'axisId', 'limit']);

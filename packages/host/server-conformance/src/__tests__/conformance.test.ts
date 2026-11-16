@@ -31,6 +31,9 @@ const SELECTION_PORT_SKIP_IDS = [
       'selection ports · options cursor identity',
       'selection ports · search cursor identity',
       'selection ports · global metadata needs no equipment permission',
+      'selection ports · facts complete authorized snapshot',
+      'selection ports · facts authorization',
+      'selection ports · facts invalid input',
 ];
 const spec = defineEndpoint<{ page: number }, { rows: number }>({
   id: 'fixture.list',
@@ -1591,6 +1594,29 @@ describe('required Context samples (#553)', () => {
     expect(results.filter(c => c.id.includes('required selection')).map(c => c.status)).toEqual(['passed', 'passed']);
     expect(results.find(c => c.id.includes('granted request'))?.status).toBe('passed');
   });
+});
+
+it('plans facts as skipped for absent hosts or declared implementation gaps', () => {
+  const h = harness(); h.ports = { ...h.ports, options: optionSamples };
+  h.adapter = { ...h.adapter, listEquipmentFacts: undefined };
+  expect(planServerConformance(h).find(c => c.id.startsWith('selection ports · facts'))?.mode).toBe('skipped');
+  h.adapter = { ...h.adapter, listEquipmentFacts: async () => ({ items: [...optionSamples.equipment], version: 'v1' }) };
+  h.implemented = Object.keys(h.adapter).filter(key => key !== 'listEquipmentFacts') as (keyof PlatformAdapter)[];
+  expect(planServerConformance(h).filter(c => c.id.startsWith('selection ports · facts')).every(c => c.mode === 'skipped')).toBe(true);
+});
+
+it.each(['valid', 'missing', 'duplicate', 'denied', 'version'] as const)('facts conformance detects %s snapshots against paged search', async kind => {
+  const h = harness(); h.ports = { ...h.ports, options: optionSamples };
+  let items = [...optionSamples.equipment];
+  if (kind === 'missing') items = items.slice(1);
+  if (kind === 'duplicate') items.push(items[0]);
+  if (kind === 'denied') items.push({ ...items[0], equipmentId: optionSamples.deniedRoomId, room: optionSamples.deniedRoom });
+  h.adapter = { ...h.adapter, listEquipmentFacts: async () => ({ items, version: kind === 'version' ? '' : 'v1' }) };
+  const check = planServerConformance(h).find(c => c.id === 'selection ports · facts complete authorized snapshot')!;
+  expect(check.mode).toBe('granted');
+  const failure = await check.run();
+  if (kind === 'valid') expect(failure).toBeNull();
+  else expect(failure).toEqual(expect.any(String));
 });
 
 it('plans individual visible selection-port skips without option evidence', () => {

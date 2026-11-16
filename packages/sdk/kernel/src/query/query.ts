@@ -366,14 +366,16 @@ export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | 
 /**
  * Same lifecycle as usePlatformQuery for plain adapter calls (shell editors): the result is keyed by
  * (session generation, key); when that changes the previous data is hidden at once and late replies are dropped.
- * The key carries a per-instance id: no sharing across instances.
+ * The default key carries a per-instance id: no sharing across instances. `shared` opts into one kept request
+ * per generation/key, reused until retry or query-engine GC; callers must include every request input in the key.
  */
-export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled = true): RequestState<T> {
+export function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled = true, options: { shared?: boolean } = {}): RequestState<T> {
   const { client, gen } = useQueryEngine();
   const instance = useId();
-  const queryKey = ['request', gen, instance, key];
+  const queryKey = ['request', gen, options.shared ? 'shared' : instance, key];
   const query = useQuery<{ ok: true; data: T } | { ok: false }>({
     queryKey,
+    staleTime: options.shared ? Infinity : 0,
     queryFn: async ({ signal }) => {
       try {
         return { ok: true, data: await run(signal) };

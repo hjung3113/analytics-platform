@@ -24,7 +24,7 @@ export * from './links/url.js';
 export { CONTEXT_FIELDS, missingRequiredContext, requiredContextError } from './menu/required-context.js';
 
 export { PortError, PORT_ERROR_CODES, isPortError } from './adapter/selection-ports.js';
-export type { PortErrorCode, MembershipPeriod, AxisOptionsInput, AxisOption, AxisOptionsPage, EquipmentSummary, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolution, SelectionResolveResult } from './adapter/selection-ports.js';
+export type { PortErrorCode, MembershipPeriod, AxisOptionsInput, AxisOption, AxisOptionsPage, EquipmentSummary, EquipmentFacts, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolution, SelectionResolveResult } from './adapter/selection-ports.js';
 export { compareHistoryText, compareQueryHistory, queryHistoryId } from './links/query-history.js';
 export type { QueryHistoryKey, QueryHistoryEntry, QueryHistoryStore } from './links/query-history.js';
 export { APPROVAL_TRANSITIONS, canTransition, isForbiddenSavedViewKey, SAVED_SCOPE_ID_MAX, validateSavedView } from './links/saved-view.js';

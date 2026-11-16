@@ -284,3 +284,15 @@ describe('fire-and-forget (contract §2.2, §5)', () => {
     expect(sent().map((c) => c.init.keepalive)).toEqual([true, undefined]);
   });
 });
+
+it.each(['unknown_scope', 'scope_forbidden', 'invalid_input'])('equipment facts maps judged %s to PortError', async code => {
+  const { adapter } = await ready(() => json({ code, message: 'denied' }, { status: 404 }));
+  await expect(adapter.listEquipmentFacts!({ scopeId: 'a' })).rejects.toMatchObject({ name: 'PortError', code });
+});
+
+it('equipment facts preserves the sibling missing-route and network conversion', async () => {
+  const missing = await ready(() => new Response('', { status: 404 }));
+  await expect(missing.adapter.listEquipmentFacts!({ scopeId: 'a' })).rejects.toMatchObject({ code: 'http_404' });
+  const offline = await ready(() => { throw new TypeError('offline'); });
+  await expect(offline.adapter.listEquipmentFacts!({ scopeId: 'a' })).rejects.toMatchObject({ code: 'network_error' });
+});

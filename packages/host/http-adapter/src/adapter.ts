@@ -15,6 +15,7 @@ import type {
   EntityAuditRequest,
   EntityRef,
   EquipmentSearchPage,
+  EquipmentFacts,
   GroupMember,
   Notice,
   PreferencesSnapshot,
@@ -83,6 +84,9 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
     },
     async searchEquipment(input, signal) {
       return shaped<EquipmentSearchPage>(await portCall(context, { method: 'POST', path: `${PLATFORM}/equipment-search`, body: input }, signal), isPage);
+    },
+    async listEquipmentFacts({ scopeId }, signal) {
+      return shaped<EquipmentFacts>(await portCall(context, { method: 'GET', path: `${PLATFORM}/equipment-facts`, query: { scopeId } }, signal), isEquipmentFacts);
     },
     async resolveSelection(input, signal) {
       return shaped<SelectionResolveResult>(await portCall(context, { method: 'POST', path: `${PLATFORM}/selection-resolve`, body: input }, signal), (r) => Array.isArray(r['items']));
@@ -182,6 +186,12 @@ export function createHttpAdapter(config: AdapterConfig): PlatformAdapter {
 /** The write headers of a notice request come from its own fields; the body is sent as given (no client-side pre-validation). */
 /** Deadline of one upload call: the largest body (UPLOAD_FILE_MAX_BYTES) on a slow link. */
 const UPLOAD_TIMEOUT_MS = 120_000;
+
+const isEquipmentFacts = (r: Record<string, unknown>) =>
+  typeof r['version'] === 'string' && r['version'].trim().length > 0 && Array.isArray(r['items']) && r['items'].every(item =>
+    isRecord(item) && typeof item['equipmentId'] === 'string' && item['equipmentId'].trim().length > 0
+    && typeof item['room'] === 'string' && item['room'].trim().length > 0 && isRecord(item['axes'])
+    && Object.values(item['axes']).every(values => Array.isArray(values) && values.every(value => typeof value === 'string')));
 
 /** Equals `uploadedFileSchema` of `@ap/contract-schemas` (an equivalence test pins it): strict keys, non-empty strings, an integer size within the cap. */
 const UPLOADED_FILE_KEYS = ['id', 'name', 'size', 'mimeType'];

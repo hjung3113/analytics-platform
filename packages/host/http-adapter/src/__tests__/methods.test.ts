@@ -53,6 +53,11 @@ const TABLE = {
     reply: { items: [] },
     call: (a) => a.resolveSelection({ scopeId: 'fab-a', ids: ['e1'] }),
   },
+  listEquipmentFacts: {
+    http: { method: 'GET', path: '/api/v1/platform/equipment-facts', search: '?scopeId=fab%2Fa+%26b' },
+    reply: { items: [], version: 'v1' },
+    call: (a) => a.listEquipmentFacts!({ scopeId: 'fab/a &b' }),
+  },
   getEntity: { http: { method: 'POST', path: '/api/v1/platform/entity', body: REF }, reply: ENVELOPE, call: (a) => a.getEntity(REF) },
   menuQuery: {
     http: { method: 'POST', path: '/api/v1/menu-query', body: { endpoint: 'e.x', context: {}, params: {} } },
