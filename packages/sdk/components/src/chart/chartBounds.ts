@@ -4,10 +4,11 @@ import type { ChartSeries } from './AnalysisChartFrame';
 import type { ChartPalette } from './buildChartOption';
 import { toMs } from './analysisChartShared';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { chartDiagnostic } from './analysisChartData';
 
 export type ChartBounds = ReadonlyMap<string, { lower?: number; upper?: number }>;
 export type ChartBoundLabels = { upper?: string; lower?: string; band?: string };
-type Bound = ChartBounds extends ReadonlyMap<string, infer V> ? V : never;
+export type Bound = ChartBounds extends ReadonlyMap<string, infer V> ? V : never;
 type BoundPart = 'upper' | 'lower' | 'band';
 export const BOUND_DASH = { upper: [8, 4], lower: [2, 4] };
 export const BOUND_OPACITY = 0.12;
@@ -24,6 +25,25 @@ type BoundInput = {
   horizontal: boolean; xType: 'time' | 'category'; categories: readonly string[];
   displayed: readonly ChartSeries[]; previousIds: ReadonlySet<string>;
 };
+
+export function normalizeBound(bound: Bound): Bound {
+  if ((bound.lower !== undefined && !Number.isFinite(bound.lower)) || (bound.upper !== undefined && !Number.isFinite(bound.upper))) chartDiagnostic('non-finite chart bound ignored');
+  const finite: Bound = {
+    ...(Number.isFinite(bound.lower) ? { lower: bound.lower } : {}),
+    ...(Number.isFinite(bound.upper) ? { upper: bound.upper } : {}),
+  };
+  if (finite.lower !== undefined && finite.upper !== undefined && finite.lower > finite.upper) {
+    chartDiagnostic('reversed chart bounds ignored'); return {};
+  }
+  return finite;
+}
+
+export const boundColor = (theme: ChartPalette['theme']) => theme.referenceLine.lineStyle.color;
+export const boundLabelsOf = (labels: ChartBoundLabels | undefined, lang: Lang): Required<ChartBoundLabels> => ({
+  upper: labels?.upper ?? formatText(COMPONENTS_MESSAGES.chartUpperBound, lang),
+  lower: labels?.lower ?? formatText(COMPONENTS_MESSAGES.chartLowerBound, lang),
+  band: labels?.band ?? formatText(COMPONENTS_MESSAGES.chartBoundRange, lang),
+});
 
 function projectBoundDomain(i: BoundInput) {
   const order = new Map(i.categories.map((x, n) => [x, n]));
@@ -63,10 +83,7 @@ function hasBoundPart(segment: BoundSegment, part: BoundPart) {
 export function projectChartBounds(i: BoundInput): BoundProjection | undefined {
   if (!i.bounds || i.horizontal) return undefined;
   const domain = projectBoundDomain(i);
-  const entries = [...i.bounds].map(([x, bound]) => ({ x, pos: domain.position(x), bound: {
-    ...(Number.isFinite(bound.lower) ? { lower: bound.lower } : {}),
-    ...(Number.isFinite(bound.upper) ? { upper: bound.upper } : {}),
-  } })).filter(e => Number.isFinite(e.pos)).sort((a, b) => a.pos - b.pos);
+  const entries = [...i.bounds].map(([x, bound]) => ({ x, pos: domain.position(x), bound: normalizeBound(bound) })).filter(e => Number.isFinite(e.pos)).sort((a, b) => a.pos - b.pos);
   const segments: BoundSegment[] = [];
   for (let n = 0; n < entries.length; n++) {
     const segment = clipBoundSegment(entries[n], entries[n + 1], domain);
@@ -82,13 +99,13 @@ export function projectChartBounds(i: BoundInput): BoundProjection | undefined {
   };
   const parts: BoundPart[] = (['upper', 'lower', 'band'] as const).filter(part => segments.some(s => hasBoundPart(s, part)));
   return { segments, at, parts, extent: values.length ? { min: Math.min(...values), max: Math.max(...values) } : undefined,
-    labels: { upper: i.boundLabels?.upper ?? formatText(COMPONENTS_MESSAGES.chartUpperBound, i.lang), lower: i.boundLabels?.lower ?? formatText(COMPONENTS_MESSAGES.chartLowerBound, i.lang), band: i.boundLabels?.band ?? formatText(COMPONENTS_MESSAGES.chartBoundRange, i.lang) },
+    labels: boundLabelsOf(i.boundLabels, i.lang),
   };
 }
 
 /** No data dimensions: these overlays must neither extend x nor get discarded by Zoom when a step crosses its window. */
 export function boundSeries(p: BoundProjection, palette: ChartPalette): CustomSeriesOption[] {
-  const color = palette.theme.referenceLine.lineStyle.color;
+  const color = boundColor(palette.theme);
   return p.parts.map(part => {
     const spans = p.segments.filter(s => hasBoundPart(s, part));
     return {

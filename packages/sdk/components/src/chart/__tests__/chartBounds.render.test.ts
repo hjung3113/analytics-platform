@@ -4,10 +4,10 @@ import { BarChart, CustomChart, LineChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
 import { describe, expect, it } from 'vitest';
-import { buildChartOption, resolveChartPalette, type ChartOptionInput } from '../buildChartOption';
-import { baselineInput } from '../__fixtures__/baselineInput';
+import { buildChartOption, resolveChartPalette } from '../buildChartOption';
+import { baselineInput, type BaselineOverrides } from '../__fixtures__/baselineInput';
 echarts.use([BarChart, CustomChart, LineChart, ScatterChart, BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent, SVGRenderer]);
-function draw(extra: Partial<ChartOptionInput>) {
+function draw(extra: BaselineOverrides) {
   const input = baselineInput({ horizontal: false, stacked: false, rowPitch: undefined, extremes: undefined, activeCategory: undefined, markLines: undefined, categories: ['A', 'B', 'C'], displayed: [{ id: 'a', name: 'A', color: 'chart-blue', points: [['A', 3], ['B', null], ['C', 5]] }], ...extra });
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 300 });
   try {

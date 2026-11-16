@@ -26,7 +26,7 @@ describe('consumer bar statuses (#2326)', () => {
   it('keeps the line itself unchanged while adding opt-in line status overlays', () => {
     const input = baselineInput({ horizontal: false, displayed: [{ ...baselineInput().displayed[0], kind: 'line' }] });
     const plain = JSON.parse(JSON.stringify(buildChartOption(input)));
-    const withStatus = JSON.parse(JSON.stringify(buildChartOption({ ...input, pointStatus: () => status })));
+    const withStatus = JSON.parse(JSON.stringify(buildChartOption(baselineInput({ ...input, statuses: undefined, pointStatus: () => status }))));
     expect(withStatus.series[0]).toEqual(plain.series[0]);
     expect(withStatus.series.some((s: { id: string }) => s.id === '__line-status-a')).toBe(true);
   });

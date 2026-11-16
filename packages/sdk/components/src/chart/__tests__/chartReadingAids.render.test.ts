@@ -5,11 +5,11 @@ import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, Ma
 import { LabelLayout } from 'echarts/features';
 import { SVGRenderer } from 'echarts/renderers';
 import { describe, expect, it } from 'vitest';
-import { buildChartOption, resolveChartPalette, type ChartOptionInput } from '../buildChartOption';
-import { baselineInput } from '../__fixtures__/baselineInput';
+import { buildChartOption, resolveChartPalette } from '../buildChartOption';
+import { baselineInput, type BaselineOverrides } from '../__fixtures__/baselineInput';
 
 echarts.use([BarChart, CustomChart, LineChart, ScatterChart, BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent, LabelLayout, SVGRenderer]);
-function draw(extra: Partial<ChartOptionInput>) {
+function draw(extra: BaselineOverrides) {
   const input = baselineInput(extra);
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 260 });
   try {

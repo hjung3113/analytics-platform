@@ -1,24 +1,10 @@
 import type { ScatterSeriesOption } from 'echarts/charts';
-import type { ChartPoint, ChartSeries } from './AnalysisChartFrame';
-import { barStatuses, chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import type { ChartSeries } from './AnalysisChartFrame';
+import { chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { token } from './EChart';
 import { toMs } from './analysisChartShared';
 import type { ChartOptionInput } from './buildChartOption';
 
-/** Keep bar projection untouched; line points add only their measured, visible statuses. */
-export function frameStatuses(series: readonly ChartSeries[], horizontal: boolean, pointStatus?: (point: ChartPoint) => ChartStatus | undefined) {
-  const statuses = barStatuses(series, horizontal, pointStatus);
-  if (horizontal || !pointStatus) return statuses;
-  for (const s of series) {
-    if (s.kind === 'bar') continue;
-    for (const [x, value] of s.points) {
-      if (value === null || !Number.isFinite(value)) continue;
-      const point = { seriesId: s.id, x, value }; const status = pointStatus(point);
-      if (status) statuses.set(chartPointKey(point), status);
-    }
-  }
-  return statuses;
-}
 /** Bars keep their existing CSV label; line statuses carry the same tone glyph as the other reading aids. Reason has its own CSV column. */
 export function frameStatusCsvLabel(series: ChartSeries, horizontal: boolean, status: ChartStatus) {
   if (horizontal || series.kind === 'bar') return status.label;

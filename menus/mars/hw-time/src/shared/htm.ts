@@ -23,3 +23,8 @@ export function htmStatusView(judgement: Pick<HtmJudgement, 'status' | 'reason'>
 export function htmStatusText(judgement: Pick<HtmJudgement, 'status' | 'reason'>, lang: 'ko' | 'en'): string {
   return htmStatusView(judgement, lang)?.label ?? formatText(HW_TIME_MESSAGES.htmStatusNormal, lang);
 }
+
+/** Only out-of-bound judgements receive a chart mark; unjudgeable values keep their reading text. */
+export function htmEmphasisStatus(status: HtmStatusView | undefined): HtmStatusView | undefined {
+  return status?.tone === 'neutral' ? undefined : status;
+}

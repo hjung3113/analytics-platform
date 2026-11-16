@@ -28,9 +28,9 @@ import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight
 
 import { ChartBoundsLegend } from './ChartBoundsLegend';
 import { boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
-import { frameStatuses, frameStatusCsvLabel } from './linePointStatus';
+import { frameStatusCsvLabel } from './linePointStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
-import { chartPointKey, distinctStatuses, statusText, type ChartStatus } from './chartStatus';
+import { pointStatuses, chartPointKey, distinctStatuses, statusText, type ChartStatus } from './chartStatus';
 import { groupedRowText, rowGroup, rowLabel, type ChartRowGroups } from './chartRowGroups';
 export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
@@ -415,11 +415,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const boundsProp = p.bounds; const boundLabels = p.boundLabels;
   const bounds = useMemo(() => projectChartBounds({ bounds: boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories }), [boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories]);
   const pointBoundsText = (point: ChartPoint) => bounds && !previousIds.has(point.seriesId) ? ` · ${boundText(bounds, point.x, format)}` : '';
-  const statuses = useMemo(() => frameStatuses(displayed, horizontal, p.pointStatus), [displayed, horizontal, p.pointStatus]);
+  const statuses = useMemo(() => pointStatuses(displayed, p.pointStatus), [displayed, p.pointStatus]);
   const statusLegend = useMemo(() => distinctStatuses([...statuses.values()]), [statuses]);
   const statusEnabled = !!p.pointStatus && displayed.length > 0;
-  const resolvedStatus = useCallback((point: ChartPoint) => statuses.get(chartPointKey(point)), [statuses]);
-  const pointStatusOption = p.pointStatus ? resolvedStatus : undefined;
+  const resolvedStatus = (point: ChartPoint) => statuses.get(chartPointKey(point));
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
@@ -613,10 +612,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, pointStatus: pointStatusOption, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, pointStatusOption, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {

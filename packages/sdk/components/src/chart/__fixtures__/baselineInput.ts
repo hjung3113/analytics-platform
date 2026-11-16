@@ -1,12 +1,16 @@
 import type { ChartOptionInput } from '../buildChartOption';
-import type { ChartSeries } from '../AnalysisChartFrame';
+import type { ChartPoint, ChartSeries } from '../AnalysisChartFrame';
+import { pointStatuses, type ChartStatus } from '../chartStatus';
 import { seriesExtremes } from '../chartLanes';
 
 const ROWS = ['R1', 'R2', 'R3', 'R4'];
 const bar = (id: string, values: (number | null)[]): ChartSeries => ({ id, name: id.toUpperCase(), color: 'chart-blue', kind: 'bar', points: ROWS.map((x, n) => [x, values[n]]) });
 const displayed = [bar('a', [800, 20, null, 600]), bar('b', [100, 0, 200, 400])];
 /** A stacked horizontal chart with an active row, Min/Max and a reference line: the input whose option main's `buildChartOption` produced (`buildChartOption.main.json`). */
-export const baselineInput = (extra: Partial<ChartOptionInput> = {}): ChartOptionInput => ({
+export type BaselineOverrides = Partial<ChartOptionInput> & { pointStatus?: (point: ChartPoint) => ChartStatus | undefined };
+export const baselineInput = (extra: BaselineOverrides = {}): ChartOptionInput => {
+  const { pointStatus, ...options } = extra;
+  return ({
   displayed, previousIds: new Set(), xType: 'category', horizontal: true, categories: ROWS, zoom: [0, 100], brushMode: false, selection: null, annotations: [], noteSpans: [], noteLevels: [], timeExtent: 0,
   chartWidth: 600, markLines: [{ y: 300, label: '목표' }], unit: 's', lang: 'ko', stacked: true, valueFormat: v => `${v}`, rowPitch: 26, activeCategory: 'R2', extremes: seriesExtremes(displayed),
   palette: {
@@ -16,5 +20,7 @@ export const baselineInput = (extra: Partial<ChartOptionInput> = {}): ChartOptio
     // fields of this branch, absent from main's palette and unused while valueLabels is unset
     segmentText: [{ color: 'x', chip: false }, { color: 'y', chip: false }], totalText: 'tt',
   },
-  ...extra,
+  ...options,
+  statuses: options.statuses ?? pointStatuses(options.displayed ?? displayed, pointStatus),
 }) as ChartOptionInput;
+};

@@ -13,10 +13,12 @@ import { QUIET_SCATTER } from './scatterDensity';
 import type { ChartStatus } from './chartStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
 
+export const legendColor = (color: KindProjection['legend'][number]['color']) => typeof color === 'string' ? token(color) : color.resolved;
+
 const shapes = ['circle', 'rect', 'triangle', 'diamond'] as const;
 export type KindProjection = {
   rows: ChartRow[]; total: number; empty: boolean; summary: string; headers: string[]; tableValues: string[][]; csvHeaders: string[]; csvValues: (string | number)[][];
-  legend: { label: string; color: ThemeColorToken; symbol: string; stroke?: ThemeColorToken; unknown?: boolean; dash?: string; opacity?: number; status?: ChartStatus }[];
+  legend: { label: string; color: ThemeColorToken | { resolved: string }; symbol: string; stroke?: ThemeColorToken; unknown?: boolean; dash?: string; opacity?: number; status?: ChartStatus }[];
   seriesKeys: (string | undefined)[][];
   option: (active: string[]) => EChartsCoreOption;
   /** topNBar: every valid, de-duplicated input item's label by id, drawn or not (the outside-top-N selection summary). */
@@ -87,7 +89,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
           ...(spec.density === 'quiet' ? { symbolSize: QUIET_SCATTER.normalSize } : {}),
           markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
-          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: token(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
+          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: legendColor(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
         })),
       };
     },
@@ -98,7 +100,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
 export function KindLegend({ items, label, compact = false, singleLine = false }: { singleLine?: boolean; compact?: boolean; items: KindProjection['legend']; label?: string }) {
   return <ul aria-label={label} className={cn(singleLine ? 'contents' : 'flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{items.map((item, i) => <li key={i} className={cn('flex items-center gap-1', singleLine && 'shrink-0 whitespace-nowrap')}>
     {item.status ? <ChartStatusLegend statuses={[item.status]} /> : <><svg aria-hidden width="14" height="14" viewBox="0 0 14 14" opacity={item.opacity}>
-      {item.symbol === 'circle' ? <circle cx="7" cy="7" r="5" fill={token(item.color)} /> : item.symbol === 'rect' ? <rect x="2" y="2" width="10" height="10" fill={token(item.color)} stroke={item.stroke ? token(item.stroke) : undefined} strokeDasharray={item.unknown ? '2 2' : undefined} /> : item.symbol === 'triangle' ? <path d="M7 1 L13 13 L1 13 Z" fill={token(item.color)} /> : item.symbol === 'line' ? <path d="M1 7 H13" stroke={token(item.color)} strokeWidth="2" strokeDasharray={item.dash} /> : <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={token(item.color)} />}
+      {item.symbol === 'circle' ? <circle cx="7" cy="7" r="5" fill={legendColor(item.color)} /> : item.symbol === 'rect' ? <rect x="2" y="2" width="10" height="10" fill={legendColor(item.color)} stroke={item.stroke ? token(item.stroke) : undefined} strokeDasharray={item.unknown ? '2 2' : undefined} /> : item.symbol === 'triangle' ? <path d="M7 1 L13 13 L1 13 Z" fill={legendColor(item.color)} /> : item.symbol === 'line' ? <path d="M1 7 H13" stroke={legendColor(item.color)} strokeWidth="2" strokeDasharray={item.dash} /> : <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={legendColor(item.color)} />}
     </svg>{item.label}</>}
   </li>)}</ul>;
 }

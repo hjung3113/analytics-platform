@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBa
 import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation, type HwTimeRuns } from '../../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import { formatSeconds } from '../../shared/format';
-import { htmStatusText, htmStatusView } from '../../shared/htm';
+import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
 import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, validatePanelFilters } from './runPanelFilters';
 import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatterData';
 import { shapeRunTrend } from './runTrendData';
@@ -60,12 +60,12 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
     kind: 'scatter', density: 'quiet', xUnit: '', xLabel: axisLabel, yLabel: settings.value === 'motion' ? m('motionTime') : m('moduleTime'),
     groups: projected.scatter.groups,
     points: projected.scatter.points.map(point => ({ id: point.id, x: null, y: point.y, group: point.group, category: point.category,
-      ...(point.status && point.status.tone !== 'neutral' ? { status: point.status } : {}) })),
+      status: htmEmphasisStatus(point.status) })),
     xCategories: projected.scatter.xCategories,
   };
   const trendStatusOf = useMemo(() => {
     const of = projected.trend.pointStatusOf;
-    return (point: ChartPoint) => { const status = of(point); return status?.tone === 'neutral' ? undefined : status; };
+    return (point: ChartPoint) => htmEmphasisStatus(of(point));
   }, [projected.trend.pointStatusOf]);
   const change = <K extends keyof RunScatterSettings>(key: K, value: RunScatterSettings[K]) => setSettings(current => ({ ...current, [key]: value }));
   return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col">

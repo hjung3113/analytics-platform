@@ -3,7 +3,7 @@ import { readColorToken } from '@ap/ui/theme';
 import { buildChartOption } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
 import { chartPointKey } from '../chartStatus';
-import { frameStatuses } from '../linePointStatus';
+import { pointStatuses } from '../chartStatus';
 const status = { tone: 'warning' as const, label: 'High', reason: 'Limit' };
 const displayed = [{ id: 'line', name: 'Line', color: 'chart-blue' as const, points: [['A', 3], ['B', null], ['C', 5]] as [string, number | null][] }];
 describe('sparse line status symbols (#2333)', () => {
@@ -19,11 +19,10 @@ describe('sparse line status symbols (#2333)', () => {
   });
   it('excludes null/nonfinite points and hidden series from the projection', () => {
     const callback = () => status;
-    const horizontal = false;
     const withNonfinite = displayed.map(s => ({ ...s, points: [...s.points, ['D', NaN] as [string, number]] }));
-    const statuses = frameStatuses(withNonfinite, horizontal, callback);
+    const statuses = pointStatuses(withNonfinite, callback);
     expect([...statuses.keys()]).toEqual([chartPointKey({ seriesId: 'line', x: 'A' }), chartPointKey({ seriesId: 'line', x: 'C' })]);
-    expect(frameStatuses([], horizontal, callback).size).toBe(0);
+    expect(pointStatuses([], callback).size).toBe(0);
   });
   it('keeps the bar path identical', () => {
     const i = baselineInput({ pointStatus: () => status });
