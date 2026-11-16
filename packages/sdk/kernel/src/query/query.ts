@@ -271,14 +271,14 @@ async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: Menu
   const chosen = condition?.[CUSTOM_GROUP_AXIS];
   if (!chosen?.length) return projected;
   const ids = [...new Set(chosen)];
-  if (!('selection' in projected)) return queryError(`customGroup ${ids.join(', ')} blocked: endpoint cannot receive custom-group members (Selection must apply)`);
+  if (!('selection' in projected)) return queryError(`customGroup blocked: ${ids.join(', ')} (endpoint cannot receive custom-group members; Selection must apply)`);
   const scopeId = inputs.global.scopeId;
-  if (!scopeId) return queryError(`customGroup ${ids.join(', ')} blocked: a current Scope is required`);
+  if (!scopeId) return queryError(`customGroup blocked: ${ids.join(', ')} (a current Scope is required)`);
   if (inputs.scope.status !== 'valid' || inputs.scope.scopeId !== scopeId || inputs.scope.validatedFor !== inputs.session) {
-    return queryError(`customGroup ${ids.join(', ')} blocked: Scope ${scopeId} is ${inputs.scope.status}`);
+    return queryError(`customGroup blocked: ${ids.join(', ')} (Scope ${scopeId} is ${inputs.scope.status})`);
   }
   const store = inputs.savedViewStore;
-  if (!store) return queryError(`customGroup ${ids.join(', ')} blocked: saved-view store is unavailable`);
+  if (!store) return queryError(`customGroup blocked: ${ids.join(', ')} (saved-view store is unavailable)`);
   let listed: readonly SavedViewListItem[];
   try {
     listed = await store.list({ userId: inputs.session.user.id, menuId: null, kind: 'custom-group' });

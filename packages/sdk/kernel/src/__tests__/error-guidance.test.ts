@@ -10,6 +10,8 @@ describe('contract error copy (#304)', () => {
     ['time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'time_domain_unverified', 'timeDomainUnverifiedCause', 'timeDomainUnverifiedAction', false],
     ['time_domain_mismatch: TD-A, TD-B', 'time_domain_mismatch', 'timeDomainMismatchCause', 'timeDomainMismatchAction', false],
     ['customGroup blocked: gone-9 (not-found)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction', true],
+    ['customGroup blocked: g1, g2 (endpoint cannot receive custom-group members; Selection must apply)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction', true],
+    ['customGroup blocked: g1 (Scope MEM is loading)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction', true],
     ['customGroup expansion blocked: equipment facts could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction', false],
     ['customGroup expansion blocked: saved groups could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction', false],
   ] as const)('maps %s to cause and action', (message, code, cause, action, blocked) => {

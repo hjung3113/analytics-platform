@@ -672,6 +672,16 @@ describe('a query the Kernel refused before sending (#2440)', () => {
     expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
     expect(openDetail(state)).toHaveTextContent('gone-9 (not-found)');
   });
+  it('announces a grouped block on the polite channel, and a real error beside it on the assertive one', () => {
+    const view = render(<Page><Widget q={query(blocked())} /><Widget q={query(blocked())} name="Widget B" /></Page>);
+    const channel = (kind: string) => view.container.querySelector(`[data-outcome-announcer="${kind}"]`);
+    expect(channel('polite')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    expect(channel('assertive')).toHaveTextContent('');
+    view.rerender(<Page><Widget q={query(blocked())} /><Widget q={query(blocked())} name="Widget B" />
+      <Widget q={query(response('error', 'boom'))} name="Widget C" /><Widget q={query(response('error', 'boom'))} name="Widget D" /></Page>);
+    expect(channel('polite')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    expect(channel('assertive')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+  });
   it('keeps a failed group expansion an error with a retry: loading again can help', () => {
     render(<Page><Widget q={query(response('error', 'customGroup expansion blocked: equipment facts could not load (offline)'))} /></Page>);
     expect(screen.getByRole('alert')).toBeTruthy();

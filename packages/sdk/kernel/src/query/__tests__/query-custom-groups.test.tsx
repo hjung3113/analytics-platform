@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { buildQuery, defineEndpoint, groupId, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
-import { I18nProvider } from '../../i18n';
+import { errorGuidance, I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, useQueryEngine } from '../../platform/platform';
 import { useEquipmentFacts } from '../../scope/selection-ports';
 import { menuRequest, useMenuQuery, type QueryState } from '../query';
@@ -103,6 +103,7 @@ it('blocks a denied group with its ID and reason without calling the menu endpoi
   render(tree(testAdapter({ session: () => session, menuQuery, listEquipmentFacts }), savedViews));
   await waitFor(() => expect(state?.response?.outcome).toBe('error'));
   expect(state?.response?.message).toContain('g-secret (scope)');
+  expect(errorGuidance(state?.response?.message).blocked).toBe(true);
   expect(menuQuery).not.toHaveBeenCalled();
   expect(listEquipmentFacts).not.toHaveBeenCalled();
 });
@@ -115,6 +116,7 @@ it('reports a missing facts port without sending a group query', async () => {
   render(tree(adapter, savedViews));
   await waitFor(() => expect(state?.response?.outcome).toBe('error'));
   expect(state?.response?.message).toContain('listEquipmentFacts is not implemented');
+  expect(errorGuidance(state?.response?.message).blocked).toBe(false);
   expect(menuQuery).not.toHaveBeenCalled();
 });
 
@@ -157,6 +159,8 @@ it.each([undefined, 'reference'] as const)('blocks custom groups when endpoint S
   await waitFor(() => expect(state?.response?.outcome).toBe('error'));
   expect(state?.response?.message).toContain('endpoint cannot receive custom-group members');
   expect(menuQuery).not.toHaveBeenCalled();
+  // A pre-send refusal reads as a condition notice, not a server failure (#2440).
+  expect(errorGuidance(state?.response?.message).blocked).toBe(true);
 });
 
 it('does not send when aborted between group expansion and the transport continuation', async () => {
