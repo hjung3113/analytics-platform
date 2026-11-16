@@ -27,7 +27,13 @@ async function clickHeatmap(page: Page) {
         const coloured = pixels[i + 2]! > 160 && pixels[i]! > 100 && pixels[i + 2]! - pixels[i]! > 8;
         if (coloured && start < 0) start = x;
         if (!coloured && start >= 0) {
-          if (x - start > 20) return { x: (start + x) / 2 / c.width, y: y / c.height };
+          if (x - start > 20) {
+            // Click the cell's vertical centre: its top pixel row sits on the anti-aliased edge, which the hit test can miss.
+            const mid = Math.round((start + x) / 2);
+            let bottom = y;
+            while (bottom + 1 < c.height) { const j = ((bottom + 1) * c.width + mid) * 4; if (!(pixels[j + 2]! > 160 && pixels[j]! > 100 && pixels[j + 2]! - pixels[j]! > 8)) break; bottom++; }
+            return { x: mid / c.width, y: (y + bottom) / 2 / c.height };
+          }
           start = -1;
         }
       }
