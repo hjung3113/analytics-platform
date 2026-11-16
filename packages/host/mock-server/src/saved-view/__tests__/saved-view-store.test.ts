@@ -34,6 +34,31 @@ const visible = (items: readonly SavedViewListItem[]): SavedViewEntry[] => items
 const byName = (items: readonly SavedViewListItem[], name: string) => visible(items).find(i => i.view.name === name)!;
 const ok = <T,>(r: { ok: true; value: T } | { ok: false; reason: string }): T => { if (!r.ok) throw new Error(r.reason); return r.value; };
 
+it('stores custom groups separately from condition sets, with owner-only editing and private/groups sharing', async () => {
+  const s = store();
+  const group = ok(await s.save({ schemaVersion: 1, kind: 'custom-group', name: 'Targets', savedScopeId: 'S', target: { rule: { model: ['A'] } } })).view;
+  const customKey = { userId: ENG, menuId: null, kind: 'custom-group' } as const;
+  expect((await s.list(customKey)).map(item => item.denied ? item.id : item.view.id)).toContain(group.id);
+  expect((await s.list(key(ENG, null))).some(item => !item.denied && item.view.id === group.id)).toBe(false);
+  expect(await s.setDefault(customKey, null)).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.setDefault(key(ENG, null), group.id)).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.getDefaultId(customKey)).toBeNull();
+  expect(await s.setVisibility(group.id, { kind: 'people', userIds: [ADMIN] }, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.requestOfficial(group.id, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.update(group.id, { savedScopeId: null }, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+  const audience = ok(await s.createGroup({ name: 'Audience', memberIds: [ADMIN] }));
+  const shared = ok(await s.setVisibility(group.id, { kind: 'groups', groupIds: [audience.group.id] }, { expectedVersion: 1 }));
+  as('admin');
+  expect(await s.get(group.id)).toMatchObject({ view: { kind: 'custom-group' }, capabilities: { canView: true, canEdit: false, canShare: false, canApprove: false, canRevoke: false } });
+  expect(await s.decide(group.id, 'approve', undefined, { expectedVersion: shared.view.version })).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.revoke(group.id, { expectedVersion: shared.view.version })).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.remove(group.id)).toMatchObject({ ok: false, reason: 'forbidden' });
+  as('engineer');
+  ok(await s.setVisibility(group.id, { kind: 'private' }, { expectedVersion: shared.view.version }));
+  as('admin');
+  expect(await s.get(group.id)).toEqual({ id: group.id, denied: true, reason: 'no-access' });
+});
+
 it('keys are user- and menu-scoped JSON tuples, with separate keys for views, defaults and groups', async () => {
   const s = store(); ok(await s.save(draft()));
   expect(savedViewsStorageKey(ENG, MENU)).toBe(`platform:saved-views:v1:${JSON.stringify([1, ENG, MENU])}`);

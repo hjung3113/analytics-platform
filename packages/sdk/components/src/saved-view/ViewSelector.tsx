@@ -290,7 +290,8 @@ function DetailRows({ entry, lang, groupNames, ownerLabel, panels }: {
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { view } = entry;
-  const content = summarizeContext(view.context, lang);
+  // Custom groups are never listed here; the guard only narrows the union (ADR-0164).
+  const content = summarizeContext('context' in view ? view.context : {}, lang);
   const rows: [string, string][] = [
     [m('svDetailName'), view.name],
     [m('svDetailKind'), kindText(view.kind, lang)],

@@ -92,7 +92,8 @@ type Stored = SavedView & { pending?: SavedView };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
 const shownTo = (v: Stored, a: Actor, owner: boolean): SavedView => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : (published as SavedView); };
 /** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. The messages are shown as-is by the ViewSelector. */
-function denial(content: { kind: string; menuId?: string; context: { roomNames?: string[] | null } }, a: Actor, perm: MenuPermissionsOf): string | null {
+function denial(content: SavedViewDraft, a: Actor, perm: MenuPermissionsOf): string | null {
+  if (content.kind === 'custom-group') return null;
   const menuId = viewMenuId(content);
   if (menuId !== null) {
     const needed = perm(menuId);
@@ -111,14 +112,14 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
   const shown = shownTo(v, a, owner);
   const reason = denial(shown, a, perm);
   if (reason) return { id: v.id, denied: true, reason };
-  const manager = sharedGroups(v, groups).some(g => isManager(g, a));
+  const manager = v.kind !== 'custom-group' && sharedGroups(v, groups).some(g => isManager(g, a));
   const published = isOfficial(shown) && shown.approval === 'approved';
   const canEdit = (owner || manager) && !published;
   const capabilities: ViewCapabilities = {
     canView: true, canCopy: true, canEdit,
     canShare: (owner || manager) && !isOfficial(shown),
-    canApprove: a.admin && canTransition(shown.approval, 'approve'),
-    canRevoke: a.admin && isOfficial(v) && canTransition(v.approval, 'revoke'),
+    canApprove: v.kind !== 'custom-group' && a.admin && canTransition(shown.approval, 'approve'),
+    canRevoke: v.kind !== 'custom-group' && a.admin && isOfficial(v) && canTransition(v.approval, 'revoke'),
     ...(canEdit ? {} : { reason: published ? '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.' : '다른 사람의 뷰입니다. 복제해서 편집하세요.' }),
   };
   return { view: shown, capabilities };
@@ -126,12 +127,13 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
 
 /** Plain lines for what an approval would publish: the fields a pending edit changes, or the plain request for a first publication. */
 function proposalChanges(stored: Stored): string[] {
+  if (stored.kind === 'custom-group') return [];
   const { pending, ...published } = stored;
   if (!pending) return [`공식 등록 신청: "${published.name}"`];
   const lines: string[] = [];
   const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
   if (pending.name !== published.name) lines.push(`이름 "${published.name}" → "${pending.name}"`);
-  if (differs(pending.context, published.context)) lines.push('조회 조건 변경');
+  if (pending.kind !== 'custom-group' && differs(pending.context, published.context)) lines.push('조회 조건 변경');
   if (pending.kind === 'menu-view' && published.kind === 'menu-view') {
     if (pending.menuSchemaVersion !== published.menuSchemaVersion) lines.push(`메뉴 화면 버전 ${published.menuSchemaVersion} → ${pending.menuSchemaVersion}`);
     if (differs(pending.page, published.page)) lines.push('화면 키 변경');
@@ -160,8 +162,9 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     const r = readEnvelope<GroupRecord>(storage, savedViewGroupsStorageKey(), 'groups', storedGroup);
     return { future: r.future, groups: r.value ?? seed.groups() };
   };
-  const visibleIn = (storage: StoragePort, a: Actor, menuId: string | null, groups: readonly GroupRecord[]) =>
-    seed.directory.flatMap(p => readBucket(storage, p.userId, menuId).views.map(v => ev(v, a, groups))).filter((x): x is SavedViewListItem => x !== null);
+  const matchesKey = (view: SavedView, key: SavedViewKey) => key.menuId === null ? view.kind === (key.kind ?? 'condition-set') : !key.kind && view.kind === 'menu-view' && view.menuId === key.menuId;
+  const visibleIn = (storage: StoragePort, a: Actor, key: SavedViewKey, groups: readonly GroupRecord[]) =>
+    seed.directory.flatMap(p => readBucket(storage, p.userId, key.menuId).views.filter(v => matchesKey(v, key)).map(v => ev(v, a, groups))).filter((x): x is SavedViewListItem => x !== null);
   const find = (storage: StoragePort, a: Actor, id: string, groups: readonly GroupRecord[]) => {
     const at = parseId(id); if (!at) return null;
     const view = readBucket(storage, at.ownerId, at.menuId).views.find(v => v.id === id);
@@ -224,7 +227,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
   return {
     list: async key => {
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
-      return visibleIn(storage, a, key.menuId, readGroups(storage).groups);
+      return visibleIn(storage, a, key, readGroups(storage).groups);
     },
     get: async id => { const storage = getStorage(); return find(storage, actorNow(), id, readGroups(storage).groups); },
     save: input => run(c => {
@@ -268,24 +271,27 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       return { ok: true, value: null };
     }),
     setDefault: (key, id) => run(c => {
+      if (key.kind === 'custom-group') return fail('invalid', 'custom-group-default');
       if (key.userId !== c.actor.userId) return fail('forbidden');
       if (id !== null) {
         const item = find(c.storage, c.actor, id, c.groups);
-        if (!item || item.denied || viewMenuId(item.view) !== key.menuId) return fail('invalid', 'not-a-visible-view-of-this-menu');
+        if (!item || item.denied || item.view.kind === 'custom-group' || viewMenuId(item.view) !== key.menuId) return fail('invalid', 'not-a-visible-view-of-this-menu');
       }
       c.tx.defaults.set(savedViewDefaultStorageKey(key.userId, key.menuId), id);
       return { ok: true, value: null };
     }),
     getDefaultId: async key => {
+      if (key.kind === 'custom-group') return null;
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return null;
       const id = readDefault(storage, key); if (id === null) return null;
       // A default that is gone, denied or no longer shared is not a default.
       const item = find(storage, a, id, readGroups(storage).groups);
-      return item && !item.denied && viewMenuId(item.view) === key.menuId ? id : null;
+      return item && !item.denied && item.view.kind !== 'custom-group' && viewMenuId(item.view) === key.menuId ? id : null;
     },
     setVisibility: (id, visibility: ViewVisibility, { expectedVersion }) => run(c => {
       if (visibility.kind === 'official') return fail('invalid', 'use requestOfficial');
       const t = target(c, id, expectedVersion, e => e.capabilities.canShare); if (!t.ok) return t;
+      if (t.value.kind === 'custom-group' && visibility.kind !== 'private' && visibility.kind !== 'groups') return fail('invalid', 'custom-group-visibility');
       if (visibility.kind === 'people' && !visibility.userIds.every(u => person(u))) return fail('invalid', 'unknown person');
       if (visibility.kind === 'groups') {
         const current = t.value.visibility.kind === 'groups' ? t.value.visibility.groupIds : [];
@@ -297,6 +303,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     }),
     requestOfficial: (id, { expectedVersion }) => run(c => {
       const t = target(c, id, expectedVersion, e => e.view.ownerId === c.actor.userId); if (!t.ok) return t;
+      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       const shown = shownTo(t.value, c.actor, true);
       if (!canTransition(shown.approval, 'request')) return fail('invalid', 'approval-state');
       if (t.value.pending) return commit(c, { ...t.value, pending: { ...t.value.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups);
@@ -305,6 +312,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     decide: (id, decision, note, { expectedVersion }) => run(c => {
       // The approval right gates the call (ADR-0099 §2); the pending state is checked after it, as the server does.
       const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
+      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       const action = decision === 'approve' ? 'approve' : 'reject';
       const stored = t.value; const shown = shownTo(stored, c.actor, false);
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
@@ -319,6 +327,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     revoke: (id, { expectedVersion }) => run(c => {
       // The approval right gates the call (ADR-0099 §2); the official/approved state is checked after it, as the server does.
       const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
+      if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       if (!isOfficial(t.value) || !canTransition(t.value.approval, 'revoke')) return fail('invalid', 'approval-state');
       return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE } as SavedView, c.actor, c.groups);
     }),
@@ -326,6 +335,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];
       const groups = readGroups(storage).groups;
       return seed.directory.flatMap(p => readBucket(storage, p.userId, key.menuId).views.flatMap((stored: Stored): ApprovalRequestInfo[] => {
+        if (stored.kind === 'custom-group' || !matchesKey(stored, key)) return [];
         const proposal = stored.pending ?? stored;
         if (proposal.approval !== 'pending' && proposal.approval !== 'rejected') return [];
         const item = ev(stored, a, groups);

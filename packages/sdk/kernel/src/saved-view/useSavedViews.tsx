@@ -16,7 +16,7 @@ export type SavedViews = {
   menuViews: readonly SavedViewListItem[];
   conditionSets: readonly SavedViewListItem[];
   defaultId: string | null;
-  selected: SavedViewEntry | null;
+  selected: RestorableEntry | null;
   state: ViewState;
   /** Context the last restore left out (06 §6.4); cleared with the selection. */
   unsupported: readonly Unsupported[];
@@ -69,6 +69,7 @@ export type SavedViews = {
 
 const MAX_DEFAULT_RETRIES = 3;
 const NO_ITEMS: readonly SavedViewListItem[] = [];
+type RestorableEntry = SavedViewEntry & { view: Exclude<SavedViewEntry['view'], { kind: 'custom-group' }> };
 const NO_UNSUPPORTED: readonly Unsupported[] = [];
 const NO_KEYS: readonly string[] = [];
 const OFF: Result<never> = { ok: false, reason: 'unavailable' };
@@ -83,7 +84,7 @@ function readSelected(key: string): string | null {
 function writeSelected(key: string, id: string | null) {
   try { if (id === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, id); } catch { if (id === null) memory.delete(key); else memory.set(key, id); }
 }
-const entryOf = (item: SavedViewListItem | null | undefined): SavedViewEntry | null => (item && !item.denied ? item : null);
+const entryOf = (item: SavedViewListItem | null | undefined): RestorableEntry | null => (item && !item.denied && item.view.kind !== 'custom-group' ? item as RestorableEntry : null);
 
 /**
  * Host hook of the Saved View selector (`@ap/kernel/host`, shell): list/save/restore over the injected store, the selected view of this tab and the
@@ -134,7 +135,7 @@ export function useSavedViews(): SavedViews {
     if (!enabled) return;
     let cancelled = false;
     Promise.all([store.list({ userId, menuId }), store.list({ userId, menuId: null }), store.getDefaultId({ userId, menuId })])
-      .then(([menuViews, conditionSets, defaultId]) => { if (!cancelled) { setData({ gen, tick, status: 'ready', menuViews, conditionSets, defaultId }); setFresh(null); } })
+      .then(([menuViews, conditionSets, defaultId]) => { if (!cancelled) { setData({ gen, tick, status: 'ready', menuViews: menuViews.filter(item => item.denied || item.view.kind === 'menu-view'), conditionSets: conditionSets.filter(item => item.denied || item.view.kind === 'condition-set'), defaultId }); setFresh(null); } })
       .catch(() => { if (!cancelled) setData({ gen, tick, status: 'unavailable', menuViews: NO_ITEMS, conditionSets: NO_ITEMS, defaultId: null }); });
     return () => { cancelled = true; };
   }, [enabled, store, userId, menuId, gen, tick]);
@@ -146,7 +147,7 @@ export function useSavedViews(): SavedViews {
 
   const anchor = host.adapter.defaultRangeTo();
   const find = useCallback((id: string | null) => id === null ? null : entryOf([...menuViews, ...conditionSets].find(item => (item.denied ? item.id : item.view.id) === id)), [menuViews, conditionSets]);
-  const selected = selectedId !== null && fresh?.gen === gen && fresh.entry.view.id === selectedId ? fresh.entry : find(selectedId);
+  const selected = selectedId !== null && fresh?.gen === gen && fresh.entry.view.id === selectedId ? entryOf(fresh.entry) : find(selectedId);
   const applied = useMemo(() => ({ global: host.global, page: host.page }), [host.global, host.page]);
   const state = useMemo(() => support === undefined ? OFF_STATE : viewState({ applied: selected ? comparableApplied(selected.view, captureApplied(applied, support)) : captureApplied(applied, support), saved: selected ? savedStateOf(selected.view, support, anchor, host.global.scopeId) : null, draftDirty: host.queryDraft.dirty }), [support, applied, selected, anchor, host.global.scopeId, host.queryDraft.dirty]);
   // Derived from the saved copy, so a selection recovered after a reload lists the same Context as right after the pick.
@@ -212,6 +213,7 @@ export function useSavedViews(): SavedViews {
     const fail = (reason: Exclude<SelectOutcome, { ok: true }>['reason']): SelectOutcome => { clearSelection(); return { ok: false, reason }; };
     if (!found) return fail('unavailable');
     if (found.denied || !found.capabilities.canView) return fail('denied');
+    if (found.view.kind === 'custom-group') return fail('wrong-menu');
     // A relative period needs the server anchor; without one it is not restorable (absolute views still are).
     if (found.view.context.relativePeriod && anchor === null) return fail('unavailable');
     const current = live.current.host;

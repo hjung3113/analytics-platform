@@ -436,7 +436,7 @@ describe('a switch asks only when something would be lost (UX-1)', () => {
     await user.click(within(ask).getByRole('button', { name: '새 뷰로 저장하고 이동' }));
     await user.type(await screen.findByLabelText('뷰 이름'), '살린 뷰');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }));
-    await waitFor(() => expect([...store.rows.values()].find(view => view.name === '살린 뷰')?.context.roomNames).toEqual(['ETCH']));
+    await waitFor(() => expect(([...store.rows.values()].find(view => view.name === '살린 뷰') as { context: { roomNames?: unknown } } | undefined)?.context.roomNames).toEqual(['ETCH']));
   });
 });
 

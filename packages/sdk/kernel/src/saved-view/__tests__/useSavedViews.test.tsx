@@ -41,6 +41,20 @@ it('is inactive without an injected store, and the store is a host value, not pa
   const _menu: MenuPlatform['savedViewStore'] = undefined;
   void _menu; void usePlatform;
 });
+it('ignores a custom group returned by a store and refuses selecting it as a view', async () => {
+  const group = { schemaVersion: 1, kind: 'custom-group', name: 'Targets', savedScopeId: 'S', target: { fixed: ['e1'] }, id: 'g1', ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as const;
+  const store = createFakeStore([L1, group]);
+  const get = await store.get('g1');
+  if (!get) throw new Error('missing group');
+  vi.spyOn(store, 'list').mockResolvedValue([get]);
+  mount(store);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  expect(views.conditionSets).toEqual([]);
+  expect(views.menuViews).toEqual([]);
+  await act(async () => { expect(await views.select('g1')).toEqual({ ok: false, reason: 'wrong-menu' }); });
+  expect(views.selected).toBeNull();
+  expect(window.location.search).toBe('');
+});
 it('stays inactive for a menu that does not declare features.savedView', async () => {
   const store = createFakeStore([L1]);
   mount(store, '/plain');
@@ -172,7 +186,7 @@ it('saves the APPLIED conditions and never the unapplied draft; a draft shows as
   let saved: Awaited<ReturnType<SavedViews['saveAs']>> | undefined;
   await act(async () => { saved = await views.saveAs({ name: 'mine', kind: 'menu-view' }); });
   expect(saved?.ok).toBe(true);
-  const row = store.rows.get('v1');
+  const row = store.rows.get('v1') as ReturnType<typeof viewOf> | undefined;
   expect(row?.context).toEqual({ ...period, lineNames: ['L1'] });
   expect(JSON.stringify(row)).not.toContain('DRAFT');
   expect(row).toMatchObject({ kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [['filter', 'a']] });
@@ -189,7 +203,7 @@ it('saving to the selected view uses its version; a conflict reports it and chan
   let result: Awaited<ReturnType<SavedViews['saveToSelected']>> | undefined;
   await act(async () => { result = await views.saveToSelected(); });
   expect(result).toMatchObject({ ok: false, reason: 'conflict' });
-  expect(store.rows.get('l1')?.context.lineNames).toEqual(['L1']);
+  expect((store.rows.get('l1') as ReturnType<typeof viewOf> | undefined)?.context.lineNames).toEqual(['L1']);
   expect(host.global.lineNames).toEqual(['L2']);
 });
 // #2046: a conflict rereads the list, so the next save goes at the store's current version instead of conflicting forever.
@@ -245,7 +259,7 @@ async function saveSelected(store: FakeStore, id: string, change: () => void) {
   expect(result?.ok).toBe(true);
   // The kept fields are not on this screen: the selected view reads clean after the save.
   await waitFor(() => expect(views.state.modified).toBe(false));
-  return store.rows.get(id);
+  return store.rows.get(id) as ReturnType<typeof viewOf> | undefined;
 }
 const relative = viewOf({ id: 'rel', name: 'Last 24h', context: { relativePeriod: { hours: 24 }, lineNames: ['L1'] } });
 it('saving to a condition set keeps the Context this menu does not support (condition with its membershipBasis)', async () => {

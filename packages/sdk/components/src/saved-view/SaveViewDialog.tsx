@@ -5,14 +5,16 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { COMPONENTS_MESSAGES } from '../messages';
 import { failureText, panelBadgeText, summarizeContext } from './text';
 
-export type SaveViewSubmit = { mode: 'new' | 'update'; unit: SavedViewKind; name: string; visibility: string };
+/** What this dialog saves: views only. Custom groups (`custom-group`) are saved from the target dialog (ADR-0164). */
+type ViewUnit = Exclude<SavedViewKind, 'custom-group'>;
+export type SaveViewSubmit = { mode: 'new' | 'update'; unit: ViewUnit; name: string; visibility: string };
 export type SaveViewDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Units the caller can save in; a single unit hides the choice. */
-  units: readonly SavedViewKind[];
+  units: readonly ViewUnit[];
   /** Present when the current view can be updated; enables the `update` mode. */
-  updatable?: { name: string; unit?: SavedViewKind };
+  updatable?: { name: string; unit?: ViewUnit };
   initialMode?: 'new' | 'update';
   initialName?: string;
   /** The applied conditions that will be saved. */
@@ -42,7 +44,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
   const { t, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const [mode, setMode] = useState<'new' | 'update'>(updatable && initialMode !== 'new' ? 'update' : 'new');
-  const [unit, setUnit] = useState<SavedViewKind>(units[0] ?? 'menu-view');
+  const [unit, setUnit] = useState<ViewUnit>(units[0] ?? 'menu-view');
   const [name, setName] = useState(initialName);
   const [visibility, setVisibility] = useState(visibilityOptions[0]?.value ?? '');
   const [busy, setBusy] = useState(false);
@@ -92,7 +94,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
         {!updating && units.length > 1 && (
           <fieldset className="space-y-1">
             <legend className="text-xs text-text-secondary">{m('svUnit')}</legend>
-            <RadioGroup value={unit} onValueChange={value => setUnit(value as SavedViewKind)}>
+            <RadioGroup value={unit} onValueChange={value => setUnit(value as ViewUnit)}>
               {units.map(u => <div key={u} className="flex items-center gap-2"><RadioGroupItem id={`save-unit-${u}`} value={u} /><Label htmlFor={`save-unit-${u}`}>{m(u === 'menu-view' ? 'svUnitMenuView' : 'svUnitConditionSet')}</Label></div>)}
             </RadioGroup>
           </fieldset>

@@ -45,6 +45,20 @@ const view = (over: Partial<ViewRecord> = {}): ViewRecord => ({
   ...over,
 });
 
+describe('custom-group object ACL', () => {
+  it('lets shared group members/managers read but only the owner edit/share, with no official capabilities', () => {
+    const custom = view({ kind: 'custom-group', menuId: null, content: { savedScopeId: 'S', target: { fixed: ['e1'] } }, visibilityKind: 'groups', groupIds: ['g'] });
+    const manager: Standings = new Map([['g', { member: true, manager: true }]]);
+    expect(isReachable(custom, other, manager)).toBe(true);
+    expect(isOwnerOrManager(custom, other, manager)).toBe(false);
+    expect(capabilitiesOf(custom, other, manager)).toMatchObject({ canEdit: false, canShare: false, canApprove: false, canRevoke: false });
+    expect(capabilitiesOf(custom, owner, none)).toMatchObject({ canEdit: true, canShare: true, canApprove: false, canRevoke: false });
+    expect(isReachable(custom, other, none)).toBe(false);
+    expect(savedViewOf(custom, owner, none)).toMatchObject({ kind: 'custom-group', savedScopeId: 'S', target: { fixed: ['e1'] } });
+    expect(savedViewOf(custom, owner, none)).not.toHaveProperty('context');
+  });
+});
+
 describe('reachability: the union of object-ACL paths', () => {
   it('owner only for a private view', () => {
     expect(isReachable(view(), owner, none)).toBe(true);

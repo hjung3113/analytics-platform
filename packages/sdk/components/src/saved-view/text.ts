@@ -158,7 +158,7 @@ export function reasonText(reason: DiagnoseReason | string, tx: (text: Text) => 
 
 /** One short line per saved part; uses the same context wording as the view picker. Never lists master values. */
 export function contentLines(view: SavedView, tx: (text: Text) => string, lang: Lang): string[] {
-  const lines = [tx(view.kind === 'menu-view' ? COMPONENTS_MESSAGES.svKindMenuView : COMPONENTS_MESSAGES.svContentQueryCondition), ...summarizeContext(view.context, lang)];
+  const lines = [tx(view.kind === 'menu-view' ? COMPONENTS_MESSAGES.svKindMenuView : COMPONENTS_MESSAGES.svContentQueryCondition), ...summarizeContext('context' in view ? view.context : {}, lang)];
   if (view.kind === 'menu-view') {
     const pageKeys = Array.isArray(view.page) ? new Set(view.page.map(([key]) => key)).size : Object.keys(view.page).length;
     if (pageKeys > 0) lines.push(fill(tx(COMPONENTS_MESSAGES.svContentPageSettingsCount), { count: pageKeys }));

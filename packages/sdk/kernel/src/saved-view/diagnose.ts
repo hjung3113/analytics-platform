@@ -24,7 +24,7 @@ export type DiagnoseCode =
   | 'migration-unavailable';
 export type DiagnoseReason = { code: DiagnoseCode; key?: string; message?: string };
 
-export type Migration = { preview: ChangeLine[]; apply(): SavedView };
+export type Migration = { preview: ChangeLine[]; apply(): Exclude<SavedView, { kind: 'custom-group' }> };
 
 export type SavedViewDiagnosis =
   | { status: 'ok'; reasons: [] }
@@ -41,7 +41,7 @@ export type SavedViewDiagnosis =
 const hasKey = (o: object, k: string) => Object.hasOwn(o, k);
 const cloneJson = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-function contextReasons(view: SavedView, support: SavedViewSupport, ctx: DiagnoseContext): DiagnoseReason[] {
+function contextReasons(view: Exclude<SavedView, { kind: 'custom-group' }>, support: SavedViewSupport, ctx: DiagnoseContext): DiagnoseReason[] {
   const reasons: DiagnoseReason[] = [];
   // Same field rule as capture and restore: a menu declares Context keys (`time`), the view stores fields (`from`, `to`).
   const fields = supportedFields(support);
@@ -110,7 +110,7 @@ function migrationFor(view: MenuView, support: SavedViewSupport, ctx: DiagnoseCo
   if (next.menuId !== support.menuId || next.menuSchemaVersion !== support.menuSchemaVersion || next.kind !== 'menu-view') return null;
   if (changesContext(view.context, next.context)) return null;
   // The upgraded view must itself be free of the other stale reasons the app can see.
-  const upgraded = { ...next, id, ownerId, version, updatedAt, visibility, approval, ...(approvalNote === undefined ? {} : { approvalNote }) } as SavedView;
+  const upgraded = { ...next, id, ownerId, version, updatedAt, visibility, approval, ...(approvalNote === undefined ? {} : { approvalNote }) } as Exclude<SavedView, { kind: 'custom-group' }>;
   if (contextReasons(upgraded, support, ctx).length > 0 || menuReasons(upgraded as MenuView, support, ctx).length > 0) return null;
   const preview = cloneJson(result.preview);
   return { preview, apply: () => cloneJson(upgraded) };
@@ -122,6 +122,7 @@ function migrationFor(view: MenuView, support: SavedViewSupport, ctx: DiagnoseCo
  * meaning-preserving upgrade the diagnosis keeps the saved context and asks the user to pick again.
  */
 export function diagnoseSavedView(view: SavedView, support: SavedViewSupport, ctx: DiagnoseContext): SavedViewDiagnosis {
+  if (view.kind === 'custom-group') return { status: 'denied', reasons: [{ code: 'denied', message: 'custom-group is not a restorable view' }] };
   if (!ctx.capabilities.canView) {
     return { status: 'denied', reasons: [{ code: 'denied', ...(ctx.capabilities.reason === undefined ? {} : { message: ctx.capabilities.reason }) }] };
   }

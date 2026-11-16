@@ -1,4 +1,4 @@
-import { isForbiddenSavedViewKey, isRecord, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, isRecord, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
 
 // Runtime guards that deeply match the wire schemas in `@ap/contract-schemas/src/saved-view-commands.ts` (ADR-0099 section 3).
 // This package has no runtime Zod dependency; `__tests__/saved-view-guards.test.ts` proves the equivalence against the schemas.
@@ -102,13 +102,18 @@ const name: Guard = (v) => typeof v === 'string' && v.trim() !== '' && isWellFor
 const savedScopeId: Guard = v => typeof v === 'string' && v.length > 0 && v.length <= SAVED_SCOPE_ID_MAX && isWellFormedText(v);
 const menuId: Guard = (v) => typeof v === 'string' && v.length > 0 && isWellFormedText(v);
 
-export const isSavedViewDraft: Guard = (v) =>
-  isRecord(v) &&
-  (v['kind'] === 'condition-set'
-    ? strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId })(v)
-    : strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json }, { savedScopeId })(v));
+const nonBlank: Guard = v => typeof v === 'string' && v.trim() !== '' && isWellFormedText(v);
+const target: Guard = anyOf(
+  strict({ fixed: v => Array.isArray(v) && v.length >= 1 && v.length <= CUSTOM_GROUP_FIXED_MAX && v.every(nonBlank) && new Set(v).size === v.length }),
+  strict({ rule: v => isRecord(v) && Object.entries(v).every(([axis, values]) => nonBlank(axis) && axis !== CUSTOM_GROUP_AXIS && Array.isArray(values) && values.length > 0 && values.every(nonBlank)) }),
+);
+export const isSavedViewDraft: Guard = anyOf(
+  strict({ schemaVersion: lit(1), kind: lit('custom-group'), name, savedScopeId, target }),
+  strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId }),
+  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json }, { savedScopeId }),
+);
 
-const patch = strict({}, { savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json });
+const patch = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json });
 const visibility: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'private' || v['kind'] === 'official'
@@ -141,7 +146,7 @@ export const withinCommandBounds = (body: unknown): boolean => withinDepth(body)
 // ---- commands (what this client may send) ----
 
 /** The wire key allows an empty `menuId` (unlike a menu-view draft); only unsafe Unicode is refused. */
-const key = strict({ menuId: nullable(text) });
+const key = strict({ menuId: nullable(text) }, { kind: lit('custom-group') });
 const expected = { expectedVersion: int };
 const cmd = (op: string, shape: Record<string, Guard>, optional: Record<string, Guard> = {}): Guard => strict({ version: lit(1), op: lit(op), ...shape }, optional);
 const importRow = strict({ legacyKey: (v) => typeof v === 'string' && v.length >= 1 && v.length <= TOKEN_MAX && isWellFormedText(v), draft: isSavedViewDraft });
@@ -179,11 +184,13 @@ export const isSavedViewCommand: Guard = (body) => withinCommandBounds(body) && 
 const capabilities = strict({ canView: bool, canCopy: bool, canEdit: bool, canShare: bool, canApprove: bool, canRevoke: bool }, { reason: str });
 const record = { id, schemaVersion: lit(1), name: str, ownerId: str, version: int, updatedAt: num, visibility, approval: oneOf('none', 'pending', 'approved', 'rejected'), context };
 const approvalNote = { approvalNote: str };
-const savedView: Guard = (v) =>
-  isRecord(v) &&
-  (v['kind'] === 'condition-set'
-    ? strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId })(v)
-    : strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: json }, { ...approvalNote, savedScopeId })(v));
+const { context: _context, ...groupRecord } = record;
+void _context;
+const savedView: Guard = anyOf(
+  strict({ ...groupRecord, kind: lit('custom-group'), savedScopeId, target, approval: lit('none'), visibility: anyOf(strict({ kind: lit('private') }), strict({ kind: lit('groups'), groupIds: textList })) }, approvalNote),
+  strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId }),
+  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: json }, { ...approvalNote, savedScopeId }),
+);
 const entry = strict({ view: savedView, capabilities }, { denied: lit(false) });
 const denied = strict({ id, denied: lit(true), reason: str });
 const listItem = anyOf(entry, denied);

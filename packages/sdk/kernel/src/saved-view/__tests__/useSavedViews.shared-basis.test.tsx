@@ -33,7 +33,7 @@ async function save(owner: 'prcGroup' | 'condition', context: SavedViewContext, 
   await act(async () => { result = await views.saveToSelected(); });
   expect(result?.ok).toBe(true);
   await act(async () => {});
-  return { context: store.rows.get('cs')?.context, modified: views.state.modified };
+  return { context: (store.rows.get('cs') as ReturnType<typeof viewOf> | undefined)?.context, modified: views.state.modified };
 }
 
 it.each<[string, 'prcGroup' | 'condition', SavedViewContext]>([

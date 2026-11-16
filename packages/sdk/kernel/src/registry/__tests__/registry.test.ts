@@ -606,6 +606,9 @@ describe('menu conditionPresets (06 §6.4, ADR-0083)', () => {
   describe('PlatformProvider checks the axis ids against equipmentAxes', () => {
     afterEach(cleanup);
     const axes = [{ id: 'maker', label: { ko: 'Maker', en: 'Maker' }, membershipHistory: false }];
+    it('refuses the reserved customGroup axis before accepting app-injected axes', () => {
+      expect(() => mountWith([{ ...axes[0], id: 'customGroup' }], '/a')).toThrow(/customGroup.*reserved/);
+    });
     const mountWith = (equipmentAxes: typeof axes, url: string) => {
       window.history.replaceState(null, '', url);
       const registry = createRegistry({ spaces: home, groups, menus: [withPresets({})] });

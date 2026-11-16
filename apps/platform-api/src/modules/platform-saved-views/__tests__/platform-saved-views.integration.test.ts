@@ -153,6 +153,39 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
     workspaceIds.push(foreignWorkspaceId);
   });
 
+  it('persists custom groups with isolated listing, owner-only writes and live shared-group ACL', async () => {
+    const group = await save(alice, { schemaVersion: 1, kind: 'custom-group', name: `${PREFIX}-targets`, savedScopeId: 'S', target: { fixed: ['e1', 'e2'] } });
+    const key = { menuId: null, kind: 'custom-group' };
+    expect(await call(alice, 'list', { key })).toEqual(expect.arrayContaining([expect.objectContaining({ view: expect.objectContaining({ id: group.id, kind: 'custom-group' }) })]));
+    expect(await call(alice, 'list', { key: { menuId: null } })).not.toEqual(expect.arrayContaining([expect.objectContaining({ view: expect.objectContaining({ id: group.id }) })]));
+    expect((await q('select kind, menu_id, content from platform.saved_views where id = $1', [group.id])).rows[0]).toMatchObject({ kind: 'custom-group', menu_id: null, content: { savedScopeId: 'S', target: { fixed: ['e1', 'e2'] } } });
+    expect(await call(alice, 'setDefault', { key, id: null })).toMatchObject({ ok: false, reason: 'invalid' });
+    expect(await call(alice, 'setDefault', { key: { menuId: null }, id: group.id })).toMatchObject({ ok: false, reason: 'invalid' });
+    expect(await call(alice, 'getDefaultId', { key })).toBeNull();
+    expect(await call(alice, 'update', { id: group.id, patch: { savedScopeId: null }, expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+    expect(await call(alice, 'setVisibility', { id: group.id, visibility: { kind: 'people', userIds: [bob.id] }, expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+    expect(await call(alice, 'requestOfficial', { id: group.id, expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+    const audience = await call(alice, 'createGroup', { name: `${PREFIX}-audience`, memberIds: [bob.id] });
+    const shared = await call(alice, 'setVisibility', { id: group.id, visibility: { kind: 'groups', groupIds: [audience.value.group.id] }, expectedVersion: 1 });
+    expect(shared.ok).toBe(true);
+    expect((await audits(['saved_view_visibility_changed'])).some(row => row.subject_id === group.id && row.detail.visibility === 'groups')).toBe(true);
+    expect(await call(bob, 'get', { id: group.id })).toMatchObject({ view: { id: group.id }, capabilities: { canView: true, canEdit: false, canShare: false, canApprove: false, canRevoke: false } });
+    expect(await call(bob, 'update', { id: group.id, patch: { target: { fixed: ['e3'] } }, expectedVersion: shared.value.view.version })).toMatchObject({ ok: false, reason: 'forbidden' });
+    expect(await call(bob, 'remove', { id: group.id })).toMatchObject({ ok: false, reason: 'forbidden' });
+    expect(await call(admin, 'get', { id: group.id })).toEqual({ id: group.id, denied: true, reason: 'no-access' });
+    for (const fields of [{ op: 'decide', decision: 'approve' }, { op: 'revoke' }]) {
+      const { op, ...rest } = fields;
+      expect(await call(alice, op as Op, { ...rest, id: group.id, expectedVersion: shared.value.view.version })).toMatchObject({ ok: false, reason: 'invalid' });
+    }
+    const updated = await call(alice, 'update', { id: group.id, patch: { target: { rule: { model: ['A'] } } }, expectedVersion: shared.value.view.version });
+    expect(updated.ok).toBe(true);
+    expect(await call(alice, 'update', { id: group.id, patch: { name: 'stale' }, expectedVersion: shared.value.view.version })).toMatchObject({ ok: false, reason: 'conflict' });
+    expect((await q('select content from platform.saved_views where id = $1', [group.id])).rows[0]?.content.target).toEqual({ rule: { model: ['A'] } });
+    await call(alice, 'updateGroup', { id: audience.value.group.id, patch: { removeMembers: [bob.id] } });
+    expect(await call(bob, 'get', { id: group.id })).toEqual({ id: group.id, denied: true, reason: 'no-access' });
+    expect((await audits(['saved_view_group_updated'])).some(row => row.subject_id === audience.value.group.id && row.detail.removed_ids.includes(bob.id))).toBe(true);
+  });
+
   it('saved-view lock timeout returns 503 without creating a group or audit', async () => {
     const runtime = createDb(APP_URL, {
       budgets: {

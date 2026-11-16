@@ -16,7 +16,7 @@ export const savedInOtherScope = (view: Pick<SavedView, 'savedScopeId'>, scopeId
  * The Site-bound fields this view stores but must not apply in `scopeId`: the one rule of #2175. A pure function of the view and the CURRENT Scope, so opening a view in
  * another Scope, switching Scope while it is selected, the notice, `수정됨` and `저장본으로 되돌리기` all give the same answer, and a reload does too.
  */
-export function siteBoundDropped(view: Pick<SavedView, 'savedScopeId' | 'context'>, scopeId: string | null): (keyof SavedViewContext)[] {
+export function siteBoundDropped(view: Pick<Exclude<SavedView, { kind: 'custom-group' }>, 'savedScopeId' | 'context'>, scopeId: string | null): (keyof SavedViewContext)[] {
   if (!savedInOtherScope(view, scopeId)) return [];
   return SITE_BOUND_SAVED.filter(field => view.context[field] !== undefined && view.context[field] !== null);
 }
@@ -36,6 +36,7 @@ export function hasExplicitContext(current: Applied): boolean {
 
 /** The saved copy restricted to what this menu supports, with a relative period resolved and the Site-bound values of another Scope left out: the shape `viewState` compares with the applied state. */
 export function savedStateOf(view: SavedView, support: SavedViewSupport, anchor: string | null, scopeId: string | null): SavedState {
+  if (view.kind === 'custom-group') return { context: {}, page: [] };
   const fields = supportedFields(support);
   const dropped = new Set<string>(siteBoundDropped(view, scopeId));
   const context: SavedViewContext = {};
@@ -49,12 +50,14 @@ export const contextKeysOf = (fields: readonly (keyof SavedViewContext)[]): stri
 
 /** The Context keys (as the user reads them in the notice) a view saved in another Scope does not apply in this menu. Fields the menu does not support are listed by `unsupportedOf`, not here. */
 export function excludedByScope(view: SavedView, support: SavedViewSupport, scopeId: string | null): string[] {
+  if (view.kind === 'custom-group') return [];
   const fields = supportedFields(support);
   return contextKeysOf(siteBoundDropped(view, scopeId).filter(field => fields.has(field)));
 }
 
 /** What a view stores that this menu cannot restore (06 §6.4): derived from the saved copy, so it is the same right after a pick and after a reload. */
 export function unsupportedOf(view: SavedView, support: SavedViewSupport, anchor: string | null): Unsupported[] {
+  if (view.kind === 'custom-group') return [];
   const fields = supportedFields(support);
   const found: Unsupported[] = [];
   const note = (item: Unsupported) => { if (!found.some(u => u.kind === item.kind && u.key === item.key)) found.push(item); };
@@ -74,6 +77,7 @@ export function comparableApplied(view: SavedView, applied: SavedState): SavedSt
  */
 export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string | null; source: RestoreSource }): RestoreResult {
   const { view, support, current } = input;
+  if (view.kind === 'custom-group') return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuId !== support.menuId) return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuSchemaVersion !== support.menuSchemaVersion) return { ok: false, reason: 'stale-schema' };
   if (input.source === 'default' && hasExplicitContext(current)) return { ok: true, applied: false, reason: 'explicit-address' };
@@ -104,6 +108,7 @@ export function restoreSavedView(input: { view: SavedView; support: SavedViewSup
  * would be relabelled as this one's; only what the applied state holds is written. The patch always records the current Scope (`null` clears it, when there is none).
  */
 export function overwritePatch(view: SavedView, applied: SavedState, support: SavedViewSupport, anchor: string | null, scopeId: string | null): Pick<SavedViewPatch, 'context' | 'page' | 'savedScopeId'> {
+  if (view.kind === 'custom-group') throw new Error('custom groups cannot be overwritten as views');
   const fields = supportedFields(support);
   const cross = savedInOtherScope(view, scopeId);
   const kept = Object.fromEntries(Object.entries(view.context).filter(([field]) => !fields.has(field as keyof SavedViewContext) && !(cross && (SITE_BOUND_SAVED as readonly string[]).includes(field)))) as SavedViewContext;

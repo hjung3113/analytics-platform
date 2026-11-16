@@ -73,8 +73,14 @@ const panelsSchema = json;
 const name = z.string().refine((value) => value.trim() !== '', { message: 'name is empty' });
 /** The Scope a content version was saved in (#2175): opaque metadata, never an authority; the server stores it and checks no grant. Bounded like `SAVED_SCOPE_ID_MAX` in @ap/contracts. */
 const savedScopeId = z.string().min(1).max(200);
+const groupId = z.string().refine(value => value.trim() !== '', { message: 'id is empty' });
+const customGroupTarget = z.union([
+  z.strictObject({ rule: z.record(groupId.refine(axis => axis !== 'customGroup', { message: 'nested custom groups are forbidden' }), z.array(groupId).min(1)) }),
+  z.strictObject({ fixed: z.array(groupId).min(1).max(5_000).refine(ids => new Set(ids).size === ids.length, { message: 'fixed ids must be unique' }) }),
+]);
 
 export const savedViewDraftSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ schemaVersion: z.literal(1), kind: z.literal('custom-group'), name, savedScopeId, target: customGroupTarget }),
   z.strictObject({ schemaVersion: z.literal(1), kind: z.literal('condition-set'), name, context: contextSchema, savedScopeId: savedScopeId.optional() }),
   z.strictObject({
     schemaVersion: z.literal(1),
@@ -92,6 +98,7 @@ export const savedViewDraftSchema = z.discriminatedUnion('kind', [
 ]);
 /** Fields are checked as in a draft; the server validates the merged result like `save`, so `name` here is only a string. */
 export const savedViewPatchSchema = z.strictObject({
+  target: customGroupTarget.optional(),
   name: z.string().optional(),
   menuSchemaVersion: version.optional(),
   context: contextSchema.optional(),
@@ -110,7 +117,7 @@ export const viewVisibilitySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('official') }),
 ]);
 
-const key = z.strictObject({ menuId: z.string().nullable() });
+const key = z.strictObject({ menuId: z.string().nullable(), kind: z.literal('custom-group').optional() });
 const expected = { expectedVersion: version };
 const command = <Op extends string, S extends z.ZodRawShape>(op: Op, shape: S) => z.strictObject({ version: z.literal(SAVED_VIEW_COMMAND_VERSION), op: z.literal(op), ...shape });
 
@@ -169,6 +176,11 @@ const record = {
   savedScopeId: savedScopeId.optional(),
 };
 export const savedViewSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    ...record, context: z.never().optional(), kind: z.literal('custom-group'), savedScopeId, target: customGroupTarget,
+    visibility: z.union([z.strictObject({ kind: z.literal('private') }), z.strictObject({ kind: z.literal('groups'), groupIds: strings })]),
+    approval: z.literal('none'),
+  }).omit({ context: true }),
   z.strictObject({ ...record, kind: z.literal('condition-set') }),
   z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: panelsSchema }),
 ]);

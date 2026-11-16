@@ -222,7 +222,7 @@ describe('review round: shared-with names and saved contents', () => {
 
   it('a stored date-only period renders its endpoints as written instead of throwing', async () => {
     const view = entry('d', 'none');
-    view.view.context = { from: '2026-10-01', to: '2026-10-07' } as never;
+    (view.view as { context: unknown }).context = { from: '2026-10-01', to: '2026-10-07' } as never;
     render(<Host entries={[view]} />);
     await open();
     await userEvent.click(screen.getByRole('button', { name: /뷰 d/ }));
@@ -235,7 +235,7 @@ describe('review round: shared-with names and saved contents', () => {
     ['an open end', '2026-09-25T09:00:00', null, '09-25 09:00 → —'],
   ])('fixed period %s uses the common period rule', async (_name, from, to, text) => {
     const view = entry('f', 'none');
-    view.view.context = { from, to } as never;
+    (view.view as { context: unknown }).context = { from, to } as never;
     render(<Host entries={[view]} />);
     await open();
     await userEvent.click(screen.getByRole('button', { name: /뷰 f/ }));
