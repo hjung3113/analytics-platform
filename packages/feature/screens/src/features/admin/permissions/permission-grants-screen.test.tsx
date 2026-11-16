@@ -656,6 +656,28 @@ describe('/admin/permissions/grants screen', () => {
     fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
     await waitFor(() => expect(api.requests.find(r => r.method === 'POST' && r.path === '/permissions/grants')).toBeDefined());
   });
+  test.each([
+    { code: 'conflict.permission_request_duplicate', detail: { item_index: 1, request_id: REVIEW_REQUEST_ID, review_route: `/admin/permissions/requests?selected=${REVIEW_REQUEST_ID}` },
+      link: `/admin/permissions/requests?selected=${REVIEW_REQUEST_ID}`, linkName: /요청 검토/ },
+    { code: 'conflict.capability_already_denied', detail: { item_index: 1, deny_ids: [SECOND_DENY_ID], lift_route: `/admin/permissions/grants?tab=denies&selected=${SECOND_DENY_ID}` },
+      link: `/admin/permissions/grants?tab=denies&selected=${SECOND_DENY_ID}`, linkName: /차단 해제/ },
+  ] as const)('keeps the recovery link beside a batch row refused with $code (#2420 review C1)', async ({ code, detail, link, linkName }) => {
+    installApi({ directGrantErrors: [{ status: 409, code, detail }],
+      grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, { candidates: [DEFAULT_GRANT_CANDIDATE, {
+        capability: 'voc.read', managed_system_id: MANAGED_SYSTEM_ID, governance_required: false, preflight: { state: 'available' },
+      }] }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await chooseSelectOption('대상자', /^Actor One/);
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Finding 관리.*Payments/ }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /VOC 조회.*Payments/ }));
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Keep my draft' } });
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    expect(await within(dialog).findByText('거절됨')).toBeInTheDocument();
+    const alert = within(dialog).getByRole('alert');
+    expect(alert).toHaveTextContent(/^VOC 조회 · Payments:/);
+    expect(within(alert).getByRole('link', { name: linkName })).toHaveAttribute('href', link);
+  });
   beforeEach(() => {
     vi.setSystemTime(PINNED_NOW);
   });

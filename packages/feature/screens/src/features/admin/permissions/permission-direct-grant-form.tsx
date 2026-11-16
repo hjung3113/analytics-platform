@@ -690,7 +690,12 @@ function DirectGrantFields({
           }); }} />
         )}
         {overLimit ? <p role="alert" className="text-sm text-text-danger">{DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)}</p> : null}
-        {rejectedCandidate && mappedError ? <p role="alert" className="text-sm text-text-danger">{candidateLabel(rejectedCandidate, managedSystemNames, declared)}: {mappedError}</p> : null}
+        {rejectedCandidate && mappedError ? <div role="alert" className="flex flex-col gap-1 text-sm text-text-danger">
+          <p>{candidateLabel(rejectedCandidate, managedSystemNames, declared)}: {mappedError}</p>
+          {/* A row refused for an open request or a deny keeps the same recovery link the single grant shows. */}
+          {submitErrorDestination && canLink(submitErrorDestination.href) ? <HostLink className="w-fit text-accent-primary underline underline-offset-2"
+            to={submitErrorDestination.href} {...(submitErrorDestination.closesDialog ? { onClick: onClose } : {})}>{submitErrorDestination.label}</HostLink> : null}
+        </div> : null}
         {selectedCandidate && isCapability(selectedCandidate.capability) && isTokenOnlyCapability(selectedCandidate.capability) ? (
           <p className="text-xs text-text-secondary" data-testid="direct-grant-token-only-hint">
             {DIRECT_GRANT_COPY.tokenOnlyHint}

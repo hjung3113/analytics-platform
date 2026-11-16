@@ -7,6 +7,7 @@ import {
   type CreatePermissionRequestResult,
   type CreatePermissionRequestBatch,
   createPermissionRequestBatchSchema,
+  createPermissionRequestBatchResultSchema,
   type EditPermissionRequest,
   type MinePermissionRequestRow,
   type MinePermissionRequestsResponse,
@@ -18,7 +19,6 @@ import {
   permissionRequestOwnerDetailSchema,
   submitMoreInfoPermissionRequestResultSchema,
 } from '@ap/feature-shared';
-import { z } from 'zod';
 
 import { apiRequest } from './client';
 import { apiPath } from './path';
@@ -44,9 +44,8 @@ export interface CreatePermissionRequestBody {
 
 export type CreatePermissionRequestSuccess = CreatePermissionRequestResult;
 
-const requestBatchResultSchema = z.object({ batch_id: z.string().uuid(), items: z.array(createPermissionRequestResultSchema).min(1) });
 export async function createPermissionRequestBatch(body: CreatePermissionRequestBatch, options: { idempotencyKey: string }) {
-  return (await apiRequest('POST', '/permission-requests/batch', requestBatchResultSchema, {
+  return (await apiRequest('POST', '/permission-requests/batch', createPermissionRequestBatchResultSchema, {
     body: createPermissionRequestBatchSchema.parse(body), idempotencyKey: options.idempotencyKey,
   })).data;
 }
