@@ -1193,6 +1193,38 @@ it('reconciles added and removed panels without changing persistKey (#2028 SHE-2
   expect(screen.getByRole('tab', { name: '추세' })).toBeInTheDocument();
 });
 
+describe('PanelWorkspace: placement below and pin (#2398)', () => {
+  const extra = (placement?: 'below') => ({ id: 'extra', title: { ko: '추가', en: 'Extra' }, render: () => <Probe id="extra" />, placement });
+
+  it('a panel with placement below that joins the panels opens as a new last row, not a tab with the primary', async () => {
+    const { rerender } = mountWorkspace({ presets: [PRESETS[1]!], initialPreset: 'focus' });
+    await ready();
+    rerender(shell(<PanelWorkspace {...BASE} presets={[PRESETS[1]!]} initialPreset="focus" panels={[...PANELS, extra('below')]} />));
+    await screen.findByRole('tab', { name: '추가' });
+    await waitFor(() => { expect(groups()).toContainEqual(['extra']); });
+    expect(groups().find(panels => panels.includes('trend'))).toEqual(['trend']);
+  });
+
+  it('without placement the joining panel is a tab in the primary group (unchanged default)', async () => {
+    const { rerender } = mountWorkspace({ presets: [PRESETS[1]!], initialPreset: 'focus' });
+    await ready();
+    rerender(shell(<PanelWorkspace {...BASE} presets={[PRESETS[1]!]} initialPreset="focus" panels={[...PANELS, extra()]} />));
+    await screen.findByRole('tab', { name: '추가' });
+    expect(groups().find(panels => panels.includes('trend'))).toEqual(['extra', 'trend']);
+  });
+
+  it('draws a pressed-state pin button only for a panel that opts in, and calls onToggle', async () => {
+    const onToggle = vi.fn();
+    mountWorkspace({ panels: PANELS.map(panel => panel.id === 'selector' ? { ...panel, pin: { pinned: true, onToggle } } : panel) });
+    await ready();
+    expect(screen.queryByRole('button', { name: '추세 고정' })).toBeNull();
+    const pin = screen.getByRole('button', { name: '선택기 고정' });
+    expect(pin).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(pin);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PanelWorkspace: standalone, no PlatformProvider (#1953)', () => {
   const standalone = (props: Partial<PanelWorkspaceProps> = {}) => render(<I18nProvider><PanelWorkspace {...BASE} {...props} /></I18nProvider>);
   const appStorage = () => {

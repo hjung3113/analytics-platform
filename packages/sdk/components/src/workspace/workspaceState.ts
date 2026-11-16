@@ -3,7 +3,7 @@
  * Maximize is never part of it. No React, no storage.
  */
 import { isRecord } from '@ap/contracts';
-import { activatePanel, addPanel, groupOf, panelOrder, removePanel } from '../dock/commands';
+import { activatePanel, addPanel, groupOf, moveToNewRow, panelOrder, removePanel } from '../dock/commands';
 import { dockGroupsInReadingOrder, normalizeDockTree, type DockNode } from '../dock/schema';
 import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
 
@@ -33,8 +33,12 @@ function toShares(layout: unknown): unknown {
 }
 
 /** The preset's tree over exactly `ids` (panels the preset does not name join its first group; ids it names that are not in `ids` are dropped). */
-export function presetTree(layout: PanelWorkspaceLayout, ids: readonly string[]): DockNode {
-  return normalizeDockTree(toShares(layout), ids);
+export function presetTree(layout: PanelWorkspaceLayout, ids: readonly string[], below: readonly string[] = []): DockNode {
+  let tree = normalizeDockTree(toShares(layout), ids);
+  // #2398: a `placement: 'below'` panel the preset does not name becomes a new last row instead of a tab in the first group.
+  const named = namedIds(layout);
+  for (const id of below) if (ids.includes(id) && !named.has(id) && panelOrder(tree).length > 1) tree = moveToNewRow(tree, id);
+  return tree;
 }
 
 /** Every string the raw value names as a panel id, however malformed the rest is. */
@@ -53,6 +57,8 @@ export type WorkspaceSpec = {
   initialMode?: 'fit' | 'stack';
   /** Preset id the menu arranges its panels in while stacked (ADR-0130): an untouched workspace that starts in stack starts on it, and the mode switch applies it while the arrangement is still the initial preset's. Unknown ids are ignored. */
   stackPreset?: string;
+  /** Panels declared with `placement: 'below'` (#2398): when the layout does not hold them yet they open as a new last row, not a tab. */
+  below?: readonly string[];
 };
 
 /** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
@@ -84,14 +90,22 @@ export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 
   return withRows(next, 'stack', reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum, created, env.preferred));
 }
 
-/** Brings the stored mode and rows of `raw` onto the repaired `state`: anything but a valid stack mode is fit; rows that do not fit the layout are left to be measured. */
-function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: WorkspaceSpec): WorkspaceState {
+/**
+ * Brings the stored mode and rows of `raw` onto the repaired `state`: anything but a valid stack mode is fit; rows that do not fit the layout are left to be measured.
+ * `appended`: the repair added rows (a `below` panel that joined, #2398). The stored rows are then matched to the new rows by their panels
+ * (`reconcileRows` over the stored layout): a surviving row keeps its px wherever it now sits, a new row gets `NEW_ROW_HEIGHT`, a gone row is dropped.
+ */
+function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: WorkspaceSpec, appended = false): WorkspaceState {
   if (raw.mode !== 'stack') return state;
   const rows = topLevelRows(state.layout);
-  const given = raw.rows;
-  if (!Array.isArray(given) || given.length !== rows.length || !given.every(px => typeof px === 'number' && Number.isFinite(px) && px > 0 && px <= MAX_STORED_ROW_PX)) return withRows(state, 'stack');
   const minimum = spec.rowMinimum ?? (() => ROW_MIN_HEIGHT);
-  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), Math.round(given[index] as number))));
+  const stored = Array.isArray(raw.rows) && raw.rows.every(px => typeof px === 'number' && Number.isFinite(px) && px > 0 && px <= MAX_STORED_ROW_PX) ? (raw.rows as number[]).map(px => Math.round(px)) : undefined;
+  if (stored && appended) {
+    const previous = normalizeDockTree(raw.layout, [...namedIds(raw.layout)]);
+    if (topLevelRows(previous).length === stored.length) return withRows(state, 'stack', reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX));
+  }
+  if (stored?.length !== rows.length) return withRows(state, 'stack');
+  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), stored[index]!)));
 }
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
@@ -103,7 +117,7 @@ const stackPresetOf = (spec: Pick<WorkspaceSpec, 'presets' | 'stackPreset'>) => 
 export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
   const stack = spec.initialMode !== 'fit';
   const preset = (stack ? stackPresetOf(spec) : undefined) ?? presetOf(spec, spec.initialPreset);
-  const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds), hidden: [] };
+  const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds, spec.below), hidden: [] };
   return stack ? { ...state, mode: 'stack' } : state;
 }
 
@@ -117,26 +131,26 @@ function sameArrangement(a: DockNode, b: DockNode): boolean {
 }
 
 /** `state` moved from the arrangement of preset `from` to that of preset `to`, only while it still is `from`'s (the user's own arrangement is the user's). */
-function moveArrangement(state: WorkspaceState, presets: readonly WorkspacePreset[], from: string, to: string | undefined): WorkspaceState {
+function moveArrangement(state: WorkspaceState, presets: readonly WorkspacePreset[], from: string, to: string | undefined, below?: readonly string[]): WorkspaceState {
   const source = presets.find(preset => preset.id === from);
   const target = to === undefined ? undefined : presets.find(preset => preset.id === to);
   if (!source || !target) return state;
   const shown = panelOrder(state.layout);
-  return sameArrangement(state.layout, presetTree(source.layout, shown)) ? applyPreset(state, target) : state;
+  return sameArrangement(state.layout, presetTree(source.layout, shown, below)) ? applyPreset(state, target, below) : state;
 }
 
 /**
  * The height mode switch (`화면 맞춤` ↔ `아래로 쌓기`). Fit to stack applies `stackPreset` when the layout is still the initial preset's; stack to fit applies the
  * initial preset when it is still the `stackPreset`'s; any other arrangement is kept. Without a usable `stackPreset` the arrangement is always kept.
  */
-export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec: Pick<WorkspaceSpec, 'presets' | 'initialPreset' | 'stackPreset'>, env: RowEnv): WorkspaceState {
+export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec: Pick<WorkspaceSpec, 'presets' | 'initialPreset' | 'stackPreset' | 'below'>, env: RowEnv): WorkspaceState {
   const stackPreset = stackPresetOf(spec)?.id;
   if (mode === 'fit') {
     if (current.mode !== 'stack') return current;
-    return withRows(stackPreset === undefined ? current : moveArrangement(current, spec.presets, stackPreset, spec.initialPreset), 'fit');
+    return withRows(stackPreset === undefined ? current : moveArrangement(current, spec.presets, stackPreset, spec.initialPreset, spec.below), 'fit');
   }
   if (current.mode === 'stack') return current;
-  const arranged = stackPreset === undefined ? current : moveArrangement(current, spec.presets, spec.initialPreset, stackPreset);
+  const arranged = stackPreset === undefined ? current : moveArrangement(current, spec.presets, spec.initialPreset, stackPreset, spec.below);
   return withRows(arranged, 'stack', enterRows(arranged.layout, env.baseline, env.minimum, env.maximum, env));
 }
 
@@ -158,14 +172,16 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): Work
     const shown = spec.panelIds.filter(id => !hidden.includes(id));
     const named = namedIds(raw.layout);
     const placed = shown.filter(id => named.has(id) || id === spec.primaryId);
-    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown), hidden }, spec);
+    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below), hidden }, spec);
     let layout = normalizeDockTree(raw.layout, placed);
+    let appended = false;
     for (const id of shown.filter(candidate => !placed.includes(candidate))) {
       const before = groupActive(layout, spec.primaryId);
       layout = addPanel(layout, id, { panelId: spec.primaryId, position: 'center' });
       if (before) layout = activatePanel(layout, before);
+      if (spec.below?.includes(id) && panelOrder(layout).length > 1) { layout = moveToNewRow(layout, id); appended = true; }
     }
-    return restoreRows(raw, { v: 1, preset, layout, hidden }, spec);
+    return restoreRows(raw, { v: 1, preset, layout, hidden }, spec, appended);
   } catch {
     return initialWorkspaceState(spec);
   }
@@ -177,13 +193,13 @@ function groupActive(tree: DockNode, panelId: string): string | undefined {
 }
 
 /** Switches to `preset`: its arrangement of the panels that are shown; hidden panels stay hidden. The panels stay the same, so nothing remounts. */
-export function applyPreset(state: WorkspaceState, preset: WorkspacePreset): WorkspaceState {
-  return { ...state, preset: preset.id, layout: presetTree(preset.layout, panelOrder(state.layout)) };
+export function applyPreset(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[]): WorkspaceState {
+  return { ...state, preset: preset.id, layout: presetTree(preset.layout, panelOrder(state.layout), below) };
 }
 
 /** `기본 배치`: the current preset's arrangement of every panel; nothing hidden. The height mode is the user's and stays as it is (never reset to `initialMode`). */
-export function resetLayout(state: WorkspaceState, preset: WorkspacePreset): WorkspaceState {
-  return { ...state, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden]), hidden: [] };
+export function resetLayout(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[]): WorkspaceState {
+  return { ...state, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden], below), hidden: [] };
 }
 
 /**

@@ -108,8 +108,9 @@ export function useTableUrlState(
 /**
  * One page key the screen accepts: its user-facing field name and the check of a present raw value (an absent key is always fine).
  * `key` must be one of the menu's `pageKeys`: `pageParam` reads nothing else, so a rule for another key never fires.
+ * `repeated: true` (a key in the menu's `repeatedPageKeys`, #2398) checks every value, and the first bad one is reported; without it only the first value is read.
  */
-export type PageKeyRule = { key: string; label: Text; valid: (raw: string) => boolean };
+export type PageKeyRule = { key: string; label: Text; valid: (raw: string) => boolean; repeated?: boolean };
 
 /**
  * Rejects malformed page keys, never corrects them (06 §6, ADR-0034), shaped like `useTableUrlWarning`: `invalid` is true when
@@ -117,10 +118,10 @@ export type PageKeyRule = { key: string; label: Text; valid: (raw: string) => bo
  * those keys and `recover` clears exactly them in one `setPage`. While `invalid` the screen sends no query and shows `PageKeyWarning`.
  */
 export function usePageKeyRules(rules: readonly PageKeyRule[]): { invalid: boolean; sentences: string[]; badKeys: string[]; recover: () => void } {
-  const { pageParam, setPage } = usePlatform();
+  const { pageParam, pageParams, setPage } = usePlatform();
   const { lang } = useI18n();
   const bad = rules.flatMap(rule => {
-    const raw = pageParam(rule.key);
+    const raw = rule.repeated ? (pageParams(rule.key).find(value => !rule.valid(value)) ?? null) : pageParam(rule.key);
     return raw === null || rule.valid(raw) ? [] : [{ rule, raw }];
   });
   const badKeys = bad.map(({ rule }) => rule.key);

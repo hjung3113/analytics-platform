@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { groupOf, panelOrder } from '../dock/commands';
 import { dockGroups, isValidDockTree, type DockNode } from '../dock/schema';
 import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
+import { topLevelRows } from './workspaceRows';
 
 const IDS = ['trend', 'selector', 'detail', 'kpi'];
 const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
@@ -406,5 +407,43 @@ describe('default start and stackPreset (ADR-0130)', () => {
   it('기본 배치 keeps the current preset and the mode', () => {
     const stacked = initialWorkspaceState(withStack);
     expect(resetLayout(stacked, column)).toMatchObject({ preset: 'column', mode: 'stack' });
+  });
+});
+
+describe('placement below (#2398)', () => {
+  const below: WorkspaceSpec = { ...spec, panelIds: [...IDS, 'extra'], presets: [focus], initialPreset: 'focus', below: ['extra'] };
+  const lastRow = (tree: DockNode) => tree.type === 'branch' && tree.dir === 'column' ? tree.children[tree.children.length - 1] : undefined;
+
+  it('a below panel the preset does not name is the last row of a fresh workspace and of a preset switch', () => {
+    const fresh = initialWorkspaceState({ ...below, initialMode: 'fit' });
+    expect(lastRow(fresh.layout)).toMatchObject({ type: 'group', panels: ['extra'] });
+    expect(lastRow(applyPreset(fresh, focus, ['extra']).layout)).toMatchObject({ type: 'group', panels: ['extra'] });
+    expect(lastRow(resetLayout(fresh, focus, ['extra']).layout)).toMatchObject({ type: 'group', panels: ['extra'] });
+  });
+
+  it('a below panel joining a stored layout gets a new last row; stored stack rows keep their px and the new row gets 360', () => {
+    const stored = withRows(initialWorkspaceState({ ...spec, presets: [focus], initialPreset: 'focus', initialMode: 'fit' }), 'stack', [500]);
+    const next = normalizeWorkspaceState(stored, below);
+    expect(lastRow(next.layout)).toMatchObject({ type: 'group', panels: ['extra'] });
+    expect(groupOf(next.layout, 'trend')?.active).toBe('trend');
+    expect(next.rows).toEqual([500, 360]);
+  });
+
+  it('a below panel replacing a gone row: the surviving row keeps its own px (not the gone row\'s) and the new row gets 360', () => {
+    const swap: WorkspaceSpec = { ...spec, panelIds: ['trend', 'extra'], presets: [{ id: 'focus', layout: { type: 'group', panels: ['trend'] } }], initialPreset: 'focus', below: ['extra'] };
+    const raw = { v: 1, preset: 'focus', layout: { type: 'branch', dir: 'column', sizes: [30, 70], children: [{ type: 'group', panels: ['selector'], active: 'selector' }, { type: 'group', panels: ['trend'], active: 'trend' }] }, hidden: [], mode: 'stack', rows: [250, 600] };
+    const next = normalizeWorkspaceState(raw, swap);
+    expect(topLevelRows(next.layout).map(panelOrder)).toEqual([['trend'], ['extra']]);
+    expect(next.rows).toEqual([600, 360]);
+  });
+
+  it('a below panel already placed by the user stays where it is', () => {
+    const placed = normalizeWorkspaceState({ v: 1, preset: 'focus', layout: { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panels: ['trend', 'extra'], active: 'trend' }, { type: 'group', panels: ['selector', 'detail', 'kpi'], active: 'selector' }] }, hidden: [] }, below);
+    expect(groupOf(placed.layout, 'extra')?.panels).toEqual(['trend', 'extra']);
+  });
+
+  it('a panel without placement still joins the primary group as a tab', () => {
+    const next = normalizeWorkspaceState(initialWorkspaceState({ ...spec, presets: [focus], initialPreset: 'focus' }), { ...below, below: [] });
+    expect(groupOf(next.layout, 'extra')?.panels).toContain('trend');
   });
 });
