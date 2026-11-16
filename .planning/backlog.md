@@ -393,6 +393,14 @@
 - **구현 안 함 — EV 코드 정리 묶음 (EV#184, EV#160, EV#134, EV#105, EV#187):** 오류 문구 도우미 네 곳 복사, `PanelSectionTitle`이 식별자를 대문자로 바꿈, `layout-edit.ts` 분할과 Board·Layout 되돌리기 도우미 공통화, File API fetch stub 시험 네 개의 중복, jsdom 가상 레이아웃 mock 세 곳 복사, FocusView 수준 회귀 시험(`job` 진입 뒤 Escape), `@eqv/core`가 `multiplyMatrix`·`round3`을 공개로 둠, `demo:generate`가 `editor/src/publish.ts`를 상대 경로로 가져옴. 이유: 사용자 영향이 없는 정리다. 다시 여는 조건: 그 파일을 다시 고칠 때, 네 번째 복사가 생길 때, 되돌리기 이력이 있는 세 번째 편집 모델이 생길 때.
 - **구현 안 함 — `no-non-null-assertion` 나머지 SDK·어댑터·메뉴 단계 (#2180 이후):** #2180은 `contracts`·`kernel` 비시험 파일에만 켰다(`tooling/eslint/src/index.js` `NON_NULL`). 남은 순서는 components → adapters → menus → shell이며(이슈 작성 시 `!` 348곳 중 components 99, adapters 86, menus 70, shell 50), 한 패키지씩 켜고 고친다. 사유: 절반은 진짜 좁히기 판단이 필요해 한꺼번에 고치면 오류를 삼키는 `?? 기본값`이 된다. 다시 여는 조건: 어느 레인이든 해당 패키지의 비시험 소스를 고치는 PR을 낼 때 — 그 PR이나 바로 뒤 PR에서 그 패키지 preset에 `NON_NULL`을 더하고 그 패키지의 `!`를 고친다.
 
+## Dependabot holds (#2322)
+
+| 상태 | 대상 | 미구현 이유 | 다시 열 조건 |
+| --- | --- | --- | --- |
+| 미구현 | `@radix-ui/react-dropdown-menu` 2.2.x | 2.2.1에서 접힌 Scope 선택기의 트리거 `aria-describedby`가 사라져 `ScopeSelector.test.tsx`(#194)가 깨짐 | 트리거 접근성 설명을 새 동작에 맞게 고친 PR |
+| 미구현 | `drizzle-orm` 0.45·`drizzle-kit` 0.31·`pg-boss` 12.38 | 백엔드 통합 시험 실패(쿼리 컬럼 해석 `42703`, pg-boss 마이그레이션 요구) | 기능 서버 담당이 쿼리·마이그레이션 영향을 확인한 PR |
+| 미구현 | `fastify` 5.12·`pino` 9.14·`@fastify/*` | `platform-api` 타입 검사 실패(`err` unknown, pino `Logger` 네임스페이스) | 오류 핸들러·로거 타입을 새 정의에 맞춘 PR |
+
 ## 설계 원칙 메모
 
 - 대시보드 저장 형식(위젯 배치·설정)은 레이아웃 라이브러리 형식과 분리해 플랫폼이 소유한다 — 대시보드 편집 기능을 만들 때 적용(구 04 "최종 권장안").
