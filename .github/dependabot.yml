@@ -23,6 +23,8 @@ updates:
       # Held back at the pinned version (#2322): each needs a code change or fix before it can move; see .planning/backlog.md «Dependabot holds».
       - dependency-name: "@radix-ui/react-dropdown-menu"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: "@radix-ui/react-tabs"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
       - dependency-name: "drizzle-orm"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
       - dependency-name: "drizzle-kit"
