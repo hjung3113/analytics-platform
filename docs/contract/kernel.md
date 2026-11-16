@@ -325,6 +325,7 @@ Kernel은 앱 메뉴 루트를 알지 못하고, 선언하지 않으면 거부�
 기간·지표 버전의 기본값 채우기는 정규 주소로 옮긴 뒤 평소처럼 한 번 더 쓴다.
 배포 base path는 위치 어댑터 경계에서만 붙는다(Registry·저장 URL은 앱 상대 경로).
 리다이렉트는 권한·Scope를 바꾸지 않아, 열 수 없는 메뉴는 정규 주소에서 같은 거부를 보인다.
+**은퇴한 메뉴 id (Decided 2026-11-16, #2330, opt-in):** 앱은 `createRegistry({ retiredMenus: [{ id, successor, page?, paths? }] })`로 더는 등록하지 않는 메뉴 id와 그 후속 메뉴를 선언한다. 생략하면 동작은 그대로다. 옛 id의 주소(선언한 `paths`와 후속 메뉴 공간 기준의 `/{공간 id}/{옛 id 슬러그}`)는 후속 메뉴의 별칭이 되어 위 별칭 리다이렉트로 열리고, `page`(후속 메뉴의 보이는 `pageKeys`만, 빈 값 불가) 프리셋은 주소에 그 키가 없을 때만 리다이렉트·`canonicalHref`에서 덧붙는다(`RouteMatch.aliasPage`, 공개 `withPagePreset(search, page)`). `registry.successorOf(id)`는 `{ menu, page }` 또는 null이다. 저장된 참조도 후속 메뉴로 읽는다: 즐겨찾기와 최근 방문(Kernel, 읽을 때 바꾸고 다음 기록 때 고쳐 쓴다. 후속 메뉴가 경로 파라미터를 요구하는데 옛 주소로 채울 수 없는 최근 방문은 버린다), 보드 칸과 그 `이전 화면`(셸, 표시 즉시 바꾸고 한 번 고쳐 쓴다). 옛 id로는 계측·최근 방문·공간 마지막 화면이 기록되지 않는다(별칭 주소와 같은 규칙). `createRegistry`는 등록된 id, 중복 id, 등록되지 않았거나 은퇴한 후속 메뉴, 선언되지 않았거나 숨김(`hiddenPageKeys`)인 프리셋 키(리다이렉트는 숨김 쌍을 옮기지 않는다), 빈 값, `/`로 시작하지 않는 경로, 다른 메뉴와 모양이 겹치는 경로를 `RegistryError`로 거부한다.
 **이 앱의 플랫폼 홈은 정규 `/home`이다:** 홈 메뉴가 `path: '/home'`에 `aliases: ['/']`를 선언하고 `/`는 `/home`으로 옮겨진다.
 홈이 필요한 곳(홈 링크, 플랫폼 메뉴의 `홈`, 되돌아갈 곳이 없을 때의 폴백, 홈 화면의 최근 방문)은 `matchRoute('/')`가 아니라 `registry.platformHome`을 읽고, 없으면(`null`) 공간 홈 폴백으로 간다.
 **`returnTo`:** 저장된·옛 형식의 `returnTo`(별칭 경로)도 돌아가기 포커스를 받는다 — `pageNavigation.requestReturn`이 두 주소를 정규 형태로 맞춰 비교하고, 저장된 값은 고쳐 쓰지 않는다(`safeReturnTo`는 원래 문자열을 돌려주고 공유·VOC 페이로드는 계속 `returnTo`를 싣지 않는다).

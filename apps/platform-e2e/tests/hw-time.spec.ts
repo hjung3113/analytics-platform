@@ -137,6 +137,10 @@ test.describe('HW Time linked panels — drill, filters and legacy compatibility
     await page.reload();
     await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/board');
+    // The retired id was written back as its successor once (#2330).
+    const saved = await page.evaluate(() => localStorage.getItem('platform:board:v2:engineer') ?? '');
+    expect(saved).toContain('"menuId":"hw-time"');
+    expect(saved).not.toContain('hw-time-steps');
   });
 
   for (const id of ['steps', 'compare', 'overview', 'table']) {

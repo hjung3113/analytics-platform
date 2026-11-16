@@ -1,5 +1,6 @@
-import { pathFor, routeParamNames, type MenuEntry, type Registry } from '@ap/kernel';
+import { pathFor, routeParamNames, withPagePreset, type MenuEntry, type Registry } from '@ap/kernel';
 import { hasDotSegment, type PaneScreen } from '@ap/kernel/host';
+import type { Board } from './boardTypes';
 
 /** Menus a pane may hold from an empty pane: board-declared, listed in navigation, and with no route parameter to ask for. */
 export function isBoardPlaceable(menu: MenuEntry): boolean {
@@ -36,4 +37,20 @@ export function admitPaneScreen(registry: Registry, screen: PaneScreen): boolean
  */
 export function canMountPaneScreen(registry: Registry, canOpen: (menuId: string) => boolean, screen: PaneScreen): boolean {
   return admitPaneScreen(registry, screen) && canOpen(screen.menuId);
+}
+
+/**
+ * A saved pane screen of a retired menu id as its successor's screen (`createRegistry({ retiredMenus })`, #2330): the successor's id, the
+ * same params, and the retired id's page preset added to the query where the query does not hold the key. Null when the id is not retired.
+ */
+export function successorScreen(registry: Registry, screen: PaneScreen): PaneScreen | null {
+  const successor = registry.successorOf(screen.menuId);
+  return successor === null ? null : { menuId: successor.menu.id, params: screen.params, query: withPagePreset(screen.query, successor.page) };
+}
+
+/** The board with every pane screen (and the screen `뒤로` returns to) of a retired id moved to its successor; the same board when none is. */
+export function boardWithSuccessors(registry: Registry, board: Board): Board {
+  const move = (screen: PaneScreen | null) => (screen === null ? null : successorScreen(registry, screen));
+  if (!board.sheets.some(sheet => sheet.panes.some(slot => move(slot.screen) !== null || move(slot.previous) !== null))) return board;
+  return { ...board, sheets: board.sheets.map(sheet => ({ ...sheet, panes: sheet.panes.map(slot => ({ ...slot, screen: move(slot.screen) ?? slot.screen, previous: move(slot.previous) ?? slot.previous })) })) };
 }

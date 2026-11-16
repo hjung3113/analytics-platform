@@ -18,7 +18,7 @@
 
 분포와 추세는 각각 독립된 「이 패널만」 조건과 로컬 설정을 가진다. 체크 변경은 받은 결과의 표시만 바꾸며 조회하지 않는다. 서버가 준 판정만 표시하고, 차트는 기준 밖 상태만 강조한다. 분포는 SDK `density: 'quiet'`를 사용한다.
 
-`view`와 `navViews`, View 전환용 carry set을 제거한다. 옛 `?view=`와 더 이상 읽지 않는 키는 무시한다. 옛 id `hw-time-steps|compare|overview|table`은 `navHidden` 호환 항목으로 남아 모두 같은 화면을 연다. 옛 주소는 Context와 page state를 보존해 `/mars/hw-time`으로 replace한다. 저장된 옛 id 보드 칸도 칸 안에서 같은 화면을 렌더한다. #2330 해결 전에는 최근 방문·usage가 옛 id로 기록될 수 있다. 호환 항목 정리는 #2330 후 재검토한다.
+`view`와 `navViews`, View 전환용 carry set을 제거한다. 옛 `?view=`와 더 이상 읽지 않는 키는 무시한다. 옛 id `hw-time-steps|compare|overview|table`은 등록하지 않고 앱 조립(`apps/platform-web/src/menus.ts` `RETIRED_MENUS`)에서 `hw-time`의 은퇴 id로 선언한다(#2330, kernel.md §6.4). 옛 주소는 Context와 page state를 보존해 `/mars/hw-time`으로 replace하고, 저장된 보드 칸·즐겨찾기·최근 방문은 `hw-time`으로 읽히며, 옛 id로는 계측·최근 방문을 기록하지 않는다.
 
 ## 유지되는 SDK 조각
 

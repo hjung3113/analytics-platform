@@ -23,7 +23,7 @@ describe('assembled registry: declared link targets', () => {
     const menus = declarations.menus.filter(menu => menu.group === audit.group);
     const groups = declarations.groups.filter(group => group.id === audit.group);
     const spaces = declarations.spaces.filter(space => groups.some(group => group.space === space.id));
-    const partial = createRegistry({ ...declarations, spaces, groups, menus, platformHomeMenuId: undefined });
+    const partial = createRegistry({ ...declarations, spaces, groups, menus, platformHomeMenuId: undefined, retiredMenus: [] });
     expect(partial.missingLinkTargets).toEqual([
       { menuId: 'admin-audit', target: 'equipment-detail', level: 'optional' },
       { menuId: 'admin-audit', target: 'metric-detail', level: 'optional' },

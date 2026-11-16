@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { contextCapabilities, groupId, menuPermission, NO_FEATURES, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
+import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { LayoutDashboard } from 'lucide-react';
-import { HW_TIME_CONTEXT, hwTime, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
+import { hwTime, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { manifests } from '../../index';
 import TablePage from './RawTablePanel';
 import { exportNumber } from './tableData';
@@ -70,7 +70,7 @@ const adapter = testAdapter({
 
 const registry = createRegistry({ 
   permissions: [menuPermission('analytics:view')],
-  spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
+  spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],
   menus: manifests,
 });
@@ -81,7 +81,7 @@ function DetailSlotHost() {
   return <aside ref={slot.ref} aria-label="상세 패널" />;
 }
 async function renderPage(search = '', { linked = false } = {}) {
-  window.history.replaceState(null, '', `/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
+  window.history.replaceState(null, '', `/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} linked={linked} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
   if (search.includes('focus=abc')) await screen.findByText(/열린 행.*abc/);
   else await screen.findByRole('table', { name: 'HW Time 동작시간 표' }, { timeout: 8000 });
@@ -93,24 +93,6 @@ const tableCalls = () => calls.filter(c => c.endpoint === hwTime.tableRows.id).m
 let restoreGeometry: () => void;
 beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); calls.length = 0; vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
-
-describe('HW Time table manifest', () => {
-  const menu = manifests.find(m => m.id === 'hw-time-table')!;
-  it('declares the table menu with the steps menu\'s group, permission and Context', () => {
-    const steps = manifests.find(m => m.id === 'hw-time-steps')!;
-    expect(menu.label).toEqual({ ko: 'HW Time 표', en: 'HW Time table' });
-    expect(menu.path).toBe('/hw-time/table');
-    // A hidden legacy entry renders the one linked screen, so it describes that screen.
-    expect(menu.description).toEqual(manifests.find(menu => menu.id === 'hw-time')!.description);
-    expect(menu.group).toBe(steps.group);
-    expect(menu.permission).toBe(steps.permission);
-    expect(menu.context).toEqual(contextCapabilities(HW_TIME_CONTEXT));
-    expect(menu.features).toEqual({ ...NO_FEATURES, export: true, board: true });
-    expect(menu.drill?.levels.map(level => level.key)).toEqual(['drillModule', 'drillMotion']);
-    expect(menu.pageKeys).toEqual(manifests.find(menu => menu.id === 'hw-time')!.pageKeys);
-    expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'row', 'page', 'focus']);
-  });
-});
 
 describe('HW Time table page', () => {
   it.each([
@@ -281,7 +263,7 @@ describe('HW Time table page', () => {
   it.each(['error', 'empty'] as const)('shows one banner and compact states when the level read and the table get the same %s (#1175)', async outcome => {
     const same = () => ({ outcome, message: 'same response', data: outcome === 'empty' ? { rows: [], total: 0 } : null, assessments, trust: null, correlationId: 'same' }) as ApiResponse<never>;
     vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => req.endpoint === hwTime.levelRows.id || req.endpoint === hwTime.tableRows.id ? same() : ok([]));
-    window.history.replaceState(null, '', '/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
     if (outcome === 'error') {
       // The level-failure box joins the page group; an empty level read is not drawn at all (levelFailure excludes it), so only error groups two widgets.
@@ -350,7 +332,7 @@ describe('HW Time table page', () => {
   });
 
   it('draws a plain message for PM4 Vent and marks partial rows for PM3', async () => {
-    window.history.replaceState(null, '', '/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&drillModule=PM4&drillMotion=Vent');
+    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&drillModule=PM4&drillMotion=Vent');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('PM4 Module에는 Vent 동작 기록이 없습니다', {}, { timeout: 8000 })).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();

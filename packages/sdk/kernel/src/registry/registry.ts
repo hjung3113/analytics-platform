@@ -58,8 +58,50 @@ export type PlatformGroupDef = GroupBase & { id: GroupId; module?: undefined };
 export type ModuleGroupDef = GroupBase & { id: ModuleScopedId; module: string };
 export type GroupDef = PlatformGroupDef | ModuleGroupDef;
 
-/** `viaAlias` is true when the pathname matched a legacy alias instead of the menu's canonical path (ADR-0093). `params` always use the canonical path's parameter names. */
-export type RouteMatch = { menu: MenuEntry; params: Record<string, string>; viaAlias: boolean };
+/**
+ * `viaAlias` is true when the pathname matched a legacy alias instead of the menu's canonical path (ADR-0093). `params` always use the canonical path's parameter names.
+ * `aliasPage` is the page-key preset of a retired menu's address (`createRegistry({ retiredMenus })`); the redirect adds the keys the address does not hold.
+ */
+export type RouteMatch = { menu: MenuEntry; params: Record<string, string>; viaAlias: boolean; aliasPage?: Readonly<Record<string, string>> };
+
+/**
+ * A menu id an assembly no longer registers, and the menu that now opens in its place (#2330). Stored references to the id (board panes,
+ * recent visits, favorites) and its addresses open `successor`, with `page` added where the stored address does not hold that key. The
+ * retired id is not registered, so it is never recorded in usage or recent visits.
+ */
+export type RetiredMenu = {
+  id: string;
+  /** A registered menu id. Not another retired id: chains are not followed. */
+  successor: string;
+  /** Page keys of `successor` the old menu stood for (for example a View). Keys the stored address already holds are kept. */
+  page?: Readonly<Record<string, string>>;
+  /**
+   * Old addresses besides the derived one, with the successor's `:param` count (e.g. the old manifest path). The Registry already adds
+   * `/{successor's space}/{slug of id}`, the canonical path the id had in that space (ADR-0093).
+   */
+  paths?: readonly string[];
+};
+
+/** The successor of a retired menu id: the menu to open and the page keys it adds. */
+export type MenuSuccessor = { menu: MenuEntry; page: Readonly<Record<string, string>> };
+
+/**
+ * `search` (`''` or `?…`) with the `page` pairs whose keys it does not hold appended; the pairs it holds are kept as they are.
+ * A retired menu's preset on redirects, recent visits and board panes (#2330).
+ */
+export function withPagePreset(search: string, page: Readonly<Record<string, string>> | undefined): string {
+  const entries = Object.entries(page ?? {});
+  if (entries.length === 0) return search;
+  const body = search.startsWith('?') ? search.slice(1) : search;
+  const held = new Set(body.split('&').filter(Boolean).map(pair => {
+    const eq = pair.indexOf('=');
+    const name = eq === -1 ? pair : pair.slice(0, eq);
+    try { return decodeURIComponent(name.replace(/\+/g, ' ')); } catch { return name; }
+  }));
+  const added = entries.filter(([key]) => !held.has(key)).map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  if (added.length === 0) return search;
+  return `?${[body, ...added].filter(Boolean).join('&')}`;
+}
 
 export type Registry = {
   groups: readonly GroupDef[];
@@ -78,6 +120,8 @@ export type Registry = {
   menuById: (id: string) => MenuEntry;
   /** True when this assembly registers a menu with this id; unlike `menuById` it never throws. */
   has: (menuId: string) => boolean;
+  /** The menu that opens in place of a retired id (`createRegistry({ retiredMenus })`, #2330), or null when the id is not retired. Never throws. */
+  successorOf: (menuId: string) => MenuSuccessor | null;
   /**
    * Declared `linkTargets` this assembly does not register, in menu then declaration order (06 §22, ADR-0158). With the default check only
    * `optional` entries appear (an unregistered `required` one is rejected); with `linkTargetCheck: 'report'` both do.
@@ -88,7 +132,7 @@ export type Registry = {
   /** The menu at the platform home path, declared by `platformHomeMenuId`. Null when the app has no space-less `/` menu. */
   platformHome: MenuEntry | null;
   matchRoute: (pathname: string) => RouteMatch | null;
-  /** The href in canonical path form (ADR-0093): a legacy alias path becomes the menu's canonical path; search is kept byte for byte. Anything else is returned as is. */
+  /** The href in canonical path form (ADR-0093): a legacy alias path becomes the menu's canonical path; search is kept byte for byte, plus a retired menu's page preset for keys it does not hold. Anything else is returned as is. */
   canonicalHref: (href: string) => string;
   /**
    * Registry-dependent half of the URL contract (kept out of @ap/contracts — it needs the Registry; platform-packages.md §3).
@@ -129,7 +173,7 @@ export const isBoardPath = (pathname: string) => pathname.replace(/\/+$/, '') ==
  * Validates the declared IA once and returns the lookup functions the kernel and shell use
  * (docs/integration/platform-packages.md §5). Throws RegistryError on any violation.
  */
-export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [], linkTargetCheck = 'enforce', endpoints = [] }: { /** Endpoint ownership declarations used by pageConditions sources; no lookup or permission grant. */ endpoints?: readonly { id: string; menuId: string }[]; spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[]; /** `'report'` lists unregistered `linkTargets.required` in `missingLinkTargets` instead of rejecting them — only for a Registry that holds just its own menus (package tests, a start kit before other menus are added). A deployed assembly omits it (06 §22, ADR-0158). */ linkTargetCheck?: 'enforce' | 'report' }): Registry {
+export function createRegistry({ spaces, groups, menus: menusIn, permissions: declared = [], carrySets = [], platformHomeMenuId, reservedRoots = [], linkTargetCheck = 'enforce', endpoints = [], retiredMenus = [] }: { /** Endpoint ownership declarations used by pageConditions sources; no lookup or permission grant. */ endpoints?: readonly { id: string; menuId: string }[]; spaces: readonly SpaceDef[]; groups: readonly GroupDef[]; menus: readonly MenuEntry[]; /** The app's menu permissions. Omit when the menus use only kernel permissions. */ permissions?: readonly MenuPermission[]; /** The app's carry sets. Omit when no page key follows the user between menus. */ carrySets?: readonly CarrySetDef[]; /** Id of the menu at the platform home path. Required when a space-less menu declares `/`. */ platformHomeMenuId?: string; /** Roots the app serves outside the Registry (its menu roots, e.g. `voc`); a space id may not take one. Added to the platform's own `board`, `api` and `auth`. */ reservedRoots?: readonly string[]; /** `'report'` lists unregistered `linkTargets.required` in `missingLinkTargets` instead of rejecting them — only for a Registry that holds just its own menus (package tests, a start kit before other menus are added). A deployed assembly omits it (06 §22, ADR-0158). */ linkTargetCheck?: 'enforce' | 'report'; /** Menu ids this assembly no longer registers and the menu that opens in their place (#2330). Omit when no menu was retired. */ retiredMenus?: readonly RetiredMenu[] }): Registry {
   const fail = (message: string): never => { throw new RegistryError(message); };
   // Runtime config can hold non-strings the brand does not stop: check the shape before the namespace is taken.
   if (linkTargetCheck !== 'enforce' && linkTargetCheck !== 'report') fail(`linkTargetCheck must be "enforce" or "report"`);
@@ -172,6 +216,28 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (byId.has(m.id)) fail(`Duplicate menu id "${m.id}"`);
     byId.set(m.id, m);
   }
+  // Retired ids (#2330): checked against the input menus; their addresses become aliases of the successor below.
+  if (!Array.isArray(retiredMenus)) fail('retiredMenus must be a list');
+  const retiredById = new Map<string, RetiredMenu>();
+  const retiredBySuccessor = new Map<string, RetiredMenu[]>();
+  for (const r of retiredMenus) {
+    if (!isIdShape(r?.id)) fail(`Retired menu id "${String(r?.id)}" must be non-empty without whitespace or ? # & /`);
+    if (byId.has(r.id)) fail(`Retired menu "${r.id}" is still registered`);
+    if (retiredById.has(r.id)) fail(`Duplicate retired menu id "${r.id}"`);
+    const successor = byId.get(r.successor) ?? fail(`Retired menu "${r.id}" successor "${String(r.successor)}" is not a registered menu`);
+    if (r.page !== undefined && (typeof r.page !== 'object' || r.page === null || Array.isArray(r.page))) fail(`Retired menu "${r.id}" page must be an object`);
+    for (const [key, value] of Object.entries(r.page ?? {})) {
+      if (!(successor.pageKeys ?? []).includes(key)) fail(`Retired menu "${r.id}" page key "${key}" is not a page key of "${successor.id}"`);
+      // A hidden key lives in history state, not the address the redirect keeps (hiddenState.ts): a preset could not reach it.
+      if ((successor.hiddenPageKeys ?? []).includes(key)) fail(`Retired menu "${r.id}" page key "${key}" is a hidden page key of "${successor.id}"`);
+      if (typeof value !== 'string' || value === '') fail(`Retired menu "${r.id}" page key "${key}" needs a non-empty string value`);
+    }
+    if (r.paths !== undefined && !Array.isArray(r.paths)) fail(`Retired menu "${r.id}" paths must be a list`);
+    for (const path of r.paths ?? []) if (typeof path !== 'string' || !path.startsWith('/')) fail(`Retired menu "${r.id}" path "${String(path)}" must start with /`);
+    retiredById.set(r.id, r);
+    retiredBySuccessor.set(successor.id, [...(retiredBySuccessor.get(successor.id) ?? []), r]);
+  }
+  const aliasPages = new Map<string, Readonly<Record<string, string>>>();
   const groupIds = new Set<string>();
   const groupSpace = new Map<AnyGroupId, SpaceId | null>();
   const groupOwner = new Map<AnyGroupId, string | undefined>();
@@ -194,15 +260,21 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const menus: MenuEntry[] = menusIn.map(input => {
     const m = registerPageConditions(input, { carried: input.carrySet === undefined ? [] : carrySetByIdMap.get(input.carrySet)?.pageKeys ?? [], endpoints, fail });
     const space = groupSpace.get(m.group) ?? null;
-    const declaredAliases = m.aliases ?? [];
+    const params = segments(m.path).filter(isParam);
+    // A retired id's addresses: its declared paths, plus the canonical path it had in the successor's space.
+    const retiredPaths = (retiredBySuccessor.get(m.id) ?? []).flatMap(r => {
+      const paths = [...(r.paths ?? []), ...(space === null ? [] : ['/' + [space, menuSlug(r.id), ...params].join('/')])];
+      if (r.page !== undefined && Object.keys(r.page).length > 0) for (const path of paths) aliasPages.set(`${m.id}\u0000${path}`, r.page);
+      return paths;
+    });
+    const declaredAliases = [...(m.aliases ?? []), ...retiredPaths];
     const own = [m.path, ...declaredAliases];
     for (const path of own) if (segments(path)[0] === BOARD_PATH.slice(1)) fail(`Menu "${m.id}" path "${path}" is reserved for the analysis board (${BOARD_PATH})`);
-    const params = segments(m.path).filter(isParam);
     for (const path of declaredAliases) if (segments(path).filter(isParam).length !== params.length) fail(`Menu "${m.id}" alias "${path}" must have the same parameters as its path`);
     if (space === null) {
       const clash = own.find(path => spaceByIdMap.has(segments(path)[0] as SpaceId));
       if (clash !== undefined) fail(`Menu "${m.id}" path "${clash}" starts with a space id; space-less paths may not use a space's root`);
-      return m;
+      return (retiredPaths.length > 0 ? { ...m, aliases: declaredAliases } : m) as MenuEntry;
     }
     const slug = menuSlug(m.id);
     if (!isIdShape(slug)) fail(`Menu "${m.id}" slug "${slug}" must be non-empty without whitespace or ? # & /`);
@@ -477,9 +549,15 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const carrySetOf = (menu: MenuEntry): CarrySetDef | null => (menu.carrySet === undefined ? null : carrySetByIdMap.get(menu.carrySet) ?? null);
   const menuById = (id: string) => byId.get(id) ?? fail(`Unknown menu ${id}`);
   const has = (menuId: string) => byId.has(menuId);
+  const noPage: Readonly<Record<string, string>> = {};
+  const successorOf = (menuId: string): MenuSuccessor | null => {
+    const retired = retiredById.get(menuId);
+    const menu = retired === undefined ? undefined : byId.get(retired.successor);
+    return retired === undefined || menu === undefined ? null : { menu, page: retired.page ?? noPage };
+  };
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.
-  const compiled = menus.flatMap(menu => [{ menu, pattern: segments(menu.path), canonical: segments(menu.path), viaAlias: false }, ...(menu.aliases ?? []).map(alias => ({ menu, pattern: segments(alias), canonical: segments(menu.path), viaAlias: true }))]);
+  const compiled = menus.flatMap(menu => [{ menu, pattern: segments(menu.path), canonical: segments(menu.path), viaAlias: false, aliasPage: undefined as Readonly<Record<string, string>> | undefined }, ...(menu.aliases ?? []).map(alias => ({ menu, pattern: segments(alias), canonical: segments(menu.path), viaAlias: true, aliasPage: aliasPages.get(`${menu.id}\u0000${alias}`) }))]);
   const specificity = (pattern: string[]) => pattern.map(s => (isParam(s) ? '0' : '1')).join('');
   compiled.sort((a, b) => (specificity(a.pattern) < specificity(b.pattern) ? 1 : specificity(a.pattern) > specificity(b.pattern) ? -1 : 0));
   // A pattern that wins over another menu's canonical pattern captures URLs that menu's pathFor builds (a param value equal to the static
@@ -496,7 +574,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     // Empty segments are refused by the URL writer too; never mount a screen whose writes cannot commit.
     if (pathname.includes('//')) return null;
     const parts = segments(pathname.replace(/\/+$/, ''));
-    for (const { menu, pattern, canonical, viaAlias } of compiled) {
+    for (const { menu, pattern, canonical, viaAlias, aliasPage } of compiled) {
       if (pattern.length !== parts.length) continue;
       const params: Record<string, string> = {};
       let ok = true;
@@ -506,7 +584,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
           try { params[canonical.filter(isParam)[paramIndex++].slice(1)] = decodeURIComponent(parts[i]); } catch { ok = false; break; }
         } else if (pattern[i] !== parts[i]) { ok = false; break; }
       }
-      if (ok) return { menu, params, viaAlias };
+      if (ok) return aliasPage === undefined ? { menu, params, viaAlias } : { menu, params, viaAlias, aliasPage };
     }
     return null;
   };
@@ -514,7 +592,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const canonicalHref = (href: string): string => {
     const q = href.indexOf('?');
     const route = matchRoute(q === -1 ? href : href.slice(0, q));
-    return route?.viaAlias ? pathFor(route.menu, route.params) + (q === -1 ? '' : href.slice(q)) : href;
+    return route?.viaAlias ? pathFor(route.menu, route.params) + withPagePreset(q === -1 ? '' : href.slice(q), route.aliasPage) : href;
   };
 
   const safeReturnTo = (value: string | null): string | null => {
@@ -530,7 +608,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, successorOf, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

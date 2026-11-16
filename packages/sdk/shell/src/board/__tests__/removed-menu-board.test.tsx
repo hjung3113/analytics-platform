@@ -32,6 +32,8 @@ const registry = createRegistry({
     { ...entry('home', '/', { features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha', { label: { ko: '알파', en: 'Alpha' } }),
   ],
+  // #2330: `alpha-old` is retired into `alpha`.
+  retiredMenus: [{ id: 'alpha-old', successor: 'alpha', page: { tab: 'old' } }],
 });
 /** A stored cell whose menu the registry does not list. */
 const ghost = { menuId: 'ghost', params: {}, query: '' };
@@ -92,5 +94,20 @@ describe('a stored board cell of a menu missing from the registry (#1702)', () =
     expect(within(recents).getAllByRole('link')).toHaveLength(1);
     expect(within(recents).getByRole('link', { name: '최근 방문: 알파' })).toBeInTheDocument();
     expect(screen.queryByText(/ghost/)).toBeNull();
+  });
+});
+
+describe('a stored board cell of a retired menu id (#2330)', () => {
+  it('opens the successor with the preset and writes the successor back once', async () => {
+    seed(boardOf([sheet('a', { panes: [{ menuId: 'alpha-old', params: {}, query: '?v=1' }] })]));
+    mount('/board?sheet=a');
+    await settle();
+    const pane = screen.getByRole('group', { name: '칸 1' });
+    expect(within(pane).queryByText('더는 보드에서 열 수 없는 화면')).toBeNull();
+    // The pane then materializes its default period into the same saved query.
+    const saved = JSON.parse(localStorage.getItem(V2_KEY) ?? 'null') as { sheets: { panes: { screen: { menuId: string; query: string } }[] }[] };
+    const stored = saved.sheets[0]!.panes[0]!.screen;
+    expect(stored.menuId).toBe('alpha');
+    expect(new URLSearchParams(stored.query).get('tab')).toBe('old');
   });
 });

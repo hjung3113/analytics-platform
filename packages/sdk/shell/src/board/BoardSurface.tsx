@@ -17,7 +17,7 @@ import {
 } from './boardModel';
 import { MAX_PANES, MAX_TABS } from './boardTypes';
 import { readLayoutEngine } from './layoutEngine';
-import { canMountPaneScreen } from './boardMenus';
+import { boardWithSuccessors, canMountPaneScreen } from './boardMenus';
 import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { recallFocus, rememberFocus, rememberSheet } from './boardPresentation';
 import { useBoardSession } from './boardSession';
@@ -51,7 +51,10 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const { user, navigate, registry, readRecent, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
   const text = useMemo(() => boardText(lang), [lang]);
-  const { board, update, storageNotice } = useBoardSession(user.id, text.sheetPrefix);
+  const { board: stored, update, storageNotice } = useBoardSession(user.id, text.sheetPrefix);
+  // A saved pane of a retired menu id opens its successor (#2330): shown at once, and written back once so later edits see the successor.
+  const board = useMemo(() => boardWithSuccessors(registry, stored), [registry, stored]);
+  useEffect(() => { if (board !== stored) update(b => boardWithSuccessors(registry, b)); }, [board, stored, registry, update]);
   // Which renderer draws the panes is a browser setting read once per visit (`board.layoutEngine`, default dock). The grid holds at most four panes:
   // a board with a sheet over that (`v:3`) is drawn by the dock whatever the setting says, and says so once (ADR-0089).
   const [engine] = useState(readLayoutEngine);

@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { hasDotSegment, isAppPath } from '../context/location';
 import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
 import type { PageFocus } from '../context/pageNavigation';
-import { routeParamNames } from '../registry/registry';
+import { routeParamNames, withPagePreset } from '../registry/registry';
 import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
@@ -56,7 +56,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (options.redirect) { // a write that landed before this effect ran keeps its query: only the path is ours
       const current = location.read() ?? '';
       const q = current.indexOf('?');
-      next = next.split('?')[0] + (q === -1 ? '' : current.slice(q));
+      next = next.split('?')[0] + withPagePreset(q === -1 ? '' : current.slice(q), options.redirectPage);
     }
     // One path-only check for every write (#1875): query values are codec-encoded, and the return-link guard (`isAppRelativePath`, which also
     // rejects a decoded `#`, `\`, `//` or `:` anywhere) is for a `returnTo` value, not for the address the Kernel writes.
