@@ -192,7 +192,7 @@ describe('place (d): room field request entry', () => {
     window.history.replaceState(null, '', `/?scopeId=SITE-B${query}`);
     return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, validateScope: async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }), defaultRangeTo: () => '2026-01-01T09:00:00' })} slots={slot ? { accessRequest: slot } : undefined}><GlobalContextBar /></PlatformProvider></I18nProvider>);
   };
-  const roomField = () => screen.findByRole('button', { name: '공정' });
+  const roomField = () => screen.findByRole('button', { name: /^대상 / });
 
   it.each([
     ['no slot', grantTable(), undefined],

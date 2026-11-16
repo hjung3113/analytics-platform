@@ -1,13 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { contextBar, evidence, mainHeading, query, queryResultSurface, signInAs } from './support';
+import { pickTargetRoom, contextBar, evidence, mainHeading, query, queryResultSurface, signInAs } from './support';
 
 /**
  * Platform contract checks for Saved Views (docs/06 §21, #1011 node 1011g). The cycle-time detail is only the consumer the
  * contract is observed through; the views, groups and people named below come from the app's local store seed.
  */
 const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-const PHOTO_CHIP = '지우기 PHOTO';
+const PHOTO_CHIP = /대상 조건 · 지금 .*공정: PHOTO/;
 const trigger = (page: Page) => page.getByRole('button', { name: /^저장된 뷰:/ });
 const modifiedBadge = (page: Page) => trigger(page).getByText('수정됨');
 const toast = (page: Page, text: RegExp | string) => page.getByText(text).first();
@@ -84,9 +84,7 @@ test.describe('06 §21 저장된 뷰', () => {
 
     // The seed view holds no room, which leaves the required 공정 empty: choosing one and applying is the edit that makes the view modified.
     const bar = contextBar(page);
-    await bar.getByRole('button', { name: '공정', exact: true }).click();
-    await page.getByRole('option', { name: 'PHOTO', exact: true }).click();
-    await page.keyboard.press('Escape');
+    await pickTargetRoom(page, bar, 'PHOTO');
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect(modifiedBadge(page)).toBeVisible();
     await evidence(page, testInfo, 'modified');

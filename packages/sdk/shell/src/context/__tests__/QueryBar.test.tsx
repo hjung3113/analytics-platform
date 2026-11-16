@@ -22,7 +22,7 @@ function mount(query = '', overrides: Partial<PlatformAdapter> = {}, history = t
   window.history.replaceState(null, '', `/?scopeId=MEM${query}`);
   const session = testSession(['platform:view']);
   const push = vi.spyOn(window.history, 'pushState');
-  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={[{ id: 'vendor', label: { ko: '공급사', en: 'Vendor' }, membershipHistory: history }, { id: 'model', label: { ko: '모델', en: 'Model' }, membershipHistory: true, dependsOn: 'vendor' }]} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', evaluateSelection: evaluate, menuQuery: send, ...overrides })}><Probe /><QueryBarExtensionContext.Provider value={extension}><GlobalContextBar /></QueryBarExtensionContext.Provider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={[{ id: 'vendor', label: { ko: '공급사', en: 'Vendor' }, membershipHistory: history }, { id: 'model', label: { ko: '모델', en: 'Model' }, membershipHistory: true, dependsOn: 'vendor' }]} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', evaluateSelection: evaluate, menuQuery: send, listEquipmentFacts: async () => ({ version: '1', items: [ { equipmentId: 'E1', room: 'PHOTO', axes: { vendor: ['V1'], model: ['M1'], prcGroups: ['P1'] } }, { equipmentId: 'E2', room: 'ETCH', axes: { vendor: ['V2'], model: ['M2'], prcGroups: ['P2'] } } ] }), ...overrides })}><Probe /><QueryBarExtensionContext.Provider value={extension}><GlobalContextBar /></QueryBarExtensionContext.Provider></PlatformProvider></I18nProvider>);
   return push;
 }
 beforeEach(() => { send.mockClear(); evaluate.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
@@ -31,11 +31,18 @@ it('edits a page/global draft without URL writes, counts raw keys, applies once 
   const push = mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
-  const room = screen.getByRole('button', { name: '공정' });
+  const room = screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ });
   expect(room).toHaveAttribute('aria-invalid', 'true');
   expect(document.getElementById(room.getAttribute('aria-describedby')!)).toHaveTextContent('공정');
   expect(screen.getAllByText('공정을 선택하세요').length).toBeGreaterThan(0);
-  act(() => { draft.setDraftGlobal({ roomNames: ['PHOTO'] }); draft.setDraftPage({ grain: 'day' }); });
+  fireEvent.click(room);
+  await screen.findByRole('button', { name: '조건 적용 · 2대' });
+  fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'PHOTO만 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
+  expect(draft.draft.global.roomNames).toEqual(['PHOTO']);
+  expect(platform.global.roomNames).toBeNull();
+  act(() => draft.setDraftPage({ grain: 'day' }));
   expect(push).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
   expect(screen.getByText(`미적용 변경 ${draft.dirty.length}개 · 공유에서 제외`)).toBeTruthy();
@@ -118,7 +125,10 @@ it('retains child axes and IDs outside candidates with nonblocking explanations'
   act(() => draft.setDraftGlobal({ roomNames: [], condition: { vendor: ['V1'], model: ['M1'] }, selection: ['EQ-X'] }));
   act(() => draft.setDraftGlobal({ condition: { vendor: ['V2'], model: ['M1'] } }));
   expect(draft.draft.global.condition?.model).toEqual(['M1']);
-  expect(screen.getAllByText(/현재 후보에 없음/).length).toBeGreaterThan(0);
+  expect(screen.getByRole('button', { name: /대상 고정 1대.*빈 선택/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /^대상 고정/ }));
+  expect(await screen.findByRole('checkbox', { name: /EQ-X/ })).toBeChecked();
+  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
   expect(draft.canApply).toBe(true);
 });
 it('derives bar visibility from menu capabilities only, not from carried values', () => {
@@ -130,28 +140,35 @@ it('derives bar visibility from menu capabilities only, not from carried values'
 it('distinguishes explicit empty selection/rooms, removes the last Condition key and enables PRC-only history', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  act(() => draft.setDraftGlobal({ roomNames: [], selection: ['EQ-X'], condition: { vendor: ['V1'] } }));
-  fireEvent.click(screen.getByRole('button', { name: '지우기 V1' }));
-  expect(draft.draft.global.condition).toBeNull();
-  await waitFor(() => expect(screen.getByRole('button', { name: /지우기 EQ-X/ })).toBeTruthy());
-  fireEvent.click(screen.getByRole('button', { name: /지우기 EQ-X/ }));
+  act(() => draft.setDraftGlobal({ roomNames: [], selection: [], condition: { vendor: ['V1'] } }));
+  expect(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ })).toHaveTextContent('빈 선택');
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+  expect(draft.draft.global.roomNames).toEqual([]);
   expect(draft.draft.global.selection).toEqual([]);
-  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID 전체로 되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(within(screen.getByRole('group', { name: '공급사' })).getByRole('checkbox', { name: '전체' }));
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2대' }));
+  expect(draft.draft.global.condition).toBeNull();
   expect(draft.draft.global.selection).toBeNull();
-  expect(screen.queryByRole('button', { name: 'EquipmentID 전체로 되돌리기' })).toBeNull();
+  // The menu requires the room: applying "all" writes every authorized room instead of clearing the required key.
+  expect(draft.draft.global.roomNames).toEqual(['ETCH', 'PHOTO']);
+  act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P1'] }));
   expect(draft.canApply).toBe(true);
-  act(() => draft.setDraftGlobal({ prcGroups: ['P1'] }));
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
 });
 it('shows metadata transport failures without dropping selections or blocking valid draft application', async () => {
-  mount('', { listAxisOptions: async () => { throw new Error('axis unavailable'); }, searchEquipment: async () => { throw new Error('equipment unavailable'); }, resolveSelection: async () => { throw new Error('resolve unavailable'); } });
+  const facts = vi.fn(async () => { throw new Error('equipment unavailable'); });
+  mount('', { listEquipmentFacts: facts });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], selection: ['EQ-X'] }));
-  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID' }));
-  await waitFor(() => expect(screen.getByText(/equipment unavailable/)).toBeTruthy());
-  fireEvent.keyDown(screen.getByRole('combobox', { name: 'EquipmentID' }), { key: 'Escape' });
-  fireEvent.click(screen.getByRole('button', { name: '공급사' }));
-  await waitFor(() => expect(screen.getByText(/axis unavailable/)).toBeTruthy());
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('설비 기본 정보를 불러오지 못했습니다.');
+  expect(screen.queryByRole('table')).toBeNull();
+  await waitFor(() => expect(facts).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  await waitFor(() => expect(facts).toHaveBeenCalledTimes(2));
+  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
   expect(draft.draft.global.selection).toEqual(['EQ-X']);
   expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
 });
@@ -163,7 +180,7 @@ it('retains incomplete period input across closing and prevents an unrelated edi
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByLabelText('시작 시각')).toHaveValue('');
-  fireEvent.click(screen.getByRole('button', { name: '공정 전체로 되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '대상 지우기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
 });
@@ -180,8 +197,8 @@ it('keeps pane drafts independent and closes the anchored editor with focus rest
   render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Board /></PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
-  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID' }));
-  fireEvent.keyDown(screen.getByRole('combobox', { name: 'EquipmentID' }), { key: 'Escape' });
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
   expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
   fireEvent.keyDown(screen.getByRole('button', { name: '최근 7일' }), { key: 'Escape' });
   await waitFor(() => expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus());
@@ -230,7 +247,7 @@ it('keeps a blank reference date invalid across unrelated edits and collapse unt
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
   fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: '공정 전체로 되돌리기' }));
+  fireEvent.click(screen.getByRole('button', { name: '대상 지우기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
@@ -251,7 +268,10 @@ it.each([false, true])('clears the last editable asOf owner atomically (another 
   const push = mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], condition: { vendor: ['V1'] }, prcGroups: otherOwner ? ['P1'] : null, membershipBasis: 'asOf' }));
-  fireEvent.click(screen.getByRole('button', { name: '지우기 V1' }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  await screen.findByRole('button', { name: /조건 적용/ });
+  fireEvent.click(within(screen.getByRole('group', { name: '공급사' })).getByRole('checkbox', { name: '전체' }));
+  fireEvent.click(screen.getByRole('button', { name: /조건 적용/ }));
   expect(draft.draft.global.condition).toBeNull();
   expect(draft.draft.global.membershipBasis).toBe(otherOwner ? 'asOf' : null);
   expect(push).not.toHaveBeenCalled();
@@ -333,19 +353,16 @@ it('keeps Apply last after history and saved-view actions when expanded and coll
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   expect(names()).toEqual(['초안 되돌리기', '조건 초기화', 'History fixture', 'View fixture', '적용']);
 });
-it('asks the equipment port once for a typed search, after typing pauses, not per key (#823)', async () => {
-  const searchEquipment = vi.fn(async () => ({ outcome: 'ok' as const, data: { items: [], nextCursor: null }, assessments: [], trust: null, correlationId: 'test' }));
-  mount('', { searchEquipment } as unknown as Partial<PlatformAdapter>);
+it('searches the facts locally without calling the removed equipment search port (#823)', async () => {
+  const searchEquipment = vi.fn();
+  mount('', { searchEquipment });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  fireEvent.click(screen.getByRole('button', { name: 'EquipmentID' }));
-  const input = screen.getByRole('combobox', { name: 'EquipmentID' });
-  await waitFor(() => expect(searchEquipment).toHaveBeenCalled());
-  searchEquipment.mockClear();
-  // Keys 50 ms apart, like typing: each one is its own task, so the port cache's same-tick cancellation does not merge them.
-  for (const text of ['E', 'EQ', 'EQ-', 'EQ-0']) { fireEvent.change(input, { target: { value: text } }); await act(() => new Promise(resolve => setTimeout(resolve, 50))); }
-  await new Promise(resolve => setTimeout(resolve, 600));
-  const queries = (searchEquipment.mock.calls as unknown as [{ query?: string }][]).map(([request]) => request.query);
-  expect(queries).toEqual(['EQ-0']);
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  await screen.findByRole('button', { name: '조건 적용 · 2대' });
+  const input = screen.getByRole('textbox', { name: /검색/ });
+  for (const text of ['E', 'E1']) fireEvent.change(input, { target: { value: text } });
+  expect(searchEquipment).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog')).toHaveTextContent('E1');
 });
 
 it('no server anchor (defaultRangeTo null): no default period is invented, relative presets are off, the gate asks for a period', async () => {
@@ -522,21 +539,18 @@ describe('initial disclosure (#1892)', () => {
   });
 });
 
-it.each([['ko', 'EquipmentID 전체로 되돌리기', '전체'], ['en', 'Reset EquipmentID to all', 'All']] as const)('shows an in-field clear only for a value and resets that field to all in %s (#1995)', async (lang, clearLabel, placeholder) => {
+it.each([['ko', '대상 지우기', '전체'], ['en', 'Clear targets', 'All']] as const)('shows target clear only for a value and resets the target to all in %s (#1995)', async (lang, clearLabel, placeholder) => {
   localStorage.setItem('platform:lang', lang);
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   expect(screen.queryByRole('button', { name: clearLabel })).toBeNull();
-  const field = screen.getByRole('button', { name: 'EquipmentID' }).parentElement!;
-  expect(within(field).getByText(placeholder)).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^(대상|Targets) / })).toHaveTextContent(placeholder);
   act(() => draft.setDraftGlobal({ selection: ['EQ-X'] }));
   const clear = screen.getByRole('button', { name: clearLabel });
-  expect(field).toContainElement(clear);
   expect(clear.querySelector('svg')).toBeTruthy();
   fireEvent.click(clear);
   expect(draft.draft.global.selection).toBeNull();
   expect(screen.queryByRole('button', { name: clearLabel })).toBeNull();
-  expect(screen.getByRole('button', { name: 'EquipmentID' })).toHaveFocus();
 });
 
 it('derives one period error and clears reference invalidity on a mode switch (#2028 SHE-15)', async () => {

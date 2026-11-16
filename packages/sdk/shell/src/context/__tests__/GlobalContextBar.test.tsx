@@ -20,6 +20,10 @@ const adapter = testAdapter({
   session: () => session,
   validateScope: async () => ({ status: 'valid', scopeId: 'MEM', grantedRooms: ['PHOTO'] }),
   evaluateSelection: evaluation,
+  listEquipmentFacts: async () => ({ version: '1', items: [
+    { equipmentId: 'E1', room: 'PHOTO', axes: { stgroup: ['st-01'], team: ['T1'], maker: ['X'], model: ['Y'] } },
+    { equipmentId: 'E2', room: 'PHOTO', axes: { stgroup: ['st-02'], team: ['T2'], maker: ['OTHER'], model: ['OTHER'] } },
+  ] }),
   getEntity: async () => forbidden,
   listAnnotations: async () => forbidden,
 });
@@ -81,11 +85,11 @@ describe('Global Context priority overflow (#56)', () => {
   it('keeps every control inline at wide widths and observes the bar, not the viewport', async () => {
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     expect(observed).toBe(bar());
-    expect(inlineKeys()).toEqual(['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric']);
+    expect(inlineKeys()).toEqual(['time', 'target', 'lot', 'ppid', 'recipe', 'metric']);
     expect(within(bar()).queryByRole('button', { name: /개 더/ })).toBeNull();
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-    await screen.findByRole('button', { name: '설비 선택 전체' });
-    await vi.waitFor(() => expect(evaluation).toHaveBeenCalledTimes(1)); // one owner; inert copies never query
+    await screen.findByRole('button', { name: '대상 전체' });
+    await vi.waitFor(() => expect(evaluation).not.toHaveBeenCalled()); // one owner; inert copies never query
   });
 
   it('never draws the "전역 Context" label at any width; the region name stays the accessible name', () => {
@@ -94,7 +98,7 @@ describe('Global Context priority overflow (#56)', () => {
     expect(visibleContextLabel()).toBe(false);
     expect(screen.queryAllByText('전역 Context', { exact: true })).toHaveLength(0);
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-    expect(inlineKeys()).toHaveLength(8);
+    expect(inlineKeys()).toHaveLength(6);
     for (const [name, text] of [['현재 조건 공유', '현재 조건 공유'], ['조건 초기화', '초기화']]) {
       expect(within(bar()).getByRole('button', { name }).textContent).toContain(text);
     }
@@ -102,7 +106,7 @@ describe('Global Context priority overflow (#56)', () => {
     width(2000);
     expect(visibleContextLabel()).toBe(false);
     expect(bar()).toHaveAccessibleName('전역 Context');
-    width(450);
+    width(350);
     expect(visibleContextLabel()).toBe(false);
     expect(bar().textContent).not.toContain('전역 Context');
   });
@@ -113,27 +117,27 @@ describe('Global Context priority overflow (#56)', () => {
     const initialQueries = evaluation.mock.calls.length;
     width(1100);
     expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
-    expect(inlineKeys()).toEqual(['time', 'roomNames', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric']);
+    expect(inlineKeys()).toEqual(['time', 'target', 'lot', 'ppid', 'recipe', 'metric']);
     width(760);
-    expect(inlineKeys()).toEqual(['time', 'roomNames', 'condition']);
-    expect(within(bar()).getByRole('button', { name: '조건 5개 더 · 4개 적용 중' })).toBeVisible();
-    width(450);
+    expect(inlineKeys()).toEqual(['time', 'target', 'lot']);
+    expect(within(bar()).getByRole('button', { name: '조건 3개 더 · 3개 적용 중' })).toBeVisible();
+    width(350);
     expect(inlineKeys()).toEqual(['time']);
-    expect(within(bar()).getByRole('button', { name: '조건 7개 더 · 4개 적용 중' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '조건 5개 더 · 4개 적용 중' })).toBeVisible();
     expect(reads).toBeGreaterThan(initialReads);
-    fireEvent.click(within(bar()).getByRole('button', { name: '조건 7개 더 · 4개 적용 중' }));
+    fireEvent.click(within(bar()).getByRole('button', { name: '조건 5개 더 · 4개 적용 중' }));
     const overflow = screen.getByRole('dialog', { name: '추가 Context 조건' });
     expect(within(overflow).getAllByText('이 화면에서 미사용')).toHaveLength(4);
     expect(within(overflow).queryByText('적용', { exact: true })).toBeNull();
     expect(Array.from(bar().querySelectorAll('span')).some(tag => tag.textContent === '참조만' && !tag.closest('[data-context-measuring]'))).toBe(true);
     width(2000);
-    expect(inlineKeys()).toHaveLength(8);
+    expect(inlineKeys()).toHaveLength(6);
     expect(evaluation.mock.calls.length).toBe(initialQueries);
   });
 
   it('omits a zero applied suffix, preserves icon names and title, and places presets in the period popover', () => {
-    barWidth = 450; mount();
-    expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toBeVisible();
+    barWidth = 350; mount();
+    expect(within(bar()).getByRole('button', { name: '조건 1개 더' })).toBeVisible();
     // The share label stays visible when compact (kernel.md §11); only the reset button collapses to its icon.
     expect(within(bar()).getByRole('button', { name: '현재 조건 공유' }).textContent).toBe('현재 조건 공유');
     const reset = within(bar()).getByRole('button', { name: '조건 초기화' });
@@ -147,29 +151,28 @@ describe('Global Context priority overflow (#56)', () => {
   });
 
   it('counts explicit empty as applied and edits the same Selection setter from the overflow', async () => {
-    barWidth = 450; mount('&equipmentSelection=none');
-    const more = within(bar()).getByRole('button', { name: '조건 3개 더 · 1개 적용 중' });
-    fireEvent.click(more);
+    barWidth = 350; mount('&equipmentSelection=none');
+    fireEvent.click(within(bar()).getByRole('button', { name: '조건 1개 더 · 1개 적용 중' }));
     const popover = screen.getByRole('dialog', { name: '추가 Context 조건' });
-    expect(Array.from(popover.querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'))).toEqual(['roomNames', 'condition', 'selection']);
-    const initialReads = reads;
-    fireEvent.click(within(popover).getByRole('button', { name: '설비 선택 빈 선택' }));
-    fireEvent.click(screen.getByRole('radio', { name: '전체' }));
-    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    expect(Array.from(popover.querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'))).toEqual(['target']);
+    fireEvent.click(within(popover).getByRole('button', { name: /대상 전체 · 빈 선택/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: '취소' }))[0]);
+    expect(new URLSearchParams(window.location.search).get('equipmentSelection')).toBe('none');
+    fireEvent.click(within(popover).getByRole('button', { name: /대상 전체 · 빈 선택/ }));
+    fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 2대' }));
     await vi.waitFor(() => expect(new URLSearchParams(window.location.search).has('equipmentSelection')).toBe(false));
-    expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toBeVisible();
-    expect(reads).toBeGreaterThan(initialReads);
+    expect(within(bar()).getByRole('button', { name: '조건 1개 더' })).toBeVisible();
   });
 
   it('uses the confirmed English overflow wording', () => {
-    barWidth = 450; mount('&equipmentSelection=none', 'en');
-    expect(screen.getByRole('button', { name: '3 more · 1 applied' })).toBeVisible();
+    barWidth = 350; mount('&equipmentSelection=none', 'en');
+    expect(screen.getByRole('button', { name: '1 more · 1 applied' })).toBeVisible();
   });
 
   it('remeasures intrinsic widths when the probe resizes without a Context revision (P2-1)', () => {
     barWidth = 1100; mount();
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-    act(() => { keyWidths.roomNames = 500; probeResize?.(); });
+    act(() => { keyWidths.target = 500; probeResize?.(); });
     expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
     act(() => { keyWidths = {}; probeResize?.(); });
     expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
@@ -184,7 +187,7 @@ describe('Global Context priority overflow (#56)', () => {
       // Settle Scope validation and Selection evaluation before changing only font metrics.
       await act(async () => { await Promise.resolve(); });
       expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-      keyWidths.roomNames = 500;
+      keyWidths.target = 500;
       await act(async () => { if (event === 'ready') ready(); else fonts.dispatchEvent(new Event('loadingdone')); });
       expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
       view.unmount();
@@ -194,11 +197,10 @@ describe('Global Context priority overflow (#56)', () => {
     });
   }
 
-  it('omits the English applied capability tag while keeping Apply as the editor action (P2-2)', () => {
+  it('omits the English applied capability tag while keeping Apply as the editor action (P2-2)', async () => {
     mount('', 'en');
-    const editor = screen.getByRole('button', { name: 'Process All' });
-    fireEvent.click(editor);
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Targets All' }));
+    expect(await screen.findByRole('button', { name: /Apply rule/ })).toBeVisible();
   });
 
   it('reopens the custom range editor when the applied custom preset is pressed again (#228 review)', async () => {
@@ -207,7 +209,7 @@ describe('Global Context priority overflow (#56)', () => {
     expect(custom).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(custom);
     expect(await screen.findByText('시작일')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: '취소' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
     await vi.waitFor(() => expect(screen.queryByText('시작일')).toBeNull());
     fireEvent.click(within(bar()).getByRole('radio', { name: '사용자 지정' }));
     expect(await screen.findByText('시작일')).toBeVisible();
@@ -216,33 +218,32 @@ describe('Global Context priority overflow (#56)', () => {
   // Measurement parity: the inert copies must render exactly like the real trigger or the overflow math drifts.
   // UIUX-56-01 / #240: the trigger is one more Context chip, so it shares the neighbouring chips' border.
   it('renders the overflow trigger and every measurement copy as a Context chip with the same classes', () => {
-    barWidth = 450; mount();
-    const trigger = within(bar()).getByRole('button', { name: '조건 3개 더' });
+    barWidth = 350; mount();
+    const trigger = within(bar()).getByRole('button', { name: '조건 1개 더' });
     const copies = Array.from(bar().querySelectorAll('[data-measure-overflow]'));
     expect(copies.length).toBeGreaterThan(0);
     // shrink-0 only keeps the real trigger from shrinking in the row; it does not change the measured width.
     const classes = (el: Element) => el.className.split(/\s+/).filter(c => c !== 'shrink-0').sort().join(' ');
     for (const copy of copies) expect(classes(copy)).toBe(classes(trigger));
-    const chip = bar().querySelector('[data-measure-key="roomNames"] button');
+    const chip = bar().querySelector('[data-measure-key="target"] button');
     expect(trigger).toHaveClass('border-border-control', 'hover:border-border-control');
     expect(chip).toHaveClass('border-border-control', 'hover:border-border-control');
   });
 
   it('keeps unapplied room drafts through inline → overflow → inline and restores connected bar focus (UIUX-56-02)', async () => {
     mount();
-    fireEvent.click(within(bar()).getByRole('button', { name: '공정 전체' }));
-    fireEvent.click(screen.getByRole('radio', { name: '명시 선택' }));
-    const checkbox = await screen.findByRole('checkbox', { name: 'PHOTO' });
-    fireEvent.click(checkbox);
-    checkbox.focus();
-    for (const nextWidth of [450, 2000]) {
+    fireEvent.click(within(bar()).getByRole('button', { name: '대상 전체' }));
+    await screen.findByRole('button', { name: '조건 적용 · 2대' });
+    fireEvent.click(screen.getByRole('button', { name: /StGroup 전체/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'st-01만 선택' }));
+    for (const nextWidth of [350, 2000]) {
       width(nextWidth);
-      await vi.waitFor(() => expect(screen.getByRole('checkbox', { name: 'PHOTO' })).toBeChecked());
-      await vi.waitFor(() => expect(bar().contains(document.activeElement)).toBe(true));
-      expect(new URLSearchParams(window.location.search).has('roomNames')).toBe(false);
+      expect(screen.getByRole('checkbox', { name: 'st-01' })).toBeChecked();
+      expect(screen.getByRole('checkbox', { name: 'st-02' })).not.toBeChecked();
+      expect(new URLSearchParams(window.location.search).has('equipmentGroup')).toBe(false);
     }
-    fireEvent.click(screen.getByRole('button', { name: '취소' }));
-    expect(bar().contains(document.activeElement)).toBe(true);
+    fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+    await vi.waitFor(() => expect(bar().contains(document.activeElement)).toBe(true));
   });
 
   it('returns focus to the bar when the last hidden carried key is removed (P3-2)', async () => {
@@ -274,13 +275,13 @@ describe('Global Context priority overflow (#56)', () => {
   it('measures once and responds to window resize when ResizeObserver is unavailable (P3-3)', () => {
     vi.stubGlobal('ResizeObserver', undefined);
     mount();
-    expect(inlineKeys()).toHaveLength(4);
-    act(() => { barWidth = 450; window.dispatchEvent(new Event('resize')); });
-    expect(within(bar()).getByRole('button', { name: '조건 3개 더' })).toBeVisible();
+    expect(inlineKeys()).toHaveLength(2);
+    act(() => { barWidth = 350; window.dispatchEvent(new Event('resize')); });
+    expect(within(bar()).getByRole('button', { name: '조건 1개 더' })).toBeVisible();
   });
 
   it('uses fractional available width at an exact fit boundary (P3-4)', () => {
-    barWidth = 941.6; mount(); // Label-free full controls need 942px; rounded clientWidth would admit them.
+    barWidth = 725.6; mount(); // Label-free full controls need 726px; rounded clientWidth would admit them.
     expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
   });
 
@@ -301,7 +302,7 @@ describe('Context 막대 그리기 조건 (#1944 4번)', () => {
     expect(screen.queryByRole('region', { name: '전역 Context' })).toBeNull();
     cleanup();
     mount('&roomNames=PHOTO');
-    expect(within(bar()).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
   });
 });
 
@@ -359,82 +360,31 @@ describe('현재 조건 공유 reports success only after the clipboard write (#
 
 });
 
-describe('Condition editor exposes choices as a radio group (#301)', () => {
-  // Two distinct StGroups so the keyboard branch and checked state have something to land on.
-  const conditionAdapter = testAdapter({
-    session: () => session,
-    validateScope: async () => ({ status: 'valid', scopeId: 'MEM', grantedRooms: ['PHOTO'] }),
-    contextOptions: async () => ({ stgroup: ['st-01', 'st-02'], team: [], makerModel: [] }),
-    evaluateSelection: evaluation,
-    getEntity: async () => forbidden,
-    listAnnotations: async () => forbidden,
-  });
-  const mountCondition = (condition: string | null) => {
-    localStorage.setItem('platform:lang', 'ko');
-    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=E1${condition ? `&equipmentGroup=${encodeURIComponent(condition)}` : ''}`);
-    return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={conditionAdapter} registry={registry}><GlobalContextBar /></PlatformProvider></I18nProvider>);
-  };
-  const openConditionEditor = async () => {
-    fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건/ }));
-    return await screen.findByRole('radiogroup', { name: 'StGroup' });
-  };
-  const url = () => new URLSearchParams(window.location.search);
-
-  // Radix timing (react-radio-group 1.4.7): document keydown marks the arrow key, roving focus moves focus in a
-  // setTimeout, and the item's focus handler clicks it only while the arrow key is still held. Assert after the
-  // async settle, then send keyup — no synchronous focus bypass.
-  it('ArrowDown moves focus and checked to the second option; 적용 commits while the fixed Selection survives', async () => {
-    mountCondition(null);
-    await openConditionEditor();
-    const first = screen.getByRole('radio', { name: 'st-01' });
-    const second = screen.getByRole('radio', { name: 'st-02' });
-    expect(first).not.toBeChecked();
-    expect(second).not.toBeChecked();
-    first.focus();
-    fireEvent.keyDown(first, { key: 'ArrowDown' });
-    await vi.waitFor(() => expect(second).toHaveFocus());
-    await vi.waitFor(() => expect(second).toBeChecked());
-    fireEvent.keyUp(second, { key: 'ArrowDown' });
-    // Draft only: the applied chip and URL still carry no condition.
-    expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 없음' })).toBeVisible();
-    expect(url().has('equipmentGroup')).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '적용' }));
-    await vi.waitFor(() => expect(url().get('equipmentGroup')).toBe('{"stgroup":["st-02"]}'));
-    expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 StGroup: st-02' })).toBeVisible();
-    expect(url().get('selectedEquipmentIds')).toBe('E1');
-  });
-
-  it('marks the applied condition checked and keeps it on 취소', async () => {
-    mountCondition('{"axis":"stgroup","id":"st-01"}');
-    await openConditionEditor();
-    expect(screen.getByRole('radio', { name: 'st-01' })).toBeChecked();
-    fireEvent.click(screen.getByRole('radio', { name: 'st-02' }));
-    expect(screen.getByRole('radio', { name: 'st-01' })).not.toBeChecked();
-    fireEvent.click(screen.getByRole('button', { name: '취소' }));
-    await vi.waitFor(() => expect(screen.queryByRole('radiogroup', { name: 'StGroup' })).toBeNull());
-    expect(url().get('equipmentGroup')).toBe('{"axis":"stgroup","id":"st-01"}');
-  });
-
-  it('지우기 removes the condition and keeps the fixed Selection', async () => {
-    mountCondition('{"axis":"stgroup","id":"st-01"}');
-    await openConditionEditor();
-    fireEvent.click(screen.getByRole('button', { name: '지우기' }));
-    await vi.waitFor(() => expect(url().has('equipmentGroup')).toBe(false));
-    expect(url().get('selectedEquipmentIds')).toBe('E1');
-    expect(within(bar()).getByRole('button', { name: '설비 그룹 조건 없음' })).toBeVisible();
-  });
-});
-
-describe('multi-axis summary compatibility (#552)', () => {
-  it('shows descriptor labels and offers only Clear for a condition the legacy editor cannot represent', async () => {
-    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ stgroup: ['A', 'B'], team: ['T1'] }))}`);
-    const chip = within(bar()).getByRole('button', { name: /설비 그룹 조건 StGroup: A, B · 분임조: T1/ });
-    fireEvent.click(chip);
-    expect(await screen.findByRole('button', { name: '지우기' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
-    expect(screen.queryByRole('radio', { name: 'StGroup' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '지우기' }));
+describe('Target dialog replaces the single-axis editor (#301, #552)', () => {
+  it('applies an axis rule while fixed Selection survives, and cancel preserves the committed rule', async () => {
+    mount('&selectedEquipmentIds=E1');
+    fireEvent.click(within(bar()).getByRole('button', { name: /대상 고정 1대/ }));
+    await screen.findByRole('button', { name: '고정 1대 적용' });
+    fireEvent.click(screen.getByRole('button', { name: /StGroup 전체/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'st-02만 선택' }));
     expect(new URLSearchParams(window.location.search).has('equipmentGroup')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '고정 1대 적용' }));
+    expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"stgroup":["st-02"]}');
+    expect(new URLSearchParams(window.location.search).get('selectedEquipmentIds')).toBe('E1');
+    fireEvent.click(within(bar()).getByRole('button', { name: /대상 고정 1대/ }));
+    expect(screen.getByRole('checkbox', { name: 'st-02' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'st-01만 선택' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+    expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"stgroup":["st-02"]}');
+  });
+  it('edits multiple axes together and clears the entire target without opening', async () => {
+    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ stgroup: ['st-01', 'st-02'], team: ['T1'] }))}&selectedEquipmentIds=E1`);
+    fireEvent.click(within(bar()).getByRole('button', { name: /대상 고정/ }));
+    expect(await screen.findByRole('checkbox', { name: 'T1' })).toBeChecked();
+    fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+    fireEvent.click(within(bar()).getByRole('button', { name: '대상 지우기' }));
+    expect(new URLSearchParams(window.location.search).has('equipmentGroup')).toBe(false);
+    expect(new URLSearchParams(window.location.search).has('selectedEquipmentIds')).toBe(false);
   });
 });
 
@@ -447,14 +397,13 @@ const equipmentAxes = [
 
 describe('Maker+Model map compatibility (#552)', () => {
   it('reopens the v1 pair with the same checked option and writes the split map', async () => {
-    const choices = vi.spyOn(adapter, 'contextOptions').mockResolvedValue({ stgroup: [], team: [], makerModel: [{ maker: 'X', model: 'Y' }] });
     mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ axis: 'makerModel', maker: 'X', model: 'Y' }))}&selectedEquipmentIds=E1`);
-    fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건 Maker: X · Model: Y/ }));
-    expect(await screen.findByRole('radio', { name: 'X / Y' })).toBeChecked();
-    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    fireEvent.click(within(bar()).getByRole('button', { name: /대상 고정 1대/ }));
+    expect(await screen.findByRole('checkbox', { name: 'X' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Y' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: '고정 1대 적용' }));
     expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"maker":["X"],"model":["Y"]}');
     expect(new URLSearchParams(window.location.search).get('selectedEquipmentIds')).toBe('E1');
-    choices.mockRestore();
   });
   it('shows carried Line and PRC and removes an orphaned basis with the last PRC group', () => {
     mount('&lineNames=L&prcGroups=P&membershipBasis=asOf');
@@ -469,11 +418,14 @@ describe('Maker+Model map compatibility (#552)', () => {
 
 describe('lossless legacy pair values (#552)', () => {
   it('keeps both IDs when different pairs have the same display label', async () => {
-    vi.spyOn(adapter, 'contextOptions').mockResolvedValue({ stgroup: [], team: [], makerModel: [{ maker: 'X / Y', model: 'Z' }, { maker: 'X', model: 'Y / Z' }] });
-    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ maker: ['X'], model: ['Y / Z'] }))}`);
-    fireEvent.click(within(bar()).getByRole('button', { name: /설비 그룹 조건 Maker: X · Model: Y \/ Z/ }));
-    await screen.findAllByRole('radio', { name: 'X / Y / Z' });
-    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    const pairAdapter = testAdapter({ ...adapter, listEquipmentFacts: async () => ({ version: 'pair', items: [
+      { equipmentId: 'E1', room: 'PHOTO', axes: { maker: ['X / Y'], model: ['Z'] } },
+      { equipmentId: 'E2', room: 'PHOTO', axes: { maker: ['X'], model: ['Y / Z'] } },
+    ] }) });
+    mount(`&equipmentGroup=${encodeURIComponent(JSON.stringify({ maker: ['X'], model: ['Y / Z'] }))}`, 'ko', true, registry, pairAdapter);
+    fireEvent.click(within(bar()).getByRole('button', { name: /대상 조건/ }));
+    expect(await screen.findByRole('checkbox', { name: 'Y / Z' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
     expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"maker":["X"],"model":["Y / Z"]}');
   });
 });

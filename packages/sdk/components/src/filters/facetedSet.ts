@@ -34,10 +34,31 @@ export function buildFacetedSetIndex(items: readonly FacetedSetItem[]) {
 }
 type FacetedSetIndex = ReturnType<typeof buildFacetedSetIndex>;
 
+export function facetUniverse(index: FacetedSetIndex, rule: FacetedSetValue['rule'], facet: string): readonly string[] {
+  return [...new Set([...(index.facets.get(facet)?.keys() ?? []), ...rulePicks(rule, facet)])];
+}
+
+/** All is an absent condition; empty picks remain draft-only none. */
+export function normalizeFacetedRule(index: FacetedSetIndex, rule: FacetedSetValue['rule']): FacetedSetValue['rule'] {
+  return Object.fromEntries(Object.entries(rule).flatMap(([facet, values]) => {
+    const picks = new Set(values);
+    if (picks.size && facetUniverse(index, rule, facet).every(value => picks.has(value))) return [];
+    return [[facet, [...picks]]];
+  }));
+}
+
+export function sameFacetedRule(left: FacetedSetValue['rule'], right: FacetedSetValue['rule']): boolean {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(facet => {
+    if (!Object.hasOwn(right, facet)) return false;
+    const picks = new Set(right[facet]);
+    return picks.size === left[facet].length && left[facet].every(value => picks.has(value));
+  });
+}
+
 export function evaluateFacetedSet(index: FacetedSetIndex, rule: FacetedSetValue['rule']) {
   const selected = new Map<string, Set<number>>();
   for (const [facet, picks] of Object.entries(rule)) {
-    if (!picks.length) continue;
     const members = new Set<number>();
     for (const value of picks) {
       for (const member of index.facets.get(facet)?.get(value) ?? []) members.add(member);
