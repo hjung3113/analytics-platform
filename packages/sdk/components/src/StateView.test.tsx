@@ -175,14 +175,10 @@ describe('QueryView same-context refresh label (#1166 UX-2)', () => {
   const okResponse = (): ApiResponse<unknown> => ({ outcome: 'ok', data: {}, assessments: [], trust: null, correlationId: 'c' });
   const refreshing = (): QueryState<unknown> => ({ response: okResponse(), refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing' });
   const label = () => screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]')!;
-  it('comfortable pages keep the label above the view', () => {
-    render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
-    expect(label()).toHaveClass('-top-7', 'right-0', 'absolute');
-  });
-  it('compact pages (12px panel gap) put the label inside the view top-right, out of flow, never above it', () => {
-    render(<I18nProvider><PageDensityProvider value="compact"><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></PageDensityProvider></I18nProvider>);
-    expect(label()).toHaveClass('absolute', 'top-2', 'right-3');
-    expect(label().className).not.toContain('-top-7');
+  it.each(['comfortable', 'compact'] as const)('%s pages lay the label as a band over the view bottom, never above it (#2381)', density => {
+    render(<I18nProvider><PageDensityProvider value={density}><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></PageDensityProvider></I18nProvider>);
+    expect(label()).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'h-6', 'pointer-events-none');
+    expect(label().className).not.toMatch(/-top-|top-2/);
   });
   it('keeps the previous content visible with a named status and aria-busy (kept result of a params change, #1365)', () => {
     const { container } = render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
@@ -224,8 +220,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(status).not.toHaveClass('sr-only');
     expect(status.querySelector('.sr-only')).toBeNull();
     expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
-    expect(status).toHaveClass('flex', 'h-6', 'w-full', 'shrink-0');
-    expect(status).not.toHaveClass('absolute');
+    expect(status).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'h-6', 'pointer-events-none');
     expect(status.parentElement).toBe(container.querySelector('[aria-busy="true"]'));
     expect(status.parentElement).not.toHaveClass('pt-8');
     expect(status.parentElement?.querySelector('.h-8')).toBeNull();
@@ -271,8 +266,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
     expect(container.firstElementChild).not.toHaveClass('pt-8');
     expect(container.querySelector('.h-8')).toBeNull();
-    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('text-text-muted');
-    expect(screen.getByRole('status')).not.toHaveClass('border');
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('absolute', 'bottom-0', 'h-6');
   });
 
   it.each([true, false])('can suppress a duplicate notice without suppressing busy or stale semantics (previous=%s)', showingPrevious => {
@@ -287,7 +281,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     expect(screen.getByText('42')).toBe(body);
   });
 
-  it('adds an in-flow row inside a clipping ancestor without remounting the result', () => {
+  it('lays the band inside a clipping ancestor without remounting the result', () => {
     const result = render(<div data-testid="clip">{view(false, 'done')}</div>);
     const clip = screen.getByTestId('clip');
     clip.style.overflow = 'hidden';
@@ -296,8 +290,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
     const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
     expect(status.parentElement).toBe(clip.firstElementChild);
     expect(status).not.toHaveAttribute('popover');
-    expect(status).toHaveClass('flex', 'h-6');
-    expect(status).not.toHaveClass('absolute');
+    expect(status).toHaveClass('absolute', 'bottom-0', 'h-6');
     expect(status.style.position).not.toBe('fixed');
     expect(status.style.top).toBe('');
     expect(screen.getByRole('table')).toBe(body);
@@ -312,7 +305,7 @@ describe('previous-selection refresh presentation (#1365 FIXV)', () => {
 
   it('keeps the light label without a stale tint for same-params refetches', () => {
     const { container } = render(view(false));
-    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('text-text-muted');
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('absolute', 'bottom-0');
     expect(screen.queryByText('이전 선택의 결과 · 갱신 중')).toBeNull();
     expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
   });

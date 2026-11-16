@@ -126,32 +126,32 @@ describe('AnalysisLayout', () => {
   it('gives successful chart queries subgrid rows and keeps refresh text inside the card', () => {
     const { container } = mountNode(queryNode('ok', true));
     expect(container.querySelector('[aria-busy]')).toHaveClass('relative', 'grid', 'row-span-2', 'grid-rows-subgrid');
-    // Icon-only status inside the header's reserved right column, under the corner collapse button (never over the toolbar).
-    const status = screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]');
-    expect(status).toHaveClass('right-5', 'top-11');
-    expect(status).not.toHaveClass('-top-7', 'right-12');
-    expect(status).toHaveAttribute('title', '같은 조건으로 갱신 중');
-    expect(screen.getByText('같은 조건으로 갱신 중')).toHaveClass('sr-only');
+    // A band over the card's bottom edge (#2381): never in the header row, so never over the chart toolbar.
+    const status = screen.getByRole('status', { name: '같은 조건으로 갱신 중' });
+    expect(status).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'pointer-events-none');
+    expect(status.className).not.toMatch(/top-/);
+    expect(screen.getByRole('region', { name: '상태 차트' }).querySelector('header')?.contains(status)).toBe(false);
+    expect(screen.getByText('같은 조건으로 갱신 중')).not.toHaveClass('sr-only');
     expect(screen.getByRole('region', { name: '상태 차트' }).querySelector('header')).toHaveClass('pr-12');
   });
 
-  it('places KPI refresh text in the section header row, left of the collapse button', () => {
+  it('places KPI refresh text in the band over the result bottom, not in the header row (#2381)', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
       <AnalysisLayout kpi={{ id: 'kpi', title: '요약', node: queryNode('ok', true) }} charts={[]} />
     </PlatformProvider></I18nProvider>);
     const status = screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]');
-    expect(status).toHaveClass('right-9', '-top-7');
+    expect(status).toHaveClass('absolute', 'bottom-0');
+    expect(status?.className).not.toMatch(/top-/);
     expect(screen.getByText('같은 조건으로 갱신 중')).not.toHaveClass('sr-only');
   });
 
   it('keeps standalone QueryView layout and refreshing placement unchanged', () => {
     const { container } = mountNode(queryNode('ok', true), false);
     expect(container.querySelector('[aria-busy]')).toHaveAttribute('class', 'relative');
-    expect(screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]'))
-      .toHaveAttribute('class', 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted');
+    expect(screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]')).toHaveClass('absolute', 'inset-x-0', 'bottom-0');
   });
 
-  it('adds the previous-selection row above the chart while preserving result subgrid rows and the mounted frame', () => {
+  it('lays the previous-selection band over the chart without changing its tracks, preserving result subgrid rows and the mounted frame', () => {
     const view = (previous: boolean) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
       <AnalysisLayout charts={[{ id: 'previous', title: '추세', node: <QueryView query={{ missing: [], completedAt: null, status: previous ? 'refreshing' : 'done', showingPrevious: previous,
         response: { outcome: 'ok', data: 'value', assessments: [], trust: null, correlationId: 'previous' }, refetch: vi.fn() }}>{() => chart('추세')}</QueryView> }]} />
@@ -164,14 +164,12 @@ describe('AnalysisLayout', () => {
     expect(wrapper).not.toHaveClass('pt-8');
     result.rerender(view(true));
     expect(screen.getByRole('region', { name: '추세' })).toBe(frame);
-    expect(wrapper).toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
+    expect(wrapper?.className).toBe(classes);
     expect(frame.parentElement).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
     const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
     expect(status.querySelector('.sr-only')).toBeNull();
     expect(status.parentElement).toBe(wrapper);
-    expect(status).toHaveClass('flex', 'h-6', 'w-full');
-    expect(status).not.toHaveClass('absolute');
-    expect(status.nextElementSibling).toBe(frame.parentElement);
+    expect(status).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'h-6');
     expect(frame.contains(status)).toBe(false);
     expect(frame.querySelector('header')).toHaveClass('pr-12');
     expect(result.container.querySelector('[data-query-stale-tint]')).toBeInTheDocument();

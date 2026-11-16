@@ -1,11 +1,10 @@
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
-import { useCompactPageDensity } from './pageDensity';
 import { useSharedOutcomeNotice } from './filters/OutcomeScope';
 import { useQueryBarStatus } from './filters/QueryBarStatus';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
 import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
-import { Ban, Clock, HelpCircle, Inbox, Loader2, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
+import { Ban, Clock, HelpCircle, Inbox, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
 import { useContext, useId, useState, type ReactNode } from 'react';
 import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
@@ -132,7 +131,6 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const chart = analysisSection?.kind === 'chart';
   // In a workspace panel the wrapper takes the panel's height so a `size="fill"` chart inside has a bounded parent.
   const inPanel = useInWorkspacePanel();
-  const compactPage = useCompactPageDensity();
   const { grouped, bannerId, multiple } = useSharedOutcomeNotice(query.response, query.refetch, widgetName, query.status);
   const barStatus = useQueryBarStatus();
   // The page's query bar already draws these reasons (#1170): only when it covers every idle item is the list left to the bar.
@@ -144,19 +142,11 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   // A kept result of other params is not "the same context": say so (ADR-0114).
   const refreshingLabel = t(query.showingPrevious ? 'refreshingPrevious' : 'refreshing');
   const showingPrevious = query.status === 'refreshing' && query.showingPrevious === true;
-  const noticeVisible = showingPrevious && !grouped && refreshNotice === 'visible';
+  const noticeVisible = query.status === 'refreshing' && !grouped && refreshNotice === 'visible';
   const content = <OutcomeContent grouped={grouped} bannerId={bannerId} multipleGroups={multiple} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>;
-  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', (fill || (inPanel && query.showingPrevious !== undefined)) && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && ['grid gap-y-0', noticeVisible ? 'grid-rows-[auto_auto_minmax(0,1fr)]' : 'grid-rows-subgrid'], analysisSection && response.outcome !== 'ok' && 'pr-12')}>
+  return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', (fill || (inPanel && query.showingPrevious !== undefined)) && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
+    {/* One band over the result's bottom edge, only while refreshing (#2381): it takes no layout space, so nothing moves. */}
     {noticeVisible && <QueryRefreshNotice label={refreshingLabel} />}
-    {query.status === 'refreshing' && !showingPrevious && !grouped && refreshNotice === 'visible' && (analysisSection && analysisSection.kind !== 'kpi'
-      // Icon only, in the header's reserved right column under the corner collapse button: never over the toolbar.
-      ? <span role="status" aria-label={refreshingLabel} title={refreshingLabel} className="absolute right-5 top-11 z-[1] inline-flex text-text-muted">
-        <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden /><span className="sr-only">{refreshingLabel}</span>
-      </span>
-      // Compact pages stack panels 12px apart, so the label above the view would sit inside the previous panel: it goes inside the view's own top-right corner instead.
-      : <span role="status" aria-label={refreshingLabel} className={analysisSection ? 'absolute right-9 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted' : compactPage ? 'absolute right-3 top-2 z-[1] inline-flex items-center gap-1 text-tiny text-text-muted' : 'absolute right-0 -top-7 inline-flex items-center gap-1 text-tiny text-text-muted'}>
-        <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden />{refreshingLabel}
-      </span>)}
     {/* Preserve the original DOM for non-opt-in queries. Opt-in results keep a real layout
         box across live/previous transitions; enable the option from the first render to avoid a remount. */}
     {query.showingPrevious === undefined ? content : <div data-query-result-content className={cn('relative min-w-0', (inPanel || fill) && 'flex min-h-0 flex-1 flex-col', chart && response.outcome === 'ok' && 'row-span-2 grid grid-rows-subgrid gap-y-0')}>
