@@ -155,9 +155,19 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
 
   it('persists custom groups with isolated listing, owner-only writes and live shared-group ACL', async () => {
     const group = await save(alice, { schemaVersion: 1, kind: 'custom-group', name: `${PREFIX}-targets`, savedScopeId: 'S', target: { fixed: ['e1', 'e2'] } });
+    const cond = await save(alice, condDraft(`${PREFIX}-cond`));
+    const menu = await save(alice, menuDraft(`${PREFIX}-menu`));
     const key = { menuId: null, kind: 'custom-group' };
-    expect(await call(alice, 'list', { key })).toEqual(expect.arrayContaining([expect.objectContaining({ view: expect.objectContaining({ id: group.id, kind: 'custom-group' }) })]));
-    expect(await call(alice, 'list', { key: { menuId: null } })).not.toEqual(expect.arrayContaining([expect.objectContaining({ view: expect.objectContaining({ id: group.id }) })]));
+    const customList = await call(alice, 'list', { key });
+    expect(customList.length).toBeGreaterThan(0);
+    expect(customList.every((item: Any) => item.view?.kind === 'custom-group')).toBe(true);
+    expect(customList.map((item: Any) => item.view?.id)).toContain(group.id);
+    expect(customList.map((item: Any) => item.view?.id)).not.toContain(cond.id);
+    expect(customList.map((item: Any) => item.view?.id)).not.toContain(menu.id);
+    const condIds = (await call(alice, 'list', { key: { menuId: null } })).map((item: Any) => item.view?.id);
+    expect(condIds).toContain(cond.id);
+    expect(condIds).not.toContain(group.id);
+    expect((await call(alice, 'list', { key: KEY })).map((item: Any) => item.view?.id)).toContain(menu.id);
     expect((await q('select kind, menu_id, content from platform.saved_views where id = $1', [group.id])).rows[0]).toMatchObject({ kind: 'custom-group', menu_id: null, content: { savedScopeId: 'S', target: { fixed: ['e1', 'e2'] } } });
     expect(await call(alice, 'setDefault', { key, id: null })).toMatchObject({ ok: false, reason: 'invalid' });
     expect(await call(alice, 'setDefault', { key: { menuId: null }, id: group.id })).toMatchObject({ ok: false, reason: 'invalid' });

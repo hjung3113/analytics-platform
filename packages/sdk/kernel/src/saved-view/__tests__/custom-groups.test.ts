@@ -44,6 +44,16 @@ describe('expandCustomGroups', () => {
   it('matches rule axes with AND across axes, OR within arrays, and roomNames from room', () => {
     expect(expandCustomGroups({ condition: { customGroup: ['rule'] }, selection: null, groups: { rule: { rule: { model: ['A', 'B'], tag: ['x'], roomNames: ['R1'] } } }, facts })).toEqual({ ok: true, condition: null, selection: ['e1'] });
   });
+  it('matches every fact row for an empty rule while keeping other Condition axes and Selection', () => {
+    expect(expandCustomGroups({ condition: { customGroup: ['all'], model: ['A'] }, selection: ['e1', 'e3'], groups: { all: { rule: {} } }, facts })).toEqual({ ok: true, condition: { model: ['A'] }, selection: ['e1', 'e3'] });
+  });
+  it.each(['toString', 'constructor', 'missingAxis'])('treats missing or inherited axis %s as empty without throwing', axis => {
+    expect(expandCustomGroups({ condition: { customGroup: ['g'] }, selection: null, groups: { g: { rule: { [axis]: ['x'] } } }, facts })).toEqual({ ok: true, condition: null, selection: [] });
+  });
+  it('matches a genuinely present own property named toString', () => {
+    const ownToStringFacts: EquipmentSummary[] = [{ equipmentId: 'e1', room: 'R1', axes: { toString: ['x'] } }, facts[1]!];
+    expect(expandCustomGroups({ condition: { customGroup: ['g'] }, selection: null, groups: { g: { rule: { toString: ['x'] } } }, facts: ownToStringFacts })).toEqual({ ok: true, condition: null, selection: ['e1'] });
+  });
   it('preserves an input with no selected custom group', () => {
     expect(expandCustomGroups({ condition: null, selection: null, groups, facts })).toEqual({ ok: true, condition: null, selection: null });
   });

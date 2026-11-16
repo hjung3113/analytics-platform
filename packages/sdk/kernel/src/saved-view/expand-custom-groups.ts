@@ -26,7 +26,7 @@ export function expandCustomGroups({ condition, selection, groups, facts }: Expa
     }
     for (const row of facts) {
       const matches = Object.entries(group.rule).every(([axis, values]) => {
-        const actual = axis === 'roomNames' ? [row.room] : row.axes[axis] ?? [];
+        const actual = axis === 'roomNames' ? [row.room] : (Object.hasOwn(row.axes, axis) ? row.axes[axis] : undefined) ?? [];
         return values.some(value => actual.includes(value));
       });
       if (matches) members.add(row.equipmentId);

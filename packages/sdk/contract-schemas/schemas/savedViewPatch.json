@@ -10,13 +10,20 @@
             "rule": {
               "type": "object",
               "propertyNames": {
-                "type": "string"
+                "not": {
+                  "const": "customGroup"
+                },
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
               },
               "additionalProperties": {
                 "minItems": 1,
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
                 }
               }
             }
@@ -30,11 +37,14 @@
           "type": "object",
           "properties": {
             "fixed": {
+              "uniqueItems": true,
               "minItems": 1,
               "maxItems": 5000,
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
               }
             }
           },

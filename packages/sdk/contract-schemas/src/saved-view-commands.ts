@@ -73,10 +73,11 @@ const panelsSchema = json;
 const name = z.string().refine((value) => value.trim() !== '', { message: 'name is empty' });
 /** The Scope a content version was saved in (#2175): opaque metadata, never an authority; the server stores it and checks no grant. Bounded like `SAVED_SCOPE_ID_MAX` in @ap/contracts. */
 const savedScopeId = z.string().min(1).max(200);
-const groupId = z.string().refine(value => value.trim() !== '', { message: 'id is empty' });
+const groupId = z.string().min(1).regex(/\S/, { message: 'id is empty' });
+const ruleAxisId = groupId.refine(axis => axis !== 'customGroup', { message: 'nested custom groups are forbidden' }).meta({ not: { const: 'customGroup' } });
 const customGroupTarget = z.union([
-  z.strictObject({ rule: z.record(groupId.refine(axis => axis !== 'customGroup', { message: 'nested custom groups are forbidden' }), z.array(groupId).min(1)) }),
-  z.strictObject({ fixed: z.array(groupId).min(1).max(5_000).refine(ids => new Set(ids).size === ids.length, { message: 'fixed ids must be unique' }) }),
+  z.strictObject({ rule: z.record(ruleAxisId, z.array(groupId).min(1)) }),
+  z.strictObject({ fixed: z.array(groupId).min(1).max(5_000).refine(ids => new Set(ids).size === ids.length, { message: 'fixed ids must be unique' }).meta({ uniqueItems: true }) }),
 ]);
 
 export const savedViewDraftSchema = z.discriminatedUnion('kind', [
