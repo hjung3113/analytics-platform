@@ -17,7 +17,6 @@ const settings: RunScatterSettings = { axis: 'equipment-module', color: 'equipme
 
 describe('categorical run scatter shaping for #2332', () => {
   it.each([
-    ['equipment-module', ['EQ-001 · LK1', 'EQ-002 · LK1']],
     ['equipment', ['EQ-001', 'EQ-002']],
     ['module', ['LK1']],
   ] as const)('shapes %s categories and per-category bounds without a numeric time axis', (axis, order) => {
@@ -27,6 +26,17 @@ describe('categorical run scatter shaping for #2332', () => {
     expect(shaped.points.every(point => point.x === null)).toBe(true);
     expect(shaped.xCategories.bounds.get(order[0]!)).toEqual({ lower: 2, upper: 4 });
     expect(shaped.xCategories.jitter).toBe(0.6);
+  });
+  it('drops the Module from equipment · Module categories only while one Module is on screen', () => {
+    const one = shapeRunScatter(data, settings, ['Pump', 'Vent'], 'ko');
+    expect(one.axis).toBe('equipment'); expect(one.xCategories.order).toEqual(['EQ-001', 'EQ-002']); expect('groups' in one.xCategories).toBe(false);
+    const two = shapeRunScatter({ ...data, points: [data.points[0]!, { ...data.points[1]!, moduleId: 'LK2' }] }, settings, ['Pump', 'Vent'], 'ko');
+    expect(two.axis).toBe('equipment-module'); expect(two.xCategories.order).toEqual(['EQ-001 · LK1', 'EQ-002 · LK2']);
+  });
+  it('draws every run in one colour and one legend entry with the single colour', () => {
+    const shaped = shapeRunScatter(data, { ...settings, color: 'single' }, ['Pump', 'Vent'], 'ko');
+    expect(shaped.groups).toEqual([{ id: 'runs', label: '회차', color: 'chart-series-1' }]);
+    expect(shaped.points.map(p => p.groupColorKey)).toEqual(['runs', 'runs']);
   });
   it.each([
     ['equipment', ['EQ-001', 'EQ-002']],

@@ -11,7 +11,8 @@ import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, vali
 import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatterData';
 import { shapeRunTrend } from './runTrendData';
 
-const DEFAULT_SETTINGS: RunScatterSettings = { axis: 'equipment-module', color: 'equipment', value: 'motion' };
+// The scatter starts in one colour (24 equipment colours and a 24-entry legend were the noise); the trend keeps one line per equipment.
+const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: { axis: 'equipment-module', color: 'equipment', value: 'motion' } } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
 /** Lowest plot height before the panel body scrolls (px). */
 const RUN_FILL_MIN = 200;
 function Setting<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (next: T) => void }) {
@@ -27,7 +28,7 @@ function Setting<T extends string>({ label, value, options, onChange }: { label:
 export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }: { kind: 'scatter' | 'trend'; data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
-  const [settings, setSettings] = useState<RunScatterSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<RunScatterSettings>(DEFAULT_SETTINGS[kind]);
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const equipment = useMemo(() => [...new Set([...data.points, ...data.daily].map(point => point.equipmentId))], [data]);
   const fields = useMemo(() => runPanelFilterFields(equipment, lang), [equipment, lang]);
@@ -48,7 +49,8 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
       scatter: shapeRunScatter({ points: sampled.rows, bounds: data.bounds }, settings, motions, lang),
       trend: shapeRunTrend(daily.rows, settings, motions, lang) };
   }, [data, fields, filters, lang, motions, settings]);
-  const axisLabel = settings.axis === 'equipment-module' ? m('equipmentModule') : settings.axis === 'equipment' ? m('equipment') : m('modules');
+  const axis = projected.scatter.axis;
+  const axisLabel = axis === 'equipment-module' ? m('equipmentModule') : axis === 'equipment' ? m('equipment') : m('modules');
   // Out-of-bound points only carry a status (same rule as the bar pieces): a neutral `판정 불가` on every point would drown the emphasis.
   const scatter: ScatterSpec = {
     kind: 'scatter', density: 'quiet', xUnit: '', xLabel: axisLabel, yLabel: settings.value === 'motion' ? m('motionTime') : m('moduleTime'),
@@ -72,7 +74,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
           { id: 'equipment-module', label: m('equipmentModule') }, { id: 'equipment', label: m('equipment') }, { id: 'module', label: m('modules') },
         ]} />}
         <Setting label={m('color')} value={settings.color} onChange={next => change('color', next)} options={[
-          { id: 'equipment', label: m('equipment') }, { id: 'module', label: m('modules') }, { id: 'status', label: m('status') },
+          ...(kind === 'scatter' ? [{ id: 'single' as const, label: m('singleColor') }] : []), { id: 'equipment', label: m('equipment') }, { id: 'module', label: m('modules') }, { id: 'status', label: m('status') },
         ]} />
         <Setting label={m('value')} value={settings.value} onChange={next => change('value', next)} options={[
           { id: 'motion', label: m('motionTime') }, { id: 'module', label: m('moduleTime') },

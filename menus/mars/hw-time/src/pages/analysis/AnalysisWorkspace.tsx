@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, Inspector, PageKeyWarning, PanelWorkspace, PlatformDataTable, QueryView,
+  AnalysisChart, AnalysisChartFrame, Inspector, PageKeyWarning, PanelWorkspace, PlatformDataTable, QueryView, RowAction,
   type PanelWorkspacePanel, type PanelWorkspacePreset,
   type ChartPoint, type HeatmapSpec, type PlatformColumn,
 } from '@ap/components';
 import { Button, Checkbox, StatusBadge } from '@ap/ui';
-import { SlidersHorizontal } from 'lucide-react';
+import { ChartScatter, SlidersHorizontal } from 'lucide-react';
 import {
   HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_UNIT, hwTimeOverview,
   type HwTimeMatrix, type HwTimeMatrixCell, type HwTimeMotionStats,
@@ -59,7 +59,7 @@ const PRESETS: PanelWorkspacePreset[] = [{ id: 'linked', label: HW_TIME_WORKSPAC
     { type: 'branch', dir: 'row', sizes: [27, 27, 46], children: [
       { type: 'group', panels: ['filter'] }, { type: 'group', panels: ['heatmap'] }, { type: 'group', panels: ['bars'] },
     ] },
-    { type: 'branch', dir: 'row', sizes: [42, 58], children: [{ type: 'group', panels: ['motions'] }, { type: 'group', panels: ['scatter'] }] },
+    { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panels: ['motions'] }, { type: 'group', panels: ['scatter'] }] },
     { type: 'group', panels: ['trend'] },
     { type: 'group', panels: ['table'] },
   ] },
@@ -125,20 +125,25 @@ function MotionTable({ data, filter, moduleId, motionId, onMotion }: { data: HwT
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
   const rows = useMemo(() => data.rows.filter(row => filter.motions.includes(row.motion)), [data.rows, filter.motions]);
-  const valueText = (value: number | null) => value === null ? missingText(lang) : `${formatSeconds(value, lang)} ${HW_TIME_UNIT[lang]}`;
-  const columns: PlatformColumn<MotionRow>[] = [
-    { id: 'motion', header: m('motions'), value: row => row.motion, hideable: false },
-    { id: 'average', header: m('average'), value: row => row.judgement.value, cell: row => valueText(row.judgement.value), align: 'right' },
-    { id: 'bounds', header: m('bounds'), cell: row => `${valueText(row.judgement.lower)} ~ ${valueText(row.judgement.upper)}` },
-    { id: 'status', header: m('status'), cell: row => {
+  // Stable columns keep the focused Motion link mounted across the drill write (a new cell function remounts it).
+  const drill = useRef(onMotion); drill.current = onMotion;
+  const columns = useMemo<PlatformColumn<MotionRow>[]>(() => {
+    const valueText = (value: number | null) => value === null ? missingText(lang) : `${formatSeconds(value, lang)} ${HW_TIME_UNIT[lang]}`;
+    return [
+    // The Motion name is the drill link (no separate action column), so the four columns fit the half-width panel at 1280 wide.
+    { id: 'motion', header: m('motions'), value: row => row.motion, hideable: false, size: 100,
+      cell: row => <RowAction compact={false} textLink="primary" icon={ChartScatter} label={m('viewRuns', { motion: row.motion })} text={row.motion} onClick={() => drill.current(row.motion)} /> },
+    { id: 'average', header: m('average'), value: row => row.judgement.value, cell: row => valueText(row.judgement.value), align: 'right', size: 72 },
+    { id: 'bounds', header: m('bounds'), size: 124, cell: row => row.judgement.lower === null && row.judgement.upper === null ? missingText(lang)
+      : `${row.judgement.lower === null ? '' : formatSeconds(row.judgement.lower, lang)} ~ ${row.judgement.upper === null ? '' : formatSeconds(row.judgement.upper, lang)} ${HW_TIME_UNIT[lang]}` },
+    { id: 'status', header: m('status'), size: 116, cell: row => {
       const status = htmStatusView(row.judgement, lang);
       return <StatusBadge tone={status?.tone ?? 'success'}>{htmStatusText(row.judgement, lang)}</StatusBadge>;
     } },
-  ];
+  ]; }, [m, lang]);
   const title = m('table', { module: moduleId });
   return <PlatformDataTable title={title} ariaLabel={title} columns={columns} rows={rows} getRowId={row => row.motion}
-      activeRowId={motionId} preferenceKey="hw-time-overview:motions:v1" pageSize={10}
-      rowAction={row => <Button variant="ghost" size="sm" onClick={() => onMotion(row.motion)}>{m('viewRuns', { motion: row.motion })}</Button>} />;
+      activeRowId={motionId} preferenceKey="hw-time-overview:motions:v1" pageSize={10} />;
 }
 
 /** Stable query owners survive check projections and workspace hide/reopen commands. */

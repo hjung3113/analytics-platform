@@ -98,17 +98,22 @@ describe('HW Time linked workspace', () => {
     fireEvent.click(within(table).getByRole('button', { name: 'Chuck 회차 보기' }));
     await screen.findByTestId('hw-overview-scatter');
     expect(screen.getByText('표본 2 / 전체 576 · 기준 밖 점 전부 포함')).toBeTruthy();
-    // #2332: categorical x per equipment · Module, equipment groups, the server's per-category bounds, status on out-of-bound points only.
+    // #2332: categorical x per equipment (one Module on screen drops the Module label), the server's per-category bounds,
+    // one colour by default, status on out-of-bound points only.
     const scatter = chart('hw-overview-runs-scatter');
-    expect(scatter.xCategories.order).toEqual(['EQ-001 · PM1', 'EQ-002 · PM1']);
-    expect(scatter.xCategories.groups.byCategory).toEqual([['EQ-001 · PM1', { group: 'EQ-001', label: 'PM1' }], ['EQ-002 · PM1', { group: 'EQ-002', label: 'PM1' }]]);
-    expect(scatter.xCategories.bounds).toEqual([['EQ-001 · PM1', { lower: 3, upper: 4 }], ['EQ-002 · PM1', { lower: 3, upper: 4 }]]);
+    expect(scatter.density).toBe('quiet');
+    expect(scatter.xCategories.order).toEqual(['EQ-001', 'EQ-002']);
+    expect(scatter.xCategories.groups).toBeUndefined();
+    expect(scatter.xLabel).toBe('설비');
+    expect(scatter.groups.map((g: { label: string }) => g.label)).toEqual(['회차']);
+    expect(scatter.xCategories.bounds).toEqual([['EQ-001', { lower: 3, upper: 4 }], ['EQ-002', { lower: 3, upper: 4 }]]);
     expect(scatter.points.map((p: { id: string; category: string; y: number; group: string; status?: { tone: string } }) => [p.id, p.category, p.y, p.group, p.status?.tone]))
-      .toEqual([['run-0', 'EQ-001 · PM1', 9, 'EQ-001', 'danger'], ['run-1', 'EQ-002 · PM1', 2, 'EQ-002', 'warning']]);
+      .toEqual([['run-0', 'EQ-001', 9, 'runs', 'danger'], ['run-1', 'EQ-002', 2, 'runs', 'warning']]);
     expect(screen.queryByText(/산점도는 SDK 조각/)).toBeNull();
     expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('group', { name: '이 패널만' })).toBeTruthy();
     expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '가로축' })).toBeTruthy();
-    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('설비');
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('단색');
+    expect(within(screen.getByTestId('hw-overview-trend')).getByRole('combobox', { name: '색' }).textContent).toBe('설비');
     expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '값' }).textContent).toBe('고른 Motion 회차 시간');
     const before = requests.map(r => r.endpoint);
     // #2333: one line per equipment on a time axis, status rings on out-of-bound daily means only, no band across two equipment.
@@ -119,7 +124,7 @@ describe('HW Time linked workspace', () => {
     expect(trend.bounds).toEqual([]);
     expect(screen.queryByText(/추세 차트는 SDK 조각/)).toBeNull();
     expect(within(screen.getByTestId('hw-overview-trend')).queryByRole('combobox', { name: '가로축' })).toBeNull();
-    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('설비');
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('단색');
     expect(requests.map(r => r.endpoint)).toEqual(before);
     expect(await screen.findByTestId('hw-overview-runs-scatter')).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get('drillMotion')).toBe('Chuck');

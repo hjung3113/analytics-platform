@@ -91,6 +91,8 @@ export const HW_TIME_OVERVIEW_MESSAGES = {
   status: { ko: '상태', en: 'Status' },
   table: { ko: '{module} · Motion', en: '{module} · Motion' },
   viewRuns: { ko: '{motion} 회차 보기', en: 'View {motion} runs' },
+  runsLegend: { ko: '회차', en: 'Runs' },
+  singleColor: { ko: '단색', en: 'Single' },
   runs: { ko: '{module} · {motion} 회차', en: '{module} · {motion} runs' },
   sample: { ko: '표본 {shown} / 전체 {total} · 기준 밖 점 전부 포함', en: 'Sample {shown} / total {total} · every out-of-bound point included' },
   axis: { ko: '가로축', en: 'Horizontal axis' },
