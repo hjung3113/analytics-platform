@@ -95,9 +95,9 @@ function MatrixPanel({ panel, data, filter, onModule, onRow }: { panel: 'heatmap
   const cellStatus = focusCell ? statuses.cellStatus.get(activeCategory!) : undefined;
   const statusLabels = [...new Set(cells.map(cell => htmStatusText(cell.module, lang)))];
   const partial = cells.some(cell => filter.motions.some(motion => cell.motions[motion]?.value == null));
-  if (!filter.modules.length || !filter.motions.length) return <p className="text-sm text-text-secondary">{m('noChecks')}</p>;
+  if (!filter.modules.length || !filter.motions.length) return <p className="p-3 text-sm text-text-secondary">{m('noChecks')}</p>;
   return <div className="flex h-full min-h-0 flex-col gap-2">
-    <p className="t-caption text-text-secondary">{m('synthetic')} · {statusLabels.join(' · ')}</p>
+    <p className="t-caption px-4 pt-2 text-text-secondary">{m('synthetic')} · {statusLabels.join(' · ')}</p>
     <div className="flex min-h-0 flex-1 flex-col">
     {panel === 'heatmap' ? <AnalysisChart chartId="hw-overview-matrix" title={m('heatmap')} description={m('heatmapNote')} spec={heatmap} unit={HW_TIME_UNIT[lang]} size="fill" />
       : <>
