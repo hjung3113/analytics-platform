@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PERMISSION_BATCH_MAX_ITEMS } from './admin.js';
 import { requestedPermissionScopeFields, grantedPermissionScopeFields } from './scope-kinds.js';
 
 const optionalReasonSchema = z
@@ -99,7 +100,7 @@ export const createPermissionRequestBatchSchema = z
           .strict(),
       )
       .min(1)
-      .max(50),
+      .max(PERMISSION_BATCH_MAX_ITEMS),
     reason: z.string().min(1).max(2000),
     requested_expiration: z.string().datetime().optional(),
     return_route_intent: z.string().min(1).optional(),

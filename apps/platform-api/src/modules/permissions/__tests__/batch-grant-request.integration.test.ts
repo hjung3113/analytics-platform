@@ -54,6 +54,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
   });
 
   beforeEach(async () => {
+    notifications.jobs.splice(0);
     await migrateDb.pool.query('delete from core.rate_limits');
     const actor = await insertDevActor(db, WORKSPACE_ID, `perm-batch-${randomUUID()}`);
     actorId = actor.id;
@@ -105,6 +106,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
     });
     expect(response.statusCode).toBeGreaterThanOrEqual(400);
     expect(response.json().message).toContain('row 2');
+    expect(response.json().code).not.toBe('internal.unexpected');
     expect(await grantRows()).toEqual([]);
   });
 
@@ -133,6 +135,10 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
     });
     expect(response.statusCode).toBe(201);
     expect(response.json().items).toHaveLength(2);
+    // One admin notification per batch, not one per row.
+    const notifiedRequests = new Set(notifications.jobs.map((job) => JSON.stringify(job).match(/"permission_request_id":"([0-9a-f-]{36})"/)?.[1]));
+    expect([...notifiedRequests][0]).toBeDefined();
+    expect(notifiedRequests.size).toBe(1);
     const rows = await db.pool.query('select requested_capability, reason from permission.permission_requests where requester_actor_id = $1', [actorId]);
     expect(rows.rows).toHaveLength(2);
     expect(new Set(rows.rows.map((row) => row.reason))).toEqual(new Set(['Need both for the audit']));
@@ -142,5 +148,13 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
     });
     expect(again.statusCode).toBe(409);
     expect(again.json().message).toContain('row 1');
+    // A refused row rolls the whole request batch back: the new candidate is not left behind.
+    const mixed = await post('/permission-requests/batch', actorCookie, {
+      items: [{ requested_capability: 'finding.read', requested_managed_system_id: systemId }, { requested_capability: 'voc.read', requested_managed_system_id: systemId }],
+      reason: 'Mixed',
+    });
+    expect(mixed.statusCode).toBe(409);
+    const left = await db.pool.query("select 1 from permission.permission_requests where requester_actor_id = $1 and requested_capability = 'finding.read'", [actorId]);
+    expect(left.rows).toHaveLength(0);
   });
 });

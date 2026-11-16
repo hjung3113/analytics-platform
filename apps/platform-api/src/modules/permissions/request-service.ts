@@ -132,6 +132,7 @@ export function createRequestService(deps: RequestServiceDeps) {
     capability: CapabilityName,
     capabilities: ReturnType<typeof capabilitiesOf>,
     batchId?: string,
+    notifyAdmins = true,
   ) {
     const scope = { kind: body.requested_scope_kind ?? 'managed_system', site: body.requested_scope_site ?? null, room: body.requested_scope_room ?? null };
     const sensitive = capabilities.meta(capability).sensitive;
@@ -247,8 +248,8 @@ export function createRequestService(deps: RequestServiceDeps) {
       },
     });
 
-    const adminActorIds = await listWorkspaceAdminActorIds(tx, actor.workspace_id);
-    await deps.notify(tx, 'permission_request.submitted', {
+    const adminActorIds = notifyAdmins ? await listWorkspaceAdminActorIds(tx, actor.workspace_id) : [];
+    if (notifyAdmins) await deps.notify(tx, 'permission_request.submitted', {
       workspace_id: actor.workspace_id,
       actor_ids: adminActorIds,
       subject_id: insertedId,
@@ -341,7 +342,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           const { items: _items, ...shared } = body;
           const row: CreatePermissionRequestBody = { ...shared, ...item };
           try {
-            items.push(await insertRequest(tx, actor, row, item.requested_capability as CapabilityName, capabilities, batchId));
+            items.push(await insertRequest(tx, actor, row, item.requested_capability as CapabilityName, capabilities, batchId, index === 0));
           } catch (error) {
             if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, error.detail);
             throw error;
