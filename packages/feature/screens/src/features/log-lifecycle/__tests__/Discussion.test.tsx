@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { Attempt, CursorPage, DiscussionComment, Presentation, Project, ReadState, RequestDetail, RoundDetail, RuleResult, ScreenProps, TableParts, ValidationIssueDetail, ValidationIssueRow, WriteResult } from '../contracts';
+import type { Attempt, CursorPage, DiscussionComment, Project, ReadState, RequestDetail, RoundDetail, RuleResult, ScreenProps, ValidationIssueDetail, ValidationIssueRow, WriteResult } from '../contracts';
 import { RoundScreen } from '../RoundScreen';
+import { fakeUi } from './presentation';
 
 const ROUND = '00000000-0000-4000-8000-000000000003';
 const ISSUE = '00000000-0000-4000-8000-000000000501';
@@ -16,8 +17,7 @@ const round: RoundDetail = { id: ROUND, projectId: 'project', seq: 3, stage: 'al
 const issueRow: ValidationIssueRow = { id: ISSUE, projectId: 'project', firstRoundId: ROUND, title: '합성 관찰 항목', reporterActorId: 'actor', createdAt: '2026-11-07T00:00:00Z', lastActivityAt: '2026-11-07T00:00:00Z', commentCount: 1, occurrenceCount: 1, roundCount: 1 };
 const detail: ValidationIssueDetail = { ...issueRow, body: '합성 설명 본문', expected: null, actual: '합성 실제', repro: null, occurrences: { rows: [{ id: 'occ', roundId: ROUND, attemptId: 'attempt', ruleResultId: 'rule-result', linkerActorId: 'other-actor-id', createdAt: '2026-11-07T00:00:00Z', evidence: [{ fileRef: 'synthetic/sample-01.log', line: 7, fileSha256: sha }] }] } };
 const comment = (id: string, body: string, author = 'other-actor-id'): DiscussionComment => ({ id, authorActorId: author, body, correctsCommentId: null, createdAt: '2026-11-07T00:00:00Z' });
-function Table<T extends { id: string }>(p: TableParts<T>) { return <>{p.summary}<table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.pagination}</>; }
-const ui: Presentation = { page: p => p.children, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}<button type="button" onClick={p.requestClose}>상세 닫기</button></section>, timeline: () => null, trust: () => null, sourceView: () => <p>합성 원본</p> };
+const ui = fakeUi();
 type Read = unknown;
 /** Marks a read state (status/denied) rather than data; RoundDetail itself has a `status` field. */
 const state = (value: Partial<ReadState<unknown>>) => ({ readState: value });

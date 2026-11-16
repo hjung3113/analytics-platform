@@ -1,14 +1,12 @@
 // #1496 R-f: the RuleSet column of the attempt list — each catalog state in words, a link only when matched, never colour alone.
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Attempt, Presentation, TableParts } from '../contracts';
+import type { Attempt } from '../contracts';
 import { Attempts } from '../RequestsScreen';
 import { RULE_SET_STATE_TEXT } from '../RuleSetCell';
+import { fakeUi } from './presentation';
 
-function Table<T extends { id: string }>(p: TableParts<T>) {
-  return <table aria-label={p.title}><thead><tr>{p.columns.map(c => <th key={c.id}>{c.header}</th>)}</tr></thead><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>;
-}
-const ui = { table: Table } as unknown as Presentation;
+const ui = fakeUi();
 const attempt = (n: number, ruleSet: Attempt['ruleSet']): Attempt => ({ id: `id-${n}`, attemptNo: n, outcome: 'succeeded', workerActorId: 'w', verdict: 'pass', manifestMatches: true, counts: {}, requiredUnchecked: 0, ruleCount: 0, startedAt: '2026-11-08T00:00:00Z', endedAt: null, ruleSetRevision: ruleSet ? 'rev' : null, inputManifestDigest: '', ...(ruleSet === undefined ? {} : { ruleSet }) });
 const RuleSetLink = ({ ruleSetKey, children }: { ruleSetKey: string; children: React.ReactNode }) => <a href={`/rules?ruleSetKey=${ruleSetKey}`}>{children}</a>;
 afterEach(cleanup);
