@@ -1,6 +1,7 @@
 import { formatText, type Lang } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { topNData } from './topNBar';
+import { histogramData } from './histogram';
 import { seriesColors } from './analysisChartShared';
 import { scatterData, boxPlotData, paretoData, type KindProjection } from './analysisChartKinds';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -21,6 +22,7 @@ export const chartColors = {
 
 /** One projection for plot, table, selection and CSV. Synthetic aggregate rows never invent drill IDs. */
 export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {
+  if (spec.kind === 'histogram') { const extended = histogramData(spec, lang); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'topNBar') { const extended = topNData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'scatter') { const extended = scatterData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }
   if (spec.kind === 'boxPlot') { const extended = boxPlotData(spec, lang, unit); return { cells: [], rows: extended.rows, total: extended.total, extended }; }

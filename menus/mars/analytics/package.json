@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-analytics",
   "private": true,
-  "version": "0.5.16",
+  "version": "0.5.17",
   "ap": {
     "sdk": ">=0.38.0 <0.39.0"
   },

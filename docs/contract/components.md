@@ -104,7 +104,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - DataTrustIndicator
 - AnalysisChartFrame
 - OrderedIntervalTrack (순서 축 구간·점의 범용 트랙, 선언·상태·성능 경계는 아래, 상호작용은 [§16](chart.md#orderedintervaltrack-순서-트랙-decided-adr-0121))
-- AnalysisChart (종류별 데이터·로컬 선택·표·CSV 프레임, [§16](chart.md#16-analysis-chart-contract), [ADR-0058](../adr/0058-analysis-chart-spec-union.md))
+- AnalysisChart (heatmap·donut·scatter·boxPlot·pareto·topNBar·histogram의 데이터·표·CSV 프레임, 종류별 로컬 선택, [§16](chart.md#16-analysis-chart-contract), [ADR-0058](../adr/0058-analysis-chart-spec-union.md))
 - LegendTree (계층 범례의 보이기·단일 현재 항목 또는 드릴 현재 단계(`onDrill`·`currentId`·`drillOnly`·`canDrill`, 보이기와 분리)·키보드 행 이동, [§16](chart.md#16-analysis-chart-contract), [ADR-0057](../adr/0057-legend-tree-arrow-key-row-navigation.md))
 - PlatformDataTable
 - DetailDrawer
