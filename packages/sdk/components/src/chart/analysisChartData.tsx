@@ -7,8 +7,9 @@ import { scatterData, boxPlotData, paretoData, type KindProjection } from './ana
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartStatus } from './chartStatus';
 import type { ChartSpec, HeatmapCell } from './AnalysisChart';
+import { unknownLabel } from './analysisChartShared';
 
-export type ChartRow = { status?: ChartStatus; key: string; label: string; value: number | null; x?: string; y?: string; share?: number; color?: ThemeColorToken; drill?: () => void };
+export type ChartRow = { status?: ChartStatus; categoryLabel?: string; key: string; label: string; value: number | null; x?: string; y?: string; share?: number; color?: ThemeColorToken; drill?: () => void };
 export const cellKey = (x: string, y: string) => JSON.stringify([x, y]);
 export function chartDiagnostic(message: string) { if (process.env.NODE_ENV !== 'production') console.error(`AnalysisChart: ${message}`); }
 
@@ -36,7 +37,11 @@ export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: Heat
       }
       seen.add(key); return true;
     });
-    return { cells, total: 0, rows: cells.map(c => ({ key: cellKey(c.x, c.y), label: `${c.y} · ${c.x}`, x: c.x, y: c.y, value: c.value, ...(c.status ? { status: c.status } : {}), drill: spec.onCellClick ? () => spec.onCellClick?.(c.x, c.y) : undefined })) };
+    const categories = spec.categories === undefined ? undefined : new Map(spec.categories.map(category => [category.id, formatText(category.label, lang)]));
+    return { cells, total: 0, rows: cells.map(c => {
+      const categoryLabel = categories && ((c.category === undefined ? undefined : categories.get(c.category)) ?? unknownLabel(lang));
+      return { key: cellKey(c.x, c.y), label: `${c.y} · ${c.x}${categoryLabel === undefined ? '' : ` · ${categoryLabel}`}`, ...(categoryLabel === undefined ? {} : { categoryLabel }), x: c.x, y: c.y, value: c.value, ...(c.status ? { status: c.status } : {}), drill: spec.onCellClick ? () => spec.onCellClick?.(c.x, c.y) : undefined };
+    }) };
   }
   let colorIndex = 0;
   const seen = new Set<string>();

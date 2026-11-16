@@ -73,13 +73,13 @@ export function statusRing(size: number) {
  * as pixel rectangles of a custom series: a scatter symbol is a unit path scaled to its size, which stretches its stroke
  * unevenly on a non-square cell (thick sides, thin top and bottom) and lets it spill past the cell.
  */
-export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string }[], symbolSize: number[]) {
+export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string; opacity?: number }[], symbolSize: number[]) {
   if (!cells.length) return [];
   const [width = 0, height = 0] = symbolSize;
   // A 0px side (unmeasured plot or a very dense grid) draws no cell, so its ring is kept in the option but not drawn.
   const drawn = width > 0 && height > 0;
   const { border, backing: backingWidth } = statusRing(drawn ? Math.min(width, height) : Infinity);
-  const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, 0.8) }));
+  const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, c.opacity ?? 0.8) }));
   const ring = (id: string, z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
     id, type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
     data: items.map((c, index) => [c.value[0], c.value[1], index]),

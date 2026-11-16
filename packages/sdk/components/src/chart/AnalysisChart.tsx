@@ -5,7 +5,8 @@ import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
-import { Button, Checkbox, cn } from '@ap/ui';
+import { Button, Checkbox, cn, type Tone } from '@ap/ui';
+import type { Text } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
@@ -24,12 +25,16 @@ import { distinctStatuses, heatmapStatusOutlines, statusMarker, statusText, type
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout } from './analysisChartFrameParts';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
+import { HEATMAP_CATEGORY_TOKENS, UNKNOWN_HEATMAP_CATEGORY_TOKENS } from './heatmapCategories';
 
-export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus };
+export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus; category?: string };
+export type HeatmapCategory = { id: string; label: Text; tone: Tone };
 export type HeatmapSpec = {
   kind: 'heatmap';
   /** Explicit axis order. Missing coordinates remain empty; null is an unknown cell. */
   xLabels: string[]; yLabels: string[]; cells: HeatmapCell[];
+  /** Opt-in categorical fill and legend; missing/unknown category ids use the unknown fill and label. */
+  categories?: readonly HeatmapCategory[];
   /** Thresholds are only for approved real judgements, not inferred status. */
   scale?: { type: 'sequential'; domain?: [number, number] }
     | { type: 'diverging'; pivot: number; domain?: [number, number]; lowerIsBetter?: boolean }
@@ -51,6 +56,10 @@ export type DonutSpec = {
   valueFormat?: (v: number) => string;
   /** Explicit drill from Details only; canvas clicks select. */
   onSliceClick?: (id: string) => void;
+  /** Follows this slice until a local click or Reset; a changed value resumes following, as for TopNBarSpec. */
+  selectedId?: string | null;
+  /** Selection only, separate from Details. Clearing or selecting a synthetic aggregate reports null. */
+  onSelectedChange?: (id: string | null) => void;
 };
 export type ScatterPoint = {
   id: string; x: number | null; y: number | null; group?: string; label?: string;
@@ -167,11 +176,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [table, setTable] = useState(false);
   const [panelToolsOpen, setPanelToolsOpen] = useState(false);
   const chart = useRef<ECharts | null>(null);
-  // A top-N bar may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
+  // A top-N bar or donut may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
   // selection whenever its bar is drawn, so rows that arrive or grow later still show it. A click, Reset or brush makes the selection
   // local until the followed value or the Context changes. Without `selectedId` the selection is local only, as before.
-  const followed = p.spec.kind === 'topNBar' && p.spec.selectedId !== undefined ? p.spec.selectedId : undefined;
-  const followedKey = followed == null ? null : JSON.stringify(['topNBar', followed]);
+  const followed = (p.spec.kind === 'topNBar' || p.spec.kind === 'donut') ? p.spec.selectedId : undefined;
+  const followedKey = followed == null ? null : JSON.stringify([p.spec.kind === 'donut' ? 'slice' : 'topNBar', followed]);
   const unfollowed: string[] | null = followed === undefined ? [] : null;
   const [selected, setSelected] = useState<string[] | null>(unfollowed);
   const [previousFollowed, setPreviousFollowed] = useState(followed);
@@ -201,18 +210,26 @@ export function AnalysisChart(p: AnalysisChartProps) {
   else if (selected !== null && active.length !== selected.length) setSelected(active);
   useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
-  const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); };
-  const toggle = (key: string) => setSelected(previous => {
-    const old = previous ?? active;
-    return old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key];
-  });
+  const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); if (spec.kind === 'donut') spec.onSelectedChange?.(null); };
+  const toggle = (key: string) => {
+    if (spec.kind === 'donut') {
+      const next = active.includes(key) ? [] : [key];
+      setSelected(next);
+      spec.onSelectedChange?.(next.length ? spec.slices.find(slice => JSON.stringify(['slice', slice.id]) === key)?.id ?? null : null);
+      return;
+    }
+    setSelected(previous => {
+      const old = previous ?? active;
+      return old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key];
+    });
+  };
   const format = useCallback((v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v), [spec]);
   const unknown = unknownLabel(lang);
   const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
   const { option, scale, domain, ramp, validThreshold } = useMemo(() => {
     const theme = chartTheme();
     const values = cells.flatMap(c => c.value === null ? [] : [c.value]);
-    const scale = spec.kind === 'heatmap' ? spec.scale : undefined;
+    const scale = spec.kind === 'heatmap' && spec.categories === undefined ? spec.scale : undefined;
     let domain: [number, number] = scale && 'domain' in scale && scale.domain ? scale.domain : [values.length ? Math.min(...values) : 0, values.length ? Math.max(...values) : 0];
     let ramp: ThemeColorToken[] = sequential;
     if (scale?.type === 'diverging') {
@@ -228,23 +245,34 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const xIndex = new Map(spec.kind === 'heatmap' ? spec.xLabels.map((label, index) => [label, index] as const) : []);
     const yIndex = new Map(spec.kind === 'heatmap' ? spec.yLabels.map((label, index) => [label, index] as const) : []);
     const activeKeys = new Set(active);
+    const categories = spec.kind === 'heatmap' && spec.categories !== undefined ? new Map(spec.categories.map(category => [category.id, category])) : undefined;
+    const categoryTokens = (cell: HeatmapCell) => {
+      const category = cell.category === undefined ? undefined : categories?.get(cell.category);
+      return category ? HEATMAP_CATEGORY_TOKENS[category.tone] : UNKNOWN_HEATMAP_CATEGORY_TOKENS;
+    };
     function cellColor(value: number | null) {
       if (value === null) return tone(colors.unknown);
       if (scale?.type === 'threshold' && validThreshold) return tone(value < scale.breaks[0] ? colors.good : value < scale.breaks[1] ? colors.warn : colors.critical);
       const fraction = domain[1] === domain[0] ? 0.5 : (value - domain[0]) / (domain[1] - domain[0]);
       return tone(ramp[Math.max(0, Math.min(4, Math.round(fraction * 4)))]);
     }
+    const fillColor = (cell: HeatmapCell) => categories ? tone(categoryTokens(cell).fill) : cellColor(cell.value);
+    const cellLabel = (cell: HeatmapCell) => {
+      const marker = cell.status ? statusMarker(cell.status) : undefined;
+      if (!categories) return marker;
+      return { ...marker, show: true, color: tone(categoryTokens(cell).text), formatter: `${valueText(cell.value)}${marker ? `\n${marker.formatter}` : ''}` };
+    };
     const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
-      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}${c.status ? ` · ${statusText(c.status)}` : ''}` : ''; } },
+      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}${categories ? ` · ${rows[params.dataIndex].categoryLabel}` : ''}${c.status ? ` · ${statusText(c.status)}` : ''}` : ''; } },
       grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
       xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
       yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
-        itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderWidth: 0 /* the inset __statusOutline layer draws it (#2351) */, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
-        ...(c.status ? { label: { ...statusMarker(c.status), position: 'inside' } } : {}),
-      })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: cellColor(c.value) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
+        itemStyle: { color: fillColor(c), ...(categories ? { opacity: 1 } : {}), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderWidth: 0 /* the inset __statusOutline layer draws it (#2351) */, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
+        ...(categories || c.status ? { label: { ...cellLabel(c), position: 'inside' } } : {}),
+      })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: fillColor(c), ...(categories ? { opacity: 1 } : {}) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
       series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],
@@ -293,19 +321,22 @@ export function AnalysisChart(p: AnalysisChartProps) {
     if (cell) spec.cellActivation.onActivate(cell.x, cell.y);
   };
   const empty = extended ? extended.empty : spec.kind === 'heatmap' ? !cells.length : total === 0;
-  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue'), ...(hasStatuses ? [m('chartHeaderStatus')] : [])] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
-  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
+  const categorical = spec.kind === 'heatmap' && spec.categories !== undefined;
+  const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue'), ...(categorical ? [m('chartHeaderCategory')] : []), ...(hasStatuses ? [m('chartHeaderStatus')] : [])] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
+  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? [...headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header), ...(hasStatuses ? [m('chartHeaderReason')] : [])];
-    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
+    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
     try { downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues); } catch {
       exportGate.say(m('chartExportCsvFailed', { chartId: p.chartId }), 'warning');
       return;
     }
     exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
+  const categoryLegend = spec.kind === 'heatmap' && spec.categories?.map(category => <span key={category.id} className="inline-flex items-center gap-1"><Swatch color={token(HEATMAP_CATEGORY_TOKENS[category.tone].fill)} />{category.label[lang]}</span>);
   const kindLegend = <>{spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
-        {scale?.type === 'threshold' && validThreshold ? <div className="flex gap-3">{scale.labels.map((label, i) => <span key={i} className="flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>)}</div> : <>
+        {categorical && <div className="flex flex-wrap gap-3">{categoryLegend}</div>}
+        {!categorical && (scale?.type === 'threshold' && validThreshold ? <div className="flex gap-3">{scale.labels.map((label, i) => <span key={i} className="flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>)}</div> : <>
           <HeatmapRamp ramp={ramp} />
           <div className="relative flex justify-between">
             <span>{format(domain[0])}</span>
@@ -315,7 +346,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
             </span>}
             <span>{format(domain[1])}</span>
           </div>
-        </>}
+        </>)}
         <span className="flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
         {hasStatuses && <div className="flex flex-wrap gap-3" role="group" aria-label={m('chartLegend')}><ChartStatusLegend statuses={statusLegend} /></div>}
       </div>}
@@ -323,12 +354,13 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {spec.kind === 'donut' && <ul aria-label={m('chartLegend')} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}</>;
   const standardLegend = <>
     {spec.kind === 'heatmap' && <>
-      {scale?.type === 'threshold' && validThreshold ? scale.labels.map((label, i) => <span key={i} className="inline-flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>) : <>
+      {categorical && categoryLegend}
+      {!categorical && (scale?.type === 'threshold' && validThreshold ? scale.labels.map((label, i) => <span key={i} className="inline-flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>) : <>
         <span>{format(domain[0])}</span>
         <HeatmapRamp ramp={ramp} inline />
         {scale?.type === 'diverging' && <span>{m('chartTarget', { pivot: format(scale.pivot) })}</span>}
         <span>{format(domain[1])}</span>
-      </>}
+      </>)}
       <span className="inline-flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
       <ChartStatusLegend statuses={statusLegend} />
     </>}

@@ -1,0 +1,145 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`default heatmap keeps numeric rendering, events, tooltip, table and CSV unchanged 1`] = `
+{
+  "csv": [
+    [
+      "x",
+      "y",
+      "값 (s)",
+    ],
+    [
+      [
+        "A",
+        "Row",
+        15,
+      ],
+      [
+        "B",
+        "Row",
+        "미확인",
+      ],
+    ],
+  ],
+  "events": [
+    "click",
+    "finished",
+    "takeglobalcursor",
+    "brushselected",
+    "brushEnd",
+  ],
+  "html": "<section role="region" aria-labelledby="_id_" aria-describedby="_id_" class="relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card"><header class="flex flex-wrap items-start justify-between gap-2 px-4 pt-3"><div class="min-w-0"><div class="flex items-center gap-1"><h2 id="_id_" class="t-card-title">Heat</h2></div></div><div role="toolbar" aria-label="차트 동작" class="flex flex-wrap gap-1"><button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-surface-canvas transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-text-primary hover:bg-surface-row-hover h-8 shrink-0 gap-1.5 px-2">차트 초기화</button><button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-surface-canvas transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-text-primary hover:bg-surface-row-hover h-8 shrink-0 gap-1.5 px-2" aria-pressed="false">끌어서 선택</button><button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-surface-canvas transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-text-primary hover:bg-surface-row-hover h-8 shrink-0 gap-1.5 px-2" aria-pressed="true">표로 보기</button><button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-surface-canvas transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-text-primary hover:bg-surface-row-hover h-8 shrink-0 gap-1.5 px-2">내보내기</button><span role="status" class="t-caption text-text-muted">heat.csv 내보냄</span></div></header><div class="px-4 py-2 text-text-secondary text-xs"><div class="flex gap-3"><span class="flex items-center gap-1"><span aria-hidden="true" class="inline-block size-3" style="background-color: rgb(24, 168, 107);"></span>Low</span><span class="flex items-center gap-1"><span aria-hidden="true" class="inline-block size-3" style="background-color: rgb(165, 99, 0);"></span>Medium</span><span class="flex items-center gap-1"><span aria-hidden="true" class="inline-block size-3" style="background-color: rgb(217, 45, 58);"></span>High</span></div><span class="flex items-center gap-1"><span aria-hidden="true" class="inline-block size-3" style="background-color: rgb(220, 226, 235); border: 1px dashed rgb(102, 112, 131);"></span>미확인</span></div><p id="_id_" class="px-4 py-2 text-xs text-text-secondary">2칸 · 0칸 비어 있음 · 1칸 미확인 · 단위 s</p><div class="relative"><div role="img" aria-label="Heat"></div></div><section aria-label="선택 요약" class="px-4 py-2 text-xs text-text-secondary bg-surface-sunken">Row · A · 1칸 선택</section><div class="overflow-auto px-4 py-2"><table class="w-full text-xs"><caption>Heat · s</caption><thead class="bg-surface-sunken"><tr><th scope="col" class="text-text-secondary">x</th><th scope="col" class="text-text-secondary">y</th><th scope="col" class="text-text-secondary">값</th><th scope="col" class="text-text-secondary">선택</th></tr></thead><tbody><tr><td>A</td><td>Row</td><td>15 s</td><td><button type="button" role="checkbox" aria-checked="true" data-state="checked" value="on" class="peer h-4 w-4 shrink-0 rounded-sm border border-border-strong focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent-primary data-[state=checked]:text-text-on-accent data-[state=indeterminate]:bg-accent-primary data-[state=indeterminate]:text-text-on-accent" aria-label="선택 Row · A"><span data-state="checked" class="flex items-center justify-center text-current" style="pointer-events: none;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check h-4 w-4" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span></button></td></tr><tr><td>B</td><td>Row</td><td>미확인</td><td><button type="button" role="checkbox" aria-checked="false" data-state="unchecked" value="on" class="peer h-4 w-4 shrink-0 rounded-sm border border-border-strong focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent-primary data-[state=checked]:text-text-on-accent data-[state=indeterminate]:bg-accent-primary data-[state=indeterminate]:text-text-on-accent" aria-label="선택 Row · B"></button></td></tr></tbody></table></div></section>",
+  "option": {
+    "brush": {
+      "brushType": "rect",
+      "inBrush": {},
+      "outOfBrush": {},
+      "toolbox": [],
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+    },
+    "grid": {
+      "bottom": 16,
+      "containLabel": true,
+      "left": 16,
+      "right": 16,
+      "top": 16,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderType": "solid",
+              "borderWidth": 1.5,
+              "color": "rgb(165,99,0)",
+            },
+            "value": [
+              0,
+              0,
+              15,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(102,112,131)",
+              "borderType": "dashed",
+              "borderWidth": 1,
+              "color": "rgb(220,226,235)",
+            },
+            "value": [
+              1,
+              0,
+              null,
+            ],
+          },
+        ],
+        "emphasis": {
+          "focus": "none",
+        },
+        "symbol": "rect",
+        "symbolSize": [
+          0,
+          0,
+        ],
+        "type": "scatter",
+      },
+    ],
+    "toolbox": {
+      "show": false,
+    },
+    "tooltip": {
+      "backgroundColor": "rgb(237,243,251)",
+      "borderColor": "rgb(203,214,230)",
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(102,112,131)",
+        "hideOverlap": true,
+        "interval": "auto",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(184,196,214)",
+        },
+      },
+      "data": [
+        "A",
+        "B",
+      ],
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(237,241,247)",
+        },
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "color": "rgb(102,112,131)",
+        "hideOverlap": true,
+        "interval": "auto",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(184,196,214)",
+        },
+      },
+      "data": [
+        "Row",
+      ],
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(237,241,247)",
+        },
+      },
+      "type": "category",
+    },
+  },
+}
+`;
