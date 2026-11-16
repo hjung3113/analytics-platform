@@ -6,8 +6,13 @@ import type { MenuEntry } from '@ap/kernel';
 import { HW_TIME_CONTEXT } from './endpoints';
 import { HW_TIME_FILTER_HIDDEN_KEYS, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_REPEATED_KEYS } from './shared/useHwTimeFilter';
 
-const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'align', 'sort', 'page', 'focus', ...Object.values(HW_TIME_FILTER_KEYS)];
-const DRILL = { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }, { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } }], resetKeys: ['focus'] };
+const OPTION_KEYS = ['barsSort', 'barsGroup', 'barsMinMax', 'align', 'trend', 'pins'];
+const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
+const DRILL = { levels: [
+  { key: 'moduleType', label: { ko: 'Module 타입', en: 'Module type' } },
+  { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } },
+  { key: 'drillModule', label: { ko: 'Module', en: 'Module' } },
+], resetKeys: ['focus', 'trend'] };
 
 const GROUP = groupId('hwTime');
 const PERMISSION = menuPermission('analytics:view');
@@ -21,9 +26,9 @@ export const manifests: MenuEntry[] = [
     requiresScope: true, context: contextCapabilities(HW_TIME_CONTEXT), pageType: 'analysis',
     features: { ...NO_FEATURES, board: true, export: true },
     pageKeys: PAGE_KEYS,
-    repeatedPageKeys: HW_TIME_FILTER_REPEATED_KEYS,
-    hiddenPageKeys: HW_TIME_FILTER_HIDDEN_KEYS,
-    contextResetKeys: ['drillModule', 'drillMotion', 'row', 'page', 'focus'],
+    repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins'],
+    hiddenPageKeys: [...HW_TIME_FILTER_HIDDEN_KEYS, ...OPTION_KEYS],
+    contextResetKeys: ['moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend'],
     drill: DRILL,
     component: lazy(() => import('./HwTimePage')),
   },

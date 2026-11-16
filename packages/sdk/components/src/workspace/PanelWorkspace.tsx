@@ -108,6 +108,12 @@ export type PanelWorkspaceProps = {
    * shows for another on a shared browser and two menus never share a key.
    */
   persistence?: PanelWorkspacePersistence;
+  /**
+   * Opt-in (#2416): the menu's own workspace actions, e.g. `PanelAddMenu`. Drawn at the end of the workspace toolbar, right-aligned before the
+   * height-mode `⋯`; inside a command host (the board), where the toolbar is not drawn, they get a right-aligned row above the panels.
+   * Absent = output unchanged.
+   */
+  toolbarActions?: ReactNode;
 };
 
 const DEFAULT_COMPACT_BELOW = 900;
@@ -176,7 +182,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -512,7 +518,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   return <WorkspaceDepthProvider value={depth}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}>
-      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} />}
+      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={toolbarActions} />}
+      {hosted && toolbarActions !== undefined && <div data-workspace-actions className="flex items-center justify-end gap-2">{toolbarActions}</div>}
       <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}

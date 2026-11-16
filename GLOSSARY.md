@@ -222,18 +222,18 @@ EquipmentID로 식별되는 설비 내부의 세부 단위. XFR/FNC/PRC 이벤�
 _Avoid_: 모듈·슬롯(단독) — 호스트 모듈·셸 슬롯과 섞인다.
 
 **Module 타입** (`moduleType`):
-Module의 종류 묶음. HW Time 「표시 조건」 패널에서 Module·Motion 목록을 이 단위로 나누고, 조회 파라미터로도 쓴다. 합성 예 PM·TR·LK.
+Module의 종류 묶음. HW Time 드릴의 첫 단계이며, Module 타입 → Motion → Module 순으로 좁힌다. 조회 파라미터로도 쓴다. 합성 예 PM·TR·LK.
 _Avoid_: 모듈 타입(단독 한글).
 
 **Motion** (`drillMotion`):
-Module이 수행하는 동작 한 종류(예: Chuck·Dechuck·Pump·Vent·Transfer)로, 동작시간분석 드릴의 두 번째 단계다. Module → Motion 순으로 좁히고, 어떤 Module이 기록하지 않는 Motion은 그 Module에서 값이 없다.
+Module이 수행하는 동작 한 종류(예: Chuck·Dechuck·Pump·Vent·Transfer)로, 동작시간분석 드릴의 두 번째 단계다. Module 타입 → Motion → Module 순으로 좁히고, 어떤 Module이 기록하지 않는 Motion은 그 Module에서 값이 없다.
 _Avoid_: 동작(단독) — CLAS의 `설비 동작시간` 메뉴와 섞인다.
 
 **HTM**:
 Motion 동작 1회 소요시간의 상·하한 기준. 기준은 Motion에만 두며 키는 Maker + Model + PPID + Recipe + Module + Motion이다. 판정은 서버가 정상/상한 초과/하한 미달/판정 불가로 제공한다(판정 `HtmStatus`: normal·over·under·unjudgeable). 화면 문구는 `HTM` 그대로 쓴다.
 
 **동작시간분석** (`hwTime` 메뉴 그룹, en `Operation time analysis`):
-MARS의 메뉴 그룹이자 MARS 대표 메뉴. Module·Motion의 동작 시간 산포를 분석하고, 기본 단위는 설비 하나다(소유자 2026-11-05). 설비 동작시간을 Module·Motion 단계로 드릴해 보는 HW Time 메뉴 하나다. 화면 배치는 [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md).
+MARS의 메뉴 그룹이자 MARS 대표 메뉴. Module·Motion의 동작 시간 산포를 분석하고, 기본 단위는 설비 하나다(소유자 2026-11-05). Module 타입 → Motion → Module 드릴 깊이에 따라 네 단계의 패널을 보여 주는 HW Time 메뉴 하나다. 화면 배치는 [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md), 단계별 패널·추가·고정은 [ADR-0165](docs/adr/0165-workspace-per-step-panels-add-and-pin.md).
 _Avoid_: 설비 동작시간 — CLAS의 다른 메뉴다.
 
 **RCC**:

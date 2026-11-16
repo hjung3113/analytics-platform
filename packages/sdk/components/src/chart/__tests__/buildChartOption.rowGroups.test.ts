@@ -56,3 +56,25 @@ describe('row group gutter fits its labels (#2356)', () => {
     expect(option.yAxis.axisLabel.width).toBeGreaterThanOrEqual('Load lock chamber A'.length * 7);
   });
 });
+
+describe('rowLabelWidth: opt-in plain-row gutter (#2416)', () => {
+  type Grid = { grid: { left: number }; yAxis: { axisLabel: { width?: number } } };
+  const plain = (extra = {}) => buildChartOption(baselineInput({ rowPitch: 26, ...extra })) as unknown as Grid;
+  it('absent keeps the default gutter for every existing chart', () => {
+    expect(plain().grid.left).toBe(ROW_LABEL_GUTTER);
+    expect(plain().yAxis.axisLabel.width).toBe(ROW_LABEL_GUTTER - 12);
+  });
+  it("'auto' sizes to the longest row name, capped at the default", () => {
+    const short = plain({ rowLabelWidth: 'auto', categories: ['EQ-001', 'EQ-002'] });
+    expect(short.grid.left).toBeLessThan(ROW_LABEL_GUTTER);
+    expect(short.grid.left).toBeGreaterThanOrEqual(6 * 7);
+    expect(short.yAxis.axisLabel.width).toBe(short.grid.left - 12);
+    expect(plain({ rowLabelWidth: 'auto', categories: ['아주 긴 설비 이름이 들어가는 행 이름입니다'] }).grid.left).toBe(ROW_LABEL_GUTTER);
+  });
+  it('a number sets the gutter, at least 32 px; row groups keep their own gutter', () => {
+    expect(plain({ rowLabelWidth: 90 }).grid.left).toBe(90);
+    expect(plain({ rowLabelWidth: 4 }).grid.left).toBe(32);
+    const grouped = buildChartOption(baselineInput({ rowGroups, rowPitch: 26, rowLabelWidth: 300 })) as unknown as Grid;
+    expect(grouped.grid.left).toBe((buildChartOption(baselineInput({ rowGroups, rowPitch: 26 })) as unknown as Grid).grid.left);
+  });
+});

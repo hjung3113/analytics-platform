@@ -48,6 +48,10 @@ describe('overview run sampling', () => {
     expect(endpoint.validate?.({ params: { moduleType: 'PM', drillModule: 'LK1', drillMotion: 'Pump' }, context })).toBeTruthy();
     expect(endpoint.validate?.({ params: { moduleType: 'PM', drillModule: 'PM1', drillMotion: 'Pump' }, context })).toBeNull();
   });
+  it('rejects an invalid Motion before checking the deeper Module in a run request', () => {
+    const endpoint = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.runs')!;
+    expect(endpoint.validate?.({ params: { moduleType: 'PM', drillMotion: 'Pick', drillModule: 'LK1' }, context })).toBe('drillMotion must belong to moduleType');
+  });
 });
 
 describe('overview server projections', () => {

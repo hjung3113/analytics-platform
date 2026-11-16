@@ -7,6 +7,6 @@ import { AnalysisWorkspace } from './pages/analysis/AnalysisWorkspace';
 export default function HwTimePage(_props: PageProps) {
   const filter = useHwTimeFilter();
   return <PlatformPage layout="fill"><HwTimeFilterContext value={filter}>
-    <AnalysisWorkspace key={filter.moduleType.id} filter={filter} />
+    <AnalysisWorkspace filter={filter} />
   </HwTimeFilterContext></PlatformPage>;
 }

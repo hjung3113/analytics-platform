@@ -44,6 +44,14 @@ export type LegendTreeProps = {
   currentLabel?: ReactNode;
   /** Opt-in (#2395): with `onDrill`, a click on the name of a drillable row drills instead of toggling visibility; the checkbox still toggles. Pair it with `hint`. Default `false` (a name click toggles, as before). */
   drillOnName?: boolean;
+  /**
+   * Opt-in (#2416): node checks the menu owns. With it, a check (click or Space) reports the node and its new state here instead of
+   * `onVisibleChange`, so a branch toggle and a leaf toggle stay apart when they would change the same leaves. Pair it with `checkedOf`.
+   * Absent = output unchanged. `모두 보이기` still calls `onVisibleChange`.
+   */
+  onCheck?: (id: string, checked: boolean) => void;
+  /** Opt-in (#2416): a node's drawn check. `undefined` = derived from `visible` over its leaves, as before. */
+  checkedOf?: (id: string) => boolean | 'mixed' | undefined;
 };
 
 type Entry = {
@@ -92,7 +100,7 @@ const EMPTY = new Set<string>();
 /** Hierarchical visibility checks with independent optional single choice and controlled sorting. */
 export function LegendTree(props: LegendTreeProps) {
   const { nodes, visible, onVisibleChange, label, sortOf, onSortChange, onSelect, selectedId, onDrill, canDrill, currentId,
-    expanded, defaultExpanded, onExpandedChange, emptyText, className, hint, currentLabel, drillOnName = false } = props;
+    expanded, defaultExpanded, onExpandedChange, emptyText, className, hint, currentLabel, drillOnName = false, onCheck, checkedOf } = props;
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const treeId = useId();
@@ -182,6 +190,8 @@ export function LegendTree(props: LegendTreeProps) {
     }
   }
   function checked(entry: Entry): boolean | 'mixed' {
+    const own = checkedOf?.(entry.node.id);
+    if (own !== undefined) return own;
     const count = entry.leaves.filter(id => visible.has(id)).length;
     return count === entry.leaves.length ? true : count === 0 ? false : 'mixed';
   }
@@ -189,6 +199,7 @@ export function LegendTree(props: LegendTreeProps) {
     if (entry.node.drillOnly) return;
     const next = new Set(visible);
     const remove = checked(entry) === true;
+    if (onCheck) { onCheck(entry.node.id, !remove); return; }
     for (const id of entry.leaves) {
       if (remove) next.delete(id); else next.add(id);
     }

@@ -6,7 +6,7 @@ import { chartTheme, strokeToken, token } from './EChart';
 import { boundSeries, boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
 import { lineStatusSeries } from './linePointStatus';
 import { noteLabelWidths } from './annotationLayout';
-import { GRID_BOTTOM, GRID_TOP, ROW_LABEL_GUTTER } from './analysisChartGeometry';
+import { GRID_BOTTOM, GRID_TOP, rowLabelGutter } from './analysisChartGeometry';
 import { toMs, unknownLabel } from './analysisChartShared';
 import type { ChartSeries } from './AnalysisChartFrame';
 import { chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
@@ -114,6 +114,8 @@ export type ChartOptionInput = {
   valueFormat: (v: number) => string;
   /** Horizontal only. Set = row-pitch viewport: the frame scrolls the plot, so category zoom is off (one viewport model, 06 §16). */
   rowPitch?: number;
+  /** Row-pitch plain rows only. Category-label gutter: absent = `ROW_LABEL_GUTTER`, a number = that width (px), 'auto' = the longest label, capped at `ROW_LABEL_GUTTER`. */
+  rowLabelWidth?: 'auto' | number;
   /** Horizontal only. The controlled row highlight: a border on that row's bars and a bold category label. */
   activeCategory?: string | null;
   /** Horizontal stacked only. Each series' piece starts at its own lane's left edge; the value axis shows lane names instead of numbers. */
@@ -164,6 +166,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     return false;
   };
   const xValue = (x: string) => (xType === 'time' ? toMs(x) : x);
+  const rowGutter = rowLabelGutter(i.rowLabelWidth, categories);
   // Pixels per axis unit from the plot width and the zoom window, so a label can be cut to its own area (#399 AC-2).
   const plotWidth = Math.max(0, i.chartWidth - (groupLayout ? groupLayout.gutter + 20 : PLOT_MARGIN) - (i.rightAxis ? RIGHT_AXIS_ROOM : 0));
   const zoomed = Math.max((i.zoom[1] - i.zoom[0]) / 100, 0.01);
@@ -171,7 +174,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const pxPerUnit = units > 0 ? plotWidth / (units * zoomed) : 0;
   // A narrow plot (a 400px drawer) cannot hold five numeric ticks: fewer ticks, and any that still touch are dropped; a wide plot keeps ECharts' defaults instead of printing `1,0002,000`.
   // Without rowPitch the grid is `containLabel`, so the category labels also eat plot width; their real width is unknown here, so the longest category is estimated (capped) and taken off.
-  const categoryRoom = groupLayout?.gutter ?? (i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52 + Math.min(MAX_CATEGORY_ROOM, Math.max(0, ...categories.map(labelWidth))));
+  const categoryRoom = groupLayout?.gutter ?? (i.rowPitch !== undefined ? rowGutter : 52 + Math.min(MAX_CATEGORY_ROOM, Math.max(0, ...categories.map(labelWidth))));
   const gridPlotWidth = (i.tickRoom ?? i.chartWidth) - categoryRoom - gridRight;
   const tickCount = Math.floor(gridPlotWidth / MIN_TICK_PITCH);
   const valueAxisTicks = tickCount < DEFAULT_TICKS ? { splitNumber: Math.max(1, tickCount), axisLabel: { hideOverlap: true } } : {};
@@ -233,7 +236,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   };
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
-    grid: groupLayout ? { left: groupLayout.gutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false } : horizontal && i.rowPitch !== undefined ? { left: ROW_LABEL_GUTTER, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
+    grid: groupLayout ? { left: groupLayout.gutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false } : horizontal && i.rowPitch !== undefined ? { left: rowGutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
@@ -245,7 +248,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
-    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: ROW_LABEL_GUTTER - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${rowLabel(groups, v)}}` : rowLabel(groups, v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
+    yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: rowGutter - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${rowLabel(groups, v)}}` : rowLabel(groups, v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
     // Row-pitch mode: the inner scroller is the only viewport. A dataZoom window on top would make the selection summary, Brush and export ambiguous (ADR-0079).
     dataZoom: horizontal && i.rowPitch !== undefined ? [] : [{ type: 'inside', ...(horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 }), ...(groups ? { filterMode: 'weakFilter' } : {}), start: i.zoom[0], end: i.zoom[1], zoomOnMouseWheel: 'shift', moveOnMouseMove: !i.brushMode }],
     // Selection and annotation fills keep echarts-native opacity.
@@ -307,7 +310,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
-        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (groupLayout?.gutter ?? (i.rowPitch !== undefined ? ROW_LABEL_GUTTER : 52)) - gridRight)
+        markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (groupLayout?.gutter ?? (i.rowPitch !== undefined ? rowGutter : 52)) - gridRight)
           : i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
       },
     ],

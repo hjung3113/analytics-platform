@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
-import { useContext, useId, useRef } from 'react';
+import { useContext, useId, useRef, type ReactNode } from 'react';
 import { MoreHorizontal, PanelTopOpen, TriangleAlert } from 'lucide-react';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@ap/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, cn } from '@ap/ui';
 import { useMessages } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { SegmentedRadio } from '../RadioGroup';
@@ -24,7 +24,7 @@ function HiddenItemLabel({ command }: { command: WorkspaceCommand }) {
  * The workspace's one toolbar row: the presets, the hidden panels to reopen, `기본 배치` and, at the end, `⋯` with the height mode. It draws the same commands a host would
  * (`WorkspaceCommandsHost`), so the two surfaces cannot differ.
  */
-export function WorkspaceToolbar({ commands, onShown, label }: { label: string; commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void }) {
+export function WorkspaceToolbar({ commands, onShown, label, actions }: { label: string; commands: readonly WorkspaceCommand[]; /** A hidden panel was shown from the list: focus goes to its tab once the menu has closed. */ onShown: (panelId: string) => void; /** The menu's actions (#2416), right-aligned before the height-mode `⋯`. */ actions?: ReactNode }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const workspace = useContext(WorkspaceQueryBarContext);
   const inPanel = useInWorkspacePanel();
@@ -76,9 +76,10 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
       <PanelTopOpen className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{command.chip}</span>
     </Button>)}
     {reset && <Button type="button" variant="ghost" size="toolbar" disabled={reset.disabled} onClick={reset.run}>{reset.label}</Button>}
+    {actions !== undefined && <div data-workspace-actions className="ml-auto flex items-center gap-2">{actions}</div>}
     {modes.length > 1 && <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" className="ml-auto size-7" data-workspace-height-mode aria-label={m('workspaceHeightMode')} title={m('workspaceHeightMode')}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+        <Button type="button" variant="ghost" size="icon-sm" className={cn(actions === undefined && 'ml-auto', 'size-7')} data-workspace-height-mode aria-label={m('workspaceHeightMode')} title={m('workspaceHeightMode')}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{m('workspaceHeightMode')}</DropdownMenuLabel>

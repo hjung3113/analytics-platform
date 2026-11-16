@@ -205,6 +205,11 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   revealActive?: boolean;
   /** Horizontal only: px per row, minimum 24 (WCAG 2.2 2.5.8). The plot becomes `rows × pitch + axes` tall and scrolls inside the frame; category zoom is off, Brush stays. Menus cap the rows through the endpoint's `limits.maxRows` (06 §15). */
   rowPitch?: number;
+  /**
+   * With `rowPitch`, rows without `rowGroups`: the width of the row-name gutter. Absent = 140 px (unchanged), a number = that width in px (at least 32),
+   * 'auto' = the longest row name's width, never wider than the default; a longer name is cut with … exactly as before. Opt-in for narrow panels.
+   */
+  rowLabelWidth?: 'auto' | number;
   /** Horizontal + stacked only (ignored elsewhere, with a dev warning). Visual only: each series gets a lane as wide as its largest value and every row's piece starts at its lane's left edge; values, totals, table and export are unchanged. The value axis shows lane names instead of numbers, and Brush is off (x is no longer one value scale). */
   startAlign?: boolean;
   /** Horizontal only. Per series (category), outlines the segment with its smallest and the one with its largest value and labels them 최소/최대. `null`, points `isPointSelectable` rejects, hidden series and series with fewer than 2 measured rows are left out. */
@@ -612,10 +617,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -920,7 +925,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
-    <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
+    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || brushMode || (!!p.onPointClick && !!p.pointClickHint) || p.legendCaption != null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
       style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill && chrome !== 'standard' ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? m('chartPointsGroup') : undefined} tabIndex={pointControls ? 0 : -1}

@@ -8,6 +8,22 @@ export const GRID_TOP = 16;
 export const GRID_BOTTOM = 44;
 /** Row-pitch mode reserves this left gutter (px) for the category labels instead of containLabel, so the row band stays exactly rows × pitch. */
 export const ROW_LABEL_GUTTER = 140;
+const LABEL_GLYPH = 7;
+const LABEL_WIDE_GLYPH = 12;
+/** Axis label margin, the bold active row and the truncation room (the label is cut at gutter − 12). */
+const LABEL_ROOM = 20;
+const ROW_LABEL_MIN = 32;
+
+/**
+ * The plain-row gutter for `rowLabelWidth`: absent = `ROW_LABEL_GUTTER` (every existing chart), a number = that width (at least 32),
+ * 'auto' = the longest label's estimated width, never wider than `ROW_LABEL_GUTTER`, so a label 'auto' cuts is one the default cuts too.
+ */
+export function rowLabelGutter(width: 'auto' | number | undefined, labels: readonly string[]): number {
+  if (width === undefined) return ROW_LABEL_GUTTER;
+  if (width !== 'auto') return Number.isFinite(width) ? Math.max(ROW_LABEL_MIN, width) : ROW_LABEL_GUTTER;
+  const longest = Math.max(0, ...labels.map(text => [...text].reduce((w, ch) => w + (ch.codePointAt(0)! > 255 ? LABEL_WIDE_GLYPH : LABEL_GLYPH), 0)));
+  return Math.min(ROW_LABEL_GUTTER, Math.max(ROW_LABEL_MIN, longest + LABEL_ROOM));
+}
 /** WCAG 2.2 2.5.8 target size: the smallest row pitch (px) a horizontal chart may ask for. */
 export const ROW_PITCH_MIN = 24;
 

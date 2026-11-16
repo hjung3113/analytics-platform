@@ -2064,12 +2064,12 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await expect(strip).not.toHaveClass(/sticky/);
   });
 
-  test('HW Time 연결 패널: 쌓기로 시작하고 첫 줄 패널 안이 넘치지 않는다(패널 선호 높이)', async ({ page }) => {
+  test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(HW_TIME);
-    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
+    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
     await expect(root(page).locator('canvas')).not.toHaveCount(0);
-    for (const id of ['filter', 'heatmap', 'bars']) {
+    for (const id of ['tree', 'current']) {
       const panel = root(page).locator(`[data-dock-panel="${id}"]`);
       await expect(panel).toBeVisible();
       await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
@@ -2096,7 +2096,7 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
 test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
   test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/mars/hw-time?v=1&scopeId=MEM');
+    await page.goto('/mars/hw-time?v=1&scopeId=MEM&pins=table');
     const tablePanel = page.locator('[data-dock-panel="table"]');
     const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
     await expect(rows).toBeVisible();

@@ -1,6 +1,7 @@
 # HW Time: 연결 패널로 이루어진 한 분석 화면
 
 상태: **Decided (2026-11-16)**
+> **부분 대체 — #2391 / [ADR-0165](0165-workspace-per-step-panels-add-and-pin.md):** 아래의 일곱 기본 패널·Module → Motion 진입·Inspector 옵션은 네 단계(Module 타입 → Motion → Module)의 이전/현재 차트, 왼쪽 계층, 패널 도구 옵션 및 추가·고정으로 대체한다. step 4 기본 아래 줄은 HTM 추세 하나다. 나머지 서버 판정·패널별 조건·원본 표 계약은 유지한다.
 - 결정자: 사용자 — #2350 캡처 검토 후 한 화면에서 분석하도록 결정.
 - Scope: #2328·#2329, [작업 영역 계약](../contract/layout.md#128-panelworkspace-decided-adr-0067-결정-391822), [ADR-0067](0067-dockview-layout-engine-board-v2.md).
 

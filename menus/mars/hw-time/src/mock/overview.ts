@@ -22,8 +22,8 @@ function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
 function validate(params: HwTimeMatrixParams & Partial<HwTimeRunParams>, drill: 'none' | 'module' | 'motion'): string | null {
   const type = HW_TIME_MODULE_TYPES.find(t => t.id === params.moduleType);
   if (!type) return 'moduleType must name a supported Module type';
-  if (drill !== 'none' && !(type.modules as readonly unknown[]).includes(params.drillModule)) return 'drillModule must belong to moduleType';
   if (drill === 'motion' && !(type.motions as readonly unknown[]).includes(params.drillMotion)) return 'drillMotion must belong to moduleType';
+  if (drill !== 'none' && !(type.modules as readonly unknown[]).includes(params.drillModule)) return 'drillModule must belong to moduleType';
   return null;
 }
 

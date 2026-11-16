@@ -27,8 +27,11 @@ const TYPE_IDS: readonly string[] = HW_TIME_MODULE_TYPES.map(type => type.id);
 
 export type HwTimeFilterList = 'module' | 'motion';
 export type HwTimeFilter = {
-  /** The active Module type (absent key = the first type). */
+  /** Legacy single-type table projection; charts use selectionFor so step 1 includes every type. */
   moduleType: HwTimeModuleType;
+  selectionFor: (typeId: string) => { modules: readonly string[]; motions: readonly string[] };
+  /** One atomic write for a hierarchy branch; keeps other types and unusable values. */
+  setTypeChecked: (typeId: string, checks: { modules?: readonly string[]; motions?: readonly string[] }) => void;
   /** Checked Modules and Motions of the active type, in catalog order. */
   modules: readonly string[];
   motions: readonly string[];
@@ -41,7 +44,7 @@ export type HwTimeFilter = {
   invalid: string[] | null;
   /** Clears exactly the malformed keys in one `setPage`. */
   recover: () => void;
-  /** Switching the type also clears the drill when its Module/Motion is not in the new type. */
+  /** Switching the first drill level clears deeper drill keys and the picked row/trend. */
   setModuleType: (typeId: string) => void;
   toggleModule: (moduleId: string) => void;
   toggleMotion: (motion: string) => void;
@@ -79,7 +82,6 @@ export function useHwTimeFilter(): HwTimeFilter {
   const rawSplit = pageParam(HW_TIME_FILTER_KEYS.split);
   const rawModule = pageParams(HW_TIME_FILTER_KEYS.module);
   const rawMotion = pageParams(HW_TIME_FILTER_KEYS.motion);
-  const drillModule = pageParam('drillModule');
 
   const parsed = useMemo(() => ({ module: parseSelection(rawModule), motion: parseSelection(rawMotion) }), [rawModule, rawMotion]);
   const bad = useMemo(() => {
@@ -95,8 +97,11 @@ export function useHwTimeFilter(): HwTimeFilter {
   const moduleType = HW_TIME_MODULE_TYPES.find(type => typeOk && type.id === rawType) ?? HW_TIME_MODULE_TYPES[0];
   const moduleSet = new Set(parsed.module.all ? MODULE_IDS : parsed.module.selected);
   const motionSet = new Set(parsed.motion.all ? MOTION_KEYS : parsed.motion.selected);
-  const modules = moduleType.modules.filter(id => moduleSet.has(id));
-  const motions = moduleType.motions.filter(motion => motionSet.has(motionKey(moduleType.id, motion)));
+  const selectionFor = (typeId: string) => {
+    const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId)!;
+    return { modules: type.modules.filter(id => moduleSet.has(id)), motions: type.motions.filter(motion => motionSet.has(motionKey(type.id, motion))) };
+  };
+  const { modules, motions } = selectionFor(moduleType.id);
   const unusable = [...parsed.module.selected.filter(v => !MODULE_IDS.includes(v)), ...parsed.motion.selected.filter(v => !MOTION_KEYS.includes(v))];
 
   const write = (list: HwTimeFilterList, next: Set<string>) => {
@@ -110,14 +115,32 @@ export function useHwTimeFilter(): HwTimeFilter {
   };
 
   return {
-    moduleType, modules, motions, empty: modules.length === 0 || motions.length === 0, split: 'none', unusable,
+    moduleType, modules, motions, selectionFor,
+    empty: (rawType ? [moduleType] : HW_TIME_MODULE_TYPES).every(type => {
+      const checks = selectionFor(type.id);
+      return checks.modules.length === 0 || checks.motions.length === 0;
+    }), split: 'none', unusable,
     invalid: bad.length > 0 ? bad.map(b => invalidValueSentence(lang, 'value', b.label, b.raw)) : null,
     recover: () => setPage(Object.fromEntries(bad.map(b => [b.key, null]))),
     setModuleType: typeId => {
-      if (!TYPE_IDS.includes(typeId) || typeId === moduleType.id) return;
-      const next = HW_TIME_MODULE_TYPES.find(type => type.id === typeId)!;
-      const keepDrill = drillModule !== null && (next.modules as readonly string[]).includes(drillModule);
-      setPage({ [HW_TIME_FILTER_KEYS.moduleType]: typeId, row: null, focus: null, ...(keepDrill ? {} : { drillModule: null, drillMotion: null }) });
+      if (!TYPE_IDS.includes(typeId) || typeId === rawType) return;
+      setPage({ [HW_TIME_FILTER_KEYS.moduleType]: typeId, row: null, focus: null, trend: null, drillModule: null, drillMotion: null });
+    },
+    setTypeChecked: (typeId, checks) => {
+      const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId);
+      if (!type) return;
+      const change: Record<string, string[] | null> = {};
+      if (checks.modules) {
+        const next = new Set([...moduleSet].filter(id => !(type.modules as readonly string[]).includes(id)));
+        for (const id of checks.modules) if ((type.modules as readonly string[]).includes(id)) next.add(id);
+        change.module = encodeSelection(MODULE_IDS, next);
+      }
+      if (checks.motions) {
+        const next = new Set([...motionSet].filter(id => !type.motions.some(motion => motionKey(typeId, motion) === id)));
+        for (const motion of checks.motions) if ((type.motions as readonly string[]).includes(motion)) next.add(motionKey(typeId, motion));
+        change.motion = encodeSelection(MOTION_KEYS, next);
+      }
+      setPage(change, { replace: true });
     },
     toggleModule: id => toggle('module', moduleSet, id),
     toggleMotion: motion => toggle('motion', motionSet, motionKey(moduleType.id, motion)),
