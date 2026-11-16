@@ -5,7 +5,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider, usePlatform } from '../../platform/platform';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
-import { useAxisOptions, useEquipmentSearch, useResolvedSelection } from '../selection-ports';
+import { useAxisOptions, useEquipmentFacts, useEquipmentSearch, useResolvedSelection } from '../selection-ports';
 import { groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
 
 const axes = [{ id: 'a', label: { ko: 'A', en: 'A' }, membershipHistory: true }];
@@ -261,4 +261,74 @@ it.each(['lineNames', 'prcGroups'] as const)('requests SDK global %s options wit
   await waitFor(() => expect(result!.status).toBe('ready'));
   expect(send).toHaveBeenCalledWith(expect.objectContaining({ scopeId: 'S', axisId, parents: { roomNames: ['R'] } }), expect.any(AbortSignal));
   expect(result!.items).toEqual([{ id: 'global-value', label: 'Global value' }]);
+});
+
+it('shares equipment facts once per Scope, survives remounts, and retry replaces the version', async () => {
+  const send = vi.fn().mockResolvedValue({ items: [{ equipmentId: 'e', room: 'R', axes: {} }], version: 'v1' });
+  const adapter = fixture({ listEquipmentFacts: send });
+  let result: ReturnType<typeof useEquipmentFacts>;
+  function Probe() { result = useEquipmentFacts('S'); return null; }
+  function View({ show = true }: { show?: boolean }) { return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{show && <><Probe /><Probe /></>}</PlatformProvider></I18nProvider>; }
+  const tree = render(<View />);
+  await waitFor(() => expect(result!.status).toBe('done'));
+  expect(result!.data?.version).toBe('v1');
+  expect(send).toHaveBeenCalledTimes(1);
+  tree.rerender(<View show={false} />);
+  tree.rerender(<View />);
+  await waitFor(() => expect(result!.status).toBe('done'));
+  expect(send).toHaveBeenCalledTimes(1);
+  send.mockResolvedValue({ items: [], version: 'v2' });
+  act(() => result!.retry());
+  await waitFor(() => expect(result!.data?.version).toBe('v2'));
+  expect(result!.data?.items).toEqual([]);
+  expect(send).toHaveBeenCalledTimes(2);
+});
+
+it('gates facts by validated Scope, aborts changed Scopes and discards late answers', async () => {
+  const calls: { scopeId: string; signal?: AbortSignal; finish: (facts: { items: []; version: string }) => void }[] = [];
+  const adapter = fixture({ listEquipmentFacts: (input, signal) => new Promise(finish => calls.push({ ...input, signal, finish })) });
+  let result: ReturnType<typeof useEquipmentFacts>;
+  let platform: ReturnType<typeof usePlatform>;
+  function Probe({ override }: { override?: string }) { platform = usePlatform(); result = useEquipmentFacts(override ?? platform.global.scopeId ?? ''); return null; }
+  const tree = mount(adapter, <Probe override="other" />);
+  expect(result!.data).toBeNull();
+  expect(calls).toHaveLength(0);
+  tree.rerender(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(calls).toHaveLength(1));
+  act(() => platform!.setGlobal({ scopeId: 'T' }));
+  expect(result!.data).toBeNull();
+  await waitFor(() => expect(calls).toHaveLength(2));
+  expect(calls[0].signal?.aborted).toBe(true);
+  await act(async () => { calls[1].finish({ items: [], version: 'new' }); calls[0].finish({ items: [], version: 'late' }); });
+  await waitFor(() => expect(result!.data?.version).toBe('new'));
+});
+
+it('hides cached facts and reloads on a same-user session revision', async () => {
+  const listeners = new Set<() => void>();
+  const send = vi.fn().mockResolvedValue({ items: [], version: 'v1' });
+  const adapter = fixture({ listEquipmentFacts: send, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } });
+  let result: ReturnType<typeof useEquipmentFacts>;
+  function Probe() { result = useEquipmentFacts('S'); return null; }
+  mount(adapter, <Probe />);
+  await waitFor(() => expect(result!.status).toBe('done'));
+  send.mockResolvedValue({ items: [], version: 'v2' });
+  act(() => listeners.forEach(listener => listener()));
+  expect(result!.data).toBeNull();
+  await waitFor(() => expect(result!.data?.version).toBe('v2'));
+  expect(send).toHaveBeenCalledTimes(2);
+});
+
+it.each(['absent', 'failed'] as const)('exposes %s equipment facts as error with retry, never an empty success', async kind => {
+  const send = vi.fn().mockRejectedValue(new Error('unavailable'));
+  const adapter = fixture({ listEquipmentFacts: kind === 'absent' ? undefined : send });
+  let result: ReturnType<typeof useEquipmentFacts>;
+  function Probe() { result = useEquipmentFacts('S'); return null; }
+  mount(adapter, <Probe />);
+  await waitFor(() => expect(result!.status).toBe('error'));
+  expect(result!.data).toBeNull();
+  if (kind === 'failed') {
+    send.mockResolvedValue({ items: [], version: 'recovered' });
+    act(() => result!.retry());
+    await waitFor(() => expect(result!.data?.version).toBe('recovered'));
+  }
 });

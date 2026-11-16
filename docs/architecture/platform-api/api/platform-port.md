@@ -31,6 +31,7 @@ Which of the 30 `PlatformAdapter` methods this server answers. `implemented`: se
 | `evaluateSelection` | none |
 | `listAxisOptions` | none |
 | `searchEquipment` | none |
+| `listEquipmentFacts` | none |
 | `resolveSelection` | none |
 | `getEntity` | implemented |
 | `menuQuery` | partial |

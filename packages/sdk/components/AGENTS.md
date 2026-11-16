@@ -42,6 +42,10 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
   - Query identity (`usePagedRows`) and export header (`useTableTransfer`) take the global Context from Kernel `useQueryContext()` (narrowed by the applied Condition preset), never the raw `global` (06 §15, ADR-0083).
 - Related parts: `DetailDrawer.tsx`; `AuditTimeline.tsx` (optional `more: AuditMore` takes Kernel `useEntityAudit`'s `timeline` spread and draws `이전 변경 이력 더 보기`, the end caption, failure retry, permission notice, focus move and status announcement; 06 §13·§26, ADR-0085); `DataTrustIndicator.tsx` (mixed source-logic-version badge and detail rows; yields with the provisional badge in a narrow header, 06 §18); `StatCard.tsx`; `RadioGroup.tsx`; `copyText.ts` (`useCopyLink` shows the success toast only after the write completes; `copyText` is re-exported from `@ap/ui`).
 
+### Faceted set dialog (`filters/`)
+- `FacetedSetDialog` is a domain-free, draft-only modal: callers declare facets, a complete authorized item dataset, labels, result columns, and optional inline save/share callbacks.
+- Pure indexing, own-facet-excluded counts and the outside-rule ID helper live in `facetedSet.ts`; draft rule/fixed modes, search, the save form and the virtual result table live in `FacetedSetDialog.tsx`. No Context or persistence is owned here. Remount with a caller session key when replacing an open session.
+
 ### Column filters
 - `table/columnFilters.tsx` (private; 06 §15 "Filter line and editor", ADR-0104·0105):
   - `useColumnFilters(urlState, fields)`: one condition per field. A controlled table calls `onChange({ page: null }, 'reset')` on change. Clearing a condition also clears conditions that `requires` it. `urlState.filters`, when present, controls instead of internal state.

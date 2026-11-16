@@ -24,6 +24,8 @@ export type AxisOptionsInput = {
 export type AxisOption = { id: string; label: string };
 export type AxisOptionsPage = { items: AxisOption[]; nextCursor: string | null };
 export type EquipmentSummary = { equipmentId: string; room: string; axes: Readonly<Record<string, readonly string[]>> };
+/** Complete current membership within Scope and room grants; no denied rows or paging. */
+export type EquipmentFacts = { items: EquipmentSummary[]; version: string };
 export type EquipmentSearchInput = {
   scopeId: string; roomNames: IdSet; lineNames: IdSet; prcGroups: IdSet;
   condition: Condition | null; membershipBasis: 'asOf' | null;

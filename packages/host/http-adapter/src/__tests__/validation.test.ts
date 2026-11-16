@@ -180,3 +180,21 @@ describe('bootstrap structure (C2)', () => {
     expect(bootstraps()).toBe(2); // inside the 5 s failure backoff
   });
 });
+
+it.each([
+  null, {}, { items: [], version: 1 }, { items: [], version: '' },
+  { items: [null], version: 'v1' },
+  { items: [{ equipmentId: 'e', room: 1, axes: {} }], version: 'v1' },
+  { items: [{ equipmentId: 'e', room: 'R', axes: { maker: [1] } }], version: 'v1' },
+])('rejects malformed equipment facts %j', async body => {
+  const { adapter } = await ready(() => json(body, { headers: SERVER_ID }));
+  await expect(adapter.listEquipmentFacts!({ scopeId: 'a' })).rejects.toMatchObject({ code: 'invalid_response', correlationId: 'srv-7' });
+});
+
+it('accepts complete equipment facts and an authorized empty snapshot', async () => {
+  for (const items of [[], [{ equipmentId: 'e', room: 'R', axes: { lineNames: ['L'], prcGroups: ['P'] } }]]) {
+    const body = { items, version: 'v1', extra: true };
+    const { adapter } = await ready(() => json(body));
+    expect(await adapter.listEquipmentFacts!({ scopeId: 'a' })).toEqual(body);
+  }
+});

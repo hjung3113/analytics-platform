@@ -1,4 +1,4 @@
-import type { AxisOptionsInput, AxisOptionsPage, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolveResult } from './selection-ports.js';
+import type { AxisOptionsInput, AxisOptionsPage, EquipmentFacts, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolveResult } from './selection-ports.js';
 import type { Text } from '../i18n.js';
 import type { Permission, SpaceId } from '../menu/menu.js';
 import type { ModuleScopedId } from '../host/host.js';
@@ -258,6 +258,8 @@ export type PlatformAdapter = {
   listAxisOptions(input: AxisOptionsInput, signal?: AbortSignal): Promise<AxisOptionsPage>;
   searchEquipment(input: EquipmentSearchInput, signal?: AbortSignal): Promise<EquipmentSearchPage>;
   resolveSelection(input: SelectionResolveInput, signal?: AbortSignal): Promise<SelectionResolveResult>;
+  /** Optional Candidate port: all granted current summaries, once, for client facets. Analysis queries remain server-authorized. */
+  listEquipmentFacts?(input: { scopeId: string }, signal?: AbortSignal): Promise<EquipmentFacts>;
   publishedMetrics(): readonly PublishedMetric[];
   /** @deprecated Migrate to listAxisOptions (ADR-0059). */
   contextOptions(scopeId: string, signal?: AbortSignal): Promise<ConditionOptions>;

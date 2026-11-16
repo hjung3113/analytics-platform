@@ -37,6 +37,7 @@ Context 계약, URL·딥링크, 권한, Scope, 조회·쓰기 수명주기, 저�
 - [0154](0154-site-and-room-grants-are-platform-owned.md) — Site·room 부여는 플랫폼 부여 표가 소유하고, 막힌 자리에서 바로 신청한다
 - [0155](0155-categorized-permission-list-checkbox-rows.md) — 분류된 권한 목록은 체크박스 행·프리셋, 부여는 후보별 radio
 - [0163](0163-permission-groups-replace-role-levels-as-templates.md) — 역할 단계는 늘리지 않고 권한 그룹(템플릿·소급 없음·개인 그룹은 신청용·부서 규칙은 자동 부여)
+- [0164](0164-target-picker-dialog-and-custom-groups.md) — 조회 대상 고르기 대화창, 설비 기본 정보 전량 포트, 커스텀 그룹 저장·공유·조회 직전 펼치기
 
 ## 표·페이지 필터
 

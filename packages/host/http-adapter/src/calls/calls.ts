@@ -139,7 +139,7 @@ function safeField(field: unknown): string | undefined {
   return typeof field === 'string' && /^[A-Za-z0-9_.[\]-]{1,100}$/.test(field) ? field : undefined;
 }
 
-/** The three selection ports: a judged 4xx `{code,message,field?}` is a PortError, everything else a transport rejection. */
+/** Selection metadata ports: a judged 4xx `{code,message,field?}` is a PortError, everything else a transport rejection. */
 export async function portCall(context: CallContext, request: Omit<SendRequest, 'timeoutMs'>, signal?: AbortSignal): Promise<PlainReply> {
   const raw = await send(context, request, { signal });
   if (raw.kind === 'aborted') throw abortError();

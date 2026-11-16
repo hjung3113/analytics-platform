@@ -93,3 +93,6 @@ export { useCollapsePreference, type CollapsePreference, type CollapsePreference
 
 export { PageConditionLayer, type PageConditionLayerProps } from './filters/PageConditionLayer';
 export type { PageConditionLayerOptions } from './filters/DeclaredPageConditions';
+
+export { FacetedSetDialog, type FacetedSetDialogProps } from './filters/FacetedSetDialog';
+export type { FacetedSetFacet, FacetedSetItem, FacetedSetValue } from './filters/facetedSet';

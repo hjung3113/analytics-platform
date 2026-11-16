@@ -15,7 +15,7 @@
 
 > 구현 상태(#620): `GET /api/v1/platform/bootstrap`, `GET /api/v1/platform/session-state`, 세션별 CSRF 토큰(`bootstrap`이 `csrfToken`으로 내려주고 쓰기 요청의 `X-CSRF-Token`과 상수 시간 비교, 불일치 `403 csrf.invalid`), 모든 응답의 `X-Correlation-Id` 반향(유효 `^[A-Za-z0-9._-]{1,128}$`이면 채택, 아니면 `srv-…` 생성)이 플랫폼 API에 구현돼 있다. `session-state`는 `last_seen_at`을 갱신하지 않는다(§4).
 
-여섯 메서드(`validateScope`·`contextOptions`·`evaluateSelection`·`listAxisOptions`·`searchEquipment`·`resolveSelection`)의 행은 `Candidate:` 경로이며 코어 서버에 핸들러가 없다.
+일곱 메서드(`validateScope`·`contextOptions`·`evaluateSelection`·`listAxisOptions`·`searchEquipment`·`resolveSelection`·`listEquipmentFacts`)의 행은 `Candidate:` 경로이며 코어 서버에 핸들러가 없다.
 
 **[제안]** 공통 규칙:
 
@@ -37,6 +37,7 @@
 | `evaluateSelection(input)` | Candidate: `POST /api/v1/platform/selection/evaluate` | `SelectionInput` | `SelectionEvaluation` |
 | `listAxisOptions(input)` | Candidate: `POST /api/v1/platform/axis-options` | `AxisOptionsInput` | `AxisOptionsPage` |
 | `searchEquipment(input)` | Candidate: `POST /api/v1/platform/equipment-search` | `EquipmentSearchInput` | `EquipmentSearchPage` |
+| `listEquipmentFacts(input)` | Candidate: `GET /api/v1/platform/equipment-facts?scopeId=…` (코어 서버 핸들러 없음) | 쿼리 `scopeId` | `EquipmentFacts` (`items: EquipmentSummary[]`, `version: string`), 선택 메서드 |
 | `resolveSelection(input)` | Candidate: `POST /api/v1/platform/selection-resolve` | `SelectionResolveInput` | `SelectionResolveResult` |
 | `getEntity(ref)` | `POST /api/v1/platform/entity` — 지원 type과 게이트는 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) | `EntityRef` | `ApiResponse<unknown>` |
 | `menuQuery(req)` | `POST /api/v1/menu-query` | `MenuQuery`(`{ endpoint, context, params }` 그대로) | `ApiResponse<unknown>` — 이 레포 코어 서버(#1106)는 업무 모듈이 선언 등록부에 올린 Scope 없는 엔드포인트만 답한다(`server.ts`의 `createMenuDispatchRegistry`). Scope가 필요한 분석 엔드포인트와 등록되지 않은 id는 HTTP 200 `error`다. 포트 메서드별 서버 지원은 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) «Method support» |
@@ -131,7 +132,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 ### 2.2 그 밖의 묶음
 
 - **비 envelope 비동기**(`validateScope`·`contextOptions`·`evaluateSelection`): 위 실패 상황에서 **reject**한다. 응답 모양 검사는 위 표의 실패 상황(JSON 아님·필수 필드 없음)만 보고, 모르는 키는 무시한다. **어댑터 내부 타임아웃은 `AbortError`로 reject하지 않는 것을 권한다** — `AbortSignal.timeout`(`TimeoutError`)을 쓰거나 `AbortError`가 아닌 오류로 감싼다. Kernel은 `AbortError`라는 이름으로 취소를 판정하지 않는다(#183 — 취소 판정은 `kernelSignal.aborted`뿐이다), 그래서 이 표기는 이제 로그·디버깅 가독성을 위한 취향일 뿐 필수가 아니다. `validateScope`는 어댑터가 내부에서 짧게 재시도해도 된다(체크리스트 §2) [제안: 네트워크 실패·502/503에 한해 1회].
-- **새 비 envelope 조회**(listAxisOptions·searchEquipment·resolveSelection): §1의 4xx(`{code,message,field?}` 본문)는 `PortError`로 reject하고, 그 밖의 실패 상황(네트워크·타임아웃·잘못된 응답)은 `PortError`가 아닌 오류로 reject한다. 성공·실패 세 갈래의 원본은 [실서버 체크리스트 §2](real-server-checklist.md#2-platformadapter-메서드별로-지킬-것)다.
+- **새 비 envelope 조회**(listAxisOptions·searchEquipment·resolveSelection·listEquipmentFacts): §1의 4xx(`{code,message,field?}` 본문)는 `PortError`로 reject하고, 그 밖의 실패 상황(네트워크·타임아웃·잘못된 응답)은 `PortError`가 아닌 오류로 reject한다. 성공·실패 세 갈래의 원본은 [실서버 체크리스트 §2](real-server-checklist.md#2-platformadapter-메서드별로-지킬-것)다.
 - **fire-and-forget**(`recordUsage`·`reportClientError`): 200이면 본문(`{ accepted }`), 422면 `{ accepted: 0 }`/`{ accepted: false }`로 **푼다**(필수 — §2, 적합성 묶음이 거부 호출의 resolve를 기대한다). 그 밖의 전송 실패(네트워크·5xx 등)는 reject해도 된다(Kernel이 무시). 재시도하지 않는다.
 - **동기 스냅샷**은 네트워크를 타지 않는다(§3).
 
@@ -149,7 +150,7 @@ GET /api/v1/platform/bootstrap
 - `sessionVersion`은 세션 내용(사용자·권한·부여 Scope)이 바뀔 때만 바뀌는 opaque 토큰 [제안]. 기본 만드는 법 [제안]: 세션 응답(`Session`)의 정규화 JSON 해시 — 사용자 교체, 라벨·부여 수 변화가 자동으로 포함된다. `generation`은 §4의 계산 세대(Open).
 - **조립에서 받는 법 — 안 B 채택(#154)**: `CreateAssembly`는 `AssemblyOutcome | Promise<AssemblyOutcome>`를 돌려준다(`AssemblyOutcome` = 조립 `{ adapter, topBarTools }` | `{ redirect }` | `{ screen }`, `apps/platform-web/src/platform-assembly.d.ts`). `main.tsx`는 `await Promise.resolve(createAssembly(...))` 뒤에 렌더하고, `redirect`면 `window.location.replace`, `screen`이면 Kernel·셸 없이 그 화면만 렌더한다. mock 조립은 그대로 동기다. 안 A(부트스트랩 promise를 따로 내보내기)는 조립 계약이 둘이 되어 택하지 않았다.
   - **구현 위치**: 클라이언트는 `packages/host/http-adapter`(`@ap/http-adapter`, `bootstrapHttpAdapter` → `ready`·`login`·`unavailable`·`throttled`, reject 없음), 이 레포의 실서버 조립은 `apps/platform-web/src/real/http-assembly.tsx`다. `ready`면 `{ adapter, topBarTools: null }`, `login`이면 `/auth/login?return_to=<encodeURIComponent(pathname+search)>`로 이동(기능이 쿼리를 날것으로 읽어 인코딩하지 않은 `&`가 Context를 자르므로 전체를 인코딩), `unavailable`이면 "서버에 연결할 수 없습니다" + correlationId + 다시 시도 버튼만 있는 정적 화면. `throttled`(429)이면 같은 정적 화면 구조로 "요청이 너무 많습니다" + 기다림 안내(전송이 `Retry-After` 초를 실었을 때 1–59초는 `{n}초`, 60초 이상은 올림 `{m}분`, 값이 없거나 0이면 「잠시 후」)를 보여준다(#1179). `onSessionLost`도 같은 로그인 이동이다. 개발은 `pnpm --filter @ap/platform-web dev:real`(vite mode `real`, `/api`·`/auth`를 env `AP_BACKEND_ORIGIN`(기본 `http://127.0.0.1:3011`)로 프록시). 운영 빌드는 여전히 env `AP_PLATFORM_ASSEMBLY`로 조립 모듈을 받는다(ADR-0009).
-  - **구현 상태(#154)**: `@ap/http-adapter`의 모든 포트 메서드·부트스트랩·`subscribe`·타임아웃·CSRF·Correlation ID와 비동기 조립·`real` 모드가 구현됐다. 서버에 없는 경로(분석 데이터 경로와 코어 서버에 핸들러가 없는 포트 메서드 여섯 — 지원 표는 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) «Method support»)는 계약 경로로 호출해 404 변환(§2.1)이 동작한다. 실서버 대상 적합성 묶음 하네스는 플랫폼 API 통합 테스트에서 실어댑터와 `app.inject`로 구현돼 있다([체크리스트 §4](real-server-checklist.md#4-적합성-묶음으로-확인하기)). 미구현 포트·site grant가 필요한 검사는 skipped이며, 이를 통과로 세지 않는다. 세대 경로(#165), 선언 버전 헤더(#154), 세션 만료 배너 안 (b)(#150)는 구현하지 않았다.
+  - **구현 상태(#154)**: `@ap/http-adapter`의 모든 포트 메서드·부트스트랩·`subscribe`·타임아웃·CSRF·Correlation ID와 비동기 조립·`real` 모드가 구현됐다. 서버에 없는 경로(분석 데이터 경로와 코어 서버에 핸들러가 없는 포트 메서드 일곱 — 지원 표는 [코어 서버 포트](../architecture/platform-api/api/platform-port.md) «Method support»)는 계약 경로로 호출해 404 변환(§2.1)이 동작한다. 실서버 대상 적합성 묶음 하네스는 플랫폼 API 통합 테스트에서 실어댑터와 `app.inject`로 구현돼 있다([체크리스트 §4](real-server-checklist.md#4-적합성-묶음으로-확인하기)). 미구현 포트·site grant가 필요한 검사는 skipped이며, 이를 통과로 세지 않는다. 세대 경로(#165), 선언 버전 헤더(#154), 세션 만료 배너 안 (b)(#150)는 구현하지 않았다.
 - **identity 규칙 [제안] — 둘로 나눈다**:
   1. **세션 스냅샷 객체**(`session()` identity): 어댑터는 스냅샷 하나를 들고 `session()`마다 **같은 객체**를 돌려준다. 새 부트스트랩 결과의 `sessionVersion`이 다를 때만 새 객체로 바꾸고, 같으면 스냅샷은 그대로 둔다(Kernel이 identity로 Scope 재검증 여부를 정한다 — 체크리스트 §2).
   2. **전송 자격(`csrfToken`)**: 부트스트랩을 받을 때마다 `sessionVersion`과 무관하게 **항상 새 값으로 바꾼다**. 토큰은 세션 내용이 아니라 세션(쿠키) 자체에 묶여 있어서, 만료 뒤 같은 사용자가 재로그인하면 `sessionVersion`은 같아도 토큰은 바뀐다. 스냅샷과 함께 버리면 이후 상태 변경 호출이 전부 403이 되고 새로고침 전까지 복구되지 않는다.
