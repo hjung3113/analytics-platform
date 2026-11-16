@@ -21,15 +21,7 @@ updates:
       # The feature packages resolve every @tiptap package to one version through pnpm-workspace.yaml overrides (#443).
       - dependency-name: "@tiptap/*"
       # Held back at the pinned version (#2322): each needs a code change or fix before it can move; see .planning/backlog.md «Dependabot holds».
-      - dependency-name: "@radix-ui/react-dropdown-menu"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@radix-ui/react-popover"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@radix-ui/react-dialog"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@radix-ui/react-tooltip"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
-      - dependency-name: "@radix-ui/react-tabs"
+      - dependency-name: "@radix-ui/*"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
       - dependency-name: "drizzle-orm"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
