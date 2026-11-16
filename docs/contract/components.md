@@ -110,6 +110,16 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 후보(미구현): `PermissionGuard`(현재는 셸 `RouteOutlet`의 권한 게이트).
 
+| 페이지 조건 조각 | 상태 | 경계 |
+| --- | --- | --- |
+| `PageConditionCategories` (`@ap/components`, #2338) | Candidate | `MenuMeta.pageConditions`의 범주 입력만 렌더링. 선언·codec은 [Kernel §5·§6.4](kernel.md#5-menu-extension-contract), 표 필터 모델·FilterLine은 §15. |
+
+`PageConditionCategories`는 `declaration`, S1 `values`(디코딩된 키 맵), `onChange(categoryId, nextDecoded \| null)`을 받는다. callback은 해당 범주 소유 키 맵 전체를 교체하고 `null`은 그 범주의 키를 모두 제거한다(제약 없음). multi·groupedChecks의 마지막 체크 해제만 빈 배열을 남겨 `선택한 항목 없음`으로 보인다. select·multi·search·range·date·groupedChecks 입력, 범주별 `지우기`, 보이는 비활성 사유를 제공한다. 숫자·시각 입력은 미완성 문자열을 내부 입력 버퍼에 보존하고 blur 때 S1 codec과 범위 경계를 검증해 전달한다. 날짜는 기존 표 편집기와 같은 `@ap/ui Input`의 `datetime-local`·초 단위를 사용하며 시간대 변환하지 않는다. tree는 편집 없이 미지원 안내를 보인다(S4 범위).
+
+`loadOptions(category, { signal })`은 S1 옵션 응답을 돌려준다. `inputsKey`는 호출자가 세션 세대·Scope·투영 Context·엔드포인트 입력·준비 상태를 포함한 전체 입력 정체성으로 제공한다. 변경·unmount 때 요청을 취소하고 이전 옵션을 즉시 가리며 늦은 응답은 버린다. 로딩·빈 목록·실패/재시도는 §19 상태 조각을 쓰고 부분 목록은 명시한다. `usePageConditionOptionsLoader(spec, params)`는 엔드포인트 소유 선언을 확인하고 Kernel `useMenuFetch`의 게이트·signal·서버 outcome을 유지하는 연결 훅이다. 여러 엔드포인트 loader의 선택은 호출자가 조립한다. 응답은 범주 전체의 값 유일성·라벨·선언 목록을 검증한 뒤 표시한다.
+
+로드한 옵션에 없는 값은 `이 화면에서 쓸 수 없는 값: <원문>`으로 남겨 개별 제거할 수 있다. 로딩·실패 중에는 부재를 단정하지 않고 `현재 값: <원문>`으로 표시한다. S1 codec이 오류 범주를 반환하지 않으므로 호출자는 `issues`와 원래 `rawPairs`를 함께 전달해 입력 원문·사유를 보존한다. 상한은 S1 인코더로 검사해 사유와 함께 거부하며 자르지 않는다. 범주 선언 순서를 지키고 `sections`는 제목 있는 접기로만 묶는다(비연속 범주는 순서를 유지한 연속 구간별 접기). 컨트롤·그룹은 라벨과 사유 설명을 가지며 선택 토글은 라이브 알림을 만들지 않는다. 자체 overlay·portal·고정 폭·scroll layer·적용 수단은 없고 `PageFilterBar` 내용과 ADR-0160 팝오버의 폭을 따른다.
+
 저장된 뷰 선택 조각은 `ViewSelector`로 공개돼 있다(`@ap/components`, §21 Decided, #1011). 저장소 구현과 실서버 검증 범위는 §21 및 `.planning/README.md`를 따른다.
 
 `PageFilterBar`는 메뉴가 전달한 검색·정확 일치 텍스트·분류 선택·맞춤형 필드를 라벨과 함께 한 줄에 배치하고 공간이 부족하면 줄바꿈한다. 입력은 `@ap/ui` `Input`(40px), 분류 값은 `Select`를 사용하며 높이를 덮어쓰지 않는다. 막대는 초안(draft) 표시 전용이고 자체 적용 수단이 없다 — `onApply`와 submit `<form>`(#1218, [ADR-0112](../adr/0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md)에서 제거)은 없으며, 적용 경계는 소비 화면이 소유한다(표 조건은 §15의 조건마다 적용, 분석 조회는 초안 + 적용 한 번). `mode="draft"`는 조회 초안(ADR-0037) 제어 필드의 표식이고 동작을 바꾸지 않는다. 필드 의미·URL page key·값 변경·초기화·draft 적용은 소비 화면이 소유하며, 알 수 없는 현재 Select 값은 선택 가능한 표시값으로 남긴다(ADR-0016). 선택 `defaultCollapsed?: boolean`(기본 false)은 저장된 선호가 없을 때만 초기 접힘을 정한다. 저장된 사용자 선호가 항상 우선한다(#1473).
@@ -130,6 +140,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - `mode: 'single'`은 `value: string | null`과 `onChange(id)`를 받는다. RadioGroup/RadioGroupItem을 사용하고 선택한 행 이름을 표시한다. 프리셋은 다중 선택 전용으로 타입에서도 금지하며 그룹 전체 선택·개수를 보이지 않는다.
 - 검색은 그룹 이름·항목 이름·설명·id를 대소문자 구분 없이 찾는다. 검색과 프리셋 머리는 소비자가 소유한 한 스크롤 층 안에서 sticky다. 목록은 자체 높이 제한이나 스크롤 층을 만들지 않는다.
 - 비활성 항목은 설명 아래 이유를 표시하고 조작·프리셋·그룹 선택으로 바꾸지 않는다. 배지는 SDK가 StatusBadge로 렌더링한다. 키보드와 포커스는 공유 Checkbox·RadioGroup primitive를 따른다.
+- 선택 수는 기본 `role=status`로 알린다. `announceSelection={false}`는 수를 그대로 보이되 라이브 알림만 끈다(페이지 조건 편집기 등 소유 폼이 선택 표시를 맡는 경우).
 
 ### OrderedIntervalTrack — 선언과 상태 (Decided, ADR-0121)
 
@@ -234,6 +245,8 @@ Domain Component를 억지로 Platform Component로 승격하지 않는다.
 Table은 플랫폼 핵심 UI다.
 
 ### Static Table selection (#2192)
+
+표의 `ColumnFilter[]`·FilterLine은 아래 표 필터 계약을 따른다. 페이지 선언 범주를 편집하는 `PageConditionCategories`(§13)는 이 모델이나 표 툴바를 대체하지 않는다.
 
 Static `Table` is for small, fully given, read-only tables (summaries, previews, diffs, dialog lists) with no paging, filtering, export, column controls or selection; anything needing one of those, or whose row count is not bounded by the screen, uses `PlatformDataTable` (`rows` mode for given data).
 
