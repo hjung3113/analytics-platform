@@ -67,7 +67,7 @@ export class HierarchyNavState {
         ? source.listChildren({ parentId, cursor, limit: size, signal })
         : source.searchNodes!({ query, cursor, limit: size, signal }));
       checkHierarchyPageShape(result, { limit: size, cursor });
-      return mergeHierarchyChain({ previous: more ? old?.value : undefined, result, cursor, seen: this.cursors.get(key) ?? new Set() });
+      return mergeHierarchyChain({ previous: more ? old?.value : undefined, result, cursor, seen: this.cursors.get(key) ?? new Set(), dedupe: true });
     }, value => this.page(key, { status: 'ready', value }), kind => this.page(key, { status: kind, value: old?.value }));
   }
   loadAncestors(source: HierarchySource, id: string) {

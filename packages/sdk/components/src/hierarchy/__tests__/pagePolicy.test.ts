@@ -18,7 +18,7 @@ describe('hierarchy paging rule (#2360)', () => {
     expect(() => checkHierarchyPageShape(page(['a', 'b'], { totalCount: 1 }), { limit: 5 })).toThrow(HierarchyFailure);
     expect(() => checkHierarchyPageShape(page(['a'], { totalCount: 1 }), { limit: 5 })).not.toThrow();
   });
-  it('refuses a loop, a duplicate across pages and a last page that disagrees with the announced total', () => {
+  it('refuses a loop, a duplicate across pages (unless the sidebar asks to de-duplicate) and a last page that disagrees with the announced total', () => {
     const seen = new Set<string>();
     const first = mergeHierarchyChain({ result: page(['a'], { nextCursor: 'c1', totalCount: 2 }), seen });
     expect(() => mergeHierarchyChain({ previous: first, result: page(['a']), cursor: 'c1', seen: new Set(seen) })).toThrow(HierarchyFailure);
