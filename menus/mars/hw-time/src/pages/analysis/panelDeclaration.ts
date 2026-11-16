@@ -1,6 +1,6 @@
 import { CONTEXT_FIELDS, type ContextKey, type GlobalContext, type Text } from '@ap/contracts';
 import { hwTime, hwTimeOverview } from '../../endpoints';
-import { HW_TIME_STEPPED_MESSAGES as S } from '../../messages';
+import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_STEPPED_MESSAGES as S } from '../../messages';
 
 /** S0 mirrors query.required's context/page split, with optional required instead
  * of mandatory page labels. Scope is global but outside capability ContextKey.
@@ -94,6 +94,7 @@ export function panelRunTarget(panel: 'trend' | 'scatter', input: { drillModule?
 
 const common = ['scopeId', 'time', 'roomNames', 'condition', 'selection'] as const;
 const checks = [{ key: 'module' }, { key: 'motion' }] as const;
+const verdictDisplay = [...checks, { key: 'verdict' }] as const;
 const runInputs = { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }, { key: 'trend' }] } as const;
 const pointAvailability = { requires: [{ anyOf: ['drillModule', 'trend'] }], disabledReason: S.needsPoint } as const;
 
@@ -102,12 +103,12 @@ const pointAvailability = { requires: [{ anyOf: ['drillModule', 'trend'] }], dis
  */
 export const panelDeclarations = {
   heatmap: { id: 'heatmap', title: S.heatmap,
-    queryInputs: { context: common, page: [{ key: 'moduleType', required: true }] }, displayInputs: { page: checks },
+    queryInputs: { context: common, page: [{ key: 'moduleType', required: true }] }, displayInputs: { page: [...verdictDisplay, { key: 'drillMotion' }] },
     outputs: [{ key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id],
     availability: { requires: [{ anyOf: ['moduleType'] }], disabledReason: S.needsType } },
-  trend: { id: 'trend', title: S.trend, queryInputs: runInputs, displayInputs: { page: checks }, outputs: [],
+  trend: { id: 'trend', title: S.trend, queryInputs: runInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
     grain: 'dailyStat', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
-  scatter: { id: 'scatter', title: S.scatter, queryInputs: runInputs, displayInputs: { page: checks }, outputs: [],
+  scatter: { id: 'scatter', title: S.scatter, queryInputs: { ...runInputs, page: [...runInputs.page, { key: 'verdict' }, { key: 'date' }] }, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
   distribution: { id: 'distribution', title: S.distribution, queryInputs: runInputs, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.distribution.id], availability: pointAvailability },
@@ -118,7 +119,7 @@ export const panelDeclarations = {
     availability: { requires: [{ anyOf: ['drillModule'] }], disabledReason: S.needsModule } },
   moduleMotions: { id: 'moduleMotions', title: S.moduleMotions,
     queryInputs: { context: common, page: [{ key: 'moduleType' }] },
-    displayInputs: { page: [...checks, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
+    displayInputs: { page: [...verdictDisplay, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
     outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id],
     availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 } },
   table: { id: 'table', title: S.table,
@@ -126,4 +127,14 @@ export const panelDeclarations = {
     outputs: [{ key: 'moduleType', action: 'drill' }, { key: 'drillMotion', action: 'drill' }, { key: 'drillModule', action: 'drill' },
       { key: 'row', action: 'highlight' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }, { key: 'page', action: 'page' }, { key: 'sort', action: 'sort' }],
     grain: 'rootAggregate', endpoints: [hwTime.levelRows.id, hwTime.tableRows.id, hwTime.exportRows.id, hwTime.trend.id] },
+  donut: { id: 'donut', title: N.donut, queryInputs: { context: common, page: [{ key: 'moduleType' }] }, displayInputs: { page: [...checks, { key: 'verdict' }] },
+    outputs: [{ key: 'verdict', action: 'verdict' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id], pieces: ['AnalysisChart:donut'] },
+  pareto: { id: 'pareto', title: N.pareto, queryInputs: { context: common, page: [{ key: 'moduleType' }] }, displayInputs: { page: checks },
+    outputs: [], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id], pieces: ['AnalysisChart:pareto'] },
+  equipmentDays: { id: 'equipmentDays', title: N.equipmentDays,
+    queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }] }, displayInputs: { page: [{ key: 'verdict' }] },
+    outputs: [{ key: 'date', action: 'date' }], grain: 'equipmentDay', endpoints: [hwTimeOverview.equipmentDays.id], pieces: ['AnalysisChart:heatmap'] },
+  boundHistory: { id: 'boundHistory', title: N.boundHistory,
+    queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }] }, displayInputs: {},
+    outputs: [], grain: 'auditEvent', endpoints: [hwTimeOverview.boundHistory.id], pieces: ['AuditTimeline'] },
 } as const satisfies Readonly<Record<string, PanelDeclaration>>;

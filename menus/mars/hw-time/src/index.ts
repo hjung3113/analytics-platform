@@ -10,7 +10,7 @@ import { HW_TIME_FILTER_HIDDEN_KEYS, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_REPEATE
 export { panelDeclarations } from './pages/analysis/panelDeclaration';
 
 const OPTION_KEYS = ['barsSort', 'barsGroup', 'barsMinMax', 'align', 'trend', 'pins'];
-const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
+const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', 'verdict', 'date', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
 const DRILL = { levels: [
   { key: 'moduleType', label: { ko: 'Module 타입', en: 'Module type' } },
   { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } },
@@ -31,7 +31,7 @@ export const manifests: MenuEntry[] = [
     pageKeys: PAGE_KEYS,
     repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins'],
     hiddenPageKeys: [...HW_TIME_FILTER_HIDDEN_KEYS, ...OPTION_KEYS],
-    contextResetKeys: ['moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend'],
+    contextResetKeys: ['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend'],
     drill: DRILL,
     component: lazy(() => import('./HwTimePage')),
   },

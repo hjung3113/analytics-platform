@@ -1,24 +1,13 @@
 /** Deterministic synthetic HW Time data. The package mock never reads real equipment names or records. */
 import { bucketStart, shift, type PageSort } from '@ap/contracts';
-import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
+import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
   HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLORS, HW_TIME_MOTION_COLOR_BY_ID, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
   type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type HwTimeModuleType,
 } from '../endpoints';
 import { judge, rollUp } from './htm';
+import { syntheticEquipmentIds } from './syntheticEquipment';
 
-const MAX_SYNTHETIC_EQUIPMENT = 24;
-const SYNTHETIC_PER_EQUIPMENT = 3;
-
-/**
- * The synthetic population follows the equipment the engine resolved for the applied Scope and Condition: each
- * resolved equipment hosts three synthetic ones, capped at 24, numbered from EQ-001 so a row keeps its values when
- * the population shrinks. A narrower condition gives fewer rows; no resolved equipment gives none.
- */
-function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
-  const count = Math.min(MAX_SYNTHETIC_EQUIPMENT, equipment.length * SYNTHETIC_PER_EQUIPMENT);
-  return Array.from({ length: count }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
-}
 const typeOf = (params: { moduleType?: string }): HwTimeModuleType => HW_TIME_MODULE_TYPES.find(type => type.id === params.moduleType) ?? HW_TIME_MODULE_TYPES[0];
 const seriesOf = (ids: readonly string[], kind: 'module' | 'motion' = 'motion'): HwTimeSeries[] => ids.map((id, index) => {
   if (kind === 'motion') return { id, name: id, color: HW_TIME_MOTION_COLOR_BY_ID[id]! };

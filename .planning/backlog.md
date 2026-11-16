@@ -1,5 +1,9 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **미구현 — HW Time 파레토 → Finding/VOC 생성 링크 (#2431 PR2):** 이유: §22는 Context Link 정책만 정하고, 이 분석 지점의 목적지·생성 입력(설비·Module·Motion 증거)을 받는 계약은 없다. 생성 버튼은 사유와 함께 비활성. 재개 조건: 목적지가 허용하는 생성 입력과 메뉴 링크 계약 확정. 임의 page key나 URL은 만들지 않았다.
+- **미구현 — HW Time 히트맵의 판정별 셀 채움색 (#2431 PR2, SDK [#2441](https://github.com/hjung3113/analytics-platform/issues/2441)):** 이유: SDK `HeatmapSpec`은 수치 scale과 상태 테두리/표식만 지원하고 정상·초과·미달·판정 불가의 범주별 채움색은 지원하지 않는다. 현재는 일 평균/합계의 수치 채움색과 서버 판정 상태 표식을 사용. 재개 조건: #2441(SDK 범주형 셀 채움색)이 병합될 때. 메뉴에서 차트를 재구현하지 않았다.
+- **미구현 — HW Time 분포 히스토그램의 판정·날짜 연결 (#2431 PR2):** 이유: #2429 분포 패널(#2443)이 PR2와 같은 날 병합돼, 분포는 드릴한 Motion의 전체 회차만 받고 `verdict`·`date`(산점도·추세의 연결 키)를 따르지 않음. 재개 조건: 히트맵에서 고른 날짜의 분포를 보자는 요청이 있거나 소유자가 `verdict`·`date` 키를 확정할 때 — `hwTime.distribution` paramKeys와 선언 `queryInputs`에 두 키를 더하면 됨.
+
 - **미구현 — mock 저장 뷰가 메뉴·공정 거부를 하지 않게 (#2042 FEA-18):** mock 저장소의 메뉴·공정 판정을 서버처럼 객체 ACL만 따르게 하는 변경은 만들어 두었으나 PR에서 뺐다. 이유: 계약 E2E(`contract-saved-view.spec.ts`의 「권한 밖 Scope 뷰는 열 수 없음」)와 `saved-view-assembly.test.tsx`가 지금의 거부 표시를 계약으로 확인하고, 보이는 기능(「볼 수 없는 뷰」 행)이 사라지므로 소유자·SDK 영역 결정이 필요하다. 다시 열 조건: 소유자가 mock과 서버의 저장 뷰 거부 방식 차이를 어느 쪽으로 맞출지 정할 때(되돌린 커밋 78baf1a25에 구현이 있다).
 - **미구현 — 차트 provider 없는 소비의 합성 데이터 실브라우저 smoke (#1953):** 릴리스 tarball만으로 `PlatformProvider` 없이 `LaneTimeline`·`AnalysisChart`·`AnalysisChartFrame`을 렌더하고 `exportActions` 기본 꺼짐을 확인하는 소비자 시험은 `sdk:consumer-check`에 있다. 합성 데이터로 실제 브라우저에서 보는 smoke는 만들지 않았다. 이유: 외부 소비 앱이 아직 없어 렌더 시험이 같은 계약을 잡는다. 다시 열 조건: 첫 독립 앱 소비자가 생기거나 운영 전 점검(pre-go-live pass)에서 실브라우저 확인이 필요할 때.
 - **구현 안 함 — Scope 기록 없는 옛 저장 뷰의 Site-bound 값 (#2175):** `savedScopeId`가 없는 기존 뷰는 어느 Scope에서든 전부 적용한다. 이유: 저장 당시 Scope를 알 수 없고, 추측해 값을 빼면 맞는 뷰까지 깨진다. 다시 열 조건: Scope 기록 없는 뷰가 잘못된 Site 값을 적용했다는 보고, 또는 출시 전 점검 때 실서버에 Site-bound 값을 가진 기록 없는 뷰가 남아 있을 때.
@@ -48,6 +52,8 @@
 
 | 항목 | 미구현 사유 | 다시 여는 조건 |
 | --- | --- | --- |
+| 미구현 — HW Time 판정 도넛의 URL 선택 표시 ([#2431](https://github.com/hjung3113/analytics-platform/issues/2431), SDK [#2445](https://github.com/hjung3113/analytics-platform/issues/2445)) | `DonutSpec`에 controlled `selectedId`가 없어 공유 링크·뒤로/앞으로의 `verdict=`가 도넛 조각 선택·중앙 수치로 복원되지 않음. 메뉴는 차트 위 요약(그 판정 건수·비율)과 해제 칩으로 보이며 중앙은 «전체» | #2445(DonutSpec selectedId)이 병합될 때 |
+| 미구현 — HW Time HTM 기준 변경 이력의 필드 라벨·작업자 표시 이름 ([#2431](https://github.com/hjung3113/analytics-platform/issues/2431), SDK [#2444](https://github.com/hjung3113/analytics-platform/issues/2444)) | `AuditTimeline({ events, more? })`는 `changes`의 키와 `actor`를 그대로 표시하며 필드 라벨/포맷터·사용자 이름 resolver가 없음. 메뉴가 감사 키·작업자 식별자를 표시 문자열로 덮어쓰지 않고 원본을 유지 | #2444(AuditTimeline 필드 라벨·작업자 표시 이름)이 병합될 때 |
 | 미구현 — HW Time step 4 기본 분포 히스토그램 ([#2391](https://github.com/hjung3113/analytics-platform/issues/2391)) | step 4 기본은 HTM 추세. 현재 HW Time 응답은 통계이며 히스토그램에는 원시 회차 또는 분포 집계가 필요함. 추가 목록의 기존 산점도는 유지 | 사내 서버의 HW Time 응답에 분포(bin count) 집계가 생길 때 |
 | 미구현 — 고정 패널이 둘 이상일 때 작업 영역 윗줄 높이 ([#2391](https://github.com/hjung3113/analytics-platform/issues/2391)) | `placement: 'below'` 패널은 하나씩 새 전체 폭 줄(360px)로 붙어, 1440×900에서 아래 줄이 둘이면 윗줄이 약 200px로 낮아짐. 줄 높이는 끌어서 조절 가능. 소유자 결정(고정 패널은 아래 전체 폭)대로이며 SDK 기본 줄 높이 정책을 바꾸면 모든 작업 영역이 바뀜 | 고정 패널을 둘 이상 쓰는 메뉴가 생기거나 소유자가 윗줄 최소 높이·아래 줄 스크롤을 요청할 때 |
 | 미구현 — HW Time 4단계 HTM 추세 아래 판정 막대가 첫 화면에 안 보임 ([#2426](https://github.com/hjung3113/analytics-platform/issues/2426)) | 1440×900 기본 배치에서 아래 줄 패널 안 높이가 약 200px라 추세(읽을 수 있는 최소 약 200px)와 일별 판정 막대가 함께 들어가지 않음. 판정 막대는 패널 안 스크롤이나 최대화로 봄. 추세를 줄이면 y축 글자가 겹쳐 더 나빠짐 | 소유자가 4단계 아래 줄 기본 높이를 늘리기로 하거나, 추세와 판정을 한 차트(선+막대)로 그릴 SDK 조각이 생길 때 |

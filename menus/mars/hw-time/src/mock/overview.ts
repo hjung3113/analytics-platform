@@ -1,14 +1,13 @@
 /** Deterministic server-side synthetic averages and runs, never real equipment names or observations. */
 import { formatDateTime, parseDateTime, type GlobalContext } from '@ap/contracts';
-import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
+import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
-  HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, hwTimeOverview,
-  type HwTimeDistribution, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
+  HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, hwTimeOverview, verdictCodec, validPanelDate,
+  type HwTimeDistribution, type HwTimeDistributionParams, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
 } from '../endpoints';
 import { htmBounds, judge, rollUp } from './htm';
+import { syntheticEquipmentIds } from './syntheticEquipment';
 
-const MAX_SYNTHETIC_EQUIPMENT = 24;
-const SYNTHETIC_PER_EQUIPMENT = 3;
 const RUNS_PER_EQUIPMENT = 24;
 const SAMPLE_LIMIT = 400;
 const WALL_CLOCK_SECOND_MS = 1_000;
@@ -30,17 +29,13 @@ function seededUnit(seed: number): number {
   return ((hash ^ (hash >>> 16)) >>> 0) / 0x100000000;
 }
 
-/** Same population convention as hwTime.ts: only equipment resolved by applied Scope/Condition/Selection contributes. */
-function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
-  const count = Math.min(MAX_SYNTHETIC_EQUIPMENT, equipment.length * SYNTHETIC_PER_EQUIPMENT);
-  return Array.from({ length: count }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
-}
-
-function validate(params: HwTimeMatrixParams & Partial<HwTimeRunParams>, drill: 'none' | 'module' | 'motion'): string | null {
+function validate(params: HwTimeMatrixParams & Partial<HwTimeRunParams>, drill: 'none' | 'module' | 'motion', context?: GlobalContext): string | null {
   const type = HW_TIME_MODULE_TYPES.find(t => t.id === params.moduleType);
   if (!type) return 'moduleType must name a supported Module type';
   if (drill === 'motion' && !(type.motions as readonly unknown[]).includes(params.drillMotion)) return 'drillMotion must belong to moduleType';
   if (drill !== 'none' && !(type.modules as readonly unknown[]).includes(params.drillModule)) return 'drillModule must belong to moduleType';
+  if (params.verdict !== undefined && !verdictCodec.decode(params.verdict)) return 'Invalid verdict';
+  if (params.date !== undefined && !validPanelDate(params.date, context?.from, context?.to)) return 'Invalid date';
   return null;
 }
 
@@ -121,7 +116,7 @@ export function overviewRuns(ids: readonly string[], params: HwTimeRunParams, co
   const type = HW_TIME_MODULE_TYPES.find(t => t.id === params.moduleType)!;
   const from = parseDateTime(context.from!, 'from').getTime();
   const span = parseDateTime(context.to!, 'to').getTime() - from;
-  const points: HwTimeRunObservation[] = ids.flatMap(equipmentId => {
+  const source: HwTimeRunObservation[] = ids.flatMap(equipmentId => {
     const vectors = type.motions.map(motion => ({ motion, values: runValues(equipmentId, { ...params, drillMotion: motion }) }));
     return Array.from({ length: RUNS_PER_EQUIPMENT }, (_, run) => {
       const motions = Object.fromEntries(vectors.map(({ motion, values }) => [motion, judge(params.moduleType, motion, values[run]!)]));
@@ -135,6 +130,7 @@ export function overviewRuns(ids: readonly string[], params: HwTimeRunParams, co
       };
     });
   });
+  const points = source.filter(point => (!params.verdict || point.judgement.status === params.verdict) && (!params.date || point.at.slice(0, 10) === params.date));
   const outside = (point: HwTimeRunObservation) => Object.values(point.motions).some(j => j.status === 'over' || j.status === 'under');
   const mandatory = points.filter(outside);
   // The bounded synthetic source guarantees <= 400 outliers; refuse rather than silently lose any if that invariant changes.
@@ -151,7 +147,7 @@ export function overviewRuns(ids: readonly string[], params: HwTimeRunParams, co
     bounds: ids.map(equipmentId => ({ equipmentId, moduleId: params.drillModule, motion: params.drillMotion, lower: bounds?.lower ?? null, upper: bounds?.upper ?? null })) };
 }
 
-function distribution(ids: readonly string[], params: HwTimeRunParams, context: GlobalContext): HwTimeDistribution {
+function distribution(ids: readonly string[], params: HwTimeDistributionParams, context: GlobalContext): HwTimeDistribution {
   const full = overviewRuns(ids, params, context, { sample: false });
   // Same Motion criteria as motionStats/judge; synthetic bounds do not vary by equipment.
   const criteria = htmBounds(params.moduleType, params.drillMotion);
@@ -182,7 +178,7 @@ export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTimeOverview.runs, {
-    validate: ({ params }) => validate(params, 'motion'),
+    validate: ({ params, context }) => validate(params, 'motion', context),
     handle: ({ params, context, equipment }) => overviewRuns(syntheticEquipmentIds(equipment), params, context, { sample: true }),
     isEmpty: data => data.points.length === 0,
   }),

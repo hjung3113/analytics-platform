@@ -223,7 +223,7 @@ describe('HW Time approved stepped workspace', () => {
     await screen.findByTestId('hw-overview-scatter');
     if (activation === 'double-click') fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-previous EQ-001 · PM1' }));
     else fireEvent.click(screen.getByRole('button', { name: 'point action hw-previous trend' }));
-    await waitFor(() => expect(within(screen.getByTestId('hw-overview-trend')).getByRole('heading', { name: 'PM1 · Pump 회차' })).toBeTruthy());
+    await waitFor(() => expect(within(screen.getByTestId('hw-overview-trend')).getByRole('heading', { name: 'PM1 · Pump 일 평균' })).toBeTruthy());
     expect(new URLSearchParams(window.history.state.apHidden.pairs).get('trend')).toBe('PM1/Pump');
     expect(requests.filter(request => request.endpoint === 'hwTime.runs').map(request => request.params)).toEqual([
       expect.objectContaining({ drillModule: 'PM2', drillMotion: 'Pump' }),

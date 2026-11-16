@@ -1,6 +1,6 @@
 import { HW_TIME_MESSAGES } from './messages';
 /** Client-safe endpoint contracts shared by all four HW Time menus and their mock handlers. */
-import { defineEndpoint, menuPermission, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { defineEndpoint, menuPermission, type AuditEvent, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
 
 export const MODULE_IDS = ['PM1', 'PM2', 'PM3', 'PM4'] as const;
 export const MOTION_IDS = ['Chuck', 'Dechuck', 'Pump', 'Vent', 'Transfer'] as const;
@@ -68,6 +68,22 @@ export const HW_TIME_MOTION_COLOR_BY_ID: HwTimeMotionColors = Object.fromEntries
  */
 export const HTM_STATUSES = ['normal', 'over', 'under', 'unjudgeable'] as const;
 export type HtmStatus = typeof HTM_STATUSES[number];
+export const verdictCodec = {
+  decode: (raw: string): HtmStatus | null => HTM_STATUSES.find(status => status === raw) ?? null,
+};
+export const dateCodec = {
+  decode: (raw: string): string | null => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+    const parsed = new Date(`${raw}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === raw ? raw : null;
+  },
+};
+/** A wall-clock day intersects the half-open applied range. No local timezone conversion. */
+export function validPanelDate(raw: string, from?: string | null, to?: string | null): boolean {
+  if (!dateCodec.decode(raw) || !from || !to) return false;
+  const start = `${raw}T00:00:00`;
+  return raw >= from.slice(0, 10) && start < to;
+}
 /** Why a value is not judged: `recipe-unsplit` = the statistics are not split by Recipe/PPID yet; `no-criteria` = no HTM is registered for the key. */
 export type HtmUnjudgeableReason = 'recipe-unsplit' | 'no-criteria';
 /**
@@ -133,7 +149,11 @@ export const hwTime = {
 export const HW_TIME_OVERVIEW_MAX_ROWS = 96;
 export type HwTimeMatrixParams = { moduleType: string };
 export type HwTimeMotionParams = HwTimeMatrixParams & { drillModule: string };
-export type HwTimeRunParams = HwTimeMotionParams & { drillMotion: string };
+export type HwTimeRunParams = HwTimeMotionParams & { drillMotion: string; verdict?: HtmStatus; date?: string };
+/** Distribution aggregates every run of one drilled Motion; it does not follow the verdict/date panel links (backlog). */
+export type HwTimeDistributionParams = Omit<HwTimeRunParams, 'verdict' | 'date'>;
+export type HwTimePanelParams = { moduleType?: string; drillModule?: string; drillMotion?: string };
+export type HwTimeEquipmentDays = { rows: { equipmentId: string; date: string; judgement: HtmJudgement }[] };
 export type HwTimeMatrixCell = { equipmentId: string; moduleId: string; motions: Record<string, HtmJudgement>; module: HtmJudgement };
 export type HwTimeMatrix = {
   equipment: string[]; modules: string[];
@@ -169,9 +189,15 @@ export const hwTimeOverview = {
     ...common, id: 'hwTime.motionStats', paramKeys: { moduleType: true, drillModule: true },
   }),
   runs: defineEndpoint<HwTimeRunParams, HwTimeRuns>({
-    ...common, id: 'hwTime.runs', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
+    ...common, id: 'hwTime.runs', paramKeys: { moduleType: true, drillModule: true, drillMotion: true, verdict: true, date: true },
   }),
-  distribution: defineEndpoint<HwTimeRunParams, HwTimeDistribution>({
+  equipmentDays: defineEndpoint<HwTimePanelParams, HwTimeEquipmentDays>({
+    ...common, id: 'hwTime.equipmentDays', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
+  }),
+  boundHistory: defineEndpoint<HwTimePanelParams, AuditEvent[]>({
+    ...common, id: 'hwTime.boundHistory', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
+  }),
+  distribution: defineEndpoint<HwTimeDistributionParams, HwTimeDistribution>({
     ...common, id: 'hwTime.distribution', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
 } as const;

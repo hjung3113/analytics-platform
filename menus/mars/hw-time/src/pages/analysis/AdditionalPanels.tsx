@@ -3,7 +3,7 @@ import { useI18n, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, QueryView, RowAction, type PlatformColumn } from '@ap/components';
 import { StatusBadge } from '@ap/ui';
 import { ChartScatter } from 'lucide-react';
-import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, type HwTimeMotionStats } from '../../endpoints';
+import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, type HtmStatus, type HwTimeMotionStats } from '../../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import { formatSeconds, missingText } from '../../shared/format';
 import { htmStatusText, htmStatusView } from '../../shared/htm';
@@ -44,14 +44,15 @@ export function MotionTablePanel({ moduleId, filter }: { moduleId: string; filte
   return <QueryView query={query}>{data => <MotionTable data={data} filter={filter} moduleId={moduleId} motionId={null}
     onMotion={motion => setPage({ drillMotion: motion, trend: null, focus: null })} />}</QueryView>;
 }
-export function RunQueryPanel({ kind, target, filter }: { kind: 'trend' | 'scatter'; target: string; filter: HwTimeFilter }) {
+export function RunQueryPanel({ kind, target, filter, verdict, date }: { kind: 'trend' | 'scatter'; target: string; filter: HwTimeFilter; verdict?: HtmStatus | null; date?: string | null }) {
   const [moduleId, motionId] = target.split('/');
   const type = HW_TIME_MODULE_TYPES.find(type => (type.modules as readonly string[]).includes(moduleId!))!;
-  const query = useMenuQuery(hwTimeOverview.runs, { moduleType: type.id, drillModule: moduleId!, drillMotion: motionId! });
+  const query = useMenuQuery(hwTimeOverview.runs, { moduleType: type.id, drillModule: moduleId!, drillMotion: motionId!,
+    ...(kind === 'scatter' && verdict ? { verdict } : {}), ...(kind === 'scatter' && date ? { date } : {}) });
   const checks = filter.selectionFor(type.id);
   const hidden = !checks.modules.includes(moduleId!) || !checks.motions.includes(motionId!);
   return <div hidden={hidden} className={hidden ? 'hidden' : 'flex h-full min-h-0 flex-col'}>
-    <QueryView fill query={query}>{data => <RunPanel key={`${target}/${query.completedAt}`} kind={kind} data={data} moduleId={moduleId!} motionId={motionId!} motions={checks.motions} />}</QueryView>
+    <QueryView fill query={query}>{data => <RunPanel key={`${target}/${query.completedAt}`} kind={kind} data={data} moduleId={moduleId!} motionId={motionId!} motions={checks.motions} date={kind === 'trend' ? date : undefined} />}</QueryView>
   </div>;
 }
 

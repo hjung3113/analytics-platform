@@ -179,3 +179,24 @@ export const HW_TIME_STEPPED_MESSAGES = {
   recipe: { ko: 'Recipe: 분리 안 됨', en: 'Recipe: unsplit' },
 } as const;
 
+export const HW_TIME_NEW_PANEL_MESSAGES = {
+  all: { ko: '전체', en: 'All' },
+  donut: { ko: '판정 비율 도넛', en: 'Verdict share' },
+  pareto: { ko: '상한 초과 파레토', en: 'Upper-limit exceedance Pareto' },
+  equipmentDays: { ko: '설비 × 날짜 히트맵', en: 'Equipment × day heatmap' },
+  boundHistory: { ko: 'HTM 기준 변경 이력', en: 'HTM bound history' },
+  verdict: { ko: '판정', en: 'Verdict' },
+  date: { ko: '날짜', en: 'Date' },
+  normal: { ko: '정상', en: 'Normal' },
+  over: { ko: '상한 초과', en: 'Over upper limit' },
+  under: { ko: '하한 미달', en: 'Under lower limit' },
+  unjudgeable: { ko: '판정 불가', en: 'Unjudgeable' },
+  count: { ko: '건', en: 'count' },
+  population: { ko: '현재 기간의 설비·Module·Motion 평균 판정 건수', en: 'Equipment–Module–Motion mean judgements in the current range' },
+  paretoNote: { ko: 'Motion·Module별 상한 초과 평균 판정 건수와 누적 비율', en: 'Over-limit mean judgements by Motion/Module (equipment–Module–Motion means judged over) and cumulative share' },
+  create: { ko: 'Finding/VOC 만들기', en: 'Create Finding/VOC' },
+  linkGap: { ko: 'HW Time 분석 지점에서 Finding/VOC를 만드는 목적지·입력 계약 없음', en: 'No destination/input contract for creating a Finding/VOC from an HW Time point' },
+  dailyRuns: { ko: '{module} · {motion} 일 평균', en: '{module} · {motion} daily means' },
+  syntheticHistory: { ko: '합성 HTM 기준 변경 이력', en: 'Synthetic HTM bound history' },
+} as const;
+

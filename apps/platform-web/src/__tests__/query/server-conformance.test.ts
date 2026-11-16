@@ -58,6 +58,8 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'hwTime.motionStats': { moduleType: 'PM', drillModule: 'PM1' },
   'hwTime.runs': { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' },
   'hwTime.distribution': { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' },
+  'hwTime.equipmentDays': { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' },
+  'hwTime.boundHistory': { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' },
   'analytics.productivity.trend': { kpi: 'occupancy', granularity: 'hour' },
   'analytics.productivity.breakdown': { axis: 'room' },
   'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },
