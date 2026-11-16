@@ -56,6 +56,10 @@ export type ScatterPoint = {
   id: string; x: number | null; y: number | null; group?: string; label?: string;
   /** Category mode only: a cell in xCategories.order; x is ignored. */
   category?: string;
+  /** Follows this slice until a local click or Reset; a changed value resumes following, as for TopNBarSpec. */
+  selectedId?: string | null;
+  /** Selection only, separate from Details. Clearing or selecting a synthetic aggregate reports null. */
+  onSelectedChange?: (id: string | null) => void;
   /** Consumer-given judgement, never inferred by the SDK. */
   status?: ChartStatus;
 };
@@ -167,11 +171,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [table, setTable] = useState(false);
   const [panelToolsOpen, setPanelToolsOpen] = useState(false);
   const chart = useRef<ECharts | null>(null);
-  // A top-N bar may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
+  // A top-N bar or donut may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
   // selection whenever its bar is drawn, so rows that arrive or grow later still show it. A click, Reset or brush makes the selection
   // local until the followed value or the Context changes. Without `selectedId` the selection is local only, as before.
-  const followed = p.spec.kind === 'topNBar' && p.spec.selectedId !== undefined ? p.spec.selectedId : undefined;
-  const followedKey = followed == null ? null : JSON.stringify(['topNBar', followed]);
+  const followed = (p.spec.kind === 'topNBar' || p.spec.kind === 'donut') ? p.spec.selectedId : undefined;
+  const followedKey = followed == null ? null : JSON.stringify([p.spec.kind === 'donut' ? 'slice' : 'topNBar', followed]);
   const unfollowed: string[] | null = followed === undefined ? [] : null;
   const [selected, setSelected] = useState<string[] | null>(unfollowed);
   const [previousFollowed, setPreviousFollowed] = useState(followed);
@@ -201,11 +205,19 @@ export function AnalysisChart(p: AnalysisChartProps) {
   else if (selected !== null && active.length !== selected.length) setSelected(active);
   useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
-  const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); };
-  const toggle = (key: string) => setSelected(previous => {
-    const old = previous ?? active;
-    return old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key];
-  });
+  const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); if (spec.kind === 'donut') spec.onSelectedChange?.(null); };
+  const toggle = (key: string) => {
+    if (spec.kind === 'donut') {
+      const next = active.includes(key) ? [] : [key];
+      setSelected(next);
+      spec.onSelectedChange?.(next.length ? spec.slices.find(slice => JSON.stringify(['slice', slice.id]) === key)?.id ?? null : null);
+      return;
+    }
+    setSelected(previous => {
+      const old = previous ?? active;
+      return old.includes(key) ? old.filter(k => k !== key) : singleSelect ? [key] : [...old, key];
+    });
+  };
   const format = useCallback((v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v), [spec]);
   const unknown = unknownLabel(lang);
   const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
