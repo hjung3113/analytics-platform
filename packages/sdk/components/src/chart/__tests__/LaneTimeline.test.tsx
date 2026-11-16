@@ -197,7 +197,7 @@ it('packs title, subtitle and controls into one header row and keeps only bounda
   expect(header.querySelector('p')!.textContent).toBe('Intervals');
   expect(header).toContainElement(screen.getByRole('button', { name: '확대' }).closest('[role=toolbar]'));
   expect(screen.getByText(/^시작 미확인 · 종료 미확인$/)).toBeVisible();
-  expect(screen.getByText(/Ctrl\/⌘ \+ 휠: 확대/)).toHaveClass('sr-only');
+  expect(screen.getByText(/Ctrl\/⌘ \+ 휠: 확대.*시작 미확인/)).toHaveClass('sr-only');
   fireEvent.focus(screen.getByRole('button', { name: '조작 방법' }));
   expect(await screen.findByRole('tooltip')).toHaveTextContent('끌기: 이동');
 });
@@ -248,4 +248,10 @@ it('preserves the body tooltip font size after renderer initialization (C3)', ()
   expect(tooltip).toHaveTextContent('깊이 0');
   expect(tooltip.parentElement).toBe(document.body);
   expect(tooltip).toHaveClass('text-xs');
+});
+
+it('describes the ⓘ button with the interaction help, without opening the tooltip (#2364)', () => {
+  mountLane(<LaneTimeline lanes={lanes} ariaLabel="Timeline" />);
+  expect(screen.getByRole('button', { name: '조작 방법' }).getAttribute('aria-describedby')).toBeTruthy();
+  expect(screen.getByRole('button', { name: '조작 방법' })).toHaveAccessibleDescription(/끌기: 이동/);
 });

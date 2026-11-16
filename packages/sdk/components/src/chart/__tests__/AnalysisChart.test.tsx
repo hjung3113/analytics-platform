@@ -315,13 +315,14 @@ it('preserves rich compact descriptions in a keyboard tooltip and keeps metric v
   const { container } = render(sizedChart({ size: 'compact', description: <strong>Rich details</strong>, metricVersion: 'v1' }));
   await screen.findByRole('img');
   expect(screen.getByText(/Metric|지표 버전/)).toBeVisible();
-  expect(screen.queryByText('Rich details')).toBeNull();
+  // Only the ⓘ button's persistent screen-reader description holds it until the tooltip opens (#2364).
+  expect(screen.getByText('Rich details').closest('p')).toHaveClass('sr-only');
   await user.tab();
   expect(screen.getByRole('button', { name: '차트 설명' })).toHaveFocus();
   const tooltip = await screen.findByRole('tooltip');
   expect(tooltip).toHaveTextContent('Rich details');
   expect(tooltip.querySelector('strong')).toBeTruthy();
-  expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAttribute('aria-describedby', tooltip.id);
+  expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAccessibleDescription('Rich details');
   expect(container.querySelector('header + div')).toHaveClass('text-tiny');
   for (const name of ['차트 초기화', '끌어서 선택', '표로 보기']) expect(screen.getByRole('button', { name })).toBeVisible();
 });

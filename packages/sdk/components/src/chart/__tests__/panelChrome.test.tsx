@@ -16,6 +16,10 @@ const frame = <AnalysisChartFrame chartId="panel" title="Chart" description="Cha
 const mount = (element = frame, mode: boolean | 'pane' = true) => render(<I18nProvider><InWorkspacePanelProvider value={mode}>{element}</InWorkspacePanelProvider></I18nProvider>);
 
 describe('Panel chart chrome', () => {
+  it('describes the ⓘ button with the chart description, without opening the tooltip (#2364)', () => {
+    mount();
+    expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAccessibleDescription('Chart explanation');
+  });
   it('keeps the Frame primary actions in one icon row and secondary actions in More with visible legends', () => {
     mount();
     const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });

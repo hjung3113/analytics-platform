@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { Info, MoreHorizontal } from 'lucide-react';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { MoreHorizontal } from 'lucide-react';
+import { Button, cn, InfoTip, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { formatMetricVersion } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -40,12 +40,9 @@ export function ChartHeading({ titleId, title, description, metricVersion, compa
   return <div className="min-w-0">
     <div className="flex items-center gap-1">
       <h2 id={titleId} className={cn('t-card-title', hideTitle && 'sr-only')}>{title}</h2>
-      {description && <span hidden={!compact && !infoFocused}><TooltipProvider delayDuration={200}><Tooltip>
-        <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" onFocus={() => setInfoFocused(true)} onBlur={() => setInfoFocused(false)} aria-label={m('chartDescription')}>
-          <Info className="size-3.5" aria-hidden />
-        </Button></TooltipTrigger>
-        <TooltipContent>{description}</TooltipContent>
-      </Tooltip></TooltipProvider></span>}
+      {/* Compact charts carry the description in an InfoTip (#2364): a persistent sr-only copy describes the button, so screen readers get it
+          without the tooltip. Full charts show it as the visible subtitle below; a focused ⓘ stays mounted when the chart leaves compact size. */}
+      {description && (compact || infoFocused) && <InfoTip label={m('chartDescription')} onFocus={() => setInfoFocused(true)} onBlur={() => setInfoFocused(false)}>{description}</InfoTip>}
     </div>
     {hideTitle && metricVersion && <span className="sr-only">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span>}
     {!hideTitle && ((!compact && description) || metricVersion) && <p className="text-xs text-text-muted">{!compact && description}{metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}

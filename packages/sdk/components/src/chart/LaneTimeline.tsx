@@ -1,7 +1,6 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
-import { Info } from 'lucide-react';
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
+import { Button, InfoTip, cn } from '@ap/ui';
 import { useI18n, useMessages } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -132,10 +131,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
         {props.description && <p className="text-xs text-text-muted">{props.description}</p>}
       </div>
       <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
-        <TooltipProvider delayDuration={200}><Tooltip>
-          <TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={m('laneHowToInteract')}><Info className="size-3.5" aria-hidden /></Button></TooltipTrigger>
-          <TooltipContent>{m(brushOn ? 'laneInteractionHelpBrush' : 'laneInteractionHelp')}</TooltipContent>
-        </Tooltip></TooltipProvider>
+        <InfoTip label={m('laneHowToInteract')}>{m(brushOn ? 'laneInteractionHelpBrush' : 'laneInteractionHelp')}</InfoTip>
         <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button>{brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
         <Button size="toolbar" variant="ghost" onClick={() => { engine.current?.resetZoom(); if (brushOn) brush.clear(); }}>{m('laneZoomReset')}</Button>
         {props.imageCopy && <ChartImageCopyButton standalone={props.exportActions} fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
