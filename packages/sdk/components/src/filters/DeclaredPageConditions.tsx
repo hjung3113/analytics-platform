@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useContext, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { pageConditionKeys, type PageConditions, type Pair } from '@ap/contracts';
 import { decodePageConditions, derivePageConditionExtension, encodePageConditions, PageConditionError, useI18n, useMessages, useQueryDraft, type PageConditionValues } from '@ap/kernel';
@@ -10,6 +10,7 @@ import { PageConditionLayer } from './PageConditionLayer';
 import type { PageConditionCategoriesProps } from './PageConditionCategories';
 import type { PageConditionOptionsLoader } from './pageConditionOptions';
 import type { QueryBarExtension } from './QueryBarExtension';
+import { useFocusContextEditor } from './QueryBarStatus';
 import { querySummaryItems } from './querySummary';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 
@@ -125,18 +126,9 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   </div>;
   const layer = <>
     <div data-page-condition-announcement aria-live="polite" className="sr-only">{announcement}</div>
-    <PageConditionLayer id={id} open={open} focusCategoryId={state.status === 'open' ? state.focusCategoryId : undefined} onClose={close}
+    <EditableLayer id={id} open={open} focusCategoryId={state.status === 'open' ? state.focusCategoryId : undefined} onClose={close}
     declaration={declaration} values={decoded.values} rawPairs={query.draft.page} issues={decoded.issues} onChange={change} loadOptions={options?.loadOptions} treeSources={options?.treeSources} inputsKey={inputsKey}
-    globalSummary={globalSummary} notice={writeRefusal} onEditContext={() => {
-      const page = fallback.current?.closest('[data-platform-page]');
-      // A board has a single Context bar for the pane selected by the triggering focus/click.
-      const surface = page?.querySelector('[data-query-bar]') ?? page?.querySelector('[data-context-key]')?.closest('[role="region"]') ?? document.querySelector('[data-board-context-row]');
-      // The live Context bar renders an inert, invisible measuring copy first; only a control outside it can take focus.
-      const candidates = surface?.querySelectorAll<HTMLButtonElement>('[data-query-bar] button[aria-controls], button[aria-controls], [data-context-key] button:not(:disabled)') ?? [];
-      const control = Array.from(candidates).find(button => !button.closest('[inert], [hidden], [data-context-measuring]'));
-      control?.focus({ preventScroll: true });
-      if (control?.getAttribute('aria-expanded') === 'false') control.click();
-    }} footer={query.mode === 'apply' ? <>
+    globalSummary={globalSummary} notice={writeRefusal} footer={query.mode === 'apply' ? <>
       {missingCategory && <p className="w-full text-xs text-text-secondary">{m('required', { label: missingCategory.label[lang] })}</p>}
       <Button type="button" variant="secondary" size="toolbar" onClick={query.revert}>{m('revert')}</Button>
       <Button type="button" size="toolbar" disabled={!query.canApply} aria-busy={query.applying} onClick={query.apply}>{m('apply')}</Button>
@@ -145,6 +137,11 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   // One draft, one Apply: while the layer is open its footer is the Apply that is offered, and the query row's Apply says where to press it.
   const applyHint = open && query.mode === 'apply' ? m('applyInLayer') : undefined;
   return children({ trigger, layer, extension: applyHint === undefined ? extension : { ...extension, applyHint } });
+}
+/** Rendered inside the page, where the query bar's registration is visible (the session component sits above the page's status context). */
+function EditableLayer(props: Omit<ComponentProps<typeof PageConditionLayer>, 'onEditContext'>) {
+  const focusContextEditor = useFocusContextEditor();
+  return <PageConditionLayer {...props} onEditContext={focusContextEditor} />;
 }
 function encodeCategory(category: PageConditions['categories'][number], values: PageConditionValues | null): Pair[] {
   return encodePageConditions({ pageConditions: { categories: [category] } }, values ?? {});

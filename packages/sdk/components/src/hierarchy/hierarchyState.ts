@@ -1,3 +1,4 @@
+import { checkHierarchyPageShape, mergeHierarchyChain } from './pagePolicy';
 import { isHierarchyFailure, type HierarchyFailure, type HierarchyNode, type HierarchyPage, type HierarchySource } from '@ap/contracts';
 
 type Failure = HierarchyFailure['kind'];
@@ -25,7 +26,7 @@ export class HierarchyNavState {
   private snapshot: HierarchySnapshot = { pages: {}, ancestors: dict({}), routeId: undefined, path: [], expanded: new Set(), query: '', readyQuery: '' };
   private listeners = new Set<() => void>();
   private requests = new Map<string, AbortController>();
-  /** Cursors already sent per page chain; a repeat means a cycle. Reset when a chain restarts. */
+  /** Cursors already sent per page chain (checked by `pagePolicy`); reset when a chain restarts. */
   private cursors = new Map<string, Set<string>>();
   private source: HierarchySource | undefined;
   bindSource(source: HierarchySource) {
@@ -58,19 +59,16 @@ export class HierarchyNavState {
     const cursor = more ? old?.value?.nextCursor : undefined;
     if (more && cursor === undefined) return;
     if (!more) this.cursors.set(key, new Set());
-    if (cursor !== undefined) (this.cursors.get(key) ?? this.cursors.set(key, new Set()).get(key)!).add(cursor);
+    if (!this.cursors.has(key)) this.cursors.set(key, new Set());
     this.page(key, { status: 'loading', value: old?.value });
-    this.request(key, signal => query === null
-      ? source.listChildren({ parentId, cursor, limit: hierarchyLimit(limit), signal })
-      : source.searchNodes!({ query, cursor, limit: hierarchyLimit(limit), signal }), result => {
-      const seen = new Set<string>();
-      const nodes = [...(more ? old?.value?.nodes ?? [] : []), ...result.nodes].filter(node => !seen.has(node.id) && !!seen.add(node.id));
-      // A repeated cursor must not produce an endless load-more loop.
-      const next = result.nextCursor === cursor ? undefined : result.nextCursor;
-      const value = { nodes, totalCount: result.totalCount ?? old?.value?.totalCount, nextCursor: next };
-      if (next !== undefined && this.cursors.get(key)?.has(next)) this.page(key, { status: 'error', value: { ...value, nextCursor: undefined } });
-      else this.page(key, { status: 'ready', value });
-    }, kind => this.page(key, { status: kind, value: old?.value }));
+    const size = hierarchyLimit(limit);
+    this.request(key, async signal => {
+      const result = await (query === null
+        ? source.listChildren({ parentId, cursor, limit: size, signal })
+        : source.searchNodes!({ query, cursor, limit: size, signal }));
+      checkHierarchyPageShape(result, { limit: size, cursor });
+      return mergeHierarchyChain({ previous: more ? old?.value : undefined, result, cursor, seen: this.cursors.get(key) ?? new Set(), dedupe: true });
+    }, value => this.page(key, { status: 'ready', value }), kind => this.page(key, { status: kind, value: old?.value }));
   }
   loadAncestors(source: HierarchySource, id: string) {
     if (this.snapshot.ancestors[id] !== undefined || this.requests.has(ancestorKey(id))) return;

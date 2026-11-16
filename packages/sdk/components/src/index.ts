@@ -56,7 +56,7 @@ export { LegendTree, type LegendTreeNode, type LegendTreeSort, type LegendTreePr
 
 export { formatQuerySummary, presetOutsideAxes, querySummaryItems, summaryPreset, type QuerySummaryOptions, type QuerySummaryItem, type SummaryPreset } from './filters/querySummary';
 export { WorkspaceQueryBarRow } from './archetypes/WorkspaceQueryBar';
-export { useReportQueryBarStatus, type QueryBarStatus } from './filters/QueryBarStatus';
+export { useReportQueryBarStatus, useRegisterContextEditorFocus, useFocusContextEditor, type QueryBarStatus } from './filters/QueryBarStatus';
 export { useCompactPageDensity } from './pageDensity';
 export { QueryBarExtensionContext, QueryBarExtensionsProvider, useQueryBarExtension, type QueryBarExtension } from './filters/QueryBarExtension';
 export { OrderedIntervalTrack } from './chart/OrderedIntervalTrack';

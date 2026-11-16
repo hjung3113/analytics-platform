@@ -1,5 +1,6 @@
 import { HierarchyFailure, isHierarchyFailure, type HierarchyNode, type HierarchyPage, type HierarchySource } from '@ap/contracts';
 import { hierarchyLimit } from '../hierarchy/hierarchyState';
+import { checkHierarchyNodes as checkNodes, checkHierarchyPageShape, mergeHierarchyChain, reconcileTotal } from '../hierarchy/pagePolicy';
 
 export type TreeLoad<T> = { status: 'loading'; value?: T } | { status: 'ready'; value: T } | { status: 'forbidden' | 'deleted' | 'error'; value?: T };
 export type TreeSnapshot = {
@@ -9,19 +10,6 @@ export type TreeSnapshot = {
 };
 const cancelled = () => new DOMException('Superseded', 'AbortError');
 function checkSignal(signal: AbortSignal) { if (signal.aborted) throw cancelled(); }
-/** A count announced by any page of a cursor chain binds the whole chain: a later page that omits or changes it cannot hide an incomplete list. */
-function reconcileTotal(previous: number | undefined, next: number | undefined): number | undefined {
-  if (previous !== undefined && next !== undefined && previous !== next) throw new HierarchyFailure('error');
-  return next ?? previous;
-}
-function checkNodes(nodes: HierarchyNode[]): void {
-  if (!Array.isArray(nodes)) throw new HierarchyFailure('error');
-  const seen = new Set<string>();
-  for (const node of nodes) {
-    if (!node || typeof node.id !== 'string' || !node.id || typeof node.label !== 'string' || !node.label || typeof node.hasChildren !== 'boolean' || (node.parentId !== undefined && node.parentId !== null && typeof node.parentId !== 'string') || seen.has(node.id)) throw new HierarchyFailure('error');
-    seen.add(node.id);
-  }
-}
 function failure(error: unknown): TreeLoad<never> { return { status: isHierarchyFailure(error) ? error.kind : 'error' }; }
 
 /** A mount/inputsKey-local cache. Every request checks cancellation after await, including uncooperative sources. */
@@ -49,7 +37,7 @@ export class PageConditionTreeState {
       : await this.source.searchNodes!({ query: args.query, cursor: args.cursor, limit: this.limit, signal: args.signal });
     checkSignal(args.signal);
     checkNodes(result.nodes);
-    if (result.nodes.length > this.limit || (result.nextCursor !== undefined && (typeof result.nextCursor !== 'string' || !result.nextCursor || result.nextCursor === args.cursor)) || (result.totalCount !== undefined && (!Number.isSafeInteger(result.totalCount) || result.totalCount < result.nodes.length))) throw new HierarchyFailure('error');
+    checkHierarchyPageShape(result, { limit: this.limit, cursor: args.cursor });
     for (const node of result.nodes) {
       if (args.query === undefined && (node.parentId ?? null) !== args.parentId) throw new HierarchyFailure('error');
       const previous = this.nodes.get(node.id);
@@ -79,14 +67,7 @@ export class PageConditionTreeState {
     if (!options.more) this.cursors.set(key, new Set());
     void this.request(key, async signal => {
       const result = await this.fetchPage({ parentId, cursor, signal });
-      const seen = this.cursors.get(key)!;
-      if (cursor) seen.add(cursor);
-      if (result.nextCursor && seen.has(result.nextCursor)) throw new HierarchyFailure('error');
-      const nodes = [...(options.more ? old?.nodes ?? [] : []), ...result.nodes];
-      checkNodes(nodes);
-      const total = reconcileTotal(options.more ? old?.totalCount : undefined, result.totalCount);
-      if (result.nextCursor === undefined && total !== undefined && total !== nodes.length) throw new HierarchyFailure('error');
-      const page = { ...result, nodes, ...(total === undefined ? {} : { totalCount: total }) };
+      const page = mergeHierarchyChain({ previous: options.more ? old : undefined, result, cursor, seen: this.cursors.get(key)! });
       this.pages.set(parentId, page);
       return page;
     }, load => this.setPage(parentId, load.status === 'ready' ? load : { ...load, value: old }));
@@ -98,14 +79,7 @@ export class PageConditionTreeState {
     if (!options.more) this.cursors.set('search', new Set());
     void this.request('search', async signal => {
       const result = await this.fetchPage({ parentId: null, query, cursor, signal });
-      const seen = this.cursors.get('search')!;
-      if (cursor) seen.add(cursor);
-      if (result.nextCursor && seen.has(result.nextCursor)) throw new HierarchyFailure('error');
-      const nodes = [...(options.more && old.status === 'ready' ? old.value.nodes : []), ...result.nodes];
-      checkNodes(nodes);
-      const total = reconcileTotal(options.more && old.status === 'ready' ? old.value.totalCount : undefined, result.totalCount);
-      if (result.nextCursor === undefined && total !== undefined && total !== nodes.length) throw new HierarchyFailure('error');
-      return { ...result, nodes, ...(total === undefined ? {} : { totalCount: total }) };
+      return mergeHierarchyChain({ previous: options.more && old.status === 'ready' ? old.value : undefined, result, cursor, seen: this.cursors.get('search')! });
     }, search => this.update({ search: search.status === 'ready' || !options.more ? search : { ...search, value: old.value } }));
   }
   /** resolveAncestors excludes the target: look up its parent page to label even an unloaded deep value. */

@@ -87,9 +87,9 @@ describe('PageConditionCategories', () => {
     const { onChange } = mount({ declaration: { categories: [categories[3]] } });
     input('수량 최소', '3');
     expect(onChange).toHaveBeenLastCalledWith('amount', { amount: { min: 3, max: null } });
-    expect(screen.getByText('개')).toBeVisible();
+    expect(screen.getByText('허용 범위: 0 ~ 100개, 1개 단위')).toBeVisible();
     input('수량 최대', '101');
-    expect(screen.getByLabelText('수량 최대')).toHaveAccessibleDescription(expect.stringContaining('0 ~ 100'));
+    expect(screen.getByLabelText('수량 최대')).toHaveAccessibleDescription(expect.stringContaining('0 ~ 100개'));
     expect(onChange).toHaveBeenCalledTimes(1);
     cleanup();
     mount({ declaration: { categories: [categories[3]] }, values: { amount: { min: 5, max: null } } });

@@ -172,7 +172,8 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
   const [parameterTarget, setParameterTarget] = useState<HTMLDivElement | null>(null);
   const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null);
-  const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus }), [barStatus]);
+  const editorFocus = useRef<(() => void) | null>(null);
+  const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus, editorFocus }), [barStatus]);
   const paneBarStatus = useQueryBarStatus();
   const shownBarStatus = barStatus ?? paneBarStatus;
   const { t, tx, lang } = useI18n();

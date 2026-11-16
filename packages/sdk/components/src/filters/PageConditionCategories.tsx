@@ -217,7 +217,10 @@ function OptionConditionCategory(props: CategoryProps) {
         const range = value && !Array.isArray(value) ? value as { min: number | null; max: number | null } : { min: null, max: null };
         const rawRange = raw.find(([key]) => key === kind.key)?.[1];
         const parts = localIssues.length && rawRange !== undefined ? rawRange.split('..') : [String(range.min ?? ''), String(range.max ?? '')];
-        const bounds = m('bounds', { min: kind.min ?? m('unbounded'), max: kind.max ?? m('unbounded'), step: kind.step ?? m('unbounded') });
+        const unit = kind.unit?.[lang] ?? '';
+        const span = kind.min !== undefined && kind.max !== undefined ? m('boundsBetween', { min: kind.min, max: kind.max, unit })
+          : kind.min !== undefined ? m('boundsAtLeast', { min: kind.min, unit }) : kind.max !== undefined ? m('boundsAtMost', { max: kind.max, unit }) : null;
+        const bounds = [span === null ? null : m('boundsLine', { range: span }), kind.step === undefined ? null : m('boundsStep', { step: kind.step, unit })].filter(Boolean).join(', ') || kind.unit?.[lang] || null;
         const commit = (texts: readonly string[]) => {
           if (texts.some(text => text !== '' && (!NUMBER.test(text) || !Number.isFinite(Number(text))))) { setRefusal(issueMessage('invalid-range')); return; }
           const numbers = texts.map(text => text === '' ? null : Number(text));
@@ -231,8 +234,7 @@ function OptionConditionCategory(props: CategoryProps) {
             { label: m('min', { label: category.label[lang] }), value: parts[0] ?? '', inputMode: 'decimal' },
             { label: m('max', { label: category.label[lang] }), value: parts[1] ?? '', inputMode: 'decimal' },
           ]} onCommit={commit} {...common} />
-          {kind.unit && <p className="text-xs text-text-secondary">{kind.unit[lang]}</p>}
-          <p className="text-xs text-text-secondary">{bounds}</p>
+          {bounds && <p className="text-xs text-text-secondary">{bounds}</p>}
         </div>;
       }
       case 'date': return <div className="space-y-2">
