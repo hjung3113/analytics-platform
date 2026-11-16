@@ -155,6 +155,12 @@ export type HwTimeRuns = {
   daily: HwTimeRunObservation[];
   shown: number; total: number; bounds: HwTimeRunBounds[];
 };
+/** Full-population server bins in seconds, never the sampled scatter points. */
+export type HwTimeDistribution = {
+  bins: { start: number; end: number; count: number }[];
+  total: number; equipment: number;
+  bounds: { lower: number | null; upper: number | null };
+};
 export const hwTimeOverview = {
   matrix: defineEndpoint<HwTimeMatrixParams, HwTimeMatrix>({
     ...common, id: 'hwTime.matrix', paramKeys: { moduleType: true },
@@ -164,5 +170,8 @@ export const hwTimeOverview = {
   }),
   runs: defineEndpoint<HwTimeRunParams, HwTimeRuns>({
     ...common, id: 'hwTime.runs', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
+  }),
+  distribution: defineEndpoint<HwTimeRunParams, HwTimeDistribution>({
+    ...common, id: 'hwTime.distribution', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
 } as const;

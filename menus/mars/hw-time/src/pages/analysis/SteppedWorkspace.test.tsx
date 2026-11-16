@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { renderOverview, requests, settle } from './test-support';
+import { answer, renderOverview, requests, settle } from './test-support';
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
 const config = () => JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
@@ -21,6 +21,39 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('HW Time approved stepped workspace', () => {
+  it.each(['&drillModule=PM2', '&trend=PM2/Pump'])('adds and pins a distribution below with target %s', async target => {
+    await renderOverview(`&moduleType=PM&drillMotion=Pump${target}`, request => request.endpoint === 'hwTime.distribution'
+      ? { ...answer(request), data: { bins: [{ start: 3, end: 4, count: 576 }], total: 576, equipment: 24, bounds: { lower: null, upper: null } } }
+      : answer(request));
+    expect(requests.some(request => request.endpoint === 'hwTime.distribution')).toBe(false);
+    await add('분포 · 히스토그램');
+    await screen.findByTestId('hw-overview-distribution');
+    expect(chart('hw-overview-distribution')).toMatchObject({ kind: 'histogram', bins: [{ start: 3, end: 4, count: 576 }] });
+    expect(config().ids).toContain('distribution');
+    expect(config().placement.distribution).toBe('below');
+    expect(config().pins.distribution).toBe(true);
+    expect(requests.find(request => request.endpoint === 'hwTime.distribution')?.params).toEqual({ moduleType: 'PM', drillModule: 'PM2', drillMotion: 'Pump' });
+    fireEvent.click(screen.getByRole('button', { name: 'pin distribution' }));
+    expect(config().pins.distribution).toBe(false);
+  });
+  it('disables the distribution add item without a run target', async () => {
+    await renderOverview('&moduleType=PM&drillMotion=Pump');
+    fireEvent.keyDown(addButton(), { key: 'Enter' });
+    expect((await screen.findByRole('menuitem', { name: /분포 · 히스토그램/ })).getAttribute('aria-disabled')).toBe('true');
+    expect(requests.some(request => request.endpoint === 'hwTime.distribution')).toBe(false);
+  });
+  it('restores a pinned distribution and hides unchecked Motion without another request', async () => {
+    await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM2&pins=distribution', request => request.endpoint === 'hwTime.distribution'
+      ? { ...answer(request), data: { bins: [{ start: 3, end: 4, count: 576 }], total: 576, equipment: 24, bounds: { lower: null, upper: null } } }
+      : answer(request));
+    const histogram = await screen.findByTestId('hw-overview-distribution');
+    expect(config().pins.distribution).toBe(true);
+    const count = requests.filter(request => request.endpoint === 'hwTime.distribution').length;
+    fireEvent.click(within(tree()).getByRole('checkbox', { name: 'Pump' }));
+    await settle();
+    expect(histogram.closest('[hidden]')).toBeTruthy();
+    expect(requests.filter(request => request.endpoint === 'hwTime.distribution')).toHaveLength(count);
+  });
   it.each([
     ['', 1, ['tree', 'current'], true],
     ['&moduleType=TR', 2, ['tree', 'previous', 'current'], true],

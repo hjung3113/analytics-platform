@@ -35,7 +35,7 @@ describe('HW Time stepped declarations', () => {
   });
   it.each([1, 2, 3, 4] as const)('gates the step-%s add list with explicit reasons', step => {
     const items = panelCatalog({ step, typeId: step > 1 ? 'PM' : null, moduleId: step === 4 ? 'PM2' : null, trend: null });
-    expect(items.map(item => item.id)).toEqual(['heatmap', 'trend', 'scatter', 'motionTable', 'moduleMotions', 'table']);
+    expect(items.map(item => item.id)).toEqual(['heatmap', 'trend', 'scatter', 'distribution', 'motionTable', 'moduleMotions', 'table']);
     for (const item of items) {
       const available = item.id === 'table' || (item.id === 'heatmap' && step > 1) || step === 4;
       expect(item.disabledReason === undefined).toBe(available);

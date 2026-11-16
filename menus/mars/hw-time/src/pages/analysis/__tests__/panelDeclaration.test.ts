@@ -6,7 +6,7 @@ import { disabledReason, panelDeclarations, panelQueryIdentity, panelRunTarget, 
 
 describe('panel declarations', () => {
   const context = workspacePanelContext({ step: 4, typeId: 'PM', motionId: 'Pump', moduleId: 'PM2', trend: null });
-  it('declares exactly the existing six catalog panels', () => {
+  it('declares exactly the catalog panels', () => {
     expect(Object.keys(panelDeclarations)).toEqual(CATALOG_IDS);
     expect(exportedDeclarations).toBe(panelDeclarations);
   });
@@ -71,7 +71,7 @@ describe('panel declarations', () => {
     const args = { step, typeId: step > 1 ? 'PM' : null, motionId: step > 2 ? 'Pump' : null, moduleId: step === 4 ? 'PM2' : null, trend: null };
     const state = workspacePanelContext(args);
     const expected = { heatmap: step > 1 ? undefined : S.needsType, trend: step === 4 ? undefined : S.needsPoint,
-      scatter: step === 4 ? undefined : S.needsPoint, motionTable: step === 4 ? undefined : S.needsModule,
+      scatter: step === 4 ? undefined : S.needsPoint, distribution: step === 4 ? undefined : S.needsPoint, motionTable: step === 4 ? undefined : S.needsModule,
       moduleMotions: step === 4 ? undefined : S.needsStep4, table: undefined };
     for (const panel of panelCatalog(args)) {
       const id = panel.id as keyof typeof panelDeclarations;
@@ -95,5 +95,19 @@ describe('panel declarations', () => {
       expect(disabledReason(panelDeclarations.trend, state)).toBeUndefined();
       expect(disabledReason(panelDeclarations.scatter, state)).toBeUndefined();
     }
+  });
+  it('declares distribution with scatter query inputs, display-only checks and run grain', () => {
+    const declaration = panelDeclarations.distribution;
+    expect(declaration).toMatchObject({ id: 'distribution', title: { ko: '분포', en: 'Distribution' }, grain: 'run', outputs: [], endpoints: ['hwTime.distribution'] });
+    expect(declaration.queryInputs).toEqual(panelDeclarations.scatter.queryInputs);
+    expect(declaration.displayInputs).toEqual(panelDeclarations.scatter.displayInputs);
+    expect(disabledReason(declaration, {})).toEqual(S.needsPoint);
+    expect(disabledReason(declaration, { trend: 'PM2/Pump' })).toBeUndefined();
+    expect(disabledReason(declaration, context)).toBeUndefined();
+    const identity = panelQueryIdentity(declaration, context);
+    expect(panelQueryIdentity(declaration, { ...context, module: [], motion: [] })).toBe(identity);
+    expect(panelQueryIdentity(declaration, { ...context, drillMotion: 'Vent' })).not.toBe(identity);
+    expect(panelRunTarget('scatter', projectQueryInputs(declaration, context))).toBe('PM2/Pump');
+    expect(panelRunTarget('scatter', { ...context, trend: 'PM1/Vent' })).toBe('PM2/Pump');
   });
 });

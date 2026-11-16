@@ -1,10 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal } from '@ap/contracts';
 import { EQUIPMENT } from '@ap/mock-server';
-import type { HwTimeMatrix, HwTimeMotionStats } from '../endpoints';
+import type { HwTimeDistribution, HwTimeMatrix, HwTimeMotionStats } from '../endpoints';
 import { hwTimeOverviewMock, overviewRuns } from './overview';
 
 const context = { ...emptyGlobal, from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' };
+
+describe('overview distribution', () => {
+  const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
+  const invoke = (equipment = EQUIPMENT.slice(0, 8), input = params) => hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!.handle({ equipment, context, params: input, actor: 'engineer' }) as HwTimeDistribution;
+  it('bins every full-population run at a fixed 0.25 seconds, including empty intervals', () => {
+    const data = invoke();
+    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const full = overviewRuns(ids, params, context, { sample: false });
+    expect(data.total).toBe(576);
+    expect(data.equipment).toBe(24);
+    expect(data.bins.reduce((sum, bin) => sum + bin.count, 0)).toBe(full.total);
+    expect(data.total).toBeGreaterThan(overviewRuns(ids, params, context, { sample: true }).shown);
+    expect(data.bins.some(bin => bin.count === 0)).toBe(true);
+    for (const [index, bin] of data.bins.entries()) {
+      expect(bin.end - bin.start).toBe(0.25);
+      if (index) expect(bin.start).toBe(data.bins[index - 1]!.end);
+      expect(bin.count).toBe(full.points.filter(point => point.seconds >= bin.start && point.seconds < bin.end).length);
+    }
+  });
+  it.each(['Pump', 'Vent', 'DoorOpen', 'DoorClose'])('uses the same %s HTM bounds as the Motion table', drillMotion => {
+    const data = invoke(undefined, { ...params, drillMotion });
+    const stats = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.motionStats')!.handle({ equipment: EQUIPMENT.slice(0, 8), context, params, actor: 'engineer' }) as HwTimeMotionStats;
+    const judgement = stats.rows.find(row => row.motion === drillMotion)!.judgement;
+    expect(data.bounds).toEqual({ lower: judgement.lower, upper: judgement.upper });
+  });
+  it('keeps Recipe-unsplit Motion bounds absent and handles an empty population', () => {
+    expect(invoke(undefined, { moduleType: 'PM', drillModule: 'PM2', drillMotion: 'Pump' }).bounds).toEqual({ lower: null, upper: null });
+    expect(invoke([])).toMatchObject({ bins: [], total: 0, equipment: 0 });
+  });
+  it('validates the new endpoint with the same drill constraints and ownership as runs', () => {
+    const endpoint = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!;
+    const runs = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.runs')!;
+    expect({ ...endpoint.spec, id: runs.spec.id }).toEqual(runs.spec);
+    expect(endpoint.validate?.({ params, context })).toBeNull();
+    expect(endpoint.validate?.({ params: { ...params, drillModule: 'PM2' }, context })).toBeTruthy();
+    expect(endpoint.validate?.({ params: { ...params, drillMotion: 'Pick' }, context })).toBeTruthy();
+  });
+});
 
 describe('overview run sampling', () => {
   it.each(['Pump', 'Vent', 'DoorOpen', 'DoorClose'])('includes every out-of-bound %s run in at most 400 points', motion => {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { contextCapabilities, groupId, menuPermission, type ApiResponse, type MenuMeta } from '@ap/contracts';
 import { EQUIPMENT, createMockAdapter, getRole, setRole } from '@ap/mock-server';
 import { HW_TIME_UNIT, hwTime } from '../endpoints';
-import type { HwTimeLevelData, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
+import type { HwTimeDistribution, HwTimeLevelData, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
 import { hwTimeMock } from './index';
 
 const context = {
@@ -43,8 +43,27 @@ describe('HW Time mock endpoint registration', () => {
   it('registers the level, trend, table, export and overview endpoints', () => {
     expect(() => createMockAdapter({ endpoints: hwTimeMock, registry: { menus: [menu] } })).not.toThrow();
     expect(hwTimeMock.map(({ spec }) => spec.id)).toEqual([
-      'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows', 'hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs',
+      'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows', 'hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs', 'hwTime.distribution',
     ]);
+  });
+});
+
+describe('distribution Context filtering', () => {
+  it.each([
+    [{ roomNames: ['PHOTO'] }, 24],
+    [{ selection: EQUIPMENT.filter(e => e.site === 'MEM' && e.room === 'PHOTO').slice(0, 2).map(e => e.equipmentId) }, 6],
+    [{ condition: { maker: ['ASM'] } }, 0],
+  ] as const)('uses the same resolved population as runs for %j', async (applied, equipment) => {
+    const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
+    const result = await query<HwTimeDistribution>('hwTime.distribution', params, applied);
+    const runs = await query<{ total: number; bounds: unknown[] }>('hwTime.runs', params, applied);
+    expect(result.outcome).toBe(runs.outcome);
+    expect(result.data).not.toBeNull();
+    expect(result.data!.total).toBe(runs.data!.total);
+    expect(result.data!.equipment).toBe(runs.data!.bounds.length);
+    expect(result.data!.equipment).toBe(equipment);
+    expect(result.data!.total).toBe(equipment * 24);
+    expect(result.data!.bins.reduce((sum, bin) => sum + bin.count, 0)).toBe(result.data!.total);
   });
 });
 

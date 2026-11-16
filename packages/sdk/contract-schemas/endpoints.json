@@ -704,6 +704,29 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "hwTime.distribution",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
+      "drillModule",
+      "drillMotion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
     "id": "hwTime.exportRows",
     "menuId": "hw-time",
     "paramKeys": [

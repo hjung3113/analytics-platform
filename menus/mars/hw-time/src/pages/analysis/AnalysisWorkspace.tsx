@@ -12,6 +12,7 @@ import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
 import RawTablePanel from '../table/RawTablePanel';
 import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
+import { DistributionPanel } from './DistributionPanel';
 import { CATALOG_IDS, chartRows, checkedSum, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -230,6 +231,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       const item = catalog.find(item => item.id === id)!;
       const renderPanel = (panel: CatalogId) => {
         switch (panel) {
+          case 'distribution': return <DistributionPanel input={panelContext} filter={filter} />;
           case 'heatmap': {
             const input = projectQueryInputs(panelDeclarations.heatmap, panelContext);
             return input.moduleType ? <Heatmap query={queries[input.moduleType]!} filter={filter} typeId={input.moduleType} /> : null;

@@ -109,6 +109,8 @@ export const panelDeclarations = {
     grain: 'dailyStat', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
   scatter: { id: 'scatter', title: S.scatter, queryInputs: runInputs, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
+  distribution: { id: 'distribution', title: S.distribution, queryInputs: runInputs, displayInputs: { page: checks }, outputs: [],
+    grain: 'run', endpoints: [hwTimeOverview.distribution.id], availability: pointAvailability },
   motionTable: { id: 'motionTable', title: S.motionTable,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule', required: true }] }, displayInputs: { page: [{ key: 'motion' }] },
     outputs: [{ key: 'drillMotion', action: 'drill' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }],

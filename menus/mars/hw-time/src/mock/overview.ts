@@ -3,7 +3,7 @@ import { formatDateTime, parseDateTime, type GlobalContext } from '@ap/contracts
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
 import {
   HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, hwTimeOverview,
-  type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
+  type HwTimeDistribution, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
 } from '../endpoints';
 import { htmBounds, judge, rollUp } from './htm';
 
@@ -12,6 +12,8 @@ const SYNTHETIC_PER_EQUIPMENT = 3;
 const RUNS_PER_EQUIPMENT = 24;
 const SAMPLE_LIMIT = 400;
 const WALL_CLOCK_SECOND_MS = 1_000;
+/** Fixed server bin width in seconds, anchored at multiples of a quarter second. */
+const DISTRIBUTION_BIN_WIDTH = 0.25;
 
 /** Same population convention as hwTime.ts: only equipment resolved by applied Scope/Condition/Selection contributes. */
 function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
@@ -133,6 +135,25 @@ export function overviewRuns(ids: readonly string[], params: HwTimeRunParams, co
     bounds: ids.map(equipmentId => ({ equipmentId, moduleId: params.drillModule, motion: params.drillMotion, lower: bounds?.lower ?? null, upper: bounds?.upper ?? null })) };
 }
 
+function distribution(ids: readonly string[], params: HwTimeRunParams, context: GlobalContext): HwTimeDistribution {
+  const full = overviewRuns(ids, params, context, { sample: false });
+  // Same Motion criteria as motionStats/judge; synthetic bounds do not vary by equipment.
+  const criteria = htmBounds(params.moduleType, params.drillMotion);
+  const counts = new Map<number, number>();
+  for (const point of full.points) {
+    const index = Math.floor(point.seconds / DISTRIBUTION_BIN_WIDTH);
+    counts.set(index, (counts.get(index) ?? 0) + 1);
+  }
+  const indices = [...counts.keys()];
+  const bins: HwTimeDistribution['bins'] = [];
+  if (indices.length) {
+    for (let index = Math.min(...indices); index <= Math.max(...indices); index++) {
+      bins.push({ start: index * DISTRIBUTION_BIN_WIDTH, end: (index + 1) * DISTRIBUTION_BIN_WIDTH, count: counts.get(index) ?? 0 });
+    }
+  }
+  return { bins, total: full.total, equipment: ids.length, bounds: { lower: criteria?.lower ?? null, upper: criteria?.upper ?? null } };
+}
+
 export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(hwTimeOverview.matrix, {
     validate: ({ params }) => validate(params, 'none'),
@@ -148,5 +169,10 @@ export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
     validate: ({ params }) => validate(params, 'motion'),
     handle: ({ params, context, equipment }) => overviewRuns(syntheticEquipmentIds(equipment), params, context, { sample: true }),
     isEmpty: data => data.points.length === 0,
+  }),
+  defineMockEndpoint(hwTimeOverview.distribution, {
+    validate: ({ params }) => validate(params, 'motion'),
+    handle: ({ params, context, equipment }) => distribution(syntheticEquipmentIds(equipment), params, context),
+    isEmpty: data => data.total === 0,
   }),
 ];
