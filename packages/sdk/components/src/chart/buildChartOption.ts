@@ -265,10 +265,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           if (!isActive && !mark && !status) return y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
-            // Status keeps its fixed solid border. The active label stays bold; Min/Max retains its glow and chip.
+            // The status ring is drawn inside the piece by the __statusBarBacking layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
             const marker = statusMarker(status);
             const extremeChip = mark ? extremeLabel(mark, lanes !== null, palette, lang) : undefined;
-            return { value: y, itemStyle: { color: palette.series[n].fill, borderColor: statusBorderColor(status, palette.series[n].fill), borderWidth: 2, borderType: 'solid', ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) },
+            return { value: y, itemStyle: { color: palette.series[n].fill, borderWidth: 0, ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) },
               label: { ...extremeChip, ...marker, position: extremeChip?.position ?? 'insideRight', formatter: `${marker.formatter}${mark ? ` ${extremeName(mark, lang)}` : ''}`, rich: marker.rich },
             };
           }

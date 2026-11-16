@@ -57,15 +57,42 @@ export function statusBacking(status: ChartStatus, fill: string) {
   const candidates = [token('surface-card'), chartTheme().tooltip.textStyle.color];
   return candidates.sort((a, b) => Math.min(contrast(stroke, b), contrast(fill, b)) - Math.min(contrast(stroke, a), contrast(fill, a)))[0];
 }
-/** Opaque, silent borders above the scatter fill; only status cells participate. */
+/**
+ * Status ring widths for a cell or bar piece whose shorter side is `size` px (#2351): a 2px border and a 2px backing
+ * just inside it, together at most a quarter of the size per side, so a thin cell keeps most of its fill. A backing
+ * thinner than half a pixel is dropped.
+ */
+export function statusRing(size: number) {
+  const budget = Math.max(0, size / 4);
+  const border = Math.min(2, budget);
+  const backing = Math.min(2, budget - border);
+  return { border, backing: backing >= 0.5 ? backing : 0 };
+}
+/**
+ * Opaque, silent borders above the scatter fill; only status cells participate. Both rings are drawn inside the cell (#2351)
+ * as pixel rectangles of a custom series: a scatter symbol is a unit path scaled to its size, which stretches its stroke
+ * unevenly on a non-square cell (thick sides, thin top and bottom) and lets it spill past the cell.
+ */
 export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string }[], symbolSize: number[]) {
   if (!cells.length) return [];
+  const [width = 0, height = 0] = symbolSize;
+  // A 0px side (unmeasured plot or a very dense grid) draws no cell, so its ring is kept in the option but not drawn.
+  const drawn = width > 0 && height > 0;
+  const { border, backing: backingWidth } = statusRing(drawn ? Math.min(width, height) : Infinity);
   const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, 0.8) }));
-  const base = { type: 'scatter', symbol: 'rect', symbolSize, silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: 1 } };
-  const backings = data.flatMap(c => { const backing = statusBacking(c.status, c.effective); return backing ? [{ value: c.value, itemStyle: { borderColor: backing, borderWidth: 6 } }] : []; });
+  const ring = (id: string, z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
+    id, type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
+    data: items.map((c, index) => [c.value[0], c.value[1], index]),
+    renderItem: (_params: unknown, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[] }) => {
+      const [cx = 0, cy = 0] = api.coord([api.value(0), api.value(1)]);
+      const shape = { x: cx - width / 2 + inset, y: cy - height / 2 + inset, width: Math.max(0, width - 2 * inset), height: Math.max(0, height - 2 * inset) };
+      return { type: 'rect', ignore: !drawn, shape, style: { fill: 'none', stroke: items[Number(api.value(2))]!.stroke, lineWidth }, blur: { style: { opacity: 1 } } };
+    },
+  });
+  const backings = backingWidth ? data.flatMap(c => { const stroke = statusBacking(c.status, c.effective); return stroke ? [{ value: c.value, stroke }] : []; }) : [];
   return [
-    ...(backings.length ? [{ ...base, id: '__statusBacking', z: 3, data: backings }] : []),
-    { ...base, id: '__statusOutline', z: 4, data: data.map(c => ({ value: c.value, itemStyle: { borderColor: statusBorderColor(c.status, c.effective), borderWidth: 2 } })) },
+    ...(backings.length ? [ring('__statusBacking', 3, backings, backingWidth, border + backingWidth / 2)] : []),
+    ring('__statusOutline', 4, data.map(c => ({ value: c.value, stroke: statusBorderColor(c.status, c.effective) })), border, border / 2),
   ];
 }
 export const statusKey = (status: ChartStatus) => JSON.stringify([status.tone, status.label]);

@@ -20,7 +20,7 @@ import { heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
-import { distinctStatuses, heatmapStatusOutlines, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import { distinctStatuses, heatmapStatusOutlines, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout } from './analysisChartFrameParts';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
@@ -232,7 +232,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
-        itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderColor: statusBorderColor(c.status, cellColor(c.value)), borderWidth: 2, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
+        itemStyle: { color: cellColor(c.value), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderWidth: 0 /* the inset __statusOutline layer draws it (#2351) */, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
         ...(c.status ? { label: { ...statusMarker(c.status), position: 'inside' } } : {}),
       })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: cellColor(c.value) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {

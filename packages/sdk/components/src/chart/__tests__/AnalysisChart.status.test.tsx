@@ -58,17 +58,19 @@ it.each([
   const series = plot.option.series as { id?: string; itemStyle?: { opacity?: number; borderColor?: string; borderWidth?: number }; data: Datum[] }[];
   expect(series[0].data[0].itemStyle.color).toBe(readColorToken(fill));
   expect(series[0].itemStyle?.opacity).toBeUndefined(); // value scatter keeps its actual 0.8 default
+  type Ring = { renderItem: (params: unknown, api: unknown) => { style: { stroke: string; opacity?: number } }; data: unknown[][] };
+  const stroke0 = (s: unknown) => { const ring = s as Ring; return ring.renderItem({}, { value: (d: number) => ring.data[0][d], coord: () => [0, 0] }).style; };
   const outline = series.find(s => s.id === '__statusOutline')!;
   expect(outline).toBeDefined();
-  expect(outline.itemStyle?.opacity).toBe(1);
+  expect(stroke0(outline).opacity).toBeUndefined(); // opaque
   const rgb = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number);
   const surface = readColorToken('surface-card');
   const effective = `rgb(${rgb(readColorToken(fill)).map((v, n) => v * 0.8 + rgb(surface)[n] * 0.2).join(',')})`;
   const luminance = (color: string) => rgb(color).map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }).reduce((sum, v, n) => sum + v * [0.2126, 0.7152, 0.0722][n], 0);
   const ratio = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
-  const stroke = outline.data[0].itemStyle.borderColor;
+  const stroke = stroke0(outline).stroke;
   const backing = series.find(s => s.id === '__statusBacking');
-  const background = backing?.data[0].itemStyle.borderColor ?? effective;
+  const background = backing ? stroke0(backing).stroke : effective;
   expect(ratio(stroke, background)).toBeGreaterThanOrEqual(3);
   if (backing) expect(ratio(background, effective)).toBeGreaterThanOrEqual(3);
 });

@@ -1,16 +1,18 @@
 import type { CustomSeriesOption } from 'echarts/charts';
 import type { ChartOptionInput } from './buildChartOption';
 import type { LaneLayout } from './chartLanes';
-import { chartPointKey, statusBacking, statusBorderColor, type ChartStatus } from './chartStatus';
+import { chartPointKey, statusBacking, statusBorderColor, statusRing, type ChartStatus } from './chartStatus';
 import { toMs } from './analysisChartShared';
 
 type RenderItem = Exclude<CustomSeriesOption['renderItem'], undefined | string>;
 const BAR_MAX_WIDTH = 18;
 const BAR_GAP = 0.1; // ECharts BarSeries' defaultBarGap.
-const BORDER_WIDTH = 2;
-const BACKING_WIDTH = 6;
 
-/** A second stroke only where the native bar's severity border cannot contrast with its fill. */
+/**
+ * The status ring of every status bar piece (#2351): a border inside the piece, plus a backing just inside it where the
+ * border cannot contrast with the fill. Both are sized from the real piece by `statusRing`, so a thin piece keeps its fill;
+ * the native bar draws no status border.
+ */
 export function barStatusBackingSeries(input: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, lanes: LaneLayout | null): CustomSeriesOption[] {
   if (!statuses.size) return [];
   const bars = input.displayed.filter(s => input.horizontal || s.kind === 'bar');
@@ -21,7 +23,6 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       const status = statuses.get(chartPointKey({ seriesId: series.id, x }));
       if (!status || value === null || !Number.isFinite(value)) return [];
       const backing = statusBacking(status, input.palette.series[n].fill);
-      if (!backing) return [];
       let start = 0;
       if (lanes) start = lanes.lanes[n].start;
       else if (input.stacked) for (const previous of bars.slice(0, slot)) {
@@ -50,16 +51,16 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       }
       const from = api.coord(input.horizontal ? [start, category] : [category, start]);
       const to = api.coord(input.horizontal ? [end, category] : [category, end]);
-      // Native bar borders are inset by half their width; the two strokes share that same centreline.
+      // Both rings sit inside the piece, so neither crosses into a neighbouring piece (#2351).
       const length = input.horizontal ? Math.abs(to[0] - from[0]) : Math.abs(to[1] - from[1]);
-      const border = Math.min(BORDER_WIDTH, layout.width, length);
-      const inset = border / 2;
-      const shape = input.horizontal
-        ? { x: Math.min(from[0], to[0]) + inset, y: from[1] + layout.offset + inset, width: Math.max(0, Math.abs(to[0] - from[0]) - border), height: Math.max(0, layout.width - border) }
-        : { x: from[0] + layout.offset + inset, y: Math.min(from[1], to[1]) + inset, width: Math.max(0, layout.width - border), height: Math.max(0, Math.abs(to[1] - from[1]) - border) };
+      const { border, backing: ringBacking } = statusRing(Math.min(layout.width, length));
+      const backing = piece.backing ? ringBacking : 0;
+      const rect = (inset: number) => input.horizontal
+        ? { x: Math.min(from[0], to[0]) + inset, y: from[1] + layout.offset + inset, width: Math.max(0, length - 2 * inset), height: Math.max(0, layout.width - 2 * inset) }
+        : { x: from[0] + layout.offset + inset, y: Math.min(from[1], to[1]) + inset, width: Math.max(0, layout.width - 2 * inset), height: Math.max(0, length - 2 * inset) };
       return { type: 'group', children: [
-        { type: 'rect', shape, style: { fill: 'none', stroke: piece.backing, lineWidth: BACKING_WIDTH }, blur: { style: { opacity: 1 } } },
-        { type: 'rect', shape, style: { fill: 'none', stroke: piece.stroke, lineWidth: BORDER_WIDTH }, blur: { style: { opacity: 1 } } },
+        ...(backing ? [{ type: 'rect' as const, shape: rect(border + backing / 2), style: { fill: 'none', stroke: piece.backing!, lineWidth: backing }, blur: { style: { opacity: 1 } } }] : []),
+        { type: 'rect', ignore: !border, shape: rect(border / 2), style: { fill: 'none', stroke: piece.stroke, lineWidth: border }, blur: { style: { opacity: 1 } } },
       ] };
     };
     return [{
