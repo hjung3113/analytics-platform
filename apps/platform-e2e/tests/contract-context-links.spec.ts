@@ -876,7 +876,8 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
 });
 
 test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
-  const base = `/mars/cycle-time?v=1&scopeId=MEM&${PERIOD}&percentile=all`;
+  // Cycle time queries only with a process; two rooms let the PHOTO group narrow the result.
+  const base = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&roomNames=ETCH&${PERIOD}&percentile=all`;
   const kpiRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
     .filter(entry => (entry as PerformanceMark).detail?.endpoint === 'analytics.cycle.kpi').length);
   const executionCount = async (page: Page) => {
@@ -906,7 +907,9 @@ test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
     await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
     let dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await expect(dialog.getByRole('table')).toBeVisible();
-    await dialog.getByRole('button', { name: /^공정 / }).click();
+    // A facet with picks in the URL opens expanded; only a collapsed one needs the header click.
+    const room = dialog.getByRole('button', { name: /^공정 / });
+    if (await room.getAttribute('aria-expanded') !== 'true') await room.click();
     await dialog.getByRole('button', { name: 'PHOTO만 선택', exact: true }).click();
     await dialog.getByRole('button', { name: '그룹으로 저장', exact: true }).click();
     await dialog.getByRole('textbox', { name: '이름', exact: true }).fill('PHOTO rule');
@@ -940,7 +943,7 @@ test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
     await showSlowExecutions(page);
     const rows = await rowMapsByColumn(page);
     expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every(row => row.Equipment.includes('-PHOTO-'))).toBe(true);
+    expect(rows.every(row => row['공정'] === 'PHOTO')).toBe(true);
     await evidence(page, testInfo, 'custom-group-photo-result');
   });
 
