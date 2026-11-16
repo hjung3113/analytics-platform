@@ -17,6 +17,10 @@ afterEach(() => { cleanup(); chart.mockClear(); });
 const filter = { selectionFor: () => ({ modules: [], motions: [] }) } as unknown as HwTimeFilter;
 
 describe('captured donut regressions', () => {
+  it('passes the URL verdict to the SDK selection', () => {
+    render(<VerdictDonut matrices={[]} filter={filter} verdict="over" />);
+    expect(chart.mock.calls.at(-1)![0].spec.selectedId).toBe('over');
+  });
   it('lets the SDK fit the ring while retaining the outer scroll fallback', () => {
     render(<VerdictDonut matrices={[]} filter={filter} verdict={null} />);
     const body = screen.getByTestId('donut-chart').parentElement!;

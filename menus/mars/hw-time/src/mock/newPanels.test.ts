@@ -28,7 +28,7 @@ describe('new panel server data', () => {
   it('provides synthetic audit events through the menu endpoint', () => {
     const endpoint = hwTimeNewPanelMock.find(endpoint => endpoint.spec.id === 'hwTime.boundHistory')!;
     expect(endpoint.handle({ equipment: EQUIPMENT.slice(0, 1), params: { moduleType: 'LK' }, context, actor: 'engineer' })).toMatchObject([
-      { action: 'update', target: { scopeId: 'MEM', type: 'htm-bound', id: 'LK' }, changes: { upper: ['6', '7'] } },
+      { action: 'update', actor: 'synthetic-engineer', actorName: { ko: '합성 작업자', en: 'Synthetic engineer' }, target: { scopeId: 'MEM', type: 'htm-bound', id: 'LK' }, changes: { upper: ['6', '7'] } },
     ]);
   });
 });

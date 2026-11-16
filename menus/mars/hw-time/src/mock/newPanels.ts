@@ -1,6 +1,6 @@
-import type { AuditEvent, GlobalContext } from '@ap/contracts';
+import type { GlobalContext } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint, type Equipment } from '@ap/mock-server';
-import { HW_TIME_MODULE_TYPES, hwTimeOverview, type HwTimeEquipmentDays, type HwTimePanelParams } from '../endpoints';
+import { HW_TIME_MODULE_TYPES, hwTimeOverview, type HwTimeBoundHistoryEvent, type HwTimeEquipmentDays, type HwTimePanelParams } from '../endpoints';
 import { syntheticEquipmentIds } from './syntheticEquipment';
 import { rollUp } from './htm';
 import { overviewRuns } from './overview';
@@ -33,8 +33,9 @@ export function equipmentDays(equipment: readonly Equipment[], params: HwTimePan
   }) };
 }
 /** Mock history lives behind the same permission/Scope/Context endpoint gate as the other panels. */
-function history(params: HwTimePanelParams, context: GlobalContext): AuditEvent[] {
+function history(params: HwTimePanelParams, context: GlobalContext): HwTimeBoundHistoryEvent[] {
   return [{ id: 'synthetic-htm-bound-change', at: `${context.from}Z`, actor: 'synthetic-engineer', action: 'update', source: 'user',
+    actorName: { ko: '합성 작업자', en: 'Synthetic engineer' },
     target: { type: 'htm-bound', id: [params.moduleType, params.drillModule, params.drillMotion].filter(Boolean).join('/') || 'HTM', scopeId: context.scopeId },
     changes: { upper: ['6', '7'], lower: ['1', '2'] } }];
 }
