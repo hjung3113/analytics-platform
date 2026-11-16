@@ -22,7 +22,7 @@ it('applies one process rule from authorized facts, with columns restricted to e
     <TargetPicker global={{ scopeId: 'MEM', from: null, to: null, roomNames: null, lineNames: null, prcGroups: null, condition: null, selection: null, membershipBasis: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }} cap={{ ...noContext, roomNames: 'apply' }} onChange={apply} />
   </PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
-  const dialog = screen.getByRole('dialog', { name: '대상' });
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
   await waitFor(() => expect(within(dialog).getByRole('button', { name: /조건 적용 · 2대/ })).toBeEnabled());
   fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
@@ -99,7 +99,7 @@ it('writes a required room as its authorized values when the dialog applies "all
     <TargetPicker global={{ ...baseGlobal, scopeId: 'FDRY' }} cap={{ ...noContext, roomNames: 'apply' }} onChange={apply} />
   </PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
-  const dialog = screen.getByRole('dialog', { name: '대상' });
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
   await waitFor(() => expect(within(dialog).getByRole('button', { name: /조건 적용 · 2대/ })).toBeEnabled());
   fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));

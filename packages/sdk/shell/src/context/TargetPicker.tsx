@@ -1,14 +1,16 @@
-import { useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { Capability, ContextKey, GlobalContext } from '@ap/contracts';
 import { CONTEXT_LABELS, useEquipmentAxes, useEquipmentFacts, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { FacetedSetDialog, type FacetedSetItem, type FacetedSetValue } from '@ap/components';
+import type { FacetedSetItem, FacetedSetValue } from '@ap/components';
 import { Button, cn } from '@ap/ui';
 import { ChevronDown, X } from 'lucide-react';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { MeasuringContext } from './ContextBarLayout';
 import { SHELL_MESSAGES } from '../messages';
 import { useSessionKey } from '../frame/sessionKey';
+
+const FacetedSetDialog = lazy(() => import('./TargetPickerDialog'));
 
 export const TARGET_KEYS = ['roomNames', 'line', 'prcGroup', 'condition', 'selection'] as const;
 const RESULT_COLUMN_LIMIT = 4;
@@ -82,6 +84,8 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   });
   const { count: matchCount, outside } = useMemo(() => targetCounts(items, JSON.parse(countIdentity) as FacetedSetValue), [items, countIdentity]);
   const [open, setOpen] = useState(false);
+  const opened = useRef(false);
+  if (open) opened.current = true;
   const opener = useRef<HTMLButtonElement | null>(null);
   const restoreFocus = useRef(false);
   const close = (next: boolean) => { restoreFocus.current = !next; setOpen(next); };
@@ -145,7 +149,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
     {chosen && <Button type="button" variant="ghost" size="toolbar" aria-label={m('targetClear')} onClick={clear}><X className="size-3.5" aria-hidden /></Button>}
     {facts.status === 'done' && outside > 0 && <span className="text-xs text-text-warning-label">{m('selectionOutsideCondition', { count: outside })}</span>}
   </span>;
-  return <>{children ? children(button, open) : button}<FacetedSetDialog open={open} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} /></>;
+  return <>{children ? children(button, open) : button}{opened.current && <Suspense fallback={null}><FacetedSetDialog open={open} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} /></Suspense>}</>;
 }
 
 function TargetButton({ onMount, ...props }: ComponentProps<'button'> & { onMount(node: HTMLButtonElement): void }) {

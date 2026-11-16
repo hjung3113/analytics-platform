@@ -42,7 +42,7 @@ it('shows the switcher first in the equipment fieldset with only the active pres
   const fieldset = screen.getByRole('group', { name: '설비 조건' });
   const switcher = within(fieldset).getByRole('radiogroup', { name: '조건 묶음' });
   fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
-  const dialog = screen.getByRole('dialog', { name: '대상' });
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
   expect(within(dialog).getByRole('button', { name: /제조사/ })).toBeTruthy();
   expect(within(dialog).queryByRole('button', { name: /팀/ })).toBeNull();
   fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
