@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { formatText, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PanelAddMenu, PanelOptionChips, PanelOptions, PanelWorkspace, QueryView,
@@ -102,6 +102,7 @@ function Hierarchy({ filter, currentId, onDrill }: { filter: HwTimeFilter; curre
 type BarsProps = {
   depth: Step; queries: MatrixQueries; typeId: string | null; motionId: string | null; moduleId: string | null; filter: HwTimeFilter;
   options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void; onReset: (id: string) => void;
+  onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
 };
 /** Workspace tabs stay visible when the Frame's own title is hidden by panel chrome. */
@@ -114,7 +115,7 @@ function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMot
   const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
   return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
-function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onReset, previous = false, allMotions = false }: BarsProps) {
+function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onReset, onOpenTrend, previous = false, allMotions = false }: BarsProps) {
   const m = useMessages(S);
   const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
@@ -133,7 +134,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const openTrend = (point: ChartPoint) => {
     if (depth === 1) { drill(point); return; }
     const module = depth === 4 ? moduleId : point.x.split(' · ')[1];
-    if (module && validTrend(`${module}/${point.seriesId}`)) setPage({ trend: `${module}/${point.seriesId}`, row: point.x });
+    if (module && validTrend(`${module}/${point.seriesId}`)) onOpenTrend(`${module}/${point.seriesId}`, point.x);
   };
   const statusOf = (point: ChartPoint) => {
     const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
@@ -187,7 +188,7 @@ function Heatmap({ query, filter, typeId, motionId, verdict }: { query: MatrixQu
   return <QueryView fill query={query}>{data => {
     const cells = heatmapValues(data, checks, motionId, verdict, lang);
     return <AnalysisChart chartId="hw-overview-matrix" title={m('heatmap')} unit={HW_TIME_UNIT[lang]} size="fill" legendPlacement="top" toolsReveal="always"
-      spec={{ kind: 'heatmap', xLabels: data.modules.filter(id => checks.modules.includes(id)), yLabels: data.equipment, cells,
+      spec={{ kind: 'heatmap', minRowHeight: 24, statusDisplay: 'border', xLabels: data.modules.filter(id => checks.modules.includes(id)), yLabels: data.equipment, cells,
         scale: { type: 'sequential', domain: [0, Math.max(0, ...cells.flatMap(cell => cell.value === null ? [] : [cell.value]))] },
         valueFormat: value => formatSeconds(value, lang), onCellClick: (module, equipment) => setPage({ row: rowLabel(equipment, module) }, { replace: true }),
       }} />;
@@ -224,17 +225,25 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
     }} />}</MatrixSources>;
 }
-function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions'> & {
+function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void;
 }) {
   const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill } = props;
   const common = useMessages(HW_TIME_MESSAGES);
   const [added, setAdded] = useState<readonly string[]>([]);
+  const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
+  useEffect(() => {
+    if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
+  }, [trend, step]);
   const catalog = panelCatalog({ step, typeId, moduleId, trend });
   const available = catalog.filter(item => !item.disabledReason);
   const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
-  const { pageParam } = usePlatform();
+  const { pageParam, setPage } = usePlatform();
+  const onOpenTrend = (target: string, row: string) => {
+    setPage({ trend: target, row });
+    setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
+  };
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date };
@@ -248,8 +257,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   };
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
-    ...(step > 1 ? [{ id: 'previous', title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} depth={(step - 1) as Step} previous /> }] : []),
-    { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640, render: () => <Bars {...props} depth={step} /> },
+    ...(step > 1 ? [{ id: 'previous', title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
+    { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={step} /> },
     ...extraIds.map(id => {
       const item = catalog.find(item => item.id === id)!;
       const renderPanel = (panel: CatalogId) => {
@@ -278,7 +287,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <Bars {...props} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions />;
+            return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions />;
           }
           case 'table': return <RawTablePanel params={{}} linked />;
           case 'donut': {
@@ -293,16 +302,18 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'boundHistory': return <BoundHistoryPanel input={endpointInput(panel)} />;
         }
       };
-      return { id, title: item.title, placement: 'below' as const, preferredHeight: 360, minWidth: 200,
+      return { id, title: item.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
         pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
         render: () => renderPanel(id as CatalogId) };
     }),
   ];
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
-    <PanelWorkspace panels={panels} presets={[stepPreset(step)]} initialPreset="step" compactBelow={0} initialMode="fit"
+    <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
+      revealRequest={reveal}
       toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={(id, pin) => {
         setAdded(current => [...new Set([...current, id])]); if (pin) pins.pin(id);
+        setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1 }));
       }} />}
       persistKey={`hw-time-s${step}-v1`} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
   </div>;

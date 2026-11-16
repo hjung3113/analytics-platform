@@ -190,8 +190,6 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   count: { ko: '건', en: 'count' },
   population: { ko: '현재 기간의 설비·Module·Motion 평균 판정 건수', en: 'Equipment–Module–Motion mean judgements in the current range' },
   paretoNote: { ko: 'Motion·Module별 상한 초과 평균 판정 건수와 누적 비율', en: 'Over-limit mean judgements by Motion/Module (equipment–Module–Motion means judged over) and cumulative share' },
-  create: { ko: 'Finding/VOC 만들기', en: 'Create Finding/VOC' },
-  linkGap: { ko: 'HW Time 분석 지점에서 Finding/VOC를 만드는 목적지·입력 계약 없음', en: 'No destination/input contract for creating a Finding/VOC from an HW Time point' },
   dailyRuns: { ko: '{module} · {motion} 일 평균', en: '{module} · {motion} daily means' },
   syntheticHistory: { ko: '합성 HTM 기준 변경 이력', en: 'Synthetic HTM bound history' },
 } as const;

@@ -21,7 +21,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('HW Time approved stepped workspace', () => {
-  it.each(['&drillModule=PM2', '&trend=PM2/Pump'])('adds and pins a distribution below with target %s', async target => {
+  it.each(['&drillModule=PM2', '&trend=PM2/Pump'])('adds and pins a distribution tab with target %s', async target => {
     await renderOverview(`&moduleType=PM&drillMotion=Pump${target}`, request => request.endpoint === 'hwTime.distribution'
       ? { ...answer(request), data: { bins: [{ start: 3, end: 4, count: 576 }], total: 576, equipment: 24, bounds: { lower: null, upper: null } } }
       : answer(request));
@@ -30,7 +30,7 @@ describe('HW Time approved stepped workspace', () => {
     await screen.findByTestId('hw-overview-distribution');
     expect(chart('hw-overview-distribution')).toMatchObject({ kind: 'histogram', bins: [{ start: 3, end: 4, count: 576 }] });
     expect(config().ids).toContain('distribution');
-    expect(config().placement.distribution).toBe('below');
+    expect(config().placement.distribution).toBeUndefined();
     expect(config().pins.distribution).toBe(true);
     expect(requests.find(request => request.endpoint === 'hwTime.distribution')?.params).toEqual({ moduleType: 'PM', drillModule: 'PM2', drillMotion: 'Pump' });
     fireEvent.click(screen.getByRole('button', { name: 'pin distribution' }));
@@ -203,10 +203,30 @@ describe('HW Time approved stepped workspace', () => {
     expect(new URLSearchParams(window.location.search).get('drillModule')).toBeNull();
     fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current EQ-001 · PM1' }));
     await screen.findByTestId('hw-overview-trend');
-    expect(config().ids).toContain('trend'); expect(config().placement.trend).toBe('below');
+    expect(config().ids).toContain('trend'); expect(config().placement.trend).toBeUndefined();
     expect(chart().activation).toBe('dblclick');
     expect(new URLSearchParams(window.location.search).get('drillModule')).toBeNull();
     expect(requests.find(request => request.endpoint === 'hwTime.runs')?.params).toMatchObject({ drillModule: 'PM1', drillMotion: 'Chuck' });
+  });
+  it.each(['double-click', 'point action'])('re-reveals the same target after returning to the main tab via %s', async activation => {
+    await renderOverview('&moduleType=PM');
+    const open = () => {
+      if (activation === 'double-click') fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current EQ-001 · PM1' }));
+      else fireEvent.click(screen.getByRole('button', { name: 'point action hw-current trend' }));
+    };
+    open();
+    await screen.findByTestId('hw-overview-trend');
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'trend' }).getAttribute('aria-selected')).toBe('true'));
+    const first = config().revealRequest;
+    const target = new URLSearchParams(window.history.state.apHidden.pairs).get('trend');
+    fireEvent.click(screen.getByRole('tab', { name: 'current' }));
+    expect(screen.getByRole('tab', { name: 'current' }).getAttribute('aria-selected')).toBe('true');
+    open();
+    await settle();
+    expect(config().revealRequest.panelId).toBe('trend');
+    expect(config().revealRequest.seq).toBeGreaterThan(first.seq);
+    expect(screen.getByRole('tab', { name: 'trend' }).getAttribute('aria-selected')).toBe('true');
+    expect(new URLSearchParams(window.history.state.apHidden.pairs).get('trend')).toBe(target);
   });
   it('offers the same drill and trend actions to keyboard point selection', async () => {
     await renderOverview('&moduleType=PM');
@@ -232,3 +252,15 @@ describe('HW Time approved stepped workspace', () => {
     expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('heading', { name: 'PM2 · Pump 회차' })).toBeTruthy();
   });
 });
+
+ it('adds pinned panels as current-group tabs without changing step-4 row shares', async () => {
+   await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=heatmap&pins=donut&pins=pareto');
+   const preset = config().preset.layout;
+   expect(preset.sizes).toEqual([60, 40]);
+   expect(preset.children[1].panels).toEqual(['trend']);
+   expect(preset.children[0].children[1].children[1].panels).toEqual(['current', 'heatmap', 'donut', 'pareto']);
+   for (const id of ['heatmap', 'donut', 'pareto']) expect(config().placement[id]).toBeUndefined();
+   const heatmap = chart('hw-overview-matrix');
+   expect(heatmap.minRowHeight).toBe(24);
+   expect(heatmap.statusDisplay).toBe('border');
+ });

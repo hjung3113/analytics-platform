@@ -17,11 +17,11 @@ afterEach(() => { cleanup(); chart.mockClear(); });
 const filter = { selectionFor: () => ({ modules: [], motions: [] }) } as unknown as HwTimeFilter;
 
 describe('captured donut regressions', () => {
-  it('keeps a minimum chart body inside the scrolling pinned row while still filling taller rows', () => {
+  it('lets the SDK fit the ring while retaining the outer scroll fallback', () => {
     render(<VerdictDonut matrices={[]} filter={filter} verdict={null} />);
     const body = screen.getByTestId('donut-chart').parentElement!;
-    // AnalysisChart has no fillMin prop: the menu supplies the floor including chart chrome.
-    expect(body.classList.contains('min-h-80')).toBe(true);
+    // The SDK owns the donut minimum; the menu must let the chart shrink.
+    expect(body.classList.contains('min-h-80')).toBe(false);
     expect(body.classList.contains('flex-1')).toBe(true);
     expect(body.parentElement!.classList.contains('overflow-auto')).toBe(true);
     expect(chart.mock.calls.at(-1)![0].size).toBe('fill');

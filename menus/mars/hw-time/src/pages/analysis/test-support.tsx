@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -12,10 +13,16 @@ import { manifests } from '../../index';
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   return { ...actual,
-    PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div data-testid="workspace" data-config={JSON.stringify({ ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
+    PanelWorkspace: function WorkspaceHarness(p: import('@ap/components').PanelWorkspaceProps) {
+      const [active, setActive] = useState('current');
+      const seq = p.revealRequest?.seq, panelId = p.revealRequest?.panelId;
+      useEffect(() => { if (panelId) setActive(panelId); }, [seq, panelId]);
+      return <div data-testid="workspace" data-config={JSON.stringify({ revealRequest: p.revealRequest, ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
+      <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
       <div data-testid="workspace-actions">{p.toolbarActions}</div>
       {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.pin && <button onClick={panel.pin.onToggle}>{`pin ${panel.id}`}</button>}{panel.render()}</section>)}
-    </div>,
+    </div>;
+    },
     AnalysisChart: (p: import('@ap/components').AnalysisChartProps) => <section aria-label={String(p.title)}>
       <pre data-testid={p.chartId}>{JSON.stringify(p.spec, (_key, value: unknown) => value instanceof Map ? [...value] : value)}</pre>
       {p.spec.kind === 'heatmap' && p.spec.cells.map(cell => <button key={`${cell.x}/${cell.y}`} onClick={() => {

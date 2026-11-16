@@ -137,6 +137,10 @@ Source · Updated · Coverage
 | topNBar | — | 막대 클릭·표 체크박스로 항목 다중 선택 | 선택 해제 | — | — | manifest `features.export` | 요약·표 행의 명시적 상세 버튼 | 표시 TopN과 같은 순서·값·선택·상세 |
 | LaneTimeline (별도 API) | Ctrl/⌘+wheel·버튼·키보드 확대, drag 이동 | 클릭·방향키/Enter 단일 선택, Escape 해제; 선택 `rangeBrush`면 `구간 선택`·drag·Shift+←/→ 시간 구간 | 시간 viewport 초기화 | — | — | — | — | 방향키/Home/End 탐색·DOM 텍스트 요약 |
 
+**히트맵 밀도 선택 옵션 (#2431):** `HeatmapSpec.minRowHeight?: number`에 양의 유한 px 값을 주면 모든 y축 라벨을 표시하고 행마다 그 높이를 확보한다. `size="fill"`은 차트 내부에서 세로 스크롤하며 다른 크기는 내용 높이로 늘어난다. 생략·비유한·0 이하 값은 기존 자동 높이·라벨 간격을 유지한다. `statusDisplay?: 'marker' | 'border'`의 기본은 `marker`이며, `border`는 셀 내부 기호만 생략하고 상태 테두리·범례·툴팁·표·CSV·선택 요약은 유지한다.
+
+**도넛 높이 맞춤 (#2431):** standard chrome의 fill 도넛은 사용 가능한 그림 높이에 맞춘다. ECharts의 백분율 반지름은 폭·높이 중 작은 변을 기준으로 한다. 중앙 라벨을 위해 그림 최소 높이는 112px, 전체 차트 최소 높이는 256px이며 이보다 낮은 패널에서는 기존 패널 스크롤 경로로 전체 고리를 확인한다. 이 최소 높이는 다른 차트 종류나 full/compact chrome을 바꾸지 않는다.
+
 선택은 URL·Global Context를 바꾸지 않는 Chart Local State다. Global Context 변경 시 선택을 지우고 spec 변경 시 사라진 키를 버린다. 기본 캔버스 클릭은 드릴하지 않는다. 히트맵은 선택 `cellActivation: { on: 'click' | 'dblclick', onActivate(x, y) }`로 셀 실행을 선언한다. 키보드는 표 체크박스로 셀 하나를 선택한 뒤 선택 요약의 `선택 지점 실행`을 Enter로 실행하며, 기존 `onCellClick` 상세 버튼은 독립적으로 유지한다. 표의 체크박스와 상세 버튼이 키보드 경로이며, 선택은 체크 상태와 요약 글로도 표시한다. 합성 항목(기타·미분류)은 소비자 ID가 없으므로 상세 버튼이 없다. 눈에 보이는 데이터 요약을 차트 section의 `aria-describedby`로 연결하며, 표와 CSV는 같은 데이터 투영을 쓴다. 히트맵의 누락 좌표는 빈 자리로, null은 미확인 표식으로, 0은 값으로 구분한다. threshold 색은 승인된 실제 판정에만 쓰고 범례에 세 판정명을 함께 적는다.
 
 `DonutSpec.selectedId?: string | null`은 주어진 조각을 선택하고 중앙에 이름·값·비율을 보이며(null·알 수 없는 ID는 선택 없음), 클릭·표 선택·초기화 뒤에는 `selectedId`나 전역 Context가 바뀔 때까지 로컬 선택을 유지하고 `onSelectedChange(id | null)`로 선택만 알리며(합성 항목·해제는 null), `onSliceClick`은 기존 상세 버튼에서만 실행한다(#2445).

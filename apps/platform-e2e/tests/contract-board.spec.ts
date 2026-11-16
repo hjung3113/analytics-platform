@@ -2097,6 +2097,7 @@ test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
   test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
     await page.goto('/mars/hw-time?v=1&scopeId=MEM&pins=table');
+    await page.getByRole('region', { name: 'HW Time 분석 영역', exact: true }).getByRole('tab', { name: '원본 표', exact: true }).click();
     const tablePanel = page.locator('[data-dock-panel="table"]');
     const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
     await expect(rows).toBeVisible();

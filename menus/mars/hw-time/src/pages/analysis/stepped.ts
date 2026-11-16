@@ -25,10 +25,12 @@ export function validTrend(raw: string): boolean {
   const [module, motion, extra] = raw.split('/');
   return extra === undefined && HW_TIME_MODULE_TYPES.some(type => (type.modules as readonly string[]).includes(module ?? '') && (type.motions as readonly string[]).includes(motion ?? ''));
 }
-export function stepPreset(step: Step): PanelWorkspacePreset {
+export function stepPreset(step: Step, extras: readonly string[] = []): PanelWorkspacePreset {
+  // Extra panels share the largest chart group; only the step-4 default trend owns another row.
+  const currentPanels = ['current', ...extras.filter(id => id !== 'current' && !(step === 4 && id === 'trend'))];
   // The left hierarchy is about 220px in the approved 1440px desktop capture. The remaining space is 34:66.
-  const charts = step === 1 ? { type: 'group' as const, panels: ['current'] }
-    : { type: 'branch' as const, dir: 'row' as const, sizes: [34, 66], children: [{ type: 'group' as const, panels: ['previous'] }, { type: 'group' as const, panels: ['current'] }] };
+  const charts = step === 1 ? { type: 'group' as const, panels: currentPanels }
+    : { type: 'branch' as const, dir: 'row' as const, sizes: [34, 66], children: [{ type: 'group' as const, panels: ['previous'] }, { type: 'group' as const, panels: currentPanels }] };
   const top = {
     type: 'branch', dir: 'row', sizes: [20, 80], children: [{ type: 'group', panels: ['tree'] }, charts],
   } satisfies PanelWorkspacePreset['layout'];

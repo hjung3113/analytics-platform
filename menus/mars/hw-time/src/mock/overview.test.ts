@@ -123,6 +123,14 @@ describe('overview run sampling', () => {
 
 describe('overview server projections', () => {
   const invoke = (endpoint: string, params: Record<string, string>) => hwTimeOverviewMock.find(e => e.spec.id === endpoint)!.handle({ equipment: EQUIPMENT.slice(0, 8), context, params, actor: 'engineer' });
+  it('provides a deterministic Module-Motion long tail beyond the first two Pareto bars', () => {
+    const data = invoke('hwTime.matrix', { moduleType: 'LK' }) as HwTimeMatrix;
+    const counts = data.modules.flatMap(module => data.motions.map(motion => data.cells.filter(cell => cell.moduleId === module && cell.motions[motion.id]?.status === 'over').length)).sort((a, b) => b - a);
+    expect(counts.filter(count => count > 0).length).toBeGreaterThanOrEqual(6);
+    expect(counts[0]).toBeGreaterThan(counts.at(-1)!);
+    expect((counts[0]! + counts[1]!) / counts.reduce((sum, count) => sum + count, 0)).toBeLessThan(0.8);
+    expect(invoke('hwTime.matrix', { moduleType: 'LK' })).toEqual(data);
+  });
   it.each(['PM', 'TR'])('%s remains Recipe-unsplit, with no Module bounds', typeId => {
     const data = invoke('hwTime.matrix', { moduleType: typeId }) as HwTimeMatrix;
     expect(data.equipment).toHaveLength(24);

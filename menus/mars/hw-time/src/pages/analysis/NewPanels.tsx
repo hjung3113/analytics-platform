@@ -14,12 +14,12 @@ export function VerdictDonut({ matrices, filter, verdict }: { matrices: readonly
   const counts = verdictCounts(matrices, filter.selectionFor);
   const total = HTM_STATUSES.reduce((sum, id) => sum + counts[id], 0);
   const summary = verdict ? `${m(verdict)} ${counts[verdict]} ${m('count')} · ${total ? (counts[verdict] / total * 100).toFixed(1) : '0.0'}%` : `${m('all')} ${total} ${m('count')}`;
-  // AnalysisChart has no fillMin: reserve room for its chrome and a readable ring, then scroll the panel body.
+  // The SDK fits the ring and owns its readable minimum; the panel scrolls only below that minimum.
   return <div className="flex h-full min-h-0 flex-col overflow-auto">
     <div className="flex shrink-0 flex-wrap items-center gap-2 px-2 py-1">
       <p className="t-caption" role="status">{summary}</p>
       {verdict && <Button size="toolbar" variant="ghost" onClick={() => setPage({ verdict: null })}>{m('verdict')}: {m(verdict)} ×</Button>}
-    </div><div className="flex min-h-80 flex-1 flex-col">
+    </div><div className="flex min-h-0 flex-1 flex-col">
     <AnalysisChart chartId="hw-verdict-donut" title={m('donut')} unit={m('count')} size="fill" description={m('population')}
     spec={{ kind: 'donut', maxSlices: HTM_STATUSES.length, centerLabel: m('all'),
       slices: HTM_STATUSES.map(id => ({ id, label: m(id), value: counts[id], color: runColor(id, 0, 'status') })),
@@ -32,7 +32,6 @@ export function ParetoPanel({ matrices, filter }: { matrices: readonly HwTimeMat
   return <div className="flex h-full min-h-0 flex-col">
     <AnalysisChart chartId="hw-pareto" title={m('pareto')} unit={m('count')} size="fill" description={m('paretoNote')}
       spec={{ kind: 'pareto', items, maxItems: Math.max(1, items.length) }} />
-    <div className="px-2 py-1"><Button disabled title={m('linkGap')}>{m('create')}</Button><p className="t-caption text-text-secondary">{m('linkGap')}</p></div>
   </div>;
 }
 export function EquipmentDaysPanel({ input, verdict, date }: { input: HwTimePanelParams; verdict: HtmStatus | null; date: string | null }) {
