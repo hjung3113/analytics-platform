@@ -7,13 +7,15 @@ const ALLOWED_KEYS: readonly string[] = [];
 
 describe('contract error copy (#304)', () => {
   it.each([
-    ['time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'time_domain_unverified', 'timeDomainUnverifiedCause', 'timeDomainUnverifiedAction'],
-    ['time_domain_mismatch: TD-A, TD-B', 'time_domain_mismatch', 'timeDomainMismatchCause', 'timeDomainMismatchAction'],
-    ['customGroup blocked: gone-9 (not-found)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction'],
-    ['customGroup expansion blocked: equipment facts could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction'],
-    ['customGroup expansion blocked: saved groups could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction'],
-  ] as const)('maps %s to cause and action', (message, code, cause, action) => {
-    expect(errorGuidance(message)).toEqual({ code, cause, action });
+    ['time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'time_domain_unverified', 'timeDomainUnverifiedCause', 'timeDomainUnverifiedAction', false],
+    ['time_domain_mismatch: TD-A, TD-B', 'time_domain_mismatch', 'timeDomainMismatchCause', 'timeDomainMismatchAction', false],
+    ['customGroup blocked: gone-9 (not-found)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction', true],
+    ['customGroup blocked: g1, g2 (endpoint cannot receive custom-group members; Selection must apply)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction', true],
+    ['customGroup blocked: g1 (Scope MEM is loading)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction', true],
+    ['customGroup expansion blocked: equipment facts could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction', false],
+    ['customGroup expansion blocked: saved groups could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction', false],
+  ] as const)('maps %s to cause and action', (message, code, cause, action, blocked) => {
+    expect(errorGuidance(message)).toEqual({ code, cause, action, blocked });
   });
 
   it.each([
@@ -21,7 +23,7 @@ describe('contract error copy (#304)', () => {
     'Upstream mart query failed',
     undefined,
   ])('maps unknown code %s to the general error', message => {
-    expect(errorGuidance(message)).toEqual({ code: null, cause: 'stateErrorCause', action: 'stateErrorAction' });
+    expect(errorGuidance(message)).toEqual({ code: null, cause: 'stateErrorCause', action: 'stateErrorAction', blocked: false });
   });
 
   it('keeps contract vocabulary out of the user-facing dictionary', () => {

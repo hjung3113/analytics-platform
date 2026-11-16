@@ -4,7 +4,7 @@ import { useSharedOutcomeNotice } from './filters/OutcomeScope';
 import { useQueryBarStatus } from './filters/QueryBarStatus';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
 import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
-import { Ban, Clock, HelpCircle, Inbox, Maximize2, RotateCw, ServerCrash } from 'lucide-react';
+import { Ban, Clock, HelpCircle, Inbox, Maximize2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
 import { useContext, useId, useState, type ReactNode } from 'react';
 import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
@@ -81,7 +81,10 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
 }) {
   const { t } = useI18n();
   const icon = 'size-4';
-  const statusLabel = response.outcome === 'error' ? t('sharedOutcomeError')
+  const guide = errorGuidance(response.message);
+  // Refused before sending by the query's own conditions (#2440): a notice to fix the conditions, not a failure to retry.
+  const blocked = response.outcome === 'error' && guide.blocked;
+  const statusLabel = blocked ? t('sharedOutcomeBlocked') : response.outcome === 'error' ? t('sharedOutcomeError')
     : response.outcome === 'timeout' ? t('sharedOutcomeTimeout')
     : response.outcome === 'forbidden' ? t('sharedOutcomeForbidden')
     : response.outcome === 'empty' ? t('sharedOutcomeEmpty')
@@ -103,7 +106,8 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
       body={t('stateTimeoutBody')} detail={detail}
       action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
     case 'error': {
-      const guide = errorGuidance(response.message);
+      if (blocked) return <OutcomeStateMessage {...widget} compact={compact} icon={<SlidersHorizontal className={icon} aria-hidden />} title={t('stateQueryBlocked')}
+        body={<>{t(guide.cause)} {t(guide.action)}</>} detail={detail} correlationId={response.correlationId} />;
       return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<ServerCrash className={icon} aria-hidden />} title={t('stateError')}
         body={<>{t(guide.cause)} {t(guide.action)}</>} detail={detail} action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
     }

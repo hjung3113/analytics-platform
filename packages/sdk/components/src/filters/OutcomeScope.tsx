@@ -1,5 +1,5 @@
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash } from 'lucide-react';
+import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
 import { errorGuidance, useI18n, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -145,18 +145,19 @@ function OutcomeBanner({ group, multiple, onRetry, compact = false }: { group: G
     };
   }, [detailsId]);
   const outcome = group.widgets[0].response!.outcome;
-  const danger = outcome === 'error' || outcome === 'timeout';
-  const warning = outcome === 'forbidden';
-  const title = warning ? t('stateForbidden') : outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
-  const label = warning ? t('sharedOutcomeForbidden') : outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
-  const Icon = warning ? Ban : outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
-  const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
-  const names = multiple ? memberNames(group.widgets) : [];
   const response = group.widgets[0].response!;
   const guide = errorGuidance(response.message);
+  const blocked = outcomeIsBlocked(response);
+  const danger = outcomeIsDanger(response);
+  const warning = outcome === 'forbidden';
+  const title = warning ? t('stateForbidden') : blocked ? t('stateQueryBlocked') : outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
+  const label = warning ? t('sharedOutcomeForbidden') : blocked ? t('sharedOutcomeBlocked') : outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
+  const Icon = warning ? Ban : blocked ? SlidersHorizontal : outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
+  const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
+  const names = multiple ? memberNames(group.widgets) : [];
   const body = warning ? t('stateForbiddenBody') : outcome === 'timeout' ? t('stateTimeoutBody')
     : outcome === 'error' ? <>{t(guide.cause)} {t(guide.action)}</> : emptyOutcomeText(emptyCauses(response), t).body;
-  const retry = warning ? null : <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
+  const retry = warning || blocked ? null : <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
     {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
   </Button>;
   if (compact) {
@@ -215,6 +216,11 @@ export function ForbiddenRequestMessage({ body, action }: { body: ReactNode; act
   </div>;
 }
 
+// Refused before sending by the query's own conditions (#2440): a neutral notice on the polite channel, without a retry.
+const outcomeIsBlocked = (response: ApiResponse<unknown>) => response.outcome === 'error' && errorGuidance(response.message).blocked;
+/** One classifier for the banner tone and its live channel: server errors and timeouts are danger, a pre-send block is not. */
+const outcomeIsDanger = (response: ApiResponse<unknown>) => (response.outcome === 'error' && !outcomeIsBlocked(response)) || response.outcome === 'timeout';
+
 /** `forbidden`: the page's request banner, drawn once above the groups while at least one widget of the body answers `forbidden`. */
 export function OutcomeBanners({ compact = false, forbidden }: { compact?: boolean; forbidden?: ReactNode } = {}) {
   const store = useContext(OutcomeContext);
@@ -222,7 +228,7 @@ export function OutcomeBanners({ compact = false, forbidden }: { compact?: boole
   const anyForbidden = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getForbidden ?? noForbidden, noForbidden);
   const { t } = useI18n();
   const multiple = groups.length > 1;
-  const announcement = (danger: boolean) => groups.filter(group => ['error', 'timeout'].includes(group.widgets[0].response!.outcome) === danger).map(group => {
+  const announcement = (danger: boolean) => groups.filter(group => outcomeIsDanger(group.widgets[0].response!) === danger).map(group => {
     return <span key={group.key} className="block">{t('sharedOutcomeSummary', { count: group.widgets.length })}{group.busy ? ` ${t('refreshing')}` : ''}</span>;
   });
   // Empty from the first commit; visible banners/groups are never additional live channels.

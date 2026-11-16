@@ -651,3 +651,40 @@ describe('multi-group banner linkage (#1994 C1)', () => {
     expect(dialog).not.toHaveTextContent('Timeout C');
   });
 });
+
+describe('a query the Kernel refused before sending (#2440)', () => {
+  const blocked = () => response('error', 'customGroup blocked: gone-9 (not-found)');
+  it('groups into a neutral notice with the cause, never a server-error banner or a retry', () => {
+    render(<Page><Widget q={query(blocked())} /><Widget q={query(blocked())} name="Widget B" /></Page>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(banner).not.toHaveTextContent('서버 오류');
+    expect(banner).not.toHaveClass('bg-accent-danger-soft');
+    expect(banner).toHaveTextContent('고른 커스텀 그룹을 쓸 수 없어 조회하지 않았습니다.');
+    expect(within(banner).queryByRole('button', { name: '다시 시도' })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+  });
+  it('shows one widget as a notice without a retry, keeping the code in the technical detail', () => {
+    const state = render(<Page><Widget q={query(blocked())} /></Page>).container;
+    expect(state).not.toHaveTextContent('데이터를 불러오지 못했습니다');
+    expect(state).toHaveTextContent('고른 커스텀 그룹을 쓸 수 없어 조회하지 않았습니다.');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    expect(openDetail(state)).toHaveTextContent('gone-9 (not-found)');
+  });
+  it('announces a grouped block on the polite channel, and a real error beside it on the assertive one', () => {
+    const view = render(<Page><Widget q={query(blocked())} /><Widget q={query(blocked())} name="Widget B" /></Page>);
+    const channel = (kind: string) => view.container.querySelector(`[data-outcome-announcer="${kind}"]`);
+    expect(channel('polite')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    expect(channel('assertive')).toHaveTextContent('');
+    view.rerender(<Page><Widget q={query(blocked())} /><Widget q={query(blocked())} name="Widget B" />
+      <Widget q={query(response('error', 'boom'))} name="Widget C" /><Widget q={query(response('error', 'boom'))} name="Widget D" /></Page>);
+    expect(channel('polite')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    expect(channel('assertive')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+  });
+  it('keeps a failed group expansion an error with a retry: loading again can help', () => {
+    render(<Page><Widget q={query(response('error', 'customGroup expansion blocked: equipment facts could not load (offline)'))} /></Page>);
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+  });
+});

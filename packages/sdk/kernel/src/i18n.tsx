@@ -122,6 +122,7 @@ const dict = {
   sharedOutcomeNotice: { ko: '위 안내 참고', en: 'See the notice above' },
   sharedOutcomeNoticeFor: { ko: '위 안내 참고({status})', en: 'See the notice above ({status})' },
   sharedOutcomeError: { ko: '서버 오류', en: 'server error' },
+  sharedOutcomeBlocked: { ko: '조회 안 함', en: 'not queried' },
   sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
   sharedOutcomeForbidden: { ko: '권한 없음', en: 'no access' },
@@ -158,6 +159,7 @@ const dict = {
   stateTimeout: { ko: '조회 시간이 초과되었습니다', en: 'Query timed out' },
   chartUnavailable: { ko: '이 환경에서는 차트를 그릴 수 없습니다', en: 'Charts cannot be drawn in this environment' },
   stateError: { ko: '데이터를 불러오지 못했습니다', en: 'Unable to load data' },
+  stateQueryBlocked: { ko: '조회 조건 때문에 조회하지 않았습니다', en: 'Not queried because of the query conditions' },
   stateErrorCause: { ko: '서버가 데이터를 보내지 못했습니다.', en: 'The server could not return the data.' },
   stateErrorAction: { ko: '다시 시도하세요. 문제가 계속되면 관리자에게 아래 추적 번호를 전달하세요.', en: 'Retry. If the problem persists, share the Trace ID below with your system administrator.' },
   timeDomainUnverifiedCause: { ko: '시간 기준이 확인되지 않아 함께 집계할 수 없습니다.', en: 'The time reference is unconfirmed, so these cannot be aggregated together.' },
@@ -330,23 +332,26 @@ export function useMessages<K extends string>(messages: Readonly<Record<K, Text>
 }
 
 const ERROR_GUIDANCE = {
-  time_domain_unverified: { cause: 'timeDomainUnverifiedCause', action: 'timeDomainUnverifiedAction' },
-  time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction' },
+  time_domain_unverified: { cause: 'timeDomainUnverifiedCause', action: 'timeDomainUnverifiedAction', blocked: false },
+  time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction', blocked: false },
   // The Kernel's own pre-send block (ADR-0164 decision 8): the ID and code stay in the technical detail.
-  'customGroup blocked': { cause: 'customGroupBlockedCause', action: 'customGroupBlockedAction' },
-  'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction' },
-} as const satisfies Record<string, { cause: Key; action: Key }>;
+  // `blocked`: the query was refused by its own conditions, so the screen says so as a notice and offers no retry (#2440).
+  // A failed expansion is a load that may succeed again, so it stays an error with a retry.
+  'customGroup blocked': { cause: 'customGroupBlockedCause', action: 'customGroupBlockedAction', blocked: true },
+  'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction', blocked: false },
+} as const satisfies Record<string, { cause: Key; action: Key; blocked: boolean }>;
 
-export type ErrorGuidance = { code: string | null; cause: Key; action: Key };
+/** `blocked`: refused before sending by the query's own conditions — a notice the user fixes in the conditions, not a failure to retry. */
+export type ErrorGuidance = { code: string | null; cause: Key; action: Key; blocked: boolean };
 
 /** Classify a server `message` by the prefix before the first colon. Unmapped text uses the general error copy. */
 export function errorGuidance(message: string | undefined): ErrorGuidance {
   const code = message?.split(':', 1)[0]?.trim() ?? '';
   if (code && Object.prototype.hasOwnProperty.call(ERROR_GUIDANCE, code)) {
     const guide = ERROR_GUIDANCE[code as keyof typeof ERROR_GUIDANCE];
-    return { code, cause: guide.cause, action: guide.action };
+    return { code, cause: guide.cause, action: guide.action, blocked: guide.blocked };
   }
-  return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction' };
+  return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction', blocked: false };
 }
 
 export function userFacingEntries(): readonly { key: string; ko: string; en: string }[] {
