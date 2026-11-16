@@ -96,6 +96,8 @@ const common = ['scopeId', 'time', 'roomNames', 'condition', 'selection'] as con
 const checks = [{ key: 'module' }, { key: 'motion' }] as const;
 const verdictDisplay = [...checks, { key: 'verdict' }] as const;
 const runInputs = { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }, { key: 'trend' }] } as const;
+/** Run panels that read the same linked population as the scatter: drill plus verdict/date. */
+const linkedRunInputs = { ...runInputs, page: [...runInputs.page, { key: 'verdict' }, { key: 'date' }] } as const;
 const pointAvailability = { requires: [{ anyOf: ['drillModule', 'trend'] }], disabledReason: S.needsPoint } as const;
 
 /** Plain data for #2432 and the future Registry. Checked Module/Motion lists
@@ -108,9 +110,9 @@ export const panelDeclarations = {
     availability: { requires: [{ anyOf: ['moduleType'] }], disabledReason: S.needsType } },
   trend: { id: 'trend', title: S.trend, queryInputs: runInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
     grain: 'dailyStat', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
-  scatter: { id: 'scatter', title: S.scatter, queryInputs: { ...runInputs, page: [...runInputs.page, { key: 'verdict' }, { key: 'date' }] }, displayInputs: { page: checks }, outputs: [],
+  scatter: { id: 'scatter', title: S.scatter, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
-  distribution: { id: 'distribution', title: S.distribution, queryInputs: runInputs, displayInputs: { page: checks }, outputs: [],
+  distribution: { id: 'distribution', title: S.distribution, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.distribution.id], availability: pointAvailability },
   motionTable: { id: 'motionTable', title: S.motionTable,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule', required: true }] }, displayInputs: { page: [{ key: 'motion' }] },

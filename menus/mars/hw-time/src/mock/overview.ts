@@ -3,7 +3,7 @@ import { formatDateTime, parseDateTime, type GlobalContext } from '@ap/contracts
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
   HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, hwTimeOverview, verdictCodec, validPanelDate,
-  type HwTimeDistribution, type HwTimeDistributionParams, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
+  type HwTimeDistribution, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
 } from '../endpoints';
 import { htmBounds, judge, rollUp } from './htm';
 import { syntheticEquipmentIds, syntheticUpperTail } from './syntheticEquipment';
@@ -159,7 +159,7 @@ export function overviewRuns(ids: readonly string[], params: HwTimeRunParams, co
     bounds: ids.map(equipmentId => ({ equipmentId, moduleId: params.drillModule, motion: params.drillMotion, lower: bounds?.lower ?? null, upper: bounds?.upper ?? null })) };
 }
 
-function distribution(ids: readonly string[], params: HwTimeDistributionParams, context: GlobalContext): HwTimeDistribution {
+function distribution(ids: readonly string[], params: HwTimeRunParams, context: GlobalContext): HwTimeDistribution {
   const full = overviewRuns(ids, params, context, { sample: false });
   // Same Motion criteria as motionStats/judge; synthetic bounds do not vary by equipment.
   const criteria = htmBounds(params.moduleType, params.drillMotion);
@@ -195,7 +195,7 @@ export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.points.length === 0,
   }),
   defineMockEndpoint(hwTimeOverview.distribution, {
-    validate: ({ params }) => validate(params, 'motion'),
+    validate: ({ params, context }) => validate(params, 'motion', context),
     handle: ({ params, context, equipment }) => distribution(syntheticEquipmentIds(equipment), params, context),
     isEmpty: data => data.total === 0,
   }),

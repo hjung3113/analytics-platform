@@ -97,11 +97,12 @@ describe('panel declarations', () => {
       expect(disabledReason(panelDeclarations.scatter, state)).toBeUndefined();
     }
   });
-  it('declares distribution with the drill run inputs (no verdict/date link), display-only checks and run grain', () => {
+  it('declares distribution with the scatter run inputs (verdict/date links), display-only checks and run grain', () => {
     const declaration = panelDeclarations.distribution;
     expect(declaration).toMatchObject({ id: 'distribution', title: { ko: '분포', en: 'Distribution' }, grain: 'run', outputs: [], endpoints: ['hwTime.distribution'] });
-    expect(declaration.queryInputs).toEqual(panelDeclarations.trend.queryInputs);
-    expect(declaration.queryInputs.page.map(input => input.key)).not.toContain('date');
+    expect(declaration.queryInputs).toEqual(panelDeclarations.scatter.queryInputs);
+    expect(declaration.queryInputs.page.map(input => input.key)).toEqual(expect.arrayContaining(['verdict', 'date']));
+    expect(panelQueryIdentity(declaration, { ...context, verdict: 'over' })).not.toBe(panelQueryIdentity(declaration, context));
     expect(declaration.displayInputs).toEqual(panelDeclarations.scatter.displayInputs);
     expect(disabledReason(declaration, {})).toEqual(S.needsPoint);
     expect(disabledReason(declaration, { trend: 'PM2/Pump' })).toBeUndefined();

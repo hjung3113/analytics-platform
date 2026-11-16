@@ -732,7 +732,9 @@
     "paramKeys": [
       "moduleType",
       "drillModule",
-      "drillMotion"
+      "drillMotion",
+      "verdict",
+      "date"
     ],
     "permission": "analytics:view",
     "requiresScope": true,

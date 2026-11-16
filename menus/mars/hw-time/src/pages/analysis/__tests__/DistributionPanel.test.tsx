@@ -37,6 +37,10 @@ describe('distribution panel', () => {
     expect(chart.spec.statuses).toEqual([{ tone: 'warning', label: '하한 미달' }, null, null, { tone: 'danger', label: '상한 초과' }, null]);
     expect(query.read.mock.calls[0]![1]).toEqual({ moduleType: 'PM', drillModule: 'PM2', drillMotion: 'Pump' });
   });
+  it('passes the linked verdict and date to the query', () => {
+    render(<I18nProvider><DistributionPanel input={{ ...input, verdict: 'over', date: '2026-09-20' }} filter={filter()} /></I18nProvider>);
+    expect(query.read.mock.calls[0]![1]).toEqual({ moduleType: 'PM', drillModule: 'PM2', drillMotion: 'Pump', verdict: 'over', date: '2026-09-20' });
+  });
   it.each([[[], ['Pump']], [['PM2'], []]])('hides a target unchecked in %j / %j', (modules, motions) => {
     const { container } = render(<I18nProvider><DistributionPanel input={input} filter={filter(modules, motions)} /></I18nProvider>);
     expect(container.querySelector('[hidden]')).toBeTruthy();
