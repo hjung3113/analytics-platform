@@ -398,6 +398,7 @@
 | 상태 | 대상 | 미구현 이유 | 다시 열 조건 |
 | --- | --- | --- | --- |
 | 미구현 | `@radix-ui/react-dropdown-menu` 2.2.x | 2.2.1에서 접힌 Scope 선택기의 트리거 `aria-describedby`가 사라져 `ScopeSelector.test.tsx`(#194)가 깨짐 | 트리거 접근성 설명을 새 동작에 맞게 고친 PR |
+| 미구현 | `@radix-ui/react-popover` 1.3.x·`@radix-ui/react-dialog` 1.3.x | 저장된 뷰 E2E(`contract-saved-view`)가 저장 대화상자·뷰 선택 팝오버에서 멈춤 | 대화상자·팝오버 동작 변화를 확인하고 E2E를 맞춘 PR |
 | 미구현 | `@radix-ui/react-tabs` 1.2.x | 탭 `onValueChange`가 한 번 더 호출되어 screens 시험 6건(`InboxRoute`·`EvidenceScreen.seam`·`permission-screens.host`)이 깨짐 | 탭 선택 처리를 새 호출 횟수에 맞춘 PR |
 | 미구현 | `drizzle-orm` 0.45·`drizzle-kit` 0.31·`pg-boss` 12.38 | 백엔드 통합 시험 실패(쿼리 컬럼 해석 `42703`, pg-boss 마이그레이션 요구) | 기능 서버 담당이 쿼리·마이그레이션 영향을 확인한 PR |
 | 미구현 | `@tanstack/react-query` 5.107 | 고정된 `feature/screens`가 5.62.7을 쓰고, 한쪽만 올리면 타입이 갈라지며(`bridge`) 올리면 screens 시험 17건과 저장된 뷰 E2E가 깨짐 | screens·kernel·bridge를 함께 올리고 시험을 고친 PR |
