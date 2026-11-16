@@ -151,7 +151,8 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2대' }));
   expect(draft.draft.global.condition).toBeNull();
   expect(draft.draft.global.selection).toBeNull();
-  expect(draft.draft.global.roomNames).toBeNull();
+  // The menu requires the room: applying "all" writes every authorized room instead of clearing the required key.
+  expect(draft.draft.global.roomNames).toEqual(['ETCH', 'PHOTO']);
   act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P1'] }));
   expect(draft.canApply).toBe(true);
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();

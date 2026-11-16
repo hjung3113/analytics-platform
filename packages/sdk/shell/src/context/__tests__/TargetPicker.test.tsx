@@ -88,3 +88,21 @@ it('shows an absent facts port as an error with its reason and retry, never as e
   expect(screen.queryByRole('table')).toBeNull();
   expect(screen.getByRole('button', { name: '다시 시도' })).toBeEnabled();
 });
+
+it('writes a required room as its authorized values when the dialog applies "all" (one granted room)', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=FDRY');
+  const requiredRegistry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('test'), space: spaceId('mars'), label: { ko: '검사', en: 'Test' }, icon: House }], menus: [{ id: 'home', group: groupId('test'), path: '/', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: true, context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply', required: { context: ['roomNames'] } }, pageType: 'overview', pageKeys: [], features: { export: false, savedView: false, annotate: false, compare: false } }] });
+  const apply = vi.fn();
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={requiredRegistry} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => ({ version: '1', items: [{ equipmentId: 'E1', room: 'PHOTO', axes: {} }, { equipmentId: 'E2', room: 'PHOTO', axes: {} }] }) })}>
+    <TargetPicker global={{ ...baseGlobal, scopeId: 'FDRY' }} cap={{ ...noContext, roomNames: 'apply' }} onChange={apply} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  const dialog = screen.getByRole('dialog', { name: '대상' });
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: /조건 적용 · 2대/ })).toBeEnabled());
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 2대' }));
+  expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'] });
+});

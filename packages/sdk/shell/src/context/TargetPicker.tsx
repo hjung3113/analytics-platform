@@ -30,7 +30,7 @@ export function TargetPicker(props: Props) {
 }
 
 function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, children }: Props) {
-  const { adapter } = useHostPlatform();
+  const { adapter, route } = useHostPlatform();
   const { t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
@@ -69,11 +69,21 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
     onChange({ roomNames: null, lineNames: null, prcGroups: null, condition: null, selection: null, membershipBasis: null });
     opener.current?.focus();
   };
+  // All selected means "no condition" (ADR-0164), but a key the menu requires cannot be absent:
+  // there it is written as every authorized value of that facet, so applying "all rooms" keeps the query runnable.
+  const required = route?.menu.query?.required?.context ?? [];
+  const picked = (value: FacetedSetValue, facetId: string, key: ContextKey) => {
+    const values = value.rule[facetId];
+    if (values?.length) return [...values];
+    if (!required.includes(key)) return null;
+    const universe = [...new Set(items.flatMap(item => { const raw = item.facets[facetId]; return typeof raw === 'string' ? [raw] : raw ?? []; }))].sort();
+    return universe.length ? universe : null;
+  };
   const apply = (value: FacetedSetValue) => {
     const patch: Partial<GlobalContext> = {};
-    if (cap.roomNames === 'apply') patch.roomNames = value.rule.roomNames?.length ? [...value.rule.roomNames] : null;
-    if (cap.line === 'apply') patch.lineNames = value.rule.lineNames?.length ? [...value.rule.lineNames] : null;
-    if (cap.prcGroup === 'apply') patch.prcGroups = value.rule.prcGroups?.length ? [...value.rule.prcGroups] : null;
+    if (cap.roomNames === 'apply') patch.roomNames = picked(value, 'roomNames', 'roomNames');
+    if (cap.line === 'apply') patch.lineNames = picked(value, 'lineNames', 'line');
+    if (cap.prcGroup === 'apply') patch.prcGroups = picked(value, 'prcGroups', 'prcGroup');
     if (cap.condition === 'apply') {
       // Preset-excluded axes remain carried, just like unsupported Context fields.
       const condition = { ...g.condition };
