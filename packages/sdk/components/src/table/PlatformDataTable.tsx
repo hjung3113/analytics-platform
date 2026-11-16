@@ -226,7 +226,9 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
      * Opt-in (#2380): keep this table's answered pages in the Kernel query engine under this key (unique in the app: start it with the menu id).
      * A page kept for the same request (Context, filters, page, page size, sort, group, `refreshOn` epoch) shows at once with no request and no
      * loading state, so a table remounted by a tab switch comes back as it was. Pages leave after five minutes or with the session; a write
-     * the table cannot see (no `refreshOn` endpoint) needs a new key, e.g. one carrying the screen's own write count.
+     * the table cannot see (no `refreshOn` endpoint) needs a new key, e.g. one carrying the screen's own write count; a changed key reads
+     * again at once, keeping the current rows while it loads. Pages outlive the screen, so a count that restarts when the screen mounts
+     * again needs a per-mount part in the key too, or a reopened screen gets the pages it read before its last write.
      */
     cacheKey?: string;
     rows?: never; rowsLoading?: never;

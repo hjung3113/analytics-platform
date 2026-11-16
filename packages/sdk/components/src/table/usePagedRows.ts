@@ -51,22 +51,29 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity, hasUrlState, viewport]);
-  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion]);
+  const { cacheKey } = input;
+  // `cacheKey` is part of the request: a new key after a write the table cannot see reads again, keeping the same Context's rows while it loads (#2380).
+  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion, cacheKey ?? null]);
   const loadRef = useRef(input.loadPage);
   loadRef.current = input.loadPage;
   const kept = useKeptAnswers();
-  const { cacheKey } = input;
-  // The kept answer's key: the table's key, the request identity and the page size (the identity omits it; a page of another size is another answer).
-  const keptKey = (identity: string) => ['table', cacheKey, identity, pageSize];
+  // The kept answer's key: the request identity (which holds `cacheKey`) and the page size (the identity omits it; a page of another size is another answer).
+  const keptKey = (identity: string) => ['table', identity, pageSize];
   type Kept = ApiResponse<GroupedPageResult<T>>;
   // A page the engine already keeps for this exact request is the result at once: no request, no loading state (#2380).
   const cached = cacheKey !== undefined && result?.identity !== requestIdentity ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
-  // Memoized: the clamp effect below compares result objects.
-  const current = useMemo(() => (cached ? { identity: requestIdentity, response: cached } : result), [cached, requestIdentity, result]);
+  // One wrapper per kept answer, shown now and stored by the effect below: the clamp effect compares result objects, so a second wrapper would clamp twice.
+  const cachedResult = useMemo(() => (cached ? { identity: requestIdentity, response: cached } : null), [cached, requestIdentity]);
+  const cachedRef = useRef(cachedResult);
+  cachedRef.current = cachedResult;
+  const current = cachedResult ?? result;
   useEffect(() => {
-    const hit = cacheKey !== undefined ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
     // A kept page also becomes the settled result, so the next uncached request keeps showing it while it loads.
-    if (hit) { setResult({ identity: requestIdentity, response: hit }); return; }
+    // The render's wrapper when it has one; otherwise (the settled result already had this identity) keep that result as it is.
+    const shown = cachedRef.current?.identity === requestIdentity ? cachedRef.current : null;
+    if (shown) { setResult(shown); return; }
+    const hit = cacheKey !== undefined ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
+    if (hit) { setResult(previous => (previous?.identity === requestIdentity ? previous : { identity: requestIdentity, response: hit })); return; }
     const controller = new AbortController();
     loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting, ...(columnFilters.length > 0 ? { filters: columnFilters } : {}), ...(groupBy ? { groupBy } : {}) }, controller.signal)
       .then(response => {

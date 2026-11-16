@@ -23,8 +23,8 @@ afterEach(() => { cleanup(); restore?.(); });
 
 type Tab = 'a' | 'b';
 const ok = (tab: string, n: number, total = 1) => ({ outcome: 'ok' as const, data: { rows: [{ id: `${tab}${n}` }], total }, assessments: [], trust: null, correlationId: 'c' });
-type Opts = { cached?: boolean; total?: number; sizes?: Partial<Record<Tab, number>>; sharedKey?: boolean };
-function setup({ cached = true, total = 1, sizes = {}, sharedKey = false }: Opts = {}) {
+type Opts = { cached?: boolean; total?: number; sizes?: Partial<Record<Tab, number>>; sharedKey?: boolean; keyOnly?: boolean };
+function setup({ cached = true, total = 1, sizes = {}, sharedKey = false, keyOnly = false }: Opts = {}) {
   const loads: { tab: Tab; query: TableQuery }[] = [];
   const pending: (() => void)[] = [];
   let calls = 0;
@@ -35,7 +35,7 @@ function setup({ cached = true, total = 1, sizes = {}, sharedKey = false }: Opts
     const [version, setVersion] = useState(0);
     control.tab = setTab; control.version = setVersion;
     // Remounted per tab, like a tabbed screen whose tab owns its table.
-    return <PlatformDataTable<Row> key={`${tab}:${version}`} title={`T ${tab}`} ariaLabel={`table ${tab}`} columns={columns} getRowId={r => r.id} loadPage={loader(tab)}
+    return <PlatformDataTable<Row> key={keyOnly ? tab : `${tab}:${version}`} title={`T ${tab}`} ariaLabel={`table ${tab}`} columns={columns} getRowId={r => r.id} loadPage={loader(tab)}
       preferenceKey={`cache-${tab}`} pageSize={sizes[tab] ?? 10} height={200} {...(cached ? { cacheKey: sharedKey ? 'test:shared' : `test:${tab}:${version}` } : {})} />;
   }
   render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Screen /></PlatformProvider></I18nProvider>);
@@ -79,6 +79,26 @@ describe('PlatformDataTable cacheKey (#2380)', () => {
     expect(screen.getByText('a2')).toBeTruthy();
     expect(t.loads.map(l => l.tab)).toEqual(['a', 'a']);
   });
+  it('a new key on the same mounted table reads again and keeps the rows while it loads', async () => {
+    const t = setup({ keyOnly: true });
+    await t.answer();
+    t.bump();
+    expect(table('a')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('a1')).toBeTruthy();
+    await t.answer();
+    expect(table('a')).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByText('a2')).toBeTruthy();
+    expect(t.loads.map(l => l.tab)).toEqual(['a', 'a']);
+  });
+  it('a new key drops the read started under the old key', async () => {
+    const t = setup({ keyOnly: true });
+    t.bump();
+    await t.answer(); // the first read, started before the write: discarded
+    expect(table('a')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByText('a1')).toBeNull();
+    await t.answer();
+    expect(screen.getByText('a2')).toBeTruthy();
+  });
   it('a page of another size is another answer', async () => {
     // Same key and request identity, other page size: the 10-row answer must not stand for a 25-row page.
     const t = setup({ sizes: { a: 10, b: 25 }, sharedKey: true });
@@ -98,6 +118,27 @@ describe('PlatformDataTable cacheKey (#2380)', () => {
     expect(screen.getByText('a1')).toBeTruthy();
     await t.answer();
     expect(screen.getByText('a3')).toBeTruthy();
+  });
+  it('a kept page past the end clamps once per mount', async () => {
+    // 54 rows of 20 is 3 pages; the consumer ignores the clamp to page 9, so each response is notified exactly once.
+    const onChange = vi.fn();
+    const loadPage = vi.fn(async () => ok('p', 1, 54));
+    const control: { show: (v: boolean) => void } = { show: () => {} };
+    function Screen() {
+      const [show, setShow] = useState(true);
+      control.show = setShow;
+      return show ? <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} preferenceKey="clamp-kept" pageSize={20} height={200}
+        loadPage={loadPage} cacheKey="clamp" urlState={{ page: 9, sorting: [], onChange }} /> : null;
+    }
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Screen /></PlatformProvider></I18nProvider>);
+    await act(async () => {});
+    expect(onChange).toHaveBeenCalledTimes(1);
+    act(() => { control.show(false); });
+    act(() => { control.show(true); });
+    await act(async () => {});
+    expect(loadPage).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith({ sorting: [], page: 3 }, 'clamp');
   });
   it('a failed read is not kept', async () => {
     const loads: number[] = [];
