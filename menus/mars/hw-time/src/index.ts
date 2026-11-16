@@ -6,6 +6,9 @@ import type { MenuEntry } from '@ap/kernel';
 import { HW_TIME_CONTEXT } from './endpoints';
 import { HW_TIME_FILTER_HIDDEN_KEYS, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_REPEATED_KEYS } from './shared/useHwTimeFilter';
 
+// S0: data only; panel implementations retain their lazy route boundary.
+export { panelDeclarations } from './pages/analysis/panelDeclaration';
+
 const OPTION_KEYS = ['barsSort', 'barsGroup', 'barsMinMax', 'align', 'trend', 'pins'];
 const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
 const DRILL = { levels: [
