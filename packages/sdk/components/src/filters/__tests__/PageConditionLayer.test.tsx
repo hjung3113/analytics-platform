@@ -109,11 +109,13 @@ describe('Page condition layer (#2339)', () => {
     fireEvent.click(trigger());
     fireEvent.click(screen.getByRole('button', { name: 'outside' }));
     fireEvent.change(within(dialog()).getByRole('searchbox', { name: '검색' }), { target: { value: 'find' } });
+    fireEvent.blur(within(dialog()).getByRole('searchbox', { name: '검색' }));
     fireEvent.click(within(dialog()).getByRole('button', { name: '적용' }));
     expect(push).toHaveBeenCalledTimes(1);
     expect(host.pageParam('q')).toBe('find');
     expect(host.global.roomNames).toEqual(['PHOTO']);
     fireEvent.change(within(dialog()).getByRole('searchbox', { name: '검색' }), { target: { value: 'discard' } });
+    fireEvent.blur(within(dialog()).getByRole('searchbox', { name: '검색' }));
     fireEvent.click(within(dialog()).getByRole('button', { name: '되돌리기' }));
     await waitFor(() => expect(within(dialog()).getByRole('searchbox')).toHaveValue('find'));
   });
