@@ -16,6 +16,8 @@ import { shapeRunTrend } from './runTrendData';
 const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: { axis: 'equipment-module', color: 'equipment', value: 'motion' } } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
 /** Lowest plot height before the panel body scrolls (px). */
 const RUN_FILL_MIN = 200;
+/** Short lower plot; Frame owns chart geometry and chrome. */
+const VERDICT_HEIGHT = 160;
 function Setting<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (next: T) => void }) {
   return <label className="flex items-center gap-2 text-sm"><span className="whitespace-nowrap">{label}</span>
     <Select value={value} onValueChange={next => { const option = options.find(option => option.id === next); if (option) onChange(option.id); }}>
@@ -92,7 +94,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
       </div>
       <FilterLine {...filterLine} />
       {!projected.sampled.validation.ok && <p role="alert">{m('invalidPanelFilters')}</p>}
-      <p className="t-caption text-text-secondary">{m('runReady', { points: String(projected.scatter.points.length), daily: String(projected.trend.series.reduce((count, series) => count + series.points.length, 0)) })}</p>
+      <p className="t-caption text-text-secondary">{m('runReady', { points: String(projected.scatter.points.length), daily: String(projected.daily.rows.length) })}</p>
       {settings.value === 'module' && <p className="t-caption text-text-secondary">{m('moduleStatusNote')}</p>}
       {kind === 'scatter' && <>
         <p className="t-caption text-text-secondary">{m('sample', { shown: String(data.shown), total: String(data.total) })}</p>
@@ -105,10 +107,13 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
     {kind === 'scatter' && <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} description={contextNote} chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
       </div>}
-      {kind === 'trend' && <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChartFrame legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="time"
+      {kind === 'trend' && (projected.trend.categories.length < 2 ? <p className="t-caption px-2 text-text-secondary">{m('trendNeedsDays')}</p> : <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+        <div className="flex min-h-52 flex-1 flex-col"><AnalysisChartFrame legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="category"
           unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN} emphasisFocus="none"
-          canApplyRange={false} pointStatus={trendStatusOf} bounds={projected.trend.bounds} boundLabels={projected.trend.boundLabels} /></div>
-      </div>}
+          canApplyRange={false} pointStatus={trendStatusOf} bounds={projected.trend.bounds.size ? projected.trend.bounds : undefined} boundLabels={projected.trend.boundLabels} /></div>
+        <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
+          series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
+          legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>
+      </div>)}
   </section>;
 }

@@ -75,7 +75,11 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
 
   test('add list gives disabled reasons, and tree checks persist without new reads', async ({ page }) => {
     await page.goto(`${SCREEN}&moduleType=PM&drillMotion=Chuck&drillModule=PM1`);
-    await expect(panel(page, 'trend').getByRole('img')).toBeVisible();
+    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+    await expect(panel(page, 'trend').getByRole('img', { name: /^일별 HTM 판정 건수:/ })).toBeVisible();
+    await expect(panel(page, 'trend')).not.toContainText('HTM 하한: · HTM 상한:');
+    // The verdict bars must not squeeze the trend plot to nothing in a short below-row (#2426 capture).
+    expect((await panel(page, 'trend').getByRole('img', { name: /^추세:/ }).boundingBox())?.height ?? 0).toBeGreaterThan(100);
     await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0);
     const requests = () => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query').length);
     const before = await requests();

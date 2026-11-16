@@ -88,3 +88,14 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
     expect(within(await table()).getAllByRole('columnheader').filter(c => c.textContent === 'High limit')).toHaveLength(1);
   });
 });
+
+it('renders no current-bounds line for a selected day with neither bound (#2426)', async () => {
+  mount({ bounds: new Map([['A', { lower: 1 }], ['B', {}]]) });
+  await screen.findByRole('img');
+  const picker = screen.getByRole('combobox', { name: '차트 지점 선택' });
+  const options = within(picker).getAllByRole('option');
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('하한: 1');
+  expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent('상한:');
+  fireEvent.change(picker, { target: { value: (options[1] as HTMLOptionElement).value } });
+  expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent('현재 기간 기준');
+});
