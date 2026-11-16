@@ -4,9 +4,10 @@ import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { buildQuery, defineEndpoint, groupId, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
-import { PlatformProvider } from '../../platform/platform';
+import { PlatformProvider, useHostPlatform, useQueryEngine } from '../../platform/platform';
 import { useEquipmentFacts } from '../../scope/selection-ports';
-import { useMenuQuery, type QueryState } from '../query';
+import { menuRequest, useMenuQuery, type QueryState } from '../query';
+import * as groupExpansion from '../../saved-view/expand-custom-groups';
 import { createRegistry } from '../../registry/registry';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
 
@@ -140,4 +141,51 @@ it('leaves requests without customGroup unchanged and does not read groups or fa
   expect(menuQuery.mock.calls[0]?.[0].context.condition).not.toHaveProperty('customGroup');
   expect(list).not.toHaveBeenCalled();
   expect(listEquipmentFacts).not.toHaveBeenCalled();
+});
+
+it.each([undefined, 'reference'] as const)('blocks custom groups when endpoint Selection is %s', async selection => {
+  window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
+  const savedViews = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', name: 'Photo', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+  const menuQuery = menuQuerySpy();
+  const unsupported = defineEndpoint<null, { hits: number }>({ ...endpoint, context: { time: 'apply', condition: 'apply', ...(selection ? { selection } : {}) } });
+  function Probe() {
+    const next = useMenuQuery(unsupported, null);
+    useLayoutEffect(() => { state = next; });
+    return null;
+  }
+  render(tree(testAdapter({ session: () => session, menuQuery, listEquipmentFacts: async () => facts }), savedViews, <Probe />));
+  await waitFor(() => expect(state?.response?.outcome).toBe('error'));
+  expect(state?.response?.message).toContain('endpoint cannot receive custom-group members');
+  expect(menuQuery).not.toHaveBeenCalled();
+});
+
+it('does not send when aborted between group expansion and the transport continuation', async () => {
+  window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
+  const savedViews = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', name: 'Photo', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+  const menuQuery = menuQuerySpy();
+  const controller = new AbortController();
+  let send: (() => Promise<ApiResponse<{ hits: number }>>) | undefined;
+  function Probe() {
+    const platform = useHostPlatform();
+    const queryEngine = useQueryEngine();
+    useLayoutEffect(() => {
+      const request = menuRequest(endpoint, { ...platform, queryEngine });
+      send = request.ready ? () => request.send(null, controller.signal) : undefined;
+    });
+    return null;
+  }
+  render(tree(testAdapter({ session: () => session, menuQuery, listEquipmentFacts: async () => facts }), savedViews, <Probe />));
+  await waitFor(() => expect(send).toBeDefined());
+  const expand = groupExpansion.expandCustomGroups;
+  const spy = vi.spyOn(groupExpansion, 'expandCustomGroups').mockImplementationOnce(input => {
+    const result = expand(input);
+    // This microtask runs after expansion resolves and before send's continuation.
+    queueMicrotask(() => controller.abort());
+    return result;
+  });
+  try {
+    await expect(send!()).rejects.toMatchObject({ name: 'AbortError' });
+    expect(spy).toHaveBeenCalledOnce();
+    expect(menuQuery).not.toHaveBeenCalled();
+  } finally { spy.mockRestore(); }
 });

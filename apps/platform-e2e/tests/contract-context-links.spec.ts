@@ -911,9 +911,9 @@ test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
     await dialog.getByRole('button', { name: '그룹으로 저장', exact: true }).click();
     await dialog.getByRole('textbox', { name: '이름', exact: true }).fill('PHOTO rule');
     await dialog.getByRole('button', { name: '저장', exact: true }).click();
-    await expect(dialog.getByRole('button', { name: '저장됨', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('status').filter({ hasText: '그룹을 저장했습니다.' })).toBeVisible();
     await expect(dialog.getByRole('checkbox', { name: 'PHOTO rule', exact: true })).toBeChecked();
-    await dialog.getByRole('button', { name: '취소', exact: true }).click();
+    await dialog.getByRole('button', { name: '취소', exact: true }).last().click();
     expect(query(page).has('equipmentGroup')).toBe(false);
 
     await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();

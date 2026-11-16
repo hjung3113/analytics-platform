@@ -271,6 +271,7 @@ async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: Menu
   const chosen = condition?.[CUSTOM_GROUP_AXIS];
   if (!chosen?.length) return projected;
   const ids = [...new Set(chosen)];
+  if (!('selection' in projected)) return queryError(`customGroup ${ids.join(', ')} blocked: endpoint cannot receive custom-group members (Selection must apply)`);
   const scopeId = inputs.global.scopeId;
   if (!scopeId) return queryError(`customGroup ${ids.join(', ')} blocked: a current Scope is required`);
   if (inputs.scope.status !== 'valid' || inputs.scope.scopeId !== scopeId || inputs.scope.validatedFor !== inputs.session) {
@@ -323,8 +324,10 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const groupReadPending = Boolean(projected.condition?.[CUSTOM_GROUP_AXIS]?.length) && scope.status === 'validating';
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
-  const transport = async (context: MenuQueryContext, params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
-    checkMenuResponse(spec, context, await adapter.menuQuery({ endpoint: spec.id, context, params }, signal));
+  const transport = async (context: MenuQueryContext, params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
+    if (aborted(signal)) throw new DOMException('aborted', 'AbortError');
+    return checkMenuResponse(spec, context, await adapter.menuQuery({ endpoint: spec.id, context, params }, signal));
+  };
   // Without a chosen custom group the adapter is called in the same tick as before; only expansion adds awaits.
   const send = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
     if (!projected.condition?.[CUSTOM_GROUP_AXIS]?.length) return transport(projected, params, signal);

@@ -244,6 +244,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   const pendingSave = useRef<PendingGroupSave | null>(null);
   const saveGroup = async (input: { name: string; share: string; value: FacetedSetValue }) => {
     if (!savedViewStore || !g.scopeId || !canSaveGroup) throw new Error('Custom-group saving is unavailable');
+    if (!input.value.fixed?.length && Object.hasOwn(input.value.rule, axisFacet('roomNames'))) throw new Error('An injected roomNames axis can only be saved as fixed IDs');
     const target: CustomGroupTarget = input.value.fixed?.length
       ? { fixed: [...new Set(input.value.fixed)] }
       : { rule: Object.fromEntries(Object.entries(input.value.rule).flatMap(([facetId, values]) => {
@@ -277,10 +278,17 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
     setGroupList(previous => ({ ...previous, status: 'ready', scopeId: g.scopeId, items: [...previous.items.filter(item => savedGroupItemId(item) !== saved!.view.id), saved!] }));
     return { selected: { facetId: groupFacet, value: saved.view.id } };
   };
+  const groupSaveDisabledReason = (slot: { value: FacetedSetValue; invalid: boolean }): string | undefined => {
+    if (slot.invalid) return m('targetGroupAllOff');
+    if (slot.value.fixed?.length) return undefined;
+    if (Object.hasOwn(slot.value.rule, axisFacet('roomNames'))) return m('targetGroupRoomAxisSaveDisabled');
+    if (ownPicks(slot.value.rule, groupFacet)?.length) return m('targetGroupSaveDisabled');
+    return undefined;
+  };
   const saveSlot = canSaveGroup ? (slot: { value: FacetedSetValue; ready: boolean; invalid: boolean; onSaved(selection: { facetId: string; value: string }): void }) => <TargetGroupSaveSlot
     {...slot}
     shareOptions={shareOptions}
-    disabledReason={!slot.value.fixed?.length && ownPicks(slot.value.rule, groupFacet)?.length ? m('targetGroupSaveDisabled') : slot.invalid ? m('targetGroupAllOff') : undefined}
+    disabledReason={groupSaveDisabledReason(slot)}
     onSave={saveGroup}
   /> : undefined;
   return <>{children ? children(button, open) : button}{opened && <Suspense fallback={null}><FacetedSetDialog open={open} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} valueLabel={(facetId, value) => facetId === groupFacet ? optionsById.get(value)?.label ?? value : value} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} saveSlot={saveSlot} /></Suspense>}</>;

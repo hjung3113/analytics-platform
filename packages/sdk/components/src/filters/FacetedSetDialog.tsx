@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type R
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMessages } from '@ap/kernel';
 import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogTitle, Input, Label, SkeletonRows, StatusBadge, cn } from '@ap/ui';
+import { SegmentedRadio } from '../RadioGroup';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { buildFacetedSetIndex, evaluateFacetedSet, facetUniverse, facetValues, normalizeFacetedRule, outsideFixedIds, rulePicks, sameFacetedRule, type FacetedSetFacet, type FacetedSetItem, type FacetedSetValue } from './facetedSet';
 
@@ -27,7 +28,13 @@ export interface FacetedSetDialogProps {
   note?: string;
   /** Caller reason shown under the generic error text while `status` is `error`. */
   errorDetail?: string;
-  /** Optional footer UI for caller-owned actions such as saving a custom target group. */
+  save?: {
+    shareOptions: readonly { value: string; label: string }[];
+    defaultShare: string;
+    author?: string;
+    onSave(input: { name: string; share: string; value: FacetedSetValue }): Promise<void>;
+  };
+  /** Optional footer UI for caller-owned actions such as saving a custom target group. Takes precedence over `save` when both are given. */
   saveSlot?: (props: { value: FacetedSetValue; ready: boolean; invalid: boolean; onSaved(selection: { facetId: string; value: string }): void }) => ReactNode;
 }
 const ROW_HEIGHT = 36;
@@ -37,6 +44,7 @@ const SEARCH_PAGE_SIZE = 30;
 const identityLabel = (_facet: string, value: string) => value;
 const plainCount = (count: number) => String(count);
 const EMPTY_PICKS: ReadonlySet<string> = new Set();
+type SaveState = 'closed' | 'editing' | 'pending' | 'error' | 'saved';
 type Index = ReturnType<typeof buildFacetedSetIndex>;
 
 function facetCheckedState(rule: FacetedSetValue['rule'], facet: string, defaultSelection: 'all' | 'none', universeSize: number): boolean | 'indeterminate' {
@@ -54,7 +62,7 @@ export function FacetedSetDialog(props: FacetedSetDialogProps) {
 }
 
 function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, allowFixed = true, resultColumns, valueLabel = identityLabel,
-  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, saveSlot }: FacetedSetDialogProps & { index: Index }) {
+  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save, saveSlot }: FacetedSetDialogProps & { index: Index }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
   const [draft, setDraft] = useState<FacetedSetValue>(() => ({
@@ -70,7 +78,11 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   const [search, setSearch] = useState('');
   const [searchLimit, setSearchLimit] = useState(SEARCH_PAGE_SIZE);
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>('closed');
+  const [name, setName] = useState('');
+  const [share, setShare] = useState(save?.defaultShare ?? '');
   const applyStarted = useRef(false);
+  const saveStarted = useRef(false);
   const scroll = useRef<HTMLDivElement>(null);
   const rows = useRef(new Map<string, HTMLDivElement>());
   const evaluation = useMemo(() => evaluateFacetedSet(index, rule), [index, rule]);
@@ -96,6 +108,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   const invalidRule = Object.values(rule).some(picks => !picks.length);
   const mode = current.fixed ? m('fsFixed', { count: formatCount(count) }) : m('fsRule', { count: formatCount(count) });
   const applyLabel = current.fixed ? m('fsApplyFixed', { count: formatCount(count) }) : m('fsApplyRule', { count: formatCount(count) });
+  const pending = saveState === 'pending';
   const changePick = (facet: string, pick: string) => {
     setDraft(previous => {
       const facetDefinition = facets.find(item => item.id === facet);
@@ -155,6 +168,17 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
     setQueriedDraft(previous => ({ ...previous, [facetId]: [...new Set([...rulePicks(previous, facetId), value])] }));
     setExpanded(previous => new Set([...previous, facetId]));
   };
+  const submitSave = async () => {
+    if (!save || !name.trim() || !save.shareOptions.some(option => option.value === share) || saveStarted.current || status !== 'ready' || invalidRule) return;
+    saveStarted.current = true; setSaveState('pending');
+    try {
+      await save.onSave({ name: name.trim(), share, value: current });
+      setSaveState('saved');
+    } catch {
+      // The caller owns transport details; keep the full draft and show a localized retryable failure.
+      setSaveState('error');
+    } finally { saveStarted.current = false; }
+  };
   const ready = status === 'ready';
   return <DialogContent closeLabel={m('fsCancel')} aria-describedby={`${id}-description`}
     className="flex h-196 max-h-screen w-full max-w-6xl flex-col gap-3 overflow-hidden">
@@ -162,7 +186,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
     <DialogDescription id={`${id}-description`}>{m('fsDescription')}</DialogDescription>
     {note && <p className="shrink-0 text-sm text-text-secondary">{note}</p>}
     {invalidRule && <p id={`${id}-invalid`} className="shrink-0 text-sm text-text-danger-label">{m('fsPickRequired')}</p>}
-    <fieldset disabled={!ready} className="min-h-0 min-w-0 flex flex-1 flex-col gap-3">
+    <fieldset disabled={!ready || pending} className="min-h-0 min-w-0 flex flex-1 flex-col gap-3">
       <Label htmlFor={`${id}-search`}>{m('fsSearch')}</Label>
       <Input className="shrink-0" id={`${id}-search`} value={search} onChange={event => { setSearch(event.target.value); setSearchLimit(SEARCH_PAGE_SIZE); }} />
       {query && ready && <div role="group" aria-label={m('fsSuggestions')} className="max-h-40 shrink-0 overflow-auto rounded-md border border-border-subtle p-2">
@@ -232,12 +256,24 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
       </div>}
     </fieldset>
     {status === 'error' && onRetry && <Button variant="secondary" onClick={onRetry}>{m('fsRetry')}</Button>}
+    {!saveSlot && save && saveState !== 'closed' && <form aria-busy={pending} className="shrink-0 space-y-2 rounded-md border border-border-subtle p-3" onSubmit={event => { event.preventDefault(); void submitSave(); }}>
+      <p>{ready ? mode : m('fsUnavailable')}</p>
+      <fieldset disabled={pending || !ready} className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1"><Label htmlFor={`${id}-name`}>{m('fsName')}</Label><Input id={`${id}-name`} value={name} onChange={event => setName(event.target.value)} required /></div>
+        <SegmentedRadio label={m('fsShare')} value={share} onChange={setShare} options={save.shareOptions} />
+        {save.author && <p>{m('fsAuthor', { author: save.author })}</p>}
+        <Button type="submit" aria-describedby={invalidRule ? `${id}-invalid` : undefined} disabled={invalidRule || !name.trim() || !save.shareOptions.some(option => option.value === share)}>{pending ? m('fsSaving') : m('fsSave')}</Button>
+      </fieldset>
+      {saveState === 'error' && <p role="alert" className="text-text-danger-label">{m('fsSaveError')}</p>}
+      {saveState === 'saved' && <p role="status">{m('fsSaved')}</p>}
+    </form>}
     <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle pt-3">
-      <Button variant="ghost" disabled={!ready} onClick={clear}>{m('fsClear')}</Button>
+      <Button variant="ghost" disabled={!ready || pending} onClick={clear}>{m('fsClear')}</Button>
+      {!saveSlot && save && saveState === 'closed' && <Button variant="secondary" disabled={!ready || invalidRule} onClick={() => setSaveState('editing')}>{m('fsSaveGroup')}</Button>}
       {saveSlot?.({ value: current, ready, invalid: invalidRule, onSaved })}
       <div className="flex-1" />
       <Button variant="secondary" onClick={() => onOpenChange(false)}>{m('fsCancel')}</Button>
-      <Button aria-describedby={invalidRule ? `${id}-invalid` : undefined} disabled={!ready || invalidRule} onClick={() => {
+      <Button aria-describedby={invalidRule ? `${id}-invalid` : undefined} disabled={!ready || pending || invalidRule} onClick={() => {
         if (applyStarted.current || invalidRule) return;
         applyStarted.current = true; onApply(current); onOpenChange(false);
       }}>{ready ? applyLabel : m('fsApply')}</Button>

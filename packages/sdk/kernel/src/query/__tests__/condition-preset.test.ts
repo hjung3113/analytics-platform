@@ -33,3 +33,10 @@ it('keeps the reserved customGroup axis outside preset coverage and narrowing', 
   expect(narrowedGlobal(menu, [], { scopeId: 'MEM', from: null, to: null, roomNames: null, condition, lineNames: null, prcGroups: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }).condition)
     .toEqual({ customGroup: ['g1'], maker: ['TEL'] });
 });
+
+it('keeps the non-default covering preset and its axes alongside a custom group', () => {
+  const condition = { customGroup: ['g1'], stgroup: ['STG-PHOTO-A'] };
+  expect(activeConditionPreset(menu, [], condition)?.id).toBe('org');
+  expect(narrowedGlobal(menu, [], { scopeId: 'MEM', from: null, to: null, roomNames: null, condition, lineNames: null, prcGroups: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }).condition)
+    .toEqual(condition);
+});

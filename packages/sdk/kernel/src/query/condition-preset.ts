@@ -15,7 +15,7 @@ export function activeConditionPreset(menu: PresetMenu, page: readonly Pair[], c
   const value = page.find(([key]) => key === holder.key)?.[1];
   const named = presets.find(preset => preset.id === value);
   if (named) return named;
-  const used = Object.keys(condition ?? {}).filter(axis => condition?.[axis]?.length);
+  const used = Object.keys(condition ?? {}).filter(axis => axis !== CUSTOM_GROUP_AXIS && condition?.[axis]?.length);
   const covering = value === undefined && used.length ? presets.find(preset => used.every(axis => preset.axes.includes(axis))) : undefined;
   return covering ?? presets.find(preset => preset.id === holder.default) ?? null;
 }

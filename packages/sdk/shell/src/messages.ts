@@ -16,6 +16,7 @@ export const SHELL_MESSAGES = {
   targetGroupFacet: { ko: '커스텀 그룹', en: 'Custom groups' },
   targetGroupMissing: { ko: '{id} · {reason}', en: '{id} · {reason}' },
   targetGroupSaveDisabled: { ko: '커스텀 그룹을 고른 조건은 고정으로만 저장', en: 'A rule with custom groups can only be saved as fixed IDs.' },
+  targetGroupRoomAxisSaveDisabled: { ko: 'roomNames 축을 고른 조건은 고정으로만 저장', en: 'A rule with an injected roomNames axis can only be saved as fixed IDs.' },
   targetGroupAllOff: { ko: '분류마다 값을 하나 이상 골라 주세요.', en: 'Pick at least one value in each facet.' },
   targetGroupSaveAction: { ko: '그룹으로 저장', en: 'Save as group' },
   targetGroupName: { ko: '이름', en: 'Name' },

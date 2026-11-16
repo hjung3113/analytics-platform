@@ -333,3 +333,28 @@ it('reuses closed match/count/outside work for canonical picks on parent renders
   expect(includes.mock.calls.length).toBeGreaterThan(calls);
   expect(screen.getByText('현재 조건 결과 밖 1대 · 선택 유지.')).toBeInTheDocument();
 });
+
+it.each([null, ['PHOTO']])('blocks rule saving for an injected roomNames axis with global rooms %j but saves fixed IDs', async roomNames => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore();
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} equipmentAxes={[{ id: 'roomNames', label: { ko: '주입 축', en: 'Injected axis' }, membershipHistory: true }]} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => ({ version: '1', items: [
+    { equipmentId: 'E1', room: 'PHOTO', axes: { roomNames: ['A'] } },
+    { equipmentId: 'E2', room: 'PHOTO', axes: { roomNames: ['B'] } },
+    { equipmentId: 'E3', room: 'ETCH', axes: { roomNames: ['A'] } },
+  ] }) })}>
+    <TargetPicker global={{ ...baseGlobal, roomNames, condition: { roomNames: ['A'] } }} cap={{ ...noContext, roomNames: 'apply', condition: 'apply', selection: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: /^대상 조건/ }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await within(dialog).findByRole('table');
+  expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeDisabled();
+  expect(within(dialog).getByRole('note')).toHaveTextContent('roomNames 축을 고른 조건은 고정으로만 저장');
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'E1 선택' }));
+  expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeEnabled();
+  fireEvent.click(within(dialog).getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(within(dialog).getByRole('textbox', { name: '이름' }), { target: { value: 'Fixed injected' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+  await waitFor(() => expect(store.rows.get('v1')).toMatchObject({ kind: 'custom-group', target: { fixed: ['E1'] } }));
+});
