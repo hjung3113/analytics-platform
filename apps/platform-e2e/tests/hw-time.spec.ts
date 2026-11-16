@@ -68,8 +68,12 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
     await drill(page, 'PM/Chuck');
     await drill(page, 'PM/Chuck/PM1');
+    // Added and pinned panels join the main chart group as tabs (#2431 capture fix), so the pinned scatter is one tab away.
+    const scatterTab = workspace(page).getByRole('tab', { name: '분포', exact: true });
+    await scatterTab.click();
     await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
     await page.reload();
+    await scatterTab.click();
     await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
   });
 

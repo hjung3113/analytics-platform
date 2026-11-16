@@ -19,14 +19,14 @@ describe('new panel request boundaries', () => {
     expect(requests).toHaveLength(0);
     expect(screen.getByRole('button', { name: /초기화|복구|지우기/ })).toBeTruthy();
   });
-  it('donut and Pareto reuse matrices and show the disabled creation reason', async () => {
+  it('donut and Pareto reuse matrices and hide unavailable creation actions', async () => {
     await renderOverview(`${base}&pins=donut&pins=pareto`, respond);
     expect(screen.getByTestId('hw-verdict-donut')).toBeTruthy();
     const pareto = JSON.parse(screen.getByTestId('hw-pareto').textContent!);
     expect(pareto.kind).toBe('pareto');
     expect(pareto.maxItems).toBe(pareto.items.length);
-    expect(screen.getByRole('button', { name: 'Finding/VOC 만들기' }).hasAttribute('disabled')).toBe(true);
-    expect(screen.getByText('HW Time 분석 지점에서 Finding/VOC를 만드는 목적지·입력 계약 없음')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Finding/VOC 만들기' })).toBeNull();
+    expect(screen.queryByText('HW Time 분석 지점에서 Finding/VOC를 만드는 목적지·입력 계약 없음')).toBeNull();
     expect(requests.map(request => request.endpoint).sort()).toEqual(['hwTime.matrix', 'hwTime.runs']);
   });
   it('queries history only when added', async () => {

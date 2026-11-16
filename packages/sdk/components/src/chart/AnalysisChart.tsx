@@ -35,6 +35,10 @@ export type HeatmapSpec = {
   xLabels: string[]; yLabels: string[]; cells: HeatmapCell[];
   /** Opt-in categorical fill and legend; missing/unknown category ids use the unknown fill and label. */
   categories?: readonly HeatmapCategory[];
+  /** Positive row floor in px; fill plots scroll vertically, other sizes grow. Shows every y label. */
+  minRowHeight?: number;
+  /** Keep status outlines and accessible text; omit repeated cell glyphs. Default: marker. */
+  statusDisplay?: 'marker' | 'border';
   /** Thresholds are only for approved real judgements, not inferred status. */
   scale?: { type: 'sequential'; domain?: [number, number] }
     | { type: 'diverging'; pivot: number; domain?: [number, number]; lowerIsBetter?: boolean }
@@ -197,8 +201,16 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const hasStatuses = statusLegend.length > 0;
   // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
   const fill = useElementSize(size === 'fill');
+  const fittedDonut = spec.kind === 'donut' && size === 'fill' && chrome === 'standard';
+  const donutMinimumHeight = 112;
   const measuredFillHeight = chrome === 'standard' ? Math.max(0, fill.height ?? 0) : fillChartHeight(fill.height);
   const height = p.height ?? (size === 'fill' && fill.height !== null ? measuredFillHeight : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
+  const rowFloor = spec.kind === 'heatmap' && Number.isFinite(spec.minRowHeight) && spec.minRowHeight! > 0 ? spec.minRowHeight : undefined;
+  // Includes both grid margins and the category-axis label gutter.
+  const heatmapAxisHeight = 64;
+  let canvasHeight = height;
+  if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, spec.yLabels.length * rowFloor + heatmapAxisHeight);
+  if (fittedDonut) canvasHeight = Math.max(donutMinimumHeight, height);
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
@@ -245,6 +257,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const xIndex = new Map(spec.kind === 'heatmap' ? spec.xLabels.map((label, index) => [label, index] as const) : []);
     const yIndex = new Map(spec.kind === 'heatmap' ? spec.yLabels.map((label, index) => [label, index] as const) : []);
     const activeKeys = new Set(active);
+    const borderOnly = spec.kind === 'heatmap' && spec.statusDisplay === 'border';
     const categories = spec.kind === 'heatmap' && spec.categories !== undefined ? new Map(spec.categories.map(category => [category.id, category])) : undefined;
     const categoryTokens = (cell: HeatmapCell) => {
       const category = cell.category === undefined ? undefined : categories?.get(cell.category);
@@ -258,7 +271,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     }
     const fillColor = (cell: HeatmapCell) => categories ? tone(categoryTokens(cell).fill) : cellColor(cell.value);
     const cellLabel = (cell: HeatmapCell) => {
-      const marker = cell.status ? statusMarker(cell.status) : undefined;
+      const marker = cell.status && !borderOnly ? statusMarker(cell.status) : undefined;
       if (!categories) return marker;
       return { ...marker, show: true, color: tone(categoryTokens(cell).text), formatter: `${valueText(cell.value)}${marker ? `\n${marker.formatter}` : ''}` };
     };
@@ -266,12 +279,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}${categories ? ` · ${rows[params.dataIndex].categoryLabel}` : ''}${c.status ? ` · ${statusText(c.status)}` : ''}` : ''; } },
       grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
       xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
-      yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
+      yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: rowFloor ? 0 : 'auto', hideOverlap: !rowFloor }, splitLine: theme.splitLine },
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
         itemStyle: { color: fillColor(c), ...(categories ? { opacity: 1 } : {}), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderWidth: 0 /* the inset __statusOutline layer draws it (#2351) */, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
-        ...(categories || c.status ? { label: { ...cellLabel(c), position: 'inside' } } : {}),
+        ...(categories || (c.status && !borderOnly) ? { label: { ...cellLabel(c), position: 'inside' } } : {}),
       })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: fillColor(c), ...(categories ? { opacity: 1 } : {}) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
@@ -280,7 +293,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     return { option, scale, domain, ramp, validThreshold };
   // `size`, `height` and `lang` are deliberate re-run triggers: a new option object makes ECharts re-lay out the plot for the new size/language.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional triggers, see comment above
-  }, [spec, cells, rows, extended, active, plotSize, valueText, size, height, lang]);
+  }, [spec, cells, rows, extended, active, plotSize, valueText, size, height, lang, rowFloor]);
   const measureGrid = useCallback((instance: ECharts | null) => {
     if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
     // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).
@@ -368,7 +381,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     {spec.kind === 'donut' && rows.map(row => <span key={row.key} className="inline-flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</span>)}
   </>;
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
-  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), embedded && 'rounded-none border-0 shadow-none')}>
+  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), fittedDonut && 'min-h-64 overflow-y-auto', embedded && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={section !== null}>
       <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={<>
         {spec.kind === 'topNBar' && <Button ref={collapseButton} size="icon-xs" className="shrink-0" variant="ghost" aria-label={expanded ? m('chartHide') : m('chartShow')} title={expanded ? m('chartHide') : m('chartShow')} aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
@@ -401,9 +414,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body bounded={chrome === 'standard' && size === 'fill'}>
-      <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
-      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && (chrome === 'standard' ? 'min-h-0 grow basis-0 overflow-hidden' : FILL_PLOT_CLASS))}>
-        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
+      <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill' && !fittedDonut} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} role={rowFloor ? "region" : undefined} aria-labelledby={rowFloor ? titleId : undefined} tabIndex={rowFloor ? 0 : undefined} className={cn('relative', size === 'fill' && (chrome === 'standard' ? 'min-h-0 grow basis-0 overflow-hidden' : FILL_PLOT_CLASS), rowFloor && 'overflow-y-auto', fittedDonut && 'min-h-28')}>
+        <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={canvasHeight} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (spec.kind === 'histogram' || params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return; activateCell('click', params); const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           // Registered only for an opted-in double-click heatmap: every other chart keeps its event set unchanged.
           ...(spec.kind === 'heatmap' && spec.cellActivation?.on === 'dblclick' ? { dblclick: (params: { componentType?: string; seriesIndex?: number; dataIndex: number }) => activateCell('dblclick', params) } : {}),

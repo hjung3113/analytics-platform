@@ -6,7 +6,7 @@ import {
   type HwTimeDistribution, type HwTimeDistributionParams, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
 } from '../endpoints';
 import { htmBounds, judge, rollUp } from './htm';
-import { syntheticEquipmentIds } from './syntheticEquipment';
+import { syntheticEquipmentIds, syntheticUpperTail } from './syntheticEquipment';
 
 const RUNS_PER_EQUIPMENT = 24;
 const SAMPLE_LIMIT = 400;
@@ -17,7 +17,6 @@ const DISTRIBUTION_BIN_WIDTH = 0.25;
 const SPREAD_SAMPLES = 6;
 const BAND_CENTRE = 0.48;
 const BAND_SPREAD = 0.24;
-const OVER_EQUIPMENT = 3;
 const UNDER_EQUIPMENT = 6;
 /** Two isolated observations per full population, beyond the ordinary near-bound tail. */
 const RARE_TAIL_EQUIPMENT_INTERVAL = 12;
@@ -50,8 +49,8 @@ function runValues(equipmentId: string, params: HwTimeRunParams): number[] {
     const jitter = ((equipmentNumber * 7 + moduleIndex * 11 + motionIndex * 3 + run * 5) % 17) / 100;
     if (!bounds) return 2 + moduleIndex * 0.7 + motionIndex * 0.5 + equipmentNumber * 0.08 + jitter;
     if (run === RUNS_PER_EQUIPMENT - 1 && equipmentNumber % RARE_TAIL_EQUIPMENT_INTERVAL === 0) return bounds.upper + 2 + jitter;
-    // One high Pump equipment and one low Vent equipment retain mixed average/Module judgements without dominating the population.
-    if (equipmentNumber === OVER_EQUIPMENT && motionIndex === 0) return bounds.upper + 0.25 + jitter;
+    // Deterministic Module-Motion tail: means, runs, daily means and distribution use the same observations.
+    if (syntheticUpperTail(equipmentNumber, moduleIndex, motionIndex)) return bounds.upper + 0.25 + jitter;
     if (equipmentNumber === UNDER_EQUIPMENT && motionIndex === 1) return bounds.lower - 0.25 - jitter;
     if (run === 0 && equipmentNumber % 2 === 0) return bounds.upper + 0.5 + jitter;
     if (run === 1 && equipmentNumber % 2 === 0) return bounds.lower - 0.5 - jitter;
