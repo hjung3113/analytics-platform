@@ -70,6 +70,8 @@ If the folder you work in has an `AGENTS.md`, follow it too (table below). If a 
 
 A `?variant=` prototype and owner confirmation by Artifact link are required only if test A or B holds. Otherwise the lane ships without a prototype and without asking, attaches one before/after capture, records the call under **Decisions** in the PR body, and after the merge sends the capture link with its `병합` report so the lead passes it to the owner. The owner reverses by saying so.
 
+Exception: a change to how a menu screen presents its information needs 2–3 variants and the owner's pick first, whatever tests A and B say ([`PROFILE.md`](.agents/conductor/PROFILE.md) §Owner gates, menu look gate).
+
 **A. New:** adds a screen or route, a Page Archetype, a shell region, a new visual component exported from `@ap/ui` or `@ap/components`, a new token family, or a new `DESIGN.md` direction.
 
 **B. Critical or hard to undo:** changes every screen at once, judged by path: a token value in `packages/sdk/ui/src/styles/*.css` or `packages/sdk/ui/src/theme/theme-tokens.json`, the shell frame in `packages/sdk/shell/src/frame/`, or a Page Archetype default in `packages/sdk/components/src/archetypes/` (tests excluded); changes a public SDK prop or default that menus must adapt to; changes stored or linkable state (URL keys, persisted layout, saved views); moves or renames spaces or menus; or removes a user-visible function.

@@ -57,9 +57,11 @@ Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Sta
 
 This is the repo's one home for owner questions; other files point here. Owner gates on top of the shared list in `references/lanes.md` §Lane session: 06 contract changes and 3+ new menu screens.
 
+**Menu look gate.** How a menu screen presents its information (which panels, what shows above a chart, where legends, notes and options sit, how dense it is) is the owner's taste, not a general rule. Before implementing such a change, the lane brings 2–3 variants (`?variant=` prototypes, or annotated captures or sketches when that is enough) as one Artifact and sends `질문 #n`; it implements only the chosen one. The `advisor` role and reviewers do not decide a menu's look, also not while the owner is away. SDK pieces stay under the usual rules: the general piece and its default ship as decided, and the menu declares which level it uses. Reason: SDK pieces are general, but each menu follows the taste of whoever builds it, and a look chosen by the advisor came back as "too extreme".
+
 - A lane sends a decision only the owner can make to the lead as `질문 #n`, with the options and its recommendation, and keeps working on other items. Nothing that depends on the answer is implemented first.
 - Owner awake: the lead asks one numbered question, once. It does not repeat the question or re-attach it to later reports; the open question lives in `board.py`.
-- Owner away (01:00–09:30 KST): a question with a recommendable, reversible option is decided by the `advisor` role; work continues, and the lead reports those decisions once in the morning report. Only what cannot be undone waits for the owner: anything published outside the repo, deletion, 06 contract docs, and the gates above.
+- Owner away (01:00–09:30 KST): a question with a recommendable, reversible option is decided by the `advisor` role; work continues, and the lead reports those decisions once in the morning report. Only what cannot be undone waits for the owner: anything published outside the repo, deletion, 06 contract docs, and the gates above. A menu look choice also waits (menu look gate).
 - Add `ready-for-human` to the issue only when the session hands over without an answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
 
 Reason: repeated or overnight questions cost hours of waiting for answers that were usually the recommendation.
