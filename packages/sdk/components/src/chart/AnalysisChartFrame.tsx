@@ -131,7 +131,7 @@ export type AnalysisChartFrameProps = {
   rowGroups?: ChartRowGroups;
   /** Consumer-given bar-piece or line-point status. Undefined = none. Keep the callback stable, like isPointSelectable; the Frame never judges. */
   pointStatus?: (point: ChartPoint) => ChartStatus | undefined;
-  /** Transient bar hover focus; none keeps other series undimmed. Default series. */
+  /** Transient hover focus (#2342): `none` (default) keeps other series undimmed and only the hovered series takes ECharts' own emphasis; `series` dims the others. */
   emphasisFocus?: 'series' | 'none';
   chartId: string;
   title: ReactNode;
