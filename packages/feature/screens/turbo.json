@@ -8,7 +8,7 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/ops/platform-api/tsconfig.base.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/ops/platform-api/tsconfig.base.json", "$TURBO_ROOT$/platform/*/src/pages/**"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
