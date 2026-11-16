@@ -11,6 +11,7 @@ import { BreakdownNodeRejection, invalidBreakdownNode } from './BreakdownBars';
 import { CatalogChart } from './CatalogChart';
 import { kindLabels, statusLabels, supportCounts, supportFor } from './support';
 import { SequenceSample } from './SequenceSample';
+import { HistogramSample } from './HistogramSample';
 import { useWorkspace } from './useWorkspace';
 
 type Preference = { open: boolean; width: number };
@@ -112,6 +113,7 @@ function CatalogWorkspace({ query, rejectedNode, onSequenceLoad }: { query: Quer
                 {data => kind === 'sequence' ? <SequenceSample height={plotHeight} onLoadStateChange={onSequenceLoad} /> : <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} />}
               </QueryView>}
             </TabsContent>
+            <HistogramSample height={plotHeight} />
           </div>
           {!focus && preference.open && !narrow && <div role="separator" aria-label={m('chartCatalogInteractionSupportWidth')} aria-controls={panelId} aria-orientation="vertical" aria-valuemin={240} aria-valuemax={maxWidth} aria-valuenow={effectiveWidth} tabIndex={0}
             className="w-2 shrink-0 cursor-col-resize touch-none rounded border border-border-subtle bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"

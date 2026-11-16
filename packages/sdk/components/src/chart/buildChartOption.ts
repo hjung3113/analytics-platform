@@ -7,9 +7,12 @@ import { boundSeries, boundText, projectChartBounds, type ChartBounds, type Char
 import { lineStatusSeries } from './linePointStatus';
 import { noteLabelWidths } from './annotationLayout';
 import { GRID_BOTTOM, GRID_TOP, rowLabelGutter } from './analysisChartGeometry';
-import { toMs, unknownLabel } from './analysisChartShared';
+import { toMs, unknownLabel, percent } from './analysisChartShared';
+import type { HistogramBin, HistogramSpec } from './AnalysisChart';
+import type { ChartRow } from './analysisChartData';
+import { chartDiagnostic } from './analysisChartData';
 import type { ChartSeries } from './AnalysisChartFrame';
-import { chartPointKey, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import { chartPointKey, statusBorderColor, statusColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { escapeHtml } from './chartText';
 import { barStatusBackingSeries } from './chartStatusBacking';
 import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
@@ -35,6 +38,47 @@ const DEFAULT_TICKS = 5;
 const PARTIAL_MARKER = 8;
 /** Upper bound of the category-label allowance in a `containLabel` horizontal grid. */
 const MAX_CATEGORY_ROOM = 160;
+/** Histogram numeric axis uses the same sparse tick budget as the frame. */
+export function buildHistogramOption({ spec, bins, rows, countLabel }: {
+  spec: HistogramSpec; bins: HistogramBin[]; rows: ChartRow[]; countLabel: string;
+}): EChartsCoreOption {
+  const theme = chartTheme();
+  const ids = new Set<string>();
+  const references = (spec.referenceLines ?? []).filter(line => {
+    if (!Number.isFinite(line.value) || ids.has(line.id)) { chartDiagnostic('histogram: non-finite or duplicate reference line dropped'); return false; }
+    ids.add(line.id); return true;
+  });
+  let min = bins[0]?.start ?? 0; let max = bins.at(-1)?.end ?? 1;
+  for (const line of references) { min = Math.min(min, line.value); max = Math.max(max, line.value); }
+  return {
+    grid: { top: 32, bottom: 56, left: 40, right: 40, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
+    tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number; seriesIndex?: number }) => {
+      if (p.seriesIndex !== undefined && p.seriesIndex !== 0) return '';
+      const row = rows[p.dataIndex];
+      return row ? `${row.label} ${spec.xUnit} · ${countLabel}: ${row.value} · ${percent(row.share ?? 0)}${row.status ? ` · ${statusText(row.status)}` : ''}` : '';
+    } },
+    xAxis: { type: 'value', min, max, name: `${spec.xLabel} (${spec.xUnit})`, nameLocation: 'middle', nameGap: 32,
+      splitNumber: DEFAULT_TICKS, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, hideOverlap: true }, splitLine: { show: false } },
+    yAxis: { type: 'value', min: 0, minInterval: 1, name: countLabel, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+    series: [
+      { type: 'custom', clip: true, emphasis: { disabled: true }, encode: { x: [0, 1], y: 2 },
+        renderItem: (_params: unknown, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[]; visual: (key: string) => string }) => {
+          const [left, top] = api.coord([api.value(0), api.value(2)]);
+          const [right, baseline] = api.coord([api.value(1), 0]);
+          return { type: 'rect', shape: { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, baseline - top) }, style: { fill: api.visual('color') } };
+        },
+        data: bins.map((bin, i) => ({ value: [bin.start, bin.end, bin.count], itemStyle: { color: rows[i].status ? statusColor(rows[i].status!) : token('chart-series-1') } })),
+        markLine: { ...theme.referenceLine, symbol: ['none', 'none'], data: references.map(line => {
+          const color = line.tone ? statusColor({ tone: line.tone, label: line.label }) : theme.referenceLine.lineStyle.color;
+          return { name: line.label, xAxis: line.value, lineStyle: { type: 'dashed', color },
+            label: { show: true, formatter: () => line.label, position: 'insideEndTop', rotate: 0, color } };
+        }) },
+      },
+      { type: 'scatter', silent: true, tooltip: { show: false }, symbolSize: 0, z: 3,
+        data: bins.flatMap((bin, i) => rows[i].status ? [{ value: [bin.start + (bin.end - bin.start) / 2, bin.count], label: { ...statusMarker(rows[i].status!), position: 'top' } }] : []) },
+    ],
+  };
+}
 /** Extra right grid room for the right value axis' labels and name (a left axis gets 52, the plain right margin is 20). */
 const RIGHT_AXIS_ROOM = 32;
 
