@@ -99,7 +99,7 @@ it('deduplicates status legend entries by tone and label, independently of per-p
   await screen.findByRole('img');
   const legend = screen.getByRole('group', { name: '범례' });
   expect(within(legend).getAllByText('한도 초과')).toHaveLength(2);
-  expect(legend).toHaveTextContent('●');
+  expect(legend).toHaveTextContent('■');
   expect(legend).toHaveTextContent('◆');
 });
 

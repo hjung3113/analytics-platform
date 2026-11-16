@@ -17,8 +17,8 @@ export type ChartStatus = {
    */
   marker?: string;
 };
-/** Severity only, no direction: a filled circle, a diamond, an open circle (#2363). */
-export const STATUS_GLYPHS = { danger: '●', warning: '◆', neutral: '○' } as const;
+/** Severity only, no direction: a filled square, a diamond, an open circle (#2363). Danger is a square, not a circle, so it never shares a shape with a plain (circle) point in a legend (#2383). */
+export const STATUS_GLYPHS = { danger: '■', warning: '◆', neutral: '○' } as const;
 const usableMarker = (marker: string | undefined) => marker !== undefined && [...marker].length === 1 && !/[\s{}|]/.test(marker);
 /** The symbol drawn and written for a status: the menu's `marker` when usable, otherwise the tone glyph. */
 export const statusGlyph = (status: ChartStatus) => usableMarker(status.marker) ? status.marker! : STATUS_GLYPHS[status.tone];

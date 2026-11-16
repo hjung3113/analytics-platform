@@ -63,11 +63,11 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
     const pointStatus = vi.fn(() => ({ tone: 'danger' as const, label: 'High', reason: 'Limit' }));
     const view = mount({ pointStatus }); await screen.findByRole('img');
     expect(pointStatus.mock.calls).toHaveLength(2);
-    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('● High · Limit');
+    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('■ High · Limit');
     expect(screen.getByRole('group', { name: '범례' })).toHaveTextContent('High');
-    expect(await table()).toHaveTextContent('Current: ● High · Limit');
+    expect(await table()).toHaveTextContent('Current: ■ High · Limit');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
-    expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'Current', '상태', '사유'], [['A', 3, 'Current: ● High', 'Current: Limit'], ['B', 5, 'Current: ● High', 'Current: Limit'], ['C', '', '', '']]);
+    expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'Current', '상태', '사유'], [['A', 3, 'Current: ■ High', 'Current: Limit'], ['B', 5, 'Current: ■ High', 'Current: Limit'], ['C', '', '', '']]);
     act(() => plot.onEvents?.click?.({ seriesId: 'a', dataIndex: 2 }, {} as never));
     expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent('High');
     view.update({ visibleSeriesIds: [] });
