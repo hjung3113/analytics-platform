@@ -65,7 +65,7 @@ export function ChartLegendLayout({ enabled, placement = 'bottom', legend, capti
   const m = useMessages(COMPONENTS_MESSAGES);
   if (!enabled) return <>{children}</>;
   const side = placement === 'side';
-  const keys = <div tabIndex={0} role="group" aria-label={m('chartLegend')} className={cn('text-xs text-text-secondary', side ? 'flex max-h-full w-32 shrink-0 flex-col gap-1 overflow-auto px-2 py-1' : 'flex min-w-0 shrink-0 items-center gap-3 overflow-x-auto whitespace-nowrap px-2 py-1 *:shrink-0')}>
+  const keys = <div tabIndex={0} role="group" aria-label={m('chartLegend')} className={cn('text-xs text-text-secondary', side ? 'flex max-h-full w-32 shrink-0 flex-col gap-1 overflow-auto px-2 py-1' : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1')}>
     {legend}
     {caption && <span className="min-w-0 max-w-56 truncate text-text-muted" title={typeof caption === 'string' ? caption : undefined}>{caption}</span>}
   </div>;

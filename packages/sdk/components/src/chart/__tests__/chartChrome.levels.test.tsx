@@ -90,6 +90,16 @@ describe('Chart chrome levels (#2372)', () => {
       cleanup();
     }
   });
+  it.each(['frame', 'heatmap', 'donut'])('%s wraps the top/bottom legend row and compact summary instead of scrolling sideways', kind => {
+    for (const legendPlacement of ['top', 'bottom'] as const) {
+      mount(kind, true, undefined, { legendPlacement, legendCaption: 'Context caption' });
+      for (const row of [screen.getByLabelText('범례'), screen.getByRole('region', { name: '선택 요약' })]) {
+        expect(row).toHaveClass('flex-wrap', 'overflow-y-auto');
+        expect(row).not.toHaveClass('overflow-x-auto');
+      }
+      cleanup();
+    }
+  });
   it.each(['frame', 'heatmap'])('%s reveals hover tools on focus and while More is open, keeping keyboard/AT access', async kind => {
     const user = userEvent.setup();
     mount(kind, true, undefined, { toolsReveal: 'hover' });

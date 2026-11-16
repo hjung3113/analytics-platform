@@ -10,7 +10,7 @@
 
 | Prop | 기본값 | 동작 |
 | --- | --- | --- |
-| `legendPlacement?: 'top' \| 'bottom' \| 'side'` | `bottom` | 플롯 위/아래 한 줄 또는 오른쪽 세로 목록 |
+| `legendPlacement?: 'top' \| 'bottom' \| 'side'` | `bottom` | 플롯 위/아래 가로 줄(좁으면 줄바꿈, 최대 80px) 또는 오른쪽 세로 목록 |
 | `toolsReveal?: 'always' \| 'hover'` | `always` | 상시 표시 또는 차트 hover/focus-within 때 표시. 키보드·AT 접근을 유지하며 더보기가 열려 있는 동안에도 표시 |
 | `legendCaption?: ReactNode` | 없음 | 위/아래 범례 줄 끝, 오른쪽 범례 목록 아래에 캡션 표시 |
 
