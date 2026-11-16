@@ -163,3 +163,10 @@ it('accepts arbitrary facet IDs including names from Object.prototype', () => {
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
   expect(apply).toHaveBeenCalledWith({ rule: { constructor: ['x'] }, fixed: null });
 });
+it('counts picked values in a facet header without the item count formatter', () => {
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={() => {}} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red', 'blue'] }, fixed: null }} onApply={() => {}} formatCount={(n) => `${n} items`} /></I18nProvider>);
+  const header = screen.getByRole('button', { name: /^Color/ });
+  expect(header).toHaveTextContent(/Color\s*2$/);
+  expect(header).not.toHaveTextContent('items');
+  expect(screen.getByRole('button', { name: '조건 적용 · 2 items' })).toBeEnabled();
+});

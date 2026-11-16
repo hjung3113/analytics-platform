@@ -142,7 +142,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, re
       <Label htmlFor={`${id}-search`}>{m('fsSearch')}</Label>
       <Input className="shrink-0" id={`${id}-search`} value={search} onChange={event => { setSearch(event.target.value); setSearchLimit(SEARCH_PAGE_SIZE); }} />
       {query && ready && <div role="group" aria-label={m('fsSuggestions')} className="max-h-40 shrink-0 overflow-auto rounded-md border border-border-subtle p-2">
-        <p className="text-xs text-text-secondary">{m('fsSuggestionCount', { count: formatCount(suggestions.length) })}</p>
+        <p className="text-xs text-text-secondary">{m('fsSuggestionCount', { count: suggestions.length.toLocaleString() })}</p>
         {suggestions.slice(0, searchLimit).map(suggestion => <Button key={suggestion.key} variant="ghost" className="w-full justify-start" onClick={() => {
           if (suggestion.facet !== undefined) addPick(suggestion.facet, suggestion.value);
           else {
@@ -151,12 +151,12 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, re
             setSearch('');
           }
         }}>{suggestion.label}</Button>)}
-        {suggestions.length > searchLimit && <Button variant="secondary" onClick={() => setSearchLimit(previous => previous + SEARCH_PAGE_SIZE)}>{m('fsMoreSuggestions', { count: formatCount(suggestions.length - searchLimit) })}</Button>}
+        {suggestions.length > searchLimit && <Button variant="secondary" onClick={() => setSearchLimit(previous => previous + SEARCH_PAGE_SIZE)}>{m('fsMoreSuggestions', { count: (suggestions.length - searchLimit).toLocaleString() })}</Button>}
       </div>}
       <div className="flex shrink-0 gap-2 overflow-x-auto" aria-label={m('fsFacets')}>
         {facets.map((facet, position) => <Button key={facet.id} variant="secondary" aria-expanded={expanded.has(facet.id)} aria-controls={`${id}-facet-${position}`} onClick={() => setExpanded(previous => {
           const next = new Set(previous); if (next.has(facet.id)) next.delete(facet.id); else next.add(facet.id); return next;
-        })}><span aria-hidden>{expanded.has(facet.id) ? '−' : '+'}</span>{facet.label}{!!rulePicks(draft.rule, facet.id).length && <span>{formatCount(rulePicks(draft.rule, facet.id).length)}</span>}</Button>)}
+        })}><span aria-hidden>{expanded.has(facet.id) ? '−' : '+'}</span>{facet.label}{!!rulePicks(draft.rule, facet.id).length && <span>{rulePicks(draft.rule, facet.id).length}</span>}</Button>)}
       </div>
       {ready && <div className="flex shrink-0 gap-3 overflow-x-auto">
         {facets.map((facet, position) => expanded.has(facet.id) && <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-56 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
