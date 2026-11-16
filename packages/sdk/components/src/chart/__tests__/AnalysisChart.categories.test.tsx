@@ -74,19 +74,19 @@ it('uses translated category labels and treats missing or unknown category ids a
 });
 
 it.each([
-  ['success', 'accent-success-soft', 'text-success-label'],
-  ['warning', 'accent-warn-soft', 'text-warning-label'],
-  ['danger', 'accent-danger-soft', 'text-danger-label'],
-  ['neutral', 'accent-neutral-soft', 'text-secondary'],
-  ['info', 'accent-primary-soft', 'text-info-label'],
+  ['success', 'accent-success-soft', 'text-text-success-label'],
+  ['warning', 'accent-warn-soft', 'text-text-warning-label'],
+  ['danger', 'accent-danger-soft', 'text-text-danger-label'],
+  ['neutral', 'accent-neutral-soft', 'text-text-secondary'],
+  ['info', 'accent-primary-soft', 'text-text-info-label'],
 ] as const)('uses existing paired tokens with at least 4.5:1 value text contrast for %s', async (tone, fill, text) => {
   mount({ ...heat, categories: [{ id: 'c', label: { ko: '범주', en: 'Category' }, tone }], cells: [{ ...heat.cells[0], category: 'c' }] });
   await screen.findByRole('img');
   const cell = option().series[0].data[0];
   expect(cell.itemStyle.color).toBe(readColorToken(fill));
-  expect(cell.label).toMatchObject({ show: true, color: readColorToken(text), formatter: '15 s' });
+  expect(cell.label).toMatchObject({ show: true, color: readColorToken(text.slice('text-'.length) as Parameters<typeof readColorToken>[0]), formatter: '15 s' });
   render(<StatusBadge tone={tone}>Badge pair</StatusBadge>);
-  expect(screen.getByText('Badge pair')).toHaveClass(`bg-${fill}`, `text-${text}`);
+  expect(screen.getByText('Badge pair')).toHaveClass(`bg-${fill}`, text);
   const luminance = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
   const a = luminance(cell.itemStyle.color); const b = luminance(cell.label!.color);
   expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toBeGreaterThanOrEqual(4.5);
