@@ -170,3 +170,12 @@ it('counts picked values in a facet header without the item count formatter', ()
   expect(header).not.toHaveTextContent('items');
   expect(screen.getByRole('button', { name: '조건 적용 · 2 items' })).toBeEnabled();
 });
+
+it('shows the caller note and the error reason only when given', () => {
+  const { rerender } = render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
+  expect(screen.queryByText('Counts use current membership')).toBeNull();
+  rerender(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={vi.fn()} note="Counts use current membership" /></I18nProvider>);
+  expect(screen.getByText('Counts use current membership')).toBeVisible();
+  rerender(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={[]} value={{ rule: {}, fixed: null }} onApply={vi.fn()} status="error" errorDetail="port missing" /></I18nProvider>);
+  expect(screen.getByRole('alert')).toHaveTextContent('port missing');
+});

@@ -22,6 +22,10 @@ export interface FacetedSetDialogProps {
   formatCount?(n: number): string;
   status?: 'loading' | 'error' | 'ready';
   onRetry?(): void;
+  /** One caller line under the description, e.g. what the counts are based on. */
+  note?: string;
+  /** Caller reason shown under the generic error text while `status` is `error`. */
+  errorDetail?: string;
   save?: {
     shareOptions: readonly { value: string; label: string }[];
     defaultShare: string;
@@ -47,7 +51,7 @@ export function FacetedSetDialog(props: FacetedSetDialogProps) {
 }
 
 function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, resultColumns, valueLabel = identityLabel,
-  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, save }: FacetedSetDialogProps & { index: Index }) {
+  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save }: FacetedSetDialogProps & { index: Index }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
   const [draft, setDraft] = useState<FacetedSetValue>(() => ({
@@ -141,6 +145,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, re
     className="flex h-196 max-h-screen w-full max-w-6xl flex-col gap-3 overflow-hidden">
     <DialogTitle>{title}</DialogTitle>
     <DialogDescription id={`${id}-description`}>{m('fsDescription')}</DialogDescription>
+    {note && <p className="shrink-0 text-sm text-text-secondary">{note}</p>}
     <fieldset disabled={!ready || pending} className="min-h-0 min-w-0 flex flex-1 flex-col gap-3">
       <Label htmlFor={`${id}-search`}>{m('fsSearch')}</Label>
       <Input className="shrink-0" id={`${id}-search`} value={search} onChange={event => { setSearch(event.target.value); setSearchLimit(SEARCH_PAGE_SIZE); }} />
@@ -180,7 +185,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, re
         </div>}
       </>}
       {status === 'loading' && <div role="status" aria-label={m('fsLoading')} className="flex-1 space-y-3"><SkeletonRows count={5} size="regular" /></div>}
-      {status === 'error' && <div role="alert" className="flex flex-1 flex-col items-start gap-3"><p>{m('fsError')}</p></div>}
+      {status === 'error' && <div role="alert" className="flex flex-1 flex-col items-start gap-3"><p>{m('fsError')}</p>{errorDetail && <p className="text-sm text-text-secondary">{errorDetail}</p>}</div>}
       {ready && <div role="table" aria-label={m('fsResultTable')} aria-rowcount={evaluation.matches.length + 1} aria-colcount={columns.length + 2} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border-subtle">
         <div role="row" aria-rowindex={1} className="flex shrink-0 items-center border-b border-border-subtle bg-surface-sunken text-sm font-semibold h-9">
           <span role="columnheader" className="w-12 shrink-0 px-3">{m('fsSelect')}</span><span role="columnheader" className="min-w-0 flex-1 px-3">{m('fsId')}</span>
