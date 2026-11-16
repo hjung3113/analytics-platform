@@ -1,4 +1,4 @@
-import { TargetPicker, TARGET_KEYS } from './TargetPicker';
+import { TargetPicker, TARGET_KEYS, type BlockedGroup } from './TargetPicker';
 import { createPortal } from 'react-dom';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -70,6 +70,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     setChoice(!applied);
   }
   const [editError, setEditError] = useState<string | null>(null);
+  // A chosen custom group the query will refuse (ADR-0164): said here, with the other reasons, before Apply.
+  const [blockedGroups, setBlockedGroups] = useState<readonly BlockedGroup[]>([]);
   const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
   const conditionPreset = useConditionPreset();
   const accessRequest = useScopeAccessRequest();
@@ -115,6 +117,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   if (periodInputInvalid) reasons.push({ key: 'period-input', reason: m('queryInvalidPeriodInput') });
   if (editError) reasons.push({ key: 'edit', reason: editError });
   for (const issue of extension?.issues ?? []) reasons.push({ key: issue.key, reason: `${issue.label}: ${issue.reason}` });
+  for (const group of blockedGroups) reasons.push({ key: `customGroup:${group.id}`, reason: m('customGroupBlockedNote', { id: group.id, reason: group.reason }) });
   if (!canApply && !reasons.length) reasons.push({ key: 'validation', reason: m('queryValidationError') });
   const reasonId = `${id}-reasons`;
   const summaryOptions = { lang, axes: equipmentAxes, context: cap, pageSummary: extension?.pageSummary };
@@ -181,7 +184,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
         {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
         {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
-          <TargetPicker global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid)} reasonId={reasonId} />
+          <TargetPicker global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || blockedGroups.length > 0} reasonId={reasonId} onBlockedGroups={setBlockedGroups} />
           {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
         </div>}
     </div>

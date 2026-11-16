@@ -71,7 +71,7 @@ it('shows readable custom groups first, applies their IDs, and labels the closed
   await screen.findByRole('button', { name: /커스텀 그룹: Photo set/ });
 });
 
-it('keeps a selected missing group visible and selected with its ID and reason', async () => {
+it('keeps a selected missing group visible and selected with its ID and a short Korean reason', async () => {
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', '/?scopeId=MEM');
   const store = createFakeSavedViewStore();
@@ -80,10 +80,10 @@ it('keeps a selected missing group visible and selected with its ID and reason',
   render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
     <TargetPicker global={{ ...baseGlobal, condition: { customGroup: ['gone-9'] } }} cap={{ ...noContext, condition: 'apply' }} onChange={apply} />
   </PlatformProvider></I18nProvider>);
-  fireEvent.click(await screen.findByRole('button', { name: /gone-9 · not-found/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /gone-9 · 없는 그룹/ }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   await within(dialog).findByRole('table');
-  const missing = await within(dialog).findByRole('checkbox', { name: 'gone-9 · not-found' });
+  const missing = await within(dialog).findByRole('checkbox', { name: 'gone-9 · 없는 그룹' });
   expect(missing).toBeChecked();
   fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 0대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { customGroup: ['gone-9'] } });

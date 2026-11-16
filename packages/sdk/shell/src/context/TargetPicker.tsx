@@ -18,7 +18,7 @@ const RESULT_COLUMN_LIMIT = 4;
 const globalFacet = (id: string) => `global:${id}`;
 const axisFacet = (id: string) => `axis:${id}`;
 const ownPicks = (rule: FacetedSetValue['rule'], id: string) => Object.hasOwn(rule, id) ? rule[id] : undefined;
-type GroupOption = { id: string; label: string; target?: CustomGroupTarget; reason?: string };
+type GroupOption = { id: string; label: string; target?: CustomGroupTarget; reason?: string; reasonWord?: string };
 type GroupListState = { status: 'loading' | 'ready' | 'error'; scopeId: string | null; items: readonly SavedViewListItem[] };
 type PendingGroupSave = { fingerprint: string; entry: SavedViewEntry };
 type GroupSaveState = 'closed' | 'editing' | 'pending' | 'error' | 'saved';
@@ -32,6 +32,12 @@ type GroupSaveSlotProps = {
   onSave(input: { name: string; share: string; value: FacetedSetValue }): Promise<{ selected: { facetId: string; value: string } }>;
 };
 const EMPTY_GROUP_IDS: readonly string[] = [];
+/** A blocked group's reason code → its short word; the code itself stays in the query's technical detail. */
+const GROUP_REASON_WORD = {
+  'not-found': 'targetGroupReasonNotFound', forbidden: 'targetGroupReasonForbidden', 'scope-mismatch': 'targetGroupReasonScope',
+  loading: 'targetGroupReasonLoading', unavailable: 'targetGroupReasonUnavailable', 'store-unavailable': 'targetGroupReasonNoStore',
+} as const satisfies Record<string, keyof typeof SHELL_MESSAGES>;
+export type BlockedGroup = { id: string; reason: string };
 
 function savedGroupItemId(item: SavedViewListItem): string {
   return 'denied' in item && item.denied ? item.id : item.view.id;
@@ -63,6 +69,8 @@ type Props = {
   presetAxes?: readonly string[];
   invalid?: boolean;
   reasonId?: string;
+  /** Chosen groups the query will refuse (not while the list loads), with the short reason word, so the query bar can say why. */
+  onBlockedGroups?(groups: readonly BlockedGroup[]): void;
   /** Keep the dialog above relocating/measurement copies of the live bar button. */
   children?(button: ReactNode, open: boolean): ReactNode;
 };
@@ -73,7 +81,7 @@ export function TargetPicker(props: Props) {
   return <TargetPickerSession key={JSON.stringify([sessionKey, revision, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
 }
 
-function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, children }: Props) {
+function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, onBlockedGroups, children }: Props) {
   const { adapter, route, savedViewStore, session, revision, scope } = useHostPlatform();
   const { t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -108,33 +116,43 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   const currentGroupList = useMemo(() => groupList.scopeId === g.scopeId ? groupList : { status: 'loading' as const, scopeId: g.scopeId, items: [] }, [groupList, g.scopeId]);
   const optionsById = useMemo(() => {
     const result = new Map<string, GroupOption>();
+    const blocked = (id: string, reason: string): GroupOption => {
+      const reasonWord = m(Object.hasOwn(GROUP_REASON_WORD, reason) ? GROUP_REASON_WORD[reason as keyof typeof GROUP_REASON_WORD] : 'targetGroupReasonOther');
+      return { id, label: m('targetGroupMissing', { id, reason: reasonWord }), reason, reasonWord };
+    };
     for (const item of currentGroupList.items) {
       const id = savedGroupItemId(item);
       if ('denied' in item && item.denied) {
-        if (selectedGroupIds.includes(id)) result.set(id, { id, label: m('targetGroupMissing', { id, reason: item.reason }), reason: item.reason });
+        if (selectedGroupIds.includes(id)) result.set(id, blocked(id, item.reason));
         continue;
       }
       if (item.view.kind !== 'custom-group') continue;
       if (!item.capabilities.canView) {
         if (selectedGroupIds.includes(id)) {
           const reason = item.capabilities.reason ?? 'forbidden';
-          result.set(id, { id, label: m('targetGroupMissing', { id, reason }), reason });
+          result.set(id, blocked(id, reason));
         }
         continue;
       }
       if (item.view.savedScopeId !== g.scopeId) {
-        if (selectedGroupIds.includes(id)) result.set(id, { id, label: m('targetGroupMissing', { id, reason: 'scope-mismatch' }), reason: 'scope-mismatch' });
+        if (selectedGroupIds.includes(id)) result.set(id, blocked(id, 'scope-mismatch'));
         continue;
       }
       result.set(id, { id, label: item.view.name, target: item.view.target });
     }
     for (const id of selectedGroupIds) if (!result.has(id)) {
       const reason = currentGroupList.status === 'loading' ? 'loading' : currentGroupList.status === 'error' ? 'unavailable' : savedViewStore ? 'not-found' : 'store-unavailable';
-      result.set(id, { id, label: m('targetGroupMissing', { id, reason }), reason });
+      result.set(id, blocked(id, reason));
     }
     return result;
   }, [currentGroupList, selectedGroupIds, g.scopeId, savedViewStore, m]);
   const groupOptions = useMemo(() => [...optionsById.values()], [optionsById]);
+  const blockedKey = JSON.stringify(selectedGroupIds.flatMap(id => {
+    const option = optionsById.get(id);
+    return option?.reasonWord && option.reason !== 'loading' ? [{ id, reason: option.reasonWord }] : [];
+  }));
+  useEffect(() => { onBlockedGroups?.(JSON.parse(blockedKey) as BlockedGroup[]); }, [blockedKey, onBlockedGroups]);
+  useEffect(() => () => onBlockedGroups?.([]), [onBlockedGroups]);
   const readableGroups = useMemo(() => groupOptions.filter((group): group is GroupOption & { target: CustomGroupTarget } => group.target !== undefined), [groupOptions]);
   const items = useMemo<FacetedSetItem[]>(() => {
     const memberships = readableGroups.map(group => [group.id, new Set(customGroupMembers(group.target, facts.data?.items ?? []))] as const);
