@@ -8,7 +8,7 @@ const low: ChartStatus = { tone: 'warning', label: '하한 미달', reason: 'PM1
 
 describe('status glyphs (#2363)', () => {
   it('default glyphs say severity only, never a direction', () => {
-    expect(STATUS_GLYPHS).toEqual({ danger: '●', warning: '◆', neutral: '○' });
+    expect(STATUS_GLYPHS).toEqual({ danger: '■', warning: '◆', neutral: '○' });
     expect(Object.values(STATUS_GLYPHS).join('')).not.toMatch(/[▲▼◀▶]/);
   });
   it('a menu-declared marker replaces the tone glyph in text, chart label, legend and line CSV', () => {
@@ -21,6 +21,6 @@ describe('status glyphs (#2363)', () => {
   });
   it('an unusable marker falls back to the tone glyph', () => {
     for (const marker of ['', '▼▼', 'ab', ' ', '{', '}', '|']) expect(statusGlyph({ ...low, marker })).toBe('◆');
-    expect(statusText({ tone: 'danger', label: 'X', marker: '}' })).toBe('● X');
+    expect(statusText({ tone: 'danger', label: 'X', marker: '}' })).toBe('■ X');
   });
 });

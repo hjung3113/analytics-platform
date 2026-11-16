@@ -41,8 +41,8 @@ describe('scatter categories (#2332)', () => {
     ];
     const p = scatterData(spec, 'en', 's'); const o = p.option([]) as Option;
     expect(error).toHaveBeenCalled();
-    expect(p.tableValues.map(row => row.slice(3))).toEqual([['', 'b', 'Unknown', '', '3 s', ''], ['R1', 'A', '4 s', '1 s', '8 s', '● High']]);
-    expect(p.csvValues.map(row => row.slice(-3))).toEqual([['', 3, ''], [1, 8, '● High']]);
+    expect(p.tableValues.map(row => row.slice(3))).toEqual([['', 'b', 'Unknown', '', '3 s', ''], ['R1', 'A', '4 s', '1 s', '8 s', '■ High']]);
+    expect(p.csvValues.map(row => row.slice(-3))).toEqual([['', 3, ''], [1, 8, '■ High']]);
     expect(p.rows[1].label).toContain('Rack: R1 · A · Lower bound: 1 s · Upper bound: 8 s');
     const pointSeries = p.seriesKeys.findIndex(keys => keys.includes(p.rows[1].key));
     expect(o.tooltip.formatter({ seriesIndex: pointSeries, dataIndex: 0 })).toContain('Upper bound: 8 s');
@@ -128,9 +128,9 @@ describe('scatter categories (#2332)', () => {
     const spec = { ...source, points: source.points.map(p => ({ ...p, status })) };
     const p = scatterData(spec, 'en', 's'); const o = p.option([p.rows[0].key]) as Option;
     expect(p.legend.filter(l => l.label === 'Outside')).toHaveLength(1);
-    expect(o.series[0].data[0].label?.formatter).toContain('●'); expect(o.series[0].data[0].itemStyle).toMatchObject({ borderWidth: 2, shadowColor: expect.any(String) });
-    expect(p.headers).toContain('Status'); expect(p.tableValues[0]).toContain('● Outside · Above range'); expect(p.csvValues[0]).toContain('● Outside · Above range');
-    expect(p.rows[0].label).toContain('● Outside · Above range'); expect(p.summary).toContain(`● Outside: ${spec.points.length}`); expect(p.summary).not.toContain('Above range'); expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 0 })).toContain('Above range');
+    expect(o.series[0].data[0].label?.formatter).toContain('■'); expect(o.series[0].data[0].itemStyle).toMatchObject({ borderWidth: 2, shadowColor: expect.any(String) });
+    expect(p.headers).toContain('Status'); expect(p.tableValues[0]).toContain('■ Outside · Above range'); expect(p.csvValues[0]).toContain('■ Outside · Above range');
+    expect(p.rows[0].label).toContain('■ Outside · Above range'); expect(p.summary).toContain(`■ Outside: ${spec.points.length}`); expect(p.summary).not.toContain('Above range'); expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 0 })).toContain('Above range');
     const changed = { ...spec, points: [...spec.points, { ...spec.points[0], id: 'another', status: { ...status, tone: 'warning' as const } }] };
     expect(scatterData(changed, 'en', 's').legend.filter(l => l.label === 'Outside')).toHaveLength(2);
   });
