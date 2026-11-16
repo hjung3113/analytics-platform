@@ -28,6 +28,18 @@ describe('HW Time linked workspace', () => {
     expect(chart('hw-overview-bars').series[0].points).toHaveLength(2);
   });
 
+  it('declares 표시 조건 minimizable with a summary of the current conditions (#2359)', async () => {
+    await renderOverview();
+    const summary = () => (JSON.parse(screen.getByTestId('workspace').dataset.config!) as { minimize: Record<string, string> }).minimize;
+    expect(Object.keys(summary())).toEqual(['filter']);
+    const [, type, modules, moduleTotal, motions, motionTotal] = /^(\S+) · Module (\d+)\/(\d+) · Motion (\d+)\/(\d+)$/.exec(summary().filter!)!;
+    expect(type).toBeTruthy();
+    expect(modules).toBe(moduleTotal);
+    expect(motions).toBe(motionTotal);
+    fireEvent.click(within(screen.getByRole('tree', { name: 'Motion' })).getByRole('checkbox', { name: /Chuck/ }));
+    await waitFor(() => expect(summary().filter).toContain(`Motion ${Number(motionTotal) - 1}/${motionTotal}`));
+  });
+
   it('persists heatmap activation as row and restores the linked bar focus', async () => {
     await renderOverview();
     fireEvent.click(screen.getByRole('button', { name: 'activate EQ-002 PM2' }));

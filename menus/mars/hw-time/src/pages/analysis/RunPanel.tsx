@@ -64,7 +64,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
     return (point: ChartPoint) => { const status = of(point); return status?.tone === 'neutral' ? undefined : status; };
   }, [projected.trend.pointStatusOf]);
   const change = <K extends keyof RunScatterSettings>(key: K, value: RunScatterSettings[K]) => setSettings(current => ({ ...current, [key]: value }));
-  return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col gap-2">
+  return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col gap-2 p-3">
     <div className="flex flex-wrap items-center gap-2">
       <h3 className="t-card-title">{m('runs', { module: moduleId, motion: motionId })}</h3>
       {judgement && <StatusBadge tone={htmStatusView(judgement, lang)?.tone ?? 'success'}>{htmStatusText(judgement, lang)}</StatusBadge>}

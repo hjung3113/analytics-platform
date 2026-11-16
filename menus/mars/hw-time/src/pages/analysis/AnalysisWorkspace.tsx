@@ -147,6 +147,9 @@ function MotionTable({ data, filter, moduleId, motionId, onMotion }: { data: HwT
 }
 
 /** Stable query owners survive check projections and workspace hide/reopen commands. */
+/** Both languages of a message filled with the same values: a panel option takes `Text`, not the current-language string. */
+const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (whole, key: string) => values[key] ?? whole);
+
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const w = useMessages(HW_TIME_WORKSPACE_MESSAGES);
@@ -194,8 +197,8 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     }} />}</QueryView>
   </div>;
   const runPanel = (kind: 'scatter' | 'trend') => {
-    if (!moduleId) return <p className="text-sm text-text-secondary">{w('pickModule')}</p>;
-    if (!motionId) return <p className="text-sm text-text-secondary">{w('pickMotion')}</p>;
+    if (!moduleId) return <p className="p-3 text-sm text-text-secondary">{w('pickModule')}</p>;
+    if (!motionId) return <p className="p-3 text-sm text-text-secondary">{w('pickMotion')}</p>;
     const hidden = !moduleVisible || !motionVisible || filter.empty;
     return <div hidden={hidden} className={hidden ? 'hidden' : 'flex h-full min-h-0 flex-col'}>
       <QueryView fill query={runs}>{data => <RunPanel key={`${moduleId}/${motionId}/${runs.completedAt}`} kind={kind}
@@ -203,21 +206,24 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
         judgement={stats.response?.data?.rows.find(row => row.motion === motionId)?.judgement} />}</QueryView>
     </div>;
   };
+  // Shown in the toolbar chip while the 표시 조건 panel is minimized, so the conditions stay visible.
+  const summaryValues = { type: filter.moduleType.id, modules: String(filter.modules.length), moduleTotal: String(filter.moduleType.modules.length), motions: String(filter.motions.length), motionTotal: String(filter.moduleType.motions.length) };
+  const filterSummary = { ko: fill(HW_TIME_WORKSPACE_MESSAGES.filterSummary.ko, summaryValues), en: fill(HW_TIME_WORKSPACE_MESSAGES.filterSummary.en, summaryValues) };
   const panels: PanelWorkspacePanel[] = [
-    { id: 'filter', title: HW_TIME_OVERVIEW_MESSAGES.filters, preferredHeight: 600, minWidth: 256, render: () => <FilterPanel filter={filter} motionColors={colors} /> },
+    { id: 'filter', title: HW_TIME_OVERVIEW_MESSAGES.filters, preferredHeight: 600, minWidth: 256, minimize: { summary: filterSummary }, render: () => <FilterPanel filter={filter} motionColors={colors} /> },
     { id: 'heatmap', title: HW_TIME_OVERVIEW_MESSAGES.heatmap, preferredHeight: 630, minWidth: 120, render: () => charts('heatmap') },
     { id: 'bars', title: HW_TIME_OVERVIEW_MESSAGES.bars, primary: true, preferredHeight: 600, minWidth: 120, render: () => charts('bars') },
     { id: 'motions', title: HW_TIME_WORKSPACE_MESSAGES.motionPanel, preferredHeight: 400, minWidth: 120, render: () => !moduleId
-      ? <p ref={pickModuleRef} tabIndex={-1} className="text-sm text-text-secondary outline-none">{w('pickModule')}</p>
-      : <><Button variant="ghost" size="sm" onClick={() => { clearedModule.current = true; setPage({ drillModule: null, drillMotion: null, focus: null }); }}>{m('back')}</Button>
+      ? <p ref={pickModuleRef} tabIndex={-1} className="p-3 text-sm text-text-secondary outline-none">{w('pickModule')}</p>
+      : <div className="flex flex-col items-start gap-2 p-3"><Button variant="ghost" size="sm" onClick={() => { clearedModule.current = true; setPage({ drillModule: null, drillMotion: null, focus: null }); }}>{m('back')}</Button>
         {!moduleVisible && <p className="text-sm text-text-secondary">{m('hiddenDrill')}</p>}
-        <div hidden={!moduleVisible || filter.empty}><QueryView query={stats}>{data => <MotionTable data={data} filter={filter} moduleId={moduleId} motionId={motionId}
+        <div hidden={!moduleVisible || filter.empty} className="w-full"><QueryView query={stats}>{data => <MotionTable data={data} filter={filter} moduleId={moduleId} motionId={motionId}
           onMotion={id => {
             previousSelection.current = { moduleId, motionId: id, row };
             setReveal(current => ({ panelId: 'scatter', seq: (current?.seq ?? 0) + 1 }));
             // Focus-neutral write: the linked screen keeps focus on the action; reveal scrolls the filled panel into view.
             setPage({ drillMotion: id, focus: null });
-          }} />}</QueryView></div></> },
+          }} />}</QueryView></div></div> },
     { id: 'scatter', title: HW_TIME_OVERVIEW_MESSAGES.distribution, preferredHeight: 640, minWidth: 120, render: () => runPanel('scatter') },
     { id: 'trend', title: HW_TIME_OVERVIEW_MESSAGES.trend, preferredHeight: 600, minWidth: 120, render: () => runPanel('trend') },
     { id: 'table', title: HW_TIME_MESSAGES.tablePageHwTimeTable, preferredHeight: 440, minWidth: 120, render: () => <div hidden={filter.empty} className={filter.empty ? 'hidden' : 'flex h-full min-h-0 flex-col'}><RawTablePanel params={{}} linked /></div> },

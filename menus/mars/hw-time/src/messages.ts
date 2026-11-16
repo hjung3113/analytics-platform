@@ -126,4 +126,6 @@ export const HW_TIME_WORKSPACE_MESSAGES = {
   pickModule: { ko: 'Module을 고르세요', en: 'Select a Module' },
   pickMotion: { ko: 'Motion을 고르세요', en: 'Select a Motion' },
   activeRow: { ko: '선택한 막대 행', en: 'Selected bar row' },
+  /** The minimized 표시 조건 chip: the current conditions in one line. */
+  filterSummary: { ko: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}', en: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}' },
 } satisfies Record<string, Text>;

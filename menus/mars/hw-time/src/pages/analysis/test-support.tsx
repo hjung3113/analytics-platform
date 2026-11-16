@@ -12,7 +12,7 @@ import { manifests } from '../../index';
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   return { ...actual,
-    PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div data-testid="workspace" data-config={JSON.stringify({ ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], reveal: p.revealRequest })}>
+    PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div data-testid="workspace" data-config={JSON.stringify({ ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], reveal: p.revealRequest, minimize: Object.fromEntries(p.panels.flatMap(panel => panel.minimize ? [[panel.id, panel.minimize.summary?.ko ?? '']] : [])) })}>
       {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.render()}</section>)}
     </div>,
     AnalysisChart: (p: import('@ap/components').AnalysisChartProps) => <section aria-label={String(p.title)}>

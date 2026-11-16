@@ -13,7 +13,7 @@ import type { HwTimeFilter } from '../useHwTimeFilter';
 export function FilterPanel({ filter, motionColors }: { filter: HwTimeFilter; motionColors: HwTimeMotionColors }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const shared = useMessages(HW_TIME_MESSAGES);
-  return <aside aria-label={m('filters')} className="flex flex-col gap-4 rounded-md border border-border-subtle bg-surface-card p-3" data-testid="hw-time-filter-panel">
+  return <aside aria-label={m('filters')} className="flex flex-col gap-4 p-3" data-testid="hw-time-filter-panel">
     <div className="flex flex-col gap-1">
       <span id="hw-filter-recipe-label" className="t-card-title">{m('recipe')}</span>
       <Select disabled value="none"><SelectTrigger aria-labelledby="hw-filter-recipe-label" aria-describedby="hw-filter-recipe-reason"><SelectValue /></SelectTrigger>
