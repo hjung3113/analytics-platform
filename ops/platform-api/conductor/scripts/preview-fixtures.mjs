@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // One [preview] record per drawer surface on a throwaway preview database.
+// Includes service/personal tokens, Finding evidence and Integration recovery detail.
 // Task Request is the exception: one converted, one left pending_review.
 //
 // Usage: node preview-fixtures.mjs --api http://127.0.0.1:<port>
 //
-// Idempotent: each record's title (or the request's reason / evidence summary)
+// Idempotent: each record's title/name (or the request's reason / evidence summary)
 // starts with "[preview]". The matching list is read before every create.
 //
 // Mutations share a 10/minute actor bucket
@@ -13,10 +14,10 @@
 // separate sensitive bucket.
 //
 // Fresh-start mutation tally (the permission approve is not in this bucket):
-//   mock-admin-1: 8 — finding, two task requests, task approve, convert,
-//     milestone, milestone assign, personal-read permission request
-//   mock-admin-2: 4 when the cluster system is not tableau (cluster, two
-//     members, one outcome response); 1 when it is
+//   mock-admin-1: 10 — finding, two task requests, task approve, convert,
+//     milestone, milestone assign, personal-read permission request, personal token, evidence
+//   mock-admin-2: 5 when the cluster system is not tableau (cluster, two
+//     members, one outcome response, service token); 2 when it is
 //   mock-developer-1: 4 when the cluster system is tableau (cluster, two
 //     members, one outcome response); 1 otherwise
 //   mock-developer-2: 9 — two surveys, three questions, two opens, one
@@ -43,6 +44,9 @@ const PERSONAS = [
 
 const TITLE = {
   finding: `${MARK} Finding from a seed VOC`,
+  personalToken: `${MARK} Personal API token`,
+  serviceToken: `${MARK} Service API token`,
+  evidence: `${MARK} Evidence for the Finding drawer`,
   taskRequest: `${MARK} evidence for the preview task request`,
   taskRequestPending: `${MARK} pending task request for the review drawer`,
   task: `${MARK} Task from the finding`,
@@ -193,7 +197,8 @@ async function requestAllPages(path, options = {}) {
     const page = await request(path, { ...options, query });
     if (!page.ok) return page;
     items.push(...itemsOf(page.body));
-    cursor = page.body?.page?.has_more ? page.body.page.cursor : undefined;
+    // Token metadata uses nextCursor; feature lists use page.has_more/page.cursor.
+    cursor = page.body?.nextCursor ?? (page.body?.page?.has_more ? page.body.page.cursor : undefined);
     if (cursor === undefined) return { ok: true, status: page.status, body: { items } };
   }
 }
@@ -846,11 +851,12 @@ async function stepPermission(systemId) {
     return;
   }
   const existing = itemsOf(listed.body).find(
-    (row) => row.requested_capability === 'finding.manage' && marked(row.reason),
+    (row) => row.requested_capability === 'finding.manage' && marked(row.reason) &&
+      (row.status === 'pending' || row.status === 'needs_more_info'),
   );
   if (existing) {
     remember(step, existing, false);
-    return;
+    return existing;
   }
   const createdRow = await request('/permission-requests', {
     method: 'POST',
@@ -867,6 +873,102 @@ async function stepPermission(systemId) {
     return;
   }
   remember(step, createdRow.body, true);
+  return createdRow.body;
+}
+
+async function stepToken(kind) {
+  const service = kind === 'service';
+  const step = service ? 'service_token' : 'personal_token';
+  const persona = service ? 'mock-admin-2' : 'mock-admin-1';
+  const path = service ? '/api-tokens/service' : '/api-tokens';
+  const name = service ? TITLE.serviceToken : TITLE.personalToken;
+  const listed = await requestAllPages(path, { persona, ...(service ? { query: { kind: 'service' } } : {}) });
+  if (!listed.ok) {
+    recordFailed(step, listed.status, listed.code);
+    return;
+  }
+  const existing = itemsOf(listed.body).find(row => row.name === name && !row.revokedAt &&
+    (!row.expiresAt || Date.parse(row.expiresAt) > Date.now()));
+  if (existing) {
+    remember(step, existing, false);
+    return;
+  }
+  let actorId;
+  if (service) {
+    const actors = await request('/actors', { persona, query: { workspace: 'current', actorType: 'system' } });
+    if (!actors.ok) {
+      recordFailed(step, actors.status, actors.code);
+      return;
+    }
+    actorId = actors.body?.actors?.find(row => row.actor_type === 'system')?.id;
+    if (!actorId) {
+      recordFailed(step, 0, 'seed_missing');
+      return;
+    }
+  }
+  const issued = await request(path, { method: 'POST', persona, body: {
+    name, scopes: ['workspace.read'], expiresAt: null, ...(service ? { actorId } : {}),
+  } });
+  if (!issued.ok) {
+    recordFailed(step, issued.status, issued.code);
+    return;
+  }
+  // The one-time secret is deliberately discarded; the report holds metadata references only.
+  remember(step, issued.body?.item, true);
+}
+
+async function stepEvidence(finding) {
+  const step = 'evidence';
+  const persona = 'mock-admin-1';
+  if (!finding?.id) {
+    recordFailed(step, 0, 'prerequisite_missing');
+    return;
+  }
+  const path = `/findings/${finding.id}/evidence-highlights`;
+  const listed = await requestAllPages(path, { persona });
+  if (!listed.ok) {
+    recordFailed(step, listed.status, listed.code);
+    return;
+  }
+  const existing = findMarked(itemsOf(listed.body), 'quote_or_summary', TITLE.evidence);
+  if (existing) {
+    remember(step, existing, false);
+    return;
+  }
+  const added = await request(path, { method: 'POST', persona, idempotency: true,
+    body: { source_type: 'note', quote_or_summary: TITLE.evidence } });
+  if (!added.ok) {
+    recordFailed(step, added.status, added.code);
+    return;
+  }
+  remember(step, added.body, true);
+}
+
+async function stepIntegration(permission) {
+  const step = 'integration_detail';
+  const persona = 'mock-admin-1';
+  // The pending permission request above is itself a recovery source; no separate integration row is stored.
+  if (!permission?.id) {
+    recordFailed(step, 0, 'prerequisite_missing');
+    return;
+  }
+  const listed = await requestAllPages('/dashboard/recovery-items', { persona,
+    query: { category: 'permission-requests-pending' } });
+  if (!listed.ok) {
+    recordFailed(step, listed.status, listed.code);
+    return;
+  }
+  const row = itemsOf(listed.body).find(item => item.source?.id === permission.id);
+  if (!row?.recovery_item_id) {
+    recordFailed(step, 0, 'recovery_item_missing');
+    return;
+  }
+  const detail = await request(`/dashboard/recovery-items/${encodeURIComponent(row.recovery_item_id)}`, { persona });
+  if (!detail.ok) {
+    recordFailed(step, detail.status, detail.code);
+    return;
+  }
+  remember(step, { id: detail.body?.recovery_item_id }, false);
 }
 
 async function main() {
@@ -918,9 +1020,14 @@ async function main() {
   await guard('discovery_response', () => stepDiscoveryResponse(discovery));
   await guard('outcome_response', () => stepOutcomeResponse(outcome));
   await guard('outcome_follow_up', () => stepOutcomeFollowUp(outcome));
-  await guard('permission_request', () =>
+  const permission = await guard('permission_request', () =>
     stepPermission(vocs?.[0]?.primary_managed_system_id ?? powerBiId),
   );
+
+  await guard('personal_token', () => stepToken('personal'));
+  await guard('service_token', () => stepToken('service'));
+  await guard('evidence', () => stepEvidence(finding));
+  await guard('integration_detail', () => stepIntegration(permission));
 
   finish({ ok: failed.length === 0, created, reused, failed });
 }
