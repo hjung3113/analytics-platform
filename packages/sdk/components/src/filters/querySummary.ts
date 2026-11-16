@@ -1,4 +1,4 @@
-import { formatPeriod, type Capability, ConditionPreset, ContextKey, EquipmentAxisDescriptor, GlobalContext, Pair } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, formatPeriod, type Capability, ConditionPreset, ContextKey, EquipmentAxisDescriptor, GlobalContext, Pair } from '@ap/contracts';
 import { CONTEXT_LABELS, formatText } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PageFilterSummaryItem } from './PageFilterBar';
@@ -26,7 +26,7 @@ export function querySummaryItems(g: GlobalContext, options: QuerySummaryOptions
   if (g.prcGroups !== null) add('prcGroup', ids(g.prcGroups));
   if (g.condition) {
     const ordered = [...axes.map(a => a.id), ...Object.keys(g.condition).filter(id => !axes.some(a => a.id === id))];
-    for (const id of ordered) if (g.condition[id]) items.push({ key: `condition:${id}`, contextKey: 'condition', label: axes.find(a => a.id === id)?.label[lang] ?? id, value: ids(g.condition[id]), capability: context?.condition });
+    for (const id of ordered) if (g.condition[id]) items.push({ key: `condition:${id}`, contextKey: 'condition', label: axes.find(a => a.id === id)?.label[lang] ?? (id === CUSTOM_GROUP_AXIS ? formatText(COMPONENTS_MESSAGES.filterCustomGroup, lang) : id), value: ids(g.condition[id]), capability: context?.condition });
   }
   if (g.condition !== null || g.prcGroups !== null || g.membershipBasis !== null) {
     items.push({
@@ -49,10 +49,10 @@ export function querySummaryItems(g: GlobalContext, options: QuerySummaryOptions
 export function summaryPreset(view: { key: string; presets: readonly ConditionPreset[]; activeId: string; appliedId: string } | null, which: 'draft' | 'applied'): SummaryPreset | undefined {
   return view ? { key: view.key, presets: view.presets, id: which === 'draft' ? view.activeId : view.appliedId } : undefined;
 }
-/** Equipment axes the preset leaves out of the request: the Condition's non-empty axes the preset's axes do not list. */
+/** Equipment axes the preset leaves out of the request: the Condition's non-empty axes the preset's axes do not list. Custom groups apply under every preset (kernel §6.4). */
 export function presetOutsideAxes(global: GlobalContext, preset: SummaryPreset): string[] {
   const axes = preset.presets.find(item => item.id === preset.id)?.axes ?? [];
-  return Object.keys(global.condition ?? {}).filter(axis => global.condition?.[axis]?.length && !axes.includes(axis));
+  return Object.keys(global.condition ?? {}).filter(axis => axis !== CUSTOM_GROUP_AXIS && global.condition?.[axis]?.length && !axes.includes(axis));
 }
 /** Consumer metadata includes effective defaults; unknown address keys retain their raw values. */
 export function formatQuerySummary(global: GlobalContext, page: readonly Pair[], options: QuerySummaryOptions): string {

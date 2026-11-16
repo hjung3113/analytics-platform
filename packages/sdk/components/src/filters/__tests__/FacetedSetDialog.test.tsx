@@ -223,24 +223,30 @@ it('cross-narrows counts, leaves zero values visible and allows zero-result appl
   expect(apply).toHaveBeenCalledWith({ rule: { color: ['red'], size: ['L'] }, fixed: null });
 });
 
-it('saves the named draft without applying, shows pending/error, keeps input and retries', async () => {
-  let reject!: (reason: Error) => void;
-  const save = vi.fn().mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail; })).mockResolvedValueOnce(undefined);
-  const apply = vi.fn(); const close = vi.fn();
-  render(<I18nProvider><FacetedSetDialog open onOpenChange={close} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: ['one'] }} onApply={apply}
-    save={{ shareOptions: [{ value: 'private', label: 'Private' }, { value: 'team', label: 'Team' }], defaultShare: 'private', author: 'Caller', onSave: save }} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
-  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'My set' } });
-  fireEvent.click(screen.getByRole('radio', { name: 'Team' }));
-  fireEvent.click(screen.getByRole('button', { name: '저장' }));
-  expect(screen.getByRole('button', { name: '저장 중…' })).toBeDisabled();
-  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'My set', share: 'team', value: { rule: {}, fixed: ['one'] } });
-  await act(async () => reject(new Error('transport')));
-  expect(screen.getByRole('alert')).toHaveTextContent('저장하지 못했습니다');
-  expect(screen.getByRole('textbox', { name: '이름' })).toHaveValue('My set');
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
-  expect(screen.getByText('저장했습니다. 적용하려면 적용 버튼을 누르세요.')).toBeVisible();
-  expect(apply).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
+it('shows explicit zero-member facet values', () => {
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose"
+    facets={[{ id: 'customGroup', label: 'Custom groups', values: ['g1', 'g2', 'empty'] }]}
+    items={[{ id: 'one', facets: { customGroup: ['g1'] } }]}
+    value={{ rule: { customGroup: ['g1'] }, fixed: null }} onApply={vi.fn()}
+  /></I18nProvider>);
+  expect(screen.getByRole('checkbox', { name: 'empty' })).toBeInTheDocument();
+  expect(screen.getByRole('checkbox', { name: 'empty' }).parentElement).toHaveTextContent('empty0');
+});
+
+it('lets an optional footer slot select a just-saved facet value without applying it', () => {
+  const apply = vi.fn();
+  let savedValue: { rule: Readonly<Record<string, readonly string[]>>; fixed: readonly string[] | null } | undefined;
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose"
+    facets={[{ id: 'customGroup', label: 'Custom groups', values: ['g1', 'g-new'] }]}
+    items={[{ id: 'one', facets: { customGroup: ['g1'] } }, { id: 'two', facets: { customGroup: ['g-new'] } }]}
+    value={{ rule: {}, fixed: null }} onApply={apply}
+    saveSlot={({ value, onSaved }) => <button type="button" onClick={() => { savedValue = value; onSaved({ facetId: 'customGroup', value: 'g-new' }); }}>Save as group</button>}
+  /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Save as group' }));
+  expect(savedValue).toEqual({ rule: {}, fixed: null });
+  expect(screen.getByRole('checkbox', { name: 'g-new' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'g1' })).not.toBeChecked();
+  expect(apply).not.toHaveBeenCalled();
 });
 
 it.each(['loading', 'error'] as const)('does not present counts or allow apply while %s', status => {
@@ -345,4 +351,34 @@ it('keeps the count column in place and puts the select-only action to its right
   expect(action).toHaveTextContent('단독 선택');
   expect(count.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(count).toHaveClass('w-16', 'shrink-0', 'text-right');
+});
+
+it('saves the named draft without applying, shows pending/error, keeps input and retries', async () => {
+  let reject!: (reason: Error) => void;
+  const save = vi.fn().mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail; })).mockResolvedValueOnce(undefined);
+  const apply = vi.fn(); const close = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={close} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: ['one'] }} onApply={apply}
+    save={{ shareOptions: [{ value: 'private', label: 'Private' }, { value: 'team', label: 'Team' }], defaultShare: 'private', author: 'Caller', onSave: save }} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'My set' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Team' }));
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  expect(screen.getByRole('button', { name: '저장 중…' })).toBeDisabled();
+  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'My set', share: 'team', value: { rule: {}, fixed: ['one'] } });
+  await act(async () => reject(new Error('transport')));
+  expect(screen.getByRole('alert')).toHaveTextContent('저장하지 못했습니다');
+  expect(screen.getByRole('textbox', { name: '이름' })).toHaveValue('My set');
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
+  expect(screen.getByText('저장했습니다. 적용하려면 적용 버튼을 누르세요.')).toBeVisible();
+  expect(apply).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
+});
+
+it('gives saveSlot precedence over the legacy save form', () => {
+  const save = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={vi.fn()}
+    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }}
+    saveSlot={() => <button>Caller save</button>} /></I18nProvider>);
+  expect(screen.getByRole('button', { name: 'Caller save' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: '그룹으로 저장' })).toBeNull();
+  expect(save).not.toHaveBeenCalled();
 });

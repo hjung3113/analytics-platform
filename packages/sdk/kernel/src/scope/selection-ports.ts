@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { parseDateTime, type AxisOption, type AxisOptionsInput, type Condition, type EquipmentFacts, type EquipmentSummary, type IdSet, type MembershipPeriod, type SelectionResolution } from '@ap/contracts';
-import { useAdapterRequest, useKeptAnswers, type RequestState } from '../query/query';
-import { useHostPlatform, useSelectionPortCache } from '../platform/platform';
+import type { RequestState } from '../query/query';
+import { useHostPlatform, useQueryEngine, useSelectionPortCache } from '../platform/platform';
 import { idlePage, type PortFailure, type PortPageState, type PortStatus } from './selection-port-cache';
+import { equipmentFactsQueryKey, equipmentFactsQueryOptions } from './equipment-facts-cache';
+import { useQuery } from '@tanstack/react-query';
 
 export type { PortFailure, PortStatus } from './selection-port-cache';
 export type PortContext = { scopeId: string; roomNames: IdSet; lineNames: IdSet; prcGroups: IdSet; condition: Condition | null; membershipBasis: 'asOf' | null; period: MembershipPeriod | null };
@@ -22,21 +24,14 @@ const noop = () => {};
 /** Complete current facts, shared within a session generation and Scope; unrelated Context does not refetch. */
 export function useEquipmentFacts(scopeId: string): RequestState<EquipmentFacts> {
   const platform = useHostPlatform();
-  const answers = useKeptAnswers();
+  const { client, gen } = useQueryEngine();
   const readiness = gate(platform, scopeId);
-  const result = useAdapterRequest(async signal => {
-    const send = platform.adapter.listEquipmentFacts;
-    if (!send) throw new Error('listEquipmentFacts is not implemented');
-    const facts = await send.call(platform.adapter, { scopeId }, signal);
-    if (signal.aborted) throw new DOMException('aborted', 'AbortError');
-    const key = ['equipment-facts', scopeId, facts.version];
-    const kept = answers.read<EquipmentFacts>(key);
-    if (kept) return kept;
-    answers.keep(key, facts);
-    return facts;
-  }, ['equipment-facts', scopeId], readiness === null, { shared: true });
+  const query = useQuery({ ...equipmentFactsQueryOptions(client, gen, platform.adapter, scopeId), enabled: readiness === null }, client);
+  const key = equipmentFactsQueryKey(gen, scopeId);
+  const retry = useCallback(() => { void client.resetQueries({ queryKey: key, exact: true }); }, [client, key]);
   if (readiness !== null) return { status: readiness === 'idle' ? 'loading' : 'error', data: null, retry: noop };
-  return result;
+  if (query.data === undefined) return { status: 'loading', data: null, retry };
+  return query.data.ok ? { status: 'done', data: query.data.data, retry } : { status: 'error', data: null, retry };
 }
 const denied: PortFailure = { code: 'scope_forbidden', message: 'Override Scope must match the validated screen Scope', retryable: false };
 const invalid: PortFailure = { code: 'invalid_input', message: 'Invalid metadata request context', retryable: false };

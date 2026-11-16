@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal, validateSavedView, type CustomGroupTarget, type CustomGroupView, type EquipmentSummary } from '@ap/contracts';
-import { expandCustomGroups } from '../expand-custom-groups';
+import { customGroupMembers, expandCustomGroups } from '../expand-custom-groups';
 import { createFakeSavedViewStore, testSavedView } from '../fake-store';
 import { restoreSavedView } from '../restore';
 
@@ -31,6 +31,10 @@ describe('custom-group drafts', () => {
 });
 
 describe('expandCustomGroups', () => {
+  it('uses one membership helper for fixed and rule targets', () => {
+    expect(customGroupMembers({ rule: { roomNames: ['R1'], model: ['A', 'C'] } }, facts)).toEqual(['e1', 'e3']);
+    expect(customGroupMembers({ fixed: ['e3', 'missing', 'e3'] }, facts)).toEqual(['e3', 'missing']);
+  });
   it('unions groups, deduplicates members and removes only the reserved axis', () => {
     expect(expandCustomGroups({ condition: { customGroup: ['g1', 'g2'], model: ['A'] }, selection: null, groups, facts })).toEqual({ ok: true, condition: { model: ['A'] }, selection: ['e1', 'e2', 'e3'] });
   });

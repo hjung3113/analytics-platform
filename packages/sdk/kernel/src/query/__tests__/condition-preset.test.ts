@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { ConditionPreset } from '@ap/contracts';
-import { activeConditionPreset } from '../condition-preset';
+import { activeConditionPreset, narrowedGlobal } from '../condition-preset';
 
 // Entry rule (ADR-0083 amendment, 06 §6.4): without a page value, the first preset covering every non-empty Condition axis.
 const presets: ConditionPreset[] = [
@@ -24,4 +24,19 @@ it.each([
 
 it('is null for a menu without presets', () => {
   expect(activeConditionPreset({}, [], { maker: ['TEL'] })).toBeNull();
+});
+
+it('keeps the reserved customGroup axis outside preset coverage and narrowing', () => {
+  const condition = { customGroup: ['g1'], maker: ['TEL'] };
+  const selected = activeConditionPreset(menu, [], condition);
+  expect(selected?.id).toBe('eqp');
+  expect(narrowedGlobal(menu, [], { scopeId: 'MEM', from: null, to: null, roomNames: null, condition, lineNames: null, prcGroups: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }).condition)
+    .toEqual({ customGroup: ['g1'], maker: ['TEL'] });
+});
+
+it('keeps the non-default covering preset and its axes alongside a custom group', () => {
+  const condition = { customGroup: ['g1'], stgroup: ['STG-PHOTO-A'] };
+  expect(activeConditionPreset(menu, [], condition)?.id).toBe('org');
+  expect(narrowedGlobal(menu, [], { scopeId: 'MEM', from: null, to: null, roomNames: null, condition, lineNames: null, prcGroups: null, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }).condition)
+    .toEqual(condition);
 });

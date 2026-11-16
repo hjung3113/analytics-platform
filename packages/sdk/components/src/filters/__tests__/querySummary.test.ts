@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { noContext } from '@ap/kernel/testing';
-import { formatQuerySummary, querySummaryItems } from '../querySummary';
+import { formatQuerySummary, presetOutsideAxes, querySummaryItems } from '../querySummary';
 import { formatPeriod, type GlobalContext } from '@ap/contracts';
 
 const global: GlobalContext = { scopeId: 'S', from: null, to: null, roomNames: ['PHOTO'], lineNames: ['L1', 'L2'], prcGroups: null, condition: { vendor: ['V1'] }, membershipBasis: 'asOf', selection: [], lotIds: ['LOT'], ppid: 'PP', recipeIds: ['R'], metricId: 'M', metricVersion: '3' };
@@ -15,6 +15,14 @@ describe('query summary values', () => {
     expect(summary(null)).not.toContain('전체 후보');
     expect(summary([])).toContain('명시적 빈 선택');
     expect(summary(['EQ-X'])).toContain('EQ-X');
+  });
+});
+
+describe('custom group in the summary (#2390)', () => {
+  it('labels the customGroup axis and never counts it outside a preset', () => {
+    const g = { ...global, condition: { customGroup: ['g1'], vendor: ['V1'] } };
+    expect(querySummaryItems(g, { lang: 'ko' }).find(item => item.key === 'condition:customGroup')?.label).toBe('커스텀 그룹');
+    expect(presetOutsideAxes(g, { key: 'set', id: 'eq', presets: [{ id: 'eq', label: { ko: '설비 기준', en: 'Equipment' }, axes: [] }] })).toEqual(['vendor']);
   });
 });
 

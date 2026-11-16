@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useState } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ContractError, groupId, parseQuery, spaceId } from '@ap/contracts';
+import { buildQuery, ContractError, emptyGlobal, groupId, parseQuery, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '../../index';
 import { PaneScreenProvider, useHostPlatform } from '../../host';
 import type { PaneScreen } from '../platform';
@@ -68,6 +68,19 @@ describe('repeated page keys (platform)', () => {
   it('a duplicate of an undeclared key is still a contract error', () => {
     mount('/mars/items?v=1&q=x&q=y');
     expect(platform.contractError?.code).toBe('duplicate_page_key');
+  });
+});
+
+describe('reserved custom-group Condition URL axis', () => {
+  it('accepts customGroup without registering it as an equipment axis', () => {
+    mount(`/mars/items${buildQuery({ ...emptyGlobal, condition: { customGroup: ['group-1'] } })}`);
+    expect(platform.contractError).toBeNull();
+    expect(platform.global.condition).toEqual({ customGroup: ['group-1'] });
+  });
+
+  it('rejects customGroup with historical membership on the URL', () => {
+    mount(`/mars/items${buildQuery({ ...emptyGlobal, condition: { customGroup: ['group-1'] }, membershipBasis: 'asOf' })}`);
+    expect(platform.contractError).toMatchObject({ code: 'membership_basis_unsupported' });
   });
 });
 

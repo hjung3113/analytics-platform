@@ -1,4 +1,4 @@
-export interface FacetedSetFacet { id: string; label: string }
+export interface FacetedSetFacet { id: string; label: string; /** Values without current item membership remain visible at a zero count. */ values?: readonly string[]; /** Selected unresolved values survive all-values normalization. */ preservePicks?: readonly string[]; /** Starts with no values selected; absence still means no filter. */ defaultSelection?: 'all' | 'none' }
 export interface FacetedSetItem { id: string; facets: Readonly<Record<string, string | readonly string[]>> }
 export interface FacetedSetValue {
   rule: Readonly<Record<string, readonly string[]>>;
@@ -15,9 +15,15 @@ export function rulePicks(rule: FacetedSetValue['rule'], facet: string): readonl
 }
 
 /** Posting sets deduplicate multi-valued membership; rebuild only when items identity changes. */
-export function buildFacetedSetIndex(items: readonly FacetedSetItem[]) {
+export function buildFacetedSetIndex(items: readonly FacetedSetItem[], declaredFacets: readonly FacetedSetFacet[] = []) {
   const facets = new Map<string, Map<string, Set<number>>>();
   const byId = new Map<string, number>();
+  const preserved = new Map(declaredFacets.map(facet => [facet.id, new Set(facet.preservePicks ?? [])]));
+  for (const { id, values = [] } of declaredFacets) {
+    let index = facets.get(id);
+    if (!index) { index = new Map(); facets.set(id, index); }
+    for (const value of values) if (!index.has(value)) index.set(value, new Set());
+  }
   items.forEach((item, index) => {
     byId.set(item.id, index);
     for (const [facet, raw] of Object.entries(item.facets)) {
@@ -30,7 +36,7 @@ export function buildFacetedSetIndex(items: readonly FacetedSetItem[]) {
       }
     }
   });
-  return { items, facets, byId };
+  return { items, facets, byId, preserved };
 }
 type FacetedSetIndex = ReturnType<typeof buildFacetedSetIndex>;
 
@@ -42,7 +48,8 @@ export function facetUniverse(index: FacetedSetIndex, rule: FacetedSetValue['rul
 export function normalizeFacetedRule(index: FacetedSetIndex, rule: FacetedSetValue['rule']): FacetedSetValue['rule'] {
   return Object.fromEntries(Object.entries(rule).flatMap(([facet, values]) => {
     const picks = new Set(values);
-    if (picks.size && facetUniverse(index, rule, facet).every(value => picks.has(value))) return [];
+    const preservesPicked = [...(index.preserved.get(facet) ?? [])].some(value => picks.has(value));
+    if (picks.size && !preservesPicked && facetUniverse(index, rule, facet).every(value => picks.has(value))) return [];
     return [[facet, [...picks]]];
   }));
 }

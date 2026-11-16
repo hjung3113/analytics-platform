@@ -4,6 +4,7 @@ import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { failureText, panelBadgeText, summarizeContext } from './text';
+import { VisibilityOptionsPicker } from './VisibilityOptionsPicker';
 
 /** What this dialog saves: views only. Custom groups (`custom-group`) are saved from the target dialog (ADR-0164). */
 type ViewUnit = Exclude<SavedViewKind, 'custom-group'>;
@@ -107,12 +108,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
           </div>
         )}
         {!updating && visibilityOptions.length > 0 && (
-          <fieldset className="space-y-1">
-            <legend className="text-xs text-text-secondary">{m('svVisibility')} · {m('svVisibilityHint')}</legend>
-            <RadioGroup value={visibility} onValueChange={setVisibility}>
-              {visibilityOptions.map(o => <div key={o.value} className="flex items-center gap-2"><RadioGroupItem id={`save-visibility-${o.value}`} value={o.value} /><Label htmlFor={`save-visibility-${o.value}`}>{o.label}</Label></div>)}
-            </RadioGroup>
-          </fieldset>
+          <VisibilityOptionsPicker label={`${m('svVisibility')} · ${m('svVisibilityHint')}`} value={visibility} onChange={setVisibility} options={visibilityOptions} />
         )}
         <section aria-label={m('svIncludes')} className="space-y-1 text-xs">
           <h3 className="text-text-secondary">{m('svIncludes')}</h3>

@@ -43,8 +43,8 @@ export const COMPONENTS_MESSAGES = {
   fsSaveError: { ko: '저장하지 못했습니다. 입력한 내용은 유지됩니다. 다시 저장하세요.', en: 'Could not save. Your draft is kept. Save again.' },
   fsSaved: { ko: '저장했습니다. 적용하려면 적용 버튼을 누르세요.', en: 'Saved. Use Apply to apply this selection.' },
   fsSaveGroup: { ko: '그룹으로 저장', en: 'Save as group' },
-  fsApply: { ko: '적용', en: 'Apply' },
   fsUnavailable: { ko: '데이터 확인 후 저장할 수 있습니다.', en: 'Saving is available once data is ready.' },
+  fsApply: { ko: '적용', en: 'Apply' },
   // Chart
   chartDescription: { ko: '차트 설명', en: 'Chart description' },
   chartUnknown: { ko: '미확인', en: 'Unknown' },
@@ -495,6 +495,7 @@ export const COMPONENTS_MESSAGES = {
   // Filters
   filterExplicitEmpty: { ko: '명시적 빈 선택', en: 'Explicit empty selection' },
   filterProcess: { ko: '공정', en: 'Process' },
+  filterCustomGroup: { ko: '커스텀 그룹', en: 'Custom group' },
   filterMembershipLabel: { ko: '소속 기준', en: 'Membership' },
   filterMembershipAsOf: { ko: '그 시점 소속', en: 'As-of membership' },
   filterMembershipCurrent: { ko: '지금 소속', en: 'Current membership' },

@@ -12,7 +12,7 @@ import { dropResetKeys } from '../context/paneContext';
 import { drillGap, dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
-import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
@@ -96,6 +96,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     try {
       const parsed = parseQuery(search, route?.menu.pageKeys ?? [], { repeated: route?.menu.repeatedPageKeys });
       for (const axisId of Object.keys(parsed.global.condition ?? {})) {
+        if (axisId === CUSTOM_GROUP_AXIS) {
+          if (parsed.global.membershipBasis === 'asOf') throw new ContractError('membership_basis_unsupported', 'Custom groups only support current membership');
+          continue;
+        }
         const axis = equipmentAxes.find(a => a.id === axisId);
         if (!axis) throw new ContractError('invalid_condition', 'Unknown equipment axis', 'equipmentGroup', new URLSearchParams(search).get('equipmentGroup') ?? '');
         if (parsed.global.membershipBasis === 'asOf' && !axis.membershipHistory) throw new ContractError('membership_basis_unsupported', 'Axis has no membership history');

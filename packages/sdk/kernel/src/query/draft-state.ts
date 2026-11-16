@@ -1,6 +1,6 @@
 import { decodePageConditions, PageConditionError } from './page-conditions';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, pageConditionKeys, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
+import { buildQuery, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, missingRequiredContext, pageConditionKeys, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
 import { classifyMetricInit } from '../registry/metric-init';
@@ -55,6 +55,9 @@ export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page
   return [
     ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
     ...(menu?.query?.required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
+    ...(global.membershipBasis === 'asOf' && global.condition?.[CUSTOM_GROUP_AXIS]?.length
+      ? [{ key: 'customGroupMembershipBasis', label: { ko: '커스텀 그룹', en: 'Custom groups' } }]
+      : []),
   ];
 }
 export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext, page: Pair[], invalid: boolean) {
@@ -88,6 +91,7 @@ function normalize(input: DraftInputs, values: Values, retained?: Values): Value
   if (newIssues.length) throw new PageConditionError(newIssues);
   const parsed = parseQuery(buildQuery(g, values.page), input.menu?.pageKeys, { repeated: input.menu?.repeatedPageKeys });
   for (const axisId of Object.keys(parsed.global.condition ?? {})) {
+    if (axisId === CUSTOM_GROUP_AXIS) continue;
     const axis = input.axes.find(a => a.id === axisId);
     if (!axis) throw new RangeError('invalid_condition');
     if (parsed.global.membershipBasis === 'asOf' && !axis.membershipHistory) throw new RangeError('membership_basis_unsupported');
