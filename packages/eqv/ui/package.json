@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@eqv/core": "workspace:*",
-    "@tanstack/react-virtual": "3.14.26",
+    "@tanstack/react-virtual": "3.14.13",
     "lucide-react": "^1.72.0"
   },
   "devDependencies": {

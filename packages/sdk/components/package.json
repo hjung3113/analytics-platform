@@ -23,7 +23,7 @@
     "@ap/kernel": "workspace:*",
     "@ap/ui": "workspace:*",
     "@tanstack/react-table": "^8.21.3",
-    "@tanstack/react-virtual": "^3.14.26",
+    "@tanstack/react-virtual": "^3.14.13",
     "dockview-react": "8.9.0",
     "echarts": "^6.1.0",
     "lucide-react": "^1.72.0",
