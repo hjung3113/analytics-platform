@@ -222,6 +222,15 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
      * from Context + page filters + column filters − `excludedIds`. Default false: tables behave as before.
      */
     selectAllResults?: boolean;
+    /**
+     * Opt-in (#2380): keep this table's answered pages in the Kernel query engine under this key (unique in the app: start it with the menu id).
+     * A page kept for the same request (Context, filters, page, page size, sort, group, `refreshOn` epoch) shows at once with no request and no
+     * loading state, so a table remounted by a tab switch comes back as it was. Pages leave after five minutes or with the session; a write
+     * the table cannot see (no `refreshOn` endpoint) needs a new key, e.g. one carrying the screen's own write count; a changed key reads
+     * again at once, keeping the current rows while it loads. Pages outlive the screen, so a count that restarts when the screen mounts
+     * again needs a per-mount part in the key too, or a reopened screen gets the pages it read before its last write.
+     */
+    cacheKey?: string;
     rows?: never; rowsLoading?: never;
   }
   | {
@@ -229,7 +238,7 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
     rows: readonly T[];
     /** The read behind `rows` is in flight: the table shows its loading state (previous rows stay visible) until it turns false. */
     rowsLoading?: boolean;
-    loadPage?: never; refreshOn?: never; selectAllResults?: never;
+    loadPage?: never; refreshOn?: never; selectAllResults?: never; cacheKey?: never;
   }
 );
 
@@ -344,7 +353,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: effectiveFilters, groupBy, dataVersion,
+    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: effectiveFilters, groupBy, dataVersion, cacheKey: p.cacheKey,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });

@@ -4,7 +4,7 @@
  */
 export { PaneScreenProvider, PaneQueryDraftProvider, useHostPlatform, useHostPlatformOptional, useOverlayState, useToastList, useLeaveRequest, type HostPlatform, type OverlayState, type PaneScreen } from './platform/platform';
 export { isChunkLoadFailure } from './error/chunkFailure';
-export { useAdapterRequest } from './query/query';
+export { useAdapterRequest, useKeptAnswers, type KeptAnswers } from './query/query';
 export { type PageFocus, type PageNavigation } from './context/pageNavigation';
 export { useArrivalFocus, type ArrivalFocusOptions } from './platform/useArrivalFocus';
 export { useModuleHost, type ModuleShellPorts } from './registry/module-host';

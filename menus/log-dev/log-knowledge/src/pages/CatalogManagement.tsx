@@ -26,6 +26,10 @@ function CatalogTotal({ kind }: { kind: CatalogKind }) {
   return total === undefined ? null : <span className="tabular ml-1.5 text-text-muted">{total}</span>;
 }
 
+// One number per catalog mount, for the kept-page key (#2380).
+let mounts = 0;
+const nextMountKey = () => ++mounts;
+
 /**
  * 로그 지식 허브 카탈로그 관리 (#1194, owner-confirmed variant A): four tabs (page key `tab`, default 모델), a server-paged table per tab
  * and one detail drawer (`focus` = row id or `new`) for create and edit. Every table condition is the hidden repeated key `filter`.
@@ -37,6 +41,11 @@ export default function CatalogManagement() {
   const q = pageParam('q') ?? '', focus = pageParam('focus');
   // Server reads are not refreshed by a write (backlog #502), so a write remounts the table, which reads its URL page again.
   const [revision, setRevision] = useState(0);
+  // Pages each tab already read: switching back to a tab shows them at once instead of reading again (#2380). A write clears it with the remount.
+  // Every write (drawer saves, and any import exit: a stopped import may have applied rows) reads all tabs again: the kept pages are keyed by it.
+  const written = () => setRevision(n => n + 1);
+  // Kept pages outlive this screen and `revision` restarts at 0 on every mount, so the key also names the mount: a reopened catalog reads again.
+  const [mountKey] = useState(nextMountKey);
   // 가져오기 (#1195 c) replaces the list area while it is open; it keeps its own state, not a page key.
   const [importing, setImporting] = useState(false);
   const drawerLeave = useRef<((next: GuardedLeave) => void) | null>(null);
@@ -63,11 +72,11 @@ export default function CatalogManagement() {
       </TabsList>
     </Tabs>
     {options.failures.map(({ label, query }) => <QueryView key={label} query={query as QueryState<unknown>} widgetName={`${label} 필터 후보`} compact>{() => null}</QueryView>)}
-    <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : startImport} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember} />
+    <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : startImport} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember} cacheKey={`log-knowledge-catalog:${mountKey}:${kind}:${revision}`} />
   </div>;
   return <PlatformPage description="설비사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."
     primaryAction={kind && !importing && <Button type="button" onClick={() => setPage({ focus: 'new' })}>{TAB_LABEL[kind]} 추가</Button>}>
-    {importing ? <ImportWizard onExit={changed => { setImporting(false); if (changed) setRevision(n => n + 1); }} /> : <ManagementLayout table={body}
-      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} leaveRef={drawerLeave} />} />}
+    {importing ? <ImportWizard onExit={() => { setImporting(false); written(); }} /> : <ManagementLayout table={body}
+      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={written} leaveRef={drawerLeave} />} />}
   </PlatformPage>;
 }

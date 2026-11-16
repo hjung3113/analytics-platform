@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type GroupedPageResult, type PageGroup, type PageSort, type TableQuery, isAnswered } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
+import { useKeptAnswers } from '@ap/kernel/host';
 import type { TableUrlState } from './PlatformDataTable';
 
 type PagedRowsInput<T> = {
@@ -19,6 +20,8 @@ type PagedRowsInput<T> = {
   viewport: RefObject<HTMLDivElement | null>;
   /** Runs inside the Context-change effect, after the page reset: the table clears selection and aborts export/copy there. */
   onContextChange: () => void;
+  /** Opt-in (#2380): answered pages are kept in the Kernel query engine under this key; a kept page is shown without a request or loading state. */
+  cacheKey?: string | undefined;
 };
 
 /**
@@ -48,13 +51,37 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
       if (viewport.current) viewport.current.scrollTop = 0;
     }
   }, [contextIdentity, hasUrlState, viewport]);
-  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion]);
+  const { cacheKey } = input;
+  // `cacheKey` is part of the request: a new key after a write the table cannot see reads again, keeping the same Context's rows while it loads (#2380).
+  const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion, cacheKey ?? null]);
   const loadRef = useRef(input.loadPage);
   loadRef.current = input.loadPage;
+  const kept = useKeptAnswers();
+  // The kept answer's key: the request identity (which holds `cacheKey`) and the page size (the identity omits it; a page of another size is another answer).
+  const keptKey = (identity: string) => ['table', identity, pageSize];
+  type Kept = ApiResponse<GroupedPageResult<T>>;
+  // A page the engine already keeps for this exact request is the result at once: no request, no loading state (#2380).
+  const cached = cacheKey !== undefined && result?.identity !== requestIdentity ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
+  // One wrapper per kept answer, shown now and stored by the effect below: the clamp effect compares result objects, so a second wrapper would clamp twice.
+  const cachedResult = useMemo(() => (cached ? { identity: requestIdentity, response: cached } : null), [cached, requestIdentity]);
+  const cachedRef = useRef(cachedResult);
+  cachedRef.current = cachedResult;
+  const current = cachedResult ?? result;
   useEffect(() => {
+    // A kept page also becomes the settled result, so the next uncached request keeps showing it while it loads.
+    // The render's wrapper when it has one; otherwise (the settled result already had this identity) keep that result as it is.
+    const shown = cachedRef.current?.identity === requestIdentity ? cachedRef.current : null;
+    if (shown) { setResult(shown); return; }
+    const hit = cacheKey !== undefined ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
+    if (hit) { setResult(previous => (previous?.identity === requestIdentity ? previous : { identity: requestIdentity, response: hit })); return; }
     const controller = new AbortController();
     loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting, ...(columnFilters.length > 0 ? { filters: columnFilters } : {}), ...(groupBy ? { groupBy } : {}) }, controller.signal)
-      .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
+      .then(response => {
+        if (controller.signal.aborted) return;
+        // Only answered pages are kept: a failure is read again.
+        if (cacheKey !== undefined && isAnswered(response.outcome)) kept.keep(keptKey(requestIdentity), response);
+        setResult({ identity: requestIdentity, response });
+      })
       .catch(error => {
         // Only the table's own abort cancels (#186, like the Kernel #183): a menu loadPage that rejects with
         // its own DOMException('…','AbortError') (internal timeout) is an error result, never swallowed.
@@ -72,12 +99,12 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   }, [requestIdentity]);
 
   // Same Context (page/sort/retry) keeps the last rows visible while loading; a new Context hides them.
-  const sameContext = result !== null && JSON.parse(result.identity)[0] === contextIdentity;
-  const shown = sameContext ? result!.response : null;
+  const sameContext = current !== null && JSON.parse(current.identity)[0] === contextIdentity;
+  const shown = sameContext ? current!.response : null;
   const shownPage = shown
-    ? (JSON.parse(result!.identity) as [string, number])[1]
+    ? (JSON.parse(current!.identity) as [string, number])[1]
     : effectivePage;
-  const loading = result?.identity !== requestIdentity;
+  const loading = current?.identity !== requestIdentity;
   const data = shown?.outcome === 'ok' ? shown.data! : { rows: [] as T[], total: shown?.data?.total ?? 0, groups: undefined as PageGroup[] | undefined };
 
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
@@ -90,14 +117,14 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const outOfRange = success && shownPage >= pageCount;
   // `result.identity` repeats for the same page (9 → 3 → 9). Remember the result object so this effect
   // re-running on that same object does not clamp twice; a later response is a new object and clamps again.
-  const clampedFor = useRef<typeof result>(null);
+  const clampedFor = useRef<typeof current>(null);
   useEffect(() => {
-    if (loading || !outOfRange || result === null) return;
-    if (clampedFor.current === result) return;
-    clampedFor.current = result;
+    if (loading || !outOfRange || current === null) return;
+    if (clampedFor.current === current) return;
+    clampedFor.current = current;
     if (urlState) urlState.onChange({ sorting: activeSorting, page: pageCount === 1 ? null : pageCount }, 'clamp');
     else setPage(pageCount - 1);
-  }, [loading, outOfRange, result, pageCount, activeSorting, urlState]);
+  }, [loading, outOfRange, current, pageCount, activeSorting, urlState]);
 
   return { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange };
 }
