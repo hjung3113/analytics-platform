@@ -71,6 +71,7 @@ export function registerPageConditions<T extends Omit<MenuMeta, 'group' | 'permi
       else fail('options must have exactly one static or endpoint source');
     }
     const absent = (kind as { absent?: unknown }).absent;
+    if (absent !== undefined && category.required === true) fail(`category "${category.id}" cannot be both required and absent: 'all' (an absent key is a filled-in everything)`);
     if (absent !== undefined && (absent !== 'all' || (kind.type !== 'multi' && kind.type !== 'groupedChecks'))) fail(`category "${category.id}" absent must be 'all' on multi or groupedChecks`);
     if (kind.type === 'groupedChecks' || kind.type === 'tree') sources.push(kind.source);
     for (const source of sources) if (typeof source !== 'string' || !source.trim() || input.endpoints.filter(endpoint => endpoint.id === source).length !== 1 || !input.endpoints.some(endpoint => endpoint.id === source && endpoint.menuId === menu.id)) fail(`source "${String(source)}" must name a uniquely owned endpoint`);

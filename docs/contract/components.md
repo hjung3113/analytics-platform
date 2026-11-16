@@ -128,7 +128,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 `PageConditionCategories`는 `declaration`, S1 `values`(디코딩된 키 맵), `onChange(categoryId, nextDecoded \| null)`을 받는다. callback은 해당 범주 소유 키 맵 전체를 교체하고 `null`은 그 범주의 키를 모두 제거한다(제약 없음). multi·groupedChecks·tree의 마지막 체크 해제는 빈 배열을 남겨 `선택한 항목 없음`으로 보인다. select·multi·search·range·date·groupedChecks·tree 입력, 범주별 `지우기`, 보이는 비활성 사유를 제공한다. 숫자·시각 입력은 미완성 문자열을 내부 입력 버퍼에 보존하고 blur 때 S1 codec과 범위 경계를 검증해 전달한다. 날짜는 기존 표 편집기와 같은 `@ap/ui Input`의 `datetime-local`·초 단위를 사용하며 시간대 변환하지 않는다.
 
-`multi`·`groupedChecks`의 선언 `absent: 'all'`(#2341)은 키 없음을 «모든 옵션 체크»로 보이게 한다. 첫 해제는 전체에서 빼서 목록을 쓰고, 다시 전체가 되면 값 목록 대신 키를 지운다. `~none`은 그대로 빈 선택이며 URL 문법·저장 상태·기본 동작(`absent` 없음)은 바뀌지 않는다.
+`multi`·`groupedChecks`의 선언 `absent: 'all'`(#2341)은 키 없음을 «모든 옵션 체크»로 보이게 한다. 첫 해제는 전체에서 빼서 목록을 쓰고, 다시 전체가 되면 값 목록 대신 키를 지운다. 사용 불가 사유가 있는 옵션은 «모두»에 넣지 않고, `required`와는 함께 쓸 수 없다(Registry 거부). `~none`은 그대로 빈 선택이며 URL 문법·저장 상태·기본 동작(`absent` 없음)은 바뀌지 않는다.
 
 `loadOptions(category, { signal })`은 S1 옵션 응답을 돌려준다. `inputsKey`는 호출자가 세션 세대·Scope·투영 Context(적용 기준 — 적용 전 draft Context는 옵션 조회를 다시 시작하지 않는다)·엔드포인트 입력·준비 상태를 포함한 전체 입력 정체성으로 제공한다. 변경·unmount 때 요청을 취소하고 이전 옵션을 즉시 가리며 늦은 응답은 버린다. 로딩·빈 목록·실패/재시도는 §19 상태 조각을 쓰고 부분 목록은 명시한다. `usePageConditionOptionsLoader(spec, params)`는 엔드포인트 소유 선언을 확인하고 Kernel `useMenuFetch`의 게이트·signal·서버 outcome을 유지하는 연결 훅이다. 여러 엔드포인트 loader의 선택은 호출자가 조립한다. 응답은 범주 전체의 값 유일성·라벨·선언 목록을 검증한 뒤 표시한다.
 

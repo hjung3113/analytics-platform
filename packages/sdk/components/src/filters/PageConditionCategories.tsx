@@ -273,8 +273,8 @@ function OptionConditionCategory(props: CategoryProps) {
       case 'multi': return <div className="space-y-2">
         {optionState()}
         {flatOptions.map((option, index) => <div key={option.value} className="space-y-1">
-          <div className="flex items-center gap-2"><Checkbox id={`${prefix}-option-${index}`} disabled={disabled || !!option.disabledReason} checked={effective(kind.key, flatOptions.map(item => item.value)).includes(option.value)} aria-describedby={[describedBy, option.disabledReason ? `${prefix}-option-reason-${index}` : undefined].filter(Boolean).join(' ') || undefined}
-            onCheckedChange={checked => { const every = flatOptions.map(item => item.value); const current = effective(kind.key, every); writeChecks(kind.key, checked === true ? [...current, option.value] : current.filter(value => value !== option.value), every); }} />
+          <div className="flex items-center gap-2"><Checkbox id={`${prefix}-option-${index}`} disabled={disabled || !!option.disabledReason} checked={effective(kind.key, flatOptions.filter(item => !item.disabledReason).map(item => item.value)).includes(option.value)} aria-describedby={[describedBy, option.disabledReason ? `${prefix}-option-reason-${index}` : undefined].filter(Boolean).join(' ') || undefined}
+            onCheckedChange={checked => { const every = flatOptions.filter(item => !item.disabledReason).map(item => item.value); const current = effective(kind.key, every); writeChecks(kind.key, checked === true ? [...current, option.value] : current.filter(value => value !== option.value), every); }} />
             <Label htmlFor={`${prefix}-option-${index}`}>{option.label[lang]}</Label></div>
           {option.disabledReason && <p id={`${prefix}-option-reason-${index}`} className="text-xs text-text-secondary">{option.disabledReason[lang]}</p>}
         </div>)}
@@ -289,7 +289,7 @@ function OptionConditionCategory(props: CategoryProps) {
             <div className="grid min-w-0 gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr))]">
               {kind.lists.map(list => {
                 const groupOptions = group.lists[list.id] ?? [];
-                const every = groups.flatMap(item => (item.lists[list.id] ?? []).map(option => option.value));
+                const every = groups.flatMap(item => (item.lists[list.id] ?? []).filter(option => !option.disabledReason).map(option => option.value));
                 const implicit = absentAll && keyAbsent(list.key);
                 const selected = effective(list.key, every);
                 const explicitListEmpty = (Object.hasOwn(owned, list.key) || raw.some(([key]) => key === list.key)) && selected.length === 0;
