@@ -316,7 +316,7 @@ it('preserves rich compact descriptions in a keyboard tooltip and keeps metric v
   await screen.findByRole('img');
   expect(screen.getByText(/Metric|지표 버전/)).toBeVisible();
   // Only the ⓘ button's persistent screen-reader description holds it until the tooltip opens (#2364).
-  expect(screen.getByText('Rich details').closest('p')).toHaveClass('sr-only');
+  expect(screen.getByText('Rich details').closest('.sr-only')).toBeInTheDocument();
   await user.tab();
   expect(screen.getByRole('button', { name: '차트 설명' })).toHaveFocus();
   const tooltip = await screen.findByRole('tooltip');

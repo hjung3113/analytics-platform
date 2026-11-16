@@ -14,7 +14,7 @@ export interface InfoTipProps extends Omit<React.ButtonHTMLAttributes<HTMLButton
 
 /**
  * A 24px ⓘ button whose tooltip (hover or focus, Esc closes) carries a section's static guidance. The same text stays in one persistent
- * `sr-only` paragraph the button is described by, so screen readers get it without opening the tooltip (06 §13, #2300).
+ * `sr-only` block (a `div`, so block descriptions nest validly) the button is described by, so screen readers get it without opening the tooltip (06 §13, #2300).
  */
 export function InfoTip({ label, children, descriptionId, className, ...rest }: InfoTipProps) {
   const generatedId = React.useId();
@@ -32,6 +32,6 @@ export function InfoTip({ label, children, descriptionId, className, ...rest }: 
       </Tooltip>
     </TooltipProvider>
     {/* One persistent description; the portaled tooltip shows the same text. */}
-    <p id={id} className="sr-only">{children}</p>
+    <div id={id} className="sr-only">{children}</div>
   </>;
 }
