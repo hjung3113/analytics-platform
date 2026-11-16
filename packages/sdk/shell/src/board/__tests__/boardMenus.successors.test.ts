@@ -40,6 +40,10 @@ describe('board panes of a retired menu id (#2330)', () => {
     const unknown = successorScreen(registry, { menuId: 'old-detail', params: { other: 'x' }, query: '' })!;
     expect(unknown.params).toEqual({ other: 'x' });
     expect(admitPaneScreen(registry, unknown)).toBe(false);
+    // A value no address can carry: no throw, kept as stored, not admitted; the rest of the board still moves.
+    const lone = successorScreen(registry, { menuId: 'old-detail', params: { oldId: '\uD800' }, query: '' })!;
+    expect(lone).toEqual({ menuId: 'detail', params: { oldId: '\uD800' }, query: '' });
+    expect(admitPaneScreen(registry, lone)).toBe(false);
   });
 
   it('boardWithSuccessors maps pane screens and the previous screen, and returns the same board when nothing is retired', () => {

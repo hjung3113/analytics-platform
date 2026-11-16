@@ -59,7 +59,9 @@ function successorParams(registry: Registry, successor: MenuSuccessor, params: R
   if (fits(routeParamNames(successor.menu.path))) return params;
   for (const template of successor.paths) {
     if (!fits(routeParamNames(template))) continue;
-    const path = template.split('/').map(segment => (segment.startsWith(':') ? encodeURIComponent(params[segment.slice(1)]!) : segment)).join('/');
+    let path: string;
+    // A stored value no address can carry (a lone surrogate) fits no template; it must not stop the rest of the board (#2330).
+    try { path = template.split('/').map(segment => (segment.startsWith(':') ? encodeURIComponent(params[segment.slice(1)]!) : segment)).join('/'); } catch { continue; }
     const matched = registry.matchRoute(path);
     if (matched?.menu.id === successor.menu.id) return matched.params;
   }
