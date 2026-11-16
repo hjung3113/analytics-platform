@@ -80,6 +80,33 @@ export const directPermissionGrantSchema = z
   .strict();
 export type DirectPermissionGrant = z.infer<typeof directPermissionGrantSchema>;
 
+/** Most candidates one batch may carry; keeps the single transaction and its audit fan-out bounded (#2406). */
+export const PERMISSION_BATCH_MAX_ITEMS = 50;
+
+/** POST /permissions/grants/batch: several capability candidates for one recipient, one reason, one expiry. Each row is validated and audited like a direct grant. */
+export const directPermissionGrantBatchSchema = z
+  .object({
+    actor_id: z.string().uuid(),
+    items: z
+      .array(
+        z
+          .object({ capability: capabilityNameSchema, managed_system_id: z.string().uuid().optional(), ...permissionScopeFields })
+          .strict(),
+      )
+      .min(1)
+      .max(PERMISSION_BATCH_MAX_ITEMS),
+    expires_at: z.string().datetime().optional(),
+    reason: z.string().trim().min(1).max(2000),
+    self_approval: directPermissionGrantSchema.shape.self_approval,
+  })
+  .strict();
+export type DirectPermissionGrantBatch = z.infer<typeof directPermissionGrantBatchSchema>;
+
+export const permissionGrantBatchResultSchema = z
+  .object({ batch_id: z.string().uuid(), items: z.array(permissionGrantAdminItemSchema).min(1) })
+  .strict();
+export type PermissionGrantBatchResult = z.infer<typeof permissionGrantBatchResultSchema>;
+
 export const permissionGrantPreflightSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('available') }).strict(),
   z
