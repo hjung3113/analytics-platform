@@ -1,14 +1,14 @@
+import { TargetPicker, TARGET_KEYS } from './TargetPicker';
 import { QueryHistoryControl } from './QueryHistoryControl';
 import { SavedViewControl } from '../saved-view/SavedViewControl';
 import { QueryBar } from './QueryBar';
 import { CalendarDays, ChevronDown, RotateCcw, X } from 'lucide-react';
-import { useContext, type ReactNode } from 'react';
-import { ContextBarLayout, MeasuringContext, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
-import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
-import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, useMessages, type RequestState } from '@ap/kernel';
-import { useAdapterRequest, useHostPlatform } from '@ap/kernel/host';
-import { type Capability, type Condition, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, type SelectionEvaluation, parseDateTime, shift } from '@ap/contracts';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
+import { type ReactNode } from 'react';
+import { ContextBarLayout, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
+import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, useMessages, useConditionPreset } from '@ap/kernel';
+import { useHostPlatform } from '@ap/kernel/host';
+import { type Capability, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { SegmentedRadio } from '@ap/components';
 import { ShareControl } from './ShareControl';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
@@ -40,15 +40,12 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
 }
 
 function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
-  const { route, global, setGlobal, resetContext, scope, adapter } = useHostPlatform();
+  const { route, global, setGlobal, resetContext } = useHostPlatform();
   const { t, lang } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
   const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
-  // Keep one request owner while the Selection editor moves between inline and overflow.
-  const input = { scopeId: global.scopeId, roomNames: global.roomNames, lineNames: global.lineNames, prcGroups: global.prcGroups, membershipBasis: global.membershipBasis, condition: global.condition, selection: global.selection };
-  const evaluation = useAdapterRequest(signal => adapter.evaluateSelection(input, signal), [input, scope.status],
-    scope.status === 'valid' && !!route && route.menu.context.selection !== 'unsupported');
+  const preset = useConditionPreset();
   if (!route) return whenEmpty;
   const cap = route.menu.context;
   const has = contextHasValue(global);
@@ -56,24 +53,28 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
   const shown = CONTEXT_KEYS.filter(k => cap[k] !== 'unsupported' || has[k]);
   const editable = (k: ContextKey) => cap[k] !== 'unsupported';
 
-  const controls = [
+  const controls = (target: ReactNode) => [
     ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
-    ...(shown.includes('roomNames') ? [{ key: 'roomNames' as const, applied: has.roomNames, node: (editable('roomNames') ? <RoomEditor cap={cap.roomNames} /> : <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} />) }] : []),
-    ...(has.line ? [{ key: 'line' as const, applied: has.line, node: <CarriedChip k="line" cap={cap.line} value={setText(global.lineNames, t)} onRemove={() => setGlobal({ lineNames: null })} /> }] : []),
-    ...(has.prcGroup ? [{ key: 'prcGroup' as const, applied: has.prcGroup, node: <CarriedChip k="prcGroup" cap={cap.prcGroup} value={setText(global.prcGroups, t) + basisText} onRemove={() => setGlobal({ prcGroups: null })} /> }] : []),
-    ...(shown.includes('condition') ? [{ key: 'condition' as const, applied: has.condition, node: (editable('condition') ? <ConditionEditor cap={cap.condition} /> : <CarriedChip k="condition" cap={cap.condition} value={global.condition ? labelledCondition(global.condition, axes, lang) + basisText : ''} onRemove={() => setGlobal({ condition: null })} />) }] : []),
-    ...(shown.includes('selection') ? [{ key: 'selection' as const, applied: has.selection, node: (editable('selection') ? <SelectionEditor cap={cap.selection} evaluation={evaluation} /> : <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} />) }] : []),
+    ...(TARGET_KEYS.some(key => cap[key] === 'apply') ? [{ key: 'target' as const, applied: TARGET_KEYS.some(key => cap[key] === 'apply' && has[key]), node: target }] : []),
+    ...(has.roomNames && cap.roomNames !== 'apply' ? [{ key: 'roomNames' as const, applied: true, node: <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} /> }] : []),
+    ...(has.line && cap.line !== 'apply' ? [{ key: 'line' as const, applied: true, node: <CarriedChip k="line" cap={cap.line} value={setText(global.lineNames, t)} onRemove={() => setGlobal({ lineNames: null })} /> }] : []),
+    ...(has.prcGroup && cap.prcGroup !== 'apply' ? [{ key: 'prcGroup' as const, applied: true, node: <CarriedChip k="prcGroup" cap={cap.prcGroup} value={setText(global.prcGroups, t) + basisText} onRemove={() => setGlobal({ prcGroups: null })} /> }] : []),
+    ...(has.condition && cap.condition !== 'apply' ? [{ key: 'condition' as const, applied: true, node: <CarriedChip k="condition" cap={cap.condition} value={labelledCondition(global.condition!, axes, lang) + basisText} onRemove={() => setGlobal({ condition: null })} /> }] : []),
+    ...(has.selection && cap.selection !== 'apply' ? [{ key: 'selection' as const, applied: true, node: <CarriedChip k="selection" cap={cap.selection} value={setText(global.selection, t)} onRemove={() => setGlobal({ selection: null })} /> }] : []),
     ...(has.lot ? [{ key: 'lot' as const, applied: has.lot, node: <CarriedChip k="lot" cap={cap.lot} value={setText(global.lotIds, t)} onRemove={() => setGlobal({ lotIds: null })} /> }] : []),
     ...(has.ppid ? [{ key: 'ppid' as const, applied: has.ppid, node: <CarriedChip k="ppid" cap={cap.ppid} value={global.ppid!} onRemove={() => setGlobal({ ppid: null })} /> }] : []),
     ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${m('metricNoVersion')})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
-  return <ContextBarLayout regionName={label?.region} controls={controls} revision={JSON.stringify([global, cap, lang, shown, evaluation.status, evaluation.data?.inCondition.length, label])} actions={compact => <span className="flex items-center gap-1">
+  const layout = (target: ReactNode, targetOpen = false) => <ContextBarLayout activeControl={targetOpen ? 'target' : undefined} regionName={label?.region} controls={controls(target)} revision={JSON.stringify([global, cap, lang, shown, label])} actions={compact => <span className="flex items-center gap-1">
         <ShareControl compact={compact} align="end" />
         <Button type="button" variant="ghost" size="toolbar" aria-label={t('resetContext')} title={t('resetContext')} onClick={resetContext}>
           <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
         </Button>
   </span>} />;
+  return TARGET_KEYS.some(key => cap[key] === 'apply')
+    ? <TargetPicker global={global} cap={cap} onChange={setGlobal} presetAxes={preset?.presets.find(item => item.id === preset.activeId)?.axes}>{layout}</TargetPicker>
+    : layout(null);
 }
 
 function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string): string {
@@ -94,18 +95,6 @@ function CapTag({ cap }: { cap: Capability }) {
   return <span className={cn('shrink-0 rounded-xs px-1 t-badge', cap !== 'unsupported' ? 'bg-surface-sunken text-text-secondary' : 'bg-accent-warn-soft text-text-warning-label')}>
     {cap === 'reference' ? t('referenceOnly') : t('notUsed')}
   </span>;
-}
-
-function ChipShell({ label, value, cap, empty, children, ...rest }: { label: ReactNode; value: ReactNode; cap: Capability; empty?: boolean; children?: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...rest}
-    className={cn(CONTEXT_CHIP, 'max-w-[22rem]',
-      cap === 'unsupported' ? 'border-dashed border-border-control bg-transparent text-text-muted' : CONTEXT_CHIP_TONE,
-      empty && 'text-text-muted')}>
-    <span className="text-text-muted">{label}</span>
-    <span className="truncate font-medium tabular">{value}</span>
-    <CapTag cap={cap} />
-    {children}
-  </button>;
 }
 
 /** Preserved context the current page does not edit: never silently dropped (§6); removable explicitly. */
@@ -225,149 +214,3 @@ function CustomRange({ onDone }: { onDone: () => void }) {
   </form>;
 }
 
-type SetMode = 'absent' | 'some' | 'empty';
-function modeOf(ids: string[] | null): SetMode { return ids === null ? 'absent' : ids.length ? 'some' : 'empty'; }
-
-function SetEditor({ label, cap, value, options, absentLabel, onApply, note, search }: {
-  label: string; cap: Capability; value: string[] | null; options: { id: string; hint?: string; outside?: boolean }[];
-  absentLabel: string; onApply: (v: string[] | null) => void; note?: ReactNode; search?: boolean;
-}) {
-  const { t } = useI18n();
-  const m = useMessages(SHELL_MESSAGES);
-  const [open, setOpen] = useContextEditorState('open', false);
-  const preserveRelocationFocus = useContextEditorFocusRecovery();
-  const [mode, setMode] = useContextEditorState<SetMode>('mode', modeOf(value));
-  const [picked, setPicked] = useContextEditorState<string[]>('picked', value ?? []);
-  const [q, setQ] = useContextEditorState('q', '');
-  const reset = (o: boolean) => { setOpen(o); if (o) { setMode(modeOf(value)); setPicked(value ?? []); setQ(''); } };
-  const visible = options.filter(o => !q || o.id.toLowerCase().includes(q.toLowerCase()) || o.hint?.toLowerCase().includes(q.toLowerCase()));
-  return <Popover open={open} onOpenChange={reset}>
-    <PopoverTrigger asChild><ChipShell label={label} value={value === null ? absentLabel : value.length ? (value.length <= 2 ? value.join(', ') : `${value[0]} +${value.length - 1}`) : t('explicitEmpty')} cap={cap} empty={value === null}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
-    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80">
-      <SegmentedRadio
-        label={label}
-        value={mode}
-        onChange={setMode}
-        className="mb-2 flex flex-wrap"
-        options={[
-          { value: 'absent', label: absentLabel },
-          { value: 'some', label: m('setModeExplicit') },
-          { value: 'empty', label: t('explicitEmpty') },
-        ]}
-      />
-      {mode === 'some' && <>
-        {search && <input value={q} onChange={e => setQ(e.target.value)} placeholder={m('setSearchPlaceholder')} aria-label={m('setSearchLabel')} className="mb-2 h-7 w-full rounded-md border border-border-control px-2" />}
-        <ul className="max-h-56 space-y-0.5 overflow-auto">
-          {visible.map(o => <li key={o.id}><label className="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 hover:bg-surface-sunken">
-            <input type="checkbox" className="size-3.5 accent-accent-primary" checked={picked.includes(o.id)} onChange={() => setPicked(p => (p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id]))} />
-            <span className="t-mono">{o.id}</span>
-            {o.hint && <span className="truncate text-text-secondary">{o.hint}</span>}
-            {o.outside && <span className="ml-auto rounded-xs bg-accent-warn-soft px-1 text-caption text-text-warning-label">{m('setOptionOutside')}</span>}
-          </label></li>)}
-        </ul>
-      </>}
-      {note && <div className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{note}</div>}
-      <div className="mt-3 flex justify-end gap-2">
-        <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-        <Button size="sm" disabled={mode === 'some' && !picked.length}
-          onClick={() => { onApply(mode === 'absent' ? null : mode === 'empty' ? [] : picked); setOpen(false); }}>{t('apply')}</Button>
-      </div>
-    </PopoverContent>
-  </Popover>;
-}
-
-function RoomEditor({ cap }: { cap: Capability }) {
-  const { global, setGlobal, scope } = useHostPlatform();
-  const { t } = useI18n();
-  const m = useMessages(SHELL_MESSAGES);
-  return <SetEditor label={t('roomNames')} cap={cap} value={global.roomNames} absentLabel={t('all')} onApply={v => setGlobal({ roomNames: v })}
-    options={scope.grantedRooms.map(id => ({ id }))}
-    note={m('roomScopeNote')} />;
-}
-
-function ConditionEditor({ cap }: { cap: Capability }) {
-  const { global, setGlobal, adapter } = useHostPlatform();
-  const { t, lang } = useI18n();
-  const m = useMessages(SHELL_MESSAGES);
-  const site = global.scopeId ?? '';
-  const [open, setOpen] = useContextEditorState('open', false);
-  const preserveRelocationFocus = useContextEditorFocusRecovery();
-  const axes = useEquipmentAxes();
-  // Derive the legacy single-axis/pair UI from injected metadata and server option records.
-  const groups = axes.filter(a => !a.dependsOn).map(a => {
-    const child = axes.find(candidate => candidate.dependsOn === a.id);
-    const fields = child ? [a.id, child.id] : [a.id];
-    return { id: a.id, fields, label: child ? `${a.label[lang]}+${child.label[lang]}` : a.label[lang] };
-  });
-  const current = global.condition;
-  const selected = current === null ? undefined : groups.find(group => Object.keys(current).length === group.fields.length && group.fields.every(id => current[id]?.length === 1));
-  const representable = current === null || selected !== undefined;
-  const currentValue = selected ? JSON.stringify(selected.fields.map(id => current![id][0])) : '';
-  const [axis, setAxis] = useContextEditorState<string>('axis', selected?.id ?? groups[0]?.id ?? '');
-  const [val, setVal] = useContextEditorState<string>('val', currentValue);
-  const measuring = useContext(MeasuringContext);
-  const choices = useAdapterRequest(signal => adapter.contextOptions(site, signal), site, open && !measuring && representable);
-  const group = groups.find(g => g.id === axis);
-  const all = choices.data;
-  const rawOptions = !all || !group ? [] : group.fields.length === 1
-    ? (Object.entries(all).find(([key]) => key === group.id)?.[1] ?? [])
-    : (Object.values(all).find(items => items.some(item => typeof item === 'object' && group.fields.every(id => Object.hasOwn(item, id)))) ?? []);
-  const options: { value: string; label: string; condition: Condition }[] = !group ? [] : rawOptions.flatMap(item => {
-    if (typeof item === 'string') return [{ value: JSON.stringify([item]), label: item, condition: { [group.id]: [item] } }];
-    const record = item as Record<string, string>;
-    return [{ value: JSON.stringify(group.fields.map(id => record[id])), label: group.fields.map(id => record[id]).join(' / '), condition: Object.fromEntries(group.fields.map(id => [id, [record[id]]])) }];
-  });
-  const summary = current ? labelledCondition(current, axes, lang) + (global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '') : t('none');
-  const build = (): Condition | null => options.find(option => option.value === val)?.condition ?? null;
-  return <Popover open={open} onOpenChange={o => { setOpen(o); if (o) { setAxis(selected?.id ?? groups[0]?.id ?? ''); setVal(currentValue); } }}>
-    <PopoverTrigger asChild><ChipShell label={t('condition')} cap={cap} empty={!global.condition}
-      value={summary}><ChevronDown className="size-3.5 text-text-muted" aria-hidden /></ChipShell></PopoverTrigger>
-    <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-80">
-      {representable ? <>
-      <SegmentedRadio
-        label={m('conditionAxisLabel')}
-        value={axis}
-        onChange={a => { setAxis(a); setVal(''); }}
-        className="mb-2 flex"
-        options={groups.map(g => ({ value: g.id, label: g.label }))}
-      />
-      {choices.status !== 'done' && <p role="status" className="px-2 py-1 text-text-secondary">{choices.status === 'error'
-        ? <>{m('conditionChoicesError')} <button type="button" className="text-accent-primary underline" onClick={choices.retry}>{t('retry')}</button></>
-        : m('conditionChoicesLoading')}</p>}
-      {/* Selection shape + text, not colour alone (06 §26): radio marker per option, arrow-key roving focus. */}
-      <RadioGroup orientation="vertical" aria-label={group?.label} value={val} onValueChange={setVal}
-        className="max-h-48 overflow-auto">
-        {options.map(({ label: o, value }) => <label key={value}
-          className={cn('flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left t-mono', val === value ? 'bg-accent-primary-soft text-accent-primary' : 'hover:bg-surface-sunken')}>
-          <RadioGroupItem value={value} />
-          <span className="min-w-0">{o}</span>
-        </label>)}
-      </RadioGroup>
-      <p className="mt-2 rounded-md bg-surface-sunken px-2 py-1.5 text-tiny text-text-secondary">{m('conditionLiveNote')}</p>
-      </> : <p>{summary}</p>}
-      <div className="mt-3 flex justify-between gap-2">
-        <Button size="toolbar" variant="ghost" onClick={() => { setGlobal({ condition: null }); setOpen(false); }}>{t('clear')}</Button>
-        {representable && <span className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>{t('cancel')}</Button>
-          <Button size="sm" disabled={!val || build() === null} onClick={() => { setGlobal({ condition: build() }); setOpen(false); }}>{t('apply')}</Button>
-        </span>}
-      </div>
-    </PopoverContent>
-  </Popover>;
-}
-
-function SelectionEditor({ cap, evaluation }: { cap: Capability; evaluation: RequestState<SelectionEvaluation> }) {
-  const { global, setGlobal } = useHostPlatform();
-  const { t } = useI18n();
-  const m = useMessages(SHELL_MESSAGES);
-  // Condition matching and grants are the server's job; the same result also feeds inert measurement.
-  const inCondition = evaluation.data?.inCondition ?? [];
-  const outside = evaluation.data?.outOfCondition ?? [];
-  const failed = evaluation.status === 'error';
-  const options = [...inCondition.map(e => ({ id: e.equipmentId, hint: `${e.room} · ${e.model}` })), ...outside.map(id => ({ id, hint: undefined, outside: true }))];
-  const count = failed ? m('selectionCountUnavailable') : evaluation.status === 'done' ? String(inCondition.length) : '…';
-  return <SetEditor label={t('selection')} cap={cap} value={global.selection} search
-    absentLabel={global.condition ? m('selectionAllConditionResults', { count }) : t('all')}
-    onApply={v => setGlobal({ selection: v })} options={options}
-    note={<>{m('selectionFixedNote')}{failed && <span role="alert" className="mt-1 block text-text-danger-label">{m('selectionEvaluationError')} <button type="button" className="text-accent-primary underline" onClick={evaluation.retry}>{t('retry')}</button></span>}{outside.length > 0 && <b className="mt-1 block text-text-warning-label">{m('selectionOutsideCondition', { count: outside.length })}</b>}</>} />;
-}

@@ -7,8 +7,9 @@ import { SHELL_MESSAGES } from '../messages';
 
 /** Measuring copies are inert and must never make adapter requests. */
 export const MeasuringContext = createContext(false);
+type ControlKey = ContextKey | 'target';
 type Drafts = Record<string, unknown>;
-const EditorState = createContext<{ key: ContextKey; drafts: Drafts; update: Dispatch<SetStateAction<Drafts>>; recovering: { current: boolean } } | null>(null);
+const EditorState = createContext<{ key: ControlKey; drafts: Drafts; update: Dispatch<SetStateAction<Drafts>>; recovering: { current: boolean } } | null>(null);
 
 /** Draft/open state belongs above both render locations; measuring copies keep isolated local state. */
 export function useContextEditorState<T>(field: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
@@ -34,13 +35,15 @@ export function useContextEditorFocusRecovery() {
   return (event: { preventDefault: () => void }) => { if (context?.recovering.current) event.preventDefault(); };
 }
 
-type Control = { key: ContextKey; applied: boolean; node: ReactNode; compactNode?: ReactNode };
+type Control = { key: ControlKey; applied: boolean; node: ReactNode; compactNode?: ReactNode };
 type Measurements = { width: number; controls: number[]; period: number; actions: number; icons: number; overflow: number[] };
 
-export function ContextBarLayout({ controls, revision, actions, regionName }: {
+export function ContextBarLayout({ controls, revision, actions, regionName, activeControl }: {
   controls: Control[]; revision: string; actions: (compact: boolean) => ReactNode;
   /** The analysis board names the bar after the pane it edits: the region's accessible name (docs/16 §4). */
   regionName?: string;
+  /** A modal owned above relocating controls keeps its overflow opener mounted. */
+  activeControl?: ControlKey;
 }) {
   const { t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -51,8 +54,8 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
   const [drafts, setDrafts] = useState<Drafts>({});
   const [overflowOpen, setOverflowOpen] = useState(false);
   const recoveringFocus = useRef(false);
-  const focusedKey = useRef<ContextKey | null>(null);
-  const placements = useRef(new Map<ContextKey, string>());
+  const focusedKey = useRef<ControlKey | null>(null);
+  const placements = useRef(new Map<ControlKey, string>());
   const overflowTrigger = useRef<HTMLButtonElement>(null);
   const [measurement, setMeasurement] = useState<Measurements | null>(null);
   const period = controls.find(c => c.key === 'time');
@@ -125,8 +128,8 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
   const placement = controls.map(control => `${control.key}:${hidden.some(c => c.key === control.key) ? 'overflow' : 'inline'}`).join(',');
   // The effect fires when the placement string changes; what it reads (controls, hidden, drafts) is the latest render's.
   const syncPlacements = useEffectEvent(() => {
-    const next = new Map<ContextKey, string>(controls.map(control => [control.key, hidden.some(c => c.key === control.key) ? 'overflow' : 'inline']));
-    const active = Object.entries(drafts).filter(([field, value]) => field.endsWith(':open') && value === true).map(([field]) => field.split(':')[0] as ContextKey);
+    const next = new Map<ControlKey, string>(controls.map(control => [control.key, hidden.some(c => c.key === control.key) ? 'overflow' : 'inline']));
+    const active = Object.entries(drafts).filter(([field, value]) => field.endsWith(':open') && value === true).map(([field]) => field.split(':')[0] as ControlKey);
     const moved = [focusedKey.current, ...active].some(key => key && placements.current.has(key) && placements.current.get(key) !== next.get(key));
     placements.current = next;
     if (!hidden.length) setOverflowOpen(false);
@@ -140,7 +143,7 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
     if (moved) queueMicrotask(() => { if (!cancelled) refocusBar(); });
     return () => { cancelled = true; };
   }, [placement]);
-  const activeHidden = hidden.some(control => drafts[`${control.key}:open`] === true);
+  const activeHidden = hidden.some(control => drafts[`${control.key}:open`] === true || control.key === activeControl);
   const item = (control: Control, compactPeriod = false) => <EditorState.Provider key={control.key} value={{ key: control.key, drafts, update: setDrafts, recovering: recoveringFocus }}>
     <div data-context-key={control.key} onFocusCapture={() => { focusedKey.current = control.key; }} className={compactPeriod ? 'min-w-0 flex-1' : 'shrink-0'}>
       {compactPeriod ? control.compactNode ?? control.node : control.node}
@@ -164,7 +167,7 @@ export function ContextBarLayout({ controls, revision, actions, regionName }: {
       {others.slice(0, inlineCount).map(control => item(control))}
       {hidden.length > 0 && <Popover open={overflowOpen || activeHidden} onOpenChange={setOverflowOpen}><PopoverTrigger asChild>
         <button ref={overflowTrigger} data-context-overflow type="button" className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, 'shrink-0')} aria-label={label} title={label}>{label}</button>
-      </PopoverTrigger><PopoverContent onFocusOutside={event => { if (recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={m('moreContextConditions')} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)]">
+      </PopoverTrigger><PopoverContent onInteractOutside={event => { if (activeControl) event.preventDefault(); }} onFocusOutside={event => { if (activeControl || recoveringFocus.current) event.preventDefault(); }} onCloseAutoFocus={event => { if (!overflowTrigger.current?.isConnected) { event.preventDefault(); focusBar(); } }} aria-label={m('moreContextConditions')} align="end" className="w-[28rem] max-w-[calc(100vw-2rem)]">
         <div className="grid gap-3">{hidden.map(control => item(control))}</div>
       </PopoverContent></Popover>}
       <div className="ml-auto shrink-0">{actions(compact)}</div>

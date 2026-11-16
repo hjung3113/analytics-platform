@@ -170,3 +170,13 @@ export async function settleOn(read: () => Promise<unknown>, message?: string) {
 export function browserPreferenceKey(kind: string, rest = '', userId: Role = 'engineer') {
   return `platform:${kind}:v1:${userId}:${rest}`;
 }
+
+/** Chooses the room in the modal; the query bar's outer Apply remains the caller's action. */
+export async function pickTargetRoom(page: Page, bar: Locator, room: string) {
+  await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
+  const dialog = page.getByRole('dialog', { name: '대상', exact: true });
+  const process = dialog.getByRole('button', { name: /^공정 / });
+  if (await process.getAttribute('aria-expanded') !== 'true') await process.click();
+  await dialog.getByRole('button', { name: `${room}만 선택`, exact: true }).click();
+  await dialog.getByRole('button', { name: /^조건 적용 ·/ }).click();
+}

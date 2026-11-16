@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset, queryBarCollapsedKey } from './contract-helpers';
-import { expandQueryBar, contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
+import { pickTargetRoom, expandQueryBar, contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -33,14 +33,14 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
     await expect(bar.getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
-    await expect(bar.getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
-    await expect(contextBar(page).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
   });
 
   test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
@@ -772,9 +772,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
     await expect(bar.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
     const original = page.url();
-    await bar.getByRole('button', { name: '공정', exact: true }).click();
-    await page.getByRole('option', { name: 'PHOTO', exact: true }).click();
-    await page.keyboard.press('Escape');
+    await pickTargetRoom(page, bar, 'PHOTO');
     await page.getByRole('button', { name: '일', exact: true }).click();
     await page.keyboard.press('Enter');
     expect(page.url()).toBe(original);
@@ -809,9 +807,11 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.goto(`/mars/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     const bar = await expandQuery(page);
     await expectScopeValid(page, 'MEM · 메모리');
-    await bar.getByRole('button', { name: '공정', exact: true }).click();
-    await expect(page.getByRole('option', { name: 'DIFF', exact: true })).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    await bar.getByRole('button', { name: /^대상 조건/ }).click();
+    const dialog = page.getByRole('dialog', { name: '대상', exact: true });
+    await expect(dialog.getByRole('checkbox', { name: 'PHOTO', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('checkbox', { name: 'DIFF', exact: true })).toHaveCount(0);
+    await dialog.getByRole('button', { name: '취소', exact: true }).first().click();
     await switchScope(page, 'FDRY');
     await expect.poll(() => query(page).get('scopeId')).toBe('FDRY');
     expect(query(page).has('roomNames')).toBe(false);
@@ -843,9 +843,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     let bar = await expandQuery(page);
     await expandPageHead(page);
-    await bar.getByRole('button', { name: '공정', exact: true }).click();
-    await page.getByRole('option', { name: 'PHOTO', exact: true }).click();
-    await page.keyboard.press('Escape');
+    await pickTargetRoom(page, bar, 'PHOTO');
     await page.getByRole('button', { name: '일', exact: true }).click();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
@@ -902,8 +900,11 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     await expect(switcher(bar).getByRole('radio', { name: '설비 기준' })).toBeChecked();
     await expect(bar.getByText(/StGroup .* · 설비 기준에서 미적용/)).toBeVisible();
-    await expect(bar.getByRole('button', { name: '설비사', exact: true })).toBeVisible();
-    await expect(bar.getByRole('button', { name: 'StGroup', exact: true })).toHaveCount(0);
+    await bar.getByRole('button', { name: /^대상 조건/ }).click();
+    const dialog = page.getByRole('dialog', { name: '대상', exact: true });
+    await expect(dialog.getByRole('button', { name: /^설비사 / })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^StGroup / })).toHaveCount(0);
+    await dialog.getByRole('button', { name: '취소', exact: true }).first().click();
     await evidence(page, testInfo, 'condition-preset-default');
 
     // Request boundaries: settle first, observe a request-free draft phase, then count exactly one applied query.

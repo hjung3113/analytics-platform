@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, PRODUCTIVITY, periodPreset } from './contract-helpers';
-import { expandQueryBar, contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
+import { pickTargetRoom, expandQueryBar, contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -35,9 +35,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   async function applyRoomInQueryBar(page: Page, room: string) {
     const bar = contextBar(page);
     await expandQueryBar(page, bar);
-    await bar.getByRole('button', { name: '공정', exact: true }).click();
-    await page.getByRole('option', { name: room, exact: true }).click();
-    await page.keyboard.press('Escape');
+    await pickTargetRoom(page, bar, room);
     await bar.getByRole('button', { name: '적용', exact: true }).click();
   }
 

@@ -25,7 +25,7 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **사이
 - Context 바는 모든 폭에서 **한 줄 48px**을 유지한다. 뷰포트가 아닌 바 자체 폭을 측정해 상세 슬롯·사이드바 변화에도 반응하며, 측정용 레이어는 inert·접근성 제외·중복 데이터 조회 없음으로 유지한다. 재측정 조건 등 구현 세부는 [ADR-0015](../adr/0015-context-bar-priority-overflow.md)를 따른다.
 - 기간은 항상 보인다. Context 바는 "전역 Context" 라벨을 그리지 않고 region 이름(접근 이름)으로만 둔다(2026-10-26 사용자 결정, #914). 폭이 부족하면 기간 프리셋(1일/7일/사용자 지정)을 기간 팝오버로 옮긴다. 기간 버튼은 축약할 수 있으나 전체 범위를 접근 이름과 title로 제공한다.
 - 기간 표기는 `@ap/contracts`의 `formatPeriod(from, to, lang)` 하나다(`MM-DD HH:mm → MM-DD HH:mm (길이)`, 길이는 48시간 미만 `24h`·이상 `7d`/`7일`, 열린 끝은 `—`이고 반열린 기간은 길이 없음, 연도 없음 — [backlog](../../.planning/backlog.md) #914 UX-3). Context 바 기간 버튼의 글자·접근 이름·title, `querySummaryItems`의 시간 항목, `QueryBar` 기간 편집이 모두 이것을 쓴다(#913).
-- 표시 대상인 나머지 키는 `roomNames → condition → selection → lot → ppid → recipe → metric` 순서로 남기며 뒤쪽부터 하나의 넘침 팝오버로 옮긴다. B안은 예외인 참조만·미지원 capability만 배지로 표시하고 적용 상태 배지는 생략하며, 팝오버에서도 동일한 전체 편집기를 제공한다.
+- 기간 다음에 [대상 단추](kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)를 둔다([ADR-0164](../adr/0164-target-picker-dialog-and-custom-groups.md)). 적용 가능한 공정·Line·PRC 그룹·Condition·Selection은 이 단추 하나로 편집한다. 이어서 참조만·미지원 전달값을 `roomNames → line → prcGroup → condition → selection → lot → ppid → recipe → metric` 순서로 남기며 뒤쪽부터 하나의 넘침 팝오버로 옮긴다. 예외인 참조만·미지원 capability만 배지로 표시하고 적용 상태 배지는 생략한다. 넘침에서도 같은 대상 대화창을 열며 편집 중 위치가 바뀌어도 초안을 유지한다.
 - 넘침 버튼은 `조건 N개 더` / `N more`다. 숨은 키 중 기본값이 아닌 값이 M개 있으면 ` · M개 적용 중` / ` · M applied`를 붙이고 M=0이면 생략한다. 명시적 빈 선택은 기본값과 다르므로 센다.
 - 좁을 때 링크 복사·초기화는 아이콘만 보이고 접근 이름과 title을 유지한다. 편집·초기화·링크·URL·권한·미지원 보존 의미는 §6을 그대로 따른다.
 

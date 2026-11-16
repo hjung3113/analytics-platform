@@ -1,11 +1,12 @@
+import { TargetPicker, TARGET_KEYS } from './TargetPicker';
 import { createPortal } from 'react-dom';
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type ComponentProps } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
-import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useMessages, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
+import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
-import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Alert, AlertDescription, Button, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { SHELL_MESSAGES } from '../messages';
 import { ShareControl } from './ShareControl';
@@ -44,7 +45,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const { draft, dirty, missing, canApply, applying, setDraftGlobal, setDraftPage, apply, revert, reset } = query;
   const extension = useQueryBarExtension();
   const inset = useCompactPageDensity() ? 'px-4' : 'px-3';
-  const { lang, tx, t } = useI18n();
+  const { lang, t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const id = useId();
   const disclosure = useRef<HTMLButtonElement>(null);
@@ -106,7 +107,6 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     setRange({ from: g.from ?? '', to: g.to ?? '' });
     setPeriodEditor(previous => ({ ...previous, reference: day(g.from ?? platform.defaultRangeTo), invalidReference: false }));
   }
-  const context: PortContext = { scopeId: g.scopeId ?? '', roomNames: g.roomNames, lineNames: g.lineNames, prcGroups: g.prcGroups, condition: g.condition, membershipBasis: g.membershipBasis, period: g.from && g.to ? { from: g.from, to: g.to } : null };
   const cap = route!.menu.context;
   const reasons = missing.map(item => ({ key: item.key, reason: queryMissingSentence(lang, item.label) }));
   if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: m('queryScopeRequired') });
@@ -180,10 +180,10 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   }}>
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
         {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
-        {cap.roomNames === 'apply' && <SetField name={t('roomNames')} values={g.roomNames} options={scope.status === 'valid' && scope.validatedFor === session ? scope.grantedRooms.map(value => ({ value, label: value })) : []} onChange={roomNames => write({ roomNames })} invalid={invalid('roomNames')} reasonId={reasonId}
-          request={roomRequest(g.roomNames, t('roomNames'))} />}
-        {cap.line === 'apply' && <AxisField axisId="lineNames" name={tx(CONTEXT_LABELS.line)} values={g.lineNames} context={context} parents={g.roomNames === null ? {} : { roomNames: g.roomNames }} onChange={lineNames => write({ lineNames })} invalid={invalid('line')} reasonId={reasonId} />}
-        {cap.prcGroup === 'apply' && <AxisField axisId="prcGroups" name={tx(CONTEXT_LABELS.prcGroup)} values={g.prcGroups} context={context} parents={{ ...(g.roomNames === null ? {} : { roomNames: g.roomNames }), ...(g.lineNames === null ? {} : { lineNames: g.lineNames }) }} onChange={prcGroups => write({ prcGroups })} invalid={invalid('prcGroup')} reasonId={reasonId} />}
+        {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
+          <TargetPicker global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid)} reasonId={reasonId} />
+          {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
+        </div>}
     </div>
     {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <div role="group" aria-label={m('queryEquipmentConditions')} className="flex min-w-0 flex-wrap items-start gap-3">
         {switcher && <div className="grid gap-1 text-xs text-text-secondary">
@@ -191,11 +191,6 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
           <SegmentedRadio label={m('queryConditionSet')} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
           <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
         </div>}
-        {cap.condition === 'apply' && equipmentAxes.filter(axis => !activePreset || activePreset.axes.includes(axis.id)).map(axis => <AxisField key={axis.id} axisId={axis.id} name={tx(axis.label)} values={g.condition?.[axis.id] ? [...g.condition[axis.id]] : null} context={context} parents={axis.dependsOn && g.condition?.[axis.dependsOn] ? { [axis.dependsOn]: [...g.condition[axis.dependsOn]] } : {}} invalid={invalid('condition')} reasonId={reasonId} onChange={values => {
-          const next = { ...g.condition };
-          if (values?.length) next[axis.id] = values; else delete next[axis.id];
-          write({ condition: Object.keys(next).length ? next : null });
-        }} />)}
         {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid w-80 max-w-full gap-1 text-xs text-text-secondary">
           <span id={`${id}-membership`}>{m('queryMembershipBasis')}</span>
           {/* SegmentedRadio uses these primitives too, but cannot disable just the historical option. */}
@@ -212,7 +207,6 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
           </RadioGroup>
           {!history && <p id={`${id}-history`}>{m('queryMembershipHistoryHint')}</p>}
         </div>}
-        {cap.selection === 'apply' && <EquipmentField context={context} values={g.selection} onChange={selection => write({ selection })} invalid={invalid('selection')} reasonId={reasonId} />}
     </div>}
     {carried.length > 0 && <div role="group" aria-label={m('queryCarriedConditions')} className="flex flex-wrap gap-2 text-xs">
       {carried.map(item => <span key={item.key} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle p-2 [overflow-wrap:anywhere]">
@@ -238,58 +232,6 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   </section>{stableView.portal}</>;
 }
 
-/**
- * The candidate search the ports see: typing waits 250 ms after the last key (a port request per key otherwise, #823); clearing the
- * search applies at once. The input itself shows every key; the field reads as loading until the waited query is the typed one.
- */
-function useSearchQuery(search: string): string {
-  const [query, setQuery] = useState(search);
-  useEffect(() => {
-    if (search === '') { setQuery(''); return; }
-    const timer = setTimeout(() => setQuery(search), 250);
-    return () => clearTimeout(timer);
-  }, [search]);
-  return query;
-}
-
-type SetFieldProps = { name: string; values: IdSet; options: { value: string; label: string }[]; onChange: (values: IdSet) => void; invalid?: boolean; reasonId: string; /** Access-request entry beside the field. */ request?: ReactNode };
-function SetField({ name, values, onChange, invalid, reasonId, request, ...props }: SetFieldProps & Partial<Pick<ComponentProps<typeof MultiCombobox>, 'getLabel' | 'search' | 'onSearchChange' | 'loading' | 'error' | 'onRetry' | 'hasMore' | 'onLoadMore'>>) {
-  const { t } = useI18n();
-  const m = useMessages(SHELL_MESSAGES);
-  return <div className="grid w-44 min-w-0 max-w-full gap-1 text-xs text-text-secondary">
-    <span>{name}</span>
-    <div className="rounded-md bg-surface-card">
-      <MultiCombobox {...props} density="compact" label={name} clearAction={values === null ? undefined : { label: m('queryResetFieldToAll', { name }), onClear: () => onChange(null) }} values={values ?? []} onValuesChange={onChange} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} listboxLabel={name} emptyText={m('queryNoCandidates')} placeholder={values === null ? t('all') : values.length === 0 ? m('queryExplicitEmpty') : undefined} selectedSummaryLabel={count => m('querySelectedSummary', { count })} moreLabel={m('queryLoadMore')} clearAllLabel={m('queryClearSelection')} removeLabel={value => `${t('clear')} ${value}`} loadingText={m('queryLoadingCandidates')} retryLabel={t('retry')} />
-    </div>
-    {request && <div className="flex flex-wrap items-center gap-1">{request}</div>}
-  </div>;
-}
-function AxisField({ axisId, context, parents, ...props }: Omit<SetFieldProps, 'options'> & { axisId: string; context: PortContext; parents: Record<string, string[]> }) {
-  const [search, setSearch] = useState('');
-  const query = useSearchQuery(search);
-  const result = useAxisOptions({ axisId, context, parents, query });
-  const m = useMessages(SHELL_MESSAGES);
-  const labels = new Map(result.items.map(item => [item.id, item.label]));
-  return <div className="min-w-0">
-    <SetField {...props} search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.id, label: item.label }))} getLabel={value => labels.get(value) ?? value} loading={result.status === 'loading' || result.loadingMore || search !== query} error={result.error?.message ?? result.loadMoreError?.message} onRetry={result.retry} hasMore={result.hasMore} onLoadMore={result.loadMore} />
-    {props.values?.some(value => !labels.has(value)) && <p className="max-w-56 text-xs text-text-secondary">{m('queryAxisNotInCandidates')}</p>}
-  </div>;
-}
-function EquipmentField({ context, ...props }: Omit<SetFieldProps, 'name' | 'options'> & { context: PortContext }) {
-  const [search, setSearch] = useState('');
-  const query = useSearchQuery(search);
-  const result = useEquipmentSearch({ context, query });
-  const resolved = useResolvedSelection(props.values ?? [], { scopeId: context.scopeId });
-  const m = useMessages(SHELL_MESSAGES);
-  // Never let stale candidate metadata override an authoritative forbidden/not_found resolution.
-  const label = (value: string) => {
-    const status = resolved.byId.get(value);
-    return status === 'forbidden' ? `${value} (${m('queryEquipmentForbidden')})` : status === 'not_found' ? `${value} (${m('queryEquipmentNotFound')})` : resolved.summaries.get(value)?.equipmentId ?? value;
-  };
-  return <div className="min-w-0"><SetField {...props} name="EquipmentID" search={search} onSearchChange={setSearch} options={result.items.map(item => ({ value: item.equipmentId, label: label(item.equipmentId) }))} getLabel={label} loading={result.status === 'loading' || result.loadingMore || resolved.status === 'loading' || search !== query} error={result.error?.message ?? result.loadMoreError?.message ?? resolved.error?.message} onRetry={() => { result.retry(); resolved.retry(); }} hasMore={result.hasMore} onLoadMore={result.loadMore} />
-    {props.values?.some(value => !result.items.some(item => item.equipmentId === value)) && <p className="max-w-56 text-xs text-text-secondary">{m('queryEquipmentNotInCandidates')}</p>}
-  </div>;
-}
 /** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
 const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
 function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string }) {

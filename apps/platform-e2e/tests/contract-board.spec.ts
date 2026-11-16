@@ -232,10 +232,10 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
     await first.getByRole('button', { name: '칸 1 선택' }).click();
     await expect(boardContext(page, 1).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
-    await expect(boardContext(page, 1).getByRole('button', { name: '공정 PHOTO', exact: true })).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
     await second.getByRole('button', { name: '칸 2 선택' }).click();
     await expect(boardContext(page, 2).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
-    await expect(boardContext(page, 2).getByRole('button', { name: '공정 PHOTO', exact: true })).toBeVisible();
+    await expect(boardContext(page, 2).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
 
     await page.getByRole('button', { name: '실행 취소' }).click();
     await expect(first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
