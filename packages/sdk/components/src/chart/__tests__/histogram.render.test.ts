@@ -49,3 +49,10 @@ it('keeps reference labels at either end of the axis inside the plot area', () =
     }
   } finally { chart.dispose(); }
 });
+
+it('picks the label side without overflowing on very large finite axes', () => {
+  const data = histogramData({ kind: 'histogram', xLabel: 'Duration', xUnit: 's', bins: [{ start: 1e308, end: 1.1e308, count: 1 }],
+    referenceLines: [{ id: 'lower', value: 1e308, label: 'lower' }, { id: 'upper', value: 1.1e308, label: 'upper' }] }, 'en');
+  const option = data.option([]) as { series: { markLine?: { data: { label: { align: string } }[] } }[] };
+  expect(option.series[0].markLine!.data.map(line => line.label.align)).toEqual(['left', 'right']);
+});

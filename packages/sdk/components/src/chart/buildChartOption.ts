@@ -84,7 +84,7 @@ export function buildHistogramOption({ spec, bins, rows, countLabel }: {
             // The text runs from the line toward the plot's middle, so a line near either axis end keeps its label inside the plot.
             // ECharts anchors `insideEndTop` 5px left of a vertical line; a left-half label moves twice that to sit 5px right of it.
             label: { show: true, formatter: () => line.label, position: 'insideEndTop', rotate: 0, color,
-              ...(line.value < (min + max) / 2 ? { align: 'left', offset: [10, 0] } : { align: 'right' }) } };
+              ...(line.value < min / 2 + max / 2 ? { align: 'left', offset: [10, 0] } : { align: 'right' }) } };
         }) },
       },
       { type: 'scatter', silent: true, tooltip: { show: false }, symbolSize: 0, z: 3,
