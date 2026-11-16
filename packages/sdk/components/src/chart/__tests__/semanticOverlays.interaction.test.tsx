@@ -76,15 +76,16 @@ function checkInteraction(option: EChartsCoreOption, overlays: string[], { blurr
 const categories = ['A', 'B'];
 const status = (tone: ChartStatus['tone']): ChartStatus => ({ tone, label: 'Status' });
 
+// Series blur is opt-in since #2342 (`emphasisFocus: 'series'`); the line and bar cases opt in so the blur path stays covered.
 describe('semantic overlay opacity through ECharts focus/blur (#2333 FIX1)', () => {
   it.each(['danger', 'warning', 'neutral'] as const)('preserves the %s line halo, ring, glyph and bound strokes/band', tone => {
     const displayed = [{ id: 'line', name: 'Line', color: 'chart-blue' as const, points: [['A', 3], ['B', 5]] as [string, number][] }];
-    const input = baselineInput({ displayed, categories, horizontal: false, stacked: false, activeCategory: null, extremes: undefined, pointStatus: () => status(tone), bounds: new Map([['A', { lower: 1, upper: 6 }]]), palette: resolveChartPalette(displayed) });
+    const input = baselineInput({ displayed, categories, horizontal: false, stacked: false, activeCategory: null, extremes: undefined, pointStatus: () => status(tone), bounds: new Map([['A', { lower: 1, upper: 6 }]]), palette: resolveChartPalette(displayed), emphasisFocus: 'series' });
     checkInteraction(buildChartOption(input), ['__line-halo-line', '__line-status-line', '__bounds-upper', '__bounds-lower', '__bounds-band'], { blurred: true });
   });
   it.each([false, true])('preserves both bar backing strokes, horizontal=%s', horizontal => {
     const displayed = [{ id: 'bar', name: 'Bar', kind: 'bar' as const, color: 'chart-status-critical' as const, points: [['A', 3], ['B', 5]] as [string, number][] }];
-    const input = baselineInput({ displayed, categories, horizontal, stacked: false, activeCategory: null, extremes: undefined, pointStatus: () => status('danger'), palette: resolveChartPalette(displayed) });
+    const input = baselineInput({ displayed, categories, horizontal, stacked: false, activeCategory: null, extremes: undefined, pointStatus: () => status('danger'), palette: resolveChartPalette(displayed), emphasisFocus: 'series' });
     checkInteraction(buildChartOption(input), ['__statusBarBacking'], { blurred: true });
   });
   it.each([false, true])('does not blur scatter status layers when the host is highlighted, categorical=%s', categorical => {
