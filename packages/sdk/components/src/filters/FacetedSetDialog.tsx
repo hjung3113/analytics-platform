@@ -35,6 +35,7 @@ const INITIAL_RESULT_WIDTH = 1100;
 const SEARCH_PAGE_SIZE = 30;
 const identityLabel = (_facet: string, value: string) => value;
 const plainCount = (count: number) => String(count);
+const EMPTY_PICKS: ReadonlySet<string> = new Set();
 type SaveState = 'closed' | 'editing' | 'pending' | 'error' | 'saved';
 type Index = ReturnType<typeof buildFacetedSetIndex>;
 
@@ -80,6 +81,8 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, re
     if (node) { node.focus({ preventScroll: true }); setTargetId(null); }
   }, [targetId, visibleRows]);
   const count = draft.fixed ? draft.fixed.length : evaluation.matches.length;
+  // One Set per facet so each option's checked state is O(1), even with thousands of picks (review C1).
+  const pickedSets = useMemo(() => new Map(facets.map(facet => [facet.id, new Set(rulePicks(draft.rule, facet.id))])), [facets, draft.rule]);
   const mode = draft.fixed ? m('fsFixed', { count: formatCount(count) }) : m('fsRule', { count: formatCount(count) });
   const applyLabel = draft.fixed ? m('fsApplyFixed', { count: formatCount(count) }) : m('fsApplyRule', { count: formatCount(count) });
   const pending = saveState === 'pending';
@@ -159,15 +162,15 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, re
         })}><span aria-hidden>{expanded.has(facet.id) ? '−' : '+'}</span>{facet.label}{!!rulePicks(draft.rule, facet.id).length && <span>{rulePicks(draft.rule, facet.id).length}</span>}</Button>)}
       </div>
       {ready && <div className="flex shrink-0 gap-3 overflow-x-auto">
-        {facets.map((facet, position) => expanded.has(facet.id) && <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-56 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
-          {[...new Set([...(evaluation.counts.get(facet.id)?.keys() ?? []), ...rulePicks(draft.rule, facet.id)])].map(pick => {
+        {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-56 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
+          {[...new Set([...(evaluation.counts.get(facet.id)?.keys() ?? []), ...picked])].map(pick => {
             const amount = evaluation.counts.get(facet.id)?.get(pick) ?? 0;
             return <label key={pick} className={cn('flex items-center gap-2 py-1 text-sm', amount === 0 && 'text-text-muted')}>
-              <Checkbox aria-label={valueLabel(facet.id, pick)} checked={rulePicks(draft.rule, facet.id).includes(pick)} onCheckedChange={() => changePick(facet.id, pick)} />
+              <Checkbox aria-label={valueLabel(facet.id, pick)} checked={picked.has(pick)} onCheckedChange={() => changePick(facet.id, pick)} />
               <span className="flex-1">{valueLabel(facet.id, pick)}</span><span>{formatCount(amount)}</span>
             </label>;
           })}
-        </div>)}
+        </div>; })}
       </div>}
       {ready && <>
         <div className="flex shrink-0 items-center gap-3" role="status"><StatusBadge tone="neutral">{mode}</StatusBadge><span>{m('fsResults', { count: formatCount(evaluation.matches.length) })}</span></div>

@@ -44,7 +44,7 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
 
 ### Faceted set dialog (`filters/`)
 - `FacetedSetDialog` is a domain-free, draft-only modal: callers declare facets, a complete authorized item dataset, labels, result columns, and optional inline save/share callbacks.
-- Indexed own-facet-excluded counts, virtual results, rule/fixed modes and retained outside-rule IDs live in `facetedSet.ts`; no Context or persistence is owned here. Remount with a caller session key when replacing an open session.
+- Pure indexing, own-facet-excluded counts and the outside-rule ID helper live in `facetedSet.ts`; draft rule/fixed modes, search, the save form and the virtual result table live in `FacetedSetDialog.tsx`. No Context or persistence is owned here. Remount with a caller session key when replacing an open session.
 
 ### Column filters
 - `table/columnFilters.tsx` (private; 06 §15 "Filter line and editor", ADR-0104·0105):
