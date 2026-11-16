@@ -23,7 +23,8 @@ The dev proxy target (`AP_BACKEND_ORIGIN`, read by the platform-web config) is:
     schedule on, so on the dev DB it would work the owner's live job queue with unreviewed code.
   - `--seed` runs the idempotent seed with `SEED_MODE=personas` first, so every mock persona can log in.
     After the backend is healthy it runs `preview-fixtures.mjs`, which creates one `[preview]` record per
-    drawer surface, including Task Request (one converted, one pending). A fixtures failure is a warning on
+    drawer surface, including tokens, Finding evidence, Integration recovery detail and Task Request
+    (one converted, one pending). A fixtures failure is a warning on
     the start JSON (`fixtures`), not a failed start. The child's stdout and stderr are written to
     `$WAVE_STATE/preview-<label>-fixtures.log` and are not copied into that JSON.
 

@@ -50,6 +50,7 @@ Shared list: rule 8 of the global worker rules.
 
 ## Browser Checks and Captures
 
+- Check changes to feature screens (`packages/feature/**`, `platform/**`) on the real server (`app-preview.py start … --backend --seed`) so API permissions and stored data are exercised instead of mock data.
 - Browser control is `ego-browser`; on failure (`ego-browser nodejs -e 'console.log(1)'`) say you substitute `apps/platform-e2e` Playwright.
 - Capture scripts live under `apps/platform-e2e` (so `@playwright/test` resolves) and are deleted when finished.
 - One dev-server port per worktree: `pnpm exec vite --host 127.0.0.1 --port 517x --strictPort`. E2E defaults to 4190 (`E2E_PORT`; base path 4191, `E2E_BASE_PATH_PORT`) with `reuseExistingServer:false`; "already used" is an environment conflict: pick another port (PROFILE §Lanes), never touch the other session's process.

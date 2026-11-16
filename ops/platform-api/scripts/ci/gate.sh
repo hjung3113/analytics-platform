@@ -64,6 +64,7 @@ stage_static_extra() {
   step node "$FEATURE_OPS/scripts/db/cutover-0076.test.mjs"
   step node "$FEATURE_OPS/scripts/db/set-role-passwords.test.mjs"
   step node --test "$FEATURE_OPS/scripts/backup/backup.test.mjs"
+  step node --test "$FEATURE_OPS/conductor/scripts/preview-fixtures.test.mjs"
   step node apps/platform-e2e/tests-real/database-safety.test.ts
   step node apps/platform-e2e/tests-real/token-evidence-config.test.ts
   step node apps/platform-e2e/tests-real/token-evidence-safety.test.ts
