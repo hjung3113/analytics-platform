@@ -51,6 +51,7 @@ export { ManagementLayout, type ManagementLayoutProps } from './archetypes/Manag
 export { badgeCountText } from './workspace/PanelBadge';
 export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePersistence, type PanelWorkspacePreset, type PanelWorkspaceProps, type PanelWorkspaceStorage } from './workspace/PanelWorkspace';
 export { changedPanelOptions, PANEL_OPTIONS_COLLAPSE_BELOW, PanelOptionChips, PanelOptions, usePanelOptions, type PanelOption, type PanelOptionChipsProps, type PanelOptionChoice, type PanelOptionsProps, type PanelOptionValues } from './workspace/PanelOptions';
+export { PanelAddMenu, usePinnedPanels, type PanelAddItem, type PanelAddMenuProps } from './workspace/PanelAdd';
 export { EmbeddedPane } from './workspace/panelContext';
 export { AnalysisLayout, type AnalysisLayoutProps, type AnalysisSection } from './archetypes/AnalysisLayout';
 export { DrillLayout, DrillPath, ReturnLink, type DrillLayoutProps, type DrillPathProps, type DrillSibling, type DrillSiblings } from './archetypes/DrillLayout';

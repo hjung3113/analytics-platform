@@ -61,6 +61,17 @@ export type PanelWorkspacePanel = {
    * consumer's short state of the panel (for a condition panel, the current conditions). Ignored on the primary panel. Absent = no button, no chip.
    */
   minimize?: { summary?: Text };
+  /**
+   * Where the panel opens when the layout does not hold it yet (#2398): absent = a tab in the primary panel's group; `'below'` = a new last row
+   * (full width). Applies when the panel first joins `panels` (a panel the user added) and to presets that do not name it. A layout the user
+   * already arranged, stored or not, is never moved by it.
+   */
+  placement?: 'below';
+  /**
+   * Opt-in (#2398): a pin button in the panel header. The menu owns what pinning means (with `usePinnedPanels`, the panel stays in `panels` at
+   * the next drill step); the SDK only draws the state and calls `onToggle`.
+   */
+  pin?: { pinned: boolean; onToggle: () => void };
 };
 
 export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorkspaceLayout };
@@ -176,7 +187,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const rowMinimum = rowMinimumOf(panelMinimums);
   const declaredHeights = new Map(panels.flatMap(panel => (panel.preferredHeight === undefined ? [] : [[panel.id, panel.preferredHeight] as const])));
   const rowPreferred = declaredHeights.size > 0 ? rowPreferredOf(declaredHeights, panelMinimums, dockTheme(true).gap) : undefined;
-  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset };
+  const below = panels.filter(panel => panel.placement === 'below' && panel.id !== primaryId).map(panel => panel.id);
+  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset, below };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
   /** The panel's badge with its description localised. */
   const chipOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); if (!panel?.minimize || id === primaryId) return null; const summary = panel.minimize.summary ? tx(panel.minimize.summary) : ''; return summary ? `${tx(panel.title)} · ${summary}` : tx(panel.title); };
@@ -242,8 +254,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   useRegisterPageFlow(stackActive);
 
   // Commands read the latest render at call time, so their identity depends on what they display only.
-  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset });
-  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset }; });
+  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below });
+  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below }; });
   /** px that make one row fill what the page shows: the scroll container less what sits above the rows (the workspace's offset, the toolbar and its gap), the drop strip and the page's bottom padding. */
   const oneRowHeight = useCallback(() => {
     const element = root.current;
@@ -291,7 +303,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
     const env = rowEnv();
-    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset }, env), 'raw');
+    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset, below: live.current.below }, env), 'raw');
   }, [update, rowEnv]);
   // Stack mode whose rows are not known (a stored mode without usable rows): measured once, before paint.
   useLayoutEffect(() => {
@@ -329,7 +341,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
         id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow, description: parsed.narrow ? m('workspaceCompactPresetOff') : undefined,
-        run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next), 'enter'); },
+        run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next, live.current.below), 'enter'); },
       })),
       ...(['fit', 'stack'] as const).map((mode): WorkspaceCommand => ({
         id: `${MODE_PREFIX}${mode}`, label: m(mode === 'fit' ? 'workspaceModeFit' : 'workspaceModeStack'), kind: 'radio', group: 'mode', groupLabel: m('workspaceHeightMode'),
@@ -341,7 +353,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       })),
       {
         id: RESET_ID, label: m('workspaceResetLayout'), kind: 'action',
-        run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next), 'enter'); },
+        run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next, live.current.below), 'enter'); },
       },
     ];
   }, [shape, update, setMode, m]);
@@ -477,8 +489,9 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;
+    const pin = panels.find(panel => panel.id === id)?.pin;
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
-    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus}
+    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       onMaximize={(maximize, fromMenu) => { if (!maximize && fromMenu) closeFocus.current = () => { focusTab(id); }; requestMaximized(maximize ? id : null); }}
       onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
