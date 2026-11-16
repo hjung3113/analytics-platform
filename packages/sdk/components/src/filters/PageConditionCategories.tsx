@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useId, useState, type ReactNode } from 'reac
 import { ChevronDown, Inbox, ServerCrash } from 'lucide-react';
 import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair } from '@ap/contracts';
 import { decodePageConditions, encodePageConditions, PAGE_CONDITION_EMPTY, PageConditionError, useI18n, useMessages, type PageConditionIssue, type PageConditionValue, type PageConditionValues } from '@ap/kernel';
-import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ap/ui';
+import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard } from '@ap/ui';
 import { LoadingBlock, OutcomeView, StateMessage } from '../StateView';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 import { checkPageConditionOptions, type PageConditionOptions, type PageConditionOptionsLoader } from './pageConditionOptions';
@@ -204,7 +204,7 @@ function ConditionCategory(props: CategoryProps) {
   function controls() {
     switch (kind.type) {
       case 'tree': return <p className="text-xs text-text-secondary">{m('tree')}</p>;
-      case 'search': return <Input id={`${prefix}-input`} type="search" aria-label={category.label[lang]} {...common} value={valuesFor(kind.key)[0] ?? ''} onChange={event => write(kind.key, event.target.value === '' ? null : [event.target.value])} />;
+      case 'search': return <CommitInput id={`${prefix}-input`} aria-label={category.label[lang]} {...common} value={valuesFor(kind.key)[0] ?? ''} onCommit={text => write(kind.key, text === '' ? null : [text])} />;
       case 'range': {
         const value = owned[kind.key];
         const range = value && !Array.isArray(value) ? value as { min: number | null; max: number | null } : { min: null, max: null };
@@ -276,7 +276,7 @@ function ConditionCategory(props: CategoryProps) {
                 const groupOptions = group.lists[list.id] ?? [];
                 const selected = valuesFor(list.key);
                 const explicitListEmpty = (Object.hasOwn(owned, list.key) || raw.some(([key]) => key === list.key)) && selected.length === 0;
-                const messages = { ...GROUPED_SELECTION_MESSAGES[lang], selectedCount: (count: number) => explicitListEmpty ? m('explicitEmpty') : GROUPED_SELECTION_MESSAGES[lang].selectedCount(count) };
+                const messages = { ...GROUPED_SELECTION_MESSAGES[lang], selectedCount: (count: number) => explicitListEmpty ? m('explicitEmpty') : count === 0 ? m('unconstrained') : GROUPED_SELECTION_MESSAGES[lang].selectedCount(count) };
                 return <GroupedSelectionList key={list.id} mode="multiple" aria-label={list.label[lang]} announceSelection={false} messages={messages}
                   value={selected} onChange={next => write(list.key, next)} groups={[{ id: list.id, label: list.label[lang], items: groupOptions.map(option => ({ id: option.value, label: option.label[lang], disabledReason: category.disabled?.reason[lang] ?? option.disabledReason?.[lang] })) }]} />;
               })}
@@ -289,7 +289,7 @@ function ConditionCategory(props: CategoryProps) {
     }
   }
   let selectionSummary: string | null = null;
-  if (repeated) selectionSummary = explicitEmpty ? m('explicitEmpty') : m('selected', { count });
+  if (repeated) selectionSummary = explicitEmpty ? m('explicitEmpty') : count === 0 ? m('unconstrained') : m('selected', { count });
   // The fieldset keeps native disabled semantics for every nested control; its legend is the accessible name and the visible label sits in the same row as the count and 지우기.
   return <fieldset data-page-condition={category.id} disabled={disabled} aria-describedby={reasonsId} className="min-w-0 space-y-2 border-b border-border-subtle pb-3">
     <legend className="sr-only">{category.label[lang]}</legend>
@@ -306,6 +306,18 @@ function ConditionCategory(props: CategoryProps) {
     {controls()}
     {state.status === 'ready' && 'options' in state.data && state.data.truncated && <p className="text-xs text-text-warning-label">{m('partial')}</p>}
   </fieldset>;
+}
+
+/** Free text commits on blur or Enter, never per keystroke: a live menu would otherwise push the URL and refetch for every character. */
+function CommitInput({ value, onCommit, ...props }: {
+  value: string; onCommit: (text: string) => void; id?: string; 'aria-label'?: string; disabled?: boolean; 'aria-describedby'?: string; 'aria-invalid'?: boolean;
+}) {
+  const [draft, setDraft] = useState({ source: value, text: value });
+  if (draft.source !== value) setDraft({ source: value, text: value });
+  const ime = useImeEnterGuard();
+  const commit = () => { if (draft.text !== value) onCommit(draft.text); };
+  return <Input type="search" {...props} value={draft.text} onChange={event => setDraft({ source: value, text: event.target.value })} onBlur={commit}
+    onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={event => { if (ime.isComposingEnter(event)) return; if (event.key === 'Enter') { event.preventDefault(); commit(); } }} />;
 }
 
 type BoundField = { label: string; value: string; inputMode?: 'decimal'; type?: 'text' | 'datetime-local'; step?: number };

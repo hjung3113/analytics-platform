@@ -64,13 +64,25 @@ describe('PageConditionCategories', () => {
     expect(screen.getByText('선택한 항목 없음')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '대상 지우기' }));
   });
-  it('edits search immediately and clearing emits no constraint', () => {
+  it('commits search on blur or Enter, never per keystroke, and clearing emits no constraint', () => {
     const { onChange, rerender } = mount({ declaration: { categories: [categories[2]] } });
-    fireEvent.change(screen.getByRole('searchbox', { name: '검색' }), { target: { value: 'needle' } });
+    const box = screen.getByRole('searchbox', { name: '검색' });
+    fireEvent.change(box, { target: { value: 'need' } });
+    fireEvent.change(box, { target: { value: 'needle' } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith('query', { query: ['needle'] });
     rerender(<I18nProvider><PageConditionCategories declaration={{ categories: [categories[2]] }} values={{ query: ['needle'] }} inputsKey="session:scope:1" onChange={onChange} /></I18nProvider>);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    fireEvent.blur(screen.getByRole('searchbox'));
     expect(onChange).toHaveBeenLastCalledWith('query', null);
+  });
+  it('says 제약 없음 for an absent key and 선택한 항목 없음 only for ~none', () => {
+    mount({ declaration: { categories: [categories[1]] } });
+    expect(screen.getByText('제약 없음')).toBeVisible();
+    expect(screen.queryByText('0개 선택')).toBeNull();
+    expect(screen.queryByText('선택한 항목 없음')).toBeNull();
   });
   it('edits open numeric bounds, respects unit/min/max/step and refuses reversed ranges', () => {
     const { onChange } = mount({ declaration: { categories: [categories[3]] } });
@@ -132,6 +144,7 @@ describe('PageConditionCategories', () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByText('한 범주에서 최대 50개까지 선택할 수 있습니다.')).toBeVisible();
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '한'.repeat(500) } });
+    fireEvent.blur(screen.getByRole('searchbox'));
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByText(/2400/)).toBeVisible();
   });
