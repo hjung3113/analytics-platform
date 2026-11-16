@@ -13,5 +13,5 @@ export function FeatureDetailDrawer({ parts, onClose, requestClose }: { parts: F
   const { lang } = useI18n();
   return <DetailDrawer title={parts.title} {...(parts.subtitle !== undefined ? { subtitle: parts.subtitle } : {})} {...(parts.headerActions !== undefined ? { headerActions: parts.headerActions } : {})}
     footer={parts.footer} returnFocusRef={parts.returnFocusRef} onClose={requestClose ?? onClose}
-    tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: <div className="fo-detail-body flex min-h-0 flex-1 flex-col">{parts.body}</div> }]} />;
+    tabs={[{ id: 'detail', label: lang === 'ko' ? '상세' : 'Detail', content: <div className="fo-detail-body flex min-h-0 flex-1 flex-col overflow-y-auto">{parts.body}</div> }]} />;
 }

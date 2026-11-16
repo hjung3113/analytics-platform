@@ -12,6 +12,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* #2403: Radix form controls (Checkbox, Select) carry a visually hidden absolute input; without a positioned ancestor it lands outside the clipped region and stretches the document. */
+  position: relative;
   padding-block: 0;
 }
 
