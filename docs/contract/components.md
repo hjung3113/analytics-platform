@@ -44,7 +44,7 @@ EquipmentDeactivateButton
 
 ### HierarchyNav
 
-Decided (#1448, [ADR-0118](../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)). `@ap/components`의 `HierarchyNav`는 메뉴가 준 `HierarchySource`를 지연 로딩·가상화하는 동적 사이드바 조각이다. `menuId`, `label`, `source`, 선택 `mode`(기본 `drill`), `currentNodeId`, `levelIcon`, `pageSize`, `state`, `onNavigate`를 받는다. `useHierarchyNavState(menuId)`가 만든 `HierarchyNavState`를 셸이 보유해 펼친 구역과 접힌 팝오버가 같은 페이지·조상·검색·확장 상태를 읽는다. 키는 메뉴 ID + 사용자 ID + Kernel revision이며 세대가 바뀐 렌더에서 이전 노드는 숨긴다. 저장소·URL에 이 탐색 상태를 쓰지 않는다.
+Decided (#1448, [ADR-0118](../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md)). `@ap/components`의 `HierarchyNav`는 메뉴가 준 `HierarchySource`를 지연 로딩·가상화하는 동적 사이드바 조각이다. `menuId`, `label`, `source`, 선택 `mode`(기본 `drill`), `currentNodeId`, `levelIcon`, `pageSize`, `state`, `onNavigate`를 받는다. `useHierarchyNavState(menuId)`가 만든 `HierarchyNavState`를 셸이 보유해 펼친 구역과 접힌 팝오버가 같은 페이지·조상·검색·확장 상태를 읽는다. 키는 메뉴 ID + 사용자 ID + Kernel revision이며 세대가 바뀐 렌더에서 이전 노드는 숨긴다. 저장소·URL에 이 탐색 상태를 쓰지 않는다. 페이지 규칙은 페이지 조건 트리와 같다(#2360): 한 커서 체인에서 노드 id는 유일하고, 요청한 `limit`을 넘는 응답·반복되거나 순환하는 커서·바뀐 `totalCount`·마지막 페이지가 총개수와 다른 목록은 «끝»이 아니라 `error`다.
 
 - 순수 계약은 `@ap/contracts`의 `HierarchyNode`(`id`, `parentId?`, `kind`, `label`, `hasChildren`, 선택 `target: { menuId, params?, page? }`), `HierarchyPage`(`nodes`, `nextCursor?`, `totalCount?`), `HierarchySource`다. `listChildren({ parentId, cursor?, limit?, signal? })`, `resolveAncestors(nodeId, signal?)`, 선택 `searchNodes({ query, cursor?, limit?, signal? })`를 받는다. 조상은 루트부터 바로 위 부모까지이며 요청 노드는 제외한다. 개수 생략은 알 수 없음이고 0이 아니다.
 - 한 호출은 기본 50개·최대 200개(성능)다. 첫 렌더에 전체 트리를 받지 않는다. 페이지는 ID로 중복 제거하고 긴 목록은 가상화한다. 검색은 200ms 지연 후 요청하고 이전 요청은 취소한다. 자신의 취소된 signal만 결과를 버리는 근거다(정합성); 다른 `AbortError`는 재시도 가능한 오류다. 논리 깊이·선택 수 제한은 없다.

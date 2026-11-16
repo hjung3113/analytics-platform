@@ -106,19 +106,38 @@ function TreeEditor({ category, kind, source, pageSize = 50, declaration, values
     const node = state.node(id);
     return id === ancestor || (!!node && pathIds(node).includes(ancestor));
   };
-  const covered = (node: HierarchyNode) => kind.value === 'nodes' && pathIds(node).some(id => selected.includes(id));
-  const checked = (node: HierarchyNode): boolean | 'mixed' => {
-    if (selected.includes(node.id) || covered(node)) return true;
-    const descendants = [...snapshot.pages.values()].flatMap(page => page.status === 'ready' ? page.value.nodes : []).filter(child => child.id !== node.id && under(child.id, node.id));
-    if (kind.value === 'leaves' && node.hasChildren) {
-      const leaves = descendants.filter(child => !child.hasChildren);
-      const allLoaded = [node, ...descendants.filter(child => child.hasChildren)].every(parent => {
-        const page = snapshot.pages.get(parent.id);
-        return page?.status === 'ready' && page.value.nextCursor === undefined;
-      });
-      if (allLoaded && leaves.length > 0 && leaves.every(child => selected.includes(child.id))) return true;
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  // One pass over the loaded nodes per snapshot/selection, so each row's tri-state is a lookup rather than a scan of every loaded node (#2360).
+  const tally = useMemo(() => {
+    const mixed = new Set<string>();
+    for (const id of selected) { const node = state.node(id); if (node) for (const ancestor of pathIds(node)) mixed.add(ancestor); }
+    const leafTotal = new Map<string, number>();
+    const leafChecked = new Map<string, number>();
+    const incomplete = new Set<string>();
+    for (const page of snapshot.pages.values()) {
+      if (page.status !== 'ready') continue;
+      for (const node of page.value.nodes) {
+        const above = pathIds(node);
+        if (!node.hasChildren) {
+          for (const ancestor of above) {
+            leafTotal.set(ancestor, (leafTotal.get(ancestor) ?? 0) + 1);
+            if (selectedSet.has(node.id)) leafChecked.set(ancestor, (leafChecked.get(ancestor) ?? 0) + 1);
+          }
+        } else if (!pageDone(node.id)) { incomplete.add(node.id); above.forEach(ancestor => incomplete.add(ancestor)); }
+      }
     }
-    return selected.some(id => id !== node.id && under(id, node.id)) ? 'mixed' : false;
+    return { mixed, leafTotal, leafChecked, incomplete };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pathIds/pageDone read `state` and `snapshot`, both listed through `snapshot`.
+  }, [snapshot, selected, selectedSet, state]);
+  function pageDone(id: string) { const page = snapshot.pages.get(id); return page?.status === 'ready' && page.value.nextCursor === undefined; }
+  const covered = (node: HierarchyNode) => kind.value === 'nodes' && pathIds(node).some(id => selectedSet.has(id));
+  const checked = (node: HierarchyNode): boolean | 'mixed' => {
+    if (selectedSet.has(node.id) || covered(node)) return true;
+    if (kind.value === 'leaves' && node.hasChildren && pageDone(node.id) && !tally.incomplete.has(node.id)) {
+      const total = tally.leafTotal.get(node.id) ?? 0;
+      if (total > 0 && total === (tally.leafChecked.get(node.id) ?? 0)) return true;
+    }
+    return tally.mixed.has(node.id) ? 'mixed' : false;
   };
   function validate(next: readonly string[]) {
     encodePageConditions({ pageConditions: declaration }, { ...values, [kind.key]: next });
@@ -215,7 +234,7 @@ function TreeEditor({ category, kind, source, pageSize = 50, declaration, values
             <div ref={element => { if (element) elements.current.set(node.id, element); else elements.current.delete(node.id); }} role="treeitem" aria-label={node.label} aria-level={row.depth + 1} aria-posinset={row.position} aria-setsize={row.total ?? -1} aria-expanded={!searching && node.hasChildren ? expanded.has(node.id) : undefined} aria-checked={isChecked} aria-disabled={disabled || isCovered || loading || pendingPath || undefined} aria-describedby={[describedBy, ...(isCovered ? [`${id}-covered-${encodeURIComponent(node.id)}`] : [])].join(' ')}
               tabIndex={node.id === entryId ? 0 : -1} onFocus={() => setFocusId(node.id)} onKeyDown={event => keyboard(event, row)} className={cn('flex min-w-0 items-start gap-2 rounded-sm py-1 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring', INDENT[Math.min(row.depth, INDENT.length - 1)])}>
               {!searching && node.hasChildren && <Button type="button" variant="ghost" size="icon-xs" tabIndex={-1} aria-label={t(expanded.has(node.id) ? 'collapseSection' : 'expandSection', { title: node.label })} onClick={() => expand(node)}>{expanded.has(node.id) ? <ChevronDown className="size-4" aria-hidden /> : <ChevronRight className="size-4" aria-hidden />}</Button>}
-              <Checkbox tabIndex={-1} aria-label={node.label} disabled={disabled || isCovered || loading || pendingPath} checked={isChecked === 'mixed' ? 'indeterminate' : isChecked} onCheckedChange={() => { void toggle(node); }} />
+              <Checkbox tabIndex={-1} aria-hidden disabled={disabled || isCovered || loading || pendingPath} checked={isChecked === 'mixed' ? 'indeterminate' : isChecked} onCheckedChange={() => { void toggle(node); }} />
               <span className="min-w-0 flex-1 break-words">{node.label}{isCovered && <span id={`${id}-covered-${encodeURIComponent(node.id)}`} className="block text-xs text-text-secondary">{tm('covered')}</span>}{searching && path?.status === 'ready' && <span className="block text-xs text-text-secondary">{path.value.map(node => node.label).join(' › ')}</span>}</span>
             </div>
             {searching && path?.status !== 'ready' && failure(path, () => state.resolve(node.id, { retry: true }))}
