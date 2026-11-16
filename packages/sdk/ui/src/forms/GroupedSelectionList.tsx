@@ -22,14 +22,16 @@ export type GroupedSelectionPreset = { id: string; label: string; description: s
 export type GroupedSelectionMessages = {
   search: string; clearSearch: string; clear: string; all: string; none: string; empty: string;
   selectedCount: (count: number) => string; selectedItem: (label: string) => string;
-  /** Opt-in options only. */
+} & Partial<GroupedSelectionOptionMessages>;
+/** Copy of the opt-in presentation options. Optional on the public type so existing full-table consumers keep compiling; the built-in tables fill it. */
+export type GroupedSelectionOptionMessages = {
   showHidden: (count: number, reason: string) => string; hideHidden: string; removeChip: (label: string) => string; presetAdds: (count: number) => string; presetNothing: string; description: string;
 };
 /**
  * ko/en copy. The piece takes copy as a prop instead of calling `useI18n` so that it stays in `@ap/ui`: feature packages
  * may import only `@ap/ui` from the platform (ADR-0097), and `@ap/ui` does not depend on the kernel (#1842).
  */
-export const GROUPED_SELECTION_MESSAGES: Readonly<Record<'ko' | 'en', GroupedSelectionMessages>> = {
+export const GROUPED_SELECTION_MESSAGES: Readonly<Record<'ko' | 'en', GroupedSelectionMessages & GroupedSelectionOptionMessages>> = {
   ko: { search: '검색…', clearSearch: '검색 지우기', clear: '모두 해제', all: '모두 선택', none: '선택 없음', empty: '검색 결과 없음',
     selectedCount: count => `선택 ${count}개`, selectedItem: label => `선택: ${label}`,
     showHidden: (count, reason) => `숨긴 ${count}개(${reason}) 보기`, hideHidden: '숨긴 항목 접기', removeChip: label => `${label} 선택 해제`, presetAdds: count => `+${count}개`, presetNothing: '추가할 항목 없음', description: '설명' },
@@ -75,7 +77,7 @@ function SwitchControl({ checked, disabled, onCheckedChange, ...rest }: { checke
   </button>;
 }
 export function GroupedSelectionList(props: GroupedSelectionListProps) {
-  const copy: GroupedSelectionMessages = { ...GROUPED_SELECTION_MESSAGES.ko, ...props.messages };
+  const copy: GroupedSelectionMessages & GroupedSelectionOptionMessages = { ...GROUPED_SELECTION_MESSAGES.ko, ...props.messages } as GroupedSelectionMessages & GroupedSelectionOptionMessages;
   const prefix = useId();
   const [search, setSearch] = useState('');
   const [showHidden, setShowHidden] = useState(false);
@@ -104,7 +106,7 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
     ? <Button type="button" variant="ghost" size="toolbar" disabled={!props.value.some(id => enabled.has(id))} onClick={() => props.onChange(props.value.filter(id => !enabled.has(id)))}>{copy.clear}</Button> : null;
   const presetButtons = props.mode === 'multiple' ? props.presets?.map(preset => {
     const adds = preset.itemIds.filter(id => enabled.has(id) && !selected.has(id));
-    const preview = props.presetPreview ? <p id={`${prefix}-preview-${preset.id}`} className="line-clamp-2 text-xs text-text-secondary">
+    const preview = props.presetPreview ? <p id={`${prefix}-preview-${preset.id}`} className="text-xs text-text-secondary">
       {adds.length === 0 ? copy.presetNothing : <><span className="font-medium text-text-primary">{copy.presetAdds(adds.length)}</span>{' '}{adds.map(id => allItems.find(item => item.id === id)?.label ?? id).join(' · ')}</>}</p> : null;
     return <div key={preset.id} className={cn(props.presetPreview && 'min-w-0 space-y-1')}><Tooltip><TooltipTrigger asChild>
       <Button type="button" variant="secondary" size="toolbar" className={cn(props.presetPreview && 'w-full')} aria-describedby={`${prefix}-preset-${preset.id}${preview ? ` ${prefix}-preview-${preset.id}` : ''}`} onClick={() => toggle(preset.itemIds, true)}>{preset.label}</Button>
