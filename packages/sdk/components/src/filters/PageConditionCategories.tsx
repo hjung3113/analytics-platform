@@ -316,7 +316,7 @@ function CommitInput({ value, onCommit, ...props }: {
   if (draft.source !== value) setDraft({ source: value, text: value });
   const ime = useImeEnterGuard();
   const commit = () => { if (draft.text !== value) onCommit(draft.text); };
-  return <Input type="search" {...props} value={draft.text} onChange={event => setDraft({ source: value, text: event.target.value })} onBlur={commit}
+  return <Input type="search" {...props} value={draft.text} onChange={event => { const text = event.target.value; setDraft({ source: value, text }); if (text === '' && value !== '') onCommit(''); }} onBlur={commit}
     onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={event => { if (ime.isComposingEnter(event)) return; if (event.key === 'Enter') { event.preventDefault(); commit(); } }} />;
 }
 

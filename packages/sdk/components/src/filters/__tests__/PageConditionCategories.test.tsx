@@ -75,8 +75,7 @@ describe('PageConditionCategories', () => {
     expect(onChange).toHaveBeenLastCalledWith('query', { query: ['needle'] });
     rerender(<I18nProvider><PageConditionCategories declaration={{ categories: [categories[2]] }} values={{ query: ['needle'] }} inputsKey="session:scope:1" onChange={onChange} /></I18nProvider>);
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
-    fireEvent.blur(screen.getByRole('searchbox'));
-    expect(onChange).toHaveBeenLastCalledWith('query', null);
+    expect(onChange).toHaveBeenLastCalledWith('query', null); // emptying (native ×) applies at once
   });
   it('says 제약 없음 for an absent key and 선택한 항목 없음 only for ~none', () => {
     mount({ declaration: { categories: [categories[1]] } });
