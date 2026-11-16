@@ -16,9 +16,9 @@
     "@ap/eslint-config": "workspace:*",
     "@ap/platform-web": "workspace:*",
     "@ap/tsconfig": "workspace:*",
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.65.0",
     "@types/node": "^26.6.3",
-    "eslint": "^10.11.0",
+    "eslint": "^10.14.0",
     "typescript": "^5.9.3"
   }
 }

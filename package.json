@@ -28,6 +28,6 @@
     "sdk:test": "node --test tooling/sdk/*.test.mjs"
   },
   "devDependencies": {
-    "turbo": "^2.11.4"
+    "turbo": "^2.11.11"
   }
 }

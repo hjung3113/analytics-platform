@@ -195,9 +195,9 @@ export const REAL_SHAPE_APP_PKG = `{
     "${PACKAGE_PREFIX}ui": "workspace:*",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/noto-sans-kr": "^5.3.0",
-    "lucide-react": "^1.48.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "lucide-react": "^1.72.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }
 `;
