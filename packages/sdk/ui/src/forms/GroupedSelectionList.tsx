@@ -1,11 +1,10 @@
-import { useId, useState } from 'react';
-import { ChevronRight, X } from 'lucide-react';
+import { useId, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { ChevronRight, Info, X } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Checkbox } from '../components/shadcn/checkbox';
 import { RadioGroup, RadioGroupItem } from '../components/shadcn/radio-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/shadcn/tooltip';
 import { StatusBadge, type Tone } from '../components/StatusBadge';
-import { InfoTip } from '../panel/InfoTip';
 import { cn } from '../utils/cn';
 import { SearchInput } from './SearchInput';
 
@@ -159,9 +158,9 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
       </TooltipProvider>{clearButton}</div> : null}
     </div>;
   }
-  const control = (item: GroupedSelectionItem, describedBy: string | undefined) => props.mode === 'multiple'
-    ? <Checkbox id={`${prefix}-item-${item.id}`} aria-labelledby={`${prefix}-label-${item.id}`} aria-describedby={describedBy} checked={selected.has(item.id)} disabled={!!item.disabledReason} onCheckedChange={value => toggle([item.id], value === true)} />
-    : <RadioGroupItem id={`${prefix}-item-${item.id}`} value={item.id} aria-labelledby={`${prefix}-label-${item.id}`} aria-describedby={describedBy} disabled={!!item.disabledReason} />;
+  const control = (item: GroupedSelectionItem, describedBy: string | undefined, focusTip?: RowTipHandlers) => props.mode === 'multiple'
+    ? <Checkbox id={`${prefix}-item-${item.id}`} aria-labelledby={`${prefix}-label-${item.id}`} aria-describedby={describedBy} checked={selected.has(item.id)} disabled={!!item.disabledReason} onCheckedChange={value => toggle([item.id], value === true)} {...focusTip} />
+    : <RadioGroupItem id={`${prefix}-item-${item.id}`} value={item.id} aria-labelledby={`${prefix}-label-${item.id}`} aria-describedby={describedBy} disabled={!!item.disabledReason} {...focusTip} />;
   const renderItem = (item: GroupedSelectionItem) => {
     const labelId = `${prefix}-label-${item.id}`;
     const descriptionId = `${prefix}-description-${item.id}`;
@@ -169,16 +168,12 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
     if (compact) {
       const reasonId = `${prefix}-reason-${item.id}`;
       const describedBy = [item.description ? descriptionId : null, item.disabledReason ? reasonId : null].filter(Boolean).join(' ') || undefined;
-      return <div key={item.id} className="flex items-center gap-2 border-b border-border-subtle py-1.5">
-        {control(item, describedBy)}
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2"><label id={labelId} htmlFor={`${prefix}-item-${item.id}`} title={item.label}
-            className={cn('min-w-0 truncate text-sm font-medium', item.disabledReason && 'text-text-muted')}>{item.label}</label>{badge}</div>
-          {item.disabledReason ? <p id={reasonId} className="text-xs text-text-secondary">{item.disabledReason}</p> : null}
-        </div>
-        {/* Out of the Tab order: the checkbox already carries the description, so each row stays one tab stop. */}
-        {item.description ? <InfoTip tabIndex={-1} label={copy.description(item.label)} descriptionId={descriptionId}>{item.description}</InfoTip> : null}
-      </div>;
+      return <CompactRow key={item.id} description={item.description} descriptionId={descriptionId} tipLabel={copy.description(item.label)}
+        control={focusTip => control(item, describedBy, focusTip)}>
+        <div className="flex min-w-0 items-center gap-2"><label id={labelId} htmlFor={`${prefix}-item-${item.id}`} title={item.label}
+          className={cn('min-w-0 truncate text-sm font-medium', item.disabledReason && 'text-text-muted')}>{item.label}</label>{badge}</div>
+        {item.disabledReason ? <p id={reasonId} className="text-xs text-text-secondary">{item.disabledReason}</p> : null}
+      </CompactRow>;
     }
     return <div key={item.id} className="flex items-start gap-3 border-b border-border-subtle py-3">
       {control(item, descriptionId)}
@@ -214,4 +209,40 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
     ? <RadioGroup aria-label={props['aria-label']} value={props.value ?? ''} onValueChange={id => { if (enabled.has(id)) props.onChange(id); }}>{rows}{fold}</RadioGroup>
     : <div role="group" aria-label={props['aria-label']} className="space-y-4">{rows}{fold}</div>;
   return <div className="space-y-4 break-keep">{header}{filtered.length === 0 && hiddenCount === 0 ? <p className="text-sm text-text-secondary">{copy.empty}</p> : null}{body}</div>;
+}
+
+type RowTipHandlers = { onFocus: (event: FocusEvent<HTMLButtonElement>) => void; onBlur: () => void; onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void };
+
+/**
+ * A compact row whose description sits in an ⓘ tooltip. The ⓘ stays out of the Tab order (one tab stop per row), so keyboard focus on
+ * the row's own checkbox or radio opens the same tooltip and Escape closes it; hover on ⓘ still opens it. The text also stays in a
+ * persistent `sr-only` block the control is described by.
+ */
+function CompactRow({ description, descriptionId, tipLabel, control, children }: {
+  description?: string | undefined; descriptionId: string; tipLabel: string; control: (focusTip?: RowTipHandlers) => ReactNode; children: ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const focusTip: RowTipHandlers | undefined = description ? {
+    // Keyboard focus only: a pointer click on the checkbox should not pop the tooltip open.
+    onFocus: event => setFocused(event.currentTarget.matches(':focus-visible')),
+    onBlur: () => setFocused(false),
+    onKeyDown: event => { if (event.key === 'Escape' && focused) { event.preventDefault(); setFocused(false); } },
+  } : undefined;
+  return <div className="flex items-center gap-2 border-b border-border-subtle py-1.5">
+    {control(focusTip)}
+    <div className="min-w-0 flex-1">{children}</div>
+    {description ? <>
+      <TooltipProvider delayDuration={200}><Tooltip open={hovered || focused} onOpenChange={open => { setHovered(open); if (!open) setFocused(false); }}>
+        <TooltipTrigger asChild>
+          <button type="button" tabIndex={-1} aria-label={tipLabel} aria-describedby={descriptionId}
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-text-muted hover:text-text-primary">
+            <Info className="size-3.5" aria-hidden />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent portal size="sm" className="max-w-72">{description}</TooltipContent>
+      </Tooltip></TooltipProvider>
+      <div id={descriptionId} className="sr-only">{description}</div>
+    </> : null}
+  </div>;
 }

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GroupedSelectionList, type GroupedSelectionListProps } from '../GroupedSelectionList';
@@ -54,6 +55,21 @@ describe('GroupedSelectionList opt-in options (#2405)', () => {
     expect(screen.getByRole('checkbox', { name: 'Blocked' })).toHaveAccessibleDescription('Blocked description Session only');
     expect(screen.getAllByText('Session only', { selector: 'p' })[0]).toBeVisible();
     expect(screen.queryByText('First description', { selector: 'p' })).toBeNull();
+  });
+  it('compact rows show the description on keyboard focus of the row control and close it with Escape, without changing the selection', async () => {
+    const user = userEvent.setup();
+    render(<Multiple density="compact" />);
+    const alpha = screen.getByRole('checkbox', { name: 'Alpha' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    while (document.activeElement !== alpha) await user.tab();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('First description');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(alpha).toHaveFocus();
+    expect(alpha).not.toBeChecked();
+    await user.tab();
+    expect(screen.getByRole('checkbox', { name: 'Beta' })).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
   it('lists the selection as removable chips and folds past six into «+N» without an inner scroll', () => {
     function Chips() {
