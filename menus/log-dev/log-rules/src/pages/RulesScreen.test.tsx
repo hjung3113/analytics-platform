@@ -31,11 +31,13 @@ const ok = (value: unknown) => ({ outcome: 'ok', data: value, assessments: [], t
 let session = testSession(['platform:view']);
 const listeners = new Set<() => void>();
 let optionHold: Promise<void> | undefined;
+let detailHold: Promise<void> | undefined;
 const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, menuQuery: async req => {
   queries.push(req);
   if (req.endpoint === 'logRules.catalogStatus') { await hold; return ok({ ...status, received }); }
   if (req.endpoint === 'logRules.rules') return ok({ rows: empty ? [] : [row], total: empty ? 0 : 101 });
   if (req.endpoint === 'logRules.ruleSets') return ok({ rows: [{ ruleSetKey: 'core' }], total: setTotal });
+  if (req.endpoint === 'logRules.ruleDetail') await detailHold;
   if (req.endpoint === 'logRules.ruleDetail') return ok(missing ? null : { ...detail, targets: noIds ? [{ ...detail.targets[0], requirementIds: [] }] : detail.targets });
   if (req.endpoint === 'logRules.ruleSetDetail') return ok({ ruleSetKey: 'core', revisions: [{ revision: 'r1', retired: true, isCurrent: false, previousRevision: null, changes: null }, { revision: 'r2', retired: false, isCurrent: true, previousRevision: 'r1', changes: { added: ['R-002'], removed: ['R-003'], supportChanged: [{ ruleKey: 'R-001', from: 'unknown', to: 'supported' }], addedCount: 1, removedCount: 1, supportChangedCount: 1, truncated: false } }] });
   if (req.endpoint === 'logRules.coverage') return coverageAnswer ? coverageAnswer(req) : ok(data);
@@ -52,7 +54,7 @@ const mount = (search = '', params = {}) => {
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider><RulesScreen params={params} /><LinkProbe /><Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 };
 let restore: () => void;
-beforeEach(() => { session = testSession(['platform:view']); optionHold = undefined; setTotal = 1; received = true; empty = false; missing = false; noIds = false; data = coverage; queries = []; hold = undefined; softwareFailures = 0; coverageAnswer = undefined; restore = stubCompactTableGeometry(); });
+beforeEach(() => { session = testSession(['platform:view']); optionHold = undefined; detailHold = undefined; setTotal = 1; received = true; empty = false; missing = false; noIds = false; data = coverage; queries = []; hold = undefined; softwareFailures = 0; coverageAnswer = undefined; restore = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restore(); });
 
 describe('validation rules screen', () => {
@@ -203,6 +205,19 @@ describe('validation rules screen', () => {
     expect(await screen.findByRole('dialog', { name: 'core · RuleSet 이력' })).toBeTruthy();
     expect(await screen.findByText('R-002')).toBeTruthy();
     expect(screen.getByText('R-003')).toBeTruthy(); expect(screen.getAllByText(/r1 · 퇴역/)).toHaveLength(1);
+  });
+  it('shows the refresh band of a cached rule inside the drawer, never over the page behind it (#2381)', async () => {
+    mount('&ruleSetKey=core&ruleKey=R-001'); await screen.findByText('합성 fixture 요약');
+    window.history.pushState(null, '', '/logDev/log-rules?v=1&tab=rules'); fireEvent(window, new PopStateEvent('popstate'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    let release!: () => void; detailHold = new Promise(resolve => { release = resolve; });
+    window.history.pushState(null, '', '/logDev/log-rules?v=1&ruleSetKey=core&ruleKey=R-001'); fireEvent(window, new PopStateEvent('popstate'));
+    const dialog = await screen.findByRole('dialog');
+    const band = await within(dialog).findByRole('status', { name: '같은 조건으로 갱신 중' });
+    expect(dialog.contains(band)).toBe(true);
+    expect(screen.getAllByRole('status', { name: '같은 조건으로 갱신 중' })).toEqual([band]);
+    await act(async () => { release(); await detailHold; });
+    await waitFor(() => expect(screen.queryByRole('status', { name: '같은 조건으로 갱신 중' })).toBeNull());
   });
   it('keeps drawer state on refresh and browser history navigation', async () => {
     mount('&ruleSetKey=core&ruleKey=R-001'); await screen.findByRole('dialog'); cleanup();
