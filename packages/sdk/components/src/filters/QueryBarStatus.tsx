@@ -27,7 +27,8 @@ function createStatuses() {
   return {
     read: (key: string) => entries.get(key),
     focuser: (key: string) => focusers.get(key),
-    putFocuser: (key: string, focus: (() => void) | null) => { if (focus === null) focusers.delete(key); else focusers.set(key, focus); },
+    /** Removing only drops the caller's own registration: a second bar under the same key keeps its own. */
+    putFocuser: (key: string, focus: (() => void) | null, owner?: () => void) => { if (focus === null) { if (owner === undefined || focusers.get(key) === owner) focusers.delete(key); } else focusers.set(key, focus); },
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     put: (key: string, value: QueryBarStatus | null) => {
       if (value === null) entries.delete(key); else entries.set(key, value);
@@ -86,7 +87,7 @@ export function useRegisterContextEditorFocus(focus: () => void): void {
     const call = () => latest.current();
     if (slot) slot.current = call;
     if (store && paneId) store.putFocuser(key, call);
-    return () => { if (slot) slot.current = null; if (store && paneId) store.putFocuser(key, null); };
+    return () => { if (slot && slot.current === call) slot.current = null; if (store && paneId) store.putFocuser(key, null, call); };
   }, [slot, store, paneId, key]);
 }
 
