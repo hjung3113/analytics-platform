@@ -502,6 +502,31 @@ describe('PanelWorkspace: local preference', () => {
     expect(written()).toEqual([]);
   });
 
+  it('per drill step (#2397): each step declares its own panels, presets and persistKey; a step-only panel never shows elsewhere and each step restores its own layout', async () => {
+    // Step 1 has no detail panel (it cannot answer there); step 2 adds it and arranges differently.
+    const STEP1: Partial<PanelWorkspaceProps> = { persistKey: 'step1', panels: PANELS.filter(panel => panel.id !== 'detail'), presets: [{ id: 'balanced', label: { ko: '균형', en: 'Balanced' }, layout: { type: 'branch', dir: 'row', sizes: [1, 2], children: [group(['selector']), group(['trend', 'kpi'])] } }] };
+    const STEP2: Partial<PanelWorkspaceProps> = { persistKey: 'step2', panels: PANELS, presets: [PRESETS[1]!], initialPreset: 'focus' };
+    storage.setItem(KEY('step2'), JSON.stringify({ v: 1, preset: 'focus', hidden: ['kpi'], layout: { type: 'branch', dir: 'row', sizes: [60, 40], children: [group(['trend']), group(['selector', 'detail'])] } }));
+    setItem.mockClear();
+    const view = mountWorkspace(STEP1);
+    await ready();
+    const queries = menuQuery.mock.calls.length;
+    const atStep = async (step: Partial<PanelWorkspaceProps>, expected: string[][]) => {
+      view.rerender(shell(<PanelWorkspace {...BASE} {...step} />));
+      await waitFor(() => { expect(groups()).toEqual(expected); });
+    };
+    await atStep(STEP1, [['selector'], ['kpi', 'trend']]);
+    expect(screen.queryByRole('tab', { name: /상세/ })).toBeNull();
+    await atStep(STEP2, [['trend'], ['detail', 'selector']]);
+    expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toBeInTheDocument();
+    await atStep(STEP1, [['selector'], ['kpi', 'trend']]);
+    expect(screen.queryByRole('tab', { name: /상세/ })).toBeNull();
+    await atStep(STEP2, [['trend'], ['detail', 'selector']]);
+    // Moving between steps reads only; the query above the workspace is not touched.
+    expect(written()).toEqual([]);
+    expect(menuQuery.mock.calls.length).toBe(queries);
+  });
+
   it('follows the stored panel set when a panel was added since: it joins the primary\'s group', async () => {
     storage.setItem(KEY(), JSON.stringify({ v: 1, preset: 'balanced', hidden: [], layout: { type: 'branch', dir: 'row', sizes: [50, 50], children: [group(['trend']), group(['selector', 'detail'])] } }));
     mountWorkspace();
