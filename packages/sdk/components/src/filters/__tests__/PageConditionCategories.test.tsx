@@ -53,6 +53,45 @@ describe('PageConditionCategories', () => {
     await user.click(screen.getByRole('button', { name: '분류 지우기' }));
     expect(select).not.toHaveTextContent('Beta');
   });
+  it("absent: 'all' reads a missing key as every option checked; the first uncheck subtracts, checking all again clears the key (#2341)", async () => {
+    const user = userEvent.setup();
+    const all: PageConditionCategory = { id: 'many', label: text('대상'), kind: { type: 'multi', key: 'many', options: { static: options }, absent: 'all' } };
+    const { onChange } = mount({ declaration: { categories: [all] }, values: {} });
+    expect(screen.getByRole('checkbox', { name: 'Alpha' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Beta' })).toBeChecked();
+    expect(screen.getByText('제약 없음')).toBeVisible();
+    await user.click(screen.getByRole('checkbox', { name: 'Alpha' }));
+    expect(onChange).toHaveBeenLastCalledWith('many', { many: ['b'] });
+    cleanup();
+    const partial = mount({ declaration: { categories: [all] }, values: { many: ['b'] } });
+    expect(screen.getByRole('checkbox', { name: 'Alpha' })).not.toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'Alpha' }));
+    expect(partial.onChange).toHaveBeenLastCalledWith('many', null);
+    cleanup();
+    mount({ declaration: { categories: [all] }, values: { many: [] } });
+    expect(screen.getByRole('checkbox', { name: 'Alpha' })).not.toBeChecked();
+    expect(screen.getByText('선택한 항목 없음')).toBeVisible();
+  });
+  it("absent: 'all' on groupedChecks treats each list independently and clears a list key when all are checked again (#2341)", async () => {
+    const user = userEvent.setup();
+    const all: PageConditionCategory = { id: 'checks', label: text('묶음'), kind: { type: 'groupedChecks', source: 'choices', absent: 'all', lists: [
+      { id: 'module', key: 'modules', label: text('Module') }, { id: 'motion', key: 'motions', label: text('Motion') },
+    ] } };
+    const { onChange } = mount({ declaration: { categories: [all] }, values: { motions: [] } });
+    expect(await screen.findByRole('checkbox', { name: 'Alpha' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Beta' })).not.toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'Beta' }));
+    expect(onChange).toHaveBeenLastCalledWith('checks', null);
+    await user.click(screen.getByRole('checkbox', { name: 'Alpha' }));
+    expect(onChange).toHaveBeenLastCalledWith('checks', { motions: [], modules: [] });
+  });
+  it('without absent the default stays: a missing key shows nothing checked and one click selects only that value', async () => {
+    const user = userEvent.setup();
+    const { onChange } = mount({ declaration: { categories: [categories[1]] }, values: {} });
+    expect(screen.getByRole('checkbox', { name: 'Alpha' })).not.toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'Alpha' }));
+    expect(onChange).toHaveBeenLastCalledWith('many', { many: ['a'] });
+  });
   it('uses keyboard checkboxes, shows explicit empty, and clear removes the key', async () => {
     const user = userEvent.setup();
     const { onChange } = mount({ declaration: { categories: [categories[1]] }, values: { many: ['a'] } });

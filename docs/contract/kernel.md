@@ -112,7 +112,7 @@ Registry는 `navTree`와 `navHidden`의 병존, `navViews`의 병존(빈 배열 
 | `kind.type` | 선언 |
 | --- | --- |
 | `select` | `key`, `options`, 선택 `default: string` |
-| `multi` | 반복 `key`, `options` |
+| `multi` | 반복 `key`, `options`, 선택 `absent: 'all'`(키 없음 = 모든 옵션 체크로 읽음; 기본은 키 없음 = 제약 없음·체크 0개) |
 | `search` | 단일 `key` |
 | `range` | 단일 `key`, 선택 `unit: Text`, `min`, `max`, `step` |
 | `date` | 단일 키 `from`, `to` |
