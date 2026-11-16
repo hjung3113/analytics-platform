@@ -73,6 +73,15 @@ describe('Page condition layer (#2339)', () => {
     expect(trigger()).toHaveFocus();
     await waitFor(() => expect(trigger()).toHaveAttribute('aria-expanded', 'false'));
   });
+  it('toggles: pressing the trigger of an open layer closes it and returns focus; the page body is an isolated stacking context', () => {
+    mount();
+    fireEvent.click(trigger());
+    expect(dialog()).toBeVisible();
+    expect(screen.getByText('results').closest('[data-platform-page-content]')).toHaveClass('isolate');
+    fireEvent.click(trigger());
+    expect(trigger()).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger()).toHaveFocus();
+  });
   it('renders one wrapping chip per active category and clears only its draft keys, then all layer keys', () => {
     mount({ query: '&q=find&many=a&start=2026-09-25T01:00:00&end=2026-09-25T02:00:00' });
     const chips = document.querySelector('[data-page-condition-triggers]')!;

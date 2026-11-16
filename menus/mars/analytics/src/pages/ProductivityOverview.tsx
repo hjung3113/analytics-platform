@@ -1,4 +1,3 @@
-import { useSamplePageConditions } from './useSamplePageConditions';
 import { useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks } from '@ap/components';
@@ -44,7 +43,6 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
 }
 
 export default function ProductivityOverview(_: PageProps) {
-  const pageConditionOptions = useSamplePageConditions();
   const m = useMessages(ANALYTICS_MESSAGES);
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
@@ -234,7 +232,7 @@ export default function ProductivityOverview(_: PageProps) {
     ? kpiQ.response
     : drill.depth >= 2 && equipmentQ.response?.outcome === 'ok' ? equipmentQ.response : stgroupQ.response;
 
-  return <PlatformPage pageConditionOptions={pageConditionOptions}
+  return <PlatformPage
     description={m('productivityOverviewPhysicalOccupancyNonProcessDwellCycleTime')}
     primaryAction={<Button size="sm" asChild>
       <PlatformLink href={linkTo('cycle-time')}>{m('productivityOverviewCycleTimeDetail')}<ArrowRight className="size-3.5" aria-hidden /></PlatformLink>

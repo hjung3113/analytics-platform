@@ -1,4 +1,3 @@
-import { useSamplePageConditions } from '../useSamplePageConditions';
 import { useMessages } from '@ap/kernel';
 
 import { ANALYTICS_MESSAGES } from '../../messages';
@@ -22,7 +21,6 @@ function readPreference(): Preference {
 }
 
 export default function ChartCatalog() {
-  const pageConditionOptions = useSamplePageConditions();
   const m = useMessages(ANALYTICS_MESSAGES);
   const { pageParam } = usePlatform();
   const [sequenceLoad, setSequenceLoad] = useState<OrderedTrackLoadState>('ready');
@@ -32,7 +30,7 @@ export default function ChartCatalog() {
   const rejectedNode = kind === 'breakdown' ? invalidBreakdownNode(pageParam('node')) : null;
   // keepPrevious OFF (#1365, ADR-0114): `kind` selects a different chart, so the previous result would be another subject under the new label.
   const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
-  return <PlatformPage pageConditionOptions={pageConditionOptions} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={kind === 'sequence' && sequenceLoad === 'error' ? [...query.response.assessments.filter(item => item.kind !== 'collection'), { kind: 'collection', state: 'confirmed', reason: 'check_failed', detail: m('chartCatalogSyntheticRangeRequestFailed') }] : query.response.assessments} /> : undefined}>
+  return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={kind === 'sequence' && sequenceLoad === 'error' ? [...query.response.assessments.filter(item => item.kind !== 'collection'), { kind: 'collection', state: 'confirmed', reason: 'check_failed', detail: m('chartCatalogSyntheticRangeRequestFailed') }] : query.response.assessments} /> : undefined}>
     <CatalogWorkspace query={query} rejectedNode={rejectedNode} onSequenceLoad={setSequenceLoad} />
   </PlatformPage>;
 }

@@ -64,5 +64,3 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', selection: 'apply', lot: 'apply', metric: 'reference' }), features: NO_FEATURES, pageKeys: [],
   },
 ];
-
-export { withPageConditionSamples, PAGE_CONDITION_SAMPLE_SOURCES } from './page-condition-samples';

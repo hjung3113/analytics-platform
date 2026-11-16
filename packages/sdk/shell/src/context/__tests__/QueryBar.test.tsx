@@ -46,14 +46,18 @@ it('edits a page/global draft without URL writes, counts raw keys, applies once 
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(evaluate).not.toHaveBeenCalled();
 });
-it('keeps Apply in place but disabled, with the page-supplied hint, while the page applies from its own surface (#2339)', async () => {
-  mount('', {}, true, { pageSummary: [], issues: [], applyHint: '층에서 적용합니다' });
+it('keeps Apply in place, focusable and inert (aria-disabled), with the page-supplied hint, while the page applies from its own surface (#2339)', async () => {
+  const push = mount('', {}, true, { pageSummary: [], issues: [], applyHint: '층에서 적용합니다' });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => { draft.setDraftGlobal({ roomNames: ['PHOTO'] }); draft.setDraftPage({ grain: 'day' }); });
   const apply = screen.getByRole('button', { name: '적용' });
-  expect(apply).toBeDisabled();
+  expect(apply).toHaveAttribute('aria-disabled', 'true');
+  expect(apply).not.toBeDisabled();
+  apply.focus();
+  expect(apply).toHaveFocus();
   expect(apply).toHaveAccessibleDescription(expect.stringContaining('층에서 적용합니다'));
-  expect(apply.parentElement).toHaveAttribute('title', '층에서 적용합니다');
+  fireEvent.click(apply);
+  expect(push).not.toHaveBeenCalled();
 });
 it('preserves draft values across close/expand, restores focus and uses anchor calendar arithmetic', async () => {
   mount();

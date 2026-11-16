@@ -1,4 +1,3 @@
-import { pageConditionOptionsMock } from './page-condition-options';
 /**
  * Mock server half of the productivity-overview endpoints (#114). The app composition root
  * registers this list via `@ap/menu-analytics/mock` → `createMockAdapter({ endpoints, registry })`;
@@ -23,7 +22,6 @@ const EMPTY_KPIS: KpisData = {
 };
 
 export const analyticsMock: readonly AnyMockEndpoint[] = [
-  ...pageConditionOptionsMock,
   defineMockEndpoint(kpisEndpoint, {
     handle: ({ equipment, context }): KpisData => {
       const { from, to } = context;

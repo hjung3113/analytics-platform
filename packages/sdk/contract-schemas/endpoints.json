@@ -1,15 +1,5 @@
 [
   {
-    "id": "analytics.catalog.conditionOptions",
-    "menuId": "chart-catalog",
-    "paramKeys": [],
-    "permission": "analytics:view",
-    "requiresScope": true,
-    "context": {},
-    "kinds": [],
-    "mergeTimeDomain": false
-  },
-  {
     "id": "analytics.chartCatalog",
     "menuId": "chart-catalog",
     "paramKeys": [
@@ -272,16 +262,6 @@
       "maxHours": 2160
     },
     "mergeTimeDomain": true
-  },
-  {
-    "id": "analytics.productivity.conditionOptions",
-    "menuId": "productivity-overview",
-    "paramKeys": [],
-    "permission": "analytics:view",
-    "requiresScope": true,
-    "context": {},
-    "kinds": [],
-    "mergeTimeDomain": false
   },
   {
     "id": "analytics.productivity.drill",

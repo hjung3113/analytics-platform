@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { pageConditionKeys, type PageConditions, type Pair } from '@ap/contracts';
-import { decodePageConditions, derivePageConditionExtension, encodePageConditions, useI18n, useMessages, useQueryDraft, type PageConditionValues } from '@ap/kernel';
+import { decodePageConditions, derivePageConditionExtension, encodePageConditions, PageConditionError, useI18n, useMessages, useQueryDraft, type PageConditionValues } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { Button } from '@ap/ui';
 import { WorkspaceQueryBarContext } from '../archetypes/WorkspaceQueryBar';
@@ -10,7 +10,7 @@ import { PageConditionLayer } from './PageConditionLayer';
 import type { PageConditionOptionsLoader } from './pageConditionOptions';
 import type { QueryBarExtension } from './QueryBarExtension';
 import { querySummaryItems } from './querySummary';
-import { PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
+import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 
 /** Menu supplies only its S2 endpoint adapter and the identity of its declared endpoint params. */
 export type PageConditionLayerOptions = { loadOptions: PageConditionOptionsLoader; inputsKey: string; ready?: boolean };
@@ -31,6 +31,8 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   const query = useQueryDraft();
   const { lang, t } = useI18n();
   const m = useMessages(PAGE_CONDITION_MESSAGES);
+  const issueMessage = useMessages(PAGE_CONDITION_ISSUE_MESSAGES);
+  const [writeRefusal, setWriteRefusal] = useState<string | null>(null);
   const menu = host.route!.menu;
   const id = useId();
   const missingCategory = declaration.categories.find(category => category.required && pageConditionKeys(category).some(key => !query.draft.page.some(([name, value]) => name === key && value !== '')));
@@ -54,11 +56,12 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
     previousSummary.current = { closed: !open, text: summaryText };
   }, [open, summaryText, m]);
   function show(button: HTMLButtonElement) {
-    if (open) { document.getElementById(`${id}-title`)?.focus({ preventScroll: true }); return; }
+    if (open) { close(); return; }
     opener.current = button; wroteInSession.current = false; setState({ status: 'open', attentionKey });
   }
   function close() {
     wroteInSession.current = false;
+    setWriteRefusal(null);
     setState({ status: 'closed', attentionKey });
     const target = opener.current?.isConnected ? opener.current : fallback.current;
     target?.focus({ preventScroll: true });
@@ -81,7 +84,14 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
     const category = declaration.categories.find(item => item.id === categoryId)!;
     const keys = pageConditionKeys(category);
     // Encode only the edited category: other malformed raw categories remain intact until explicitly corrected.
-    const pairs = encodeCategory(category, next);
+    let pairs: Pair[];
+    try { pairs = encodeCategory(category, next); }
+    catch (error) {
+      if (!(error instanceof PageConditionError)) throw error;
+      setWriteRefusal(error.issues.map(issue => issueMessage(issue.reason)).join(' '));
+      return;
+    }
+    setWriteRefusal(null);
     write(Object.fromEntries(keys.map(key => {
       const values = pairs.filter(([name]) => name === key).map(([, value]) => value);
       return [key, values.length ? values : null];
@@ -89,8 +99,9 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   }
   // Unapplied Context edits are applied by the same Apply, so the layer says so instead of letting the footer imply page conditions only.
   const pendingGlobal = query.mode === 'apply' ? query.dirty.filter(key => !menu.pageKeys.includes(key)).length : 0;
-  const globalSummary = <>{host.global.scopeId && <p>{m('scope')}: {host.global.scopeId}</p>}{querySummaryItems(host.global, { lang, axes: host.equipmentAxes, context: menu.context }).map(item => <p key={item.key}>{item.label}: {item.value}</p>)}{pendingGlobal > 0 && <p className="font-medium text-text-primary">{m('globalPending', { count: pendingGlobal })}</p>}</>;
-  const inputsKey = JSON.stringify([host.session, host.revision, host.global.scopeId, query.draft.global, options?.inputsKey, options?.ready]);
+  const globalSummary = <>{host.global.scopeId && <p>{m('scope')}: {host.session.scopes.find(option => option.id === host.global.scopeId)?.label ?? host.global.scopeId}</p>}{querySummaryItems(host.global, { lang, axes: host.equipmentAxes, context: menu.context }).map(item => <p key={item.key}>{item.label}: {item.value}</p>)}{pendingGlobal > 0 && <p className="font-medium text-text-primary">{m('globalPending', { count: pendingGlobal })}</p>}</>;
+  // Option reads are projected from the applied Context (useMenuFetch), so unapplied Context edits must not restart them.
+  const inputsKey = JSON.stringify([host.session, host.revision, host.global, options?.inputsKey, options?.ready]);
   const trigger = <div data-page-condition-triggers className="flex min-w-0 flex-wrap items-center gap-2 py-2 text-xs">
     <Button ref={fallback} type="button" size="toolbar" variant="secondary" aria-expanded={open} aria-controls={id} onClick={event => show(event.currentTarget)}>{m('title')}</Button>
     {declaration.categories.map(category => {
@@ -111,7 +122,7 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
     <div data-page-condition-announcement aria-live="polite" className="sr-only">{announcement}</div>
     <PageConditionLayer id={id} open={open} focusCategoryId={state.status === 'open' ? state.focusCategoryId : undefined} onClose={close}
     declaration={declaration} values={decoded.values} rawPairs={query.draft.page} issues={decoded.issues} onChange={change} loadOptions={options?.loadOptions} inputsKey={inputsKey}
-    globalSummary={globalSummary} onEditContext={() => {
+    globalSummary={globalSummary} notice={writeRefusal} onEditContext={() => {
       const page = fallback.current?.closest('[data-platform-page]');
       // A board has a single Context bar for the pane selected by the triggering focus/click.
       const surface = page?.querySelector('[data-query-bar]') ?? page?.querySelector('[data-context-key]')?.closest('[role="region"]') ?? document.querySelector('[data-board-context-row]');

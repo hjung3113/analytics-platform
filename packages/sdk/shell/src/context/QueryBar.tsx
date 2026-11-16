@@ -5,7 +5,7 @@ import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, ty
 import { CONTEXT_LABELS, useAxisOptions, useConditionPreset, useEquipmentSearch, queryMissingSentence, useI18n, useMessages, useQueryDraft, useResolvedSelection, type PortContext } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
-import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem } from '@ap/ui';
+import { Alert, AlertDescription, Button, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { SHELL_MESSAGES } from '../messages';
 import { ShareControl } from './ShareControl';
@@ -137,9 +137,13 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('resetContext')}</Button>
     {historySlot}
     {stableView.present && <span ref={stableView.adopt} className="contents" />}
-    <span className="inline-flex" title={extension?.applyHint}>
-      <Button type="button" size="toolbar" disabled={!canApply || reasons.length > 0 || extension?.applyHint !== undefined} aria-describedby={extension?.applyHint === undefined ? reasonId : `${reasonId} ${reasonId}-apply-hint`} onClick={apply}>{t('apply')}</Button>
-    </span>
+    {/* A page-supplied hint keeps the button focusable (aria-disabled, click ignored) so keyboard, screen-reader and touch users reach the explanation too. */}
+    <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild>
+      <span className={extension?.applyHint !== undefined ? 'inline-flex cursor-not-allowed opacity-50' : 'inline-flex'}>
+        <Button type="button" size="toolbar" disabled={extension?.applyHint === undefined && (!canApply || reasons.length > 0)} aria-disabled={extension?.applyHint !== undefined ? true : undefined}
+          aria-describedby={extension?.applyHint === undefined ? reasonId : `${reasonId} ${reasonId}-apply-hint`} onClick={() => { if (extension?.applyHint === undefined) apply(); }}>{t('apply')}</Button>
+      </span>
+    </TooltipTrigger>{extension?.applyHint !== undefined && <TooltipContent>{extension.applyHint}</TooltipContent>}</Tooltip></TooltipProvider>
     {extension?.applyHint !== undefined && <span id={`${reasonId}-apply-hint`} className="sr-only">{extension.applyHint}</span>}
   </div>;
   const remove = (key: string) => {

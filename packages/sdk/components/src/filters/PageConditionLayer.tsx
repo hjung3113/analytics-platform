@@ -13,12 +13,14 @@ export type PageConditionLayerProps = PageConditionCategoriesProps & {
   globalSummary: ReactNode;
   onEditContext: () => void;
   footer?: ReactNode;
+  /** A refused write (cap exceeded and the like) shown above the categories. */
+  notice?: string | null;
   /** Focus this category on an automatic issue/required-value opening. */
   focusCategoryId?: string;
 };
 
 /** Page-body surface, deliberately in place: no portal, scrim, outside dismissal, inert or focus trap. */
-export function PageConditionLayer({ id, open, onClose, globalSummary, onEditContext, footer, focusCategoryId, ...categories }: PageConditionLayerProps) {
+export function PageConditionLayer({ id, open, onClose, globalSummary, onEditContext, footer, notice, focusCategoryId, ...categories }: PageConditionLayerProps) {
   const m = useMessages(PAGE_CONDITION_MESSAGES);
   const region = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -60,7 +62,7 @@ export function PageConditionLayer({ id, open, onClose, globalSummary, onEditCon
           <div role="group" aria-label={m('context')} className="space-y-1 text-xs text-text-secondary [overflow-wrap:anywhere]">{globalSummary}</div>
           <button type="button" className="text-xs text-accent-primary underline focus-visible:ring-2 focus-visible:ring-focus-ring" onClick={onEditContext}>{m('editContext')}</button>
         </header>
-        <div data-page-condition-scroll className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"><PageConditionCategories {...categories} /></div>
+        <div data-page-condition-scroll className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">{notice && <p role="alert" className="mb-3 text-xs text-text-danger-label">{notice}</p>}<PageConditionCategories {...categories} /></div>
         {footer && <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border-subtle p-4">{footer}</footer>}
       </div>}
     </div>
