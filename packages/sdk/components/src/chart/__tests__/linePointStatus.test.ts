@@ -13,9 +13,9 @@ describe('sparse line status symbols (#2333)', () => {
     expect(o.series[0].showSymbol).toBe(false); expect(o.series[0].data).toEqual([3, null, 5]);
     const marker = o.series.find((s: any) => s.id === '__line-status-line');
     expect(marker.data).toHaveLength(1);
-    expect(marker.data[0]).toMatchObject({ value: ['A', 3], itemStyle: { borderWidth: 2 }, label: { formatter: '{status|▼}' } });
+    expect(marker.data[0]).toMatchObject({ value: ['A', 3], itemStyle: { borderWidth: 2 }, label: { formatter: '{status|◆}' } });
     expect(o.series.find((s: any) => s.id === '__line-halo-line').itemStyle.color).toBe(readColorToken('surface-card'));
-    expect(o.tooltip.formatter([{ seriesId: 'line', dataIndex: 0 }])).toContain('▼ High · Limit');
+    expect(o.tooltip.formatter([{ seriesId: 'line', dataIndex: 0 }])).toContain('◆ High · Limit');
   });
   it('excludes null/nonfinite points and hidden series from the projection', () => {
     const callback = () => status;
@@ -30,7 +30,7 @@ describe('sparse line status symbols (#2333)', () => {
     const o = buildChartOption(i) as any;
     expect(o.series.some((s: any) => s.id.startsWith('__line-'))).toBe(false);
     expect(o.series[0].data[0].itemStyle.color).toBe('aFill');
-    expect(o.series[0].data[0].label.formatter).toContain('▼');
+    expect(o.series[0].data[0].label.formatter).toContain('◆');
   });
 });
 

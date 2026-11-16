@@ -49,10 +49,10 @@ describe('opt-in Frame reading aids (#2326)', () => {
     await screen.findByRole('img');
     const legend = screen.getByRole('group', { name: '범례' });
     expect(within(legend).getAllByText('상한 초과')).toHaveLength(1);
-    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('▼ 상한 초과 · Recipe 미구분');
+    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('◆ 상한 초과 · Recipe 미구분');
     const table = await showTable();
     expect(within(table).getAllByRole('columnheader').at(-1)).toHaveTextContent('상태');
-    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('M1: ▼ 상한 초과 · Recipe 미구분');
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('M1: ◆ 상한 초과 · Recipe 미구분');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'M1', 'M2', '상태', '사유'], expect.arrayContaining([['EQ1 · PM1', 3, 1, 'M1: 상한 초과\nM2: 상한 초과', 'M1: Recipe 미구분\nM2: Recipe 미구분']]));
     act(() => plot.onEvents?.click?.({ seriesId: 'a', dataIndex: 2 }, {} as never));
@@ -99,8 +99,8 @@ it('deduplicates status legend entries by tone and label, independently of per-p
   await screen.findByRole('img');
   const legend = screen.getByRole('group', { name: '범례' });
   expect(within(legend).getAllByText('한도 초과')).toHaveLength(2);
-  expect(legend).toHaveTextContent('▲');
-  expect(legend).toHaveTextContent('▼');
+  expect(legend).toHaveTextContent('●');
+  expect(legend).toHaveTextContent('◆');
 });
 
 

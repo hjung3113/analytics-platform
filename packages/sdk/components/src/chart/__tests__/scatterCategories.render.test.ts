@@ -24,7 +24,7 @@ it('draws category ticks, one label per group span, status glyphs, bound dashes 
     expect(model.getComponent('xAxis').axis.scale.getTicks().map(tick => tick.value)).toEqual([-0.5, 0, 0.5, 1, 1.5, 2, 2.5]);
     const svg = chart.renderToSVGString();
     const text = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]);
-    expect(text).toEqual(expect.arrayContaining(['A', 'B', 'C', '▲', 'R1', 'R2']));
+    expect(text).toEqual(expect.arrayContaining(['A', 'B', 'C', '●', 'R1', 'R2']));
     expect(text.filter(label => label === 'R1')).toHaveLength(1);
     expect(text).not.toContain('unused'); expect(svg).toContain('stroke-dasharray="8,4"'); expect(svg).toContain('stroke-dasharray="2,4"');
     expect(svg).toContain('fill-opacity="0.12"');
@@ -97,7 +97,7 @@ it('renders thin quiet rings without a backing and reveals only the selected sta
     const outlineIndex = series.findIndex(item => item.id?.startsWith('__scatterStatusOutline'));
     chart.setOption({ ...option, animation: false });
     const svg = chart.renderToSVGString();
-    expect(svg).not.toContain('>▲</text>');
+    expect(svg).not.toContain('>●</text>');
     expect(svg).toContain('fill-opacity="0.45"'); expect(svg).toContain('fill-opacity="0.6"');
     const ring = svg.match(/<path[^>]*ecmeta_ssr_type="chart"[^>]*>/g)!.find(path => path.includes(`ecmeta_series_index="${outlineIndex}"`))!;
     expect(ring).toBeDefined();
@@ -105,6 +105,6 @@ it('renders thin quiet rings without a backing and reveals only the selected sta
     const width = Number(ring.match(/stroke-width="([^"]+)"/)![1]);
     expect(width * Math.sqrt(Math.abs(matrix[0] * matrix[3]))).toBeCloseTo(1);
     chart.setOption({ ...projection.option([projection.rows[1].key]), animation: false }, { notMerge: true });
-    expect(chart.renderToSVGString()).toContain('>▲</text>');
+    expect(chart.renderToSVGString()).toContain('>●</text>');
   } finally { chart.dispose(); }
 });

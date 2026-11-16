@@ -14,7 +14,7 @@ describe('consumer bar statuses (#2326)', () => {
     const first = a.data[0] as Datum; const active = a.data[1] as Datum;
     expect(first.itemStyle.color).toBe('aFill');
     expect(first.itemStyle.borderColor).toContain('rgb');
-    expect(first.label.formatter).toContain('▲');
+    expect(first.label.formatter).toContain('●');
     expect(first.itemStyle.shadowColor).toBe('max');
     expect(active.itemStyle).toMatchObject({ borderWidth: 2, borderType: 'solid', shadowColor: 'min' });
     expect(a.data[2]).toBeNull();
@@ -36,7 +36,7 @@ it.each(['category', 'time'] as const)('supports unstacked vertical %s bars and 
   const x = xType === 'time' ? '2026-11-16T09:00:00' : 'R1';
   const input = baselineInput({ xType, horizontal: false, stacked: false, displayed: [{ id: 'v', name: 'V', color: 'chart-blue', kind: 'bar', axis: 'right', points: [[x, 8]] }], pointStatus: () => status, rightAxis: { unit: '%', valueFormat: v => `p${v}` } });
   const option = buildChartOption(input) as unknown as Option;
-  expect((option.series[0].data[0] as Datum).label.formatter).toContain('▲');
+  expect((option.series[0].data[0] as Datum).label.formatter).toContain('●');
   expect(option.tooltip.formatter([{ seriesId: 'v', name: x, value: 8 }])).toContain('p8 %');
 });
 it('escapes group headers, group names and short row labels in HTML tooltips', () => {
@@ -59,5 +59,5 @@ it('keeps status styling fixed when the active row changes, including startAlign
   expect(spacer.data.every(d => typeof d === 'number')).toBe(true);
   const tip = active.tooltip.formatter([{ seriesId: '__spacer-1', name: 'R1', value: 1 }, { seriesId: 'a', name: 'R1', value: 800 }]);
   expect(tip).not.toContain('__spacer');
-  expect(tip.match(/▲/g)).toHaveLength(1);
+  expect(tip.match(/●/g)).toHaveLength(1);
 });

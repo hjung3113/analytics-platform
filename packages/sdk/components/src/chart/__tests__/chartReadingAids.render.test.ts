@@ -36,7 +36,7 @@ describe('ECharts draws the reading aids (#2326)', () => {
   });
   it('draws status markers alongside minimum and maximum chips, never on null pieces', () => {
     const drawn = texts(draw({ pointStatus: () => ({ tone: 'warning', label: 'High' }) }));
-    expect(drawn.filter(t => t === '▼')).toHaveLength(7);
+    expect(drawn.filter(t => t === '◆')).toHaveLength(7);
     expect(drawn.some(t => t.includes('최소'))).toBe(true);
     expect(drawn.some(t => t.includes('최대'))).toBe(true);
   });
@@ -57,7 +57,7 @@ it.each([26, undefined])('draws aligned run labels and separators in startAlign,
 });
 it.each([false, true])('draws startAlign status glyphs only on real pieces, minMax=%s', minMax => {
   const drawn = texts(draw({ startAlign: true, extremes: minMax ? baselineInput().extremes : undefined, pointStatus: () => ({ tone: 'warning', label: 'High' }) }));
-  expect(drawn.filter(t => t === '▼')).toHaveLength(7);
+  expect(drawn.filter(t => t === '◆')).toHaveLength(7);
   expect(drawn.some(t => t.includes('최소'))).toBe(minMax);
   expect(drawn.some(t => t.includes('최대'))).toBe(minMax);
 });

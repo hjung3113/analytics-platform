@@ -20,14 +20,14 @@ it.each([false, true])('quiet styles normal/status points without backing or res
   expect(o.series[0].data[0].itemStyle.opacity).toBe(0.45);
   const high = o.series[0].data[1];
   expect(high.symbolSize).toBe(6); expect(high.itemStyle.opacity).toBe(0.6); expect(high.itemStyle.borderWidth).toBe(0);
-  expect(high.label?.show).toBe(false); expect(high.emphasis?.label).toMatchObject({ show: true, formatter: '{status|▲}' });
+  expect(high.label?.show).toBe(false); expect(high.emphasis?.label).toMatchObject({ show: true, formatter: '{status|●}' });
   expect(o.series.some(series => series.id?.startsWith('__scatterStatusBacking'))).toBe(false);
   const outlineIndex = o.series.findIndex(series => series.id?.startsWith('__scatterStatusOutline'));
   expect(outlineIndex).toBeGreaterThan(0);
   expect(o.series[outlineIndex]).toMatchObject({ symbolSize: 6, silent: true, itemStyle: { opacity: 0.75 } });
   expect(o.series[outlineIndex].data[0].itemStyle).toMatchObject({ borderWidth: 1, borderColor: statusBorderColor(status, statusFill(high.itemStyle.color, 0.6)) });
   expect(p.seriesKeys[outlineIndex]).toEqual([]);
-  expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 1 })).toContain('▲ High · Above range');
+  expect(o.tooltip.formatter({ seriesIndex: 0, dataIndex: 1 })).toContain('● High · Above range');
   if (categorical) {
     expect(o.series[0].markArea?.itemStyle.opacity).toBe(0.12);
     expect(o.series[0].markLine?.data).toHaveLength(2);
@@ -38,7 +38,7 @@ it.each([false, true])('quiet preserves selection and reveals selected glyph (ca
   const o = p.option(p.rows.slice(0, 2).map(row => row.key)) as Option;
   expect(o.series[0].data[0].itemStyle).toMatchObject({ borderWidth: 2, borderColor: token('chart-selection-outline') });
   expect(o.series[0].data[1].itemStyle).toMatchObject({ borderWidth: 2, borderColor: token('chart-selection-outline'), shadowBlur: 6, shadowColor: token('chart-selection-outline') });
-  expect(o.series[0].data[1].label).toMatchObject({ show: true, formatter: '{status|▲}' });
+  expect(o.series[0].data[1].label).toMatchObject({ show: true, formatter: '{status|●}' });
 });
 it.each([false, true])('quiet leaves table, CSV and rows identical (categorical=%s)', categorical => {
   const spec = fixture(categorical); const normal = scatterData(spec, 'en', 's'); const quiet = scatterData({ ...spec, density: 'quiet' }, 'en', 's');
@@ -63,7 +63,7 @@ it.each([false, true])('explicit default preserves legacy status options (catego
   expect(JSON.stringify(explicit)).toEqual(JSON.stringify(absent));
   const o = absent as Option;
   expect(o.series[0].symbolSize).toBeUndefined(); expect(o.series[0].data[0].itemStyle.opacity).toBeUndefined();
-  expect(o.series[0].data[1].itemStyle.borderWidth).toBe(2); expect(o.series[0].data[1].label).toMatchObject({ show: true, formatter: '{status|▲}' });
+  expect(o.series[0].data[1].itemStyle.borderWidth).toBe(2); expect(o.series[0].data[1].label).toMatchObject({ show: true, formatter: '{status|●}' });
   const outline = o.series.find(series => series.id?.startsWith('__scatterStatusOutline'))!;
   expect(outline.data[0].itemStyle.borderWidth).toBe(2);
 });
