@@ -196,7 +196,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const resetFilters = <Button type="button" variant="ghost" size="toolbar" onClick={() => queryDraft.setDraftPage({ granularity: null, percentile: null, sort: null, bucket: null, bin: null, page: null })}>{m('cycleTimeDrilldownResetPageFilters')}</Button>;
 
   return <PlatformPage layout="fill"
-    queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response != null && !isAnswered(kpi.response.outcome) }}
+    queryResult={{ completedAt: kpi.completedAt, status: kpi.status, failed: kpi.response != null && !isAnswered(kpi.response.outcome), message: kpi.response?.message }}
     queryBarExtension={{ pageSummary, appliedPageSummary, historyPageSummary, issues }}
     description={m('cycleTimeDrilldownCycleTimeForTheAppliedPeriodAnd')}
     secondaryActions={<Button variant="secondary" size="sm" onClick={() => { kpi.refetch(); trend.refetch(); dist.refetch(); setReload(n => n + 1); if (pageRaw !== null) setPage({ page: null }, { replace: true }); }}><RotateCw className="size-3.5" aria-hidden />{m('cycleTimeDrilldownRefresh')}</Button>}

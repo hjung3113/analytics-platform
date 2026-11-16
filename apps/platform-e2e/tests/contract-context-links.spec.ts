@@ -958,6 +958,11 @@ test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
     await expect(technicalInfo).toBeVisible();
     await technicalInfo.click();
     await expect(page.getByRole('note', { name: '서버 세부' }).first()).toContainText(`${missingId} (not-found)`);
+    // A pre-send block reads as a notice about the conditions, not a server error, and offers no retry (#2440).
+    await expect(page.getByRole('group', { name: '위젯 상태 요약' })).toContainText('조회 안 함');
+    await expect(page.getByText(/서버 오류/)).toHaveCount(0);
+    await expect(page.getByText(/데이터를 불러오지 못했습니다/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '다시 시도' })).toHaveCount(0);
     expect(await kpiRequests(page)).toBe(0);
     await evidence(page, testInfo, 'custom-group-missing-blocked');
   });

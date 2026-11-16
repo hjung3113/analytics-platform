@@ -32,6 +32,15 @@ it.each(['done', 'refreshing'] as const)('shows the authoritative completed resp
   expect(screen.getByText(/요약 조회 완료/)).toBeTruthy();
   expect(screen.getByRole('region', { name: '적용된 조회 조건' })).toHaveTextContent('공정 PHOTO');
 });
+it('reads a query the Kernel refused before sending as not queried, and a real failure as a load failure (#2440)', () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  const tree = render(view({ status: 'done', completedAt: 1_800_000_000_000, failed: true, message: 'customGroup blocked: gone-9 (not-found)' }));
+  const strip = () => screen.getByRole('region', { name: '적용된 조회 조건' });
+  expect(strip()).toHaveTextContent('조회 안 함');
+  expect(strip()).not.toHaveTextContent('데이터를 불러오지 못했습니다');
+  tree.rerender(view({ status: 'done', completedAt: 1_800_000_000_000, failed: true, message: 'customGroup expansion blocked: unavailable' }));
+  expect(strip()).toHaveTextContent('데이터를 불러오지 못했습니다');
+});
 it('puts the result strip inside a pane without adding a page header', () => {
   render(view({ status: 'done', completedAt: 1_800_000_000_000 }, true, true));
   expect(screen.getByRole('region', { name: '적용된 조회 조건' })).toBeTruthy();

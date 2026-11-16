@@ -9,7 +9,7 @@ import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
-import { type MenuEntry, PlatformLink, type QueryStatus, useConditionPreset, useI18n, useMessages } from '@ap/kernel';
+import { errorGuidance, type MenuEntry, PlatformLink, type QueryStatus, useConditionPreset, useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -130,7 +130,8 @@ export type PlatformPageProps = {
   /** Optional S2 option adapter for declared page conditions; the SDK mounts the layer. */
   pageConditionOptions?: PageConditionLayerOptions;
   /** Completion of the consumer's authoritative summary query, including terminal error responses. */
-  queryResult?: { completedAt: number | null; status: QueryStatus; /** Whether the completed summary response failed. */ failed?: boolean };
+  queryResult?: { completedAt: number | null; status: QueryStatus; /** Whether the completed summary response failed. */ failed?: boolean;
+    /** The failed response's message, so a query the Kernel refused before sending reads as «not queried», not as a load failure (#2440). */ message?: string };
   /** Extra crumbs between the menu and the current object. */
   crumbs?: { label: ReactNode; href?: string }[];
   /**
@@ -315,8 +316,9 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const appliedValuesShown = !(shownBarStatus?.folded && !shownBarStatus.editing);
   const workspaceQueryBar = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate && shownBarStatus?.folded === true;
   const workspaceQueryRowReady = workspaceQueryBar && parameterTarget !== null && toolbarTarget !== null;
+  const failedKey = queryResult?.failed && errorGuidance(queryResult.message).blocked ? 'sharedOutcomeBlocked' : 'stateError';
   const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="max-w-56 text-xs text-text-secondary break-keep">
-    {queryResult.status === 'loading' || queryResult.status === 'refreshing' ? t(queryResult.status) : queryResult.failed ? t('stateError') : m('workspaceQueryCompleted')}
+    {queryResult.status === 'loading' || queryResult.status === 'refreshing' ? t(queryResult.status) : queryResult.failed ? t(failedKey) : m('workspaceQueryCompleted')}
     {queryResult.completedAt !== null && <> {formatInstant(queryResult.completedAt, lang)}</>}
   </span> : null;
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
@@ -378,7 +380,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
-      {completionShown && <span>{queryResult!.failed ? t('stateError') : m('workspaceQueryCompleted')} {formatInstant(queryResult!.completedAt!, lang)}</span>}
+      {completionShown && <span>{queryResult!.failed ? t(failedKey) : m('workspaceQueryCompleted')} {formatInstant(queryResult!.completedAt!, lang)}</span>}
     </section>}
     {!gate && conditionTrigger && <PageConditionTriggerSlot>{conditionTrigger}</PageConditionTriggerSlot>}
     {headVisible && (layout === 'fill'

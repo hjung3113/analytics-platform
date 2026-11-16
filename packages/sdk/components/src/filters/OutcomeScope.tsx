@@ -1,5 +1,5 @@
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash } from 'lucide-react';
+import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
 import { errorGuidance, useI18n, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -145,18 +145,20 @@ function OutcomeBanner({ group, multiple, onRetry, compact = false }: { group: G
     };
   }, [detailsId]);
   const outcome = group.widgets[0].response!.outcome;
-  const danger = outcome === 'error' || outcome === 'timeout';
-  const warning = outcome === 'forbidden';
-  const title = warning ? t('stateForbidden') : outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
-  const label = warning ? t('sharedOutcomeForbidden') : outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
-  const Icon = warning ? Ban : outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
-  const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
-  const names = multiple ? memberNames(group.widgets) : [];
   const response = group.widgets[0].response!;
   const guide = errorGuidance(response.message);
+  // Refused before sending by the query's own conditions (#2440): a neutral notice without a retry, never a server error.
+  const blocked = outcome === 'error' && guide.blocked;
+  const danger = (outcome === 'error' && !blocked) || outcome === 'timeout';
+  const warning = outcome === 'forbidden';
+  const title = warning ? t('stateForbidden') : blocked ? t('stateQueryBlocked') : outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
+  const label = warning ? t('sharedOutcomeForbidden') : blocked ? t('sharedOutcomeBlocked') : outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
+  const Icon = warning ? Ban : blocked ? SlidersHorizontal : outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
+  const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
+  const names = multiple ? memberNames(group.widgets) : [];
   const body = warning ? t('stateForbiddenBody') : outcome === 'timeout' ? t('stateTimeoutBody')
     : outcome === 'error' ? <>{t(guide.cause)} {t(guide.action)}</> : emptyOutcomeText(emptyCauses(response), t).body;
-  const retry = warning ? null : <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
+  const retry = warning || blocked ? null : <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
     {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
   </Button>;
   if (compact) {
