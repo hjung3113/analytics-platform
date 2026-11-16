@@ -45,7 +45,7 @@ AD 로그인
 → 민감 기능과 Backstage 접근은 기본 차단
 ```
 
-Role Level order is Admin > Developer > User. Reporter is not a role; it is the Actor who submitted a specific VOC. Adding a fourth Role Level is not a matrix-cell edit; the wiring is `docs/adr/history/feedbackops/0048-role-level-extension.md`.
+Role Level order is Admin > Developer > User. Reporter is not a role; it is the Actor who submitted a specific VOC. Adding a fourth Role Level is not a matrix-cell edit; the wiring is `docs/adr/history/feedbackops/0048-role-level-extension.md`. Role Levels are not extended for "another role": a named capability set, a **Permission Group**, covers that instead ([ADR-0163](../../adr/0163-permission-groups-replace-role-levels-as-templates.md)).
 
 ## Default User Can
 
