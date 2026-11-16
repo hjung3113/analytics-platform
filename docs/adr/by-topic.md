@@ -159,7 +159,7 @@ FeedbackOps 합류, 플랫폼 기능 메뉴, VOC·과제·감사 화면.
 - [0106](0106-improvement-task-is-quest.md) — 과제(Quest)는 개선 실행 시스템의 객체: BRAVO·MARS·CLAS는 출처, 개선 아이템은 과제 아래 업무 객체(편집형 표 조각은 #540), 효과 확인은 SDK 기준일 전후 비교 조각(#1243), 이름 `과제(Quest)` 병용. 0065 보충
 - [0110](0110-platform-feature-roles-and-scope.md) — 플랫폼 기능은 역할로 세 자리(직속·업무 흐름 `flow`·운영 콘솔)에 나눈다; VOC 공개 열람은 `voc.read_public` 시스템 단위 부여, 「플랫폼」 시스템 VOC는 로그인 전원 공개, Site·room은 #98 뒤; 업무 시스템은 `SpaceDef.feedbackTracking`과 빌드 산출물로 시스템을 스스로 등록하고 「플랫폼」 시스템을 늘 둔다; 화면 용어 `시스템`·`Task`
 - [0113](0113-voc-creation-permission-per-managed-system.md) — VOC 등록 권한은 시스템 단위(`voc_create_mode` `open`/`restricted`, 기본 열림, 연결 시스템도 열림 시작), 좁히는 단위는 사람(직접 부여 `voc.create`)+Admin 통과, 「플랫폼」 시스템은 항상 열림, 기존 VOC는 그대로. 0110·0069 보충
-- [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) — `apps/feature-screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다
+- [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) — `packages/feature/screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다
 
 ## 로그 지식 허브·검증
 
