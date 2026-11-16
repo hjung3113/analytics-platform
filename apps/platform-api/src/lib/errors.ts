@@ -57,6 +57,7 @@ export type DetailShape =
   | { resource_id?: string; resource_type?: string }
   | { capability: string }
   | { reason: string }
+  | { item_index: number }
   | {
       requiredScope?: string[];
       requestable_permission: {
@@ -84,6 +85,13 @@ export class HttpError extends Error {
     this.code = code;
     if (detail !== undefined) this.detail = detail;
   }
+}
+
+/** Preserve safe structured details while identifying a refused batch row. */
+export function batchItemDetail(detail: DetailShape, index: number) {
+  const plain = detail !== null && typeof detail === 'object' &&
+    (Object.getPrototypeOf(detail) === Object.prototype || Object.getPrototypeOf(detail) === null);
+  return { ...(plain ? detail : {}), item_index: index };
 }
 
 export function sendError(

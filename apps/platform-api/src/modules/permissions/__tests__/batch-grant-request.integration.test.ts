@@ -106,6 +106,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
     });
     expect(response.statusCode).toBeGreaterThanOrEqual(400);
     expect(response.json().message).toContain('row 2');
+    expect(response.json().detail.item_index).toBe(1);
     expect(response.json().code).not.toBe('internal.unexpected');
     expect(await grantRows()).toEqual([]);
   });
@@ -154,6 +155,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
       reason: 'Mixed',
     });
     expect(mixed.statusCode).toBe(409);
+    expect(mixed.json().detail.item_index).toBe(1);
     const left = await db.pool.query("select 1 from permission.permission_requests where requester_actor_id = $1 and requested_capability = 'finding.read'", [actorId]);
     expect(left.rows).toHaveLength(0);
   });

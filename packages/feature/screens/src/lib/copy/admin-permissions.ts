@@ -97,6 +97,11 @@ export const ADMIN_PERMISSIONS_COPY = {
     denyScope: '차단 범위',
   },
   directGrant: {
+    hiddenItems: (count: number) => `이 대상에 부여할 수 없는 권한 ${count}개`,
+    batchLimit: (max: number) => `권한은 한 번에 ${max}개까지 부여할 수 있습니다.`,
+    batchSuccess: (count: number) => `권한 ${count}개를 부여했습니다.`,
+    rejected: '거절됨',
+    selectRead: '읽기 권한도 선택',
     action: '권한 부여',
     title: '권한 부여',
     description: '대상자와 서버에서 허용한 권한 범위를 선택하세요.',

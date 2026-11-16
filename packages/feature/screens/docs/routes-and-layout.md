@@ -426,6 +426,22 @@ Mobile < 768px:
 
 ## Permission close-out composition (FO ADR-0066)
 
+The operations-console grant form's 시스템 kind and the requester page's 기능
+kind use `GroupedSelectionList` multiple selection with compact rows and selected
+chips (#2420). The grant form folds disabled candidates behind a toggle that names
+why they cannot be granted. One selected candidate uses the existing single
+endpoint; two or more use the atomic batch endpoint, with one reason and expiry
+and a visible, submit-blocking 50-item limit. Site·공정 targets remain single.
+The requester's shared Managed System applies only to selected capabilities that
+take it; any required-system capability makes that field required. A non-available grant
+preflight blocks the selection; a denied read prerequisite only shows its
+deny-list link and does not block. Any selected governance
+candidate requires confirmation. Missing `voc.read` may be selected through an
+explicit action; batches never trigger the single-grant follow-up. A row-indexed
+batch rejection marks that row `거절됨`, shows its name and mapped error under
+the list, and preserves the draft for deselection and retry. Single-known-capability
+request buttons and owner dialogs remain single.
+
 No new frontend route is required. `/home` own open-request rows open owner-scoped
 detail/dialog with edit, withdrawal or supplementation as permitted by the server.
 Do not send requesters to an Admin-only console. Preserve Home context on close;

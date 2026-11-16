@@ -5,6 +5,8 @@
 import {
   type CancelPermissionRequest,
   type CreatePermissionRequestResult,
+  type CreatePermissionRequestBatch,
+  createPermissionRequestBatchSchema,
   type EditPermissionRequest,
   type MinePermissionRequestRow,
   type MinePermissionRequestsResponse,
@@ -16,6 +18,7 @@ import {
   permissionRequestOwnerDetailSchema,
   submitMoreInfoPermissionRequestResultSchema,
 } from '@ap/feature-shared';
+import { z } from 'zod';
 
 import { apiRequest } from './client';
 import { apiPath } from './path';
@@ -40,6 +43,13 @@ export interface CreatePermissionRequestBody {
 }
 
 export type CreatePermissionRequestSuccess = CreatePermissionRequestResult;
+
+const requestBatchResultSchema = z.object({ batch_id: z.string().uuid(), items: z.array(createPermissionRequestResultSchema).min(1) });
+export async function createPermissionRequestBatch(body: CreatePermissionRequestBatch, options: { idempotencyKey: string }) {
+  return (await apiRequest('POST', '/permission-requests/batch', requestBatchResultSchema, {
+    body: createPermissionRequestBatchSchema.parse(body), idempotencyKey: options.idempotencyKey,
+  })).data;
+}
 
 // Issue #5: shared query key for the caller's requests. The bridge page keys its `status=all` list under it, so
 // the standalone `invalidateQueries({ queryKey: permissionRequestsMineKey })` calls match both by prefix.

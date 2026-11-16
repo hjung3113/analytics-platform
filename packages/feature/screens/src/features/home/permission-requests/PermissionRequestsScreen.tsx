@@ -13,6 +13,7 @@ import { mapUnknownError } from '../../../lib/api/errorMapper';
 import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import {
   createPermissionRequest,
+  createPermissionRequestBatch,
   fetchPermissionRequestOwnerDetail,
   fetchPermissionRequestsMine,
   permissionRequestOwnerDetailKey,
@@ -23,6 +24,8 @@ import {
 import { permissionScopeCandidatesKey } from '../../../lib/api/permission-scope-candidates';
 import { fetchManagedSystems } from '../../../lib/api/registry-reads';
 import { ApiError } from '../../../lib/api/types';
+import { rejectedPermissionItem } from '../../../lib/api/permission-batch-error';
+import { declaredSelectionItem, groupPermissionItems, permissionSelectionItem } from '../../../lib/copy/permission-selection';
 import { useIdempotencyKey } from '../../../lib/api/useIdempotencyKey';
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';
@@ -41,10 +44,12 @@ import {
   type Capability,
   type MinePermissionRequestRow,
   OPEN_PERMISSION_REQUEST_STATUSES,
+  PERMISSION_BATCH_MAX_ITEMS,
   isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 import {
   Button,
+  GroupedSelectionList,
   Label,
   Select,
   SelectContent,
@@ -133,13 +138,14 @@ function NewRequestForm(): React.ReactElement {
   const scopeRoomRef = React.useRef<HTMLButtonElement>(null);
   const scopeKind: PermissionScopeTargetKind | null = targetKind === 'capability' ? null : targetKind;
   const isScope = scopeKind !== null;
-  const [capability, setCapability] = React.useState('');
+  const [capabilities, setCapabilities] = React.useState<string[]>([]);
+  const [batchError, setBatchError] = React.useState<{ capability: string; message: string } | null>(null);
   const [managedSystemId, setManagedSystemId] = React.useState('');
   const [reason, setReason] = React.useState('');
   const [reasonError, setReasonError] = React.useState<string | null>(null);
   const [capabilityError, setCapabilityError] = React.useState<string | null>(null);
   const [systemError, setSystemError] = React.useState<string | null>(null);
-  const capabilityRef = React.useRef<HTMLButtonElement>(null);
+  const capabilityRef = React.useRef<HTMLDivElement>(null);
   const systemRef = React.useRef<HTMLButtonElement>(null);
   const reasonRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -147,10 +153,13 @@ function NewRequestForm(): React.ReactElement {
   // capability is granted workspace-wide only, so it never asks for a Managed System.
   const declared = useDeclaredCapabilities();
   const requestableDeclared = declared.filter((item) => item.requestable);
-  const showManagedSystem = !isScope && capability !== '' && !NO_MANAGED_SYSTEM.has(capability) && !isDeclaredCapabilityId(capability);
-  const managedSystemOptional = OPTIONAL_MANAGED_SYSTEM.has(capability);
+  const takesManagedSystem = (capability: string) => !NO_MANAGED_SYSTEM.has(capability) && !isDeclaredCapabilityId(capability);
+  const systemCapabilities = capabilities.filter(takesManagedSystem);
+  const showManagedSystem = !isScope && systemCapabilities.length > 0;
+  const managedSystemOptional = systemCapabilities.every(capability => OPTIONAL_MANAGED_SYSTEM.has(capability));
+  const overLimit = !isScope && capabilities.length > PERMISSION_BATCH_MAX_ITEMS;
   const activeSystems = (managedSystems.data?.items ?? []).filter((ms) => ms.archived_at === null);
-  const systemMissing = showManagedSystem && !managedSystemOptional && managedSystemId === '';
+  const systemMissing = showManagedSystem && !managedSystemOptional && (managedSystemId === '' || managedSystemId === WORKSPACE_WIDE);
   const noSystemsAvailable =
     showManagedSystem && !managedSystemOptional && activeSystems.length === 0;
   const trimmedReason = reason.trim();
@@ -162,13 +171,16 @@ function NewRequestForm(): React.ReactElement {
   const { key, markConsumed } = useIdempotencyKey(
     isScope
       ? `scope.read|${targetKind}|${scopeSite}|${scopeRoom}|${trimmedReason}`
-      : `${capability}|${sentManagedSystemId ?? ''}|${trimmedReason}`,
+      : `${JSON.stringify(capabilities)}|${sentManagedSystemId ?? ''}|${trimmedReason}`,
   );
 
   const mutation = useMutation({
     retry: false,
-    mutationFn: () =>
-      createPermissionRequest(
+    mutationFn: async (submittedCapabilities: string[]) => {
+      const items = submittedCapabilities.map(capability => ({ requested_capability: capability,
+        ...(takesManagedSystem(capability) && sentManagedSystemId !== undefined ? { requested_managed_system_id: sentManagedSystemId } : {}) }));
+      if (!isScope && items.length > 1) return createPermissionRequestBatch({ items, reason: trimmedReason }, { idempotencyKey: key });
+      return createPermissionRequest(
         scopeKind !== null
           ? {
               requested_capability: 'scope.read',
@@ -178,18 +190,18 @@ function NewRequestForm(): React.ReactElement {
               reason: trimmedReason,
             }
           : {
-              requested_capability: capability,
-              ...(sentManagedSystemId !== undefined
-                ? { requested_managed_system_id: sentManagedSystemId }
-                : {}),
+              ...items[0],
+              requested_capability: submittedCapabilities[0] ?? '',
               reason: trimmedReason,
             },
         { idempotencyKey: key },
-      ),
+      );
+    },
     onSuccess: async () => {
       markConsumed();
       notifySuccess(COPY.sent);
-      setCapability('');
+      setCapabilities([]);
+      setBatchError(null);
       setManagedSystemId('');
       setScopeSite('');
       setScopeRoom('');
@@ -202,10 +214,15 @@ function NewRequestForm(): React.ReactElement {
         queryClient.invalidateQueries({ queryKey: permissionScopeCandidatesKey }),
       ]);
     },
-    onError: (error) => {
+    onError: (error, submittedCapabilities) => {
       // A 401 already retired the bridge session; the host shows the expiry state, not a toast.
       if (error instanceof ApiError && error.status === 401) return;
       const message = mapUnknownError(error).message;
+      const rejected = rejectedPermissionItem(error, submittedCapabilities);
+      if (rejected !== undefined) {
+        setBatchError({ capability: rejected, message });
+        return;
+      }
       if (error instanceof ApiError && error.code === 'validation.sensitive_reason_required') {
         setReasonError(message);
         return;
@@ -221,6 +238,8 @@ function NewRequestForm(): React.ReactElement {
   }, [sent]);
 
   const submit = () => {
+    if (overLimit) return;
+    setBatchError(null);
     if (scopeKind !== null) {
       const scopeMissing = scopeTargetMissing({ kind: scopeKind, site: scopeSite, room: scopeRoom });
       setScopeError({
@@ -231,11 +250,11 @@ function NewRequestForm(): React.ReactElement {
       if (scopeMissing === 'site') scopeSiteRef.current?.focus();
       else if (scopeMissing === 'room') scopeRoomRef.current?.focus();
       else if (trimmedReason === '') reasonRef.current?.focus();
-      else mutation.mutate();
+      else mutation.mutate(capabilities);
       return;
     }
     const missing = {
-      capability: capability === '',
+      capability: capabilities.length === 0,
       system: systemMissing || noSystemsAvailable,
       reason: trimmedReason === '',
     };
@@ -245,14 +264,17 @@ function NewRequestForm(): React.ReactElement {
     if (missing.capability) capabilityRef.current?.focus();
     else if (missing.system) systemRef.current?.focus();
     else if (missing.reason) reasonRef.current?.focus();
-    else mutation.mutate();
+    else mutation.mutate(capabilities);
   };
 
-  const onCapabilityChange = (next: string) => {
-    setCapability(next);
+  const onCapabilityChange = (next: string[]) => {
+    setCapabilities(next);
+    setBatchError(null);
     setCapabilityError(null);
     setSystemError(null);
-    setManagedSystemId(OPTIONAL_MANAGED_SYSTEM.has(next) ? WORKSPACE_WIDE : '');
+    const nextSystemCapabilities = next.filter(takesManagedSystem);
+    if (nextSystemCapabilities.length > 0 && nextSystemCapabilities.every(capability => OPTIONAL_MANAGED_SYSTEM.has(capability)) && managedSystemId === '') setManagedSystemId(WORKSPACE_WIDE);
+    else if (nextSystemCapabilities.some(capability => !OPTIONAL_MANAGED_SYSTEM.has(capability)) && managedSystemId === WORKSPACE_WIDE) setManagedSystemId('');
   };
 
   return (
@@ -278,6 +300,7 @@ function NewRequestForm(): React.ReactElement {
             value={targetKind}
             onValueChange={(next) => {
               setTargetKind(next as TargetKind);
+              setBatchError(null);
               setScopeSite('');
               setScopeRoom('');
               setScopeError({ site: null, room: null });
@@ -317,38 +340,30 @@ function NewRequestForm(): React.ReactElement {
 
         {!isScope && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="permission-request-capability">{COPY.capability}</Label>
-            <Select
-              value={capability}
-              onValueChange={onCapabilityChange}
-              disabled={mutation.isPending}
-            >
-              <SelectTrigger
+            <Label id="permission-request-capability-label">{COPY.capability}</Label>
+            <div
                 ref={capabilityRef}
                 id="permission-request-capability"
-                aria-label={COPY.capability}
+                tabIndex={-1}
+                aria-labelledby="permission-request-capability-label"
                 aria-invalid={capabilityError !== null}
                 aria-describedby={
                   capabilityError !== null ? 'permission-request-capability-error' : undefined
                 }
-              >
-                <SelectValue placeholder={COPY.capabilityPlaceholder} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {REQUESTABLE_CAPABILITIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {getCapabilityDisplayLabel(c)}
-                    </SelectItem>
-                  ))}
-                  {requestableDeclared.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {getCapabilityDisplayLabel(item.id, declared)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            >
+              <GroupedSelectionList mode="multiple" density="compact" selectionSummary="chips"
+                aria-label={COPY.listLabel} searchPlaceholder={COPY.search}
+                value={capabilities} onChange={next => { if (!mutation.isPending) onCapabilityChange(next); }}
+                groups={groupPermissionItems([
+                  ...REQUESTABLE_CAPABILITIES.map(capability => ({ ...permissionSelectionItem(capability), capability })),
+                  ...requestableDeclared.map(item => ({ ...declaredSelectionItem(item.id, declared), capability: item.id as `ext.${string}` })),
+                ].map(item => ({ ...item,
+                  ...(batchError?.capability === item.id ? { badge: { label: COPY.rejected, tone: 'danger' as const } } : {}),
+                  ...(mutation.isPending ? { disabledReason: COPY.submit } : {}),
+                })))} />
+            </div>
+            {overLimit ? <p role="alert" className="text-xs text-text-danger">{COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)}</p> : null}
+            {batchError ? <p role="alert" className="text-xs text-text-danger">{getCapabilityDisplayLabel(batchError.capability, declared)}: {batchError.message}</p> : null}
             {capabilityError !== null && (
               <p
                 id="permission-request-capability-error"
@@ -450,7 +465,7 @@ function NewRequestForm(): React.ReactElement {
         </div>
 
         <div>
-          <Button type="submit" variant="primary" size="sm" disabled={mutation.isPending}>
+          <Button type="submit" variant="primary" size="sm" disabled={mutation.isPending || overLimit}>
             {COPY.submit}
           </Button>
         </div>

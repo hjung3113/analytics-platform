@@ -30,7 +30,7 @@ import {
   permissionRequests,
 } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';
-import { HttpError } from '../../lib/errors.js';
+import { HttpError, batchItemDetail } from '../../lib/errors.js';
 import { findWorkspaceActorDisplay, lockWorkspaceActor } from '../auth/index.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
@@ -400,11 +400,11 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       const seen = new Set<string>();
       input.items.forEach((item, index) => {
         if (!capabilities.has(item.capability)) {
-          throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.capability });
+          throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.capability, item_index: index });
         }
         const key = JSON.stringify([item.capability, item.managed_system_id ?? null, item.scope_kind ?? 'managed_system', item.scope_site ?? null, item.scope_room ?? null]);
         if (seen.has(key)) {
-          throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }] });
+          throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }], item_index: index });
         }
         seen.add(key);
       });
@@ -422,7 +422,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
           try {
             items.push(await grantRow(tx, actor, recipient, { ...shared, ...item }, capabilities, batchId));
           } catch (error) {
-            if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, error.detail);
+            if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, batchItemDetail(error.detail, index));
             throw error;
           }
         }

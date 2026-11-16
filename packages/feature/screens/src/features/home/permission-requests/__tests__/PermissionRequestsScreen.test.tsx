@@ -66,6 +66,8 @@ let cancelResponse: () => Response = () =>
     revision: 4,
     updated_at: '2026-10-24T00:00:00.000Z',
   });
+let batchResponse: () => Response;
+let declaredItems: Array<{ id: string; display_name: string; sensitive: boolean; requestable: boolean }> = [];
 
 function installFetch() {
   calls = [];
@@ -79,6 +81,7 @@ function installFetch() {
       body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
     });
     const path = new URL(url, 'http://x').pathname;
+    if (path === '/api/features/me/permissions/declared-capabilities') return json({ items: declaredItems });
     if (path === '/api/features/managed-systems')
       return json({
         items: [ms(MS_A, 'Alpha'), ms(MS_B, 'Beta'), ms(MS_ARCHIVED, 'Gamma', true)],
@@ -86,6 +89,7 @@ function installFetch() {
       });
     if (path === '/api/features/permission-requests/mine') return json({ requests: listRows });
     if (path === '/api/features/permission-requests' && method === 'POST') return postResponse();
+    if (path === '/api/features/permission-requests/batch' && method === 'POST') return batchResponse();
     if (path.endsWith('/cancel') && method === 'POST') return cancelResponse();
     const detailId = /^\/api\/features\/permission-requests\/([^/]+)$/.exec(path)?.[1];
     if (detailId !== undefined && method === 'GET')
@@ -125,6 +129,7 @@ function mount() {
 }
 
 async function choose(user: ReturnType<typeof userEvent.setup>, name: string, option: string) {
+  if (name === '기능') { await user.click(await screen.findByRole('checkbox', { name: option })); return; }
   screen.getByRole('combobox', { name }).focus();
   await user.keyboard('{Enter}');
   await user.click(await screen.findByRole('option', { name: option }));
@@ -139,6 +144,11 @@ const reasonBox = () => screen.getByRole('textbox', { name: /사유/ });
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
+  declaredItems = [];
+  batchResponse = () => json({ batch_id: MS_A, items: [
+    { id: ID_PENDING, status: 'pending', created_at: '2026-10-24T00:00:00.000Z' },
+    { id: ID_APPROVED, status: 'pending', created_at: '2026-10-24T00:00:00.000Z' },
+  ] }, 201);
   configureApiClient({ basePath: '/api/features' });
   listRows = [];
   postResponse = () =>
@@ -158,6 +168,71 @@ afterEach(() => {
 });
 
 describe('새 권한 요청', () => {
+  it('blocks 51 requests visibly, including declared capabilities, then permits 50', async () => {
+    declaredItems = Array.from({ length: 51 }, (_, index) => ({ id: `ext.example.cap${index}`, display_name: `Declared ${index}`, sensitive: false, requestable: true }));
+    const { user } = mount();
+    await user.click(await screen.findByRole('checkbox', { name: '배포 선언 권한 모두 선택' }));
+    await user.type(reasonBox(), 'Many requests');
+    expect(screen.getByRole('alert')).toHaveTextContent('한 번에 50개까지');
+    expect(submitButton()).toBeDisabled();
+    expect(screen.queryByRole('combobox', { name: '시스템' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: /Declared 0 / }));
+    expect(submitButton()).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it('requires a shared system when a required capability joins an optional and a declared capability', async () => {
+    declaredItems = [{ id: 'ext.example.read', display_name: 'External read', sensitive: false, requestable: true }];
+    const { user } = mount();
+    await choose(user, '기능', '설문 데이터 내보내기');
+    await user.click(await screen.findByRole('checkbox', { name: /External read/ }));
+    await choose(user, '기능', 'VOC 조회');
+    await user.type(reasonBox(), 'Mixed scope');
+    await user.click(submitButton());
+    expect(screen.getByRole('alert')).toHaveTextContent('시스템을 선택하세요.');
+    expect(calls.filter(c => c.method === 'POST')).toHaveLength(0);
+    await choose(user, '시스템', 'Beta');
+    await user.click(submitButton());
+    await waitFor(() => expect(calls.find(c => c.url === '/api/features/permission-requests/batch')).toBeDefined());
+    expect(calls.find(c => c.url === '/api/features/permission-requests/batch')?.body).toEqual({ items: [
+      { requested_capability: 'survey.export', requested_managed_system_id: MS_B },
+      { requested_capability: 'ext.example.read' },
+      { requested_capability: 'voc.read', requested_managed_system_id: MS_B },
+    ], reason: 'Mixed scope' });
+  });
+  it('sends multiple capabilities with one shared system only to capabilities that take it', async () => {
+    const { user, seam } = mount();
+    await user.click(await screen.findByRole('checkbox', { name: 'VOC 조회' }));
+    await user.click(screen.getByRole('checkbox', { name: '전체 읽기' }));
+    await choose(user, '시스템', 'Alpha');
+    await user.type(reasonBox(), '두 권한이 필요합니다');
+    await user.click(submitButton());
+    await waitFor(() => expect(calls.find(c => c.url === '/api/features/permission-requests/batch')).toBeDefined());
+    expect(calls.find(c => c.url === '/api/features/permission-requests/batch')?.body).toEqual({
+      items: [{ requested_capability: 'voc.read', requested_managed_system_id: MS_A }, { requested_capability: 'workspace.read' }],
+      reason: '두 권한이 필요합니다',
+    });
+    await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalledWith('권한 요청을 보냈습니다'));
+    expect(reasonBox()).toHaveValue('');
+  });
+  it('marks the rejected request row and preserves both selected capabilities and the reason', async () => {
+    batchResponse = () => json({ code: 'conflict.permission_request_duplicate', message: 'duplicate', detail: { item_index: 1 } }, 409);
+    const { user } = mount();
+    await choose(user, '기능', '전체 읽기');
+    await choose(user, '기능', 'VOC 조회');
+    await choose(user, '시스템', 'Alpha');
+    await user.type(reasonBox(), 'Keep draft');
+    await user.click(submitButton());
+    expect(await screen.findByText('거절됨')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/^VOC 조회:/);
+    expect(screen.getByRole('checkbox', { name: /VOC 조회/ })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: '전체 읽기' })).toBeChecked();
+    expect(reasonBox()).toHaveValue('Keep draft');
+    await user.click(screen.getByRole('checkbox', { name: /VOC 조회/ }));
+    await user.click(submitButton());
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(posts()[0]?.body).toEqual({ requested_capability: 'workspace.read', reason: 'Keep draft' });
+  });
+
   it('F1 posts the capability, 시스템 and reason with an Idempotency-Key, then resets and refetches', async () => {
     const { seam, user } = mount();
     await waitFor(() => expect(mineCalls()).toHaveLength(1));
@@ -184,13 +259,12 @@ describe('새 권한 요청', () => {
 
   it('F2 offers workspace.admin nowhere and only active 시스템', async () => {
     const { user } = mount();
-    screen.getByRole('combobox', { name: '기능' }).focus();
-    await user.keyboard('{Enter}');
-    expect(await screen.findByRole('option', { name: 'VOC 조회' })).toBeInTheDocument();
+    screen.getByRole('checkbox', { name: 'VOC 조회' }).focus();
+    expect(await screen.findByRole('checkbox', { name: 'VOC 조회' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('option', { name: '관리자 권한' }),
+      screen.queryByRole('checkbox', { name: '관리자 권한' }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'VOC 조회' }));
+    await user.click(screen.getByRole('checkbox', { name: 'VOC 조회' }));
     expect(calls.find((call) => call.url.includes('/managed-systems'))?.url).toContain('limit=500');
 
     screen.getByRole('combobox', { name: '시스템' }).focus();
@@ -460,7 +534,7 @@ describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
     await user.type(reasonBox(), '사유');
     await user.click(submitButton());
     await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalled());
-    await waitFor(() => expect(focused()).toBe(screen.getByRole('combobox', { name: '기능' })));
+    await waitFor(() => expect(focused()).toBe(screen.getByLabelText('기능')));
   });
 
   it.each([
@@ -468,7 +542,7 @@ describe('포커스·필수 입력·관리자 질문 (UX 검토)', () => {
       label: 'no capability',
       fill: async () => {},
       alert: '기능을 선택하세요.',
-      control: () => screen.getByRole('combobox', { name: '기능' }),
+      control: () => screen.getByLabelText('기능'),
     },
     {
       label: '시스템 required and empty',

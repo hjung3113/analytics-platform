@@ -45,7 +45,26 @@ POST /permission-requests/:id/cancel
 GET /permissions/requests/:id     # Admin selected detail
 GET /permissions/grant-options?actor_id={uuid}
 POST /permissions/grants
+POST /permissions/grants/batch
+POST /permission-requests/batch
 ```
+
+### Atomic capability batches (#2406, #2420)
+
+`POST /permissions/grants/batch` accepts one `actor_id`, `items` (1–50 capability/scope
+candidates), one `reason`, optional `expires_at` and the existing `self_approval`
+envelope. `POST /permission-requests/batch` accepts `items` (1–50 requested
+capability/scope candidates), one `reason`, optional `requested_expiration` and
+`return_route_intent`. Both support `Idempotency-Key` and return
+`201 { batch_id, items }`, with each item shaped like its single-endpoint result.
+Each candidate passes the single-endpoint rules and writes its own audit record
+with `batch_id`; one refused row rolls back the whole batch.
+
+Row-scoped failures retain the existing error code, detail keys and `row N:`
+message, and add `detail.item_index` (zero-based index in the submitted `items`).
+This includes unknown capabilities, sensitive-reason validation, duplicate
+candidates and per-row policy/write failures. Non-row errors need not carry an
+index. Clients preserve the draft and identify the refused row from that field.
 
 ### `GET /me/permissions/check`
 
