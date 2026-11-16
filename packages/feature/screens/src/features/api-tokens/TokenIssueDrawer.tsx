@@ -7,7 +7,7 @@ import {
   Label, RadioGroup, RadioGroupItem,
   copyText, useImeEnterGuard,
 } from '@ap/ui';
-import { GroupedSelectionList } from '@ap/ui';
+import { GroupedSelectionList, type GroupedSelectionPresentation } from '@ap/ui';
 import { tokenSelectionGroups } from '../../lib/copy/permission-selection';
 import { Copy } from 'lucide-react';
 import { useHostUnsavedGuard } from '../../lib/host/host-seam';
@@ -19,6 +19,15 @@ import { draftRecord, draftString, draftStrings, useFormDraftAcrossExpiry } from
 import type { ApiTokenDrawerParts } from './ApiTokensScreen';
 
 type Field = { path: string; message: string };
+/** #2405 prototype: `?variant=v1|v2|v3` picks a permission-picker look; absent keeps today's list. Discarded once the owner picks. */
+function pickerVariant(): GroupedSelectionPresentation {
+  const base: GroupedSelectionPresentation = { density: 'compact', hideDisabled: true, hiddenReason: '토큰 불가', selectionSummary: 'chips', presetPreview: true };
+  const name = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('variant');
+  if (name === 'v1') return base;
+  if (name === 'v2') return { ...base, columns: 2 };
+  if (name === 'v3') return { ...base, layout: 'rail', control: 'switch' };
+  return {};
+}
 const EXPIRY_CHOICES = ['30', '90', 'custom', 'never'] as const;
 function validationFields(error: unknown): Field[] {
   if (!(error instanceof ApiError) || error.code !== 'validation.failed' || !Array.isArray(error.detail?.fields)) return [];
@@ -130,7 +139,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
       {expiry === 'never' ? <Callout tone="amber" title={COPY.warning}>{null}</Callout> : null}{errorsFor('expiresAt')}
     </fieldset>
     <fieldset className="space-y-2" disabled={pending} aria-describedby="token-scopes-error"><legend className="mb-2 text-sm font-medium">권한</legend>
-      <GroupedSelectionList mode="multiple" groups={groups} value={selected} onChange={setSelected} aria-label="권한" searchPlaceholder="권한 이름·설명 검색"
+      <GroupedSelectionList {...pickerVariant()} mode="multiple" groups={groups} value={selected} onChange={setSelected} aria-label="권한" searchPlaceholder="권한 이름·설명 검색"
         presets={bundles.map(bundle => ({ id: bundle.id, label: bundle.label, description: bundle.description, itemIds: bundle.capabilities }))} />
       {errorsFor('scopes')}
     </fieldset>
