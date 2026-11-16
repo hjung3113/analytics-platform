@@ -7,9 +7,8 @@ import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testi
 import { groupId, spaceId, type TableQuery } from '@ap/contracts';
 import { stubCompactTableGeometry } from '../../testing';
 import { PlatformDataTable, type TableLoadPage } from '../PlatformDataTable';
-import { useTableResultCache, type TableResultCache } from '../tableResultCache';
 
-// #2380: a table remounted by a tab switch shows the page its screen's cache already holds, with no request and no loading state.
+// #2380: a table remounted by a tab switch shows the page the Kernel query engine keeps under its cacheKey, with no request and no loading state.
 type Row = { id: string };
 const registry = createRegistry({
   spaces: [testSpace()],
@@ -23,33 +22,35 @@ beforeEach(() => { restore = stubCompactTableGeometry(800); });
 afterEach(() => { cleanup(); restore?.(); });
 
 type Tab = 'a' | 'b';
-const ok = (tab: string, n: number) => ({ outcome: 'ok' as const, data: { rows: [{ id: `${tab}${n}` }], total: 1 }, assessments: [], trust: null, correlationId: 'c' });
-function setup(cached: boolean) {
+const ok = (tab: string, n: number, total = 1) => ({ outcome: 'ok' as const, data: { rows: [{ id: `${tab}${n}` }], total }, assessments: [], trust: null, correlationId: 'c' });
+type Opts = { cached?: boolean; total?: number; sizes?: Partial<Record<Tab, number>>; sharedKey?: boolean };
+function setup({ cached = true, total = 1, sizes = {}, sharedKey = false }: Opts = {}) {
   const loads: { tab: Tab; query: TableQuery }[] = [];
   const pending: (() => void)[] = [];
   let calls = 0;
-  const loader = (tab: Tab): TableLoadPage<Row> => (query) => new Promise(resolve => { loads.push({ tab, query }); const n = ++calls; pending.push(() => resolve(ok(tab, n))); });
-  const control: { tab: (t: Tab) => void; cache: TableResultCache | null } = { tab: () => {}, cache: null };
+  const loader = (tab: Tab): TableLoadPage<Row> => (query) => new Promise(resolve => { loads.push({ tab, query }); const n = ++calls; pending.push(() => resolve(ok(tab, n, total))); });
+  const control: { tab: (t: Tab) => void; version: (v: number) => void } = { tab: () => {}, version: () => {} };
   function Screen() {
     const [tab, setTab] = useState<Tab>('a');
-    const cache = useTableResultCache();
-    control.tab = setTab; control.cache = cache;
+    const [version, setVersion] = useState(0);
+    control.tab = setTab; control.version = setVersion;
     // Remounted per tab, like a tabbed screen whose tab owns its table.
-    return <PlatformDataTable<Row> key={tab} title={`T ${tab}`} ariaLabel={`table ${tab}`} columns={columns} getRowId={r => r.id} loadPage={loader(tab)}
-      preferenceKey={`cache-${tab}`} pageSize={10} height={200} {...(cached ? { resultCache: { cache, key: tab } } : {})} />;
+    return <PlatformDataTable<Row> key={`${tab}:${version}`} title={`T ${tab}`} ariaLabel={`table ${tab}`} columns={columns} getRowId={r => r.id} loadPage={loader(tab)}
+      preferenceKey={`cache-${tab}`} pageSize={sizes[tab] ?? 10} height={200} {...(cached ? { cacheKey: sharedKey ? 'test:shared' : `test:${tab}:${version}` } : {})} />;
   }
   render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Screen /></PlatformProvider></I18nProvider>);
   return {
-    loads, control,
+    loads,
     answer: async () => { await act(async () => { pending.shift()!(); }); },
     to: (t: Tab) => act(() => { control.tab(t); }),
+    bump: () => act(() => { control.version(1); }),
   };
 }
 const table = (tab: Tab) => screen.getByRole('table', { name: `table ${tab}` });
 
-describe('PlatformDataTable resultCache (#2380)', () => {
-  it('a revisited table shows its held page at once: no request, not busy', async () => {
-    const t = setup(true);
+describe('PlatformDataTable cacheKey (#2380)', () => {
+  it('a revisited table shows its kept page at once: no request, not busy', async () => {
+    const t = setup();
     await t.answer();
     expect(screen.getByText('a1')).toBeTruthy();
     t.to('b');
@@ -61,39 +62,57 @@ describe('PlatformDataTable resultCache (#2380)', () => {
     expect(screen.getByText('a1')).toBeTruthy();
     expect(t.loads.map(l => l.tab)).toEqual(['a', 'b']);
   });
-  it('without resultCache a revisit reads again (default unchanged)', async () => {
-    const t = setup(false);
+  it('without cacheKey a revisit reads again (default unchanged)', async () => {
+    const t = setup({ cached: false });
     await t.answer();
     t.to('b'); await t.answer();
     t.to('a');
     expect(table('a')).toHaveAttribute('aria-busy', 'true');
     expect(t.loads.map(l => l.tab)).toEqual(['a', 'b', 'a']);
   });
-  it('clear() drops held pages: the next visit reads again', async () => {
-    const t = setup(true);
+  it('a new key (the screen wrote) reads again', async () => {
+    const t = setup();
+    await t.answer();
+    t.bump();
+    expect(table('a')).toHaveAttribute('aria-busy', 'true');
+    await t.answer();
+    expect(screen.getByText('a2')).toBeTruthy();
+    expect(t.loads.map(l => l.tab)).toEqual(['a', 'a']);
+  });
+  it('a page of another size is another answer', async () => {
+    // Same key and request identity, other page size: the 10-row answer must not stand for a 25-row page.
+    const t = setup({ sizes: { a: 10, b: 25 }, sharedKey: true });
+    await t.answer();
+    t.to('b');
+    expect(table('b')).toHaveAttribute('aria-busy', 'true');
+    expect(t.loads.map(l => l.query.pageSize)).toEqual([10, 25]);
+  });
+  it('after a kept page, the next uncached page keeps showing it while it loads', async () => {
+    const t = setup({ total: 30 });
     await t.answer();
     t.to('b'); await t.answer();
-    t.control.cache!.clear();
     t.to('a');
+    expect(screen.getByText('a1')).toBeTruthy();
+    await act(async () => { screen.getByRole('button', { name: /다음/ }).click(); });
     expect(table('a')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('a1')).toBeTruthy();
     await t.answer();
     expect(screen.getByText('a3')).toBeTruthy();
-    expect(t.loads.map(l => l.tab)).toEqual(['a', 'b', 'a']);
   });
-  it('a failed read is not held', async () => {
+  it('a failed read is not kept', async () => {
     const loads: number[] = [];
+    const control: { set: (t: Tab) => void } = { set: () => {} };
     function Screen() {
       const [tab, setTab] = useState<Tab>('a');
-      const cache = useTableResultCache();
-      (Screen as unknown as { set: (t: Tab) => void }).set = setTab;
+      control.set = setTab;
       return <PlatformDataTable<Row> key={tab} title="T" ariaLabel={`table ${tab}`} columns={columns} getRowId={r => r.id} preferenceKey={`f-${tab}`} pageSize={10} height={200}
-        loadPage={async () => { loads.push(1); return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'e' }; }} resultCache={{ cache, key: tab }} />;
+        loadPage={async () => { loads.push(1); return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'e' }; }} cacheKey={`fail:${tab}`} />;
     }
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Screen /></PlatformProvider></I18nProvider>);
     await act(async () => {});
-    act(() => { (Screen as unknown as { set: (t: Tab) => void }).set('b'); });
+    act(() => { control.set('b'); });
     await act(async () => {});
-    act(() => { (Screen as unknown as { set: (t: Tab) => void }).set('a'); });
+    act(() => { control.set('a'); });
     await act(async () => {});
     expect(loads).toHaveLength(3);
     vi.restoreAllMocks();

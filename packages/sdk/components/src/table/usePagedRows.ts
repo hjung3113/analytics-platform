@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type GroupedPageResult, type PageGroup, type PageSort, type TableQuery, isAnswered } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
+import { useKeptAnswers } from '@ap/kernel/host';
 import type { TableUrlState } from './PlatformDataTable';
-import { readCachedPage, writeCachedPage, type TableResultCache } from './tableResultCache';
 
 type PagedRowsInput<T> = {
   loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<GroupedPageResult<T>>>;
@@ -20,8 +20,8 @@ type PagedRowsInput<T> = {
   viewport: RefObject<HTMLDivElement | null>;
   /** Runs inside the Context-change effect, after the page reset: the table clears selection and aborts export/copy there. */
   onContextChange: () => void;
-  /** Opt-in (#2380): answered pages by request identity under `key`; a held page is shown without a request or loading state. */
-  resultCache?: { cache: TableResultCache; key: string } | undefined;
+  /** Opt-in (#2380): answered pages are kept in the Kernel query engine under this key; a kept page is shown without a request or loading state. */
+  cacheKey?: string | undefined;
 };
 
 /**
@@ -54,21 +54,25 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion]);
   const loadRef = useRef(input.loadPage);
   loadRef.current = input.loadPage;
-  const resultCache = input.resultCache;
-  const cacheRef = useRef(resultCache);
-  cacheRef.current = resultCache;
-  const cacheKey = (identity: string) => JSON.stringify([cacheRef.current!.key, identity]);
-  // A page the screen's cache already holds for this exact identity is the result: no request, no loading state (#2380).
-  const cached = resultCache && result?.identity !== requestIdentity ? readCachedPage<T>(resultCache.cache, JSON.stringify([resultCache.key, requestIdentity])) : undefined;
+  const kept = useKeptAnswers();
+  const { cacheKey } = input;
+  // The kept answer's key: the table's key, the request identity and the page size (the identity omits it; a page of another size is another answer).
+  const keptKey = (identity: string) => ['table', cacheKey, identity, pageSize];
+  type Kept = ApiResponse<GroupedPageResult<T>>;
+  // A page the engine already keeps for this exact request is the result at once: no request, no loading state (#2380).
+  const cached = cacheKey !== undefined && result?.identity !== requestIdentity ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
   // Memoized: the clamp effect below compares result objects.
   const current = useMemo(() => (cached ? { identity: requestIdentity, response: cached } : result), [cached, requestIdentity, result]);
   useEffect(() => {
-    if (cacheRef.current && readCachedPage(cacheRef.current.cache, cacheKey(requestIdentity))) return;
+    const hit = cacheKey !== undefined ? kept.read<Kept>(keptKey(requestIdentity)) : undefined;
+    // A kept page also becomes the settled result, so the next uncached request keeps showing it while it loads.
+    if (hit) { setResult({ identity: requestIdentity, response: hit }); return; }
     const controller = new AbortController();
     loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting, ...(columnFilters.length > 0 ? { filters: columnFilters } : {}), ...(groupBy ? { groupBy } : {}) }, controller.signal)
       .then(response => {
         if (controller.signal.aborted) return;
-        if (cacheRef.current) writeCachedPage(cacheRef.current.cache, cacheKey(requestIdentity), response);
+        // Only answered pages are kept: a failure is read again.
+        if (cacheKey !== undefined && isAnswered(response.outcome)) kept.keep(keptKey(requestIdentity), response);
         setResult({ identity: requestIdentity, response });
       })
       .catch(error => {

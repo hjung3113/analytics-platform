@@ -340,6 +340,27 @@ export function useEndpointRefreshEpoch(endpointIds: readonly string[]): number 
   return useSyncExternalStore(refreshEpochs.subscribe, getSnapshot);
 }
 
+/** Answers a component keeps for its own caller-driven reads (`useKeptAnswers`). */
+export type KeptAnswers = {
+  /** The answer kept under `key` in this session generation, or `undefined`. */
+  read: <T>(key: readonly unknown[]) => T | undefined;
+  keep: <T>(key: readonly unknown[], value: T) => void;
+};
+
+/**
+ * Answers a component keeps for the reads it drives itself (PlatformDataTable `loadPage`, 06 §15), held in the Kernel query engine
+ * (ADR-0086) so a remounted component shows what it already read. Keys live under the session generation: a user, adapter or revision
+ * change drops them, and an entry leaves the engine after the engine's gcTime (5 minutes) from when it was first kept. The caller owns the
+ * key (it must name everything the answer depends on) and decides what is worth keeping.
+ */
+export function useKeptAnswers(): KeptAnswers {
+  const { client, gen } = useQueryEngine();
+  return useMemo(() => ({
+    read: <T>(key: readonly unknown[]) => client.getQueryData<T>(['kept', gen, ...key]),
+    keep: <T>(key: readonly unknown[], value: T) => { client.setQueryData<T>(['kept', gen, ...key], value); },
+  }), [client, gen]);
+}
+
 export type RequestState<T> = { status: 'loading' | 'done' | 'error'; data: T | null; retry: () => void };
 
 /**

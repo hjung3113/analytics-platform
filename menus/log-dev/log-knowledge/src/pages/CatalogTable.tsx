@@ -2,7 +2,7 @@ import { useMemo, useState, type RefObject } from 'react';
 import { PanelRight } from 'lucide-react';
 import type { ApiResponse, ColumnFilterSpec, GroupedPageResult, TableQuery } from '@ap/contracts';
 import { useMenuFetch, usePlatform } from '@ap/kernel';
-import { PlatformDataTable, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableResultCache } from '@ap/components';
+import { PlatformDataTable, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
 import { Button, SearchInput, StatusBadge } from '@ap/ui';
 import {
   MODEL_SORT_IDS, PROCESS_SORT_IDS, SOFTWARE_SORT_IDS, VENDOR_SORT_IDS, modelFilterSpecs, modelsEndpoint, processFilterSpecs, processesEndpoint,
@@ -40,7 +40,7 @@ function Count({ n, label, text, onOpen }: { n: number; label: string; text?: st
   return <span className="tabular"><Button type="button" variant="link" size="sm" aria-label={label} onClick={onOpen}>{text ?? n}</Button></span>;
 }
 
-export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onImport, resultCache }: {
+export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remember, onImport, cacheKey }: {
   kind: CatalogKind; q: string; focus: string | null;
   /** 「가져오기」 in the toolbar line (maker, process and model tabs only); absent = no button. */
   onImport?: (() => void) | undefined;
@@ -50,8 +50,8 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
   /** Names seen so far by id, for chosen filter values the bounded option list lacks. */
   labels: ReadonlyMap<string, string>;
   remember: (id: string, label: string) => void;
-  /** The screen's held pages (#2380): a tab switched back to shows its last pages without reading again. */
-  resultCache?: TableResultCache;
+  /** Kept-page key for the table (#2380): the screen changes it after a write so every tab reads again. */
+  cacheKey?: string;
 }) {
   const { setPage, pageParams } = usePlatform();
   const endpoint = ENDPOINTS[kind] as unknown as Parameters<typeof useMenuFetch<CatalogPageParams, GroupedPageResult<CatalogRow>>>[0];
@@ -114,7 +114,7 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
   return <PlatformDataTable<CatalogRow>
     title={`${TAB_LABEL[kind]} 목록`} ariaLabel={`${TAB_LABEL[kind]} 목록`} columns={columns} getRowId={r => r.id}
     filterKey={q} preferenceKey={`log-knowledge-catalog:${kind}:v1`} activeRowId={focus} pageSize={25} urlState={urlState}
-    loadPage={loadPage} search={search} filterFields={fields} isRowMuted={isRowMuted} {...(resultCache ? { resultCache: { cache: resultCache, key: kind } } : {})}
+    loadPage={loadPage} search={search} filterFields={fields} isRowMuted={isRowMuted} {...(cacheKey ? { cacheKey } : {})}
     rowAction={(r, { compact }) => <RowAction compact={compact} icon={PanelRight} label={`${r.code} 수정`} text="수정" onClick={() => setPage({ focus: r.id })} />}
   />;
 }

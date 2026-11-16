@@ -5,7 +5,6 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
-import type { TableResultCache } from './tableResultCache';
 import { useHostPlatform } from '@ap/kernel/host';
 import { formatNumber } from '@ap/contracts';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
@@ -224,11 +223,12 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
      */
     selectAllResults?: boolean;
     /**
-     * Opt-in (#2380): a screen-owned `useTableResultCache()` and this table's `key` in it (unique per table that shares the cache). A page the
-     * cache holds for the same request identity shows at once with no request and no loading state, so a table remounted by a tab switch
-     * comes back as it was. Answered pages only; the cache dies with its owner. Clear it after a write the table cannot see.
+     * Opt-in (#2380): keep this table's answered pages in the Kernel query engine under this key (unique in the app: start it with the menu id).
+     * A page kept for the same request (Context, filters, page, page size, sort, group, `refreshOn` epoch) shows at once with no request and no
+     * loading state, so a table remounted by a tab switch comes back as it was. Pages leave after five minutes or with the session; a write
+     * the table cannot see (no `refreshOn` endpoint) needs a new key, e.g. one carrying the screen's own write count.
      */
-    resultCache?: { cache: TableResultCache; key: string };
+    cacheKey?: string;
     rows?: never; rowsLoading?: never;
   }
   | {
@@ -236,7 +236,7 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
     rows: readonly T[];
     /** The read behind `rows` is in flight: the table shows its loading state (previous rows stay visible) until it turns false. */
     rowsLoading?: boolean;
-    loadPage?: never; refreshOn?: never; selectAllResults?: never; resultCache?: never;
+    loadPage?: never; refreshOn?: never; selectAllResults?: never; cacheKey?: never;
   }
 );
 
@@ -351,7 +351,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
-    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: effectiveFilters, groupBy, dataVersion, resultCache: p.resultCache,
+    loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: effectiveFilters, groupBy, dataVersion, cacheKey: p.cacheKey,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });

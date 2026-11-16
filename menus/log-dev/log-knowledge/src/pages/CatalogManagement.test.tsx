@@ -110,6 +110,18 @@ describe('catalog management URL state', () => {
     expect(tableReads('logKnowledge.models')).toBe(1);
   });
 
+  it('reads the list again after leaving 가져오기, even without an import (#2380)', async () => {
+    mount(activeOnly());
+    await screen.findByText('A-100', {}, slow);
+    const tableReads = () => queries.filter(q => q.endpoint === 'logKnowledge.models' && (q.params as { pageSize?: number }).pageSize === 25).length;
+    expect(tableReads()).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: '가져오기' }));
+    await screen.findByRole('list', { name: '가져오기 단계' }, slow);
+    fireEvent.click(screen.getByRole('button', { name: '목록으로' }));
+    await screen.findByText('A-100', {}, slow);
+    await waitFor(() => expect(tableReads()).toBe(2));
+  });
+
   it('refuses an unknown tab instead of showing another one', async () => {
     mount('&tab=nope');
     expect((await screen.findByRole('alert', {}, slow)).textContent).toContain('nope');
