@@ -280,7 +280,7 @@ export function LegendTree(props: LegendTreeProps) {
         className={cn('group relative flex h-7 items-center gap-1 text-xs text-text-secondary hover:bg-surface-row-hover',
           '[[role=treeitem]:focus-visible>&]:ring-2 [[role=treeitem]:focus-visible>&]:ring-focus-ring [[role=treeitem]:focus-visible>&]:ring-offset-2',
           isSelected && 'bg-surface-row-selected font-semibold', isCurrent && 'font-semibold')}
-        onClick={() => { focus(entry); if (drillOnly) onDrill?.(node.id); }}>
+        onClick={() => { focus(entry); if (drillOnly && !(drillOnName && isCurrent)) onDrill?.(node.id); }}>
         {(isSelected || isCurrent) && <span aria-hidden className="absolute inset-y-0 start-0 w-0.5 bg-accent-primary" />}
         {entry.children.length ? <Button type="button" variant="ghost" size="icon-xs" tabIndex={active === entry ? 0 : -1}
           // eslint-disable-next-line ap/no-lang-copy-ternary -- grammar, not copy: aria-labelledby ID order differs by language ("<label> 접기" vs "Collapse <label>")

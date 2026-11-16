@@ -13,15 +13,30 @@ const row = (id: string) => screen.getAllByRole('treeitem').find(el => el.getAtt
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('LegendTree head hint, current mark and name drill (#2395)', () => {
-  it('without the new props renders exactly as before', () => {
-    const { container } = render(tree());
-    const html = (el: HTMLElement) => el.innerHTML.replace(/_r_\w+_/g, 'ID');
-    const before = html(container);
-    cleanup();
-    const again = render(tree({ hint: undefined, currentLabel: undefined, drillOnName: false }));
-    expect(html(again.container)).toBe(before);
-    expect(again.container.querySelector('[data-legend-tree-wrap]')).toBeNull();
-    expect(again.container.querySelector('[data-legend-current]')).toBeNull();
+  it('without the new props keeps the pre-#2395 structure and gestures', () => {
+    const onDrill = vi.fn(); const onVisibleChange = vi.fn();
+    const { container } = render(tree({ onDrill, onVisibleChange }));
+    // The tree is the root element (no head wrapper), describes nothing and carries no hint or current mark (main's DOM shape).
+    expect(container.firstElementChild).toHaveAttribute('role', 'tree');
+    expect(screen.getByRole('tree')).not.toHaveAttribute('aria-describedby');
+    expect(container.querySelector('[data-legend-tree-wrap], [data-legend-hint], [data-legend-current]')).toBeNull();
+    // A name click on a drillable row still toggles visibility, never drills.
+    fireEvent.click(screen.getByText('TR'));
+    expect(onDrill).not.toHaveBeenCalled();
+    expect(onVisibleChange).toHaveBeenCalledWith(new Set(['pm.pump', 'pm.vent']));
+  });
+
+  it('keeps the pre-#2395 drillOnly row click (drills even when current) without drillOnName, and blocks it with drillOnName', () => {
+    const only: LegendTreeNode[] = [{ id: 'step', label: 'Step', drillOnly: true }, ...nodes];
+    const onDrill = vi.fn();
+    render(tree({ nodes: only, onDrill, currentId: 'step' }));
+    fireEvent.click(screen.getByText('Step'));
+    expect(onDrill).toHaveBeenCalledWith('step');
+    cleanup(); onDrill.mockClear();
+    render(tree({ nodes: only, onDrill, currentId: 'step', drillOnName: true }));
+    fireEvent.click(screen.getByText('Step'));
+    fireEvent.click(row('step'));
+    expect(onDrill).not.toHaveBeenCalled();
   });
 
   it('draws the hint above the tree and lets it describe the tree', () => {
