@@ -3,7 +3,7 @@ import { HierarchyFailure, type HierarchyNode, type HierarchyPage, type Hierarch
 import { HierarchyNavState } from '../hierarchyState';
 import { checkHierarchyPageShape, mergeHierarchyChain, reconcileTotal } from '../pagePolicy';
 
-const node = (id: string): HierarchyNode => ({ id, label: id, hasChildren: false, parentId: null });
+const node = (id: string): HierarchyNode => ({ id, label: id, kind: 'item', hasChildren: false, parentId: null });
 const page = (ids: string[], extra: Partial<HierarchyPage> = {}): HierarchyPage => ({ nodes: ids.map(node), ...extra });
 
 describe('hierarchy paging rule (#2360)', () => {
