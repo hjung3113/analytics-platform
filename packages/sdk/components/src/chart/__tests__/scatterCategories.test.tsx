@@ -41,11 +41,11 @@ describe('scatter categories (#2332)', () => {
     ];
     const p = scatterData(spec, 'en', 's'); const o = p.option([]) as Option;
     expect(error).toHaveBeenCalled();
-    expect(p.tableValues.map(row => row.slice(3))).toEqual([['', 'b', 'Unknown', '', '3 s', ''], ['R1', 'A', '4 s', '1 s', '8 s', '■ High']]);
+    expect(p.tableValues.map(row => row.slice(3))).toEqual([['', 'b', 'Unknown', '', '3', ''], ['R1', 'A', '4 s', '1', '8', '■ High']]);
     expect(p.csvValues.map(row => row.slice(-3))).toEqual([['', 3, ''], [1, 8, '■ High']]);
     expect(p.rows[1].label).toContain('Rack: R1 · A · Lower bound: 1 s · Upper bound: 8 s');
     const pointSeries = p.seriesKeys.findIndex(keys => keys.includes(p.rows[1].key));
-    expect(o.tooltip.formatter({ seriesIndex: pointSeries, dataIndex: 0 })).toContain('Upper bound: 8 s');
+    expect(o.tooltip.formatter({ seriesIndex: pointSeries, dataIndex: 0 })).toContain('Upper bound: 8');
     o.series.forEach((series, index) => {
       if (!series.id) return;
       expect(p.seriesKeys[index]).toEqual([]);

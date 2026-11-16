@@ -76,11 +76,10 @@ export function distinctStatuses(statuses: readonly (ChartStatus | undefined)[])
   return [...distinct.values()];
 }
 export const chartPointKey = (point: Pick<ChartPoint, 'seriesId' | 'x'>) => JSON.stringify([point.seriesId, point.x]);
-/** The visible projection only: no null/non-finite pieces, hidden series or line statuses. */
-export function barStatuses(series: readonly ChartSeries[], horizontal: boolean, pointStatus?: (point: ChartPoint) => ChartStatus | undefined) {
+/** One visible projection for all series: no null/non-finite pieces or hidden series. */
+export function pointStatuses(series: readonly ChartSeries[], pointStatus?: (point: ChartPoint) => ChartStatus | undefined) {
   const statuses = new Map<string, ChartStatus>();
   if (pointStatus) for (const s of series) {
-    if (!horizontal && s.kind !== 'bar') continue;
     for (const [x, value] of s.points) {
       if (value === null || !Number.isFinite(value)) continue;
       const point = { x, seriesId: s.id, value };

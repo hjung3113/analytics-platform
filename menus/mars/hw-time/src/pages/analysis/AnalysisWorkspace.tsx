@@ -13,7 +13,7 @@ import {
 } from '../../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_WORKSPACE_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import { formatSeconds, missingText } from '../../shared/format';
-import { htmStatusText, htmStatusView } from '../../shared/htm';
+import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { FilterPanel } from '../../shared/panels/FilterPanel';
 import RawTablePanel from '../table/RawTablePanel';
@@ -41,9 +41,8 @@ function checkedSum(cell: HwTimeMatrixCell, motions: readonly string[]): number 
 export function chartStatuses(data: HwTimeMatrix, lang: 'ko' | 'en') {
   const byLabel = new Map(data.cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), cell]));
   const pointStatusOf = (point: Pick<ChartPoint, 'x' | 'seriesId'>) => htmStatusView(byLabel.get(point.x)?.motions[point.seriesId], lang);
-  const outOfBound = (status: ReturnType<typeof htmStatusView>) => status?.tone === 'neutral' ? undefined : status;
-  const barStatusOf = (point: ChartPoint) => outOfBound(pointStatusOf(point));
-  const cellStatus = new Map(data.cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), outOfBound(htmStatusView(cell.module, lang))]));
+  const barStatusOf = (point: ChartPoint) => htmEmphasisStatus(pointStatusOf(point));
+  const cellStatus = new Map(data.cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), htmEmphasisStatus(htmStatusView(cell.module, lang))]));
   /** The heatmap cell's mark: the worst server status among the checked Motions' bar pieces (over before under), so with every Motion
    * checked it is the server's Module roll-up and with fewer it matches what the bar row shows. Picks among server statuses, judges nothing. */
   const cellStatusOf = (label: string, motions: readonly string[]) => motions.map(seriesId => barStatusOf({ x: label, seriesId } as ChartPoint))

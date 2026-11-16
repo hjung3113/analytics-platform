@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { htmStatusText, htmStatusView } from './htm';
+import { htmEmphasisStatus, htmStatusText, htmStatusView } from './htm';
 
 describe('htmStatusView (#1794 server judgement)', () => {
   it('maps over to danger, under to warning, unjudgeable to neutral with its reason, normal to nothing', () => {
@@ -10,4 +10,12 @@ describe('htmStatusView (#1794 server judgement)', () => {
     expect(htmStatusView({ status: 'normal' }, 'ko')).toBeUndefined();
     expect(htmStatusText({ status: 'normal' }, 'ko')).toBe('정상');
   });
+});
+
+it.each(['ko', 'en'] as const)('emphasises only out-of-bound HTM statuses in %s', lang => {
+  for (const status of ['over', 'under', 'normal', 'unjudgeable'] as const) {
+    const view = htmStatusView({ status, reason: 'no-criteria' }, lang);
+    expect(htmEmphasisStatus(view)).toEqual(status === 'over' || status === 'under' ? view : undefined);
+  }
+  expect(htmEmphasisStatus(undefined)).toBeUndefined();
 });
