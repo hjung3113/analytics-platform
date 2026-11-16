@@ -3,6 +3,7 @@ import { hasDotSegment, isAppPath } from '../context/location';
 import { createPageNavigation, type PageFocus } from '../context/pageNavigation';
 import { paneHref } from '../context/paneContext';
 import { createDraftStore, type DraftStore } from '../query/draft-state';
+import { withPagePreset } from '../registry/registry';
 import { AppContext, MainBoundContext, PaneScreenContext, type CommitOptions, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
 
@@ -85,8 +86,10 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
     if (path === url.split('?')[0]) return commit(href, how, { focus: options?.focus });
     const matched = hasDotSegment(path) ? null : matchRoute(path);
     if (matched && matched.menu.features.board === true && canOpen(matched.menu.id)) {
-      navigation.advance(href, options?.focus);
-      latest.current.onChange({ menuId: matched.menu.id, params: matched.params, query: q === -1 ? '' : href.slice(q) }, how);
+      // A retired menu's address adds its page preset here too, as the main screen's alias redirect does (#2330).
+      const query = withPagePreset(q === -1 ? '' : href.slice(q), matched.aliasPage);
+      navigation.advance(path + query, options?.focus);
+      latest.current.onChange({ menuId: matched.menu.id, params: matched.params, query }, how);
     } else latest.current.onLeave(href);
     return true;
   }, [navigation, url, commit, matchRoute, canOpen]);

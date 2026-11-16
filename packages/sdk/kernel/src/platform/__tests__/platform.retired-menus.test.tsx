@@ -47,8 +47,8 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); window.h
 describe('createRegistry retiredMenus (#2330)', () => {
   it('maps a retired id to its successor and its old addresses to aliases of the successor', () => {
     expect(registry.has('hub-compare')).toBe(false);
-    expect(registry.successorOf('hub-compare')).toEqual({ menu: registry.menuById('hub'), page: { view: 'compare' } });
-    expect(registry.successorOf('hub-table')).toEqual({ menu: registry.menuById('hub'), page: {} });
+    expect(registry.successorOf('hub-compare')).toEqual({ menu: registry.menuById('hub'), page: { view: 'compare' }, paths: ['/old/compare', '/mars/hub-compare'] });
+    expect(registry.successorOf('hub-table')).toEqual({ menu: registry.menuById('hub'), page: {}, paths: ['/mars/hub-table'] });
     expect(registry.successorOf('hub')).toBeNull();
     expect(registry.successorOf('nowhere')).toBeNull();
     // The derived canonical path (ADR-0093) and the declared old path.

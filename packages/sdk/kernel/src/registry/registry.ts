@@ -82,8 +82,11 @@ export type RetiredMenu = {
   paths?: readonly string[];
 };
 
-/** The successor of a retired menu id: the menu to open and the page keys it adds. */
-export type MenuSuccessor = { menu: MenuEntry; page: Readonly<Record<string, string>> };
+/**
+ * The successor of a retired menu id: the menu to open, the page keys it adds, and the id's old addresses (declared `paths` first, then the
+ * derived one), which carry the old route parameter names a stored screen of the id uses.
+ */
+export type MenuSuccessor = { menu: MenuEntry; page: Readonly<Record<string, string>>; paths: readonly string[] };
 
 /**
  * `search` (`''` or `?…`) with the `page` pairs whose keys it does not hold appended; the pairs it holds are kept as they are.
@@ -238,6 +241,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     retiredBySuccessor.set(successor.id, [...(retiredBySuccessor.get(successor.id) ?? []), r]);
   }
   const aliasPages = new Map<string, Readonly<Record<string, string>>>();
+  const retiredPaths = new Map<string, readonly string[]>();
   const groupIds = new Set<string>();
   const groupSpace = new Map<AnyGroupId, SpaceId | null>();
   const groupOwner = new Map<AnyGroupId, string | undefined>();
@@ -262,19 +266,20 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const space = groupSpace.get(m.group) ?? null;
     const params = segments(m.path).filter(isParam);
     // A retired id's addresses: its declared paths, plus the canonical path it had in the successor's space.
-    const retiredPaths = (retiredBySuccessor.get(m.id) ?? []).flatMap(r => {
+    const oldPaths = (retiredBySuccessor.get(m.id) ?? []).flatMap(r => {
       const paths = [...(r.paths ?? []), ...(space === null ? [] : ['/' + [space, menuSlug(r.id), ...params].join('/')])];
       if (r.page !== undefined && Object.keys(r.page).length > 0) for (const path of paths) aliasPages.set(`${m.id}\u0000${path}`, r.page);
+      retiredPaths.set(r.id, paths);
       return paths;
     });
-    const declaredAliases = [...(m.aliases ?? []), ...retiredPaths];
+    const declaredAliases = [...(m.aliases ?? []), ...oldPaths];
     const own = [m.path, ...declaredAliases];
     for (const path of own) if (segments(path)[0] === BOARD_PATH.slice(1)) fail(`Menu "${m.id}" path "${path}" is reserved for the analysis board (${BOARD_PATH})`);
     for (const path of declaredAliases) if (segments(path).filter(isParam).length !== params.length) fail(`Menu "${m.id}" alias "${path}" must have the same parameters as its path`);
     if (space === null) {
       const clash = own.find(path => spaceByIdMap.has(segments(path)[0] as SpaceId));
       if (clash !== undefined) fail(`Menu "${m.id}" path "${clash}" starts with a space id; space-less paths may not use a space's root`);
-      return (retiredPaths.length > 0 ? { ...m, aliases: declaredAliases } : m) as MenuEntry;
+      return (oldPaths.length > 0 ? { ...m, aliases: declaredAliases } : m) as MenuEntry;
     }
     const slug = menuSlug(m.id);
     if (!isIdShape(slug)) fail(`Menu "${m.id}" slug "${slug}" must be non-empty without whitespace or ? # & /`);
@@ -553,7 +558,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const successorOf = (menuId: string): MenuSuccessor | null => {
     const retired = retiredById.get(menuId);
     const menu = retired === undefined ? undefined : byId.get(retired.successor);
-    return retired === undefined || menu === undefined ? null : { menu, page: retired.page ?? noPage };
+    return retired === undefined || menu === undefined ? null : { menu, page: retired.page ?? noPage, paths: retiredPaths.get(menuId) ?? [] };
   };
 
   // Static segments win over parameters, compared left to right, whatever the declaration order.

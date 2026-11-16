@@ -1,4 +1,4 @@
-import { pathFor, routeParamNames, withPagePreset, type MenuEntry, type Registry } from '@ap/kernel';
+import { pathFor, routeParamNames, withPagePreset, type MenuEntry, type MenuSuccessor, type Registry } from '@ap/kernel';
 import { hasDotSegment, type PaneScreen } from '@ap/kernel/host';
 import type { Board } from './boardTypes';
 
@@ -45,7 +45,25 @@ export function canMountPaneScreen(registry: Registry, canOpen: (menuId: string)
  */
 export function successorScreen(registry: Registry, screen: PaneScreen): PaneScreen | null {
   const successor = registry.successorOf(screen.menuId);
-  return successor === null ? null : { menuId: successor.menu.id, params: screen.params, query: withPagePreset(screen.query, successor.page) };
+  return successor === null ? null : { menuId: successor.menu.id, params: successorParams(registry, successor, screen.params), query: withPagePreset(screen.query, successor.page) };
+}
+
+/**
+ * Stored params of a retired id in the successor's parameter names: the old address whose parameters are exactly the stored keys is built
+ * and matched, as a visit to that address would be. Params the successor already names, or that no old address fits, are kept as they
+ * are (a pane that cannot be admitted then shows the removed-menu state).
+ */
+function successorParams(registry: Registry, successor: MenuSuccessor, params: Record<string, string>): Record<string, string> {
+  const keys = Object.keys(params);
+  const fits = (names: string[]) => names.length === keys.length && names.every(name => typeof params[name] === 'string' && params[name] !== '');
+  if (fits(routeParamNames(successor.menu.path))) return params;
+  for (const template of successor.paths) {
+    if (!fits(routeParamNames(template))) continue;
+    const path = template.split('/').map(segment => (segment.startsWith(':') ? encodeURIComponent(params[segment.slice(1)]!) : segment)).join('/');
+    const matched = registry.matchRoute(path);
+    if (matched?.menu.id === successor.menu.id) return matched.params;
+  }
+  return params;
 }
 
 /** The board with every pane screen (and the screen `뒤로` returns to) of a retired id moved to its successor; the same board when none is. */

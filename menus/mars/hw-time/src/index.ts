@@ -28,4 +28,3 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./HwTimePage')),
   },
 ];
-

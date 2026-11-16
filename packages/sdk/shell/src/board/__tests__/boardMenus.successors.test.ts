@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
 import { noContext, testSpace } from '@ap/kernel/testing';
-import { boardWithSuccessors, successorScreen } from '../boardMenus';
+import { admitPaneScreen, boardWithSuccessors, successorScreen } from '../boardMenus';
 import { legacyBoard, legacySheet, v2Board } from '../__fixtures__/legacyBoard';
 
 // #2330: a saved pane of a retired menu id opens its successor, with the retired id's page preset.
@@ -15,9 +15,12 @@ const entry = (id: string, path: string, over: Record<string, unknown> = {}) => 
 const declarations = {
   spaces: [testSpace({ homeMenuId: 'hub' })],
   groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
-  menus: [{ ...entry('hub', '/hub'), primary: true }, entry('alpha', '/alpha')],
+  menus: [{ ...entry('hub', '/hub'), primary: true }, entry('alpha', '/alpha'), entry('detail', '/detail/:id')],
 };
-const registry = createRegistry({ ...declarations, retiredMenus: [{ id: 'hub-compare', successor: 'hub', page: { view: 'compare' } }, { id: 'hub-table', successor: 'hub' }] });
+const registry = createRegistry({ ...declarations, retiredMenus: [
+  { id: 'hub-compare', successor: 'hub', page: { view: 'compare' } }, { id: 'hub-table', successor: 'hub' },
+  { id: 'old-detail', successor: 'detail', paths: ['/old/:oldId'] },
+] });
 
 describe('board panes of a retired menu id (#2330)', () => {
   it('successorScreen moves the screen to the successor, adds the preset where the query lacks it, and is null otherwise', () => {
@@ -26,6 +29,17 @@ describe('board panes of a retired menu id (#2330)', () => {
     expect(successorScreen(registry, { menuId: 'hub-table', params: {}, query: '?v=1' })).toEqual({ menuId: 'hub', params: {}, query: '?v=1' });
     expect(successorScreen(registry, { menuId: 'alpha', params: {}, query: '?v=1' })).toBeNull();
     expect(successorScreen(registry, { menuId: 'ghost', params: {}, query: '' })).toBeNull();
+  });
+
+  it('successorScreen renames stored route params through the old address that names them, as a visit to it would', () => {
+    const moved = successorScreen(registry, { menuId: 'old-detail', params: { oldId: 'EQ 1' }, query: '?v=1' });
+    expect(moved).toEqual({ menuId: 'detail', params: { id: 'EQ 1' }, query: '?v=1' });
+    expect(admitPaneScreen(registry, moved!)).toBe(true);
+    expect(successorScreen(registry, { menuId: 'old-detail', params: { id: 'EQ-2' }, query: '' })?.params).toEqual({ id: 'EQ-2' });
+    // No old address names these keys: kept as stored, and the pane is not admitted (removed-menu state).
+    const unknown = successorScreen(registry, { menuId: 'old-detail', params: { other: 'x' }, query: '' })!;
+    expect(unknown.params).toEqual({ other: 'x' });
+    expect(admitPaneScreen(registry, unknown)).toBe(false);
   });
 
   it('boardWithSuccessors maps pane screens and the previous screen, and returns the same board when nothing is retired', () => {
