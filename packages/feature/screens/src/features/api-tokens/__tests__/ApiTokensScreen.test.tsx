@@ -5,7 +5,7 @@ import { configureApiClient } from '../../../lib/api/client';
 import { HostSeamProvider } from '../../../lib/host/host-seam';
 import type { ApiTokenItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiTokensScreen, type ApiTokenTableParts, type ApiTokenDrawerParts } from '../ApiTokensScreen';
@@ -86,6 +86,9 @@ describe('API token management', () => {
     for (const id of TOKEN_ONLY_SCOPES) {
       expect(screen.queryByRole('checkbox', { name: id === 'validation.worker' ? '검증 작업자' : id })).toBe(service ? screen.getByRole('checkbox', { name: '검증 작업자' }) : null);
     }
+    // #2405: session-only rows start folded behind a toggle that names the reason.
+    expect(screen.queryByRole('checkbox', { name: '관리자 권한' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^로그인 세션에서만 쓰는 권한이라 토큰으로 못 받음 \d+개$/ }));
     expect(screen.getByRole('checkbox', { name: '관리자 권한' })).toBeDisabled();
     const submit = within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' });
     expect(submit.closest('form')).toBeNull();
