@@ -1,8 +1,9 @@
-import { TargetPicker, TARGET_KEYS, type BlockedGroup } from './TargetPicker';
+import { TargetPicker, TARGET_KEYS } from './TargetPicker';
+import { useCustomGroupOptions } from './customGroupOptions';
 import { createPortal } from 'react-dom';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
@@ -70,8 +71,6 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     setChoice(!applied);
   }
   const [editError, setEditError] = useState<string | null>(null);
-  // A chosen custom group the query will refuse (ADR-0164): said here, with the other reasons, before Apply.
-  const [blockedGroups, setBlockedGroups] = useState<readonly BlockedGroup[]>([]);
   const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
   const conditionPreset = useConditionPreset();
   const accessRequest = useScopeAccessRequest();
@@ -110,6 +109,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     setPeriodEditor(previous => ({ ...previous, reference: day(g.from ?? platform.defaultRangeTo), invalidReference: false }));
   }
   const cap = route!.menu.context;
+  // A chosen custom group the query will refuse (ADR-0164): resolved here, where it outlives the folding editor, and said with the other reasons before Apply.
+  const groups = useCustomGroupOptions({ scopeId: g.scopeId, selectedGroupIds: g.condition?.[CUSTOM_GROUP_AXIS] ?? NO_GROUPS, canEditCondition: cap.condition === 'apply' });
   const reasons = missing.map(item => ({ key: item.key, reason: item.key === 'customGroupMembershipBasis' ? m('customGroupCurrentOnly') : queryMissingSentence(lang, item.label) }));
   if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: m('queryScopeRequired') });
   if (applying) reasons.push({ key: 'commit', reason: m('queryApplying') });
@@ -117,7 +118,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   if (periodInputInvalid) reasons.push({ key: 'period-input', reason: m('queryInvalidPeriodInput') });
   if (editError) reasons.push({ key: 'edit', reason: editError });
   for (const issue of extension?.issues ?? []) reasons.push({ key: issue.key, reason: `${issue.label}: ${issue.reason}` });
-  for (const group of blockedGroups) reasons.push({ key: `customGroup:${group.id}`, reason: m('customGroupBlockedNote', { id: group.id, reason: group.reason }) });
+  for (const group of groups.blocked) reasons.push({ key: `customGroup:${group.id}`, reason: m('customGroupBlockedNote', { id: group.id, reason: group.reason }) });
   if (!canApply && !reasons.length) reasons.push({ key: 'validation', reason: m('queryValidationError') });
   const reasonId = `${id}-reasons`;
   const summaryOptions = { lang, axes: equipmentAxes, context: cap, pageSummary: extension?.pageSummary };
@@ -184,7 +185,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
         {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
         {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
-          <TargetPicker global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || blockedGroups.length > 0} reasonId={reasonId} onBlockedGroups={setBlockedGroups} />
+          <TargetPicker global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
           {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
         </div>}
     </div>
@@ -235,6 +236,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   </section>{stableView.portal}</>;
 }
 
+const NO_GROUPS: readonly string[] = [];
 /** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
 const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
 function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string }) {

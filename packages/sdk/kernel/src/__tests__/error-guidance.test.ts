@@ -10,7 +10,8 @@ describe('contract error copy (#304)', () => {
     ['time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'time_domain_unverified', 'timeDomainUnverifiedCause', 'timeDomainUnverifiedAction'],
     ['time_domain_mismatch: TD-A, TD-B', 'time_domain_mismatch', 'timeDomainMismatchCause', 'timeDomainMismatchAction'],
     ['customGroup blocked: gone-9 (not-found)', 'customGroup blocked', 'customGroupBlockedCause', 'customGroupBlockedAction'],
-    ['customGroup expansion blocked: equipment facts could not load (offline)', 'customGroup expansion blocked', 'customGroupFactsCause', 'customGroupFactsAction'],
+    ['customGroup expansion blocked: equipment facts could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction'],
+    ['customGroup expansion blocked: saved groups could not load (offline)', 'customGroup expansion blocked', 'customGroupExpansionCause', 'customGroupExpansionAction'],
   ] as const)('maps %s to cause and action', (message, code, cause, action) => {
     expect(errorGuidance(message)).toEqual({ code, cause, action });
   });
@@ -26,6 +27,12 @@ describe('contract error copy (#304)', () => {
   it('keeps contract vocabulary out of the user-facing dictionary', () => {
     const hits = userFacingEntries().filter(entry => (BANNED.test(entry.ko) || BANNED.test(entry.en)) && !ALLOWED_KEYS.includes(entry.key));
     expect(hits.map(entry => entry.key)).toEqual([]);
+  });
+
+  it('names no single input for a custom-group expansion failure: the saved-group list and the equipment facts both feed it (#2390)', () => {
+    const cause = userFacingEntries().find(entry => entry.key === errorGuidance('customGroup expansion blocked: saved groups could not load (offline)').cause);
+    expect(cause?.ko).not.toContain('설비 기본 정보');
+    expect(cause?.en.toLowerCase()).not.toContain('equipment facts');
   });
 
   it('states the unverified time-domain cause in Korean and English', () => {

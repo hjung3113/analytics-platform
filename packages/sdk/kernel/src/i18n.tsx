@@ -166,8 +166,8 @@ const dict = {
   timeDomainMismatchAction: { ko: '같은 시간 기준의 설비를 고르거나 나눠 조회하세요.', en: 'Choose equipment that share a time reference, or query them separately.' },
   customGroupBlockedCause: { ko: '고른 커스텀 그룹을 쓸 수 없어 조회하지 않았습니다.', en: 'A chosen custom group cannot be used, so no query ran.' },
   customGroupBlockedAction: { ko: '대상에서 그 그룹을 빼거나 다른 그룹을 고르세요.', en: 'Remove that group from the target or pick another group.' },
-  customGroupFactsCause: { ko: '설비 기본 정보를 불러오지 못해 커스텀 그룹을 적용하지 않았습니다.', en: 'Equipment facts could not load, so the custom group was not applied.' },
-  customGroupFactsAction: { ko: '잠시 뒤 다시 시도하세요.', en: 'Try again in a moment.' },
+  customGroupExpansionCause: { ko: '커스텀 그룹을 적용하는 데 필요한 정보를 불러오지 못했습니다.', en: 'The information needed to apply the custom group could not load.' },
+  customGroupExpansionAction: { ko: '잠시 뒤 다시 시도하세요.', en: 'Try again in a moment.' },
   stateUnknown: { ko: '상태를 확인할 수 없습니다', en: 'Status could not be confirmed' },
   stateUnknownBody: { ko: '왜 이런 상태인지 확인하지 못했습니다. 잠시 뒤 다시 시도하세요.', en: 'The cause could not be confirmed. Try again in a moment.' },
   selectScope: { ko: 'Scope를 선택하세요', en: 'Select a scope' },
@@ -334,7 +334,7 @@ const ERROR_GUIDANCE = {
   time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction' },
   // The Kernel's own pre-send block (ADR-0164 decision 8): the ID and code stay in the technical detail.
   'customGroup blocked': { cause: 'customGroupBlockedCause', action: 'customGroupBlockedAction' },
-  'customGroup expansion blocked': { cause: 'customGroupFactsCause', action: 'customGroupFactsAction' },
+  'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction' },
 } as const satisfies Record<string, { cause: Key; action: Key }>;
 
 export type ErrorGuidance = { code: string | null; cause: Key; action: Key };

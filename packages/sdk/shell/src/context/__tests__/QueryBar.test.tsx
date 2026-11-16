@@ -289,14 +289,48 @@ it('keeps customGroup plus asOf in the draft, disables Apply and explains the un
   act(() => draft.apply());
   expect(push).not.toHaveBeenCalled();
 });
-it('explains a chosen custom group that cannot be used in the query notes, with its ID and a short Korean reason (#2390)', async () => {
+it('explains a chosen custom group that cannot be used in the query notes, with its ID and a short Korean reason, and blocks Apply on it alone (#2390)', async () => {
   mount('', {}, true, undefined, createFakeSavedViewStore());
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  act(() => draft.setDraftGlobal({ condition: { customGroup: ['gone-9'] } }));
+  act(() => draft.setDraftGlobal({ roomNames: ['PHOTO'], condition: { customGroup: ['gone-9'] } }));
   expect(await screen.findByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
   expect(screen.queryByText(/not-found/)).toBeNull();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   act(() => draft.setDraftGlobal({ condition: null }));
   await waitFor(() => expect(screen.queryByText(/커스텀 그룹 gone-9/)).toBeNull());
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+});
+it('keeps the blocked-group note and the disabled Apply when the bar folds, starts folded, or the group is removed while folded (#2390)', async () => {
+  localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
+  mount('', {}, true, undefined, createFakeSavedViewStore());
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeTruthy();
+  act(() => draft.setDraftGlobal({ roomNames: ['PHOTO'], condition: { customGroup: ['gone-9'] } }));
+  // Folded from the start: the target picker never mounted, yet the reason is said and Apply stays off.
+  expect(await screen.findByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  expect(screen.getByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  expect(screen.getByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  act(() => draft.setDraftGlobal({ condition: null }));
+  await waitFor(() => expect(screen.queryByText(/커스텀 그룹 gone-9/)).toBeNull());
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+});
+it.each(['reference', 'unsupported'] as const)('lets a carried custom group under %s Condition block nothing and never looks it up (#2390)', async capability => {
+  const carried = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, context: { ...menu.context, condition: capability } })) });
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const store = createFakeSavedViewStore();
+  const list = vi.spyOn(store, 'list');
+  render(<I18nProvider><PlatformProvider registry={carried} savedViews={store} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ roomNames: ['PHOTO'], condition: { customGroup: ['gone-9'] } }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '적용' })).toBeEnabled());
+  expect(screen.queryByText(/커스텀 그룹 gone-9:/)).toBeNull();
+  expect(draft.draft.global.condition).toEqual({ customGroup: ['gone-9'] });
+  expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom-group' }));
 });
 it.each([['reference', true], ['reference', false], ['unsupported', true], ['unsupported', false]] as const)('removes carried asOf owners under %s capability (Condition first: %s) without applying', async (capability, conditionFirst) => {
   const carried = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, context: { ...menu.context, condition: capability, prcGroup: capability } })) });
