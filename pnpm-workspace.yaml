@@ -20,6 +20,11 @@ allowBuilds:
   esbuild: true
 patchedDependencies:
   "@formkit/auto-animate@0.10.0": patches/@formkit__auto-animate@0.10.0.patch
+# @hookform/resolvers 3.9.1 uses zod types but declares no zod dependency; without this the hoisted zod (3.x or 4.x) decides the type check (#2374).
+packageExtensions:
+  "@hookform/resolvers":
+    peerDependencies:
+      zod: "^3.25.0"
 # The feature packages resolve every @tiptap package to 3.23.5 (its lockfile at a8d768b8). The ^3.23.5 ranges of starter-kit's
 # extensions otherwise float to 3.32.0, whose extension-list needs a newer @tiptap/core (#443).
 overrides:
