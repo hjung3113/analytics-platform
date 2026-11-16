@@ -323,10 +323,12 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const groupReadPending = Boolean(projected.condition?.[CUSTOM_GROUP_AXIS]?.length) && scope.status === 'validating';
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
-  const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
-    const outgoing = await expandedMenuContext<T>(inputs, projected, signal);
-    if ('outcome' in outgoing) return outgoing;
-    return checkMenuResponse(spec, outgoing, await adapter.menuQuery({ endpoint: spec.id, context: outgoing, params }, signal));
+  const transport = async (context: MenuQueryContext, params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
+    checkMenuResponse(spec, context, await adapter.menuQuery({ endpoint: spec.id, context, params }, signal));
+  // Without a chosen custom group the adapter is called in the same tick as before; only expansion adds awaits.
+  const send = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
+    if (!projected.condition?.[CUSTOM_GROUP_AXIS]?.length) return transport(projected, params, signal);
+    return expandedMenuContext<T>(inputs, projected, signal).then(outgoing => 'outcome' in outgoing ? outgoing : transport(outgoing, params, signal));
   };
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
   // `detached` (the sidebar `Source`'s `useMenuFetch`): the request is not part of the screen in view, so that screen's Apply/drill gate cannot block it unless the endpoint belongs to this very menu. A screen's own panels (`useMenuQuery`, the module host) keep the gate whatever menu their endpoint is declared under (HW Time's trend panel, #2007).
