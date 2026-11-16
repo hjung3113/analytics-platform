@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useContext, useId, useRef } from 'react';
-import { MoreHorizontal, TriangleAlert } from 'lucide-react';
+import { MoreHorizontal, PanelTopOpen, TriangleAlert } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@ap/ui';
 import { useMessages } from '@ap/kernel';
 import type { WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
@@ -31,6 +31,8 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
   const presets = commands.filter(command => command.kind === 'radio' && command.group !== 'mode');
   const modes = commands.filter(command => command.kind === 'radio' && command.group === 'mode');
   const hidden = commands.filter(command => command.id.startsWith(SHOW_PREFIX));
+  // Minimized panels (#2359): a chip each, named like its `다시 보기` item so the visible text stays in the name.
+  const chips = hidden.filter(command => command.chip);
   const reset = commands.find(command => command.id === RESET_ID);
   const afterClose = useRef<(() => void) | null>(null);
   const current = presets.find(command => command.checked)?.id ?? null;
@@ -69,6 +71,10 @@ export function WorkspaceToolbar({ commands, onShown, label }: { label: string; 
         {hidden.map(command => <DropdownMenuItem key={command.id} onSelect={() => { afterClose.current = () => { onShown(command.id.slice(SHOW_PREFIX.length)); }; command.run(); }}><HiddenItemLabel command={command} /></DropdownMenuItem>)}
       </DropdownMenuContent>
     </DropdownMenu>
+    {chips.map(command => <Button key={command.id} type="button" variant="secondary" size="toolbar" className="max-w-80" data-workspace-minimized={command.id.slice(SHOW_PREFIX.length)}
+      aria-label={m('workspaceShowPanel', { title: command.chip! })} title={command.chip} onClick={() => { command.run(); onShown(command.id.slice(SHOW_PREFIX.length)); }}>
+      <PanelTopOpen className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{command.chip}</span>
+    </Button>)}
     {reset && <Button type="button" variant="ghost" size="toolbar" disabled={reset.disabled} onClick={reset.run}>{reset.label}</Button>}
     {modes.length > 1 && <DropdownMenu>
       <DropdownMenuTrigger asChild>

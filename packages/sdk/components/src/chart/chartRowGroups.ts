@@ -1,5 +1,4 @@
 import type { CustomSeriesOption } from 'echarts/charts';
-import { ROW_LABEL_GUTTER } from './analysisChartGeometry';
 type RenderItem = Exclude<CustomSeriesOption['renderItem'], undefined | string>;
 type RenderParams = Parameters<RenderItem>[0];
 type RenderApi = Parameters<RenderItem>[1];
@@ -12,6 +11,7 @@ export type ChartRowGroups = {
   byCategory: ReadonlyMap<string, { group: string; label?: string }>;
 };
 const LABEL_GAP = 12;
+const ROW_ROOM = 8;
 const LABEL_FONT = 11;
 const GLYPH_WIDTH = 7;
 const WIDE_GLYPH_WIDTH = 12;
@@ -23,8 +23,10 @@ export const groupedRowText = (groups: ChartRowGroups | undefined, category: str
 /** Explicit gutter with no containLabel: vertical band/reveal geometry is unchanged, even with a fixed row pitch. */
 export function rowGroupLayout(groups: ChartRowGroups, categories: readonly string[]) {
   const groupWidth = Math.max(0, ...categories.map(c => textWidth(rowGroup(groups, c)))) + LABEL_GAP;
-  const rowWidth = Math.max(0, ...categories.map(c => textWidth(rowLabel(groups, c)))) + LABEL_GAP;
-  const gutter = Math.max(ROW_LABEL_GUTTER, rowWidth) + groupWidth + LABEL_GAP;
+  // Sized to its own labels (#2356): the plain-row floor (`ROW_LABEL_GUTTER`) left short labels such as `PM1` ~100px from their group.
+  // `ROW_ROOM` covers the axis label margin and the bold active row.
+  const rowWidth = Math.max(0, ...categories.map(c => textWidth(rowLabel(groups, c)))) + LABEL_GAP + ROW_ROOM;
+  const gutter = rowWidth + groupWidth + LABEL_GAP;
   const runs: { group: string; start: number; end: number }[] = [];
   categories.forEach((category, index) => {
     const group = rowGroup(groups, category);

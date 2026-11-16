@@ -9,6 +9,7 @@ import type { ChartRow } from './analysisChartData';
 import { chartDiagnostic } from './analysisChartData';
 import { chartTheme, strokeToken, token } from './EChart';
 import { scatterExtras } from './scatterCategories';
+import { QUIET_SCATTER } from './scatterDensity';
 import type { ChartStatus } from './chartStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
 
@@ -48,7 +49,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
     }
   }
   if (groups.length > 4) chartDiagnostic('more than four scatter groups; overflow uses remainder and repeated symbols');
-  const legend = groups.map((g, i) => ({ label: g.label, color: i > 3 ? 'chart-remainder' as const : g.color ?? fills[i], symbol: shapes[i % 4] }));
+  const legend = groups.map((g, i) => ({ label: g.label, color: i > 3 ? 'chart-remainder' as const : g.color ?? fills[i], symbol: spec.density === 'quiet' ? 'circle' : shapes[i % 4] }));
   const text = (v: number | null, u: string) => v === null ? unknown : `${v} ${u}`;
   const rows: ChartRow[] = points.map(p => ({ key: rowKey('scatter', p.id), label: p.label ?? p.id, value: p.y, drill: spec.onPointClick ? () => spec.onPointClick?.(p.id) : undefined }));
   const tableValues = points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, text(p.x, spec.xUnit), text(p.y, unit)]);
@@ -84,8 +85,9 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
         yAxis: { type: 'value', ...axisRange('y'), name: `${spec.yLabel} (${unit})`, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, showMinLabel: false, showMaxLabel: false }, splitLine: theme.splitLine },
         ...brushOptions(),
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
+          ...(spec.density === 'quiet' ? { symbolSize: QUIET_SCATTER.normalSize } : {}),
           markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
-          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { color: token(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
+          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: token(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
         })),
       };
     },

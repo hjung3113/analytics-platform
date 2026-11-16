@@ -2,11 +2,11 @@
   "group": "hwTime",
   "folder": "hw-time",
   "space": "mars",
-  "menuId": "hw-time-steps",
+  "menuId": "hw-time",
   "page": "HwTime",
-  "path": "/hw-time/steps",
+  "path": "/hw-time",
   "pageType": "analysis",
-  "labelKo": "HW Time 단계별",
-  "labelEn": "HW Time by level",
+  "labelKo": "HW Time",
+  "labelEn": "HW Time",
   "binding": "hwTime"
 }

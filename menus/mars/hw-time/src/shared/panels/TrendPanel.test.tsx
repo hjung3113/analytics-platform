@@ -20,7 +20,7 @@ vi.mock('@ap/components', async importOriginal => {
   return { ...actual, AnalysisChartFrame };
 });
 
-const registry = createRegistry({
+const registry = createRegistry({ 
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],

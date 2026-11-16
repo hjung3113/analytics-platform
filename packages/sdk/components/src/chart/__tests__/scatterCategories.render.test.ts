@@ -84,3 +84,27 @@ it.each([{ categorical: false, matching: false }, { categorical: false, matching
     expect(option.series[0].data[0].itemStyle.color).toBe(token(matching ? 'chart-status-critical' : 'chart-series-1'));
   } finally { chart.dispose(); }
 });
+
+it('renders thin quiet rings without a backing and reveals only the selected status glyph', () => {
+  const projection = scatterData({ kind: 'scatter', density: 'quiet', xUnit: 'x', xLabel: 'Cell', yLabel: 'Value',
+    points: [{ id: 'normal', x: 0, y: 1 }, { id: 'high', x: 1, y: 12, status: { tone: 'danger', label: 'High' } }],
+  }, 'en', 's');
+  const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 400 });
+  try {
+    const option = projection.option([]);
+    const series = option.series as { id?: string }[];
+    expect(series.some(item => item.id?.startsWith('__scatterStatusBacking'))).toBe(false);
+    const outlineIndex = series.findIndex(item => item.id?.startsWith('__scatterStatusOutline'));
+    chart.setOption({ ...option, animation: false });
+    const svg = chart.renderToSVGString();
+    expect(svg).not.toContain('>▲</text>');
+    expect(svg).toContain('fill-opacity="0.45"'); expect(svg).toContain('fill-opacity="0.6"');
+    const ring = svg.match(/<path[^>]*ecmeta_ssr_type="chart"[^>]*>/g)!.find(path => path.includes(`ecmeta_series_index="${outlineIndex}"`))!;
+    expect(ring).toBeDefined();
+    const matrix = ring.match(/matrix\(([^)]+)\)/)![1].split(',').map(Number);
+    const width = Number(ring.match(/stroke-width="([^"]+)"/)![1]);
+    expect(width * Math.sqrt(Math.abs(matrix[0] * matrix[3]))).toBeCloseTo(1);
+    chart.setOption({ ...projection.option([projection.rows[1].key]), animation: false }, { notMerge: true });
+    expect(chart.renderToSVGString()).toContain('>▲</text>');
+  } finally { chart.dispose(); }
+});

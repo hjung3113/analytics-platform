@@ -126,3 +126,21 @@ describe('titles inside a workspace panel', () => {
     expect(screen.getByRole('region', { name: '추세' })).toBeInTheDocument();
   });
 });
+
+describe('chrome inside a panel or a board pane (#1166)', () => {
+  const heatmap = <AnalysisChart chartId="h" title="격자" unit="s" spec={{ kind: 'heatmap', xLabels: ['a'], yLabels: ['b'], cells: [{ x: 'a', y: 'b', value: 1 }] }} />;
+  const regionOf = (name: string) => screen.getByRole('region', { name });
+
+  it.each<[string, true | 'pane']>([['a workspace panel', true], ['a board pane', 'pane']])('AnalysisChart in %s draws no card border or radius and no sunken selection bar; the container owns them', (_name, value) => {
+    render(shell(<InWorkspacePanelProvider value={value}>{heatmap}</InWorkspacePanelProvider>));
+    expect(regionOf('격자')).toHaveClass('border-0', 'rounded-none');
+    expect(screen.getByRole('region', { name: /선택|selection/i })).not.toHaveClass('bg-surface-sunken');
+  });
+
+  it('outside a container the card keeps its border and the sunken selection bar', () => {
+    render(shell(heatmap));
+    expect(regionOf('격자')).toHaveClass('rounded-lg', 'border');
+    expect(regionOf('격자')).not.toHaveClass('border-0');
+    expect(screen.getByRole('region', { name: /선택|selection/i })).toHaveClass('bg-surface-sunken');
+  });
+});
