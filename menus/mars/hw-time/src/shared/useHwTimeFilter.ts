@@ -4,10 +4,11 @@ import { HW_TIME_MODULE_TYPES, type HwTimeModuleType } from '../endpoints';
 import { HW_TIME_MESSAGES } from '../messages';
 
 /**
- * Filter-panel page keys, shared by all linked HW Time panels (#2328, #2329).
- * Names, repetition and hiding follow the page condition layer grammar (#2336 §2.3, advisor decision 8), so the move to the layer
- * declaration (S5, #2341) keeps URLs and saved views unchanged: `module` / `motion` hold the **selected** values, one pair per value;
- * an absent key means every value; `~none` alone means an explicit empty selection.
+ * Filter page keys, shared by all linked HW Time panels (#2328, #2329) and written by the hierarchy checks (#2416).
+ * Names, repetition and hiding follow the page condition layer grammar (#2336 §2.3, advisor decision 8), so a later move to a layer
+ * declaration keeps URLs and saved views unchanged (#2341: no `pageConditions` for now, see backlog):
+ * `module` / `motion` hold the **selected** values, one pair per value; an absent key means every value; `~none` alone means an
+ * explicit empty selection.
  */
 export const HW_TIME_FILTER_KEYS = { moduleType: 'moduleType', module: 'module', motion: 'motion', split: 'split' } as const;
 export const HW_TIME_FILTER_REPEATED_KEYS = [HW_TIME_FILTER_KEYS.module, HW_TIME_FILTER_KEYS.motion] as const;
@@ -25,7 +26,6 @@ const MODULE_IDS: readonly string[] = HW_TIME_MODULE_TYPES.flatMap(type => [...t
 const MOTION_KEYS: readonly string[] = HW_TIME_MODULE_TYPES.flatMap(type => type.motions.map(motion => motionKey(type.id, motion)));
 const TYPE_IDS: readonly string[] = HW_TIME_MODULE_TYPES.map(type => type.id);
 
-export type HwTimeFilterList = 'module' | 'motion';
 export type HwTimeFilter = {
   /** Legacy single-type table projection; charts use selectionFor so step 1 includes every type. */
   moduleType: HwTimeModuleType;
@@ -44,12 +44,6 @@ export type HwTimeFilter = {
   invalid: string[] | null;
   /** Clears exactly the malformed keys in one `setPage`. */
   recover: () => void;
-  /** Switching the first drill level clears deeper drill keys and the picked row/trend. */
-  setModuleType: (typeId: string) => void;
-  toggleModule: (moduleId: string) => void;
-  toggleMotion: (motion: string) => void;
-  /** Sets the checked values of one list for the active type (Motions by name), keeping the other types' selection; for group check-all/none. */
-  setChecked: (list: HwTimeFilterList, values: readonly string[]) => void;
 };
 
 type Parsed = { all: boolean; selected: readonly string[]; malformed: string | null };
@@ -104,16 +98,6 @@ export function useHwTimeFilter(): HwTimeFilter {
   const { modules, motions } = selectionFor(moduleType.id);
   const unusable = [...parsed.module.selected.filter(v => !MODULE_IDS.includes(v)), ...parsed.motion.selected.filter(v => !MOTION_KEYS.includes(v))];
 
-  const write = (list: HwTimeFilterList, next: Set<string>) => {
-    const key = HW_TIME_FILTER_KEYS[list];
-    setPage({ [key]: encodeSelection(list === 'module' ? MODULE_IDS : MOTION_KEYS, next) }, { replace: true });
-  };
-  const toggle = (list: HwTimeFilterList, current: ReadonlySet<string>, value: string) => {
-    const next = new Set(current);
-    if (next.has(value)) next.delete(value); else next.add(value);
-    write(list, next);
-  };
-
   return {
     moduleType, modules, motions, selectionFor,
     empty: (rawType ? [moduleType] : HW_TIME_MODULE_TYPES).every(type => {
@@ -122,10 +106,6 @@ export function useHwTimeFilter(): HwTimeFilter {
     }), split: 'none', unusable,
     invalid: bad.length > 0 ? bad.map(b => invalidValueSentence(lang, 'value', b.label, b.raw)) : null,
     recover: () => setPage(Object.fromEntries(bad.map(b => [b.key, null]))),
-    setModuleType: typeId => {
-      if (!TYPE_IDS.includes(typeId) || typeId === rawType) return;
-      setPage({ [HW_TIME_FILTER_KEYS.moduleType]: typeId, row: null, focus: null, trend: null, drillModule: null, drillMotion: null });
-    },
     setTypeChecked: (typeId, checks) => {
       const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId);
       if (!type) return;
@@ -141,16 +121,6 @@ export function useHwTimeFilter(): HwTimeFilter {
         change.motion = encodeSelection(MOTION_KEYS, next);
       }
       setPage(change, { replace: true });
-    },
-    toggleModule: id => toggle('module', moduleSet, id),
-    toggleMotion: motion => toggle('motion', motionSet, motionKey(moduleType.id, motion)),
-    setChecked: (list, values) => {
-      const current = list === 'module' ? moduleSet : motionSet;
-      const own: readonly string[] = list === 'module' ? moduleType.modules : moduleType.motions.map(motion => motionKey(moduleType.id, motion));
-      const wanted = new Set(list === 'module' ? values : values.map(motion => motionKey(moduleType.id, motion)));
-      const next = new Set([...current].filter(value => !own.includes(value)));
-      for (const value of own) if (wanted.has(value)) next.add(value);
-      write(list, next);
     },
   };
 }
