@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Attempt, DiagnosticItem, DiagnosticList, Presentation, Project, RequestDetail, RoundDetail, RuleResult, ScreenProps, TableParts } from '../contracts';
+import type { Attempt, DiagnosticItem, DiagnosticList, Project, RequestDetail, RoundDetail, RuleResult, ScreenProps } from '../contracts';
 import { RoundScreen } from '../RoundScreen';
+import { fakeUi } from './presentation';
 const project = { id: 'project', model: { code: 'ETCH-300' }, softwareLabel: '3.2.1' } as Project;
 const attempt: Attempt = { id: 'attempt-1', attemptNo: 1, outcome: 'succeeded', verdict: 'incomplete', workerActorId: 'worker-1', manifestMatches: true, counts: { ERROR: 1, NOT_CHECKED: 1, PASS: 1 }, requiredUnchecked: 2, ruleCount: 3, startedAt: '', endedAt: '', ruleSetRevision: null, inputManifestDigest: '' };
 const request = { id: 'request-1', roundId: 'round-1', state: 'succeeded', attempts: [attempt] } as RequestDetail;
@@ -63,10 +64,7 @@ const timingItem: DiagnosticItem = {
 };
 
 function required<T>(value: T | undefined): T { if (value === undefined) throw new Error('Missing synthetic fixture'); return value; }
-function Table<T extends { id: string }>(p: TableParts<T>) {
-  return <><table aria-label={p.title}><thead><tr>{p.columns.map(c => <th key={c.id}>{c.header}</th>)}</tr></thead><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.pagination}</>;
-}
-const ui: Presentation = { page: p => p.children, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null, sourceView: () => <p>합성 원본</p> };
+const ui = fakeUi();
 function setup(options: { state?: Record<string, string>; list?: DiagnosticList; item?: DiagnosticItem | null; attempt?: Attempt | null; denied?: boolean } = {}) {
   const reads: { name: string; params: Record<string, unknown> }[] = [];
   const patches = vi.fn();

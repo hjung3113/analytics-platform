@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { Attempt, Presentation, Project, ReadState, RequestDetail, RoundDetail, RuleResult, ScreenProps, TableParts } from '../contracts';
+import type { Attempt, Presentation, Project, ReadState, RequestDetail, RoundDetail, RuleResult, ScreenProps } from '../contracts';
 import { RoundFrame } from '../RoundScreen';
+import { fakeUi } from './presentation';
 
 const project = { id: 'project', model: { code: 'SYN-300' }, softwareLabel: '3.2.1' } as Project;
 const attempt: Attempt = { id: 'attempt', attemptNo: 2, outcome: 'succeeded', verdict: 'fail', workerActorId: 'actor', manifestMatches: true, counts: { FAIL: 4, NOT_CHECKED: 5, PASS: 21 }, requiredUnchecked: 5, ruleCount: 30, startedAt: '', endedAt: '', ruleSetRevision: null, inputManifestDigest: '' };
@@ -11,10 +12,7 @@ const rule: RuleResult = { id: 'rule-result', ruleId: 'SYN-R001', result: 'FAIL'
 const round: RoundDetail = { id: 'round', projectId: 'project', seq: 3, stage: 'alpha', status: 'open', version: '1', createdAt: '', specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'synthetic', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '1', reasons: [], decisions: { approved: { allowed: false, reasons: ['verdict_not_pass'] }, rejected: { allowed: true, reasons: [] }, exception: { allowed: true, reasons: [] } }, basis: { decisiveAttemptId: 'attempt', decisiveVerdict: 'fail', attempts: [{ attemptId: 'attempt', requestId: 'request', attemptNo: 2, verdict: 'fail' }] } } };
 
 const page = vi.fn<Presentation['page']>(p => <section data-testid="page"><h1>{p.title}</h1>{p.primaryAction ? <button type="button" onClick={p.primaryAction.onSelect}>{p.primaryAction.label}</button> : null}{p.children}</section>);
-function Table<T extends { id: string }>(p: TableParts<T>) {
-  return <div data-testid="table-frame" data-filter-key={p.filterKey}><div data-testid="controls">{p.pageControls}</div><table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.rows.length === 0 ? p.emptyAction : null}{p.pagination}</div>;
-}
-const ui: Presentation = { page, table: Table, drawer: () => null, timeline: () => null, trust: () => null };
+const ui = fakeUi({ page, drawer: () => null, sourceView: undefined });
 function setup() {
   const options = { status: 'done' as ReadState<unknown>['status'], projectStatus: 'done' as ReadState<unknown>['status'], roundStatus: 'done' as ReadState<unknown>['status'], canGate: true, empty: false, denied: false, missing: false, manifestMatches: true, opinionCount: 1, scaleStatus: 'done' as ReadState<unknown>['status'], grades: [{ key: 'review', label: '검토' }] };
   function Host() {

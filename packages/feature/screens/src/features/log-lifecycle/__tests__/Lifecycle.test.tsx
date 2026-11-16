@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render as renderBase, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LifecycleApi, Model, RequestDetail, RuleResult, Presentation, Project, ReadState, RoundDetail, ScreenProps, TableParts } from '../contracts';
+import type { LifecycleApi, Model, RequestDetail, RuleResult, Presentation, Project, ReadState, RoundDetail, ScreenProps } from '../contracts';
 import { StageBadge, StageStepper } from '../presentation';
 import { ModelsScreen } from '../ModelsScreen';
 import { ProjectScreen } from '../ProjectScreen';
@@ -10,12 +10,12 @@ import { RequestsScreen } from '../RequestsScreen';
 import { LifecycleHost } from '../host';
 import type { ReactNode } from 'react';
 import { GatePanel } from '../GatePanel';
+import { fakeUi } from './presentation';
 
 const render = (node: ReactNode) => renderBase(<LifecycleHost navigate={vi.fn()}>{node}</LifecycleHost>);
 const ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const run = vi.fn().mockResolvedValue({ outcome: 'ok', data: {}, fieldErrors: [], version: '2' });
-function Table<T extends { id: string }>(p: TableParts<T>) { return <>{p.pageControls}<table aria-label={p.title}><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}<td>{p.rowAction?.(r)}</td></tr>)}</tbody></table>{p.pagination}</>; }
-const ui: Presentation = { page: p => <>{p.primaryAction ? <button type="button" onClick={p.primaryAction.onSelect}>{p.primaryAction.label}</button> : null}{p.secondaryActions?.map(a => <button type="button" key={a.label} disabled={a.allowed === false} onClick={a.onSelect}>{a.label}</button>)}{p.children}</>, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}<button type="button" onClick={p.requestClose}>상세 닫기</button></section>, timeline: () => <p>변경 이력이 없습니다.</p>, trust: reasons => <p>{reasons.join(' · ')}</p> };
+const ui = fakeUi({ timeline: () => <p>변경 이력이 없습니다.</p>, trust: reasons => <p>{reasons.join(' · ')}</p>, sourceView: undefined });
 function props(data: Record<string, unknown> = {}, state: Partial<ReadState<unknown>> = {}): ScreenProps {
   const api: LifecycleApi = { useRead: <T,>(name: string): ReadState<T> => ({ status: 'done', data: (data[name] ?? null) as T | null, retry: vi.fn(), ...state }) as ReadState<T>, useAction: () => ({ pending: false, run }) };
   return { api, ui, canProject: true, canRound: true, actorId: ID, setSelection: vi.fn() };
