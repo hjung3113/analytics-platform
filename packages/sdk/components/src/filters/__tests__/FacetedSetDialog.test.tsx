@@ -44,7 +44,7 @@ it('keeps only one value through a keyboard-reachable action', async () => {
   const red = screen.getByRole('checkbox', { name: 'red' });
   red.focus();
   await user.tab();
-  expect(screen.getByRole('button', { name: 'red만 남기기' })).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'red만 선택' })).toHaveFocus();
   await user.keyboard('{Enter}');
   expect(red).toBeChecked();
   expect(screen.getByRole('checkbox', { name: 'blue' })).not.toBeChecked();
@@ -121,7 +121,7 @@ it('keeps queried results and ID suggestions until Search while counts and apply
   render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={apply} /></I18nProvider>);
   expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Color 전체' }));
-  fireEvent.click(screen.getByRole('button', { name: 'red만 남기기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'red만 선택' }));
   fireEvent.click(screen.getByRole('button', { name: 'Size 전체' }));
   expect(screen.getByRole('checkbox', { name: 'L' }).parentElement).toHaveTextContent('L0');
   expect(screen.getByText('결과 2')).toBeVisible();
@@ -151,9 +151,9 @@ it('keeps queried results and ID suggestions until Search while counts and apply
 });
 it('clears the stale state when the draft returns to the queried rule without Search', () => {
   render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'blue만 남기기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'blue만 선택' }));
   expect(screen.getByRole('button', { name: '조회' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'red만 남기기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'red만 선택' }));
   expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
   expect(screen.queryByText('조건이 바뀌었습니다 — 조회를 누르세요')).toBeNull();
   expect(screen.getByText('결과 1')).toBeVisible();
@@ -314,7 +314,7 @@ it('accepts arbitrary facet IDs including names from Object.prototype', () => {
   const apply = vi.fn();
   render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={[{ id: 'constructor', label: 'Constructor' }]} items={[{ id: 'one', facets: { constructor: 'x' } }]} value={{ rule: {}, fixed: null }} onApply={apply} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Constructor 전체' }));
-  fireEvent.click(screen.getByRole('button', { name: 'x만 남기기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'x만 선택' }));
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
   expect(apply).toHaveBeenCalledWith({ rule: {}, fixed: null });
 });
@@ -333,4 +333,16 @@ it('shows the caller note and the error reason only when given', () => {
   expect(screen.getByText('Counts use current membership')).toBeVisible();
   rerender(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={[]} value={{ rule: {}, fixed: null }} onApply={vi.fn()} status="error" errorDetail="port missing" /></I18nProvider>);
   expect(screen.getByRole('alert')).toHaveTextContent('port missing');
+});
+
+it('keeps the count column in place and puts the select-only action to its right', async () => {
+  const user = userEvent.setup();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
+  await user.click(screen.getByRole('button', { name: 'Color 전체' }));
+  const row = screen.getByRole('checkbox', { name: 'red' }).closest('.group')!;
+  const count = row.querySelector('.tabular-nums')!;
+  const action = screen.getByRole('button', { name: 'red만 선택' });
+  expect(action).toHaveTextContent('단독 선택');
+  expect(count.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(count).toHaveClass('w-16', 'shrink-0', 'text-right');
 });

@@ -188,7 +188,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
         })}><span aria-hidden>{expanded.has(facet.id) ? '−' : '+'}</span>{facet.label}<span>{Object.hasOwn(rule, facet.id) ? rulePicks(rule, facet.id).length : m('fsAll')}</span></Button>)}
       </div>
       {ready && <div className="flex shrink-0 gap-3 overflow-x-auto">
-        {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-56 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
+        {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-72 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
           <label className="flex items-center gap-2 border-b border-border-subtle pb-2 text-sm">
             <Checkbox aria-label={m('fsAll')} checked={facetCheckedState(rule, facet.id)} onCheckedChange={() => toggleAll(facet.id)} />{m('fsAll')}
           </label>
@@ -197,9 +197,9 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
             return <div key={pick} className={cn('group flex items-center gap-2 py-1 text-sm', amount === 0 && 'text-text-muted')}>
               <label className="flex min-w-0 flex-1 items-center gap-2">
                 <Checkbox aria-label={valueLabel(facet.id, pick)} checked={picked.has(pick)} onCheckedChange={() => changePick(facet.id, pick)} />
-                <span className="flex-1">{valueLabel(facet.id, pick)}</span><span>{formatCount(amount)}</span>
+                <span className="min-w-0 flex-1 truncate">{valueLabel(facet.id, pick)}</span><span className="w-16 shrink-0 text-right tabular-nums">{formatCount(amount)}</span>
               </label>
-              <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"><Button variant="ghost" size="sm" aria-label={m('fsOnlyValue', { value: valueLabel(facet.id, pick) })} onClick={() => onlyPick(facet.id, pick)}>{m('fsOnly')}</Button></span>
+              <span className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"><Button variant="ghost" size="sm" aria-label={m('fsOnlyValue', { value: valueLabel(facet.id, pick) })} onClick={() => onlyPick(facet.id, pick)}>{m('fsOnly')}</Button></span>
             </div>;
           })}
         </div>; })}
