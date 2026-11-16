@@ -1,0 +1,37 @@
+import type { Text } from '@ap/contracts';
+import { PAGE_CONDITION_LIMITS, type PageConditionIssueReason } from '@ap/kernel';
+
+export const PAGE_CONDITION_MESSAGES = {
+  clear: { ko: '지우기', en: 'Clear' },
+  clearOne: { ko: '{label} 지우기', en: 'Clear {label}' },
+  selected: { ko: '{count}개 선택', en: '{count} selected' },
+  explicitEmpty: { ko: '선택한 항목 없음', en: 'No items selected' },
+  unconstrained: { ko: '제약 없음', en: 'No constraint' },
+  unavailable: { ko: '이 화면에서 쓸 수 없는 값: {value}', en: 'Value unavailable on this screen: {value}' },
+  retained: { ko: '현재 값: {value}', en: 'Current value: {value}' },
+  empty: { ko: '선택할 항목 없음', en: 'No items available' },
+  error: { ko: '항목을 불러오지 못했습니다.', en: 'Could not load items.' },
+  retry: { ko: '다시 시도', en: 'Retry' },
+  partial: { ko: '일부 항목만 불러왔습니다.', en: 'Only some items were loaded.' },
+  tree: { ko: '계층 범주는 아직 지원하지 않습니다.', en: 'Tree categories are not supported yet.' },
+  min: { ko: '{label} 최소', en: '{label} minimum' },
+  max: { ko: '{label} 최대', en: '{label} maximum' },
+  from: { ko: '{label} 시작', en: '{label} start' },
+  to: { ko: '{label} 종료', en: '{label} end' },
+  bounds: { ko: '허용 범위: {min} ~ {max}, 간격: {step}', en: 'Allowed range: {min} to {max}, step: {step}' },
+  unbounded: { ko: '제한 없음', en: 'Unbounded' },
+  rangeOrder: { ko: '최소값은 최대값 이하여야 합니다.', en: 'Minimum must not exceed maximum.' },
+  dateFormat: { ko: 'YYYY-MM-DDTHH:mm:ss 형식의 시간대 없는 시각', en: 'Wall-clock time in YYYY-MM-DDTHH:mm:ss format' },
+} satisfies Record<string, Text>;
+
+export const PAGE_CONDITION_ISSUE_MESSAGES = {
+  'too-long': { ko: `페이지 조건은 인코딩 후 ${PAGE_CONDITION_LIMITS.encodedLength}자를 넘을 수 없습니다.`, en: `Encoded page conditions must not exceed ${PAGE_CONDITION_LIMITS.encodedLength} characters.` },
+  'too-many-values': { ko: `한 범주에서 최대 ${PAGE_CONDITION_LIMITS.valuesPerCategory}개까지 선택할 수 있습니다.`, en: `Select at most ${PAGE_CONDITION_LIMITS.valuesPerCategory} values per category.` },
+  'repeated-single-key': { ko: '이 범주는 값을 하나만 받습니다.', en: 'This category accepts only one value.' },
+  'invalid-empty-selection': { ko: '빈 선택값을 다른 값과 함께 쓸 수 없습니다.', en: 'An empty selection cannot be combined with other values.' },
+  'invalid-range': { ko: '유효한 숫자 범위를 입력하세요.', en: 'Enter a valid numeric range.' },
+  'invalid-date': { ko: '유효한 YYYY-MM-DDTHH:mm:ss 시각을 입력하세요.', en: 'Enter a valid YYYY-MM-DDTHH:mm:ss time.' },
+  'invalid-value': { ko: '유효한 값을 입력하세요.', en: 'Enter a valid value.' },
+  'reversed-date': { ko: '시작은 종료보다 빨라야 합니다.', en: 'Start must be earlier than end.' },
+  'undeclared-key': { ko: '선언되지 않은 페이지 조건 키입니다.', en: 'Undeclared page condition key.' },
+} satisfies Record<PageConditionIssueReason, Text>;

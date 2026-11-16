@@ -611,3 +611,33 @@ it('acknowledges Apply with hidden page keys once and preserves edits made after
     expect.objectContaining({ count: 1, query: period + '&filter=hidden&page=2' }),
   );
 });
+
+it('rejects malformed declared page conditions before an applied query runs (#2337)', async () => {
+  const conditional = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...menu, pageConditions: { categories: [{ id: 'interval', label: menu.label, kind: { type: 'range', key: 'filter' } }] } }] });
+  const { send } = mount('/' + period + '&filter=5..2', conditional);
+  await settleQueries();
+  expect(query.status).toBe('idle');
+  expect(send).not.toHaveBeenCalled();
+  expect(draft.canApply).toBe(false);
+  expect(() => act(() => draft.setDraftPage({ filter: 'x..2' }))).toThrow(/invalid-range/);
+});
+
+it('rejects malformed declared page conditions in live mode too, and still runs valid ones (#2337)', async () => {
+  const live = () => {
+    const { query: _applyOnly, ...liveMenu } = menu;
+    return createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...liveMenu, pageConditions: { categories: [{ id: 'interval', label: menu.label, kind: { type: 'range', key: 'filter' } }] } }] });
+  };
+  const bad = mount(`/${period}&filter=5..2`, live());
+  await settleQueries();
+  expect(query.status).toBe('idle');
+  expect(bad.send).not.toHaveBeenCalled();
+});
+
+it('still runs a live menu whose declared page condition is well formed (#2337)', async () => {
+  const { query: _applyOnly, ...liveMenu } = menu;
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...liveMenu, pageConditions: { categories: [{ id: 'interval', label: menu.label, kind: { type: 'range', key: 'filter' } }] } }] });
+  const { send } = mount(`/${period}&filter=2..5`, registry);
+  await settleQueries();
+  expect(query.status).not.toBe('idle');
+  expect(send).toHaveBeenCalled();
+});

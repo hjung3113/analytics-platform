@@ -24,3 +24,14 @@ export function focusTabSoon(root: () => HTMLElement | null | undefined, panelId
   };
   setTimeout(attempt, 0);
 }
+
+/** Focuses the element `find` returns once it is rendered and visible, retrying for about 300 ms like `focusTabSoon` (a chip appears after the layout change). */
+export function focusSoon(find: () => HTMLElement | null | undefined): void {
+  let tries = 0;
+  const attempt = () => {
+    const element = find();
+    if (element?.isConnected && !element.closest('[inert], [hidden]')) { programmaticFocus(() => { element.focus(); }); return; }
+    if (++tries < 10) setTimeout(attempt, 30);
+  };
+  setTimeout(attempt, 0);
+}

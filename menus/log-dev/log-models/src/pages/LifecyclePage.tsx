@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from 'react';
-import { EmbeddedPane, AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage } from '@ap/components';
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, type SyntheticEvent } from 'react';
+import { EmbeddedPane, AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage, HeaderOverflowItem } from '@ap/components';
 import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
 import { defineEndpoint, type AuditEvent, type EndpointSpec, isAnswered } from '@ap/contracts';
 import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
@@ -7,6 +7,7 @@ import { roundSourceView } from '../round-source-slot';
 import { actions, endpoints, isUuid, isDiagnosticSelection, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
 import { lifecycleMessages } from '../messages';
+import { Button } from '@ap/ui';
 
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
 const lookupEndpoints: Record<string, EndpointSpec<Params, unknown>> = Object.fromEntries(['vendors', 'processes'].map(name => [name, defineEndpoint<Params, unknown>({ id: `logKnowledge.${name}`, menuId: 'log-knowledge-catalog', permission: 'platform:view', requiresScope: false, context: {}, kinds: [], mergeTimeDomain: false, paramKeys: { q: true, page: true, pageSize: true, sorting: true, filters: true } })]));
@@ -43,8 +44,8 @@ function useAction(name: string): Action {
   return useMenuAction(spec);
 }
 const api: LifecycleApi = { useRead, useAction };
-function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true, embedded = false }: TableParts<T>) {
-  const table = <div className="grid min-w-0 shrink-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
+function MetadataTable<T extends { id: string }>({ rows, title, columns, rowAction, activeRowId, pagination, summary, fill, preferenceKey, hideTitle = true, embedded = false, pageControls, emptyAction, filterKey }: TableParts<T>) {
+  const table = <div className="grid min-w-0 shrink-0 grid-cols-1"><PlatformDataTable title={title} hideTitle={hideTitle} pageControls={pageControls} emptyAction={emptyAction} filterKey={filterKey} ariaLabel={title} getRowId={r => r.id} columns={columns} rows={rows} preferenceKey={preferenceKey} rowAction={rowAction} activeRowId={activeRowId} fill={fill} externalPagination={{ summary: summary ?? `${rows.length}건`, controls: pagination }} /></div>;
   return embedded ? <EmbeddedPane>{table}</EmbeddedPane> : table;
 }
 const eventLabels: Record<string, string> = { created: '개발 건 등록', stage_changed: '개발 단계', owner_changed: '담당', target_changed: '목표일·SW', cancelled: '취소', reopened: '재개', gate_decided: 'Gate 결정' };
@@ -58,7 +59,40 @@ function timeline(events: ProjectEvent[], projectId: string) {
   const mapped: AuditEvent[] = events.map(e => ({ id: e.id, at: e.at, actor: e.actor.displayName || '이름 확인 불가', action: e.kind === 'created' ? 'create' : 'update', source: 'user', target: { type: 'log_project', id: projectId, scopeId: null }, reason: e.reason ?? undefined, changes: { [eventLabels[e.kind] ?? e.kind]: [snapshot(e.before), snapshot(e.after)] } }));
   return <AuditTimeline events={mapped} />;
 }
+/** The screen declares its head; the native host owns SDK composition and links. */
+const ReplacedScreen = createContext(false);
+function LifecycleFrame({ parts }: { parts: Parameters<Presentation['page']>[0] }) {
+  const { linkTo } = usePlatform();
+  const frame = useRef<HTMLDivElement>(null);
+  // A session/revision change replaces the screen and drops focus to the document. Only then does the new heading take it
+  // back (the initial load leaves focus where the route's own arrival put it). The move is programmatic, so the tooltip must
+  // not open from it: a pointer press marker keeps Radix from treating the focus as a hover/keyboard intent, and the ring
+  // follows the browser's :focus-visible heuristic (keyboard use), never a forced style.
+  const replaced = useContext(ReplacedScreen);
+  useLayoutEffect(() => {
+    if (!replaced || document.activeElement !== document.body) return;
+    const heading = frame.current?.querySelector('h1');
+    if (!heading) return;
+    heading.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    try { heading.focus({ preventScroll: true }); }
+    finally { document.dispatchEvent(new Event('pointerup')); }
+  }, [replaced]);
+  const rememberOverflow = (event: SyntheticEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const trigger = target.closest<HTMLElement>('header button[aria-haspopup="dialog"]');
+    if (trigger && parts.actionReturnFocusRef) parts.actionReturnFocusRef.current = trigger;
+  };
+  return <div ref={frame} className="contents" onFocusCapture={rememberOverflow} onClickCapture={rememberOverflow}><PlatformPage title={parts.title} layout={parts.layout}
+    crumbs={parts.crumbs?.map(crumb => ({ label: crumb.label, href: linkTo('log-model-project', { params: { projectId: crumb.projectId }, returnTo: true }) }))}
+    primaryAction={parts.primaryAction ? <Button variant="primary" size="toolbar" disabled={parts.primaryAction.allowed === false} title={parts.primaryAction.allowed === false ? parts.primaryAction.reason : undefined} onClick={event => { if (parts.actionReturnFocusRef) parts.actionReturnFocusRef.current = event.currentTarget; parts.primaryAction?.onSelect(); }}>{parts.primaryAction.label}</Button> : undefined}
+    secondaryActions={parts.secondaryActions?.length ? parts.secondaryActions.map(action => <HeaderOverflowItem key={action.label} {...action} />) : undefined}
+    dataTrustSummary={parts.trust ? ui.trust(parts.trust.reasons, parts.trust.completedAt) : undefined}>
+    {parts.children}
+  </PlatformPage></div>;
+}
 const ui: Presentation = {
+  page: parts => <LifecycleFrame parts={parts} />,
   // The app injects the body (round-source-slot.ts); read at render so a late `setRoundSourceView` is seen. A fixed height with a readable minimum gives the body's table its flex budget; the page itself scrolls when the viewport is short.
   get sourceView() {
     const View = roundSourceView();
@@ -82,6 +116,9 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     else if (url.pathname === '/log/models') navigate(linkTo('log-models'));
     else if (url.pathname === '/log/validation-requests') navigate(linkTo('log-validation-requests', { page: Object.fromEntries(url.searchParams) }));
   }, [navigate, linkTo, params.projectId, pageParam]);
+  // The first session/revision this page instance saw; a later one means the screen was replaced under the user.
+  const firstSession = useRef(`${user.id}:${revision}`);
+  const replaced = firstSession.current !== `${user.id}:${revision}`;
   const props = useMemo<ScreenProps>(() => ({ api, ui, state: Object.fromEntries(page), setState: patch => setPage(Object.fromEntries(Object.entries(patch).map(([k,v]) => [k, v ?? null]))), actorId: user.id, canProject: can(PROJECT_MANAGE), canRound: can(ROUND_MANAGE), canGate: can(GATE_DECIDE), canContribute: can(ISSUE_CONTRIBUTE), canLink: can(ISSUE_LINK), selection: pageParam('request') ?? undefined, setSelection: id => setPage({ request: id ?? null }),
     // The RuleSet history of the validation rules menu (#1496); a registry without that menu shows the name without a link.
     RuleSetLink: ({ ruleSetKey, children }) => { let href: string | null = null; try { href = linkTo('log-rules', { page: { ruleSetKey } }); } catch { href = null; } return href ? <PlatformLink className="min-w-0 truncate text-accent-primary hover:underline" href={href}>{children}</PlatformLink> : children; } }), [page, user.id, can, pageParam, setPage, linkTo]);
@@ -111,7 +148,7 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}:00+09:00`)) })),
   ]);
   const invalid = (projectId && !isUuid(projectId)) || (roundId && !isUuid(roundId)) || (selection && !isUuid(selection));
-  return <PlatformPage layout={roundId && pageParam('view') === 'diagnostics' ? 'fill' : 'flow'}><LifecycleHost navigate={navigateScreen}><div key={`${user.id}:${revision}`} className={roundId && pageParam('view') === 'diagnostics' ? 'flex min-w-0 flex-1 flex-col' : 'min-w-0'}>
-    {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : invalid ? <p role="alert" className="text-sm">주소의 ID가 올바르지 않습니다.</p> : projectId ? <ProjectScreen key={projectId} {...props} projectId={projectId} {...(roundId ? { roundId } : {})} /> : platform.route?.menu.id === 'log-validation-requests' ? <RequestsScreen {...props} /> : <ModelsScreen {...props} />}
-  </div></LifecycleHost></PlatformPage>;
+  return <LifecycleHost navigate={navigateScreen}><ReplacedScreen.Provider value={replaced}><div key={`${user.id}:${revision}`} className="contents">
+    {keys.invalid ? ui.page({ title: platform.route?.menu.label.ko ?? lifecycleMessages.pageFallback.ko, children: <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> }) : invalid ? ui.page({ title: lifecycleMessages.pageFallback.ko, children: <p role="alert" className="text-sm">{lifecycleMessages.invalidId.ko}</p> }) : projectId ? <ProjectScreen key={projectId} {...props} projectId={projectId} {...(roundId ? { roundId } : {})} /> : platform.route?.menu.id === 'log-validation-requests' ? <RequestsScreen {...props} /> : <ModelsScreen {...props} />}
+  </div></ReplacedScreen.Provider></LifecycleHost>;
 }

@@ -148,6 +148,17 @@ describe('filter line (#1217b)', () => {
     await waitFor(() => expect(document.activeElement).toBe(view.container.querySelector('[data-filter-add]')));
   });
 
+  it('the table line keeps its default shape: the shared 「필터」 group name, no scope marker, markup pinned (#2334)', async () => {
+    const view = render(<Harness loadPage={makeLoad()} />);
+    await ready();
+    const line = view.container.querySelector('[data-filter-line]') as HTMLElement;
+    expect(line.getAttribute('role')).toBe('group');
+    expect(line.getAttribute('aria-label')).toBe('필터');
+    expect(line.querySelector('[data-filter-scope]')).toBeNull();
+    // Snapshot taken against the base filter line (before the public FilterLine) so the table output stays unchanged.
+    expect(line.outerHTML.replace(/radix-[^"]+/g, 'radix-id')).toMatchSnapshot();
+  });
+
   it('a table without a filterable field has no filter line and no funnel', async () => {
     const view = render(<Harness columns={[{ id: 'name', header: '이름' }]} loadPage={makeLoad()} />);
     await ready();

@@ -94,7 +94,7 @@
     "color": "aFill"
    },
    "emphasis": {
-    "focus": "series"
+    "focus": "none"
    },
    "data": [
     {
@@ -168,7 +168,7 @@
     "color": "bFill"
    },
    "emphasis": {
-    "focus": "series"
+    "focus": "none"
    },
    "data": [
     100,

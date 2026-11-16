@@ -31,6 +31,8 @@ export const GROUPED_SELECTION_MESSAGES: Readonly<Record<'ko' | 'en', GroupedSel
     selectedCount: count => `${count} selected`, selectedItem: label => `Selected: ${label}` },
 };
 type GroupedSelectionCommonProps = {
+  /** Set false when an owning form shows selection counts without live toggle announcements. */
+  announceSelection?: boolean;
   groups: readonly GroupedSelectionGroup[];
   searchPlaceholder?: string;
   'aria-label': string;
@@ -59,7 +61,7 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
     props.onChange([...next]);
   }
   const header = <div className="sticky top-0 z-10 space-y-2 bg-surface-card pb-3">
-    <p className="text-xs text-text-secondary" role="status">{props.mode === 'multiple'
+    <p className="text-xs text-text-secondary" role={props.announceSelection === false ? undefined : 'status'}>{props.mode === 'multiple'
       ? copy.selectedCount(props.value.length)
       : props.value ? copy.selectedItem(allItems.find(item => item.id === props.value)?.label ?? copy.none) : copy.none}</p>
     <SearchInput size="toolbar" value={search} onValueChange={setSearch} placeholder={props.searchPlaceholder ?? copy.search} aria-label={props.searchPlaceholder ?? copy.search} clearLabel={copy.clearSearch} />

@@ -705,8 +705,9 @@
   },
   {
     "id": "hwTime.exportRows",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "drillModule",
       "drillMotion",
       "ids",
@@ -732,8 +733,75 @@
   },
   {
     "id": "hwTime.levelRows",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
+      "drillModule",
+      "drillMotion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.matrix",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.motionStats",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
+      "drillModule"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.runs",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
       "drillModule",
       "drillMotion"
     ],
@@ -754,8 +822,9 @@
   },
   {
     "id": "hwTime.tableRows",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "drillModule",
       "drillMotion",
       "page",
@@ -779,8 +848,9 @@
   },
   {
     "id": "hwTime.trend",
-    "menuId": "hw-time-steps",
+    "menuId": "hw-time",
     "paramKeys": [
+      "moduleType",
       "rowIds"
     ],
     "permission": "analytics:view",

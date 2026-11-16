@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { Maximize2, Minimize2, MoreHorizontal } from 'lucide-react';
+import { Maximize2, Minimize2, Minus, MoreHorizontal } from 'lucide-react';
 import { useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
@@ -9,9 +9,9 @@ const ICON = 'size-7';
 
 /**
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
- * group's active panel. `hide` is absent for the primary panel.
+ * group's active panel. `hide` is absent for the primary panel; `onMinimize` (#2359) adds a visible minimize button before maximize.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onMinimize }: {
   title: string;
   /** A panel's title, naming each move target by its active panel. */
   titleOf: (panelId: string) => string;
@@ -25,12 +25,18 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   /** Stack mode only, and absent when the panel already is alone in the last row. */
   onMoveBelow?: () => void;
   onHide?: () => void;
+  /** The active panel opted into `minimize` and is not primary. */
+  onMinimize?: () => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const maximized = menu.maximized;
   const toggle = maximized ? m('workspaceRestore') : m('workspaceMaximize', { title });
   const actions = m('workspaceActions', { title });
+  const minimize = m('workspaceMinimize', { title });
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
+    {onMinimize && !maximized && <Button type="button" variant="ghost" size="icon-sm" className={ICON} data-workspace-minimize aria-label={minimize} title={minimize} onClick={onMinimize}>
+      <Minus className="size-3.5" aria-hidden />
+    </Button>}
     <Button type="button" variant="ghost" size="icon-sm" className={ICON} data-workspace-maximize aria-label={toggle} title={toggle} onClick={() => { onMaximize(!maximized); }}>
       {maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
     </Button>

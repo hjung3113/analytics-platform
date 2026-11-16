@@ -1,22 +1,22 @@
 import { IMPROVEMENT_ITEMS_MESSAGES } from '../messages';
 import { useI18n, PlatformLink, useMenuFetch, usePlatform } from '@ap/kernel';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { encodeFilterParam, type ColumnFilterSpec, type Pair } from '@ap/contracts';
 import { ManagementLayout, PageKeyWarning, PlatformDataTable, PlatformPage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField, type TableUrlState } from '@ap/components';
-import { Button, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
+import { Button, InfoTip, Input, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger, useImeEnterGuard } from '@ap/ui';
 import { MANAGE_PERMISSION, SORT_IDS, filterSpecs, itemsEndpoint, type ItemRow, type Origin } from '../endpoints';
 import { filtersForView, formatTarget, type View } from '../model';
 import { parseOriginPage, snapshotOrigin } from '../origin';
 import { useCopy } from '../copy';
 import { CreateDrawer } from './CreateDrawer';
-import { Field, ItemStatus } from './parts';
+import { ItemStatus } from './parts';
 import { QuestReference } from './QuestReference';
 function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () => void }) {
   const { tx } = useI18n();
   const c = useCopy(), { setPage, linkTo, registry, canOpen } = usePlatform();
   const origins = useMemo(() => registry.menus.filter(menu => canOpen(menu.id)).map(menu => ({ value: menu.id, label: tx(menu.label) })), [registry, canOpen, tx]);
-  const uid = useId();
+  const ime = useImeEnterGuard();
   const pages = useMenuFetch(itemsEndpoint);
   const [draft, setDraft] = useState({ applied: q, value: q });
   if (draft.applied !== q) setDraft({ applied: q, value: q });
@@ -60,12 +60,19 @@ function ItemTable({ q, view, onClear }: { q: string; view: View; onClear: () =>
   ], [c, linkTo, specs]);
   const fields = useMemo<TableFilterField[]>(() => [{ id: 'questLinked', label: IMPROVEMENT_ITEMS_MESSAGES.improvementItemsQuestLink, spec: specs.questLinked!, pinned: 3 }, { id: 'origin', label: IMPROVEMENT_ITEMS_MESSAGES.improvementItemsAnalysisSource, spec: specs.origin! }], [specs]);
   if (invalid) return <TableUrlWarning search={search} sentences={sentences} recoverKeys={recoverKeys} cause={cause} />;
+  // Quest ID entry sits in the table toolbar (#2306): a visible «Quest ID» prefix, the full accessible name kept.
+  const questControls = <div className="flex min-w-0 items-center gap-2">
+    <span aria-hidden className="shrink-0 text-xs text-text-secondary">{c.questIdPrefix}</span>
+    <Input inputSize="toolbar" aria-label={c.questIdEntry} className="w-40 min-w-0" maxLength={200} value={questDraft.value} onChange={e => setQuestDraft(d => ({ ...d, value: e.target.value }))}
+      onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={event => {
+        if (event.key !== 'Enter' || event.defaultPrevented || ime.isComposingEnter(event)) return;
+        event.preventDefault();
+        applyQuest();
+      }} />
+    <Button type="button" variant="secondary" size="toolbar" onClick={applyQuest}>{c.apply}</Button>
+  </div>;
   return <div className="improvement-items-table space-y-2">
-    <div className="flex items-end gap-2">
-      <Field id={`${uid}-quest`} label={c.questIdEntry}><Input id={`${uid}-quest`} maxLength={200} value={questDraft.value} onChange={e => setQuestDraft(d => ({ ...d, value: e.target.value }))} /></Field>
-      <Button type="button" variant="secondary" size="sm" onClick={applyQuest}>{c.apply}</Button>
-    </div>
-    <PlatformDataTable<ItemRow> title={c.title} ariaLabel={c.title} columns={columns} getRowId={r => r.id} preferenceKey="improvement-items:v1" pageSize={25} filterKey={q} urlState={urlState} search={search} filterFields={fields} loadPage={(query, signal) => pages.fetch({ ...query, q: q || null }, signal)} emptyAction={<Button variant="secondary" size="sm" onClick={onClear}>{c.clear}</Button>} />
+    <PlatformDataTable<ItemRow> title={c.title} ariaLabel={c.title} columns={columns} getRowId={r => r.id} preferenceKey="improvement-items:v1" pageSize={25} filterKey={q} urlState={urlState} search={search} pageControls={questControls} filterFields={fields} loadPage={(query, signal) => pages.fetch({ ...query, q: q || null }, signal)} emptyAction={<Button variant="secondary" size="sm" onClick={onClear}>{c.clear}</Button>} />
   </div>;
 }
 export default function ImprovementItems() {
@@ -107,8 +114,8 @@ export default function ImprovementItems() {
     {creating && source && (!validSource || !sourcePage) && <PageKeyWarning sentences={[c.invalidOrigin]} onRecover={() => setPage({ origin: null, originPage: null })} />}
     {creating && canWrite && (!source || (validSource && sourcePage)) && <CreateDrawer origin={origin} onClose={closeCreate} />}
     <Tabs value={validView ? view : 'all'} onValueChange={value => chooseView(value as View)}>
-      <TabsList><TabsTrigger value="mine">{c.mine}</TabsTrigger><TabsTrigger value="all">{c.all}</TabsTrigger><TabsTrigger value="unlinked">{c.unlinked}</TabsTrigger></TabsList>
-      {view === 'mine' && <p className="py-3 text-xs text-text-secondary">{c.mineHint}</p>}
+      {/* The «mine» preset explanation is static (the active conditions stay visible on the table's filter line), so it sits behind ⓘ at the tab row end (#2306). */}
+      <div className="flex items-center gap-1"><TabsList><TabsTrigger value="mine">{c.mine}</TabsTrigger><TabsTrigger value="all">{c.all}</TabsTrigger><TabsTrigger value="unlinked">{c.unlinked}</TabsTrigger></TabsList>{view === 'mine' && <InfoTip label={c.mineHintLabel}>{c.mineHint}</InfoTip>}</div>
       <TabsContent value={validView ? view : 'all'}>{!needsPreset && <ManagementLayout table={<ItemTable q={q} view={validView ? (view as View) : 'all'} onClear={clear} />} />}</TabsContent>
     </Tabs>
   </PlatformPage>;

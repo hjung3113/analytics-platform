@@ -749,6 +749,24 @@ test.describe('표 고급 기능 (#556)', () => {
     await expect.poll(() => headers.evaluateAll(els => els.map(el => el.getAttribute('data-column')))).toEqual(declared);
   });
 
+  // #2310: a titled table with quick search is one band when it fits (1600) and keeps its two bands when it does not (1280).
+  test('제목·검색이 있는 표는 넓으면 툴바 한 줄, 좁으면 결과 줄이 아래로 내려간다', async ({ page }, testInfo) => {
+    const separateResultLine = () => page.locator('section:has([data-table-lead]) > [data-table-status-line]');
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
+    const toolbar = page.locator('[data-table-toolbar]').first();
+    await expect(page.locator('[role="row"][data-row-id]').first()).toBeVisible();
+    await expect(toolbar.locator('[data-table-status-line]')).toContainText(/\d+건/);
+    await expect(separateResultLine()).toHaveCount(0);
+    await expect(toolbar.getByRole('heading', { name: '설비 목록' })).toBeVisible();
+    await expect(toolbar.locator('[data-filter-line]')).toBeVisible();
+    await evidence(page, testInfo, 'toolbar-one-band-1600');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(separateResultLine()).toHaveCount(1);
+    await expect(separateResultLine()).toContainText(/\d+건/);
+    await evidence(page, testInfo, 'toolbar-two-bands-1280');
+  });
+
   // #556b (ADR-0104): a header column filter narrows the server result; the chip shows it and removing it restores the total.
   test('라인 열 필터를 적용하면 건수가 줄고 칩이 보이며, 칩을 지우면 되돌아온다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });

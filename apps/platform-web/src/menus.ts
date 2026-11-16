@@ -178,7 +178,9 @@ export function placeGlobalGroups(menus: readonly MenuEntry[]): MenuEntry[] {
 function fail(message: string): never { throw new Error(message); }
 
 /** Page keys that follow the user between member menus (ADR-0081 decision 4 as replaced by #1099b). `features`: the feature list scope `managedSystem` and the way back `returnTo`; each operator and feature-admin menu joins with `carrySet`. */
-const CARRY_SETS: readonly CarrySetDef[] = [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }];
+const CARRY_SETS: readonly CarrySetDef[] = [
+  { id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] },
+];
 
 /** Roots the app's own screens and feature serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
 const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];

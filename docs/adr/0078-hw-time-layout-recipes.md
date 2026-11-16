@@ -1,43 +1,33 @@
-# HW Time 레이아웃 레시피 4종: 한 데이터, 네 가지 레이아웃 선언
+# HW Time: 연결 패널로 이루어진 한 분석 화면
 
-상태: **Decided (2026-10-24)**
-- 결정자: 사용자(2026-10-24) — #690 0단계 시안 캡처를 비교한 뒤 "메뉴 4개, 레이아웃만 다르게"를 골랐다.
-- Scope: [#690](https://github.com/hjung3113/analytics-platform/issues/690) 1단계(관련 [#586](https://github.com/hjung3113/analytics-platform/issues/586)·[#580](https://github.com/hjung3113/analytics-platform/issues/580)). 관련: [ADR-0025](0025-drilldown-level-page-keys-path-bar-layout.md)(드릴 레이아웃), [ADR-0067](0067-dockview-layout-engine-board-v2.md)(작업 영역), [ADR-0077](0077-workspace-stack-mode-rows-keep-own-height.md)(쌓기 모드). **06 §12.7을 아래 범위에서 고친다.**
+상태: **Decided (2026-11-16)**
+- 결정자: 사용자 — #2350 캡처 검토 후 한 화면에서 분석하도록 결정.
+- Scope: #2328·#2329, [작업 영역 계약](../contract/layout.md#128-panelworkspace-decided-adr-0067-결정-391822), [ADR-0067](0067-dockview-layout-engine-board-v2.md).
 
 ## 맥락
 
-HW Time은 "기존 레거시 기능을 플랫폼과 SDK 위에서 다시 만든" 사례의 견본이다. #690 0단계 시안은 네 가지 레이아웃을 같은 데이터로 비교했고, 실제 앱 캡처는 #690의 2026-10-24 코멘트에 링크된 아티팩트에 있다. 드릴(설비 → Module → Motion)을 어떤 레이아웃으로 보일지는 메뉴마다 다르게 선언할 수 있어야 SDK가 범용 조각이 된다.
+설비·Module·Motion을 분석하면서 View와 분포·추세 탭을 바꾸면 앞서 본 결과와 비교하기 어렵다. 소유자는 한 화면에 필요한 패널을 남기고, 선택한 항목이 연결된 패널의 결과를 바꾸는 방식을 선택했다.
 
 ## 결정
 
-새 그룹 `동작시간분석`(MARS 공간) 아래 메뉴 4개를 한 데이터 층 위에 두고, 레이아웃 선언만 다르게 한다.
+메뉴 `hw-time`은 `PanelWorkspace` 하나를 렌더한다. 표시 조건, 설비 × Module 히트맵, Motion 누적 막대, Motion 표, 회차 분포, 일별 평균 추세, 원시 표의 일곱 패널을 각각 독립 그룹에 둔다. 기본 패널은 막대다. 숨기기·다시 열기·재배치·최대화와 배치 저장은 SDK 명령과 `persistKey`를 따른다.
 
-- **`HW Time 단계별`:** `DrillLayout` + `summary` 슬롯 + `AnalysisLayout`(상세가 hero, 접히는 추이 섹션) + Inspector `stack`. 오늘의 §12.7 드릴 그대로다.
-- **`HW Time 비교`:** 단계별 `PanelWorkspace` 프리셋. 3단계에서 맥락 | 상세를 나란히 놓고 행 포커스를 공유하며 Inspector `rail`을 쓴다.
-- **`HW Time 개요`:** `PanelWorkspace initialMode="stack"`, 패널 배지가 붙은 개요.
-- **`HW Time 표`:** `PlatformDataTable` + `DetailDrawer`.
+히트맵 셀을 누르면 `row`가 바뀌고 막대가 그 행을 강조하며 스크롤한다. 막대 선택은 `drillModule`로 Motion 표를 채우고, Motion 선택은 `drillMotion`으로 분포와 추세를 채운다. 링크를 복사하면 이 상태를 복원한다. Context 변경은 선언된 `contextResetKeys`로 드릴을 지운다. Module 선택을 해제하면 Motion 선택도 지운다. 드릴 패널이 사용자가 묶은 그룹의 배경 탭이면 SDK `revealRequest`로 앞으로 가져오며 포커스는 옮기지 않는다.
 
-06 §12.7에는 "현재 단계 본문의 일부로 메뉴가 선언한 부모 맥락 패널은 허용한다"는 문단과 `summary` 슬롯 문장을 더한다. SDK는 앞 단계 본문을 자동으로 남기지 않는다.
+`align=1`은 Inspector 레일의 「옵션」 체크박스로 설정한다. 생략하면 누적이다. 막대가 사용하지 않는 정렬·min/max 옵션을 만들지 않는다. 원시 표는 전체 행의 페이징·내보내기를 유지하며, 연결 드릴에 따라 다시 조회하지 않는다. 표 안의 진입 명령도 연결된 Motion 표를 갱신한다.
 
-## Considered Options
+분포와 추세는 각각 독립된 「이 패널만」 조건과 로컬 설정을 가진다. 체크 변경은 받은 결과의 표시만 바꾸며 조회하지 않는다. 서버가 준 판정만 표시하고, 차트는 기준 밖 상태만 강조한다. 분포는 SDK `density: 'quiet'`를 사용한다.
 
-- **기본 레시피 하나만(시안 아티팩트의 추천 A):** 메뉴를 하나로 줄이는 안. HW Time은 기존 기능을 이 플랫폼과 SDK로 옮길 수 있음을 보이는 견본이라 여러 배치를 다양하게 보여 주어야 한다는 이유로 사용자가 채택하지 않았다.
-- **단계만 드릴(§12.7 그대로):** 부모 맥락을 옆에 둘 수 없어 Motion을 Module 전체와 비교하기 어렵다.
-- **오버레이 드릴:** 앞 단계를 덮어 띄우는 안. 경로·포커스 계약(§26)과 충돌하고 선택하지 않았다.
+`view`와 `navViews`, View 전환용 carry set을 제거한다. 옛 `?view=`와 더 이상 읽지 않는 키는 무시한다. 옛 id `hw-time-steps|compare|overview|table`은 `navHidden` 호환 항목으로 남아 모두 같은 화면을 연다. 옛 주소는 Context와 page state를 보존해 `/mars/hw-time`으로 replace한다. 저장된 옛 id 보드 칸도 칸 안에서 같은 화면을 렌더한다. #2330 해결 전에는 최근 방문·usage가 옛 id로 기록될 수 있다. 호환 항목 정리는 #2330 후 재검토한다.
 
-## 결과
+## 유지되는 SDK 조각
 
-SDK 조각:
+2026-10-24 결정으로 만든 범용 조각은 그대로 유효하다: S1 `AnalysisChartFrame` 가로 행 포커스(`activeCategory`, `rowPitch`, [ADR-0079](0079-chart-row-focus-row-pitch.md)), S2 `PanelWorkspace` `initialMode`·`revealRequest`·패널 `badge`, S3 `Inspector` `stack | rail`([ADR-0080](0080-inspector-forms.md)), S4 `DrillPath`/`DrillLayout` `summary` 슬롯. 06 §12.7의 «메뉴가 현재 단계 본문의 일부로 선언한 부모 맥락 패널은 허용하고, SDK는 앞 단계 본문을 스스로 남기지 않는다»도 유지한다. 세부 규칙은 layout §12.7·§12.8이 소유한다.
 
-- S1 `AnalysisChartFrame` 가로 행 포커스(제어형 `activeCategory`, `rowPitch`).
-- S2 `PanelWorkspace` `initialMode`·패널 reveal 요청(2a)과 패널 `badge`(2b).
-- S3 `Inspector`의 `stack | rail` 형태.
-- S4 `DrillPath`/`DrillLayout` `summary` 슬롯 — 이 ADR과 같은 변경.
+## 대안과 결과
 
-만들지 않는 것: 동기화 그룹 Context, 선언형 레시피 층(메뉴 도우미로 남김), 단계 인식 저장(단계별 `persistKey`로 대신), 엔진 행 접기(S2c), `@ap/ui` Accordion, 깊이 3 초과, #575 P2 항목(전환기·실행 취소·보호 패널).
+- 네 개 메뉴의 레이아웃 데모 및 메뉴 하나의 네 View: 소유자가 실제 분석 흐름을 우선해 철회했다.
+- 분포·추세 전환 탭: 동시에 비교할 수 없으므로 별도 패널로 둔다.
+- 메뉴가 자체 배치·포커스·차트 표현을 구현하는 방식: SDK 작업 영역과 차트 옵션을 사용한다.
 
-#580 노드 580g: 세 차트 메뉴가 `AnalysisChartFrame`의 값·합계 라벨(`valueLabels="both"`, `reaggregation="sum"`)과 범례 트리 드릴(`onDrill`·`currentId`, ADR-0084)을 채택했다. 트리는 단계마다 평평하다(L1 응답에 Motion 목록이 없다).
-
-## 보충(2026-10-26, #912)
-
-비교 메뉴는 드릴해도 위 단계 패널을 남긴다(B 주-상세, 사용자가 독립 리뷰로 결정). 요약(Module별)이 왼쪽 전체 높이, 오른쪽 위가 Module 구성, 오른쪽 아래가 Motion 상세이며 추세는 상세 옆 탭이다. 패널마다 자기 조회만 가진다: 요약 `{}`, 구성 `{drillModule}`(Module이 있을 때만), 상세 `{drillModule, drillMotion}`(둘 다 있을 때만). 아래 단계가 비면 패널을 없애지 않고 기다림 문구를 보인다. `persistKey`는 단계와 무관한 하나(`hw-compare`)이고 이전 `hw-compare-l1|l2|l3` 저장값은 읽지 않는다. 06 §12.7: `DrillLayout`은 단계마다 본문을 다시 마운트하지 않고 단계별 본문은 메뉴가 정한다(`DrillLayout.test.tsx`가 고정). 단계별·개요·표는 바뀌지 않는다.
+기존 드릴 경로와 필터 문법을 유지하고, 패널별 조회 소유자를 유지한다. 기본 프리셋은 탭 없이 시작하지만 사용자가 SDK로 패널을 묶는 선택은 허용한다. 네 레이아웃을 보이는 데모 목적은 종료한다.

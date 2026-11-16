@@ -29,10 +29,9 @@ function DiagnosticState({ state, shape }: { state: DiagnosticStateKind; shape?:
 }
 export function Diagnostics(props: Props) {
   const { attempt } = props;
-  const heading = `${copy.attemptDiagnostics}${attempt ? ` · ${copy.attempt} #${attempt.attemptNo}` : ''}`;
-  if (!attempt) return <Section title={heading}><DiagnosticState state="no_attempt" /></Section>;
-  if (attempt.outcome !== 'succeeded') return <Section title={heading}><DiagnosticState state="incomplete_attempt" /></Section>;
-  return <section className="@container flex min-w-0 flex-1 flex-col gap-3"><h2 className="text-sm font-semibold">{heading}</h2><DiagnosticListView key={attempt.id} {...props} attempt={attempt} /></section>;
+  if (!attempt) return <DiagnosticState state="no_attempt" />;
+  if (attempt.outcome !== 'succeeded') return <DiagnosticState state="incomplete_attempt" />;
+  return <section className="@container flex min-w-0 flex-1 flex-col gap-3"><DiagnosticListView key={attempt.id} {...props} attempt={attempt} /></section>;
 }
 function DiagnosticListView(props: Props & { attempt: Attempt }) {
   const { attempt } = props;

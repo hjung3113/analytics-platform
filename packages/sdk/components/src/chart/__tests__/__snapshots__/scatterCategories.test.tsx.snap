@@ -1,0 +1,191 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`preserves the complete legacy projection without opt-in fields 1`] = `
+{
+  "csvHeaders": [
+    "ID",
+    "Name",
+    "Group",
+    "Cell (ignored)",
+    "Duration (s)",
+  ],
+  "csvValues": [
+    [
+      "one",
+      "one",
+      "G",
+      9,
+      4,
+    ],
+    [
+      "two",
+      "two",
+      "G",
+      "Unknown",
+      "Unknown",
+    ],
+  ],
+  "empty": false,
+  "headers": [
+    "ID",
+    "Name",
+    "Group",
+    "Cell (ignored)",
+    "Duration (s)",
+  ],
+  "legend": [
+    {
+      "color": "chart-series-1",
+      "label": "G",
+      "symbol": "circle",
+    },
+  ],
+  "option": {
+    "brush": {
+      "brushType": "rect",
+      "inBrush": {},
+      "outOfBrush": {},
+      "toolbox": [],
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+    },
+    "grid": {
+      "bottom": 56,
+      "containLabel": true,
+      "left": 48,
+      "right": 40,
+      "top": 32,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(70,104,150)",
+            },
+            "value": [
+              9,
+              4,
+            ],
+          },
+        ],
+        "emphasis": {
+          "focus": "none",
+        },
+        "markLine": {
+          "data": [
+            {
+              "name": "Ref",
+              "yAxis": 10,
+            },
+          ],
+          "label": {
+            "color": "rgb(55,65,81)",
+            "fontSize": 10,
+            "formatter": "{b}",
+            "position": "insideEndTop",
+          },
+          "lineStyle": {
+            "color": "rgb(55,65,81)",
+            "type": "dashed",
+          },
+          "silent": true,
+          "symbol": "none",
+        },
+        "symbol": "circle",
+        "type": "scatter",
+      },
+    ],
+    "toolbox": {
+      "show": false,
+    },
+    "tooltip": {
+      "backgroundColor": "rgb(237,243,251)",
+      "borderColor": "rgb(203,214,230)",
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(102,112,131)",
+        "showMaxLabel": false,
+        "showMinLabel": false,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(184,196,214)",
+        },
+      },
+      "name": "Cell (ignored)",
+      "nameGap": 32,
+      "nameLocation": "middle",
+      "scale": true,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(237,241,247)",
+        },
+      },
+      "type": "value",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "color": "rgb(102,112,131)",
+        "showMaxLabel": false,
+        "showMinLabel": false,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(184,196,214)",
+        },
+      },
+      "name": "Duration (s)",
+      "scale": true,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(237,241,247)",
+        },
+      },
+      "type": "value",
+    },
+  },
+  "rows": [
+    {
+      "key": "["scatter","row","one"]",
+      "label": "one",
+      "value": 4,
+    },
+    {
+      "key": "["scatter","row","two"]",
+      "label": "two",
+      "value": null,
+    },
+  ],
+  "seriesKeys": [
+    [
+      "["scatter","row","one"]",
+    ],
+  ],
+  "summary": "2 points · 1 unknown · G · Cell (ignored) · Duration (s)",
+  "tableValues": [
+    [
+      "one",
+      "one",
+      "G",
+      "9 ignored",
+      "4 s",
+    ],
+    [
+      "two",
+      "two",
+      "G",
+      "Unknown",
+      "Unknown",
+    ],
+  ],
+  "total": 0,
+}
+`;

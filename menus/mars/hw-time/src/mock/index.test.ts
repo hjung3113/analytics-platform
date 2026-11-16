@@ -11,11 +11,11 @@ const context = {
 };
 
 const menu: MenuMeta = {
-  id: 'hw-time-steps',
+  id: 'hw-time',
   group: groupId('hwTime'),
   label: { ko: 'HW Time', en: 'HW Time' },
   description: { ko: '', en: '' },
-  path: '/hw-time/steps',
+  path: '/hw-time',
   permission: menuPermission('analytics:view'),
   requiresScope: true,
   context: contextCapabilities({ time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'unsupported', recipe: 'unsupported' }),
@@ -40,10 +40,10 @@ async function data<T>(endpoint: string, params: Record<string, unknown>, applie
 }
 
 describe('HW Time mock endpoint registration', () => {
-  it('registers the level, trend, table, and export endpoints', () => {
+  it('registers the level, trend, table, export and overview endpoints', () => {
     expect(() => createMockAdapter({ endpoints: hwTimeMock, registry: { menus: [menu] } })).not.toThrow();
     expect(hwTimeMock.map(({ spec }) => spec.id)).toEqual([
-      'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows',
+      'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows', 'hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs',
     ]);
   });
 });
@@ -274,4 +274,40 @@ it('MEN-51 keeps daily trend dates in the applied half-open period', async () =>
   expect(result.rows[0]!.points.map(p => p.at)).toEqual(['2026-09-25', '2026-09-26']);
   const midnight = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] }, { from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
   expect(midnight.rows[0]!.points.map(p => p.at)).toEqual(['2026-09-25']);
+});
+
+describe('HW Time Module types and server judgements (#2328)', () => {
+  it.each([['TR', ['TR1', 'TR2'], 'Pick'], ['LK', ['LK1', 'LK2'], 'Pump']] as const)('serves %s consistently across level, trend, table and export', async (moduleType, modules, motion) => {
+    const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { moduleType });
+    expect(level.series.map(s => s.id)).toEqual(modules);
+    const params = { moduleType, drillModule: modules[0], drillMotion: motion };
+    const detail = await data<HwTimeLevelData>(hwTime.levelRows.id, params);
+    expect(detail.detail?.series.map(s => s.id)).toEqual([motion]);
+    const table = await data<HwTimeTableData>(hwTime.tableRows.id, { ...params, page: 0, pageSize: 10, sorting: [] });
+    const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, { ...params, ids: [table.rows[0]!.id], sorting: [] });
+    expect(exported[0]).toEqual(table.rows[0]);
+    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { moduleType, rowIds: ['EQ-001'] });
+    const pm = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001'] });
+    expect(trend.rows[0]?.points).not.toEqual(pm.rows[0]?.points);
+  });
+  it('provides LK over and under Motion judgements and worst-Motion Module roll-ups', async () => {
+    const detail = await data<HwTimeLevelData>(hwTime.levelRows.id, { moduleType: 'LK', drillModule: 'LK1' });
+    const judgements = detail.rows.flatMap(row => Object.values(row.judgements ?? {}));
+    expect(judgements.some(j => j.status === 'over')).toBe(true);
+    expect(judgements.some(j => j.status === 'under')).toBe(true);
+    expect(judgements.every(j => j.lower !== null && j.upper !== null)).toBe(true);
+    const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { moduleType: 'LK' });
+    expect(level.rows.every(row => row.judgements?.LK1?.status === 'over')).toBe(true);
+  });
+  it.each(['PM', 'TR'])('keeps %s unjudgeable with the shared reason', async moduleType => {
+    const result = await data<HwTimeLevelData>(hwTime.levelRows.id, { moduleType });
+    expect(result.rows.every(row => Object.values(row.judgements ?? {}).length > 0)).toBe(true);
+    expect(result.rows.flatMap(row => Object.values(row.judgements ?? {})).every(j => j.status === 'unjudgeable' && j.reason === 'recipe-unsplit' && j.lower === null && j.upper === null)).toBe(true);
+  });
+  it('keeps absent and explicit PM numerically identical and rejects unknown types or drills', async () => {
+    expect(await data(hwTime.levelRows.id, {})).toEqual(await data(hwTime.levelRows.id, { moduleType: 'PM' }));
+    for (const params of [{ moduleType: 'unknown' }, { moduleType: 'TR', drillModule: 'PM1' }, { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pick' }]) {
+      expect((await query(hwTime.levelRows.id, params)).outcome).toBe('error');
+    }
+  });
 });

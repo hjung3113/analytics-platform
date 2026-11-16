@@ -1,5 +1,5 @@
-ActiveFilterBar | function | function ActiveFilterBar({ items, onClearAll, className, messages }: @ap/ui#ActiveFilterBarProps): import("react").JSX.Element | null
-ActiveFilterBarProps | interface | interface ActiveFilterBarProps { className?: string; items: { key: string; label: string; onRemove: () => void; }[]; messages?: Partial<{ label: string; remove: (label: string) => string; reset: string; }>; onClearAll: () => void; }
+ActiveFilterBar | function | function ActiveFilterBar({ items, onClearAll, className, messages, returnFocusRef }: @ap/ui#ActiveFilterBarProps): import("react").JSX.Element | null
+ActiveFilterBarProps | interface | interface ActiveFilterBarProps { className?: string; items: { key: string; label: string; onRemove: () => void; }[]; messages?: Partial<{ label: string; remove: (label: string) => string; reset: string; }>; onClearAll: () => void; returnFocusRef?: RefObject<HTMLElement | null>; }
 Alert | const | const Alert: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & VariantProps<(props?: ({ variant?: "default" | "destructive" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string> & React.RefAttributes<HTMLDivElement>>
 AlertDescription | const | const AlertDescription: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLParagraphElement> & React.RefAttributes<HTMLParagraphElement>>
 AlertDialog | const | const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps>
@@ -26,8 +26,8 @@ Badge | function | function Badge({ className, variant, ...props }: @ap/ui#Badge
 BadgeProps | interface | interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof @ap/ui#badgeVariants> { }
 Button | const | const Button: React.ForwardRefExoticComponent<@ap/ui#ButtonProps & React.RefAttributes<HTMLButtonElement>>
 ButtonProps | interface | interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> { asChild?: boolean; children?: React.ReactNode; loading?: boolean; padding?: 'compact' | 'default'; size?: ButtonSize; spacing?: 'compact' | 'default'; variant?: ButtonVariant; wrapText?: boolean; }
-Callout | function | function Callout({ tone, icon, title, children, action, className }: @ap/ui#CalloutProps): React.JSX.Element
-CalloutProps | interface | interface CalloutProps { action?: React.ReactNode; children: React.ReactNode; className?: string; icon?: React.ReactNode; title?: string; tone: @ap/ui#CalloutTone; }
+Callout | function | function Callout({ tone, icon, title, children, action, size, className }: @ap/ui#CalloutProps): React.JSX.Element
+CalloutProps | interface | interface CalloutProps { action?: React.ReactNode; children: React.ReactNode; className?: string; icon?: React.ReactNode; size?: 'compact' | 'default'; title?: string; tone: @ap/ui#CalloutTone; }
 CalloutTone | type | type CalloutTone = 'amber' | 'blue' | 'cyan' | 'emerald' | 'red'
 Card | const | const Card: React.ForwardRefExoticComponent<CardProps & React.RefAttributes<HTMLDivElement>>
 CardContent | const | const CardContent: React.ForwardRefExoticComponent<CardContentProps & React.RefAttributes<HTMLDivElement>>
@@ -45,10 +45,10 @@ DatePickerProps | interface | interface DatePickerProps extends Omit<React.Input
 DetailPanelFullscreenContext | const | const DetailPanelFullscreenContext: React.Context<@ap/ui#DetailPanelFullscreenValue | null>
 DetailPanelFullscreenToggle | function | function DetailPanelFullscreenToggle({ expandLabel, collapseLabel }?: { collapseLabel?: string; expandLabel?: string; }): React.ReactElement | null
 DetailPanelFullscreenValue | interface | interface DetailPanelFullscreenValue { expanded: boolean; toggle: () => void; }
-DetailPanelHeader | function | function DetailPanelHeader({ kind, id, onClose, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
-DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ entityKind: _entityKind, entityId: _entityId, copyUrl, extraMore, notify, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
-DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: string; entityId: string; entityKind: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; notify?: { error: (message: string) => void; success: (message: string) => void; }; }
-DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { className?: string; extras?: React.ReactNode; id?: string; kind: @ap/ui#DetailPanelKind; onClose?: () => void; }
+DetailPanelHeader | function | function DetailPanelHeader({ kind, 'data-kind': dataKind, label, appearance, accent: suppliedAccent, id, onClose, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
+DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ copyUrl, extraMore, notify, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
+DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: string; entityId?: string; entityKind?: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; notify?: { error: (message: string) => void; success: (message: string) => void; }; }
+DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { 'data-kind'?: string; accent?: 'info' | 'success' | 'task' | 'voc' | 'warn'; appearance?: 'badge' | 'stripe'; className?: string; extras?: React.ReactNode; id?: string; kind?: @ap/ui#DetailPanelKind; label?: string; onClose?: () => void; }
 DetailPanelKind | type | type DetailPanelKind = 'cluster' | 'finding' | 'milestone' | 'survey' | 'task' | 'task_request' | 'voc'
 DetailPanelReadingColumn | function | function DetailPanelReadingColumn({ children, asChild, ...dataAttrs }: React.PropsWithChildren<{ 'data-testid'?: string; asChild?: boolean; }>): React.ReactElement
 DetailPanelSectionNav | function | function DetailPanelSectionNav({ messages, sections, scrollRef, className, navigationLabel, }: @ap/ui#DetailPanelSectionNavProps): React.ReactElement | null
@@ -87,10 +87,10 @@ EmptyState | function | function EmptyState({ icon, title, body, action, size, d
 EmptyStateProps | interface | interface EmptyStateProps { action?: React.ReactNode; body?: string; className?: string; density?: 'compact' | 'default'; icon?: React.ReactNode; padding?: 'default' | 'wide'; size?: 'lg' | 'md' | 'sm'; title: string; }
 FieldLabel | function | function FieldLabel({ messages, appearance, required, tone, tip, children, className, ...props }: @ap/ui#FieldLabelProps): React.JSX.Element
 FieldLabelProps | interface | interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof @ap/ui#Label> { appearance?: 'default' | 'section'; children: React.ReactNode; messages?: { help?: (tip: string) => string; }; required?: boolean; tip?: string; tone?: 'default' | 'secondary'; }
-FieldList | function | function FieldList({ children, className }: @ap/ui#FieldListProps): React.JSX.Element
-FieldListProps | interface | interface FieldListProps { children: React.ReactNode; className?: string; }
-FieldRow | function | function FieldRow({ label, children, inset, layout, mono, className, }: @ap/ui#FieldRowProps): React.JSX.Element
-FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: React.ReactNode; layout?: 'default' | 'detail' | 'property'; mono?: boolean; }
+FieldList | function | function FieldList({ children, className, layout }: @ap/ui#FieldListProps): React.JSX.Element
+FieldListProps | interface | interface FieldListProps { children: React.ReactNode; className?: string; layout?: 'inline'; }
+FieldRow | function | function FieldRow({ label, children, inset, layout: layoutProp, mono, className, }: @ap/ui#FieldRowProps): React.JSX.Element
+FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: React.ReactNode; layout?: 'default' | 'detail' | 'inline' | 'property'; mono?: boolean; }
 FilterCategory | interface | interface FilterCategory { key: string; label: string; options: { label: string; value: string; }[]; }
 FormField | function | function FormField({ label, required, tip, hint, error, id, describedBy, className, children }: @ap/ui#FormFieldProps): import("react").JSX.Element
 FormFieldControl | interface | interface FormFieldControl { 'aria-describedby'?: string; 'aria-invalid'?: true; 'aria-required'?: true; id: string; }
@@ -105,6 +105,9 @@ GroupedSelectionPreset | type | type GroupedSelectionPreset = { description: str
 HoverCard | const | const HoverCard: React.FC<HoverCardPrimitive.HoverCardProps>
 HoverCardContent | const | const HoverCardContent: React.ForwardRefExoticComponent<Omit<HoverCardPrimitive.HoverCardContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 HoverCardTrigger | const | const HoverCardTrigger: React.ForwardRefExoticComponent<HoverCardPrimitive.HoverCardTriggerProps & React.RefAttributes<HTMLAnchorElement>>
+ImeEnterGuard | interface | interface ImeEnterGuard { isComposingEnter: (event: KeyboardEvent) => boolean; onCompositionEnd: (event: SyntheticEvent) => void; onCompositionStart: () => void; onKeyDown: (event: KeyboardEvent<HTMLFormElement>) => void; }
+InfoTip | function | function InfoTip({ label, children, descriptionId, className, ...rest }: @ap/ui#InfoTipProps): React.JSX.Element
+InfoTipProps | interface | interface InfoTipProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'aria-describedby' | 'aria-label' | 'children' | 'type'> { children: React.ReactNode; descriptionId?: string; label: string; }
 Input | const | const Input: React.ForwardRefExoticComponent<@ap/ui#InputProps & React.RefAttributes<HTMLInputElement>>
 InputProps | interface | interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { inputFont?: 'default' | 'mono'; inputSize?: 'default' | 'toolbar'; }
 KeyboardShortcut | function | function KeyboardShortcut({ children, className, testId }: @ap/ui#KeyboardShortcutProps): React.JSX.Element
@@ -205,6 +208,13 @@ StatusBadgeFrame | function | function StatusBadgeFrame({ appearance, ariaLabel,
 StatusBadgeFrameProps | interface | interface StatusBadgeFrameProps { appearance: @ap/ui#StatusBadgeAppearance; ariaLabel?: string; children: React.ReactNode; className?: string; indicator?: React.ReactNode; style?: React.CSSProperties; textClassName?: string; tintClassName?: string; token?: string; tone?: @ap/ui#StatusBadgeTone; }
 StatusBadgeTone | type | type StatusBadgeTone = 'danger' | 'internal-doing' | 'internal-done' | 'internal-todo' | 'muted' | 'success' | 'warning'
 SurfacePauseScope | function | function SurfacePauseScope({ paused, children }: { children: ReactNode; paused: boolean; }): import("react").JSX.Element
+Table | const | const Table: React.ForwardRefExoticComponent<TableProps & React.RefAttributes<HTMLTableElement>>
+TableBody | const | const TableBody: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLTableSectionElement> & React.RefAttributes<HTMLTableSectionElement>>
+TableCaption | const | const TableCaption: React.ForwardRefExoticComponent<TableCaptionProps & React.RefAttributes<HTMLTableCaptionElement>>
+TableCell | const | const TableCell: React.ForwardRefExoticComponent<TableCellProps & React.RefAttributes<HTMLTableCellElement>>
+TableHead | const | const TableHead: React.ForwardRefExoticComponent<TableHeadProps & React.RefAttributes<HTMLTableCellElement>>
+TableHeader | const | const TableHeader: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLTableSectionElement> & React.RefAttributes<HTMLTableSectionElement>>
+TableRow | const | const TableRow: React.ForwardRefExoticComponent<TableRowProps & React.RefAttributes<HTMLTableRowElement>>
 Tabs | const | const Tabs: React.ForwardRefExoticComponent<TabsPrimitive.TabsProps & React.RefAttributes<HTMLDivElement>>
 TabsContent | const | const TabsContent: React.ForwardRefExoticComponent<Omit<TabsPrimitive.TabsContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
 TabsList | const | const TabsList: React.ForwardRefExoticComponent<Omit<Omit<import("@radix-ui/react-tabs").TabsListProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>, "ref"> & { moreLabel?: string; overflow?: "menu" | "scroll"; } & React.RefAttributes<HTMLDivElement>>
@@ -252,6 +262,8 @@ useDetailPanelContent | function | function useDetailPanelContent(node: ReactNod
 useDetailPanelEscape | function | function useDetailPanelEscape(onClose: () => void): (event: React.KeyboardEvent<HTMLElement>) => void
 useDetailPanelSlot | function | function useDetailPanelSlot(options?: { localExpansion?: boolean; onSuperseded?: () => void; }): HTMLElement | null
 useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { activation: number; expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; setSurfaceVisible: (visible: boolean) => void; toggle: () => void; }
+useImeEnterGuard | function | function useImeEnterGuard(): @ap/ui#ImeEnterGuard
+useIsTruncated | function | function useIsTruncated<T extends HTMLElement>(ref: RefObject<T | null>): boolean
 useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
 useSurfacePaused | function | function useSurfacePaused(): boolean
 writeLocalStorage | function | function writeLocalStorage(key: string, value: null | string): boolean
@@ -265,7 +277,7 @@ DATE_MESSAGES | const | const DATE_MESSAGES: { afterMax: string; beforeMin: stri
 DialogContentProps | interface | interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> { closeLabel?: string; scrim?: 'modal' | 'palette'; }
 DialogFooterProps | interface | interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> { spacing?: 'compact' | 'default'; }
 EditorActionMessages | type | type EditorActionMessages = { detailsSummary?: string; label?: (defaultLabel: string) => string; }
-GroupedSelectionCommonProps | type | type GroupedSelectionCommonProps = { 'aria-label': string; groups: readonly @ap/ui#GroupedSelectionGroup[]; messages?: Partial<@ap/ui#GroupedSelectionMessages>; searchPlaceholder?: string; }
+GroupedSelectionCommonProps | type | type GroupedSelectionCommonProps = { 'aria-label': string; announceSelection?: boolean; groups: readonly @ap/ui#GroupedSelectionGroup[]; messages?: Partial<@ap/ui#GroupedSelectionMessages>; searchPlaceholder?: string; }
 LegacyVariant | type | type LegacyVariant = 'primary' | 'subtle'
 MentionOptions | interface | interface MentionOptions { label: (actorId: string) => null | string | undefined; }
 MultiComboboxBaseProps | interface | interface MultiComboboxBaseProps { 'aria-describedby'?: string; 'aria-invalid'?: React.AriaAttributes['aria-invalid']; className?: string; clearAction?: { label: string; onClear: () => void; }; clearAllLabel: string; density?: 'compact' | 'default'; disabled?: boolean; emptyText: string; error?: string; getLabel?: (value: string) => string; hasMore?: boolean; id?: string; listboxLabel: string; loading?: boolean; loadingText: string; maxVisibleChips?: number; moreLabel: string; onLoadMore?: () => void; onRetry?: () => void; onSearchChange?: (search: string) => void; onValuesChange: (values: string[]) => void; options: readonly @ap/ui#MultiComboboxOption[]; placeholder?: string; removeLabel: (label: string) => string; retryLabel: string; search?: string; searchPlaceholder?: string; selectedSummaryLabel: (count: number) => string; values: readonly string[]; }
@@ -281,6 +293,11 @@ ShadcnVariant | type | type ShadcnVariant = NonNullable<VariantProps<typeof @ap/
 SheetContentProps | interface | interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>, VariantProps<typeof sheetVariants> { closeLabel?: string; }
 SkeletonProps | interface | interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> { shape?: 'default' | 'rounded'; }
 SkeletonWidth | type | type SkeletonWidth = 'five-sixths' | 'full' | 'half' | 'third' | 'three-quarters' | 'two-thirds' | 'w12' | 'w16' | 'w24'
+TableCaptionProps | interface | interface TableCaptionProps extends React.HTMLAttributes<HTMLTableCaptionElement> { srOnly?: boolean; }
+TableCellProps | interface | interface TableCellProps extends Omit<React.TdHTMLAttributes<HTMLTableCellElement>, 'align'> { align?: 'end' | 'start'; }
+TableHeadProps | interface | interface TableHeadProps extends Omit<React.ThHTMLAttributes<HTMLTableCellElement>, 'align'> { align?: 'end' | 'start'; sort?: { direction: 'ascending' | 'descending' | 'none'; onSort: () => void; }; }
+TableProps | interface | interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> { density?: 'compact' | 'default'; }
+TableRowProps | interface | interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> { current?: boolean; }
 ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter'
 ToggleGroupItemAppearance | type | type ToggleGroupItemAppearance = 'default' | 'selected-filter'
 ToggleGroupItemProps | interface | interface ToggleGroupItemProps extends React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> { appearance?: ToggleGroupItemAppearance; }

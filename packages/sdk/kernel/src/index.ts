@@ -26,3 +26,6 @@ export type { PortContext, PortFailure, PortStatus, AxisOptionsParams, Equipment
 
 
 export { useSessionDraft } from './platform/useSessionDraft';
+
+export { PAGE_CONDITION_EMPTY, PAGE_CONDITION_LIMITS, PageConditionError, decodePageConditions, encodePageConditions, summarizePageConditions, derivePageConditionExtension } from './query/page-conditions';
+export type { PageConditionMenu, PageConditionIssueReason, PageConditionSummaryItem, PageConditionSummaryIssue, PageConditionRange, PageConditionValue, PageConditionValues, PageConditionIssue, DecodedPageConditions, PageConditionExtension, PageConditionSummaryInput } from './query/page-conditions';

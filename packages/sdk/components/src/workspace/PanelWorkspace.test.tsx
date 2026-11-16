@@ -1237,3 +1237,39 @@ describe('PanelWorkspace: standalone, no PlatformProvider (#1953)', () => {
     expect(app.writes).toEqual([]);
   });
 });
+
+describe('PanelWorkspace: minimize (#2359)', () => {
+  const minimizable = (summary?: string): PanelWorkspaceProps['panels'] => PANELS.map(panel => panel.id === 'selector' ? { ...panel, minimize: summary === undefined ? {} : { summary: { ko: summary, en: summary } } } : panel);
+
+  it('without the option a panel header has no minimize button and the toolbar no chip', async () => {
+    mountWorkspace();
+    await ready();
+    expect(screen.queryByRole('button', { name: /최소화/ })).toBeNull();
+    expect(document.querySelector('[data-workspace-minimized]')).toBeNull();
+  });
+
+  it('a minimizable panel hides from its visible header button, shows a chip with its summary that reopens it, and keeps focus on the chip then the tab', async () => {
+    mountWorkspace({ panels: minimizable('PM 6/6 · Motion 4/4') });
+    await ready();
+    expect(screen.queryByRole('button', { name: '추세 최소화' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: '선택기 최소화' }));
+    await settle();
+    await waitFor(() => { expect(document.querySelector('[data-dock-panel="selector"]')).toBeNull(); });
+    const chip = screen.getByRole('button', { name: '선택기 · PM 6/6 · Motion 4/4 다시 보기' });
+    expect(chip).toHaveTextContent('선택기 · PM 6/6 · Motion 4/4');
+    await waitFor(() => { expect(chip).toHaveFocus(); });
+    expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
+    await userEvent.click(chip);
+    await settle();
+    await waitFor(() => { expect(document.querySelector('[data-dock-panel="selector"]')).not.toBeNull(); });
+    expect(document.querySelector('[data-workspace-minimized]')).toBeNull();
+    await waitFor(() => { expect(screen.getByRole('tab', { name: /선택기/ })).toHaveFocus(); });
+  });
+
+  it('a minimizable panel without a summary shows its title only; one hidden from the ⋯ menu also shows the chip', async () => {
+    mountWorkspace({ panels: minimizable() });
+    await ready();
+    await chooseFromMenu('선택기 동작', '숨기기');
+    expect(await screen.findByRole('button', { name: '선택기 다시 보기' })).toHaveTextContent(/^선택기$/);
+  });
+});

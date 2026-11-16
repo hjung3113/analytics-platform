@@ -7,7 +7,7 @@ import { ModelsScreen } from '../ModelsScreen';
 import { RequestsScreen } from '../RequestsScreen';
 import { StageStepper } from '../presentation';
 
-const ui: Presentation = { table: () => null, drawer: () => null, timeline: () => null, trust: () => null };
+const ui: Presentation = { page: p => p.children, table: p => p.pageControls, drawer: () => null, timeline: () => null, trust: () => null };
 function props(state: Record<string, string> = {}): ScreenProps {
   return { ui, actorId: 'actor', canProject: true, canRound: true, setSelection: vi.fn(), state, setState: vi.fn(), api: { useRead: <T,>(name: string) => ({ status: 'done', data: name === 'queueStatus' ? null : { rows: [], total: 0 } as T, retry: vi.fn() }), useAction: () => ({ pending: false, run: vi.fn() }) } };
 }
@@ -60,7 +60,7 @@ it('MEN-50 shows and clears the model ID condition even for empty results', asyn
 it('MEN-50 keeps invalid model input local instead of committing the URL', async () => {
   const p = props(); render(<RequestsScreen {...p} />);
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: '추가 필터' }));
+  await user.click(screen.getByRole('button', { name: '추가 필터 (0) ▾' }));
   await user.type(screen.getByLabelText('모델 ID'), 'A-100');
   await user.tab();
   expect(screen.getByLabelText('모델 ID')).toHaveAttribute('aria-invalid', 'true');

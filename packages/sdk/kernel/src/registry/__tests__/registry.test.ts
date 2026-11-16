@@ -788,3 +788,70 @@ describe('inbound object declarations (#1930)', () => {
     scan.mockRestore();
   });
 });
+
+describe('pageConditions declarations (#2337)', () => {
+  const label = { ko: '조건', en: 'Condition' };
+  const category = { id: 'choice', label, kind: { type: 'select' as const, key: 'choice', options: { static: [{ value: 'a', label }] } } };
+  const entry = (): PlatformMenuEntry => ({ ...catalog, pageType: 'analysis', pageKeys: ['choice'], pageConditions: { categories: [category] } }) as PlatformMenuEntry;
+  it.each([
+    ['undeclared key', { pageKeys: [] }, /declared page key/],
+    ['single key repeated', { repeatedPageKeys: ['choice'] }, /single-valued/],
+    ['management', { pageType: 'management' }, /pageType/],
+    ['catalog', { pageType: 'catalog' }, /pageType/],
+    ['duplicate category', { pageConditions: { categories: [category, category] } }, /duplicate category/],
+    ['bad id', { pageConditions: { categories: [{ ...category, id: 'bad-id' }] } }, /identifier/],
+    ['blank ko', { pageConditions: { categories: [{ ...category, label: { ko: ' ', en: 'Name' } }] } }, /nonempty/],
+    ['blank en', { pageConditions: { categories: [{ ...category, label: { ko: '이름', en: ' ' } }] } }, /nonempty/],
+    ['shared key', { pageConditions: { categories: [category, { ...category, id: 'other' }] } }, /exactly one category/],
+    ['drill key', { drill: { levels: [{ key: 'choice', label }] }, contextResetKeys: ['choice'] }, /drill/],
+    ['foreign endpoint', { pageConditions: { categories: [{ ...category, kind: { type: 'select', key: 'choice', options: { endpoint: 'foreign' } } }] } }, /owned endpoint/],
+    ['multi not repeated', { pageConditions: { categories: [{ ...category, kind: { type: 'multi', key: 'choice', options: { static: [] } } }] } }, /repeatedPageKeys/],
+    ['tree not repeated', { pageConditions: { categories: [{ ...category, kind: { type: 'tree', key: 'choice', source: 'owned', value: 'leaves' } }] } }, /repeatedPageKeys/],
+    ['grouped not repeated', { pageConditions: { categories: [{ ...category, kind: { type: 'groupedChecks', source: 'owned', lists: [{ id: 'one', key: 'choice', label }] } }] } }, /repeatedPageKeys/],
+    ['search key repeated', { repeatedPageKeys: ['choice'], pageConditions: { categories: [{ ...category, kind: { type: 'search', key: 'choice' } }] } }, /single-valued/],
+    ['range key repeated', { repeatedPageKeys: ['choice'], pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice' } }] } }, /single-valued/],
+    ['date key repeated', { repeatedPageKeys: ['choice'], pageKeys: ['choice', 'end'], pageConditions: { categories: [{ ...category, kind: { type: 'date', from: 'choice', to: 'end' } }] } }, /single-valued/],
+    ['disabled blank reason', { pageConditions: { categories: [{ ...category, disabled: { reason: { ko: '', en: 'Reason' } } }] } }, /disabled reason.*nonempty/],
+    ['required on live menu', { pageConditions: { categories: [{ ...category, required: true }] } }, /required categories.*apply/],
+    ['invalid required', { pageConditions: { categories: [{ ...category, required: false }] } }, /required must be true/],
+    ['unknown kind', { pageConditions: { categories: [{ ...category, kind: { type: 'unknown' } }] } }, /unknown kind/],
+    ['reversed range bounds', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', min: 2, max: 1 } }] } }, /min must not exceed max/],
+    ['infinite range bounds', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', min: Infinity } }] } }, /min must be finite/],
+    ['invalid range step', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', step: 0 } }] } }, /step must be positive/],
+    ['blank range unit', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', unit: { ko: ' ', en: 'Unit' } } }] } }, /unit.*nonempty/],
+    ['empty grouped lists', { pageConditions: { categories: [{ ...category, kind: { type: 'groupedChecks', source: 'owned', lists: [] } }] } }, /lists must be nonempty/],
+    ['duplicate grouped list id', { repeatedPageKeys: ['choice'], pageConditions: { categories: [{ ...category, kind: { type: 'groupedChecks', source: 'owned', lists: [{ id: 'one', key: 'choice', label }, { id: 'one', key: 'choice', label }] } }] } }, /list ids must be unique/],
+    ['blank grouped label', { repeatedPageKeys: ['choice'], pageConditions: { categories: [{ ...category, kind: { type: 'groupedChecks', source: 'owned', lists: [{ id: 'one', key: 'choice', label: { ko: '', en: 'Name' } }] } }] } }, /list.*nonempty/],
+    ['invalid tree mode', { repeatedPageKeys: ['choice'], pageConditions: { categories: [{ ...category, kind: { type: 'tree', key: 'choice', source: 'owned', value: 'unknown' } }] } }, /tree value/],
+    ['duplicate static value', { pageConditions: { categories: [{ ...category, kind: { ...category.kind, options: { static: [{ value: 'a', label }, { value: 'a', label }] } } }] } }, /values must be nonempty and unique/],
+    ['blank static label', { pageConditions: { categories: [{ ...category, kind: { ...category.kind, options: { static: [{ value: 'a', label: { ko: '', en: 'A' } }] } } }] } }, /static option.*nonempty/],
+    ['invalid default', { pageConditions: { categories: [{ ...category, kind: { ...category.kind, default: 'missing' } }] } }, /default must name/],
+    ['two option sources', { pageConditions: { categories: [{ ...category, kind: { ...category.kind, options: { static: [], endpoint: 'owned' } } }] } }, /exactly one/],
+    ['missing option source', { pageConditions: { categories: [{ ...category, kind: { ...category.kind, options: {} } }] } }, /exactly one/],
+    ['duplicate section id', { pageConditions: { categories: [category], sections: [{ id: 'section', label, categories: [] }, { id: 'section', label, categories: [] }] } }, /section ids/],
+    ['blank section label', { pageConditions: { categories: [category], sections: [{ id: 'section', label: { ko: '', en: 'A' }, categories: [] }] } }, /section.*nonempty/],
+    ['category in two sections', { pageConditions: { categories: [category], sections: [{ id: 'first', label, categories: ['choice'] }, { id: 'second', label, categories: ['choice'] }] } }, /multiple sections/],
+    ['section unknown category', { pageConditions: { categories: [category], sections: [{ id: 'section', label, categories: ['missing'] }] } }, /unknown category/],
+  ])('rejects %s', (_name, patch, message) => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...entry(), ...patch } as unknown as PlatformMenuEntry], endpoints: [{ id: 'owned', menuId: 'catalog' }] })).toThrow(message);
+  });
+  it('accepts owned endpoint sources and rejects an endpoint owned by another menu', () => {
+    const dynamic = { ...entry(), pageConditions: { categories: [{ ...category, kind: { type: 'select' as const, key: 'choice', options: { endpoint: 'source' } } }] } };
+    expect(() => createRegistry({ spaces, groups, menus: [dynamic], endpoints: [{ id: 'source', menuId: 'catalog' }] })).not.toThrow();
+    expect(() => createRegistry({ spaces, groups, menus: [dynamic], endpoints: [{ id: 'source', menuId: 'other' }] })).toThrow(/owned endpoint/);
+    expect(() => createRegistry({ spaces, groups, menus: [dynamic], endpoints: [{ id: 'source', menuId: 'catalog' }, { id: 'source', menuId: 'catalog' }] })).toThrow(/uniquely owned endpoint/);
+  });
+  it('refuses a carry-set key', () => {
+    expect(() => createRegistry({ spaces, groups, menus: [{ ...entry(), carrySet: carrySetId('set') }], carrySets: [{ id: carrySetId('set'), pageKeys: ['choice'] }] })).toThrow(/carry set/);
+  });
+  it('merges required keys without mutating the manifest', () => {
+    const input = { ...entry(), context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const }, pageConditions: { categories: [{ ...category, required: true as const }] } };
+    const output = createRegistry({ spaces, groups, menus: [input] }).menuById('catalog');
+    expect(output.query?.required?.page).toEqual([{ key: 'choice', label }]);
+    expect(input.query).toEqual({ mode: 'apply' });
+  });
+  it('does not add fields to a menu without a declaration', () => {
+    const output = createRegistry({ spaces, groups, menus: [catalog] }).menuById('catalog');
+    expect(JSON.stringify(output)).toBe(JSON.stringify({ ...catalog, path: '/mars/catalog', aliases: ['/metrics'] }));
+  });
+});

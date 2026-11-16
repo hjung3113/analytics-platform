@@ -1,9 +1,9 @@
 {
   "name": "@ap/menu-hw-time",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.4.0",
   "ap": {
-    "sdk": ">=0.37.0 <0.38.0"
+    "sdk": ">=0.38.0 <0.39.0"
   },
   "type": "module",
   "exports": {

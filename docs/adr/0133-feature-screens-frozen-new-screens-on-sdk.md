@@ -1,4 +1,4 @@
-# ADR-0133 — `apps/feature-screens`는 동결하고, 새 플랫폼 기능은 SDK 소비자로 만든다
+# ADR-0133 — `packages/feature/screens`는 동결하고, 새 플랫폼 기능은 SDK 소비자로 만든다
 
 - 상태: Decided (2026-11-10, 사용자 결정, 되돌릴 수 있음)
 - 결정자: 사용자 — 저장소 리뷰 종합의 추천안에 "추천대로"(2026-11-10). 이슈 [#1639](https://github.com/hjung3113/analytics-platform/issues/1639).
@@ -6,11 +6,11 @@
 
 ## 배경
 
-`apps/feature-screens`는 `@ap/ui` 말고는 SDK를 쓰지 않는다. `@ap/contracts`·`kernel`·`components`·`shell` import가 0건이고, 조회는 `@ap/feature-bridge`의 별도 QueryClient를 쓴다. 비시험 화면 코드는 약 5만 줄(정규식 측정)로, SDK 다섯 패키지를 합친 것보다 크다. VOC·Task·Finding·설문처럼 가장 많이 쓰이는 화면이 표·상세·조회 계약을 검증하지 않으므로, SDK를 고쳐도 이 화면에는 닿지 않는다. 새 기능 화면이 어느 쪽에 생겨야 하는지는 정해진 적이 없다.
+`packages/feature/screens`는 `@ap/ui` 말고는 SDK를 쓰지 않는다. `@ap/contracts`·`kernel`·`components`·`shell` import가 0건이고, 조회는 `@ap/feature-bridge`의 별도 QueryClient를 쓴다. 비시험 화면 코드는 약 5만 줄(정규식 측정)로, SDK 다섯 패키지를 합친 것보다 크다. VOC·Task·Finding·설문처럼 가장 많이 쓰이는 화면이 표·상세·조회 계약을 검증하지 않으므로, SDK를 고쳐도 이 화면에는 닿지 않는다. 새 기능 화면이 어느 쪽에 생겨야 하는지는 정해진 적이 없다.
 
 ## 결정
 
-1. `apps/feature-screens`는 동결한다. 새 기능 폴더와 새 화면을 여기에 만들지 않는다. 이미 있는 화면의 버그 수정과 동작 변경은 그대로 여기서 한다.
+1. `packages/feature/screens`는 동결한다. 새 기능 폴더와 새 화면을 여기에 만들지 않는다. 이미 있는 화면의 버그 수정과 동작 변경은 그대로 여기서 한다.
 2. 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만든다. `platform/improvement-items`가 이미 이 모양이다.
 3. 기존 화면은 그 화면의 목록·상세 본문을 크게 고치는 이슈가 생길 때 옮긴다. 첫 이전에서는 걸린 시간과 SDK에 없어서 막힌 기능을 기록한다. 이 기록이 SDK의 빈 곳 목록이 된다.
 4. 조회 수명주기(QueryClient 분리), 429 문구 사본, 추적 번호 정규식은 [`backlog.md`](../../.planning/backlog.md)의 기존 다시 여는 조건을 유지한다. 이 결정으로 새로 열지 않는다.

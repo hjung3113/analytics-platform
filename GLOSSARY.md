@@ -217,12 +217,19 @@ Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속
 EquipmentID로 식별되는 설비 내부의 세부 단위. XFR/FNC/PRC 이벤트 로그는 Module/Slot 단위로 기록된다. 설비 분류값인 ChamberType과는 다른 개념이다.
 _Avoid_: 모듈·슬롯(단독) — 호스트 모듈·셸 슬롯과 섞인다.
 
+**Module 타입** (`moduleType`):
+Module의 종류 묶음. HW Time 「표시 조건」 패널에서 Module·Motion 목록을 이 단위로 나누고, 조회 파라미터로도 쓴다. 합성 예 PM·TR·LK.
+_Avoid_: 모듈 타입(단독 한글).
+
 **Motion** (`drillMotion`):
 Module이 수행하는 동작 한 종류(예: Chuck·Dechuck·Pump·Vent·Transfer)로, 동작시간분석 드릴의 두 번째 단계다. Module → Motion 순으로 좁히고, 어떤 Module이 기록하지 않는 Motion은 그 Module에서 값이 없다.
 _Avoid_: 동작(단독) — CLAS의 `설비 동작시간` 메뉴와 섞인다.
 
+**HTM**:
+Motion 동작 1회 소요시간의 상·하한 기준. 기준은 Motion에만 두며 키는 Maker + Model + PPID + Recipe + Module + Motion이다. 판정은 서버가 정상/상한 초과/하한 미달/판정 불가로 제공한다(판정 `HtmStatus`: normal·over·under·unjudgeable). 화면 문구는 `HTM` 그대로 쓴다.
+
 **동작시간분석** (`hwTime` 메뉴 그룹, en `Operation time analysis`):
-MARS의 메뉴 그룹이자 MARS 대표 메뉴. Module·Motion의 동작 시간 산포를 분석하고, 기본 단위는 설비 하나다(소유자 2026-11-05). 설비 동작시간을 Module·Motion 단계로 드릴해 보는 HW Time 메뉴 네 개(단계별·비교·개요·표)를 묶는다. 네 메뉴는 같은 데이터를 쓰고 화면 배치만 다르다([ADR-0078](docs/adr/0078-hw-time-layout-recipes.md)).
+MARS의 메뉴 그룹이자 MARS 대표 메뉴. Module·Motion의 동작 시간 산포를 분석하고, 기본 단위는 설비 하나다(소유자 2026-11-05). 설비 동작시간을 Module·Motion 단계로 드릴해 보는 HW Time 메뉴 하나다. 화면 배치는 [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md).
 _Avoid_: 설비 동작시간 — CLAS의 다른 메뉴다.
 
 **RCC**:
@@ -573,9 +580,24 @@ _Avoid_: 헤더 — 제목·동작 줄(06 §8)과 섞인다. Context 바와도 �
 메뉴 화면이 자기 페이지 키로 거는 조회 조건과 그 입력 막대(초안·적용, 접으면 한 줄 요약). 전역 Context가 아니라 그 화면에만 있다. 화면 문구도 «페이지 조건»이다([ADR-0160](docs/adr/0160-folded-analysis-workspace-query-bar.md), [06 §13](docs/contract/components.md#13-shared-component-layers)).
 _Avoid_: 페이지 필터 — 같은 막대를 부르던 옛 이름. 표의 열 필터와도 섞인다.
 
+**페이지 조건 레이어** (`MenuMeta.pageConditions`, Candidate):
+메뉴가 선언한 조건 범주를 순서대로 다루는 SDK 계약. 전역 Context와 구별하며 선언·인코딩 원본은 [Kernel §5·§6.4](docs/contract/kernel.md#5-menu-extension-contract)다.
+_Avoid_: 필터 층 — 이슈 제목에 남은 작업 이름이다.
+
+**조건 범주** (`pageConditions.categories[]`, Candidate):
+하나의 페이지 조건 선언 단위. 하나 이상의 page key를 소유하며, 묶음 체크 목록은 여러 키를 한 범주 안에 선언한다. 범주 사이의 결합 규칙은 같은 Kernel 계약을 따른다.
+_Avoid_: 범주(단독)·분류 — 차트 범주축·분류 큐와 섞인다.
+
+**조건 종류** (`kind.type`, Candidate):
+조건 범주가 쓰는 입력의 모양: select·multi·search·range·date·groupedChecks·tree.
+
 **패널**:
 작업 영역을 이루는 조각 하나. 제목(탭 이름)을 가지며 차트·표·요약 같은 내용 하나를 담는다. 예: 사이클타임 상세의 추세·요약·분포·느린 실행.
 _Avoid_: 칸, 패인 — 칸은 분석 보드 시트의 자리다. 상세 패널(DetailDrawer)과 구분해 필요하면 "작업 영역 패널"이라 쓴다.
+
+**패널 최소화** (`PanelWorkspacePanel.minimize`):
+작업 영역 패널을 숨기고 도구줄에 «제목 · 요약» 칩을 남기는 것. 숨기기와 같이 패널 내용은 마운트를 해제하며, 칩을 누르면 다시 보인다. 분석 보드의 최소화(칸이 마운트된 채 남는다)와 다르다.
+_Avoid_: 최소화(단독) — 분석 보드 최소화와 섞인다.
 
 **기본 패널**:
 메뉴가 지정한 작업 영역의 주인공 패널. 숨길 수 없고, 다른 패널을 다시 보여도 가려지지 않는다. 사이클타임 상세에서는 추세다.
@@ -612,7 +634,7 @@ _Avoid_: 행 — 표 행·보드 격자의 행과 섞인다.
 메뉴가 manifest에 선언하고 URL에 쓰는 그 화면 고유의 상태 키(예: 표 페이지 번호, 드릴 단계 값, `returnTo`). 전역 Context 키가 아니다. 그중 `contextResetKeys`에 함께 선언한 키는 사용자가 전역 Context를 바꾸면 지워진다([06 §6.4](docs/contract/platform-ui-contract.md)).
 
 **드릴** (드릴 단계, `drill.levels`):
-한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계마다 page key 하나를 URL에 쓰고, 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. 경로 바로 보이고 단계마다 본문을 바꾼다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
+한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계마다 page key 하나를 URL에 쓰고, 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. `DrillLayout` 화면에서는 경로 바로 보이고 단계마다 본문을 바꾸며, 연결 패널 화면(HW Time, [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md))에서는 같은 단계 키를 패널들이 읽는다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
 _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 단계다.
 
 **초안 / 적용** (Draft / Apply, `query.mode: 'apply'`):

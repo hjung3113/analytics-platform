@@ -1,3 +1,5 @@
+export type { ChartBounds, ChartBoundLabels } from './chart/chartBounds';
+export type { ChartStatus, ChartRowGroups } from './chart';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem } from './chart/AnalysisChart';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction } from './chart/AnalysisChartFrame';
 export * from './drawer/AuditTimeline';
@@ -15,6 +17,9 @@ export { token } from './chart/EChart';
 /** @deprecated use '@ap/components/host'; removed next SDK minor */
 export { type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
+export { FilterLine, type FilterLineProps } from './filters/FilterLine';
+export { PageConditionCategories, type PageConditionCategoriesProps, type PageConditionOptions, type PageConditionOptionsLoader } from './filters/PageConditionCategories';
+export { usePageConditionOptionsLoader, PageConditionOptionsError } from './filters/usePageConditionOptionsLoader';
 export * from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
 export { TableQuickSearch, type TableQuickSearchProps } from './table/TableQuickSearch';

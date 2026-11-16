@@ -92,7 +92,7 @@ Page Archetype, 셸 영역, 상세 패널, 분석 보드와 작업 영역, 페�
 - [0070](0070-global-features-platform-menu-and-voc-drawer.md) — 전역 기능은 플랫폼 메뉴로 모은다(전역 화면은 사이드바, 업무 시스템 안은 `시스템 및 플랫폼 메뉴` 팝오버), 레일에 VOC 등록·알림, VOC 등록은 오른쪽 도킹 드로어(Context 고정 칩), 설문은 전체 페이지, 홈은 카드 → 내 할 일
 - [0075](0075-page-head-one-line-fold-thin-outcome-strip.md) — fill 페이지 머리 영역(`contextNotes` + `contextExtension`)을 한 줄로 접고(기본 접힘, 메뉴별 기억, 적용 칩·미적용·확인 필요·안내 표식) fill 페이지의 공유 응답 배너를 얇은 띠(`자세히` Popover)로 바꾼다 — A 촘촘하게·B 한 줄 접기+띠·C 옆 패널 중 B
 - [0077](0077-workspace-stack-mode-rows-keep-own-height.md) — `PanelWorkspace`에 두 번째 높이 방식 `아래로 쌓기`(줄이 px 높이를 갖고 페이지가 스크롤)를 선택 모드로 더하고(기본값은 뒤에 [ADR-0130](0130-workspace-stack-default-and-declared-stack-layout.md)이 쌓기로 바꿈), 경계는 그 위 줄만 바꾸며 마지막 줄 아래 띠가 새 줄을 받는다 — A 늘리기 손잡이·B 높이 프리셋·C 줄 px 쌓기 중 C. ADR-0067 결정 4·8·21을 고친다
-- [0078](0078-hw-time-layout-recipes.md) — HW Time을 새 그룹 `동작시간분석`의 메뉴 4개(단계별·비교·개요·표)로 한 데이터 위에 레이아웃 선언만 달리 만들고, 06 §12.7에 메뉴가 선언한 부모 맥락 패널을 허용하며 `DrillPath` `summary` 슬롯을 더한다 — 기본 레시피 하나·단계만 드릴·오버레이 드릴 대신
+- [0078](0078-hw-time-layout-recipes.md) — HW Time 단일 분석 화면과 연결 패널; URL 드릴, 옛 id는 #2330까지 navHidden 호환 항목 (2026-11-16)
 - [0080](0080-inspector-forms.md) — `Inspector`는 보조 섹션을 한 번 선언하고 두 형태(`stack` APG 아코디언, `rail` 40 px 아이콘 열 + Popover peek)로 보인다 — A 아코디언 스택·B 레일+peek·C 탭 중 A+B를 한 부품으로, 동시 다중 열림이 기본. 섹션 내용은 질의를 소유하지 않는다
 - [0087](0087-board-minimize-restore-history.md) — 분석 보드는 URL이 최대화의 정본이고 `live`만 저장한 채 마운트를 유지하며 열기·최소화·복원·`분석 보드에 열기…`는 history replace로 전이한다(대안: a 언마운트 / b `history.back()` 최소화 / c 별도 mode 저장 — d 선택)
 - [0088](0088-surface-pause-detail-slot.md) — 소유 표면이 가려지면(최소화된 보드) 상세 슬롯 등록자는 자리를 지키되 표시권만 멈춘다 — 종료(`onSuperseded`)가 아니다, 재개 때 여전히 승자일 때만 다시 보이고 `activation`+1(대안: a 해제 / b 보드 전용 prop / c unmount — d 도메인 중립 scope 선택, ADR-0047 개정)
@@ -159,7 +159,7 @@ FeedbackOps 합류, 플랫폼 기능 메뉴, VOC·과제·감사 화면.
 - [0106](0106-improvement-task-is-quest.md) — 과제(Quest)는 개선 실행 시스템의 객체: BRAVO·MARS·CLAS는 출처, 개선 아이템은 과제 아래 업무 객체(편집형 표 조각은 #540), 효과 확인은 SDK 기준일 전후 비교 조각(#1243), 이름 `과제(Quest)` 병용. 0065 보충
 - [0110](0110-platform-feature-roles-and-scope.md) — 플랫폼 기능은 역할로 세 자리(직속·업무 흐름 `flow`·운영 콘솔)에 나눈다; VOC 공개 열람은 `voc.read_public` 시스템 단위 부여, 「플랫폼」 시스템 VOC는 로그인 전원 공개, Site·room은 #98 뒤; 업무 시스템은 `SpaceDef.feedbackTracking`과 빌드 산출물로 시스템을 스스로 등록하고 「플랫폼」 시스템을 늘 둔다; 화면 용어 `시스템`·`Task`
 - [0113](0113-voc-creation-permission-per-managed-system.md) — VOC 등록 권한은 시스템 단위(`voc_create_mode` `open`/`restricted`, 기본 열림, 연결 시스템도 열림 시작), 좁히는 단위는 사람(직접 부여 `voc.create`)+Admin 통과, 「플랫폼」 시스템은 항상 열림, 기존 VOC는 그대로. 0110·0069 보충
-- [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) — `apps/feature-screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다
+- [0133](0133-feature-screens-frozen-new-screens-on-sdk.md) — `packages/feature/screens`는 동결하고, 새 플랫폼 기능은 `platform/<feature>/`에 SDK 소비자로 만들며, 기존 화면은 크게 고칠 때 옮긴다
 
 ## 로그 지식 허브·검증
 

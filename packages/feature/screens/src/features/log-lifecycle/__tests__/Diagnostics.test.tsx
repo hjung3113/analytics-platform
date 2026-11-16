@@ -66,7 +66,7 @@ function required<T>(value: T | undefined): T { if (value === undefined) throw n
 function Table<T extends { id: string }>(p: TableParts<T>) {
   return <><table aria-label={p.title}><thead><tr>{p.columns.map(c => <th key={c.id}>{c.header}</th>)}</tr></thead><tbody>{p.rows.map(r => <tr key={r.id}>{p.columns.map(c => <td key={c.id}>{c.cell(r)}</td>)}</tr>)}</tbody></table>{p.pagination}</>;
 }
-const ui: Presentation = { table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null, sourceView: () => <p>합성 원본</p> };
+const ui: Presentation = { page: p => p.children, table: Table, drawer: p => <section role="dialog" aria-label={String(p.title)}>{p.body}</section>, timeline: () => null, trust: () => null, sourceView: () => <p>합성 원본</p> };
 function setup(options: { state?: Record<string, string>; list?: DiagnosticList; item?: DiagnosticItem | null; attempt?: Attempt | null; denied?: boolean } = {}) {
   const reads: { name: string; params: Record<string, unknown> }[] = [];
   const patches = vi.fn();
@@ -135,7 +135,7 @@ describe('attempt diagnostics (#1815 B2)', () => {
   });
   it('shows plain text, shape, producer slugs and evidence locations with a Source link', async () => {
     const t = setup(); const user = userEvent.setup();
-    expect(screen.getByRole('heading', { name: '시도 진단 · 시도 #1' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: '시도 진단 · 시도 #1' })).toBeNull();
     expect(screen.queryByRole('heading', { name: '진단 목록' })).toBeNull();
     expect(screen.queryByText('합성 검증기')).toBeNull();
     await user.click(screen.getByRole('button', { name: '이벤트 간격 차이' }));
