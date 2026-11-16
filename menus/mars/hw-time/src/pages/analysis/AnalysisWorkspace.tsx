@@ -13,6 +13,7 @@ import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
 import RawTablePanel from '../table/RawTablePanel';
 import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { CATALOG_IDS, chartRows, checkedSum, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
+import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
@@ -220,10 +221,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const available = catalog.filter(item => !item.disabledReason);
   const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
-  // An explicit point trend (a previous-step bar at step 4) wins over the drill target; pinned scatter keeps following the drill (#2399 review C1).
-  const drillTarget = moduleId && motionId ? `${moduleId}/${motionId}` : null;
-  const trendTarget = trend ?? drillTarget;
-  const scatterTarget = drillTarget ?? trend;
+  const panelContext = workspacePanelContext({ step, typeId, motionId, moduleId, trend });
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} depth={(step - 1) as Step} previous /> }] : []),
@@ -232,11 +230,29 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       const item = catalog.find(item => item.id === id)!;
       const renderPanel = (panel: CatalogId) => {
         switch (panel) {
-          case 'heatmap': return <Heatmap query={queries[typeId!]!} filter={filter} typeId={typeId!} />;
-          case 'trend': return <RunQueryPanel kind={panel} target={trendTarget!} filter={filter} />;
-          case 'scatter': return <RunQueryPanel kind={panel} target={scatterTarget!} filter={filter} />;
-          case 'motionTable': return <MotionTablePanel moduleId={moduleId!} filter={filter} />;
-          case 'moduleMotions': return <Bars {...props} depth={4} allMotions />;
+          case 'heatmap': {
+            const input = projectQueryInputs(panelDeclarations.heatmap, panelContext);
+            return input.moduleType ? <Heatmap query={queries[input.moduleType]!} filter={filter} typeId={input.moduleType} /> : null;
+          }
+          case 'trend': {
+            const input = projectQueryInputs(panelDeclarations.trend, panelContext);
+            const target = panelRunTarget(panel, input);
+            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} /> : null;
+          }
+          case 'scatter': {
+            const input = projectQueryInputs(panelDeclarations.scatter, panelContext);
+            const target = panelRunTarget(panel, input);
+            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} /> : null;
+          }
+          case 'motionTable': {
+            const input = projectQueryInputs(panelDeclarations.motionTable, panelContext);
+            return input.drillModule ? <MotionTablePanel moduleId={input.drillModule} filter={filter} /> : null;
+          }
+          case 'moduleMotions': {
+            const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
+            const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
+            return <Bars {...props} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions />;
+          }
           case 'table': return <RawTablePanel params={{}} linked />;
         }
       };

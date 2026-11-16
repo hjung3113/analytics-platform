@@ -1,6 +1,7 @@
 import { orderRows, type ChartSeries, type PanelAddItem, type PanelOption, type PanelOptionValues, type PanelWorkspacePreset, type RowOrderSort } from '@ap/components';
 import { HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLORS, type HwTimeMatrix, type HwTimeMatrixCell } from '../../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
+import { disabledReason, panelDeclarations, workspacePanelContext } from './panelDeclaration';
 
 export type Step = 1 | 2 | 3 | 4;
 export const CATALOG_IDS = ['heatmap', 'trend', 'scatter', 'motionTable', 'moduleMotions', 'table'] as const;
@@ -47,13 +48,14 @@ export function workspaceOptions(step: Step): PanelOption[] {
   ];
 }
 export function panelCatalog({ step, typeId, moduleId, trend }: { step: Step; typeId: string | null; moduleId: string | null; trend: string | null }): PanelAddItem[] {
-  const runReason = moduleId || trend ? undefined : S.needsPoint;
+  const context = workspacePanelContext({ step, typeId, moduleId, trend });
+  const reason = (id: CatalogId) => disabledReason(panelDeclarations[id], context);
   return [
-    { id: 'heatmap', title: S.heatmap, disabledReason: typeId ? undefined : S.needsType },
-    { id: 'trend', title: S.trend, disabledReason: runReason },
-    { id: 'scatter', title: S.scatter, disabledReason: runReason },
-    { id: 'motionTable', title: S.motionTable, disabledReason: moduleId ? undefined : S.needsModule },
-    { id: 'moduleMotions', title: { ko: S.moduleMotions.ko.replace('{module}', moduleId ?? 'Module'), en: S.moduleMotions.en.replace('{module}', moduleId ?? 'Module') }, disabledReason: step === 4 ? undefined : S.needsStep4 },
+    { id: 'heatmap', title: S.heatmap, disabledReason: reason('heatmap') },
+    { id: 'trend', title: S.trend, disabledReason: reason('trend') },
+    { id: 'scatter', title: S.scatter, disabledReason: reason('scatter') },
+    { id: 'motionTable', title: S.motionTable, disabledReason: reason('motionTable') },
+    { id: 'moduleMotions', title: { ko: S.moduleMotions.ko.replace('{module}', moduleId ?? 'Module'), en: S.moduleMotions.en.replace('{module}', moduleId ?? 'Module') }, disabledReason: reason('moduleMotions') },
     { id: 'table', title: S.table },
   ];
 }
