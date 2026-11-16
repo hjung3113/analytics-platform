@@ -1063,16 +1063,18 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   const cycleRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
     .filter(entry => /^analytics\.cycle\.(kpi|trend|dist|slow)$/.test(String((entry as PerformanceMark).detail?.endpoint))).length);
   /** The plot the user sees: the canvas box clipped by every scrolling or clipping ancestor (a canvas can be taller than the window it sits in). */
-  const visiblePlotHeight = (page: Page) => workspace(page).getByRole('region', { name: TITLES.trend, exact: true }).locator('canvas').first().evaluate(canvas => {
+  const visiblePlotBox = (page: Page) => workspace(page).getByRole('region', { name: TITLES.trend, exact: true }).locator('canvas').first().evaluate(canvas => {
     const box = canvas.getBoundingClientRect();
-    let top = box.top; let bottom = box.bottom;
+    let left = box.left; let right = box.right; let top = box.top; let bottom = box.bottom;
     for (let element = canvas.parentElement; element; element = element.parentElement) {
-      if (getComputedStyle(element).overflowY === 'visible') continue;
+      const style = getComputedStyle(element);
       const clip = element.getBoundingClientRect();
-      top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom);
+      if (style.overflowX !== 'visible') { left = Math.max(left, clip.left); right = Math.min(right, clip.right); }
+      if (style.overflowY !== 'visible') { top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom); }
     }
-    return Math.max(0, bottom - top);
+    return { width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
   });
+  const visiblePlotHeight = async (page: Page) => (await visiblePlotBox(page)).height;
 
   test('기본 배치: 추세가 높이의 55% 이상(320px 이상)·가장 넓고 보이는 그림이 300px 이상이며, 막대를 펼치면 작업 영역이 520px 아래로 찌그러지지 않는다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1140,25 +1142,30 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     expect(await cycleRequests(page)).toBe(before);
   });
 
-  test('추세 차트 높이는 컨테이너를 따른다: 최대화하면 커지고 복원하면 원래 높이로 돌아온다', async ({ page }, testInfo) => {
+  test('추세 차트는 컨테이너를 따른다: 최대화하면 넓어지고 복원하면 원래 크기로 돌아온다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await expandedBarsAtLoad(page);
     await page.goto(CYCLE);
     await workspaceReady(page);
     await collapseBars(page);
     // Read the original only once the layout has settled after the bars collapse (the first ≥ 300 reading can still be growing).
-    let original = -1;
+    let original = { width: -1, height: -1 };
     await expect.poll(async () => {
       const previous = original;
-      original = await visiblePlotHeight(page);
-      return original >= 300 && Math.abs(original - previous) < 0.5;
+      original = await visiblePlotBox(page);
+      return original.height >= 300 && original.width > 0 && Math.abs(original.height - previous.height) < 0.5 && Math.abs(original.width - previous.width) < 0.5;
     }, { intervals: [200] }).toBe(true);
 
     await groupOf(page, TITLES.trend).getByRole('button', { name: `${TITLES.trend} 최대화` }).click();
-    await expect.poll(() => visiblePlotHeight(page)).toBeGreaterThan(original + 4);
+    // One-row panel chrome already fills the workspace height, so maximize must grow width without shrinking height.
+    await expect.poll(async () => (await visiblePlotBox(page)).width).toBeGreaterThan(original.width + 4);
+    await expect.poll(async () => (await visiblePlotBox(page)).height).toBeGreaterThanOrEqual(original.height - 1);
     await evidence(page, testInfo, 'workspace-trend-maximized');
     await groupOf(page, TITLES.trend).getByRole('button', { name: '원래 크기로' }).click();
-    await expect.poll(async () => Math.abs((await visiblePlotHeight(page)) - original)).toBeLessThanOrEqual(4);
+    await expect.poll(async () => {
+      const restored = await visiblePlotBox(page);
+      return Math.max(Math.abs(restored.width - original.width), Math.abs(restored.height - original.height));
+    }).toBeLessThanOrEqual(4);
   });
 
   test('응답 배너가 떠도 작업 영역은 페이지 본문 안에 머물고 520px을 지킨다(배너 전후에는 main이 스크롤되지 않는다)', async ({ page }, testInfo) => {

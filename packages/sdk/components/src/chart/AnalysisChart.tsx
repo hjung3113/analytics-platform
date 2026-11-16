@@ -1,4 +1,6 @@
+import type { ChartChromeOptions } from './chartChrome';
 import type { ChartBounds, ChartBoundLabels } from './chartBounds';
+import { BrushIcon, ChevronDown, ChevronUp, RotateCcw, Play, ExternalLink } from 'lucide-react';
 import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
@@ -19,8 +21,8 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { distinctStatuses, heatmapStatusOutlines, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
-import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
-import { useEmbeddedChrome } from '../workspace/panelContext';
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout } from './analysisChartFrameParts';
+import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
 
 export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus };
@@ -109,7 +111,7 @@ export type TopNBarSpec = {
   selectedId?: string | null;
 };
 export type ChartSpec = HeatmapSpec | DonutSpec | ScatterSpec | BoxPlotSpec | ParetoSpec | TopNBarSpec;
-export type AnalysisChartProps = {
+export type AnalysisChartProps = ChartChromeOptions & {
   chartId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; unit: string;
   /** Trust footer: the response `Trust` (formatted by the SDK, viewer time zone), `null` (no footer), or an already formatted `{ source, updated, coverage }` text triple (shown as given). */
   trust?: ChartTrust; height?: number; size?: ChartSize; emptyText?: string; spec: ChartSpec;
@@ -137,6 +139,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const section = useContext(AnalysisSectionContext);
   // Inside a panel or a board pane the container owns the border and radius, as for AnalysisChartFrame and the table (#1166).
   const embedded = useEmbeddedChrome();
+  const panel = useInWorkspacePanel();
+  const chrome = p.chrome ?? (panel ? 'standard' : 'full');
+  const compactChrome = chrome !== 'full';
   const size = resolveAnalysisChartSize(p.size, section);
   const compact = size === 'compact';
   const bodyId = useId();
@@ -150,6 +155,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   }, [expanded]);
   const titleId = useId(); const summaryId = useId();
   const [table, setTable] = useState(false);
+  const [panelToolsOpen, setPanelToolsOpen] = useState(false);
   const chart = useRef<ECharts | null>(null);
   // A top-N bar may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
   // selection whenever its bar is drawn, so rows that arrive or grow later still show it. A click, Reset or brush makes the selection
@@ -172,7 +178,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const hasStatuses = statusLegend.length > 0;
   // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
   const fill = useElementSize(size === 'fill');
-  const height = p.height ?? (size === 'fill' && fill.height !== null ? fillChartHeight(fill.height) : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
+  const measuredFillHeight = chrome === 'standard' ? Math.max(0, fill.height ?? 0) : fillChartHeight(fill.height);
+  const height = p.height ?? (size === 'fill' && fill.height !== null ? measuredFillHeight : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify(global);
   const [previousContext, setPreviousContext] = useState(contextKey);
@@ -287,28 +294,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
     }
     exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
-  if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
-  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS, embedded && 'rounded-none border-0 shadow-none')}>
-    <AnalysisChartPart enabled={section !== null}>
-      <header className={cn('flex flex-wrap items-start justify-between', embedded ? 'gap-1 px-4 pt-1' : 'gap-2 px-4 pt-3', section && 'pr-12')}>
-        <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
-        <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
-          {spec.kind === 'topNBar' && <Button ref={collapseButton} size="toolbar" variant="ghost" aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
-            const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
-            if (!next) collapseButton.current?.focus();
-          }}>{expanded ? m('chartHide') : m('chartShow')}</Button>}
-          <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartReset')}</Button>
-          {brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{m('chartDragToSelect')}</Button>}
-          <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => setTable(!table)}>{m('chartShowAsTable')}</Button>
-          {exportGate.allowed && <><Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button><ImageActionStatus text={exportGate.status} /></>}
-          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
-          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
-        </div>
-      </header>
-      {spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
+  const kindLegend = <>{spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
         {scale?.type === 'threshold' && validThreshold ? <div className="flex gap-3">{scale.labels.map((label, i) => <span key={i} className="flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>)}</div> : <>
-          {/* eslint-disable-next-line shadcn/no-inline-styles -- continuous scale legend resolves the five public ramp tokens at runtime */}
-          <div className="h-2 w-full rounded" style={{ background: `linear-gradient(to right, ${ramp.map(c => token(c)).join(', ')})` }} />
+          <HeatmapRamp ramp={ramp} />
           <div className="relative flex justify-between">
             <span>{format(domain[0])}</span>
             {scale?.type === 'diverging' && <span className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center">
@@ -322,12 +310,57 @@ export function AnalysisChart(p: AnalysisChartProps) {
         {hasStatuses && <div className="flex flex-wrap gap-3" role="group" aria-label={m('chartLegend')}><ChartStatusLegend statuses={statusLegend} /></div>}
       </div>}
       {extended && <KindLegend compact={compact} items={extended.legend} label={m('chartLegend')} />}
-      {spec.kind === 'donut' && <ul aria-label={m('chartLegend')} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}
-      <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
+      {spec.kind === 'donut' && <ul aria-label={m('chartLegend')} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{rows.map(row => <li key={row.key} className="flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</li>)}</ul>}</>;
+  const standardLegend = <>
+    {spec.kind === 'heatmap' && <>
+      {scale?.type === 'threshold' && validThreshold ? scale.labels.map((label, i) => <span key={i} className="inline-flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>) : <>
+        <span>{format(domain[0])}</span>
+        <HeatmapRamp ramp={ramp} inline />
+        {scale?.type === 'diverging' && <span>{m('chartTarget', { pivot: format(scale.pivot) })}</span>}
+        <span>{format(domain[1])}</span>
+      </>}
+      <span className="inline-flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
+      <ChartStatusLegend statuses={statusLegend} />
+    </>}
+    {extended && <KindLegend compact singleLine items={extended.legend} />}
+    {spec.kind === 'donut' && rows.map(row => <span key={row.key} className="inline-flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</span>)}
+  </>;
+  if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
+  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), embedded && 'rounded-none border-0 shadow-none')}>
+    <AnalysisChartPart enabled={section !== null}>
+      <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={<>
+        {spec.kind === 'topNBar' && <Button ref={collapseButton} size="icon-xs" className="shrink-0" variant="ghost" aria-label={expanded ? m('chartHide') : m('chartShow')} title={expanded ? m('chartHide') : m('chartShow')} aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
+          const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
+          if (!next) collapseButton.current?.focus();
+        }}>{expanded ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}</Button>}
+        <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden /></Button>
+        {brushable && <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartDragToSelect')} title={m('chartDragToSelect')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden /></Button>}
+      </>}>
+      <header className={cn('flex flex-wrap items-start justify-between', embedded ? 'gap-1 px-4 pt-1' : 'gap-2 px-4 pt-3', section && 'pr-12')}>
+        {!compactChrome && <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} hideTitle={false} />}
+        <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
+          {!compactChrome && spec.kind === 'topNBar' && <Button ref={collapseButton} size="toolbar" variant="ghost" aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
+            const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
+            if (!next) collapseButton.current?.focus();
+          }}>{expanded ? m('chartHide') : m('chartShow')}</Button>}
+          {!compactChrome && <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartReset')}</Button>}
+          {!compactChrome && brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{m('chartDragToSelect')}</Button>}
+          <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => { setTable(current => !current); if (compactChrome) setPanelToolsOpen(false); }}>{m('chartShowAsTable')}</Button>
+          {exportGate.allowed && <><Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button>{!compactChrome && <ImageActionStatus text={exportGate.status} />}</>}
+          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={compactChrome ? exportGate.say : undefined} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} onOutcome={compactChrome ? exportGate.say : undefined} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+        </div>
+      </header>
+      {chrome !== 'standard' && kindLegend}
+      <p id={compactChrome ? undefined : summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
+      </PanelChartChrome>
+      {compactChrome && exportGate.allowed && <span role="status" className="sr-only">{exportGate.status}</span>}
+      {compactChrome && <p id={summaryId} className="sr-only">{summary}</p>}
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
-    <AnalysisChartPart enabled={section !== null} body>
-      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && FILL_PLOT_CLASS)}>
+    <AnalysisChartPart enabled={section !== null} body bounded={chrome === 'standard' && size === 'fill'}>
+      <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} className={cn('relative', size === 'fill' && (chrome === 'standard' ? 'min-h-0 grow basis-0 overflow-hidden' : FILL_PLOT_CLASS))}>
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={height} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => { if (params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return; activateCell('click', params); const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
           // Registered only for an opted-in double-click heatmap: every other chart keeps its event set unchanged.
@@ -343,11 +376,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
           {selectedRows[0] && <p>{percent(selectedRows[0].share ?? 0)}</p>}
         </div>}
       </div>}
-      <section aria-label={m('chartSelectionSummaryRegion')} className={cn('px-4 py-2 text-xs text-text-secondary', embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken')}>
+      </ChartLegendLayout>
+      <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !(selectedRows.length === 1 && selectedRows[0].drill) ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap px-2 py-0.5 text-xs text-text-secondary *:shrink-0' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
         {hasStatuses && selectedRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
-        {spec.kind === 'heatmap' && spec.cellActivation && <Button size="toolbar" variant="ghost" disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{m('chartActivatePoint')}</Button>}
-        {selectedRows.length === 1 && selectedRows[0].drill && <Button size="toolbar" variant="ghost" onClick={selectedRows[0].drill}>{m('chartDetails')}</Button>}
+        {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}
+        {selectedRows.length === 1 && selectedRows[0].drill && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartDetails') : undefined} title={compactChrome ? m('chartDetails') : undefined} onClick={selectedRows[0].drill}>{compactChrome ? <ExternalLink className="size-3.5" aria-hidden /> : m('chartDetails')}</Button>}
       </section>
       {table && <div className="overflow-auto px-4 py-2"><table className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{[...headers, m('chartSelect')].map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
@@ -364,6 +398,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
 
 function clearBrush(chart: ECharts | null) {
   if (chart && !chart.isDisposed?.()) chart.dispatchAction({ type: 'brush', areas: [] });
+}
+
+function HeatmapRamp({ ramp, inline = false }: { ramp: ThemeColorToken[]; inline?: boolean }) {
+  // eslint-disable-next-line shadcn/no-inline-styles -- continuous scale legend resolves the five public ramp tokens at runtime
+  return <div aria-hidden={inline || undefined} className={inline ? 'h-2 w-20 shrink-0 rounded' : 'h-2 w-full rounded'} style={{ background: `linear-gradient(to right, ${ramp.map(c => token(c)).join(', ')})` }} />;
 }
 
 function Swatch({ color, unknown = false }: { color: string; unknown?: boolean }) {

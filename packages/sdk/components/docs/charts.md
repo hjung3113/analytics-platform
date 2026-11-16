@@ -2,6 +2,18 @@
 
 `@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../../../../docs/adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`도 `PlatformProvider` 없이 `I18nProvider`만으로 그려진다(#1953 B). `내보내기`(CSV)·`imageCopy`·`imagePrint`는 `exportActions: { exportAllowed: true }`를 줄 때만 보이고, 플랫폼 안에서는 메뉴 `features.export`가 결정한다. `AnalysisChartFrame`은 `PlatformProvider` 없이도 순수 차트 동작을 쓴다(아래 «플랫폼 밖의 Chart Frame»).
 
+## Chrome
+
+`AnalysisChartFrame`·`AnalysisChart`는 선택 `chrome?: 'full' | 'standard' | 'minimal'`을 받는다. 명시값이 우선하며 생략하면 카드·보드 pane은 기존 `full`, 작업 영역 패널은 `standard`다. 수준별 동작은 [차트 계약 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)을 따른다. `ChartChrome`·`ChartChromeOptions` 타입도 공개한다.
+
+`standard`에서는 메뉴가 다음 선택 prop을 패널마다 선언한다. `full`·`minimal`에서는 무시한다. URL은 SDK가 읽지 않는다.
+
+| Prop | 기본값 | 동작 |
+| --- | --- | --- |
+| `legendPlacement?: 'top' \| 'bottom' \| 'side'` | `bottom` | 플롯 위/아래 한 줄 또는 오른쪽 세로 목록 |
+| `toolsReveal?: 'always' \| 'hover'` | `always` | 상시 표시 또는 차트 hover/focus-within 때 표시. 키보드·AT 접근을 유지하며 더보기가 열려 있는 동안에도 표시 |
+| `legendCaption?: ReactNode` | 없음 | 위/아래 범례 줄 끝, 오른쪽 범례 목록 아래에 캡션 표시 |
+
 ## TopN
 
 ```tsx

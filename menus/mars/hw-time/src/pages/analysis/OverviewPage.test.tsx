@@ -11,6 +11,28 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 const chart = (id: string) => JSON.parse(screen.getByTestId(id).textContent!);
 
 describe('HW Time linked workspace', () => {
+  it('starts run settings and diagnostic copy collapsed behind one named disclosure (#2372)', async () => {
+    await renderOverview('&drillModule=PM1&drillMotion=Chuck');
+    const scatter = screen.getByTestId('hw-overview-scatter');
+    const controls = within(scatter).getByText('패널 표시 설정');
+    const settings = controls.closest('details')!;
+    expect(settings.open).toBe(false);
+    fireEvent.click(controls);
+    expect(settings.open).toBe(true);
+    expect(within(scatter).getByRole('combobox', { name: '가로축' })).toBeTruthy();
+    expect(within(scatter).getByRole('group', { name: '이 패널만' })).toBeTruthy();
+    expect(within(scatter).getByText('표본 2 / 전체 576 · 기준 밖 점 전부 포함')).toBeTruthy();
+  });
+
+  it('keeps matrix diagnostic and judgement announcements out of the visible plot layout (#2372)', async () => {
+    await renderOverview();
+    const heatmap = screen.getByRole('region', { name: 'panel heatmap' });
+    expect(within(heatmap).getByText(/합성 데이터/).classList.contains('sr-only')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'activate EQ-002 PM2' }));
+    const bars = screen.getByRole('region', { name: 'panel bars' });
+    expect(within(bars).getByRole('status').classList.contains('sr-only')).toBe(true);
+  });
+
   it('shows parallel Module/Motion check lists and sums checked Motion averages in both charts', async () => {
     await renderOverview();
     expect(screen.getByText('통계 미제공')).toBeTruthy();
@@ -70,7 +92,7 @@ describe('HW Time linked workspace', () => {
     expect(bars.statuses).toEqual(['Chuck@EQ-001 · PM1:danger', 'Dechuck@EQ-001 · PM1:warning']);
     const cells = chart('hw-overview-matrix').cells as { x: string; y: string; status?: { tone: string; label: string } }[];
     expect(cells.find(c => c.x === 'PM1' && c.y === 'EQ-001')!.status!.tone).toBe('danger');
-    // `판정 불가` stays in the caption above and in the Motion table; a mark on every cell would drown the out-of-bound ones (advisor).
+    // `판정 불가` stays in the accessible chart description and Motion table; a mark on every cell would drown the out-of-bound ones (advisor).
     expect(cells.filter(c => c.status).map(c => `${c.y} · ${c.x}:${c.status!.tone}`)).toEqual(['EQ-001 · PM1:danger']);
     // The heatmap mark and the bar marks read the same matrix cell: a marked cell is exactly a row with a marked bar piece.
     expect(new Set(bars.statuses.map((s: string) => s.split('@')[1]!.split(':')[0]))).toEqual(new Set(cells.filter(c => c.status).map(c => `${c.y} · ${c.x}`)));
@@ -150,6 +172,7 @@ describe('HW Time linked workspace', () => {
       await renderOverview('&drillModule=PM1&drillMotion=Chuck');
       await screen.findByTestId('hw-overview-scatter');
       const before = window.location.search;
+      fireEvent.click(within(screen.getByTestId('hw-overview-scatter')).getByText('패널 표시 설정'));
       async function choose(name: string, option: string) {
         fireEvent.keyDown(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name }), { key: 'Enter' });
         fireEvent.click(await screen.findByRole('option', { name: option }));
@@ -253,6 +276,7 @@ describe('review regressions', () => {
     await screen.findByTestId('hw-overview-scatter');
     const before = requests.map(request => request.endpoint);
     const url = window.location.search;
+    fireEvent.click(within(screen.getByTestId('hw-overview-scatter')).getByText('패널 표시 설정'));
     const line = within(screen.getByTestId('hw-overview-scatter')).getByRole('group', { name: '이 패널만' });
     expect(line.querySelector('[data-filter-scope]')?.textContent).toBe('이 패널만');
     expect(within(screen.getByTestId('hw-overview-scatter')).getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();

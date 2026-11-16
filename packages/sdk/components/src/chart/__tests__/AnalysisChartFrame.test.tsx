@@ -6,6 +6,7 @@ import { parseDateTime, groupId, spaceId, type AnnotationInput, type ApiResponse
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import userEvent from '@testing-library/user-event';
 import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
+import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { assignNoteLevels } from '../annotationLayout';
 import type { EChartProps } from '../EChart';
@@ -835,6 +836,29 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 describe('author-only annotation delete (#399, ADR-0041)', () => {
   const note = (id: string, text: string, mine: boolean, over: Partial<ChartAnnotation> = {}): ChartAnnotation =>
     ({ id, chartId: 'chart-1', scopeId: 'MEM', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00', text, at: '2026-09-29T09:00', mine, ...over });
+
+  it('reopens panel More and focuses enabled Annotate after deleting the final own note with More closed', async () => {
+    const f = fixture();
+    f.rows.push(note('x1', 'Last own note', true));
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={f.adapter} registry={registryWith(on)}><InWorkspacePanelProvider value>
+      <AnalysisChartFrame chartId="chart-1" title="Chart" series={series} unit="ea" size="fill" />
+    </InWorkspacePanelProvider></PlatformProvider></I18nProvider>);
+    await screen.findByRole('button', { name: '삭제: Last own note' });
+    fireEvent.click(screen.getByText('fake-brush'));
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: '주석' })).toBeEnabled();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: '삭제: Last own note' }));
+    const confirm = within(screen.getByRole('group', { name: '삭제 확인: Last own note' })).getByRole('button', { name: '삭제 확정' });
+    confirm.focus();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '삭제: Last own note' })).toBeNull());
+    const annotate = await screen.findByRole('button', { name: '주석' });
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: '주석' })).toBe(annotate);
+    await waitFor(() => expect(annotate).toHaveFocus());
+  });
 
   it('draws a delete button only on the viewer’s own notes, named after the note without the Annotate word', async () => {
     const f = fixture();

@@ -7,10 +7,13 @@ const panel = (page: Page, id: string) => workspace(page).locator(`[data-dock-pa
 
 async function enterBar(page: Page, row: string) {
   const bars = panel(page, 'bars');
-  const picker = bars.getByRole('combobox', { name: '차트 지점 선택' });
+  await bars.getByRole('button', { name: '더보기', exact: true }).click();
+  const tools = page.getByRole('dialog', { name: '더보기', exact: true });
+  const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
   const option = picker.locator('option').filter({ hasText: row }).first();
   await picker.selectOption({ value: (await option.getAttribute('value'))! });
-  await bars.getByRole('button', { name: '선택 지점 실행' }).click();
+  await tools.getByRole('button', { name: '선택 지점 실행' }).click();
+  if (await tools.isVisible()) await page.keyboard.press('Escape');
 }
 
 /** Find a painted heatmap cell, excluding grey axes and text, then click its interior. No engine instance access. */
@@ -56,10 +59,12 @@ test.describe('HW Time linked panels — drill, filters and legacy compatibility
       await expectScopeValid(page, 'MEM · 메모리');
       for (const id of ['filter', 'heatmap', 'bars', 'motions', 'scatter', 'trend', 'table']) await expect(panel(page, id)).toBeVisible();
       await expect(page.getByRole('tab', { name: /^(개요|단계별|비교|표|누적|동작별 정렬)$/ })).toHaveCount(0);
+      // Standard chrome keeps reading keys visible without opening More (#2372).
+      for (const id of ['heatmap', 'bars']) await expect(panel(page, id).getByRole('group', { name: '범례', exact: true })).toBeVisible();
       await clickHeatmap(page);
       await expect.poll(() => query(page).get('row')).toMatch(/^EQ-\d{3} · PM\d$/);
       const row = query(page).get('row')!;
-      await expect(panel(page, 'bars').locator('[role="status"]').filter({ hasText: row })).toBeVisible();
+      await expect(panel(page, 'bars').getByRole('region', { name: '선택 요약', exact: true })).toContainText(row);
       await enterBar(page, row);
       const moduleId = row.split(' · ')[1]!;
       await expect.poll(() => query(page).get('drillModule')).toBe(moduleId);
@@ -82,7 +87,12 @@ test.describe('HW Time linked panels — drill, filters and legacy compatibility
   test('heatmap keyboard selection summary and Details both update the linked row', async ({ page }) => {
     await page.goto(SCREEN);
     const heatmap = panel(page, 'heatmap');
-    await heatmap.getByRole('button', { name: '표로 보기', exact: true }).click();
+    await expect(heatmap.locator('[data-legend-placement="top"] > [aria-label="범례"]')).toBeVisible();
+    await heatmap.getByRole('button', { name: '더보기', exact: true }).click();
+    await page.getByRole('dialog', { name: '더보기', exact: true }).getByRole('button', { name: '표로 보기', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: '더보기', exact: true })).toBeHidden();
+    await expect(heatmap.getByRole('table')).toBeVisible();
+    await page.keyboard.press('Escape');
     const cell = heatmap.getByRole('checkbox', { name: /EQ-001 · PM1/ });
     await cell.focus();
     await page.keyboard.press('Space');

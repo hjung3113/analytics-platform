@@ -1,3 +1,4 @@
+export type { ChartChrome, ChartChromeOptions } from './chart/chartChrome';
 export type { ChartBounds, ChartBoundLabels } from './chart/chartBounds';
 export type { ChartStatus, ChartRowGroups } from './chart';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem } from './chart/AnalysisChart';

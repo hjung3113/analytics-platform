@@ -125,9 +125,9 @@ export type AnnotationEditor = ReturnType<typeof useEditorState>;
  * Focus handoff after a delete (06 §26). A separate hook so its effects run after the frame's Context-reset effect,
  * as they did when everything lived in the component.
  */
-export function useAnnotationDeleteFocus(editor: AnnotationEditor, anchors: { annotateButton: RefObject<HTMLButtonElement | null>; brushToggle: RefObject<HTMLButtonElement | null> }) {
+export function useAnnotationDeleteFocus(editor: AnnotationEditor, anchors: { annotateButton: RefObject<HTMLButtonElement | null>; brushToggle: RefObject<HTMLButtonElement | null>; returnToAnnotate?: () => void }) {
   const { annotations, settled, endSettled, restoreFocus, setRestoreFocus, deleteButtons, focusOnConfirm } = editor;
-  const { annotateButton, brushToggle } = anchors;
+  const { annotateButton, brushToggle, returnToAnnotate } = anchors;
   // 06 §26: the confirm row unmounts, so focus moves only if it is still on that row — the next note's delete button, else Annotate.
   useEffect(() => {
     if (!settled || annotations.some(a => a.id === settled.id)) return;
@@ -136,9 +136,10 @@ export function useAnnotationDeleteFocus(editor: AnnotationEditor, anchors: { an
     endSettled();
     if (!onConfirm) return;
     const next = settled.nextId ? deleteButtons.current.get(settled.nextId) : undefined;
+    if (!next && returnToAnnotate) { returnToAnnotate(); return; }
     const fallback = annotateButton.current && !annotateButton.current.disabled ? annotateButton.current : brushToggle.current;
     (next ?? fallback)?.focus({ preventScroll: true });
-  }, [annotations, settled, endSettled, focusOnConfirm, deleteButtons, annotateButton, brushToggle]);
+  }, [annotations, settled, endSettled, focusOnConfirm, deleteButtons, annotateButton, brushToggle, returnToAnnotate]);
   // Cancel and failure keep the note: focus goes back to the button that opened the confirm.
   useEffect(() => {
     if (restoreFocus === null) return;

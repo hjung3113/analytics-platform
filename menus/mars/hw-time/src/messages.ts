@@ -106,6 +106,7 @@ export const HW_TIME_OVERVIEW_MESSAGES = {
   trend: { ko: '추세', en: 'Trend' },
   period: { ko: '기간', en: 'Period' },
   outsideOnly: { ko: '기준 밖만', en: 'Out of bound only' },
+  panelSettings: { ko: '패널 표시 설정', en: 'Panel display settings' },
   panelOnly: { ko: '이 패널만', en: 'This panel only' },
   boundConflict: { ko: '같은 범주에 서로 다른 HTM이 있어 해당 범주의 기준 띠를 표시하지 않습니다. 설비·Module 축을 사용하세요.', en: 'A category has differing HTMs, so its bound band is omitted. Use Equipment · Module.' },
   trendBandPolicy: { ko: '추세 기준 띠는 설비 하나를 고른 경우에만 표시합니다. Module 시간에는 기준 띠가 없습니다.', en: 'Trend bound bands appear only for one equipment. Module time has no bound band.' },
