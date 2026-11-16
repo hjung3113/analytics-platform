@@ -1,6 +1,6 @@
 import { HW_TIME_MESSAGES } from './messages';
 /** Client-safe endpoint contracts shared by all four HW Time menus and their mock handlers. */
-import { defineEndpoint, menuPermission, type AuditEvent, type PageQuery, type PageResult, type PageSort } from '@ap/contracts';
+import { defineEndpoint, menuPermission, type AuditEvent, type PageQuery, type PageResult, type PageSort, type Text } from '@ap/contracts';
 
 export const MODULE_IDS = ['PM1', 'PM2', 'PM3', 'PM4'] as const;
 export const MOTION_IDS = ['Chuck', 'Dechuck', 'Pump', 'Vent', 'Transfer'] as const;
@@ -181,6 +181,7 @@ export type HwTimeDistribution = {
   total: number; equipment: number;
   bounds: { lower: number | null; upper: number | null };
 };
+export type HwTimeBoundHistoryEvent = AuditEvent & { actorName?: Text };
 export const hwTimeOverview = {
   matrix: defineEndpoint<HwTimeMatrixParams, HwTimeMatrix>({
     ...common, id: 'hwTime.matrix', paramKeys: { moduleType: true },
@@ -194,7 +195,7 @@ export const hwTimeOverview = {
   equipmentDays: defineEndpoint<HwTimePanelParams, HwTimeEquipmentDays>({
     ...common, id: 'hwTime.equipmentDays', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
-  boundHistory: defineEndpoint<HwTimePanelParams, AuditEvent[]>({
+  boundHistory: defineEndpoint<HwTimePanelParams, HwTimeBoundHistoryEvent[]>({
     ...common, id: 'hwTime.boundHistory', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
   distribution: defineEndpoint<HwTimeDistributionParams, HwTimeDistribution>({

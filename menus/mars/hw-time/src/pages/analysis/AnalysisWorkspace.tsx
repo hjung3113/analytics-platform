@@ -14,7 +14,7 @@ import RawTablePanel from '../table/RawTablePanel';
 import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
-import { heatmapValues, verdictEmphasis } from './newPanelData';
+import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
 import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -188,8 +188,7 @@ function Heatmap({ query, filter, typeId, motionId, verdict }: { query: MatrixQu
   return <QueryView fill query={query}>{data => {
     const cells = heatmapValues(data, checks, motionId, verdict, lang);
     return <AnalysisChart chartId="hw-overview-matrix" title={m('heatmap')} unit={HW_TIME_UNIT[lang]} size="fill" legendPlacement="top" toolsReveal="always"
-      spec={{ kind: 'heatmap', minRowHeight: 24, statusDisplay: 'border', xLabels: data.modules.filter(id => checks.modules.includes(id)), yLabels: data.equipment, cells,
-        scale: { type: 'sequential', domain: [0, Math.max(0, ...cells.flatMap(cell => cell.value === null ? [] : [cell.value]))] },
+      spec={{ kind: 'heatmap', categories: VERDICT_CATEGORIES, minRowHeight: 24, statusDisplay: 'border', xLabels: data.modules.filter(id => checks.modules.includes(id)), yLabels: data.equipment, cells,
         valueFormat: value => formatSeconds(value, lang), onCellClick: (module, equipment) => setPage({ row: rowLabel(equipment, module) }, { replace: true }),
       }} />;
   }}</QueryView>;

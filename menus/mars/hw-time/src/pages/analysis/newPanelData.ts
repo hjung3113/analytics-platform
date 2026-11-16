@@ -1,8 +1,15 @@
-import type { HeatmapCell } from '@ap/components';
+import type { HeatmapCategory, HeatmapCell } from '@ap/components';
 import { HTM_STATUSES, HW_TIME_MODULE_TYPES, type HtmJudgement, type HtmStatus, type HwTimeMatrix } from '../../endpoints';
 import { HW_TIME_NEW_PANEL_MESSAGES as N } from '../../messages';
 import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
 import type { Checks } from './stepped';
+
+export const VERDICT_CATEGORIES: readonly HeatmapCategory[] = [
+  { id: 'normal', label: N.normal, tone: 'success' },
+  { id: 'over', label: N.over, tone: 'danger' },
+  { id: 'under', label: N.under, tone: 'warning' },
+  { id: 'unjudgeable', label: N.unjudgeable, tone: 'neutral' },
+];
 
 function selectedJudgements(matrices: readonly HwTimeMatrix[], selection: (type: string) => Checks) {
   return matrices.flatMap(matrix => {
@@ -42,6 +49,7 @@ export function heatmapValues(data: HwTimeMatrix, checks: Checks, motion: string
     const value = motion ? picked?.value ?? null : sum;
     const statuses = checks.motions.map(id => cell.motions[id]).filter((item): item is HtmJudgement => !!item);
     const worst = statuses.find(item => item.status === 'over') ?? statuses.find(item => item.status === 'under') ?? cell.module;
-    return { x: cell.moduleId, y: cell.equipmentId, value, status: verdictEmphasis(motion ? picked : worst, verdict, lang) };
+    const judgement = motion ? picked : worst;
+    return { x: cell.moduleId, y: cell.equipmentId, value, category: judgement?.status ?? 'unjudgeable', status: verdictEmphasis(judgement, verdict, lang) };
   });
 }

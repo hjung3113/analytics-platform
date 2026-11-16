@@ -18,6 +18,15 @@ const SPREAD_SAMPLES = 6;
 const BAND_CENTRE = 0.48;
 const BAND_SPREAD = 0.24;
 const UNDER_EQUIPMENT = 6;
+const UNDER_WARMUP_RUNS = 2;
+/** Stable row/column offsets in HTM-band fractions; ordinary observations stay inside the bounds. */
+const EQUIPMENT_OFFSET_STEP = 0.07;
+const EQUIPMENT_OFFSET_PERIOD = 5;
+const MODULE_OFFSET_STEP = 0.06;
+const NEAR_LIMIT_EQUIPMENT = [5, 18];
+const NEAR_LIMIT_CENTRE = 0.88;
+const MIN_BAND_POSITION = 0.04;
+const MAX_BAND_POSITION = 0.96;
 /** Two isolated observations per full population, beyond the ordinary near-bound tail. */
 const RARE_TAIL_EQUIPMENT_INTERVAL = 12;
 
@@ -51,13 +60,17 @@ function runValues(equipmentId: string, params: HwTimeRunParams): number[] {
     if (run === RUNS_PER_EQUIPMENT - 1 && equipmentNumber % RARE_TAIL_EQUIPMENT_INTERVAL === 0) return bounds.upper + 2 + jitter;
     // Deterministic Module-Motion tail: means, runs, daily means and distribution use the same observations.
     if (syntheticUpperTail(equipmentNumber, moduleIndex, motionIndex)) return bounds.upper + 0.25 + jitter;
-    if (equipmentNumber === UNDER_EQUIPMENT && motionIndex === 1) return bounds.lower - 0.25 - jitter;
+    if (equipmentNumber === UNDER_EQUIPMENT) return run < UNDER_WARMUP_RUNS ? bounds.lower + 0.1 + jitter : bounds.lower - 0.25 - jitter;
     if (run === 0 && equipmentNumber % 2 === 0) return bounds.upper + 0.5 + jitter;
     if (run === 1 && equipmentNumber % 2 === 0) return bounds.lower - 0.5 - jitter;
     const seed = ((equipmentNumber * type.modules.length + moduleIndex) * type.motions.length + motionIndex) * RUNS_PER_EQUIPMENT + run;
     let spread = 0;
     for (let i = 0; i < SPREAD_SAMPLES; i++) spread += seededUnit(seed * SPREAD_SAMPLES + i);
-    return bounds.lower + (bounds.upper - bounds.lower) * (BAND_CENTRE + (spread - SPREAD_SAMPLES / 2) * BAND_SPREAD);
+    const equipmentOffset = ((equipmentNumber - 1) % EQUIPMENT_OFFSET_PERIOD - (EQUIPMENT_OFFSET_PERIOD - 1) / 2) * EQUIPMENT_OFFSET_STEP;
+    const moduleOffset = (moduleIndex - (type.modules.length - 1) / 2) * MODULE_OFFSET_STEP;
+    const centre = NEAR_LIMIT_EQUIPMENT.includes(equipmentNumber) ? NEAR_LIMIT_CENTRE : BAND_CENTRE;
+    const position = centre + equipmentOffset + moduleOffset + (spread - SPREAD_SAMPLES / 2) * BAND_SPREAD;
+    return bounds.lower + (bounds.upper - bounds.lower) * Math.max(MIN_BAND_POSITION, Math.min(MAX_BAND_POSITION, position));
   });
 }
 

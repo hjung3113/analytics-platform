@@ -73,7 +73,7 @@ export const HW_TIME_OVERVIEW_MESSAGES = {
   modules: { ko: 'Module', en: 'Module' },
   motions: { ko: 'Motion', en: 'Motion' },
   heatmap: { ko: '설비 × Module', en: 'Equipment × Module' },
-  heatmapNote: { ko: '선택한 Motion 평균의 합 · 시간 크기로 색상 표시', en: 'Sum of checked Motion averages · color shows time magnitude' },
+  heatmapNote: { ko: '선택한 Motion 평균의 합 · 서버 판정별 색상 표시', en: 'Sum of checked Motion averages · color shows server verdict' },
   bars: { ko: 'Module별 Motion 구성', en: 'Motion composition by Module' },
   barMode: { ko: '막대 표시', en: 'Bar mode' },
   stacked: { ko: '누적', en: 'Stacked' },

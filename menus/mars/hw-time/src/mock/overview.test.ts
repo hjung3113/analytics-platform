@@ -123,6 +123,18 @@ describe('overview run sampling', () => {
 
 describe('overview server projections', () => {
   const invoke = (endpoint: string, params: Record<string, string>) => hwTimeOverviewMock.find(e => e.spec.id === endpoint)!.handle({ equipment: EQUIPMENT.slice(0, 8), context, params, actor: 'engineer' });
+  it.each(lkType.motions)('default step 3 LK/%s matrix has three verdicts and visible value spread', motion => {
+    const data = invoke('hwTime.matrix', { moduleType: 'LK' }) as HwTimeMatrix;
+    const cells = data.cells.map(cell => cell.motions[motion]!);
+    const counts = cells.reduce<Record<string, number>>((result, cell) => { result[cell.status] = (result[cell.status] ?? 0) + 1; return result; }, {});
+    const values = cells.map(cell => cell.value!);
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+    expect(new Set(cells.map(cell => cell.status)).size).toBeGreaterThanOrEqual(3);
+    expect(counts.normal).toBeGreaterThan(cells.length / 2);
+    expect(Math.max(...values) - Math.min(...values)).toBeGreaterThanOrEqual(mean * 0.2);
+    for (const module of data.modules) expect(new Set(data.cells.filter(cell => cell.moduleId === module).map(cell => cell.motions[motion]!.value!.toFixed(2))).size).toBeGreaterThan(12);
+    expect(data.cells.some(cell => cell.moduleId === data.modules[0] && cell.motions[motion]!.value !== data.cells.find(other => other.equipmentId === cell.equipmentId && other.moduleId === data.modules[1])?.motions[motion]!.value)).toBe(true);
+  });
   it('provides a deterministic Module-Motion long tail beyond the first two Pareto bars', () => {
     const data = invoke('hwTime.matrix', { moduleType: 'LK' }) as HwTimeMatrix;
     const counts = data.modules.flatMap(module => data.motions.map(motion => data.cells.filter(cell => cell.moduleId === module && cell.motions[motion.id]?.status === 'over').length)).sort((a, b) => b - a);

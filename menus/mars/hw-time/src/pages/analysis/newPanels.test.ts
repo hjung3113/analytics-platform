@@ -11,6 +11,11 @@ const matrix: HwTimeMatrix = {
 };
 const checks = { modules: ['PM1'], motions: ['Pump', 'Vent'] };
 describe('new HW Time panels', () => {
+  it.each(['normal', 'over', 'under', 'unjudgeable'] as const)('keeps the server %s category even when another verdict is emphasized', status => {
+    const data = structuredClone(matrix);
+    data.cells[0]!.motions.Pump!.status = status;
+    expect(heatmapValues(data, checks, 'Pump', 'over', 'ko')[0]).toMatchObject({ value: 6, category: status });
+  });
   it.each(['normal', 'over', 'under', 'unjudgeable'])('accepts verdict %s and rejects malformed values', value => {
     expect(verdictCodec.decode(value)).toBe(value);
     expect(verdictCodec.decode(`${value}!`)).toBeNull();

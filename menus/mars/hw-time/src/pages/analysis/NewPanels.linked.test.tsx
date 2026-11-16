@@ -29,7 +29,7 @@ const canvas = await vi.hoisted(async () => {
   return handlers;
 });
 function chartClick(title: string, dataIndex: number) {
-  const region = screen.getByRole('region', { name: title });
+  const region = screen.getAllByRole('region', { name: title })[0]!; // outer panel; a dense heatmap's scroll area shares the name
   const entry = [...canvas].find(([element]) => region.contains(element));
   expect(entry).toBeTruthy();
   act(() => entry![1].get('click')!({ componentType: 'series', seriesIndex: 0, dataIndex }));
@@ -99,25 +99,32 @@ describe('real chart output and request boundaries', () => {
   });
   it('restores URL summary, exposes focusable clears, and follows back/forward', async () => {
     await mount('&pins=scatter&verdict=over&date=2026-09-20'); await readyScatter();
-    expect(screen.getByText('상한 초과 1 건 · 20.0%')).toBeTruthy();
-    // The unselected SDK centre must name the total, never the URL verdict.
     const donut = screen.getByRole('region', { name: '판정 비율 도넛' });
-    expect(within(donut).getByText('전체')).toBeTruthy();
-    expect(within(donut).getByText('5 건')).toBeTruthy();
+    expect(within(donut).getAllByText('상한 초과').length).toBeGreaterThan(0);
+    expect(within(donut).getByText('1 건')).toBeTruthy();
+    expect(within(donut).getByText('20%')).toBeTruthy();
     const clear = screen.getByRole('button', { name: '판정: 상한 초과 ×' });
     clear.focus(); expect(document.activeElement).toBe(clear);
     fireEvent.click(clear);
     await waitFor(() => expect(page().has('verdict')).toBe(false));
-    expect(screen.getByText('전체 5 건')).toBeTruthy();
+    expect(within(donut).getByText('5 건')).toBeTruthy();
     await act(async () => { window.history.back(); });
     await waitFor(() => expect(page().get('verdict')).toBe('over'));
-    expect(await screen.findByText('상한 초과 1 건 · 20.0%')).toBeTruthy();
+    await waitFor(() => expect(within(donut).getByText('1 건')).toBeTruthy());
+    expect(within(donut).getByText('20%')).toBeTruthy();
     await act(async () => { window.history.forward(); });
     await waitFor(() => expect(page().has('verdict')).toBe(false));
     const dateClear = screen.getByRole('button', { name: '날짜: 09-20 ×' });
     dateClear.focus(); expect(document.activeElement).toBe(dateClear);
     fireEvent.click(dateClear);
     await waitFor(() => expect(page().has('date')).toBe(false));
+  });
+  it('shows all four verdicts in both heatmap legends and keeps category values on each cell', async () => {
+    await mount('&pins=heatmap');
+    for (const name of ['설비 × Module 히트맵', '설비 × 날짜 히트맵']) {
+      const region = within((await screen.findAllByRole('region', { name }))[0]!);
+      for (const label of ['정상', '상한 초과', '하한 미달', '판정 불가']) expect(region.getAllByText(label).length).toBeGreaterThan(0);
+    }
   });
   it.each(['Change period', 'Change Scope', 'Reset context'])('%s clears date through the real Kernel, keeps verdict and avoids PageKeyWarning', async action => {
     await mount('&verdict=over&date=2026-09-20');
