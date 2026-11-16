@@ -15,7 +15,7 @@ export function TransientOverlayScope({ active, detached = false, children }: { 
   return <OverlayVisibility.Provider value={{ active: visible, status }}>{children}</OverlayVisibility.Provider>;
 }
 
-type OpenProps = { open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void };
+type OpenProps = { open?: boolean | undefined; defaultOpen?: boolean | undefined; onOpenChange?: ((open: boolean) => void) | undefined };
 /** The unscoped branch delegates state and notification timing entirely to Radix. */
 export function withScopedOverlay<P extends OpenProps>(Root: React.ComponentType<P>): React.FC<P> {
   return function OverlayRoot(props: P) {

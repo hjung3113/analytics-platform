@@ -476,7 +476,7 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.platform-static.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --ipc=host
     timeout-minutes: 30
     steps:
@@ -488,7 +488,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Playwright image matches @playwright/test
-        run: test "$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")" = "1.63.0"
+        run: test "$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")" = "1.65.0"
       - name: SDK upgrade gate
         run: |
           # The container runs as another uid than the checkout owner; git refuses the tree otherwise (sdk-kit.mjs lists tracked files).
@@ -507,7 +507,7 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.platform-static.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       options: --ipc=host
     timeout-minutes: 60
     steps:
@@ -587,7 +587,7 @@ jobs:
     # ships Chromium and its system packages. Its tag must match `@playwright/test` in apps/platform-e2e/package.json;
     # the guard step below fails the job when they drift.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
       # Playwright's Docker guidance: Chromium can crash on Docker's 64 MB default /dev/shm.
       options: --ipc=host
     timeout-minutes: 30
@@ -608,7 +608,7 @@ jobs:
       - name: Playwright image matches @playwright/test
         run: |
           want="$(node -p "require('./apps/platform-e2e/node_modules/@playwright/test/package.json').version")"
-          test "$want" = "1.63.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.63.0-noble — bump both"; exit 1; }
+          test "$want" = "1.65.0" || { echo "::error::@playwright/test is $want but the E2E container is mcr.microsoft.com/playwright:v1.65.0-noble — bump both"; exit 1; }
       - name: Start kit browser check
         if: ${{ matrix.shard == 1 && needs.changes.outputs.e2e_kit != 'false' && github.event_name != 'pull_request' }}
         run: |
