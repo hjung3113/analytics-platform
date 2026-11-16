@@ -12,7 +12,7 @@ import type { HistogramBin, HistogramSpec } from './AnalysisChart';
 import type { ChartRow } from './analysisChartData';
 import { chartDiagnostic } from './analysisChartData';
 import type { ChartSeries } from './AnalysisChartFrame';
-import { chartPointKey, statusBorderColor, statusColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
+import { chartPointKey, statusBorderColor, statusColor, statusKey, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { escapeHtml } from './chartText';
 import { barStatusBackingSeries } from './chartStatusBacking';
 import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
@@ -50,6 +50,16 @@ export function buildHistogramOption({ spec, bins, rows, countLabel }: {
   });
   let min = bins[0]?.start ?? 0; let max = bins.at(-1)?.end ?? 1;
   for (const line of references) { min = Math.min(min, line.value); max = Math.max(max, line.value); }
+  const statusPeaks: number[] = [];
+  for (const [i, bin] of bins.entries()) {
+    const status = rows[i].status;
+    if (!status) continue;
+    const previous = rows[i - 1]?.status;
+    if (previous && bins[i - 1].end === bin.start && statusKey(previous) === statusKey(status)) {
+      const peak = statusPeaks.at(-1)!;
+      if (bin.count > bins[peak].count) statusPeaks[statusPeaks.length - 1] = i;
+    } else statusPeaks.push(i);
+  }
   return {
     grid: { top: 32, bottom: 56, left: 40, right: 40, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
     tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number; seriesIndex?: number }) => {
@@ -75,7 +85,10 @@ export function buildHistogramOption({ spec, bins, rows, countLabel }: {
         }) },
       },
       { type: 'scatter', silent: true, tooltip: { show: false }, symbolSize: 0, z: 3,
-        data: bins.flatMap((bin, i) => rows[i].status ? [{ value: [bin.start + (bin.end - bin.start) / 2, bin.count], label: { ...statusMarker(rows[i].status!), position: 'top' } }] : []) },
+        data: statusPeaks.map(i => {
+          const bin = bins[i];
+          return { value: [bin.start + (bin.end - bin.start) / 2, bin.count], label: { ...statusMarker(rows[i].status!), position: 'top' } };
+        }) },
     ],
   };
 }
