@@ -5,7 +5,7 @@ import type { ColumnFilter } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
 import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation, type HwTimeRuns } from '../../endpoints';
-import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
+import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import { formatSeconds } from '../../shared/format';
 import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
 import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, validatePanelFilters } from './runPanelFilters';
@@ -28,8 +28,10 @@ function Setting<T extends string>({ label, value, options, onChange }: { label:
 }
 
 /** Keyed by query generation at the caller: state is local to one authorised population, never persisted or written to the URL. */
-export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }: { kind: 'scatter' | 'trend'; data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement }) {
+export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, date }: { kind: 'scatter' | 'trend'; data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement; date?: string | null }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
+  const n = useMessages(N);
+  const subtitle = kind === 'trend' ? n('dailyRuns', { module: moduleId, motion: motionId }) : m('runs', { module: moduleId, motion: motionId });
   const { lang } = useI18n();
   const [settings, setSettings] = useState<RunScatterSettings>(DEFAULT_SETTINGS[kind]);
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
@@ -53,6 +55,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
       trend: shapeRunTrend(daily.rows, settings, motions, lang) };
   }, [data, fields, filters, lang, motions, settings]);
   const observations = kind === 'scatter' ? projected.sampled.rows : projected.daily.rows;
+  const activeDay = date && projected.trend.categories.find(category => category === date || category === date.slice(5));
   const partial = observations.some(point => point.value === null);
   const contextNote = [m('synthetic'), judgement && htmStatusText(judgement, lang), partial && m('partial')].filter(Boolean).join(' · ');
   const axis = projected.scatter.axis;
@@ -73,7 +76,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
   return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col">
     <p className="sr-only">{contextNote}</p>
     <div className="relative flex shrink-0 items-center gap-2 px-2 py-0.5">
-      <h3 className="t-caption min-w-0 flex-1 truncate" title={m('runs', { module: moduleId, motion: motionId })}>{m('runs', { module: moduleId, motion: motionId })}</h3>
+      <h3 className="t-caption min-w-0 flex-1 truncate" title={subtitle}>{subtitle}</h3>
       <details>
         <summary aria-label={m('panelSettings')} title={m('panelSettings')} className="flex size-7 cursor-pointer list-none items-center justify-center rounded-md text-text-secondary hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
           <SlidersHorizontal className="size-3.5" aria-hidden /><span className="sr-only">{m('panelSettings')}</span>
@@ -110,7 +113,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
       {kind === 'trend' && (projected.trend.categories.length < 2 ? <p className="t-caption px-2 text-text-secondary">{m('trendNeedsDays')}</p> : <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <div className="flex min-h-52 flex-1 flex-col"><AnalysisChartFrame legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="category"
           unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN} emphasisFocus="none"
-          canApplyRange={false} pointStatus={trendStatusOf} bounds={projected.trend.bounds.size ? projected.trend.bounds : undefined} boundLabels={projected.trend.boundLabels} /></div>
+          canApplyRange={false} activeCategory={activeDay || null} pointStatus={trendStatusOf} bounds={projected.trend.bounds.size ? projected.trend.bounds : undefined} boundLabels={projected.trend.boundLabels} /></div>
         <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
           series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
           legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>

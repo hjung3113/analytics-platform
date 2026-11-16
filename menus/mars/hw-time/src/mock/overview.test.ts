@@ -64,7 +64,9 @@ describe('overview distribution', () => {
   it('validates the new endpoint with the same drill constraints and ownership as runs', () => {
     const endpoint = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!;
     const runs = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.runs')!;
-    expect({ ...endpoint.spec, id: runs.spec.id }).toEqual(runs.spec);
+    const { verdict: _verdict, date: _date, ...runKeys } = runs.spec.paramKeys as Record<string, true>;
+    expect({ ...endpoint.spec, id: runs.spec.id, paramKeys: { ...endpoint.spec.paramKeys, verdict: true, date: true } }).toEqual(runs.spec);
+    expect(endpoint.spec.paramKeys).toEqual(runKeys);
     expect(endpoint.validate?.({ params, context })).toBeNull();
     expect(endpoint.validate?.({ params: { ...params, drillModule: 'PM2' }, context })).toBeTruthy();
     expect(endpoint.validate?.({ params: { ...params, drillMotion: 'Pick' }, context })).toBeTruthy();

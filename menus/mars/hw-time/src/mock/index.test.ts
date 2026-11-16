@@ -44,6 +44,7 @@ describe('HW Time mock endpoint registration', () => {
     expect(() => createMockAdapter({ endpoints: hwTimeMock, registry: { menus: [menu] } })).not.toThrow();
     expect(hwTimeMock.map(({ spec }) => spec.id)).toEqual([
       'hwTime.levelRows', 'hwTime.trend', 'hwTime.tableRows', 'hwTime.exportRows', 'hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs', 'hwTime.distribution',
+      'hwTime.equipmentDays', 'hwTime.boundHistory',
     ]);
   });
 });

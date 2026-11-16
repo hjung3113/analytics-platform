@@ -704,7 +704,53 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "hwTime.boundHistory",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
+      "drillModule",
+      "drillMotion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
     "id": "hwTime.distribution",
+    "menuId": "hw-time",
+    "paramKeys": [
+      "moduleType",
+      "drillModule",
+      "drillMotion"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply",
+      "roomNames": "apply",
+      "condition": "apply",
+      "selection": "apply"
+    },
+    "kinds": [
+      "collection",
+      "processing_delay",
+      "coverage"
+    ],
+    "mergeTimeDomain": true
+  },
+  {
+    "id": "hwTime.equipmentDays",
     "menuId": "hw-time",
     "paramKeys": [
       "moduleType",
@@ -826,7 +872,9 @@
     "paramKeys": [
       "moduleType",
       "drillModule",
-      "drillMotion"
+      "drillMotion",
+      "verdict",
+      "date"
     ],
     "permission": "analytics:view",
     "requiresScope": true,

@@ -4,8 +4,8 @@ import {
   AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PanelAddMenu, PanelOptionChips, PanelOptions, PanelWorkspace, QueryView,
   usePanelOptions, usePinnedPanels, type ChartPoint, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
-import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, type HwTimeMatrix, type HwTimeMatrixParams } from '../../endpoints';
-import { HW_TIME_MESSAGES, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
+import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
+import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
 import { formatSeconds } from '../../shared/format';
 import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
@@ -13,7 +13,9 @@ import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
 import RawTablePanel from '../table/RawTablePanel';
 import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
-import { CATALOG_IDS, chartRows, checkedSum, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
+import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
+import { heatmapValues, verdictEmphasis } from './newPanelData';
+import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
 /** Lowest plot height before its panel body scrolls (px). */
@@ -134,7 +136,19 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
     if (module && validTrend(`${module}/${point.seriesId}`)) setPage({ trend: `${module}/${point.seriesId}`, row: point.x });
   };
   const statusOf = (point: ChartPoint) => {
+    const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
+    if (depth === 1 && verdict) {
+      const checks = filter.selectionFor(point.seriesId);
+      const match = matrices[point.seriesId]?.cells.filter(cell => cell.equipmentId === point.x && checks.modules.includes(cell.moduleId))
+        .flatMap(cell => checks.motions.map(id => cell.motions[id])).find(judgement => judgement?.status === verdict);
+      return verdictEmphasis(match, verdict, lang);
+    }
     if (!statuses || depth === 1) return undefined;
+    if (verdict) {
+      const label = depth === 4 ? rowLabel(point.x, moduleId!) : point.x;
+      const cell = data?.cells.find(cell => rowLabel(cell.equipmentId, cell.moduleId) === label);
+      return verdictEmphasis(cell?.motions[point.seriesId], verdict, lang);
+    }
     return statuses.barStatusOf(depth === 4 ? { ...point, x: rowLabel(point.x, moduleId!) } : point);
   };
   const selected = pageParam('row');
@@ -165,17 +179,13 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   </div>;
   return matricesView(queries, required, body);
 }
-function Heatmap({ query, filter, typeId }: { query: MatrixQuery; filter: HwTimeFilter; typeId: string }) {
+function Heatmap({ query, filter, typeId, motionId, verdict }: { query: MatrixQuery; filter: HwTimeFilter; typeId: string; motionId: string | null; verdict: HtmStatus | null }) {
   const m = useMessages(S);
   const { lang } = useI18n();
   const { setPage } = usePlatform();
   const checks = filter.selectionFor(typeId);
   return <QueryView fill query={query}>{data => {
-    const statuses = chartStatuses(data, lang);
-    const cells = data.cells.filter(cell => checks.modules.includes(cell.moduleId)).map(cell => ({
-      x: cell.moduleId, y: cell.equipmentId, value: checkedSum(cell, checks.motions),
-      status: statuses.cellStatusOf(rowLabel(cell.equipmentId, cell.moduleId), checks.motions),
-    }));
+    const cells = heatmapValues(data, checks, motionId, verdict, lang);
     return <AnalysisChart chartId="hw-overview-matrix" title={m('heatmap')} unit={HW_TIME_UNIT[lang]} size="fill" legendPlacement="top" toolsReveal="always"
       spec={{ kind: 'heatmap', xLabels: data.modules.filter(id => checks.modules.includes(id)), yLabels: data.equipment, cells,
         scale: { type: 'sequential', domain: [0, Math.max(0, ...cells.flatMap(cell => cell.value === null ? [] : [cell.value]))] },
@@ -194,6 +204,8 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const pins = usePinnedPanels('pins', CATALOG_IDS);
   const trend = pageParam('trend');
   const keys = useHwTimeDrillRules([...state.rules, ...pins.rules,
+    { key: 'verdict', label: N.verdict, valid: raw => verdictCodec.decode(raw) !== null },
+    { key: 'date', label: N.date, valid: raw => validPanelDate(raw, context.from, context.to) },
     { key: 'trend', label: S.trend, valid: validTrend },
     { key: 'row', label: HW_TIME_WORKSPACE_MESSAGES.activeRow, valid: raw => {
       if (/^EQ-\d{3}$/.test(raw)) return true;
@@ -222,7 +234,18 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const available = catalog.filter(item => !item.disabledReason);
   const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
-  const panelContext = workspacePanelContext({ step, typeId, motionId, moduleId, trend });
+  const { pageParam } = usePlatform();
+  const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
+  const date = pageParam('date');
+  const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date };
+  const matrixData = (input: { moduleType?: string | null }) => {
+    const required = input.moduleType ? [input.moduleType] : Object.keys(queries);
+    return { required, matrices: required.flatMap(id => queries[id]?.response?.data ? [queries[id]!.response!.data!] : []) };
+  };
+  const endpointInput = (panel: 'equipmentDays' | 'boundHistory'): HwTimePanelParams => {
+    const input = projectQueryInputs(panelDeclarations[panel], panelContext);
+    return { ...(input.moduleType ? { moduleType: input.moduleType } : {}), ...(input.drillModule ? { drillModule: input.drillModule } : {}), ...(input.drillMotion ? { drillMotion: input.drillMotion } : {}) };
+  };
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} depth={(step - 1) as Step} previous /> }] : []),
@@ -234,17 +257,19 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'distribution': return <DistributionPanel input={panelContext} filter={filter} />;
           case 'heatmap': {
             const input = projectQueryInputs(panelDeclarations.heatmap, panelContext);
-            return input.moduleType ? <Heatmap query={queries[input.moduleType]!} filter={filter} typeId={input.moduleType} /> : null;
+            const display = projectDisplayInputs(panelDeclarations.heatmap, panelContext);
+            return input.moduleType ? <Heatmap query={queries[input.moduleType]!} filter={filter} typeId={input.moduleType} motionId={display.drillMotion} verdict={display.verdict} /> : null;
           }
           case 'trend': {
             const input = projectQueryInputs(panelDeclarations.trend, panelContext);
             const target = panelRunTarget(panel, input);
-            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} /> : null;
+            const display = projectDisplayInputs(panelDeclarations.trend, panelContext);
+            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} date={display.date} /> : null;
           }
           case 'scatter': {
             const input = projectQueryInputs(panelDeclarations.scatter, panelContext);
             const target = panelRunTarget(panel, input);
-            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} /> : null;
+            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} verdict={input.verdict} date={input.date} /> : null;
           }
           case 'motionTable': {
             const input = projectQueryInputs(panelDeclarations.motionTable, panelContext);
@@ -256,6 +281,16 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             return <Bars {...props} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions />;
           }
           case 'table': return <RawTablePanel params={{}} linked />;
+          case 'donut': {
+            const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
+            return matricesView(queries, data.required, <VerdictDonut matrices={data.matrices} filter={filter} verdict={verdict} />);
+          }
+          case 'pareto': {
+            const data = matrixData(projectQueryInputs(panelDeclarations.pareto, panelContext));
+            return matricesView(queries, data.required, <ParetoPanel matrices={data.matrices} filter={filter} />);
+          }
+          case 'equipmentDays': return <EquipmentDaysPanel input={endpointInput(panel)} verdict={verdict} date={date} />;
+          case 'boundHistory': return <BoundHistoryPanel input={endpointInput(panel)} />;
         }
       };
       return { id, title: item.title, placement: 'below' as const, preferredHeight: 360, minWidth: 200,
