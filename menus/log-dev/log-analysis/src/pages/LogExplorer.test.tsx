@@ -126,7 +126,8 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
   it('shows the read range in the table result line and pages the keyset cursor from the table footer (#2305)', async () => {
     recordsCursor = 'synthetic-cursor-1'; mount();
     const table = await screen.findByRole('region', { name: '원본 이벤트 목록' });
-    expect(within(table).getByText('현재 읽은 범위 · 1행 · 요청당 최대 200행')).toBeTruthy();
+    // The result line reads «불러오는 중» until the records read settles (#2370).
+    expect(await within(table).findByText('현재 읽은 범위 · 1행 · 요청당 최대 200행')).toBeTruthy();
     const cursors = () => read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').map(([r]) => (r.params as { cursor: string | null }).cursor);
     const previous = within(table).getByRole('button', { name: '이전 범위' }) as HTMLButtonElement;
     expect(previous.disabled).toBe(true);
