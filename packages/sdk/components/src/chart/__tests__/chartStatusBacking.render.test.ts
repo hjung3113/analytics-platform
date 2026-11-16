@@ -27,7 +27,7 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
   ])('aligns double strokes with native bar rectangles: %j', extra => {
     const categories = extra.xType === 'time' ? ['2026-11-16T00:00:00', '2026-11-16T01:00:00', '2026-11-16T02:00:00'] : ['R1', 'R2', 'R3'];
     const displayed: ChartSeries[] = [
-      { id: 'a', name: 'A', color: 'chart-status-warn', kind: 'bar', points: categories.map((x, n) => [x, [8, 4, 1][n]]) },
+      { id: 'a', name: 'A', color: 'chart-status-warn', kind: 'bar', points: categories.map((x, n) => [x, [8, 4, 0.2][n]]) }, // 0.2: a piece only a few px long (#2351)
       { id: 'b', name: 'B', color: 'chart-status-critical', kind: 'bar', points: categories.map((x, n) => [x, [2, 0, null][n]]) },
     ];
     const input = baselineInput({ ...extra, categories, displayed, activeCategory: null, extremes: undefined, palette: resolveChartPalette(displayed), pointStatus: p => ({ tone: p.seriesId === 'a' ? 'warning' : 'danger', label: 'Status' }) });
@@ -57,8 +57,11 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
           const raw = native.getItemLayout(n);
           if (![raw.x, raw.y, raw.width, raw.height].every(Number.isFinite)) continue;
           const box = { x: Math.min(raw.x, raw.x + raw.width), y: Math.min(raw.y, raw.y + raw.height), width: Math.abs(raw.width), height: Math.abs(raw.height) };
-          const border = Math.min(2, box.width, box.height);
+          const short = Math.min(box.width, box.height);
+          const border = statusRing(short).border;
           const strokes = rects[n];
+          // Border and backing together stay within a quarter of the piece's short side (#2351 review C1).
+          expect(strokes.reduce((sum, s) => sum + s.lineWidth, 0)).toBeLessThanOrEqual(short / 4 + 1e-9);
           // The status stroke shares the native border's centreline (#2326 C1)...
           closeRect(strokes.at(-1)!.shape, { x: box.x + border / 2, y: box.y + border / 2, width: box.width - border, height: box.height - border });
           // ...and every stroke, backing included, stays inside its own piece, never over a neighbour (#2351).
@@ -102,6 +105,14 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
   });
 });
 
+it('draws every bar status ring in the inset layer, including a status that needs no backing (#2351 review C1)', () => {
+  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['R1', 8]] }];
+  const input = baselineInput({ horizontal: false, stacked: false, categories: ['R1'], displayed, activeCategory: null, extremes: undefined, palette: resolveChartPalette(displayed), pointStatus: () => ({ tone: 'neutral', label: 'Unknown' }) });
+  const option = buildChartOption(input) as { series: { id: string; data: ({ itemStyle: { borderWidth: number } } | number)[] }[] };
+  expect((option.series.find(s => s.id === 'a')!.data[0] as { itemStyle: { borderWidth: number } }).itemStyle.borderWidth).toBe(0);
+  expect(option.series.some(s => s.id === '__statusBarBacking')).toBe(true);
+});
+
 describe('status rings stay inside thin cells (#2351)', () => {
   type Drawn = { shape: Rect; style: { lineWidth: number } };
   const drawn = (width: number, height: number) => (heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height]) as unknown as
@@ -123,6 +134,12 @@ describe('status rings stay inside thin cells (#2351)', () => {
     expect(outline.shape.x - outline.style.lineWidth / 2).toBeCloseTo(cell.x); // the border meets the cell edge
     const backing = rings.find(r => r.id === '__statusBacking');
     if (backing) expect(backing.shape.x - backing.style.lineWidth / 2).toBeCloseTo(cell.x + outline.style.lineWidth); // the backing meets the border's inner edge
+  });
+  it.each([[0, 15], [24, 0], [0, 0]])('a %ix%i cell (dense grid or unmeasured plot) draws no ring, and the layers clip to the plot (#2351 review C2)', (width, height) => {
+    const series = heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height]) as unknown as { clip: boolean }[];
+    expect(series.every(s => s.clip)).toBe(true);
+    expect(drawn(width, height).every(r => (r as { ignore?: boolean }).ignore)).toBe(true);
+    expect(drawn(24, 15).some(r => (r as { ignore?: boolean }).ignore)).toBe(false);
   });
   it('a 24x15 cell (24 rows in 420px) keeps 7px of fill between the rings, where the centred 6px backing left 5px', () => {
     const rings = drawn(24, 15);

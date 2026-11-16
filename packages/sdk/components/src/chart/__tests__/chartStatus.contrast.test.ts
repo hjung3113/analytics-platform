@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readColorToken } from '@ap/ui/theme';
 import { buildChartOption } from '../buildChartOption';
-import { baselineInput } from '../__fixtures__/baselineInput';
+import { barStatusRing, baselineInput } from '../__fixtures__/baselineInput';
 import { statusBacking } from '../chartStatus';
 
 const luminance = (rgb: string) => {
@@ -14,8 +14,8 @@ describe('status non-text contrast (#2326)', () => {
   it.each(fills)('neutral outline contrasts at least 3:1 against %s', fill => {
     const input = baselineInput({ pointStatus: () => ({ tone: 'neutral', label: 'Unknown' }) });
     input.palette = { ...input.palette, series: input.palette.series.map(s => ({ ...s, fill: readColorToken(fill) })) };
-    const option = buildChartOption(input) as { series: { data: { itemStyle: { borderColor: string } }[] }[] };
-    expect(ratio(option.series[0].data[0].itemStyle.borderColor, readColorToken(fill))).toBeGreaterThanOrEqual(3);
+    const border = barStatusRing(buildChartOption(input))!.at(-1)!.stroke;
+    expect(ratio(border, readColorToken(fill))).toBeGreaterThanOrEqual(3);
   });
   it.each(['danger', 'warning', 'neutral'] as const)('%s glyph contrasts at least 3:1 on its surface-backed chip', tone => {
     const option = buildChartOption(baselineInput({ pointStatus: () => ({ tone, label: 'Status' }) })) as { series: { data: { label: { rich: { status: { color: string; backgroundColor: string } } } }[] }[] };
@@ -28,12 +28,12 @@ it.each(['warning', 'danger'] as const)('backs a %s bar outline on its matching 
   const input = baselineInput({ pointStatus: () => ({ tone, label: 'Status' }) });
   const fill = readColorToken(tone === 'warning' ? 'chart-status-warn' : 'chart-status-critical');
   input.palette = { ...input.palette, series: input.palette.series.map(s => ({ ...s, fill })) };
-  const option = buildChartOption(input) as { series: { id: string; data: { itemStyle: { color: string; borderColor: string } }[] }[] };
-  const piece = option.series[0].data[0];
-  expect(piece.itemStyle.color).toBe(fill);
-  expect(piece.itemStyle.borderColor).toBe(fill);
-  expect(option.series.find(s => s.id === '__statusBarBacking')).toBeDefined();
+  const option = buildChartOption(input) as { series: { id: string; data: { itemStyle: { color: string } }[] }[] };
+  expect(option.series[0].data[0].itemStyle.color).toBe(fill);
+  const [drawnBacking, border] = barStatusRing(option)!;
+  expect(border!.stroke).toBe(fill);
   const backing = statusBacking({ tone, label: 'Status' }, fill)!;
-  expect(ratio(piece.itemStyle.borderColor, backing)).toBeGreaterThanOrEqual(3);
+  expect(drawnBacking!.stroke).toBe(backing);
+  expect(ratio(border!.stroke, backing)).toBeGreaterThanOrEqual(3);
   expect(ratio(backing, fill)).toBeGreaterThanOrEqual(3);
 });

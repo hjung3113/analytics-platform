@@ -76,16 +76,17 @@ export function statusRing(size: number) {
 export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string }[], symbolSize: number[]) {
   if (!cells.length) return [];
   const [width = 0, height = 0] = symbolSize;
-  // Before the plot is measured the cell size is unknown (0): draw the full ring rather than none.
-  const { border, backing: backingWidth } = statusRing(width > 0 && height > 0 ? Math.min(width, height) : Infinity);
+  // A 0px side (unmeasured plot or a very dense grid) draws no cell, so its ring is kept in the option but not drawn.
+  const drawn = width > 0 && height > 0;
+  const { border, backing: backingWidth } = statusRing(drawn ? Math.min(width, height) : Infinity);
   const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, 0.8) }));
   const ring = (id: string, z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
-    id, type: 'custom', z, silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true },
+    id, type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
     data: items.map((c, index) => [c.value[0], c.value[1], index]),
     renderItem: (_params: unknown, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[] }) => {
       const [cx = 0, cy = 0] = api.coord([api.value(0), api.value(1)]);
       const shape = { x: cx - width / 2 + inset, y: cy - height / 2 + inset, width: Math.max(0, width - 2 * inset), height: Math.max(0, height - 2 * inset) };
-      return { type: 'rect', shape, style: { fill: 'none', stroke: items[Number(api.value(2))]!.stroke, lineWidth }, blur: { style: { opacity: 1 } } };
+      return { type: 'rect', ignore: !drawn, shape, style: { fill: 'none', stroke: items[Number(api.value(2))]!.stroke, lineWidth }, blur: { style: { opacity: 1 } } };
     },
   });
   const backings = backingWidth ? data.flatMap(c => { const stroke = statusBacking(c.status, c.effective); return stroke ? [{ value: c.value, stroke }] : []; }) : [];

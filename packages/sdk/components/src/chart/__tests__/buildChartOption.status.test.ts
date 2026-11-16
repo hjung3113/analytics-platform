@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildChartOption } from '../buildChartOption';
-import { baselineInput } from '../__fixtures__/baselineInput';
+import { barStatusRing, baselineInput } from '../__fixtures__/baselineInput';
 
 const status = { tone: 'danger' as const, label: '<상한 초과>', reason: 'Recipe <script> & "unknown"' };
 type Datum = { value: number; itemStyle: { color: string; borderColor: string; borderWidth: number; borderType?: string; shadowColor?: string }; label: { formatter: string; rich: object } };
@@ -13,10 +13,12 @@ describe('consumer bar statuses (#2326)', () => {
     const a = option.series.find(s => s.id === 'a')!;
     const first = a.data[0] as Datum; const active = a.data[1] as Datum;
     expect(first.itemStyle.color).toBe('aFill');
-    expect(first.itemStyle.borderColor).toContain('rgb');
+    // The status border is drawn inside the piece by the custom layer, not by the native bar (#2351).
+    expect(first.itemStyle.borderWidth).toBe(0);
+    expect(barStatusRing(option)!.at(-1)).toMatchObject({ stroke: expect.stringContaining('rgb'), lineWidth: 2 });
     expect(first.label.formatter).toContain('■');
     expect(first.itemStyle.shadowColor).toBe('max');
-    expect(active.itemStyle).toMatchObject({ borderWidth: 2, borderType: 'solid', shadowColor: 'min' });
+    expect(active.itemStyle).toMatchObject({ borderWidth: 0, shadowColor: 'min' });
     expect(a.data[2]).toBeNull();
     const tip = option.tooltip.formatter([{ seriesId: 'a', name: 'R1', value: 800 }]);
     expect(tip).toContain('&lt;상한 초과&gt;');
