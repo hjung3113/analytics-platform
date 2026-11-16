@@ -1,6 +1,6 @@
 # 문서 인덱스
 
-이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*`·`packages/adapters/*` 플랫폼 패키지, `menus/*/*` 견본 메뉴와 `platform/*` 플랫폼 기능 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, VOC·설문·Task·Finding 기능은 `apps/{platform-api,feature-screens}`·`packages/feature-*`와 `docs/{product,design,user-guide}/features`·`docs/architecture/platform-api`에 있다(서브모듈 아님, ADR-0066·ADR-0090·ADR-0097).
+이 레포는 `context_recognized_parser`(별도 레포)가 적재한 데이터를 소비하는 분석 플랫폼의 설계와 프론트엔드 플랫폼 코드를 담는다. 코드는 루트 pnpm workspace(`packages/sdk/*` 플랫폼 패키지·`packages/host/*` 호스트·어댑터, `menus/*/*` 견본 메뉴와 `platform/*` 플랫폼 기능 메뉴, `apps/platform-web` 조립 앱, 서버는 mock 또는 `@ap/http-adapter` 실어댑터)이고, VOC·설문·Task·Finding 기능은 `apps/platform-api`·`packages/feature/*`와 `docs/{product,design,user-guide}/features`·`docs/architecture/platform-api`에 있다(서브모듈 아님, ADR-0066·ADR-0090·ADR-0097).
 
 | 알고 싶은 것 | 어디 |
 | --- | --- |

@@ -10,6 +10,7 @@ AuditMoreStatus | type | type AuditMoreStatus = CursorMoreStatus
 AxisOptionsParams | type | type AxisOptionsParams = { axisId: string; context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; parents?: @ap/contracts#AxisOptionsInput['parents']; query?: string; }
 CONTEXT_LABELS | const | const CONTEXT_LABELS: Record<@ap/contracts#ContextKey, @ap/contracts#Text>
 ConditionPresetView | type | type ConditionPresetView = { activeId: string; appliedId: string; key: string; outsideAxes: readonly string[]; presets: readonly @ap/contracts#ConditionPreset[]; }
+DecodedPageConditions | type | type DecodedPageConditions = { issues: @ap/kernel#PageConditionIssue[]; values: Record<string, @ap/kernel#PageConditionValue>; }
 DiagnoseCode | type | type DiagnoseCode = 'denied' | 'invalid-selection' | 'menu-mismatch' | 'menu-schema-version' | 'metric-version' | 'migration-unavailable' | 'stale-context-key' | 'stale-page-key' | 'unknown-axis'
 DiagnoseContext | type | type DiagnoseContext = { capabilities: Pick<@ap/contracts#ViewCapabilities, 'canView' | 'reason'>; currentMetricVersion?: number; knownAxisIds: readonly string[]; knownSelectionIds?: readonly string[]; }
 DiagnoseReason | type | type DiagnoseReason = { code: @ap/kernel#DiagnoseCode; key?: string; message?: string; }
@@ -44,7 +45,20 @@ NavCountsSlot | type | type NavCountsSlot = { For: (spaceId: @ap/contracts#Space
 NotificationsSlot | type | type NotificationsSlot = { Recent: ComponentType; UnreadCount: ComponentType<{ children: (count: null | number) => ReactNode; }>; menuId: string; }
 ObjectLink | type | type ObjectLink = Extract<@ap/kernel#LinkResolution, { kind: 'link'; }> & { label: @ap/contracts#Text; menuId: string; }
 ObjectLinkOptions | type | type ObjectLinkOptions = Pick<@ap/kernel#LinkOptions, 'global' | 'page' | 'returnTo'>
+PAGE_CONDITION_EMPTY | const | const PAGE_CONDITION_EMPTY: "~none"
+PAGE_CONDITION_LIMITS | const | const PAGE_CONDITION_LIMITS: { readonly encodedLength: 2400; readonly valuesPerCategory: 50; }
 PAGE_TYPE_LABELS | const | const PAGE_TYPE_LABELS: Record<@ap/contracts#PageType, @ap/contracts#Text>
+PageConditionError | class | class PageConditionError extends Error { readonly issues: readonly @ap/kernel#PageConditionIssue[]; constructor(issues: readonly @ap/kernel#PageConditionIssue[]); }
+PageConditionExtension | type | type PageConditionExtension = { appliedPageSummary?: readonly @ap/kernel#PageConditionSummaryItem[]; historyPageSummary?: (global: @ap/contracts#GlobalContext, page: readonly @ap/contracts#Pair[]) => readonly @ap/kernel#PageConditionSummaryItem[]; issues: readonly @ap/kernel#PageConditionSummaryIssue[]; pageSummary: readonly @ap/kernel#PageConditionSummaryItem[]; }
+PageConditionIssue | type | type PageConditionIssue = { categoryId: string; key: string; reason: @ap/kernel#PageConditionIssueReason; }
+PageConditionIssueReason | type | type PageConditionIssueReason = 'invalid-date' | 'invalid-empty-selection' | 'invalid-range' | 'invalid-value' | 'repeated-single-key' | 'reversed-date' | 'too-long' | 'too-many-values' | 'undeclared-key'
+PageConditionMenu | type | type PageConditionMenu = Pick<@ap/contracts#MenuMeta, 'pageConditions'>
+PageConditionRange | type | type PageConditionRange = { max: null | number; min: null | number; }
+PageConditionSummaryInput | type | type PageConditionSummaryInput = { lang: 'en' | 'ko'; menu: @ap/kernel#PageConditionMenu; options?: Readonly<Record<string, readonly @ap/contracts#PageConditionOption[]>>; }
+PageConditionSummaryIssue | type | type PageConditionSummaryIssue = { key: string; label: string; reason: string; }
+PageConditionSummaryItem | type | type PageConditionSummaryItem = { key: string; label: string; value: string; }
+PageConditionValue | type | type PageConditionValue = @ap/kernel#PageConditionRange | readonly string[]
+PageConditionValues | type | type PageConditionValues = Readonly<Record<string, @ap/kernel#PageConditionValue>>
 PageProps | type | type PageProps = { params: Record<string, string>; }
 PlannedSpace | type | type PlannedSpace = { icon: LucideIcon; id: string; label: @ap/contracts#Text; subtitle?: @ap/contracts#Text; }
 PlatformGroupDef | type | type PlatformGroupDef = GroupBase & { id: @ap/contracts#GroupId; module?: undefined; }
@@ -96,8 +110,11 @@ classifyMetricInit | function | function classifyMetricInit(published: readonly 
 contractErrorSentence | function | function contractErrorSentence(lang: @ap/kernel#Lang, error: { code: string; field?: string; raw?: string; }): string
 createBasePathLocation | function | function createBasePathLocation(basePath: string): @ap/kernel#PlatformLocation
 createBrowserLocation | function | function createBrowserLocation(): @ap/kernel#PlatformLocation
-createRegistry | function | function createRegistry({ spaces, groups, menus: menusIn, permissions: declared, carrySets, platformHomeMenuId, reservedRoots, linkTargetCheck }: { carrySets?: readonly @ap/contracts#CarrySetDef[]; groups: readonly @ap/kernel#GroupDef[]; linkTargetCheck?: 'enforce' | 'report'; menus: readonly @ap/kernel#MenuEntry[]; permissions?: readonly @ap/contracts#MenuPermission[]; platformHomeMenuId?: string; reservedRoots?: readonly string[]; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
+createRegistry | function | function createRegistry({ spaces, groups, menus: menusIn, permissions: declared, carrySets, platformHomeMenuId, reservedRoots, linkTargetCheck, endpoints }: { carrySets?: readonly @ap/contracts#CarrySetDef[]; endpoints?: readonly { id: string; menuId: string; }[]; groups: readonly @ap/kernel#GroupDef[]; linkTargetCheck?: 'enforce' | 'report'; menus: readonly @ap/kernel#MenuEntry[]; permissions?: readonly @ap/contracts#MenuPermission[]; platformHomeMenuId?: string; reservedRoots?: readonly string[]; spaces: readonly @ap/contracts#SpaceDef[]; }): @ap/kernel#Registry
+decodePageConditions | function | function decodePageConditions(menu: @ap/kernel#PageConditionMenu, pairs: readonly @ap/contracts#Pair[]): @ap/kernel#DecodedPageConditions
+derivePageConditionExtension | function | function derivePageConditionExtension(input: @ap/kernel#PageConditionSummaryInput & { applied: readonly @ap/contracts#Pair[]; appliedOptions?: @ap/kernel#PageConditionSummaryInput['options']; draft: readonly @ap/contracts#Pair[]; extension?: @ap/kernel#PageConditionExtension; historyOptions?: (global: @ap/contracts#GlobalContext, page: readonly @ap/contracts#Pair[]) => @ap/kernel#PageConditionSummaryInput['options']; }): { appliedPageSummary: readonly @ap/kernel#PageConditionSummaryItem[] | undefined; historyPageSummary: ((global: @ap/contracts#GlobalContext, page: readonly @ap/contracts#Pair[]) => readonly @ap/kernel#PageConditionSummaryItem[]) | undefined; issues: readonly @ap/kernel#PageConditionSummaryIssue[]; pageSummary: readonly @ap/kernel#PageConditionSummaryItem[]; }
 diagnoseSavedView | function | function diagnoseSavedView(view: @ap/contracts#SavedView, support: @ap/contracts#SavedViewSupport, ctx: @ap/kernel#DiagnoseContext): @ap/kernel#SavedViewDiagnosis
+encodePageConditions | function | function encodePageConditions(menu: @ap/kernel#PageConditionMenu, values: @ap/kernel#PageConditionValues): @ap/contracts#Pair[]
 errorGuidance | function | function errorGuidance(message: string | undefined): @ap/kernel#ErrorGuidance
 formatText | function | function formatText(text: @ap/contracts#Text, lang: @ap/kernel#Lang, params?: @ap/kernel#TextParams): string
 invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel#Lang, kind: 'drillGap' | 'filter' | 'plain' | 'value', field: @ap/contracts#Text, raw: string): string
@@ -108,6 +125,7 @@ objectParticle | function | function objectParticle(name: string): '를' | '을'
 pathFor | function | function pathFor(menu: @ap/kernel#MenuEntry, params?: Record<string, string>): string
 queryMissingSentence | function | function queryMissingSentence(lang: @ap/kernel#Lang, label: @ap/contracts#Text): string
 routeParamNames | function | function routeParamNames(path: string): string[]
+summarizePageConditions | function | function summarizePageConditions(input: @ap/kernel#PageConditionSummaryInput, pairs: readonly @ap/contracts#Pair[]): { issues: @ap/kernel#PageConditionSummaryIssue[]; summary: @ap/kernel#PageConditionSummaryItem[]; }
 topicParticle | function | function topicParticle(name: string): '는' | '은'
 useAxisOptions | function | function useAxisOptions(params: @ap/kernel#AxisOptionsParams): @ap/kernel#PortPageResult<@ap/contracts#AxisOption>
 useConditionPreset | function | function useConditionPreset(): @ap/kernel#ConditionPresetView | null

@@ -37,6 +37,7 @@ Runtime of the feature bridge (ADR-0071, ADR-0081). A consumer-side package, not
   - Check address values (`route.rejectedKey`); on rejection render `RejectedPage`, mount neither `children` nor `detail`, and send no request. The value check `isValid` (`isVocSearchValueValid` etc.) imports screen entries, so each menu passes it as a prop.
   - Otherwise render `PlatformPage layout="fill" bodyInset="none"` (body to the edge; the screen's `ListShell` draws its own inner padding), a header `primaryAction` slot (`data-feature-primary-action`; the screen gets it from the seam's `usePrimaryActionTarget` and draws one primary button through the `HostPrimaryAction` portal; with no target — standalone or gated screens — the screen toolbar stays as is, ADR-0081 decision 5), `FeatureBridge` (`operatorHostLinks`), the screen area and the `detail` drawer.
 - `src/feature/FeatureDetailDrawer.tsx` (root export; `.fo-detail-body` style in `src/styles.css`): wraps feature detail `DetailParts` into the shell detail slot `DetailDrawer`. Bridge menus (`fo-voc`, `tasks`) use it inside `FeatureBridge`.
+- Saved VOC views page: [docs/saved-views.md](docs/saved-views.md).
 
 ## Test harness (`./testing`, test-only, not a root export)
 

@@ -1,7 +1,7 @@
 // PLAN-22 C9 fix — UI-local copy of the shared rich-content allowlist.
 //
 // ADR-0016 forbids `@ap/ui` from importing `@ap/feature-shared`. The shared
-// allowlist (`packages/feature-shared/src/rich-content/allowlist.ts`) is therefore
+// allowlist (`packages/feature/shared/src/rich-content/allowlist.ts`) is therefore
 // duplicated here verbatim so the FE render-time defence-in-depth sanitizer
 // can run without crossing the boundary.
 //
