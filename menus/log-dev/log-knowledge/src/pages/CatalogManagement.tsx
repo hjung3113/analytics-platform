@@ -3,7 +3,7 @@ import type { CatalogPageParams } from '../endpoints';
 import type { EndpointSpec } from '@ap/contracts';
 import type { QueryState } from '@ap/kernel';
 import { useMenuQuery, usePlatform } from '@ap/kernel';
-import { ManagementLayout, PageKeyWarning, QueryView, PlatformPage, usePageKeyRules } from '@ap/components';
+import { ManagementLayout, PageKeyWarning, QueryView, PlatformPage, usePageKeyRules, useTableResultCache } from '@ap/components';
 import { Button, Tabs, TabsList, TabsTrigger } from '@ap/ui';
 import { CATALOG_TABS, DEFAULT_TAB, TAB_LABEL, defaultFilterParams, isCatalogTab, isFocusValue, tabOf, tabPatch, type CatalogKind, type CatalogRow } from './catalogModel';
 import { CatalogDrawer } from './CatalogDrawer';
@@ -37,6 +37,9 @@ export default function CatalogManagement() {
   const q = pageParam('q') ?? '', focus = pageParam('focus');
   // Server reads are not refreshed by a write (backlog #502), so a write remounts the table, which reads its URL page again.
   const [revision, setRevision] = useState(0);
+  // Pages each tab already read: switching back to a tab shows them at once instead of reading again (#2380). A write clears it with the remount.
+  const tableCache = useTableResultCache();
+  const written = () => { tableCache.clear(); setRevision(n => n + 1); };
   // 가져오기 (#1195 c) replaces the list area while it is open; it keeps its own state, not a page key.
   const [importing, setImporting] = useState(false);
   const drawerLeave = useRef<((next: GuardedLeave) => void) | null>(null);
@@ -63,11 +66,11 @@ export default function CatalogManagement() {
       </TabsList>
     </Tabs>
     {options.failures.map(({ label, query }) => <QueryView key={label} query={query as QueryState<unknown>} widgetName={`${label} 필터 후보`} compact>{() => null}</QueryView>)}
-    <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : startImport} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember} />
+    <CatalogTable key={`${kind}:${revision}`} kind={kind} onImport={kind === 'software' ? undefined : startImport} q={q} focus={focus} rowsRef={rowsRef} options={options} labels={options.labels} remember={options.remember} resultCache={tableCache} />
   </div>;
   return <PlatformPage description="설비사·공정·모델·SW 버전 기준 목록을 관리합니다. 비활성화해도 기존 연결은 그대로 남습니다."
     primaryAction={kind && !importing && <Button type="button" onClick={() => setPage({ focus: 'new' })}>{TAB_LABEL[kind]} 추가</Button>}>
-    {importing ? <ImportWizard onExit={changed => { setImporting(false); if (changed) setRevision(n => n + 1); }} /> : <ManagementLayout table={body}
-      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={() => setRevision(n => n + 1)} leaveRef={drawerLeave} />} />}
+    {importing ? <ImportWizard onExit={changed => { setImporting(false); if (changed) written(); }} /> : <ManagementLayout table={body}
+      drawer={!keys.invalid && kind && focus && <CatalogDrawer kind={kind} focus={focus} rowsRef={rowsRef} options={options} onWritten={written} leaveRef={drawerLeave} />} />}
   </PlatformPage>;
 }

@@ -96,6 +96,20 @@ describe('catalog management URL state', () => {
     await waitFor(() => expect(lastRead('logKnowledge.models')?.filters).toEqual([{ id: 'active', op: 'in', value: ['true'] }, { id: 'vendorId', op: 'in', value: [vendorRow.id] }]));
   });
 
+  it('a tab seen before comes back at once from the screen cache, without a second read (#2380)', async () => {
+    mount(activeOnly());
+    await screen.findByText('A-100', {}, slow);
+    const tableReads = (endpoint: string) => queries.filter(q => q.endpoint === endpoint && (q.params as { pageSize?: number }).pageSize === 25).length;
+    const pick = async (name: RegExp) => { const tab = screen.getByRole('tab', { name }); fireEvent.mouseDown(tab, { button: 0 }); await waitFor(() => expect(tab.getAttribute('aria-selected')).toBe('true')); };
+    await pick(/설비사/);
+    await screen.findByText('ALPHA', {}, slow);
+    expect(tableReads('logKnowledge.models')).toBe(1);
+    await pick(/모델/);
+    expect(screen.getByText('A-100')).toBeTruthy();
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(tableReads('logKnowledge.models')).toBe(1);
+  });
+
   it('refuses an unknown tab instead of showing another one', async () => {
     mount('&tab=nope');
     expect((await screen.findByRole('alert', {}, slow)).textContent).toContain('nope');

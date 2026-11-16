@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type GroupedPageResult, type PageGroup, type PageSort, type TableQuery, isAnswered } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
 import type { TableUrlState } from './PlatformDataTable';
+import { readCachedPage, writeCachedPage, type TableResultCache } from './tableResultCache';
 
 type PagedRowsInput<T> = {
   loadPage: (query: TableQuery, signal: AbortSignal) => Promise<ApiResponse<GroupedPageResult<T>>>;
@@ -19,6 +20,8 @@ type PagedRowsInput<T> = {
   viewport: RefObject<HTMLDivElement | null>;
   /** Runs inside the Context-change effect, after the page reset: the table clears selection and aborts export/copy there. */
   onContextChange: () => void;
+  /** Opt-in (#2380): answered pages by request identity under `key`; a held page is shown without a request or loading state. */
+  resultCache?: { cache: TableResultCache; key: string } | undefined;
 };
 
 /**
@@ -51,10 +54,23 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const requestIdentity = JSON.stringify([contextIdentity, effectivePage, activeSorting, retryCount, groupBy, dataVersion]);
   const loadRef = useRef(input.loadPage);
   loadRef.current = input.loadPage;
+  const resultCache = input.resultCache;
+  const cacheRef = useRef(resultCache);
+  cacheRef.current = resultCache;
+  const cacheKey = (identity: string) => JSON.stringify([cacheRef.current!.key, identity]);
+  // A page the screen's cache already holds for this exact identity is the result: no request, no loading state (#2380).
+  const cached = resultCache && result?.identity !== requestIdentity ? readCachedPage<T>(resultCache.cache, JSON.stringify([resultCache.key, requestIdentity])) : undefined;
+  // Memoized: the clamp effect below compares result objects.
+  const current = useMemo(() => (cached ? { identity: requestIdentity, response: cached } : result), [cached, requestIdentity, result]);
   useEffect(() => {
+    if (cacheRef.current && readCachedPage(cacheRef.current.cache, cacheKey(requestIdentity))) return;
     const controller = new AbortController();
     loadRef.current({ page: effectivePage, pageSize, sorting: activeSorting, ...(columnFilters.length > 0 ? { filters: columnFilters } : {}), ...(groupBy ? { groupBy } : {}) }, controller.signal)
-      .then(response => { if (!controller.signal.aborted) setResult({ identity: requestIdentity, response }); })
+      .then(response => {
+        if (controller.signal.aborted) return;
+        if (cacheRef.current) writeCachedPage(cacheRef.current.cache, cacheKey(requestIdentity), response);
+        setResult({ identity: requestIdentity, response });
+      })
       .catch(error => {
         // Only the table's own abort cancels (#186, like the Kernel #183): a menu loadPage that rejects with
         // its own DOMException('…','AbortError') (internal timeout) is an error result, never swallowed.
@@ -72,12 +88,12 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   }, [requestIdentity]);
 
   // Same Context (page/sort/retry) keeps the last rows visible while loading; a new Context hides them.
-  const sameContext = result !== null && JSON.parse(result.identity)[0] === contextIdentity;
-  const shown = sameContext ? result!.response : null;
+  const sameContext = current !== null && JSON.parse(current.identity)[0] === contextIdentity;
+  const shown = sameContext ? current!.response : null;
   const shownPage = shown
-    ? (JSON.parse(result!.identity) as [string, number])[1]
+    ? (JSON.parse(current!.identity) as [string, number])[1]
     : effectivePage;
-  const loading = result?.identity !== requestIdentity;
+  const loading = current?.identity !== requestIdentity;
   const data = shown?.outcome === 'ok' ? shown.data! : { rows: [] as T[], total: shown?.data?.total ?? 0, groups: undefined as PageGroup[] | undefined };
 
   const pageCount = Math.max(1, Math.ceil(data.total / pageSize));
@@ -90,14 +106,14 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
   const outOfRange = success && shownPage >= pageCount;
   // `result.identity` repeats for the same page (9 → 3 → 9). Remember the result object so this effect
   // re-running on that same object does not clamp twice; a later response is a new object and clamps again.
-  const clampedFor = useRef<typeof result>(null);
+  const clampedFor = useRef<typeof current>(null);
   useEffect(() => {
-    if (loading || !outOfRange || result === null) return;
-    if (clampedFor.current === result) return;
-    clampedFor.current = result;
+    if (loading || !outOfRange || current === null) return;
+    if (clampedFor.current === current) return;
+    clampedFor.current = current;
     if (urlState) urlState.onChange({ sorting: activeSorting, page: pageCount === 1 ? null : pageCount }, 'clamp');
     else setPage(pageCount - 1);
-  }, [loading, outOfRange, result, pageCount, activeSorting, urlState]);
+  }, [loading, outOfRange, current, pageCount, activeSorting, urlState]);
 
   return { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange };
 }
