@@ -87,4 +87,20 @@ describe('FeatureDetailDrawer', () => {
     expect(rule).toContain('[role="region"]');
     expect(rule).toContain('[role="tabpanel"]');
   });
+
+  // #2403: the bridge CSS clips the drawer region (`overflow: hidden`), so the body must scroll itself, and the region must be the
+  // positioning ancestor of Radix's visually hidden form inputs (absolute) or they stretch the document.
+  it('scrolls a long body inside .fo-detail-body (the region clips overflow)', () => {
+    const { aside } = mount(vi.fn());
+    const body = aside.querySelector('.fo-detail-body')!;
+    expect(body.className).toMatch(/\boverflow-y-auto\b/);
+    expect(body.className).toMatch(/\bmin-h-0\b/);
+  });
+
+  it('makes the clipped drawer region a positioning ancestor (position: relative)', () => {
+    const css = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const rule = css.match(/:is\(\[role="tabpanel"\], \[role="region"\]\):not\(\[hidden\]\):has\(> \.fo-detail-body\)[^{]*\{([^}]*)\}/);
+    expect(rule?.[1]).toMatch(/overflow:\s*hidden/);
+    expect(rule?.[1]).toMatch(/position:\s*relative/);
+  });
 });
