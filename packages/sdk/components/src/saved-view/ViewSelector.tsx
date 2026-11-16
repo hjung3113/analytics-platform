@@ -187,7 +187,7 @@ export function ViewSelector(props: ViewSelectorProps) {
               )}
               {!loading && !error && shown.length === 0 && <p role="status" className="text-xs text-text-secondary">{views.length === 0 ? m('svEmpty') : m('svNoResult')}</p>}
               {!loading && !error && shown.length > 0 && (
-                <ul ref={list} aria-label={m('svList')} className="max-h-80 space-y-0.5 overflow-auto">
+                <ul ref={list} aria-label={m('svList')} className="max-h-80 space-y-0.5 scrollbar-panel overflow-auto">
                   {shown.map(item => item.denied ? (
                     <li key={item.id} className="p-2 text-xs text-text-secondary">{m('svDenied')} · {item.reason}</li>
                   ) : (

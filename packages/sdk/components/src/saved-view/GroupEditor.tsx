@@ -110,7 +110,7 @@ function EditorBody({ lang = 'ko', onOpenChange, entry, initialMembers, currentU
         {search.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">{word('searchFailed', lang)} <Button type="button" variant="link" size="sm" onClick={search.retry}>{word('retry', lang)}</Button></p>}
         {search.status === 'ready' && search.results.length === 0 && <p className="text-xs text-text-secondary">{word('searchEmpty', lang)}</p>}
       </div>
-      <ul className="grid max-h-40 gap-1 overflow-auto" aria-label={word('searchResults', lang)}>
+      <ul className="grid max-h-40 gap-1 scrollbar-panel overflow-auto" aria-label={word('searchResults', lang)}>
         {search.results.map(person => {
           const label = personLabel(person, known);
           return <li key={person.userId}><label className="flex items-center gap-2 text-sm">

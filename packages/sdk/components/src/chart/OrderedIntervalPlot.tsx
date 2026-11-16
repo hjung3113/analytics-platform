@@ -396,7 +396,7 @@ export function OrderedIntervalPlot(props: PlotProps) {
       <div
         ref={scroll}
         data-ordered-scroll
-        className="relative overflow-y-auto"
+        className="relative scrollbar-panel overflow-y-auto"
         onScroll={(event) => {
           setTop(event.currentTarget.scrollTop);
           props.onHover(null, 0, 0);

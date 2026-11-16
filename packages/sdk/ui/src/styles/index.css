@@ -58,7 +58,7 @@
 
 @layer utilities {
   .tabular { font-variant-numeric: tabular-nums lining-nums; }
-  .shell-scroll { scrollbar-width: thin; scrollbar-color: rgb(var(--border-strong)) transparent; }
+  .shell-scroll { @apply scrollbar-panel; }
   .t-page-title { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.3px; }
   .t-section-title { font-size: 18px; line-height: 28px; font-weight: 600; }
   .t-card-title { font-size: 14px; line-height: 20px; font-weight: 600; }

@@ -60,7 +60,7 @@ it.each([
 
 it('supports declared tabs alongside unchanged legacy tabpanels', () => {
   render(<Fixture tabs={[{ id: 'legacy', label: 'Legacy', content: 'Old' }, { id: 'new', label: 'New', regions: { body: 'New body', properties: 'New properties' } }]} />);
-  expect(screen.getByRole('tabpanel').getAttribute('class')).toBe('mt-2 ring-offset-surface-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0');
+  expect(screen.getByRole('tabpanel').getAttribute('class')).toBe('mt-2 ring-offset-surface-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring min-h-0 flex-1 scrollbar-panel overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0');
   fireEvent.mouseDown(screen.getByRole('tab', { name: 'New' }), { button: 0, ctrlKey: false });
   expect(screen.getByText('New body')).toBeTruthy();
   expect(screen.getByRole('tabpanel')).toHaveClass('overflow-hidden');

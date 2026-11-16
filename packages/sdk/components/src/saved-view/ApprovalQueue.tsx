@@ -113,7 +113,7 @@ export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultS
       <p role="status" className="text-xs text-text-muted">{m('svManageCount', { count: visible.length })}</p>
       {visible.length === 0
         ? <p className="text-sm text-text-muted">{m('svQueueEmpty')}</p>
-        : <ul aria-label={m('svQueueList')} className="max-h-96 min-h-0 overflow-y-auto">
+        : <ul aria-label={m('svQueueList')} className="max-h-96 min-h-0 scrollbar-panel overflow-y-auto">
           {visible.map(entry => {
             const { view } = entry;
             const request = requests?.[view.id];

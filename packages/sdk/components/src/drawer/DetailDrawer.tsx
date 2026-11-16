@@ -177,14 +177,14 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
     {tab !== undefined && !tabs.some(candidate => candidate.id === tab)
       ? <div role="alert" className="grid gap-2 px-5 py-3"><p>{invalidValueSentence(lang, 'value', COMPONENTS_MESSAGES.drawerDetailTabField, tab)}</p><RecoverButton onRecover={onTabRecover ?? (() => onTabChange?.(tabs[0].id))} label={m('drawerClearTabValue')} /></div>
       : tabs.length === 1
-      ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
+      ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 scrollbar-panel overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
       : <Tabs value={tab} defaultValue={tab ? undefined : tabs[0].id} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList aria-label={m('drawerDetailTabs')} className="mx-5 mt-3 w-auto">
           {tabs.map(tb => <TabsTrigger key={tb.id} value={tb.id}>{tb.label}</TabsTrigger>)}
         </TabsList>
         {tabs.map(tb => (
           // eslint-disable-next-line shadcn/no-restyle -- the aside clips overflow, so the focus ring must sit inside the panel (#914 A1)
-          <TabsContent key={tb.id} value={tb.id} className={tb.regions !== undefined ? 'flex min-h-0 flex-1 flex-col overflow-hidden focus-visible:ring-inset focus-visible:ring-offset-0' : 'min-h-0 flex-1 overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0'}>{tb.regions !== undefined ? <DeclaredRegions regions={tb.regions} /> : <DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn>}</TabsContent>
+          <TabsContent key={tb.id} value={tb.id} className={tb.regions !== undefined ? 'flex min-h-0 flex-1 flex-col overflow-hidden focus-visible:ring-inset focus-visible:ring-offset-0' : 'min-h-0 flex-1 scrollbar-panel overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0'}>{tb.regions !== undefined ? <DeclaredRegions regions={tb.regions} /> : <DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn>}</TabsContent>
         ))}
       </Tabs>}
     </Fragment>
@@ -228,11 +228,11 @@ function DeclaredRegions({ regions }: { regions: DetailDrawerRegions }) {
     {regions.navigation && <DeclaredNavigation render={regions.navigation} scrollRoot={scrollRoot} />}
     <div className="min-h-0 flex-1 [container-type:size]">
     <div ref={scrollRoot} role="region" aria-label={t('detailBodyActivity')} tabIndex={0} data-detail-main-scroll
-      className="h-full overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0">
+      className="h-full scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0">
       <div data-detail-regions className={cn('grid min-h-full grid-cols-1 content-start', hasProperties && '@[60rem]/detail-panel:grid-cols-[minmax(0,1fr)_18rem] @[60rem]/detail-panel:grid-rows-[auto_1fr]')}>
         <section aria-label={t('detailBody')} data-detail-region="body" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-1">{regions.body}</section>
         {hasProperties && <section role="region" aria-label={t('detailProperties')} tabIndex={0} data-detail-region="properties"
-          className="min-h-0 min-w-0 px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0 @[60rem]/detail-panel:sticky @[60rem]/detail-panel:top-0 @[60rem]/detail-panel:col-start-2 @[60rem]/detail-panel:row-start-1 @[60rem]/detail-panel:row-span-2 @[60rem]/detail-panel:max-h-[100cqh] @[60rem]/detail-panel:self-start @[60rem]/detail-panel:overflow-y-auto @[60rem]/detail-panel:overscroll-contain">{regions.properties}</section>}
+          className="min-h-0 min-w-0 px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0 @[60rem]/detail-panel:sticky @[60rem]/detail-panel:top-0 @[60rem]/detail-panel:col-start-2 @[60rem]/detail-panel:row-start-1 @[60rem]/detail-panel:row-span-2 @[60rem]/detail-panel:max-h-[100cqh] @[60rem]/detail-panel:self-start scrollbar-panel @[60rem]/detail-panel:overflow-y-auto @[60rem]/detail-panel:overscroll-contain">{regions.properties}</section>}
         {hasActivity && <section aria-label={t('detailActivity')} data-detail-region="activity" className="min-w-0 px-5 py-3 @[60rem]/detail-panel:col-start-1 @[60rem]/detail-panel:row-start-2">{regions.activity}</section>}
       </div>
     </div>

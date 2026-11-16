@@ -23,7 +23,9 @@ const toggleGroupItemVariants = cva(
   },
 );
 
-type ToggleGroupContext = VariantProps<typeof toggleGroupItemVariants>;
+type ToggleGroupContext = VariantProps<typeof toggleGroupItemVariants> & {
+  appearance?: ToggleGroupAppearance;
+};
 const ToggleGroupContext = React.createContext<ToggleGroupContext>({
   size: 'default',
   variant: 'default',
@@ -66,7 +68,7 @@ export const ToggleGroup = React.forwardRef<
     )}
     {...props}
   >
-    <ToggleGroupContext.Provider value={{ variant, size }}>
+    <ToggleGroupContext.Provider value={{ variant, size, appearance }}>
       {children}
     </ToggleGroupContext.Provider>
   </ToggleGroupPrimitive.Root>
@@ -86,6 +88,7 @@ export const ToggleGroupItem = React.forwardRef<
           variant: context.variant || variant,
           size: context.size || size,
         }),
+        context.appearance === 'filter' && 'rounded-inset-md',
         appearance !== 'default' && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES[appearance],
         className,
       )}

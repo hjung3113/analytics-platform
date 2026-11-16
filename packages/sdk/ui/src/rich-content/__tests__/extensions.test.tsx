@@ -21,6 +21,8 @@ describe('SDK rich editor extensions', () => {
     expect(container.querySelector('h2')).toHaveTextContent('개요');
     expect(container.querySelector('table td')).toHaveTextContent('한글 본문');
     expect(container.querySelector('col')).toHaveAttribute('width', '120');
+    // #2369: only the table scrolls sideways, inside its own wrapper; the reader root does not.
+    expect(container.querySelector('table')?.parentElement).toHaveAttribute('data-rich-table-scroll');
     expect(container.querySelector('input[type="checkbox"]')).toBeChecked();
     expect(container.querySelector('details')).toHaveAttribute('open');
     expect(container.querySelector('pre .hljs-keyword')).toHaveTextContent('const');

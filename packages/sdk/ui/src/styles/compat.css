@@ -83,6 +83,17 @@
   }
 }
 
+/* Shared by bordered scroll areas; shell-scroll remains a platform-entry alias. */
+@utility scrollbar-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border-strong)) transparent;
+}
+
+/* A 6px track with 2px padding needs a 4px inner corner. Keep the token as the source. */
+@utility rounded-inset-md {
+  border-radius: calc(var(--radius-md) - 2px);
+}
+
 /* ADR-0127: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
 @layer base {
   :is(.rich-editor[data-surface="voc-description"] .ProseMirror, .rich-content[data-rich-extended]) {
@@ -99,7 +110,7 @@
     code { @apply rounded-sm bg-surface-popover font-mono; }
     img { @apply my-2 max-w-full h-auto rounded-md; }
     table { @apply my-3 w-full border-collapse table-fixed; }
-    th, td { @apply relative border border-border-strong p-2 align-top; }
+    th, td { @apply relative border border-border-strong p-2 align-top wrap-anywhere; }
     th { @apply bg-surface-row-selected text-left font-semibold; }
     .selectedCell { @apply bg-surface-row-selected; }
     .column-resize-handle { @apply absolute top-0 right-0 bottom-0 w-1 bg-accent-primary pointer-events-none; }
@@ -122,6 +133,12 @@
     .hljs-number, .hljs-literal { color: rgb(var(--text-warning-label)); }
     .hljs-comment { color: rgb(var(--text-secondary)); }
   }
+}
+
+/* Pasted colwidths can exceed the available box even when cell text wraps. */
+.rich-editor[data-surface="voc-description"] .ProseMirror .tableWrapper,
+.rich-content[data-rich-extended] [data-rich-table-scroll] {
+  @apply overflow-x-auto scrollbar-panel;
 }
 
 /* --- Legacy-name compat shims (moved from theme.css, ADR-0058) ---

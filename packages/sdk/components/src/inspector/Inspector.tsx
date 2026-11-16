@@ -96,7 +96,7 @@ function InspectorStack({ sections, label, known, storeKey, expanded: controlled
     onExpandedChange?.(next);
   }, [open, known, controlled, storeKey, onExpandedChange]);
 
-  return <div role="group" aria-label={label} className="h-full min-h-0 min-w-0 overflow-y-auto">
+  return <div role="group" aria-label={label} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-y-auto">
     {sections.map(section => {
       const isOpen = open.includes(section.id);
       const titleId = `${base}-${section.id}-title`;
