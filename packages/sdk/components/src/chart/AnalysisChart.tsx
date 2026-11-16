@@ -20,6 +20,7 @@ import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { distinctStatuses, heatmapStatusOutlines, statusBorderColor, statusMarker, statusText, type ChartStatus } from './chartStatus';
 import { AnalysisChartPart, ChartHeading, ChartTrustFooter } from './analysisChartFrameParts';
+import { useEmbeddedChrome } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
 
 export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus };
@@ -134,6 +135,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const global = platform?.global ?? null;
   const exportGate = useImageActionGate(p.exportActions);
   const section = useContext(AnalysisSectionContext);
+  // Inside a panel or a board pane the container owns the border and radius, as for AnalysisChartFrame and the table (#1166).
+  const embedded = useEmbeddedChrome();
   const size = resolveAnalysisChartSize(p.size, section);
   const compact = size === 'compact';
   const bodyId = useId();
@@ -285,9 +288,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
     exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
-  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS)}>
+  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn('relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && FILL_CARD_CLASS, embedded && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={section !== null}>
-      <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
+      <header className={cn('flex flex-wrap items-start justify-between', embedded ? 'gap-1 px-4 pt-1' : 'gap-2 px-4 pt-3', section && 'pr-12')}>
         <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} />
         <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
           {spec.kind === 'topNBar' && <Button ref={collapseButton} size="toolbar" variant="ghost" aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
@@ -340,7 +343,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
           {selectedRows[0] && <p>{percent(selectedRows[0].share ?? 0)}</p>}
         </div>}
       </div>}
-      <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-xs text-text-secondary">
+      <section aria-label={m('chartSelectionSummaryRegion')} className={cn('px-4 py-2 text-xs text-text-secondary', embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken')}>
         {selectionSummary}
         {hasStatuses && selectedRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size="toolbar" variant="ghost" disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{m('chartActivatePoint')}</Button>}
