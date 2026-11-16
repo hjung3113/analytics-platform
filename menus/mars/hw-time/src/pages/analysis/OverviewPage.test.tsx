@@ -162,8 +162,21 @@ describe('HW Time linked workspace', () => {
     expect(document.activeElement).toBe(heatmap);
     fireEvent.click(screen.getByRole('button', { name: 'drill EQ-002 · PM2' }));
     expect(revealed()).toBe('motions');
-    fireEvent.click(await screen.findByRole('button', { name: 'Chuck 회차 보기' }));
+    const motion = await screen.findByRole('button', { name: 'Chuck 회차 보기' });
+    motion.focus();
+    fireEvent.click(motion);
     expect(revealed()).toBe('scatter');
+    await settle();
+    expect(document.activeElement).toBe(motion);
+    expect(new URLSearchParams(window.location.search).get('drillMotion')).toBe('Chuck');
+    // Clearing the Module removes its own button; focus lands on the panel hint, never the page heading or body.
+    const clear = screen.getByRole('button', { name: 'Module 선택 해제' });
+    clear.focus();
+    fireEvent.click(clear);
+    await settle();
+    expect(new URLSearchParams(window.location.search).get('drillModule')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('drillMotion')).toBeNull();
+    expect(document.activeElement).toBe(within(screen.getByRole('region', { name: 'panel motions' })).getByText('Module을 고르세요'));
   });
 
   it.each(['total-desc', 'total-asc'])('ignores legacy chart-only sort=%s without a table error', async sort => {

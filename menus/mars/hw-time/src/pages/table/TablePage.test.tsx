@@ -80,9 +80,9 @@ function DetailSlotHost() {
   const slot = useDetailPanelSlotHost();
   return <aside ref={slot.ref} aria-label="상세 패널" />;
 }
-async function renderPage(search = '') {
+async function renderPage(search = '', { linked = false } = {}) {
   window.history.replaceState(null, '', `/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} linked={linked} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
   if (search.includes('focus=abc')) await screen.findByText(/열린 행.*abc/);
   else await screen.findByRole('table', { name: 'HW Time 동작시간 표' }, { timeout: 8000 });
 }
@@ -241,6 +241,13 @@ describe('HW Time table page', () => {
     fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
     await waitFor(() => expect(searchParams().get('focus')).toBeNull());
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'EQ-001 · H1 보기' }));
+  });
+
+  it('keeps the equipment-total trend caption in the linked root table after a Module and Motion are chosen', async () => {
+    await renderPage('&drillModule=PM1&drillMotion=Pump', { linked: true });
+    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
+    expect(await screen.findByText('설비 전체 일 합계')).toBeTruthy();
+    expect(screen.queryByText(/하위 항목 전체 일 합계/)).toBeNull();
   });
 
   it('shows the equipment trend in the L1 drawer', async () => {

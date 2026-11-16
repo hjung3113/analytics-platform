@@ -108,7 +108,9 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
     const project = (row: HwTimeTableRow) => filter ? filterRow(row, activeSeries) : row;
     const unit = unitOf(lang);
     const size = columnSizeOf(level);
-    const enter = (value: string) => drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
+    // Linked: the table stays the root population and its drill only fills the other panels, so the write keeps focus on the row.
+    const enter = (value: string) => linked ? setPage(level === 0 ? { drillModule: value, drillMotion: null, focus: null } : { drillMotion: value, focus: null })
+      : drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
     const series: PlatformColumn<HwTimeTableRow>[] = (filter ? activeSeries.filter(id => level !== 2 || id === motion) : seriesIds(level, motion)).map(id => ({
       id, header: `${id} (${unit})`, align: 'right', size: size.value,
       value: row => project(row).values[id] ?? null,
@@ -143,7 +145,7 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
         exportValue: row => row.auxiliary ? null : exportNumber(project(row).total, lang),
       },
     ];
-  }, [m, lang, level, motion, drill, filter, activeSeries]);
+  }, [m, lang, level, motion, drill, filter, activeSeries, linked, setPage]);
 
   const megRows = listed.length - dataRows.length;
   const rowCount = megRows > 0 ? (m('tablePageSubItemRowsMegRows', { length: String(dataRows.length), megRows: String(megRows) }))
@@ -199,8 +201,8 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
               visibleSeriesIds={drawerBlock.series.map(item => item.id)} />
           </div>
           <SeriesLegend series={drawerBlock.series} values={focusRow.values} lang={lang} />
-          <div className="flex flex-col"><TrendPanel chartId="hw-time-table-drawer-trend" title={m('tablePageDailyTrend')} rowIds={[focusRow.id]} query={trendQ} level={drill.depth}
-            description={trendCaption(drill.depth, lang === 'ko')} /></div>
+          <div className="flex flex-col"><TrendPanel chartId="hw-time-table-drawer-trend" title={m('tablePageDailyTrend')} rowIds={[focusRow.id]} query={trendQ} level={level}
+            description={trendCaption(level, lang === 'ko')} /></div>
         </div>,
       }]} />}
   </>;

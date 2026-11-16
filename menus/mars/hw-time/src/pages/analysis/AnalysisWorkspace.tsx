@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useDrill, useI18n, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
+import { useI18n, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, Inspector, PageKeyWarning, PanelWorkspace, PlatformDataTable, QueryView,
   type PanelWorkspacePanel, type PanelWorkspacePreset,
@@ -147,7 +147,6 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const w = useMessages(HW_TIME_WORKSPACE_MESSAGES);
   const common = useMessages(HW_TIME_MESSAGES);
   const { pageParam, setPage } = usePlatform();
-  const drill = useDrill();
   const moduleId = pageParam('drillModule');
   const motionId = pageParam('drillMotion');
   const keys = useHwTimeDrillRules([
@@ -160,6 +159,10 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const runs = useMenuQuery(hwTimeOverview.runs, { moduleType: filter.moduleType.id, drillModule: moduleId ?? '', drillMotion: motionId ?? '' }, { enabled: enabled && moduleId !== null && motionId !== null });
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
   const row = pageParam('row');
+  // Clearing the Module removes its own button: return focus to the panel's hint instead of dropping it to the body.
+  const clearedModule = useRef(false);
+  const pickModuleRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (!moduleId && clearedModule.current) { clearedModule.current = false; pickModuleRef.current?.focus(); } }, [moduleId]);
   const previousSelection = useRef<{ moduleId: string | null; motionId: string | null; row: string | null } | null>(null);
   // The SDK only changes a background tab, preserves hidden/maximized panels and never moves focus.
   useEffect(() => {
@@ -200,14 +203,15 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     { id: 'heatmap', title: HW_TIME_OVERVIEW_MESSAGES.heatmap, preferredHeight: 630, minWidth: 120, render: () => charts('heatmap') },
     { id: 'bars', title: HW_TIME_OVERVIEW_MESSAGES.bars, primary: true, preferredHeight: 600, minWidth: 120, render: () => charts('bars') },
     { id: 'motions', title: HW_TIME_WORKSPACE_MESSAGES.motionPanel, preferredHeight: 400, minWidth: 120, render: () => !moduleId
-      ? <p className="text-sm text-text-secondary">{w('pickModule')}</p>
-      : <><Button variant="ghost" size="sm" onClick={() => drill.goTo(0)}>{m('back')}</Button>
+      ? <p ref={pickModuleRef} tabIndex={-1} className="text-sm text-text-secondary outline-none">{w('pickModule')}</p>
+      : <><Button variant="ghost" size="sm" onClick={() => { clearedModule.current = true; setPage({ drillModule: null, drillMotion: null, focus: null }); }}>{m('back')}</Button>
         {!moduleVisible && <p className="text-sm text-text-secondary">{m('hiddenDrill')}</p>}
         <div hidden={!moduleVisible || filter.empty}><QueryView query={stats}>{data => <MotionTable data={data} filter={filter} moduleId={moduleId} motionId={motionId}
           onMotion={id => {
             previousSelection.current = { moduleId, motionId: id, row };
             setReveal(current => ({ panelId: 'scatter', seq: (current?.seq ?? 0) + 1 }));
-            drill.enter('drillMotion', id);
+            // Focus-neutral write: the linked screen keeps focus on the action; reveal scrolls the filled panel into view.
+            setPage({ drillMotion: id, focus: null });
           }} />}</QueryView></div></> },
     { id: 'scatter', title: HW_TIME_OVERVIEW_MESSAGES.distribution, preferredHeight: 640, minWidth: 120, render: () => runPanel('scatter') },
     { id: 'trend', title: HW_TIME_OVERVIEW_MESSAGES.trend, preferredHeight: 600, minWidth: 120, render: () => runPanel('trend') },

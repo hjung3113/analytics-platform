@@ -229,7 +229,7 @@ _Avoid_: 동작(단독) — CLAS의 `설비 동작시간` 메뉴와 섞인다.
 Motion 동작 1회 소요시간의 상·하한 기준. 기준은 Motion에만 두며 키는 Maker + Model + PPID + Recipe + Module + Motion이다. 판정은 서버가 정상/상한 초과/하한 미달/판정 불가로 제공한다. 화면 문구는 `HTM` 그대로 쓴다.
 
 **동작시간분석** (`hwTime` 메뉴 그룹, en `Operation time analysis`):
-MARS의 메뉴 그룹이자 MARS 대표 메뉴. Module·Motion의 동작 시간 산포를 분석하고, 기본 단위는 설비 하나다(소유자 2026-11-05). 설비 동작시간을 Module·Motion 단계로 드릴해 보는 HW Time 메뉴 하나에 View 네 개(개요·단계별·비교·표)를 둔다. 네 View는 같은 데이터를 쓰고 화면 배치만 다르다([ADR-0078](docs/adr/0078-hw-time-layout-recipes.md)).
+MARS의 메뉴 그룹이자 MARS 대표 메뉴. Module·Motion의 동작 시간 산포를 분석하고, 기본 단위는 설비 하나다(소유자 2026-11-05). 설비 동작시간을 Module·Motion 단계로 드릴해 보는 HW Time 메뉴 하나다. 화면 배치는 [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md).
 _Avoid_: 설비 동작시간 — CLAS의 다른 메뉴다.
 
 **RCC**:
