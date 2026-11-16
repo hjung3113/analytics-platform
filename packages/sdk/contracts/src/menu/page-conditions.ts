@@ -12,11 +12,12 @@ export type PageConditionCategory = {
   required?: true;
   kind:
     | { type: 'select'; key: string; options: PageConditionOptionSource; default?: string }
-    | { type: 'multi'; key: string; options: PageConditionOptionSource }
+    /** `absent: 'all'`: an absent key means every option is checked (the editor shows them checked; the first uncheck subtracts; checking all clears the key). Default: an absent key is `제약 없음` with nothing checked. */
+    | { type: 'multi'; key: string; options: PageConditionOptionSource; absent?: 'all' }
     | { type: 'search'; key: string }
     | { type: 'range'; key: string; unit?: Text; min?: number; max?: number; step?: number }
     | { type: 'date'; from: string; to: string }
-    | { type: 'groupedChecks'; source: EndpointId; lists: { id: string; key: string; label: Text }[] }
+    | { type: 'groupedChecks'; source: EndpointId; lists: { id: string; key: string; label: Text }[]; absent?: 'all' }
     | { type: 'tree'; key: string; source: EndpointId; value: 'leaves' | 'nodes' };
 };
 export type PageConditions = {

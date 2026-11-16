@@ -136,6 +136,12 @@ function OptionConditionCategory(props: CategoryProps) {
   const repeated = kind.type === 'multi' || kind.type === 'groupedChecks';
   const explicitEmpty = repeated && Object.keys(owned).length > 0 && count === 0;
   const common = { disabled, 'aria-describedby': describedBy, 'aria-invalid': hasError || undefined };
+  // `absent: 'all'` (#2341): with no key in the URL every option reads as checked; checking all again clears the key instead of writing the full list.
+  const absentAll = (kind.type === 'multi' || kind.type === 'groupedChecks') && kind.absent === 'all';
+  const keyAbsent = (key: string) => !Object.hasOwn(owned, key) && !raw.some(([name]) => name === key);
+  const effective = (key: string, everyValue: readonly string[]) => absentAll && keyAbsent(key) ? everyValue : valuesFor(key);
+  const writeChecks = (key: string, next: readonly string[], everyValue: readonly string[]) =>
+    write(key, absentAll && next.length === everyValue.length && everyValue.every(value => next.includes(value)) ? null : [...next]);
   function change(next: PageConditionValues | null) {
     if (disabled) return;
     if (next !== null) {
@@ -267,8 +273,8 @@ function OptionConditionCategory(props: CategoryProps) {
       case 'multi': return <div className="space-y-2">
         {optionState()}
         {flatOptions.map((option, index) => <div key={option.value} className="space-y-1">
-          <div className="flex items-center gap-2"><Checkbox id={`${prefix}-option-${index}`} disabled={disabled || !!option.disabledReason} checked={valuesFor(kind.key).includes(option.value)} aria-describedby={[describedBy, option.disabledReason ? `${prefix}-option-reason-${index}` : undefined].filter(Boolean).join(' ') || undefined}
-            onCheckedChange={checked => write(kind.key, checked === true ? [...valuesFor(kind.key), option.value] : valuesFor(kind.key).filter(value => value !== option.value))} />
+          <div className="flex items-center gap-2"><Checkbox id={`${prefix}-option-${index}`} disabled={disabled || !!option.disabledReason} checked={effective(kind.key, flatOptions.map(item => item.value)).includes(option.value)} aria-describedby={[describedBy, option.disabledReason ? `${prefix}-option-reason-${index}` : undefined].filter(Boolean).join(' ') || undefined}
+            onCheckedChange={checked => { const every = flatOptions.map(item => item.value); const current = effective(kind.key, every); writeChecks(kind.key, checked === true ? [...current, option.value] : current.filter(value => value !== option.value), every); }} />
             <Label htmlFor={`${prefix}-option-${index}`}>{option.label[lang]}</Label></div>
           {option.disabledReason && <p id={`${prefix}-option-reason-${index}`} className="text-xs text-text-secondary">{option.disabledReason[lang]}</p>}
         </div>)}
@@ -283,11 +289,13 @@ function OptionConditionCategory(props: CategoryProps) {
             <div className="grid min-w-0 gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr))]">
               {kind.lists.map(list => {
                 const groupOptions = group.lists[list.id] ?? [];
-                const selected = valuesFor(list.key);
+                const every = groups.flatMap(item => (item.lists[list.id] ?? []).map(option => option.value));
+                const implicit = absentAll && keyAbsent(list.key);
+                const selected = effective(list.key, every);
                 const explicitListEmpty = (Object.hasOwn(owned, list.key) || raw.some(([key]) => key === list.key)) && selected.length === 0;
-                const messages = { ...GROUPED_SELECTION_MESSAGES[lang], selectedCount: (count: number) => explicitListEmpty ? m('explicitEmpty') : count === 0 ? m('unconstrained') : GROUPED_SELECTION_MESSAGES[lang].selectedCount(count) };
+                const messages = { ...GROUPED_SELECTION_MESSAGES[lang], selectedCount: (count: number) => explicitListEmpty ? m('explicitEmpty') : count === 0 || implicit ? m('unconstrained') : GROUPED_SELECTION_MESSAGES[lang].selectedCount(count) };
                 return <GroupedSelectionList key={list.id} mode="multiple" aria-label={list.label[lang]} announceSelection={false} messages={messages}
-                  value={selected} onChange={next => write(list.key, next)} groups={[{ id: list.id, label: list.label[lang], items: groupOptions.map(option => ({ id: option.value, label: option.label[lang], disabledReason: category.disabled?.reason[lang] ?? option.disabledReason?.[lang] })) }]} />;
+                  value={selected} onChange={next => writeChecks(list.key, next, every)} groups={[{ id: list.id, label: list.label[lang], items: groupOptions.map(option => ({ id: option.value, label: option.label[lang], disabledReason: category.disabled?.reason[lang] ?? option.disabledReason?.[lang] })) }]} />;
               })}
             </div>
           </section>)}

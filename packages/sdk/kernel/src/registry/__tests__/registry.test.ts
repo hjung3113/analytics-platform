@@ -817,6 +817,8 @@ describe('pageConditions declarations (#2337)', () => {
     ['disabled blank reason', { pageConditions: { categories: [{ ...category, disabled: { reason: { ko: '', en: 'Reason' } } }] } }, /disabled reason.*nonempty/],
     ['required on live menu', { pageConditions: { categories: [{ ...category, required: true }] } }, /required categories.*apply/],
     ['invalid required', { pageConditions: { categories: [{ ...category, required: false }] } }, /required must be true/],
+    ['absent on a single-valued kind', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', absent: 'all' } }] } }, /absent must be 'all' on multi or groupedChecks/],
+    ['absent other than all', { repeatedPageKeys: ['choice'], pageConditions: { categories: [{ ...category, kind: { type: 'multi', key: 'choice', options: { static: [{ value: 'one', label }] }, absent: 'none' } }] } }, /absent must be 'all'/],
     ['unknown kind', { pageConditions: { categories: [{ ...category, kind: { type: 'unknown' } }] } }, /unknown kind/],
     ['reversed range bounds', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', min: 2, max: 1 } }] } }, /min must not exceed max/],
     ['infinite range bounds', { pageConditions: { categories: [{ ...category, kind: { type: 'range', key: 'choice', min: Infinity } }] } }, /min must be finite/],
