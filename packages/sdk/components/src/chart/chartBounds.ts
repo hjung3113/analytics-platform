@@ -125,5 +125,5 @@ export function boundSeries(p: BoundProjection, palette: ChartPalette): CustomSe
 
 export function boundText(p: BoundProjection, x: string, format: (v: number) => string) {
   const bound = p.at(x);
-  return (['lower', 'upper'] as const).map(part => `${p.labels[part]}: ${bound[part] === undefined ? '' : format(bound[part]!)}`).join(' · ');
+  return (['lower', 'upper'] as const).filter(part => bound[part] !== undefined).map(part => `${p.labels[part]}: ${format(bound[part]!)}`).join(' · ');
 }

@@ -27,8 +27,8 @@ it('declares the owner-picked chart chrome per panel with captions only on the b
   expect(frame('hw-current').rowLabelWidth).toBe('auto');
   expect(kind('hw-overview-runs-scatter')).toMatchObject({ legendPlacement: 'bottom', toolsReveal: 'always' });
   expect(kind('hw-overview-runs-scatter').legendCaption).toMatch(/합성 데이터/);
-  expect(frame('hw-overview-runs-trend')).toMatchObject({ legendPlacement: 'side', toolsReveal: 'hover' });
-  expect(frame('hw-overview-runs-trend').legendCaption).toBeUndefined();
+  // The existing fixture has one date: #2426 intentionally replaces this chart with one empty-state line.
+  expect(frames.mock.calls.some(([props]) => props.chartId === 'hw-overview-runs-trend')).toBe(false);
 });
 
 it.each([

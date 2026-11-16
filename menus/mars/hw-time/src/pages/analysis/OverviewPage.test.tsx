@@ -22,7 +22,8 @@ describe('HW Time optional panels and projections', () => {
     expect(within(scatter).getByText('표본 2 / 전체 576 · 기준 밖 점 전부 포함')).toBeTruthy();
     expect(within(await screen.findByTestId('hw-overview-trend')).queryByRole('combobox', { name: '가로축' })).toBeNull();
     expect(chart('hw-overview-runs-scatter').density).toBe('quiet');
-    expect(chart('hw-overview-runs-trend').bounds).toEqual([]);
+    expect(screen.queryByTestId('hw-overview-runs-trend')).toBeNull();
+    expect(within(screen.getByTestId('hw-overview-trend')).getByText('일 평균 추세는 2일 이상 기간에서 보임')).toBeTruthy();
   });
 
   it('projects checked Motions through bars and an added heatmap without another read', async () => {

@@ -978,7 +978,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       </div>}
       {drawnActive !== null && <p className="mb-1 font-semibold">{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
       {(rowGroups || statusEnabled) && selectedPoint && <p className="mb-1">{labelOf(selectedPoint.x)} · {allSeries.find(s => s.id === selectedPoint.seriesId)?.name}{resolvedStatus(selectedPoint) ? `: ${statusText(resolvedStatus(selectedPoint))}` : ''}</p>}
-      {bounds && selectedPoint && !previousIds.has(selectedPoint.seriesId) && <p className="mb-1">{m('chartCurrentBounds', { bounds: boundText(bounds, selectedPoint.x, format) })}</p>}
+      {bounds && selectedPoint && !previousIds.has(selectedPoint.seriesId) && boundText(bounds, selectedPoint.x, format) && <p className="mb-1">{m('chartCurrentBounds', { bounds: boundText(bounds, selectedPoint.x, format) })}</p>}
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {m('chartMin')} {e.min.x} {format(e.min.value)} · {m('chartMax')} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
       {!selection ? (rangeUi || chrome === 'standard') && <span className="text-text-secondary">{startAlign ? m('chartNoRangeSelection') : showKeyboard

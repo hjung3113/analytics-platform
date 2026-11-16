@@ -55,3 +55,10 @@ describe('per-x step bounds (#2333)', () => {
     expect(o.tooltip.formatter([{ seriesId: 'previous', dataIndex: 0 }])).not.toContain('상한');
   });
 });
+
+it('omits missing bound labels and returns no caption when both values are absent (#2426)', async () => {
+  const { boundText } = await import('../chartBounds');
+  const projection = projectChartBounds({ ...input(), bounds: new Map([[times[0], { lower: 0 }], [times[1], {}]]), boundLabels: { lower: 'HTM 하한', upper: 'HTM 상한' } })!;
+  expect(boundText(projection, times[0], String)).toBe('HTM 하한: 0');
+  expect(boundText(projection, times[1], String)).toBe('');
+});
