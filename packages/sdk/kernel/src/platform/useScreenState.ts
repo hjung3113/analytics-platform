@@ -302,9 +302,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // input (or nothing left to do) re-arms it.
   const proposed = useRef<string | null>(null);
   useEffect(() => {
-    // Alias entry (ADR-0093): one replace of the path alone — the search is the current address's, byte for byte. A default period
-    // or metric version is materialized afterwards on the canonical address, as for any visit, so no query runs on the alias.
-    if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true }); return; }
+    // Alias entry (ADR-0093): one replace of the path — the search is the current address's, byte for byte, plus a retired menu's page
+    // preset for the keys it does not hold (#2330). A default period or metric version is materialized afterwards on the canonical
+    // address, as for any visit, so no query runs on the alias.
+    if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true, redirectPage: route.aliasPage }); return; }
     if (!route || routeContractError) return;
     let next = global;
     if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -(route.menu.defaultPeriodHours ?? 24)), to: defaultRangeTo };

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { CreateRegistryInput } from '@ap/app-host';
 import { carrySetId, groupId, menuPermission, spaceId, type CarrySetDef, type SpaceDef } from '@ap/contracts';
-import { createRegistry, type GroupDef, type MenuEntry } from '@ap/kernel';
+import { createRegistry, type GroupDef, type MenuEntry, type RetiredMenu } from '@ap/kernel';
 import { createHomeComponent, type HomeLauncherGroup, type HomeLauncherSpaceNames } from '@ap/menu-home/launcher';
 // <gen:menu-imports>
 import { manifests as home } from '@ap/menu-home';
@@ -185,8 +185,14 @@ const CARRY_SETS: readonly CarrySetDef[] = [
 /** Roots the app's own screens and feature serve outside the Registry; no space may take one (ADR-0093). The Kernel reserves only its own `board`, `api` and `auth`. */
 const APP_RESERVED_ROOTS = ['home', 'survey', 'voc', 'notifications', 'notices', 'permission-requests', 'my-tasks', 'faq', 'tokens'];
 
-/** The whole `createRegistry` input (spaces, groups, menus, permissions, carrySets, platformHomeMenuId, reservedRoots): the Host (`startAppHost` in `main.tsx`) builds the mounted app's Registry from it. */
-export const declarations: CreateRegistryInput = { spaces: SPACES, groups: GROUPS, menus: placeGlobalGroups(configureHome(MENUS)), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS };
+/**
+ * Menu ids no longer registered and the menu that opens in their place (#2330): saved board panes, recent visits, favorites and old
+ * addresses follow them. HW Time's four menus became one linked-panel screen (#2328); its old `?view=` and panel keys are ignored by the screen, so no page preset.
+ */
+const RETIRED_MENUS: readonly RetiredMenu[] = (['steps', 'compare', 'overview', 'table'] as const).map(view => ({ id: `hw-time-${view}`, successor: 'hw-time', paths: [`/hw-time/${view}`] }));
+
+/** The whole `createRegistry` input (spaces, groups, menus, permissions, carrySets, platformHomeMenuId, reservedRoots, retiredMenus): the Host (`startAppHost` in `main.tsx`) builds the mounted app's Registry from it. */
+export const declarations: CreateRegistryInput = { spaces: SPACES, groups: GROUPS, menus: placeGlobalGroups(configureHome(MENUS)), permissions: PERMISSIONS, carrySets: CARRY_SETS, platformHomeMenuId: 'home', reservedRoots: APP_RESERVED_ROOTS, retiredMenus: RETIRED_MENUS };
 
 /** Built once here for tests and any direct reader; the running app mounts the Registry the Host builds from the same `declarations` (one extra build, unchanged behaviour). */
 export const registry = createRegistry(declarations);

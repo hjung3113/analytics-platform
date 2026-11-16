@@ -24,33 +24,16 @@ function setup(url: string, children = <Route />) {
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{children}</PlatformProvider></I18nProvider>);
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-describe('HW Time legacy routing and shell', () => {
-  it.each(['steps', 'compare', 'overview', 'table'].flatMap(id => [
-    [id, `/mars/hw-time-${id}`], [id, `/hw-time/${id}`],
-  ]))('opens legacy %s at %s on the same screen, preserving Context and drill', async (_id, path) => {
-    setup(`${path}?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&selectedEquipmentIds=EQ-001&drillModule=PM1`);
-    await waitFor(() => expect(window.location.pathname).toBe('/mars/hw-time'));
-    expect(await screen.findByText('linked analysis')).toBeTruthy();
-    const query = new URLSearchParams(window.location.search);
-    expect(query.get('scopeId')).toBe('MEM');
-    expect(query.get('selectedEquipmentIds')).toBe('EQ-001');
-    expect(query.get('drillModule')).toBe('PM1');
-    expect(query.get('view')).toBeNull();
-  });
+describe('HW Time obsolete keys and shell', () => {
   it.each(['overview', 'steps', 'compare', 'table', 'bogus'])('ignores obsolete view=%s and renders the same screen', async view => {
     setup(`/mars/hw-time?v=1&scopeId=MEM&view=${view}&trend=bad&minmax=bad&scroll=bad`, <HwTimePage params={{}} />);
     expect(await screen.findByText('linked analysis')).toBeTruthy();
     expect(screen.queryByRole('tab')).toBeNull();
   });
-  it('declares one navigation entry and the same lightweight state contract on all legacy ids', () => {
+  it('declares one navigation entry without a View key', () => {
     const main = manifests.find(menu => menu.id === 'hw-time')!;
     expect(main.navViews).toBeUndefined();
     expect(main.carrySet).toBeUndefined();
     expect(main.pageKeys).not.toContain('view');
-    for (const legacy of manifests.filter(menu => menu.id !== 'hw-time')) {
-      expect(legacy.navHidden).toBe(true);
-      expect(legacy.pageKeys).toEqual(main.pageKeys);
-      expect(legacy.repeatedPageKeys).toEqual(main.repeatedPageKeys);
-    }
   });
 });

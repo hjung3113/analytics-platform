@@ -35,6 +35,7 @@ const registry = createRegistry({
     { ...entry('ops', '/ops', { features, permission: 'console:access' }), group: groupId('admin'), primary: true },
     { ...entry('ops-board', '/ops-board'), group: groupId('admin') },
   ],
+  retiredMenus: [{ id: 'b-tabbed', successor: 'board-b', page: { tab: 'z' }, paths: ['/old/b'] }],
 });
 
 const ANALYST: Session['user']['permissions'] = ['platform:view'];
@@ -199,6 +200,11 @@ describe('PaneScreenProvider — navigation and links', () => {
     act(() => { result = at('p').navigate('/b?scopeId=S1'); });
     expect(result).toBe(true);
     expect(p.onChange).toHaveBeenLastCalledWith({ menuId: 'board-b', params: {}, query: '?scopeId=S1' }, 'push');
+    // A retired menu's address opens its successor with the page preset for keys the address does not hold (#2330).
+    act(() => { at('p').navigate('/old/b?scopeId=S1'); });
+    expect(p.onChange).toHaveBeenLastCalledWith({ menuId: 'board-b', params: {}, query: '?scopeId=S1&tab=z' }, 'push');
+    act(() => { at('p').navigate('/old/b?scopeId=S1&tab=y'); });
+    expect(p.onChange).toHaveBeenLastCalledWith({ menuId: 'board-b', params: {}, query: '?scopeId=S1&tab=y' }, 'push');
     act(() => { at('p').navigate('/item/7', { replace: true }); });
     expect(p.onChange).toHaveBeenLastCalledWith({ menuId: 'item', params: { id: '7' }, query: '' }, 'replace');
     p.onChange.mockClear();

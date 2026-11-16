@@ -1,5 +1,6 @@
-import { pathFor, routeParamNames, type MenuEntry, type Registry } from '@ap/kernel';
+import { pathFor, routeParamNames, withPagePreset, type MenuEntry, type MenuSuccessor, type Registry } from '@ap/kernel';
 import { hasDotSegment, type PaneScreen } from '@ap/kernel/host';
+import type { Board } from './boardTypes';
 
 /** Menus a pane may hold from an empty pane: board-declared, listed in navigation, and with no route parameter to ask for. */
 export function isBoardPlaceable(menu: MenuEntry): boolean {
@@ -36,4 +37,40 @@ export function admitPaneScreen(registry: Registry, screen: PaneScreen): boolean
  */
 export function canMountPaneScreen(registry: Registry, canOpen: (menuId: string) => boolean, screen: PaneScreen): boolean {
   return admitPaneScreen(registry, screen) && canOpen(screen.menuId);
+}
+
+/**
+ * A saved pane screen of a retired menu id as its successor's screen (`createRegistry({ retiredMenus })`, #2330): the successor's id, the
+ * same params, and the retired id's page preset added to the query where the query does not hold the key. Null when the id is not retired.
+ */
+export function successorScreen(registry: Registry, screen: PaneScreen): PaneScreen | null {
+  const successor = registry.successorOf(screen.menuId);
+  return successor === null ? null : { menuId: successor.menu.id, params: successorParams(registry, successor, screen.params), query: withPagePreset(screen.query, successor.page) };
+}
+
+/**
+ * Stored params of a retired id in the successor's parameter names: the old address whose parameters are exactly the stored keys is built
+ * and matched, as a visit to that address would be. Params the successor already names, or that no old address fits, are kept as they
+ * are (a pane that cannot be admitted then shows the removed-menu state).
+ */
+function successorParams(registry: Registry, successor: MenuSuccessor, params: Record<string, string>): Record<string, string> {
+  const keys = Object.keys(params);
+  const fits = (names: string[]) => names.length === keys.length && names.every(name => typeof params[name] === 'string' && params[name] !== '');
+  if (fits(routeParamNames(successor.menu.path))) return params;
+  for (const template of successor.paths) {
+    if (!fits(routeParamNames(template))) continue;
+    let path: string;
+    // A stored value no address can carry (a lone surrogate) fits no template; it must not stop the rest of the board (#2330).
+    try { path = template.split('/').map(segment => (segment.startsWith(':') ? encodeURIComponent(params[segment.slice(1)]!) : segment)).join('/'); } catch { continue; }
+    const matched = registry.matchRoute(path);
+    if (matched?.menu.id === successor.menu.id) return matched.params;
+  }
+  return params;
+}
+
+/** The board with every pane screen (and the screen `뒤로` returns to) of a retired id moved to its successor; the same board when none is. */
+export function boardWithSuccessors(registry: Registry, board: Board): Board {
+  const move = (screen: PaneScreen | null) => (screen === null ? null : successorScreen(registry, screen));
+  if (!board.sheets.some(sheet => sheet.panes.some(slot => move(slot.screen) !== null || move(slot.previous) !== null))) return board;
+  return { ...board, sheets: board.sheets.map(sheet => ({ ...sheet, panes: sheet.panes.map(slot => ({ ...slot, screen: move(slot.screen) ?? slot.screen, previous: move(slot.previous) ?? slot.previous })) })) };
 }

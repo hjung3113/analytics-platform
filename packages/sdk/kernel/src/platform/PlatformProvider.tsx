@@ -16,6 +16,7 @@ import { createPreferenceController } from './preferenceController';
 import { sameItems, useStable } from '../stable';
 import { ServerLanguage, textFor } from '../i18n';
 import { decodeFavorites, decodeRecent, decodeScopeId, readPreference, readStoredPreference, writePreference } from './preferences';
+import { favoritesWithSuccessors, recentWithSuccessors } from './retiredMenus';
 import { AppContext, OverlayContext, RecentContext, ToastsContext, type AppValue, type OverlayState, type UsageNavTrail } from './contexts';
 import { MainScreenProvider } from './MainScreenProvider';
 import { createSessionDraftStore } from './sessionDraft';
@@ -142,8 +143,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   }));
   const serverScope = preferences ? decodeScopeId(preferences.get('lastScope')) ?? null : null;
   // Server mode: a favorite toggled before the account's list is known is an ordered edit on the account lane of the controller (it survives a controller replacement of the same account) and is applied to the delivered list.
-  const favorites = serverFavorites ?? localFavorites;
-  const recent = serverRecent ?? localRecent;
+  // A stored retired menu id reads as its successor (#2330); the stored list is rewritten at the next edit.
+  const favorites = useMemo(() => favoritesWithSuccessors(registry, serverFavorites ?? localFavorites), [registry, serverFavorites, localFavorites]);
+  const recent = useMemo(() => recentWithSuccessors(registry, serverRecent ?? localRecent), [registry, serverRecent, localRecent]);
   const lastScope = preferences ? serverScope : localLastScope;
   // Tab-scoped usage session id (docs/05): sessionStorage, never localStorage — tabs must not share it.
   const [savedViewSupports] = useState(createSupportRegistry);
@@ -328,15 +330,16 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
     return listsHeld.current;
   }, []);
   const toggleFavorite = useCallback((menuId: string) => {
+    const flip = (list: string[], id: string) => flipFavorite(favoritesWithSuccessors(registry, list), id);
     if (preferences) {
-      preferences.update('favorites', current => flipFavorite(decodeFavorites(current) ?? [], menuId));
+      preferences.update('favorites', current => flip(decodeFavorites(current) ?? [], menuId));
       return;
     }
     // Browser-storage mode: on top of the stored list (another tab may have changed it, #2033), this tab's list only when storage has none.
     const held = memoryLists(userId).favorites;
-    const next = editStoredList(`platform:favorites:${userId}`, decodeFavorites, held, held.memory ?? localFavorites, flipFavorite, menuId);
+    const next = editStoredList(`platform:favorites:${userId}`, decodeFavorites, held, held.memory ?? localFavorites, flip, menuId);
     setFavorites(next);
-  }, [userId, preferences, localFavorites, memoryLists]);
+  }, [userId, preferences, localFavorites, memoryLists, registry]);
 
   // `readRecent` reads this ref: it follows the state in a layout effect and at once in `recordVisit` (never written during render).
   const recentRef = useRef(recent);
@@ -344,21 +347,22 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const readRecent = useCallback((): readonly Recent[] => recentRef.current, []);
   const recordVisit = useCallback((menuId: string, url: string) => {
     const visit: Recent = { menuId, url: stripDetailExpansion(stripReturnToFromUrl(url)), at: Date.now() };
+    const merge = (list: Recent[], v: Recent) => mergeVisit(recentWithSuccessors(registry, list), v);
     if (preferences) {
-      const apply = (current: JsonValue | undefined): JsonValue => mergeVisit(decodeRecent(current) ?? [], visit);
+      const apply = (current: JsonValue | undefined): JsonValue => merge(decodeRecent(current) ?? [], visit);
       // Entering a menu saves at once; URL changes inside the same menu are saved once after a pause (#1671).
       // Before readiness, queue on the account lane so visits survive a controller replacement and retry failed reads.
       if (preferences.state().status === 'ready' && decodeRecent(preferences.get('recents'))?.[0]?.menuId === menuId) preferences.hold('recents', apply, RECENT_WRITE_DELAY_MS);
       else preferences.update('recents', apply);
-      recentRef.current = decodeRecent(preferences.get('recents')) ?? [];
+      recentRef.current = recentWithSuccessors(registry, decodeRecent(preferences.get('recents')) ?? []);
       return;
     }
     // On top of the stored list, as for favorites (#2033).
     const held = memoryLists(userId).recents;
-    const next = editStoredList(`platform:recent:${userId}`, decodeRecent, held, recentRef.current, mergeVisit, visit);
+    const next = editStoredList(`platform:recent:${userId}`, decodeRecent, held, recentRef.current, merge, visit);
     recentRef.current = next;
     setRecent(next);
-  }, [userId, preferences, memoryLists]);
+  }, [userId, preferences, memoryLists, registry]);
   const rememberScope = useCallback((scopeId: string) => {
     if (preferences) { preferences.set('lastScope', scopeId); return; }
     setLastScope(scopeId);

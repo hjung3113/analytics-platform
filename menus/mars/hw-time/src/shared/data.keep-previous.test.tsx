@@ -12,7 +12,7 @@ import { useHwTimeLevel, useHwTimeTrend } from './data';
 // The drill, level and trend selections of all four HW Time screens go through these two hooks, so the real hooks run on the real Kernel here.
 const registry = createRegistry({ 
   permissions: [menuPermission('analytics:view')],
-  spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
+  spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],
   menus: manifests,
 });
@@ -50,7 +50,7 @@ const text = (id: string) => screen.getByTestId(id).textContent;
 beforeEach(() => {
   held = false; releases.length = 0;
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
-  window.history.replaceState(null, '', '/hw-time/steps?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+  window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
@@ -78,7 +78,7 @@ describe('HW Time hooks keep the previous result while the drill or the trend ro
   it('a period change still hides the level', async () => {
     await mount();
     act(() => {
-      window.history.pushState(null, '', '/hw-time/steps?v=1&scopeId=MEM&from=2026-09-18T09:00:00&to=2026-09-26T09:00:00');
+      window.history.pushState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-18T09:00:00&to=2026-09-26T09:00:00');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     await waitFor(() => expect(text('level')).toBe('loading:-'));
