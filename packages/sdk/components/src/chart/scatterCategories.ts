@@ -8,7 +8,7 @@ import { escapeHtml } from './chartText';
 import { BOUND_DASH, BOUND_OPACITY } from './chartBounds';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
-import { distinctStatuses, STATUS_GLYPHS, statusBacking, statusBorderColor, statusFill, statusKey, statusMarker, statusText } from './chartStatus';
+import { distinctStatuses, statusBacking, statusBorderColor, statusFill, statusGlyph, statusKey, statusMarker, statusText } from './chartStatus';
 import { chartTheme, token } from './EChart';
 import { QUIET_SCATTER } from './scatterDensity';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -190,7 +190,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   return {
     ...base, rows, headers, csvHeaders, tableValues, csvValues, legend,
     // Per-point detail lives in rows (keyboard table, point selector, selection summary); the visible summary stays an aggregate.
-    summary: [summary, ...statuses.map(status => `${STATUS_GLYPHS[status.tone]} ${status.label}: ${points.filter(point => point.status && statusKey(point.status) === statusKey(status)).length}`)].join(' · '),
+    summary: [summary, ...statuses.map(status => `${statusGlyph(status)} ${status.label}: ${points.filter(point => point.status && statusKey(point.status) === statusKey(status)).length}`)].join(' · '),
     seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : [])],
     option: active => {
       const original = base.option(active);

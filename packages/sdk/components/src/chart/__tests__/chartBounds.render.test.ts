@@ -31,7 +31,7 @@ describe('rendered line bounds and statuses (#2333)', () => {
   });
   it('renders only measured status symbols and glyphs when the line hides symbols', () => {
     const svg = draw({ pointStatus: () => ({ tone: 'warning', label: 'High' }) });
-    expect(svg.match(/>▼<\/text>/g)).toHaveLength(2);
+    expect(svg.match(/>◆<\/text>/g)).toHaveLength(2);
     expect(svg).not.toContain('NaN');
   });
 });

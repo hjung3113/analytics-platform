@@ -10,8 +10,18 @@ export type ChartStatus = {
   label: string;
   /** Per-piece text for tooltip, summary, keyboard table and CSV. */
   reason?: string;
+  /**
+   * Optional one-character symbol that replaces the tone's default glyph, for a menu whose judgement has a direction
+   * (for example ▼ for "below the lower limit"). Anything but a single character, or one of `{ } |` (the chart's
+   * rich-text syntax), falls back to the tone glyph. Give the same marker to every status with the same (tone, label).
+   */
+  marker?: string;
 };
-export const STATUS_GLYPHS = { danger: '▲', warning: '▼', neutral: '◆' } as const;
+/** Severity only, no direction: a filled circle, a diamond, an open circle (#2363). */
+export const STATUS_GLYPHS = { danger: '●', warning: '◆', neutral: '○' } as const;
+const usableMarker = (marker: string | undefined) => marker !== undefined && [...marker].length === 1 && !/[\s{}|]/.test(marker);
+/** The symbol drawn and written for a status: the menu's `marker` when usable, otherwise the tone glyph. */
+export const statusGlyph = (status: ChartStatus) => usableMarker(status.marker) ? status.marker! : STATUS_GLYPHS[status.tone];
 const STATUS_TOKENS = { danger: 'chart-status-critical', warning: 'chart-status-warn', neutral: 'chart-no-data-pattern' } as const satisfies Record<ChartStatus['tone'], ThemeColorToken>;
 export const statusColor = (status: ChartStatus) => token(STATUS_TOKENS[status.tone]);
 const contrast = (a: string, b: string) => {
@@ -59,7 +69,7 @@ export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]
   ];
 }
 export const statusKey = (status: ChartStatus) => JSON.stringify([status.tone, status.label]);
-export const statusText = (status: ChartStatus | undefined) => status ? `${STATUS_GLYPHS[status.tone]} ${status.label}${status.reason ? ` · ${status.reason}` : ''}` : '';
+export const statusText = (status: ChartStatus | undefined) => status ? `${statusGlyph(status)} ${status.label}${status.reason ? ` · ${status.reason}` : ''}` : '';
 export function distinctStatuses(statuses: readonly (ChartStatus | undefined)[]): ChartStatus[] {
   const distinct = new Map<string, ChartStatus>();
   for (const status of statuses) if (status && !distinct.has(statusKey(status))) distinct.set(statusKey(status), status);
@@ -83,7 +93,7 @@ export function barStatuses(series: readonly ChartSeries[], horizontal: boolean,
 /** A surface-backed marker stays legible even when threshold/value fill and status colour are identical. */
 export function statusMarker(status: ChartStatus) {
   return {
-    show: true, formatter: `{status|${STATUS_GLYPHS[status.tone]}}`, fontSize: 10,
+    show: true, formatter: `{status|${statusGlyph(status)}}`, fontSize: 10,
     rich: { status: { color: statusColor(status), backgroundColor: token('surface-card'), borderColor: statusColor(status), borderWidth: 1, borderRadius: 2, padding: [0, 2], fontSize: 10 } },
   };
 }

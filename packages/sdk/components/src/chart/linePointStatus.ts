@@ -22,7 +22,7 @@ export function frameStatuses(series: readonly ChartSeries[], horizontal: boolea
 /** Bars keep their existing CSV label; line statuses carry the same tone glyph as the other reading aids. Reason has its own CSV column. */
 export function frameStatusCsvLabel(series: ChartSeries, horizontal: boolean, status: ChartStatus) {
   if (horizontal || series.kind === 'bar') return status.label;
-  return statusText({ tone: status.tone, label: status.label });
+  return statusText({ tone: status.tone, label: status.label, marker: status.marker });
 }
 const STATUS_SIZE = 9;
 const HALO_SIZE = 13;
