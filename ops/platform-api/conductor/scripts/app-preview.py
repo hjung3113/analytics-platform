@@ -334,7 +334,7 @@ def start(args):
         '// only the server binding; the proxy target comes from AP_BACKEND_ORIGIN.\n'
         f"import base from {json.dumps(str(frontend / 'vite.config.ts'))};\n"
         "const viteEnv = { mode: 'real', command: 'serve', isPreview: false };\n"
-        "const cfg = typeof base === 'function' ? base(viteEnv) : base;\n"
+        "const cfg = typeof base === 'function' ? await base(viteEnv) : base;\n"
         'export default {\n'
         '  ...cfg,\n'
         f"  server: {{ ...cfg.server, port: {frontend_port}, strictPort: true, allowedHosts: ['.localhost'] }},\n"
