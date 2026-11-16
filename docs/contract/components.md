@@ -17,7 +17,7 @@
 
 레이어는 `role=dialog`, `aria-modal=false`, 제목 연결을 가지며, 열 때 제목으로 포커스를 옮긴다. 필수 범주 누락이나 codec 문제가 있으면 자동으로 열고 첫 문제 범주로 포커스를 옮긴다. 그 밖에는 닫힌 채 시작한다. 바깥 클릭으로 닫히지 않으며 결과를 읽거나 Tab으로 레이어 밖으로 나갈 수 있다. Esc는 포커스가 안에 있을 때만, 내부 Select/popover가 먼저 받은 뒤 한 단계씩 닫는다. 닫으면 트리거로 복귀한다. 닫힌 동안 적용 요약이 바뀐 경우만 마운트된 polite 영역에서 한 번 알리고, 열기·닫기 자체는 알리지 않는다.
 
-Apply footer의 「적용」·「되돌리기」는 Context 바와 같은 `useQueryDraft` 동작이다([Kernel §11](kernel.md#11-global-context-bar)). live 메뉴는 footer Apply가 없고 변경마다 `setPage`로 반영한다. 한 번 연 세션의 첫 변경만 push하고 나머지는 replace하여 뒤로가기 한 번으로 진입 전 조건으로 돌아간다. 열림 상태는 저장하지 않는다. tree·pin·전역 편집은 범위 밖이다. 시각은 소유자 캡처 확인 전 Candidate다.
+Apply footer의 「적용」·「되돌리기」는 Context 바와 같은 `useQueryDraft` 동작이다([Kernel §11](kernel.md#11-global-context-bar)). live 메뉴는 footer Apply가 없고 변경마다 `setPage`로 반영한다. 한 번 연 세션의 첫 변경만 push하고 나머지는 replace하여 뒤로가기 한 번으로 진입 전 조건으로 돌아간다. 열림 상태는 저장하지 않는다. pin·전역 편집은 범위 밖이다. 시각은 소유자 캡처 확인 전 Candidate다.
 
 > 디자인 시스템 원본은 SDK `@ap/ui`가 소유한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). 기능 화면은 SDK 부품을 `@ap/ui`에서 직접 소비하고, `src/ui`는 기능 도메인 표현 부품을 소유한다.
 
@@ -130,7 +130,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 `loadOptions(category, { signal })`은 S1 옵션 응답을 돌려준다. `inputsKey`는 호출자가 세션 세대·Scope·투영 Context(적용 기준 — 적용 전 draft Context는 옵션 조회를 다시 시작하지 않는다)·엔드포인트 입력·준비 상태를 포함한 전체 입력 정체성으로 제공한다. 변경·unmount 때 요청을 취소하고 이전 옵션을 즉시 가리며 늦은 응답은 버린다. 로딩·빈 목록·실패/재시도는 §19 상태 조각을 쓰고 부분 목록은 명시한다. `usePageConditionOptionsLoader(spec, params)`는 엔드포인트 소유 선언을 확인하고 Kernel `useMenuFetch`의 게이트·signal·서버 outcome을 유지하는 연결 훅이다. 여러 엔드포인트 loader의 선택은 호출자가 조립한다. 응답은 범주 전체의 값 유일성·라벨·선언 목록을 검증한 뒤 표시한다.
 
-`tree`는 `treeSources`의 선언 `kind.source` 엔드포인트 id에 대응하는 `HierarchySource`로 읽는다(#2340, Candidate). 독립 조각 `PageConditionTree`도 같은 제어 입력과 `category`, `source`, 선택 `pageSize`를 받는다. 연결한 source는 메뉴가 Kernel 요청 게이트와 서버 권한 판정을 보존해 제공한다. `inputsKey` 변경은 페이지·경로·검색·선택 중인 요청을 취소하고 캐시를 즉시 버린다. 기본 50개·최대 200개 페이지, 필요할 때만 자식 펼치기와 `더 불러오기`, 200ms 검색 지연을 쓴다. 검색 결과와 미로딩 선택값은 `resolveAncestors`와 대상의 부모 페이지로 `A › B › C` 경로를 복원한다. 조상 응답은 대상 자신을 포함하지 않는다. 로딩·실패는 값 부재로 추정하지 않으며 삭제 확인 또는 끝까지 조회한 부모 목록에 없는 값만 `이 화면에서 쓸 수 없는 값`으로 남긴다. `HierarchyFailure`의 권한 없음·삭제·오류는 각 상태와 재시도를 보인다. 노드 `target`은 사용하지 않는다.
+`tree`는 `treeSources`의 선언 `kind.source` 엔드포인트 id에 대응하는 `HierarchySource`로 읽는다(#2340, Candidate). 선언형 층에서는 `PlatformPage.pageConditionOptions.treeSources`가 같은 맵을 층까지 전달한다. 머리는 다른 범주와 같은 한 줄(`role=heading` `tabIndex=-1` 라벨·선택 수·지우기)이고 키 없음은 `제약 없음`, `~none`만 `선택한 항목 없음`이다. 독립 조각 `PageConditionTree`도 같은 제어 입력과 `category`, `source`, 선택 `pageSize`를 받는다. 연결한 source는 메뉴가 Kernel 요청 게이트와 서버 권한 판정을 보존해 제공한다. `inputsKey` 변경은 페이지·경로·검색·선택 중인 요청을 취소하고 캐시를 즉시 버린다. 기본 50개·최대 200개 페이지, 필요할 때만 자식 펼치기와 `더 불러오기`, 200ms 검색 지연을 쓴다. 검색 결과와 미로딩 선택값은 `resolveAncestors`와 대상의 부모 페이지로 `A › B › C` 경로를 복원한다. 조상 응답은 대상 자신을 포함하지 않는다. 로딩·실패는 값 부재로 추정하지 않으며 삭제 확인 또는 끝까지 조회한 부모 목록에 없는 값만 `이 화면에서 쓸 수 없는 값`으로 남긴다. `HierarchyFailure`의 권한 없음·삭제·오류는 각 상태와 재시도를 보인다. 노드 `target`은 사용하지 않는다.
 
 - `value: 'nodes'`: 선택한 노드 id 하나가 앞으로 로딩할 자손까지 포함한다. 포함된 자손은 체크 상태와 상위 포함 사유로 표시하며 개별 토글로 상위 선택을 해제하지 않는다. 상위를 선택하면 이미 선택한 것으로 확인된 자손 id를 대체한다. 선택되지 않은 상위에 로딩된 선택 자손이 있으면 `mixed`다.
 - `value: 'leaves'`: 선택한 잎 id만 전달한다. 상위 체크는 페이지를 끝까지 순회해 잎을 수집하고 전체 후보를 S1 인코더로 검증한 후 한 번만 전달한다. 범주 50값·메뉴 인코딩 2400자 상한 또는 조회 실패면 현재 값을 보존하고 사유를 안에 표시한다. 자르지 않는다. 선택 중 취소·지우기·입력 변경·unmount 시 늦은 완료는 전달하지 않는다. 로딩된 자손이 일부 체크되면 `mixed`, 모든 자손 페이지가 완성되고 모든 잎이 체크되면 `true`다.

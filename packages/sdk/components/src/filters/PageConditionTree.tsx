@@ -1,9 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, ServerCrash } from 'lucide-react';
 import { isHierarchyFailure, type HierarchyNode, type HierarchySource, type PageConditionCategory } from '@ap/contracts';
 import { encodePageConditions, PageConditionError, useI18n, useMessages } from '@ap/kernel';
 import { Button, Checkbox, cn, SearchInput } from '@ap/ui';
 import type { PageConditionCategoriesProps } from './PageConditionCategories';
+import { StateMessage } from '../StateView';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 import { hierarchyTreeKey } from '../hierarchy/treeKeyboard';
 import { PAGE_CONDITION_TREE_MESSAGES } from './pageConditionTreeMessages';
@@ -177,7 +178,8 @@ function TreeEditor({ category, kind, source, pageSize = 50, declaration, values
     if (load?.status === 'ready') return null;
     const status = load?.status ?? 'loading';
     const message = { loading: 'hierarchyLoading', error: 'hierarchyError', forbidden: 'hierarchyForbidden', deleted: 'hierarchyDeleted' } as const;
-    return <div className="space-y-1 text-xs text-text-secondary"><p role="status">{t(message[status])}</p>{status !== 'loading' && <Button type="button" variant="secondary" size="toolbar" onClick={retry}>{m('retry')}</Button>}</div>;
+    if (status === 'loading') return <p role="status" className="text-xs text-text-secondary">{t(message[status])}</p>;
+    return <StateMessage compact tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={t(message[status])} action={<Button type="button" variant="secondary" size="toolbar" onClick={retry}>{m('retry')}</Button>} />;
   }
   function pageControls(parentId: string | null) {
     const load = snapshot.pages.get(parentId);
@@ -188,9 +190,14 @@ function TreeEditor({ category, kind, source, pageSize = 50, declaration, values
   if (operation.status === 'refused') errors.push(operation.message);
   const describedBy = `${id}-reasons`;
   return <fieldset data-page-condition={category.id} disabled={disabled} aria-describedby={describedBy} className="min-w-0 space-y-2 border-b border-border-subtle pb-3">
-    <legend className="text-sm font-semibold text-text-primary">{category.label[lang]}</legend>
-    <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-text-secondary">{Object.hasOwn(values, kind.key) && selected.length === 0 ? m('explicitEmpty') : m('selected', { count: selected.length })}</span>
-      <Button type="button" variant="ghost" size="toolbar" disabled={disabled || (!Object.hasOwn(values, kind.key) && raw.length === 0 && !loading)} aria-label={m('clearOne', { label: category.label[lang] })} onClick={() => { cancel(); onChange(category.id, null); }}>{m('clear')}</Button></div>
+    <legend className="sr-only">{category.label[lang]}</legend>
+    <div className="flex flex-wrap items-center justify-between gap-x-2">
+      <span role="heading" aria-level={3} tabIndex={-1} className="text-sm font-semibold text-text-primary">{category.label[lang]}</span>
+      <span className="flex items-center gap-2">
+        <span className="text-xs text-text-secondary">{selected.length > 0 ? m('selected', { count: selected.length }) : Object.hasOwn(values, kind.key) ? m('explicitEmpty') : m('unconstrained')}</span>
+        <Button type="button" variant="ghost" size="toolbar" disabled={disabled || (!Object.hasOwn(values, kind.key) && raw.length === 0 && !loading)} aria-label={m('clearOne', { label: category.label[lang] })} onClick={() => { cancel(); onChange(category.id, null); }}>{m('clear')}</Button>
+      </span>
+    </div>
     <div id={describedBy} className="space-y-1 text-xs text-text-secondary">
       {category.disabled && <p>{category.disabled.reason[lang]}</p>}{errors.map((error, index) => <p key={index}>{error}</p>)}
       {raw.length > 0 && localIssues.length > 0 && raw.map(([, value], index) => <p key={`raw:${index}`}>{m('retained', { value })}</p>)}

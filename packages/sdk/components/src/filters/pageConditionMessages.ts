@@ -24,7 +24,6 @@ export const PAGE_CONDITION_MESSAGES = {
   error: { ko: '항목을 불러오지 못했습니다.', en: 'Could not load items.' },
   retry: { ko: '다시 시도', en: 'Retry' },
   partial: { ko: '일부 항목만 불러왔습니다.', en: 'Only some items were loaded.' },
-  tree: { ko: '계층 범주는 아직 지원하지 않습니다.', en: 'Tree categories are not supported yet.' },
   min: { ko: '{label} 최소', en: '{label} minimum' },
   max: { ko: '{label} 최대', en: '{label} maximum' },
   from: { ko: '{label} 시작', en: '{label} start' },

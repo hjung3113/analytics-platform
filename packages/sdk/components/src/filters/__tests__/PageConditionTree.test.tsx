@@ -49,6 +49,14 @@ describe('PageConditionTree', () => {
     render(<StrictMode><Controlled /></StrictMode>);
     expect(await screen.findByRole('treeitem', { name: 'A' })).toBeVisible();
   });
+  it('says 제약 없음 for an absent key, with the heading and count on one tabbable row', async () => {
+    mount();
+    await screen.findByRole('treeitem', { name: 'A' });
+    const heading = screen.getByRole('heading', { name: '계층' });
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(within(heading.parentElement!).getByText('제약 없음')).toBeVisible();
+    expect(screen.queryByText('선택한 항목 없음')).toBeNull();
+  });
   it('shows explicit empty and exposes disabled reasons without allowing changes', async () => {
     const disabledCategory = { ...category(), disabled: { reason: { ko: '범위 제한', en: 'Scope restricted' } } };
     const { onChange } = mount({ category: disabledCategory, values: { tree: [] } });

@@ -137,7 +137,7 @@ function OptionConditionCategory(props: CategoryProps) {
   const explicitEmpty = repeated && Object.keys(owned).length > 0 && count === 0;
   const common = { disabled, 'aria-describedby': describedBy, 'aria-invalid': hasError || undefined };
   function change(next: PageConditionValues | null) {
-    if (disabled || kind.type === 'tree') return;
+    if (disabled) return;
     if (next !== null) {
       try { encodePageConditions({ pageConditions: declaration }, replaceValues(category, values, next)); }
       catch (error) {
@@ -211,7 +211,6 @@ function OptionConditionCategory(props: CategoryProps) {
   }
   function controls() {
     switch (kind.type) {
-      case 'tree': return <p className="text-xs text-text-secondary">{m('tree')}</p>;
       case 'search': return <CommitInput id={`${prefix}-input`} aria-label={category.label[lang]} {...common} value={valuesFor(kind.key)[0] ?? ''} onCommit={text => write(kind.key, text === '' ? null : [text])} />;
       case 'range': {
         const value = owned[kind.key];
@@ -305,7 +304,7 @@ function OptionConditionCategory(props: CategoryProps) {
       <span role="heading" aria-level={3} tabIndex={-1} className="text-sm font-semibold text-text-primary">{category.label[lang]}</span>
       <span className="flex items-center gap-2">
         <span className="text-xs text-text-secondary">{selectionSummary}</span>
-        <Button type="button" variant="ghost" size="toolbar" disabled={disabled || kind.type === 'tree' || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
+        <Button type="button" variant="ghost" size="toolbar" disabled={disabled || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
       </span>
     </div>
     <div id={reasonsId} className="space-y-1 text-xs text-text-secondary">{description.filter(Boolean).map((reason, index) => <p key={index}>{reason}</p>)}
