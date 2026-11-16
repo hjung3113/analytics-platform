@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
 import * as ui from './index';
-import type { GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionPreset, KeyboardShortcutProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps } from './index';
+import type { GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps } from './index';
 
 // Types are erased at runtime, so `Object.keys(ui)` cannot see them: this alias fails `tsc` if one stops being exported.
-export type PublicTypes = [GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionPreset, KeyboardShortcutProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps];
+export type PublicTypes = [GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps];
 
 // An accidental drop or addition changes the platform's public primitive API (06 §13); change this list on purpose.
 const PUBLIC_EXPORTS = [

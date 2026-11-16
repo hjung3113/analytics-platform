@@ -7,6 +7,7 @@ export const API_TOKEN_COPY = {
   personalIntersection: '실제 권한 = 나의 현재 권한 ∩ 선택한 범위. 내 권한이 줄면 다음 호출부터 반영됩니다.',
   serviceList: '서비스 토큰은 system Actor에 발급합니다. 개인 토큰을 포함해 조회·폐기할 수 있습니다.',
   serviceIntersection: '실제 권한 = 귀속 Actor의 현재 권한 ∩ 선택한 범위.',
+  sessionOnlyHidden: (count: number) => `로그인 세션에서만 쓰는 권한이라 토큰으로 못 받음 ${count}개`,
   warning: '무기한 토큰은 폐기할 때까지 유효합니다. 사용 이력을 정기적으로 확인하고, 쓰지 않으면 폐기하세요.',
   includePersonal: '개인 토큰 포함', firstIssue: '첫 토큰 발급', stored: '안전한 곳에 보관했습니다',
   secretSubtitle: '복사한 뒤 완료를 누르세요. 닫으면 다시 볼 수 없습니다.',

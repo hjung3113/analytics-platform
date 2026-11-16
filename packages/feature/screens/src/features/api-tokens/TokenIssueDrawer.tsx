@@ -131,6 +131,7 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
     </fieldset>
     <fieldset className="space-y-2" disabled={pending} aria-describedby="token-scopes-error"><legend className="mb-2 text-sm font-medium">권한</legend>
       <GroupedSelectionList mode="multiple" groups={groups} value={selected} onChange={setSelected} aria-label="권한" searchPlaceholder="권한 이름·설명 검색"
+        density="compact" hideDisabled selectionSummary="chips" presetPreview messages={{ hiddenItems: COPY.sessionOnlyHidden }}
         presets={bundles.map(bundle => ({ id: bundle.id, label: bundle.label, description: bundle.description, itemIds: bundle.capabilities }))} />
       {errorsFor('scopes')}
     </fieldset>

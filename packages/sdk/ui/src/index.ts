@@ -41,7 +41,7 @@ export { FormField, type FormFieldControl, type FormFieldProps } from './forms/F
 export { DatePicker, type DatePickerProps } from './forms/DatePicker.js';
 export { SearchInput, type SearchInputProps } from './forms/SearchInput';
 export { useImeEnterGuard, type ImeEnterGuard } from './forms/useImeEnterGuard';
-export { GROUPED_SELECTION_MESSAGES, GroupedSelectionList, type GroupedSelectionGroup, type GroupedSelectionItem, type GroupedSelectionListProps, type GroupedSelectionMessages, type GroupedSelectionPreset } from './forms/GroupedSelectionList';
+export { GROUPED_SELECTION_MESSAGES, GroupedSelectionList, type GroupedSelectionGroup, type GroupedSelectionItem, type GroupedSelectionListProps, type GroupedSelectionMessages, type GroupedSelectionOptionMessages, type GroupedSelectionPreset } from './forms/GroupedSelectionList';
 export { DirtyConfirmation, type DirtyConfirmationProps } from './feedback/DirtyConfirmation';
 export { UndoToast, type UndoToastProps } from './feedback/UndoToast';
 // Kept for consumers that still mount sonner; the analysis board raises its undo notices through the shell toast stack (#886).
