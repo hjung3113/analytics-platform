@@ -875,6 +875,91 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
 
 });
 
+test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
+  const base = `/mars/cycle-time?v=1&scopeId=MEM&${PERIOD}&percentile=all`;
+  const kpiRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
+    .filter(entry => (entry as PerformanceMark).detail?.endpoint === 'analytics.cycle.kpi').length);
+  const executionCount = async (page: Page) => {
+    const text = await page.getByTestId('cycle-kpi').innerText();
+    const count = text.match(/실행 수\s+([\d,]+)/)?.[1];
+    expect(count, 'the cycle KPI shows its mock execution count').toBeDefined();
+    return Number(count!.replaceAll(',', ''));
+  };
+  async function openBar(page: Page) {
+    const bar = contextBar(page);
+    await expect(bar).toBeVisible();
+    await expandQueryBar(page, bar);
+    return bar;
+  }
+
+  test('saves a room rule, reopens and applies the group, and the mock result narrows to PHOTO', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.addInitScript(key => localStorage.removeItem(key), queryBarCollapsedKey('cycle-time'));
+    await page.goto(base);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const bar = await openBar(page);
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
+    await expect(page.getByTestId('cycle-kpi')).toBeVisible();
+    const baselineCount = await executionCount(page);
+    const baselineRequests = await kpiRequests(page);
+
+    await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
+    let dialog = page.getByRole('dialog', { name: '대상', exact: true });
+    await expect(dialog.getByRole('table')).toBeVisible();
+    await dialog.getByRole('button', { name: /^공정 / }).click();
+    await dialog.getByRole('button', { name: 'PHOTO만 선택', exact: true }).click();
+    await dialog.getByRole('button', { name: '그룹으로 저장', exact: true }).click();
+    await dialog.getByRole('textbox', { name: '이름', exact: true }).fill('PHOTO rule');
+    await dialog.getByRole('button', { name: '저장', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: '저장됨', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('checkbox', { name: 'PHOTO rule', exact: true })).toBeChecked();
+    await dialog.getByRole('button', { name: '취소', exact: true }).click();
+    expect(query(page).has('equipmentGroup')).toBe(false);
+
+    await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
+    dialog = page.getByRole('dialog', { name: '대상', exact: true });
+    await dialog.getByRole('table').waitFor();
+    await dialog.getByRole('button', { name: /^커스텀 그룹/ }).click();
+    await dialog.getByRole('checkbox', { name: 'PHOTO rule', exact: true }).click();
+    const applyTarget = dialog.getByRole('button', { name: /^조건 적용 ·/ });
+    await expect(applyTarget).toBeEnabled();
+    const equipmentCount = (await applyTarget.innerText()).match(/(\d[\d,]*)대/)?.[1];
+    expect(equipmentCount, 'the selected mock group has an equipment count').toBeDefined();
+    await applyTarget.click();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+
+    await expect.poll(() => query(page).get('equipmentGroup')).not.toBeNull();
+    const applied = JSON.parse(query(page).get('equipmentGroup')!) as Record<string, string[]>;
+    expect(Object.keys(applied)).toEqual(['customGroup']);
+    expect(applied.customGroup).toHaveLength(1);
+    await expect.poll(() => kpiRequests(page)).toBe(baselineRequests + 1);
+    await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
+    await expect.poll(() => executionCount(page)).toBeLessThan(baselineCount);
+    await expect(bar.getByRole('button', { name: new RegExp(`조건 · 지금 ${equipmentCount}대`) })).toBeVisible();
+
+    await showSlowExecutions(page);
+    const rows = await rowMapsByColumn(page);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every(row => row.Equipment.includes('-PHOTO-'))).toBe(true);
+    await evidence(page, testInfo, 'custom-group-photo-result');
+  });
+
+  test('blocks a missing group from a deep link and shows its id and reason', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    const missingId = 'missing-custom-group';
+    const encoded = encodeURIComponent(JSON.stringify({ customGroup: [missingId] }));
+    await page.goto(`${base}&equipmentGroup=${encoded}`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    await expect(queryResultSurface(page)).toBeVisible();
+    const technicalInfo = page.getByRole('button', { name: '기술 정보' }).first();
+    await expect(technicalInfo).toBeVisible();
+    await technicalInfo.click();
+    await expect(page.getByRole('note', { name: '서버 세부' }).first()).toContainText(`${missingId} (not-found)`);
+    expect(await kpiRequests(page)).toBe(0);
+    await evidence(page, testInfo, 'custom-group-missing-blocked');
+  });
+});
+
 test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
   const BOTH = encodeURIComponent(JSON.stringify({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] }));
   const STG_ONLY = encodeURIComponent(JSON.stringify({ stgroup: ['STG-PHOTO-A'] }));

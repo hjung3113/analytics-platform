@@ -13,6 +13,19 @@ export const SHELL_MESSAGES = {
   targetFixed: { ko: '고정 {count}', en: 'Fixed {count}' },
   targetFactsMissing: { ko: '호스트가 listEquipmentFacts를 제공하지 않습니다.', en: 'The host does not provide listEquipmentFacts.' },
   targetFactsError: { ko: '설비 기본 정보를 불러오지 못했습니다. 다시 시도하세요.', en: 'Could not load equipment facts. Retry the request.' },
+  targetGroupFacet: { ko: '커스텀 그룹', en: 'Custom groups' },
+  targetGroupMissing: { ko: '{id} · {reason}', en: '{id} · {reason}' },
+  targetGroupSaveDisabled: { ko: '커스텀 그룹을 고른 조건은 고정으로만 저장', en: 'A rule with custom groups can only be saved as fixed IDs.' },
+  targetGroupAllOff: { ko: '분류마다 값을 하나 이상 골라 주세요.', en: 'Pick at least one value in each facet.' },
+  targetGroupSaveAction: { ko: '그룹으로 저장', en: 'Save as group' },
+  targetGroupName: { ko: '이름', en: 'Name' },
+  targetGroupVisibility: { ko: '공유 범위', en: 'Sharing' },
+  targetGroupSubmit: { ko: '저장', en: 'Save' },
+  targetGroupSaving: { ko: '저장 중…', en: 'Saving…' },
+  targetGroupSaveFailed: { ko: '커스텀 그룹을 저장하지 못했습니다.', en: 'Could not save the custom group.' },
+  targetGroupSharePrivate: { ko: '나만', en: 'Only me' },
+  targetGroupShareGroup: { ko: '공유 그룹 · {name}', en: 'Share with {name}' },
+  targetGroupSaved: { ko: '그룹을 저장했습니다.', en: 'Group saved.' },
   targetAsOfNote: { ko: '대수는 지금 소속 기준이며 최종 결과는 서버가 그 시점 소속으로 판정합니다.', en: 'Counts use current membership; the server judges historical membership for the final result.' },
 
   // Context bar
@@ -38,6 +51,7 @@ export const SHELL_MESSAGES = {
 
   // Query bar
   queryInvalidEdit: { ko: '이 조건은 적용할 수 없습니다. 기간·지표 쌍·소속 기준을 확인하세요.', en: 'Check the period, metric pair and membership basis.' },
+  customGroupCurrentOnly: { ko: '커스텀 그룹은 지금 소속 기준에서만 조회할 수 있습니다.', en: 'Custom groups can only be queried using current membership.' },
   queryScopeRequired: { ko: 'Scope를 선택하고 권한 확인을 완료하세요.', en: 'Select a Scope and finish authorization.' },
   queryApplying: { ko: '조건을 적용하고 있습니다.', en: 'Applying conditions.' },
   queryInvalidPeriodInput: { ko: '유효한 시작·종료 시각을 입력하세요.', en: 'Enter valid start and end times.' },

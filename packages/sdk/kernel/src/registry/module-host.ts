@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalS
 import { buildQuery, emptyGlobal, parseQuery, type ActionResult, type ActionSpec, type ApiResponse, type ContextKey, type EndpointSpec, type GlobalContext, type ModuleHost, type ModuleScopedId, type ModuleStatus, type ModuleTarget } from '@ap/contracts';
 import { abortError, actionRequest, launchWrite, type PendingWrite, type WriteFlight } from '../query/action';
 import { useI18n } from '../i18n';
-import { useHostPlatform } from '../platform/platform';
+import { useHostPlatform, useQueryEngine } from '../platform/platform';
 import { menuRequest, projectMenuContext } from '../query/query';
 import type { ModuleMenuEntry } from './registry';
 
@@ -36,6 +36,7 @@ type Lifetime = 'active' | 'suspended' | 'released';
  */
 export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<string, string>>, ports: ModuleShellPorts): ModuleHost {
   const platform = useHostPlatform();
+  const queryEngine = useQueryEngine();
   const { lang } = useI18n();
   const [instance] = useState(() => ({
     controller: new AbortController(), state: 'active' as Lifetime, listeners: new Set<() => void>(), pending: new Set<Pending>(), deferred: new Set<Deferred>(),
@@ -172,7 +173,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
         }
         if (own.aborted) return Promise.reject(abortError());
         const now = latest.current;
-        const request = menuRequest(spec, now);
+        const request = menuRequest(spec, { ...now, queryEngine });
         if (!request.ready) return Promise.resolve(request.notReady());
         const appliedKey = JSON.stringify(request.projected);
         const startedFor = { revision: now.revision, user: now.user.id };
@@ -180,7 +181,7 @@ export function useModuleHost(entry: ModuleMenuEntry, params: Readonly<Record<st
           const adapterCall = new AbortController();
           const call: Pending = {
             valid: () => instance.state === 'active' && !callerSignal?.aborted && latest.current.revision === startedFor.revision
-              && latest.current.user.id === startedFor.user && menuRequest(spec, latest.current).ready && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
+              && latest.current.user.id === startedFor.user && menuRequest(spec, { ...latest.current, queryEngine }).ready && JSON.stringify(projectMenuContext(spec, latest.current)) === appliedKey,
             fail: () => { settle(); adapterCall.abort(); reject(abortError()); },
           };
           const settle = () => { instance.pending.delete(call); callerSignal?.removeEventListener('abort', call.fail); };

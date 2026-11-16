@@ -1,9 +1,10 @@
-import { lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import type { Capability, ContextKey, GlobalContext } from '@ap/contracts';
-import { CONTEXT_LABELS, useEquipmentAxes, useEquipmentFacts, useI18n, useMessages } from '@ap/kernel';
+import { lazy, Suspense, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { CUSTOM_GROUP_AXIS, type Capability, type ContextKey, type CustomGroupTarget, type GlobalContext, type SavedViewEntry, type SavedViewListItem, type ViewGroupEntry } from '@ap/contracts';
+import { CONTEXT_LABELS, customGroupMembers, useEquipmentAxes, useEquipmentFacts, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { FacetedSetItem, FacetedSetValue } from '@ap/components';
-import { Button, cn } from '@ap/ui';
+import { Button, Input, Label, cn } from '@ap/ui';
+import { VisibilityOptionsPicker } from '@ap/components';
 import { ChevronDown, X } from 'lucide-react';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { MeasuringContext } from './ContextBarLayout';
@@ -17,6 +18,30 @@ const RESULT_COLUMN_LIMIT = 4;
 const globalFacet = (id: string) => `global:${id}`;
 const axisFacet = (id: string) => `axis:${id}`;
 const ownPicks = (rule: FacetedSetValue['rule'], id: string) => Object.hasOwn(rule, id) ? rule[id] : undefined;
+type GroupOption = { id: string; label: string; target?: CustomGroupTarget; reason?: string };
+type GroupListState = { status: 'loading' | 'ready' | 'error'; scopeId: string | null; items: readonly SavedViewListItem[] };
+type PendingGroupSave = { fingerprint: string; entry: SavedViewEntry };
+type GroupSaveState = 'closed' | 'editing' | 'pending' | 'error' | 'saved';
+type GroupSaveSlotProps = {
+  value: FacetedSetValue;
+  ready: boolean;
+  invalid: boolean;
+  onSaved(selection: { facetId: string; value: string }): void;
+  disabledReason?: string;
+  shareOptions: readonly { value: string; label: string }[];
+  onSave(input: { name: string; share: string; value: FacetedSetValue }): Promise<{ selected: { facetId: string; value: string } }>;
+};
+const EMPTY_GROUP_IDS: readonly string[] = [];
+
+function savedGroupItemId(item: SavedViewListItem): string {
+  return 'denied' in item && item.denied ? item.id : item.view.id;
+}
+
+function savedRuleAxis(facetId: string): string | null {
+  if (facetId.startsWith('axis:')) return facetId.slice('axis:'.length);
+  const global = facetId.slice('global:'.length);
+  return facetId.startsWith('global:') && ['roomNames', 'lineNames', 'prcGroups'].includes(global) ? global : null;
+}
 
 /** One shell matching path; the dialog's indexed evaluator is not a public export. */
 function targetCounts(items: readonly FacetedSetItem[], { rule, fixed }: FacetedSetValue) {
@@ -43,31 +68,93 @@ type Props = {
 };
 
 export function TargetPicker(props: Props) {
-  const { paneId, route } = useHostPlatform();
+  const { paneId, route, revision } = useHostPlatform();
   const sessionKey = useSessionKey();
-  return <TargetPickerSession key={JSON.stringify([sessionKey, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
+  return <TargetPickerSession key={JSON.stringify([sessionKey, revision, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
 }
 
 function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, children }: Props) {
-  const { adapter, route } = useHostPlatform();
+  const { adapter, route, savedViewStore, session, revision, scope } = useHostPlatform();
   const { t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
   const facts = useEquipmentFacts(g.scopeId ?? '');
-  const items = useMemo<FacetedSetItem[]>(() => (facts.data?.items ?? []).map(item => ({ id: item.equipmentId, facets: {
+  const [groupList, setGroupList] = useState<GroupListState>({ status: 'loading', scopeId: null, items: [] });
+  const [shareGroups, setShareGroups] = useState<readonly ViewGroupEntry[]>([]);
+  const groupFacet = globalFacet(CUSTOM_GROUP_AXIS);
+  const selectedGroupIds = g.condition?.[CUSTOM_GROUP_AXIS] ?? EMPTY_GROUP_IDS;
+  const canEditCondition = cap.condition === 'apply';
+  const canSaveGroup = Boolean(savedViewStore && g.scopeId && scope.status === 'valid' && scope.validatedFor === session && canEditCondition);
+  useEffect(() => {
+    if (!canEditCondition || !savedViewStore || !g.scopeId) {
+      setGroupList({ status: 'ready', scopeId: g.scopeId, items: [] });
+      return;
+    }
+    let live = true;
+    setGroupList({ status: 'loading', scopeId: g.scopeId, items: [] });
+    savedViewStore.list({ userId: session.user.id, menuId: null, kind: 'custom-group' }).then(
+      items => { if (live) setGroupList({ status: 'ready', scopeId: g.scopeId, items }); },
+      () => { if (live) setGroupList({ status: 'error', scopeId: g.scopeId, items: [] }); },
+    );
+    return () => { live = false; };
+  }, [canEditCondition, savedViewStore, session, revision, g.scopeId]);
+  useEffect(() => {
+    if (!canSaveGroup || !savedViewStore) { setShareGroups([]); return; }
+    let live = true;
+    savedViewStore.listGroups().then(entries => { if (live) setShareGroups(entries); }, () => { if (live) setShareGroups([]); });
+    return () => { live = false; };
+  }, [canSaveGroup, savedViewStore, session, revision, g.scopeId]);
+
+  const currentGroupList = useMemo(() => groupList.scopeId === g.scopeId ? groupList : { status: 'loading' as const, scopeId: g.scopeId, items: [] }, [groupList, g.scopeId]);
+  const optionsById = useMemo(() => {
+    const result = new Map<string, GroupOption>();
+    for (const item of currentGroupList.items) {
+      const id = savedGroupItemId(item);
+      if ('denied' in item && item.denied) {
+        if (selectedGroupIds.includes(id)) result.set(id, { id, label: m('targetGroupMissing', { id, reason: item.reason }), reason: item.reason });
+        continue;
+      }
+      if (item.view.kind !== 'custom-group') continue;
+      if (!item.capabilities.canView) {
+        if (selectedGroupIds.includes(id)) {
+          const reason = item.capabilities.reason ?? 'forbidden';
+          result.set(id, { id, label: m('targetGroupMissing', { id, reason }), reason });
+        }
+        continue;
+      }
+      if (item.view.savedScopeId !== g.scopeId) {
+        if (selectedGroupIds.includes(id)) result.set(id, { id, label: m('targetGroupMissing', { id, reason: 'scope-mismatch' }), reason: 'scope-mismatch' });
+        continue;
+      }
+      result.set(id, { id, label: item.view.name, target: item.view.target });
+    }
+    for (const id of selectedGroupIds) if (!result.has(id)) {
+      const reason = currentGroupList.status === 'loading' ? 'loading' : currentGroupList.status === 'error' ? 'unavailable' : savedViewStore ? 'not-found' : 'store-unavailable';
+      result.set(id, { id, label: m('targetGroupMissing', { id, reason }), reason });
+    }
+    return result;
+  }, [currentGroupList, selectedGroupIds, g.scopeId, savedViewStore, m]);
+  const groupOptions = useMemo(() => [...optionsById.values()], [optionsById]);
+  const readableGroups = useMemo(() => groupOptions.filter((group): group is GroupOption & { target: CustomGroupTarget } => group.target !== undefined), [groupOptions]);
+  const items = useMemo<FacetedSetItem[]>(() => {
+    const memberships = readableGroups.map(group => [group.id, new Set(customGroupMembers(group.target, facts.data?.items ?? []))] as const);
+    return (facts.data?.items ?? []).map(item => ({ id: item.equipmentId, facets: {
     ...Object.fromEntries(Object.entries(item.axes).map(([id, values]) => [axisFacet(id), values])),
     [globalFacet('roomNames')]: item.room,
     [globalFacet('lineNames')]: ownPicks(item.axes, 'lineNames') ?? [],
     [globalFacet('prcGroups')]: ownPicks(item.axes, 'prcGroups') ?? [],
-  } })), [facts.data]);
+    [groupFacet]: memberships.filter(([, ids]) => ids.has(item.equipmentId)).map(([id]) => id),
+  } }));
+  }, [facts.data, readableGroups, groupFacet]);
   const facets = [
+    ...(canEditCondition ? [{ id: groupFacet, label: m('targetGroupFacet'), values: groupOptions.map(group => group.id), preservePicks: groupOptions.map(group => group.id), defaultSelection: 'none' as const }] : []),
     ...(cap.roomNames === 'apply' ? [{ id: globalFacet('roomNames'), label: t('roomNames') }] : []),
     ...(cap.line === 'apply' ? [{ id: globalFacet('lineNames'), label: tx(CONTEXT_LABELS.line) }] : []),
     ...(cap.prcGroup === 'apply' ? [{ id: globalFacet('prcGroups'), label: tx(CONTEXT_LABELS.prcGroup) }] : []),
     ...(cap.condition === 'apply' ? axes.filter(axis => !presetAxes || presetAxes.includes(axis.id)).map(axis => ({ id: axisFacet(axis.id), label: tx(axis.label) })) : []),
   ];
   const picks: Record<string, readonly string[]> = Object.create(null);
-  for (const [id, values] of Object.entries(g.condition ?? {})) picks[axisFacet(id)] = values;
+  for (const [id, values] of Object.entries(g.condition ?? {})) picks[id === CUSTOM_GROUP_AXIS ? groupFacet : axisFacet(id)] = values;
   if (g.roomNames) picks[globalFacet('roomNames')] = g.roomNames;
   if (g.lineNames) picks[globalFacet('lineNames')] = g.lineNames;
   if (g.prcGroups) picks[globalFacet('prcGroups')] = g.prcGroups;
@@ -84,11 +171,10 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   });
   const { count: matchCount, outside } = useMemo(() => targetCounts(items, JSON.parse(countIdentity) as FacetedSetValue), [items, countIdentity]);
   const [open, setOpen] = useState(false);
-  const opened = useRef(false);
-  if (open) opened.current = true;
+  const [opened, setOpened] = useState(false);
   const opener = useRef<HTMLButtonElement | null>(null);
   const restoreFocus = useRef(false);
-  const close = (next: boolean) => { restoreFocus.current = !next; setOpen(next); };
+  const close = (next: boolean) => { restoreFocus.current = !next; if (next) setOpened(true); setOpen(next); };
   useEffect(() => {
     if (open || !restoreFocus.current) return;
     const timer = setTimeout(() => { opener.current?.focus(); restoreFocus.current = false; }, 0);
@@ -120,6 +206,8 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
         const values = ownPicks(value.rule, axisFacet(axis.id));
         if (values?.length) condition[axis.id] = [...values]; else delete condition[axis.id];
       }
+      const groupValues = ownPicks(value.rule, groupFacet);
+      if (groupValues?.length) condition[CUSTOM_GROUP_AXIS] = [...groupValues]; else delete condition[CUSTOM_GROUP_AXIS];
       patch.condition = Object.keys(condition).length ? condition : null;
     }
     if (cap.selection === 'apply') patch.selection = value.fixed?.length ? [...value.fixed] : null;
@@ -131,7 +219,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   const count = facts.status === 'done' ? m('targetCount', { count: matchCount }) : m('targetCountUnavailable');
   const summary = facets.flatMap(facet => {
     const values = ownPicks(rule, facet.id);
-    return values ? [`${facet.label}: ${values.join(', ')}`] : [];
+    return values ? [`${facet.label}: ${values.map(value => facet.id === groupFacet ? optionsById.get(value)?.label ?? value : value).join(', ')}`] : [];
   }).join(' · ');
   let text = t('all');
   if (Object.keys(rule).length) text = `${m('targetRule', { count })} · ${summary}`;
@@ -143,13 +231,98 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
     return field[key] !== null;
   });
   const button = <span className="inline-flex min-w-0 items-center gap-1">
-    <TargetButton onMount={node => { opener.current = node; }} type="button" className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, 'max-w-[22rem]')} aria-label={`${m('targetLabel')} ${text}`} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} title={text} onClick={event => { opener.current = event.currentTarget; setOpen(true); }}>
+    <TargetButton onMount={node => { opener.current = node; }} type="button" className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, 'max-w-[22rem]')} aria-label={`${m('targetLabel')} ${text}`} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} title={text} onClick={event => { opener.current = event.currentTarget; close(true); }}>
       <span className="text-text-muted">{m('targetLabel')}</span><span className="truncate font-medium tabular">{text}</span><ChevronDown className="size-3.5 shrink-0" aria-hidden />
     </TargetButton>
     {chosen && <Button type="button" variant="ghost" size="toolbar" aria-label={m('targetClear')} onClick={clear}><X className="size-3.5" aria-hidden /></Button>}
     {facts.status === 'done' && outside > 0 && <span className="text-xs text-text-warning-label">{m('selectionOutsideCondition', { count: outside })}</span>}
   </span>;
-  return <>{children ? children(button, open) : button}{opened.current && <Suspense fallback={null}><FacetedSetDialog open={open} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} /></Suspense>}</>;
+  const shareOptions = [
+    { value: 'private', label: m('targetGroupSharePrivate') },
+    ...shareGroups.filter(entry => entry.group.kind === 'custom' && entry.capabilities.canView).map(entry => ({ value: `group:${entry.group.id}`, label: m('targetGroupShareGroup', { name: entry.group.name }) })),
+  ];
+  const pendingSave = useRef<PendingGroupSave | null>(null);
+  const saveGroup = async (input: { name: string; share: string; value: FacetedSetValue }) => {
+    if (!savedViewStore || !g.scopeId || !canSaveGroup) throw new Error('Custom-group saving is unavailable');
+    const target: CustomGroupTarget = input.value.fixed?.length
+      ? { fixed: [...new Set(input.value.fixed)] }
+      : { rule: Object.fromEntries(Object.entries(input.value.rule).flatMap(([facetId, values]) => {
+        const axis = savedRuleAxis(facetId);
+        return axis === null ? [] : [[axis, [...new Set(values)]]];
+      })) };
+    const sharedGroupId = input.share.startsWith('group:') ? input.share.slice('group:'.length) : null;
+    if (input.share !== 'private' && !shareOptions.some(option => option.value === input.share)) throw new Error('Selected shared group is unavailable');
+    const fingerprint = JSON.stringify({ scopeId: g.scopeId, name: input.name, share: input.share, target });
+    let saved = pendingSave.current?.fingerprint === fingerprint ? pendingSave.current.entry : null;
+    if (!saved) {
+      const result = await savedViewStore.save({ schemaVersion: 1, kind: 'custom-group', name: input.name, savedScopeId: g.scopeId, target });
+      if (!result.ok) throw new Error(result.reason);
+      saved = result.value;
+      pendingSave.current = { fingerprint, entry: saved };
+      setGroupList(previous => ({ ...previous, status: 'ready', scopeId: g.scopeId, items: [...previous.items.filter(item => savedGroupItemId(item) !== saved!.view.id), saved!] }));
+    } else if (sharedGroupId !== null) {
+      const latest = await savedViewStore.get(saved.view.id);
+      if (!latest || ('denied' in latest && latest.denied) || latest.view.kind !== 'custom-group') throw new Error('Saved group is unavailable');
+      saved = latest;
+    }
+    if (sharedGroupId !== null) {
+      const wanted = { kind: 'groups' as const, groupIds: [sharedGroupId] };
+      if (!(saved.view.visibility.kind === 'groups' && saved.view.visibility.groupIds.length === 1 && saved.view.visibility.groupIds[0] === sharedGroupId)) {
+        const shared = await savedViewStore.setVisibility(saved.view.id, wanted, { expectedVersion: saved.view.version });
+        if (!shared.ok) throw new Error(shared.reason);
+        saved = shared.value;
+      }
+    }
+    pendingSave.current = null;
+    setGroupList(previous => ({ ...previous, status: 'ready', scopeId: g.scopeId, items: [...previous.items.filter(item => savedGroupItemId(item) !== saved!.view.id), saved!] }));
+    return { selected: { facetId: groupFacet, value: saved.view.id } };
+  };
+  const saveSlot = canSaveGroup ? (slot: { value: FacetedSetValue; ready: boolean; invalid: boolean; onSaved(selection: { facetId: string; value: string }): void }) => <TargetGroupSaveSlot
+    {...slot}
+    shareOptions={shareOptions}
+    disabledReason={!slot.value.fixed?.length && ownPicks(slot.value.rule, groupFacet)?.length ? m('targetGroupSaveDisabled') : slot.invalid ? m('targetGroupAllOff') : undefined}
+    onSave={saveGroup}
+  /> : undefined;
+  return <>{children ? children(button, open) : button}{opened && <Suspense fallback={null}><FacetedSetDialog open={open} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} valueLabel={(facetId, value) => facetId === groupFacet ? optionsById.get(value)?.label ?? value : value} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} saveSlot={saveSlot} /></Suspense>}</>;
+}
+
+function TargetGroupSaveSlot({ value, ready, invalid, onSaved, disabledReason, shareOptions, onSave }: GroupSaveSlotProps) {
+  const m = useMessages(SHELL_MESSAGES);
+  const id = useId();
+  const [state, setState] = useState<GroupSaveState>('closed');
+  const [name, setName] = useState('');
+  const [share, setShare] = useState('private');
+  const saveStarted = useRef(false);
+  const pending = state === 'pending';
+  const canSubmit = ready && !invalid && !disabledReason && name.trim().length > 0 && shareOptions.some(option => option.value === share) && !pending && state !== 'saved';
+  const submit = async () => {
+    if (!canSubmit || saveStarted.current) return;
+    saveStarted.current = true;
+    setState('pending');
+    try {
+      const saved = await onSave({ name: name.trim(), share, value });
+      onSaved(saved.selected);
+      setState('saved');
+    } catch {
+      setState('error');
+    } finally {
+      saveStarted.current = false;
+    }
+  };
+  if (state === 'closed') return <span className="inline-flex items-center gap-2">
+    <Button type="button" variant="secondary" disabled={!ready || invalid || !!disabledReason} onClick={() => setState('editing')}>{m('targetGroupSaveAction')}</Button>
+    {disabledReason && <span role="note" className="text-xs text-text-danger-label">{disabledReason}</span>}
+  </span>;
+  return <form aria-busy={pending} className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); void submit(); }}>
+    <fieldset disabled={pending || state === 'saved'} className="flex flex-wrap items-end gap-2">
+      <div className="space-y-1"><Label htmlFor={`${id}-name`}>{m('targetGroupName')}</Label><Input id={`${id}-name`} value={name} onChange={event => setName(event.target.value)} required /></div>
+      <VisibilityOptionsPicker label={m('targetGroupVisibility')} value={share} onChange={setShare} options={shareOptions} />
+      <Button type="submit" disabled={!canSubmit}>{pending ? m('targetGroupSaving') : state === 'saved' ? m('targetGroupSaved') : m('targetGroupSubmit')}</Button>
+    </fieldset>
+    {disabledReason && <span role="note" className="text-xs text-text-danger-label">{disabledReason}</span>}
+    {state === 'error' && <span role="alert" className="text-xs text-text-danger-label">{m('targetGroupSaveFailed')}</span>}
+    {state === 'saved' && <span role="status" className="text-xs">{m('targetGroupSaved')}</span>}
+  </form>;
 }
 
 function TargetButton({ onMount, ...props }: ComponentProps<'button'> & { onMount(node: HTMLButtonElement): void }) {

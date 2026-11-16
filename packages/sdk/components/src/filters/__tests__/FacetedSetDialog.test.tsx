@@ -61,16 +61,11 @@ it('uses the whole indexed universe and retained picks even when cross-counts ar
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 0' }));
   expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['blue', 'gone'], size: ['S'] }, fixed: null });
 });
-it('normalizes opening all-arrays for save and apply without changing the caller value', async () => {
-  const apply = vi.fn(); const save = vi.fn().mockResolvedValue(undefined);
+it('normalizes opening all-arrays for apply without changing the caller value', () => {
+  const apply = vi.fn();
   const value = { rule: { color: ['blue', 'red', 'red'] }, fixed: null };
-  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={value} onApply={apply}
-    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }} /></I18nProvider>);
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={value} onApply={apply} /></I18nProvider>);
   expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
-  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'All' } });
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
-  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'All', share: 'private', value: { rule: {}, fixed: null } });
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2' }));
   expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: {}, fixed: null });
   expect(value).toEqual({ rule: { color: ['blue', 'red', 'red'] }, fixed: null });
@@ -94,12 +89,9 @@ it.each(['header', 'last value'])('normalizes all picks back to an absent key th
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2' }));
   expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: {}, fixed: null });
 });
-it.each(['header', 'last value'])('blocks apply and save for none selected through %s', method => {
-  const apply = vi.fn(); const save = vi.fn();
-  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: null }} onApply={apply}
-    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
-  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'None' } });
+it.each(['header', 'last value'])('blocks apply for none selected through %s', method => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: null }} onApply={apply} /></I18nProvider>);
   const color = within(screen.getByRole('group', { name: 'Color' }));
   if (method === 'header') {
     fireEvent.click(color.getByRole('checkbox', { name: '전체' }));
@@ -109,10 +101,8 @@ it.each(['header', 'last value'])('blocks apply and save for none selected throu
   expect(color.getByRole('checkbox', { name: '전체' })).not.toBeChecked();
   expect(screen.getByText('축마다 값을 하나 이상 고르세요')).toBeVisible();
   expect(screen.getByRole('button', { name: '조건 적용 · 0' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 0' }));
-  fireEvent.submit(screen.getByRole('button', { name: '저장' }).closest('form')!);
-  expect(apply).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
+  expect(apply).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '조회' }));
   expect(screen.getByText('결과 0')).toBeVisible();
 });
@@ -159,20 +149,15 @@ it('clears the stale state when the draft returns to the queried rule without Se
   expect(screen.getByText('결과 1')).toBeVisible();
   expect(screen.getByRole('table')).toHaveAttribute('data-stale', 'false');
 });
-it('ignores fixed IDs and supports rule-only apply and save without a selection column', async () => {
-  const apply = vi.fn(); const save = vi.fn().mockResolvedValue(undefined);
-  render(<I18nProvider><FacetedSetDialog open allowFixed={false} onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: ['two', 'missing'] }} onApply={apply}
-    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }} /></I18nProvider>);
+it('ignores fixed IDs and supports rule-only apply without a selection column', () => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open allowFixed={false} onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: ['two', 'missing'] }} onApply={apply} /></I18nProvider>);
   const table = within(screen.getByRole('table'));
   expect(table.queryByRole('checkbox')).toBeNull();
   expect(table.queryByRole('columnheader', { name: '선택' })).toBeNull();
   expect(screen.getByRole('table')).toHaveAttribute('aria-colcount', '3');
   expect(screen.queryByText(/조건 밖/)).toBeNull();
   expect(screen.queryByText(/고정/)).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
-  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'Rule only' } });
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
-  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'Rule only', share: 'private', value: { rule: { color: ['red'] }, fixed: null } });
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
   expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['red'] }, fixed: null });
 });
@@ -223,24 +208,30 @@ it('cross-narrows counts, leaves zero values visible and allows zero-result appl
   expect(apply).toHaveBeenCalledWith({ rule: { color: ['red'], size: ['L'] }, fixed: null });
 });
 
-it('saves the named draft without applying, shows pending/error, keeps input and retries', async () => {
-  let reject!: (reason: Error) => void;
-  const save = vi.fn().mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail; })).mockResolvedValueOnce(undefined);
-  const apply = vi.fn(); const close = vi.fn();
-  render(<I18nProvider><FacetedSetDialog open onOpenChange={close} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: ['one'] }} onApply={apply}
-    save={{ shareOptions: [{ value: 'private', label: 'Private' }, { value: 'team', label: 'Team' }], defaultShare: 'private', author: 'Caller', onSave: save }} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
-  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'My set' } });
-  fireEvent.click(screen.getByRole('radio', { name: 'Team' }));
-  fireEvent.click(screen.getByRole('button', { name: '저장' }));
-  expect(screen.getByRole('button', { name: '저장 중…' })).toBeDisabled();
-  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'My set', share: 'team', value: { rule: {}, fixed: ['one'] } });
-  await act(async () => reject(new Error('transport')));
-  expect(screen.getByRole('alert')).toHaveTextContent('저장하지 못했습니다');
-  expect(screen.getByRole('textbox', { name: '이름' })).toHaveValue('My set');
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
-  expect(screen.getByText('저장했습니다. 적용하려면 적용 버튼을 누르세요.')).toBeVisible();
-  expect(apply).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
+it('shows explicit zero-member facet values', () => {
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose"
+    facets={[{ id: 'customGroup', label: 'Custom groups', values: ['g1', 'g2', 'empty'] }]}
+    items={[{ id: 'one', facets: { customGroup: ['g1'] } }]}
+    value={{ rule: { customGroup: ['g1'] }, fixed: null }} onApply={vi.fn()}
+  /></I18nProvider>);
+  expect(screen.getByRole('checkbox', { name: 'empty' })).toBeInTheDocument();
+  expect(screen.getByRole('checkbox', { name: 'empty' }).parentElement).toHaveTextContent('empty0');
+});
+
+it('lets an optional footer slot select a just-saved facet value without applying it', () => {
+  const apply = vi.fn();
+  let savedValue: { rule: Readonly<Record<string, readonly string[]>>; fixed: readonly string[] | null } | undefined;
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose"
+    facets={[{ id: 'customGroup', label: 'Custom groups', values: ['g1', 'g-new'] }]}
+    items={[{ id: 'one', facets: { customGroup: ['g1'] } }, { id: 'two', facets: { customGroup: ['g-new'] } }]}
+    value={{ rule: {}, fixed: null }} onApply={apply}
+    saveSlot={({ value, onSaved }) => <button type="button" onClick={() => { savedValue = value; onSaved({ facetId: 'customGroup', value: 'g-new' }); }}>Save as group</button>}
+  /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Save as group' }));
+  expect(savedValue).toEqual({ rule: {}, fixed: null });
+  expect(screen.getByRole('checkbox', { name: 'g-new' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'g1' })).not.toBeChecked();
+  expect(apply).not.toHaveBeenCalled();
 });
 
 it.each(['loading', 'error'] as const)('does not present counts or allow apply while %s', status => {

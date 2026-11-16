@@ -277,6 +277,18 @@ it.each([false, true])('clears the last editable asOf owner atomically (another 
   expect(push).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
 });
+it('keeps customGroup plus asOf in the draft, disables Apply and explains the unsupported pairing', async () => {
+  const push = mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ condition: { customGroup: ['group-1'] }, membershipBasis: 'asOf' }));
+  expect(draft.draft.global.condition).toEqual({ customGroup: ['group-1'] });
+  expect(draft.draft.global.membershipBasis).toBe('asOf');
+  expect(draft.canApply).toBe(false);
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  expect(screen.getAllByText('커스텀 그룹은 지금 소속 기준에서만 조회할 수 있습니다.').length).toBeGreaterThan(0);
+  act(() => draft.apply());
+  expect(push).not.toHaveBeenCalled();
+});
 it.each([['reference', true], ['reference', false], ['unsupported', true], ['unsupported', false]] as const)('removes carried asOf owners under %s capability (Condition first: %s) without applying', async (capability, conditionFirst) => {
   const carried = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, context: { ...menu.context, condition: capability, prcGroup: capability } })) });
   window.history.replaceState(null, '', '/?scopeId=MEM');

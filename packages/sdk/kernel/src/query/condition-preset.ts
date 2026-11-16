@@ -1,4 +1,4 @@
-import { narrowCondition, type Condition, type ConditionPreset, type GlobalContext, type Pair } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, narrowCondition, type Condition, type ConditionPreset, type GlobalContext, type Pair } from '@ap/contracts';
 import { useMemo } from 'react';
 import { useHostPlatform } from '../platform/platform';
 import type { MenuEntry } from '../registry/registry';
@@ -26,7 +26,7 @@ export function activeConditionPreset(menu: PresetMenu, page: readonly Pair[], c
  */
 export function narrowedGlobal(menu: PresetMenu, page: readonly Pair[], global: GlobalContext): GlobalContext {
   const preset = activeConditionPreset(menu, page, global.condition);
-  return preset === null ? global : { ...global, condition: narrowCondition(global.condition, preset.axes) };
+  return preset === null ? global : { ...global, condition: narrowCondition(global.condition, [...preset.axes, CUSTOM_GROUP_AXIS]) };
 }
 
 export type ConditionPresetView = {

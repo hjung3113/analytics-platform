@@ -108,7 +108,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     setPeriodEditor(previous => ({ ...previous, reference: day(g.from ?? platform.defaultRangeTo), invalidReference: false }));
   }
   const cap = route!.menu.context;
-  const reasons = missing.map(item => ({ key: item.key, reason: queryMissingSentence(lang, item.label) }));
+  const reasons = missing.map(item => ({ key: item.key, reason: item.key === 'customGroupMembershipBasis' ? m('customGroupCurrentOnly') : queryMissingSentence(lang, item.label) }));
   if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: m('queryScopeRequired') });
   if (applying) reasons.push({ key: 'commit', reason: m('queryApplying') });
   const periodInputInvalid = (periodEditor.mode === 'reference' && periodEditor.invalidReference) || range.from !== (g.from ?? '') || range.to !== (g.to ?? '');

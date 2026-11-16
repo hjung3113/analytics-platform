@@ -1,9 +1,8 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMessages } from '@ap/kernel';
 import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogTitle, Input, Label, SkeletonRows, StatusBadge, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { SegmentedRadio } from '../RadioGroup';
 import { buildFacetedSetIndex, evaluateFacetedSet, facetUniverse, facetValues, normalizeFacetedRule, outsideFixedIds, rulePicks, sameFacetedRule, type FacetedSetFacet, type FacetedSetItem, type FacetedSetValue } from './facetedSet';
 
 export interface FacetedSetDialogProps {
@@ -28,12 +27,8 @@ export interface FacetedSetDialogProps {
   note?: string;
   /** Caller reason shown under the generic error text while `status` is `error`. */
   errorDetail?: string;
-  save?: {
-    shareOptions: readonly { value: string; label: string }[];
-    defaultShare: string;
-    author?: string;
-    onSave(input: { name: string; share: string; value: FacetedSetValue }): Promise<void>;
-  };
+  /** Optional footer UI for caller-owned actions such as saving a custom target group. */
+  saveSlot?: (props: { value: FacetedSetValue; ready: boolean; invalid: boolean; onSaved(selection: { facetId: string; value: string }): void }) => ReactNode;
 }
 const ROW_HEIGHT = 36;
 const INITIAL_RESULT_HEIGHT = 360;
@@ -42,23 +37,24 @@ const SEARCH_PAGE_SIZE = 30;
 const identityLabel = (_facet: string, value: string) => value;
 const plainCount = (count: number) => String(count);
 const EMPTY_PICKS: ReadonlySet<string> = new Set();
-type SaveState = 'closed' | 'editing' | 'pending' | 'error' | 'saved';
 type Index = ReturnType<typeof buildFacetedSetIndex>;
 
-function facetCheckedState(rule: FacetedSetValue['rule'], facet: string): boolean | 'indeterminate' {
-  if (!Object.hasOwn(rule, facet)) return true;
-  return rulePicks(rule, facet).length ? 'indeterminate' : false;
+function facetCheckedState(rule: FacetedSetValue['rule'], facet: string, defaultSelection: 'all' | 'none', universeSize: number): boolean | 'indeterminate' {
+  if (!Object.hasOwn(rule, facet)) return defaultSelection === 'all';
+  const picks = rulePicks(rule, facet);
+  if (!picks.length) return false;
+  return picks.length === universeSize ? true : 'indeterminate';
 }
 
 export function FacetedSetDialog(props: FacetedSetDialogProps) {
-  const index = useMemo(() => buildFacetedSetIndex(props.items), [props.items]);
+  const index = useMemo(() => buildFacetedSetIndex(props.items, props.facets), [props.items, props.facets]);
   return <Dialog open={props.open} onOpenChange={props.onOpenChange}>
     {props.open && <FacetedSetBody {...props} index={index} />}
   </Dialog>;
 }
 
 function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, allowFixed = true, resultColumns, valueLabel = identityLabel,
-  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save }: FacetedSetDialogProps & { index: Index }) {
+  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, saveSlot }: FacetedSetDialogProps & { index: Index }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
   const [draft, setDraft] = useState<FacetedSetValue>(() => ({
@@ -74,11 +70,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   const [search, setSearch] = useState('');
   const [searchLimit, setSearchLimit] = useState(SEARCH_PAGE_SIZE);
   const [targetId, setTargetId] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<SaveState>('closed');
-  const [name, setName] = useState('');
-  const [share, setShare] = useState(save?.defaultShare ?? '');
   const applyStarted = useRef(false);
-  const saveStarted = useRef(false);
   const scroll = useRef<HTMLDivElement>(null);
   const rows = useRef(new Map<string, HTMLDivElement>());
   const evaluation = useMemo(() => evaluateFacetedSet(index, rule), [index, rule]);
@@ -100,14 +92,14 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   const count = current.fixed ? current.fixed.length : evaluation.matches.length;
   // One Set per facet so each option's checked state is O(1), even with thousands of picks (review C1).
   const universes = useMemo(() => new Map(facets.map(facet => [facet.id, facetUniverse(index, draft.rule, facet.id)])), [index, facets, draft.rule]);
-  const pickedSets = useMemo(() => new Map(facets.map(facet => [facet.id, new Set(Object.hasOwn(rule, facet.id) ? rulePicks(rule, facet.id) : universes.get(facet.id))])), [facets, rule, universes]);
+  const pickedSets = useMemo(() => new Map(facets.map(facet => [facet.id, new Set(Object.hasOwn(rule, facet.id) ? rulePicks(rule, facet.id) : facet.defaultSelection === 'none' ? [] : universes.get(facet.id))])), [facets, rule, universes]);
   const invalidRule = Object.values(rule).some(picks => !picks.length);
   const mode = current.fixed ? m('fsFixed', { count: formatCount(count) }) : m('fsRule', { count: formatCount(count) });
   const applyLabel = current.fixed ? m('fsApplyFixed', { count: formatCount(count) }) : m('fsApplyRule', { count: formatCount(count) });
-  const pending = saveState === 'pending';
   const changePick = (facet: string, pick: string) => {
     setDraft(previous => {
-      const picks = Object.hasOwn(previous.rule, facet) ? rulePicks(previous.rule, facet) : facetUniverse(index, previous.rule, facet);
+      const facetDefinition = facets.find(item => item.id === facet);
+      const picks = Object.hasOwn(previous.rule, facet) ? rulePicks(previous.rule, facet) : facetDefinition?.defaultSelection === 'none' ? [] : facetUniverse(index, previous.rule, facet);
       const next = picks.includes(pick) ? picks.filter(value => value !== pick) : [...picks, pick];
       return { ...previous, rule: normalizeFacetedRule(index, { ...previous.rule, [facet]: next }) };
     });
@@ -119,6 +111,14 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   const onlyPick = (facet: string, pick: string) => setDraft(previous => ({ ...previous, rule: normalizeFacetedRule(index, { ...previous.rule, [facet]: [pick] }) }));
   const toggleAll = (facet: string) => setDraft(previous => {
     const rule = { ...normalizeFacetedRule(index, previous.rule) };
+    const facetDefinition = facets.find(item => item.id === facet);
+    if (facetDefinition?.defaultSelection === 'none') {
+      const universe = facetUniverse(index, previous.rule, facet);
+      const current = Object.hasOwn(rule, facet) ? rulePicks(rule, facet) : [];
+      if (current.length === universe.length) delete rule[facet];
+      else rule[facet] = universe;
+      return { ...previous, rule };
+    }
     if (!Object.hasOwn(rule, facet)) return { ...previous, rule: { ...rule, [facet]: [] } };
     delete rule[facet];
     return { ...previous, rule };
@@ -149,16 +149,11 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
     }
     return values;
   }, [query, status, facets, evaluation.counts, queried.matches, index, valueLabel, formatCount, itemKindLabel, m]);
-  const submitSave = async () => {
-    if (!save || !name.trim() || !save.shareOptions.some(option => option.value === share) || saveStarted.current || status !== 'ready' || invalidRule) return;
-    saveStarted.current = true; setSaveState('pending');
-    try {
-      await save.onSave({ name: name.trim(), share, value: current });
-      setSaveState('saved');
-    } catch {
-      // The caller owns transport details; keep the full draft and show a localized retryable failure.
-      setSaveState('error');
-    } finally { saveStarted.current = false; }
+  const onSaved = (selection: { facetId: string; value: string }) => {
+    const { facetId, value } = selection;
+    setDraft(previous => ({ ...previous, rule: { ...previous.rule, [facetId]: [...new Set([...rulePicks(previous.rule, facetId), value])] } }));
+    setQueriedDraft(previous => ({ ...previous, [facetId]: [...new Set([...rulePicks(previous, facetId), value])] }));
+    setExpanded(previous => new Set([...previous, facetId]));
   };
   const ready = status === 'ready';
   return <DialogContent closeLabel={m('fsCancel')} aria-describedby={`${id}-description`}
@@ -167,7 +162,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
     <DialogDescription id={`${id}-description`}>{m('fsDescription')}</DialogDescription>
     {note && <p className="shrink-0 text-sm text-text-secondary">{note}</p>}
     {invalidRule && <p id={`${id}-invalid`} className="shrink-0 text-sm text-text-danger-label">{m('fsPickRequired')}</p>}
-    <fieldset disabled={!ready || pending} className="min-h-0 min-w-0 flex flex-1 flex-col gap-3">
+    <fieldset disabled={!ready} className="min-h-0 min-w-0 flex flex-1 flex-col gap-3">
       <Label htmlFor={`${id}-search`}>{m('fsSearch')}</Label>
       <Input className="shrink-0" id={`${id}-search`} value={search} onChange={event => { setSearch(event.target.value); setSearchLimit(SEARCH_PAGE_SIZE); }} />
       {query && ready && <div role="group" aria-label={m('fsSuggestions')} className="max-h-40 shrink-0 overflow-auto rounded-md border border-border-subtle p-2">
@@ -190,7 +185,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
       {ready && <div className="flex shrink-0 gap-3 overflow-x-auto">
         {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-72 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
           <label className="flex items-center gap-2 border-b border-border-subtle pb-2 text-sm">
-            <Checkbox aria-label={m('fsAll')} checked={facetCheckedState(rule, facet.id)} onCheckedChange={() => toggleAll(facet.id)} />{m('fsAll')}
+            <Checkbox aria-label={m('fsAll')} checked={facetCheckedState(rule, facet.id, facet.defaultSelection ?? 'all', universes.get(facet.id)?.length ?? 0)} onCheckedChange={() => toggleAll(facet.id)} />{m('fsAll')}
           </label>
           {(universes.get(facet.id) ?? []).map(pick => {
             const amount = evaluation.counts.get(facet.id)?.get(pick) ?? 0;
@@ -237,23 +232,12 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
       </div>}
     </fieldset>
     {status === 'error' && onRetry && <Button variant="secondary" onClick={onRetry}>{m('fsRetry')}</Button>}
-    {save && saveState !== 'closed' && <form aria-busy={pending} className="shrink-0 space-y-2 rounded-md border border-border-subtle p-3" onSubmit={event => { event.preventDefault(); void submitSave(); }}>
-      <p>{ready ? mode : m('fsUnavailable')}</p>
-      <fieldset disabled={pending || !ready} className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1"><Label htmlFor={`${id}-name`}>{m('fsName')}</Label><Input id={`${id}-name`} value={name} onChange={event => setName(event.target.value)} required /></div>
-        <SegmentedRadio label={m('fsShare')} value={share} onChange={setShare} options={save.shareOptions} />
-        {save.author && <p>{m('fsAuthor', { author: save.author })}</p>}
-        <Button type="submit" aria-describedby={invalidRule ? `${id}-invalid` : undefined} disabled={invalidRule || !name.trim() || !save.shareOptions.some(option => option.value === share)}>{pending ? m('fsSaving') : m('fsSave')}</Button>
-      </fieldset>
-      {saveState === 'error' && <p role="alert" className="text-text-danger-label">{m('fsSaveError')}</p>}
-      {saveState === 'saved' && <p role="status">{m('fsSaved')}</p>}
-    </form>}
     <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle pt-3">
-      <Button variant="ghost" disabled={!ready || pending} onClick={clear}>{m('fsClear')}</Button>
-      {save && saveState === 'closed' && <Button variant="secondary" disabled={!ready || invalidRule} onClick={() => setSaveState('editing')}>{m('fsSaveGroup')}</Button>}
+      <Button variant="ghost" disabled={!ready} onClick={clear}>{m('fsClear')}</Button>
+      {saveSlot?.({ value: current, ready, invalid: invalidRule, onSaved })}
       <div className="flex-1" />
       <Button variant="secondary" onClick={() => onOpenChange(false)}>{m('fsCancel')}</Button>
-      <Button aria-describedby={invalidRule ? `${id}-invalid` : undefined} disabled={!ready || pending || invalidRule} onClick={() => {
+      <Button aria-describedby={invalidRule ? `${id}-invalid` : undefined} disabled={!ready || invalidRule} onClick={() => {
         if (applyStarted.current || invalidRule) return;
         applyStarted.current = true; onApply(current); onOpenChange(false);
       }}>{ready ? applyLabel : m('fsApply')}</Button>

@@ -37,6 +37,11 @@ it('handles multi-valued and missing facets, unknown picks and an unconstrained 
   expect(evaluateFacetedSet(index, { other: ['unknown'] }).counts.get('tag')?.get('x')).toBe(0);
 });
 
+it('keeps explicitly supplied facet values with zero members in the index', () => {
+  const index = buildFacetedSetIndex([{ id: 'a', facets: {} }], [{ id: 'customGroup', label: 'Custom groups', values: ['empty-group'] }]);
+  expect(evaluateFacetedSet(index, {}).counts.get('customGroup')?.get('empty-group')).toBe(0);
+});
+
 it('counts 30,000 items with an indexed cross-facet rule', () => {
   const items = Array.from({ length: 30_000 }, (_, i) => ({ id: String(i), facets: { a: String(i % 10), b: String(i % 3), tags: ['all', String(i % 2)] } }));
   const start = performance.now();

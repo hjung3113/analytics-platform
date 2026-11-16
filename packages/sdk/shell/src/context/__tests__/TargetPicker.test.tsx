@@ -1,9 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
-import { groupId, spaceId } from '@ap/contracts';
+import { groupId, spaceId, type GlobalContext } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { TargetPicker } from '../TargetPicker';
 
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('test'), space: spaceId('mars'), label: { ko: '검사', en: 'Test' }, icon: House }], menus: [{ id: 'home', group: groupId('test'), path: '/', primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: true, context: { ...noContext, roomNames: 'apply' }, pageType: 'overview', pageKeys: [], features: { export: false, savedView: false, annotate: false, compare: false } }] });
@@ -40,6 +41,135 @@ const facts = { version: '1', items: [
   { equipmentId: 'E2', room: 'ETCH', axes: { maker: ['B'], team: ['T2'], lineNames: ['L2'], prcGroups: ['P2'] } },
 ] };
 
+function customGroup(id: string, name: string, target: { fixed: readonly string[] } | { rule: Readonly<Record<string, readonly string[]>> }) {
+  return testSavedView({ id, kind: 'custom-group', name, savedScopeId: 'MEM', target });
+}
+
+it('shows readable custom groups first, applies their IDs, and labels the closed summary with the group name', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore([customGroup('g1', 'Photo set', { fixed: ['E1'] })]);
+  const session = testSession(['platform:view']);
+  const apply = vi.fn();
+  function Controlled() {
+    const [global, setGlobal] = useState<GlobalContext>(baseGlobal);
+    return <TargetPicker global={global} cap={{ ...noContext, condition: 'apply' }} onChange={patch => { apply(patch); setGlobal(previous => ({ ...previous, ...patch })); }} />;
+  }
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} equipmentAxes={equipmentAxes} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <Controlled />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: /커스텀 그룹/ })).toBeVisible());
+  await within(dialog).findByRole('table');
+  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 그룹', '제조사', '팀']);
+  fireEvent.click(within(dialog).getByRole('button', { name: /커스텀 그룹/ }));
+  await waitFor(() => expect(within(dialog).getByRole('checkbox', { name: 'Photo set' })).toBeInTheDocument());
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Photo set' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
+  expect(apply).toHaveBeenCalledWith({ condition: { customGroup: ['g1'] } });
+  await screen.findByRole('button', { name: /커스텀 그룹: Photo set/ });
+});
+
+it('keeps a selected missing group visible and selected with its ID and reason', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore();
+  const session = testSession(['platform:view']);
+  const apply = vi.fn();
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={{ ...baseGlobal, condition: { customGroup: ['gone-9'] } }} cap={{ ...noContext, condition: 'apply' }} onChange={apply} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: /gone-9 · not-found/ }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await within(dialog).findByRole('table');
+  const missing = await within(dialog).findByRole('checkbox', { name: 'gone-9 · not-found' });
+  expect(missing).toBeChecked();
+  fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 0대' }));
+  expect(apply).toHaveBeenCalledWith({ condition: { customGroup: ['gone-9'] } });
+});
+
+it('saves a rule group with public roomNames and shared-group visibility, then selects it in the draft', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore();
+  store.groups = [{ group: { id: 'ops', kind: 'custom', name: 'Ops', memberCount: 1 }, members: [], capabilities: { canView: true, canEditMembers: false, canRename: false, canDelete: false } }];
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={baseGlobal} cap={{ ...noContext, roomNames: 'apply', condition: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await within(dialog).findByRole('table');
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: /공정 전체/ })).toBeVisible());
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(within(dialog).getByRole('textbox', { name: '이름' }), { target: { value: 'Photo only' } });
+  await within(dialog).findByRole('radio', { name: '공유 그룹 · Ops' });
+  fireEvent.click(within(dialog).getByRole('radio', { name: '공유 그룹 · Ops' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+  const selected = await within(dialog).findByRole('checkbox', { name: 'Photo only' });
+  await waitFor(() => expect(selected).toBeChecked());
+  expect(store.rows.get('v1')).toMatchObject({ kind: 'custom-group', name: 'Photo only', target: { rule: { roomNames: ['PHOTO'] } }, visibility: { kind: 'groups', groupIds: ['ops'] } });
+});
+
+it('blocks nested custom-group rules with the required reason but allows checked rows as fixed targets', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore([
+    customGroup('g1', 'Group One', { fixed: ['E1'] }),
+    customGroup('g2', 'Group Two', { fixed: ['E2'] }),
+  ]);
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={{ ...baseGlobal, condition: { customGroup: ['g1'] } }} cap={{ ...noContext, condition: 'apply', selection: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: /Group One/ }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await within(dialog).findByRole('table');
+  await within(dialog).findByRole('checkbox', { name: 'Group Two' });
+  expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeDisabled();
+  expect(within(dialog).getByRole('note')).toHaveTextContent('커스텀 그룹을 고른 조건은 고정으로만 저장');
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'E1 선택' }));
+  expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeEnabled();
+  fireEvent.click(within(dialog).getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(within(dialog).getByRole('textbox', { name: '이름' }), { target: { value: 'Fixed one' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+  await waitFor(() => expect(store.rows.get('v3')).toMatchObject({ kind: 'custom-group', target: { fixed: ['E1'] } }));
+});
+
+it('blocks group saving when an editable facet has no selected values', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore();
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={baseGlobal} cap={{ ...noContext, roomNames: 'apply', condition: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await within(dialog).findByRole('table');
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: '전체' }));
+  expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeDisabled();
+  expect(within(dialog).getByRole('note')).toHaveTextContent('분류마다 값을 하나 이상 골라 주세요.');
+});
+
+it('hides custom-group facets and saving when Condition is not editable', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const store = createFakeSavedViewStore([customGroup('g1', 'Group One', { fixed: ['E1'] })]);
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={{ ...baseGlobal, condition: { customGroup: ['g1'] } }} cap={{ ...noContext, roomNames: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: '대상 전체' }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  expect(within(dialog).queryByRole('button', { name: /커스텀 그룹/ })).toBeNull();
+  expect(within(dialog).queryByRole('button', { name: '그룹으로 저장' })).toBeNull();
+});
+
 it('fixes an equipment ID and retains it outside a changed rule, without materializing rule results', async () => {
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', '/?scopeId=MEM');
@@ -70,7 +200,7 @@ it('preserves carried Context and preset-excluded axes, excludes their facets an
   expect(within(dialog).queryByRole('button', { name: /팀|Line|공정/ })).toBeNull();
   expect(await screen.findByRole('checkbox', { name: 'A' })).toBeChecked();
   expect(within(dialog).queryByRole('checkbox', { name: /E[12] 선택/ })).toBeNull();
-  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '제조사']);
+  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 그룹', '제조사']);
   fireEvent.click(within(dialog).getByRole('button', { name: 'B만 선택' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { maker: ['B'], team: ['T1'] } });
@@ -144,8 +274,8 @@ it('keeps global room and a roomNames Condition axis independent in facets, coun
   expect(screen.getByRole('checkbox', { name: 'A' })).toBeChecked();
   expect(screen.getByRole('group', { name: '공정' })).toHaveTextContent('PHOTO1대');
   expect(screen.getByRole('group', { name: '주입 축' })).toHaveTextContent('B1대');
-  expect(screen.getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '공정', '주입 축']);
-  expect(within(screen.getByRole('row', { name: 'E1' })).getAllByRole('cell').map(node => node.textContent)).toEqual(['E1', 'PHOTO', 'A']);
+  expect(screen.getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 그룹', '공정', '주입 축']);
+  expect(within(screen.getByRole('row', { name: 'E1' })).getAllByRole('cell').map(node => node.textContent)).toEqual(['E1', '', 'PHOTO', 'A']);
   fireEvent.click(screen.getByRole('button', { name: 'B만 선택' }));
   fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '취소' })[0]);
   expect(apply).not.toHaveBeenCalled();

@@ -5,7 +5,7 @@ export { classifyMetricInit, type MetricInit } from './registry/metric-init';
 export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, usePlatformOptional, useRecentVisits, useUnsavedGuard, type MenuPlatform, type AccessRequestSlot, type AccessRequestState, type AnalysisActionsProps, type AnalysisActionsSlot, type FeatureEntry, type FeatureSlot, type HomeTodoSlot, type ObjectLink, type ObjectLinkOptions, type LinkOptions, type LinkResolution, type NavCountsSlot, type NotificationsSlot, type PlannedSpace, type PlatformSlots, type Recent, type ReturnContextKey, type ReturnOrigin, type ScopeControlSlot, type SpaceNavSectionSlot, type ScopeState, type Toast, type ToastAction, type ToastOptions, type UndeclaredMenu, type UndeclaredMenusSlot, type VocComposeContext, type VocComposeContextItem, type VocAvailability, type VocComposeProps, type VocComposeSlot } from './platform/platform';
 export type { UnsavedGuardOptions } from './platform/navigationGuard';
 export { useSavedViewSupport, diagnoseSavedView } from './saved-view';
-export { expandCustomGroups } from './saved-view/expand-custom-groups';
+export { customGroupMembers, expandCustomGroups } from './saved-view/expand-custom-groups';
 export type { ExpandCustomGroupsInput, ExpandCustomGroupsResult } from './saved-view/expand-custom-groups';
 export type { DiagnoseCode, DiagnoseContext, DiagnoseReason, Migration, SavedViewDiagnosis } from './saved-view';
 export { useMenuAction, type MenuActionState } from './query/action';

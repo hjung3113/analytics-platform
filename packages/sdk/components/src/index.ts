@@ -74,6 +74,7 @@ export * from './floating';
 
 export { ViewSelector, type ViewFilter, type ViewSelectorProps, type ViewSelectorState } from './saved-view/ViewSelector';
 export { SaveViewDialog, type SaveViewDialogProps, type SaveViewSubmit } from './saved-view/SaveViewDialog';
+export { VisibilityOptionsPicker, type VisibilityOption, type VisibilityOptionsPickerProps } from './saved-view/VisibilityOptionsPicker';
 export { summarizeContext as summarizeSavedViewContext } from './saved-view/text';
 export { failureText } from './saved-view/text';
 export { ShareTargetPicker, type ShareGroupsState, type ShareMode, type ShareTargetDraft, type ShareTargetPickerProps } from './saved-view/ShareTargetPicker';

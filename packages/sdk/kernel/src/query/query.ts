@@ -3,7 +3,10 @@ import { hashKey, useQuery, type QueryClient, type QueryKey } from '@tanstack/re
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
 import { useHostPlatform, useQueryEngine } from '../platform/platform';
-import { clientCorrelationId, compareAuditEvents, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, serializeGlobal, isAnswered } from '@ap/contracts';
+import { clientCorrelationId, compareAuditEvents, CUSTOM_GROUP_AXIS, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type CustomGroupTarget, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, type SavedViewListItem, serializeGlobal, isAnswered } from '@ap/contracts';
+import { expandCustomGroups } from '../saved-view/expand-custom-groups';
+import { readEquipmentFacts } from '../scope/equipment-facts-cache';
+import type { QueryEngine } from './query-engine';
 import { useCursorPages, type CursorMore, type CursorMoreError, type CursorMoreLast, type CursorMoreStatus, type FirstPage } from '../audit/cursor-pages';
 
 /**
@@ -242,11 +245,72 @@ function checkMenuResponse<P, T>(spec: EndpointSpec<P, T>, projected: MenuQueryC
 }
 
 /** What the request gates read from the platform; a host port reads it at call time instead of from a hook. */
-export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'page' | 'route' | 'scope' | 'session' | 'queryPolicy'>;
+export type MenuRequestInputs = Pick<ReturnType<typeof useHostPlatform>, 'adapter' | 'global' | 'page' | 'route' | 'scope' | 'session' | 'queryPolicy' | 'savedViewStore'> & { queryEngine: QueryEngine };
 
 /** The Context a menu request carries: `projectContext` over the global Context narrowed to the screen's applied Condition preset (06 §6.4). */
 export function projectMenuContext<P, T>(spec: EndpointSpec<P, T>, { global, page, route }: Pick<MenuRequestInputs, 'global' | 'page' | 'route'>, options?: { detached?: boolean }): MenuQueryContext {
   return projectContext(spec, !options?.detached || spec.menuId === route?.menu.id ? narrowedGlobal(route?.menu, page, global) : global);
+}
+
+function aborted(signal?: AbortSignal): boolean { return signal?.aborted === true; }
+function queryError<T>(message: string): ApiResponse<T> {
+  return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message };
+}
+function itemReason(item: SavedViewListItem | undefined, scopeId: string): string | null {
+  if (!item) return 'not-found';
+  if ('denied' in item && item.denied) return item.reason;
+  if (item.view.kind !== 'custom-group') return 'not-found';
+  if (!item.capabilities.canView) return item.capabilities.reason ?? 'forbidden';
+  if (item.view.savedScopeId !== scopeId) return 'scope-mismatch';
+  return null;
+}
+
+/** Resolves the reserved platform axis just before transport; neither URL state nor the query identity is rewritten. */
+async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: MenuQueryContext, signal?: AbortSignal): Promise<MenuQueryContext | ApiResponse<T>> {
+  const condition = projected.condition;
+  const chosen = condition?.[CUSTOM_GROUP_AXIS];
+  if (!chosen?.length) return projected;
+  const ids = [...new Set(chosen)];
+  const scopeId = inputs.global.scopeId;
+  if (!scopeId) return queryError(`customGroup ${ids.join(', ')} blocked: a current Scope is required`);
+  if (inputs.scope.status !== 'valid' || inputs.scope.scopeId !== scopeId || inputs.scope.validatedFor !== inputs.session) {
+    return queryError(`customGroup ${ids.join(', ')} blocked: Scope ${scopeId} is ${inputs.scope.status}`);
+  }
+  const store = inputs.savedViewStore;
+  if (!store) return queryError(`customGroup ${ids.join(', ')} blocked: saved-view store is unavailable`);
+  let listed: readonly SavedViewListItem[];
+  try {
+    listed = await store.list({ userId: inputs.session.user.id, menuId: null, kind: 'custom-group' });
+  } catch (error) {
+    if (aborted(signal)) throw error;
+    return queryError(`customGroup expansion blocked: saved groups could not load (${error instanceof Error ? error.message : String(error)})`);
+  }
+  if (aborted(signal)) throw new DOMException('aborted', 'AbortError');
+  const byId = new Map(listed.map(item => ['denied' in item && item.denied ? item.id : item.view.id, item]));
+  const groups: Record<string, CustomGroupTarget | { denied: string }> = Object.create(null);
+  for (const id of ids) {
+    const item = byId.get(id);
+    const reason = itemReason(item, scopeId);
+    if (reason !== null) groups[id] = { denied: reason };
+    else if (item && !('denied' in item) && item.view.kind === 'custom-group') groups[id] = item.view.target;
+  }
+  const denied = Object.entries(groups).flatMap(([id, target]) => 'denied' in target ? [{ id, reason: target.denied }] : []);
+  if (denied.length) return queryError(`customGroup blocked: ${denied.map(({ id, reason }) => `${id} (${reason})`).join(', ')}`);
+  if (!inputs.adapter.listEquipmentFacts) return queryError('customGroup expansion blocked: listEquipmentFacts is not implemented');
+  let facts;
+  try {
+    facts = await readEquipmentFacts(inputs.queryEngine.client, inputs.queryEngine.gen, inputs.adapter, scopeId, signal);
+  } catch (error) {
+    if (aborted(signal)) throw error;
+    return queryError(`customGroup expansion blocked: equipment facts could not load (${error instanceof Error ? error.message : String(error)})`);
+  }
+  if (aborted(signal)) throw new DOMException('aborted', 'AbortError');
+  const expanded = expandCustomGroups({ condition: condition ?? null, selection: projected.selection ?? null, groups, facts: facts.items });
+  if (!expanded.ok) return queryError(`customGroup blocked: ${expanded.denied.map(({ id, reason }) => `${id} (${reason})`).join(', ')}`);
+  const context: MenuQueryContext = { ...projected };
+  if ('condition' in context) context.condition = expanded.condition ?? null;
+  if ('selection' in context) context.selection = expanded.selection;
+  return context;
 }
 
 /**
@@ -257,9 +321,13 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const { adapter, global, scope, session, queryPolicy } = inputs;
   const projected = projectMenuContext(spec, inputs, options);
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
+  const groupReadPending = Boolean(projected.condition?.[CUSTOM_GROUP_AXIS]?.length) && scope.status === 'validating';
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
-  const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> =>
-    checkMenuResponse(spec, projected, await adapter.menuQuery({ endpoint: spec.id, context: projected, params }, signal));
+  const send = async (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
+    const outgoing = await expandedMenuContext<T>(inputs, projected, signal);
+    if ('outcome' in outgoing) return outgoing;
+    return checkMenuResponse(spec, outgoing, await adapter.menuQuery({ endpoint: spec.id, context: outgoing, params }, signal));
+  };
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
   // `detached` (the sidebar `Source`'s `useMenuFetch`): the request is not part of the screen in view, so that screen's Apply/drill gate cannot block it unless the endpoint belongs to this very menu. A screen's own panels (`useMenuQuery`, the module host) keep the gate whatever menu their endpoint is declared under (HW Time's trend panel, #2007).
   const ownScreen = !options?.detached || spec.menuId === inputs.route?.menu.id;
@@ -270,7 +338,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   });
   const screenReady = !ownScreen || (queryPolicy.ready && (optionSource || (!queryPolicy.idle && !queryPolicy.drillGap)));
   const missing = ownScreen && queryPolicy.idle ? queryPolicy.missing : null;
-  return { projected, ready: scopeReady && periodReady && screenReady, missing, send, notReady };
+  return { projected, ready: scopeReady && !groupReadPending && periodReady && screenReady, missing, send, notReady };
 }
 
 /** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */
@@ -301,7 +369,8 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
   const options = typeof third === 'object' ? third : fourth;
   const enabled = (typeof third === 'boolean' ? third : true) && (options?.enabled ?? true);
   const platform = useHostPlatform();
-  const { projected, ready, missing, send } = menuRequest(spec, platform);
+  const queryEngine = useQueryEngine();
+  const { projected, ready, missing, send } = menuRequest(spec, { ...platform, queryEngine });
   // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.
   return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
 }
@@ -320,7 +389,9 @@ export type MenuFetch<P, T> = {
  * never sends an unvalidated Scope.
  */
 export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
-  const { ready, send, notReady } = menuRequest(spec, useHostPlatform(), { detached: true });
+  const platform = useHostPlatform();
+  const queryEngine = useQueryEngine();
+  const { ready, send, notReady } = menuRequest(spec, { ...platform, queryEngine }, { detached: true });
   const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready
     ? send(params, signal)
     : Promise.resolve(notReady());
