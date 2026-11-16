@@ -8,9 +8,27 @@ import { ChevronDown, X } from 'lucide-react';
 import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { MeasuringContext } from './ContextBarLayout';
 import { SHELL_MESSAGES } from '../messages';
+import { useSessionKey } from '../frame/sessionKey';
 
 export const TARGET_KEYS = ['roomNames', 'line', 'prcGroup', 'condition', 'selection'] as const;
 const RESULT_COLUMN_LIMIT = 4;
+const globalFacet = (id: string) => `global:${id}`;
+const axisFacet = (id: string) => `axis:${id}`;
+const ownPicks = (rule: FacetedSetValue['rule'], id: string) => Object.hasOwn(rule, id) ? rule[id] : undefined;
+
+/** One shell matching path; the dialog's indexed evaluator is not a public export. */
+function targetCounts(items: readonly FacetedSetItem[], { rule, fixed }: FacetedSetValue) {
+  const entries = Object.entries(rule);
+  const matchedIds = new Set<string>();
+  for (const item of items) {
+    if (entries.every(([id, values]) => {
+      const raw = Object.hasOwn(item.facets, id) ? item.facets[id] : undefined;
+      const valuesInItem = typeof raw === 'string' ? [raw] : raw ?? [];
+      return values.some(value => valuesInItem.includes(value));
+    })) matchedIds.add(item.id);
+  }
+  return { count: matchedIds.size, outside: fixed?.filter(id => !matchedIds.has(id)).length ?? 0 };
+}
 type Props = {
   global: GlobalContext;
   cap: Record<ContextKey, Capability>;
@@ -23,10 +41,9 @@ type Props = {
 };
 
 export function TargetPicker(props: Props) {
-  const { session, paneId, route } = useHostPlatform();
-  const [identity, setIdentity] = useState({ session, generation: 0 });
-  if (identity.session !== session) setIdentity({ session, generation: identity.generation + 1 });
-  return <TargetPickerSession key={JSON.stringify([identity.generation, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
+  const { paneId, route } = useHostPlatform();
+  const sessionKey = useSessionKey();
+  return <TargetPickerSession key={JSON.stringify([sessionKey, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
 }
 
 function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, children }: Props) {
@@ -35,27 +52,35 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
   const facts = useEquipmentFacts(g.scopeId ?? '');
-  const items = useMemo<FacetedSetItem[]>(() => (facts.data?.items ?? []).map(item => ({ id: item.equipmentId, facets: { ...item.axes, roomNames: item.room } })), [facts.data]);
+  const items = useMemo<FacetedSetItem[]>(() => (facts.data?.items ?? []).map(item => ({ id: item.equipmentId, facets: {
+    ...Object.fromEntries(Object.entries(item.axes).map(([id, values]) => [axisFacet(id), values])),
+    [globalFacet('roomNames')]: item.room,
+    [globalFacet('lineNames')]: ownPicks(item.axes, 'lineNames') ?? [],
+    [globalFacet('prcGroups')]: ownPicks(item.axes, 'prcGroups') ?? [],
+  } })), [facts.data]);
   const facets = [
-    ...(cap.roomNames === 'apply' ? [{ id: 'roomNames', label: t('roomNames') }] : []),
-    ...(cap.line === 'apply' ? [{ id: 'lineNames', label: tx(CONTEXT_LABELS.line) }] : []),
-    ...(cap.prcGroup === 'apply' ? [{ id: 'prcGroups', label: tx(CONTEXT_LABELS.prcGroup) }] : []),
-    ...(cap.condition === 'apply' ? axes.filter(axis => !presetAxes || presetAxes.includes(axis.id)).map(axis => ({ id: axis.id, label: tx(axis.label) })) : []),
+    ...(cap.roomNames === 'apply' ? [{ id: globalFacet('roomNames'), label: t('roomNames') }] : []),
+    ...(cap.line === 'apply' ? [{ id: globalFacet('lineNames'), label: tx(CONTEXT_LABELS.line) }] : []),
+    ...(cap.prcGroup === 'apply' ? [{ id: globalFacet('prcGroups'), label: tx(CONTEXT_LABELS.prcGroup) }] : []),
+    ...(cap.condition === 'apply' ? axes.filter(axis => !presetAxes || presetAxes.includes(axis.id)).map(axis => ({ id: axisFacet(axis.id), label: tx(axis.label) })) : []),
   ];
-  const picks: Record<string, readonly string[]> = { ...g.condition };
-  if (g.roomNames) picks.roomNames = g.roomNames;
-  if (g.lineNames) picks.lineNames = g.lineNames;
-  if (g.prcGroups) picks.prcGroups = g.prcGroups;
+  const picks: Record<string, readonly string[]> = Object.create(null);
+  for (const [id, values] of Object.entries(g.condition ?? {})) picks[axisFacet(id)] = values;
+  if (g.roomNames) picks[globalFacet('roomNames')] = g.roomNames;
+  if (g.lineNames) picks[globalFacet('lineNames')] = g.lineNames;
+  if (g.prcGroups) picks[globalFacet('prcGroups')] = g.prcGroups;
   // Only editable keys participate. Explicit-empty opens as all; cancellation never writes.
-  const rule = Object.fromEntries(facets.flatMap(facet => picks[facet.id]?.length ? [[facet.id, picks[facet.id]]] : []));
-  const fixed = cap.selection === 'apply' && g.selection?.length ? g.selection : null;
-  const matches = items.filter(item => Object.entries(rule).every(([id, values]) => {
-    const raw = item.facets[id];
-    const valuesInItem = typeof raw === 'string' ? [raw] : raw ?? [];
-    return values.some(value => valuesInItem.includes(value));
+  const rule: FacetedSetValue['rule'] = Object.fromEntries(facets.flatMap(facet => {
+    const values = ownPicks(picks, facet.id);
+    return values?.length ? [[facet.id, values]] : [];
   }));
-  const matchedIds = new Set(matches.map(item => item.id));
-  const outside = fixed?.filter(id => !matchedIds.has(id)).length ?? 0;
+  const fixed = cap.selection === 'apply' && g.selection?.length ? g.selection : null;
+  // Canonical content, rather than parent-owned array/object identity, owns the expensive scan.
+  const countIdentity = JSON.stringify({
+    rule: Object.fromEntries(Object.keys(rule).sort().map(id => [id, [...new Set(rule[id])].sort()])),
+    fixed: fixed ? [...new Set(fixed)].sort() : null,
+  });
+  const { count: matchCount, outside } = useMemo(() => targetCounts(items, JSON.parse(countIdentity) as FacetedSetValue), [items, countIdentity]);
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement | null>(null);
   const restoreFocus = useRef(false);
@@ -73,7 +98,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   // there it is written as every authorized value of that facet, so applying "all rooms" keeps the query runnable.
   const required = route?.menu.query?.required?.context ?? [];
   const picked = (value: FacetedSetValue, facetId: string, key: ContextKey) => {
-    const values = value.rule[facetId];
+    const values = ownPicks(value.rule, facetId);
     if (values?.length) return [...values];
     if (!required.includes(key)) return null;
     const universe = [...new Set(items.flatMap(item => { const raw = item.facets[facetId]; return typeof raw === 'string' ? [raw] : raw ?? []; }))].sort();
@@ -81,14 +106,14 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
   };
   const apply = (value: FacetedSetValue) => {
     const patch: Partial<GlobalContext> = {};
-    if (cap.roomNames === 'apply') patch.roomNames = picked(value, 'roomNames', 'roomNames');
-    if (cap.line === 'apply') patch.lineNames = picked(value, 'lineNames', 'line');
-    if (cap.prcGroup === 'apply') patch.prcGroups = picked(value, 'prcGroups', 'prcGroup');
+    if (cap.roomNames === 'apply') patch.roomNames = picked(value, globalFacet('roomNames'), 'roomNames');
+    if (cap.line === 'apply') patch.lineNames = picked(value, globalFacet('lineNames'), 'line');
+    if (cap.prcGroup === 'apply') patch.prcGroups = picked(value, globalFacet('prcGroups'), 'prcGroup');
     if (cap.condition === 'apply') {
       // Preset-excluded axes remain carried, just like unsupported Context fields.
       const condition = { ...g.condition };
       for (const axis of axes.filter(axis => !presetAxes || presetAxes.includes(axis.id))) {
-        const values = value.rule[axis.id];
+        const values = ownPicks(value.rule, axisFacet(axis.id));
         if (values?.length) condition[axis.id] = [...values]; else delete condition[axis.id];
       }
       patch.condition = Object.keys(condition).length ? condition : null;
@@ -98,9 +123,12 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
     onChange(patch);
     close(false);
   };
-  const explicitEmpty = facets.some(facet => picks[facet.id]?.length === 0) || (cap.selection === 'apply' && g.selection?.length === 0);
-  const count = facts.status === 'done' ? m('targetCount', { count: matches.length }) : m('targetCountUnavailable');
-  const summary = facets.filter(facet => rule[facet.id]).map(facet => `${facet.label}: ${rule[facet.id].join(', ')}`).join(' · ');
+  const explicitEmpty = facets.some(facet => ownPicks(picks, facet.id)?.length === 0) || (cap.selection === 'apply' && g.selection?.length === 0);
+  const count = facts.status === 'done' ? m('targetCount', { count: matchCount }) : m('targetCountUnavailable');
+  const summary = facets.flatMap(facet => {
+    const values = ownPicks(rule, facet.id);
+    return values ? [`${facet.label}: ${values.join(', ')}`] : [];
+  }).join(' · ');
   let text = t('all');
   if (Object.keys(rule).length) text = `${m('targetRule', { count })} · ${summary}`;
   if (fixed) text = m('targetFixed', { count: m('targetCount', { count: fixed.length }) });

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
 import { groupId, spaceId } from '@ap/contracts';
@@ -105,4 +105,101 @@ it('writes a required room as its authorized values when the dialog applies "all
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 2대' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'] });
+});
+
+it('renders an absent constructor axis and applies its selected Condition value', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const apply = vi.fn();
+  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={[{ id: 'constructor', label: { ko: '생성자', en: 'Constructor' }, membershipHistory: true }]} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => ({ version: '1', items: [
+    { equipmentId: 'E1', room: 'PHOTO', axes: { constructor: ['A'] } },
+    { equipmentId: 'E2', room: 'ETCH', axes: { constructor: ['B'] } },
+  ] }) })}>
+    <TargetPicker global={baseGlobal} cap={{ ...noContext, condition: 'apply' }} onChange={apply} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  await screen.findByRole('button', { name: '조건 적용 · 2대' });
+  fireEvent.click(screen.getByRole('button', { name: /생성자 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'A만 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
+  expect(apply).toHaveBeenCalledWith({ condition: { constructor: ['A'] } });
+});
+
+it('keeps global room and a roomNames Condition axis independent in facets, counts, cancel and apply', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const apply = vi.fn();
+  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={[{ id: 'roomNames', label: { ko: '주입 축', en: 'Injected axis' }, membershipHistory: true }]} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => ({ version: '1', items: [
+    { equipmentId: 'E1', room: 'PHOTO', axes: { roomNames: ['A'] } },
+    { equipmentId: 'E2', room: 'PHOTO', axes: { roomNames: ['B'] } },
+    { equipmentId: 'E3', room: 'ETCH', axes: { roomNames: ['A'] } },
+  ] }) })}>
+    <TargetPicker global={{ ...baseGlobal, roomNames: ['PHOTO'], condition: { roomNames: ['A'] } }} cap={{ ...noContext, roomNames: 'apply', condition: 'apply' }} onChange={apply} />
+  </PlatformProvider></I18nProvider>);
+  const opener = await screen.findByRole('button', { name: '대상 조건 · 지금 1대 · 공정: PHOTO · 주입 축: A' });
+  fireEvent.click(opener);
+  expect(await screen.findByRole('checkbox', { name: 'PHOTO' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'A' })).toBeChecked();
+  expect(screen.getByRole('group', { name: '공정' })).toHaveTextContent('PHOTO1대');
+  expect(screen.getByRole('group', { name: '주입 축' })).toHaveTextContent('B1대');
+  expect(screen.getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '공정', '주입 축']);
+  expect(within(screen.getByRole('row', { name: 'E1' })).getAllByRole('cell').map(node => node.textContent)).toEqual(['E1', 'PHOTO', 'A']);
+  fireEvent.click(screen.getByRole('button', { name: 'B만 선택' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '취소' })[0]);
+  expect(apply).not.toHaveBeenCalled();
+  fireEvent.click(opener);
+  expect(screen.getByRole('checkbox', { name: 'A' })).toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: 'B만 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
+  expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'], condition: { roomNames: ['B'] } });
+});
+
+it.each(['revision notification', 'adapter replacement'] as const)('discards an open draft on same-Session %s', async change => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const listeners = new Set<() => void>();
+  const makeAdapter = () => testAdapter({ session: () => session, listEquipmentFacts: async () => facts, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } });
+  const apply = vi.fn();
+  const tree = (adapter: ReturnType<typeof makeAdapter>) => <I18nProvider><PlatformProvider registry={registry} adapter={adapter}>
+    <TargetPicker global={baseGlobal} cap={{ ...noContext, roomNames: 'apply' }} onChange={apply} />
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(tree(makeAdapter()));
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  await screen.findByRole('button', { name: '조건 적용 · 2대' });
+  fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'PHOTO만 선택' }));
+  expect(screen.getByRole('button', { name: '조건 적용 · 1대' })).toBeEnabled();
+  if (change === 'revision notification') await act(async () => { listeners.forEach(listener => listener()); });
+  else rerender(tree(makeAdapter()));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(apply).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
+  expect(await screen.findByRole('button', { name: '조건 적용 · 2대' })).toBeEnabled();
+});
+
+it('reuses closed match/count/outside work for canonical picks on parent renders and opening', async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const adapter = testAdapter({ session: () => session, listEquipmentFacts: async () => facts });
+  const includes = vi.spyOn(facts.items[0].axes.maker, 'includes');
+  const tree = (condition: { maker: string[] }, selection: string[], from: string | null = null) => <I18nProvider><PlatformProvider registry={registry} equipmentAxes={equipmentAxes} adapter={adapter}>
+    <TargetPicker global={{ ...baseGlobal, condition, selection, from }} cap={{ ...noContext, condition: 'apply', selection: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(tree({ maker: ['A', 'B'] }, ['E1', 'missing']));
+  await screen.findByText('현재 조건 결과 밖 1대 · 선택 유지.');
+  const calls = includes.mock.calls.length;
+  expect(calls).toBeGreaterThan(0);
+  rerender(tree({ maker: ['B', 'A', 'A'] }, ['missing', 'E1', 'E1'], '2026-11-01T00:00:00Z'));
+  expect(includes).toHaveBeenCalledTimes(calls);
+  fireEvent.click(screen.getByRole('button', { name: '대상 고정 3대' }));
+  await screen.findByRole('button', { name: '고정 2대 적용' });
+  expect(includes).toHaveBeenCalledTimes(calls);
+  fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '취소' })[0]);
+  rerender(tree({ maker: ['B'] }, ['E1']));
+  expect(includes.mock.calls.length).toBeGreaterThan(calls);
+  expect(screen.getByText('현재 조건 결과 밖 1대 · 선택 유지.')).toBeInTheDocument();
 });
