@@ -543,6 +543,7 @@ export const COMPONENTS_MESSAGES = {
   workspaceSplitDown: { ko: '아래로 나누기', en: 'Split below' },
   workspaceMoveToGroup: { ko: '{title} 묶음으로 옮기기', en: "Move into {title}'s group" },
   workspaceHide: { ko: '숨기기', en: 'Hide' },
+  workspaceMinimize: { ko: '{title} 최소화', en: 'Minimize {title}' },
   workspaceSeparatorColumns: { ko: '{before} · {after} 사이 너비', en: 'Width between {before} and {after}' },
   workspaceSeparatorRows: { ko: '{before} · {after} 사이 높이', en: 'Height between {before} and {after}' },
   workspaceSeparatorRowBottom: { ko: '{before} 아래 높이', en: 'Height of {before}' },

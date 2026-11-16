@@ -16,6 +16,8 @@ export type WorkspaceCommand = {
   description?: string;
   /** A hidden panel's badge is a warning: the surface marks the hidden-panel list. */
   warning?: boolean;
+  /** A hidden panel that opted into `minimize` (#2359): the chip text `{title} · {summary}`. A surface may draw it as a chip that runs this command; it stays in the hidden list too. */
+  chip?: string;
   run: () => void;
 };
 

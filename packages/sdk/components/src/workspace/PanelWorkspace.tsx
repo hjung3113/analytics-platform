@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
 import { cn, isProductionEnv } from '@ap/ui';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
-import { focusTabSoon } from '../dock/focusTab';
+import { focusSoon, focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
 import { DOCK_DROP_STRIP_CHROME, dockTheme } from '../dock/dockPresentation';
@@ -55,6 +55,12 @@ export type PanelWorkspacePanel = {
    * and is not announced through a live region.
    */
   badge?: { count?: number; tone?: 'neutral' | 'warning'; description: Text };
+  /**
+   * Opt-in (#2359): a minimize button beside maximize in the panel header hides the panel (the same hide as the `⋯` menu, stored the same way), and
+   * while it is hidden the toolbar shows a chip `{title} · {summary}` that reopens it; it also stays in the hidden-panel list. `summary` is the
+   * consumer's short state of the panel (for a condition panel, the current conditions). Ignored on the primary panel. Absent = no button, no chip.
+   */
+  minimize?: { summary?: Text };
 };
 
 export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorkspaceLayout };
@@ -173,6 +179,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
   /** The panel's badge with its description localised. */
+  const chipOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); if (!panel?.minimize || id === primaryId) return null; const summary = panel.minimize.summary ? tx(panel.minimize.summary) : ''; return summary ? `${tx(panel.title)} · ${summary}` : tx(panel.title); };
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
   const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec, storage) : null) ?? initialWorkspaceState(spec));
@@ -314,10 +321,10 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     stack: stored.mode === 'stack',
     presets: presets.map(preset => [preset.id, tx(preset.label)]),
     current: state.preset,
-    hidden: state.hidden.map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning']),
+    hidden: state.hidden.map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning', chipOf(id)]),
   });
   const commands = useMemo<readonly WorkspaceCommand[]>(() => {
-    const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string, string | null, boolean][] };
+    const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string, string | null, boolean, string | null][] };
     const preset = (id: string) => live.current.presets.find(candidate => candidate.id === id);
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
@@ -328,8 +335,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         id: `${MODE_PREFIX}${mode}`, label: m(mode === 'fit' ? 'workspaceModeFit' : 'workspaceModeStack'), kind: 'radio', group: 'mode', groupLabel: m('workspaceHeightMode'),
         checked: (mode === 'stack') === parsed.stack, disabled: parsed.narrow, description: parsed.narrow ? m('workspaceModeOff') : undefined, run: () => { setMode(mode); },
       })),
-      ...parsed.hidden.map(([id, text, description, warning]): WorkspaceCommand => ({
-        id: `${SHOW_PREFIX}${id}`, label: m('workspaceShowPanel', { title: text }), kind: 'action', description: description ?? undefined, warning: warning || undefined,
+      ...parsed.hidden.map(([id, text, description, warning, chip]): WorkspaceCommand => ({
+        id: `${SHOW_PREFIX}${id}`, label: m('workspaceShowPanel', { title: text }), kind: 'action', description: description ?? undefined, warning: warning || undefined, chip: chip ?? undefined,
         run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!)); },
       })),
       {
@@ -481,6 +488,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         const next = hidePanel(state, id, primaryId);
         closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
         layoutChange(current => hidePanel(current, id, primaryId));
+      }}
+      onMinimize={chipOf(id) === null ? undefined : () => {
+        const next = hidePanel(state, id, primaryId);
+        layoutChange(current => hidePanel(current, id, primaryId));
+        // Focus follows the panel to its chip; a hosted toolbar draws no chip here, so the next tab takes it.
+        if (hosted) focusTab(tabAfterHide(state, next, id, primaryId)); else focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-minimized="${id}"]`));
       }} />;
   };
 
