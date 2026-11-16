@@ -4,7 +4,7 @@ import { HW_TIME_MODULE_TYPES, type HwTimeModuleType } from '../endpoints';
 import { HW_TIME_MESSAGES } from '../messages';
 
 /**
- * Filter-panel page keys, shared by all four HW Time Views and kept across a View switch (#2328, #2329).
+ * Filter-panel page keys, shared by all linked HW Time panels (#2328, #2329).
  * Names, repetition and hiding follow the page condition layer grammar (#2336 §2.3, advisor decision 8), so the move to the layer
  * declaration (S5, #2341) keeps URLs and saved views unchanged: `module` / `motion` hold the **selected** values, one pair per value;
  * an absent key means every value; `~none` alone means an explicit empty selection.
@@ -32,7 +32,7 @@ export type HwTimeFilter = {
   /** Checked Modules and Motions of the active type, in catalog order. */
   modules: readonly string[];
   motions: readonly string[];
-  /** Nothing to show for the active type (no Module or no Motion checked): the Views show `선택한 항목 없음`, never a widened result. */
+  /** Nothing to show for the active type (no Module or no Motion checked): the panels show `선택한 항목 없음`, never a widened result. */
   empty: boolean;
   split: HwTimeSplit;
   /** Well-formed values that are in no catalog list: kept in the URL (the server judges them) and listed as `이 화면에서 쓸 수 없는 값`. */
@@ -117,7 +117,7 @@ export function useHwTimeFilter(): HwTimeFilter {
       if (!TYPE_IDS.includes(typeId) || typeId === moduleType.id) return;
       const next = HW_TIME_MODULE_TYPES.find(type => type.id === typeId)!;
       const keepDrill = drillModule !== null && (next.modules as readonly string[]).includes(drillModule);
-      setPage({ [HW_TIME_FILTER_KEYS.moduleType]: typeId, ...(keepDrill ? {} : { drillModule: null, drillMotion: null }) });
+      setPage({ [HW_TIME_FILTER_KEYS.moduleType]: typeId, row: null, focus: null, ...(keepDrill ? {} : { drillModule: null, drillMotion: null }) });
     },
     toggleModule: id => toggle('module', moduleSet, id),
     toggleMotion: motion => toggle('motion', motionSet, motionKey(moduleType.id, motion)),

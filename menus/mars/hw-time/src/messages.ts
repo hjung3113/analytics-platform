@@ -1,132 +1,13 @@
 import type { Text } from '@ap/kernel';
 
 export const HW_TIME_MESSAGES = {
-  viewLabel: { ko: 'View', en: 'View' },
-  viewOverview: { ko: '개요', en: 'Overview' },
-  viewSteps: { ko: '단계별', en: 'Steps' },
-  viewCompare: { ko: '비교', en: 'Compare' },
-  viewTable: { ko: '표', en: 'Table' },
   judgement: { ko: '판정', en: 'Judgement' },
   judgementSummary: { ko: '판정: {summary}', en: 'Judgement: {summary}' },
   judgementCount: { ko: '{label} {count}', en: '{label} {count}' },
 
-
-  // ComparePage
-  comparePageDefault: { ko: "기본", en: "Default" },
-  comparePageThisModuleHasNoCompositionRecords: { ko: "이 Module에는 구성 기록이 없습니다.", en: "This Module has no composition records." },
-  comparePageTheCompositionCouldNotBeLoaded: { ko: "구성을 불러오지 못했습니다.", en: "The composition could not be loaded." },
-  comparePageLoadingTheComposition: { ko: "구성을 불러오는 중입니다.", en: "Loading the composition." },
-  comparePageStartAligned: { ko: "시작 위치 맞춤", en: "Start aligned" },
-  comparePageMinMax: { ko: "최소·최대", en: "Min·Max" },
-  comparePageTarget: { ko: "분석 대상", en: "Target" },
-  comparePageLoading: { ko: "불러오는 중입니다.", en: "Loading." },
-  comparePageLegend: { ko: "계층 범례", en: "Legend" },
-  comparePageOfShown: { ko: "{length}개 중 {value2}개 표시", en: "{value2} of {length} shown" },
-  comparePageLegend2: { ko: "계층 범례", en: "Legend" },
-  comparePageNoLegendToShow: { ko: "표시할 범례가 없습니다.", en: "No legend to show." },
-  comparePageOptions: { ko: "옵션", en: "Options" },
-  comparePageSort: { ko: "정렬", en: "Sort" },
-  comparePageSort2: { ko: "정렬", en: "Sort" },
-  comparePageDefault2: { ko: "기본", en: "Default" },
-  comparePageHigh: { ko: "큰 순", en: "High" },
-  comparePageLow: { ko: "작은 순", en: "Low" },
-  comparePageScrollRows: { ko: "행 스크롤 보기", en: "Scroll rows" },
-  comparePageAlignStartPositions: { ko: "시작 위치 맞춤", en: "Align start positions" },
-  comparePageShowMinMax: { ko: "최소·최대 표시", en: "Show min·max" },
-  comparePageNoRecords: { ko: "기록 없음", en: "No records" },
-  comparePagePartlyNotMeasured: { ko: "일부 미측정", en: "partly not measured" },
-  comparePageTrend: { ko: "추세", en: "Trend" },
-  comparePageRowsInTheTrend: { ko: "추세에 {length}행", en: "{length} rows in the trend" },
-  comparePageDailyTrendByRow: { ko: "행별 일 추세", en: "Daily trend by row" },
-  comparePageByModuleSelected: { ko: "Module별 · {module} 선택", en: "By Module · {module} selected" },
-  comparePageByModule: { ko: "Module별", en: "By Module" },
-  comparePageOperationTimeByModule: { ko: "Module별 동작시간", en: "Operation time by Module" },
-  comparePageOperationTimeByModule2: { ko: "Module별 동작시간", en: "Operation time by Module" },
-  comparePageModuleSelected: { ko: "Module {module} 구성 · {motion} 선택", en: "Module {module} · {motion} selected" },
-  comparePageModuleComposition: { ko: "Module {module} 구성", en: "Module {module} composition" },
-  comparePageModuleComposition2: { ko: "Module 구성", en: "Module composition" },
-  comparePageChooseAModule: { ko: "Module을 고르세요", en: "Choose a Module" },
-  comparePageModuleComposition3: { ko: "Module {module} 구성", en: "Module {module} composition" },
-  comparePageModuleOperationTimeByMotion: { ko: "Module {module} · Motion별 동작시간", en: "Module {module} · Operation time by Motion" },
-  comparePageMotionDetail: { ko: "Motion {motion} 상세", en: "Motion {motion} detail" },
-  comparePageMotionDetail2: { ko: "Motion 상세", en: "Motion detail" },
-  comparePageChooseAModule2: { ko: "Module을 고르세요", en: "Choose a Module" },
-  comparePageChooseAMotion: { ko: "Motion을 고르세요", en: "Choose a Motion" },
-  comparePageMotionDetail3: { ko: "Motion {motion} 상세", en: "Motion {motion} detail" },
-  comparePageNoRecordsForModule: { ko: "{module} Module에는 {motion} 동작 기록이 없습니다", en: "No {motion} records for Module {module}" },
-  comparePageOtherMotionsOfThisModuleAreOne: { ko: "Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.", en: "Other Motions of this Module are one level up." },
-  comparePageModuleMotionDetail: { ko: "Module {module} · Motion {motion} 상세", en: "Module {module} · Motion {motion} detail" },
-  comparePageAnalysisAids: { ko: "분석 보조", en: "Analysis aids" },
-  comparePageHwTimeCompareWorkspace: { ko: "HW Time 비교 영역", en: "HW Time compare workspace" },
-
-  // OverviewPage
-  overviewPageOneTabGroup: { ko: "탭 하나", en: "One tab group" },
-  overviewPageStartAligned: { ko: "시작 위치 맞춤", en: "Start aligned" },
-  overviewPageMinMax: { ko: "최소·최대", en: "Min·Max" },
-  overviewPageTarget: { ko: "분석 대상", en: "Target" },
-  overviewPageOptions: { ko: "옵션", en: "Options" },
-  overviewPageSort: { ko: "정렬", en: "Sort" },
-  overviewPageSort2: { ko: "정렬", en: "Sort" },
-  overviewPageDefault: { ko: "기본", en: "Default" },
-  overviewPageHigh: { ko: "큰 순", en: "High" },
-  overviewPageLow: { ko: "작은 순", en: "Low" },
-  overviewPageAlignStartPositions: { ko: "시작 위치 맞춤", en: "Align start positions" },
-  overviewPageShowMinMax: { ko: "최소·최대 표시", en: "Show min·max" },
-  overviewPageNoRecords: { ko: "기록 없음", en: "No records" },
-  overviewPagePartlyNotMeasured: { ko: "일부 미측정", en: "partly not measured" },
-  overviewPageRowsPartlyNotMeasured: { ko: "일부 미측정 {count}행", en: "{count} rows partly not measured" },
-  overviewPageTrend: { ko: "추세", en: "Trend" },
-  overviewPageRowsInTheTrend: { ko: "추세에 {length}행", en: "{length} rows in the trend" },
-  overviewPageDailyTrendByRow: { ko: "행별 일 추세", en: "Daily trend by row" },
-  overviewPageLegend: { ko: "범례", en: "Legend" },
-  overviewPageLegend2: { ko: "계층 범례", en: "Legend" },
-  overviewPageNoLegendToShow: { ko: "표시할 범례가 없습니다.", en: "No legend to show." },
-  overviewPageRanking: { ko: "합계 순위", en: "Ranking" },
-  overviewPageAllMotionsOfModule: { ko: "Module {module} 전체 Motion", en: "All Motions of Module {module}" },
-  overviewPageAllMotionsOfModule2: { ko: "Module {module} 전체 Motion", en: "All Motions of Module {module}" },
-  overviewPageMotionDetail: { ko: "Motion {motion} 상세", en: "Motion {motion} detail" },
-  overviewPageNoRecordsForModule: { ko: "{module} Module에는 {motion} 동작 기록이 없습니다", en: "No {motion} records for Module {module}" },
-  overviewPageOtherMotionsOfThisModuleAreOne: { ko: "Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.", en: "Other Motions of this Module are one level up." },
-  overviewPageModuleMotionDetail: { ko: "Module {module} · Motion {motion} 상세", en: "Module {module} · Motion {motion} detail" },
-  overviewPageOperationTimeByModule: { ko: "Module별 동작시간", en: "Operation time by Module" },
-  overviewPageModuleOperationTimeByMotion: { ko: "Module {module} · Motion별 동작시간", en: "Module {module} · Operation time by Motion" },
-  overviewPageByModule: { ko: "Module별", en: "By Module" },
-  overviewPageByMotion: { ko: "Motion별", en: "By Motion" },
-  overviewPageHwTimeOverviewWorkspace: { ko: "HW Time 개요 영역", en: "HW Time overview workspace" },
-  overviewPageSplitPanels: { ko: "패널 나눔", en: "Split panels" },
-  overviewPageAnalysisAids: { ko: "분석 보조", en: "Analysis aids" },
-  overviewPageHwTimeOverview: { ko: "HW Time 개요", en: "HW Time overview" },
-
-  // StepsPage
-  stepsPageStartAligned: { ko: "시작 위치 맞춤", en: "Start aligned" },
-  stepsPageMinMax: { ko: "최소·최대", en: "Min·Max" },
-  stepsPageTarget: { ko: "분석 대상", en: "Target" },
-  stepsPageLegend: { ko: "계층 범례", en: "Legend" },
-  stepsPageOfShown: { ko: "{legendTotal}개 중 {legendShown}개 표시", en: "{legendShown} of {legendTotal} shown" },
-  stepsPageLegend2: { ko: "계층 범례", en: "Legend" },
-  stepsPageNoLegendToShow: { ko: "표시할 범례가 없습니다.", en: "No legend to show." },
   stepsPageOptions: { ko: "옵션", en: "Options" },
-  stepsPageSort: { ko: "정렬", en: "Sort" },
-  stepsPageSort2: { ko: "정렬", en: "Sort" },
-  stepsPageDefault: { ko: "기본", en: "Default" },
-  stepsPageHigh: { ko: "큰 순", en: "High" },
-  stepsPageLow: { ko: "작은 순", en: "Low" },
-  stepsPageAlignStartPositions: { ko: "시작 위치 맞춤", en: "Align start positions" },
-  stepsPageShowMinMax: { ko: "최소·최대 표시", en: "Show min·max" },
-  stepsPageNoRecords: { ko: "기록 없음", en: "No records" },
-  stepsPagePartlyNotMeasured: { ko: "일부 미측정", en: "partly not measured" },
-  stepsPageNoRecordsForModule: { ko: "{module} Module에는 {motion} 동작 기록이 없습니다", en: "No {motion} records for Module {module}" },
-  stepsPageOtherMotionsOfThisModuleAreOne: { ko: "Module의 다른 Motion은 한 단계 위에서 볼 수 있습니다.", en: "Other Motions of this Module are one level up." },
-  stepsPageOperationTimeByModule: { ko: "Module별 동작시간", en: "Operation time by Module" },
-  stepsPageModuleOperationTimeByMotion: { ko: "Module {module} · Motion별 동작시간", en: "Module {module} · Operation time by Motion" },
-  stepsPageModuleMotionDetail: { ko: "Module {module} · Motion {motion} 상세", en: "Module {module} · Motion {motion} detail" },
-  stepsPageAnalysisAids: { ko: "분석 보조", en: "Analysis aids" },
-  stepsPageHwTimeByLevel: { ko: "HW Time 단계별", en: "HW Time by level" },
-  stepsPageTrend: { ko: "추세", en: "Trend" },
-  stepsPageTrendRows: { ko: "추세 ({length}행)", en: "Trend ({length} rows)" },
-  stepsPageDailyTrendByRow: { ko: "행별 일 추세", en: "Daily trend by row" },
+  stepsPageAlignStartPositions: { ko: "Motion 시작 위치 맞추기", en: "Align Motion start positions" },
 
-  // TablePage
   tablePageEnter: { ko: "{value} 들어가기", en: "Enter {value}" },
   tablePageEquipmentDailyTotal: { ko: "설비 전체 일 합계", en: "Equipment daily total" },
   tablePageSubItemDailyTotalOverAllModules: { ko: "하위 항목 전체 일 합계 · Module·Motion과 무관", en: "Sub-item daily total over all Modules · independent of Module·Motion" },
@@ -155,23 +36,13 @@ export const HW_TIME_MESSAGES = {
   tablePageOperationTimeBreakdown: { ko: "동작시간 구성", en: "Operation time breakdown" },
   tablePageDailyTrend: { ko: "일 추세", en: "Daily trend" },
 
-  // tableData
   tableDataAll: { ko: "전체", en: "All" },
   tableDataAll2: { ko: "전체", en: "All" },
 
-  // format
   formatNotMeasured: { ko: "미측정", en: "Not measured" },
 
-  // RankingPanel
-  rankingPanelNoRowsToRank: { ko: "순위를 매길 행이 없습니다.", en: "No rows to rank." },
-  rankingPanelInclUnmeasured: { ko: "미측정 포함", en: "incl. unmeasured" },
-  rankingPanelRankingByTotal: { ko: "합계 순위", en: "Ranking by total" },
-  rankingPanelTopOfRows: { ko: "상위 {length}행 / 전체 {count}행", en: "Top {length} of {count} rows" },
-
-  // StackPanel
   stackPanelRowsHaveUnmeasuredValuesNotDrawnTheir: { ko: "{value} 값이 있는 행 {unmeasured}개 · 막대에 그리지 않고, 그 행의 합계는 ≥로 표시합니다", en: "{unmeasured} rows have unmeasured values · not drawn; their totals are marked ≥" },
 
-  // TrendPanel
   trendPanelAddARow: { ko: "행을 추가하세요", en: "Add a row" },
   trendPanelPickAModuleToDrillInThen: { ko: "Module을 골라 들어간 뒤 행을 추세에 추가하세요.", en: "Pick a Module to drill in, then add a row to the trend." },
   trendPanelPickADetailRowAndAddIt: { ko: "상세 행을 골라 추세에 추가하세요.", en: "Pick a detail row and add it to the trend." },
@@ -179,32 +50,7 @@ export const HW_TIME_MESSAGES = {
   trendPanelRemoveRowFromTrend: { ko: "추세에서 제거 {row}", en: "Remove from trend {row}" },
   trendPanelRemove: { ko: "제거", en: "Remove" },
 
-  // selectionCounts
-  selectionCountsSelectedEvaluated: { ko: "선택 {selected} · 평가 {evaluated}", en: "Selected {selected} · Evaluated {evaluated}" },
-
-  // targetState
-  targetStateLoading: { ko: "불러오는 중입니다.", en: "Loading." },
-  targetStateNoMatchingResult: { ko: "조건에 맞는 결과가 없습니다.", en: "No matching result." },
-  targetStateYouDoNotHaveAccessToThis: { ko: "이 Scope에 접근 권한이 없습니다.", en: "You do not have access to this scope." },
-  targetStateQueryTooLargeNarrowTheConditions: { ko: "조회 범위가 너무 큽니다. 조회 조건을 좁혀 주세요.", en: "Query too large. Narrow the conditions." },
-  targetStateUnableToLoadDataRetryInThe: { ko: "데이터를 불러오지 못했습니다. 본문에서 다시 시도하세요.", en: "Unable to load data. Retry in the body." },
-
-  // useHwTimeLevelState
-  useHwTimeLevelStateSort: { ko: "정렬", en: "Sort" },
-  useHwTimeLevelStateTrendRows: { ko: "추세 행", en: "Trend rows" },
-  useHwTimeLevelStateSelectedRow: { ko: "선택 행", en: "Selected row" },
-  useHwTimeLevelStateSortHigh: { ko: "정렬: 큰 순", en: "Sort: high" },
-  useHwTimeLevelStateSortLow: { ko: "정렬: 작은 순", en: "Sort: low" },
-  useHwTimeLevelStateSortDefault: { ko: "정렬: 기본", en: "Sort: default" },
-  useHwTimeLevelStateTheTrendShowsAtMostRows: { ko: "추세는 최대 {HWTIMEMAXTRENDROWS}행까지 볼 수 있습니다.", en: "The trend shows at most {HWTIMEMAXTRENDROWS} rows." },
-  useHwTimeLevelStateRemoveFromTrend: { ko: "추세에서 제거", en: "Remove from trend" },
-  useHwTimeLevelStateAddToTrend: { ko: "추세에 추가", en: "Add to trend" },
-  // Compare options
-  comparePageRowScroll: { ko: "행 스크롤", en: "Row scroll" },
-  comparePageFitAll: { ko: "전체 맞춤", en: "Fit all" },
-  // Endpoint display copy
   endpointHwTimeUnit: { ko: "초", en: "s" },
-  // HTM judgement (shared/htm.ts)
   htmStatusOver: { ko: "HTM 상한 초과", en: "Above HTM upper" },
   htmStatusUnder: { ko: "HTM 하한 미달", en: "Below HTM lower" },
   htmStatusNormal: { ko: "정상", en: "Normal" },
@@ -212,20 +58,15 @@ export const HW_TIME_MESSAGES = {
   htmStatusNoCriteria: { ko: "HTM 미등록 — 판정 불가", en: "No HTM registered — not judgeable" },
   htmReasonRecipeUnsplit: { ko: "Recipe·PPID별 통계가 아직 없어 HTM과 비교할 수 없습니다.", en: "There are no per-Recipe/PPID statistics yet, so the value cannot be compared with an HTM." },
   htmReasonNoCriteria: { ko: "이 Motion에 등록된 HTM이 없습니다.", en: "No HTM is registered for this Motion." },
-  // Filter panel keys (shared/useHwTimeFilter.ts)
   filterModuleType: { ko: "Module 타입", en: "Module type" },
   filterModule: { ko: "선택한 Module", en: "Selected Module" },
   filterMotion: { ko: "선택한 Motion", en: "Selected Motion" },
   filterNoneSelected: { ko: "선택한 항목 없음", en: "Nothing selected" },
-  filterNoneSelectedBody: { ko: "필터 패널에서 Module과 Motion을 하나 이상 고르세요.", en: "Check at least one Module and one Motion in the filter panel." },
   filterUnusable: { ko: "이 화면에서 쓸 수 없는 값", en: "Values this page cannot use" },
-  filterPanelOpen: { ko: "필터 펼치기", en: "Show filters" },
-  filterPanelClose: { ko: "필터 접기", en: "Hide filters" },
-  filterOffCount: { ko: "{count}개 해제", en: "{count} off" },
   filterSplit: { ko: "Recipe/PPID 구분", en: "Recipe/PPID split" },
 } satisfies Record<string, Text>;
 
-// W-2329: overview and shared filter panel copy, kept together for View integration.
+// Linked analysis and shared filter panel copy.
 export const HW_TIME_OVERVIEW_MESSAGES = {
   filters: { ko: '표시 조건', en: 'Display filters' },
   recipe: { ko: 'Recipe/PPID', en: 'Recipe/PPID' },
@@ -271,7 +112,16 @@ export const HW_TIME_OVERVIEW_MESSAGES = {
   invalidPanelFilters: { ko: '이 패널만 필터가 유효하지 않아 결과를 표시하지 않습니다.', en: 'Panel-only filters are invalid; results are hidden.' },
   noChecks: { ko: '표시할 Module·Motion을 선택하세요.', en: 'Select Modules and Motions to display.' },
   hiddenDrill: { ko: '선택한 Module 또는 Motion이 표시 조건에서 꺼져 있습니다.', en: 'The picked Module or Motion is unchecked in the display filters.' },
-  back: { ko: '개요로', en: 'Back to overview' },
+  back: { ko: 'Module 선택 해제', en: 'Clear Module selection' },
   synthetic: { ko: '합성 데이터', en: 'Synthetic data' },
   partial: { ko: '미측정 Motion이 있는 행의 히트맵 합계는 미측정이며, 막대 합계는 측정된 값만 포함합니다.', en: 'For rows with unmeasured Motions, heatmap totals are unknown and bar totals include measured values only.' },
+} satisfies Record<string, Text>;
+
+export const HW_TIME_WORKSPACE_MESSAGES = {
+  workspace: { ko: 'HW Time 분석 영역', en: 'HW Time analysis workspace' },
+  defaultLayout: { ko: '연결 패널', en: 'Linked panels' },
+  motionPanel: { ko: 'Motion 표', en: 'Motion table' },
+  pickModule: { ko: 'Module을 고르세요', en: 'Select a Module' },
+  pickMotion: { ko: 'Motion을 고르세요', en: 'Select a Motion' },
+  activeRow: { ko: '선택한 막대 행', en: 'Selected bar row' },
 } satisfies Record<string, Text>;

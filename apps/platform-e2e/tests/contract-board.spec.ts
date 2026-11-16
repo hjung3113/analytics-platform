@@ -804,8 +804,8 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await expect(page.locator('[data-pane-id]')).toHaveCount(2);
     // The lazy HW Time screen draws its own dock after the first paint; wait for it so the check below cannot pass on an empty pane.
     await expect(page.locator('[data-pane-id]').nth(1).locator('.dv-groupview').first()).toBeVisible();
-    // Saved legacy ids still render their matching View in place (#2328).
-    await expect(page.locator('[data-pane-id]').nth(1).getByRole('region', { name: 'Module별 동작시간', exact: true })).toBeVisible();
+    // Saved legacy ids render the same linked-panel screen in place (#2328).
+    await expect(page.locator('[data-pane-id]').nth(1).getByRole('region', { name: 'HW Time 분석 영역', exact: true })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/board');
     const visibilityOf = (selector: string) => page.locator(selector).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).visibility));
     await maximizeOf(page, 1).click();
@@ -1828,7 +1828,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 // tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
 test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const COMPARE = '/mars/hw-time?view=compare&v=1&scopeId=MEM';
+  const HW_TIME = '/mars/hw-time?v=1&scopeId=MEM';
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
   const ROUNDING = 2;
@@ -2057,12 +2057,16 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await expect(strip).not.toHaveClass(/sticky/);
   });
 
-  test('HW Time 비교: 줄 하나로 시작해도 첫 로드에 페이지 스크롤바가 없다', async ({ page }) => {
+  test('HW Time 연결 패널: 쌓기로 시작하고 첫 줄 패널 안이 넘치지 않는다(패널 선호 높이)', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(COMPARE);
+    await page.goto(HW_TIME);
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await expect(root(page).locator('canvas')).not.toHaveCount(0);
-    await expect.poll(() => main(page).evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(0);
+    for (const id of ['filter', 'heatmap', 'bars']) {
+      const panel = root(page).locator(`[data-dock-panel="${id}"]`);
+      await expect(panel).toBeVisible();
+      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    }
   });
 
   test('사이클타임: 처음 열면 차트·요약 패널 안이 넘치지 않는다(패널 선호 높이)', async ({ page }) => {
@@ -2083,21 +2087,22 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
 });
 
 test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
-  test('1440×900 HW Time 표의 행 영역이 fill 슬롯 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
+  test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
     await signInAs(page, 'admin');
-    await page.goto('/mars/hw-time?view=table&v=1&scopeId=MEM&drillModule=PM1');
-    const rows = page.getByLabel('스크롤 가능한 행 영역');
+    await page.goto('/mars/hw-time?v=1&scopeId=MEM');
+    const tablePanel = page.locator('[data-dock-panel="table"]');
+    const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
     await expect(rows).toBeVisible();
     await expect(rows.getByRole('row').nth(2)).toBeVisible();
-    const slot = page.locator('[data-platform-page-fill]');
+    const slot = tablePanel;
     // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
     await expect.poll(async () => {
       const rowsBox = (await rows.boundingBox())!;
       const slotBox = (await slot.boundingBox())!;
       return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
     }).toBeLessThanOrEqual(120);
-    // Filling must not overshoot: the main scroll area does not overflow (a 1px cap error shows a scrollbar).
-    await expect.poll(() => page.locator('main').evaluate(main => main.scrollHeight - main.clientHeight)).toBeLessThanOrEqual(0);
+    // Filling must not overshoot its panel (the stacked page itself scrolls by design).
+    await expect.poll(() => tablePanel.evaluate(panel => panel.scrollHeight - panel.clientHeight)).toBeLessThanOrEqual(1);
     await evidence(page, testInfo, 'hw-time-table-fill');
   });
 });

@@ -156,10 +156,9 @@ describe('workspace assembly (#260)', () => {
     // #1099b: the `features` carry set; every 업무 흐름 menu is a member, no other menu is, and the space declares nothing.
     expect(registry.carrySets).toEqual([
       { id: 'features', pageKeys: ['managedSystem', 'returnTo'] },
-      { id: 'hwTime', pageKeys: ['drillModule', 'drillMotion', 'moduleType', 'module', 'motion', 'split'] },
     ]);
-    // #2328: the one HW Time menu is the only `hwTime` member (its sidebar View links keep the drill and the filter panel).
-    expect(registry.menus.filter(menu => menu.carrySet === 'hwTime').map(menu => menu.id)).toEqual(['hw-time']);
+    // Linked HW Time panels no longer need a cross-menu carry set.
+    expect(registry.menus.filter(menu => menu.carrySet === 'hwTime').map(menu => menu.id)).toEqual([]);
     expect(SPACE_DEFS[5]).not.toHaveProperty('carriedPageKeys');
     expect(SPACE_DEFS[6]).not.toHaveProperty('carriedPageKeys');
     // Members: every 업무 흐름 menu and the two access menus (carry set `features`), plus global 내 Task; platform administration (group admin) is not a member.

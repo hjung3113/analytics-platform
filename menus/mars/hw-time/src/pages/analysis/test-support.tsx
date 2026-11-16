@@ -7,17 +7,22 @@ import { testAdapter, testSession } from '@ap/kernel/testing';
 import { LayoutDashboard } from 'lucide-react';
 import { HW_TIME_MODULE_TYPES, type HwTimeMatrix, type HwTimeMotionStats, type HwTimeRuns } from '../../endpoints';
 import { manifests } from '../../index';
-import { HW_TIME_CARRY_SET } from '../../test-support';
 
 // Canvas is unavailable in jsdom. Keep queries, filter, URL, table and status UI real; expose the public chart callbacks and declarations.
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   return { ...actual,
+    PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div data-testid="workspace" data-config={JSON.stringify({ ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], reveal: p.revealRequest })}>
+      {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.render()}</section>)}
+    </div>,
     AnalysisChart: (p: import('@ap/components').AnalysisChartProps) => <section aria-label={String(p.title)}>
       <pre data-testid={p.chartId}>{JSON.stringify(p.spec, (_key, value: unknown) => value instanceof Map ? [...value] : value)}</pre>
       {p.spec.kind === 'heatmap' && p.spec.cells.map(cell => <button key={`${cell.x}/${cell.y}`} onClick={() => {
         if (p.spec.kind === 'heatmap') p.spec.onCellClick?.(cell.x, cell.y);
       }}>{`focus ${cell.y} ${cell.x}`}</button>)}
+      {p.spec.kind === 'heatmap' && p.spec.cells.map(cell => <button key={`activate/${cell.x}/${cell.y}`} onClick={() => {
+        if (p.spec.kind === 'heatmap') p.spec.cellActivation?.onActivate(cell.x, cell.y);
+      }}>{`activate ${cell.y} ${cell.x}`}</button>)}
     </section>,
     AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => <section aria-label={String(p.title)}>
       <pre data-testid={p.chartId}>{JSON.stringify({ series: p.series, activeCategory: p.activeCategory, revealActive: p.revealActive, rowPitch: p.rowPitch, startAlign: p.startAlign, emphasisFocus: p.emphasisFocus,
@@ -58,12 +63,13 @@ runFixture.daily = runFixture.points.map(point => ({ ...point, at: '2026-09-19T0
 export const answer = (request: MenuQuery): ApiResponse<unknown> => {
   const params = request.params as { moduleType: string };
   const data = request.endpoint === 'hwTime.matrix' ? fixtureMatrix(params.moduleType)
-    : request.endpoint === 'hwTime.motionStats' ? stats : runFixture;
+    : request.endpoint === 'hwTime.motionStats' ? stats : request.endpoint === 'hwTime.runs' ? runFixture
+    : request.endpoint === 'hwTime.levelRows' ? { level: 0, series: [], rows: [], totals: { values: {}, total: null }, limits: { maxRows: 120 } } : { rows: [], total: 0 };
   return { outcome: 'ok', data, assessments: [{ kind: 'collection', state: 'clear' }, { kind: 'processing_delay', state: 'clear' }, { kind: 'coverage', state: 'clear' }], trust: null, correlationId: 'overview-fixture' };
 };
 
 export const registry = createRegistry({
-  carrySets: [HW_TIME_CARRY_SET],
+  
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],
@@ -72,10 +78,10 @@ export const registry = createRegistry({
 export const session = testSession(['analytics:view', 'platform:view']);
 export const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
 export async function renderOverview(search = '', respond = answer, { waitForData = true } = {}) {
-  const { HwTimeViewBody } = await import('../../HwTimePage');
+  const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><HwTimeViewBody view="overview" params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
   if (waitForData) await screen.findByTestId('hw-overview-matrix', {}, { timeout: 5000 });
   await settle();
 }

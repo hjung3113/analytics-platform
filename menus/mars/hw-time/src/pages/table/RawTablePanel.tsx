@@ -1,17 +1,16 @@
 import type { TextParams } from '@ap/kernel';
 import { useMessages, formatText } from '@ap/kernel';
-import { HwTimeViewFrame } from '../../shared/HwTimeViewFrame';
 import { HW_TIME_MESSAGES } from '../../messages';
 /**
- * HW Time 표 (ADR-0078, 06 §13·§15): the same HW Time data as a Management-style table with a detail drawer, over existing SDK pieces.
- * The table follows the §12.7 drill level; entry is a visible `<값> 들어가기` button in a series cell, never a whole-row click.
+ * HW Time raw table (ADR-0078): paging, export and a detail drawer over existing SDK pieces.
+ * In the linked workspace, raw rows stay at the root population; standalone consumers follow the §12.7 drill level; entry is a visible `<값> 들어가기` button in a series cell, never a whole-row click.
  * Export belongs to the table (`exportRows` + note + summary). The drawer reuses the shared stack and trend panels with that one row.
  */
 import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
-  DetailDrawer, DrillLayout, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn,
+  DetailDrawer, encodeTableSort, PageKeyWarning, PlatformDataTable, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableUrlState,
 } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import { useHwTimeFilterContext } from '../../shared/HwTimeFilterContext';
@@ -61,21 +60,29 @@ function SeriesLegend({ series, values, lang }: { series: readonly HwTimeSeries[
   </ul>;
 }
 
-export default function TablePage(_props: PageProps) {
+export default function RawTablePanel({ linked = false }: PageProps & { linked?: boolean }) {
   const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
   const { pageParam, setPage } = usePlatform();
   const filter = useHwTimeFilterContext();
   const drill = useDrill();
-  const module = drill.levels[0]?.value ?? null;
-  const motion = drill.levels[1]?.value ?? null;
+  const module = linked ? null : drill.levels[0]?.value ?? null;
+  const motion = linked ? null : drill.levels[1]?.value ?? null;
   const level = levelOf(module, motion);
   const checkedSeries = level === 0 ? filter?.modules : filter?.motions;
   const activeSeries = checkedSeries ?? seriesIds(level, motion);
   const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}) };
   const focus = pageParam('focus');
   const focusKeys = useHwTimeDrillRules([{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }]);
-  const { urlState, invalid: tableInvalid, sentences } = useTableUrlState(SORT_FIELDS);
+  const tableState = useTableUrlState(SORT_FIELDS);
+  // Chart-only sort values from old steps/compare links are ignored, not rejected as malformed table sorts.
+  const legacyChartSort = linked && ['total-desc', 'total-asc'].includes(pageParam('sort') ?? '');
+  const { sentences, parsedPage } = tableState;
+  const tableInvalid = legacyChartSort ? !parsedPage.ok : tableState.invalid;
+  const urlState: TableUrlState | undefined = legacyChartSort && parsedPage.ok ? {
+    page: parsedPage.page === 1 ? null : parsedPage.page, sorting: [],
+    onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
+  } : tableState.urlState;
 
   const pages = useMenuFetch(hwTime.tableRows);
   const exports = useMenuFetch(hwTime.exportRows);
@@ -153,7 +160,7 @@ export default function TablePage(_props: PageProps) {
   const table = tableInvalid ? <TableUrlWarning sentences={sentences} />
     : emptyDetail ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('tablePageNoRecordsForModule', { module: String(kept.module), motion: String(kept.motion) })}
       body={m('tablePageOtherMotionsOfThisModuleAreOne')} />
-      : <PlatformDataTable<HwTimeTableRow>
+      : <PlatformDataTable<HwTimeTableRow> fill
         title={m('tablePageHwTimeTable')} ariaLabel={m('tablePageHwTimeOperationTimeTable')}
         subtitle={level === 2 ? undefined : (m('tablePageUseTheArrowBesideAValueTo'))}
         columns={columns} getRowId={row => row.id} filterKey={JSON.stringify(queryDrill)} preferenceKey={`hw-time-table:columns:v1:L${level + 1}`}
@@ -170,14 +177,14 @@ export default function TablePage(_props: PageProps) {
         exportContext={hwTime.exportRows.context}
       />;
 
-  return <PlatformPage layout="fill">
-    <HwTimeViewFrame><DrillLayout fill summary={summary}>
+  return <>
+    {summary && <p className="t-caption text-text-secondary">{summary}</p>}
       {levelFailure && <QueryView query={levelQ} widgetName={m('tablePageLevelSummary')} compact>{() => null}</QueryView>}
       {focusKeys.invalid ? <PageKeyWarning sentences={focusKeys.sentences} onRecover={focusKeys.recover} /> : <>
         {focus !== null && response !== null && !focusRow && <div role="status" className="text-sm"><p>{m('tablePageRowNotInThisLevel')}</p><Button variant="secondary" size="sm" onClick={closeDrawer}>{m('tablePageClearRowSelection')}</Button></div>}
         {table}
       </>}
-    </DrillLayout></HwTimeViewFrame>
+    
     {detailPending && <DetailDrawer key={focus} title={<span className="t-mono">{rowIdLabel(focus)}</span>} subtitle={m('tablePageRowDetailsSyntheticData')}
       onClose={closeDrawer}
       tabs={[{ id: 'summary', label: m('tablePageBreakdown'), content: <QueryView query={levelQ} widgetName={m('tablePageRowDetails')} compact>{() => null}</QueryView> }]} />}
@@ -196,5 +203,5 @@ export default function TablePage(_props: PageProps) {
             description={trendCaption(drill.depth, lang === 'ko')} /></div>
         </div>,
       }]} />}
-  </PlatformPage>;
+  </>;
 }

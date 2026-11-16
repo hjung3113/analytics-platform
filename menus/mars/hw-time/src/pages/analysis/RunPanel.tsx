@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { AnalysisChart, AnalysisChartFrame, FilterLine, type ChartPoint, type ScatterSpec } from '@ap/components';
 import type { ColumnFilter } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
 import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation, type HwTimeRuns } from '../../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import { formatSeconds } from '../../shared/format';
@@ -12,9 +12,10 @@ import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatter
 import { shapeRunTrend } from './runTrendData';
 
 const DEFAULT_SETTINGS: RunScatterSettings = { axis: 'equipment-module', color: 'equipment', value: 'motion' };
-const SCATTER_HEIGHT = 360;
+/** Lowest plot height before the panel body scrolls (px). */
+const RUN_FILL_MIN = 200;
 function Setting<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (next: T) => void }) {
-  return <label className="flex items-center gap-2 text-sm"><span>{label}</span>
+  return <label className="flex items-center gap-2 text-sm"><span className="whitespace-nowrap">{label}</span>
     <Select value={value} onValueChange={next => { const option = options.find(option => option.id === next); if (option) onChange(option.id); }}>
       <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
       <SelectContent>{options.map(option => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent>
@@ -23,10 +24,9 @@ function Setting<T extends string>({ label, value, options, onChange }: { label:
 }
 
 /** Keyed by query generation at the caller: state is local to one authorised population, never persisted or written to the URL. */
-export function RunPanel({ data, moduleId, motionId, motions, judgement }: { data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement }) {
+export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }: { kind: 'scatter' | 'trend'; data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
-  const [tab, setTab] = useState('distribution');
   const [settings, setSettings] = useState<RunScatterSettings>(DEFAULT_SETTINGS);
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const equipment = useMemo(() => [...new Set([...data.points, ...data.daily].map(point => point.equipmentId))], [data]);
@@ -51,7 +51,7 @@ export function RunPanel({ data, moduleId, motionId, motions, judgement }: { dat
   const axisLabel = settings.axis === 'equipment-module' ? m('equipmentModule') : settings.axis === 'equipment' ? m('equipment') : m('modules');
   // Out-of-bound points only carry a status (same rule as the bar pieces): a neutral `판정 불가` on every point would drown the emphasis.
   const scatter: ScatterSpec = {
-    kind: 'scatter', xUnit: '', xLabel: axisLabel, yLabel: settings.value === 'motion' ? m('motionTime') : m('moduleTime'),
+    kind: 'scatter', density: 'quiet', xUnit: '', xLabel: axisLabel, yLabel: settings.value === 'motion' ? m('motionTime') : m('moduleTime'),
     groups: projected.scatter.groups,
     points: projected.scatter.points.map(point => ({ id: point.id, x: null, y: point.y, group: point.group, category: point.category,
       ...(point.status && point.status.tone !== 'neutral' ? { status: point.status } : {}) })),
@@ -62,15 +62,13 @@ export function RunPanel({ data, moduleId, motionId, motions, judgement }: { dat
     return (point: ChartPoint) => { const status = of(point); return status?.tone === 'neutral' ? undefined : status; };
   }, [projected.trend.pointStatusOf]);
   const change = <K extends keyof RunScatterSettings>(key: K, value: RunScatterSettings[K]) => setSettings(current => ({ ...current, [key]: value }));
-  return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid="hw-overview-runs" className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface-card p-3">
-    <h3 className="t-card-title">{m('runs', { module: moduleId, motion: motionId })}</h3>
-    {judgement && <div><StatusBadge tone={htmStatusView(judgement, lang)?.tone ?? 'success'}>{htmStatusText(judgement, lang)}</StatusBadge></div>}
-    <Tabs value={tab} onValueChange={setTab}>
-      <TabsList aria-label={m('runs', { module: moduleId, motion: motionId })}>
-        <TabsTrigger value="distribution">{m('distribution')}</TabsTrigger><TabsTrigger value="trend">{m('trend')}</TabsTrigger>
-      </TabsList>
-      <div className="my-3 flex flex-wrap gap-3">
-        {tab === 'distribution' && <Setting label={m('axis')} value={settings.axis} onChange={next => change('axis', next)} options={[
+  return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <h3 className="t-card-title">{m('runs', { module: moduleId, motion: motionId })}</h3>
+      {judgement && <StatusBadge tone={htmStatusView(judgement, lang)?.tone ?? 'success'}>{htmStatusText(judgement, lang)}</StatusBadge>}
+    </div>
+      <div className="flex flex-wrap items-center gap-3">
+        {kind === 'scatter' && <Setting label={m('axis')} value={settings.axis} onChange={next => change('axis', next)} options={[
           { id: 'equipment-module', label: m('equipmentModule') }, { id: 'equipment', label: m('equipment') }, { id: 'module', label: m('modules') },
         ]} />}
         <Setting label={m('color')} value={settings.color} onChange={next => change('color', next)} options={[
@@ -84,17 +82,16 @@ export function RunPanel({ data, moduleId, motionId, motions, judgement }: { dat
       {!projected.sampled.validation.ok && <p role="alert">{m('invalidPanelFilters')}</p>}
       <p className="t-caption text-text-secondary">{m('runReady', { points: String(projected.scatter.points.length), daily: String(projected.trend.series.reduce((count, series) => count + series.points.length, 0)) })}</p>
       {settings.value === 'module' && <p className="t-caption text-text-secondary">{m('moduleStatusNote')}</p>}
-      <TabsContent value="distribution" className="flex flex-col gap-2">
+      {kind === 'scatter' && <div className="flex min-h-0 flex-1 flex-col gap-2">
         <p className="t-caption text-text-secondary">{m('sample', { shown: String(data.shown), total: String(data.total) })}</p>
         {projected.scatter.boundConflicts.length > 0 && <p className="t-caption text-text-secondary">{m('boundConflict')}</p>}
-        <AnalysisChart chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} height={SCATTER_HEIGHT} />
-      </TabsContent>
-      <TabsContent value="trend" className="flex flex-col gap-2">
+        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
+      </div>}
+      {kind === 'trend' && <div className="flex min-h-0 flex-1 flex-col gap-2">
         <p className="t-caption text-text-secondary">{m('trendBandPolicy')}</p>
-        <AnalysisChartFrame chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="time"
-          unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} height={SCATTER_HEIGHT} emphasisFocus="none"
-          canApplyRange={false} pointStatus={trendStatusOf} bounds={projected.trend.bounds} boundLabels={projected.trend.boundLabels} />
-      </TabsContent>
-    </Tabs>
+        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChartFrame chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="time"
+          unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN} emphasisFocus="none"
+          canApplyRange={false} pointStatus={trendStatusOf} bounds={projected.trend.bounds} boundLabels={projected.trend.boundLabels} /></div>
+      </div>}
   </section>;
 }

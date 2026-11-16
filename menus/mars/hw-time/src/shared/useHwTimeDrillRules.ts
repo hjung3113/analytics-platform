@@ -4,7 +4,7 @@ import { HW_TIME_MODULE_TYPES } from '../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES } from '../messages';
 import { useHwTimeFilterContext } from './HwTimeFilterContext';
 
-/** One catalog-aware rule set for the four Views, including standalone legacy panes. Raw values survive until explicit recovery. */
+/** One catalog-aware rule set for the linked screen, including legacy panes. Raw values survive until explicit recovery. */
 export function useHwTimeDrillRules(extra: readonly PageKeyRule[] = []) {
   const { pageParam } = usePlatform();
   const filter = useHwTimeFilterContext();

@@ -4,13 +4,13 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { groupId, menuPermission, spaceId, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
+import { PlatformPage } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { manifests } from '../../index';
 import { useHwTimeFilter } from '../../shared/useHwTimeFilter';
 import { HwTimeFilterContext } from '../../shared/HwTimeFilterContext';
-import TablePage from './TablePage';
-import { HW_TIME_CARRY_SET } from '../../test-support';
-const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET], permissions: [menuPermission('analytics:view')],
+import TablePage from './RawTablePanel';
+const registry = createRegistry({  permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, description: { ko: '분석', en: 'Analysis' }, homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: 'HW Time', en: 'HW Time' }, icon: manifests[0].icon, space: spaceId('mars') }], menus: manifests });
 const session = testSession(['analytics:view', 'platform:view']);
@@ -26,7 +26,7 @@ let restoreGeometry: (() => void) | undefined;
 afterEach(() => { cleanup(); restoreGeometry?.(); vi.unstubAllGlobals(); });
 function FilteredTable() {
   const filter = useHwTimeFilter();
-  return <HwTimeFilterContext value={filter}><TablePage params={{}} /></HwTimeFilterContext>;
+  return <HwTimeFilterContext value={filter}><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage></HwTimeFilterContext>;
 }
 it('uses the checked type columns, recomputes the total, and displays the worst visible server judgement', async () => {
   restoreGeometry = stubCompactTableGeometry();

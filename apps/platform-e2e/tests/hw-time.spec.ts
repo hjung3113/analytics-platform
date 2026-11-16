@@ -1,421 +1,146 @@
 import { expect, test, type Page } from '@playwright/test';
-import { evidence, expectScopeValid, fitWorkspace, nextFrames, query, setScenario, signInAs } from './support';
+import { evidence, expectScopeValid, query, signInAs } from './support';
 
-/**
- * HW Time (#690, node 690m): the 단계별·비교·표 Views share one drill contract (06 §12.7) and one workspace/board contract (§12.8).
- * One spec, parameterised by View: L1 → L2 → L3, Back, reload at L3, and the board pane at the same drill path. The 개요 View (#2329)
- * drills bar → Motion table → runs and has its own describe below.
- * Mount and re-read assertions stay in the SDK tests; this only observes roles, names and the URL.
- */
-type Entry = 'table' | 'chart';
-const MENUS: { id: string; label: string; path: string; entry: Entry }[] = [
-  { id: 'steps', label: 'HW Time 단계별', path: '/mars/hw-time?view=steps', entry: 'chart' },
-  { id: 'compare', label: 'HW Time 비교', path: '/mars/hw-time?view=compare', entry: 'chart' },
-  { id: 'table', label: 'HW Time 표', path: '/mars/hw-time?view=table', entry: 'table' },
-];
-const MODULE = 'PM1';
-const MOTION = 'Chuck';
+const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
+const workspace = (page: Page) => page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
+const panel = (page: Page, id: string) => workspace(page).locator(`[data-dock-panel="${id}"]`);
 
-/** The menu's own visible entry: a `<값> 들어가기` row action in the table, the chart's point picker + `선택 지점 실행` in the chart menus. */
-async function enter(page: Page, entry: Entry, value: string, chartName?: string) {
-  if (entry === 'table') {
-    await page.getByRole('button', { name: `${value} 들어가기` }).first().click();
-    return;
-  }
-  const chart = chartName ? page.getByRole('region', { name: chartName }) : page;
-  const picker = chart.getByRole('combobox', { name: '차트 지점 선택' });
-  await expect(picker).toBeEnabled();
-  const option = picker.locator('option').filter({ hasText: ` · ${value} · ` }).first();
+async function enterBar(page: Page, row: string) {
+  const bars = panel(page, 'bars');
+  const picker = bars.getByRole('combobox', { name: '차트 지점 선택' });
+  const option = picker.locator('option').filter({ hasText: row }).first();
   await picker.selectOption({ value: (await option.getAttribute('value'))! });
-  await chart.getByRole('button', { name: '선택 지점 실행' }).click();
+  await bars.getByRole('button', { name: '선택 지점 실행' }).click();
 }
 
-const drillPath = (page: Page) => page.getByRole('navigation', { name: '드릴 경로' });
-
-test.describe('HW Time View 4종 — 드릴 · 작업 영역 · 보드 (06 §12.7 드릴 · §12.8)', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await signInAs(page, 'engineer');
+/** Find a painted heatmap cell, excluding grey axes and text, then click its interior. No engine instance access. */
+async function clickHeatmap(page: Page) {
+  const canvas = panel(page, 'heatmap').locator('canvas').first();
+  await expect(canvas).toBeVisible();
+  const paintedCell = () => canvas.evaluate(element => {
+    const c = element as HTMLCanvasElement;
+    const pixels = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    for (let y = 16; y < c.height - 16; y += 3) {
+      let start = -1;
+      for (let x = 16; x < c.width - 16; x++) {
+        const i = (y * c.width + x) * 4;
+        const coloured = pixels[i + 2]! > 160 && pixels[i]! > 100 && pixels[i + 2]! - pixels[i]! > 8;
+        if (coloured && start < 0) start = x;
+        if (!coloured && start >= 0) {
+          if (x - start > 20) return { x: (start + x) / 2 / c.width, y: y / c.height };
+          start = -1;
+        }
+      }
+    }
+    return null;
   });
+  await expect.poll(paintedCell).not.toBeNull();
+  const point = (await paintedCell())!;
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * point.x, y: box.height * point.y } });
+}
 
-  for (const menu of MENUS) {
-    test(`${menu.label}: L1 → L3, Back, 새로고침, 분석 보드 칸`, async ({ page }, testInfo) => {
-      await page.goto(`${menu.path}&v=1&scopeId=MEM`);
+test.describe('HW Time linked panels — drill, filters and legacy compatibility', () => {
+  test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
+
+  for (const viewport of [{ width: 1600, height: 1000 }, { width: 1280, height: 800 }]) {
+    test(`${viewport.width}: heatmap click → active bar → Module → Motion → distribution and trend`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await page.goto(SCREEN);
       await expectScopeValid(page, 'MEM · 메모리');
-      await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
-      expect(query(page).get('view')).toBe(menu.id);
-      expect(query(page).has('drillModule')).toBe(false);
-
-      await enter(page, menu.entry, MODULE, menu.id === 'compare' ? 'Module별 동작시간' : undefined);
-      await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
-      expect(query(page).has('drillMotion')).toBe(false);
-      await expect(drillPath(page)).toContainText(MODULE);
-
-      await enter(page, menu.entry, MOTION, menu.id === 'compare' ? `Module ${MODULE} · Motion별 동작시간` : undefined);
-      await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
-      if (menu.id === 'compare') await expect(page.getByRole('region', { name: 'Module별 동작시간' })).toBeVisible();
-      expect(query(page).get('drillModule')).toBe(MODULE);
-      await expect(drillPath(page)).toContainText(MOTION);
-      await evidence(page, testInfo, `${menu.id}-l3`);
-
-      await page.goBack();
-      await expect.poll(() => query(page).has('drillMotion')).toBe(false);
-      expect(query(page).get('drillModule')).toBe(MODULE);
-      await expect(drillPath(page)).not.toContainText(MOTION);
-      await page.goForward();
-      await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
-
+      for (const id of ['filter', 'heatmap', 'bars', 'motions', 'scatter', 'trend', 'table']) await expect(panel(page, id)).toBeVisible();
+      await expect(page.getByRole('tab', { name: /^(개요|단계별|비교|표|누적|동작별 정렬)$/ })).toHaveCount(0);
+      await clickHeatmap(page);
+      await expect.poll(() => query(page).get('row')).toMatch(/^EQ-\d{3} · PM\d$/);
+      const row = query(page).get('row')!;
+      await expect(panel(page, 'bars').locator('[role="status"]').filter({ hasText: row })).toBeVisible();
+      await enterBar(page, row);
+      const moduleId = row.split(' · ')[1]!;
+      await expect.poll(() => query(page).get('drillModule')).toBe(moduleId);
+      await expect(panel(page, 'motions').getByRole('table', { name: `${moduleId} · Motion` })).toBeVisible();
+      await panel(page, 'motions').getByRole('button', { name: 'Chuck 회차 보기', exact: true }).click();
+      await expect.poll(() => query(page).get('drillMotion')).toBe('Chuck');
+      await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
+      await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+      await expect(panel(page, 'scatter')).toContainText('표본 400 / 전체 576 · 기준 밖 점 전부 포함');
+      await evidence(page, testInfo, `hw-linked-${viewport.width}`);
       await page.reload();
-      await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
-      expect(query(page).get('drillModule')).toBe(MODULE);
-      expect(query(page).get('drillMotion')).toBe(MOTION);
-      await expect(drillPath(page)).toContainText(MOTION);
-
-      const more = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-      await more.getByRole('button', { name: '더보기', exact: true }).click();
-      await page.getByRole('group', { name: '기타 페이지 동작' }).getByRole('button', { name: '분석 보드에 열기…' }).click();
-      const dialog = page.getByRole('dialog', { name: '분석 보드에 열기' });
-      await dialog.getByRole('radio', { name: '새 시트' }).click();
-      await dialog.getByRole('button', { name: '열기' }).click();
-      await expect.poll(() => new URL(page.url()).pathname).toBe('/board');
-      const pane = page.getByRole('group', { name: '칸 1' });
-      await expect(page.getByRole('tab', { name: '칸 1 · HW Time' })).toHaveAttribute('aria-selected', 'true');
-      await expect(pane.getByRole('navigation', { name: '드릴 경로' })).toContainText(MOTION);
-      await expect(pane.getByRole('navigation', { name: '드릴 경로' })).toContainText(MODULE);
-      await evidence(page, testInfo, `${menu.id}-board-pane`);
+      expect(query(page).get('row')).toBe(row);
+      await expect(panel(page, 'motions').getByRole('table', { name: `${moduleId} · Motion` })).toBeVisible();
+      await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
+      await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+      await expect.poll(() => page.locator('main').evaluate(main => main.scrollWidth - main.clientWidth)).toBeLessThanOrEqual(1);
     });
   }
 
-  for (const menu of MENUS.filter(item => item.entry === 'chart')) {
-    test(`${menu.label}: L1 합계 라벨, 범례 트리 Enter로 L2, 현재 노드 aria-current`, async ({ page }) => {
-      await page.goto(`${menu.path}&v=1&scopeId=MEM`);
-      await expectScopeValid(page, 'MEM · 메모리');
-      // The Frame's accessible table carries the 합계 column only when the chart draws totals (valueLabels, additive seconds).
-      // The first chart Frame (its toolbar has 구간 선택); the page head has its own 더보기.
-      const chart = page.getByRole('main').locator('section').filter({ has: page.getByRole('button', { name: '구간 선택' }) }).first();
-      const more = chart.getByRole('button', { name: '더보기', exact: true });
-      await more.click();
-      await page.getByRole('button', { name: '같은 데이터를 표로 보기' }).click();
-      await expect(page.getByRole('columnheader', { name: '합계', exact: true }).first()).toBeVisible();
-      // The 더보기 popover stays open with the toggled item; close it and wait, or it takes focus back from the tree and swallows Enter.
-      const hideTable = page.getByRole('button', { name: '데이터 표 숨기기' });
-      await expect(hideTable).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(hideTable).toBeHidden();
-      // Closing returns focus to the trigger a moment later; focusing the tree before that lets it land after and Enter reopens the popover.
-      await expect(more).toBeFocused();
-      const tree = page.getByRole('tree', { name: '계층 범례' });
-      // The compare Inspector is a rail: its legend opens from its button.
-      if (menu.id === 'compare') await page.getByRole('button', { name: '계층 범례' }).click();
-      const moduleItem = tree.getByRole('treeitem', { name: new RegExp(MODULE) });
-      await moduleItem.focus();
-      // Every row is a drill target at its level: the trailing button names the target and the row announces Enter.
-      await expect(moduleItem.getByRole('button', { name: `${MODULE} 단계로 이동` })).toBeVisible();
-      const describedBy = await moduleItem.getAttribute('aria-describedby');
-      await expect(page.locator(`[id="${describedBy!.split(' ')[0]}"]`)).toHaveText('Enter: 이 단계로 이동');
-      await page.keyboard.press('Enter');
-      await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
-      expect(query(page).has('drillMotion')).toBe(false);
-      if (menu.id === 'compare') await page.getByRole('button', { name: '계층 범례' }).click();
-      await tree.getByRole('treeitem', { name: new RegExp(MOTION) }).focus();
-      await page.keyboard.press('Enter');
-      await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
-      // Drilling navigates, which closes the compare rail's peek; reopen it to read the tree.
-      if (menu.id === 'compare' && !(await tree.count())) await page.getByRole('button', { name: '계층 범례' }).click();
-      await expect(tree.getByRole('treeitem', { name: new RegExp(MOTION) })).toHaveAttribute('aria-current', 'true');
-    });
-  }
-
-  test('HW Time 단계별: 잘못된 sort는 보정하지 않고 경고 — 초기화하면 차트가 돌아온다 (06 §6)', async ({ page }) => {
-    await page.goto('/mars/hw-time?view=steps&v=1&scopeId=MEM&sort=bogus');
-    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
-    const warning = page.getByText('필터 값이 올바르지 않습니다');
-    await expect(warning).toBeVisible();
-    await expect(page.getByText(/정렬 “bogus”/)).toBeVisible();
-    await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toHaveCount(0);
-    await page.getByRole('alert').getByRole('button', { name: '초기화' }).click();
-    await expect.poll(() => query(page).has('sort')).toBe(false);
-    await expect(warning).toBeHidden();
-    await expect(page.getByRole('combobox', { name: '차트 지점 선택' })).toBeEnabled();
-  });
-});
-
-/** Approved B observes real layout/paint. No SDK or engine-instance imports. */
-test.describe('HW Time 개요 — 필터 패널 · 히트맵 · 막대 · Motion 표 · 회차 (#2329, #2336 §2.3)', () => {
-  const OVERVIEW = '/mars/hw-time?view=overview&v=1&scopeId=MEM';
-  test.beforeEach(async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await signInAs(page, 'engineer');
+  test('heatmap keyboard selection summary and Details both update the linked row', async ({ page }) => {
+    await page.goto(SCREEN);
+    const heatmap = panel(page, 'heatmap');
+    await heatmap.getByRole('button', { name: '표로 보기', exact: true }).click();
+    const cell = heatmap.getByRole('checkbox', { name: /EQ-001 · PM1/ });
+    await cell.focus();
+    await page.keyboard.press('Space');
+    const activate = heatmap.getByRole('button', { name: '선택 지점 실행', exact: true });
+    await activate.focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => query(page).get('row')).toBe('EQ-001 · PM1');
+    const otherRow = heatmap.getByRole('row').filter({ has: page.getByRole('cell', { name: 'EQ-001', exact: true }) }).filter({ has: page.getByRole('cell', { name: 'PM2', exact: true }) });
+    await otherRow.getByRole('button', { name: '상세', exact: true }).click();
+    expect(query(page).get('row')).toBe('EQ-001 · PM2');
   });
 
-  test('막대 Module → Motion 표 → 회차, Back, 새로고침, 분석 보드 칸', async ({ page }, testInfo) => {
-    await page.goto(OVERVIEW);
-    await expectScopeValid(page, 'MEM · 메모리');
-    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
-    await expect(page.getByRole('region', { name: '설비 × Module' })).toBeVisible();
-    await expect(page.getByRole('radio', { name: '누적' })).toBeChecked();
-
-    await enter(page, 'chart', MODULE, 'Module별 Motion 구성');
-    await expect.poll(() => query(page).get('drillModule')).toBe(MODULE);
-    expect(query(page).has('drillMotion')).toBe(false);
-    await expect(page.getByRole('table', { name: `${MODULE} · Motion` })).toBeVisible();
-
-    await page.getByRole('button', { name: `${MOTION} 회차 보기`, exact: true }).click();
-    await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
-    const runs = page.getByRole('region', { name: `${MODULE} · ${MOTION} 회차` });
-    await expect(runs).toBeVisible();
-    await expect(runs.getByRole('tab', { name: '분포' })).toBeVisible();
-    await evidence(page, testInfo, 'overview-runs');
-
-    await page.goBack();
-    await expect.poll(() => query(page).has('drillMotion')).toBe(false);
-    expect(query(page).get('drillModule')).toBe(MODULE);
-    await expect(runs).toBeHidden();
-    await page.goForward();
-    await expect.poll(() => query(page).get('drillMotion')).toBe(MOTION);
-
-    await page.reload();
-    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText('HW Time');
-    await expect(runs).toBeVisible();
-
-    const more = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-    await more.getByRole('button', { name: '더보기', exact: true }).click();
-    await page.getByRole('group', { name: '기타 페이지 동작' }).getByRole('button', { name: '분석 보드에 열기…' }).click();
-    const dialog = page.getByRole('dialog', { name: '분석 보드에 열기' });
-    await dialog.getByRole('radio', { name: '새 시트' }).click();
-    await dialog.getByRole('button', { name: '열기' }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe('/board');
-    const pane = page.getByRole('group', { name: '칸 1' });
-    await expect(page.getByRole('tab', { name: '칸 1 · HW Time' })).toHaveAttribute('aria-selected', 'true');
-    await expect(pane.getByRole('region', { name: `${MODULE} · ${MOTION} 회차` })).toBeVisible();
-    await evidence(page, testInfo, 'overview-board-pane');
-  });
-
-  test('Module·Motion 체크: 주소창 밖에 두고 새로고침·View 전환에 유지, 모두 해제면 «선택한 항목 없음»', async ({ page }) => {
-    await page.goto(OVERVIEW);
-    await expectScopeValid(page, 'MEM · 메모리');
-    const panel = page.getByTestId('hw-time-filter-panel');
-    const dechuck = panel.getByRole('tree', { name: 'Motion' }).getByRole('checkbox', { name: /Dechuck/ });
-    await expect(dechuck).toHaveAttribute('aria-checked', 'true');
+  test('checks remain hidden URL state, persist on reload and do not refetch any endpoint (C1/C3)', async ({ page }) => {
+    await page.goto(`${SCREEN}&drillModule=PM1&drillMotion=Chuck`);
+    await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
+    await expect(panel(page, 'table').getByRole('table', { name: 'HW Time 동작시간 표' })).toBeVisible();
+    const requests = () => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query').length);
+    await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0);
+    const before = await requests();
+    const checks = panel(page, 'filter').getByRole('tree', { name: 'Motion' });
+    const dechuck = checks.getByRole('checkbox', { name: /Dechuck/ });
     await dechuck.click();
     await expect(dechuck).toHaveAttribute('aria-checked', 'false');
     expect(query(page).has('motion')).toBe(false);
+    expect(await requests()).toBe(before);
     await page.reload();
     await expect(dechuck).toHaveAttribute('aria-checked', 'false');
-    await page.getByRole('tab', { name: '단계별' }).click();
-    await expect.poll(() => query(page).get('view')).toBe('steps');
-    // 단계별 starts with the panel folded; the toggle in the tabs row counts the unchecked items.
-    const toggle = page.getByRole('button', { name: /필터 펼치기/ });
-    await expect(toggle).toContainText('1개 해제');
-    await expect(panel).toBeHidden();
-    await toggle.click();
-    await expect(dechuck).toHaveAttribute('aria-checked', 'false');
-
-    const modules = panel.getByRole('tree', { name: 'Module' });
+    const modules = panel(page, 'filter').getByRole('tree', { name: 'Module' });
     for (const id of ['PM1', 'PM2', 'PM3', 'PM4']) await modules.getByRole('checkbox', { name: new RegExp(id) }).click();
-    await expect(page.getByText('선택한 항목 없음')).toBeVisible();
-    expect(query(page).has('module')).toBe(false);
+    await expect(page.getByText('선택한 항목 없음', { exact: true })).toBeVisible();
+    await modules.getByRole('checkbox', { name: /PM1/ }).click();
+    await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
   });
-});
 
-test.describe('approved analysis B (06 §12.7·§12.8, #1141)', () => {
-  test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
-
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
-    // The slow variant holds every reply for 2.2 s, so the drill → Back refresh really is in flight (#1365 keepPrevious): it reproduces the race the normal run only hits under CI load.
-    for (const slow of viewport.width === 1440 ? [false, true] : [false]) test(`compact geometry and undimmed bar drill/back at ${viewport.width}${slow ? ' (느린 응답)' : ''}`, async ({ page }, testInfo) => {
-      if (slow) test.slow();
-      await page.setViewportSize(viewport);
-      for (const menu of MENUS) {
-        await page.goto(`${menu.path}&v=1&scopeId=MEM`);
-        await expectScopeValid(page, 'MEM · 메모리');
-        const content = page.locator('[data-platform-page-content]');
-        await expect(content).toHaveCSS('padding-left', '16px');
-        await expect(content).toHaveCSS('padding-right', '16px');
-        await expect(content).toHaveCSS('padding-top', '12px');
-        await expect(content).toHaveCSS('padding-bottom', '16px');
-        if (menu.entry === 'table') {
-          const table = page.getByRole('table', { name: 'HW Time 동작시간 표' });
-          await expect(table.getByRole('cell').first()).toBeVisible();
-          // The existing cell contract is a 32px minimum; the action plus its border can make a row 33px.
-          await expect(table.getByRole('cell').first()).toHaveCSS('min-height', '32px');
-          await expect(table.getByRole('row').nth(1)).toHaveCSS('height', '33px');
-        }
-      }
-      await page.goto('/mars/hw-time?view=steps&v=1&scopeId=MEM');
-      if (slow) await setScenario(page, '느린 응답 (+2.2s)');
-      const chart = page.getByRole('region', { name: 'Module별 동작시간', exact: true });
-      const canvas = chart.locator('canvas').first();
-      await expect(canvas).toBeVisible();
-      // Locate two differently colored bar segments from rendered pixels, rather than guessing plot coordinates.
-      const samples = async () => canvas.evaluate(element => {
-        const c = element as HTMLCanvasElement;
-        const ctx = c.getContext('2d')!;
-        const image = ctx.getImageData(0, 0, c.width, c.height);
-        let hovered: { x: number; y: number; color: number[] } | undefined;
-        for (let y = 0; y < c.height; y += 2) {
-          const runs: { x: number; y: number; color: number[] }[] = [];
-          let start = 0; let last = '';
-          for (let x = 0; x <= c.width; x++) {
-            const rgba = Array.from(image.data.slice((y * c.width + x) * 4, (y * c.width + x) * 4 + 4));
-            const key = rgba.join(',');
-            if (key !== last) {
-              if (x - start > 12) {
-                const color = last.split(',').map(Number);
-                if (color[3] === 255 && Math.max(...color.slice(0, 3)) - Math.min(...color.slice(0, 3)) > 30) runs.push({ x: Math.floor((x + start) / 2), y, color });
-              }
-              start = x; last = key;
-            }
-          }
-          // Sample inside a solid bar, clear of its antialiased top/bottom hit boundary.
-          const interiors = runs.filter(run => [-4, 4].every(dy => {
-            const offset = ((y + dy) * c.width + run.x) * 4;
-            return y + dy >= 0 && y + dy < c.height && Array.from(image.data.slice(offset, offset + 4)).join() === run.color.join();
-          }));
-          if (!hovered && interiors.length > 1) hovered = interiors[0];
-          // Axis tooltips emphasize every segment in the hovered category. Observe a different series in another row.
-          if (hovered && y > hovered.y + 20) {
-            const other = interiors.find(run => run.color.join() !== hovered!.color.join());
-            if (other) return [hovered, other];
-          }
-        }
-        return [];
-      });
-      await expect.poll(async () => (await samples()).length).toBe(2);
-      const [hovered, other] = await samples();
-      const box = (await canvas.boundingBox())!;
-      const native = await canvas.evaluate(c => ({ width: (c as HTMLCanvasElement).width, height: (c as HTMLCanvasElement).height }));
-      await page.mouse.move(box.x + hovered!.x * box.width / native.width, box.y + hovered!.y * box.height / native.height);
-      await expect(chart.locator('[style*="position: absolute"]').filter({ hasText: 'PM1' }).last()).toBeVisible();
-      await canvas.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-      const untouched = () => canvas.evaluate((c, point) => Array.from((c as HTMLCanvasElement).getContext('2d')!.getImageData(point.x, point.y, 1, 1).data), other!);
-      await expect.poll(untouched).toEqual(other!.color);
-      await evidence(page, testInfo, `gentle-hover-${viewport.width}`);
-      await page.mouse.click(box.x + hovered!.x * box.width / native.width, box.y + hovered!.y * box.height / native.height);
-      await expect.poll(() => query(page).has('drillModule')).toBe(true);
-      await expect(drillPath(page)).toBeVisible();
-      await page.goBack();
-      await expect.poll(() => query(page).has('drillModule')).toBe(false);
-      await expect(chart.locator('canvas').first()).toBeVisible();
-      // Back re-requests the undrilled result while the drilled one stays drawn under the 「이전 선택의 결과 · 갱신 중」 line (#1365 keepPrevious).
-      // Measure only after the new result is drawn: the line is gone and nothing is busy, otherwise the chart repaints (and moves 24 px) between the sample and the hover.
-      await expect(page.locator('main [role="status"][aria-label="이전 선택의 결과 · 갱신 중"]')).toHaveCount(0, { timeout: 15_000 });
-      await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0, { timeout: 15_000 });
-      // Re-check the restored chart's actual paint under hover, rather than relying on its original option.
-      await expect.poll(async () => (await samples()).length).toBe(2);
-      const [restoredHover, restoredOther] = await samples();
-      const restoredBox = (await canvas.boundingBox())!;
-      await page.mouse.move(restoredBox.x + restoredHover!.x * restoredBox.width / native.width, restoredBox.y + restoredHover!.y * restoredBox.height / native.height);
-      await expect(chart.locator('[style*="position: absolute"]').filter({ hasText: 'PM1' }).last()).toBeVisible();
-      await expect.poll(() => canvas.evaluate((c, point) => Array.from((c as HTMLCanvasElement).getContext('2d')!.getImageData(point.x, point.y, 1, 1).data), restoredOther!)).toEqual(restoredOther!.color);
+  test('saved legacy board tile renders linked panels and keeps its board identity', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.addInitScript(() => {
+      const marker = 'hw-time-legacy-seeded';
+      if (sessionStorage.getItem(marker)) return;
+      localStorage.setItem('platform:board-layout-engine', 'dock');
+      localStorage.setItem('platform:board:engineer', JSON.stringify({ v: 1, activeSheetId: 'hw-legacy', sheets: [{
+        id: 'hw-legacy', name: 'HW legacy', layout: '1x1', selected: 0, panes: [{ menuId: 'hw-time-steps', params: {},
+          query: '?v=1&scopeId=MEM&view=steps&drillModule=PM1&drillMotion=Chuck&row=EQ-001%20%C2%B7%20PM1' }],
+      }] }));
+      sessionStorage.setItem(marker, '1');
     });
+    await page.goto('/board?sheet=hw-legacy');
+    await expect(panel(page, 'filter').getByTestId('hw-time-filter-panel')).toBeVisible();
+    await expect(panel(page, 'motions').getByRole('table', { name: 'PM1 · Motion' })).toBeVisible();
+    await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/board');
+    await page.reload();
+    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/board');
+  });
 
-    test(`native center/edge previews, keyboard move/cancel and nested max/restore at ${viewport.width}`, async ({ page }, testInfo) => {
-      // This combined flow exceeds 30s on CI; keep every per-step assertion unchanged.
-      test.slow();
-      await page.setViewportSize(viewport);
-      await page.goto('/mars/hw-time?view=compare&v=1&scopeId=MEM&drillModule=PM1&drillMotion=Chuck');
-      const workspace = page.locator('[data-panel-workspace]');
-      await expect(workspace).toHaveCSS('row-gap', '6px');
-      await expect(workspace.locator('canvas')).not.toHaveCount(0);
-      // A fresh workspace starts stacked (ADR-0130); the drag geometry below is the fitted arrangement.
-      await fitWorkspace(page);
-      const summaryTab = page.getByRole('tab', { name: /^Module별/ });
-      const moduleTab = page.getByRole('tab', { name: /^Module PM1 구성/ });
-      const groups = workspace.locator('.dv-groupview');
-      await expect(groups).toHaveCount(3);
-      const target = groups.filter({ has: moduleTab });
-      const targetBox = (await target.boundingBox())!;
-      const sourceBox = (await summaryTab.boundingBox())!;
-      // Native HTML DnD needs dragover after dragenter, including after a target rerender.
-      // Match the existing board harness: keep moving over the target before releasing.
-      const hoverDropTarget = async (x: number, y: number) => {
-        await page.mouse.move(x, y, { steps: 12 });
-        for (let i = 0; i < 6; i++) {
-          await nextFrames(page);
-          await page.mouse.move(x + (i % 2 === 0 ? -2 : 2), y);
-        }
-      };
-      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
-      await page.mouse.down();
-      await hoverDropTarget(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
-      const center = page.locator('.ap-dock .dv-drop-target-selection.dv-drop-target-center, .ap-dock .dv-drop-target-anchor.dv-drop-target-center').filter({ visible: true });
-      await expect(center).toBeVisible();
-      await expect(center).toHaveCSS('border-top-width', '2px');
-      // Native overlay dimensions transition for 70ms; assert the final footprint without a fixed sleep.
-      await expect.poll(async () => Math.abs((await center.boundingBox())!.height - targetBox.height)).toBeLessThan(4);
-      await expect.poll(async () => Math.abs((await center.boundingBox())!.width - targetBox.width)).toBeLessThan(4);
-      await evidence(page, testInfo, `native-center-${viewport.width}`);
-      await page.keyboard.press('Escape');
-      await page.mouse.move(targetBox.x + targetBox.width / 2 + 2, targetBox.y + targetBox.height / 2);
-      await page.mouse.up();
-      await expect(groups).toHaveCount(3);
-      // Native Escape ends the drag without changing layout. The baseline also leaves a stale cue
-      // (backlog #1141); reload before the independent drop checks instead of claiming cue cleanup.
-      await page.reload();
-      await expect(groups).toHaveCount(3);
-      await expect(center).toBeHidden();
-      await expect(workspace.locator('canvas')).not.toHaveCount(0);
-      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
-      await page.mouse.down();
-      await hoverDropTarget(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
-      await expect(center).toBeVisible();
-      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2);
-      await page.mouse.up();
-      await expect(groups).toHaveCount(2);
-      await expect(groups.filter({ has: moduleTab }).getByRole('tab', { name: /^Module별/ })).toBeVisible();
-      // Split the merged tab to the right; the preview boundary must become the resulting split.
-      const merged = groups.filter({ has: moduleTab });
-      const mergedBox = (await merged.boundingBox())!;
-      const movedBox = (await summaryTab.boundingBox())!;
-      await page.mouse.move(movedBox.x + movedBox.width / 2, movedBox.y + movedBox.height / 2);
-      await page.mouse.down();
-      await hoverDropTarget(mergedBox.x + mergedBox.width - 10, mergedBox.y + mergedBox.height / 2);
-      const edge = page.locator('.ap-dock .dv-drop-target-selection.dv-drop-target-right, .ap-dock .dv-drop-target-anchor.dv-drop-target-right').filter({ visible: true });
-      await expect(edge).toBeVisible();
-      await expect(edge).toHaveCSS('border-left-width', '3px');
-      await expect.poll(async () => Math.abs((await edge.boundingBox())!.width / mergedBox.width - 0.5)).toBeLessThan(0.03);
-      const edgeBox = (await edge.boundingBox())!;
-      await evidence(page, testInfo, `native-edge-${viewport.width}`);
-      await page.mouse.move(mergedBox.x + mergedBox.width - 10, mergedBox.y + mergedBox.height / 2);
-      await page.mouse.up();
-      await expect(groups).toHaveCount(3);
-      await expect.poll(async () => Math.abs((await groups.filter({ has: summaryTab }).boundingBox())!.x - edgeBox.x)).toBeLessThan(10);
-      await summaryTab.focus();
-      await summaryTab.press('Shift+F10');
-      await expect(page.getByRole('menu')).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(summaryTab).toBeFocused();
-      await expect(groups).toHaveCount(3);
-      await summaryTab.press('Shift+F10');
-      const move = page.getByRole('menuitem', { name: /Module PM1 구성.*묶음으로 옮기기/ });
-      await move.focus(); await move.press('Enter');
-      await expect(groups).toHaveCount(2);
-      await expect(summaryTab).toBeFocused();
-      // Restore the declared three-group layout before the independent max/restore scenario.
-      // The preceding keyboard move intentionally produced two full-width stacked groups.
-      await workspace.getByRole('button', { name: '기본 배치', exact: true }).click();
-      await expect(groups).toHaveCount(3);
-      // Put this real consumer in a board, then maximize the outer pane and nested summary group.
-      const header = page.getByRole('main').locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-      await header.getByRole('button', { name: '더보기', exact: true }).click();
-      await page.getByRole('button', { name: '분석 보드에 열기…', exact: true }).click();
-      const dialog = page.getByRole('dialog', { name: '분석 보드에 열기' });
-      await dialog.getByRole('radio', { name: '새 시트' }).click();
-      await dialog.getByRole('button', { name: '열기', exact: true }).click();
-      await page.getByRole('button', { name: '칸 추가', exact: true }).click();
-      const pane = page.getByRole('group', { name: '칸 1', exact: true });
-      const plot = pane.getByRole('img', { name: /^Module별 동작시간/ });
-      await expect(plot).toBeVisible();
-      await page.getByRole('button', { name: '칸 1 최대화', exact: true }).click();
-      const innerMaximize = pane.locator('[data-panel-workspace] .dv-groupview').filter({ has: page.getByRole('tab', { name: /^Module별/ }) }).locator('[data-workspace-maximize]');
-      await innerMaximize.click();
-      await expect.poll(async () => (await plot.boundingBox())!.width).toBeGreaterThan(viewport.width * 0.6);
-      await evidence(page, testInfo, `nested-maximized-${viewport.width}`);
-      await innerMaximize.click();
-      await expect.poll(async () => (await plot.boundingBox())!.width).toBeLessThan(viewport.width * 0.6);
-      await page.getByRole('button', { name: '원래 크기로', exact: true }).first().click();
-      await expect(pane).toBeVisible();
+  for (const id of ['steps', 'compare', 'overview', 'table']) {
+    test(`legacy ${id} paths and obsolete view keys open the linked screen`, async ({ page }) => {
+      for (const path of [`/hw-time/${id}`, `/mars/hw-time-${id}`, '/mars/hw-time']) {
+        await page.goto(`${path}?v=1&scopeId=MEM&view=${id}&trend=ignored&minmax=ignored`);
+        await expect.poll(() => new URL(page.url()).pathname).toBe('/mars/hw-time');
+        await expect(panel(page, 'filter').getByTestId('hw-time-filter-panel')).toBeVisible();
+        await expect(panel(page, 'bars').getByRole('img', { name: /Module별 Motion 구성/ })).toBeVisible();
+      }
     });
   }
 });

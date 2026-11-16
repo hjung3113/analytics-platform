@@ -7,8 +7,7 @@ import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import { useHwTimeFilter } from './useHwTimeFilter';
-import { HW_TIME_CARRY_SET } from '../test-support';
-const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET], permissions: [menuPermission('analytics:view')],
+const registry = createRegistry({  permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, description: { ko: '분석', en: 'Analysis' }, homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: 'HW Time', en: 'HW Time' }, icon: manifests[0].icon, space: spaceId('mars') }], menus: manifests });
 const session = testSession(['analytics:view', 'platform:view']);

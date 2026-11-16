@@ -3,10 +3,9 @@ import { contextCapabilities, groupId, menuPermission, NO_FEATURES, spaceId, typ
 import { createRegistry, type GroupDef } from '@ap/kernel';
 import { manifests } from './index';
 import { HW_TIME_CONTEXT, hwTime } from './endpoints';
-import { HW_TIME_CARRY_SET } from './test-support';
 
 describe('manifest', () => {
-  it('declares one primary menu with four Views and hidden compatibility entries and passes createRegistry', () => {
+  it('declares one linked-panel menu and hidden compatibility entries and passes createRegistry', () => {
     expect(manifests).toHaveLength(5);
     const menu = manifests.find(menu => menu.id === 'hw-time')!;
     expect(menu.id).toBe('hw-time');
@@ -17,14 +16,21 @@ describe('manifest', () => {
     expect(menu.permission).toBe(menuPermission('analytics:view'));
     expect(menu.requiresScope).toBe(true);
     expect(menu.component).toBeDefined();
-    expect(menu.pageKeys).toEqual(expect.arrayContaining(['view', 'moduleType', 'module', 'motion', 'split', 'drillModule', 'drillMotion', 'trend', 'sort', 'align', 'minmax']));
-    expect(menu.navViews?.map(view => view.id)).toEqual(['overview', 'steps', 'compare', 'table']);
+    expect(menu.pageKeys).toEqual(expect.arrayContaining(['moduleType', 'module', 'motion', 'split', 'drillModule', 'drillMotion', 'row', 'sort', 'align', 'page', 'focus']));
+    expect(menu.navViews).toBeUndefined();
+    expect(menu.carrySet).toBeUndefined();
+    for (const entry of manifests) {
+      expect(entry.pageKeys).toEqual(menu.pageKeys);
+      expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['view']));
+      expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['trend']));
+      expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['minmax']));
+    }
     expect(manifests.filter(menu => menu.id !== 'hw-time').every(menu => menu.navHidden)).toBe(true);
-    expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'trend', 'row', 'page', 'focus']);
+    expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'row', 'page', 'focus']);
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['drillModule', 'drillMotion']);
     const spaces: SpaceDef[] = [{ id: spaceId('mars'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
     const groups: GroupDef[] = [{ id: groupId('hwTime'), label: { ko: 'g', en: 'g' }, icon: menu.icon, space: spaceId('mars') }];
-    const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET], spaces, groups, menus: manifests, permissions: [menuPermission('analytics:view')] });
+    const registry = createRegistry({  spaces, groups, menus: manifests, permissions: [menuPermission('analytics:view')] });
     expect(registry.menuById('hw-time-steps').path).toBe('/mars/hw-time-steps');
     expect(registry.menuById('hw-time-steps').aliases).toEqual(['/hw-time/steps']);
     expect(registry.spaceOf(menu)?.id).toBe('mars');

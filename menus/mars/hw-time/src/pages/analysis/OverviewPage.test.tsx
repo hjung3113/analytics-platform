@@ -10,7 +10,7 @@ beforeEach(() => { requests.length = 0; vi.stubGlobal('localStorage', memoryStor
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 const chart = (id: string) => JSON.parse(screen.getByTestId(id).textContent!);
 
-describe('HW Time overview View', () => {
+describe('HW Time linked workspace', () => {
   it('shows parallel Module/Motion check lists and sums checked Motion averages in both charts', async () => {
     await renderOverview();
     expect(screen.getByText('통계 미제공')).toBeTruthy();
@@ -28,11 +28,11 @@ describe('HW Time overview View', () => {
     expect(chart('hw-overview-bars').series[0].points).toHaveLength(2);
   });
 
-  it('passes heatmap row focus to the SDK bar scroll/highlight API without storing it in the URL', async () => {
+  it('persists heatmap activation as row and restores the linked bar focus', async () => {
     await renderOverview();
-    fireEvent.click(screen.getByRole('button', { name: 'focus EQ-002 PM2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'activate EQ-002 PM2' }));
     expect(chart('hw-overview-bars')).toMatchObject({ activeCategory: 'EQ-002 · PM2', revealActive: true, rowPitch: 28 });
-    expect(window.location.search).not.toContain('row=');
+    expect(new URLSearchParams(window.location.search).get('row')).toBe('EQ-002 · PM2');
     fireEvent.click(within(screen.getByRole('tree', { name: 'Module' })).getByRole('checkbox', { name: /PM2/ }));
     await waitFor(() => expect(chart('hw-overview-bars').activeCategory).toBeNull());
   });
@@ -62,7 +62,7 @@ describe('HW Time overview View', () => {
     expect(cells.filter(c => c.status).map(c => `${c.y} · ${c.x}:${c.status!.tone}`)).toEqual(['EQ-001 · PM1:danger']);
     // The heatmap mark and the bar marks read the same matrix cell: a marked cell is exactly a row with a marked bar piece.
     expect(new Set(bars.statuses.map((s: string) => s.split('@')[1]!.split(':')[0]))).toEqual(new Set(cells.filter(c => c.status).map(c => `${c.y} · ${c.x}`)));
-    expect(screen.getByText(/Recipe 미구분 — 판정 불가/)).toBeTruthy();
+    expect(screen.getAllByText(/Recipe 미구분 — 판정 불가/).length).toBeGreaterThan(0);
     // Colour starts at 0 so every cell is filled by its size; a min–max ramp turned the common value white.
     expect(chart('hw-overview-matrix').scale).toEqual({ type: 'sequential', domain: [0, Math.max(...cells.map(c => (c as unknown as { value: number }).value))] });
     expect(screen.queryByText(/HTM 강조는 준비 중/)).toBeNull();
@@ -74,29 +74,29 @@ describe('HW Time overview View', () => {
     expect(chart('hw-overview-bars').statuses).toEqual(['Dechuck@EQ-001 · PM1:warning']);
   });
 
-  it('switches between stacked totals and SDK Motion lanes locally while retaining status, focus and quiet emphasis', async () => {
+  it('switches the URL align option between stacked totals and SDK Motion lanes while retaining status, focus and quiet emphasis', async () => {
     await renderOverview();
-    const before = window.location.search;
     const series = chart('hw-overview-bars').series;
-    fireEvent.click(screen.getByRole('button', { name: 'focus EQ-002 PM2' }));
-    const status = screen.getByRole('status').textContent;
-    fireEvent.click(screen.getByRole('radio', { name: '동작별 정렬' }));
+    fireEvent.click(screen.getByRole('button', { name: 'activate EQ-002 PM2' }));
+    const status = within(screen.getByRole('region', { name: 'panel bars' })).getByRole('status').textContent;
+    fireEvent.click(screen.getByRole('button', { name: '옵션' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Motion 시작 위치 맞추기' }));
     expect(chart('hw-overview-bars')).toMatchObject({ startAlign: true, emphasisFocus: 'none', activeCategory: 'EQ-002 · PM2', series });
-    expect(screen.getByRole('status').textContent).toBe(status);
-    fireEvent.click(screen.getByRole('radio', { name: '누적' }));
+    expect(within(screen.getByRole('region', { name: 'panel bars' })).getByRole('status').textContent).toBe(status);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Motion 시작 위치 맞추기' }));
     expect(chart('hw-overview-bars')).toMatchObject({ startAlign: false, emphasisFocus: 'none', activeCategory: 'EQ-002 · PM2', series });
-    expect(window.location.search).toBe(before);
-    expect(requests.map(r => r.endpoint)).toEqual(['hwTime.matrix']);
+    expect(new URLSearchParams(window.location.search).has('align')).toBe(false);
+    expect(requests.filter(r => !['hwTime.levelRows', 'hwTime.tableRows'].includes(r.endpoint)).map(r => r.endpoint)).toEqual(['hwTime.matrix']);
   });
 
-  it('drills to server statuses and run tabs with shared local settings, the SDK scatter and the SDK trend', async () => {
+  it('drills to server statuses and run panels with independent local settings, the SDK scatter and the SDK trend', async () => {
     await renderOverview();
     fireEvent.click(screen.getByRole('button', { name: 'drill EQ-001 · PM1' }));
     const table = await screen.findByRole('region', { name: 'PM1 · Motion' });
     expect(await within(table).findByText('HTM 하한 미달')).toBeTruthy();
     expect(within(table).getByText('HTM 상한 초과')).toBeTruthy();
     fireEvent.click(within(table).getByRole('button', { name: 'Chuck 회차 보기' }));
-    await screen.findByTestId('hw-overview-runs');
+    await screen.findByTestId('hw-overview-scatter');
     expect(screen.getByText('표본 2 / 전체 576 · 기준 밖 점 전부 포함')).toBeTruthy();
     // #2332: categorical x per equipment · Module, equipment groups, the server's per-category bounds, status on out-of-bound points only.
     const scatter = chart('hw-overview-runs-scatter');
@@ -106,12 +106,11 @@ describe('HW Time overview View', () => {
     expect(scatter.points.map((p: { id: string; category: string; y: number; group: string; status?: { tone: string } }) => [p.id, p.category, p.y, p.group, p.status?.tone]))
       .toEqual([['run-0', 'EQ-001 · PM1', 9, 'EQ-001', 'danger'], ['run-1', 'EQ-002 · PM1', 2, 'EQ-002', 'warning']]);
     expect(screen.queryByText(/산점도는 SDK 조각/)).toBeNull();
-    expect(screen.getByRole('group', { name: '이 패널만' })).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: '가로축' })).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: '색' }).textContent).toBe('설비');
-    expect(screen.getByRole('combobox', { name: '값' }).textContent).toBe('고른 Motion 회차 시간');
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('group', { name: '이 패널만' })).toBeTruthy();
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '가로축' })).toBeTruthy();
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('설비');
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '값' }).textContent).toBe('고른 Motion 회차 시간');
     const before = requests.map(r => r.endpoint);
-    fireEvent.mouseDown(screen.getByRole('tab', { name: '추세' }), { button: 0, ctrlKey: false });
     // #2333: one line per equipment on a time axis, status rings on out-of-bound daily means only, no band across two equipment.
     const trend = chart('hw-overview-runs-trend');
     expect(trend.series.map((s: { id: string }) => s.id)).toEqual(['EQ-001', 'EQ-002']);
@@ -119,41 +118,73 @@ describe('HW Time overview View', () => {
     expect(trend.emphasisFocus).toBe('none');
     expect(trend.bounds).toEqual([]);
     expect(screen.queryByText(/추세 차트는 SDK 조각/)).toBeNull();
-    expect(screen.queryByRole('combobox', { name: '가로축' })).toBeNull();
-    expect(screen.getByRole('combobox', { name: '색' }).textContent).toBe('설비');
+    expect(within(screen.getByTestId('hw-overview-trend')).queryByRole('combobox', { name: '가로축' })).toBeNull();
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('설비');
     expect(requests.map(r => r.endpoint)).toEqual(before);
-    fireEvent.mouseDown(screen.getByRole('tab', { name: '분포' }), { button: 0, ctrlKey: false });
     expect(await screen.findByTestId('hw-overview-runs-scatter')).toBeTruthy();
     expect(new URLSearchParams(window.location.search).get('drillMotion')).toBe('Chuck');
   });
 
-  it('shares changed colour/value settings across tabs without URL writes or requests, including Motion check changes', async () => {
+  it('keeps changed colour/value settings in one panel without URL writes or requests, including Motion check changes', async () => {
     // Radix Select scrolls the focused option; jsdom has no scrollIntoView.
     const originalScroll = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = vi.fn();
     try {
       await renderOverview('&drillModule=PM1&drillMotion=Chuck');
-      await screen.findByTestId('hw-overview-runs');
+      await screen.findByTestId('hw-overview-scatter');
       const before = window.location.search;
       async function choose(name: string, option: string) {
-        fireEvent.keyDown(screen.getByRole('combobox', { name }), { key: 'Enter' });
+        fireEvent.keyDown(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name }), { key: 'Enter' });
         fireEvent.click(await screen.findByRole('option', { name: option }));
       }
       await choose('값', 'Module 시간');
       await choose('색', '상태');
       await choose('가로축', 'Module');
       expect(window.location.search).toBe(before);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: '추세' }), { button: 0, ctrlKey: false });
-      expect(screen.getByRole('combobox', { name: '값' }).textContent).toBe('Module 시간');
-      expect(screen.getByRole('combobox', { name: '색' }).textContent).toBe('상태');
+        expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '값' }).textContent).toBe('Module 시간');
+      expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '색' }).textContent).toBe('상태');
       fireEvent.click(within(screen.getByRole('tree', { name: 'Motion' })).getByRole('checkbox', { name: /Dechuck/ }));
       await waitFor(() => expect(within(screen.getByRole('tree', { name: 'Motion' })).getByRole('checkbox', { name: /Dechuck/ }).getAttribute('aria-checked')).toBe('false'));
       expect(new URLSearchParams(window.location.search).has('motion')).toBe(false);
-      expect(screen.getByRole('combobox', { name: '값' }).textContent).toBe('Module 시간');
-      expect(requests.map(r => r.endpoint)).toEqual(['hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs']);
-      fireEvent.mouseDown(screen.getByRole('tab', { name: '분포' }), { button: 0, ctrlKey: false });
-      expect(screen.getByRole('combobox', { name: '가로축' }).textContent).toBe('Module');
+      expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '값' }).textContent).toBe('Module 시간');
+      expect(requests.filter(r => !['hwTime.levelRows', 'hwTime.tableRows'].includes(r.endpoint)).map(r => r.endpoint)).toEqual(['hwTime.matrix', 'hwTime.motionStats', 'hwTime.runs']);
+        expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('combobox', { name: '가로축' }).textContent).toBe('Module');
     } finally { HTMLElement.prototype.scrollIntoView = originalScroll; }
+  });
+
+  it('reveals the panel filled by each link without moving keyboard focus', async () => {
+    await renderOverview();
+    const heatmap = screen.getByRole('button', { name: 'activate EQ-002 PM2' });
+    heatmap.focus();
+    fireEvent.click(heatmap);
+    const revealed = () => JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!).reveal?.panelId;
+    expect(revealed()).toBe('bars');
+    expect(document.activeElement).toBe(heatmap);
+    fireEvent.click(screen.getByRole('button', { name: 'drill EQ-002 · PM2' }));
+    expect(revealed()).toBe('motions');
+    fireEvent.click(await screen.findByRole('button', { name: 'Chuck 회차 보기' }));
+    expect(revealed()).toBe('scatter');
+  });
+
+  it.each(['total-desc', 'total-asc'])('ignores legacy chart-only sort=%s without a table error', async sort => {
+    await renderOverview(`&view=steps&sort=${sort}&trend=ignored&minmax=ignored`);
+    expect(screen.getByRole('table', { name: 'HW Time 동작시간 표' })).toBeTruthy();
+    expect(screen.queryByText(/잘못된.*정렬/)).toBeNull();
+  });
+
+  it('restores row, Module, Motion, alignment and all seven panels from a copied URL', async () => {
+    await renderOverview('&row=EQ-002%20%C2%B7%20PM2&drillModule=PM2&drillMotion=Chuck&align=1');
+    await screen.findByTestId('hw-overview-scatter');
+    expect(chart('hw-overview-bars')).toMatchObject({ activeCategory: 'EQ-002 · PM2', startAlign: true });
+    expect(chart('hw-overview-runs-scatter').density).toBe('quiet');
+    expect(screen.getByRole('table', { name: 'PM2 · Motion' })).toBeTruthy();
+    const config = JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
+    expect(config.ids).toEqual(['filter', 'heatmap', 'bars', 'motions', 'scatter', 'trend', 'table']);
+    expect(config.primary).toBe('bars');
+    expect(screen.queryByRole('tab')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Module 선택 해제' }));
+    expect(new URLSearchParams(window.location.search).get('drillModule')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('drillMotion')).toBeNull();
   });
 
   it('keeps unknown checked averages unknown instead of substituting zero', async () => {
@@ -186,27 +217,27 @@ describe('review regressions', () => {
     expect(row.querySelector<HTMLElement>('[data-legend-swatch]')?.style.backgroundColor).toBe(expected.style.backgroundColor);
   });
 
-  it('adds and clears a rendered panel FilterLine condition across both tabs without requests (#2334)', async () => {
+  it('adds and clears a rendered panel FilterLine condition without changing the other panel without requests (#2334)', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     await renderOverview('&drillModule=PM1&drillMotion=Chuck');
-    await screen.findByTestId('hw-overview-runs');
+    await screen.findByTestId('hw-overview-scatter');
     const before = requests.map(request => request.endpoint);
     const url = window.location.search;
-    const line = screen.getByRole('group', { name: '이 패널만' });
+    const line = within(screen.getByTestId('hw-overview-scatter')).getByRole('group', { name: '이 패널만' });
     expect(line.querySelector('[data-filter-scope]')?.textContent).toBe('이 패널만');
-    expect(screen.getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
     fireEvent.click(within(line).getByRole('button', { name: '필터 추가' }));
     fireEvent.click(await screen.findByRole('button', { name: '설비' }));
     const dialog = await screen.findByRole('dialog', { name: '설비' });
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'EQ-001' }));
     fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
     await waitFor(() => expect(screen.getByText('표시할 회차 1개 · 일별 평균 1개')).toBeTruthy());
-    fireEvent.mouseDown(screen.getByRole('tab', { name: '추세' }), { button: 0, ctrlKey: false });
     expect(screen.getByText('표시할 회차 1개 · 일별 평균 1개')).toBeTruthy();
-    // Narrowed to one equipment, the trend draws that equipment's daily HTM band (#2333, single-equipment policy).
-    expect(chart('hw-overview-runs-trend').bounds).toEqual([['2026-09-19T00:00:00', { lower: 3, upper: 4 }]]);
+    // The scatter condition leaves the trend population and its mixed-equipment band policy unchanged.
+    expect(chart('hw-overview-runs-trend').bounds).toEqual([]);
+    expect(within(screen.getByTestId('hw-overview-trend')).getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
     fireEvent.click(within(line).getByRole('button', { name: '모두 지우기' }));
-    expect(screen.getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
+    expect(within(screen.getByTestId('hw-overview-scatter')).getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
     expect(requests.map(request => request.endpoint)).toEqual(before);
     expect(window.location.search).toBe(url);
   });

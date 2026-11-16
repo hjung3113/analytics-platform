@@ -6,7 +6,7 @@ import { HW_TIME_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import type { HwTimeFilter } from '../useHwTimeFilter';
 
 /**
- * Shared display-only filters, mounted once by the HW Time shell for all four Views. Equipment remains in the platform Context
+ * Display-only filters in the linked workspace filter panel. Equipment remains in the platform Context
  * Condition → candidates → Selection controls. State and URL keys live in `useHwTimeFilter`, so S5 (#2341) moves this UI to the page
  * condition layer without changing them. Each action is one `setChecked` write, so a group check of LegendTree stays one history entry.
  */

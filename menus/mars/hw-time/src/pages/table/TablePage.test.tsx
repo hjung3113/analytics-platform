@@ -3,15 +3,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { contextCapabilities, groupId, menuPermission, NO_FEATURES, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { PlatformPage } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { LayoutDashboard } from 'lucide-react';
 import { HW_TIME_CONTEXT, hwTime, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
 import { manifests } from '../../index';
-import TablePage from './TablePage';
+import TablePage from './RawTablePanel';
 import { exportNumber } from './tableData';
-import { HW_TIME_CARRY_SET } from '../../test-support';
 
 // jsdom has no canvas: the Frame is replaced by a stub that exposes the series and the rows the drawer hands it.
 vi.mock('@ap/components', async importOriginal => {
@@ -68,7 +68,7 @@ const adapter = testAdapter({
   session: () => session,
 });
 
-const registry = createRegistry({ carrySets: [HW_TIME_CARRY_SET],
+const registry = createRegistry({ 
   permissions: [menuPermission('analytics:view')],
   spaces: [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, permission: menuPermission('analytics:view'), homeMenuId: 'hw-time-steps' }],
   groups: [{ id: groupId('hwTime'), label: { ko: '동작시간분석', en: 'Operation time' }, icon: LayoutDashboard, space: spaceId('mars') }],
@@ -82,7 +82,7 @@ function DetailSlotHost() {
 }
 async function renderPage(search = '') {
   window.history.replaceState(null, '', `/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><TablePage params={{}} /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
   if (search.includes('focus=abc')) await screen.findByText(/열린 행.*abc/);
   else await screen.findByRole('table', { name: 'HW Time 동작시간 표' }, { timeout: 8000 });
 }
@@ -100,14 +100,15 @@ describe('HW Time table manifest', () => {
     const steps = manifests.find(m => m.id === 'hw-time-steps')!;
     expect(menu.label).toEqual({ ko: 'HW Time 표', en: 'HW Time table' });
     expect(menu.path).toBe('/hw-time/table');
-    expect(menu.description).toEqual({ ko: 'EquipmentID·하위 항목별 동작시간을 표로 보고 행 상세를 엽니다.', en: 'Browse operation time per EquipmentID and sub-item in a table and open row details.' });
+    // A hidden legacy entry renders the one linked screen, so it describes that screen.
+    expect(menu.description).toEqual(manifests.find(menu => menu.id === 'hw-time')!.description);
     expect(menu.group).toBe(steps.group);
     expect(menu.permission).toBe(steps.permission);
     expect(menu.context).toEqual(contextCapabilities(HW_TIME_CONTEXT));
     expect(menu.features).toEqual({ ...NO_FEATURES, export: true, board: true });
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['drillModule', 'drillMotion']);
-    expect(menu.pageKeys).toEqual(['drillModule', 'drillMotion', 'sort', 'page', 'focus']);
-    expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'page', 'focus']);
+    expect(menu.pageKeys).toEqual(manifests.find(menu => menu.id === 'hw-time')!.pageKeys);
+    expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'row', 'page', 'focus']);
   });
 });
 
@@ -274,7 +275,7 @@ describe('HW Time table page', () => {
     const same = () => ({ outcome, message: 'same response', data: outcome === 'empty' ? { rows: [], total: 0 } : null, assessments, trust: null, correlationId: 'same' }) as ApiResponse<never>;
     vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => req.endpoint === hwTime.levelRows.id || req.endpoint === hwTime.tableRows.id ? same() : ok([]));
     window.history.replaceState(null, '', '/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><TablePage params={{}} /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
     if (outcome === 'error') {
       // The level-failure box joins the page group; an empty level read is not drawn at all (levelFailure excludes it), so only error groups two widgets.
       const banner = await screen.findByRole('group', { name: '위젯 상태 요약' }, { timeout: 8000 });
@@ -343,7 +344,7 @@ describe('HW Time table page', () => {
 
   it('draws a plain message for PM4 Vent and marks partial rows for PM3', async () => {
     window.history.replaceState(null, '', '/hw-time/table?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&drillModule=PM4&drillMotion=Vent');
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><TablePage params={{}} /><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('PM4 Module에는 Vent 동작 기록이 없습니다', {}, { timeout: 8000 })).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
     cleanup();
