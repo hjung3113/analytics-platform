@@ -680,14 +680,14 @@ function DirectGrantFields({
             if (candidates.length === 0) return [{ ...item, capability, disabledReason: '이 대상에 부여할 수 없음' }];
             return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames, declared),
               ...(rejectedCandidate && candidateKey(rejectedCandidate) === candidateKey(candidate) ? { badge: { label: DIRECT_GRANT_COPY.rejected, tone: 'danger' as const } } : {}),
-              ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : pending ? { disabledReason: '부여 중…' } : {}) }));
+              ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : {}) }));
           }))}
-          value={selectedCandidateKeys} onChange={value => clearErrorAndUpdate(() => {
+          value={selectedCandidateKeys} onChange={value => { if (!pending) clearErrorAndUpdate(() => {
             setSelectedCandidateKeys(value);
             setGovernanceConfirmed(false);
             setPolicyCitation('');
             setPeerReviewerAbsence('');
-          })} />
+          }); }} />
         )}
         {overLimit ? <p role="alert" className="text-sm text-text-danger">{DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)}</p> : null}
         {rejectedCandidate && mappedError ? <p role="alert" className="text-sm text-text-danger">{candidateLabel(rejectedCandidate, managedSystemNames, declared)}: {mappedError}</p> : null}

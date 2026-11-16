@@ -345,6 +345,9 @@ function NewRequestForm(): React.ReactElement {
                 ref={capabilityRef}
                 id="permission-request-capability"
                 tabIndex={-1}
+                // Its own bounded scroll region, as in the token drawers: the reason, submit and «내 권한 요청» stay near, and
+                // the list's sticky selection header sticks inside this box instead of under the page header.
+                className="max-h-[min(28rem,55vh)] overflow-y-auto rounded-md border border-border-subtle px-3 outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 aria-labelledby="permission-request-capability-label"
                 aria-invalid={capabilityError !== null}
                 aria-describedby={
@@ -359,7 +362,6 @@ function NewRequestForm(): React.ReactElement {
                   ...requestableDeclared.map(item => ({ ...declaredSelectionItem(item.id, declared), capability: item.id as `ext.${string}` })),
                 ].map(item => ({ ...item,
                   ...(batchError?.capability === item.id ? { badge: { label: COPY.rejected, tone: 'danger' as const } } : {}),
-                  ...(mutation.isPending ? { disabledReason: COPY.submit } : {}),
                 })))} />
             </div>
             {overLimit ? <p role="alert" className="text-xs text-text-danger">{COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)}</p> : null}
