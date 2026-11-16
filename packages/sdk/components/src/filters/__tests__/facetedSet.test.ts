@@ -7,6 +7,12 @@ const items = [
   { id: 'three', facets: { color: 'red', size: 'L' } },
 ];
 describe('faceted sets', () => {
+  it('treats an empty draft facet as none while excluding it from its own counts', () => {
+    const result = evaluateFacetedSet(buildFacetedSetIndex(items), { color: [] });
+    expect(result.matches).toEqual([]);
+    expect([...result.counts.get('color')!]).toEqual([['red', 2], ['blue', 1]]);
+    expect([...result.counts.get('size')!]).toEqual([['S', 0], ['L', 0]]);
+  });
   it('ORs values, ANDs facets, excludes own picks from counts and retains zero values', () => {
     const index = buildFacetedSetIndex(items);
     const result = evaluateFacetedSet(index, { color: ['red', 'blue'], size: ['L'] });

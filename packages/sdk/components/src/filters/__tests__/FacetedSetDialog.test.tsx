@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { act, waitFor, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, waitFor, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { FacetedSetDialog } from '../FacetedSetDialog';
@@ -23,12 +24,164 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+it('opens absent facets with all values checked and applies universe minus the unchecked value without Search', () => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={apply} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Color 전체' }));
+  const color = within(screen.getByRole('group', { name: 'Color' }));
+  expect(color.getByRole('checkbox', { name: '전체' })).toBeChecked();
+  expect(color.getByRole('checkbox', { name: 'red' })).toBeChecked();
+  expect(color.getByRole('checkbox', { name: 'blue' })).toBeChecked();
+  fireEvent.click(color.getByRole('checkbox', { name: 'red' }));
+  expect(color.getByRole('checkbox', { name: '전체' })).toHaveAttribute('aria-checked', 'mixed');
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['blue'] }, fixed: null });
+});
+it('keeps only one value through a keyboard-reachable action', async () => {
+  const apply = vi.fn(); const user = userEvent.setup();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={apply} /></I18nProvider>);
+  await user.click(screen.getByRole('button', { name: 'Color 전체' }));
+  const red = screen.getByRole('checkbox', { name: 'red' });
+  red.focus();
+  await user.tab();
+  expect(screen.getByRole('button', { name: 'red만 남기기' })).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(red).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'blue' })).not.toBeChecked();
+  await user.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['red'] }, fixed: null });
+});
+it('uses the whole indexed universe and retained picks even when cross-counts are zero', () => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red', 'blue', 'gone'], size: ['S'] }, fixed: null }} onApply={apply} /></I18nProvider>);
+  expect(screen.getByRole('checkbox', { name: 'blue' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'blue' }).parentElement).toHaveTextContent('blue0');
+  expect(screen.getByRole('checkbox', { name: 'gone' })).toBeChecked();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'red' }));
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 0' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['blue', 'gone'], size: ['S'] }, fixed: null });
+});
+it('normalizes opening all-arrays for save and apply without changing the caller value', async () => {
+  const apply = vi.fn(); const save = vi.fn().mockResolvedValue(undefined);
+  const value = { rule: { color: ['blue', 'red', 'red'] }, fixed: null };
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={value} onApply={apply}
+    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }} /></I18nProvider>);
+  expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'All' } });
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
+  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'All', share: 'private', value: { rule: {}, fixed: null } });
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: {}, fixed: null });
+  expect(value).toEqual({ rule: { color: ['blue', 'red', 'red'] }, fixed: null });
+});
+it('can clear and restore all for a facet named __proto__', () => {
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={[{ id: '__proto__', label: 'Prototype' }]} items={[{ id: 'one', facets: { ['__proto__']: 'x' } }]} value={{ rule: {}, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Prototype 전체' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: '전체' }));
+  expect(screen.getByRole('checkbox', { name: 'x' })).not.toBeChecked();
+  expect(screen.getByRole('button', { name: '조건 적용 · 0' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox', { name: '전체' }));
+  expect(screen.getByRole('checkbox', { name: 'x' })).toBeChecked();
+  expect(screen.getByRole('button', { name: '조건 적용 · 1' })).toBeEnabled();
+});
+it.each(['header', 'last value'])('normalizes all picks back to an absent key through %s', method => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: null }} onApply={apply} /></I18nProvider>);
+  const color = within(screen.getByRole('group', { name: 'Color' }));
+  fireEvent.click(color.getByRole('checkbox', { name: method === 'header' ? '전체' : 'blue' }));
+  expect(screen.getByRole('button', { name: 'Color 전체' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: {}, fixed: null });
+});
+it.each(['header', 'last value'])('blocks apply and save for none selected through %s', method => {
+  const apply = vi.fn(); const save = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: null }} onApply={apply}
+    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'None' } });
+  const color = within(screen.getByRole('group', { name: 'Color' }));
+  if (method === 'header') {
+    fireEvent.click(color.getByRole('checkbox', { name: '전체' }));
+    fireEvent.click(color.getByRole('checkbox', { name: '전체' }));
+  } else fireEvent.click(color.getByRole('checkbox', { name: 'red' }));
+  expect(screen.getByRole('button', { name: 'Color 0' })).toBeVisible();
+  expect(color.getByRole('checkbox', { name: '전체' })).not.toBeChecked();
+  expect(screen.getByText('축마다 값을 하나 이상 고르세요')).toBeVisible();
+  expect(screen.getByRole('button', { name: '조건 적용 · 0' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 0' }));
+  fireEvent.submit(screen.getByRole('button', { name: '저장' }).closest('form')!);
+  expect(apply).not.toHaveBeenCalled(); expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  expect(screen.getByText('결과 0')).toBeVisible();
+});
+it('keeps queried results and ID suggestions until Search while counts and apply stay live', () => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={apply} /></I18nProvider>);
+  expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Color 전체' }));
+  fireEvent.click(screen.getByRole('button', { name: 'red만 남기기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Size 전체' }));
+  expect(screen.getByRole('checkbox', { name: 'L' }).parentElement).toHaveTextContent('L0');
+  expect(screen.getByText('결과 2')).toBeVisible();
+  expect(screen.getByText('조건 · 지금 1')).toBeVisible();
+  expect(screen.getByRole('table')).toHaveAttribute('aria-rowcount', '3');
+  expect(screen.getByRole('table')).toHaveAttribute('data-stale', 'true');
+  expect(screen.getByText('조건이 바뀌었습니다 — 조회를 누르세요')).toBeVisible();
+  expect(screen.queryByRole('alert')).toBeNull();
+  fireEvent.change(screen.getByRole('textbox', { name: '값 또는 항목 ID 검색' }), { target: { value: 'Size' } });
+  expect(screen.getByRole('button', { name: 'Size · L (0)' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Size · S (1)' })).toBeVisible();
+  fireEvent.change(screen.getByRole('textbox', { name: '값 또는 항목 ID 검색' }), { target: { value: 'two' } });
+  expect(screen.getByRole('button', { name: '항목 · two' })).toBeVisible();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'two 선택' }));
+  expect(screen.getByText('고정 1')).toBeVisible();
+  expect(screen.queryByText('조건 밖 1')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  expect(screen.getByText('결과 1')).toBeVisible();
+  expect(screen.getByRole('table')).toHaveAttribute('aria-rowcount', '2');
+  expect(screen.getByRole('table')).toHaveAttribute('data-stale', 'false');
+  expect(screen.queryByText('조건이 바뀌었습니다 — 조회를 누르세요')).toBeNull();
+  expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: '항목 · two' })).toBeNull();
+  expect(screen.getByRole('checkbox', { name: '조건 밖 two 선택' })).toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: '고정 1 적용' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['red'] }, fixed: ['two'] });
+});
+it('clears the stale state when the draft returns to the queried rule without Search', () => {
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'blue만 남기기' }));
+  expect(screen.getByRole('button', { name: '조회' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'red만 남기기' }));
+  expect(screen.getByRole('button', { name: '조회' })).toBeDisabled();
+  expect(screen.queryByText('조건이 바뀌었습니다 — 조회를 누르세요')).toBeNull();
+  expect(screen.getByText('결과 1')).toBeVisible();
+  expect(screen.getByRole('table')).toHaveAttribute('data-stale', 'false');
+});
+it('ignores fixed IDs and supports rule-only apply and save without a selection column', async () => {
+  const apply = vi.fn(); const save = vi.fn().mockResolvedValue(undefined);
+  render(<I18nProvider><FacetedSetDialog open allowFixed={false} onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red'] }, fixed: ['two', 'missing'] }} onApply={apply}
+    save={{ shareOptions: [{ value: 'private', label: 'Private' }], defaultShare: 'private', onSave: save }} /></I18nProvider>);
+  const table = within(screen.getByRole('table'));
+  expect(table.queryByRole('checkbox')).toBeNull();
+  expect(table.queryByRole('columnheader', { name: '선택' })).toBeNull();
+  expect(screen.getByRole('table')).toHaveAttribute('aria-colcount', '3');
+  expect(screen.queryByText(/조건 밖/)).toBeNull();
+  expect(screen.queryByText(/고정/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '그룹으로 저장' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '이름' }), { target: { value: 'Rule only' } });
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: '저장' })));
+  expect(save).toHaveBeenCalledExactlyOnceWith({ name: 'Rule only', share: 'private', value: { rule: { color: ['red'] }, fixed: null } });
+  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['red'] }, fixed: null });
+});
 it('expands a facet, picks a value and applies the draft once', () => {
   const onApply = vi.fn(); const onOpenChange = vi.fn();
   render(<I18nProvider><FacetedSetDialog open onOpenChange={onOpenChange} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={onApply} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Color' }));
-  expect(screen.getByRole('button', { name: 'Color' })).toHaveAttribute('aria-expanded', 'true');
-  fireEvent.click(screen.getByRole('checkbox', { name: 'red' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Color 전체' }));
+  expect(screen.getByRole('button', { name: 'Color 전체' })).toHaveAttribute('aria-expanded', 'true');
+  fireEvent.click(screen.getByRole('checkbox', { name: 'blue' }));
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
   expect(onApply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['red'] }, fixed: null });
   expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -38,8 +191,10 @@ it('checks and unchecks rows without losing the rule, and preserves outside fixe
   render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
   fireEvent.click(screen.getByRole('checkbox', { name: 'one 선택' }));
   expect(screen.getByRole('button', { name: '고정 1 적용' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Color' }));
-  fireEvent.click(screen.getByRole('checkbox', { name: 'blue' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Color 전체' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'red' }));
+  expect(screen.queryByText('조건 밖 1')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
   expect(screen.getByText('조건 밖 1')).toBeVisible();
   expect(screen.getByRole('checkbox', { name: '조건 밖 one 선택' })).toBeChecked();
   fireEvent.click(screen.getByRole('checkbox', { name: '조건 밖 one 선택' }));
@@ -131,7 +286,7 @@ it('renders a nonempty virtual window for 30,000 items, counts correctly and rev
   expect(screen.getByRole('table')).toHaveAttribute('aria-rowcount', '15001');
   const rowCount = screen.getAllByRole('row').length;
   expect(rowCount).toBeGreaterThan(1); expect(rowCount).toBeLessThan(100);
-  fireEvent.click(screen.getByRole('button', { name: 'Size' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Size 전체' }));
   expect(screen.getByRole('checkbox', { name: 'L' }).parentElement).toHaveTextContent('L5000');
   fireEvent.change(screen.getByRole('textbox', { name: '값 또는 항목 ID 검색' }), { target: { value: 'item-29998' } });
   fireEvent.click(screen.getByRole('button', { name: '항목 · item-29998' }));
@@ -158,17 +313,17 @@ it('returns from fixed to rule when the last checked result is unchecked', () =>
 it('accepts arbitrary facet IDs including names from Object.prototype', () => {
   const apply = vi.fn();
   render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={[{ id: 'constructor', label: 'Constructor' }]} items={[{ id: 'one', facets: { constructor: 'x' } }]} value={{ rule: {}, fixed: null }} onApply={apply} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Constructor' }));
-  fireEvent.click(screen.getByRole('checkbox', { name: 'x' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Constructor 전체' }));
+  fireEvent.click(screen.getByRole('button', { name: 'x만 남기기' }));
   fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1' }));
-  expect(apply).toHaveBeenCalledWith({ rule: { constructor: ['x'] }, fixed: null });
+  expect(apply).toHaveBeenCalledWith({ rule: {}, fixed: null });
 });
-it('counts picked values in a facet header without the item count formatter', () => {
-  render(<I18nProvider><FacetedSetDialog open onOpenChange={() => {}} title="Choose" facets={facets} items={items} value={{ rule: { color: ['red', 'blue'] }, fixed: null }} onApply={() => {}} formatCount={(n) => `${n} items`} /></I18nProvider>);
+it.each([{ picks: ['red'], header: '1', count: 1 }, { picks: ['red', 'blue'], header: '전체', count: 2 }])('shows $header in a facet header without the item count formatter', ({ picks, header: text, count }) => {
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={() => {}} title="Choose" facets={facets} items={items} value={{ rule: { color: picks }, fixed: null }} onApply={() => {}} formatCount={(n) => `${n} items`} /></I18nProvider>);
   const header = screen.getByRole('button', { name: /^Color/ });
-  expect(header).toHaveTextContent(/Color\s*2$/);
+  expect(header).toHaveTextContent(new RegExp(`Color\\s*${text}$`));
   expect(header).not.toHaveTextContent('items');
-  expect(screen.getByRole('button', { name: '조건 적용 · 2 items' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: `조건 적용 · ${count} items` })).toBeEnabled();
 });
 
 it('shows the caller note and the error reason only when given', () => {
