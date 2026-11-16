@@ -38,6 +38,7 @@ import {
   type CancelPermissionRequest,
   type CancelPermissionRequestResult,
   type CapabilityName,
+  type CreatePermissionRequestBatch,
   PERMISSION_REQUESTS_MINE_ALL_LIMIT,
   type SubmitMoreInfoPermissionRequest,
   type SubmitMoreInfoPermissionRequestResult,
@@ -45,6 +46,7 @@ import {
 } from '@ap/feature-shared';
 
 import type { Db } from '../../db/client.js';
+import type { Tx } from '../../db/tx.js';
 import { permissionRequests } from '../../db/schema/permission.js';
 import { HttpError } from '../../lib/errors.js';
 import { listWorkspaceAdminActorIds, lockWorkspaceActor } from '../auth/index.js';
@@ -122,6 +124,150 @@ export type PermissionRequestReviewStatus = (typeof REVIEW_STATUSES)[number] | '
 export function createRequestService(deps: RequestServiceDeps) {
   const { db, checkService, auditService, idempotencyService } = deps;
 
+  /** One request row inside a transaction the caller opened and locked (requester lock taken). */
+  async function insertRequest(
+    tx: Tx,
+    actor: ActorContext,
+    body: CreatePermissionRequestBody,
+    capability: CapabilityName,
+    capabilities: ReturnType<typeof capabilitiesOf>,
+    batchId?: string,
+  ) {
+    const scope = { kind: body.requested_scope_kind ?? 'managed_system', site: body.requested_scope_site ?? null, room: body.requested_scope_room ?? null };
+    const sensitive = capabilities.meta(capability).sensitive;
+    await validateSupportedScope(
+      tx,
+      actor.workspace_id,
+      capability,
+      body.requested_managed_system_id ?? null,
+      body.requested_object_type ?? null,
+      body.requested_object_id ?? null,
+      { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog, capabilities },
+    );
+    validateRequestExpiration(
+      body.requested_expiration ? new Date(body.requested_expiration) : null,
+    );
+
+    // (2) Re-check capability — fail fast if the actor already has it.
+    // S-002: thread the open tx so this re-check observes any grant a
+    // concurrent admin commit may have just made visible (and reads the
+    // same snapshot the subsequent insert will).
+    const decision = scope.kind !== 'managed_system'
+      ? { allow: Boolean(await findCoveringSiteGrant(tx, actor.workspace_id, actor.actor_id, scope)) }
+      : await checkService.checkCapability(
+      actor,
+      capability,
+      {
+        workspace_id: actor.workspace_id,
+        ...(body.requested_managed_system_id !== undefined
+          ? { managed_system_id: body.requested_managed_system_id }
+          : {}),
+      },
+      { tx },
+    );
+    if (scope.kind === 'managed_system') {
+      await assertNoOverlappingDeny(tx, actor.workspace_id, actor.actor_id, capability, body.requested_managed_system_id ?? null);
+    }
+    if (decision.allow === true) {
+      throw new HttpError(
+        'conflict.capability_already_granted',
+        'actor already holds the requested capability',
+      );
+    }
+
+    // (3) Insert permission_request row.
+    let insertedId: string;
+    let insertedCreatedAt: Date;
+    try {
+      const rows = await tx
+        .insert(permissionRequests)
+        .values({
+          workspaceId: actor.workspace_id,
+          requesterActorId: actor.actor_id,
+          requestedCapability: capability,
+          requestedScopeKind: scope.kind,
+          requestedScopeSite: scope.site,
+          requestedScopeRoom: scope.room,
+          requestedManagedSystemId: body.requested_managed_system_id ?? null,
+          requestedObjectType: body.requested_object_type ?? null,
+          requestedObjectId: body.requested_object_id ?? null,
+          reason: body.reason,
+          requestedExpiration: body.requested_expiration
+            ? new Date(body.requested_expiration)
+            : null,
+          sourceObjectType: body.source_object_type ?? null,
+          sourceObjectId: body.source_object_id ?? null,
+          sourceActionId: body.source_action_id ?? null,
+          returnRouteIntent: body.return_route_intent ?? null,
+          status: 'pending',
+        })
+        .returning({ id: permissionRequests.id, createdAt: permissionRequests.createdAt });
+      const row = rows[0];
+      if (!row) {
+        throw new HttpError('internal.unexpected', 'permission_request insert returned no row');
+      }
+      insertedId = row.id;
+      insertedCreatedAt = row.createdAt;
+    } catch (err) {
+      // Postgres unique_violation = 23505. The partial unique index
+      // `permission_requests_active_uq` fires for an existing
+      // pending|needs_more_info row with the same scope/source tuple.
+      const pgErr = err as DatabaseError;
+      if (pgErr?.code === '23505') {
+        throw new HttpError(
+          'conflict.permission_request_duplicate',
+          'an open permission request already exists for this capability and scope',
+        );
+      }
+      throw err;
+    }
+
+    await deps.recoveryRecorder?.discover(tx, actor.workspace_id, [
+      { type: 'permission_request', id: insertedId },
+    ]);
+    // (4) Audit row, same transaction.
+    await auditService.record(tx, {
+      workspace_id: actor.workspace_id,
+      actor_id: actor.actor_id,
+      event_type: PERMISSION_REQUESTED,
+      subject_type: 'permission_request',
+      subject_id: insertedId,
+      summary: `Permission requested: ${capability}`,
+      detail: {
+        revision: 1,
+        ...scopeFields(scope),
+        capability,
+        managed_system_id: body.requested_managed_system_id ?? null,
+        reason: body.reason,
+        sensitive,
+        source_object_type: body.source_object_type ?? null,
+        source_object_id: body.source_object_id ?? null,
+        source_action_id: body.source_action_id ?? null,
+        ...(batchId ? { batch_id: batchId } : {}),
+      },
+    });
+
+    const adminActorIds = await listWorkspaceAdminActorIds(tx, actor.workspace_id);
+    await deps.notify(tx, 'permission_request.submitted', {
+      workspace_id: actor.workspace_id,
+      actor_ids: adminActorIds,
+      subject_id: insertedId,
+      correlation_id: randomUUID(),
+      detail: { permission_request_id: insertedId },
+      params: {},
+    });
+
+    const responseBody = {
+      id: insertedId,
+      status: 'pending' as const,
+      revision: 1,
+      created_at: insertedCreatedAt.toISOString(),
+      ...requestedScopeFields(scope),
+    };
+
+    return responseBody;
+  }
+
   async function createRequest(
     actor: ActorContext,
     body: CreatePermissionRequestBody,
@@ -134,7 +280,6 @@ export function createRequestService(deps: RequestServiceDeps) {
       });
     }
     const capability: CapabilityName = body.requested_capability;
-    const scope = { kind: body.requested_scope_kind ?? 'managed_system', site: body.requested_scope_site ?? null, room: body.requested_scope_room ?? null };
     const sensitive = capabilities.meta(capability).sensitive;
     // Sensitive capabilities (docs/architecture/platform-api/05-permission-policy.md ## Sensitive Permissions)
     // require a non-empty `reason`. The route Zod schema already requires
@@ -152,138 +297,7 @@ export function createRequestService(deps: RequestServiceDeps) {
     return await db.transaction(async (tx) => {
       await lockRecoveryCommand(tx, actor.workspace_id);
       await lockWorkspaceActor(tx, { workspaceId: actor.workspace_id, actorId: actor.actor_id });
-      const run = async () => {
-        await validateSupportedScope(
-          tx,
-          actor.workspace_id,
-          capability,
-          body.requested_managed_system_id ?? null,
-          body.requested_object_type ?? null,
-          body.requested_object_id ?? null,
-          { recipientRole: actor.role_level, scope, scopeCatalog: deps.scopeCatalog, capabilities },
-        );
-        validateRequestExpiration(
-          body.requested_expiration ? new Date(body.requested_expiration) : null,
-        );
-
-        // (2) Re-check capability — fail fast if the actor already has it.
-        // S-002: thread the open tx so this re-check observes any grant a
-        // concurrent admin commit may have just made visible (and reads the
-        // same snapshot the subsequent insert will).
-        const decision = scope.kind !== 'managed_system'
-          ? { allow: Boolean(await findCoveringSiteGrant(tx, actor.workspace_id, actor.actor_id, scope)) }
-          : await checkService.checkCapability(
-          actor,
-          capability,
-          {
-            workspace_id: actor.workspace_id,
-            ...(body.requested_managed_system_id !== undefined
-              ? { managed_system_id: body.requested_managed_system_id }
-              : {}),
-          },
-          { tx },
-        );
-        if (scope.kind === 'managed_system') {
-          await assertNoOverlappingDeny(tx, actor.workspace_id, actor.actor_id, capability, body.requested_managed_system_id ?? null);
-        }
-        if (decision.allow === true) {
-          throw new HttpError(
-            'conflict.capability_already_granted',
-            'actor already holds the requested capability',
-          );
-        }
-
-        // (3) Insert permission_request row.
-        let insertedId: string;
-        let insertedCreatedAt: Date;
-        try {
-          const rows = await tx
-            .insert(permissionRequests)
-            .values({
-              workspaceId: actor.workspace_id,
-              requesterActorId: actor.actor_id,
-              requestedCapability: capability,
-              requestedScopeKind: scope.kind,
-              requestedScopeSite: scope.site,
-              requestedScopeRoom: scope.room,
-              requestedManagedSystemId: body.requested_managed_system_id ?? null,
-              requestedObjectType: body.requested_object_type ?? null,
-              requestedObjectId: body.requested_object_id ?? null,
-              reason: body.reason,
-              requestedExpiration: body.requested_expiration
-                ? new Date(body.requested_expiration)
-                : null,
-              sourceObjectType: body.source_object_type ?? null,
-              sourceObjectId: body.source_object_id ?? null,
-              sourceActionId: body.source_action_id ?? null,
-              returnRouteIntent: body.return_route_intent ?? null,
-              status: 'pending',
-            })
-            .returning({ id: permissionRequests.id, createdAt: permissionRequests.createdAt });
-          const row = rows[0];
-          if (!row) {
-            throw new HttpError('internal.unexpected', 'permission_request insert returned no row');
-          }
-          insertedId = row.id;
-          insertedCreatedAt = row.createdAt;
-        } catch (err) {
-          // Postgres unique_violation = 23505. The partial unique index
-          // `permission_requests_active_uq` fires for an existing
-          // pending|needs_more_info row with the same scope/source tuple.
-          const pgErr = err as DatabaseError;
-          if (pgErr?.code === '23505') {
-            throw new HttpError(
-              'conflict.permission_request_duplicate',
-              'an open permission request already exists for this capability and scope',
-            );
-          }
-          throw err;
-        }
-
-        await deps.recoveryRecorder?.discover(tx, actor.workspace_id, [
-          { type: 'permission_request', id: insertedId },
-        ]);
-        // (4) Audit row, same transaction.
-        await auditService.record(tx, {
-          workspace_id: actor.workspace_id,
-          actor_id: actor.actor_id,
-          event_type: PERMISSION_REQUESTED,
-          subject_type: 'permission_request',
-          subject_id: insertedId,
-          summary: `Permission requested: ${capability}`,
-          detail: {
-            revision: 1,
-            ...scopeFields(scope),
-            capability,
-            managed_system_id: body.requested_managed_system_id ?? null,
-            reason: body.reason,
-            sensitive,
-            source_object_type: body.source_object_type ?? null,
-            source_object_id: body.source_object_id ?? null,
-            source_action_id: body.source_action_id ?? null,
-          },
-        });
-
-        const adminActorIds = await listWorkspaceAdminActorIds(tx, actor.workspace_id);
-        await deps.notify(tx, 'permission_request.submitted', {
-          workspace_id: actor.workspace_id,
-          actor_ids: adminActorIds,
-          subject_id: insertedId,
-          correlation_id: randomUUID(),
-          detail: { permission_request_id: insertedId },
-          params: {},
-        });
-
-        const responseBody = {
-          id: insertedId,
-          status: 'pending' as const,
-          revision: 1,
-          created_at: insertedCreatedAt.toISOString(),
-          ...requestedScopeFields(scope),
-        };
-
-        return { status: 201, body: responseBody };
-      };
+      const run = async () => ({ status: 201, body: await insertRequest(tx, actor, body, capability, capabilities) });
 
       return options.idempotencyKey
         ? idempotencyService.runIdempotent(
@@ -293,6 +307,50 @@ export function createRequestService(deps: RequestServiceDeps) {
             requestHash,
             run,
           )
+        : run();
+    });
+  }
+
+  /** #2406: N capability requests with one reason in one transaction; each row is validated and audited like a single request, and any refusal rolls the batch back. */
+  async function createRequestBatch(
+    actor: ActorContext,
+    body: CreatePermissionRequestBatch,
+    options: CreatePermissionRequestOptions = {},
+  ) {
+    const capabilities = capabilitiesOf(checkService);
+    const seen = new Set<string>();
+    body.items.forEach((item, index) => {
+      if (!capabilities.has(item.requested_capability)) {
+        throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.requested_capability });
+      }
+      if (capabilities.meta(item.requested_capability as CapabilityName).sensitive && body.reason.trim().length === 0) {
+        throw new HttpError('validation.sensitive_reason_required', `row ${index + 1}: a non-empty reason is required for sensitive capabilities`, { capability: item.requested_capability });
+      }
+      const key = JSON.stringify([item.requested_capability, item.requested_managed_system_id ?? null, item.requested_scope_kind ?? 'managed_system', item.requested_scope_site ?? null, item.requested_scope_room ?? null]);
+      if (seen.has(key)) throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }] });
+      seen.add(key);
+    });
+    const requestHash = hashRequestBody({ action: 'create_batch', ...body });
+    return await db.transaction(async (tx) => {
+      await lockRecoveryCommand(tx, actor.workspace_id);
+      await lockWorkspaceActor(tx, { workspaceId: actor.workspace_id, actorId: actor.actor_id });
+      const run = async () => {
+        const batchId = randomUUID();
+        const items = [];
+        for (const [index, item] of body.items.entries()) {
+          const { items: _items, ...shared } = body;
+          const row: CreatePermissionRequestBody = { ...shared, ...item };
+          try {
+            items.push(await insertRequest(tx, actor, row, item.requested_capability as CapabilityName, capabilities, batchId));
+          } catch (error) {
+            if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, error.detail);
+            throw error;
+          }
+        }
+        return { status: 201, body: { batch_id: batchId, items } };
+      };
+      return options.idempotencyKey
+        ? idempotencyService.runIdempotent(tx, actor.actor_id, options.idempotencyKey, requestHash, run)
         : run();
     });
   }
@@ -853,6 +911,7 @@ export function createRequestService(deps: RequestServiceDeps) {
   return {
     scopeCandidates: (actor: ActorContext) => scopeCatalogCandidates(db, actor.workspace_id, actor.actor_id, deps.scopeCatalog),
     createRequest,
+    createRequestBatch,
     submitMoreInfoRequest,
     editRequest: (
       actor: ActorContext,

@@ -16,8 +16,11 @@ import {
   type RevokePermissionBody,
   approvePermissionRequestSchema,
   cancelPermissionRequestSchema,
+  type CreatePermissionRequestBatch,
+  createPermissionRequestBatchSchema,
   createPermissionRequestSchema,
   denyPermissionRequestSchema,
+  directPermissionGrantBatchSchema,
   directPermissionGrantSchema,
   editPermissionRequestSchema,
   listDeclaredCapabilitiesResponseSchema,
@@ -238,6 +241,25 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
         idempotencyKey !== undefined ? { idempotencyKey } : {},
       );
 
+      return reply.code(result.status).send(result.body);
+    },
+  });
+
+  app.route({
+    method: 'POST',
+    url: '/permission-requests/batch',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    schema: { body: createPermissionRequestBatchSchema },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+      const result = await requestService.createRequestBatch(
+        { actor_id: sess.actor_id, workspace_id: sess.workspace_id, role_level: sess.role_level },
+        req.body as CreatePermissionRequestBatch,
+        idempotencyKey !== undefined ? { idempotencyKey } : {},
+      );
       return reply.code(result.status).send(result.body);
     },
   });
@@ -545,6 +567,28 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
           fields: fieldsFromZodIssues(parsed.error.issues),
         });
       const result = await grantAdminService.grant(
+        { actor_id: sess.actor_id, workspace_id: sess.workspace_id, role_level: sess.role_level },
+        parsed.data,
+        idempotencyKey ? { idempotencyKey } : {},
+      );
+      return reply.code(result.status).send(result.body);
+    },
+  });
+  app.route({
+    method: 'POST',
+    url: '/permissions/grants/batch',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.sensitive as never } } : {}),
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+      const parsed = directPermissionGrantBatchSchema.safeParse(req.body ?? {});
+      if (!parsed.success)
+        return sendError(reply, 'validation.failed', 'invalid direct grant batch', {
+          fields: fieldsFromZodIssues(parsed.error.issues),
+        });
+      const result = await grantAdminService.grantBatch(
         { actor_id: sess.actor_id, workspace_id: sess.workspace_id, role_level: sess.role_level },
         parsed.data,
         idempotencyKey ? { idempotencyKey } : {},

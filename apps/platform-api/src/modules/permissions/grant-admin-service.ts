@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { overlappingDenies } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 import { grantScope, managedScope, scopeFields, inScopeCatalog, type GrantScope } from './site-scope-policy.js';
@@ -7,6 +8,9 @@ import {
   type AuditEventType,
   type CapabilityName,
   type DirectPermissionGrant,
+  type DirectPermissionGrantBatch,
+  type PermissionGrantBatchResult,
+  directPermissionGrantBatchSchema,
   type PermissionDenyAdminItem,
   type PermissionGrantAdminItem,
   type PermissionGrantOptions,
@@ -238,6 +242,104 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     );
   }
 
+  /** One direct-grant row inside a transaction the caller opened and locked (recipient lock taken, admin asserted). */
+  async function grantRow(
+    tx: Tx,
+    actor: ActorContext,
+    recipient: { role_level: ActorContext['role_level'] },
+    input: DirectPermissionGrant,
+    capabilities: ReturnType<typeof capabilitiesOf>,
+    batchId?: string,
+  ): Promise<PermissionGrantAdminItem> {
+    const scope = { kind: input.scope_kind ?? 'managed_system', site: input.scope_site ?? null, room: input.scope_room ?? null };
+    const managedSystemId = input.managed_system_id ?? null;
+    await validateSupportedScope(
+      tx,
+      actor.workspace_id,
+      input.capability,
+      managedSystemId,
+      null,
+      null,
+      {
+        approval: true,
+        scope, scopeCatalog: deps.scopeCatalog, scopePrefix: '',
+        field: 'managed_system_id',
+        recipientRole: recipient.role_level,
+        capabilityField: 'capability',
+        capabilities,
+      },
+    );
+    const expiresAt = input.expires_at ? new Date(input.expires_at) : null;
+    validateRequestExpiration(expiresAt, 'expires_at');
+    const state = await preflight(
+      tx,
+      actor.workspace_id,
+      input.actor_id,
+      input.capability,
+      managedSystemId,
+      scope,
+    );
+    if (state.state === 'request_review')
+      throw new HttpError(
+        'conflict.permission_request_duplicate',
+        'matching open request requires review',
+        { request_id: state.request_id, review_route: state.review_route },
+      );
+    if (state.state === 'deny_lift')
+      throw new HttpError(
+        'conflict.capability_already_denied',
+        'overlapping deny requires explicit lift',
+        { deny_ids: state.deny_ids, lift_route: state.lift_route },
+      );
+    const settings = await getResolvedWorkspaceSettingsForUpdate(tx, actor.workspace_id);
+    const self = input.actor_id === actor.actor_id;
+    if (self && settings.permission_self_approval === 'forbidden') {
+      throw new HttpError('permission.denied', 'self grant forbidden by workspace policy');
+    }
+    if (self !== (input.self_approval !== undefined)) {
+      throw new HttpError(
+        'validation.failed',
+        'self envelope must accompany only a self grant',
+        {
+          fields: [{ path: ['self_approval'], code: 'custom' }],
+        },
+      );
+    }
+    validateRequestExpiration(expiresAt, 'expires_at');
+    const result = await writePermissionGrant(tx, {
+      workspaceId: actor.workspace_id,
+      actorId: input.actor_id,
+      capability: input.capability,
+      scope,
+      managedSystemId,
+      grantedByActorId: actor.actor_id,
+      expiresAt,
+      reason: input.reason,
+    });
+    await deps.auditService.record(tx, {
+      workspace_id: actor.workspace_id,
+      actor_id: actor.actor_id,
+      event_type: 'permission_granted',
+      subject_type: 'permission_grant',
+      subject_id: result.item.id,
+      summary: 'Permission granted',
+      detail: {
+        grant_id: result.item.id,
+        grantee_actor_id: input.actor_id,
+        capability: input.capability,
+        ...scopeFields(scope),
+        managed_system_id: managedSystemId,
+        reason: input.reason,
+        expires_at: result.item.expires_at,
+        mode: result.previousGrantId ? 'reissue' : 'create',
+        ...(result.previousGrantId ? { previous_grant_id: result.previousGrantId } : {}),
+        ...(self ? { self_grant: true, self_approval: input.self_approval } : {}),
+        ...(batchId ? { batch_id: batchId } : {}),
+      },
+    });
+    return result.item;
+  }
+
   async function grant(
     actor: ActorContext,
     body: DirectPermissionGrant,
@@ -266,94 +368,10 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         await assertAdmin({ ...actor, role_level: recipient.role_level }, tx);
       }
       const requestHash = hashRequestBody({ action: 'direct_grant', ...input });
-      const run = async (): Promise<{ status: number; body: PermissionGrantAdminItem }> => {
-        const scope = { kind: input.scope_kind ?? 'managed_system', site: input.scope_site ?? null, room: input.scope_room ?? null };
-        const managedSystemId = input.managed_system_id ?? null;
-        await validateSupportedScope(
-          tx,
-          actor.workspace_id,
-          input.capability,
-          managedSystemId,
-          null,
-          null,
-          {
-            approval: true,
-            scope, scopeCatalog: deps.scopeCatalog, scopePrefix: '',
-            field: 'managed_system_id',
-            recipientRole: recipient.role_level,
-            capabilityField: 'capability',
-            capabilities,
-          },
-        );
-        const expiresAt = input.expires_at ? new Date(input.expires_at) : null;
-        validateRequestExpiration(expiresAt, 'expires_at');
-        const state = await preflight(
-          tx,
-          actor.workspace_id,
-          input.actor_id,
-          input.capability,
-          managedSystemId,
-          scope,
-        );
-        if (state.state === 'request_review')
-          throw new HttpError(
-            'conflict.permission_request_duplicate',
-            'matching open request requires review',
-            { request_id: state.request_id, review_route: state.review_route },
-          );
-        if (state.state === 'deny_lift')
-          throw new HttpError(
-            'conflict.capability_already_denied',
-            'overlapping deny requires explicit lift',
-            { deny_ids: state.deny_ids, lift_route: state.lift_route },
-          );
-        const settings = await getResolvedWorkspaceSettingsForUpdate(tx, actor.workspace_id);
-        const self = input.actor_id === actor.actor_id;
-        if (self && settings.permission_self_approval === 'forbidden') {
-          throw new HttpError('permission.denied', 'self grant forbidden by workspace policy');
-        }
-        if (self !== (input.self_approval !== undefined)) {
-          throw new HttpError(
-            'validation.failed',
-            'self envelope must accompany only a self grant',
-            {
-              fields: [{ path: ['self_approval'], code: 'custom' }],
-            },
-          );
-        }
-        validateRequestExpiration(expiresAt, 'expires_at');
-        const result = await writePermissionGrant(tx, {
-          workspaceId: actor.workspace_id,
-          actorId: input.actor_id,
-          capability: input.capability,
-          scope,
-          managedSystemId,
-          grantedByActorId: actor.actor_id,
-          expiresAt,
-          reason: input.reason,
-        });
-        await deps.auditService.record(tx, {
-          workspace_id: actor.workspace_id,
-          actor_id: actor.actor_id,
-          event_type: 'permission_granted',
-          subject_type: 'permission_grant',
-          subject_id: result.item.id,
-          summary: 'Permission granted',
-          detail: {
-            grant_id: result.item.id,
-            grantee_actor_id: input.actor_id,
-            capability: input.capability,
-            ...scopeFields(scope),
-            managed_system_id: managedSystemId,
-            reason: input.reason,
-            expires_at: result.item.expires_at,
-            mode: result.previousGrantId ? 'reissue' : 'create',
-            ...(result.previousGrantId ? { previous_grant_id: result.previousGrantId } : {}),
-            ...(self ? { self_grant: true, self_approval: input.self_approval } : {}),
-          },
-        });
-        return { status: 201, body: result.item };
-      };
+      const run = async (): Promise<{ status: number; body: PermissionGrantAdminItem }> => ({
+        status: 201,
+        body: await grantRow(tx, actor, recipient, input, capabilities),
+      });
       if (!options.idempotencyKey) return run();
       return deps.idempotencyService.runIdempotent(
         tx,
@@ -362,6 +380,56 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         requestHash,
         run,
       );
+    });
+  }
+  /** #2406: N capability candidates for one recipient in one transaction. Every row passes the same checks and audit as a direct grant; any refusal rolls the whole batch back. */
+  async function grantBatch(
+    actor: ActorContext,
+    body: DirectPermissionGrantBatch,
+    options: GrantAdminServiceOptions = {},
+  ): Promise<{ status: number; body: PermissionGrantBatchResult }> {
+    return deps.db.transaction(async (tx) => {
+      await assertAdmin(actor, tx);
+      const parsed = directPermissionGrantBatchSchema.safeParse(body);
+      if (!parsed.success)
+        throw new HttpError('validation.failed', 'invalid direct grant batch', {
+          fields: parsed.error.issues.map((issue) => ({ path: issue.path, code: issue.code })),
+        });
+      const input = parsed.data;
+      const capabilities = capabilitiesOf(deps.checkService);
+      const seen = new Set<string>();
+      input.items.forEach((item, index) => {
+        if (!capabilities.has(item.capability)) {
+          throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.capability });
+        }
+        const key = JSON.stringify([item.capability, item.managed_system_id ?? null, item.scope_kind ?? 'managed_system', item.scope_site ?? null, item.scope_room ?? null]);
+        if (seen.has(key)) {
+          throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }] });
+        }
+        seen.add(key);
+      });
+      const recipient = await lockWorkspaceActor(tx, { workspaceId: actor.workspace_id, actorId: input.actor_id });
+      if (!recipient) throw new HttpError('not_found.record', 'recipient not found');
+      if (input.actor_id === actor.actor_id) {
+        await assertAdmin({ ...actor, role_level: recipient.role_level }, tx);
+      }
+      const requestHash = hashRequestBody({ action: 'direct_grant_batch', ...input });
+      const run = async (): Promise<{ status: number; body: PermissionGrantBatchResult }> => {
+        const batchId = randomUUID();
+        const items: PermissionGrantAdminItem[] = [];
+        for (const [index, item] of input.items.entries()) {
+          const { items: _items, ...shared } = input;
+          try {
+            items.push(await grantRow(tx, actor, recipient, { ...shared, ...item }, capabilities, batchId));
+          } catch (error) {
+            if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, error.detail);
+            throw error;
+          }
+        }
+        return { status: 201, body: { batch_id: batchId, items } };
+      };
+      if (!options.idempotencyKey) return run();
+      return deps.idempotencyService.runIdempotent(tx, actor.actor_id, options.idempotencyKey, requestHash, run);
     });
   }
   async function listGrants(actor: ActorContext, filters: PermissionGrantListQuery = {}): Promise<{ items: PermissionGrantAdminItem[] }> {
@@ -601,6 +669,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
   return {
     grantOptions,
     grant,
+    grantBatch,
     listGrants,
     listDenies,
     revokeGrant,

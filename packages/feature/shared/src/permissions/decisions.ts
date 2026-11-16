@@ -84,3 +84,25 @@ export type PermissionDecisionResult = z.infer<typeof permissionDecisionResultSc
 export type RevokePermissionBody = z.infer<typeof revokePermissionBodySchema>;
 export type RevokePermissionResult = z.infer<typeof revokePermissionResultSchema>;
 export type CreatePermissionRequest = z.infer<typeof createPermissionRequestSchema>;
+
+/** POST /permission-requests/batch: several capability requests with one reason and expiry. The server opens one request row per candidate (#2406). */
+export const createPermissionRequestBatchSchema = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            requested_capability: z.string().min(1),
+            ...requestedPermissionScopeFields,
+            requested_managed_system_id: z.string().uuid().optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(50),
+    reason: z.string().min(1).max(2000),
+    requested_expiration: z.string().datetime().optional(),
+    return_route_intent: z.string().min(1).optional(),
+  })
+  .strict();
+export type CreatePermissionRequestBatch = z.infer<typeof createPermissionRequestBatchSchema>;

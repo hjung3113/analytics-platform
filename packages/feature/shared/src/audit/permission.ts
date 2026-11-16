@@ -37,6 +37,8 @@ export const permissionRequestedDetailSchema = z.object({
   source_object_type: z.string().nullable(),
   source_object_id: z.string().uuid().nullable(),
   source_action_id: z.string().nullable(),
+  /** Set on every row of one batch request (#2406). */
+  batch_id: z.string().uuid().optional(),
 });
 export type PermissionRequestedDetail = z.infer<typeof permissionRequestedDetailSchema>;
 
@@ -200,6 +202,8 @@ export const permissionGrantedDetailSchema = z
     expires_at: z.string().datetime().nullable(),
     mode: z.enum(['create', 'reissue']),
     previous_grant_id: z.string().uuid().optional(),
+    /** Set on every row of one batch grant (#2406). */
+    batch_id: z.string().uuid().optional(),
     self_grant: z.literal(true).optional(),
     self_approval: z
       .object({
