@@ -98,6 +98,11 @@ OrderedTrackMarker | type | type OrderedTrackMarker = { kind: 'boundary' | 'inve
 OrderedTrackState | type | type OrderedTrackState = { colorToken: @ap/ui/theme#ThemeColorToken; label: string; }
 OrderedTrackStatus | type | type OrderedTrackStatus = 'empty' | 'error' | 'forbidden' | 'loading' | 'partial' | 'ready' | 'unsupported'
 OutcomeView | function | function OutcomeView<T>({ response, onRetry, emptyAction, compact, children }: { children: (data: T) => ReactNode; compact?: boolean; emptyAction?: ReactNode; onRetry: () => void; response: @ap/contracts#ApiResponse<T>; }): import("react").JSX.Element
+PageConditionCategories | function | function PageConditionCategories(props: @ap/components#PageConditionCategoriesProps): import("react").JSX.Element
+PageConditionCategoriesProps | type | type PageConditionCategoriesProps = { declaration: @ap/contracts#PageConditions; inputsKey: string; issues?: readonly @ap/kernel#PageConditionIssue[]; loadOptions?: @ap/components#PageConditionOptionsLoader; onChange: (categoryId: string, nextDecoded: @ap/kernel#PageConditionValues | null) => void; rawPairs?: readonly @ap/contracts#Pair[]; values: @ap/kernel#PageConditionValues; }
+PageConditionOptions | type | type PageConditionOptions = @ap/contracts#PageConditionGroupedOptionsResponse | @ap/contracts#PageConditionOptionsResponse
+PageConditionOptionsError | class | class PageConditionOptionsError extends Error { readonly response: @ap/contracts#ApiResponse<unknown>; constructor(response: @ap/contracts#ApiResponse<unknown>); }
+PageConditionOptionsLoader | type | type PageConditionOptionsLoader = (category: @ap/contracts#PageConditionCategory, options: { signal: AbortSignal; }) => Promise<@ap/components#PageConditionOptions>
 PageFilterAppliedChip | type | type PageFilterAppliedChip = @ap/components#PageFilterSummaryItem & { clearLabel?: string; onClear?: () => void; title?: string; }
 PageFilterBar | function | function PageFilterBar(props: @ap/components#PageFilterBarProps): import("react").JSX.Element
 PageFilterBarProps | type | type PageFilterBarProps = PageFilterBarShared & { appliedChips?: readonly @ap/components#PageFilterAppliedChip[]; collapsedActions?: ReactNode; collapsible: true; defaultCollapsed?: boolean; hasPendingChanges?: boolean; preferenceKey: string; summaryItems: readonly @ap/components#PageFilterSummaryItem[]; }
@@ -245,6 +250,7 @@ useCompactPageDensity | const | const useCompactPageDensity: () => boolean
 useCopyLink | function | function useCopyLink(successText: string, options?: CopyLinkOptions): (url: string) => Promise<boolean>
 useHeaderOverflowDialog | function | function useHeaderOverflowDialog(): ShowHeaderDialog | null
 useHierarchyNavState | function | function useHierarchyNavState(menuId: string): @ap/components#HierarchyNavState
+usePageConditionOptionsLoader | function | function usePageConditionOptionsLoader<P, T extends @ap/components#PageConditionOptions>(spec: @ap/contracts#EndpointSpec<P, T>, params: P): { loadOptions: @ap/components#PageConditionOptionsLoader; ready: boolean; }
 usePageKeyRules | function | function usePageKeyRules(rules: readonly @ap/components#PageKeyRule[]): { badKeys: string[]; invalid: boolean; recover: () => void; sentences: string[]; }
 usePeopleSearch | function | function usePeopleSearch(search: @ap/components#PeopleSearch, query: string): @ap/components#PeopleSearchState
 useQueryBarExtension | function | function useQueryBarExtension(): @ap/components#QueryBarExtension | undefined
