@@ -83,8 +83,10 @@ function categoryGroups(groups: ChartRowGroups, order: readonly string[]): Custo
       const left = api.coord([run.start - HALF_CELL, 0])[0];
       const right = api.coord([run.end + HALF_CELL, 0])[0];
       const bottom = grid.y + grid.height;
+      // A group narrower than its own label drops the label instead of overprinting its neighbours; the divider stays.
+      const fits = right - left >= run.group.length * GROUP_FONT_SIZE * 0.62 + 4;
       return { type: 'group', children: [
-        { type: 'text', style: { x: (left + right) / 2, y: bottom + GROUP_LABEL_OFFSET, text: run.group, fill: theme.axisLabel.color, fontSize: GROUP_FONT_SIZE, align: 'center', verticalAlign: 'middle' } },
+        ...(fits ? [{ type: 'text' as const, style: { x: (left + right) / 2, y: bottom + GROUP_LABEL_OFFSET, text: run.group, fill: theme.axisLabel.color, fontSize: GROUP_FONT_SIZE, align: 'center' as const, verticalAlign: 'middle' as const } }] : []),
         ...(run.start > 0 ? [{ type: 'line' as const, shape: { x1: left, x2: left, y1: grid.y, y2: bottom + GROUP_LABEL_OFFSET }, style: { stroke: theme.splitLine.lineStyle.color, lineWidth: 1 } }] : []),
       ] };
     },
@@ -165,7 +167,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const rows = base.rows.map((row, i) => ({ ...row, label: [row.label, pointDetails(accepted[i])].filter(Boolean).join(' · ') }));
   const summary = cells ? formatText(COMPONENTS_MESSAGES.chartScatterCategorySummary, lang, {
     total: points.length, unknown: points.filter(point => point.y === null).length,
-    legend: base.legend.map(item => item.label).join(', '), xLabel: spec.xLabel, yLabel: spec.yLabel, unit,
+    legend: quiet ? formatText(COMPONENTS_MESSAGES.chartScatterGroupCount, lang, { count: base.legend.length }) : base.legend.map(item => item.label).join(', '), xLabel: spec.xLabel, yLabel: spec.yLabel, unit,
   }) : base.summary;
   const statusOutlines: ScatterSeriesOption[] = base.seriesKeys.flatMap((keys, groupIndex) => {
     const data = keys.flatMap(key => {
@@ -175,7 +177,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
     if (!data.length) return [];
     const group = base.legend[groupIndex];
     const effectiveFill = statusFill(token(group.color), quiet ? QUIET_SCATTER.statusOpacity : SCATTER_FILL_OPACITY);
-    const outline = { type: 'scatter' as const, symbol: group.symbol, ...(quiet ? { symbolSize: QUIET_SCATTER.statusSize } : {}), silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: 1 } };
+    const outline = { type: 'scatter' as const, symbol: group.symbol, ...(quiet ? { symbolSize: QUIET_SCATTER.statusSize } : {}), silent: true, animation: false, tooltip: { show: false }, emphasis: { disabled: true }, itemStyle: { color: 'transparent', opacity: quiet ? QUIET_SCATTER.ringOpacity : 1 } };
     const backings = quiet ? [] : data.flatMap(datum => {
       const backing = statusBacking(datum.status, effectiveFill);
       return backing ? [{ value: datum.value, itemStyle: { borderColor: backing, borderWidth: 6 } }] : [];
@@ -231,7 +233,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
         min: -HALF_CELL, max: Math.max(0, cells.order.length - 1) + HALF_CELL, interval: HALF_CELL,
         axisTick: { show: false }, splitLine: { show: false },
         name: spec.xLabel, nameGap: groups ? 64 : 32,
-        axisLabel: { ...theme.axisLabel, showMinLabel: false, showMaxLabel: false, formatter: (value: number) => Number.isInteger(value) && cells.order[value] !== undefined ? rowLabel(groups, cells.order[value]) : '' },
+        axisLabel: { ...theme.axisLabel, hideOverlap: true, showMinLabel: false, showMaxLabel: false, formatter: (value: number) => Number.isInteger(value) && cells.order[value] !== undefined ? rowLabel(groups, cells.order[value]) : '' },
       } : original.xAxis as XAXisComponentOption;
       return {
         ...original, xAxis,

@@ -49,7 +49,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
     }
   }
   if (groups.length > 4) chartDiagnostic('more than four scatter groups; overflow uses remainder and repeated symbols');
-  const legend = groups.map((g, i) => ({ label: g.label, color: i > 3 ? 'chart-remainder' as const : g.color ?? fills[i], symbol: shapes[i % 4] }));
+  const legend = groups.map((g, i) => ({ label: g.label, color: i > 3 ? 'chart-remainder' as const : g.color ?? fills[i], symbol: spec.density === 'quiet' ? 'circle' : shapes[i % 4] }));
   const text = (v: number | null, u: string) => v === null ? unknown : `${v} ${u}`;
   const rows: ChartRow[] = points.map(p => ({ key: rowKey('scatter', p.id), label: p.label ?? p.id, value: p.y, drill: spec.onPointClick ? () => spec.onPointClick?.(p.id) : undefined }));
   const tableValues = points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, text(p.x, spec.xUnit), text(p.y, unit)]);

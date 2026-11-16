@@ -85,7 +85,7 @@ it.each([{ categorical: false, matching: false }, { categorical: false, matching
   } finally { chart.dispose(); }
 });
 
-it('renders quiet rings opaque without a backing and reveals only the selected status glyph', () => {
+it('renders thin quiet rings without a backing and reveals only the selected status glyph', () => {
   const projection = scatterData({ kind: 'scatter', density: 'quiet', xUnit: 'x', xLabel: 'Cell', yLabel: 'Value',
     points: [{ id: 'normal', x: 0, y: 1 }, { id: 'high', x: 1, y: 12, status: { tone: 'danger', label: 'High' } }],
   }, 'en', 's');
@@ -100,10 +100,10 @@ it('renders quiet rings opaque without a backing and reveals only the selected s
     expect(svg).not.toContain('>▲</text>');
     expect(svg).toContain('fill-opacity="0.45"'); expect(svg).toContain('fill-opacity="0.6"');
     const ring = svg.match(/<path[^>]*ecmeta_ssr_type="chart"[^>]*>/g)!.find(path => path.includes(`ecmeta_series_index="${outlineIndex}"`))!;
-    expect(ring).toBeDefined(); expect(ring).not.toMatch(/stroke-opacity="0\./);
+    expect(ring).toBeDefined();
     const matrix = ring.match(/matrix\(([^)]+)\)/)![1].split(',').map(Number);
     const width = Number(ring.match(/stroke-width="([^"]+)"/)![1]);
-    expect(width * Math.sqrt(Math.abs(matrix[0] * matrix[3]))).toBeCloseTo(1.5);
+    expect(width * Math.sqrt(Math.abs(matrix[0] * matrix[3]))).toBeCloseTo(1);
     chart.setOption({ ...projection.option([projection.rows[1].key]), animation: false }, { notMerge: true });
     expect(chart.renderToSVGString()).toContain('>▲</text>');
   } finally { chart.dispose(); }

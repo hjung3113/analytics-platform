@@ -25,6 +25,7 @@ export const COMPONENTS_MESSAGES = {
     ko: '{total}개 점 · {unknown}개 미확인 · {legend} · {xLabel} · {yLabel} ({unit})',
     en: '{total} points · {unknown} unknown · {legend} · {xLabel} · {yLabel} ({unit})',
   },
+  chartScatterGroupCount: { ko: '묶음 {count}개', en: 'groups: {count}' },
   chartScatterSummary: {
     ko: '{total}개 점 · {unknown}개 미확인 · {legend} · {xLabel} ({xUnit}) · {yLabel} ({unit})',
     en: '{total} points · {unknown} unknown · {legend} · {xLabel} ({xUnit}) · {yLabel} ({unit})',
