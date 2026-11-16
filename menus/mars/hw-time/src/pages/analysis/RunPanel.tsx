@@ -1,3 +1,4 @@
+import { SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AnalysisChart, AnalysisChartFrame, FilterLine, type ChartPoint, type ScatterSpec } from '@ap/components';
 import type { ColumnFilter } from '@ap/contracts';
@@ -49,6 +50,9 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
       scatter: shapeRunScatter({ points: sampled.rows, bounds: data.bounds }, settings, motions, lang),
       trend: shapeRunTrend(daily.rows, settings, motions, lang) };
   }, [data, fields, filters, lang, motions, settings]);
+  const observations = kind === 'scatter' ? projected.sampled.rows : projected.daily.rows;
+  const partial = observations.some(point => point.value === null);
+  const contextNote = [m('synthetic'), judgement && htmStatusText(judgement, lang), partial && m('partial')].filter(Boolean).join(' · ');
   const axis = projected.scatter.axis;
   const axisLabel = axis === 'equipment-module' ? m('equipmentModule') : axis === 'equipment' ? m('equipment') : m('modules');
   // Out-of-bound points only carry a status (same rule as the bar pieces): a neutral `판정 불가` on every point would drown the emphasis.
@@ -64,11 +68,17 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
     return (point: ChartPoint) => { const status = of(point); return status?.tone === 'neutral' ? undefined : status; };
   }, [projected.trend.pointStatusOf]);
   const change = <K extends keyof RunScatterSettings>(key: K, value: RunScatterSettings[K]) => setSettings(current => ({ ...current, [key]: value }));
-  return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col gap-2 p-3">
-    <div className="flex flex-wrap items-center gap-2">
-      <h3 className="t-card-title">{m('runs', { module: moduleId, motion: motionId })}</h3>
-      {judgement && <StatusBadge tone={htmStatusView(judgement, lang)?.tone ?? 'success'}>{htmStatusText(judgement, lang)}</StatusBadge>}
-    </div>
+  return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col">
+    <p className="sr-only">{contextNote}</p>
+    <div className="relative flex shrink-0 items-center gap-2 px-2 py-0.5">
+      <h3 className="t-caption min-w-0 flex-1 truncate" title={m('runs', { module: moduleId, motion: motionId })}>{m('runs', { module: moduleId, motion: motionId })}</h3>
+      <details>
+        <summary aria-label={m('panelSettings')} title={m('panelSettings')} className="flex size-7 cursor-pointer list-none items-center justify-center rounded-md text-text-secondary hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+          <SlidersHorizontal className="size-3.5" aria-hidden /><span className="sr-only">{m('panelSettings')}</span>
+          {filters.length > 0 && <span className="text-tiny tabular">{filters.length}</span>}
+        </summary>
+        <div className="absolute inset-x-0 top-full z-10 flex max-h-96 flex-col gap-2 overflow-auto rounded-md border border-border-subtle bg-surface-popover p-3 shadow-md">
+          {judgement && <StatusBadge tone={htmStatusView(judgement, lang)?.tone ?? 'success'}>{htmStatusText(judgement, lang)}</StatusBadge>}
       <div className="flex flex-wrap items-center gap-3">
         {kind === 'scatter' && <Setting label={m('axis')} value={settings.axis} onChange={next => change('axis', next)} options={[
           { id: 'equipment-module', label: m('equipmentModule') }, { id: 'equipment', label: m('equipment') }, { id: 'module', label: m('modules') },
@@ -84,14 +94,19 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement }:
       {!projected.sampled.validation.ok && <p role="alert">{m('invalidPanelFilters')}</p>}
       <p className="t-caption text-text-secondary">{m('runReady', { points: String(projected.scatter.points.length), daily: String(projected.trend.series.reduce((count, series) => count + series.points.length, 0)) })}</p>
       {settings.value === 'module' && <p className="t-caption text-text-secondary">{m('moduleStatusNote')}</p>}
-      {kind === 'scatter' && <div className="flex min-h-0 flex-1 flex-col gap-2">
+      {kind === 'scatter' && <>
         <p className="t-caption text-text-secondary">{m('sample', { shown: String(data.shown), total: String(data.total) })}</p>
         {projected.scatter.boundConflicts.length > 0 && <p className="t-caption text-text-secondary">{m('boundConflict')}</p>}
-        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
+      </>}
+      {kind === 'trend' && <p className="t-caption text-text-secondary">{m('trendBandPolicy')}</p>}
+        </div>
+      </details>
+    </div>
+    {kind === 'scatter' && <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} description={contextNote} chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
       </div>}
-      {kind === 'trend' && <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <p className="t-caption text-text-secondary">{m('trendBandPolicy')}</p>
-        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChartFrame chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="time"
+      {kind === 'trend' && <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col"><AnalysisChartFrame legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="time"
           unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN} emphasisFocus="none"
           canApplyRange={false} pointStatus={trendStatusOf} bounds={projected.trend.bounds} boundLabels={projected.trend.boundLabels} /></div>
       </div>}

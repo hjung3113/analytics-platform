@@ -23,23 +23,25 @@ export function useImageActionGate(standalone: ChartExportActionsPolicy | undefi
 export const ImageActionStatus = ({ text }: { text: string }) => text === '' ? null : <span role="status" className="t-caption text-text-muted">{text}</span>;
 
 /** `이미지 복사`: drawn under a menu whose manifest enables `features.export` (same gate as Export), or, with no `PlatformProvider`, only when `standalone.exportAllowed` is true. Mount it only when the chart's `imageCopy` is true. */
-export function ChartImageCopyButton({ capture, fileName, standalone }: { capture: () => Blob | Promise<Blob>; fileName: string; standalone?: ChartExportActionsPolicy }) {
+export function ChartImageCopyButton({ capture, fileName, standalone, onOutcome }: { capture: () => Blob | Promise<Blob>; fileName: string; standalone?: ChartExportActionsPolicy; onOutcome?: ChartExportActionsPolicy['notify'] }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { allowed, say, status } = useImageActionGate(standalone);
+  const { allowed, say: localSay, status } = useImageActionGate(standalone);
+  const say = onOutcome ?? localSay;
   if (!allowed) return null;
   return <><Button variant="ghost" size="toolbar" onClick={() => { void copyChartImage(capture, fileName).then(outcome => say(imageCopyText(outcome, lang), outcome === 'failed' ? 'warning' : undefined)); }}>
     <ImageIcon className="size-3.5" aria-hidden />{m('chartCopyImage')}
-  </Button><ImageActionStatus text={status} /></>;
+  </Button>{!onOutcome && <ImageActionStatus text={status} />}</>;
 }
 
 /** `인쇄`: the same image and the same gate as `ChartImageCopyButton`. `title` is read on click, so a ReactNode heading can pass its rendered text. */
-export function ChartImagePrintButton({ capture, title, standalone }: { capture: () => Blob | Promise<Blob>; title: () => string; standalone?: ChartExportActionsPolicy }) {
+export function ChartImagePrintButton({ capture, title, standalone, onOutcome }: { capture: () => Blob | Promise<Blob>; title: () => string; standalone?: ChartExportActionsPolicy; onOutcome?: ChartExportActionsPolicy['notify'] }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { allowed, say, status } = useImageActionGate(standalone);
+  const { allowed, say: localSay, status } = useImageActionGate(standalone);
+  const say = onOutcome ?? localSay;
   if (!allowed) return null;
   return <><Button variant="ghost" size="toolbar" onClick={() => { void printChartImage(capture, title()).then(printed => { if (!printed) say(imagePrintFailedText(lang), 'warning'); }); }}>
     <Printer className="size-3.5" aria-hidden />{m('chartPrint')}
-  </Button><ImageActionStatus text={status} /></>;
+  </Button>{!onOutcome && <ImageActionStatus text={status} />}</>;
 }

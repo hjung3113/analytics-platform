@@ -95,8 +95,8 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
 }
 
 /** Accessible legends use the same geometry and token as the canvas marks. */
-export function KindLegend({ items, label, compact = false }: { compact?: boolean; items: KindProjection['legend']; label: string }) {
-  return <ul aria-label={label} className={cn('flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{items.map((item, i) => <li key={i} className="flex items-center gap-1">
+export function KindLegend({ items, label, compact = false, singleLine = false }: { singleLine?: boolean; compact?: boolean; items: KindProjection['legend']; label?: string }) {
+  return <ul aria-label={label} className={cn(singleLine ? 'contents' : 'flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{items.map((item, i) => <li key={i} className={cn('flex items-center gap-1', singleLine && 'shrink-0 whitespace-nowrap')}>
     {item.status ? <ChartStatusLegend statuses={[item.status]} /> : <><svg aria-hidden width="14" height="14" viewBox="0 0 14 14" opacity={item.opacity}>
       {item.symbol === 'circle' ? <circle cx="7" cy="7" r="5" fill={token(item.color)} /> : item.symbol === 'rect' ? <rect x="2" y="2" width="10" height="10" fill={token(item.color)} stroke={item.stroke ? token(item.stroke) : undefined} strokeDasharray={item.unknown ? '2 2' : undefined} /> : item.symbol === 'triangle' ? <path d="M7 1 L13 13 L1 13 Z" fill={token(item.color)} /> : item.symbol === 'line' ? <path d="M1 7 H13" stroke={token(item.color)} strokeWidth="2" strokeDasharray={item.dash} /> : <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={token(item.color)} />}
     </svg>{item.label}</>}

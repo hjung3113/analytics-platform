@@ -35,7 +35,7 @@ function checkedSum(cell: HwTimeMatrixCell, motions: readonly string[]): number 
 /**
  * Server judgements as SDK chart payloads (#2326). No local per-piece styling or inferred judgements.
  * Bar pieces and heatmap cells carry only out-of-bound statuses (owner spec: only what is outside its HTM is emphasised). `판정 불가`
- * stays in the caption above the charts and in the Motion table: today almost every cell is unjudgeable, and a mark on each would
+ * stays in the chart description and in the Motion table: today almost every cell is unjudgeable, and a mark on each would
  * drown the out-of-bound ones (advisor, owner may reverse). Both read the same matrix cell, so a marked cell is a row with a marked piece.
  */
 export function chartStatuses(data: HwTimeMatrix, lang: 'ko' | 'en') {
@@ -96,22 +96,23 @@ function MatrixPanel({ panel, data, filter, onModule, onRow }: { panel: 'heatmap
   const statusLabels = [...new Set(cells.map(cell => htmStatusText(cell.module, lang)))];
   const partial = cells.some(cell => filter.motions.some(motion => cell.motions[motion]?.value == null));
   if (!filter.modules.length || !filter.motions.length) return <p className="p-3 text-sm text-text-secondary">{m('noChecks')}</p>;
-  return <div className="flex h-full min-h-0 flex-col gap-2">
-    <p className="t-caption px-4 pt-2 text-text-secondary">{m('synthetic')} · {statusLabels.join(' · ')}</p>
+  const contextNote = `${m('synthetic')} · ${statusLabels.join(' · ')}${partial ? ` · ${m('partial')}` : ''}`;
+  return <div className="flex h-full min-h-0 flex-col">
+    <p className="sr-only">{m('synthetic')} · {statusLabels.join(' · ')}</p>
     <div className="flex min-h-0 flex-1 flex-col">
-    {panel === 'heatmap' ? <AnalysisChart chartId="hw-overview-matrix" title={m('heatmap')} description={m('heatmapNote')} spec={heatmap} unit={HW_TIME_UNIT[lang]} size="fill" />
+    {panel === 'heatmap' ? <AnalysisChart legendPlacement="top" toolsReveal="always" chartId="hw-overview-matrix" title={m('heatmap')} description={`${contextNote} · ${m('heatmapNote')}`} spec={heatmap} unit={HW_TIME_UNIT[lang]} size="fill" />
       : <>
-      <AnalysisChartFrame chartId="hw-overview-bars" title={m('bars')} description={m('barsNote')}
+      <AnalysisChartFrame legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} chartId="hw-overview-bars" title={m('bars')} description={`${contextNote} · ${m('barsNote')}`}
         series={series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)}
         xType="category" orientation="horizontal" stacked startAlign={pageParam('align') === '1'} emphasisFocus="none"
         size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowGroups={statuses.rowGroups} pointStatus={statuses.barStatusOf} activeCategory={activeCategory} revealActive
-        onActiveCategoryChange={setFocus} legend={false} visibleSeriesIds={selectedMotions.map(motion => motion.id)}
+        onActiveCategoryChange={setFocus} visibleSeriesIds={selectedMotions.map(motion => motion.id)}
         canApplyRange={false} reaggregation="sum" valueLabels="both"
         pointActivation={{ on: 'click', onActivate: point => { const cell = byLabel.get(point.x); if (cell) onModule(cell.moduleId, point.x); } }} />
       </>}
     </div>
-    {partial && <p className="t-caption text-text-secondary">{m('partial')}</p>}
-    {panel === 'bars' && focusCell && <p className="t-caption text-text-secondary" role="status">{activeCategory} · {cellStatus?.label ?? htmStatusText(focusCell.module, lang)} · {selectedMotions.map(motion => {
+    {partial && <p className="sr-only">{m('partial')}</p>}
+    {panel === 'bars' && focusCell && <p className="sr-only" role="status">{activeCategory} · {cellStatus?.label ?? htmStatusText(focusCell.module, lang)} · {selectedMotions.map(motion => {
       const status = pointStatusOf({ x: activeCategory!, seriesId: motion.id });
       const judgement = focusCell.motions[motion.id];
       const label = judgement ? htmStatusText(judgement, lang) : missingText(lang);
