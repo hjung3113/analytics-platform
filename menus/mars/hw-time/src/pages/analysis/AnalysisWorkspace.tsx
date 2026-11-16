@@ -1,43 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useI18n, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
+import { useMemo, useState, type ReactNode } from 'react';
+import { formatText, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, Inspector, PageKeyWarning, PanelWorkspace, PlatformDataTable, QueryView, RowAction,
-  type PanelWorkspacePanel, type PanelWorkspacePreset,
-  type ChartPoint, type HeatmapSpec, type PlatformColumn,
+  AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PanelAddMenu, PanelOptionChips, PanelOptions, PanelWorkspace, QueryView,
+  usePanelOptions, usePinnedPanels, type ChartPoint, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
-import { Button, Checkbox, StatusBadge } from '@ap/ui';
-import { ChartScatter, SlidersHorizontal } from 'lucide-react';
-import {
-  HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_UNIT, hwTimeOverview,
-  type HwTimeMatrix, type HwTimeMatrixCell, type HwTimeMotionStats,
-} from '../../endpoints';
-import { HW_TIME_MESSAGES, HW_TIME_WORKSPACE_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
-import { formatSeconds, missingText } from '../../shared/format';
-import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
+import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, type HwTimeMatrix, type HwTimeMatrixParams } from '../../endpoints';
+import { HW_TIME_MESSAGES, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
+import { formatSeconds } from '../../shared/format';
+import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
-import { FilterPanel } from '../../shared/panels/FilterPanel';
-import RawTablePanel from '../table/RawTablePanel';
 import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
-import { RunPanel } from './RunPanel';
+import RawTablePanel from '../table/RawTablePanel';
+import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
+import { CATALOG_IDS, chartRows, checkedSum, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 
-/** Lowest plot height a panel chart keeps before its panel body scrolls (px). */
+/** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
 const BAR_ROW_PITCH = 28;
-const rowLabel = (equipmentId: string, moduleId: string) => `${equipmentId} · ${moduleId}`;
-
-/** Preserve unknowns: a partial or wholly unmeasured selection cannot be shown as a complete sum. */
-function checkedSum(cell: HwTimeMatrixCell, motions: readonly string[]): number | null {
-  const values = motions.map(id => cell.motions[id]?.value ?? null);
-  if (values.length === 0 || values.some(value => value === null)) return null;
-  return values.reduce<number>((sum, value) => sum + value!, 0);
-}
-
-/**
- * Server judgements as SDK chart payloads (#2326). No local per-piece styling or inferred judgements.
- * Bar pieces and heatmap cells carry only out-of-bound statuses (owner spec: only what is outside its HTM is emphasised). `판정 불가`
- * stays in the chart description and in the Motion table: today almost every cell is unjudgeable, and a mark on each would
- * drown the out-of-bound ones (advisor, owner may reverse). Both read the same matrix cell, so a marked cell is a row with a marked piece.
- */
 export function chartStatuses(data: HwTimeMatrix, lang: 'ko' | 'en') {
   const byLabel = new Map(data.cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), cell]));
   const pointStatusOf = (point: Pick<ChartPoint, 'x' | 'seriesId'>) => htmStatusView(byLabel.get(point.x)?.motions[point.seriesId], lang);
@@ -51,196 +30,227 @@ export function chartStatuses(data: HwTimeMatrix, lang: 'ko' | 'en') {
   return { pointStatusOf, barStatusOf, cellStatus, cellStatusOf, rowGroups };
 }
 
-// Every panel has its own group: no analysis tabs at either supported desktop size. Rows follow the drill: heatmap → bars, then
-// Module → Motion table → runs. Scatter and trend are wide (many categories or days, 24-equipment legends), so trend takes a full row.
-const PRESETS: PanelWorkspacePreset[] = [{ id: 'linked', label: HW_TIME_WORKSPACE_MESSAGES.defaultLayout,
-  layout: { type: 'branch', dir: 'column', sizes: [24, 28, 26, 22], children: [
-    { type: 'branch', dir: 'row', sizes: [27, 27, 46], children: [
-      { type: 'group', panels: ['filter'] }, { type: 'group', panels: ['heatmap'] }, { type: 'group', panels: ['bars'] },
-    ] },
-    { type: 'branch', dir: 'row', sizes: [50, 50], children: [{ type: 'group', panels: ['motions'] }, { type: 'group', panels: ['scatter'] }] },
-    { type: 'group', panels: ['trend'] },
-    { type: 'group', panels: ['table'] },
-  ] },
-}];
 
-function MatrixPanel({ panel, data, filter, onModule, onRow }: { panel: 'heatmap' | 'bars'; data: HwTimeMatrix; filter: HwTimeFilter; onModule: (moduleId: string, row: string) => void; onRow: (row: string | null) => void }) {
-  const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
-  const { lang } = useI18n();
-  const { pageParam } = usePlatform();
-  const focus = pageParam('row');
-  const setFocus = onRow;
-  const cells = data.cells.filter(cell => filter.modules.includes(cell.moduleId));
-  const selectedMotions = data.motions.filter(motion => filter.motions.includes(motion.id));
-  const statuses = useMemo(() => chartStatuses(data, lang), [data, lang]);
-  const pointStatusOf = statuses.pointStatusOf;
-  const focusCell = cells.find(cell => rowLabel(cell.equipmentId, cell.moduleId) === focus);
-  const activeCategory = focusCell ? focus : null;
-  const byLabel = new Map(cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), cell]));
-  const heatCells = cells.map(cell => ({ x: cell.moduleId, y: cell.equipmentId, value: checkedSum(cell, filter.motions), status: statuses.cellStatusOf(rowLabel(cell.equipmentId, cell.moduleId), filter.motions) }));
-  const heatMax = Math.max(0, ...heatCells.flatMap(cell => cell.value === null ? [] : [cell.value]));
-  const heatmap: HeatmapSpec = {
-    kind: 'heatmap', xLabels: data.modules.filter(id => filter.modules.includes(id)), yLabels: data.equipment, cells: heatCells,
-    // Colour from 0: the cells are time totals, so every cell is filled by its size. A min–max ramp made the common value white and
-    // left the few large rows as dark stripes between blank ones.
-    scale: { type: 'sequential', domain: [0, heatMax] }, valueFormat: value => formatSeconds(value, lang),
-    cellActivation: { on: 'click', onActivate: (moduleId: string, equipmentId: string) => setFocus(rowLabel(equipmentId, moduleId)) },
-    onCellClick: (moduleId: string, equipmentId: string) => setFocus(rowLabel(equipmentId, moduleId)),
-  };
-  const series = selectedMotions.map(motion => ({
-    id: motion.id, name: motion.id, color: motion.color, kind: 'bar' as const,
-    points: cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), cell.motions[motion.id]?.value ?? null] as [string, number | null]),
+type MatrixQuery = MenuQueryState<HwTimeMatrixParams, HwTimeMatrix>;
+type MatrixQueries = Readonly<Record<string, MatrixQuery>>;
+/** Stable query owners for every catalog type mount in one render; only required types read. */
+function MatrixSources({ index = 0, queries = {}, required, children }: {
+  index?: number; queries?: MatrixQueries; required: readonly string[]; children: (queries: MatrixQueries) => ReactNode;
+}) {
+  const type = HW_TIME_MODULE_TYPES[index]!;
+  const query = useMenuQuery(hwTimeOverview.matrix, { moduleType: type.id }, { enabled: required.includes(type.id) });
+  const next = { ...queries, [type.id]: query };
+  if (index + 1 < HW_TIME_MODULE_TYPES.length) return <MatrixSources index={index + 1} queries={next} required={required}>{children}</MatrixSources>;
+  return children(next);
+}
+function matricesView(queries: MatrixQueries, required: readonly string[], body: ReactNode): ReactNode {
+  return required.reduceRight<ReactNode>((content, id) => <QueryView key={id} fill query={queries[id]!}>{() => content}</QueryView>, body);
+}
+
+function Hierarchy({ filter, currentId, onDrill }: { filter: HwTimeFilter; currentId: string | null; onDrill: (id: string) => void }) {
+  const m = useMessages(S);
+  const shared = useMessages(HW_TIME_MESSAGES);
+  const { setPage } = usePlatform();
+  const path = currentId?.split('/') ?? [];
+  const defaultExpanded = new Set(path.map((_, index) => path.slice(0, index + 1).join('/')));
+  const nodes: LegendTreeNode[] = HW_TIME_MODULE_TYPES.map(type => ({ id: type.id, label: type.id,
+    children: type.motions.map(motion => ({ id: `${type.id}/${motion}`, label: motion,
+      children: type.modules.map(module => ({ id: `${type.id}/${motion}/${module}`, label: module })),
+    })),
   }));
-  const cellStatus = focusCell ? statuses.cellStatus.get(activeCategory!) : undefined;
-  const statusLabels = [...new Set(cells.map(cell => htmStatusText(cell.module, lang)))];
-  const partial = cells.some(cell => filter.motions.some(motion => cell.motions[motion]?.value == null));
-  if (!filter.modules.length || !filter.motions.length) return <p className="p-3 text-sm text-text-secondary">{m('noChecks')}</p>;
-  const contextNote = `${m('synthetic')} · ${statusLabels.join(' · ')}${partial ? ` · ${m('partial')}` : ''}`;
-  return <div className="flex h-full min-h-0 flex-col">
-    <p className="sr-only">{m('synthetic')} · {statusLabels.join(' · ')}</p>
-    <div className="flex min-h-0 flex-1 flex-col">
-    {panel === 'heatmap' ? <AnalysisChart legendPlacement="top" toolsReveal="always" chartId="hw-overview-matrix" title={m('heatmap')} description={`${contextNote} · ${m('heatmapNote')}`} spec={heatmap} unit={HW_TIME_UNIT[lang]} size="fill" />
-      : <>
-      <AnalysisChartFrame legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} chartId="hw-overview-bars" title={m('bars')} description={`${contextNote} · ${m('barsNote')}`}
-        series={series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)}
-        xType="category" orientation="horizontal" stacked startAlign={pageParam('align') === '1'} emphasisFocus="none"
-        size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowGroups={statuses.rowGroups} pointStatus={statuses.barStatusOf} activeCategory={activeCategory} revealActive
-        onActiveCategoryChange={setFocus} visibleSeriesIds={selectedMotions.map(motion => motion.id)}
-        canApplyRange={false} reaggregation="sum" valueLabels="both"
-        pointActivation={{ on: 'click', onActivate: point => { const cell = byLabel.get(point.x); if (cell) onModule(cell.moduleId, point.x); } }} />
-      </>}
-    </div>
-    {partial && <p className="sr-only">{m('partial')}</p>}
-    {panel === 'bars' && focusCell && <p className="sr-only" role="status">{activeCategory} · {cellStatus?.label ?? htmStatusText(focusCell.module, lang)} · {selectedMotions.map(motion => {
-      const status = pointStatusOf({ x: activeCategory!, seriesId: motion.id });
-      const judgement = focusCell.motions[motion.id];
-      const label = judgement ? htmStatusText(judgement, lang) : missingText(lang);
-      return `${motion.id}: ${status?.label ?? label}`;
-    }).join(' · ')}</p>}
+  // Leaf visibility only controls the SDK's show-all recovery; node checks use the two independent axes below.
+  const visible = new Set(HW_TIME_MODULE_TYPES.flatMap(type => {
+    const checks = filter.selectionFor(type.id);
+    return checks.motions.flatMap(motion => checks.modules.map(module => `${type.id}/${motion}/${module}`));
+  }));
+  const checkedOf = (id: string): boolean | 'mixed' => {
+    const [typeId, motion, module] = id.split('/');
+    const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId)!;
+    const checks = filter.selectionFor(type.id);
+    if (module) return checks.modules.includes(module);
+    if (motion) return checks.motions.includes(motion);
+    if (checks.motions.length === type.motions.length) return true;
+    return checks.motions.length === 0 ? false : 'mixed';
+  };
+  const onCheck = (id: string, checked: boolean) => {
+    const [typeId, motion, module] = id.split('/');
+    const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId)!;
+    const checks = filter.selectionFor(type.id);
+    if (!motion) {
+      filter.setTypeChecked(type.id, { motions: checked ? [...type.motions] : [] });
+      return;
+    }
+    const list = module ? 'modules' : 'motions';
+    const value = module ?? motion;
+    const selected = new Set(checks[list]);
+    if (checked) selected.add(value); else selected.delete(value);
+    filter.setTypeChecked(type.id, { [list]: [...selected] });
+  };
+  return <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+    <div className="min-h-0 flex-1 overflow-auto"><LegendTree label={m('tree')} nodes={nodes} visible={visible} checkedOf={checkedOf} onCheck={onCheck}
+      onVisibleChange={() => setPage({ module: null, motion: null }, { replace: true })}
+      drillOnName canDrill={() => true} defaultExpanded={defaultExpanded} currentId={currentId} currentLabel={m('current')} hint={m('treeHint')} onDrill={onDrill} /></div>
+    {filter.unusable.length > 0 && <p className="t-caption text-text-secondary">{shared('filterUnusable')}: {filter.unusable.join(', ')}</p>}
+    <p className="t-caption text-text-secondary">{m('recipe')}</p>
   </div>;
 }
 
-type MotionRow = HwTimeMotionStats['rows'][number];
-function MotionTable({ data, filter, moduleId, motionId, onMotion }: { data: HwTimeMotionStats; filter: HwTimeFilter; moduleId: string; motionId: string | null; onMotion: (motionId: string) => void }) {
-  const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
-  const { lang } = useI18n();
-  const rows = useMemo(() => data.rows.filter(row => filter.motions.includes(row.motion)), [data.rows, filter.motions]);
-  // Stable columns keep the focused Motion link mounted across the drill write (a new cell function remounts it).
-  const drill = useRef(onMotion); drill.current = onMotion;
-  const columns = useMemo<PlatformColumn<MotionRow>[]>(() => {
-    const valueText = (value: number | null) => value === null ? missingText(lang) : `${formatSeconds(value, lang)} ${HW_TIME_UNIT[lang]}`;
-    return [
-    // The Motion name is the drill link (no separate action column), so the four columns fit the half-width panel at 1280 wide.
-    { id: 'motion', header: m('motions'), value: row => row.motion, hideable: false, size: 100,
-      cell: row => <RowAction compact={false} textLink="primary" icon={ChartScatter} label={m('viewRuns', { motion: row.motion })} text={row.motion} onClick={() => drill.current(row.motion)} /> },
-    { id: 'average', header: m('average'), value: row => row.judgement.value, cell: row => valueText(row.judgement.value), align: 'right', size: 72 },
-    { id: 'bounds', header: m('bounds'), size: 124, cell: row => row.judgement.lower === null && row.judgement.upper === null ? missingText(lang)
-      : `${row.judgement.lower === null ? '' : formatSeconds(row.judgement.lower, lang)} ~ ${row.judgement.upper === null ? '' : formatSeconds(row.judgement.upper, lang)} ${HW_TIME_UNIT[lang]}` },
-    { id: 'status', header: m('status'), size: 116, cell: row => {
-      const status = htmStatusView(row.judgement, lang);
-      return <StatusBadge tone={status?.tone ?? 'success'}>{htmStatusText(row.judgement, lang)}</StatusBadge>;
-    } },
-  ]; }, [m, lang]);
-  const title = m('table', { module: moduleId });
-  return <PlatformDataTable title={title} ariaLabel={title} columns={columns} rows={rows} getRowId={row => row.motion}
-      activeRowId={motionId} preferenceKey="hw-time-overview:motions:v1" pageSize={10} />;
+type BarsProps = {
+  depth: Step; queries: MatrixQueries; typeId: string | null; motionId: string | null; moduleId: string | null; filter: HwTimeFilter;
+  options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void; onReset: (id: string) => void;
+  previous?: boolean; allMotions?: boolean;
+};
+/** Workspace tabs stay visible when the Frame's own title is hidden by panel chrome. */
+function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMotions = false }: Pick<BarsProps, 'depth' | 'typeId' | 'motionId' | 'moduleId' | 'previous' | 'allMotions'>) {
+  let message: Text = S.overview;
+  if (depth === 2) message = S.typeBars;
+  if (depth === 3) message = S.motionBars;
+  if (depth === 4) message = allMotions ? S.moduleMotions : S.moduleBars;
+  const params = { type: typeId ?? '', motion: motionId ?? '', module: moduleId ?? '' };
+  const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
+  return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
-
-/** Stable query owners survive check projections and workspace hide/reopen commands. */
-/** Both languages of a message filled with the same values: a panel option takes `Text`, not the current-language string. */
-const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (whole, key: string) => values[key] ?? whole);
+function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onReset, previous = false, allMotions = false }: BarsProps) {
+  const m = useMessages(S);
+  const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
+  const { lang } = useI18n();
+  const { pageParam, setPage } = usePlatform();
+  const matrices = Object.fromEntries(Object.entries(queries).map(([id, query]) => [id, query.response?.data ?? undefined]));
+  const data = typeId ? matrices[typeId] : undefined;
+  const shaped = chartRows({ depth, matrices, typeId, motionId, moduleId, selection: filter.selectionFor, values, lang, allMotions });
+  const required = depth === 1 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
+  const statuses = useMemo(() => data ? chartStatuses(data, lang) : null, [data, lang]);
+  const title = barsTitle({ depth, typeId, motionId, moduleId, previous, allMotions });
+  const drill = (point: ChartPoint) => {
+    if (depth === 1) setPage({ moduleType: point.seriesId, drillMotion: null, drillModule: null, row: point.x, trend: null, focus: null });
+    if (depth === 2) setPage({ drillMotion: point.seriesId, drillModule: null, row: point.x, trend: null, focus: null });
+    if (depth === 3) setPage({ drillModule: point.x.split(' · ')[1]!, row: point.x, trend: null, focus: null });
+  };
+  const openTrend = (point: ChartPoint) => {
+    if (depth === 1) { drill(point); return; }
+    const module = depth === 4 ? moduleId : point.x.split(' · ')[1];
+    if (module && validTrend(`${module}/${point.seriesId}`)) setPage({ trend: `${module}/${point.seriesId}`, row: point.x });
+  };
+  const statusOf = (point: ChartPoint) => {
+    if (!statuses || depth === 1) return undefined;
+    return statuses.barStatusOf(depth === 4 ? { ...point, x: rowLabel(point.x, moduleId!) } : point);
+  };
+  const selected = pageParam('row');
+  const activeCategory = shaped.series.some(series => series.points.some(([x]) => x === selected)) ? selected : null;
+  const chartOptions = options.map(option => option.id === 'group' ? { ...option, hidden: depth === 1 || depth === 4 } : option);
+  const pointActions = (point: ChartPoint) => {
+    const actions = [];
+    if (depth > 1) actions.push({ id: 'trend', label: m('openTrend'), onSelect: openTrend });
+    if (depth < 4) actions.push({ id: 'drill', label: m('drillTo', { value: depth === 3 ? point.x.split(' · ')[1]! : point.seriesId }), onSelect: drill });
+    return actions;
+  };
+  let chartId = previous ? 'hw-previous' : 'hw-current';
+  if (allMotions) chartId = 'hw-module-motions';
+  const body = <div className="flex h-full min-h-0 flex-col">
+    {!previous && !allMotions && <div className="flex items-center justify-between gap-2 px-2 py-1">
+      <div className="min-w-0 flex-1"><PanelOptionChips options={chartOptions} values={values} onReset={onReset} /></div>
+      <PanelOptions options={chartOptions} values={values} onChange={onChange} />
+    </div>}
+    <AnalysisChartFrame chartId={chartId} title={title[lang]}
+      series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={overview('synthetic')}
+      legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
+      startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
+      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={row => setPage({ row }, { replace: true })} revealActive
+      canApplyRange={false} reaggregation="sum" valueLabels="both" pointStatus={statusOf}
+      pointActivation={depth < 4 ? { on: 'dblclick', onActivate: openTrend } : undefined} pointActions={pointActions} />
+    {!previous && <p className="t-caption px-2 text-text-secondary">{depth === 1 ? m('scaleTypes', { equipment: String(shaped.equipmentCount), types: String(HW_TIME_MODULE_TYPES.length) })
+      : m('scale', { equipment: String(shaped.equipmentCount), modules: String(shaped.moduleCount) })}</p>}
+  </div>;
+  return matricesView(queries, required, body);
+}
+function Heatmap({ query, filter, typeId }: { query: MatrixQuery; filter: HwTimeFilter; typeId: string }) {
+  const m = useMessages(S);
+  const { lang } = useI18n();
+  const { setPage } = usePlatform();
+  const checks = filter.selectionFor(typeId);
+  return <QueryView fill query={query}>{data => {
+    const statuses = chartStatuses(data, lang);
+    const cells = data.cells.filter(cell => checks.modules.includes(cell.moduleId)).map(cell => ({
+      x: cell.moduleId, y: cell.equipmentId, value: checkedSum(cell, checks.motions),
+      status: statuses.cellStatusOf(rowLabel(cell.equipmentId, cell.moduleId), checks.motions),
+    }));
+    return <AnalysisChart chartId="hw-overview-matrix" title={m('heatmap')} unit={HW_TIME_UNIT[lang]} size="fill" legendPlacement="top" toolsReveal="always"
+      spec={{ kind: 'heatmap', xLabels: data.modules.filter(id => checks.modules.includes(id)), yLabels: data.equipment, cells,
+        scale: { type: 'sequential', domain: [0, Math.max(0, ...cells.flatMap(cell => cell.value === null ? [] : [cell.value]))] },
+        valueFormat: value => formatSeconds(value, lang), onCellClick: (module, equipment) => setPage({ row: rowLabel(equipment, module) }, { replace: true }),
+      }} />;
+  }}</QueryView>;
+}
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
-  const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
-  const w = useMessages(HW_TIME_WORKSPACE_MESSAGES);
-  const common = useMessages(HW_TIME_MESSAGES);
-  const { pageParam, setPage } = usePlatform();
-  const moduleId = pageParam('drillModule');
-  const motionId = pageParam('drillMotion');
-  const keys = useHwTimeDrillRules([
-    { key: 'align', label: HW_TIME_MESSAGES.stepsPageAlignStartPositions, valid: raw => raw === '1' },
-    { key: 'row', label: HW_TIME_WORKSPACE_MESSAGES.activeRow, valid: raw => /^EQ-\d{3} · [A-Z]+\d+$/.test(raw) && filter.moduleType.modules.some(id => raw.endsWith(` · ${id}`)) },
+  const { pageParam, setPage, session } = usePlatform();
+  const context = useQueryContext();
+  const typeId = pageParam('moduleType'), motionId = pageParam('drillMotion'), moduleId = pageParam('drillModule');
+  const step = stepOf(typeId, motionId, moduleId);
+  const options = useMemo(() => workspaceOptions(step), [step]);
+  const state = usePanelOptions(options);
+  const pins = usePinnedPanels('pins', CATALOG_IDS);
+  const trend = pageParam('trend');
+  const keys = useHwTimeDrillRules([...state.rules, ...pins.rules,
+    { key: 'trend', label: S.trend, valid: validTrend },
+    { key: 'row', label: HW_TIME_WORKSPACE_MESSAGES.activeRow, valid: raw => {
+      if (/^EQ-\d{3}$/.test(raw)) return true;
+      const [equipment, module, extra] = raw.split(' · ');
+      const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId);
+      return extra === undefined && /^EQ-\d{3}$/.test(equipment ?? '') && !!type && (type.modules as readonly string[]).includes(module ?? '');
+    } },
   ]);
-  const enabled = filter.invalid === null && !keys.invalid;
-  const matrix = useMenuQuery(hwTimeOverview.matrix, { moduleType: filter.moduleType.id }, { enabled });
-  const stats = useMenuQuery(hwTimeOverview.motionStats, { moduleType: filter.moduleType.id, drillModule: moduleId ?? '' }, { enabled: enabled && moduleId !== null });
-  const runs = useMenuQuery(hwTimeOverview.runs, { moduleType: filter.moduleType.id, drillModule: moduleId ?? '', drillMotion: motionId ?? '' }, { enabled: enabled && moduleId !== null && motionId !== null });
-  const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
-  const row = pageParam('row');
-  // Clearing the Module removes its own button: return focus to the panel's hint instead of dropping it to the body.
-  const clearedModule = useRef(false);
-  const pickModuleRef = useRef<HTMLParagraphElement>(null);
-  useEffect(() => { if (!moduleId && clearedModule.current) { clearedModule.current = false; pickModuleRef.current?.focus(); } }, [moduleId]);
-  const previousSelection = useRef<{ moduleId: string | null; motionId: string | null; row: string | null } | null>(null);
-  // The SDK only changes a background tab, preserves hidden/maximized panels and never moves focus.
-  useEffect(() => {
-    const previous = previousSelection.current;
-    previousSelection.current = { moduleId, motionId, row };
-    let panelId: string | null = null;
-    if (motionId && motionId !== previous?.motionId) panelId = 'scatter';
-    else if (moduleId && moduleId !== previous?.moduleId) panelId = 'motions';
-    else if (row && row !== previous?.row) panelId = 'bars';
-    if (panelId) setReveal(current => ({ panelId, seq: (current?.seq ?? 0) + 1 }));
-  }, [moduleId, motionId, row]);
-  const moduleVisible = moduleId !== null && filter.modules.includes(moduleId);
-  const motionVisible = motionId !== null && filter.motions.includes(motionId);
-  const colors = matrix.response?.data ? Object.fromEntries(matrix.response.data.motions.map(motion => [motion.id, motion.color])) : HW_TIME_MOTION_COLOR_BY_ID;
-  const charts = (panel: 'heatmap' | 'bars') => <div hidden={filter.empty} className={filter.empty ? 'hidden' : 'flex h-full min-h-0 flex-col'}>
-    <QueryView fill query={matrix}>{data => <MatrixPanel panel={panel} data={data} filter={filter} onRow={nextRow => {
-      previousSelection.current = { moduleId, motionId, row: nextRow };
-      setPage({ row: nextRow }, { replace: true });
-      setReveal(current => ({ panelId: 'bars', seq: (current?.seq ?? 0) + 1 }));
-    }} onModule={(id, row) => {
-      previousSelection.current = { moduleId: id, motionId: null, row };
-      setReveal(current => ({ panelId: 'motions', seq: (current?.seq ?? 0) + 1 }));
-      setPage({ drillModule: id, drillMotion: null, row, focus: null });
-    }} />}</QueryView>
-  </div>;
-  const runPanel = (kind: 'scatter' | 'trend') => {
-    if (!moduleId) return <p className="p-3 text-sm text-text-secondary">{w('pickModule')}</p>;
-    if (!motionId) return <p className="p-3 text-sm text-text-secondary">{w('pickMotion')}</p>;
-    const hidden = !moduleVisible || !motionVisible || filter.empty;
-    return <div hidden={hidden} className={hidden ? 'hidden' : 'flex h-full min-h-0 flex-col'}>
-      <QueryView fill query={runs}>{data => <RunPanel key={`${moduleId}/${motionId}/${runs.completedAt}`} kind={kind}
-        data={data} motions={filter.motions} moduleId={moduleId} motionId={motionId}
-        judgement={stats.response?.data?.rows.find(row => row.motion === motionId)?.judgement} />}</QueryView>
-    </div>;
-  };
-  // Shown in the toolbar chip while the 표시 조건 panel is minimized, so the conditions stay visible.
-  const summaryValues = { type: filter.moduleType.id, modules: String(filter.modules.length), moduleTotal: String(filter.moduleType.modules.length), motions: String(filter.motions.length), motionTotal: String(filter.moduleType.motions.length) };
-  const filterSummary = { ko: fill(HW_TIME_WORKSPACE_MESSAGES.filterSummary.ko, summaryValues), en: fill(HW_TIME_WORKSPACE_MESSAGES.filterSummary.en, summaryValues) };
-  const panels: PanelWorkspacePanel[] = [
-    { id: 'filter', title: HW_TIME_OVERVIEW_MESSAGES.filters, preferredHeight: 600, minWidth: 256, minimize: { summary: filterSummary }, render: () => <FilterPanel filter={filter} motionColors={colors} /> },
-    { id: 'heatmap', title: HW_TIME_OVERVIEW_MESSAGES.heatmap, preferredHeight: 630, minWidth: 120, render: () => charts('heatmap') },
-    { id: 'bars', title: HW_TIME_OVERVIEW_MESSAGES.bars, primary: true, preferredHeight: 600, minWidth: 120, render: () => charts('bars') },
-    { id: 'motions', title: HW_TIME_WORKSPACE_MESSAGES.motionPanel, preferredHeight: 400, minWidth: 120, render: () => !moduleId
-      ? <p ref={pickModuleRef} tabIndex={-1} className="p-3 text-sm text-text-secondary outline-none">{w('pickModule')}</p>
-      : <div className="flex flex-col items-start gap-2 p-3"><Button variant="ghost" size="sm" onClick={() => { clearedModule.current = true; setPage({ drillModule: null, drillMotion: null, focus: null }); }}>{m('back')}</Button>
-        {!moduleVisible && <p className="text-sm text-text-secondary">{m('hiddenDrill')}</p>}
-        <div hidden={!moduleVisible || filter.empty} className="w-full"><QueryView query={stats}>{data => <MotionTable data={data} filter={filter} moduleId={moduleId} motionId={motionId}
-          onMotion={id => {
-            previousSelection.current = { moduleId, motionId: id, row };
-            setReveal(current => ({ panelId: 'scatter', seq: (current?.seq ?? 0) + 1 }));
-            // Focus-neutral write: the linked screen keeps focus on the action; reveal scrolls the filled panel into view.
-            setPage({ drillMotion: id, focus: null });
-          }} />}</QueryView></div></div> },
-    { id: 'scatter', title: HW_TIME_OVERVIEW_MESSAGES.distribution, preferredHeight: 640, minWidth: 120, render: () => runPanel('scatter') },
-    { id: 'trend', title: HW_TIME_OVERVIEW_MESSAGES.trend, preferredHeight: 600, minWidth: 120, render: () => runPanel('trend') },
-    { id: 'table', title: HW_TIME_MESSAGES.tablePageHwTimeTable, preferredHeight: 440, minWidth: 120, render: () => <div hidden={filter.empty} className={filter.empty ? 'hidden' : 'flex h-full min-h-0 flex-col'}><RawTablePanel params={{}} linked /></div> },
-  ];
   if (filter.invalid) return <PageKeyWarning sentences={filter.invalid} onRecover={filter.recover} />;
   if (keys.invalid) return <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />;
-  return <div className="flex min-h-0 flex-1 gap-3">
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+  const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
+  const population = JSON.stringify([step, session.user.id, context]);
+  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} values={state.values} onChange={state.setValue} onReset={state.reset}
+    onDrill={id => {
+      const [type, motion, module] = id.split('/');
+      setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
+    }} />}</MatrixSources>;
+}
+function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions'> & {
+  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void;
+}) {
+  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill } = props;
+  const common = useMessages(HW_TIME_MESSAGES);
+  const [added, setAdded] = useState<readonly string[]>([]);
+  const catalog = panelCatalog({ step, typeId, moduleId, trend });
+  const available = catalog.filter(item => !item.disabledReason);
+  const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
+  const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
+  // An explicit point trend (a previous-step bar at step 4) wins over the drill target; pinned scatter keeps following the drill (#2399 review C1).
+  const drillTarget = moduleId && motionId ? `${moduleId}/${motionId}` : null;
+  const trendTarget = trend ?? drillTarget;
+  const scatterTarget = drillTarget ?? trend;
+  const panels: PanelWorkspacePanel[] = [
+    { id: 'tree', title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
+    ...(step > 1 ? [{ id: 'previous', title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} depth={(step - 1) as Step} previous /> }] : []),
+    { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640, render: () => <Bars {...props} depth={step} /> },
+    ...extraIds.map(id => {
+      const item = catalog.find(item => item.id === id)!;
+      const renderPanel = (panel: CatalogId) => {
+        switch (panel) {
+          case 'heatmap': return <Heatmap query={queries[typeId!]!} filter={filter} typeId={typeId!} />;
+          case 'trend': return <RunQueryPanel kind={panel} target={trendTarget!} filter={filter} />;
+          case 'scatter': return <RunQueryPanel kind={panel} target={scatterTarget!} filter={filter} />;
+          case 'motionTable': return <MotionTablePanel moduleId={moduleId!} filter={filter} />;
+          case 'moduleMotions': return <Bars {...props} depth={4} allMotions />;
+          case 'table': return <RawTablePanel params={{}} linked />;
+        }
+      };
+      return { id, title: item.title, placement: 'below' as const, preferredHeight: 360, minWidth: 200,
+        pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
+        render: () => renderPanel(id as CatalogId) };
+    }),
+  ];
+  return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
-    <PanelWorkspace panels={panels} presets={PRESETS} initialPreset="linked" compactBelow={0}
-      persistKey="hw-time-linked-v1" label={HW_TIME_WORKSPACE_MESSAGES.workspace} revealRequest={reveal} />
-    </div>
-    <Inspector form="rail" label={HW_TIME_WORKSPACE_MESSAGES.workspace} sections={[{ id: 'options', title: HW_TIME_MESSAGES.stepsPageOptions, icon: SlidersHorizontal,
-    render: () => <label className="flex cursor-pointer items-center gap-2 text-xs">
-      <Checkbox checked={pageParam('align') === '1'} onCheckedChange={checked => setPage({ align: checked === true ? '1' : null })} />
-      {common('stepsPageAlignStartPositions')}
-    </label>,
-  }]} />
+    <PanelWorkspace panels={panels} presets={[stepPreset(step)]} initialPreset="step" compactBelow={0} initialMode="fit"
+      toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={(id, pin) => {
+        setAdded(current => [...new Set([...current, id])]); if (pin) pins.pin(id);
+      }} />}
+      persistKey={`hw-time-s${step}-v1`} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
   </div>;
 }

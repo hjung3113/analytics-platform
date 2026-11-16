@@ -3,7 +3,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { groupId, menuPermission, spaceId } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import { useHwTimeFilter } from './useHwTimeFilter';
@@ -16,7 +16,7 @@ const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider><Platfo
 function setup(search = '') {
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', `/mars/hw-time?v=1&scopeId=MEM${search}`);
-  return renderHook(useHwTimeFilter, { wrapper });
+  return renderHook(() => ({ ...useHwTimeFilter(), align: usePlatform().pageParam('align') }), { wrapper });
 }
 const address = () => new URLSearchParams(window.location.search);
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -81,10 +81,11 @@ describe('shared HW Time filter', () => {
     expect(result.current.invalid).toHaveLength(1);
     act(() => result.current.recover());
     expect(result.current.invalid).toBeNull();
-    expect(address().get('align')).toBe('1');
+    expect(result.current.align).toBe('1');
+    expect(address().has('align')).toBe(false);
   });
   it('clears an incompatible drill when switching types and keeps the selection', () => {
-    const { result } = setup('&drillModule=PM1&drillMotion=Pump&module=PM2&module=LK1');
+    const { result } = setup('&moduleType=PM&drillModule=PM1&drillMotion=Pump&module=PM2&module=LK1');
     act(() => result.current.setModuleType('LK'));
     expect(address().has('drillModule')).toBe(false);
     expect(address().has('drillMotion')).toBe(false);

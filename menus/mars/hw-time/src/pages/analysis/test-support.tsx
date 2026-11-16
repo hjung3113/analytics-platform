@@ -12,8 +12,9 @@ import { manifests } from '../../index';
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   return { ...actual,
-    PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div data-testid="workspace" data-config={JSON.stringify({ ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], reveal: p.revealRequest, minimize: Object.fromEntries(p.panels.flatMap(panel => panel.minimize ? [[panel.id, panel.minimize.summary?.ko ?? '']] : [])) })}>
-      {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.render()}</section>)}
+    PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div data-testid="workspace" data-config={JSON.stringify({ ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
+      <div data-testid="workspace-actions">{p.toolbarActions}</div>
+      {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.pin && <button onClick={panel.pin.onToggle}>{`pin ${panel.id}`}</button>}{panel.render()}</section>)}
     </div>,
     AnalysisChart: (p: import('@ap/components').AnalysisChartProps) => <section aria-label={String(p.title)}>
       <pre data-testid={p.chartId}>{JSON.stringify(p.spec, (_key, value: unknown) => value instanceof Map ? [...value] : value)}</pre>
@@ -24,12 +25,20 @@ vi.mock('@ap/components', async importOriginal => {
         if (p.spec.kind === 'heatmap') p.spec.cellActivation?.onActivate(cell.x, cell.y);
       }}>{`activate ${cell.y} ${cell.x}`}</button>)}
     </section>,
-    AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => <section aria-label={String(p.title)}>
-      <pre data-testid={p.chartId}>{JSON.stringify({ series: p.series, activeCategory: p.activeCategory, revealActive: p.revealActive, rowPitch: p.rowPitch, startAlign: p.startAlign, emphasisFocus: p.emphasisFocus,
+    AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => <section aria-label={p.chartId}>
+      {p.title}{p.extraActions}
+      <pre data-testid={p.chartId}>{JSON.stringify({ series: p.series, activeCategory: p.activeCategory, revealActive: p.revealActive, rowPitch: p.rowPitch, startAlign: p.startAlign, minMax: p.minMax, legend: p.legend, activation: p.pointActivation?.on,
+        optionKeys: (p.extraActions as import('react').ReactElement<import('@ap/components').PanelOptionsProps> | undefined)?.props.options.filter(option => !option.hidden).map(option => option.id),
+        actions: (typeof p.pointActions === 'function' && p.series[0]?.points[0] ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => action.label), emphasisFocus: p.emphasisFocus,
         rowGroups: p.rowGroups && { header: p.rowGroups.header, byCategory: [...p.rowGroups.byCategory] },
         bounds: p.bounds && [...p.bounds],
         statuses: p.series.flatMap(s => s.points.flatMap(([x, value]) => { const st = p.pointStatus?.({ x, value, seriesId: s.id }); return st ? [`${s.id}@${x}:${st.tone}`] : []; })) })}</pre>
-      {p.series[0]?.points.map(([x, value]) => <button key={x} onClick={() => p.pointActivation?.onActivate({ x, value, seriesId: p.series[0]!.id })}>{`drill ${x}`}</button>)}
+      {p.series[0]?.points.map(([x, value]) => <span key={x}>
+        <button onClick={() => p.onActiveCategoryChange?.(x, 'pointer')}>{`select ${p.chartId} ${x}`}</button>
+        <button onDoubleClick={() => p.pointActivation?.onActivate({ x, value, seriesId: p.series[0]!.id })}>{`activate ${p.chartId} ${x}`}</button>
+      </span>)}
+      {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id}
+        onClick={() => action.onSelect({ x: p.series[0]!.points[0]![0], value: p.series[0]!.points[0]![1], seriesId: p.series[0]!.id })}>{`point action ${p.chartId} ${action.id}`}</button>)}
     </section>,
   };
 });
@@ -82,7 +91,7 @@ export async function renderOverview(search = '', respond = answer, { waitForDat
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
-  if (waitForData) await screen.findByTestId('hw-overview-matrix', {}, { timeout: 5000 });
+  if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
 }
 

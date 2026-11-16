@@ -26,7 +26,7 @@ function setup(url: string, children = <Route />) {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('HW Time obsolete keys and shell', () => {
   it.each(['overview', 'steps', 'compare', 'table', 'bogus'])('ignores obsolete view=%s and renders the same screen', async view => {
-    setup(`/mars/hw-time?v=1&scopeId=MEM&view=${view}&trend=bad&minmax=bad&scroll=bad`, <HwTimePage params={{}} />);
+    setup(`/mars/hw-time?v=1&scopeId=MEM&view=${view}&minmax=bad&scroll=bad`, <HwTimePage params={{}} />);
     expect(await screen.findByText('linked analysis')).toBeTruthy();
     expect(screen.queryByRole('tab')).toBeNull();
   });

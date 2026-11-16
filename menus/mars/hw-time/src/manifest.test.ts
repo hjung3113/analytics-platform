@@ -23,11 +23,14 @@ describe('manifest', () => {
     for (const entry of manifests) {
       expect(entry.pageKeys).toEqual(menu.pageKeys);
       expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['view']));
-      expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['trend']));
+      expect(entry.pageKeys).toEqual(expect.arrayContaining(['trend', 'pins', 'barsSort', 'barsGroup', 'barsMinMax']));
       expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['minmax']));
     }
-    expect(menu.contextResetKeys).toEqual(['drillModule', 'drillMotion', 'row', 'page', 'focus']);
-    expect(menu.drill?.levels.map(level => level.key)).toEqual(['drillModule', 'drillMotion']);
+    expect(menu.contextResetKeys).toEqual(['moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend']);
+    expect(menu.drill?.levels.map(level => level.key)).toEqual(['moduleType', 'drillMotion', 'drillModule']);
+    expect(menu.drill?.resetKeys).toContain('trend');
+    expect(menu.repeatedPageKeys).toContain('pins');
+    expect(menu.hiddenPageKeys).toEqual(expect.arrayContaining(['pins', 'trend', 'barsSort', 'barsGroup', 'barsMinMax']));
     const spaces: SpaceDef[] = [{ id: spaceId('mars'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
     const groups: GroupDef[] = [{ id: groupId('hwTime'), label: { ko: 'g', en: 'g' }, icon: menu.icon, space: spaceId('mars') }];
     const registry = createRegistry({  spaces, groups, menus: manifests, permissions: [menuPermission('analytics:view')] });

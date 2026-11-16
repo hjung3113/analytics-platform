@@ -8,7 +8,7 @@ import { HW_TIME_MESSAGES } from '../../messages';
  */
 import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
 import { useMemo } from 'react';
-import { useDrill, useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
+import { useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
   DetailDrawer, encodeTableSort, PageKeyWarning, PlatformDataTable, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableUrlState,
 } from '@ap/components';
@@ -19,7 +19,7 @@ import { filterRow } from '../../shared/filterData';
 import { worstJudgement } from '../../shared/JudgementSummary';
 import { htmStatusText, htmStatusView } from '../../shared/htm';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
-import { hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
+import { HW_TIME_MODULE_TYPES, hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
 import { shownDrill } from '../../shared/shownDrill';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
@@ -65,9 +65,8 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
   const { lang } = useI18n();
   const { pageParam, setPage } = usePlatform();
   const filter = useHwTimeFilterContext();
-  const drill = useDrill();
-  const module = linked ? null : drill.levels[0]?.value ?? null;
-  const motion = linked ? null : drill.levels[1]?.value ?? null;
+  const module = linked ? null : pageParam('drillModule');
+  const motion = linked ? null : pageParam('drillMotion');
   const level = levelOf(module, motion);
   const checkedSeries = level === 0 ? filter?.modules : filter?.motions;
   const activeSeries = checkedSeries ?? seriesIds(level, motion);
@@ -108,9 +107,15 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
     const project = (row: HwTimeTableRow) => filter ? filterRow(row, activeSeries) : row;
     const unit = unitOf(lang);
     const size = columnSizeOf(level);
-    // Linked: the table stays the root population and its drill only fills the other panels, so the write keeps focus on the row.
-    const enter = (value: string) => linked ? setPage(level === 0 ? { drillModule: value, drillMotion: null, focus: null } : { drillMotion: value, focus: null })
-      : drill.enter(level === 0 ? 'drillModule' : 'drillMotion', value);
+    // The raw table's Module action follows the same type → Motion → Module path as the charts.
+    const enter = (value: string) => {
+      const type = HW_TIME_MODULE_TYPES.find(type => (type.modules as readonly string[]).includes(value));
+      if (!type) return;
+      const selectedMotion = pageParam('drillMotion');
+      const motion = selectedMotion && (type.motions as readonly string[]).includes(selectedMotion) ? selectedMotion : null;
+      // A Module needs a Motion now: first open its type when no compatible Motion has been chosen.
+      setPage({ moduleType: type.id, drillMotion: motion, drillModule: motion ? value : null, row: null, trend: null, focus: null });
+    };
     const series: PlatformColumn<HwTimeTableRow>[] = (filter ? activeSeries.filter(id => level !== 2 || id === motion) : seriesIds(level, motion)).map(id => ({
       id, header: `${id} (${unit})`, align: 'right', size: size.value,
       value: row => project(row).values[id] ?? null,
@@ -145,7 +150,7 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
         exportValue: row => row.auxiliary ? null : exportNumber(project(row).total, lang),
       },
     ];
-  }, [m, lang, level, motion, drill, filter, activeSeries, linked, setPage]);
+  }, [m, lang, level, motion, filter, activeSeries, pageParam, setPage]);
 
   const megRows = listed.length - dataRows.length;
   const rowCount = megRows > 0 ? (m('tablePageSubItemRowsMegRows', { length: String(dataRows.length), megRows: String(megRows) }))

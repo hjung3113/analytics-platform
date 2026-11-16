@@ -97,29 +97,25 @@ afterEach(() => { cleanup(); restoreGeometry(); calls.length = 0; vi.restoreAllM
 describe('HW Time table page', () => {
   it.each([
     ['', ['EquipmentID', ...MODULES.map(m => `${m} (초)`), '합계 (초)']],
-    ['&drillModule=PM1', ['EquipmentID', '하위 항목', ...MOTIONS.map(m => `${m} (초)`), '합계 (초)']],
-    ['&drillModule=PM1&drillMotion=Pump', ['EquipmentID', '하위 항목', 'Pump (초)', '합계 (초)']],
+    ['&moduleType=PM&drillMotion=Pump&drillModule=PM1', ['EquipmentID', '하위 항목', 'Pump (초)', '합계 (초)']],
   ])('lists the columns the level dictates (%s)', async (search, expected) => {
     await renderPage(search);
     expect(headers().filter(h => expected.some(name => h.includes(name))).length).toBe(expected.length);
     for (const name of expected) expect(headers().some(h => h.includes(name))).toBe(true);
   });
 
-  it('enters the next level only through a visible 들어가기 button and shows two decimals', async () => {
+  it('opens the Module type first when the raw-table Module action has no selected Motion', async () => {
     await renderPage();
     // The rows arrive after the headers; a slow runner reads the table before them.
     await waitFor(() => expect(screen.getByRole('table').textContent).toContain('11.00'), { timeout: 8000 });
     fireEvent.click(screen.getAllByRole('button', { name: 'PM2 들어가기' })[0]);
-    expect(searchParams().get('drillModule')).toBe('PM2');
-    // ADR-0086: the level-2 rows replace the level-1 rows one macrotask after the reply, so a button found earlier may be detached; click the attached one.
-    await waitFor(() => {
-      fireEvent.click(screen.getAllByRole('button', { name: 'Chuck 들어가기' })[0]!);
-      expect(searchParams().get('drillMotion')).toBe('Chuck');
-    }, { timeout: 8000 });
+    expect(searchParams().get('moduleType')).toBe('PM');
+    expect(searchParams().get('drillMotion')).toBeNull();
+    expect(searchParams().get('drillModule')).toBeNull();
   });
 
   it('pages and sorts on the server at L3 and keeps unmeasured values apart from 0', async () => {
-    await renderPage('&drillModule=PM3&drillMotion=Pump');
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM3');
     await waitFor(() => expect(tableCalls().length).toBeGreaterThan(0));
     expect(tableCalls()[0]).toMatchObject({ drillModule: 'PM3', drillMotion: 'Pump', page: 0, pageSize: 25, sorting: [] });
     expect(screen.getAllByText('미측정').length).toBeGreaterThan(0);
@@ -128,27 +124,27 @@ describe('HW Time table page', () => {
     expect(searchParams().get('sort')).not.toBeNull();
   });
 
-  it('sorts a series column on the server by its flat field at every level', async () => {
-    await renderPage('&drillModule=PM1');
+  it('sorts a series column on the server by its flat field', async () => {
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     await waitFor(() => expect(tableCalls().length).toBeGreaterThan(0));
     expect(tableCalls()[0]).toMatchObject({ drillModule: 'PM1', page: 0, pageSize: 25, sorting: [] });
-    expect(tableCalls()[0]).not.toHaveProperty('drillMotion');
+    expect(tableCalls()[0]).toHaveProperty('drillMotion', 'Pump');
     fireEvent.click(within(screen.getAllByRole('columnheader').find(h => h.textContent?.includes('Pump'))!).getByRole('button'));
     await waitFor(() => expect(tableCalls().some(p => (p.sorting as { id: string }[])[0]?.id === 'Pump')).toBe(true));
   });
 
-  it.each(['', '&drillModule=PM1', '&drillModule=PM1&drillMotion=Pump'])('offers export through the table at every level (%s)', async search => {
+  it.each(['', '&moduleType=PM&drillMotion=Pump&drillModule=PM1'])('offers export through the table at every supported raw level (%s)', async search => {
     await renderPage(search);
     expect(screen.getAllByRole('button', { name: /내보내기/ })).toHaveLength(1);
     expect(hwTime.exportRows.limits?.maxRows).toBe(120);
   });
 
   it('sizes every column explicitly so 합계 fits at 1440 wide', async () => {
-    await renderPage('&drillModule=PM1');
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     const width = (name: string) => parseFloat(screen.getAllByRole('columnheader').find(h => h.textContent?.includes(name))!.style.width);
     expect(width('EquipmentID')).toBe(112);
     expect(width('하위 항목')).toBe(88);
-    expect(width('Chuck')).toBe(100);
+    expect(width('Pump')).toBe(100);
     expect(width('합계')).toBe(112);
     // 선택 40 + 7 value columns' worth of room: the row fits the 1440 main area (~1130) with the action column.
   });
@@ -173,11 +169,8 @@ describe('HW Time table page', () => {
     expect(exportNumber(undefined, 'en')).toBe('Not measured');
   });
 
-  it('counts the summary rows the way the table does: sub-item rows and MEG rows apart', async () => {
-    await renderPage('&drillModule=PM1');
-    expect(await screen.findByText(/설비 하위 항목 4행 · MEG 2행/)).toBeTruthy();
-    cleanup();
-    await renderPage('&drillModule=PM1&drillMotion=Pump');
+  it('counts the selected Module and Motion sub-item rows', async () => {
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     expect(await screen.findByText(/Motion Pump · 4행/)).toBeTruthy();
   });
 
@@ -192,7 +185,7 @@ describe('HW Time table page', () => {
 
   it.each([
     ['', '설비 전체 일 합계'],
-    ['&drillModule=PM1', '하위 항목 전체 일 합계 · Module·Motion과 무관'],
+    ['&moduleType=PM&drillMotion=Pump&drillModule=PM1', '하위 항목 전체 일 합계 · Module·Motion과 무관'],
   ])('names the drawer trend as the daily total, not the row value (%s)', async (search, caption) => {
     await renderPage(search);
     fireEvent.click(await screen.findByRole('button', { name: search ? 'EQ-001 · H1 보기' : 'EQ-001 보기' }));
@@ -200,19 +193,8 @@ describe('HW Time table page', () => {
     expect(screen.getByRole('region', { name: '일 추세' }).textContent).toContain(caption);
   });
 
-  it('shows MEG rows by label without a drill or a row action', async () => {
-    await renderPage('&drillModule=PM1');
-    const megRow = await waitFor(() => {
-      const row = screen.getAllByRole('row').find(r => r.textContent?.includes('MEG'));
-      expect(row).toBeDefined();
-      return row!;
-    });
-    expect(megRow.textContent).toContain('MEG 4.03 초');
-    expect(within(megRow).queryByRole('button', { name: /들어가기|보기/ })).toBeNull();
-  });
-
   it('opens the drawer with that row\'s stack and trend, and returns focus to the row action on close', async () => {
-    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     const action = await screen.findByRole('button', { name: 'EQ-001 · H1 보기' });
     act(() => action.focus());
     fireEvent.click(action);
@@ -226,7 +208,7 @@ describe('HW Time table page', () => {
   });
 
   it('keeps the equipment-total trend caption in the linked root table after a Module and Motion are chosen', async () => {
-    await renderPage('&drillModule=PM1&drillMotion=Pump', { linked: true });
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1', { linked: true });
     fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
     expect(await screen.findByText('설비 전체 일 합계')).toBeTruthy();
     expect(screen.queryByText(/하위 항목 전체 일 합계/)).toBeNull();
@@ -246,7 +228,7 @@ describe('HW Time table page', () => {
     vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => failLevel && req.endpoint === hwTime.levelRows.id
       ? ({ outcome: 'error', message: 'level read failed', assessments, trust: null, correlationId: 'level-fail' }) as ApiResponse<never>
       : original(req));
-    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 · H1 보기' }));
     const drawer = await screen.findByRole('heading', { name: 'EQ-001 · H1' });
     expect(searchParams().get('focus')).toBe('EQ-001.H1');
@@ -285,7 +267,7 @@ describe('HW Time table page', () => {
       return req.endpoint === hwTime.tableRows.id && response.outcome === 'ok'
         ? ok({ rows: (response.data as { rows: unknown[] }).rows, total: 60 }) : response;
     });
-    await renderPage('&drillModule=PM1&drillMotion=Pump');
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     await waitFor(() => expect(screen.getByRole('button', { name: '다음' }).hasAttribute('aria-disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: '다음' }));
     await waitFor(() => expect(tableCalls().some(p => p.page === 1)).toBe(true));
@@ -310,19 +292,19 @@ describe('HW Time table page', () => {
     }
 
     it('sends the selected ids with the drill keys and the active sorting', async () => {
-      await renderPage('&drillModule=PM1');
+      await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
       fireEvent.click(within(screen.getAllByRole('columnheader').find(h => h.textContent?.includes('합계'))!).getByRole('button'));
       await waitFor(() => expect(tableCalls().some(p => (p.sorting as unknown[]).length === 1)).toBe(true));
       fireEvent.click(await screen.findByRole('checkbox', { name: '선택 EQ-001.H1' }));
       fireEvent.click(screen.getByRole('checkbox', { name: '선택 EQ-002.H2' }));
       await exportVia(/^선택 2행을 CSV로 내보내기$/);
       await waitFor(() => expect(exportCalls()).toHaveLength(1));
-      expect(exportCalls()[0]).toEqual({ drillModule: 'PM1', ids: ['EQ-001.H1', 'EQ-002.H2'], sorting: [{ id: 'total', desc: true }] });
+      expect(exportCalls()[0]).toEqual({ drillModule: 'PM1', drillMotion: 'Pump', ids: ['EQ-001.H1', 'EQ-002.H2'], sorting: [{ id: 'total', desc: true }] });
     });
 
     it.each([
       ['', {}],
-      ['&drillModule=PM1&drillMotion=Pump', { drillModule: 'PM1', drillMotion: 'Pump' }],
+      ['&moduleType=PM&drillMotion=Pump&drillModule=PM1', { drillModule: 'PM1', drillMotion: 'Pump' }],
     ])('sends no ids for the filtered scope and the level\'s drill keys (%s)', async (search, drill) => {
       await renderPage(search);
       await exportVia(/^필터 결과 전체 \d+행을 CSV로 내보내기$/);
@@ -332,12 +314,12 @@ describe('HW Time table page', () => {
   });
 
   it('draws a plain message for PM4 Vent and marks partial rows for PM3', async () => {
-    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&drillModule=PM4&drillMotion=Vent');
+    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&moduleType=PM&drillMotion=Vent&drillModule=PM4');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill"><TablePage params={{}} /></PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
     expect(await screen.findByText('PM4 Module에는 Vent 동작 기록이 없습니다', {}, { timeout: 8000 })).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
     cleanup();
-    await renderPage('&drillModule=PM3&drillMotion=Pump');
+    await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM3');
     expect(await screen.findByText(/일부 미측정 1행/)).toBeTruthy();
   });
 });
