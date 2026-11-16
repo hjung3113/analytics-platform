@@ -1,21 +1,24 @@
 import { formatNumber } from '@ap/contracts';
 import { AnalysisChart, QueryView, type HistogramSpec } from '@ap/components';
 import { useI18n, useMenuQuery, useMessages } from '@ap/kernel';
-import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview } from '../../endpoints';
+import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, type HtmStatus } from '../../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S } from '../../messages';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { panelDeclarations, panelRunTarget, projectQueryInputs } from './panelDeclaration';
 
-type RunInput = { drillModule?: string | null; drillMotion?: string | null; trend?: string | null };
+type RunInput = { drillModule?: string | null; drillMotion?: string | null; trend?: string | null; verdict?: HtmStatus | null; date?: string | null };
+type Link = { verdict?: HtmStatus; date?: string };
 export function DistributionPanel({ input, filter }: { input: RunInput; filter: Pick<HwTimeFilter, 'selectionFor'> }) {
-  const target = panelRunTarget('scatter', projectQueryInputs(panelDeclarations.distribution, input));
-  return target ? <DistributionQuery target={target} filter={filter} /> : null;
+  const projected = projectQueryInputs(panelDeclarations.distribution, input);
+  const target = panelRunTarget('scatter', projected);
+  const link: Link = { ...(projected.verdict ? { verdict: projected.verdict as HtmStatus } : {}), ...(projected.date ? { date: projected.date } : {}) };
+  return target ? <DistributionQuery target={target} link={link} filter={filter} /> : null;
 }
 
-function DistributionQuery({ target, filter }: { target: string; filter: Pick<HwTimeFilter, 'selectionFor'> }) {
+function DistributionQuery({ target, link, filter }: { target: string; link: Link; filter: Pick<HwTimeFilter, 'selectionFor'> }) {
   const [moduleId, motionId] = target.split('/');
   const type = HW_TIME_MODULE_TYPES.find(type => (type.modules as readonly string[]).includes(moduleId!))!;
-  const query = useMenuQuery(hwTimeOverview.distribution, { moduleType: type.id, drillModule: moduleId!, drillMotion: motionId! });
+  const query = useMenuQuery(hwTimeOverview.distribution, { moduleType: type.id, drillModule: moduleId!, drillMotion: motionId!, ...link });
   const m = useMessages(S);
   const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();

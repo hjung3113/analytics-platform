@@ -57,6 +57,18 @@ describe('overview distribution', () => {
     const judgement = stats.rows.find(row => row.motion === drillMotion)!.judgement;
     expect(data.bounds).toEqual({ lower: judgement.lower, upper: judgement.upper });
   });
+  it('counts only the runs of the linked verdict and date, the same population as the scatter', () => {
+    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const all = invoke(undefined, params).total;
+    for (const link of [{ verdict: 'over' as const }, { verdict: 'under' as const }, { date: '2026-09-20' }, { verdict: 'normal' as const, date: '2026-09-21' }]) {
+      const linked = invoke(undefined, { ...params, ...link });
+      const runs = overviewRuns(ids, { ...params, ...link }, context, { sample: false });
+      expect(linked.total).toBe(runs.total);
+      expect(linked.bins.reduce((sum, bin) => sum + bin.count, 0)).toBe(runs.total);
+      expect(linked.total).toBeGreaterThan(0);
+      expect(linked.total).toBeLessThan(all);
+    }
+  });
   it('keeps Recipe-unsplit Motion bounds absent and handles an empty population', () => {
     expect(invoke(undefined, { moduleType: 'PM', drillModule: 'PM2', drillMotion: 'Pump' }).bounds).toEqual({ lower: null, upper: null });
     expect(invoke([])).toMatchObject({ bins: [], total: 0, equipment: 0 });
@@ -64,10 +76,12 @@ describe('overview distribution', () => {
   it('validates the new endpoint with the same drill constraints and ownership as runs', () => {
     const endpoint = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!;
     const runs = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.runs')!;
-    const { verdict: _verdict, date: _date, ...runKeys } = runs.spec.paramKeys as Record<string, true>;
-    expect({ ...endpoint.spec, id: runs.spec.id, paramKeys: { ...endpoint.spec.paramKeys, verdict: true, date: true } }).toEqual(runs.spec);
-    expect(endpoint.spec.paramKeys).toEqual(runKeys);
+    expect({ ...endpoint.spec, id: runs.spec.id }).toEqual(runs.spec);
     expect(endpoint.validate?.({ params, context })).toBeNull();
+    // A valid in-range link must pass: validation needs the request context for the date range.
+    expect(endpoint.validate?.({ params: { ...params, verdict: 'over', date: '2026-09-20' }, context })).toBeNull();
+    expect(endpoint.validate?.({ params: { ...params, verdict: 'bogus' }, context })).toBeTruthy();
+    expect(endpoint.validate?.({ params: { ...params, date: '2020-01-01' }, context })).toBeTruthy();
     expect(endpoint.validate?.({ params: { ...params, drillModule: 'PM2' }, context })).toBeTruthy();
     expect(endpoint.validate?.({ params: { ...params, drillMotion: 'Pick' }, context })).toBeTruthy();
   });

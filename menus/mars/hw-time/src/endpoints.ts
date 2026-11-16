@@ -150,8 +150,6 @@ export const HW_TIME_OVERVIEW_MAX_ROWS = 96;
 export type HwTimeMatrixParams = { moduleType: string };
 export type HwTimeMotionParams = HwTimeMatrixParams & { drillModule: string };
 export type HwTimeRunParams = HwTimeMotionParams & { drillMotion: string; verdict?: HtmStatus; date?: string };
-/** Distribution aggregates every run of one drilled Motion; it does not follow the verdict/date panel links (backlog). */
-export type HwTimeDistributionParams = Omit<HwTimeRunParams, 'verdict' | 'date'>;
 export type HwTimePanelParams = { moduleType?: string; drillModule?: string; drillMotion?: string };
 export type HwTimeEquipmentDays = { rows: { equipmentId: string; date: string; judgement: HtmJudgement }[] };
 export type HwTimeMatrixCell = { equipmentId: string; moduleId: string; motions: Record<string, HtmJudgement>; module: HtmJudgement };
@@ -198,7 +196,8 @@ export const hwTimeOverview = {
   boundHistory: defineEndpoint<HwTimePanelParams, HwTimeBoundHistoryEvent[]>({
     ...common, id: 'hwTime.boundHistory', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
   }),
-  distribution: defineEndpoint<HwTimeDistributionParams, HwTimeDistribution>({
-    ...common, id: 'hwTime.distribution', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
+  /** Same run population as `runs`, including the verdict/date panel links, so the histogram counts what the scatter shows. */
+  distribution: defineEndpoint<HwTimeRunParams, HwTimeDistribution>({
+    ...common, id: 'hwTime.distribution', paramKeys: { moduleType: true, drillModule: true, drillMotion: true, verdict: true, date: true },
   }),
 } as const;
