@@ -950,7 +950,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     </div>}
 
     {compactChrome && canExport && <span role="status" className="sr-only">{host.status}</span>}
-    {showSummary && <section tabIndex={compactChrome && !summaryHasControls ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(compactChrome ? 'flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap px-2 py-0.5 text-xs *:shrink-0' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs')}>
+    {showSummary && <section tabIndex={compactChrome && !summaryHasControls ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs')}>
       {rangeUi && rangeKeyboard && draft && <div role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{m('chartStart')}</span>
         <Select value={draft.from} onValueChange={chooseStart}>
