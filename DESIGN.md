@@ -83,6 +83,7 @@ rounded:
   xs: "var(--radius-sm)"
 layout:
   breakpoint-wide: 90rem
+  page-condition-layer-width: 360px
 components:
   table-density:
     rowMinHeight: 32px
@@ -309,6 +310,10 @@ Apply-mode QueryBar follows the delegated #553 B groups with C collapsed summary
 접기(ADR-0029)는 opt-in이며, 접힌 줄은 chevron·`필터`·필드명/값 요약을 담은 secondary 버튼 하나와 오른쪽 독립 초기화다. 요약은 한 줄이 기본이지만 폭이 부족하면 `필드명 값` 항목 단위로 줄바꿈하되 요약은 왼쪽 정렬을 유지하고 구분점 `·`은 다음 항목 앞이 아니라 앞 항목 끝에 붙이며, 긴 값은 단어 내부에서라도 줄바꿈한다 — 말줄임·`+n`·title 전용 치환으로 조건을 숨기지 않는다. 펼친 입력 줄 끝의 `⌃ 접기`는 그 줄 actions 버튼과 같은 크기·variant를 쓰며, 미적용 변경이 있으면 요약 끝에 `미적용 변경 있음`을 함께 보인다.
 
 Live 기간 preset은 `1일 / 7일 / 사용자 지정`; Apply 조회 바의 달력·기간 preset은 06 §6.3을 따른다. rolling wall-clock Δ와 `[from,to)` 물질화는 [06 시간 계약](docs/contract/kernel.md#ctx-time)을 따른다. screenshot의 기간 preset을 제품 의미로 복사하지 않는다. segment는 이름 있는 single-select/radio+selected 표식, custom picker는 Apply 때 반영하고 Cancel/Escape는 기존 구간을 보존한다. 현재 적용 구간과 draft를 구별하고 browser now로 기본값을 새로 만들지 않는다. 최초 기본 Δ·shift/business-day는 원본의 Open 상태를 따른다.
+
+### Page condition layer — Candidate (#2339)
+
+선언형 페이지 조건은 기존 요약 자리에 범주당 칩 하나(`라벨: 값`)를 두고 항목 단위로 줄바꿈한다. 생략·`+n`·말줄임을 쓰지 않는다. 칩의 ×와 「모두 지우기」를 구별한다. 본문 시작 가장자리의 레이어는 `--page-condition-layer-width: 360px`(공유 layout 값 파일 `tokens.css`)이며 좁은 보드 칸에서는 칸 폭 이하로 제한한다. `surface-card`·`border-subtle`·공유 `shadow-xl`로 콘텐츠 위의 떠 있는 표면을 표시하고 scrim은 두지 않는다. 제목/읽기 전용 Context 요약과 footer는 고정하고 범주 편집기 안에 스크롤 하나를 둔다. 포커스 링·명시적 닫기·비활성 사유는 기존 primitive를 따른다. 배치/쌓임과 키보드 규칙의 원본은 [Layout §8](docs/contract/layout.md#8-shell-slots)·[Components §13](docs/contract/components.md#13-shared-component-layers)이다. 소유자가 캡처로 확인하기 전 Candidate다.
 
 ### Other reference recipes
 

@@ -1,6 +1,6 @@
 import { decodePageConditions, PageConditionError } from './page-conditions';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
+import { buildQuery, emptyGlobal, incompleteMetricPair, missingRequiredContext, pageConditionKeys, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
 import { classifyMetricInit } from '../registry/metric-init';
@@ -66,7 +66,7 @@ export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext
 }
 
 /** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */
-function normalize(input: DraftInputs, values: Values): Values {
+function normalize(input: DraftInputs, values: Values, retained?: Values): Values {
   let g = values.global;
   if ((g.from === null) !== (g.to === null)) throw new RangeError('partial_period');
   if (g.metricVersion !== null && g.metricId === null) throw new RangeError('metric_pair');
@@ -76,7 +76,16 @@ function normalize(input: DraftInputs, values: Values): Values {
   const pairError = incompleteMetricPair(input.menu, g.metricId, g.metricVersion);
   if (pairError) throw pairError;
   const conditions = decodePageConditions(input.menu ?? {}, values.page);
-  if (conditions.issues.length) throw new PageConditionError(conditions.issues);
+  const retainedIssues = retained ? decodePageConditions(input.menu ?? {}, retained.page).issues : [];
+  // Recovery can edit one category while another malformed category stays verbatim. It cannot introduce a new issue or modify an invalid category into another invalid value.
+  const newIssues = conditions.issues.filter(issue => {
+    if (!retained || !retainedIssues.some(previous => previous.categoryId === issue.categoryId && previous.key === issue.key && previous.reason === issue.reason)) return true;
+    const category = input.menu?.pageConditions?.categories.find(item => item.id === issue.categoryId);
+    if (!category) return true;
+    const keys = pageConditionKeys(category);
+    return JSON.stringify(values.page.filter(([key]) => keys.includes(key))) !== JSON.stringify(retained.page.filter(([key]) => keys.includes(key)));
+  });
+  if (newIssues.length) throw new PageConditionError(newIssues);
   const parsed = parseQuery(buildQuery(g, values.page), input.menu?.pageKeys, { repeated: input.menu?.repeatedPageKeys });
   for (const axisId of Object.keys(parsed.global.condition ?? {})) {
     const axis = input.axes.find(a => a.id === axisId);
@@ -135,8 +144,8 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
   const mode = input.menu?.query?.mode ?? 'live';
   if (mode === 'live') return { mode, draft: { global: input.global, page: input.page }, dirty: [], setDraftGlobal: input.setGlobal, setDraftPage: input.setPage, apply() {}, revert() {}, reset() {}, missing: [], canApply: true, applying: false };
   const current = () => reconcile(store.get(), input);
-  const candidate = (values: Values) => {
-    const next = normalize(input, values);
+  const candidate = (values: Values, retained?: Values) => {
+    const next = normalize(input, values, retained);
     return { ...next, page: dropResetKeys(input.menu, next.page, current().pageBasis ?? input.global, next.global) };
   };
   const scopeValid = (g: GlobalContext) => !input.menu?.requiresScope || (input.scope.status === 'valid' && input.scope.scopeId === g.scopeId && input.scope.validatedFor === input.session);
@@ -146,7 +155,7 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
   const canApply = valid && missing.length === 0 && missingRequiredContext(['time'], final.global).length === 0 && scopeValid(final.global) && state.pending === null;
   const edit = (values: Values) => {
     const previous = current();
-    const next = candidate(values);
+    const next = candidate(values, previous.draft);
     store.put({ ...previous, draft: next, editRevision: previous.editRevision + 1 });
   };
   return {
@@ -156,9 +165,12 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
       edit({ ...current().draft, global: { ...current().draft.global, ...patch } });
     },
     setDraftPage(patch) {
-      for (const key of Object.keys(patch)) if (!input.menu?.pageKeys.includes(key)) throw new RangeError(`Undeclared page key ${key}`);
+      for (const [key, value] of Object.entries(patch)) {
+        if (!input.menu?.pageKeys.includes(key)) throw new RangeError(`Undeclared page key ${key}`);
+        if (value !== null && typeof value !== 'string' && value.filter(item => item !== '').length > 1 && !input.menu.repeatedPageKeys?.includes(key)) throw new RangeError(`setDraftPage: "${key}" is not a repeated page key`);
+      }
       const values = current().draft;
-      edit({ ...values, page: [...values.page.filter(([key]) => !Object.hasOwn(patch, key)), ...Object.entries(patch).filter((entry): entry is Pair => entry[1] !== null && entry[1] !== '')] });
+      edit({ ...values, page: [...values.page.filter(([key]) => !Object.hasOwn(patch, key)), ...Object.entries(patch).flatMap(([key, value]): Pair[] => (value === null ? [] : (typeof value === 'string' ? [value] : value).filter(item => item !== '').map(item => [key, item])))] });
     },
     apply() {
       const previous = current();

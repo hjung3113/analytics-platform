@@ -2,6 +2,17 @@ import type { Text } from '@ap/contracts';
 import { PAGE_CONDITION_LIMITS, type PageConditionIssueReason } from '@ap/kernel';
 
 export const PAGE_CONDITION_MESSAGES = {
+  title: { ko: '페이지 조건', en: 'Page conditions' },
+  close: { ko: '페이지 조건 닫기', en: 'Close page conditions' },
+  clearAll: { ko: '모두 지우기', en: 'Clear all' },
+  context: { ko: '조회 조건', en: 'Query conditions' },
+  editContext: { ko: '조회 조건에서 바꾸기', en: 'Change in query conditions' },
+  scope: { ko: '사업장', en: 'Site' },
+  globalPending: { ko: '적용 대기 중인 조회 조건 변경 {count}건이 함께 적용됩니다.', en: '{count} pending Context change(s) are applied together.' },
+  applyInLayer: { ko: '페이지 조건 층의 «적용»으로 함께 적용합니다.', en: 'Apply from the page-conditions layer.' },
+  apply: { ko: '적용', en: 'Apply' },
+  revert: { ko: '되돌리기', en: 'Revert' },
+  required: { ko: '{label}을(를) 선택하세요.', en: 'Select {label}.' },
   clear: { ko: '지우기', en: 'Clear' },
   clearOne: { ko: '{label} 지우기', en: 'Clear {label}' },
   selected: { ko: '{count}개 선택', en: '{count} selected' },

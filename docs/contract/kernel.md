@@ -484,6 +484,8 @@ Create VOC from current context
 
 ## 11. Global Context Bar
 
+**선언형 페이지 조건 레이어의 적용(Candidate, #2339):** 레이어는 별도 조회나 별도 초안을 만들지 않고 현재 칸의 `useQueryDraft`를 공유한다. `setDraftPage`는 반복 키의 배열도 받아 하나의 초안 변경으로 저장하며, 「적용」 한 번이 전역 Context와 페이지 조건을 함께 push한다. 「되돌리기」도 같은 전역+페이지 초안을 되돌린다. live 메뉴는 `setPage`를 즉시 호출한다. 선언된 옵션 source의 `useMenuFetch`는 필수값을 고르기 위한 보조 읽기이므로 결과 조회의 Apply/드릴 게이트를 기다리지 않는다. Scope·기간·세션 검증과 엔드포인트 권한 판정은 유지한다. 결과 `useMenuQuery`의 게이트는 바뀌지 않는다.
+
 Context 바는 전역 Context를 표시·편집하는 셸 자리다. 초안/적용 메뉴에서는 이 자리가 조회 바(`QueryBar`)로 바뀌며, live 메뉴에서는 즉시 적용한다.
 **그리는 조건(Decided, 소유자 2026-11-13, #1944):** 메뉴가 어느 Context 키 하나라도 `unsupported`가 아닌(쓸 수 있는) 경우에만 바를 그린다. 모든 키가 `unsupported`인 화면(공지·알림·권한 요청·홈 같은)은 전역 값이 있어도 바를 그리지 않는다. 값은 URL과 Kernel에 그대로 남아(§6.4) 지원하는 화면으로 돌아가면 다시 보인다.
 

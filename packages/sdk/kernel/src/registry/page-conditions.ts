@@ -14,7 +14,7 @@ export function registerPageConditions<T extends Omit<MenuMeta, 'group' | 'permi
   const fail = (message: string): never => input.fail(`Menu "${menu.id}" pageConditions ${message}`);
   const text = (value: Text | undefined, name: string) => { if (!hasText(value)) fail(`${name} needs nonempty ko and en labels`); };
   if (!isRecord(declaration) || !Array.isArray(declaration.categories)) fail('categories must be a list');
-  if (menu.pageType === 'management' || menu.pageType === 'catalog') fail(`pageType "${menu.pageType}" cannot declare page conditions`);
+  if (menu.pageType !== 'analysis' && menu.pageType !== 'overview') fail(`pageType "${menu.pageType}" cannot declare page conditions`);
   const ids = new Set<string>();
   const keys = new Set<string>();
   const required: { key: string; label: Text }[] = [];

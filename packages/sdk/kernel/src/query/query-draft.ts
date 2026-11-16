@@ -7,7 +7,7 @@ export type QueryDraft = {
   draft: { global: GlobalContext; page: Pair[] };
   dirty: readonly string[];
   setDraftGlobal: (patch: Partial<GlobalContext>) => void;
-  setDraftPage: (patch: Record<string, string | null>) => void;
+  setDraftPage: (patch: Record<string, string | readonly string[] | null>) => void;
   apply: () => void;
   revert: () => void;
   reset: () => void;

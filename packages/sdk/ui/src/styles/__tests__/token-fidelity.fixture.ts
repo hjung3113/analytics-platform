@@ -175,6 +175,8 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--sidebar-width-collapsed', raw: '56px' },
   { tokenName: '--rail-width', raw: '52px' },
   { tokenName: '--detail-panel-width', raw: '440px' },
+  // #2339: declared page-condition overlay, separate from the detail aside.
+  { tokenName: '--page-condition-layer-width', raw: '360px' },
   { tokenName: '--toolbar-height', raw: '50px' },
   { tokenName: '--topbar-height', raw: '50px' },
   // #867: the fixed TriageActions footer height; the toast offset sits above
