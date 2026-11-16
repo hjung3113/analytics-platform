@@ -87,9 +87,10 @@ export function useCustomGroupOptions({ scopeId, selectedGroupIds, canEditCondit
     return option?.reasonWord && option.reason !== 'loading' ? [{ id, reason: option.reasonWord }] : [];
   }) : []);
   const blocked = useMemo(() => JSON.parse(blockedKey) as BlockedGroup[], [blockedKey]);
-  const remember = useCallback((entry: SavedViewListItem) => setGroupList(previous => ({
+  // A save that settles after the session or Scope moved on belongs to the old list: it never touches the current one.
+  const remember = useCallback((entry: SavedViewListItem) => setGroupList(previous => previous.key !== listKey ? previous : ({
     status: 'ready', key: listKey,
-    items: [...(previous.key === listKey ? previous.items : []).filter(item => savedGroupItemId(item) !== savedGroupItemId(entry)), entry],
+    items: [...previous.items.filter(item => savedGroupItemId(item) !== savedGroupItemId(entry)), entry],
   })), [listKey]);
   return useMemo(() => ({ optionsById, blocked, remember }), [optionsById, blocked, remember]);
 }
