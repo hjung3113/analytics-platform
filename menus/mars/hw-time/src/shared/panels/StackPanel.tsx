@@ -3,7 +3,7 @@ import { JudgementSummary } from '../JudgementSummary';
 import { HW_TIME_MESSAGES } from '../../messages';
 import { useCallback, useMemo } from 'react';
 import { useI18n } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartPoint } from '@ap/components';
+import { AnalysisChartFrame, orderRows, type ChartPoint } from '@ap/components';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeBlock, type HwTimeRow } from '../../endpoints';
 import { formatSeconds, missingText, rowIdLabel } from '../format';
@@ -53,19 +53,9 @@ export function rowLabel(row: HwTimeRow, lang: 'ko' | 'en' = 'ko') {
 
 /** Equipment groups keep their auxiliary rows beside them; sorting moves whole groups, nulls last. */
 export function sortRows(rows: readonly HwTimeRow[], sort: StackSort): HwTimeRow[] {
-  if (!sort) return [...rows];
-  const groups = new Map<string, HwTimeRow[]>();
-  for (const row of rows) groups.set(row.equipmentId, [...(groups.get(row.equipmentId) ?? []), row]);
-  const weight = (group: HwTimeRow[]) => {
-    const known = group.map(row => row.total).filter((value): value is number => value !== null);
-    return known.length === 0 ? null : known.reduce((sum, value) => sum + value, 0);
-  };
-  const keyed = [...groups.values()].map(group => ({ group, weight: weight(group) }));
-  keyed.sort((a, b) => {
-    if (a.weight === null || b.weight === null) return a.weight === b.weight ? 0 : a.weight === null ? 1 : -1;
-    return sort === 'total-desc' ? b.weight - a.weight : a.weight - b.weight;
-  });
-  return keyed.flatMap(({ group }) => group);
+  const wrapped = rows.map(row => ({ row, category: row.id, levels: [row.equipmentId, row.id] as const, total: row.total }));
+  // Rows inside an equipment keep their order (auxiliary rows stay beside it) until the stepped screen (#2399) orders them too.
+  return orderRows(wrapped, { sort: sort ?? 'original', sortWithinGroups: false }).rows.map(({ row }) => row);
 }
 
 /** Stacked horizontal bars over one block. Free of layout: the caller sizes the container and owns the query. */
