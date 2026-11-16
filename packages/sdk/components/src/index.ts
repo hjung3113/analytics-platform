@@ -1,6 +1,7 @@
 export type { ChartChrome, ChartChromeOptions } from './chart/chartChrome';
 export type { ChartBounds, ChartBoundLabels } from './chart/chartBounds';
 export type { ChartStatus, ChartRowGroups } from './chart';
+export { orderRows, type OrderableRow, type RowOrderOptions, type RowOrderResult, type RowOrderSort } from './chart/rowOrder';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem } from './chart/AnalysisChart';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction } from './chart/AnalysisChartFrame';
 export * from './drawer/AuditTimeline';

@@ -38,6 +38,12 @@ export type LegendTreeProps = {
   onExpandedChange?: (next: Set<string>) => void;
   emptyText?: ReactNode;
   className?: string;
+  /** Optional one-line usage note in the tree head, e.g. «이름: 단계 이동 · 체크: 포함/제외» (#2395). It also describes the tree (`aria-describedby`). Absent = no head line, output unchanged. */
+  hint?: ReactNode;
+  /** Optional visible mark at the end of the `currentId` row, e.g. «현재» (#2395). Only with `onDrill`; hidden from assistive tech because `aria-current` already says it. Absent = output unchanged. */
+  currentLabel?: ReactNode;
+  /** Opt-in (#2395): with `onDrill`, a click on the name of a drillable row drills instead of toggling visibility; the checkbox still toggles. Pair it with `hint`. Default `false` (a name click toggles, as before). */
+  drillOnName?: boolean;
 };
 
 type Entry = {
@@ -86,11 +92,12 @@ const EMPTY = new Set<string>();
 /** Hierarchical visibility checks with independent optional single choice and controlled sorting. */
 export function LegendTree(props: LegendTreeProps) {
   const { nodes, visible, onVisibleChange, label, sortOf, onSortChange, onSelect, selectedId, onDrill, canDrill, currentId,
-    expanded, defaultExpanded, onExpandedChange, emptyText, className } = props;
+    expanded, defaultExpanded, onExpandedChange, emptyText, className, hint, currentLabel, drillOnName = false } = props;
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const treeId = useId();
   const drillId = `${treeId}-drill`;
+  const hintId = `${treeId}-hint`;
   const model = useMemo(() => describeNodes(nodes), [nodes]);
   const [controlled] = useState(() => expanded !== undefined);
   const [internalExpanded, setInternalExpanded] = useState(() => {
@@ -273,7 +280,7 @@ export function LegendTree(props: LegendTreeProps) {
         className={cn('group relative flex h-7 items-center gap-1 text-xs text-text-secondary hover:bg-surface-row-hover',
           '[[role=treeitem]:focus-visible>&]:ring-2 [[role=treeitem]:focus-visible>&]:ring-focus-ring [[role=treeitem]:focus-visible>&]:ring-offset-2',
           isSelected && 'bg-surface-row-selected font-semibold', isCurrent && 'font-semibold')}
-        onClick={() => { focus(entry); if (drillOnly) onDrill?.(node.id); }}>
+        onClick={() => { focus(entry); if (drillOnly && !(drillOnName && isCurrent)) onDrill?.(node.id); }}>
         {(isSelected || isCurrent) && <span aria-hidden className="absolute inset-y-0 start-0 w-0.5 bg-accent-primary" />}
         {entry.children.length ? <Button type="button" variant="ghost" size="icon-xs" tabIndex={active === entry ? 0 : -1}
           // eslint-disable-next-line ap/no-lang-copy-ternary -- grammar, not copy: aria-labelledby ID order differs by language ("<label> 접기" vs "Collapse <label>")
@@ -296,7 +303,9 @@ export function LegendTree(props: LegendTreeProps) {
           onClick={event => {
             if (drillOnly) return;
             event.stopPropagation(); focus(entry);
-            if (onSelect && !onDrill) onSelect(node.id); else toggle(entry);
+            if (onSelect && !onDrill) onSelect(node.id);
+            else if (drillOnName && onDrill && canDrillRow) { if (!isCurrent) onDrill(node.id); }
+            else toggle(entry);
           }}>{node.label}</span>
         {drillOnly && (onDrill && !isCurrent
           ? <Button type="button" variant="ghost" size="icon-xs" tabIndex={-1} aria-label={drillLabel}
@@ -313,6 +322,8 @@ export function LegendTree(props: LegendTreeProps) {
               <CornerDownRight aria-hidden className="size-3" />
             </Button>
           </span>}
+        {isCurrent && onDrill && currentLabel != null &&
+          <span aria-hidden data-legend-current="" className="shrink-0 pe-1 text-xs font-semibold text-accent-primary">{currentLabel}</span>}
         {sortOf && (onSortChange ? <Button type="button" variant="ghost" size="icon-xs" aria-labelledby={`${labelId} ${sortLabelId}`}
           tabIndex={active === entry ? 0 : -1} onMouseDown={event => { event.preventDefault(); focus(entry); }}
           onClick={event => { event.stopPropagation(); sort(entry); }}>
@@ -324,7 +335,7 @@ export function LegendTree(props: LegendTreeProps) {
     </div>;
   }
 
-  const treeEl = <div ref={root} role="tree" aria-label={label} aria-multiselectable={model.checkable ? true : undefined}
+  const treeEl = <div ref={root} role="tree" aria-label={label} aria-describedby={hint != null ? hintId : undefined} aria-multiselectable={model.checkable ? true : undefined}
     className={cn('focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2', className)} tabIndex={shown.length ? -1 : 0}
     onFocusCapture={event => { focused.current = event.target; ownsFocus.current = true; }}>
     {shown.length ? model.roots.map(renderEntry) : <p className="text-xs text-text-muted">
@@ -332,12 +343,13 @@ export function LegendTree(props: LegendTreeProps) {
     </p>}
   </div>;
   return <>
-    {/* The head is shown only with `onDrill`; then it and the tree share one column wrapper so the head sits above the tree in any parent layout (a `className` still lands on the tree). Without the head the tree renders bare, as before. */}
-    {allOff ? <div className="flex min-w-0 flex-col gap-1" data-legend-tree-wrap="">
-      <div>
+    {/* The head (a `hint` line, and `모두 보이기` with `onDrill` when every leaf is off) and the tree share one column wrapper so the head sits above the tree in any parent layout (a `className` still lands on the tree). Without the head the tree renders bare, as before. */}
+    {allOff || hint != null ? <div className="flex min-w-0 flex-col gap-1" data-legend-tree-wrap="">
+      {hint != null && <p id={hintId} data-legend-hint="" className="text-xs text-text-muted">{hint}</p>}
+      {allOff && <div>
         <Button type="button" variant="secondary" size="toolbar" onClick={showAll} data-legend-show-all=""
           onFocus={() => { showAllFocused.current = true; }}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
-      </div>
+      </div>}
       {treeEl}
     </div> : treeEl}
   {onDrill && <span id={drillId} className="sr-only">{m('legendEnterHint')}</span>}
