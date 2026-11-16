@@ -14,6 +14,12 @@ describe('orderRows (#2394)', () => {
     expect(orderRows(ROWS).groups).toBeUndefined();
   });
 
+  it('keeps non-adjacent rows of one group where they are under original (no swap)', () => {
+    const split = [row('EQ-A', 'PM1', 1), row('EQ-B', 'PM1', 2), row('EQ-A', 'PM2', 3)];
+    expect(cats(orderRows(split).rows)).toEqual(['EQ-A.PM1', 'EQ-B.PM1', 'EQ-A.PM2']);
+    expect(cats(orderRows(split, { levelLabels: ['설비', 'Module'] }).rows)).toEqual(['EQ-A.PM1', 'EQ-B.PM1', 'EQ-A.PM2']);
+  });
+
   it('orders groups by their summed total and rows inside each group, groups staying contiguous', () => {
     expect(cats(orderRows(ROWS, { sort: 'total-desc' }).rows)).toEqual(['EQ-B.PM2', 'EQ-B.PM1', 'EQ-A.PM1', 'EQ-A.PM2']);
     expect(cats(orderRows(ROWS, { sort: 'total-asc' }).rows)).toEqual(['EQ-A.PM2', 'EQ-A.PM1', 'EQ-B.PM1', 'EQ-B.PM2']);
