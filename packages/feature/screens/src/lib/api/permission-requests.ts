@@ -5,6 +5,9 @@
 import {
   type CancelPermissionRequest,
   type CreatePermissionRequestResult,
+  type CreatePermissionRequestBatch,
+  createPermissionRequestBatchSchema,
+  createPermissionRequestBatchResultSchema,
   type EditPermissionRequest,
   type MinePermissionRequestRow,
   type MinePermissionRequestsResponse,
@@ -40,6 +43,12 @@ export interface CreatePermissionRequestBody {
 }
 
 export type CreatePermissionRequestSuccess = CreatePermissionRequestResult;
+
+export async function createPermissionRequestBatch(body: CreatePermissionRequestBatch, options: { idempotencyKey: string }) {
+  return (await apiRequest('POST', '/permission-requests/batch', createPermissionRequestBatchResultSchema, {
+    body: createPermissionRequestBatchSchema.parse(body), idempotencyKey: options.idempotencyKey,
+  })).data;
+}
 
 // Issue #5: shared query key for the caller's requests. The bridge page keys its `status=all` list under it, so
 // the standalone `invalidateQueries({ queryKey: permissionRequestsMineKey })` calls match both by prefix.

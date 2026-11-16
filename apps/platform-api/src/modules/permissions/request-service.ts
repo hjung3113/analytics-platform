@@ -48,7 +48,7 @@ import {
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { permissionRequests } from '../../db/schema/permission.js';
-import { HttpError } from '../../lib/errors.js';
+import { HttpError, batchItemDetail } from '../../lib/errors.js';
 import { listWorkspaceAdminActorIds, lockWorkspaceActor } from '../auth/index.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import { hashRequestBody } from '../core/idempotency/canonicalize.js';
@@ -322,13 +322,13 @@ export function createRequestService(deps: RequestServiceDeps) {
     const seen = new Set<string>();
     body.items.forEach((item, index) => {
       if (!capabilities.has(item.requested_capability)) {
-        throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.requested_capability });
+        throw new HttpError('validation.unknown_capability', `row ${index + 1}: unknown capability`, { capability: item.requested_capability, item_index: index });
       }
       if (capabilities.meta(item.requested_capability as CapabilityName).sensitive && body.reason.trim().length === 0) {
-        throw new HttpError('validation.sensitive_reason_required', `row ${index + 1}: a non-empty reason is required for sensitive capabilities`, { capability: item.requested_capability });
+        throw new HttpError('validation.sensitive_reason_required', `row ${index + 1}: a non-empty reason is required for sensitive capabilities`, { capability: item.requested_capability, item_index: index });
       }
       const key = JSON.stringify([item.requested_capability, item.requested_managed_system_id ?? null, item.requested_scope_kind ?? 'managed_system', item.requested_scope_site ?? null, item.requested_scope_room ?? null]);
-      if (seen.has(key)) throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }] });
+      if (seen.has(key)) throw new HttpError('validation.failed', `row ${index + 1}: duplicate candidate`, { fields: [{ path: ['items', index], code: 'duplicate' }], item_index: index });
       seen.add(key);
     });
     const requestHash = hashRequestBody({ action: 'create_batch', ...body });
@@ -344,7 +344,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           try {
             items.push(await insertRequest(tx, actor, row, item.requested_capability as CapabilityName, capabilities, batchId, index === 0));
           } catch (error) {
-            if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, error.detail);
+            if (error instanceof HttpError) throw new HttpError(error.code, `row ${index + 1}: ${error.message}`, batchItemDetail(error.detail, index));
             throw error;
           }
         }

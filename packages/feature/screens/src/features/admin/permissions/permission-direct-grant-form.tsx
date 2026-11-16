@@ -3,6 +3,7 @@ import {
   isDeclaredCapabilityId,
   isTokenOnlyCapability,
   CAPABILITIES,
+  PERMISSION_BATCH_MAX_ITEMS,
   type DeclaredCapabilityItem,
   type PermissionGrantAdminItem,
   type PermissionGrantOptions,
@@ -37,6 +38,7 @@ import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import { useMeBridge } from '../../../lib/api/me';
 import { fetchPermissionGrantOptions, permissionGrantOptionsKey } from '../../../lib/api/permission-admin';
 import { ApiError } from '../../../lib/api/types';
+import { rejectedPermissionItem } from '../../../lib/api/permission-batch-error';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
@@ -53,7 +55,7 @@ import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
 import { shortId } from '../../../lib/identity';
 
-import { useDirectPermissionGrant } from './useDirectPermissionGrant.js';
+import { useDirectPermissionGrant, useDirectPermissionGrantBatch } from './useDirectPermissionGrant.js';
 
 type DirectGrantCandidate = PermissionGrantOptions['candidates'][number];
 
@@ -432,7 +434,8 @@ function DirectGrantFields({
   const me = useMeBridge();
   const { canLink } = useHostSeam();
   const actorId = me.data?.actor.id ?? null;
-  const [selectedCandidateKey, setSelectedCandidateKey] = React.useState(initialCandidateKey);
+  const [selectedCandidateKeys, setSelectedCandidateKeys] = React.useState<string[]>(initialCandidateKey ? [initialCandidateKey] : []);
+  const [submittedCandidates, setSubmittedCandidates] = React.useState<DirectGrantCandidate[]>([]);
   const [grantScopeKind, setGrantScopeKind] = React.useState<GrantScopeKind>('managed_system');
   const [scopeSite, setScopeSite] = React.useState('');
   const [scopeRoom, setScopeRoom] = React.useState('');
@@ -462,6 +465,8 @@ function DirectGrantFields({
   const peerReviewerAbsenceId = React.useId();
   const scopeKindId = React.useId();
   const mutation = useDirectPermissionGrant(cacheReturnedGrant);
+  const batchMutation = useDirectPermissionGrantBatch(cacheReturnedGrant);
+  const pending = mutation.isPending || batchMutation.isPending;
 
   React.useEffect(() => {
     mounted.current = true;
@@ -470,9 +475,14 @@ function DirectGrantFields({
     };
   }, []);
 
-  const selectedCandidate = options.candidates.find(
-    (candidate) => candidateKey(candidate) === selectedCandidateKey,
-  );
+  const selectedCandidates = selectedCandidateKeys.flatMap(key => {
+    const candidate = options.candidates.find(item => candidateKey(item) === key);
+    return candidate ? [candidate] : [];
+  });
+  const selectedCandidate = selectedCandidates[0];
+  const batch = scopeGrant === null && selectedCandidates.length > 1;
+  const overLimit = selectedCandidateKeys.length > PERMISSION_BATCH_MAX_ITEMS;
+  const rejectedCandidate = rejectedPermissionItem(batchMutation.error, submittedCandidates);
   // Held = an active (non-expired) grant the screen already loaded for this recipient.
   const heldEntries = systemCandidates.flatMap((candidate) => {
     const grant = activeGrants.find(
@@ -491,27 +501,13 @@ function DirectGrantFields({
   const selfEnvelopeReady =
     !selfEnvelopeRequired ||
     (policyCitation.trim().length > 0 && peerReviewerAbsence.trim().length > 0);
-  const governanceRequired = selectedCandidate?.governance_required ?? false;
+  const governanceRequired = selectedCandidates.some(candidate => candidate.governance_required);
   const expiration = expirationDate === '' ? undefined : toFutureExpiration(expirationDate);
   const expirationInvalid =
     !expirationDraftValid || (expirationDate !== '' && expiration === undefined);
   const expirationReady = expirationDate === '' || expiration !== undefined;
-  const preflight = selectedCandidate?.preflight;
-  const preflightBlocked = preflight !== undefined && preflight.state !== 'available';
-  const readPrerequisite = selectedCandidate?.prerequisites?.find(
-    (item) => item.capability === 'voc.read',
-  );
-  const readDenyLift = options.candidates.find(
-    (candidate) =>
-      readPrerequisite?.state === 'denied' &&
-      candidate.capability === 'voc.read' &&
-      candidate.managed_system_id === readPrerequisite.managed_system_id &&
-      candidate.preflight.state === 'deny_lift',
-  );
-  const readDenyLiftRoute =
-    readDenyLift?.preflight.state === 'deny_lift'
-      ? readDenyLift.preflight.lift_route
-      : '/admin/permissions/grants?tab=denies';
+  // A denied voc.read prerequisite only shows its guidance and deny-list link: the grant itself stays allowed, as before #2420.
+  const preflightBlocked = selectedCandidates.some(candidate => candidate.preflight.state !== 'available');
   const sessionReady = actorId !== null;
   const reasonReady = reason.trim().length > 0 && reason.trim().length <= 2000;
   const canSubmit =
@@ -519,6 +515,8 @@ function DirectGrantFields({
     reasonReady &&
     expirationReady &&
     selectedCandidate !== undefined &&
+    selectedCandidates.length === selectedCandidateKeys.length &&
+    !overLimit &&
     scopeReady &&
     !preflightBlocked &&
     !selfGrantForbidden &&
@@ -527,12 +525,14 @@ function DirectGrantFields({
     (!governanceRequired || governanceConfirmed) &&
     !expirationInvalid &&
     !optionsUnconfirmed &&
-    !mutation.isPending;
-  const submitErrorDestination = conflictDestination(mutation.error);
-  const mappedError = mutation.isError ? mapUnknownError(mutation.error).message : null;
+    !pending;
+  const submitError = batchMutation.error ?? mutation.error;
+  const submitErrorDestination = conflictDestination(submitError);
+  const mappedError = submitError ? mapUnknownError(submitError).message : null;
 
   function clearErrorAndUpdate(update: () => void) {
     mutation.reset();
+    batchMutation.reset();
     update();
   }
 
@@ -562,7 +562,15 @@ function DirectGrantFields({
           }
         : {}),
     };
-    const fingerprint = JSON.stringify(body);
+    const batchBody = {
+      actor_id: body.actor_id,
+      items: selectedCandidates.map(candidate => ({ capability: candidate.capability,
+        ...(candidate.managed_system_id !== null ? { managed_system_id: candidate.managed_system_id } : {}) })),
+      reason: body.reason,
+      ...(body.expires_at !== undefined ? { expires_at: body.expires_at } : {}),
+      ...(body.self_approval !== undefined ? { self_approval: body.self_approval } : {}),
+    };
+    const fingerprint = JSON.stringify(batch ? batchBody : body);
     if (intent.current?.fingerprint !== fingerprint) {
       intent.current = { fingerprint, key: mintIdempotencyKey() };
     }
@@ -582,11 +590,14 @@ function DirectGrantFields({
         : null;
     submitting.current = true;
     onPendingChange(true);
-    void mutation
-      .mutateAsync({ body, idempotencyKey })
+    setSubmittedCandidates(selectedCandidates);
+    const request = batch
+      ? batchMutation.mutateAsync({ body: batchBody, idempotencyKey }).then(result => result.items[0])
+      : mutation.mutateAsync({ body, idempotencyKey });
+    void request
       .then((item) => {
         intent.current = null;
-        if (mounted.current) onCreated(item, submittedContext, followUp);
+        if (mounted.current && item) onCreated(item, submittedContext, batch ? null : followUp);
       })
       .catch(() => {
         // The draft and its idempotency key remain available for an explicit retry.
@@ -625,13 +636,13 @@ function DirectGrantFields({
                   setGrantScopeKind(kind);
                   setScopeSite('');
                   setScopeRoom('');
-                  setSelectedCandidateKey(kind === 'managed_system' ? '' : candidateKey(scopeCandidate));
+                  setSelectedCandidateKeys(kind === 'managed_system' ? [] : [candidateKey(scopeCandidate)]);
                   setGovernanceConfirmed(false);
                   setPolicyCitation('');
                   setPeerReviewerAbsence('');
                 })
               }
-              disabled={mutation.isPending}
+              disabled={pending}
             >
               <SelectTrigger id={scopeKindId} aria-label={PERMISSION_SCOPE_COPY.kind}>
                 <SelectValue />
@@ -657,24 +668,34 @@ function DirectGrantFields({
                 setScopeRoom(next.room);
               })
             }
-            disabled={mutation.isPending}
+            disabled={pending}
           />
         ) : (
-        <GroupedSelectionList mode="single" aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder="권한 이름·설명 검색"
+        <GroupedSelectionList mode="multiple" density="compact" hideDisabled selectionSummary="chips"
+          messages={{ hiddenItems: DIRECT_GRANT_COPY.hiddenItems }}
+          aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder="권한 이름·설명 검색"
           groups={groupPermissionItems([...CAPABILITIES, ...declaredCandidateIds].flatMap(capability => {
             const item = isDeclaredCapabilityId(capability) ? declaredSelectionItem(capability, declared) : permissionSelectionItem(capability);
             const candidates = systemCandidates.filter(candidate => candidate.capability === capability);
             if (candidates.length === 0) return [{ ...item, capability, disabledReason: '이 대상에 부여할 수 없음' }];
             return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames, declared),
-              ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : mutation.isPending ? { disabledReason: '부여 중…' } : {}) }));
+              ...(rejectedCandidate && candidateKey(rejectedCandidate) === candidateKey(candidate) ? { badge: { label: DIRECT_GRANT_COPY.rejected, tone: 'danger' as const } } : {}),
+              ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : {}) }));
           }))}
-          value={selectedCandidateKey || null} onChange={value => clearErrorAndUpdate(() => {
-            setSelectedCandidateKey(value);
+          value={selectedCandidateKeys} onChange={value => { if (!pending) clearErrorAndUpdate(() => {
+            setSelectedCandidateKeys(value);
             setGovernanceConfirmed(false);
             setPolicyCitation('');
             setPeerReviewerAbsence('');
-          })} />
+          }); }} />
         )}
+        {overLimit ? <p role="alert" className="text-sm text-text-danger">{DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)}</p> : null}
+        {rejectedCandidate && mappedError ? <div role="alert" className="flex flex-col gap-1 text-sm text-text-danger">
+          <p>{candidateLabel(rejectedCandidate, managedSystemNames, declared)}: {mappedError}</p>
+          {/* A row refused for an open request or a deny keeps the same recovery link the single grant shows. */}
+          {submitErrorDestination && canLink(submitErrorDestination.href) ? <HostLink className="w-fit text-accent-primary underline underline-offset-2"
+            to={submitErrorDestination.href} {...(submitErrorDestination.closesDialog ? { onClick: onClose } : {})}>{submitErrorDestination.label}</HostLink> : null}
+        </div> : null}
         {selectedCandidate && isCapability(selectedCandidate.capability) && isTokenOnlyCapability(selectedCandidate.capability) ? (
           <p className="text-xs text-text-secondary" data-testid="direct-grant-token-only-hint">
             {DIRECT_GRANT_COPY.tokenOnlyHint}
@@ -702,50 +723,40 @@ function DirectGrantFields({
             })}
           </div>
         ) : null}
-        {selectedCandidate?.preflight.state === 'request_review' ? (
-          <div className="flex flex-col gap-1 text-sm text-text-secondary">
-            <p>{DIRECT_GRANT_COPY.preflightReview}</p>
-            {canLink(selectedCandidate.preflight.review_route) ? (
-              <HostLink
-                className="w-fit text-accent-primary underline underline-offset-2"
-                to={selectedCandidate.preflight.review_route}
-              >
-                {DIRECT_GRANT_COPY.reviewLink}
-              </HostLink>
-            ) : null}
-          </div>
-        ) : null}
-        {selectedCandidate?.preflight.state === 'deny_lift' ? (
-          <div className="flex flex-col gap-1 text-sm text-text-secondary">
-            <p>{DIRECT_GRANT_COPY.preflightDeny}</p>
-            {canLink(selectedCandidate.preflight.lift_route) ? (
-              <HostLink
-                className="w-fit text-accent-primary underline underline-offset-2"
-                to={selectedCandidate.preflight.lift_route}
-                onClick={onClose}
-              >
-                {DIRECT_GRANT_COPY.denyLink}
-              </HostLink>
-            ) : null}
-          </div>
-        ) : null}
-        {readPrerequisite?.state === 'missing' ? (
-          <p className="text-sm text-text-secondary">{DIRECT_GRANT_COPY.missingReadPrerequisite}</p>
-        ) : null}
-        {readPrerequisite?.state === 'denied' ? (
-          <div className="flex flex-col gap-1 text-sm text-text-secondary">
-            <p>{DIRECT_GRANT_COPY.deniedReadPrerequisite}</p>
-            {canLink(readDenyLiftRoute) ? (
-              <HostLink
-                className="w-fit text-accent-primary underline underline-offset-2"
-                to={readDenyLiftRoute}
-                onClick={onClose}
-              >
-                {DIRECT_GRANT_COPY.denyLink}
-              </HostLink>
-            ) : null}
-          </div>
-        ) : null}
+        {selectedCandidates.map(candidate => {
+          const preflight = candidate.preflight;
+          const read = candidate.prerequisites?.find(item => item.capability === 'voc.read');
+          const matchingRead = systemCandidates.find(item => item.capability === 'voc.read' && item.managed_system_id === read?.managed_system_id);
+          const canAddRead = read?.state === 'missing' && matchingRead?.preflight.state === 'available' &&
+            !heldEntries.some(entry => entry.candidate === matchingRead) &&
+            !selectedCandidateKeys.includes(candidateKey(matchingRead));
+          const readLift = matchingRead?.preflight;
+          let guidance: string | undefined;
+          let destination: string | undefined;
+          let linkLabel: string = DIRECT_GRANT_COPY.denyLink;
+          let closesDialog = true;
+          if (preflight.state === 'request_review') {
+            guidance = DIRECT_GRANT_COPY.preflightReview;
+            destination = preflight.review_route;
+            linkLabel = DIRECT_GRANT_COPY.reviewLink;
+            closesDialog = false;
+          } else if (preflight.state === 'deny_lift') {
+            guidance = DIRECT_GRANT_COPY.preflightDeny;
+            destination = preflight.lift_route;
+          } else if (read?.state === 'denied') {
+            guidance = DIRECT_GRANT_COPY.deniedReadPrerequisite;
+            destination = readLift?.state === 'deny_lift' ? readLift.lift_route : '/admin/permissions/grants?tab=denies';
+          }
+          return <div key={candidateKey(candidate)} className="flex flex-col gap-1 text-sm text-text-secondary">
+            {guidance ? <p>{candidateLabel(candidate, managedSystemNames, declared)}: <span>{guidance}</span></p> : null}
+            {destination && canLink(destination) ? <HostLink className="w-fit text-accent-primary underline underline-offset-2"
+              to={destination} {...(closesDialog ? { onClick: onClose } : {})}>{linkLabel}</HostLink> : null}
+            {read?.state === 'missing' ? <p>{candidateLabel(candidate, managedSystemNames, declared)}: <span>{DIRECT_GRANT_COPY.missingReadPrerequisite}</span></p> : null}
+            {canAddRead && matchingRead ? <Button type="button" variant="ghost" size="sm" disabled={pending}
+              onClick={() => clearErrorAndUpdate(() => setSelectedCandidateKeys(keys => [...keys, candidateKey(matchingRead)]))}>
+              {DIRECT_GRANT_COPY.selectRead}</Button> : null}
+          </div>;
+        })}
         <label className="flex flex-col gap-2 text-sm text-text-secondary" htmlFor={reasonId}>
           {DIRECT_GRANT_COPY.reasonLabel}
           <Textarea
@@ -754,7 +765,7 @@ function DirectGrantFields({
             value={reason}
             onChange={(event) => clearErrorAndUpdate(() => setReason(event.target.value))}
             placeholder={DIRECT_GRANT_COPY.reasonPlaceholder}
-            disabled={mutation.isPending}
+            disabled={pending}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-text-secondary" htmlFor={expirationId}>
@@ -768,7 +779,7 @@ function DirectGrantFields({
             min={minimumExpirationDate()}
             showValidation={expirationInvalid}
             aria-invalid={expirationInvalid}
-            disabled={mutation.isPending}
+            disabled={pending}
           />
           <span className="text-xs text-text-muted">{DIRECT_GRANT_COPY.expirationHelp}</span>
           <span className="text-xs text-text-muted">{DIRECT_GRANT_COPY.reissueHelp}</span>
@@ -785,7 +796,7 @@ function DirectGrantFields({
                 onCheckedChange={(checked) =>
                   clearErrorAndUpdate(() => setGovernanceConfirmed(checked === true))
                 }
-                disabled={mutation.isPending}
+                disabled={pending}
               />
               <label htmlFor={governanceId} className="cursor-pointer">
                 {DIRECT_GRANT_COPY.governanceConfirm}
@@ -815,7 +826,7 @@ function DirectGrantFields({
                 onChange={(event) =>
                   clearErrorAndUpdate(() => setPolicyCitation(event.target.value))
                 }
-                disabled={mutation.isPending || selfGrantForbidden}
+                disabled={pending || selfGrantForbidden}
               />
             </label>
             <label
@@ -829,7 +840,7 @@ function DirectGrantFields({
                 onChange={(event) =>
                   clearErrorAndUpdate(() => setPeerReviewerAbsence(event.target.value))
                 }
-                disabled={mutation.isPending || selfGrantForbidden}
+                disabled={pending || selfGrantForbidden}
                 rows={2}
               />
             </label>
@@ -838,7 +849,7 @@ function DirectGrantFields({
         {actorId === null ? (
           <p className="text-xs text-text-muted">{DIRECT_GRANT_COPY.sessionLoading}</p>
         ) : null}
-        {mappedError ? (
+        {mappedError && !rejectedCandidate ? (
           <div role="alert" className="flex flex-col gap-1 text-sm text-accent-danger">
             <p>{mappedError}</p>
             {submitErrorDestination && canLink(submitErrorDestination.href) ? (
@@ -860,7 +871,7 @@ function DirectGrantFields({
             ? `선택: ${getCapabilityDisplayLabel('scope.read')} · ${formatPermissionScopeTarget(scopeDraft.kind, scopeDraft.site, scopeDraft.room)}`
             : '선택한 권한 없음'
           : selectedCandidate
-            ? `선택: ${candidateLabel(selectedCandidate, managedSystemNames, declared)}`
+            ? `선택: ${selectedCandidates.map(candidate => candidateLabel(candidate, managedSystemNames, declared)).join(', ')}`
             : '선택한 권한 없음'}
       </p>
       <DialogFooter className="shrink-0">
@@ -870,7 +881,7 @@ function DirectGrantFields({
         <Button
           type="button"
           onClick={submit}
-          loading={mutation.isPending}
+          loading={pending}
           disabled={!canSubmit}
           data-testid="direct-grant-submit"
         >

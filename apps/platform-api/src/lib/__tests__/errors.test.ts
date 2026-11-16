@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { statusForCode } from '../errors.js';
+import { batchItemDetail, statusForCode } from '../errors.js';
+
+describe('batch row details', () => {
+  it('retains the conflict destination and adds the zero-based row index without mutating the source', () => {
+    const detail = { request_id: 'request-1', review_route: '/admin/permissions/requests?selected=request-1' };
+    expect(batchItemDetail(detail, 1)).toEqual({ ...detail, item_index: 1 });
+    expect(detail).not.toHaveProperty('item_index');
+    expect(batchItemDetail(undefined, 0)).toEqual({ item_index: 0 });
+  });
+});
 
 describe('statusForCode — Slice 3 #13 prefixes', () => {
   it.each([

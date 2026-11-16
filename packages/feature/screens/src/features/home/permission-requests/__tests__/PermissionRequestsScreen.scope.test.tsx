@@ -72,6 +72,7 @@ function mount() {
 }
 
 async function choose(user: ReturnType<typeof userEvent.setup>, name: string, option: string) {
+  if (name === '기능') { await user.click(await screen.findByRole('checkbox', { name: option })); return; }
   screen.getByRole('combobox', { name }).focus();
   await user.keyboard('{Enter}');
   await user.click(await screen.findByRole('option', { name: option }));
@@ -104,7 +105,7 @@ describe('새 권한 요청 — Site·공정', () => {
   it('defaults to 기능 (today\'s form) and offers 기능 / Site 전체 / Site·공정', async () => {
     const { user } = mount();
     expect(screen.getByRole('combobox', { name: '요청 대상' })).toHaveTextContent('기능');
-    expect(screen.getByRole('combobox', { name: '기능' })).toBeInTheDocument();
+    expect(screen.getByLabelText('기능')).toBeInTheDocument();
     expect(await optionsOf(user, '요청 대상')).toEqual([
       '기능',
       'Site 전체 (이후 추가되는 공정 포함)',
@@ -115,7 +116,7 @@ describe('새 권한 요청 — Site·공정', () => {
   it('Site·공정 lists only ungranted 공정 from the candidate read and posts the 1844c shape', async () => {
     const { seam, user } = mount();
     await choose(user, '요청 대상', 'Site·공정');
-    expect(screen.queryByRole('combobox', { name: '기능' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('기능')).not.toBeInTheDocument();
 
     // SITE-C is held whole; SITE-A and SITE-B still have open rooms.
     expect(await optionsOf(user, 'Site')).toEqual(['SITE-A · Synthetic A', 'SITE-B · Synthetic B']);

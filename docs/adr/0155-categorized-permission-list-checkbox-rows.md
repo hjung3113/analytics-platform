@@ -21,6 +21,10 @@ A는 체크박스 행, B는 스위치 행이다. A를 채택한다. 체크박스
 
 `GroupedSelectionList`에 옵트인 옵션 `density: 'compact'`, `hideDisabled`, `selectionSummary: 'chips'`, `presetPreview`를 더한다. 기본값은 기존 모양이라 다른 소비자는 바뀌지 않는다. 소유자 보완: 접은 비활성 행의 토글은 이유를 글로 말하고 펼친 행도 이유를 글로 보인다, 프리셋 미리보기는 줄임표 없이 모두 보이고 없으면 «추가할 항목 없음», 칩은 머리 안 스크롤 대신 «+N»으로 접는다. 비활성 행은 **토큰 드로어에서** 기본으로 접는다. 동작 계약은 [§13](../contract/components.md#groupedselectionlist--분류된-선택-목록-decided-adr-0155)이다.
 
+## 개정 — 부여·신청 폼 다중 선택 (#2420)
+
+#2420은 소유자가 고른 V1을 운영 콘솔 부여 폼과 권한 요청 페이지에도 적용한다. 시스템 권한 후보는 다중 선택하며 한 후보는 기존 단일 API, 둘 이상은 batch API를 쓴다. Site·공정 대상은 단일 선택이다. 화면 동작의 원본은 [권한 화면 계약](../../packages/feature/screens/docs/routes-and-layout.md#permission-close-out-composition-fo-adr-0066)이다.
+
 ## 다시 여는 조건
 
-소유자가 다른 모양을 요청하면 선택을 뒤집을 수 있다. 스위치로 바꿀 때는 공유 Switch primitive와 시각 확인이 선행한다. 대상 시스템 단계 분리와 일괄 부여는 [백로그](../../.planning/backlog.md)에 미구현 이유와 재개 조건을 기록한다.
+소유자가 다른 모양을 요청하면 선택을 뒤집을 수 있다. 스위치로 바꿀 때는 공유 Switch primitive와 시각 확인이 선행한다. 대상 시스템 단계 분리는 [백로그](../../.planning/backlog.md)에 미구현 이유와 재개 조건을 기록한다.

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { permissionGrantBatchResultSchema } from '@ap/feature-shared';
+import { createPermissionRequestBatchResultSchema, permissionGrantBatchResultSchema } from '@ap/feature-shared';
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
@@ -106,6 +106,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
     });
     expect(response.statusCode).toBeGreaterThanOrEqual(400);
     expect(response.json().message).toContain('row 2');
+    expect(response.json().detail.item_index).toBe(1);
     expect(response.json().code).not.toBe('internal.unexpected');
     expect(await grantRows()).toEqual([]);
   });
@@ -134,7 +135,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
       reason: 'Need both for the audit',
     });
     expect(response.statusCode).toBe(201);
-    expect(response.json().items).toHaveLength(2);
+    expect(createPermissionRequestBatchResultSchema.parse(response.json()).items).toHaveLength(2);
     // One admin notification per batch, not one per row.
     const notifiedRequests = new Set(notifications.jobs.map((job) => JSON.stringify(job).match(/"permission_request_id":"([0-9a-f-]{36})"/)?.[1]));
     expect([...notifiedRequests][0]).toBeDefined();
@@ -154,6 +155,7 @@ describe.skipIf(!runIntegration)('Batch permission grant and request (#2406)', (
       reason: 'Mixed',
     });
     expect(mixed.statusCode).toBe(409);
+    expect(mixed.json().detail.item_index).toBe(1);
     const left = await db.pool.query("select 1 from permission.permission_requests where requester_actor_id = $1 and requested_capability = 'finding.read'", [actorId]);
     expect(left.rows).toHaveLength(0);
   });

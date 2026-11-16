@@ -16,6 +16,7 @@ import { ApiError } from '../../../lib/api/types';
 import { HeadTargetHost } from '../../../test/primary-action-host';
 import {
   directPermissionGrantSchema,
+  directPermissionGrantBatchSchema,
   listPermissionDeniesResponseSchema,
   listPermissionGrantsResponseSchema,
   permissionDenyAdminItemSchema,
@@ -392,6 +393,18 @@ function installApi(
         };
       }
 
+      if (method === 'POST' && path === '/permissions/grants/batch') {
+        const body = directPermissionGrantBatchSchema.parse(requestOptions?.body);
+        const failure = options.directGrantErrors?.[directGrantCalls++];
+        if (failure) throw new ApiError(failure.status, { code: failure.code, message: 'batch rejected', ...(failure.detail ? { detail: failure.detail } : {}) });
+        const items = body.items.map((item, index) => permissionGrantAdminItemSchema.parse({
+          id: [CREATED_GRANT_ID, SECOND_CREATED_GRANT_ID][index], actor_id: body.actor_id,
+          capability: item.capability, managed_system_id: item.managed_system_id ?? null,
+          granted_by_actor_id: SELF_ACTOR_ID, granted_at: '2026-07-18T00:00:00.000Z', expires_at: body.expires_at ?? null,
+        }));
+        grants.unshift(...items);
+        return { data: parser.parse({ batch_id: THIRD_CREATED_GRANT_ID, items }) };
+      }
       if (method === 'POST' && path === '/permissions/grants') {
         const body = directPermissionGrantSchema.parse(requestOptions?.body);
         const callIndex = directGrantCalls;
@@ -516,7 +529,7 @@ async function openDirectGrantDialogWithUser(user: ReturnType<typeof userEvent.s
 }
 
 async function chooseSelectOption(label: string, optionName: string | RegExp) {
-  if (label === '부여 권한 및 범위') { fireEvent.click(await screen.findByRole('radio', { name: optionName })); return; }
+  if (label === '부여 권한 및 범위') { fireEvent.click(await screen.findByRole('checkbox', { name: optionName })); return; }
   fireEvent.click(screen.getByRole('combobox', { name: label }));
   fireEvent.click(await screen.findByRole('option', { name: optionName }));
 }
@@ -552,13 +565,119 @@ async function selectDirectGrantTargetAndScopeWithUser(
   await waitFor(() =>
     expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent(actorName),
   );
-  await user.click(await screen.findByRole('radio', { name: scopeName }));
+  await user.click(await screen.findByRole('checkbox', { name: scopeName }));
 }
 
 /** The screen judges a grant's expiry against `Date.now()`; fixtures use fixed dates, so every test runs on this pinned day (#1885). Only `Date` is faked, timers stay real. */
 const PINNED_NOW = new Date('2026-11-13T00:00:00.000Z');
 
 describe('/admin/permissions/grants screen', () => {
+  test('adds the missing read prerequisite through the explicit selection action', async () => {
+    const api = installApi({ initialGrants: [], grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, {
+      candidates: [triagePrerequisiteCandidate('missing'), readGrantCandidate({ state: 'available' })],
+    }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await selectDirectGrantTargetAndScope('Actor One', /VOC 분류.*Payments/);
+    fireEvent.click(within(dialog).getByRole('button', { name: '읽기 권한도 선택' }));
+    expect(within(dialog).getByRole('checkbox', { name: /VOC 조회.*Payments/ })).toBeChecked();
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Read and triage' } });
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    await waitFor(() => expect(api.requests.find(r => r.path === '/permissions/grants/batch')).toBeDefined());
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'VOC 조회 권한도 부여' })).not.toBeInTheDocument();
+  });
+  test('blocks the entire selection when its second candidate needs review', async () => {
+    const route = `/admin/permissions/requests?selected=${REVIEW_REQUEST_ID}`;
+    installApi({ initialGrants: [], grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, {
+      candidates: [DEFAULT_GRANT_CANDIDATE, readGrantCandidate({ state: 'request_review', request_id: REVIEW_REQUEST_ID, review_route: route })],
+    }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await selectDirectGrantTargetAndScope();
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /VOC 조회.*Payments/ }));
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Needs review' } });
+    expect(within(dialog).getByTestId('direct-grant-submit')).toBeDisabled();
+    expect(within(dialog).getByText('진행 중인 권한 요청을 먼저 검토해야 합니다.').parentElement).toHaveTextContent(/^VOC 조회 · Payments:/);
+    expect(within(dialog).getByRole('link', { name: '요청 검토 보기' })).toHaveAttribute('href', route);
+  });
+  test('blocks 51 grants visibly and enables submit after reducing the selection to 50', async () => {
+    installApi({ initialGrants: [], grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, {
+      candidates: Array.from({ length: 51 }, (_, index) => ({ ...DEFAULT_GRANT_CANDIDATE, managed_system_id: `cccccccc-cccc-4ccc-8ccc-${(index + 1).toString(16).padStart(12, '0')}` })),
+    }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await chooseSelectOption('대상자', /^Actor One/);
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: 'VOC·Finding·Task 모두 선택' }));
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Many grants' } });
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('한 번에 50개까지');
+    expect(within(dialog).getByTestId('direct-grant-submit')).toBeDisabled();
+    fireEvent.click(within(dialog).getAllByRole('checkbox', { name: /Finding 관리.*시스템/ })[0] as HTMLElement);
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId('direct-grant-submit')).toBeEnabled();
+  });
+  test('sends two selected candidates to the batch endpoint with one reason', async () => {
+    const api = installApi({ grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, {
+      candidates: [DEFAULT_GRANT_CANDIDATE, { capability: 'voc.read', managed_system_id: MANAGED_SYSTEM_ID, governance_required: false, preflight: { state: 'available' } }],
+    }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await chooseSelectOption('대상자', /^Actor One/);
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Finding 관리.*Payments/ }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /VOC 조회.*Payments/ }));
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Batch reason' } });
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    await waitFor(() => expect(api.requests.find(r => r.path === '/permissions/grants/batch')).toBeDefined());
+    expect(api.requests.find(r => r.path === '/permissions/grants/batch')?.body).toEqual({ actor_id: RECIPIENT_ID, items: [
+      { capability: 'finding.manage', managed_system_id: MANAGED_SYSTEM_ID },
+      { capability: 'voc.read', managed_system_id: MANAGED_SYSTEM_ID },
+    ], reason: 'Batch reason' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(toast.success).toHaveBeenCalledWith('권한 2개를 부여했습니다.');
+  });
+  test('identifies a rejected batch row, preserves the draft and retries one row on the single endpoint', async () => {
+    const api = installApi({ directGrantErrors: [{ status: 409, code: 'conflict.permission_request_duplicate', detail: { item_index: 1 } }],
+      grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, { candidates: [DEFAULT_GRANT_CANDIDATE, {
+        capability: 'voc.read', managed_system_id: MANAGED_SYSTEM_ID, governance_required: false, preflight: { state: 'available' },
+      }] }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await chooseSelectOption('대상자', /^Actor One/);
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Finding 관리.*Payments/ }));
+    const rejected = within(dialog).getByRole('checkbox', { name: /VOC 조회.*Payments/ });
+    fireEvent.click(rejected);
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Keep my draft' } });
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    expect(await within(dialog).findByText('거절됨')).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(/^VOC 조회 · Payments:/);
+    expect(rejected).toBeChecked();
+    expect(within(dialog).getByLabelText('사유 · 필수')).toHaveValue('Keep my draft');
+    fireEvent.click(rejected);
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    await waitFor(() => expect(api.requests.find(r => r.method === 'POST' && r.path === '/permissions/grants')).toBeDefined());
+  });
+  test.each([
+    { code: 'conflict.permission_request_duplicate', detail: { item_index: 1, request_id: REVIEW_REQUEST_ID, review_route: `/admin/permissions/requests?selected=${REVIEW_REQUEST_ID}` },
+      link: `/admin/permissions/requests?selected=${REVIEW_REQUEST_ID}`, linkName: /요청 검토/ },
+    { code: 'conflict.capability_already_denied', detail: { item_index: 1, deny_ids: [SECOND_DENY_ID], lift_route: `/admin/permissions/grants?tab=denies&selected=${SECOND_DENY_ID}` },
+      link: `/admin/permissions/grants?tab=denies&selected=${SECOND_DENY_ID}`, linkName: /차단 해제/ },
+  ] as const)('keeps the recovery link beside a batch row refused with $code (#2420 review C1)', async ({ code, detail, link, linkName }) => {
+    installApi({ directGrantErrors: [{ status: 409, code, detail }],
+      grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, { candidates: [DEFAULT_GRANT_CANDIDATE, {
+        capability: 'voc.read', managed_system_id: MANAGED_SYSTEM_ID, governance_required: false, preflight: { state: 'available' },
+      }] }) } });
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await chooseSelectOption('대상자', /^Actor One/);
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Finding 관리.*Payments/ }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /VOC 조회.*Payments/ }));
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Keep my draft' } });
+    fireEvent.click(within(dialog).getByTestId('direct-grant-submit'));
+    expect(await within(dialog).findByText('거절됨')).toBeInTheDocument();
+    const alert = within(dialog).getByRole('alert');
+    expect(alert).toHaveTextContent(/^VOC 조회 · Payments:/);
+    expect(within(alert).getByRole('link', { name: linkName })).toHaveAttribute('href', link);
+  });
   beforeEach(() => {
     vi.setSystemTime(PINNED_NOW);
   });
@@ -1202,7 +1321,6 @@ describe('/admin/permissions/grants screen', () => {
     await chooseSelectOption('부여 권한 및 범위', /Finding 관리.*Payments/);
     expect(within(dialog).getByLabelText('정책 근거 · 필수')).toHaveValue('');
     expect(within(dialog).getByLabelText('동료 검토자 부재 사유 · 필수')).toHaveValue('');
-    await chooseSelectOption('부여 권한 및 범위', /관리자 권한.*전체/);
     expect(
       within(dialog).getByRole('checkbox', { name: /관리자 권한 부여를 확인/ }),
     ).not.toBeChecked();
@@ -1630,10 +1748,10 @@ describe('/admin/permissions/grants screen', () => {
     await act(async () => api.releaseGrantOptions());
 
     expect(
-      await screen.findByRole('radio', { name: /관리자 권한.*전체/ }),
+      await screen.findByRole('checkbox', { name: /관리자 권한.*전체/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('radio', { name: /Finding 관리.*Payments/ }),
+      screen.queryByRole('checkbox', { name: /Finding 관리.*Payments/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -1661,13 +1779,14 @@ describe('/admin/permissions/grants screen', () => {
       expect(screen.getByTestId('direct-grant-recipient')).toHaveTextContent('Actor One'),
     );
 
-    const heldOption = await screen.findByRole('radio', {
+    fireEvent.click(within(dialog).getByRole('button', { name: /이 대상에 부여할 수 없는 권한/ }));
+    const heldOption = await screen.findByRole('checkbox', {
       name: /VOC 분류.*Payments/,
     });
     expect(heldOption).toBeDisabled();
     fireEvent.click(heldOption);
     expect(heldOption).not.toBeChecked();
-    expect(within(dialog).getByText('선택 없음')).toBeInTheDocument();
+    expect(within(dialog).getByText('선택 0개')).toBeInTheDocument();
     expect(within(dialog).getByTestId('direct-grant-submit')).toBeDisabled();
     fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), {
       target: { value: '이미 보유한 권한을 다시 부여합니다.' },
@@ -1816,7 +1935,7 @@ describe('/admin/permissions/grants screen', () => {
     expect(within(followUp).getByRole('combobox', { name: '대상자' })).toHaveTextContent(
       'Actor One',
     );
-    expect(within(followUp).getByRole('radio', { name: /VOC 조회.*Payments/ })).toBeChecked();
+    expect(within(followUp).getByRole('checkbox', { name: /VOC 조회.*Payments/ })).toBeChecked();
     // #1842 review C1: the chosen permission is also shown outside the scroll area, above the footer.
     expect(within(followUp).getByTestId('direct-grant-selected')).toHaveTextContent(/선택: VOC 조회.*Payments/);
     const reason = within(followUp).getByLabelText('사유 · 필수');
@@ -2075,7 +2194,7 @@ describe('/admin/permissions/grants screen', () => {
     // A restored system Actor draft must not fall back to a Role Level.
     expect(within(followUp).getByTestId('direct-grant-recipient')).not.toHaveTextContent('User');
     expect(within(followUp).getByTestId('direct-grant-system-actor-note')).toBeInTheDocument();
-    expect(within(followUp).getByRole('radio', { name: /VOC 조회.*Payments/ })).toBeChecked();
+    expect(within(followUp).getByRole('checkbox', { name: /VOC 조회.*Payments/ })).toBeChecked();
     // #1842 review C1: the chosen permission is also shown outside the scroll area, above the footer.
     expect(within(followUp).getByTestId('direct-grant-selected')).toHaveTextContent(/선택: VOC 조회.*Payments/);
     expect(within(followUp).getByLabelText('사유 · 필수')).toHaveValue(

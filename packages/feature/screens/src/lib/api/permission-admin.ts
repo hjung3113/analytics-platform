@@ -4,6 +4,9 @@
 import {
   type ApprovePermissionRequest,
   type DirectPermissionGrant,
+  type DirectPermissionGrantBatch,
+  directPermissionGrantBatchSchema,
+  permissionGrantBatchResultSchema,
   type PermissionDecisionResult,
   type PermissionGrantOptions,
   directPermissionGrantSchema,
@@ -89,6 +92,12 @@ export async function createDirectPermissionGrant(
 }
 
 export type PermissionRequestDecisionAction = 'approve' | 'reject' | 'need-more-info' | 'deny';
+
+export async function createDirectPermissionGrantBatch(body: DirectPermissionGrantBatch, idempotencyKey: string) {
+  return (await apiRequest('POST', '/permissions/grants/batch', permissionGrantBatchResultSchema, {
+    body: directPermissionGrantBatchSchema.parse(body), idempotencyKey,
+  })).data;
+}
 
 export async function decidePermissionRequest(
   id: string,

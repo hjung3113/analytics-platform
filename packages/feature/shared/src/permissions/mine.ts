@@ -46,3 +46,8 @@ export const createPermissionRequestResultSchema = z.object({
   created_at: z.string().min(1),
 });
 export type CreatePermissionRequestResult = z.infer<typeof createPermissionRequestResultSchema>;
+/** POST /permission-requests/batch success: one request row per submitted item, in submitted order (#2406, #2420). */
+export const createPermissionRequestBatchResultSchema = z
+  .object({ batch_id: z.string().uuid(), items: z.array(createPermissionRequestResultSchema).min(1) })
+  .strict();
+export type CreatePermissionRequestBatchResult = z.infer<typeof createPermissionRequestBatchResultSchema>;
