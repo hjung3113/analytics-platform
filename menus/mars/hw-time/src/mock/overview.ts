@@ -39,7 +39,9 @@ function runValues(equipmentId: string, params: HwTimeRunParams): number[] {
     if (!bounds) return 2 + moduleIndex * 0.7 + motionIndex * 0.5 + equipmentNumber * 0.08 + jitter;
     // The smallest excursions that still move the all-equipment Motion averages out of bound (one row in three): a piece stays
     // readable beside its neighbours instead of one stretched piece next to a vanished one.
-    if (equipmentNumber % 3 === 0 && motionIndex === 0) return bounds.upper + 3.2 + jitter;
+    // Spread over the upper bound (+1.36 … +5.04 s) instead of one stacked value: each run takes a distinct step of a per-equipment
+    // permutation of 0…23 (5 is coprime with 24), so the mean excursion, the averages and every judgement stay as before.
+    if (equipmentNumber % 3 === 0 && motionIndex === 0) return bounds.upper + 3.2 + (((run * 5 + equipmentNumber) % RUNS_PER_EQUIPMENT) - (RUNS_PER_EQUIPMENT - 1) / 2) * 0.16 + jitter;
     if (equipmentNumber % 3 === 0 && motionIndex === 1) return bounds.lower - 0.6 - jitter;
     if (run === 0 && equipmentNumber % 2 === 0) return bounds.upper + 0.5 + jitter;
     if (run === 1 && equipmentNumber % 2 === 0) return bounds.lower - 0.5 - jitter;
