@@ -4,7 +4,7 @@ import { HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKS
 import { disabledReason, panelDeclarations, workspacePanelContext } from './panelDeclaration';
 
 export type Step = 1 | 2 | 3 | 4;
-export const CATALOG_IDS = ['heatmap', 'trend', 'scatter', 'motionTable', 'moduleMotions', 'table'] as const;
+export const CATALOG_IDS = ['heatmap', 'trend', 'scatter', 'distribution', 'motionTable', 'moduleMotions', 'table'] as const;
 export type CatalogId = typeof CATALOG_IDS[number];
 export type Checks = { modules: readonly string[]; motions: readonly string[] };
 export const rowLabel = (equipment: string, module: string) => `${equipment} · ${module}`;
@@ -54,6 +54,7 @@ export function panelCatalog({ step, typeId, moduleId, trend }: { step: Step; ty
     { id: 'heatmap', title: S.heatmap, disabledReason: reason('heatmap') },
     { id: 'trend', title: S.trend, disabledReason: reason('trend') },
     { id: 'scatter', title: S.scatter, disabledReason: reason('scatter') },
+    { id: 'distribution', title: S.distributionCatalog, disabledReason: reason('distribution') },
     { id: 'motionTable', title: S.motionTable, disabledReason: reason('motionTable') },
     { id: 'moduleMotions', title: { ko: S.moduleMotions.ko.replace('{module}', moduleId ?? 'Module'), en: S.moduleMotions.en.replace('{module}', moduleId ?? 'Module') }, disabledReason: reason('moduleMotions') },
     { id: 'table', title: S.table },
