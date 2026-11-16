@@ -142,7 +142,7 @@ function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, s
         {people.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">{word('searchFailed', lang)} <Button type="button" variant="link" size="sm" onClick={people.retry}>{word('retry', lang)}</Button></p>}
         {people.status === 'ready' && people.results.length === 0 && <p className="text-xs text-text-secondary">{word('searchEmpty', lang)}</p>}
       </div>
-      <ul className="grid max-h-40 gap-1 overflow-auto" aria-label={word('searchResults', lang)}>
+      <ul className="grid max-h-40 gap-1 scrollbar-panel overflow-auto" aria-label={word('searchResults', lang)}>
         {people.results.map(p => <li key={p.userId}><label className="flex items-center gap-2 text-sm">
           <Checkbox checked={draft.people.some(x => x.userId === p.userId)} onCheckedChange={() => setDraft(d => ({ ...d, people: toggleMember(d.people, p) }))} aria-label={personLabel(p, known)} />
           <span>{p.displayName}</span><span className="text-xs text-text-secondary">{p.affiliation}</span>
@@ -154,7 +154,7 @@ function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, s
     {draft.mode === 'groups' && <div className="grid gap-2">
       <label className="text-xs font-semibold" htmlFor="share-group-search">{word('groupSearch', lang)}</label>
       <Input id="share-group-search" value={groupQuery} placeholder={word('groupPlaceholder', lang)} onChange={event => setGroupQuery(event.target.value)} />
-      <div className="grid max-h-56 gap-2 overflow-auto" aria-busy={groups.status === 'loading'}>
+      <div className="grid max-h-56 gap-2 scrollbar-panel overflow-auto" aria-busy={groups.status === 'loading'}>
         {groups.status === 'loading' && <p role="status" className="text-xs text-text-secondary">{word('groupsLoading', lang)}</p>}
         {groups.status === 'error' && <p role="alert" className="text-xs text-text-danger-label">{word('groupsFailed', lang)} <Button type="button" variant="link" size="sm" onClick={groups.retry}>{word('retry', lang)}</Button></p>}
         {groups.status === 'ready' && shown.length === 0 && <p role="status" className="text-xs text-text-secondary">{needle === '' ? word('groupsEmpty', lang) : word('searchEmpty', lang)}</p>}

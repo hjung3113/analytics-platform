@@ -15,7 +15,7 @@ const twMerge = extendTailwindMerge<'animation-duration'>({
       text: ['caption', 'tiny', 'micro', 'md'],
       leading: ['body', 'relaxed-ui', 'note'],
       tracking: ['kicker', 'kind-label'],
-      radius: ['icon-chip'],
+      radius: ['icon-chip', 'inset-md'],
       spacing: ['row-accent', 'row-compact', 'row-default', 'row-expanded'],
     },
   },

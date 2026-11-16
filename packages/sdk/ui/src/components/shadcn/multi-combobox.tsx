@@ -174,7 +174,7 @@ export function MultiCombobox({
         </div>
         {selectedView ? (
           <div ref={summaryRef} id={summaryId} role="region" aria-label={selectedSummaryLabel(values.length)} tabIndex={-1}
-            className="max-h-60 overflow-y-auto px-3 py-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+            className="max-h-60 scrollbar-panel overflow-y-auto px-3 py-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
             {values.map(value => (
               <div key={value} className="flex items-center justify-between gap-2 py-1">
                 <span className="min-w-0 break-words text-sm">{valueLabel(value)}</span>
@@ -192,7 +192,7 @@ export function MultiCombobox({
             className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-secondary outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" />
         </div>
         <div id={listId} role="listbox" aria-label={listboxLabel} aria-multiselectable="true" aria-busy={loading}
-          className="max-h-60 overflow-y-auto py-1">
+          className="max-h-60 scrollbar-panel overflow-y-auto py-1">
           {filtered.map((option, index) => {
             const selected = selectedValues.has(option.value);
             return (

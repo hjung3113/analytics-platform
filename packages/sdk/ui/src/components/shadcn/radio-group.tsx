@@ -30,7 +30,7 @@ const RADIO_GROUP_ITEM_APPEARANCE_CLASSES: Record<
   string
 > = {
   segmented:
-    'inline-flex items-center justify-center whitespace-nowrap ring-offset-surface-canvas transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=checked]:shadow-sm flex-none gap-1.5 rounded-sm px-3 py-1.5 text-xs font-medium data-[state=checked]:bg-surface-card-elevated data-[state=checked]:text-text-primary data-[state=checked]:shadow-subtle',
+    'inline-flex items-center justify-center whitespace-nowrap ring-offset-surface-canvas transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=checked]:shadow-sm flex-none gap-1.5 rounded-inset-md px-3 py-1.5 text-xs font-medium data-[state=checked]:bg-surface-card-elevated data-[state=checked]:text-text-primary data-[state=checked]:shadow-subtle',
 };
 
 export const RadioGroup = React.forwardRef<

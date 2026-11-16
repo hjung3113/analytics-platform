@@ -107,7 +107,7 @@ function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'al
           <p role="status" className="text-xs text-text-muted">{m('svManageCount', { count: visible.length })}</p>
           {visible.length === 0
             ? <p className="text-sm text-text-muted">{m('svNoResult')}</p>
-            : <ul aria-label={m('svManageList')} className="max-h-96 min-h-0 overflow-y-auto">
+            : <ul aria-label={m('svManageList')} className="max-h-96 min-h-0 scrollbar-panel overflow-y-auto">
               {visible.map(item => {
                 const id = item.denied === true ? item.id : item.view.id;
                 return <ViewRow

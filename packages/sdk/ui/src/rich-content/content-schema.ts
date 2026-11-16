@@ -83,7 +83,8 @@ export function readerBlockSchemas(doc: JSONContent, anchorPrefix?: string) {
           columns.push(['col', width ? { width } : {}]);
         }
       });
-      return ['table', {}, ['colgroup', {}, ...columns], ['tbody', {}, 0]];
+      // Wide pasted tables scroll inside this wrapper, not the whole reader (#2369).
+      return ['div', { 'data-rich-table-scroll': '' }, ['table', {}, ['colgroup', {}, ...columns], ['tbody', {}, 0]]];
     } }), container('tableRow', 'tr', '(tableCell | tableHeader)+'), cell('tableCell', 'td'), cell('tableHeader', 'th'),
     Node.create({ name: 'taskList', group: 'block', content: 'taskItem+', renderHTML() { return ['ul', { 'data-type': 'taskList' }, 0]; } }),
     Node.create({ name: 'taskItem', content: 'paragraph block*', addAttributes() { return { checked: { default: false } }; }, renderHTML({ node }) { return ['li', { 'data-type': 'taskItem' }, ['label', {}, ['input', { type: 'checkbox', disabled: '', ...(node.attrs.checked ? { checked: '' } : {}) }]], ['div', {}, 0]]; } }),

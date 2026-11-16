@@ -276,7 +276,7 @@ export function Combobox({
           role="listbox"
           aria-busy={loading || undefined}
           aria-label={listboxLabel}
-          className="max-h-60 overflow-y-auto py-1"
+          className="max-h-60 scrollbar-panel overflow-y-auto py-1"
         >
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-sm text-text-muted" role="presentation">

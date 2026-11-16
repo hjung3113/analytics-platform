@@ -145,10 +145,10 @@ export function LaneTimeline(props: LaneTimelineProps) {
     <p className="px-4 py-2 text-text-secondary">{m('laneBoundaryHelp')}</p>
     <p id={helpId} className="sr-only">{m(brushOn ? 'laneAccessibleHelpBrush' : 'laneAccessibleHelp')}</p>
     {unavailable ? <ChartUnavailable /> : (
-    <div className="overflow-x-auto">
+    <div className="scrollbar-panel overflow-x-auto">
       <div className="min-w-[352px]">
         <canvas ref={axis} aria-hidden className="block w-full" />
-        <div ref={scroll} data-lane-scroll className="relative overflow-y-auto overscroll-contain">
+        <div ref={scroll} data-lane-scroll className="relative scrollbar-panel overflow-y-auto overscroll-contain">
           <div className="sticky top-0 h-0"><canvas ref={canvas} role="img" aria-label={props.ariaLabel} className="block w-full touch-pan-y" /><canvas ref={overlay} aria-hidden className="pointer-events-none absolute left-0 top-0 block w-full" /></div>
           <div ref={spacer} className="pointer-events-none relative">
             {model.lanes.map(lane => <div key={lane.id} className="h-6 w-28 truncate bg-surface-card px-2 py-1 text-text-secondary" title={lane.label}>{lane.label}</div>)}

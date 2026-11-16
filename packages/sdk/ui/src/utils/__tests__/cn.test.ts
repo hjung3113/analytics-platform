@@ -21,6 +21,8 @@ describe('cn with feature theme keys', () => {
     ['tracking-kicker', 'tracking-wide'],
     ['tracking-kind-label', 'tracking-wide'],
     ['rounded-icon-chip', 'rounded-md'],
+    ['rounded-inset-md', 'rounded-full'],
+    ['rounded-full', 'rounded-inset-md'],
     ['w-row-accent', 'w-2'],
     ['min-h-row-default', 'min-h-14'],
     ['min-h-row-expanded', 'min-h-24'],
