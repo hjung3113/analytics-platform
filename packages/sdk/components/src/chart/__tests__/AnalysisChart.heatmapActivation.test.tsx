@@ -28,6 +28,12 @@ it('selects on single click and activates only on double click', async () => {
   expect(onActivate).not.toHaveBeenCalled(); gesture('dblclick');
   expect(onActivate).toHaveBeenCalledExactlyOnceWith('X', 'Y');
 });
+it('registers a double-click listener only for a heatmap that opts into it', async () => {
+  mount(heat); await screen.findByRole('img'); expect(Object.keys(plot.onEvents ?? {})).not.toContain('dblclick'); cleanup();
+  mount({ ...heat, cellActivation: { on: 'click', onActivate: vi.fn() } }); await screen.findByRole('img'); expect(Object.keys(plot.onEvents ?? {})).not.toContain('dblclick'); cleanup();
+  mount({ kind: 'donut', slices: [{ id: 'a', label: 'A', value: 1 }] }); await screen.findByRole('img'); expect(Object.keys(plot.onEvents ?? {})).not.toContain('dblclick'); cleanup();
+  mount({ ...heat, cellActivation: { on: 'dblclick', onActivate: vi.fn() } }); await screen.findByRole('img'); expect(Object.keys(plot.onEvents ?? {})).toContain('dblclick');
+});
 it('keeps Details-only behavior without cellActivation', async () => {
   const onCellClick = vi.fn(); mount({ ...heat, onCellClick }); await screen.findByRole('img');
   gesture('click'); gesture('dblclick'); expect(onCellClick).not.toHaveBeenCalled();
