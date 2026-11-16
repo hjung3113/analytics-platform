@@ -68,11 +68,7 @@ export const HW_TIME_MESSAGES = {
 
 // Linked analysis and shared filter panel copy.
 export const HW_TIME_OVERVIEW_MESSAGES = {
-  filters: { ko: '표시 조건', en: 'Display filters' },
   recipe: { ko: 'Recipe/PPID', en: 'Recipe/PPID' },
-  unsplit: { ko: '구분 없음', en: 'Not split' },
-  unavailable: { ko: '통계 미제공', en: 'Statistics unavailable' },
-  recipeReason: { ko: 'Recipe·PPID별 통계가 아직 없음', en: 'Per-Recipe/PPID statistics are not available yet' },
   moduleType: { ko: 'Module 타입', en: 'Module type' },
   modules: { ko: 'Module', en: 'Module' },
   motions: { ko: 'Motion', en: 'Motion' },

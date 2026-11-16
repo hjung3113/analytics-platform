@@ -16,7 +16,7 @@ const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider><Platfo
 function setup(search = '') {
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', `/mars/hw-time?v=1&scopeId=MEM${search}`);
-  return renderHook(() => ({ ...useHwTimeFilter(), align: usePlatform().pageParam('align') }), { wrapper });
+  return renderHook(() => ({ ...useHwTimeFilter(), align: usePlatform().pageParam('align'), moduleKey: usePlatform().pageParams('module') }), { wrapper });
 }
 const address = () => new URLSearchParams(window.location.search);
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -35,31 +35,26 @@ describe('shared HW Time filter', () => {
     expect(result.current.motions).toEqual(['Chuck']);
     expect(address().has('module')).toBe(false);
     expect(address().has('motion')).toBe(false);
-    act(() => result.current.setModuleType('TR'));
-    expect(result.current.modules).toEqual(['TR2']);
-    expect(result.current.motions).toEqual(['Place']);
+    expect(result.current.selectionFor('TR')).toEqual({ modules: ['TR2'], motions: ['Place'] });
   });
   it('writes ~none when everything is unchecked and drops the key when everything is checked again', () => {
     const { result } = setup('&moduleType=LK');
-    act(() => result.current.setChecked('module', []));
+    act(() => result.current.setTypeChecked('LK', { modules: [] }));
     expect(result.current.modules).toEqual([]);
     expect(result.current.empty).toBe(true);
     // The other types' Modules stay checked: only the LK ones were cleared.
-    act(() => result.current.setModuleType('PM'));
-    expect(result.current.modules).toEqual(['PM1', 'PM2', 'PM3', 'PM4']);
-    act(() => result.current.setChecked('module', []));
-    act(() => result.current.setModuleType('TR'));
-    act(() => result.current.setChecked('module', []));
-    expect(result.current.empty).toBe(true);
-    act(() => result.current.toggleModule('TR1'));
-    expect(result.current.modules).toEqual(['TR1']);
-    act(() => result.current.toggleModule('TR1'));
-    expect(result.current.modules).toEqual([]);
-    for (const type of ['PM', 'TR', 'LK'] as const) {
-      act(() => result.current.setModuleType(type));
-      act(() => result.current.setChecked('module', result.current.moduleType.modules));
-    }
+    expect(result.current.selectionFor('PM').modules).toEqual(['PM1', 'PM2', 'PM3', 'PM4']);
+    act(() => result.current.setTypeChecked('PM', { modules: [] }));
+    act(() => result.current.setTypeChecked('TR', { modules: [] }));
+    expect(result.current.moduleKey).toEqual(['~none']);
+    act(() => result.current.setTypeChecked('TR', { modules: ['TR1'] }));
+    expect(result.current.selectionFor('TR').modules).toEqual(['TR1']);
+    act(() => result.current.setTypeChecked('TR', { modules: [] }));
+    expect(result.current.moduleKey).toEqual(['~none']);
+    const all = { PM: ['PM1', 'PM2', 'PM3', 'PM4'], TR: ['TR1', 'TR2'], LK: ['LK1', 'LK2'] };
+    for (const [type, modules] of Object.entries(all)) act(() => result.current.setTypeChecked(type, { modules }));
     expect(result.current.modules).toEqual(['LK1', 'LK2']);
+    expect(result.current.moduleKey).toEqual([]);
   });
   it('reads ~none as an empty selection, not as a widened one', () => {
     const { result } = setup('&motion=~none');
@@ -72,7 +67,7 @@ describe('shared HW Time filter', () => {
     expect(result.current.invalid).toBeNull();
     expect(result.current.unusable).toEqual(['PM9', 'XX/Spin']);
     expect(result.current.modules).toEqual(['PM1']);
-    act(() => result.current.toggleModule('PM2'));
+    act(() => result.current.setTypeChecked('PM', { modules: ['PM1', 'PM2'] }));
     expect(result.current.unusable).toEqual(['PM9', 'XX/Spin']);
     expect(result.current.modules).toEqual(['PM1', 'PM2']);
   });
@@ -83,15 +78,5 @@ describe('shared HW Time filter', () => {
     expect(result.current.invalid).toBeNull();
     expect(result.current.align).toBe('1');
     expect(address().has('align')).toBe(false);
-  });
-  it('clears an incompatible drill when switching types and keeps the selection', () => {
-    const { result } = setup('&moduleType=PM&drillModule=PM1&drillMotion=Pump&module=PM2&module=LK1');
-    act(() => result.current.setModuleType('LK'));
-    expect(address().has('drillModule')).toBe(false);
-    expect(address().has('drillMotion')).toBe(false);
-    expect(result.current.modules).toEqual(['LK1']);
-    act(() => result.current.toggleMotion('Pump'));
-    expect(result.current.motions).not.toContain('Pump');
-    expect(result.current.motions).toHaveLength(3);
   });
 });
