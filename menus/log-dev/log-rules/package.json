@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-log-rules",
   "private": true,
-  "version": "0.5.6",
+  "version": "0.5.7",
   "ap": {
     "sdk": ">=0.38.0 <0.39.0"
   },

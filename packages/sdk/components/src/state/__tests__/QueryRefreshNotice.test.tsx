@@ -24,17 +24,18 @@ function view({ previous = true, status = 'refreshing', notice = 'visible', fill
   </div></I18nProvider>;
 }
 
-describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
-  it('puts a full-width constant-height row above the result, outside its tint', () => {
+describe('previous-selection refresh band (#1365 FIX4V, #2381)', () => {
+  it('lays a full-width constant-height band over the result bottom, outside its tint', () => {
     const { container } = render(view());
     const status = screen.getByRole('status', { name: label });
     const content = container.querySelector('[data-query-result-content]');
-    expect(status).toHaveClass('flex', 'h-6', 'w-full', 'shrink-0', 'pr-12', 'text-xs', 'bg-surface-sunken', 'text-text-secondary');
+    expect(status).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'z-[2]', 'flex', 'h-6', 'text-xs', 'bg-surface-sunken', 'text-text-secondary');
     expect(status.nextElementSibling).toBe(content);
+    expect(content?.contains(status)).toBe(false);
     expect(content).toContainElement(screen.getByText('previous'));
     expect(content).toContainElement(container.querySelector('[data-query-stale-tint]') as HTMLElement);
     expect(status.querySelector('[data-query-stale-tint]')).toBeNull();
-    expect(status).not.toHaveClass('absolute', 'fixed', 'sticky');
+    expect(status).not.toHaveClass('fixed', 'sticky');
     expect(status.style.cssText).toBe('');
     expect(status).not.toHaveAttribute('popover');
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
@@ -59,7 +60,31 @@ describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
   ])('reserves no notice row for %o', options => {
     const { container } = render(view(options));
     expect(screen.queryByRole('status', { name: label })).toBeNull();
-    expect(container.querySelector('.h-6')).toBeNull();
+    expect(container.querySelector('[data-query-refresh-band]')?.getAttribute('aria-label')).not.toBe(label);
+  });
+
+  // #2381 regression: before, the previous-selection row joined the flow (body pushed 24px, chart track added) and the
+  // same-condition label sat above the view over the chart toolbar. The band must leave every flow box as it was.
+  it.each([
+    ['standalone', undefined], ['standalone', false], ['standalone', true],
+    ['chart', false], ['chart', true], ['kpi', undefined], ['panel', true],
+  ] as const)('%s (showingPrevious=%s): refreshing changes no layout box, only adds an out-of-flow band', (kind, previous) => {
+    const node = (status: 'done' | 'refreshing') => {
+      const inner = <QueryView query={{ ...query, status, showingPrevious: previous }}>{data => <p>{data}</p>}</QueryView>;
+      return <I18nProvider>{kind === 'panel' ? <InWorkspacePanelProvider value>{inner}</InWorkspacePanelProvider>
+        : kind === 'standalone' ? inner : <AnalysisSectionContext.Provider value={{ title: 'T', kind, collapse: vi.fn() }}>{inner}</AnalysisSectionContext.Provider>}</I18nProvider>;
+    };
+    const shape = (root: Element) => [...root.querySelectorAll('*')].filter(el => !el.closest('[data-query-refresh-band]') && !el.hasAttribute('data-query-stale-tint'))
+      .map(el => `${el.tagName}.${el.getAttribute('class') ?? ''}`);
+    const result = render(node('done'));
+    const before = shape(result.container);
+    const body = screen.getByText('previous');
+    result.rerender(node('refreshing'));
+    expect(shape(result.container)).toEqual(before);
+    expect(screen.getByText('previous')).toBe(body);
+    const band = result.container.querySelector('[data-query-refresh-band]');
+    expect(band).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'pointer-events-none');
+    expect(band?.parentElement).toBe(result.container.querySelector('[aria-busy="true"]'));
   });
 
   it.each(['fill', 'panel'] as const)('gives %s results a stable remaining-height container', kind => {
@@ -85,7 +110,7 @@ describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
     expect(screen.getByText('previous')).toBe(body);
   });
 
-  it('keeps two result subgrid rows below a separate notice track only while previous', () => {
+  it('keeps the two result subgrid rows unchanged while the band shows (#2381: no notice track)', () => {
     const chartView = (previous: boolean) => <AnalysisSectionContext.Provider value={{ title: 'Chart', kind: 'chart', collapse: vi.fn() }}>
       {view({ previous, status: previous ? 'refreshing' : 'done' })}
     </AnalysisSectionContext.Provider>;
@@ -97,15 +122,14 @@ describe('previous-selection in-flow notice (#1365 FIX4V)', () => {
     expect(content).toHaveClass('relative', 'min-w-0');
     expect(content).not.toHaveClass('contents');
     result.rerender(chartView(true));
-    expect(wrapper).toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
-    expect(wrapper).not.toHaveClass('grid-rows-subgrid');
+    expect(wrapper).toHaveClass('grid-rows-subgrid');
+    expect(screen.getByRole('status', { name: label })).toHaveClass('absolute', 'bottom-0');
     expect(content).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
     result.rerender(chartView(false));
     expect(content).toHaveClass('relative', 'min-w-0');
     expect(content).not.toHaveClass('contents');
     expect(content).toHaveClass('row-span-2', 'grid', 'grid-rows-subgrid');
     expect(wrapper).toHaveClass('grid-rows-subgrid');
-    expect(wrapper).not.toHaveClass('grid-rows-[auto_auto_minmax(0,1fr)]');
   });
 });
 
