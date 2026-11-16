@@ -57,6 +57,7 @@ export const COMPONENTS_MESSAGES = {
   chartTopNSummary: { ko: '{count}개 항목 · {unit}', en: '{count} items · {unit}' },
   chartHeaderName: { ko: '이름', en: 'Name' },
   chartHeaderStatus: { ko: '상태', en: 'Status' },
+  chartHeaderCategory: { ko: '범주', en: 'Category' },
   chartHeaderReason: { ko: '사유', en: 'Reason' },
   chartHistogramCount: { ko: '개수', en: 'Count' },
   chartHistogramStart: { ko: '구간 시작', en: 'Range start' },
