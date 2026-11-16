@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InfoTip } from '../InfoTip.js';
 
 describe('InfoTip (#2300)', () => {
@@ -13,6 +13,16 @@ describe('InfoTip (#2300)', () => {
     expect(text).toHaveClass('sr-only');
     expect(button).toHaveAttribute('aria-describedby', text.id);
     expect(button).toHaveAccessibleDescription('조회 기준 설명');
+  });
+
+  it('holds a block description without nesting it in a paragraph (#2364 review)', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<InfoTip label="설명"><ul><li>집계 기준</li></ul></InfoTip>);
+    const list = screen.getByRole('list', { hidden: true });
+    expect(list.closest('p')).toBeNull();
+    expect(screen.getByRole('button', { name: '설명' })).toHaveAccessibleDescription('집계 기준');
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 
   it('uses the given description id so a section can point at the same paragraph', () => {
