@@ -1,10 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, cn } from '@ap/ui';
 import { useI18n, useMessages, usePlatform, type Text } from '@ap/kernel';
 import { SegmentedRadio } from '../RadioGroup';
 import type { PageKeyRule } from '../table/tableUrlWarning';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { focusPageFallback } from '../state/pageFocus';
 
 /** One value of a `choice` option. `chip` is the header chip text when this value is set (default: `label`). */
 export type PanelOptionChoice = { value: string; label: Text; chip?: Text };
@@ -73,10 +74,10 @@ export const PANEL_OPTIONS_COLLAPSE_BELOW = 480;
 
 /** Width of the nearest panel (`[data-dock-panel]`) or region (`section`) around `node`, else its parent; kept current by a ResizeObserver. */
 function useScopeWidth(enabled: boolean) {
-  const anchor = useRef<HTMLDivElement | null>(null);
+  // A callback ref: the anchor mounts late (every option hidden at first) and moves between the inline and folded forms.
+  const [node, anchor] = useState<HTMLDivElement | null>(null);
   const [width, setWidth] = useState<number | null>(null);
   useLayoutEffect(() => {
-    const node = anchor.current;
     if (!enabled || !node) return;
     const scope = node.closest<HTMLElement>('[data-dock-panel], section') ?? node.parentElement;
     if (!scope) return;
@@ -84,7 +85,7 @@ function useScopeWidth(enabled: boolean) {
     const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) setWidth(entry.contentRect.width); });
     observer.observe(scope);
     return () => { observer.disconnect(); };
-  }, [enabled]);
+  }, [enabled, node]);
   return { anchor, width };
 }
 
@@ -128,7 +129,7 @@ export function PanelOptions({ options, values, onChange, collapsed, collapseBel
                 </DropdownMenuRadioGroup>
               </>
               : <DropdownMenuCheckboxItem checked={valueOf(option) === true} onCheckedChange={checked => onChange(option.id, checked === true)}>
-                {option.label[lang]}
+                {option.label[lang]}: {valueOf(option) === true ? option.on[lang] : option.off[lang]}
               </DropdownMenuCheckboxItem>}
           </div>)}
         </DropdownMenuContent>
@@ -187,7 +188,14 @@ export function PanelOptionChips({ options, values, onReset, className }: PanelO
       return <li key={option.id} className="inline-flex items-center gap-0.5 rounded-full border border-border-subtle bg-surface-sunken ps-2 text-xs text-text-secondary">
         <span>{text}</span>
         <Button type="button" variant="ghost" size="icon-xs" aria-label={m('panelOptionsResetOne', { label: option.label[lang], value: text })}
-          onClick={() => onReset(option.id)}><X className="size-3" aria-hidden /></Button>
+          onClick={event => {
+            // The chip leaves with its button: focus the next chip's ×, else the previous one, else the page fallback.
+            const buttons = [...(event.currentTarget.closest('ul')?.querySelectorAll<HTMLButtonElement>('li > button') ?? [])];
+            const at = buttons.indexOf(event.currentTarget);
+            const target = buttons[at + 1] ?? buttons[at - 1];
+            if (target) target.focus(); else focusPageFallback(event.currentTarget);
+            onReset(option.id);
+          }}><X className="size-3" aria-hidden /></Button>
       </li>;
     })}
   </ul>;

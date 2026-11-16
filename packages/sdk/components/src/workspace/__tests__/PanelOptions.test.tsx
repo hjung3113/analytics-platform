@@ -47,7 +47,7 @@ function Probe({ options = OPTIONS, collapsed = false }: { options?: readonly Pa
 }
 const mount = (search = '', props: { options?: readonly PanelOption[]; collapsed?: boolean } = {}) => {
   window.history.replaceState(null, '', `/bars${search}`);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Probe {...props} /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><main tabIndex={-1}><Probe {...props} /></main></PlatformProvider></I18nProvider>);
 };
 const params = () => new URLSearchParams(window.location.search);
 const values = () => JSON.parse(screen.getByTestId('values').textContent!);
@@ -115,8 +115,32 @@ describe('PanelOptions + usePanelOptions (#2396)', () => {
     await user.click(await screen.findByRole('menuitemradio', { name: 'Module별' }));
     expect(params().get('barsGroup')).toBe('module');
     await user.click(screen.getByRole('button', { name: '보기' }));
-    await user.click(await screen.findByRole('menuitemcheckbox', { name: '시작 맞춤' }));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: '시작 맞춤: 끔' }));
     expect(params().get('barsAlign')).toBe('1');
+    await user.click(screen.getByRole('button', { name: '보기' }));
+    expect(await screen.findByRole('menuitemcheckbox', { name: '시작 맞춤: 켬' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('starts measuring when options first appear after mounting all hidden', () => {
+    vi.stubGlobal('ResizeObserver', class { constructor(private cb: ResizeObserverCallback) {} observe(target: Element) { this.cb([{ target, contentRect: { width: 300, height: 200 } } as ResizeObserverEntry], this as unknown as ResizeObserver); } disconnect() {} unobserve() {} });
+    const hidden = OPTIONS.map(option => ({ ...option, hidden: true }));
+    const view = (options: readonly PanelOption[]) => <I18nProvider><section><PanelOptions options={options} values={{}} onChange={() => {}} /></section></I18nProvider>;
+    const { container, rerender } = render(view(hidden));
+    expect(container.querySelector('[data-panel-options]')).toBeNull();
+    rerender(view(OPTIONS));
+    expect(container.querySelector('[data-panel-options]')).toHaveAttribute('data-panel-options', 'folded');
+  });
+
+  it('moves focus to the next chip, else the previous, after × removes a chip', () => {
+    mount('?barsSort=total-asc&barsGroup=module');
+    const list = chips()!;
+    const first = within(list).getByRole('button', { name: '정렬 기본으로: 합 작은 순 해제' });
+    first.focus();
+    fireEvent.click(first);
+    expect(document.activeElement).toBe(within(chips()!).getByRole('button', { name: '묶음 기본으로: Module로 묶음 해제' }));
+    fireEvent.click(document.activeElement!);
+    expect(chips()).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('main'));
   });
 
   it('folds by the surrounding panel width against collapseBelow', () => {
