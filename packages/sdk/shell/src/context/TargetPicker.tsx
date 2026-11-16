@@ -1,5 +1,5 @@
 import { lazy, Suspense, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { CUSTOM_GROUP_AXIS, type Capability, type ContextKey, type CustomGroupTarget, type GlobalContext, type SavedViewEntry, type SavedViewListItem, type ViewGroupEntry } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, type Capability, type ContextKey, type CustomGroupTarget, type GlobalContext, type SavedViewEntry, type ViewGroupEntry } from '@ap/contracts';
 import { CONTEXT_LABELS, customGroupMembers, useEquipmentAxes, useEquipmentFacts, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import type { FacetedSetItem, FacetedSetValue } from '@ap/components';
@@ -10,6 +10,7 @@ import { CONTEXT_CHIP, CONTEXT_CHIP_TONE } from './contextChip';
 import { MeasuringContext } from './ContextBarLayout';
 import { SHELL_MESSAGES } from '../messages';
 import { useSessionKey } from '../frame/sessionKey';
+import { useCustomGroupOptions, type CustomGroupOptions, type GroupOption } from './customGroupOptions';
 
 const FacetedSetDialog = lazy(() => import('./TargetPickerDialog'));
 
@@ -18,8 +19,6 @@ const RESULT_COLUMN_LIMIT = 4;
 const globalFacet = (id: string) => `global:${id}`;
 const axisFacet = (id: string) => `axis:${id}`;
 const ownPicks = (rule: FacetedSetValue['rule'], id: string) => Object.hasOwn(rule, id) ? rule[id] : undefined;
-type GroupOption = { id: string; label: string; target?: CustomGroupTarget; reason?: string };
-type GroupListState = { status: 'loading' | 'ready' | 'error'; scopeId: string | null; items: readonly SavedViewListItem[] };
 type PendingGroupSave = { fingerprint: string; entry: SavedViewEntry };
 type GroupSaveState = 'closed' | 'editing' | 'pending' | 'error' | 'saved';
 type GroupSaveSlotProps = {
@@ -32,11 +31,6 @@ type GroupSaveSlotProps = {
   onSave(input: { name: string; share: string; value: FacetedSetValue }): Promise<{ selected: { facetId: string; value: string } }>;
 };
 const EMPTY_GROUP_IDS: readonly string[] = [];
-
-function savedGroupItemId(item: SavedViewListItem): string {
-  return 'denied' in item && item.denied ? item.id : item.view.id;
-}
-
 function savedRuleAxis(facetId: string): string | null {
   if (facetId.startsWith('axis:')) return facetId.slice('axis:'.length);
   const global = facetId.slice('global:'.length);
@@ -63,6 +57,8 @@ type Props = {
   presetAxes?: readonly string[];
   invalid?: boolean;
   reasonId?: string;
+  /** The chosen groups resolved by an owner that outlives this picker (the query bar); without it the picker resolves them itself. */
+  groups?: CustomGroupOptions;
   /** Keep the dialog above relocating/measurement copies of the live bar button. */
   children?(button: ReactNode, open: boolean): ReactNode;
 };
@@ -73,31 +69,20 @@ export function TargetPicker(props: Props) {
   return <TargetPickerSession key={JSON.stringify([sessionKey, revision, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
 }
 
-function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, children }: Props) {
+function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, reasonId, groups, children }: Props) {
   const { adapter, route, savedViewStore, session, revision, scope } = useHostPlatform();
   const { t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
   const facts = useEquipmentFacts(g.scopeId ?? '');
-  const [groupList, setGroupList] = useState<GroupListState>({ status: 'loading', scopeId: null, items: [] });
   const [shareGroups, setShareGroups] = useState<readonly ViewGroupEntry[]>([]);
   const groupFacet = globalFacet(CUSTOM_GROUP_AXIS);
   const selectedGroupIds = g.condition?.[CUSTOM_GROUP_AXIS] ?? EMPTY_GROUP_IDS;
   const canEditCondition = cap.condition === 'apply';
   const canSaveGroup = Boolean(savedViewStore && g.scopeId && scope.status === 'valid' && scope.validatedFor === session && canEditCondition);
-  useEffect(() => {
-    if (!canEditCondition || !savedViewStore || !g.scopeId) {
-      setGroupList({ status: 'ready', scopeId: g.scopeId, items: [] });
-      return;
-    }
-    let live = true;
-    setGroupList({ status: 'loading', scopeId: g.scopeId, items: [] });
-    savedViewStore.list({ userId: session.user.id, menuId: null, kind: 'custom-group' }).then(
-      items => { if (live) setGroupList({ status: 'ready', scopeId: g.scopeId, items }); },
-      () => { if (live) setGroupList({ status: 'error', scopeId: g.scopeId, items: [] }); },
-    );
-    return () => { live = false; };
-  }, [canEditCondition, savedViewStore, session, revision, g.scopeId]);
+  const ownGroups = useCustomGroupOptions({ scopeId: g.scopeId, selectedGroupIds, canEditCondition: canEditCondition && !groups });
+  const groupSource = groups ?? ownGroups;
+  const { optionsById } = groupSource;
   useEffect(() => {
     if (!canSaveGroup || !savedViewStore) { setShareGroups([]); return; }
     let live = true;
@@ -105,35 +90,6 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
     return () => { live = false; };
   }, [canSaveGroup, savedViewStore, session, revision, g.scopeId]);
 
-  const currentGroupList = useMemo(() => groupList.scopeId === g.scopeId ? groupList : { status: 'loading' as const, scopeId: g.scopeId, items: [] }, [groupList, g.scopeId]);
-  const optionsById = useMemo(() => {
-    const result = new Map<string, GroupOption>();
-    for (const item of currentGroupList.items) {
-      const id = savedGroupItemId(item);
-      if ('denied' in item && item.denied) {
-        if (selectedGroupIds.includes(id)) result.set(id, { id, label: m('targetGroupMissing', { id, reason: item.reason }), reason: item.reason });
-        continue;
-      }
-      if (item.view.kind !== 'custom-group') continue;
-      if (!item.capabilities.canView) {
-        if (selectedGroupIds.includes(id)) {
-          const reason = item.capabilities.reason ?? 'forbidden';
-          result.set(id, { id, label: m('targetGroupMissing', { id, reason }), reason });
-        }
-        continue;
-      }
-      if (item.view.savedScopeId !== g.scopeId) {
-        if (selectedGroupIds.includes(id)) result.set(id, { id, label: m('targetGroupMissing', { id, reason: 'scope-mismatch' }), reason: 'scope-mismatch' });
-        continue;
-      }
-      result.set(id, { id, label: item.view.name, target: item.view.target });
-    }
-    for (const id of selectedGroupIds) if (!result.has(id)) {
-      const reason = currentGroupList.status === 'loading' ? 'loading' : currentGroupList.status === 'error' ? 'unavailable' : savedViewStore ? 'not-found' : 'store-unavailable';
-      result.set(id, { id, label: m('targetGroupMissing', { id, reason }), reason });
-    }
-    return result;
-  }, [currentGroupList, selectedGroupIds, g.scopeId, savedViewStore, m]);
   const groupOptions = useMemo(() => [...optionsById.values()], [optionsById]);
   const readableGroups = useMemo(() => groupOptions.filter((group): group is GroupOption & { target: CustomGroupTarget } => group.target !== undefined), [groupOptions]);
   const items = useMemo<FacetedSetItem[]>(() => {
@@ -260,7 +216,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
       if (!result.ok) throw new Error(result.reason);
       saved = result.value;
       pendingSave.current = { fingerprint, entry: saved };
-      setGroupList(previous => ({ ...previous, status: 'ready', scopeId: g.scopeId, items: [...previous.items.filter(item => savedGroupItemId(item) !== saved!.view.id), saved!] }));
+      groupSource.remember(saved);
     } else if (sharedGroupId !== null) {
       const latest = await savedViewStore.get(saved.view.id);
       if (!latest || ('denied' in latest && latest.denied) || latest.view.kind !== 'custom-group') throw new Error('Saved group is unavailable');
@@ -275,7 +231,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, re
       }
     }
     pendingSave.current = null;
-    setGroupList(previous => ({ ...previous, status: 'ready', scopeId: g.scopeId, items: [...previous.items.filter(item => savedGroupItemId(item) !== saved!.view.id), saved!] }));
+    groupSource.remember(saved);
     return { selected: { facetId: groupFacet, value: saved.view.id } };
   };
   const groupSaveDisabledReason = (slot: { value: FacetedSetValue; invalid: boolean }): string | undefined => {

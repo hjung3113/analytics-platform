@@ -7,7 +7,7 @@ import { PlatformPage, QueryBarExtensionContext, QueryView, useFocusContextEdito
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
 import { QueryBar } from '../QueryBar';
 
@@ -18,11 +18,11 @@ let draft: ReturnType<typeof useQueryDraft>;
 let platform: ReturnType<typeof useHostPlatform>;
 function Probe() { draft = useQueryDraft(); platform = useHostPlatform(); useMenuQuery(endpoint, null); return null; }
 const evaluate = vi.fn();
-function mount(query = '', overrides: Partial<PlatformAdapter> = {}, history = true, extension?: QueryBarExtension) {
+function mount(query = '', overrides: Partial<PlatformAdapter> = {}, history = true, extension?: QueryBarExtension, savedViews?: ReturnType<typeof createFakeSavedViewStore>) {
   window.history.replaceState(null, '', `/?scopeId=MEM${query}`);
   const session = testSession(['platform:view']);
   const push = vi.spyOn(window.history, 'pushState');
-  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={[{ id: 'vendor', label: { ko: '공급사', en: 'Vendor' }, membershipHistory: history }, { id: 'model', label: { ko: '모델', en: 'Model' }, membershipHistory: true, dependsOn: 'vendor' }]} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', evaluateSelection: evaluate, menuQuery: send, listEquipmentFacts: async () => ({ version: '1', items: [ { equipmentId: 'E1', room: 'PHOTO', axes: { vendor: ['V1'], model: ['M1'], prcGroups: ['P1'] } }, { equipmentId: 'E2', room: 'ETCH', axes: { vendor: ['V2'], model: ['M2'], prcGroups: ['P2'] } } ] }), ...overrides })}><Probe /><QueryBarExtensionContext.Provider value={extension}><GlobalContextBar /></QueryBarExtensionContext.Provider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={savedViews} equipmentAxes={[{ id: 'vendor', label: { ko: '공급사', en: 'Vendor' }, membershipHistory: history }, { id: 'model', label: { ko: '모델', en: 'Model' }, membershipHistory: true, dependsOn: 'vendor' }]} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', evaluateSelection: evaluate, menuQuery: send, listEquipmentFacts: async () => ({ version: '1', items: [ { equipmentId: 'E1', room: 'PHOTO', axes: { vendor: ['V1'], model: ['M1'], prcGroups: ['P1'] } }, { equipmentId: 'E2', room: 'ETCH', axes: { vendor: ['V2'], model: ['M2'], prcGroups: ['P2'] } } ] }), ...overrides })}><Probe /><QueryBarExtensionContext.Provider value={extension}><GlobalContextBar /></QueryBarExtensionContext.Provider></PlatformProvider></I18nProvider>);
   return push;
 }
 beforeEach(() => { send.mockClear(); evaluate.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
@@ -288,6 +288,49 @@ it('keeps customGroup plus asOf in the draft, disables Apply and explains the un
   expect(screen.getAllByText('커스텀 그룹은 지금 소속 기준에서만 조회할 수 있습니다.').length).toBeGreaterThan(0);
   act(() => draft.apply());
   expect(push).not.toHaveBeenCalled();
+});
+it('explains a chosen custom group that cannot be used in the query notes, with its ID and a short Korean reason, and blocks Apply on it alone (#2390)', async () => {
+  mount('', {}, true, undefined, createFakeSavedViewStore());
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ roomNames: ['PHOTO'], condition: { customGroup: ['gone-9'] } }));
+  expect(await screen.findByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  expect(screen.queryByText(/not-found/)).toBeNull();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  act(() => draft.setDraftGlobal({ condition: null }));
+  await waitFor(() => expect(screen.queryByText(/커스텀 그룹 gone-9/)).toBeNull());
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+});
+it('keeps the blocked-group note and the disabled Apply when the bar folds, starts folded, or the group is removed while folded (#2390)', async () => {
+  localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
+  mount('', {}, true, undefined, createFakeSavedViewStore());
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeTruthy();
+  act(() => draft.setDraftGlobal({ roomNames: ['PHOTO'], condition: { customGroup: ['gone-9'] } }));
+  // Folded from the start: the target picker never mounted, yet the reason is said and Apply stays off.
+  expect(await screen.findByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  expect(screen.getByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  expect(screen.getByText('커스텀 그룹 gone-9: 없는 그룹. 대상에서 빼거나 다른 그룹을 고르세요.')).toBeVisible();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+  act(() => draft.setDraftGlobal({ condition: null }));
+  await waitFor(() => expect(screen.queryByText(/커스텀 그룹 gone-9/)).toBeNull());
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+});
+it.each(['reference', 'unsupported'] as const)('lets a carried custom group under %s Condition block nothing and never looks it up (#2390)', async capability => {
+  const carried = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, context: { ...menu.context, condition: capability } })) });
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const store = createFakeSavedViewStore();
+  const list = vi.spyOn(store, 'list');
+  render(<I18nProvider><PlatformProvider registry={carried} savedViews={store} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftGlobal({ roomNames: ['PHOTO'], condition: { customGroup: ['gone-9'] } }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '적용' })).toBeEnabled());
+  expect(screen.queryByText(/커스텀 그룹 gone-9:/)).toBeNull();
+  expect(draft.draft.global.condition).toEqual({ customGroup: ['gone-9'] });
+  expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom-group' }));
 });
 it.each([['reference', true], ['reference', false], ['unsupported', true], ['unsupported', false]] as const)('removes carried asOf owners under %s capability (Condition first: %s) without applying', async (capability, conditionFirst) => {
   const carried = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: registry.menus.map(menu => ({ ...menu, context: { ...menu.context, condition: capability, prcGroup: capability } })) });
