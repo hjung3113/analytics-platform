@@ -133,3 +133,24 @@ describe('Chart chrome levels (#2372)', () => {
     }
   });
 });
+
+describe('standard chrome with legend={false} (#2416)', () => {
+  it('draws no empty focusable 범례 group, and keeps the caption as plain text', () => {
+    mount('frame', true, undefined, { legend: false });
+    expect(screen.queryByRole('group', { name: '범례' })).toBeNull();
+    expect(screen.queryByTestId('chart-legend-layout')).toBeNull();
+    cleanup();
+    mount('frame', true, undefined, { legend: false, legendCaption: 'Note' });
+    expect(screen.getByText('Note')).toBeVisible();
+    expect(screen.queryByRole('group', { name: '범례' })).toBeNull();
+  });
+  it('keeps a point-click hint as plain text', () => {
+    mount('frame', true, undefined, { legend: false, onPointClick: () => undefined, pointClickHint: 'Click a bar' });
+    expect(screen.getByText('Click a bar')).toBeVisible();
+    expect(screen.queryByRole('group', { name: '범례' })).toBeNull();
+  });
+  it('keeps the 범례 group when the legend is shown', () => {
+    mount('frame', true);
+    expect(screen.getByRole('group', { name: '범례' })).toBeVisible();
+  });
+});

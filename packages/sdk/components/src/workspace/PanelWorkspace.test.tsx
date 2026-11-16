@@ -1330,3 +1330,25 @@ describe('PanelWorkspace: minimize (#2359)', () => {
     expect(await screen.findByRole('button', { name: '선택기 다시 보기' })).toHaveTextContent(/^선택기$/);
   });
 });
+
+describe('PanelWorkspace: toolbarActions (#2416)', () => {
+  it('draws the menu\'s actions at the end of the workspace toolbar', async () => {
+    mountWorkspace({ toolbarActions: <button type="button">패널 추가</button> });
+    await ready();
+    const toolbar = screen.getByRole('toolbar');
+    expect(within(toolbar).getByRole('button', { name: '패널 추가' }).closest('[data-workspace-actions]')).not.toBeNull();
+  });
+
+  it('inside a command host, where no toolbar is drawn, the actions get their own row', async () => {
+    render(shell(<WorkspaceCommandsHost><PanelWorkspace {...BASE} toolbarActions={<button type="button">패널 추가</button>} /></WorkspaceCommandsHost>));
+    await ready();
+    expect(screen.queryByRole('toolbar')).toBeNull();
+    expect(screen.getByRole('button', { name: '패널 추가' }).closest('[data-workspace-actions]')).not.toBeNull();
+  });
+
+  it('without the prop nothing is added', async () => {
+    const { container } = mountWorkspace();
+    await ready();
+    expect(container.querySelector('[data-workspace-actions]')).toBeNull();
+  });
+});
