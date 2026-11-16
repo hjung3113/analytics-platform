@@ -319,15 +319,15 @@ function TargetGroupSaveSlot({ value, ready, invalid, onSaved, disabledReason, s
   };
   if (state === 'closed') return <span className="inline-flex items-center gap-2">
     <Button type="button" variant="secondary" disabled={!ready || invalid || !!disabledReason} onClick={() => setState('editing')}>{m('targetGroupSaveAction')}</Button>
-    {disabledReason && <span role="note" className="text-xs text-text-danger-label">{disabledReason}</span>}
+    {disabledReason && <span role="note" className="text-xs text-text-secondary">{disabledReason}</span>}
   </span>;
   return <form aria-busy={pending} className="flex flex-wrap items-end gap-2" onSubmit={event => { event.preventDefault(); void submit(); }}>
     <fieldset disabled={pending || state === 'saved'} className="flex flex-wrap items-end gap-2">
       <div className="space-y-1"><Label htmlFor={`${id}-name`}>{m('targetGroupName')}</Label><Input id={`${id}-name`} value={name} onChange={event => setName(event.target.value)} required /></div>
       <VisibilityOptionsPicker label={m('targetGroupVisibility')} value={share} onChange={setShare} options={shareOptions} />
-      <Button type="submit" disabled={!canSubmit}>{pending ? m('targetGroupSaving') : state === 'saved' ? m('targetGroupSaved') : m('targetGroupSubmit')}</Button>
+      <Button type="submit" disabled={!canSubmit}>{pending ? m('targetGroupSaving') : m('targetGroupSubmit')}</Button>
     </fieldset>
-    {disabledReason && <span role="note" className="text-xs text-text-danger-label">{disabledReason}</span>}
+    {disabledReason && state !== 'saved' && <span role="note" className="text-xs text-text-secondary">{disabledReason}</span>}
     {state === 'error' && <span role="alert" className="text-xs text-text-danger-label">{m('targetGroupSaveFailed')}</span>}
     {state === 'saved' && <span role="status" className="text-xs">{m('targetGroupSaved')}</span>}
   </form>;

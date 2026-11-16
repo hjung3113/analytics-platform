@@ -111,6 +111,9 @@ it('saves a rule group with public roomNames and shared-group visibility, then s
   fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
   const selected = await within(dialog).findByRole('checkbox', { name: 'Photo only' });
   await waitFor(() => expect(selected).toBeChecked());
+  // The saved notice shows once, and the fixed-only reason the new selection triggers stays hidden after the save.
+  expect(within(dialog).getAllByText('그룹을 저장했습니다.')).toHaveLength(1);
+  expect(within(dialog).queryByRole('note')).toBeNull();
   expect(store.rows.get('v1')).toMatchObject({ kind: 'custom-group', name: 'Photo only', target: { rule: { roomNames: ['PHOTO'] } }, visibility: { kind: 'groups', groupIds: ['ops'] } });
 });
 
