@@ -2,6 +2,59 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "target": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "object",
+              "propertyNames": {
+                "not": {
+                  "const": "customGroup"
+                },
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "additionalProperties": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                }
+              }
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fixed": {
+              "uniqueItems": true,
+              "minItems": 1,
+              "maxItems": 5000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            }
+          },
+          "required": [
+            "fixed"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
     "name": {
       "type": "string"
     },

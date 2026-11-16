@@ -30,7 +30,7 @@ export const platformSavedViews = platformSchema.table(
       .notNull()
       .references(() => actors.id),
     kind: text('kind').notNull(),
-    // null for a condition set
+    // null for a condition set or custom group
     menuId: text('menu_id'),
     name: text('name').notNull(),
     content: jsonb('content').notNull(),
@@ -46,7 +46,7 @@ export const platformSavedViews = platformSchema.table(
   (t) => ({
     listIdx: index('saved_views_list_idx').on(t.workspaceId, t.menuId),
     ownerIdx: index('saved_views_owner_idx').on(t.workspaceId, t.ownerId),
-    kindCheck: check('saved_views_kind_check', sql`${t.kind} in ('condition-set', 'menu-view')`),
+    kindCheck: check('saved_views_kind_check', sql`${t.kind} in ('condition-set', 'menu-view', 'custom-group')`),
     menuCheck: check(
       'saved_views_menu_check',
       sql`(${t.kind} = 'menu-view') = (${t.menuId} is not null)`,

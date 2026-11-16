@@ -44,6 +44,24 @@ async function open(handler: Handler = () => json(null)) {
 }
 
 describe('HTTP saved-view store (#1105)', () => {
+  it('transports custom-group drafts and kind keys without leaking the actor', async () => {
+    const draft = { schemaVersion: 1, kind: 'custom-group', name: 'Targets', savedScopeId: 'S', target: { fixed: ['e1'] } } as const;
+    const customEntry = { view: { ...draft, id: 'g', ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' }, capabilities: caps };
+    const saved = await open(() => json(ok(customEntry)));
+    expect(await saved.store.save(draft)).toEqual(ok(customEntry));
+    expect(savedViewCommandSchema.safeParse(saved.sent()[0]?.body).success).toBe(true);
+    const listed = await open(() => json([customEntry]));
+    expect(await listed.store.list({ userId: 'u1', menuId: null, kind: 'custom-group' })).toEqual([customEntry]);
+    expect(listed.sent()[0]?.body).toEqual({ version: 1, op: 'list', key: { menuId: null, kind: 'custom-group' } });
+    for (const target of [{ fixed: [] }, { fixed: ['e1', 'e1'] }, { rule: { customGroup: ['g'] } }, { rule: { model: [''] } }, { fixed: ['e1'], rule: {} }]) {
+      const body = { version: 1, op: 'save', draft: { ...draft, target } };
+      expect(isSavedViewCommand(body)).toBe(false);
+      expect(savedViewCommandSchema.safeParse(body).success).toBe(false);
+    }
+    const response = { ...customEntry, view: { ...customEntry.view, visibility: { kind: 'official' } } };
+    expect(responseGuards.get(response)).toBe(false);
+    expect(savedViewResponseSchemas.get.safeParse(response).success).toBe(false);
+  });
   it.each(cases)('$op sends the exact strict body with the current CSRF token and no actor, and returns the guarded reply', async ({ op, run, body, reply }) => {
     const { store, sent } = await open(() => json(reply));
     expect(await run(store)).toEqual(reply);

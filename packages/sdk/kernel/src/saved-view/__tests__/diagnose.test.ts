@@ -87,7 +87,7 @@ describe('diagnoseSavedView', () => {
       ['room names are dropped', mv({ roomNames: ['R1'] }), {}, ['roomNames']],
       ['room names are widened', mv({ roomNames: ['R1'] }), { roomNames: ['R1', 'R2'] }, []],
       ['period is changed', mv({ from: '2026-01-01', to: '2026-01-02' }), { to: '2026-02-01' }, []],
-    ] as [string, SavedView, Partial<MenuView['context']>, string[]][])('refuses when %s', (_n, view, over, drop) => {
+    ] as [string, Exclude<SavedView, { kind: 'custom-group' }>, Partial<MenuView['context']>, string[]][])('refuses when %s', (_n, view, over, drop) => {
       const d = run(view, over, drop);
       expect(d.status).toBe('stale');
       if (d.status !== 'stale') return;

@@ -296,6 +296,8 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
 
+설비 축 id `customGroup`은 플랫폼 예약이다. 선택한 커스텀 그룹 구성원의 합집합을 Selection과 교집합하고 Condition에서 이 축을 떼며, 읽을 수 없는 그룹이 하나라도 있으면 조회를 막는다([ADR-0164](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0164-target-picker-dialog-and-custom-groups.md), 전개 순수 함수 구현, 조회 경로 연결은 후속 slice).
+
 **페이지 조건 codec (Candidate, #2337; API 이름 Candidate):** `@ap/kernel`의 `decodePageConditions`/`encodePageConditions`는 §5의 선언 키만 해석한다. 부재는 제약 없음이며 select의 선언 기본값도 URL에 자동 삽입하지 않는다. select/search는 단일 pair, multi·묶음 목록·tree는 값마다 하나의 pair를 쓰고 순서를 유지한다. 명시적 빈 선택은 예약 토큰 `~none` 하나다. 실제 값의 첫 글자가 `~`면 `~`를 하나 더 붙여 쓴다(`~none` 값 → `~~none`). 다른 값과 `~none`을 섞거나 이스케이프하지 않은 다른 `~` 토큰을 쓰면 오류다.
 
 range는 `min..max`로 쓴다. 한쪽 경계는 비울 수 있으나 둘 다 비울 수 없고, 숫자는 유한수이며 min ≤ max다. date는 §6.3의 `YYYY-MM-DDTHH:mm:ss` wall-clock 문자열을 각 from/to 키에 쓰며 시간대 변환을 하지 않는다. 양쪽이 있으면 from < to다. 잘못된 달력·숫자·역전·단일 키 반복·빈 문자열은 거부하며 추정·보정하지 않는다. codec은 오류 범주의 값을 반환하지 않고 `issues`에 key·categoryId·reason을 반환한다. 원래 pairs는 변경하지 않는다. 인코더는 오류가 있으면 `PageConditionError`로 거부하고 Apply 초안 검증도 같은 판정을 쓴다.
@@ -588,6 +590,8 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 | --- | --- |
 | 조건 세트 | 지원 Context(기간 규칙, 설비 Selection/Condition, `membershipBasis`, Line·PRC 그룹). 메뉴 사이에 재사용한다. 메뉴가 지원하지 않는 값은 §6.4대로 적용되지 않음을 표시한다. |
 | 메뉴 뷰 | 한 메뉴의 적용 조건 + page-owned 키(필터·표 열 상태·분석 표시) + 차트 옵션 + 배치 + 패널별 좁히기 설정(`panels`) + `schemaVersion`·메뉴 안정 ID·메뉴 스키마 버전. |
+
+`custom-group`은 한 Scope(`savedScopeId` 필수)의 설비 묶음을 저장하는 세 번째 kind다. `target.rule`은 축 간 AND·축 안 OR 규칙이며 `customGroup` 중첩은 금지하고, `target.fixed`는 중복 없는 설비 ID 1~5,000개다. 공개 대상은 나만(`private`) 또는 공유 그룹(`groups`)이며 공식 등급·승인·개인 기본이 없고 뷰로 복원하지 않는다. `{ menuId: null }` 목록은 계속 조건 세트만 반환하며 커스텀 그룹은 `kind: 'custom-group'`을 명시해 읽는다([ADR-0164](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0164-target-picker-dialog-and-custom-groups.md) 결정 6–8). 공유는 데이터 권한을 주지 않으며 소유자만 고치고 지운다.
 
 - 보드 시트는 메뉴 뷰 여러 개의 배치이며 새 형식이 없다. 패널은 따로 저장하지 않고 메뉴 뷰의 `panels`다.
 - 저장하지 않는 것: 일시 hover, 단순 chart zoom, 열린 modal, 미적용 draft. 원시 데이터와 엔진 raw JSON은 저장하지 않는다(엔진 중립 배치만). 이름 제한은 자유 형식 `chartOptions`·`layout`에 적용하며, 선언된 적용 page 키(`returnTo` 제외)와 Condition 축 ID는 이름과 관계없이 저장한다.

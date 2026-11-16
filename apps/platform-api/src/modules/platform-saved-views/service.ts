@@ -72,10 +72,10 @@ class Abort extends Error {
 const scopeOf = (draft: SavedViewDraftIn) =>
   draft.savedScopeId === undefined ? {} : { savedScopeId: draft.savedScopeId };
 
-const bodyOf = (draft: SavedViewDraftIn): ViewBody =>
-  draft.kind === 'condition-set'
-    ? { context: draft.context, ...scopeOf(draft) }
-    : {
+const bodyOf = (draft: SavedViewDraftIn): ViewBody => {
+  if (draft.kind === 'custom-group') return { savedScopeId: draft.savedScopeId, target: draft.target };
+  if (draft.kind === 'condition-set') return { context: draft.context, ...scopeOf(draft) };
+  return {
         context: draft.context,
         ...scopeOf(draft),
         menuSchemaVersion: draft.menuSchemaVersion,
@@ -84,6 +84,7 @@ const bodyOf = (draft: SavedViewDraftIn): ViewBody =>
         layout: draft.layout,
         panels: draft.panels,
       };
+};
 
 const unique = (values: readonly string[]) => [...new Set(values)];
 const sameSet = (a: readonly string[], b: readonly string[]) =>
@@ -168,10 +169,12 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     expectedVersion: number,
     entitled: (view: ViewRecord) => boolean,
     allowed: (view: ViewRecord, caps: ReturnType<typeof capabilitiesOf>) => boolean = () => true,
+    options: { official?: boolean } = {},
   ): Promise<ResultOf<ViewRecord>> {
     const uuid = asUuid(id);
     const view = uuid ? await repo.viewById(tx, actor.workspaceId, uuid) : null;
     if (!view || !isReachable(view, actor, standings)) return fail('invalid', 'not-found');
+    if (options.official && view.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
     const caps = capabilitiesOf(view, actor, standings);
     if (!entitled(view)) return fail('forbidden', caps.reason);
     if (view.version !== expectedVersion) return fail('conflict');
@@ -209,17 +212,17 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     const id = await repo.defaultOf(tx, actor, menuId);
     if (id === null) return null;
     const view = await repo.viewById(tx, actor.workspaceId, id);
-    return view && isReachable(view, actor, standings) && view.menuId === menuId ? view.id : null;
+    return view && view.kind !== 'custom-group' && isReachable(view, actor, standings) && view.menuId === menuId ? view.id : null;
   }
 
   // ---- views ----
 
-  const list = (actor: ActorContext, menuId: string | null) =>
+  const list = (actor: ActorContext, menuId: string | null, kind?: 'custom-group') =>
     menuId !== null && !isPgSafeString(menuId)
       ? Promise.resolve([] as SavedViewListItemJson[])
       : read(async (tx) => {
           const standings = await repo.standingsOf(tx, actor);
-          const views = await repo.viewsOfMenu(tx, actor, menuId);
+          const views = await repo.viewsOfMenu(tx, actor, menuId, kind);
           return views
             .filter((v) => isReachable(v, actor, standings))
             .map((v): SavedViewListItemJson => entryOf(v, actor, standings));
@@ -337,8 +340,9 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(null);
     });
 
-  const setDefault = (actor: ActorContext, menuId: string | null, id: string | null) =>
+  const setDefault = (actor: ActorContext, menuId: string | null, id: string | null, kind?: 'custom-group') =>
     write(actor, async (tx, standings, actor) => {
+      if (kind === 'custom-group') return fail('invalid', 'custom-group-default');
       if (menuId !== null && !isPgSafeString(menuId)) return fail('invalid', 'menuId');
       if (id === null) {
         await repo.putDefault(tx, actor, menuId, null);
@@ -346,14 +350,14 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       }
       const uuid = asUuid(id);
       const view = uuid ? await repo.viewById(tx, actor.workspaceId, uuid) : null;
-      if (!view || !isReachable(view, actor, standings) || view.menuId !== menuId)
+      if (!view || view.kind === 'custom-group' || !isReachable(view, actor, standings) || view.menuId !== menuId)
         return fail('invalid', 'not-a-visible-view-of-this-menu');
       await repo.putDefault(tx, actor, menuId, view.id);
       return ok(null);
     });
 
-  const getDefaultId = (actor: ActorContext, menuId: string | null) =>
-    menuId !== null && !isPgSafeString(menuId)
+  const getDefaultId = (actor: ActorContext, menuId: string | null, kind?: 'custom-group') =>
+    kind === 'custom-group' || (menuId !== null && !isPgSafeString(menuId))
       ? Promise.resolve(null)
       : read(async (tx) => usableDefault(tx, actor, await repo.standingsOf(tx, actor), menuId));
 
@@ -373,6 +377,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       if (!t.ok) return t;
       const view = t.value;
       let people: string[] = [];
+      if (view.kind === 'custom-group' && visibility.kind !== 'private' && visibility.kind !== 'groups') return fail('invalid', 'custom-group-visibility');
       let groupIds: string[] = [];
       if (visibility.kind === 'people') {
         const uuids = unique(visibility.userIds).map(asUuid);
@@ -446,6 +451,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         cmd.id,
         cmd.expectedVersion,
         (view) => view.ownerId === actor.id,
+        undefined,
+        { official: true },
       );
       if (!t.ok) return t;
       const view = t.value;
@@ -479,6 +486,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         cmd.id,
         cmd.expectedVersion,
         () => actor.approver,
+        undefined,
+        { official: true },
       );
       if (!t.ok) return t;
       const view = t.value;
@@ -535,6 +544,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         cmd.id,
         cmd.expectedVersion,
         () => actor.approver,
+        undefined,
+        { official: true },
       );
       if (!t.ok) return t;
       const view = t.value;
@@ -565,8 +576,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       return ok(entryOf(written, actor, standings));
     });
 
-  const listApprovalRequests = (actor: ActorContext, menuId: string | null) =>
-    menuId !== null && !isPgSafeString(menuId)
+  const listApprovalRequests = (actor: ActorContext, menuId: string | null, kind?: 'custom-group') =>
+    kind === 'custom-group' || (menuId !== null && !isPgSafeString(menuId))
       ? Promise.resolve([])
       : read(async (tx) => {
           const standings = await repo.standingsOf(tx, actor);
@@ -836,7 +847,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
             const menuId = d.key.menuId;
             if (!viewId || (menuId !== null && !isPgSafeString(menuId))) continue;
             const view = await repo.viewById(tx, actor.workspaceId, viewId);
-            if (!view || view.ownerId !== actor.id || view.menuId !== menuId) continue;
+            if (!view || view.kind === 'custom-group' || d.key.kind === 'custom-group' || view.ownerId !== actor.id || view.menuId !== menuId) continue;
             const current = await usableDefault(tx, actor, standings, menuId);
             if (current === null) {
               await repo.putDefault(tx, actor, menuId, view.id);
@@ -869,7 +880,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
     const actor = await actorOf(session);
     switch (cmd.op) {
       case 'list':
-        return list(actor, cmd.key.menuId);
+        return list(actor, cmd.key.menuId, cmd.key.kind);
       case 'get':
         return get(actor, cmd.id);
       case 'save':
@@ -879,9 +890,9 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       case 'remove':
         return remove(actor, cmd.id);
       case 'setDefault':
-        return setDefault(actor, cmd.key.menuId, cmd.id);
+        return setDefault(actor, cmd.key.menuId, cmd.id, cmd.key.kind);
       case 'getDefaultId':
-        return getDefaultId(actor, cmd.key.menuId);
+        return getDefaultId(actor, cmd.key.menuId, cmd.key.kind);
       case 'setVisibility':
         return setVisibility(actor, cmd);
       case 'requestOfficial':
@@ -891,7 +902,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       case 'revoke':
         return revoke(actor, cmd);
       case 'listApprovalRequests':
-        return listApprovalRequests(actor, cmd.key.menuId);
+        return listApprovalRequests(actor, cmd.key.menuId, cmd.key.kind);
       case 'listGroups':
         return listGroups(actor);
       case 'createGroup':

@@ -58,7 +58,7 @@ export function createHttpSavedViews(context: CallContext): { store: SavedViewSt
       return unavailable;
     }
   }
-  const wireKey = (key: SavedViewKey) => ({ menuId: key.menuId });
+  const wireKey = (key: SavedViewKey) => ({ menuId: key.menuId, ...(key.kind === undefined ? {} : { kind: key.kind }) });
 
   const store: SavedViewStore = {
     list: (key) => read(key, 'list', { key: wireKey(key) }, []),

@@ -53,6 +53,153 @@
                   "properties": {
                     "kind": {
                       "type": "string",
+                      "const": "groups"
+                    },
+                    "groupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "groupIds"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "approval": {
+              "type": "string",
+              "const": "none"
+            },
+            "approvalNote": {
+              "type": "string"
+            },
+            "savedScopeId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "kind": {
+              "type": "string",
+              "const": "custom-group"
+            },
+            "target": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "propertyNames": {
+                        "not": {
+                          "const": "customGroup"
+                        },
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "additionalProperties": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "rule"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "fixed": {
+                      "uniqueItems": true,
+                      "minItems": 1,
+                      "maxItems": 5000,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    }
+                  },
+                  "required": [
+                    "fixed"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "schemaVersion",
+            "name",
+            "ownerId",
+            "version",
+            "updatedAt",
+            "visibility",
+            "approval",
+            "savedScopeId",
+            "kind",
+            "target"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "schemaVersion": {
+              "type": "number",
+              "const": 1
+            },
+            "name": {
+              "type": "string"
+            },
+            "ownerId": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "updatedAt": {
+              "type": "number"
+            },
+            "visibility": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "private"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
                       "const": "people"
                     },
                     "userIds": {

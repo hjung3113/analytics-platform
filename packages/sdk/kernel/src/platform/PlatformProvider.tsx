@@ -9,7 +9,7 @@ import type { MenuEntry, Registry } from '../registry/registry';
 import { stripReturnToFromUrl } from '../links/return-to';
 import { createRefreshEpochs } from '../query/refresh-epochs';
 import { createQueryClient, invalidateEndpoints, removeOtherGenerations, startQueryEngine, type QueryEngine } from '../query/query-engine';
-import { menuPermissions, type EquipmentAxisDescriptor, type JsonValue, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, menuPermissions, type EquipmentAxisDescriptor, type JsonValue, type ModuleScopedId, type Permission, type PlatformAdapter, type QueryHistoryStore, type SavedViewStore, type SpaceDef, type SpaceId } from '@ap/contracts';
 import type { PlatformSlots, Recent, Toast, ToastOptions } from './types';
 import { PreferenceContext, usePreferenceState } from './preferenceContext';
 import { createPreferenceController } from './preferenceController';
@@ -63,6 +63,7 @@ const withoutToast = (id: number) => (held: ToastList): ToastList => held.list.s
 /** Fallback tab-session id when sessionStorage is unavailable (privacy mode, tests). One per JS runtime. */
 let fallbackUsageSession: string | null = null;
 export function PlatformProvider({ adapter, registry, location = browserLocation, slots = NO_SLOTS, equipmentAxes = NO_EQUIPMENT_AXES, queryHistory, savedViews, spaceIdMigrations, serverPreferences = false, children }: { serverPreferences?: boolean; spaceIdMigrations?: Readonly<Record<string, string>>; queryHistory?: QueryHistoryStore; savedViews?: SavedViewStore; equipmentAxes?: readonly EquipmentAxisDescriptor[]; location?: PlatformLocation; adapter: PlatformAdapter; registry: Registry; slots?: PlatformSlots; children: ReactNode }) {
+  if (equipmentAxes.some(axis => axis.id === CUSTOM_GROUP_AXIS)) throw new Error(`Equipment axis "${CUSTOM_GROUP_AXIS}" is reserved for platform custom groups`);
   const { menuById } = registry;
   // The Registry never sees `equipmentAxes`, so a Condition preset naming an unknown axis surfaces here (06 §6.4, ADR-0083).
   for (const menu of registry.menus) {

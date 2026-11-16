@@ -3,7 +3,10 @@ import type { GlobalContext, Pair } from './url.js';
 /** Anything JSON.stringify round-trips; saved payloads never hold functions, undefined or cycles. */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-export type SavedViewKind = 'condition-set' | 'menu-view';
+export type SavedViewKind = 'condition-set' | 'menu-view' | 'custom-group';
+export const CUSTOM_GROUP_AXIS = 'customGroup';
+export const CUSTOM_GROUP_FIXED_MAX = 5_000;
+export type CustomGroupTarget = { rule: Readonly<Record<string, readonly string[]>> } | { fixed: readonly string[] };
 
 /**
  * Serializable partial map of the supported Context keys. `scopeId` is never a key here: the Scope a content version was saved in is
@@ -22,6 +25,7 @@ export type SavedViewContext = Partial<Pick<GlobalContext, 'from' | 'to' | 'cond
 export const SAVED_SCOPE_ID_MAX = 200;
 export type SavedViewBase = { id: string; schemaVersion: 1; kind: SavedViewKind; name: string; ownerId: string; version: number; updatedAt: number };
 export type ConditionSetView = SavedViewBase & { kind: 'condition-set'; context: SavedViewContext; savedScopeId?: string };
+export type CustomGroupView = SavedViewBase & { kind: 'custom-group'; savedScopeId: string; target: CustomGroupTarget };
 export type MenuView = SavedViewBase & {
   kind: 'menu-view';
   menuId: string;
@@ -41,15 +45,16 @@ export type ViewVisibility = { kind: 'private' } | { kind: 'people'; userIds: st
 export type ViewApproval = 'none' | 'pending' | 'approved' | 'rejected';
 /** Visibility and approval are separate fields; a personal default is a user setting (`getDefaultId`), not a view field. */
 export type ViewSharing = { visibility: ViewVisibility; approval: ViewApproval; approvalNote?: string };
-export type SavedView = (ConditionSetView | MenuView) & ViewSharing;
+export type SavedView = (ConditionSetView | MenuView | CustomGroupView) & ViewSharing;
 
 /** What a caller proposes to save; the store assigns id, owner, version, time and starts private with approval `none`. */
 export type ConditionSetDraft = { schemaVersion: 1; kind: 'condition-set'; name: string; context: SavedViewContext; savedScopeId?: string };
 export type MenuViewDraft = Omit<MenuView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
-export type SavedViewDraft = ConditionSetDraft | MenuViewDraft;
+export type CustomGroupDraft = Omit<CustomGroupView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
+export type SavedViewDraft = ConditionSetDraft | MenuViewDraft | CustomGroupDraft;
 /** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
 /** `savedScopeId: null` clears the recorded Scope (an overwrite made with no current Scope). */
-export type SavedViewPatch = { name?: string; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
+export type SavedViewPatch = { name?: string; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
 
 export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string; memberCount: number; managerIds?: string[] };
 /** `affiliation` tells same-named people apart in people search and member lists. */
@@ -81,8 +86,8 @@ export type ApprovalRequestInfo = {
   rejectReason?: string;
 };
 
-/** `menuId: null` lists condition sets. */
-export type SavedViewKey = { userId: string; menuId: string | null };
+/** `menuId: null` lists condition sets unless `kind: 'custom-group'` is supplied. */
+export type SavedViewKey = { userId: string; menuId: string | null; kind?: 'custom-group' };
 export type ExpectedVersion = { expectedVersion: number };
 
 /** Async port injected into the provider like QueryHistoryStore (not a server adapter). */
@@ -206,12 +211,28 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
   if (!isObject(input)) return invalid('view must be an object');
   if (input.schemaVersion !== 1) return invalid('unknown schemaVersion');
   if (typeof input.name !== 'string' || input.name.trim() === '') return invalid('name is empty');
-  if (!isObject(input.context)) return invalid('context must be an object');
   if ('savedScopeId' in input && (typeof input.savedScopeId !== 'string' || input.savedScopeId === '' || input.savedScopeId.length > SAVED_SCOPE_ID_MAX)) return invalid('savedScopeId must be a non-empty Scope id');
-  const badContext = invalidContext(input.context);
-  if (badContext) return invalid(badContext);
+  if (input.kind !== 'custom-group') {
+    if (!isObject(input.context)) return invalid('context must be an object');
+    const badContext = invalidContext(input.context);
+    if (badContext) return invalid(badContext);
+    if ('target' in input) return invalid('target is only for custom groups');
+  }
   const menuOnly = ['page', 'chartOptions', 'layout', 'panels'];
-  if (input.kind === 'condition-set') {
+  if (input.kind === 'custom-group') {
+    if ('visibility' in input && (!isObject(input.visibility) || (input.visibility.kind !== 'private' && input.visibility.kind !== 'groups'))) return invalid('custom groups allow private or groups visibility only');
+    if ('approval' in input && input.approval !== 'none') return invalid('custom groups have no official approval');
+    if (typeof input.savedScopeId !== 'string' || input.savedScopeId === '') return invalid('savedScopeId is required');
+    if (['context', 'menuId', 'menuSchemaVersion', ...menuOnly].some(k => k in input)) return invalid('a custom group has no view content');
+    const target = input.target;
+    if (!isObject(target) || Object.keys(target).length !== 1) return invalid('target must contain rule or fixed');
+    const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
+    if ('fixed' in target) {
+      if (!Array.isArray(target.fixed) || target.fixed.length < 1 || target.fixed.length > CUSTOM_GROUP_FIXED_MAX || !target.fixed.every(nonEmpty) || new Set(target.fixed).size !== target.fixed.length) return invalid('invalid fixed ids');
+    } else if ('rule' in target) {
+      if (!isObject(target.rule) || !Object.entries(target.rule).every(([axis, values]) => nonEmpty(axis) && axis !== CUSTOM_GROUP_AXIS && Array.isArray(values) && values.length > 0 && values.every(nonEmpty))) return invalid('invalid rule axes');
+    } else return invalid('target must contain rule or fixed');
+  } else if (input.kind === 'condition-set') {
     const extra = menuOnly.find(k => k in input);
     if (extra) return invalid(`a condition set has no ${extra}`);
   } else if (input.kind === 'menu-view') {

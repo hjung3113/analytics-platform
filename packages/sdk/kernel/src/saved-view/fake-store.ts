@@ -1,5 +1,6 @@
 // Test double for the Saved View port, exported through `@ap/kernel/testing` (ADR-0040). Capabilities are granted per object, like a real store.
 import type { ApprovalRequestInfo, GroupMember, Result, SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore, ViewCapabilities, ViewGroupEntry } from '@ap/contracts';
+import { validateSavedView } from '@ap/contracts';
 
 /** Capabilities the fake grants an object unless `caps` says otherwise: view, copy, edit and share; no approve or revoke. */
 export const testViewCapabilities: ViewCapabilities = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
@@ -11,19 +12,26 @@ export type FakeSavedViewStore = SavedViewStore & {
   getHold: Map<string, Promise<void>>; saveHold: Promise<void> | null; removeHold: Promise<void> | null; listHold: Promise<void> | null;
 };
 /** A saved view with filler fields; pass the fields the test means. */
-export function testSavedView(over: Partial<SavedView> & { id: string; context?: SavedView['context'] }): SavedView {
-  return { schemaVersion: 1, kind: 'condition-set', name: over.id, ownerId: 'u1', version: 1, updatedAt: 1, context: {}, visibility: { kind: 'private' }, approval: 'none', ...over } as SavedView;
+type RestorableView = Exclude<SavedView, { kind: 'custom-group' }>;
+type GroupView = Extract<SavedView, { kind: 'custom-group' }>;
+export function testSavedView<K extends SavedView['kind'] = 'condition-set'>(over: Partial<SavedView> & { id: string; kind?: K }): [K] extends ['custom-group'] ? GroupView : RestorableView;
+export function testSavedView(over: Partial<SavedView> & { id: string }): SavedView {
+  const content = over.kind === 'custom-group' ? {} : { context: {} };
+  return { schemaVersion: 1, kind: 'condition-set', name: over.id, ownerId: 'u1', version: 1, updatedAt: 1, ...content, visibility: { kind: 'private' }, approval: 'none', ...over } as SavedView;
 }
 export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Record<string, string> = {}): FakeSavedViewStore {
   const rows = new Map(seed.map(v => [v.id, v]));
-  const entry = (view: SavedView): SavedViewEntry => ({ view, capabilities: fake.caps.get(view.id) ?? testViewCapabilities });
+  const entry = (view: SavedView): SavedViewEntry => {
+    const capabilities = fake.caps.get(view.id) ?? testViewCapabilities;
+    return { view, capabilities: view.kind === 'custom-group' ? { ...capabilities, canApprove: false, canRevoke: false } : capabilities };
+  };
   const fake: FakeSavedViewStore = {
     rows, defaults: new Map(Object.entries(defaults)), groups: [], caps: new Map(), requests: [], calls: [], reads: [],
     failGet: false, failSave: false, failShare: false, denied: new Set(), getHold: new Map(), saveHold: null, removeHold: null, listHold: null,
     async list(key) {
       fake.reads.push('list');
       await fake.listHold;
-      return [...rows.values()].filter(v => (key.menuId === null ? v.kind === 'condition-set' : v.kind === 'menu-view' && v.menuId === key.menuId)).map((view): SavedViewListItem => entry(view));
+      return [...rows.values()].filter(v => key.menuId === null ? v.kind === (key.kind ?? 'condition-set') : !key.kind && v.kind === 'menu-view' && v.menuId === key.menuId).map((view): SavedViewListItem => entry(view));
     },
     async get(id) {
       fake.reads.push('get');
@@ -37,6 +45,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       fake.calls.push('save');
       await fake.saveHold;
       if (fake.failSave) return { ok: false, reason: 'unavailable' };
+      if (input.kind === 'custom-group') { const checked = validateSavedView(input); if (!checked.ok) return checked; }
       const view = { ...input, id: `v${rows.size + 1}`, ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none' } as SavedView;
       rows.set(view.id, view);
       return { ok: true, value: entry(view) };
@@ -49,17 +58,19 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       const view = { ...old, ...patch, version: old.version + 1 } as SavedView;
       // `savedScopeId: null` clears the recorded Scope, as a real store does (#2175).
       if (patch.savedScopeId === null) delete (view as { savedScopeId?: string }).savedScopeId;
+      if (old.kind === 'custom-group' || patch.target !== undefined) { const checked = validateSavedView(view); if (!checked.ok) return checked; }
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },
     async remove(id) { fake.calls.push('remove'); await fake.removeHold; rows.delete(id); return { ok: true, value: null }; },
-    async setDefault(key, id) { if (id === null) fake.defaults.delete(`${key.userId}:${key.menuId}`); else fake.defaults.set(`${key.userId}:${key.menuId}`, id); return { ok: true, value: null }; },
-    async getDefaultId(key) { return fake.defaults.get(`${key.userId}:${key.menuId}`) ?? null; },
+    async setDefault(key, id) { if (key.kind === 'custom-group' || (id !== null && rows.get(id)?.kind === 'custom-group')) return { ok: false, reason: 'invalid' }; if (id === null) fake.defaults.delete(`${key.userId}:${key.menuId}`); else fake.defaults.set(`${key.userId}:${key.menuId}`, id); return { ok: true, value: null }; },
+    async getDefaultId(key) { if (key.kind === 'custom-group') return null; const id = fake.defaults.get(`${key.userId}:${key.menuId}`) ?? null; return id !== null && rows.get(id)?.kind === 'custom-group' ? null : id; },
     async setVisibility(id, visibility, opts) {
       fake.calls.push('setVisibility');
       if (fake.failShare) return { ok: false, reason: 'unavailable' };
       const old = rows.get(id);
       if (!old) return { ok: false, reason: 'unavailable' };
+      if (old.kind === 'custom-group' && visibility.kind !== 'private' && visibility.kind !== 'groups') return { ok: false, reason: 'invalid' };
       if (old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
       const view = { ...old, visibility, version: old.version + 1 } as SavedView;
       rows.set(id, view);
@@ -69,6 +80,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
       fake.calls.push('requestOfficial');
       if (fake.failShare) return { ok: false, reason: 'unavailable' };
       const old = rows.get(id);
+      if (old?.kind === 'custom-group') return { ok: false, reason: 'invalid' };
       if (!old) return { ok: false, reason: 'unavailable' };
       if (old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
       const view = { ...old, approval: 'pending', version: old.version + 1 } as SavedView;
@@ -78,6 +90,7 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
     async decide(id, decision, _note, opts) {
       fake.calls.push('decide');
       const old = rows.get(id);
+      if (old?.kind === 'custom-group') return { ok: false, reason: 'invalid' };
       if (!old || old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
       const view = { ...old, approval: decision === 'approve' ? 'approved' : 'rejected', version: old.version + 1 } as SavedView;
       rows.set(id, view);
@@ -86,12 +99,13 @@ export function createFakeSavedViewStore(seed: SavedView[] = [], defaults: Recor
     async revoke(id, opts) {
       fake.calls.push('revoke');
       const old = rows.get(id);
+      if (old?.kind === 'custom-group') return { ok: false, reason: 'invalid' };
       if (!old || old.version !== opts.expectedVersion) return { ok: false, reason: 'conflict' };
       const view = { ...old, approval: 'none', version: old.version + 1 } as SavedView;
       rows.set(id, view);
       return { ok: true, value: entry(view) };
     },
-    async listApprovalRequests() { return fake.requests; },
+    async listApprovalRequests(key) { return key.kind === 'custom-group' ? [] : fake.requests.filter(request => rows.get(request.viewId)?.kind !== 'custom-group'); },
     async listGroups() { return fake.groups; },
     async createGroup(input) {
       fake.calls.push('createGroup');

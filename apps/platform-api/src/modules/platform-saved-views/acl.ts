@@ -20,7 +20,8 @@ export const canTransition = (approval: ApprovalState, action: ApprovalAction): 
 export const REVOKE_NOTE = '공식 등록이 회수되어 개인 비공개로 돌아왔습니다.';
 
 export interface ViewBody {
-  context: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  target?: Extract<SavedViewJson, { kind: 'custom-group' }>['target'];
   /** The Scope the content was saved in (#2175): metadata for the viewer's notice, never an authority input and never audited. Carried with the content version it describes. */
   savedScopeId?: string;
   menuSchemaVersion?: number;
@@ -41,7 +42,7 @@ export interface Pending {
 export interface ViewRecord {
   id: string;
   ownerId: string;
-  kind: 'condition-set' | 'menu-view';
+  kind: SavedViewJson['kind'];
   menuId: string | null;
   name: string;
   content: ViewBody;
@@ -109,7 +110,7 @@ const sharedStanding = (view: ViewRecord, standings: Standings) =>
 
 /** The owner or a manager of a shared group: the object relation that does not change with approval state. */
 export function isOwnerOrManager(view: ViewRecord, actor: ActorContext, standings: Standings) {
-  return view.ownerId === actor.id || sharedStanding(view, standings).some((s) => s.manager);
+  return view.ownerId === actor.id || (view.kind !== 'custom-group' && sharedStanding(view, standings).some((s) => s.manager));
 }
 
 /** Reachable by any path: owner, named person, shared group member/manager, official, or an approver of a pending application. */
@@ -126,7 +127,7 @@ export function capabilitiesOf(
   standings: Standings,
 ): ViewCapabilitiesOut {
   const owner = view.ownerId === actor.id;
-  const manager = sharedStanding(view, standings).some((s) => s.manager);
+  const manager = view.kind !== 'custom-group' && sharedStanding(view, standings).some((s) => s.manager);
   const shown = shownTo(view, actor);
   const official = view.visibilityKind === 'official';
   const published = official && shown.approval === 'approved';
@@ -136,8 +137,8 @@ export function capabilitiesOf(
     canCopy: true,
     canEdit,
     canShare: (owner || manager) && !official,
-    canApprove: actor.approver && canTransition(shown.approval, 'approve'),
-    canRevoke: actor.approver && official && canTransition(view.approval, 'revoke'),
+    canApprove: view.kind !== 'custom-group' && actor.approver && canTransition(shown.approval, 'approve'),
+    canRevoke: view.kind !== 'custom-group' && actor.approver && official && canTransition(view.approval, 'revoke'),
     ...(canEdit
       ? {}
       : {
@@ -192,12 +193,13 @@ export function savedViewOf(
     visibility: visibilityOut(view, actor, standings),
     approval: shown.approval,
     ...(shown.note === null ? {} : { approvalNote: shown.note }),
-    context: shown.content.context,
     ...(shown.content.savedScopeId === undefined ? {} : { savedScopeId: shown.content.savedScopeId }),
   };
-  if (view.kind === 'condition-set') return { ...base, kind: 'condition-set' } as SavedViewJson;
+  if (view.kind === 'custom-group') return { ...base, kind: 'custom-group', target: shown.content.target } as SavedViewJson;
+  if (view.kind === 'condition-set') return { ...base, context: shown.content.context, kind: 'condition-set' } as SavedViewJson;
   return {
     ...base,
+    context: shown.content.context,
     kind: 'menu-view',
     menuId: view.menuId,
     menuSchemaVersion: shown.content.menuSchemaVersion,

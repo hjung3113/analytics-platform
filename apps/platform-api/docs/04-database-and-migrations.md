@@ -217,6 +217,8 @@ The shared `platform-verify` template (`platform` database) created before this 
 
 ## Schema Namespaces
 
+Platform saved views (`platform.saved_views`, ADR-0099) also persist Scope-bound equipment sets as `kind = 'custom-group'` (migration `0138_saved_view_custom_groups.sql`, [kernel §21](../../../docs/contract/kernel.md#21-saved-view-contract)). Their `menu_id` remains null; `content` contains required `savedScopeId` and `target` (rule or fixed IDs), rather than view Context. The shared object ACL applies, with owner-only mutation and private/shared-group visibility; defaults and official approval are refused. The people-sharing groups (`ViewGroup.kind = 'custom'`) retain their existing identifiers and tables.
+
 Schema namespace does not always imply module ownership. `core.entity_links` is
 stored in the `core` schema for shared relational access, but link behavior,
 relation validation, and visibility enforcement are owned by the Entity Linking

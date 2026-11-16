@@ -82,11 +82,12 @@ export async function viewsOfMenu(
   tx: Tx,
   actor: ActorContext,
   menuId: string | null,
+  kind?: 'custom-group',
 ): Promise<ViewRecord[]> {
   const { rows } = await tx.execute<ViewRow>(sql`
     select ${VIEW_COLUMNS} from platform.saved_views v
     where v.workspace_id = ${actor.workspaceId}
-      and ${menuId === null ? sql`v.kind = 'condition-set'` : sql`v.menu_id = ${menuId}`}
+      and ${menuId === null ? sql`v.kind = ${kind ?? 'condition-set'}` : sql`v.menu_id = ${menuId} and ${kind === undefined}`}
       and (v.owner_id = ${actor.id} or v.visibility_kind = 'official'
         or exists (select 1 from platform.saved_view_people p where p.view_id = v.id and p.actor_id = ${actor.id})
         or exists (select 1 from platform.saved_view_group_shares s join platform.saved_view_group_members m on m.group_id = s.group_id
