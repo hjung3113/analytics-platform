@@ -71,6 +71,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); client?.clear(); configureApiClient({ basePath: '' }); vi.unstubAllGlobals(); });
 
 describe('API token management', () => {
+  it.each([
+    ['v1', false], ['v2', false], ['v3', false], ['v1', true], ['v2', true], ['v3', true],
+  ] as const)('opts into picker %s (service=%s)', async (variant, service) => {
+    const originalUrl = window.location.href;
+    try {
+      window.history.replaceState(null, '', `?variant=${variant}`);
+      mount(service);
+      await openIssue();
+      expect(screen.getByRole('button', { name: /숨긴 \d+개\(토큰 불가\)/ })).toBeVisible();
+      expect(screen.getByRole('button', { name: '전체 읽기 선택 해제' })).toBeVisible();
+      expect(screen.getAllByText(/추가할 항목:/).every(preview => (preview.textContent?.length ?? 0) > '추가할 항목:'.length)).toBe(true);
+      if (variant === 'v3') expect(screen.getByRole('switch', { name: '전체 읽기' })).toBeChecked();
+      else expect(screen.getByRole('checkbox', { name: '전체 읽기' })).toBeChecked();
+    } finally { window.history.replaceState(null, '', originalUrl); }
+  });
   it('displays an existing three-scope write token with Korean labels', async () => {
     rows = [row({ scopes: ['knowledge.catalog.manage', 'knowledge.catalog.import', 'improvement.manage'] })];
     mount();

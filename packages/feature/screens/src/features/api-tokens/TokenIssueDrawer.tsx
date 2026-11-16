@@ -7,7 +7,7 @@ import {
   Label, RadioGroup, RadioGroupItem,
   copyText, useImeEnterGuard,
 } from '@ap/ui';
-import { GroupedSelectionList } from '@ap/ui';
+import { GroupedSelectionList, type GroupedSelectionListProps } from '@ap/ui';
 import { tokenSelectionGroups } from '../../lib/copy/permission-selection';
 import { Copy } from 'lucide-react';
 import { useHostUnsavedGuard } from '../../lib/host/host-seam';
@@ -41,6 +41,14 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
   const bundles = visibleApiTokenScopeBundles(undefined, { service });
   const formId = useId();
   const groups = tokenSelectionGroups(service);
+  // Throwaway #2405 look comparison only; unknown or absent values keep today's list.
+  const variant = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('variant');
+  const pickerLayouts = { v1: 'stacked', v2: 'columns', v3: 'category-pane' } as const;
+  const prototypeLayout = variant !== null && Object.hasOwn(pickerLayouts, variant) ? pickerLayouts[variant as keyof typeof pickerLayouts] : undefined;
+  const pickerOptions: Partial<GroupedSelectionListProps> = prototypeLayout ? {
+    density: 'compact', hideDisabled: true, selectionSummary: 'chips', presetPreview: true, layout: prototypeLayout,
+    messages: { hiddenCount: COPY.pickerHidden, hideUnavailable: COPY.pickerHide },
+  } : {};
   const [name, setName] = useState('');
   const [initialScopes] = useState<string[]>(() => [...(bundles.find(bundle => bundle.id === 'read')?.capabilities ?? [])]);
   const [selected, setSelected] = useState<string[]>(initialScopes);
@@ -130,7 +138,8 @@ export function TokenIssueDrawer({ service, actors, renderDrawer, onClose, onIss
       {expiry === 'never' ? <Callout tone="amber" title={COPY.warning}>{null}</Callout> : null}{errorsFor('expiresAt')}
     </fieldset>
     <fieldset className="space-y-2" disabled={pending} aria-describedby="token-scopes-error"><legend className="mb-2 text-sm font-medium">권한</legend>
-      <GroupedSelectionList mode="multiple" groups={groups} value={selected} onChange={setSelected} aria-label="권한" searchPlaceholder="권한 이름·설명 검색"
+      {prototypeLayout === 'category-pane' ? <p className="text-xs text-text-secondary">{COPY.pickerSwitchHint}</p> : null}
+      <GroupedSelectionList {...pickerOptions} mode="multiple" groups={groups} value={selected} onChange={setSelected} aria-label="권한" searchPlaceholder="권한 이름·설명 검색"
         presets={bundles.map(bundle => ({ id: bundle.id, label: bundle.label, description: bundle.description, itemIds: bundle.capabilities }))} />
       {errorsFor('scopes')}
     </fieldset>
