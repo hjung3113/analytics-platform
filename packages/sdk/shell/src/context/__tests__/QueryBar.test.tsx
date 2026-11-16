@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
-import { PlatformPage, QueryBarExtensionContext, QueryView, type QueryBarExtension } from '@ap/components';
+import { PlatformPage, QueryBarExtensionContext, QueryView, useFocusContextEditor, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
@@ -428,6 +428,18 @@ it('folded workspace: edits stay in the query bar and expanding restores applied
   expect(screen.queryByRole('region', STRIP)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByRole('region', STRIP)).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
+});
+function OpenEditor() { const focus = useFocusContextEditor(); return <button type="button" onClick={focus}>조건 편집 열기</button>; }
+it('opens a folded Context editor through the function the bar registers, with no markup search (#2361)', async () => {
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage layout="fill" queryResult={undefined}><OpenEditor /></PlatformPage></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '조건 편집 열기' }));
+  expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
+  expect(screen.getByRole('button', { name: '최근 24시간' })).toHaveFocus();
 });
 it.each([['compact', 'px-4'], ['comfortable', 'px-3']] as const)('%s page: the collapsed query bar row insets %s so it lines up with the content (#1166)', async (density, inset) => {
   window.history.replaceState(null, '', '/?scopeId=MEM');

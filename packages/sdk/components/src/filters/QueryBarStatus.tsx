@@ -1,4 +1,4 @@
-import { createContext, useContext, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { useHostPlatform, useHostPlatformOptional } from '@ap/kernel/host';
 import { paneRouteKey } from './paneRouteKey';
 
@@ -16,15 +16,18 @@ export type QueryBarStatus = {
   reasonKeys: readonly string[];
 };
 
-type LocalStatus = { status: QueryBarStatus | null; report: (status: QueryBarStatus | null) => void };
+type LocalStatus = { status: QueryBarStatus | null; report: (status: QueryBarStatus | null) => void; editorFocus?: { current: (() => void) | null } };
 /** Provided by `PlatformPage`: the bar inside the page reports here. */
 export const QueryBarStatusContext = createContext<LocalStatus | null>(null);
 
 function createStatuses() {
   const entries = new Map<string, QueryBarStatus>();
+  const focusers = new Map<string, () => void>();
   const listeners = new Set<() => void>();
   return {
     read: (key: string) => entries.get(key),
+    focuser: (key: string) => focusers.get(key),
+    putFocuser: (key: string, focus: (() => void) | null) => { if (focus === null) focusers.delete(key); else focusers.set(key, focus); },
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     put: (key: string, value: QueryBarStatus | null) => {
       if (value === null) entries.delete(key); else entries.set(key, value);
@@ -65,4 +68,33 @@ export function useQueryBarStatus(): QueryBarStatus | null {
   const key = paneRouteKey(host?.paneId ?? null, host?.route ?? null);
   const shared = useSyncExternalStore(store?.subscribe ?? noop, () => store?.read(key), () => undefined);
   return local?.status ?? shared ?? null;
+}
+
+/**
+ * The query bar registers how to open and focus its Context editor, so the page-condition layer's «조회 조건에서 바꾸기» calls it
+ * instead of searching the bar's markup. The latest function is kept in a ref, so the bar passes a fresh closure every render.
+ */
+export function useRegisterContextEditorFocus(focus: () => void): void {
+  const local = useContext(QueryBarStatusContext);
+  const store = useContext(PaneStatuses);
+  const { paneId, route } = useHostPlatform();
+  const key = paneRouteKey(paneId, route);
+  const latest = useRef(focus);
+  latest.current = focus;
+  const slot = local?.editorFocus;
+  useLayoutEffect(() => {
+    const call = () => latest.current();
+    if (slot) slot.current = call;
+    if (store && paneId) store.putFocuser(key, call);
+    return () => { if (slot) slot.current = null; if (store && paneId) store.putFocuser(key, null); };
+  }, [slot, store, paneId, key]);
+}
+
+/** Opens and focuses the Context editor of the bar that serves this page or pane; does nothing when no bar registered one. */
+export function useFocusContextEditor(): () => void {
+  const local = useContext(QueryBarStatusContext);
+  const store = useContext(PaneStatuses);
+  const host = useHostPlatformOptional();
+  const key = paneRouteKey(host?.paneId ?? null, host?.route ?? null);
+  return () => (local?.editorFocus?.current ?? store?.focuser(key))?.();
 }

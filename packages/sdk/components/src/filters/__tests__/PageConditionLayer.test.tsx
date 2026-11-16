@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { WorkspaceQueryBarRow } from '../../archetypes/WorkspaceQueryBar';
 import { useReportQueryBarStatus } from '../QueryBarStatus';
 import { useQueryBarExtension } from '../QueryBarExtension';
+import { useRegisterContextEditorFocus } from '../QueryBarStatus';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contextCapabilities, groupId, spaceId, type PageConditions } from '@ap/contracts';
@@ -45,6 +46,8 @@ function TestBar() {
   const [expanded, setExpanded] = useState(false);
   const hint = useQueryBarExtension()?.applyHint;
   useReportQueryBarStatus({ folded: !expanded, editing: false, reasonKeys: [] });
+  // The shell bar registers its own opener; the layer never searches this markup.
+  useRegisterContextEditorFocus(() => { if (!expanded) setExpanded(true); });
   return <section role="region" aria-label="조회 조건" data-query-bar>
     {/* Mirrors the live Context bar: an inert, invisible measuring copy renders before the real controls. */}
     <div inert aria-hidden className="invisible"><div data-context-measuring><button type="button" aria-expanded="false" aria-controls="test-measure-editor">조회 조건 측정</button></div></div>
@@ -211,7 +214,6 @@ describe('Page condition layer (#2339)', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: '조회 조건에서 바꾸기' }));
     expect(screen.getByText('global editor')).toBeVisible();
     expect(document.querySelector('[data-page-condition-announcement]')).toBe(announcement);
-    expect(within(bar).getByRole('button', { name: '조회 조건 바꾸기' })).toHaveFocus();
     expect(dialog()).toBeVisible();
   });
   it('keeps legacy summaries separate so declared values have only one summary and announcement owner', () => {
