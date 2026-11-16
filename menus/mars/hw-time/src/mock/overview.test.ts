@@ -1,14 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGlobal } from '@ap/contracts';
 import { EQUIPMENT } from '@ap/mock-server';
-import type { HwTimeDistribution, HwTimeMatrix, HwTimeMotionStats } from '../endpoints';
+import { HW_TIME_MODULE_TYPES, type HwTimeDistribution, type HwTimeMatrix, type HwTimeMotionStats } from '../endpoints';
 import { hwTimeOverviewMock, overviewRuns } from './overview';
 
 const context = { ...emptyGlobal, from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' };
+const lkType = HW_TIME_MODULE_TYPES.find(type => type.id === 'LK')!;
 
 describe('overview distribution', () => {
   const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
   const invoke = (equipment = EQUIPMENT.slice(0, 8), input = params) => hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!.handle({ equipment, context, params: input, actor: 'engineer' }) as HwTimeDistribution;
+  it.each(lkType.modules.flatMap(drillModule => lkType.motions.map(drillMotion => ({ drillModule, drillMotion }))))('has a centred spread, a minority near tail and two rare large values for %j', drill => {
+    const data = invoke(undefined, { ...params, ...drill });
+    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const full = overviewRuns(ids, { ...params, ...drill }, context, { sample: false });
+    const { lower, upper } = data.bounds as { lower: number; upper: number };
+    const inside = full.points.filter(point => point.seconds >= lower && point.seconds <= upper);
+    const over = full.points.filter(point => point.seconds > upper);
+    const under = full.points.filter(point => point.seconds < lower);
+    const rare = over.filter(point => point.seconds > upper + 1.5);
+    expect(inside.length / full.total).toBeGreaterThan(0.8);
+    expect(over.length / full.total).toBeGreaterThanOrEqual(0.02);
+    expect(over.length / full.total).toBeLessThanOrEqual(0.15);
+    expect(under.length).toBeGreaterThan(0);
+    expect(under.length / full.total).toBeLessThan(0.1);
+    expect(rare).toHaveLength(2);
+    expect(rare.every(point => point.seconds >= upper + 2 && point.seconds <= upper + 3)).toBe(true);
+    expect(Math.max(...over.filter(point => !rare.includes(point)).map(point => point.seconds))).toBeLessThanOrEqual(upper + 1.5);
+    expect(new Set(inside.map(point => Math.floor(point.seconds / 0.25))).size).toBeGreaterThanOrEqual(4);
+    const mean = inside.reduce((sum, point) => sum + point.seconds, 0) / inside.length;
+    expect((mean - lower) / (upper - lower)).toBeGreaterThanOrEqual(0.4);
+    expect((mean - lower) / (upper - lower)).toBeLessThanOrEqual(0.55);
+    const peak = data.bins.reduce((tallest, bin) => bin.count > tallest.count ? bin : tallest);
+    expect(peak.start).toBeGreaterThan(lower + (upper - lower) * 0.2);
+    expect(peak.end).toBeLessThan(upper - (upper - lower) * 0.1);
+    expect(invoke(undefined, { ...params, ...drill })).toEqual(data);
+  });
   it('bins every full-population run at a fixed 0.25 seconds, including empty intervals', () => {
     const data = invoke();
     const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
@@ -106,8 +133,13 @@ describe('overview server projections', () => {
     expect(statuses).toEqual(expect.arrayContaining(['over', 'under', 'normal']));
     expect(data.cells.every(cell => cell.module.lower === null && cell.module.upper === null)).toBe(true);
     const stats = invoke('hwTime.motionStats', { moduleType: 'LK', drillModule: 'LK1' }) as HwTimeMotionStats;
-    expect(stats.rows[0]!.judgement.status).toBe('over');
-    expect(stats.rows[1]!.judgement.status).toBe('under');
+    expect(stats.rows[0]!.judgement.status).toBe('normal');
+    expect(stats.rows[1]!.judgement.status).toBe('normal');
+    for (const moduleId of lkType.modules) {
+      expect(data.cells.find(cell => cell.equipmentId === 'EQ-003' && cell.moduleId === moduleId)?.module.status).toBe('over');
+      expect(data.cells.find(cell => cell.equipmentId === 'EQ-006' && cell.moduleId === moduleId)?.module.status).toBe('under');
+      expect(data.cells.find(cell => cell.equipmentId === 'EQ-001' && cell.moduleId === moduleId)?.module.status).toBe('normal');
+    }
     const values = data.cells.filter(cell => cell.moduleId === 'LK1').map(cell => cell.motions.Pump!.value!);
     expect(stats.rows[0]!.judgement.value).toBeCloseTo(values.reduce((sum, value) => sum + value, 0) / values.length);
   });

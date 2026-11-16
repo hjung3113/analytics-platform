@@ -130,6 +130,58 @@ it('shares bin status, count and percentage across plot, tooltip, table and CSV'
   expect(data.seriesKeys.every(keys => keys.length === 0)).toBe(true);
 });
 
+it('marks each contiguous status run once at its first tallest bin while retaining every bin status', () => {
+  const counts = [2, 5, 9, 11, 1, 4, 8, 8, 0, 2];
+  const data = histogramData({ ...base,
+    bins: counts.map((count, start) => ({ start, end: start + 1, count })),
+    binStatus: bin => {
+      if (bin.start >= 2 && bin.start < 4) return undefined;
+      return { tone: 'danger', label: bin.start < 2 ? 'Under' : 'Over', reason: `Bin ${bin.start}` };
+    },
+  }, 'en');
+  const option = data.option([]) as unknown as Option;
+  expect(option.series[1].data).toMatchObject([{ value: [1.5, 5] }, { value: [6.5, 8] }]);
+  expect(data.legend.filter(entry => entry.status).map(entry => entry.status!.label)).toEqual(['Under', 'Over']);
+  for (const index of [0, 1, 4, 5, 6, 7, 8, 9]) {
+    const label = index < 2 ? 'Under' : 'Over';
+    expect(option.tooltip.formatter({ dataIndex: index })).toContain(`${label} · Bin ${index}`);
+    expect(data.tableValues[index].at(-1)).toBe(`■ ${label} · Bin ${index}`);
+    expect(data.csvValues[index].slice(-2)).toEqual([`■ ${label}`, `Bin ${index}`]);
+    expect(option.series[0].data[index].itemStyle.color).toBe(statusColor({ tone: 'danger', label }));
+  }
+});
+
+it.each([
+  { start: 2, tone: 'danger', label: 'Over' },
+  { start: 1, tone: 'warning', label: 'Over' },
+  { start: 1, tone: 'danger', label: 'Under' },
+] as const)('splits status runs at a gap or a different tone/label: %j', second => {
+  const data = histogramData({ ...base,
+    bins: [{ start: 0, end: 1, count: 1 }, { start: second.start, end: second.start + 1, count: 2 }],
+    binStatus: bin => bin.start === 0 ? { tone: 'danger', label: 'Over' } : { tone: second.tone, label: second.label },
+  }, 'en');
+  expect((data.option([]) as unknown as Option).series[1].data).toMatchObject([
+    { value: [0.5, 1] }, { value: [second.start + 0.5, 2] },
+  ]);
+});
+
+it.each([true, false])('lets the consumer decide whether a zero-count bin joins a status run: %s', statusOnEmpty => {
+  const data = histogramData({ ...base,
+    bins: [1, 0, 2].map((count, start) => ({ start, end: start + 1, count })),
+    binStatus: bin => statusOnEmpty || bin.count > 0 ? { tone: 'danger', label: 'Over' } : undefined,
+  }, 'en');
+  const markers = (data.option([]) as unknown as Option).series[1].data;
+  expect(markers).toMatchObject(statusOnEmpty ? [{ value: [2.5, 2] }] : [{ value: [0.5, 1] }, { value: [2.5, 2] }]);
+});
+
+it('retains a marker for an entirely zero-count status run', () => {
+  const data = histogramData({ ...base,
+    bins: [0, 1].map(start => ({ start, end: start + 1, count: 0 })),
+    binStatus: () => ({ tone: 'danger', label: 'Over' }),
+  }, 'en');
+  expect((data.option([]) as unknown as Option).series[1].data).toMatchObject([{ value: [0.5, 0] }]);
+});
+
 it('has no inferred status and draws labelled dashed reference lines with extended numeric axes', () => {
   const data = histogramData({ ...base, bins, referenceLines: [
     { id: 'lo', value: -2, label: 'Low' }, { id: 'hi', value: 5, label: 'High', tone: 'danger' },

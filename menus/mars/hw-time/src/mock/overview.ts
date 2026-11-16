@@ -14,6 +14,21 @@ const SAMPLE_LIMIT = 400;
 const WALL_CLOCK_SECOND_MS = 1_000;
 /** Fixed server bin width in seconds, anchored at multiples of a quarter second. */
 const DISTRIBUTION_BIN_WIDTH = 0.25;
+/** Six seeded uniforms give the central population a bell-like spread inside the HTM band. */
+const SPREAD_SAMPLES = 6;
+const BAND_CENTRE = 0.48;
+const BAND_SPREAD = 0.24;
+const OVER_EQUIPMENT = 3;
+const UNDER_EQUIPMENT = 6;
+/** Two isolated observations per full population, beyond the ordinary near-bound tail. */
+const RARE_TAIL_EQUIPMENT_INTERVAL = 12;
+
+/** MurmurHash3's 32-bit finalizer, scaled to [0, 1); no ambient random state. */
+function seededUnit(seed: number): number {
+  let hash = Math.imul(seed ^ (seed >>> 16), 0x85ebca6b);
+  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 0x100000000;
+}
 
 /** Same population convention as hwTime.ts: only equipment resolved by applied Scope/Condition/Selection contributes. */
 function syntheticEquipmentIds(equipment: readonly Equipment[]): string[] {
@@ -39,15 +54,16 @@ function runValues(equipmentId: string, params: HwTimeRunParams): number[] {
   return Array.from({ length: RUNS_PER_EQUIPMENT }, (_, run) => {
     const jitter = ((equipmentNumber * 7 + moduleIndex * 11 + motionIndex * 3 + run * 5) % 17) / 100;
     if (!bounds) return 2 + moduleIndex * 0.7 + motionIndex * 0.5 + equipmentNumber * 0.08 + jitter;
-    // The smallest excursions that still move the all-equipment Motion averages out of bound (one row in three): a piece stays
-    // readable beside its neighbours instead of one stretched piece next to a vanished one.
-    // Spread over the upper bound (+1.36 … +5.04 s) instead of one stacked value: each run takes a distinct step of a per-equipment
-    // permutation of 0…23 (5 is coprime with 24), so the mean excursion, the averages and every judgement stay as before.
-    if (equipmentNumber % 3 === 0 && motionIndex === 0) return bounds.upper + 3.2 + (((run * 5 + equipmentNumber) % RUNS_PER_EQUIPMENT) - (RUNS_PER_EQUIPMENT - 1) / 2) * 0.16 + jitter;
-    if (equipmentNumber % 3 === 0 && motionIndex === 1) return bounds.lower - 0.6 - jitter;
+    if (run === RUNS_PER_EQUIPMENT - 1 && equipmentNumber % RARE_TAIL_EQUIPMENT_INTERVAL === 0) return bounds.upper + 2 + jitter;
+    // One high Pump equipment and one low Vent equipment retain mixed average/Module judgements without dominating the population.
+    if (equipmentNumber === OVER_EQUIPMENT && motionIndex === 0) return bounds.upper + 0.25 + jitter;
+    if (equipmentNumber === UNDER_EQUIPMENT && motionIndex === 1) return bounds.lower - 0.25 - jitter;
     if (run === 0 && equipmentNumber % 2 === 0) return bounds.upper + 0.5 + jitter;
     if (run === 1 && equipmentNumber % 2 === 0) return bounds.lower - 0.5 - jitter;
-    return bounds.lower + 0.1 + jitter + moduleIndex * 0.1;
+    const seed = ((equipmentNumber * type.modules.length + moduleIndex) * type.motions.length + motionIndex) * RUNS_PER_EQUIPMENT + run;
+    let spread = 0;
+    for (let i = 0; i < SPREAD_SAMPLES; i++) spread += seededUnit(seed * SPREAD_SAMPLES + i);
+    return bounds.lower + (bounds.upper - bounds.lower) * (BAND_CENTRE + (spread - SPREAD_SAMPLES / 2) * BAND_SPREAD);
   });
 }
 
