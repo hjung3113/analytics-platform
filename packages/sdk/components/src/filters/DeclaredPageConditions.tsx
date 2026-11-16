@@ -7,13 +7,18 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { Button } from '@ap/ui';
 import { WorkspaceQueryBarContext } from '../archetypes/WorkspaceQueryBar';
 import { PageConditionLayer } from './PageConditionLayer';
+import type { PageConditionCategoriesProps } from './PageConditionCategories';
 import type { PageConditionOptionsLoader } from './pageConditionOptions';
 import type { QueryBarExtension } from './QueryBarExtension';
 import { querySummaryItems } from './querySummary';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 
 /** Menu supplies only its S2 endpoint adapter and the identity of its declared endpoint params. */
-export type PageConditionLayerOptions = { loadOptions: PageConditionOptionsLoader; inputsKey: string; ready?: boolean };
+export type PageConditionLayerOptions = {
+  loadOptions: PageConditionOptionsLoader; inputsKey: string; ready?: boolean;
+  /** Hierarchy sources keyed by the declared tree endpoint id; their owner preserves the Kernel request gate and server permission. */
+  treeSources?: PageConditionCategoriesProps['treeSources'];
+};
 type LayerState = ({ status: 'closed' } | { status: 'open'; focusCategoryId?: string }) & { attentionKey: string };
 type Binding = { trigger: ReactNode; layer: ReactNode; extension: QueryBarExtension };
 export function DeclaredPageConditions({ declaration, options, extension: legacy, children }: {
@@ -121,7 +126,7 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   const layer = <>
     <div data-page-condition-announcement aria-live="polite" className="sr-only">{announcement}</div>
     <PageConditionLayer id={id} open={open} focusCategoryId={state.status === 'open' ? state.focusCategoryId : undefined} onClose={close}
-    declaration={declaration} values={decoded.values} rawPairs={query.draft.page} issues={decoded.issues} onChange={change} loadOptions={options?.loadOptions} inputsKey={inputsKey}
+    declaration={declaration} values={decoded.values} rawPairs={query.draft.page} issues={decoded.issues} onChange={change} loadOptions={options?.loadOptions} treeSources={options?.treeSources} inputsKey={inputsKey}
     globalSummary={globalSummary} notice={writeRefusal} onEditContext={() => {
       const page = fallback.current?.closest('[data-platform-page]');
       // A board has a single Context bar for the pane selected by the triggering focus/click.

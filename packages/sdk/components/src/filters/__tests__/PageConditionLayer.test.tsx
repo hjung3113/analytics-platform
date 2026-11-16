@@ -11,6 +11,8 @@ import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@
 import { PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
 import { testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '../../archetypes/PlatformPage';
+import { createSyntheticHierarchySource } from '../../hierarchy/syntheticHierarchy';
+import type { PageConditionLayerOptions } from '../DeclaredPageConditions';
 
 const label = (ko: string) => ({ ko, en: ko });
 const declaration: PageConditions = { categories: [
@@ -21,18 +23,19 @@ const declaration: PageConditions = { categories: [
 ] };
 const period = '?v=1&from=2026-09-25T09%3A00%3A00&to=2026-09-26T09%3A00%3A00';
 let host: ReturnType<typeof useHostPlatform>;
+let pageOptions: PageConditionLayerOptions | undefined;
 function Page({ layout = 'flow', legacyHead = false }: { layout?: 'flow' | 'fill'; legacyHead?: boolean }) {
   host = useHostPlatform();
   const draft = useQueryDraft();
-  return <PlatformPage layout={layout} contextExtension={legacyHead ? <span>legacy editor</span> : undefined} queryBarExtension={legacyHead ? { pageSummary: [{ key: 'legacy', label: '기존 조건', value: 'kept' }], appliedPageSummary: [{ key: 'legacy', label: '기존 조건', value: 'kept' }], issues: [] } : undefined}><button onClick={() => draft.setDraftGlobal({ roomNames: ['PHOTO'] })}>outside</button><p>results</p></PlatformPage>;
+  return <PlatformPage layout={layout} pageConditionOptions={pageOptions} contextExtension={legacyHead ? <span>legacy editor</span> : undefined} queryBarExtension={legacyHead ? { pageSummary: [{ key: 'legacy', label: '기존 조건', value: 'kept' }], appliedPageSummary: [{ key: 'legacy', label: '기존 조건', value: 'kept' }], issues: [] } : undefined}><button onClick={() => draft.setDraftGlobal({ roomNames: ['PHOTO'] })}>outside</button><p>results</p></PlatformPage>;
 }
-function mount({ mode = 'apply', query = '', required = false, pane = false, layout = 'flow', bar = false, legacyHead = false }: { mode?: 'apply' | 'live'; query?: string; required?: boolean; pane?: boolean; layout?: 'flow' | 'fill'; bar?: boolean; legacyHead?: boolean } = {}) {
+function mount({ mode = 'apply', query = '', required = false, pane = false, layout = 'flow', bar = false, legacyHead = false, tree = false }: { tree?: boolean; mode?: 'apply' | 'live'; query?: string; required?: boolean; pane?: boolean; layout?: 'flow' | 'fill'; bar?: boolean; legacyHead?: boolean } = {}) {
   window.history.replaceState(null, '', '/' + period + query);
   const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: label('개요'), icon: House, space: spaceId('mars') }], menus: [{
     id: 'home', primary: true, group: groupId('overview'), label: label('홈'), description: label(''), path: '/', icon: House, permission: 'platform:view', requiresScope: false,
     pageType: 'analysis', context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), features: { export: false, savedView: false, annotate: false, compare: false, board: true },
-    query: mode === 'apply' ? { mode } : undefined, pageKeys: ['choice', 'q', 'many', 'start', 'end', 'legacy'], repeatedPageKeys: ['many'], pageConditions: { ...declaration, categories: declaration.categories.map(category => required && category.id === 'query' ? { ...category, required: true } : category) },
-  }] });
+    query: mode === 'apply' ? { mode } : undefined, pageKeys: ['choice', 'q', 'many', 'start', 'end', 'legacy', ...(tree ? ['tree'] : [])], repeatedPageKeys: ['many', ...(tree ? ['tree'] : [])], pageConditions: { ...declaration, categories: [...declaration.categories, ...(tree ? [{ id: 'tree', label: label('계층'), kind: { type: 'tree' as const, key: 'tree', source: 'tree', value: 'nodes' as const } }] : [])].map(category => required && category.id === 'query' ? { ...category, required: true } : category) },
+  }], endpoints: tree ? [{ id: 'tree', menuId: 'home' }] : [] });
   const session = testSession(['platform:view']);
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} slots={bar ? { contextBar: <TestBar /> } : undefined}>
     {pane ? <PaneScreenProvider paneId="pane-one" screen={{ menuId: 'home', params: {}, query: period + query }} onChange={vi.fn()} onLeave={vi.fn()}><Page layout={layout} legacyHead={legacyHead} /></PaneScreenProvider> : <Page layout={layout} legacyHead={legacyHead} />}
@@ -51,7 +54,7 @@ function TestBar() {
     {!expanded && <WorkspaceQueryBarRow />}
   </section>;
 }
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); pageOptions = undefined; });
 const trigger = () => screen.getByRole('button', { name: '페이지 조건' });
 const dialog = () => screen.getByRole('dialog', { name: '페이지 조건' });
 
@@ -102,6 +105,15 @@ describe('Page condition layer (#2339)', () => {
     expect(within(dialog()).getByRole('heading', { name: options.required ? '검색' : '기간' })).toHaveFocus();
     fireEvent.click(within(dialog()).getByRole('button', { name: '페이지 조건 닫기' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('hands treeSources from the page options to a declared tree category and shows its S2-style header', async () => {
+    pageOptions = { loadOptions: async () => { throw new Error('unused'); }, inputsKey: 'k', treeSources: { tree: createSyntheticHierarchySource() } };
+    mount({ tree: true });
+    fireEvent.click(trigger());
+    const heading = within(dialog()).getByRole('heading', { name: '계층' });
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(within(heading.parentElement!).getByText('제약 없음')).toBeVisible();
+    expect(await within(dialog()).findByRole('tree', { name: '계층' })).toBeVisible();
   });
   it('uses the same global + page draft, applies once, and reverts with the shared action', async () => {
     mount();

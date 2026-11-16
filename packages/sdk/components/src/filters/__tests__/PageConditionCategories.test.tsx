@@ -147,10 +147,10 @@ describe('PageConditionCategories', () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByText(/2400/)).toBeVisible();
   });
-  it('renders an unsupported tree notice without fetching or editing', () => {
+  it('shows a missing tree source without calling the options loader', () => {
     const loader = vi.fn();
     mount({ declaration: { categories: [{ id: 'tree', label: text('계층'), kind: { type: 'tree', key: 'tree', source: 'tree', value: 'leaves' } }] }, loadOptions: loader });
-    expect(screen.getByText('계층 범주는 아직 지원하지 않습니다.')).toBeVisible();
+    expect(screen.getByText('계층 데이터 연결이 없습니다.')).toBeVisible();
     expect(loader).not.toHaveBeenCalled();
   });
   it('keeps declaration order while sections are headed keyboard folds', async () => {

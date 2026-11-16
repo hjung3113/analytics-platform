@@ -7,6 +7,7 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, NavCurrentMarker, navDrillAffordance, navRowVariants, SearchInput } from '@ap/ui';
 import { ancestorKey, childrenKey, searchKey, type HierarchyNavState, type HierarchySnapshot, type Load } from './hierarchyState';
 import { ClippedLabel, useSidebarListSpace } from './hierarchyLayout';
+import { hierarchyTreeKey } from './treeKeyboard';
 import { useHierarchyNavState } from './useHierarchyNavState';
 
 export type HierarchyNavProps = {
@@ -184,22 +185,12 @@ export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNod
   };
   const onKey = (event: KeyboardEvent<HTMLDivElement>, row: NodeRow) => {
     const nodeRows = rows.filter((item): item is NodeRow => item.kind === 'node');
-    const index = nodeRows.findIndex(item => item.node.id === row.node.id);
-    const next = (n: number) => { const item = nodeRows[Math.max(0, Math.min(nodeRows.length - 1, n))]; if (item) focus(item.node.id); };
-    if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) event.preventDefault();
-    if (event.key === 'ArrowDown') next(index + 1);
-    if (event.key === 'ArrowUp') next(index - 1);
-    if (event.key === 'Home') next(0);
-    if (event.key === 'End') next(nodeRows.length - 1);
-    if (event.key === 'ArrowRight' && row.node.hasChildren) {
-      if (!snapshot.expanded.has(row.node.id)) toggle(row.node, true);
-      else if (nodeRows[index + 1]?.depth > row.depth) next(index + 1);
-    }
-    if (event.key === 'ArrowLeft') {
-      if (snapshot.expanded.has(row.node.id)) toggle(row.node, true);
-      else { const parent = nodeRows.slice(0, index).reverse().find(item => item.depth < row.depth); if (parent) focus(parent.node.id); }
-    }
-    if (event.key === 'Enter' || event.key === ' ') (event.currentTarget.querySelector('[data-hierarchy-primary]') as HTMLElement | null)?.click();
+    const activate = () => (event.currentTarget.querySelector('[data-hierarchy-primary]') as HTMLElement | null)?.click();
+    hierarchyTreeKey(event, {
+      rows: nodeRows.map(item => ({ id: item.node.id, depth: item.depth, hasChildren: item.node.hasChildren })),
+      id: row.node.id, expanded: snapshot.expanded, focus,
+      toggle: () => toggle(row.node, true), enter: activate, space: activate,
+    });
   };
   const failure = (load: Load<unknown> | undefined, retry: () => void) => {
     const status = load?.status ?? 'loading';

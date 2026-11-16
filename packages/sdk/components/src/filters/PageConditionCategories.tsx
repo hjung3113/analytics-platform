@@ -1,11 +1,12 @@
 import { useEffect, useEffectEvent, useId, useState, type ReactNode } from 'react';
 import { ChevronDown, Inbox, ServerCrash } from 'lucide-react';
-import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair } from '@ap/contracts';
+import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair, type HierarchySource } from '@ap/contracts';
 import { decodePageConditions, encodePageConditions, PAGE_CONDITION_EMPTY, PageConditionError, useI18n, useMessages, type PageConditionIssue, type PageConditionValue, type PageConditionValues } from '@ap/kernel';
 import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard } from '@ap/ui';
 import { LoadingBlock, OutcomeView, StateMessage } from '../StateView';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 import { checkPageConditionOptions, type PageConditionOptions, type PageConditionOptionsLoader } from './pageConditionOptions';
+import { PageConditionTree } from './PageConditionTree';
 import { PageConditionOptionsError } from './usePageConditionOptionsLoader';
 
 export type PageConditionCategoriesProps = {
@@ -17,6 +18,8 @@ export type PageConditionCategoriesProps = {
   /** Category-local decoded key map replaces that category's keys; null removes every owned key (no constraint). */
   onChange: (categoryId: string, nextDecoded: PageConditionValues | null) => void;
   loadOptions?: PageConditionOptionsLoader;
+  /** Sources keyed by the declared tree endpoint id; their owner preserves server permission gates. */
+  treeSources?: Readonly<Record<string, HierarchySource | undefined>>;
   /** Full option identity: session generation, Scope, projected Context, declared endpoint inputs and readiness. */
   inputsKey: string;
 };
@@ -107,6 +110,11 @@ function useOptions(category: PageConditionCategory, loadOptions?: PageCondition
 }
 
 function ConditionCategory(props: CategoryProps) {
+  return props.category.kind.type === 'tree'
+    ? <PageConditionTree {...props} source={props.treeSources?.[props.category.kind.source]} />
+    : <OptionConditionCategory {...props} />;
+}
+function OptionConditionCategory(props: CategoryProps) {
   const { category, declaration, values, onChange, issues = NO_ISSUES, rawPairs = NO_PAIRS } = props;
   const { lang } = useI18n();
   const m = useMessages(PAGE_CONDITION_MESSAGES);
@@ -129,7 +137,7 @@ function ConditionCategory(props: CategoryProps) {
   const explicitEmpty = repeated && Object.keys(owned).length > 0 && count === 0;
   const common = { disabled, 'aria-describedby': describedBy, 'aria-invalid': hasError || undefined };
   function change(next: PageConditionValues | null) {
-    if (disabled || kind.type === 'tree') return;
+    if (disabled) return;
     if (next !== null) {
       try { encodePageConditions({ pageConditions: declaration }, replaceValues(category, values, next)); }
       catch (error) {
@@ -203,7 +211,6 @@ function ConditionCategory(props: CategoryProps) {
   }
   function controls() {
     switch (kind.type) {
-      case 'tree': return <p className="text-xs text-text-secondary">{m('tree')}</p>;
       case 'search': return <CommitInput id={`${prefix}-input`} aria-label={category.label[lang]} {...common} value={valuesFor(kind.key)[0] ?? ''} onCommit={text => write(kind.key, text === '' ? null : [text])} />;
       case 'range': {
         const value = owned[kind.key];
@@ -297,7 +304,7 @@ function ConditionCategory(props: CategoryProps) {
       <span role="heading" aria-level={3} tabIndex={-1} className="text-sm font-semibold text-text-primary">{category.label[lang]}</span>
       <span className="flex items-center gap-2">
         <span className="text-xs text-text-secondary">{selectionSummary}</span>
-        <Button type="button" variant="ghost" size="toolbar" disabled={disabled || kind.type === 'tree' || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
+        <Button type="button" variant="ghost" size="toolbar" disabled={disabled || (Object.keys(owned).length === 0 && raw.length === 0)} aria-label={m('clearOne', { label: category.label[lang] })} aria-describedby={reasonsId} onClick={() => change(null)}>{m('clear')}</Button>
       </span>
     </div>
     <div id={reasonsId} className="space-y-1 text-xs text-text-secondary">{description.filter(Boolean).map((reason, index) => <p key={index}>{reason}</p>)}
