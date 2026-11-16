@@ -742,6 +742,10 @@ _Avoid_: Access ticket, permission grant, role change request
 Capability authority granted to an **Actor** for a supported scope, optionally expiring. It can follow an approved **Permission Request** or a governed direct grant; it does not change **Role Level**.
 _Avoid_: Promotion, request approval record
 
+**Permission Group** (권한 그룹):
+A named set of capabilities (with an optional managed-system or site scope) that expands into per-capability **Permission Grant** rows when granted or approved; the grant row keeps only a `group_id` origin column. Editing a group never changes grants already given. A personal group is a request template only; granting is an operator (`workspace.admin`) action, and a department rule auto-grants operator groups only. It does not add a **Role Level**. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom group (a bundle of query conditions, 커스텀 그룹); those two never carry capabilities.
+_Avoid_: Role, 그룹 (alone), role tier
+
 **Request Withdrawal**:
 The requester closes an open **Permission Request** as `cancelled`, retaining history. It neither revokes a **Permission Grant** nor denies access (FO ADR-0066).
 _Avoid_: Rejection, grant revocation, deletion
