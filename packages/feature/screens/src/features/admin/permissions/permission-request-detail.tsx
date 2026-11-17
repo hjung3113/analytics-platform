@@ -62,6 +62,7 @@ export function PermissionRequestDetail({
   React.useEffect(() => {
     if (staleNotice) staleAlertRef.current?.focus();
   }, [staleNotice]);
+  const batchDecided = batch?.items.some(item => item.status !== 'pending' && item.status !== 'needs_more_info') ?? false;
   const body = (
     <div className="flex flex-col gap-5">
       {staleNotice ? (
@@ -75,11 +76,12 @@ export function PermissionRequestDetail({
           {ADMIN_PERMISSIONS_COPY.reviewAgain}
         </p>
       ) : null}
-      {batch ? batch.items.map(item => <PermissionRequestRiskReview key={item.id} request={item} managedSystemNames={resolvedManagedSystemNames} />) : <PermissionRequestRiskReview
+      {/* A batch shares requester, reason and expiry, so its review notes show once (#2408); held rows show in the checklist. */}
+      <PermissionRequestRiskReview
         request={request}
         managedSystemNames={resolvedManagedSystemNames}
-      />}
-      {batch ? <section className="flex flex-col gap-2"><PanelSectionTitle>{PERMISSION_GROUP_COPY.count(batch.items.length)}</PanelSectionTitle><ul>{batch.items.map(item => <li key={item.id}>{getCapabilityDisplayLabel(item.requested_capability)} · {permissionRequestStatusLabel[item.status]}</li>)}</ul><p>{PERMISSION_GROUP_COPY.outcome(batch.items.filter(item => item.status === 'approved').length, batch.items.filter(item => item.status === 'rejected').length)}</p></section> : null}
+      />
+      {batch && batchDecided ? <section className="flex flex-col gap-2"><PanelSectionTitle>{PERMISSION_GROUP_COPY.count(batch.items.length)}</PanelSectionTitle><ul>{batch.items.map(item => <li key={item.id}>{getCapabilityDisplayLabel(item.requested_capability)} · {permissionRequestStatusLabel[item.status]}</li>)}</ul><p>{PERMISSION_GROUP_COPY.outcome(batch.items.filter(item => item.status === 'approved').length, batch.items.filter(item => item.status === 'rejected').length)}</p></section> : null}
       <section className="flex flex-col gap-2">
         <PanelSectionTitle>요청 정보</PanelSectionTitle>
         <FieldRow label="요청자" inset="none">
@@ -92,11 +94,13 @@ export function PermissionRequestDetail({
             )}
           </span>
         </FieldRow>
-        <FieldRow label="요청 ID" inset="none">
+        {batch ? null : <FieldRow label="요청 ID" inset="none">
           <span className="font-mono text-xs text-text-muted">{shortId(request.id)}</span>
-        </FieldRow>
+        </FieldRow>}
         <FieldRow label="요청 권한" inset="none">
-          {isDeclared ? (
+          {batch ? (
+            <span>{batch.items.map(item => getCapabilityDisplayLabel(item.requested_capability)).join(', ')}</span>
+          ) : isDeclared ? (
             <span className="flex flex-col gap-0.5">
               <DeclaredCapabilityName id={request.requested_capability} />
               <span className="flex flex-wrap items-center gap-2">

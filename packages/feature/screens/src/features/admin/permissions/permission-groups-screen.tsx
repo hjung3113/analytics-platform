@@ -41,7 +41,7 @@ export function PermissionGroupsScreen({ renderDetail }: { renderDetail?: (parts
       {list.isPending ? <p role="status">{COPY.loading}</p> : null}
       {list.isError ? <div role="alert">{COPY.error}<Button onClick={() => void list.refetch()}>{COPY.retry}</Button></div> : null}
       {!list.isPending && !list.isError && !list.data.length ? <p>{COPY.empty}</p> : null}
-      {!list.isError ? list.data?.filter(item => tab === 'all' || item.kind === tab).map(item => <ObjectRow key={item.id} id={COPY.title} title={item.name} selected={item.id === search.selected} onClick={() => { setCreating(false); write(previous => ({ ...previous, selected: item.id })); }} meta={<span>{COPY.count(item.capabilities.length)} · {item.owner.display_name} · {item.kind === 'operator' ? COPY.grantCount(item.grant_count) : COPY.shareCount(item.shared_with.length)} · {formatDate(item.updated_at)}</span>} />) : null}
+      {!list.isError ? list.data?.filter(item => tab === 'all' || item.kind === tab).map(item => <ObjectRow key={item.id} id={COPY.tabs[item.kind]} title={item.name} selected={item.id === search.selected} onClick={() => { setCreating(false); write(previous => ({ ...previous, selected: item.id })); }} meta={<span>{COPY.count(item.capabilities.length)} · {item.owner.display_name} · {item.kind === 'operator' ? COPY.grantCount(item.grant_count) : COPY.shareCount(item.shared_with.length)} · {formatDate(item.updated_at)}</span>} />) : null}
     </section>} {...(renderDetail ? {} : { detailPanel: detail })} />;
   return <>{hostOwnsTitle ? <HostPrimaryAction>{action}</HostPrimaryAction> : null}{shell}{renderDetail ? detail : null}</>;
 }
@@ -69,16 +69,16 @@ function GroupDrawer({ group, onClose, renderDetail, stale, onStale }: { group: 
   const body = <div className="flex flex-col gap-5 break-keep">
     {stale ? <p role="alert">{PERMISSION_REQUEST_COPY.staleWrite}</p> : null}
     {editing ? <GroupEditorFields kind={group?.kind ?? 'operator'} draft={draft} onChange={setDraft} declared={declared} disabled={mutation.isPending} /> : group ? <>
-      <PanelSectionTitle>{COPY.title}</PanelSectionTitle><FieldRow label={COPY.description} inset="none">{group.description ?? '—'}</FieldRow>
+      <section className="flex flex-col gap-2"><PanelSectionTitle>{COPY.kind[group.kind]}</PanelSectionTitle><FieldRow label={COPY.description} inset="none">{group.description ?? '—'}</FieldRow>
       <FieldRow label={COPY.creator} inset="none">{group.owner.display_name}</FieldRow>
       {group.kind === 'personal' ? <FieldRow label={COPY.sharedWith} inset="none">{group.shared_with.map(actor => actor.display_name).join(', ') || COPY.none}</FieldRow> : <FieldRow label={COPY.grants} inset="none">{COPY.grantValue(group.grant_count)}</FieldRow>}
-      <FieldRow label={COPY.updated} inset="none">{formatDate(group.updated_at)}</FieldRow>
-      <PanelSectionTitle>{COPY.count(group.capabilities.length)}</PanelSectionTitle><ul>{group.capabilities.map(capability => <li key={capability}>{getCapabilityDisplayLabel(capability, declared)} <span className="font-mono text-xs text-text-muted">{capability}</span></li>)}</ul><p className="text-xs text-text-secondary">{COPY.nonRetroactive}</p>
+      <FieldRow label={COPY.updated} inset="none">{formatDate(group.updated_at)}</FieldRow></section>
+      <section className="flex flex-col gap-2"><PanelSectionTitle>{COPY.count(group.capabilities.length)}</PanelSectionTitle><ul className="flex flex-col gap-1.5 text-sm">{group.capabilities.map(capability => <li key={capability} className="flex flex-wrap items-baseline gap-2">{getCapabilityDisplayLabel(capability, declared)} <span className="font-mono text-xs text-text-muted">{capability}</span></li>)}</ul></section><p className="text-xs text-text-secondary">{COPY.nonRetroactive}</p>
     </> : null}
     {mutation.isError ? <p role="alert">{mapUnknownError(mutation.error).message}</p> : null}
   </div>;
   const footer = <div className="flex justify-end gap-2">
-    <Button variant="secondary" disabled={mutation.isPending} onClick={onClose}>{COPY.cancel}</Button>
+    <Button variant="secondary" disabled={mutation.isPending} onClick={onClose}>{editing ? COPY.cancel : COPY.close}</Button>
     {editing ? <Button disabled={mutation.isPending || !draft.name.trim() || !draft.capabilities.length || draft.capabilities.length > PERMISSION_BATCH_MAX_ITEMS} onClick={() => mutation.mutate('save', { onSuccess: onClose, onError: error => { if (error instanceof ApiError && error.code === 'conflict.stale_write') onStale?.(); } })}>{COPY.save}</Button> : group?.can_edit ? <><Button variant="secondary" disabled={mutation.isPending} onClick={() => mutation.mutate('archive', { onSuccess: onClose, onError: error => { if (error instanceof ApiError && error.code === 'conflict.stale_write') onStale?.(); } })}>{COPY.archive}</Button><Button onClick={() => setEditing(true)}>{COPY.edit}</Button></> : null}
   </div>;
   const parts = { title: group?.name ?? COPY.create, body, footer, requestClose: () => { if (!mutation.isPending) onClose(); } };

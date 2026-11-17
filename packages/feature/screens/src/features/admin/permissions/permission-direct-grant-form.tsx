@@ -693,7 +693,8 @@ function DirectGrantFields({
             const missing = group.capabilities.filter(capability => !candidates.some(candidate => candidate.capability === capability));
             return { id: group.id, label: group.name, description: missing.length ? `${PERMISSION_GROUP_COPY.grantMissing}: ${missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}` : group.description ?? PERMISSION_GROUP_COPY.kind.operator, itemIds: candidates.map(candidateKey), onApply: () => setPresetOrigin(group.id) };
           })}
-          presetPreview
+          // The preview counts rows for the chosen system; before one is chosen it would read as «nothing to add».
+          presetPreview={Boolean(presetSystem)}
           messages={{ hiddenItems: DIRECT_GRANT_COPY.hiddenItems }}
           aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder={PERMISSION_GROUP_COPY.searchCapabilities}
           groups={groupPermissionItems([...CAPABILITIES, ...declaredCandidateIds].flatMap(capability => {

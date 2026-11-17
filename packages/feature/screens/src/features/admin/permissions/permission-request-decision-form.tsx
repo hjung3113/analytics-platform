@@ -486,7 +486,10 @@ export function PermissionRequestDecisionForm({
                     value={candidate.managed_system_id ?? 'workspace'}
                   >
                     {candidate.managed_system_id
-                      ? `${candidate.managed_system_id === request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '시스템'} · ${shortId(candidate.managed_system_id)}`
+                      ? // A known system shows its name only; the short id tells unnamed systems apart.
+                        candidate.managed_system_id === request.requested_managed_system_id && managedSystemName
+                        ? managedSystemName
+                        : `시스템 · ${shortId(candidate.managed_system_id)}`
                       : '전체'}
                   </SelectItem>
                 ))}

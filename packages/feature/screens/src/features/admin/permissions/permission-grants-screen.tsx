@@ -319,7 +319,7 @@ function ActivePermissionRow({
               </span>
             </>
           ) : null}
-          {'permission_group' in item && item.permission_group ? <span>· {PERMISSION_GROUP_COPY.origin(item.permission_group.name)}</span> : null}
+          {'permission_group' in item && item.permission_group ? <><span>·</span><span>{PERMISSION_GROUP_COPY.origin(item.permission_group.name)}</span></> : null}
         </>
       }
     />
