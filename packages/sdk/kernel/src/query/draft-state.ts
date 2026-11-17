@@ -56,7 +56,7 @@ export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page
     ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
     ...(menu?.query?.required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
     ...(global.membershipBasis === 'asOf' && global.condition?.[CUSTOM_GROUP_AXIS]?.length
-      ? [{ key: 'customGroupMembershipBasis', label: { ko: '커스텀 그룹', en: 'Custom groups' } }]
+      ? [{ key: 'customGroupMembershipBasis', label: { ko: '커스텀 조회 그룹', en: 'Custom query groups' } }]
       : []),
   ];
 }

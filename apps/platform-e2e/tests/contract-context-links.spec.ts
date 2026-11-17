@@ -875,7 +875,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
 
 });
 
-test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
+test.describe('커스텀 조회 그룹 (06 §6.4, ADR-0164)', () => {
   // Cycle time queries only with a process; two rooms let the PHOTO group narrow the result.
   const base = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&roomNames=ETCH&${PERIOD}&percentile=all`;
   const kpiRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
@@ -922,7 +922,7 @@ test.describe('커스텀 그룹 (06 §6.4, ADR-0164)', () => {
     await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
     dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await dialog.getByRole('table').waitFor();
-    await dialog.getByRole('button', { name: /^커스텀 그룹/ }).click();
+    await dialog.getByRole('button', { name: /^커스텀 조회 그룹/ }).click();
     await dialog.getByRole('checkbox', { name: 'PHOTO rule', exact: true }).click();
     const applyTarget = dialog.getByRole('button', { name: /^조건 적용 ·/ });
     await expect(applyTarget).toBeEnabled();

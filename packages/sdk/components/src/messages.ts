@@ -501,7 +501,7 @@ export const COMPONENTS_MESSAGES = {
   // Filters
   filterExplicitEmpty: { ko: '명시적 빈 선택', en: 'Explicit empty selection' },
   filterProcess: { ko: '공정', en: 'Process' },
-  filterCustomGroup: { ko: '커스텀 그룹', en: 'Custom group' },
+  filterCustomGroup: { ko: '커스텀 조회 그룹', en: 'Custom query group' },
   filterMembershipLabel: { ko: '소속 기준', en: 'Membership' },
   filterMembershipAsOf: { ko: '그 시점 소속', en: 'As-of membership' },
   filterMembershipCurrent: { ko: '지금 소속', en: 'Current membership' },

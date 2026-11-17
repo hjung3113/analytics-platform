@@ -208,9 +208,9 @@ _Avoid_: 분임조 — 분임조는 StGroup과 별개의 값이다(아래 참고
 
 Line·PRC 그룹은 독립 전역 집합 키 `lineNames`·`prcGroups`이며 Condition 축이 아니다(2026-10-21 사용자 정정 — 소유자 #552·#513, [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
 
-**커스텀 그룹** (조회 조건 축):
-사용자가 조회 조건의 대상 고르기에서 지금 고른 상태에 이름을 붙여 저장한 대상 묶음. 개인이 만들고 팀과 공유할 수 있으며, 만든 사람이 기록되고 수정은 만든 사람만 한다. 설비·분임조 등 묶는 단위와 무관하다. 저장 내용은 Condition처럼 다시 평가하는 규칙이거나 Selection처럼 고정된 ID 목록이며, 다른 축과 함께 쓰는 «커스텀 그룹» 축의 값이 된다(#2390).
-_Avoid_: 공유 그룹 — 저장된 뷰를 공유받는 사람 묶음이다(아래 «분석 조건과 분석 보드»). 커스텀 그룹은 조회 대상을 묶고, 공유 그룹은 사람을 묶는다.
+**커스텀 조회 그룹** (조회 조건 축):
+사용자가 조회 조건의 대상 고르기에서 지금 고른 상태에 이름을 붙여 저장한 대상 묶음. 개인이 만들고 팀과 공유할 수 있으며, 만든 사람이 기록되고 수정은 만든 사람만 한다. 설비·분임조 등 묶는 단위와 무관하고, 조회 기능이 있는 모든 메뉴가 같은 이름을 쓴다. 저장 내용은 Condition처럼 다시 평가하는 규칙이거나 Selection처럼 고정된 ID 목록이며, 다른 축과 함께 쓰는 «커스텀 조회 그룹» 축의 값이 된다(#2390, #2464). 코드·URL·저장 종류의 이름은 `customGroup`·`custom-group`이다.
+_Avoid_: 커스텀 그룹 — 줄이지 않는다(ADR-0092·0099 본문의 옛 이름은 사람 묶음을 뜻한다). 공유 그룹 — 저장된 뷰를 공유받는 사람 묶음이다(아래 «분석 조건과 분석 보드»). 커스텀 조회 그룹은 조회 대상을 묶고, 공유 그룹은 사람을 묶는다.
 
 **Equipment Group Condition / Selection** (`equipmentGroup` / `selectedEquipmentIds`):
 Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속 기준에 맞는 설비를 다시 찾는 질의이며, 여러 축은 AND·같은 축의 여러 값은 OR로 결합한다. Selection은 사용자가 명시적으로 고른 고정 EquipmentID 목록으로 Condition과 별개의 상태다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md), [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
@@ -544,8 +544,8 @@ _Avoid_: 접수 — 등록과 같은 동작을 다른 말로 부르지 않는다
 _Avoid_: 분석 조건(단독) — 메뉴 화면의 페이지 조건과 섞인다.
 
 **공유 그룹** (저장된 뷰 공유 대상):
-저장된 뷰를 공유받는 사람 묶음. 사용자가 만들고 멤버를 관리하며, 멤버십은 뷰 객체 접근만 주고 메뉴·Scope 권한은 주지 않는다([06 §21.2](docs/contract/kernel.md#212-소유공유-decided), [ADR-0099](docs/adr/0099-server-saved-view-persistence.md)). 조직 팀(인사/SSO 원천)과 같은 계약이다. ADR-0092·0099 본문에는 옛 이름 «커스텀 그룹»으로 남아 있다.
-_Avoid_: 커스텀 그룹 — 조회 조건에서 고른 대상 묶음이다(«공정 범위와 설비 그룹»). 공유 그룹은 사람을 묶고, 커스텀 그룹은 조회 대상을 묶는다.
+저장된 뷰를 공유받는 사람 묶음. 사용자가 만들고 멤버를 관리하며, 멤버십은 뷰 객체 접근만 주고 메뉴·Scope 권한은 주지 않는다([06 §21.2](docs/contract/kernel.md#212-소유공유-decided), [ADR-0099](docs/adr/0099-server-saved-view-persistence.md)). 조직 팀(인사/SSO 원천)과 같은 계약이다. 코드의 종류 값은 `ViewGroup.kind: 'custom'`이며 커스텀 조회 그룹의 `customGroup`·`custom-group`과 다르다. ADR-0092·0099 본문에는 옛 이름 «커스텀 그룹»으로 남아 있다.
+_Avoid_: 커스텀 그룹 — 이 묶음의 옛 이름이다. 커스텀 조회 그룹 — 조회 조건에서 고른 대상 묶음이다(«공정 범위와 설비 그룹»). 공유 그룹은 사람을 묶고, 커스텀 조회 그룹은 조회 대상을 묶는다.
 
 **Context 바** (`GlobalContextBar`):
 메뉴 화면 위에서 전역 Context(분석 보드에서는 선택된 칸의 분석 Context)를 보이고 바꾸는 셸 자리.
@@ -754,7 +754,7 @@ Capability authority granted to an **Actor** for a supported scope, optionally e
 _Avoid_: Promotion, request approval record
 
 **Permission Group** (권한 그룹):
-A named set of capabilities (no managed-system or site scope; the scope is picked when requesting or granting) that expands into per-capability **Permission Grant** rows when granted or approved; the grant row keeps only a `permission_group_id` origin column. Editing a group never changes grants already given. A personal group is a request template only; granting is an operator (`workspace.admin`) action, and a department rule auto-grants operator groups only. It does not add a **Role Level**. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom group (a bundle of query conditions, 커스텀 그룹); those two never carry capabilities.
+A named set of capabilities (no managed-system or site scope; the scope is picked when requesting or granting) that expands into per-capability **Permission Grant** rows when granted or approved; the grant row keeps only a `permission_group_id` origin column. Editing a group never changes grants already given. A personal group is a request template only; granting is an operator (`workspace.admin`) action, and a department rule auto-grants operator groups only. It does not add a **Role Level**. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom group (a bundle of query conditions, 커스텀 그룹); those two never carry capabilities. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom query group (a bundle of query targets, 커스텀 조회 그룹); those two never carry capabilities.
 _Avoid_: Role, 그룹 (alone), role tier
 
 **Request Withdrawal**:
