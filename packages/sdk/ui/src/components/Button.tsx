@@ -20,7 +20,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-accent-primary text-text-on-accent hover:bg-accent-primary/90',
         secondary:
-          'bg-surface-raised in-[.bg-surface-canvas:not([data-shell])]:bg-transparent text-text-primary border border-border-subtle hover:bg-surface-row-hover',
+          'bg-surface-raised in-[.bg-surface-canvas:not([data-shell],.rich-editor)]:bg-transparent text-text-primary border border-border-subtle hover:bg-surface-row-hover',
         destructive: 'bg-accent-danger text-text-on-accent hover:bg-accent-danger/90',
         outline:
           'border border-border-default bg-transparent text-text-primary hover:bg-surface-row-hover',

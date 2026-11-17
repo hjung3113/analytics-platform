@@ -78,7 +78,7 @@ describe('Global Context priority overflow (#56)', () => {
     expect(bar()).toHaveClass('bg-surface-canvas', 'backdrop-blur');
     expect(bar()).not.toHaveClass('bg-surface-canvas/95');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
-    expect(period).toHaveClass('bg-surface-card', 'in-[.bg-surface-canvas:not([data-shell])]:bg-transparent');
+    expect(period).toHaveClass('bg-surface-card', 'in-[.bg-surface-canvas:not([data-shell],.rich-editor)]:bg-transparent');
   });
 
   it('uses badge typography for capability tags', () => {

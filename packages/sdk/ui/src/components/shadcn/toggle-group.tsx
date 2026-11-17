@@ -38,7 +38,7 @@ type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimiti
   };
 
 const TOGGLE_GROUP_APPEARANCE_CLASSES: Record<Exclude<ToggleGroupAppearance, 'default'>, string> = {
-  filter: 'rounded-md border border-border-subtle bg-surface-card in-[.bg-surface-canvas:not([data-shell])]:bg-transparent p-0.5',
+  filter: 'rounded-md border border-border-subtle bg-surface-card in-[.bg-surface-canvas:not([data-shell],.rich-editor)]:bg-transparent p-0.5',
 };
 
 type ToggleGroupItemAppearance = 'default' | 'selected-filter';
