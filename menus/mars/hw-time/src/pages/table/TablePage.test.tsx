@@ -95,6 +95,13 @@ beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); calls.length = 0; vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('HW Time table page', () => {
+  it('opts the raw table into the separate column-group choose view', async () => {
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    fireEvent.click(screen.getByRole('button', { name: '묶음 만들기' }));
+    expect(screen.getByRole('checkbox', { name: 'PM4 (초) 선택' })).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: 'PM4 (초)' })).toBeNull();
+  });
   it.each([
     ['', ['EquipmentID', ...MODULES.map(m => `${m} (초)`), '합계 (초)']],
     ['&moduleType=PM&drillMotion=Pump&drillModule=PM1', ['EquipmentID', '하위 항목', 'Pump (초)', '합계 (초)']],

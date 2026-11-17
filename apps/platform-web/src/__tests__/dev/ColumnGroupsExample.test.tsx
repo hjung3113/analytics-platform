@@ -9,6 +9,18 @@ import { EQUIPMENT_AXES } from '../../equipmentAxes';
 
 afterEach(cleanup);
 describe('column groups dev fixture', () => {
+  it('opts into editing the declared groups in the Columns popover', async () => {
+    const restore = stubCompactTableGeometry(1100);
+    try {
+      const assembly = await createAssembly({ registry }) as Assembly;
+      render(<I18nProvider><PlatformProvider adapter={assembly.adapter} registry={registry} equipmentAxes={EQUIPMENT_AXES}>{assembly.topBarTools}</PlatformProvider></I18nProvider>);
+      await userEvent.click(screen.getByRole('button', { name: '열 묶음 표 예시' }));
+      await screen.findByRole('columnheader', { name: '설비 A' });
+      await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
+      expect(screen.getByRole('button', { name: '묶음 만들기' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: '설비 A 메뉴' })).toBeTruthy();
+    } finally { cleanup(); restore(); }
+  });
   it('offers declared widths for A/B while C keeps label-only sizing', async () => {
     const restore = stubCompactTableGeometry(1100);
     try {
