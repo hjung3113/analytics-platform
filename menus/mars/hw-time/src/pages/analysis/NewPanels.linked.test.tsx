@@ -103,7 +103,7 @@ describe('real chart output and request boundaries', () => {
     expect(within(donut).getAllByText('상한 초과').length).toBeGreaterThan(0);
     expect(within(donut).getByText('1 건')).toBeTruthy();
     expect(within(donut).getByText('20%')).toBeTruthy();
-    const clear = screen.getByRole('button', { name: '판정: 상한 초과 ×' });
+    const clear = screen.getByRole('button', { name: '판정 상한 초과 필터 해제' });
     clear.focus(); expect(document.activeElement).toBe(clear);
     fireEvent.click(clear);
     await waitFor(() => expect(page().has('verdict')).toBe(false));
@@ -114,7 +114,7 @@ describe('real chart output and request boundaries', () => {
     expect(within(donut).getByText('20%')).toBeTruthy();
     await act(async () => { window.history.forward(); });
     await waitFor(() => expect(page().has('verdict')).toBe(false));
-    const dateClear = screen.getByRole('button', { name: '날짜: 09-20 ×' });
+    const dateClear = screen.getByRole('button', { name: '날짜 09-20 필터 해제' });
     dateClear.focus(); expect(document.activeElement).toBe(dateClear);
     fireEvent.click(dateClear);
     await waitFor(() => expect(page().has('date')).toBe(false));

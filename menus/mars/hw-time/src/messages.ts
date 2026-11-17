@@ -183,6 +183,7 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   boundHistory: { ko: 'HTM 기준 변경 이력', en: 'HTM bound history' },
   verdict: { ko: '판정', en: 'Verdict' },
   date: { ko: '날짜', en: 'Date' },
+  clearFilter: { ko: '{label} {value} 필터 해제', en: 'Clear {label} filter: {value}' },
   normal: { ko: '정상', en: 'Normal' },
   over: { ko: '상한 초과', en: 'Over upper limit' },
   under: { ko: '하한 미달', en: 'Under lower limit' },
