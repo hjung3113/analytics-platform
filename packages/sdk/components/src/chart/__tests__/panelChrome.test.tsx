@@ -42,6 +42,15 @@ describe('Panel chart chrome', () => {
     fireEvent.click(within(more).getByRole('button', { name: '같은 데이터를 표로 보기' }));
     expect(screen.getByRole('table')).toBeVisible();
   });
+  it('stacks the More tail so the table action and note take the popover width (#2460)', () => {
+    mount();
+    fireEvent.click(within(screen.getByRole('toolbar', { name: '차트 동작' })).getByRole('button', { name: '더보기' }));
+    const more = screen.getByRole('dialog');
+    const tail = more.querySelector('[data-chart-toolbar-tail]');
+    // A row here squeezed «같은 데이터를 표로 보기» beside Export and the note into one character per line.
+    expect(tail).toHaveClass('flex-col', 'w-full');
+    expect(tail).not.toHaveClass('items-center');
+  });
   it.each<ChartSpec>([
     { kind: 'heatmap', xLabels: ['A'], yLabels: ['B'], cells: [{ x: 'A', y: 'B', value: 2 }] },
     { kind: 'scatter', points: [{ id: 'a', x: 1, y: 2 }], xUnit: 's', xLabel: 'X', yLabel: 'Y' },

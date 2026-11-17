@@ -895,7 +895,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{m('chartCompare')}</Button>}
           {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? m('chartAnnotatePickScope') : selection ? undefined : m('chartAnnotateBrushFirst')} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{m('chartAnnotate')}</Button>}
         </div>
-        <div className="flex items-center gap-1" data-chart-toolbar-tail>
+        {/* In panel chrome this tail sits inside More: stack it so the table action and note take the popover width (#2460). */}
+        <div className={compactChrome ? 'flex w-full flex-col items-start gap-1' : 'flex items-center gap-1'} data-chart-toolbar-tail>
           {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{t('export')}</Button>}
           {!compactChrome && canExport && host.status !== '' && <span role="status" className="t-caption text-text-muted">{host.status}</span>}
           {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={compactChrome ? host.notify : undefined} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
