@@ -659,7 +659,7 @@ describe('a query the Kernel refused before sending (#2440)', () => {
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
     expect(banner).not.toHaveTextContent('서버 오류');
     expect(banner).not.toHaveClass('bg-accent-danger-soft');
-    expect(banner).toHaveTextContent('고른 커스텀 그룹을 쓸 수 없어 조회하지 않았습니다.');
+    expect(banner).toHaveTextContent('고른 커스텀 조회 그룹을 쓸 수 없어 조회하지 않았습니다.');
     expect(within(banner).queryByRole('button', { name: '다시 시도' })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
@@ -667,7 +667,7 @@ describe('a query the Kernel refused before sending (#2440)', () => {
   it('shows one widget as a notice without a retry, keeping the code in the technical detail', () => {
     const state = render(<Page><Widget q={query(blocked())} /></Page>).container;
     expect(state).not.toHaveTextContent('데이터를 불러오지 못했습니다');
-    expect(state).toHaveTextContent('고른 커스텀 그룹을 쓸 수 없어 조회하지 않았습니다.');
+    expect(state).toHaveTextContent('고른 커스텀 조회 그룹을 쓸 수 없어 조회하지 않았습니다.');
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
     expect(openDetail(state)).toHaveTextContent('gone-9 (not-found)');

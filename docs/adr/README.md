@@ -176,7 +176,7 @@
 | [0161](0161-form-field-hint-always-visible-render-function.md) | 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다 | Decided(2026-11-14, 소유자가 Opus(high) 리뷰에 위임, 되돌릴 수 있음) |
 | [0162](0162-inbound-links-destination-declares-object-kinds.md) | 들어오는 연결은 목적지 객체 종류 선언과 출발 목록 opt-in으로 표시한다 | Decided(2026-11-14, 소유자 위임 Opus 리뷰, 되돌릴 수 있음) |
 | [0163](0163-permission-groups-replace-role-levels-as-templates.md) | 역할 단계는 늘리지 않고, 이름 있는 권한 묶음(권한 그룹)을 템플릿으로 둔다 | Decided(2026-11-16) |
-| [0164](0164-target-picker-dialog-and-custom-groups.md) | 조회 대상은 한 대화창에서 축을 나란히 좁히고, 커스텀 그룹은 코어 서버에 저장해 조회 직전에 펼친다 | Decided(2026-11-16, 개념·배치·이름 소유자, 포트·저장 방식 레인, 되돌릴 수 있음) |
+| [0164](0164-target-picker-dialog-and-custom-groups.md) | 조회 대상은 한 대화창에서 축을 나란히 좁히고, 커스텀 조회 그룹은 코어 서버에 저장해 조회 직전에 펼친다 | Decided(2026-11-16, 개념·배치·이름 소유자, 포트·저장 방식 레인, 되돌릴 수 있음), 개정 2026-11-17(#2464, 소유자): 조회 대상 묶음 이름 «커스텀 조회 그룹» |
 | [0165](0165-workspace-per-step-panels-add-and-pin.md) | 작업 영역은 드릴 단계별 패널을 `persistKey`로 나누고, 패널 추가 목록과 고정(메뉴의 반복 page key)을 둔다 | Decided(2026-11-16, 고문·소유자 위임, 되돌릴 수 있음) — #2397 #2398 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.

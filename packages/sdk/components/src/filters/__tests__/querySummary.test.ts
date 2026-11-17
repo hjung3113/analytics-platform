@@ -21,7 +21,7 @@ describe('query summary values', () => {
 describe('custom group in the summary (#2390)', () => {
   it('labels the customGroup axis and never counts it outside a preset', () => {
     const g = { ...global, condition: { customGroup: ['g1'], vendor: ['V1'] } };
-    expect(querySummaryItems(g, { lang: 'ko' }).find(item => item.key === 'condition:customGroup')?.label).toBe('커스텀 그룹');
+    expect(querySummaryItems(g, { lang: 'ko' }).find(item => item.key === 'condition:customGroup')?.label).toBe('커스텀 조회 그룹');
     expect(presetOutsideAxes(g, { key: 'set', id: 'eq', presets: [{ id: 'eq', label: { ko: '설비 기준', en: 'Equipment' }, axes: [] }] })).toEqual(['vendor']);
   });
 });

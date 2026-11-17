@@ -60,15 +60,15 @@ it('shows readable custom groups first, applies their IDs, and labels the closed
   </PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
-  await waitFor(() => expect(within(dialog).getByRole('button', { name: /커스텀 그룹/ })).toBeVisible());
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: /커스텀 조회 그룹/ })).toBeVisible());
   await within(dialog).findByRole('table');
-  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 그룹', '제조사', '팀']);
-  fireEvent.click(within(dialog).getByRole('button', { name: /커스텀 그룹/ }));
+  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 조회 그룹', '제조사', '팀']);
+  fireEvent.click(within(dialog).getByRole('button', { name: /커스텀 조회 그룹/ }));
   await waitFor(() => expect(within(dialog).getByRole('checkbox', { name: 'Photo set' })).toBeInTheDocument());
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Photo set' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { customGroup: ['g1'] } });
-  await screen.findByRole('button', { name: /커스텀 그룹: Photo set/ });
+  await screen.findByRole('button', { name: /커스텀 조회 그룹: Photo set/ });
 });
 
 it('keeps a selected missing group visible and selected with its ID and a short Korean reason', async () => {
@@ -133,7 +133,7 @@ it('blocks nested custom-group rules with the required reason but allows checked
   await within(dialog).findByRole('table');
   await within(dialog).findByRole('checkbox', { name: 'Group Two' });
   expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeDisabled();
-  expect(within(dialog).getByRole('note')).toHaveTextContent('커스텀 그룹을 고른 조건은 고정으로만 저장');
+  expect(within(dialog).getByRole('note')).toHaveTextContent('커스텀 조회 그룹을 고른 조건은 고정으로만 저장');
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'E1 선택' }));
   expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeEnabled();
   fireEvent.click(within(dialog).getByRole('button', { name: '그룹으로 저장' }));
@@ -169,7 +169,7 @@ it('hides custom-group facets and saving when Condition is not editable', async 
   </PlatformProvider></I18nProvider>);
   fireEvent.click(await screen.findByRole('button', { name: '대상 전체' }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
-  expect(within(dialog).queryByRole('button', { name: /커스텀 그룹/ })).toBeNull();
+  expect(within(dialog).queryByRole('button', { name: /커스텀 조회 그룹/ })).toBeNull();
   expect(within(dialog).queryByRole('button', { name: '그룹으로 저장' })).toBeNull();
 });
 
@@ -203,7 +203,7 @@ it('preserves carried Context and preset-excluded axes, excludes their facets an
   expect(within(dialog).queryByRole('button', { name: /팀|Line|공정/ })).toBeNull();
   expect(await screen.findByRole('checkbox', { name: 'A' })).toBeChecked();
   expect(within(dialog).queryByRole('checkbox', { name: /E[12] 선택/ })).toBeNull();
-  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 그룹', '제조사']);
+  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 조회 그룹', '제조사']);
   fireEvent.click(within(dialog).getByRole('button', { name: 'B만 선택' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { maker: ['B'], team: ['T1'] } });
@@ -277,7 +277,7 @@ it('keeps global room and a roomNames Condition axis independent in facets, coun
   expect(screen.getByRole('checkbox', { name: 'A' })).toBeChecked();
   expect(screen.getByRole('group', { name: '공정' })).toHaveTextContent('PHOTO1대');
   expect(screen.getByRole('group', { name: '주입 축' })).toHaveTextContent('B1대');
-  expect(screen.getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 그룹', '공정', '주입 축']);
+  expect(screen.getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 조회 그룹', '공정', '주입 축']);
   expect(within(screen.getByRole('row', { name: 'E1' })).getAllByRole('cell').map(node => node.textContent)).toEqual(['E1', '', 'PHOTO', 'A']);
   fireEvent.click(screen.getByRole('button', { name: 'B만 선택' }));
   fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '취소' })[0]);
