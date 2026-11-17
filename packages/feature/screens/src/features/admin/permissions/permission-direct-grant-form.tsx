@@ -691,7 +691,7 @@ function DirectGrantFields({
           presets={(groups.data ?? []).map(group => {
             const candidates = systemCandidates.filter(candidate => presetSystem && group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem));
             const missing = group.capabilities.filter(capability => !candidates.some(candidate => candidate.capability === capability));
-            return { id: group.id, label: group.name, description: missing.length ? `${PERMISSION_GROUP_COPY.grantMissing}: ${missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}` : group.description ?? PERMISSION_GROUP_COPY.kind.operator, itemIds: candidates.map(candidateKey), onApply: () => setPresetOrigin(group.id) };
+            return { id: group.id, label: group.name, description: !presetSystem ? PERMISSION_GROUP_COPY.pickSystemFirst : missing.length ? `${PERMISSION_GROUP_COPY.grantMissing}: ${missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}` : group.description ?? PERMISSION_GROUP_COPY.kind.operator, itemIds: candidates.map(candidateKey), onApply: () => setPresetOrigin(group.id) };
           })}
           // The preview counts rows for the chosen system; before one is chosen it would read as «nothing to add».
           presetPreview={Boolean(presetSystem)}

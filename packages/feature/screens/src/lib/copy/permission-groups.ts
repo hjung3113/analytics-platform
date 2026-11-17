@@ -24,6 +24,7 @@ export const PERMISSION_GROUP_COPY = {
   requestTitle: '권한 요청', searchCapabilities: '권한 이름·설명 검색', noGrantCandidate: '이 대상에 부여할 수 없음', system: '시스템',
   batchFootnote: '승인한 권한은 한 줄씩 부여되고 이 권한 그룹이 출처로 남습니다.', source: '출처',
   batchAnswer: '추가 정보 보내기', answer: '추가 정보', answered: '추가 정보를 보냈습니다.',
+  pickSystemFirst: '누르면 시스템을 고른 뒤 이 그룹의 권한이 선택됩니다.',
   grantSystem: '권한 그룹에 적용할 시스템', selectSystem: '시스템 선택',
   kind: { operator: '운영자 권한 그룹', personal: '개인 권한 그룹' },
   tabs: { all: '전체', operator: '운영자', personal: '개인' },

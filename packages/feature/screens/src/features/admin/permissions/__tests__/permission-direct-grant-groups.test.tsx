@@ -29,7 +29,7 @@ it.each([false, true])('expands operator preset for a system, shows missing item
   const user = userEvent.setup();
   fireEvent.keyDown(screen.getByRole('combobox', { name: '대상자' }), { key: 'ArrowDown' });
   await user.click(await screen.findByRole('option', { name: /요청자/ }));
-  expect(await screen.findByRole('button', { name: '업무 조회' })).not.toHaveAccessibleDescription(/추가할 항목 없음/);
+  expect(await screen.findByRole('button', { name: '업무 조회' })).toHaveAccessibleDescription(/시스템을 고른 뒤/);
   await user.click(screen.getByRole('button', { name: '업무 조회' }));
   fireEvent.keyDown(screen.getByRole('combobox', { name: '권한 그룹에 적용할 시스템' }), { key: 'ArrowDown' });
   await user.click(screen.getByRole('option', { name: 'Alpha' }));
