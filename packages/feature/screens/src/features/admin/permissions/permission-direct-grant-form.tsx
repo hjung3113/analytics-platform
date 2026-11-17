@@ -85,6 +85,16 @@ function candidateKey(candidate: DirectGrantCandidate): string {
   return `${candidate.capability}|${candidate.managed_system_id ?? 'workspace'}`;
 }
 
+function presetScopeCandidates(candidates: DirectGrantCandidate[], capabilities: readonly string[], system: string) {
+  if (!system) return [];
+  return candidates.filter(candidate => {
+    if (!capabilities.includes(candidate.capability)) return false;
+    if (system === 'workspace') return candidate.managed_system_id === null;
+    if (candidate.managed_system_id === system) return true;
+    return candidate.managed_system_id === null && !candidates.some(item => item.capability === candidate.capability && item.managed_system_id !== null);
+  });
+}
+
 function actorOptionLabel(actor: {
   display_name: string;
   email: string;
@@ -485,7 +495,7 @@ function DirectGrantFields({
     return candidate ? [candidate] : [];
   });
   const selectedCandidate = selectedCandidates[0];
-  const originGroup = (groups.data ?? []).find(group => group.id === presetOrigin && selectedCandidates.length > 0 && selectedCandidates.every(candidate => group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem)));
+  const originGroup = (groups.data ?? []).find(group => group.id === presetOrigin && selectedCandidates.length > 0 && selectedCandidates.every(candidate => presetScopeCandidates(systemCandidates, group.capabilities, presetSystem).includes(candidate)));
   const batch = scopeGrant === null && (selectedCandidates.length > 1 || originGroup !== undefined);
   const overLimit = selectedCandidateKeys.length > PERMISSION_BATCH_MAX_ITEMS;
   const rejectedCandidate = rejectedPermissionItem(batchMutation.error, submittedCandidates);
@@ -684,12 +694,12 @@ function DirectGrantFields({
           setPresetSystem(system);
           const group = groups.data?.find(item => item.id === presetOrigin);
           if (!group) return;
-          const keys = systemCandidates.filter(candidate => group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === system) && !heldEntries.some(entry => entry.candidate === candidate)).map(candidateKey);
+          const keys = presetScopeCandidates(systemCandidates, group.capabilities, system).filter(candidate => !heldEntries.some(entry => entry.candidate === candidate)).map(candidateKey);
           setSelectedCandidateKeys(previous => [...new Set([...previous.filter(key => !group.capabilities.some(capability => key.startsWith(`${capability}|`))), ...keys])]);
         }} disabled={pending}><SelectTrigger id="grant-preset-system"><SelectValue placeholder={PERMISSION_GROUP_COPY.selectSystem} /></SelectTrigger><SelectContent><SelectGroup>{[...new Set(systemCandidates.map(candidate => candidate.managed_system_id ?? 'workspace'))].map(id => <SelectItem key={id} value={id}>{id === 'workspace' ? SCOPE_SELECTOR_COPY.workspaceAll : managedSystemNames[id] ?? PERMISSION_GROUP_COPY.system}</SelectItem>)}</SelectGroup></SelectContent></Select></label> : null}
         <GroupedSelectionList mode="multiple" density="compact" hideDisabled selectionSummary="chips"
           presets={(groups.data ?? []).map(group => {
-            const candidates = systemCandidates.filter(candidate => presetSystem && group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem));
+            const candidates = presetScopeCandidates(systemCandidates, group.capabilities, presetSystem);
             const missing = group.capabilities.filter(capability => !candidates.some(candidate => candidate.capability === capability));
             return { id: group.id, label: group.name, description: !presetSystem ? PERMISSION_GROUP_COPY.pickSystemFirst : missing.length ? `${PERMISSION_GROUP_COPY.grantMissing}: ${missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}` : group.description ?? PERMISSION_GROUP_COPY.kind.operator, itemIds: candidates.map(candidateKey), onApply: () => setPresetOrigin(group.id) };
           })}
@@ -713,7 +723,8 @@ function DirectGrantFields({
             setPeerReviewerAbsence('');
           }); }} />
           {presetSystem ? (groups.data ?? []).map(group => {
-            const missing = group.capabilities.filter(capability => !systemCandidates.some(candidate => candidate.capability === capability && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem)));
+            const candidates = presetScopeCandidates(systemCandidates, group.capabilities, presetSystem);
+            const missing = group.capabilities.filter(capability => !candidates.some(candidate => candidate.capability === capability));
             return missing.length ? <p key={group.id} className="text-xs text-text-secondary">{group.name}: {PERMISSION_GROUP_COPY.grantMissing}: {missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}</p> : null;
           }) : null}
         </div>

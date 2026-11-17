@@ -1,5 +1,4 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { submitMoreInfoPermissionRequestBatchResultSchema } from '@ap/feature-shared';
 import { configureApiClient } from '../client';
 import { fetchPermissionGroup, decidePermissionRequestBatch, submitMoreInfoPermissionRequestBatch } from '../permission-groups';
 
@@ -23,11 +22,15 @@ it('rejects malformed share-link ids before transport', async () => {
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it.each([200, 201, 204])('sends one answer and every revision and accepts successful status %s', async status => {
+it('sends one answer and every revision and accepts the documented result', async () => {
   const result = { batch_id: id, items: [{ id: row, status: 'pending', revision: 4 }] };
-  expect(submitMoreInfoPermissionRequestBatchResultSchema.parse(result)).toEqual(result);
-  const fetch = vi.fn().mockResolvedValue(new Response(status === 204 ? null : JSON.stringify(result), { status }));
+  const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(result), { status: 200 }));
   vi.stubGlobal('fetch', fetch);
-  await submitMoreInfoPermissionRequestBatch(id, { note: '回答', expected_revisions: { [row]: 3 } }, id);
+  await expect(submitMoreInfoPermissionRequestBatch(id, { note: '回答', expected_revisions: { [row]: 3 } }, id)).resolves.toEqual(result);
   expect(fetch).toHaveBeenCalledWith(`/permission-requests/batch/${id}/submit-more-info`, expect.objectContaining({ method: 'POST' }));
+});
+
+it.each([null, {}, { batch_id: id, items: [{ id: row, status: 'rejected' }] }])('rejects an absent or malformed supplement result %j', async result => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(result === null ? null : JSON.stringify(result), { status: result === null ? 204 : 200 })));
+  await expect(submitMoreInfoPermissionRequestBatch(id, { note: '回答', expected_revisions: { [row]: 3 } }, id)).rejects.toThrow();
 });

@@ -3,7 +3,7 @@ import {
   createPermissionGroupSchema, updatePermissionGroupSchema, sharePermissionGroupSchema,
   listPermissionGroupsQuerySchema, listPermissionGroupsResponseSchema, permissionGroupItemSchema,
   decidePermissionRequestBatchSchema, decidePermissionRequestBatchResultSchema,
-  submitMoreInfoPermissionRequestBatchSchema,
+  submitMoreInfoPermissionRequestBatchSchema, submitMoreInfoPermissionRequestBatchResultSchema,
   type ArchivePermissionGroup, type CreatePermissionGroup, type UpdatePermissionGroup,
   type SharePermissionGroup, type ListPermissionGroupsQuery, type DecidePermissionRequestBatch,
   type SubmitMoreInfoPermissionRequestBatch,
@@ -40,9 +40,7 @@ export async function decidePermissionRequestBatch(id: string, body: DecidePermi
   return (await apiRequest('POST', apiPath`/permissions/requests/batch/${id}/decide`, decidePermissionRequestBatchResultSchema, { body: decidePermissionRequestBatchSchema.parse(body), idempotencyKey })).data;
 }
 export async function submitMoreInfoPermissionRequestBatch(id: string, body: SubmitMoreInfoPermissionRequestBatch, idempotencyKey: string) {
-  // Any successful status completes the command; callers refetch canonical batch rows.
-  // The server response is submitMoreInfoPermissionRequestBatchResultSchema, not a decide result.
-  return (await apiRequest('POST', apiPath`/permission-requests/batch/${id}/submit-more-info`, (data: unknown) => data, { body: submitMoreInfoPermissionRequestBatchSchema.parse(body), idempotencyKey })).data;
+  return (await apiRequest('POST', apiPath`/permission-requests/batch/${id}/submit-more-info`, submitMoreInfoPermissionRequestBatchResultSchema, { body: submitMoreInfoPermissionRequestBatchSchema.parse(body), idempotencyKey })).data;
 }
 export function usePermissionGroups(query: ListPermissionGroupsQuery = {}, enabled = true) {
   return useQuery({ queryKey: [...permissionGroupsKey, query], queryFn: ({ signal }) => fetchPermissionGroups(query, signal), retry: false, enabled });

@@ -159,14 +159,16 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
   const declared = useDeclaredCapabilities();
   const requestableDeclared = declared.filter((item) => item.requestable);
   const takesManagedSystem = (capability: string) => !NO_MANAGED_SYSTEM.has(capability) && !isDeclaredCapabilityId(capability);
-  const systemCapabilities = capabilities.filter(takesManagedSystem);
+  // Held exclusions must not erase the group's chosen target or hide its control.
+  const systemCapabilities = (origin?.capabilities ?? capabilities).filter(takesManagedSystem);
   const showManagedSystem = !isScope && systemCapabilities.length > 0;
   const managedSystemOptional = systemCapabilities.every(capability => OPTIONAL_MANAGED_SYSTEM.has(capability));
   const overLimit = !isScope && capabilities.length > PERMISSION_BATCH_MAX_ITEMS;
   const activeSystems = (managedSystems.data?.items ?? []).filter((ms) => ms.archived_at === null);
-  const systemMissing = showManagedSystem && !managedSystemOptional && (managedSystemId === '' || managedSystemId === WORKSPACE_WIDE);
+  const requiresSelectedSystem = !isScope && capabilities.some(capability => takesManagedSystem(capability) && !OPTIONAL_MANAGED_SYSTEM.has(capability));
+  const systemMissing = requiresSelectedSystem && (managedSystemId === '' || managedSystemId === WORKSPACE_WIDE);
   const noSystemsAvailable =
-    showManagedSystem && !managedSystemOptional && activeSystems.length === 0;
+    requiresSelectedSystem && activeSystems.length === 0;
   const trimmedReason = reason.trim();
   const sentManagedSystemId =
     showManagedSystem && managedSystemId !== '' && managedSystemId !== WORKSPACE_WIDE
@@ -607,7 +609,7 @@ function MyRequests(): React.ReactElement {
                 {row.permission_group ? ` · ${PERMISSION_GROUP_COPY.origin(row.permission_group.name)}` : null}
               </p>
               <p className="line-clamp-2 text-sm text-text-primary">{row.reason}</p>
-              {row.batch_id && row.status === 'needs_more_info' ? <BatchMoreInfo batchId={row.batch_id} rows={list.data.requests.filter(item => item.batch_id === row.batch_id)} rowId={row.id} /> : null}
+              {row.batch_id && row.status === 'needs_more_info' ? <BatchMoreInfo batchId={row.batch_id} rowId={row.id} /> : null}
               {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} batch={Boolean(row.batch_id)} />}
               {OPEN_PERMISSION_REQUEST_STATUSES.has(row.status) &&
                 (confirmingId === row.id ? (
@@ -671,13 +673,16 @@ function MyRequests(): React.ReactElement {
   );
 }
 
-function BatchMoreInfo({ batchId, rows, rowId }: { batchId: string; rows: MinePermissionRequestRow[]; rowId: string }) {
+function BatchMoreInfo({ batchId, rowId }: { batchId: string; rowId: string }) {
   const [note, setNote] = React.useState('');
   const client = useQueryClient();
   const { notifySuccess } = useHostSeam();
+  const membership = useQuery({ queryKey: [...permissionRequestsMineKey, { status: 'open' }], queryFn: ({ signal }) => fetchPermissionRequestsMine({ signal }), retry: false });
+  const rows = (membership.data?.requests ?? []).filter(row => row.batch_id === batchId && row.status === 'needs_more_info');
+  const ready = !membership.isFetching && !membership.isError && rows.some(row => row.id === rowId);
   const { key } = useIdempotencyKey(JSON.stringify({ batchId, rows: rows.map(row => [row.id, row.revision]), note }));
-  const mutation = useMutation({ mutationFn: () => submitMoreInfoPermissionRequestBatch(batchId, { note: note.trim(), expected_revisions: Object.fromEntries(rows.filter(row => row.status === 'needs_more_info').map(row => [row.id, row.revision])) }, key), onSuccess: async () => { setNote(''); notifySuccess(PERMISSION_GROUP_COPY.answered); await client.invalidateQueries({ queryKey: permissionRequestsMineKey }); await client.invalidateQueries({ queryKey: ['permission-requests'] }); } });
-  return <div className="flex flex-col gap-2"><Label htmlFor={`batch-answer-${rowId}`}>{PERMISSION_GROUP_COPY.answer}</Label><Textarea id={`batch-answer-${rowId}`} value={note} maxLength={REASON_MAX} disabled={mutation.isPending} onChange={event => setNote(event.target.value)} /><Button disabled={mutation.isPending || !note.trim()} onClick={() => mutation.mutate()}>{PERMISSION_GROUP_COPY.batchAnswer}</Button>{mutation.isError ? <p role="alert">{mapUnknownError(mutation.error).message}</p> : null}</div>;
+  const mutation = useMutation({ mutationFn: () => submitMoreInfoPermissionRequestBatch(batchId, { note: note.trim(), expected_revisions: Object.fromEntries(rows.map(row => [row.id, row.revision])) }, key), onSuccess: async () => { setNote(''); notifySuccess(PERMISSION_GROUP_COPY.answered); await client.invalidateQueries({ queryKey: permissionRequestsMineKey }); await client.invalidateQueries({ queryKey: ['permission-requests'] }); }, onError: async error => { if (error instanceof ApiError && error.code === 'conflict.stale_write') await client.invalidateQueries({ queryKey: permissionRequestsMineKey }); } });
+  return <div className="flex flex-col gap-2"><Label htmlFor={`batch-answer-${rowId}`}>{PERMISSION_GROUP_COPY.answer}</Label><Textarea id={`batch-answer-${rowId}`} value={note} maxLength={REASON_MAX} disabled={mutation.isPending} onChange={event => setNote(event.target.value)} /><Button disabled={mutation.isPending || !note.trim() || !ready} onClick={() => { if (ready) mutation.mutate(); }}>{PERMISSION_GROUP_COPY.batchAnswer}</Button>{membership.isError ? <p role="alert">{HOME_PERMISSION_COPY.loadError}<Button onClick={() => void membership.refetch()}>{HOME_PERMISSION_COPY.retry}</Button></p> : null}{mutation.isError ? <p role="alert">{mapUnknownError(mutation.error).message}</p> : null}</div>;
 }
 
 // The latest admin question comes from the owner detail, fetched only for a row that asks for more information.

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { PermissionRequestsScreen } from '../PermissionRequestsScreen';
 import { SharePermissionGroupDialog } from '../../../admin/permissions/permission-group-parts';
 import { configureApiClient } from '../../../../lib/api/client';
@@ -13,6 +14,35 @@ function mount(node: React.ReactNode) {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>{node}</QueryClientProvider>);
 }
 afterEach(() => { vi.unstubAllGlobals(); configureApiClient({ basePath: '' }); });
+it('retains Alpha and a stable empty selection when every group member is held only in Alpha', async () => {
+  const system = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const checks: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes('declared-capabilities')) return json({ items: [] });
+    if (url.startsWith('/managed-systems')) return json({ items: [{ id: system, name: 'Alpha', archived_at: null }], total: 1 });
+    if (url === '/permission-groups') return json({ items: [{ ...group, capabilities: ['voc.read'] }] });
+    if (url.startsWith('/me/permissions/check')) {
+      checks.push(url);
+      // Bound a broken feedback loop while leaving its unwanted workspace check observable.
+      if (checks.length > 4) throw new Error('Repeated catalog check');
+      return json({ state: 'request_access', decision: { allow: url.includes(system) } });
+    }
+    if (url === '/permission-requests/mine?status=all') return json({ requests: [] });
+    throw new Error(url);
+  }));
+  mount(<PermissionRequestsScreen />);
+  fireEvent.click(await screen.findByRole('radio', { name: /조회 권한/ }));
+  const systemPicker = await screen.findByRole('combobox', { name: /시스템/ });
+  fireEvent.keyDown(systemPicker, { key: 'ArrowDown' });
+  await userEvent.click(await screen.findByRole('option', { name: 'Alpha' }));
+  await screen.findByText(/빠짐:.*이미 가짐/);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(screen.getByRole('combobox', { name: /시스템/ })).toHaveTextContent('Alpha');
+  expect(checks).toHaveLength(2);
+  const picker = screen.getByLabelText('기능', { selector: 'div[tabindex="-1"]' });
+  expect(within(picker).getAllByRole('checkbox').filter(item => item.hasAttribute('aria-labelledby') && item.getAttribute('aria-checked') === 'true')).toHaveLength(0);
+});
 it('catalog fills the existing picker, shows only missing capabilities and sends a one-item group batch', async () => {
   const calls: { url: string; body: unknown }[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -94,6 +124,39 @@ it('does not overwrite a manual picker edit with an in-flight catalog result', a
   expect(onPick).not.toHaveBeenCalled();
 });
 
+it('hydrates all open batch revisions when the 50-row history splits a batch and refreshes after conflict', async () => {
+  const first = { ...ownerDetailFixture('needs_more_info'), batch_id: group.id };
+  const second = { ...first, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', revision: 8 };
+  const newer = Array.from({ length: 49 }, (_, index) => ({ ...ownerDetailFixture(), id: `dddddddd-dddd-4ddd-8ddd-${String(index).padStart(12, '0')}`, status: 'approved' }));
+  const posts: unknown[] = [];
+  let conflicted = false;
+  const openRead = vi.fn(() => json({ requests: [first, { ...second, revision: conflicted ? 9 : 8 }] }));
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('declared-capabilities') || url === '/permission-groups') return json({ items: [] });
+    if (url.startsWith('/managed-systems')) return json({ items: [], total: 0 });
+    if (url === '/permission-requests/mine?status=all') return json({ requests: [...newer, first] });
+    if (url === '/permission-requests/mine') return openRead();
+    if (url.endsWith('/submit-more-info')) {
+      posts.push(JSON.parse(String(init?.body)));
+      conflicted = true;
+      return new Response(JSON.stringify({ code: 'conflict.stale_write', message: 'stale' }), { status: 409 });
+    }
+    if (url.includes('/permission-requests/')) return json(first);
+    throw new Error(url);
+  }));
+  mount(<PermissionRequestsScreen />);
+  fireEvent.change(await screen.findByLabelText('추가 정보'), { target: { value: '답변입니다' } });
+  fireEvent.click(screen.getByRole('button', { name: '추가 정보 보내기' }));
+  await waitFor(() => expect(posts).toHaveLength(1));
+  expect(posts[0]).toEqual({ note: '답변입니다', expected_revisions: { [first.id]: 7, [second.id]: 8 } });
+  await waitFor(() => expect(openRead).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole('button', { name: '추가 정보 보내기' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: '추가 정보 보내기' }));
+  await waitFor(() => expect(posts).toHaveLength(2));
+  expect(posts[1]).toEqual({ note: '답변입니다', expected_revisions: { [first.id]: 7, [second.id]: 9 } });
+});
+
 it('keeps requester batch members separate with per-row withdrawal and answers once for all revisions', async () => {
   const first = { ...ownerDetailFixture('needs_more_info'), batch_id: group.id, permission_group: { id: group.id, name: group.name } };
   const second = { ...first, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', requested_capability: 'workspace.read', revision: 8 };
@@ -105,7 +168,8 @@ it('keeps requester batch members separate with per-row withdrawal and answers o
     if (url.startsWith('/managed-systems')) return json({ items: [], total: 0 });
     if (url === '/permission-groups') return json({ items: [] });
     if (url === '/permission-requests/mine?status=all') return json({ requests: [first, second].map(row => ({ ...row, status: answered ? 'pending' : 'needs_more_info' })) });
-    if (url.endsWith('/submit-more-info')) { answered = true; return new Response(null, { status: 204 }); }
+    if (url === '/permission-requests/mine') return json({ requests: [first, second] });
+    if (url.endsWith('/submit-more-info')) { answered = true; return json({ batch_id: group.id, items: [first, second].map(row => ({ id: row.id, status: 'pending', revision: row.revision + 1 })) }); }
     if (url.includes('/permission-requests/')) return json(first);
     throw new Error(url);
   }));

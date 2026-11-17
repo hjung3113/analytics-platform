@@ -18,6 +18,7 @@ import type { ApprovePermissionRequest, PermissionDecisionResult } from '@ap/fea
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const permissionRequestsReviewKey = ['permission-requests', 'review'] as const;
+type ReviewDecisionResult = PermissionDecisionResult & { reviewRevisions?: Record<string, number> };
 
 export interface DecidePermissionRequestArgs {
   batch?: { id: string; revisions: Record<string, number>; approveIds: string[] };
@@ -35,8 +36,8 @@ export interface DecidePermissionRequestArgs {
 export function useDecidePermissionRequest(
   onSettled?: (succeeded: boolean) => void,
   onStale?: () => void,
-  onSucceeded?: (result: PermissionDecisionResult) => void,
-): UseMutationResult<PermissionDecisionResult, ApiError, DecidePermissionRequestArgs> {
+  onSucceeded?: (result: ReviewDecisionResult) => void,
+): UseMutationResult<ReviewDecisionResult, ApiError, DecidePermissionRequestArgs> {
   const queryClient = useQueryClient();
   const { notify } = useHostNotice();
 
@@ -62,10 +63,12 @@ export function useDecidePermissionRequest(
           ...(selfApproval ? { self_approval: selfApproval } : {}),
           ...(grantedManagedSystemId !== undefined ? { granted_managed_system_id: grantedManagedSystemId } : {}),
         }, idempotencyKey);
-        const fresh = await fetchPermissionRequestAdminDetail(id);
+        const members = await Promise.all(Object.keys(batch.revisions).map(memberId => fetchPermissionRequestAdminDetail(memberId)));
+        const fresh = members.find(item => item.id === id);
+        if (!fresh) throw new Error('Batch response omitted the selected request');
         const outcome = result.items.find(item => item.id === id);
         if (!outcome) throw new Error('Batch response omitted the selected request');
-        return { id, revision: fresh.revision, status: outcome.status, updated_at: fresh.updated_at };
+        return { id, revision: fresh.revision, status: outcome.status, updated_at: fresh.updated_at, reviewRevisions: Object.fromEntries(members.map(item => [item.id, item.revision])) };
       }
       return decidePermissionRequest(
         id,

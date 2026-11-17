@@ -8,6 +8,41 @@ import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { PermissionRequestDetail } from './permission-request-detail';
 
+type ReviewMember = { id: string; revision: number };
+export function usePermissionReviewState(members: ReviewMember[]) {
+  const revisionKey = members.map(item => `${item.id}:${item.revision}`).sort().join('|');
+  const [staleReview, setStaleReview] = React.useState(false);
+  const [draft, setDraft] = React.useState<{
+    key: string; nonEmpty: boolean; reason: string;
+  } | null>(null);
+  const [discardedReason, setDiscardedReason] = React.useState<string | null>(null);
+  const [ownDecision, setOwnDecision] = React.useState<Record<string, number> | null>(null);
+  const onDraftChanged = React.useCallback((next: { revision: number; nonEmpty: boolean; reason: string }) => {
+    setDraft({ ...next, key: revisionKey });
+  }, [revisionKey]);
+  if (draft && draft.key !== revisionKey) {
+    // Member queries may settle separately. Only exact revisions returned by this panel's decision,
+    // or still-unrefreshed members from its draft, belong to that successful transition.
+    const previousMembers = new Set(draft.key.split('|'));
+    const ownRevision = ownDecision !== null && members.length === previousMembers.size && members.every(item =>
+      ownDecision[item.id] !== undefined && (ownDecision[item.id] === item.revision || previousMembers.has(`${item.id}:${item.revision}`)));
+    if (draft.nonEmpty && !ownRevision) setDiscardedReason(draft.reason);
+    setDraft(null);
+  }
+  return {
+    revisionKey,
+    ...(staleReview ? { staleNotice: true } : {}),
+    ...(discardedReason !== null ? { discardedReason } : {}),
+    onDraftChanged,
+    onStaleConflict: () => {
+      setStaleReview(true);
+      if (draft?.nonEmpty) setDiscardedReason(draft.reason);
+    },
+    onDecisionSucceeded: (result: ReviewMember & { reviewRevisions?: Record<string, number> }) => setOwnDecision(result.reviewRevisions ?? { [result.id]: result.revision }),
+    onActionPicked: () => { setStaleReview(false); setDiscardedReason(null); },
+  };
+}
+
 export function SelectedPermissionRequestDetail({
   id,
   actorNames,
@@ -28,35 +63,8 @@ export function SelectedPermissionRequestDetail({
     retry: false,
     staleTime: 0,
   });
-  // Draft identity is ID + revision only: an unchanged background refetch must
-  // not remount the form. A stale conflict latches an inline notice above the
-  // keyed form until the Admin picks a new action — the refetch remount would
-  // otherwise lose the transient form-level alert and the toast fades.
-  const [staleReview, setStaleReview] = React.useState(false);
-  const [draft, setDraft] = React.useState<{
-    revision: number;
-    nonEmpty: boolean;
-    reason: string;
-  } | null>(null);
-  const [discardedReason, setDiscardedReason] = React.useState<string | null>(null);
-  // The revision this panel's own successful decision produced (from the decision response). It is
-  // kept past mutation settle, until another revision replaces it, so the detail refetch that lands
-  // after settle is still recognised as ours; any other revision change is a change made elsewhere.
-  const [ownDecision, setOwnDecision] = React.useState<{ id: string; revision: number } | null>(
-    null,
-  );
-  const onDraftChanged = React.useCallback(
-    (next: { revision: number; nonEmpty: boolean; reason: string }) => setDraft(next),
-    [],
-  );
   const detail = query.data;
-  // Preserve the old reason outside the keyed form before its revision reset.
-  // Same-revision reads leave both the form and its intent key untouched.
-  if (detail && draft && draft.revision !== detail.revision) {
-    const ownRevision = ownDecision?.id === id && ownDecision.revision === detail.revision;
-    if (draft.nonEmpty && !ownRevision) setDiscardedReason(draft.reason);
-    setDraft(null);
-  }
+  const { revisionKey, ...review } = usePermissionReviewState(detail ? [detail] : []);
   if (query.isError || !detail || !query.isFetchedAfterMount) {
     if (renderDetail) {
       return renderDetail({
@@ -94,7 +102,7 @@ export function SelectedPermissionRequestDetail({
   }
   return (
     <PermissionRequestDetail
-      key={`${id}:${detail.revision}`}
+      key={revisionKey}
       request={detail}
       actorName={detail.requester.display_name || actorNames[detail.requester_actor_id]}
       managedSystemNames={managedSystemNames}
@@ -103,15 +111,7 @@ export function SelectedPermissionRequestDetail({
           ? managedSystemNames[detail.requested_managed_system_id]
           : undefined
       }
-      {...(staleReview ? { staleNotice: true } : {})}
-      {...(discardedReason !== null ? { discardedReason } : {})}
-      onDraftChanged={onDraftChanged}
-      onStaleConflict={() => setStaleReview(true)}
-      onDecisionSucceeded={setOwnDecision}
-      onActionPicked={() => {
-        setStaleReview(false);
-        setDiscardedReason(null);
-      }}
+      {...review}
       onClose={onClose}
       {...(renderDetail ? { renderDetail } : {})}
     />

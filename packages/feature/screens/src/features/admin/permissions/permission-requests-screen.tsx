@@ -65,7 +65,7 @@ export function PermissionRequestsScreen({
       : {}),
   }));
 
-  const detail = selected?.batch_id ? <PermissionRequestBatchDetail id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
+  const detail = selected?.batch_id ? <PermissionRequestBatchDetail key={selected.batch_id} id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
     <SelectedPermissionRequestDetail
       key={selected.id}
       id={selected.id}

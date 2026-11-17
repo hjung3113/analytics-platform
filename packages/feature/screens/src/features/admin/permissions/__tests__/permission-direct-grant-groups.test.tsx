@@ -14,6 +14,32 @@ const group = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: '업무 조회
 const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); configureApiClient({ basePath: '' }); });
 
+it('applies a dual-scope survey preset only to the selected system', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.startsWith('/actors')) return json({ actors: [{ id: actor, display_name: '요청자', actor_type: 'human', role_level: 'user', email: '' }] });
+    if (url === '/permission-groups?kind=operator') return json({ items: [{ ...group, capabilities: ['survey.export'] }] });
+    if (url.includes('grant-options')) return json({ recipient: { id: actor, display_name: '요청자', role_level: 'user' }, self_policy: 'allowed', self_approval_required: false, candidates: [
+      { capability: 'survey.export', managed_system_id: null, governance_required: false, preflight: { state: 'available' } },
+      { capability: 'survey.export', managed_system_id: system, governance_required: false, preflight: { state: 'available' } },
+    ] });
+    throw new Error(url);
+  }));
+  render(<QueryClientProvider client={new QueryClient()}><PermissionDirectGrantForm open selectionContext="test" managedSystemNames={{ [system]: 'Alpha' }} activeGrants={[]} cacheReturnedGrant={vi.fn()} onOpenChange={vi.fn()} onCreated={vi.fn()} /></QueryClientProvider>);
+  const user = userEvent.setup();
+  fireEvent.keyDown(screen.getByRole('combobox', { name: '대상자' }), { key: 'ArrowDown' });
+  await user.click(await screen.findByRole('option', { name: /요청자/ }));
+  await user.click(await screen.findByRole('button', { name: '업무 조회' }));
+  fireEvent.keyDown(screen.getByRole('combobox', { name: '권한 그룹에 적용할 시스템' }), { key: 'ArrowDown' });
+  await user.click(screen.getByRole('option', { name: 'Alpha' }));
+  expect(within(screen.getByRole('group', { name: '부여 권한 및 범위' })).getAllByRole('checkbox').filter(item => item.hasAttribute('aria-labelledby') && item.getAttribute('aria-checked') === 'true')).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText('사유 · 필수'), { target: { value: '업무에 필요합니다' } });
+  expect(screen.getByRole('button', { name: '권한 부여' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: '권한 부여' }));
+  await waitFor(() => expect(mutations.batch).toHaveBeenCalled());
+  expect(mutations.batch.mock.calls[0]?.[0].body.items).toEqual([{ capability: 'survey.export', managed_system_id: system }]);
+});
+
 it.each([false, true])('expands operator preset for a system, shows missing items, and clears attribution on manual edit=%s', async manual => {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
