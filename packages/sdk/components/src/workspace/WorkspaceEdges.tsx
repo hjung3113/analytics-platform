@@ -27,7 +27,7 @@ export function WorkspaceEdges({ edge, items, label, peekId, onPeek }: {
     event.preventDefault(); event.stopPropagation();
   };
   return <TooltipProvider delayDuration={200}><div role="toolbar" aria-label={label} aria-orientation={vertical ? 'vertical' : 'horizontal'} data-workspace-edge={edge}
-    className={vertical ? 'flex w-9 shrink-0 flex-col items-center gap-1 border-r border-border-subtle py-1' : 'flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-border-subtle'} onKeyDown={keydown}>
+    className={vertical ? 'flex w-9 shrink-0 flex-col items-center gap-1 border-r border-border-subtle py-1' : 'flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-border-subtle p-1'} onKeyDown={keydown}>
     {items.map(item => {
       const Icon = item.icon;
       const text = item.summary ? `${item.title} · ${item.summary}` : item.title;

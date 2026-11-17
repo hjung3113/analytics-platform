@@ -1316,7 +1316,7 @@ describe('PanelWorkspace: minimize (#2359)', () => {
     const chip = screen.getByRole('button', { name: '선택기 · PM 6/6 · Motion 4/4' });
     expect(chip).toHaveTextContent('선택기 · PM 6/6 · Motion 4/4');
     await waitFor(() => { expect(chip).toHaveFocus(); });
-    expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
     await userEvent.click(chip);
     await settle();
     await waitFor(() => { expect(document.querySelector('[data-dock-panel="selector"]')).not.toBeNull(); });
@@ -1325,10 +1325,10 @@ describe('PanelWorkspace: minimize (#2359)', () => {
     await waitFor(() => { expect(screen.getByRole('tab', { name: /선택기/ })).toHaveFocus(); });
   });
 
-  it('a legacy minimize declaration without summary shows its title only when hidden from the ⋯ menu', async () => {
+  it('a legacy minimize declaration without summary shows its title only when collapsed from the ⋯ menu', async () => {
     mountWorkspace({ panels: minimizable() });
     await ready();
-    await chooseFromMenu('선택기 동작', '숨기기');
+    await chooseFromMenu('선택기 동작', '위로 접기');
     expect(await screen.findByRole('button', { name: '선택기' })).toHaveTextContent(/^선택기$/);
   });
 });
@@ -1358,6 +1358,60 @@ describe('PanelWorkspace: toolbarActions (#2416)', () => {
 describe('PanelWorkspace: edges, peek and float (#2435)', () => {
   const edge = (id: string) => document.querySelector<HTMLElement>(`[data-workspace-edge-panel="${id}"]`)!;
   const floating = (id: string) => document.querySelector(`[data-dock-floating="${id}"]`);
+  it.each([
+    { width: 800, compactBelow: undefined, expectedGroups: 1 },
+    { width: 600, compactBelow: 0, expectedGroups: 4 },
+    { width: 1000, compactBelow: 1100, expectedGroups: 1 },
+  ])('compactBelow=$compactBelow preserves its projection at $width independently of edges', async ({ width, compactBelow, expectedGroups }) => {
+    mountWorkspace({ compactBelow }); await ready();
+    observer.resize(width); await settle();
+    await waitFor(() => expect(groups()).toHaveLength(expectedGroups));
+    expect(document.querySelector('[data-dock-narrow]')).toHaveAttribute('data-dock-narrow', String(expectedGroups === 1));
+    expect(written()).toEqual([]);
+  });
+  it.each(['pin', 'close'] as const)('direct floating %s cannot steal focus from the next group menu', async action => {
+    mountWorkspace(); await ready();
+    await chooseFromMenu('선택기 동작', '띄우기');
+    await userEvent.click(screen.getByRole('button', { name: action === 'pin' ? '고정해서 펼치기' : '접기' }));
+    await waitFor(() => expect(floating('selector')).toBeNull());
+    await settle();
+    const trigger = screen.getByRole('button', { name: '추세 동작' });
+    await userEvent.click(trigger);
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(trigger).toHaveFocus());
+    await settle();
+    expect(trigger).toHaveFocus();
+  });
+  it('only plain hidden panels appear in the hidden list; narrow width includes edge panels again', async () => {
+    mountWorkspace(); await ready();
+    await chooseFromMenu('선택기 동작', '왼쪽으로 접기');
+    await chooseFromMenu('상세 동작', '위로 접기');
+    expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
+    await chooseFromMenu('지표 동작', '숨기기');
+    expect(edge('kpi')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: '숨긴 패널 1' }));
+    expect(screen.getByRole('menuitem', { name: '지표 다시 보기' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /선택기 다시 보기|상세 다시 보기/ })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    observer.resize(691); await settle();
+    expect(screen.getByRole('button', { name: '숨긴 패널 3' })).toBeEnabled();
+  });
+  it('plain hide removes a stacked row without adding an edge strip or another workspace gap', async () => {
+    mountWorkspace({ initialMode: 'stack', presets: [{ id: 'rows', label: { ko: '줄', en: 'Rows' }, layout: { type: 'branch', dir: 'column', sizes: [1, 1, 1], children: [group(['trend', 'selector']), group(['kpi']), group(['detail'])] } }], initialPreset: 'rows' });
+    await ready();
+    await waitFor(() => expect(document.querySelectorAll('[data-dock-row-separator]')).toHaveLength(3));
+    const before = Array.from(document.querySelectorAll('[data-dock-row-separator]')).map(el => Number(el.getAttribute('aria-valuenow')));
+    await chooseFromMenu('상세 동작', '숨기기');
+    expect(Array.from(document.querySelectorAll('[data-dock-row-separator]')).map(el => Number(el.getAttribute('aria-valuenow')))).toEqual(before.slice(0, 2));
+    expect(document.querySelector('[data-workspace-edge]')).toBeNull();
+    expect(document.querySelector('[data-dock-rows]')).toHaveStyle({ '--dock-rows-box': `${before[0]! + before[1]! + 6}px` });
+  });
+  it('top edge keeps its focus indicator inside the scroll clip', async () => {
+    mountWorkspace(); await ready();
+    await chooseFromMenu('선택기 동작', '위로 접기');
+    // Button owns a 2px ring with a 2px offset: leave 4px inside the scrolling toolbar on every side.
+    expect(edge('selector').closest('[data-workspace-edge="top"]')).toHaveClass('p-1');
+  });
   it.each(['왼쪽으로 접기', '위로 접기'])('%s unmounts; peek, pin and float keep queries and parent zoom/legend state', async action => {
     function Stateful() {
       // Query ownership survives collapse just like zoom/legend ownership; a panel receives the Kernel answer.

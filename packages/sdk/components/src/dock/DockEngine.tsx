@@ -72,6 +72,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
   const panel = engine.panels.get(id);
   const content = useRef<HTMLDivElement>(null);
   const fitPeek = engine.floating?.peekId === id;
+  const peekHeightFloor = engine.floating?.peekHeightFloor ?? PEEK_HEIGHT;
   useLayoutEffect(() => {
     const element = content.current;
     if (!fitPeek || !element) return;
@@ -79,12 +80,12 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (api.location.type !== 'floating') return;
       const natural = element.getBoundingClientRect().height;
       const available = (element.closest('[data-dock-layout]')?.getBoundingClientRect().height ?? 0) - PEEK_TOP;
-      if (natural > 0 && available > 0) api.group.api.setSize({ height: Math.min(PEEK_HEIGHT, available, Math.ceil(natural) + HEADER_HEIGHT) });
+      if (available > 0) api.group.api.setSize({ height: Math.min(PEEK_HEIGHT, available, Math.max(peekHeightFloor, Math.ceil(natural) + HEADER_HEIGHT)) });
     };
     const observer = new ResizeObserver(fit);
     observer.observe(element); fit();
     return () => { observer.disconnect(); };
-  }, [api, fitPeek, engine.reconciles]);
+  }, [api, fitPeek, peekHeightFloor, engine.reconciles]);
   return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
     onFocus={event => {
       // Focus moving into the panel from outside it is the user choosing the panel. Not: focus the dock itself moved, or an event of a nested
@@ -197,6 +198,8 @@ export default function DockEngine({
   containerRef, instanceId, rows, floating,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
+  const apiRef = useRef(api);
+  useLayoutEffect(() => { apiRef.current = api; }, [api]);
   const [epoch, setEpoch] = useState(0);
   // Counts real reconciles (`fromJSON` drops the engine's maximize, even when only titles or minimum sizes changed).
   const [reconciles, setReconciles] = useState(0);
@@ -257,6 +260,8 @@ export default function DockEngine({
     if (event.kind !== 'edge' && event.group?.panels.some(panel => live.current.floating?.panels.some(item => item.panelId === panel.id))) return true;
     // A temporary peek stays hidden until its explicit pin action restores its place.
     if (data?.panelId && data.panelId === live.current.floating?.peekId) return true;
+    const source = data?.groupId ? apiRef.current?.getGroup(data.groupId) : undefined;
+    if (source?.panels.some(panel => panel.id === live.current.floating?.peekId)) return true;
     // A dragged whole group has no panel id: it keeps the engine's behaviour.
     if (!judge || !data?.panelId) return false;
     const target = event.kind === 'edge' ? undefined : event.group;
@@ -664,7 +669,7 @@ export default function DockEngine({
     <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions} leftHeaderActionsComponent={GroupTabsEnd}
         onReady={onReady} onWillDrop={onWillDrop} theme={dockTheme(prefersReducedMotion())} dndEdges={dockDndEdges} dropOverlayModel={dockDropOverlayModel} defaultRenderer="always" singleTabMode="fullwidth"
-        disableFloatingGroups floatingGroupBounds="boundedWithinViewport" disableDnd={!interactive} announcements={false} />
+        disableFloatingGroups floatingGroupBounds="boundedWithinViewport" floatingGroupDragHandle={floating ? 'tabbar' : undefined} disableDnd={!interactive} announcements={false} />
     </div>
     {stripShown && <div ref={strip} data-dock-drop-below
       className={`${tabDrag ? 'sticky bottom-0 z-20 ' : ''}mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}>{rows?.dropBelowLabel}</div>}

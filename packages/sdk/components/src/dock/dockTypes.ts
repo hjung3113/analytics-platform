@@ -6,6 +6,8 @@ import type { DockNode, DockFloatingPanel } from './schema';
 export type DockFloating = {
   panels: readonly DockFloatingPanel[];
   peekId?: string;
+  /** Minimum outer peek height, including its single tabbar; still capped by available space and 440px. */
+  peekHeightFloor?: number;
   onChange: (panels: DockFloatingPanel[], tree: DockNode) => void;
   onDismissPeek: () => void;
 };

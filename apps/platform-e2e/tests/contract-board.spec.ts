@@ -1062,6 +1062,49 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
   /** Requests the cycle endpoints took, counted by the mock server's marks (export excluded). */
   const cycleRequests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
     .filter(entry => /^analytics\.cycle\.(kpi|trend|dist|slow)$/.test(String((entry as PerformanceMark).detail?.endpoint))).length);
+  test('가장자리 접기·펼쳐 보기·Esc와 띄우기 재로드 (#2435)', async ({ page }, testInfo) => {
+    await page.goto(CYCLE);
+    await workspaceReady(page);
+    const root = page.locator('[data-panel-workspace]');
+    const summaryMenu = () => workspace(page).getByRole('button', { name: `${TITLES.summary} 동작`, exact: true });
+    await summaryMenu().click();
+    await page.getByRole('menuitem', { name: '왼쪽으로 접기', exact: true }).click();
+    const rail = root.locator('[data-workspace-edge="left"]').getByRole('button', { name: new RegExp(`^${TITLES.summary}( ·|$)`) });
+    await expect(rail).toBeVisible();
+    await expect(rail.locator('svg')).toHaveCount(1);
+    await expect(rail).toHaveAttribute('aria-expanded', 'false');
+    await rail.click();
+    const peek = workspace(page).locator('[data-dock-floating="summary"]');
+    await expect(peek).toBeVisible();
+    await expect(rail).toHaveAttribute('aria-expanded', 'true');
+    // Measure the outer floating window, including any engine-owned header, rather than just panel content.
+    const peekBox = () => peek.evaluate(element => (element.closest('.dv-resize-container') ?? element).getBoundingClientRect().toJSON() as { top: number; height: number });
+    await expect.poll(async () => (await peekBox()).height).toBeGreaterThanOrEqual(200);
+    const primaryHeader = groupOf(page, TITLES.trend).locator('.dv-tabs-and-actions-container');
+    const header = (await primaryHeader.boundingBox())!;
+    await expect.poll(async () => (await peekBox()).height).toBeLessThanOrEqual(440 + header.height);
+    await expect.poll(async () => (await peekBox()).top).toBeGreaterThanOrEqual(header.y + header.height);
+    await evidence(page, testInfo, 'workspace-left-peek-2435');
+    await page.keyboard.press('Escape');
+    await expect(peek).toHaveCount(0);
+    await expect(rail).toBeFocused();
+    // The collapsed panel's menu is in its peek header.
+    await rail.click();
+    await summaryMenu().click();
+    await page.getByRole('menuitem', { name: '띄우기', exact: true }).click();
+    await expect(rail).toHaveCount(0);
+    await expect(peek).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Object.entries(localStorage)
+      .filter(([key]) => /^platform:workspace:v1:.+:cycle-time:drilldown$/.test(key))
+      .some(([, value]) => (JSON.parse(value) as { floating?: { panelId: string }[] }).floating?.some(panel => panel.panelId === 'summary')))).toBe(true);
+    await page.reload();
+    await expect(workspace(page)).toBeVisible();
+    await expect(peek).toBeVisible();
+    await expect(peek.getByRole('button', { name: '고정해서 펼치기', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(peek).toBeVisible();
+    await evidence(page, testInfo, 'workspace-float-reloaded-2435');
+  });
   /** The plot the user sees: the canvas box clipped by every scrolling or clipping ancestor (a canvas can be taller than the window it sits in). */
   const visiblePlotBox = (page: Page) => workspace(page).getByRole('region', { name: TITLES.trend, exact: true }).locator('canvas').first().evaluate(canvas => {
     const box = canvas.getBoundingClientRect();

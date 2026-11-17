@@ -171,7 +171,8 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   const shown = currentPanelId !== undefined && known.has(currentPanelId) ? currentPanelId : stackedChoice;
   const display = useMemo(() => (narrow ? stackedTree(layout, shown, panels.map(panel => panel.id)) : layout), [narrow, layout, shown, panels]);
   const maximized = !narrow && maximizedPanelId !== null && known.has(maximizedPanelId) ? maximizedPanelId : null;
-  const floating = narrow ? undefined : props.floating;
+  // Workspace edges have their own breakpoint; a compact dock can still host a peek above that edge breakpoint.
+  const floating = props.floating;
   const visible = useMemo(() => new Set([...visiblePanelIds(display, maximized), ...(floating?.panels.map(panel => panel.panelId) ?? [])]), [display, maximized, floating]);
 
   const activate = useCallback((panelId: string) => {

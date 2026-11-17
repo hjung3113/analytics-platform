@@ -135,6 +135,9 @@ const FLOAT_SMALL = { width: 560, height: 440 };
 const FLOAT_LARGE = { width: 760, height: 560 };
 const FLOAT_INSET = 8;
 const PEEK_TOP = 48;
+/** Body fallback for fill-height content, plus the workspace's single panel header. */
+const PEEK_BODY_FLOOR = 200;
+const PEEK_HEADER_HEIGHT = 42;
 
 /** Development-only diagnostics; production renders on with the repair rules of the state. */
 function useDevChecks(props: PanelWorkspaceProps) {
@@ -349,12 +352,17 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     });
   }, [stackActive, storedRows, visible]);
 
+  const isFloating = (id: string) => panels.find(panel => panel.id === id)?.float !== false && state.floating?.some(panel => panel.panelId === id);
+  const edgeOf = (id: string) => {
+    const edge = state.collapsed?.[id];
+    return !edgesNarrow && edge && edges.includes(edge) && panels.find(panel => panel.id === id)?.collapse !== false && !isFloating(id) ? edge : null;
+  };
   const shape = JSON.stringify({
     narrow,
     stack: stored.mode === 'stack',
     presets: presets.map(preset => [preset.id, tx(preset.label)]),
     current: state.preset,
-    hidden: state.hidden.filter(id => edgesNarrow || panels.find(panel => panel.id === id)?.float === false || !state.floating?.some(panel => panel.panelId === id)).map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning', null]),
+    hidden: state.hidden.filter(id => edgesNarrow || (!edgeOf(id) && !isFloating(id))).map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning', null]),
   });
   const commands = useMemo<readonly WorkspaceCommand[]>(() => {
     const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string, string | null, boolean, string | null][] };
@@ -430,6 +438,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
   }, [activePeek, dismissPeek]);
   const floatingPanels = edgesNarrow ? [] : [...(state.floating ?? []).filter(item => panels.find(panel => panel.id === item.panelId)?.float !== false), ...(activePeek ? [activePeek] : [])];
+  const peekPanel = panels.find(panel => panel.id === activePeek?.panelId);
+  const peekHeightFloor = Math.max(PEEK_BODY_FLOOR, peekPanel?.preferredHeight ?? 0, peekPanel?.minHeight ?? 0) + PEEK_HEADER_HEIGHT;
   const dockPanels: DockPanel[] = panels.filter(panel => shown.includes(panel.id) || floatingPanels.some(item => item.panelId === panel.id)).map(panel => ({
     id: panel.id, title: tx(panel.title), minWidth: panel.minWidth, minHeight: panel.minHeight,
     render: () => <InWorkspacePanelProvider value>{panel.render()}</InWorkspacePanelProvider>,
@@ -540,9 +550,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       const rect = fitSlot.current?.querySelector('[data-dock-layout]')?.getBoundingClientRect();
       return { width: rect?.width || FLOAT_LARGE.width, height: rect?.height || FLOAT_LARGE.height };
     };
-    const collapse = (edge: PanelEdge) => {
+    const collapse = (edge: PanelEdge, { fromMenu }: { fromMenu: boolean }) => {
       setPeek(null); setMaximized(null);
-      closeFocus.current = () => { focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-edge-panel="${id}"]`)); };
+      const focusEdge = () => { focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-edge-panel="${id}"]`)); };
+      if (fromMenu) closeFocus.current = focusEdge;
+      else focusEdge();
       layoutChange(current => collapsePanel(current, id, primaryId, edge));
     };
     const float = () => {
@@ -553,7 +565,6 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     };
     const pinOpen = () => {
       setPeek(null);
-      closeFocus.current = () => { focusTab(id); };
       update(current => showPanel(current, id, primaryId, presets.find(preset => preset.id === current.preset) ?? presets[0]!));
       focusTab(id);
     };
@@ -566,12 +577,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
-        left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left'); } : undefined,
-        top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top'); } : undefined,
+        left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
+        top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top', { fromMenu: true }); } : undefined,
         float: panel?.float !== false && (!floating || activePeek?.panelId === id) ? float : undefined,
         overlay: floating ? {
           pin: pinOpen,
-          close: activePeek?.panelId === id ? dismissPeek : () => { collapse(state.collapsed?.[id] ?? 'top'); focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-edge-panel="${id}"]`)); },
+          close: activePeek?.panelId === id ? dismissPeek : () => { collapse(state.collapsed?.[id] ?? 'top', { fromMenu: false }); },
           position: activePeek?.panelId === id ? undefined : place => {
             const size = area(); changeBox(place === 'top-left' ? { x: FLOAT_INSET, y: FLOAT_INSET } : { x: (size.width - floating.width) / 2, y: (size.height - floating.height) / 2 });
           },
@@ -586,12 +597,18 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         setMaximized(null);
         const next = hidePanel(state, id, primaryId);
         closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
-        layoutChange(current => hidePanel(current, id, primaryId));
+        layoutChange(current => {
+          const next = hidePanel(current, id, primaryId);
+          // Explicit hide chooses the hidden list instead of the remembered edge destination.
+          const collapsed = { ...next.collapsed };
+          delete collapsed[id];
+          return { ...next, collapsed };
+        });
       }}
       />;
   };
 
-  const edgeItems = (edge: PanelEdge) => edgesNarrow || !edges.includes(edge) ? [] : panels.filter(panel => state.hidden.includes(panel.id) && panel.collapse !== false && (panel.float === false || !state.floating?.some(item => item.panelId === panel.id)) && (state.collapsed?.[panel.id] ?? 'top') === edge)
+  const edgeItems = (edge: PanelEdge) => panels.filter(panel => state.hidden.includes(panel.id) && edgeOf(panel.id) === edge)
     .map(panel => ({ id: panel.id, title: titleOf(panel.id), summary: summaryOf(panel.id), icon: panel.icon }));
   const openPeek = (id: string, trigger: HTMLElement) => {
     if (activePeek?.panelId === id) { dismissPeek(); return; }
@@ -612,7 +629,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div ref={fitSlot} className="min-h-0 min-w-0 flex-1">
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
-          floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
+          floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, peekHeightFloor, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
             return { ...current, floating: next, hidden: [...new Set([...current.hidden.filter(id => !returned.includes(id)), ...next.map(panel => panel.panelId)])], layout: tree };
           }); } }}
@@ -621,7 +638,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions}
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
-          narrow={compactSpec ? false : edgesNarrow} />
+          narrow={compactSpec ? false : narrow} />
       </div>
       </div>
     </div>
