@@ -51,6 +51,8 @@ export type PanelRecipe = {
 };
 
 const same = (id: string): Text => ({ ko: id, en: id });
+/** Own entries only: a declared id such as `constructor` must never pick up an inherited property. */
+const own = (words: Readonly<Record<string, Text>> | undefined, id: string): Text | undefined => words && Object.hasOwn(words, id) ? words[id] : undefined;
 const CHART_PIECES = (piece: string) => piece === 'AnalysisChart' || piece.startsWith('AnalysisChart:') || piece === 'AnalysisChartFrame';
 const F = {
   add: { ko: '패널 추가', en: 'Add panel' }, pin: { ko: '고정', en: 'Pin' }, hide: { ko: '숨기기', en: 'Hide' }, layout: { ko: '배치 저장', en: 'Saved layout' },
@@ -67,7 +69,7 @@ const F = {
  */
 export function panelRecipe({ panel, menu, context, host, labels = {}, shape, code }: PanelRecipeInput): PanelRecipe {
   const keys = labels.keys ?? {};
-  const key = (id: string): PanelRecipeKey => ({ key: id, label: (Object.hasOwn(CONTEXT_LABELS, id) ? CONTEXT_LABELS[id as keyof typeof CONTEXT_LABELS] : keys[id]) ?? same(id) });
+  const key = (id: string): PanelRecipeKey => ({ key: id, label: own(CONTEXT_LABELS, id) ?? own(keys, id) ?? same(id) });
   const pieces = panel.pieces ?? [];
   const chart = pieces.some(CHART_PIECES);
   const required = (panel.queryInputs.page ?? []).filter(input => input.required).map(input => key(input.key).label);
@@ -78,11 +80,11 @@ export function panelRecipe({ panel, menu, context, host, labels = {}, shape, co
   return {
     panel,
     shape: shape ?? same('—'),
-    data: { endpoints: panel.endpoints.map(endpoint => endpoint.id), grain: labels.grains?.[panel.grain] ?? same(panel.grain), inputs: [...(panel.queryInputs.context ?? []), ...(panel.queryInputs.page ?? []).map(input => input.key)].map(key) },
+    data: { endpoints: panel.endpoints.map(endpoint => endpoint.id), grain: own(labels.grains, panel.grain) ?? same(panel.grain), inputs: [...(panel.queryInputs.context ?? []), ...(panel.queryInputs.page ?? []).map(input => input.key)].map(key) },
     pieces,
     follows: {
       inputs: (panel.displayInputs.page ?? []).map(input => key(input.key)),
-      outputs: panel.outputs.map(output => ({ ...key(output.key), action: labels.actions?.[output.action] ?? same(output.action) })),
+      outputs: panel.outputs.map(output => ({ ...key(output.key), action: own(labels.actions, output.action) ?? same(output.action) })),
     },
     condition: { declared, now: disabledReason(panel, context, keys) },
     ...(code ? { code } : {}),

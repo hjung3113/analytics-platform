@@ -50,6 +50,22 @@ describe('panelRecipe', () => {
   });
 });
 
+describe('panelRecipe ids that name object properties', () => {
+  it('shows the id itself for keys, grains and actions without an own label, and renders', () => {
+    const odd: MenuEntry = { ...menu, id: 'odd', path: '/odd', pageKeys: ['constructor', 'mark'], panels: [
+      { id: 'odd', title: { ko: '이상', en: 'Odd' }, queryInputs: { page: [{ key: 'constructor', required: true }] }, displayInputs: {}, outputs: [{ key: 'mark', action: 'toString' }], grain: 'constructor', endpoints: [{ ...endpoint, menuId: 'odd' }], pieces: ['QueryView'] },
+    ], primary: false };
+    const oddRegistry = createRegistry({ spaces: [{ ...testSpace(), homeMenuId: 'samples' }], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [menu, odd] });
+    const recipe = panelRecipe({ panel: oddRegistry.panels('odd')[0]!, menu: odd, context: {}, host, labels: { grains: {}, actions: {} } });
+    expect(recipe.data.inputs[0]!.label).toEqual({ ko: 'constructor', en: 'constructor' });
+    expect(recipe.data.grain).toEqual({ ko: 'constructor', en: 'constructor' });
+    expect(recipe.follows.outputs[0]!.action).toEqual({ ko: 'toString', en: 'toString' });
+    expect(recipe.condition.now).toEqual({ ko: 'constructor', en: 'constructor' });
+    render(<I18nProvider><PanelRecipeBack recipe={recipe} onClose={() => {}} /></I18nProvider>);
+    expect(screen.getByText(/constructor 필요/)).toBeTruthy();
+  });
+});
+
 describe('PanelRecipeBack and PanelRecipeFrame', () => {
   it('leaves the code line out of the summary when the menu gives no counts', () => {
     render(<I18nProvider><PanelRecipeBack recipe={panelRecipe({ panel: panel('chart'), menu, context: {}, host })} onClose={() => {}} /></I18nProvider>);

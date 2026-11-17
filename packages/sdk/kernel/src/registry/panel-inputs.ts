@@ -11,9 +11,11 @@ function contextFields(key: ContextKey | 'scopeId', context: Readonly<Record<str
   const applies = (key === 'condition' && context.condition != null) || (key === 'prcGroup' && context.prcGroups != null);
   return applies ? [...fields, 'membershipBasis'] : fields;
 }
+/** Own entries only, so a page key such as `constructor` never reads an inherited property. */
+const ownValue = (record: Readonly<Record<string, unknown>>, key: string): unknown => Object.hasOwn(record, key) ? record[key] : undefined;
 function project<I extends PanelInputs, C extends Record<string, unknown>>(inputs: I, context: C): Pick<C, Extract<InputKey<I>, keyof C>> {
   const keys = [...new Set([...(inputs.context ?? []).flatMap(key => contextFields(key, context)), ...(inputs.page ?? []).map(input => input.key)])];
-  return Object.fromEntries(keys.filter(key => context[key] !== undefined).map(key => [key, context[key]])) as Pick<C, Extract<InputKey<I>, keyof C>>;
+  return Object.fromEntries(keys.filter(key => ownValue(context, key) !== undefined).map(key => [key, context[key]])) as Pick<C, Extract<InputKey<I>, keyof C>>;
 }
 /** 조회 입력: only declared inputs participate in the panel input identity. */
 export function projectQueryInputs<I extends PanelInputs, C extends Record<string, unknown>>(declaration: { readonly queryInputs: I }, context: C) {
@@ -31,12 +33,12 @@ function present(value: unknown): boolean {
  */
 export function disabledReason(declaration: Pick<PanelDeclaration, 'queryInputs' | 'availability'>, context: Readonly<Record<string, unknown>>, labels: Readonly<Record<string, Text>> = {}): Text | undefined {
   if (declaration.availability) {
-    const missing = declaration.availability.requires.some(requirement => !requirement.anyOf.some(key => present(context[key])));
+    const missing = declaration.availability.requires.some(requirement => !requirement.anyOf.some(key => present(ownValue(context, key))));
     return missing ? declaration.availability.disabledReason : undefined;
   }
-  const missing = declaration.queryInputs.page?.filter(input => input.required && !present(context[input.key])) ?? [];
+  const missing = declaration.queryInputs.page?.filter(input => input.required && !present(ownValue(context, input.key))) ?? [];
   if (!missing.length) return undefined;
-  const names = missing.map(input => labels[input.key] ?? { ko: input.key, en: input.key });
+  const names = missing.map(input => (Object.hasOwn(labels, input.key) ? labels[input.key] : undefined) ?? { ko: input.key, en: input.key });
   return { ko: names.map(label => label.ko).join(', '), en: names.map(label => label.en).join(', ') };
 }
 function canonical(value: unknown): unknown {

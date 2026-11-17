@@ -7,6 +7,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
+import { disabledReason, projectQueryInputs } from '../panel-inputs';
 import { carrySetId, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, spaceId, type SpaceDef } from '@ap/contracts';
 
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
@@ -908,6 +909,14 @@ describe('panel registration (#2433)', () => {
   it('derives query labels and falls back to key names', () => {
     const registry = createRegistry({ spaces, groups, menus: [{ ...catalog, pageKeys: ['focus', 'other'], context: { ...none, time: 'apply' }, query: { mode: 'apply', required: { page: [{ key: 'focus', label: { ko: '초점', en: 'Focus' } }] } }, panels: [{ ...panel, queryInputs: { page: [{ key: 'focus', required: true }, { key: 'other', required: true }] }, displayInputs: {}, outputs: [] }] }] });
     expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: '초점, other', en: 'Focus, other' });
+  });
+  it('never reads inherited properties for page keys named like object members', () => {
+    const odd = { ...panel, queryInputs: { page: [{ key: 'constructor', required: true }] }, displayInputs: {}, outputs: [] };
+    const registry = createRegistry({ spaces, groups, menus: [{ ...catalog, pageKeys: ['constructor'], panels: [odd] }] });
+    expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: 'constructor', en: 'constructor' });
+    expect(disabledReason(odd, {}, {})).toEqual({ ko: 'constructor', en: 'constructor' });
+    expect(projectQueryInputs(odd, {})).toEqual({});
+    expect(projectQueryInputs(odd, { constructor: 'a' })).toEqual({ constructor: 'a' });
   });
   it('allows capability names, derived override keys and opaque S2 metadata; deduplicates permissions', () => {
     const registry = build([{ ...panel, queryInputs: { context: ['scopeId', 'time'] }, endpoints: [{ ...panel.endpoints[0], permission: catalog.permission }], availability: { requires: [{ anyOf: ['step4'] }], disabledReason: { ko: '4단계', en: 'Step 4' } }, pieces: ['opaque'], version: { future: true } }]);
