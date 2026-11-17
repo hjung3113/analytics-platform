@@ -76,7 +76,7 @@ export function RichEditorToolbar({ editor, surface, attach, onAttachError, stic
     finally { picking.current = false; setPending(false); }
   }} />, overflow: afterClose => <DropdownMenuItem inset disabled={disabled || pending} onSelect={() => afterClose(() => { root.current?.querySelector<HTMLInputElement>('[data-testid="rich-toolbar-attach-input"]')?.click(); })}>첨부 파일 추가</DropdownMenuItem> });
   if (has('mention')) row2.push(icon('mention', '멘션', AtSign, () => { editor.chain().focus().insertContent('@').run(); }, 3));
-  return <div ref={root} className="sticky top-(--rich-editor-toolbar-offset,0px) z-10 border-b border-border-subtle bg-surface-canvas break-keep" style={stickyOffset === undefined ? undefined : { '--rich-editor-toolbar-offset': typeof stickyOffset === 'number' ? `${stickyOffset}px` : stickyOffset } as React.CSSProperties} role="toolbar" aria-label="본문 서식" data-rich-toolbar="" {...roving}>
+  return <div ref={root} data-canvas-band className="sticky top-(--rich-editor-toolbar-offset,0px) z-10 border-b border-border-subtle bg-surface-canvas break-keep" style={stickyOffset === undefined ? undefined : { '--rich-editor-toolbar-offset': typeof stickyOffset === 'number' ? `${stickyOffset}px` : stickyOffset } as React.CSSProperties} role="toolbar" aria-label="본문 서식" data-rich-toolbar="" {...roving}>
     <ToolbarRow row={1} controls={row1} /><div aria-hidden className="mx-2 border-t border-border-subtle" /><ToolbarRow row={2} controls={row2} />
     {attachError && <p role="alert" className="px-2 text-xs text-text-danger-label">첨부 파일을 올리지 못했습니다. 다시 시도해 주세요.</p>}
   </div>;

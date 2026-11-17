@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { createPortal } from 'react-dom';
 import { describe, expect, it } from 'vitest';
 import { ListShell } from '../ListShell';
+import { ShellHeader } from '../ShellHeader';
 
 /** Actions that render elsewhere (a host-owned primary action portals into the page header). */
 function PortaledAction() {
@@ -27,5 +28,16 @@ describe('ListShell toolbar', () => {
     const { container } = render(<ListShell toolbar={{ title: 'Inbox', actions: <button type="button">Sort</button> }} list={<p>rows</p>} />);
     expect(header(container)).not.toHaveClass('has-[[data-shell-header-actions]:empty]:hidden');
     expect(header(container)).toHaveTextContent('Inbox');
+  });
+});
+
+// #2482: toolbars and shell heads are canvas bands their owner marks; the detail-panel header is not.
+describe('canvas band marker', () => {
+  it('marks the toolbar and the tab row, not a drawer header', () => {
+    const { container } = render(<ListShell toolbar={{ title: 'Inbox' }} tabs={<span>tabs</span>} list={<p>rows</p>} />);
+    expect(header(container)).toHaveAttribute('data-canvas-band');
+    expect(container.querySelector('[data-list-shell-tabs]')).toHaveAttribute('data-canvas-band');
+    const drawer = render(<ShellHeader variant="drawer" title="Detail" />).container.querySelector('[data-shell-header="drawer"]');
+    expect(drawer).not.toHaveAttribute('data-canvas-band');
   });
 });

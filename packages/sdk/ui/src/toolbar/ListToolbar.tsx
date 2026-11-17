@@ -46,6 +46,7 @@ export function ListToolbar({
         className,
       )}
       data-list-toolbar
+      data-canvas-band=""
     >
       {hasMain && (
         <div

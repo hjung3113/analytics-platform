@@ -150,7 +150,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
           <ChevronDown className="size-3.5 shrink-0 text-text-muted" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" className="w-[22rem]">
+      <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" aria-label={t('period')} className="w-[22rem]">
         {compact && <div className="mb-3">{presetsControl}</div>}
         <CustomRange onDone={() => setOpen(false)} />
       </PopoverContent>

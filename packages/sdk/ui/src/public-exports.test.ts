@@ -42,7 +42,7 @@ const PUBLIC_EXPORTS = [
   // Domain-neutral parts retained from FeedbackOps in #443 (ADR-0046); ADR-0050 returned the coupled parts.
   // Rich content restored by ADR-0052.
   'RichEditor', 'AttachButton', 'RichContentRenderer', 'AttachmentRef', 'Mention',
-  'SeverityIndicator', 'ProgressMeter', 'UserAvatar', 'UserChip', 'ObjectRow', 'PermissionBlockedPanel',
+  'SeverityIndicator', 'ProgressMeter', 'UserAvatar', 'UserChip', 'ObjectRow', 'RowSelectionBar', 'PermissionBlockedPanel',
   // Opened for the feature screens' `@ap/feature-ui` thin re-export (its consumer; ADR-0046). `TabsListBase`/`TabsTriggerBase` are the unwrapped shadcn tabs.
   'AlertDialog', 'AlertDialogAction', 'AlertDialogCancel', 'AlertDialogContent', 'AlertDialogDescription', 'AlertDialogFooter', 'AlertDialogHeader', 'AlertDialogOverlay', 'AlertDialogPortal', 'AlertDialogTitle', 'AlertDialogTrigger',
   'Avatar', 'AvatarFallback', 'AvatarImage',

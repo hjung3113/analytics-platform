@@ -32,6 +32,7 @@ export function ShellHeader({ title, subtitle, actions, variant = 'default', cla
         className,
       )}
       data-shell-header={variant}
+      data-canvas-band={variant === 'drawer' ? undefined : ''}
       data-toolbar-height="50"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">

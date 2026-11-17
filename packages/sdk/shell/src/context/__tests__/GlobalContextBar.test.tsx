@@ -76,6 +76,7 @@ describe('Global Context priority overflow (#56)', () => {
   it('uses an opaque canvas band and the shared period-control transparency rule', () => {
     mount();
     expect(bar()).toHaveClass('bg-surface-canvas', 'backdrop-blur');
+    expect(bar()).toHaveAttribute('data-canvas-band');
     expect(bar()).not.toHaveClass('bg-surface-canvas/95');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveClass('bg-surface-card', 'on-canvas-band:bg-transparent');
@@ -83,6 +84,12 @@ describe('Global Context priority overflow (#56)', () => {
     const filled = Array.from(bar().querySelectorAll('.bg-surface-card'));
     expect(filled.length).toBeGreaterThan(1);
     for (const el of filled) expect(el).toHaveClass('on-canvas-band:bg-transparent');
+  });
+
+  it('names the period editor dialog after the period (#2487, WCAG 4.1.2)', async () => {
+    mount();
+    fireEvent.click(within(bar()).getByRole('button', { name: /^기간:/ }));
+    expect(await screen.findByRole('dialog', { name: '기간' })).toBeInTheDocument();
   });
 
   it('uses badge typography for capability tags', () => {

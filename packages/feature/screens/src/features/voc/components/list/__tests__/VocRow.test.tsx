@@ -44,9 +44,9 @@ describe('<VocRow>', () => {
     // Hover must not cover the selected surface (#2485).
     expect(screen.getByRole('row')).toHaveClass(selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover');
     expect(screen.getByRole('row').classList.contains('hover:bg-surface-row-hover')).toBe(!selected);
-    for (const meta of [screen.getByText('Area').parentElement, screen.getByLabelText('첨부 2개')]) {
-      expect(meta).toHaveClass('group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
-    }
+    expect(screen.getByRole('row')).toHaveAttribute('data-list-row');
+    expect(screen.getByRole('row').hasAttribute('data-selected')).toBe(selected);
+    for (const meta of [screen.getByText('Area').parentElement, screen.getByLabelText('첨부 2개')]) expect(meta).toHaveClass('row-meta');
   });
   it.each([false, true])('keeps the VOC number unbroken (permissionLimited=%s)', (permissionLimited) => {
     render(<VocRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} managedSystem={null} permissionLimited={permissionLimited} />);

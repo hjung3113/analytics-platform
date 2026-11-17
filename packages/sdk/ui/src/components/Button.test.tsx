@@ -31,8 +31,9 @@ it('limits secondary transparency to canvas bands rather than whole-page shells'
   expect(getByRole('button')).not.toHaveClass('in-[.bg-surface-canvas]:bg-transparent');
 });
 
-// #2456 review C1: the rich editor wrapper paints canvas but is not a band; its floating selection toolbar sits on a popover.
-it('treats a page band and the editor toolbar as bands but not the rich editor wrapper', () => {
+// #2482 (v0.41 review-quality Q7): a band is what its owner marks `data-canvas-band`; a canvas-coloured inset that is not a
+// band (a well inside a card, a sticky footer, the rich editor wrapper, the page shell) keeps its controls' fill.
+it('treats only marked bands as canvas bands', () => {
   const { getByRole } = render(<Button variant="secondary">Bold</Button>);
   expect(getByRole('button')).toHaveClass('on-canvas-band:bg-transparent');
   const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../styles/compat.css'), 'utf8');
@@ -43,9 +44,12 @@ it('treats a page band and the editor toolbar as bands but not the rich editor w
     return host.querySelector('button')!.closest(band);
   };
   expect(nearestBand('<div class="rich-editor bg-surface-canvas"><div class="bg-surface-popover"><button>B</button></div></div>')).toBeNull();
-  expect(nearestBand('<div class="rich-editor bg-surface-canvas"><div class="bg-surface-canvas"><button>B</button></div></div>')).not.toBeNull();
+  expect(nearestBand('<div class="rich-editor bg-surface-canvas"><div data-canvas-band class="bg-surface-canvas"><button>B</button></div></div>')).not.toBeNull();
   expect(nearestBand('<div data-shell class="bg-surface-canvas"><section class="bg-surface-card"><button>B</button></section></div>')).toBeNull();
-  expect(nearestBand('<div data-shell class="bg-surface-canvas"><header class="bg-surface-canvas"><button>B</button></header></div>')).not.toBeNull();
+  expect(nearestBand('<div data-shell class="bg-surface-canvas"><header data-canvas-band class="bg-surface-canvas"><button>B</button></header></div>')).not.toBeNull();
+  // The inset wells the old «canvas ancestor minus exclusions» rule caught.
+  expect(nearestBand('<section class="bg-surface-card"><div class="rounded-md bg-surface-canvas p-3"><button>B</button></div></section>')).toBeNull();
+  expect(nearestBand('<div class="sticky bottom-0 bg-surface-canvas border-t"><button>B</button></div>')).toBeNull();
 });
 
 it('does not add the canvas-band override to primary buttons', () => {

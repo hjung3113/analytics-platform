@@ -57,6 +57,8 @@ describe('모델 프로파일 sections', () => {
     await screen.findByRole('heading', { level: 1, name: 'Alpha 100' }, slow);
     const nav = screen.getByRole('navigation', { name: '섹션 이동' });
     expect(within(nav).getAllByRole('button').map(b => b.textContent)).toEqual(['모델 요약', 'SW 버전', '모델 공통 Item', 'Top View']);
+    // A sticky control row on the canvas is a canvas band (#2482 Q7): its controls follow the band surface.
+    expect(nav.getAttribute('data-canvas-band')).toBe('');
     const summary = section('모델 요약');
     for (const label of ['모델 코드', '설비사', '공정', '상태', '등록 시각', '변경 시각']) expect(within(summary).getByText(label)).toBeTruthy();
     expect(within(summary).getByText(instantText('2026-10-01T00:00:00.000Z'))).toBeTruthy();

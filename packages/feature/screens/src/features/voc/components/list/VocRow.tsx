@@ -30,7 +30,7 @@ import {
   SeverityBadge,
   UnassignedBadge,
 } from '../../../../ui/index';
-import { type AvatarUser, UserAvatar, cn } from '@ap/ui';
+import { type AvatarUser, RowSelectionBar, UserAvatar, cn } from '@ap/ui';
 import { Paperclip } from 'lucide-react';
 import type * as React from 'react';
 
@@ -108,6 +108,8 @@ export function VocRow({
     <div
       role="row"
       aria-selected={selected}
+      data-list-row=""
+      data-selected={selected ? '' : undefined}
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={handleKeyDown}
@@ -125,21 +127,15 @@ export function VocRow({
         className,
       )}
     >
-      {/* LEFT EDGE BAR — selected row only, 3px accent; severity is named by the badge. */}
-      {selected && (
-        <div
-          data-testid="voc-row-left-bar"
-          aria-hidden="true"
-          className="absolute inset-y-0 left-0 w-0.5 bg-border-selected"
-        />
-      )}
+      {/* LEFT EDGE BAR — selected row only, the shared 2px selection bar; severity is named by the badge. */}
+      {selected && <RowSelectionBar data-testid="voc-row-left-bar" />}
 
       {/* TITLE + META column */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
         {permissionLimited === true ? (
           // Permission-limited peek: display_id + status only
           <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-            <span className={cn('font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')} title={voc.display_id}>{voc.display_id}</span>
+            <span className="row-meta font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
             <ReporterStatusBadge status={voc.reporter_facing_status} />
           </div>
         ) : (
@@ -151,7 +147,7 @@ export function VocRow({
               <span className="min-w-0 flex-1 font-medium text-text-primary truncate">{voc.title}</span>
               {voc.attachment_count > 0 && (
                 <span
-                  className={cn('inline-flex items-center gap-1 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs font-medium shrink-0 group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}
+                  className="row-meta inline-flex items-center gap-1 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs font-medium shrink-0"
                   aria-label={`첨부 ${voc.attachment_count}개`}
                 >
                   <Paperclip className="h-2.5 w-2.5" aria-hidden="true" />
@@ -159,7 +155,7 @@ export function VocRow({
                 </span>
               )}
             </div>
-            <div className={cn('flex items-center gap-2 text-xs overflow-hidden group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
+            <div className="row-meta flex items-center gap-2 text-xs overflow-hidden">
               <ReporterStatusBadge status={voc.reporter_facing_status} />
               {voc.severity != null && !reporterView && <SeverityBadge severity={voc.severity} />}
               {managedSystem !== null && managedSystem !== undefined && (
@@ -193,7 +189,7 @@ export function VocRow({
           {showOwnerMissing && ownerMissing ? (
             <UnassignedBadge tone={unassignedBadgeTone ?? 'danger'} />
           ) : voc.owner_team_id != null ? (
-            <span className={cn('text-xs group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
+            <span className="row-meta text-xs">
               {RESPONSIBILITY_COPY.teamMark} · {ownerTeamName ?? `팀 ${shortId(voc.owner_team_id)}`}
             </span>
           ) : owner !== null && owner !== undefined ? (

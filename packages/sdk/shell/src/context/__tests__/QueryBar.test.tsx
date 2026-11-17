@@ -30,6 +30,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 it('edits a page/global draft without URL writes, counts raw keys, applies once and does not use legacy evaluation', async () => {
   const push = mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(document.querySelector('[data-query-bar]')).toHaveAttribute('data-canvas-band');
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   const room = screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ });
   expect(room).toHaveAttribute('aria-invalid', 'true');

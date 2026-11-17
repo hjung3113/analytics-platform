@@ -95,6 +95,7 @@ export { ProgressMeter, type ProgressMeterProps } from './indicators/ProgressMet
 export { UserAvatar, type UserAvatarProps, type AvatarUser } from './identity/UserAvatar';
 export { UserChip, type UserChipProps } from './identity/UserChip';
 export { ObjectRow, type ObjectRowProps, type ObjectRowDensity, type ObjectRowSeverity } from './data/ObjectRow';
+export { RowSelectionBar } from './data/RowSelectionBar';
 export { PermissionBlockedPanel, type PermissionBlockedPanelProps, type PermissionState } from './permissions/PermissionBlockedPanel';
 
 // Feature-screen consumption surface (#466, ADR-0046): names the feature screens' `@ap/feature-ui` exports that the platform itself does not use yet.

@@ -37,6 +37,7 @@ export function SurveyResultHeader({
         'border-b border-border-subtle bg-surface-canvas px-5',
       ].join(' ')}
       data-shell-header="toolbar"
+      data-canvas-band=""
       data-testid="survey-result-header"
       data-toolbar-height="50"
     >

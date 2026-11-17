@@ -42,6 +42,8 @@ describe('PlatformPage fill head disclosure (#680)', () => {
     expect(title).toHaveClass('t-section-title', 'text-text-primary', 'truncate');
     expect(title).not.toHaveClass('text-sm');
     expect(title.closest('header')).toHaveClass('h-[50px]', 'items-center');
+    // The sticky head (title row, Context and query bars) is one canvas band (#2482).
+    expect(title.closest('[data-page-sticky-header]')).toHaveAttribute('data-canvas-band');
   });
   it('starts collapsed: the expand button points at the mounted, hidden head content and the extension keeps its state', () => {
     mount();

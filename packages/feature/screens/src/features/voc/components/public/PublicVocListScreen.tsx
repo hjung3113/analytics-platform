@@ -14,7 +14,7 @@ import { useCommittedSearchDraft } from '../../../../lib/useCommittedSearchDraft
 import { ManagedSystemPill, ReporterStatusBadge } from '../../../../ui/index';
 import {
   Button, EmptyState, ListToolbar, SearchInput, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-  ToggleGroup, ToggleGroupItem, cn,
+  RowSelectionBar, ToggleGroup, ToggleGroupItem, cn,
 } from '@ap/ui';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import * as React from 'react';
@@ -102,15 +102,15 @@ export function PublicVocListScreen({
       <ul>
         {items.map((voc) => (
           <li key={voc.id}>
-            <button type="button" aria-current={selectedId === voc.id ? 'true' : undefined} onClick={() => { onSelect(voc.id); }}
+            <button type="button" aria-current={selectedId === voc.id ? 'true' : undefined} data-list-row="" data-selected={selectedId === voc.id ? '' : undefined} onClick={() => { onSelect(voc.id); }}
               className={cn('group/public-voc-row relative flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left',
                 selectedId === voc.id ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover')}>
-              {selectedId === voc.id && <span aria-hidden="true" data-testid="public-voc-row-selected-bar" className="absolute inset-y-0 left-0 w-0.5 bg-border-selected" />}
+              {selectedId === voc.id && <RowSelectionBar data-testid="public-voc-row-selected-bar" />}
               <span className="flex w-full min-w-0 flex-wrap items-baseline gap-2">
-                <span className={cn('font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate group-hover/public-voc-row:text-text-secondary', selectedId === voc.id ? 'text-text-secondary' : 'text-text-muted')} title={voc.display_id}>{voc.display_id}</span>
+                <span className="row-meta font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{voc.title}</span>
               </span>
-              <span className={cn('flex flex-wrap items-center gap-2 text-xs group-hover/public-voc-row:text-text-secondary', selectedId === voc.id ? 'text-text-secondary' : 'text-text-muted')}>
+              <span className="row-meta flex flex-wrap items-center gap-2 text-xs">
                 <ManagedSystemPill name={voc.managed_system.name} />
                 <ReporterStatusBadge status={voc.reporter_facing_status} />
                 {voc.mine && <span className="rounded-full bg-surface-card-elevated px-2 py-0.5 text-text-secondary">내가 등록</span>}

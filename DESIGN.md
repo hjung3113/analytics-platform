@@ -205,7 +205,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 | --- | --- | --- |
 | `text-primary`, `text-secondary` | canvas/card/sidebar/sunken/hover/selected | 필수 제목·검색 입력·열 머리·popover 설명. secondary는 sunken 9.23:1, sidebar/hover/selected 9.310/8.909/8.218:1 |
 | `text-muted` | canvas 4.931:1, card 5.536:1, sidebar 5.001:1 | opaque 보조 문구·section label; fade 금지 |
-| `text-muted` | sunken 4.960:1, hover 4.785:1, selected **4.414:1** | selected에서 필수 작은 글자에 금지. 상태 변화에도 읽기 여유를 유지하도록 hover/selected 행의 작은 메타 글자는 `text-secondary`로 |
+| `text-muted` | sunken 4.960:1, hover 4.785:1, selected **4.414:1** | selected에서 필수 작은 글자에 금지. 상태 변화에도 읽기 여유를 유지하도록 hover/selected 행의 작은 메타 글자는 `text-secondary`로 — 목록 행은 `data-list-row`(선택 중 `data-selected`)를 달고 메타 글자에 `row-meta`를 쓴다 |
 | 공유 `text-text-success-label` | card 5.877:1, success-soft 5.191:1; canvas/sunken/hover/selected 포함 최저 4.686:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
 | 공유 `text-text-info-label` | card 5.674:1, primary-soft 4.639:1; 동일 표면 집합 최저 4.523:1 | 작은 정보 의미 글자 |
 | 공유 `text-text-warning-label` | card 6.088:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
@@ -241,7 +241,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### 표면 위계·선택 표시 — Decided (#2456)
 
-페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠는 카드 밖에서 캔버스 표면 위에 놓인 가로 컨트롤 줄(조회·Context 막대, 도구줄)이다. 지금 판정은 «`bg-surface-canvas` 조상, 단 `data-shell`·`.rich-editor` 제외»이며 띠 소유자 표식으로 바꾸는 일은 #2482다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
+페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대(`RowSelectionBar`)를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠는 카드 밖에서 캔버스 표면 위에 놓인 가로 컨트롤 줄(조회·Context 막대, 도구줄)이다. 띠 소유자가 자기 요소에 `data-canvas-band`를 단다(셸의 Context·조회 막대, 페이지·보드 머리, 목록 도구줄, 리치 에디터 도구줄, 화면이 직접 그린 도구줄: 설문 빌더·결과 머리, 모델 프로필 섹션 이동). 카드 안 캔버스색 우물, sticky 아래 줄, 페이지 셸처럼 띠가 아닌 캔버스색 영역은 표식이 없어 그 안 컨트롤이 제 면을 유지한다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
 
 ### Compact analysis — Decided (#1141)
 
