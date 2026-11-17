@@ -24,7 +24,7 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
 ## Table
 
 ### `table/PlatformDataTable.tsx` — server-paged table
-- Optional `columnGroup` paths / `columnGroups` labels declare multi-row column headers; private `groupedOrder` is the shared screen, preferences, move and transfer order source (ADR-0166).
+- Optional `columnGroup` paths / `columnGroups` labels or declared widths define multi-row column headers; private `groupedOrder` is the shared screen, preferences, move and transfer order source, and `columnGroupPan.ts` owns pure in-group pan math (ADR-0166).
 - `loadPage` uses `PageQuery`/`PageResult` from `@ap/contracts`; columns are the engine-neutral `PlatformColumn<T>` only (the TanStack `ColumnDef` conversion is private `table/columnDef.ts`); sorting is `PageSort[]`.
 - Row-area height follows content. `table/tableFit.ts` observes the scroll container, the body (`data-platform-page-content`) and the sticky header (`data-page-sticky-header`) and caps the height at the remaining `max(240px, R)`. An explicit `height` is the cap for analysis tables.
 - The selection column appears only with export, copy or `bulkActions`. The `rowAction` column is pinned right. When 128px does not fit but 72px does, `rowAction(row, { compact })` is called with `compact: true` and stays pinned as a 72px icon-only form (ADR-0037, 06 §15).

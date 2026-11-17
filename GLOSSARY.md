@@ -343,6 +343,9 @@ _Avoid_: 그룹(단독) — 설비 그룹·PRC 그룹·StGroup·작업 영역의
 표의 여러 열 위에 공통 이름을 붙이는 다단 헤더. `PlatformColumn.columnGroup`의 바깥→안쪽 id 경로와 표의 `columnGroups` 문구 사전으로 선언한다([ADR-0166](docs/adr/0166-table-column-groups.md)). 행 그룹(서버가 행을 묶고 소계를 제공, ADR-0104), 메뉴 그룹, 권한 그룹과 다르다.
 _Avoid_: 그룹(단독), 행 그룹(열 헤더를 말할 때).
 
+**묶음 넘김** (in-group pan):
+폭을 선언한 최상위 열 묶음 안에서 넘치는 구성 열의 헤더·본문·소계를 함께 가로로 넘겨 보는 동작. 끌기·Shift+휠·헤더의 ←/→·Home/End로 조작한다. 열 순서·저장 폭·내보내기는 바뀌지 않으며 넘김 위치는 저장하지 않는다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+
 **메뉴** (manifest, `MenuEntry`):
 Registry에 등록된 진입점 하나. manifest에서 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 연다. 공간 메뉴의 manifest 경로는 별칭이 될 수 있고 Registry의 `path`는 정규 경로다([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). 화면이 아직 없는 메뉴는 **예정 메뉴**로, 사이드바에 `예정`으로 보이고 열리지 않는다.
 

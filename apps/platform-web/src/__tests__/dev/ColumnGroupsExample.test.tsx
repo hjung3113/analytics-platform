@@ -9,6 +9,21 @@ import { EQUIPMENT_AXES } from '../../equipmentAxes';
 
 afterEach(cleanup);
 describe('column groups dev fixture', () => {
+  it('offers declared widths for A/B while C keeps label-only sizing', async () => {
+    const restore = stubCompactTableGeometry(1100);
+    try {
+      const assembly = await createAssembly({ registry }) as Assembly;
+      render(<I18nProvider><PlatformProvider adapter={assembly.adapter} registry={registry} equipmentAxes={EQUIPMENT_AXES}>{assembly.topBarTools}</PlatformProvider></I18nProvider>);
+      await userEvent.click(screen.getByRole('button', { name: '열 묶음 표 예시' }));
+      await userEvent.click(await screen.findByRole('radio', { name: '묶음 넓이 지정' }));
+      const boxes = document.querySelectorAll('[data-column-group-clip]');
+      expect(boxes.length).toBeGreaterThan(0);
+      boxes.forEach(box => expect(box).toHaveStyle({ width: '320px' }));
+      expect(document.querySelector('[data-column-group-clip][data-group-id=C]')).toBeNull();
+      expect(screen.getByRole('columnheader', { name: '설비 A' })).toHaveAttribute('tabindex', '0');
+      expect(screen.getByRole('columnheader', { name: '설비 C' })).not.toHaveAttribute('tabindex');
+    } finally { cleanup(); restore(); }
+  });
   it('switches between plain/grouped modes and marks a row through its action', async () => {
     const restore = stubCompactTableGeometry(1100);
     try {

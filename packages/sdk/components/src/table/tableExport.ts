@@ -10,6 +10,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
 import { groupedOrder, groupedPins } from './columnOrder';
+import { columnGroupLabel, type ColumnGroups } from './columnGroups';
 
 type ExportPreferences = { visibility: Record<string, boolean>; pinning: { left?: string[] }; order?: string[] };
 
@@ -34,7 +35,7 @@ export type ExportHeaderCell = string | { value: string; columnSpan: number } | 
 export type ExportHeaders = string[] | ExportHeaderCell[][];
 const headerRows = (headers: ExportHeaders): ExportHeaderCell[][] => Array.isArray(headers[0]) ? headers as ExportHeaderCell[][] : [headers as string[]];
 
-export function exportHeaders<T>(columns: PlatformColumn<T>[], labels: Readonly<Record<string, string>> = {}): { flat: string[]; rows: ExportHeaders } {
+export function exportHeaders<T>(columns: PlatformColumn<T>[], labels: ColumnGroups = {}): { flat: string[]; rows: ExportHeaders } {
   const depth = Math.max(0, ...columns.map(c => c.columnGroup?.length ?? 0));
   if (depth === 0) { const flat = columns.map(c => c.header); return { flat, rows: flat }; }
   const rows: ExportHeaderCell[][] = Array.from({ length: depth }, (_, level) => {
@@ -45,13 +46,13 @@ export function exportHeaders<T>(columns: PlatformColumn<T>[], labels: Readonly<
       const path = JSON.stringify(columns[index].columnGroup?.slice(0, level + 1));
       let end = index + 1;
       while (end < columns.length && JSON.stringify(columns[end].columnGroup?.slice(0, level + 1)) === path) end += 1;
-      row.push({ value: labels[id] ?? id, columnSpan: end - index }, ...Array<null>(end - index - 1).fill(null));
+      row.push({ value: columnGroupLabel(labels, id), columnSpan: end - index }, ...Array<null>(end - index - 1).fill(null));
       index = end;
     }
     return row;
   });
   rows.push(columns.map(c => c.header));
-  return { flat: columns.map(c => [...(c.columnGroup ?? []).map(id => labels[id] ?? id), c.header].join(' › ')), rows };
+  return { flat: columns.map(c => [...(c.columnGroup ?? []).map(id => columnGroupLabel(labels, id)), c.header].join(' › ')), rows };
 }
 
 /** One coerced cell value: `null`/`undefined`/`NaN`/`±Infinity` → '', boolean → TRUE/FALSE, number stays number, string stays string. */

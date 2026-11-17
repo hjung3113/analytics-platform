@@ -1,0 +1,44 @@
+import { expect, test } from '@playwright/test';
+import { evidence, signInAs } from './support';
+
+test.describe('열 묶음 넘김', () => {
+  test('묶음 안 끌기는 A만 넘기고 일반 클릭과 키보드 탐색은 유지한다', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM');
+    await page.getByRole('button', { name: '열 묶음 표 예시' }).click();
+    const dialog = page.getByRole('dialog', { name: '열 묶음 표 예시' });
+    await dialog.getByRole('radio', { name: '묶음 넓이 지정' }).click();
+    const table = dialog.getByRole('table', { name: '열 묶음 표 예시' });
+    const row = table.locator('[data-row-id="equipment-1"]');
+    await expect(row).toBeVisible();
+    const a = row.locator('[data-column="A.val"]');
+    const b = row.locator('[data-column="B.val"]');
+    const note = row.locator('[data-column="note"]');
+    const aStart = (await a.boundingBox())!.x;
+    const bStart = (await b.boundingBox())!.x;
+    const noteStart = (await note.boundingBox())!.x;
+    await evidence(page, testInfo, 'column-groups-width-before');
+    const box = (await row.locator('[data-column-group-clip][data-group-id="A"]').boundingBox())!;
+    const startX = box.x + box.width - 40;
+    const startY = box.y + box.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    // Released 120px in: the pan snaps to the next member boundary, so A moves by its first member's width.
+    const firstWidth = (await a.boundingBox())!.width;
+    await page.mouse.move(startX - 120, startY, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => aStart - (await a.boundingBox())!.x).toBeCloseTo(firstWidth, 0);
+    expect((await b.boundingBox())!.x).toBeCloseTo(bStart, 1);
+    expect((await note.boundingBox())!.x).toBeCloseTo(noteStart, 1);
+    await evidence(page, testInfo, 'column-groups-width-pan-A');
+    await row.getByRole('button', { name: '설비 01 행 표시' }).click();
+    await expect(dialog.getByRole('status')).toHaveText('설비 01 표시 중');
+    const header = table.getByRole('columnheader', { name: '설비 A', exact: true });
+    await header.focus();
+    await header.press('ArrowRight');
+    await expect.poll(async () => (await a.boundingBox())!.x).toBeLessThan(aStart - 120);
+    await header.press('Home');
+    await expect.poll(async () => (await a.boundingBox())!.x).toBeCloseTo(aStart, 1);
+    await evidence(page, testInfo, 'column-groups-width-keyboard-home');
+  });
+});

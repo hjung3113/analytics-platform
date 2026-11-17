@@ -24,6 +24,7 @@ export { PageConditionCategories, type PageConditionCategoriesProps, type PageCo
 export { PageConditionTree, type PageConditionTreeProps } from './filters/PageConditionTree';
 export { usePageConditionOptionsLoader, PageConditionOptionsError } from './filters/usePageConditionOptionsLoader';
 export * from './table/PlatformDataTable';
+export type { PlatformColumnGroup } from './table/PlatformDataTable';
 export * from './table/tableUrlWarning';
 export { TableQuickSearch, type TableQuickSearchProps } from './table/TableQuickSearch';
 export type { FilterValueCheck, LegacyFilterKey, TableFilterOption, TableFilterProblem, TableFilterRead } from './table/tableFilterUrl';

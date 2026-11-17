@@ -6,6 +6,7 @@
   "contract-board.spec.ts": 7.1,
   "contract-chart.spec.ts": 5.3,
   "contract-components.spec.ts": 4.7,
+  "contract-column-groups.spec.ts": 3.0,
   "contract-context-links.spec.ts": 5.6,
   "contract-features.spec.ts": 6.1,
   "contract-improvement-analysis-entry.spec.ts": 3.9,

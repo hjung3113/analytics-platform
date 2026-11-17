@@ -6,6 +6,8 @@ export const DEV_MESSAGES = {
   columnGroupsMode: { ko: '표 모양', en: 'Table mode' },
   columnGroupsPlain: { ko: '묶음 없음', en: 'No groups' },
   columnGroupsGrouped: { ko: '열 묶음', en: 'Column groups' },
+  columnGroupsWidth: { ko: '묶음 넓이 지정', en: 'Declared group widths' },
+  columnGroupsDividers: { ko: '열 구분선', en: 'Column dividers' },
   columnGroupsEquipment: { ko: '설비', en: 'Equipment' },
   columnGroupsEquipmentLabel: { ko: '설비 {id}', en: 'Equipment {id}' },
   columnGroupsValue: { ko: '값', en: 'Value' },
