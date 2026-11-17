@@ -3,7 +3,7 @@ import { ANALYTICS_MESSAGES } from '../messages';
 import { formatWallClock, isAnswered } from '@ap/contracts';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { AlertTriangle, ArrowRight, Gauge, Hash, RotateCw, Timer } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChartColumn, Gauge, Hash, ListFilter, RotateCw, Timer } from 'lucide-react';
 import { formatNumber, periodHours, type GlobalContext, type Pair } from '@ap/contracts';
 import { type PageProps, PlatformLink, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
 import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, PageFilterBar, type PageFilterAppliedChip, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
@@ -245,7 +245,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             ] } },
           ]}
           panels={[
-          { id: 'summary', preferredHeight: 360, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeSummary, render: () => <div className="space-y-3 p-3">
+          { id: 'summary', icon: Gauge, preferredHeight: 360, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeSummary, render: () => <div className="space-y-3 p-3">
           <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={m('cycleTimeDrilldownCycleTimeSummary2')} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3">
@@ -299,7 +299,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               />}
             </QueryView>
             },
-            { id: 'distribution', preferredHeight: 440, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeDistribution, render: () =>
+            { id: 'distribution', icon: ChartColumn, preferredHeight: 440, title: ANALYTICS_MESSAGES.cycleTimeDrilldownCycleTimeDistribution, render: () =>
             <QueryView widgetName={m('cycleTimeDrilldownCycleTimeDistribution2')} query={dist} skeletonHeight={220}>
               {(data, response) => <AnalysisChartFrame
                 chartId="cycle-time-distribution"
@@ -316,7 +316,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
               />}
             </QueryView>
             },
-          { id: 'slow', preferredHeight: 420, title: ANALYTICS_MESSAGES.cycleTimeDrilldownSlowExecutions2, render: () => <div className="flex h-full min-h-0 flex-col gap-3 p-3">
+          { id: 'slow', icon: ListFilter, preferredHeight: 420, title: ANALYTICS_MESSAGES.cycleTimeDrilldownSlowExecutions2, render: () => <div className="flex h-full min-h-0 flex-col gap-3 p-3">
           <PlatformDataTable<SlowRow>
             title={m('cycleTimeDrilldownSlowExecutions3')}
             subtitle={m('cycleTimeDrilldownPageFilteredListSlowExecutionPredicatePopulation', { predicate: tailMode === 'all' ? m('cycleTimePredicateAll') : `≥ ${tailMode.toUpperCase()}`, population: kpi.response === null ? m('cycleTimePopulationLoading') : kpi.response.outcome === 'ok' ? m('cycleTimePopulationCount', { count: formatNumber(kpi.response.data!.count, lang) }) : m('cycleTimePopulationUnavailable') })}

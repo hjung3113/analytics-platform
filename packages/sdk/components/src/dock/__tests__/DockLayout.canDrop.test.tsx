@@ -60,6 +60,16 @@ function drop(over: { panelId?: string | null; position: string; group?: string[
 }
 
 describe('DockLayout canDropAt', () => {
+  it('workspace floats reject tab and whole-group merges, and temporary peeks must be pinned explicitly (#2435)', async () => {
+    render(<I18nProvider><DockLayoutBase panels={panels} layout={group(['a', 'b'])} onLayoutChange={vi.fn()} separatorLabel={label} label="배치"
+      floating={{ panels: [{ panelId: 'c', x: 8, y: 48, width: 400, height: 300 }], peekId: 'c', onDismissPeek: vi.fn(), onChange: vi.fn() }} /></I18nProvider>);
+    await screen.findAllByRole('tab');
+    await waitFor(() => { expect(engine.overlay).not.toBeNull(); });
+    expect(overlay({ position: 'center', group: ['c'] }).preventDefault).toHaveBeenCalled();
+    expect(drop({ position: 'center', group: ['c'], panelId: null }).preventDefault).toHaveBeenCalled();
+    expect(drop({ position: 'center', group: ['a', 'b'], panelId: 'c' }).preventDefault).toHaveBeenCalled();
+    expect(drop({ position: 'center', group: ['a', 'b'], panelId: 'b' }).preventDefault).not.toHaveBeenCalled();
+  });
   it('asks with the dragged tab, the tabs of the group under the pointer and the position; a false answer draws no preview and refuses the drop', async () => {
     const canDropAt = vi.fn((drop: DockDrop) => drop.position === 'center');
     await mount(canDropAt);

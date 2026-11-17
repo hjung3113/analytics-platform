@@ -1,5 +1,7 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **미구현 — 패널 내부 조회 훅의 접기 후 재펼치기 재조회 0회 (#2435):** 작업 영역 위에 조회 소유자가 남는 구조는 0회를 검증했다. 패널 안 `useMenuQuery`가 언마운트되면 Kernel의 `staleTime: 0` 때문에 peek·pin 리마운트 때 재조회한다. 이유: #2435 작업자 범위는 components 및 메뉴 아이콘이며 Kernel 캐시 신선도 변경은 포함되지 않았다. 다시 열 조건: 호스트가 Kernel의 remount/refetch 정책 또는 소비자 조회 소유권 이동 범위를 확정할 때. 이번 구현은 이 보장을 전체 패널에 제공하지 않는다.
+
 - **미구현 — HW Time 파레토 → Finding/VOC 생성 링크 (#2431 PR2):** 이유: §22는 Context Link 정책만 정하고, 이 분석 지점의 목적지·생성 입력(설비·Module·Motion 증거)을 받는 계약은 없다. 생성 단추 숨김. 재개 조건: 목적지가 허용하는 생성 입력과 메뉴 링크 계약 확정. 임의 page key나 URL은 만들지 않았다.
 - **미구현 — HW Time 필터 층(S5) 채택 ([#2341](https://github.com/hjung3113/analytics-platform/issues/2341), 소유자 답 뒤 닫음):** HW Time은 `pageConditions`를 선언하지 않는다. 이유: ① 모듈 타입은 드릴 1단계 키라 Registry가 범주 키로 받지 않음(`kernel.md` §5) ② Module·Motion 범주는 #2416에서 확정된 계층 목록 체크(전체 보이기 포함)와 같은 일을 하고, `groupedChecks`는 정적 목록에 새 source 엔드포인트가 필요함 ③ Recipe/PPID 한 줄(편집 불가)만으로는 확정 화면에 칩 줄과 층을 더할 이유가 없음(지금은 계층 아래 «Recipe: 분리 안 됨» 캡션). 키 문법(`module`/`motion` 반복·숨김, 키 없음 = 전체, `~none`, `split`)은 그대로 두어 나중에 채택해도 URL·저장 뷰가 유지됨. SDK `absent: 'all'`(#2393)은 이미 병합. 쓰이지 않던 `FilterPanel`과 그것만 쓰던 훅 함수는 지움. 재개 조건: (i) 서버가 Recipe/PPID별 통계를 줘서 `split`이 편집 가능한 조건이 될 때, 또는 (ii) 소유자가 채택 안(V2 요약 칩 / V3 `verdict`·`date`만 층으로)을 고를 때 — 메뉴 모양 관문이라 2–3안 캡처 먼저. 층(S1–S4)은 실제 메뉴 소비자가 없어 Candidate로 남음.
 

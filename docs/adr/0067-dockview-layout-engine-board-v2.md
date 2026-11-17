@@ -19,9 +19,9 @@
 ### 레이아웃 스키마와 동작
 4. 스키마 v1은 재귀 트리 `branch{dir, children, sizes(비율)}` | `group{panels, active}` + (작업 영역 전용) `hidden`·`preset`. 최대화는 저장하지 않는다. 엔진 JSON·패널 params는 저장하지 않는다.
 5. 정규화: 모르는 id·중복 id는 버리고, 빠진 id는 기본 그룹에 붙인다. 비율이 틀리면 기본값. 좁은 폭에서의 표시 clamp는 저장값에 쓰지 않는다.
-6. 패널은 모두 `renderer:'always'`(상태 유지, 재조회 0). 보이지 않는 패널에는 `inert`와 `TransientOverlayScope`를 단다. 중첩 레이아웃은 다시 보일 때 다시 잰다(P0 UX-3은 원인 진단 뒤 확정).
-7. **엔진 닫기를 막는다**(탭 Delete/Backspace, `close()` 경로 포함). 제거·숨김·이동·합치기·최대화는 플랫폼 명령이고, 칸 `⋯` 메뉴의 배치 묶음(탭에서 Shift+F10·오른쪽 클릭, 2c에서 그룹 `⋯`를 흡수)이 끌기와 같은 키보드 경로다.
-8. 경계선마다 플랫폼 `role="separator"`를 둔다 — [docs/16 §4](../design/analysis-board.md)의 방향키 5%·Home/End 계약을 지킨다(무료 엔진에는 키보드 크기 조절이 없다). Esc는 가장 안쪽 최대화만 풀고, 열린 메뉴·Popover·상세 슬롯을 먼저 닫는다.
+6. 패널은 모두 `renderer:'always'`(이동·합치기·프리셋의 상태 유지, 재조회 0). 보이지 않는 배경 탭에는 `inert`와 `TransientOverlayScope`를 단다. 숨김·접기는 결정 19대로 언마운트한다. 중첩 레이아웃은 다시 보일 때 다시 잰다. Amended 2026-11-17 (#2435, 사용자 c3 확인): 메뉴 작업 영역은 컨테이너 안의 Dockview floating group으로 임시 peek와 지속 띄우기를 제공한다. 보드에는 적용하지 않고 브라우저 popout은 없다.
+7. **엔진 닫기를 막는다**(탭 Delete/Backspace, `close()` 경로 포함). 제거·숨김·이동·합치기·최대화는 플랫폼 명령이고, 칸 `⋯` 메뉴의 배치 묶음(탭에서 Shift+F10·오른쪽 클릭, 2c에서 그룹 `⋯`를 흡수)이 끌기와 같은 키보드 경로다. Amended 2026-11-17 (#2435): 작업 영역의 지속 띄우기 X는 원래 가장자리(없으면 위)로 «접기»이며, 띄우기 `⋯`에 위치·크기 키보드 명령을 둔다. primary는 접기·띄우기를 할 수 없다.
+8. 경계선마다 플랫폼 `role="separator"`를 둔다 — [docs/16 §4](../design/analysis-board.md)의 방향키 5%·Home/End 계약을 지킨다(무료 엔진에는 키보드 크기 조절이 없다). Esc는 가장 안쪽부터 열린 메뉴·Popover·상세 슬롯 → peek → 최대화 순으로 한 단계씩 닫는다(Amended 2026-11-17, #2435). 지속 띄우기는 Esc로 닫지 않는다.
 9. 바깥과 안쪽 인스턴스 사이 드롭은 거부한다(엔진 기본 + `onWillDrop`).
 
 ### 분석 보드 (셸)
@@ -35,9 +35,9 @@
 17. 좁은 폭(692px 미만)에서는 한 탭 그룹으로 **표시만** 바꾼다.
 
 ### 메뉴 작업 영역 (opt-in)
-18. 메뉴 façade(이름은 06 §12.2 "Analysis Workspace" 아키타입과 겹치지 않게 `PanelWorkspace` 계열로 정한다): `panels{id, title:Text, render, primary?, minWidth?, minHeight?}`, `presets`, `initialPreset`, `compactPreset`, `persistKey`. 툴바는 `프리셋 · 숨긴 패널 n · 기본 배치`. 보드 칸 안에서는 툴바 대신 명령을 칸 `⋯`에 등록한다.
+18. 메뉴 façade(이름은 06 §12.2 "Analysis Workspace" 아키타입과 겹치지 않게 `PanelWorkspace` 계열로 정한다): `panels{id, title:Text, render, primary?, minWidth?, minHeight?}`, `presets`, `initialPreset`, `compactPreset`, `persistKey`. 툴바는 `프리셋 · 숨긴 패널 n · 기본 배치`. 보드 칸 안에서는 툴바 대신 명령을 칸 `⋯`에 등록한다. Amended 2026-11-17 (#2435, 사용자): 모든 메뉴 작업 영역에서 왼쪽 아이콘 레일·위 탭·peek·띄우기를 기본 제공한다. 처음에는 접힌 패널이 없다. opt-out·아이콘·요약·접근성은 [공통 컴포넌트 §13 PanelWorkspace](../contract/components.md#panelworkspace-edge-collapse-peek-and-float)가 소유한다.
 19. 프리셋 전환과 기본 배치는 있는 패널을 재배치만 한다(리마운트 0회). 숨긴 패널의 하위 트리는 언마운트될 수 있으므로 남아야 할 상태는 façade 위(메뉴·Kernel)에 둔다.
-20. 로컬 선호는 `@ap/components`가 소유한다(`AnalysisLayout` 접기 기억과 같은 방식). 키 `platform:workspace:v1:<userId>:<menuId>:<persistKey>`, 변경은 debounce, 복원은 조회를 일으키지 않는다. compact 상태는 저장하지 않는다. 서버 저장·공유는 #294 결정 뒤.
+20. 로컬 선호는 `@ap/components`가 소유한다(`AnalysisLayout` 접기 기억과 같은 방식). 키 `platform:workspace:v1:<userId>:<menuId>:<persistKey>`, 변경은 debounce, 복원은 조회를 일으키지 않는다. compact 상태는 저장하지 않는다. Amended 2026-11-17 (#2435): v1 그대로 `collapsed`(패널별 가장자리 기억)와 `floating`(패널 id·px 위치·크기)을 선택 필드로 더한다. peek는 저장하지 않는다. URL·공유 링크에 넣지 않는다. 서버 저장·공유는 #294 결정 뒤.
 21. 높이: `PlatformPage layout="fill"`과 차트 `size: 'fill'`(최소 320px)을 opt-in으로 둔다. 작업 영역은 접힌 조회 바 아래 남은 높이를 채우고 primary 패널이 남는 공간을 받는다. dock 안 카드 제목은 시각적으로만 숨긴다.
 22. 공개 API는 두 번째 실제 소비자(#586 HW Time)가 쓰기 전까지 Candidate로 둔다(06 §24).
 

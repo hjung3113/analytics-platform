@@ -2,21 +2,23 @@ import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
 import { cn, isProductionEnv } from '@ap/ui';
+import type { LucideIcon } from 'lucide-react';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
 import { focusSoon, focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
 import { DOCK_DROP_STRIP_CHROME, dockTheme } from '../dock/dockPresentation';
 import { dockLayoutMenu } from '../dock/layoutMenu';
-import { dockGroupsInReadingOrder } from '../dock/schema';
+import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
+import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
@@ -36,6 +38,12 @@ export type PanelWorkspacePanel = {
   /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
   id: string;
   title: Text;
+  /** Icon in the collapsed left rail; absent = first character of the translated title. */
+  icon?: LucideIcon;
+  /** Collapse is on by default. False removes collapse actions; summary appears beside the top tab's title. */
+  collapse?: false | { summary?: Text };
+  /** Floating inside the workspace is on by default. The primary panel can never float. */
+  float?: false;
   render: () => ReactNode;
   /** Exactly one panel is primary (the first when none is): it can never be hidden and keeps the space other panels free. */
   primary?: boolean;
@@ -56,9 +64,7 @@ export type PanelWorkspacePanel = {
    */
   badge?: { count?: number; tone?: 'neutral' | 'warning'; description: Text };
   /**
-   * Opt-in (#2359): a minimize button beside maximize in the panel header hides the panel (the same hide as the `⋯` menu, stored the same way), and
-   * while it is hidden the toolbar shows a chip `{title} · {summary}` that reopens it; it also stays in the hidden-panel list. `summary` is the
-   * consumer's short state of the panel (for a condition panel, the current conditions). Ignored on the primary panel. Absent = no button, no chip.
+   * @deprecated Use `collapse`. The summary is used by the collapsed top tab; there is no separate minimize button.
    */
   minimize?: { summary?: Text };
   /**
@@ -114,6 +120,8 @@ export type PanelWorkspaceProps = {
    * Absent = output unchanged.
    */
   toolbarActions?: ReactNode;
+  /** Enabled collapsed edges. Default left and top; an empty array disables the edge strips. Below 692px strips and floating are off. */
+  edges?: ('left' | 'top')[];
 };
 
 const DEFAULT_COMPACT_BELOW = 900;
@@ -121,6 +129,12 @@ const DEFAULT_COMPACT_BELOW = 900;
 const DEFAULT_VISIBLE = 900;
 /** px: the toolbar row and its gap, for the baseline of a workspace that has not been shown fitted yet. */
 const TOOLBAR_CHROME = 48;
+const EDGE_BREAKPOINT = 692;
+const DEFAULT_EDGES: PanelEdge[] = ['left', 'top'];
+const FLOAT_SMALL = { width: 560, height: 440 };
+const FLOAT_LARGE = { width: 760, height: 560 };
+const FLOAT_INSET = 8;
+const PEEK_TOP = 48;
 
 /** Development-only diagnostics; production renders on with the repair rules of the state. */
 function useDevChecks(props: PanelWorkspaceProps) {
@@ -182,7 +196,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -197,7 +211,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset, below };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
   /** The panel's badge with its description localised. */
-  const chipOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); if (!panel?.minimize || id === primaryId) return null; const summary = panel.minimize.summary ? tx(panel.minimize.summary) : ''; return summary ? `${tx(panel.title)} · ${summary}` : tx(panel.title); };
+  const summaryOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); const summary = panel?.collapse && panel.collapse.summary !== undefined ? panel.collapse.summary : panel?.minimize?.summary; return summary ? tx(summary) : ''; };
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
   const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec, storage) : null) ?? initialWorkspaceState(spec));
@@ -212,6 +226,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const root = useRef<HTMLDivElement>(null);
   // Only the side of `compactBelow` is state: a resize that stays on one side re-renders nothing (#823).
   const [narrow, setNarrow] = useState(false);
+  const [edgesNarrow, setEdgesNarrow] = useState(false);
   // The side of `compactBelow` as the effects below must see it in the very commit that learns it (the state is still last render's there).
   const narrowNow = useRef(false);
   useLayoutEffect(() => {
@@ -219,8 +234,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (!element) return;
     // Seeded before the first paint: a narrow first view must not measure or store rows.
     const width = element.getBoundingClientRect().width;
-    if (width > 0) { narrowNow.current = width < compactBelow; setNarrow(narrowNow.current); }
-    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) { narrowNow.current = entry.contentRect.width < compactBelow; setNarrow(narrowNow.current); } });
+    if (width > 0) { narrowNow.current = width < compactBelow; setNarrow(narrowNow.current); setEdgesNarrow(width < EDGE_BREAKPOINT); }
+    const observer = new ResizeObserver(entries => { const entry = entries[entries.length - 1]; if (entry) { narrowNow.current = entry.contentRect.width < compactBelow; setNarrow(narrowNow.current); setEdgesNarrow(entry.contentRect.width < EDGE_BREAKPOINT); } });
     observer.observe(element);
     return () => { observer.disconnect(); };
   }, [compactBelow]);
@@ -339,7 +354,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     stack: stored.mode === 'stack',
     presets: presets.map(preset => [preset.id, tx(preset.label)]),
     current: state.preset,
-    hidden: state.hidden.map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning', chipOf(id)]),
+    hidden: state.hidden.filter(id => edgesNarrow || panels.find(panel => panel.id === id)?.float === false || !state.floating?.some(panel => panel.panelId === id)).map(id => [id, titleOf(id), badgeOf(id)?.description ?? null, badgeOf(id)?.tone === 'warning', null]),
   });
   const commands = useMemo<readonly WorkspaceCommand[]>(() => {
     const parsed = JSON.parse(shape) as { narrow: boolean; stack: boolean; presets: [string, string][]; current: string; hidden: [string, string, string | null, boolean, string | null][] };
@@ -392,7 +407,30 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     return () => { window.removeEventListener('pagehide', flush); flush(); };
   }, [flush]);
 
-  const dockPanels: DockPanel[] = panels.filter(panel => shown.includes(panel.id)).map(panel => ({
+  const [peek, setPeek] = useState<DockFloatingPanel | null>(null);
+  const peekTrigger = useRef<HTMLElement | null>(null);
+  const activePeek = !edgesNarrow && peek && state.hidden.includes(peek.panelId) && !state.floating?.some(panel => panel.panelId === peek.panelId) ? peek : null;
+  const dismissPeek = useCallback(() => { setPeek(null); focusSoon(() => peekTrigger.current?.isConnected ? peekTrigger.current : null); }, []);
+  useEffect(() => { if (edgesNarrow) setPeek(null); }, [edgesNarrow]);
+  useEffect(() => {
+    if (!activePeek) return;
+    const outside = (event: PointerEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest('[data-workspace-edge-panel], [role="menu"], [data-radix-popper-content-wrapper]')) return;
+      const group = event.target.closest<HTMLElement>('[data-dock-floating]');
+      if (group?.dataset.dockFloating === activePeek.panelId && root.current?.contains(group)) return;
+      dismissPeek();
+    };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('[role="menu"][data-state="open"]')) return;
+      event.preventDefault(); event.stopPropagation(); dismissPeek();
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [activePeek, dismissPeek]);
+  const floatingPanels = edgesNarrow ? [] : [...(state.floating ?? []).filter(item => panels.find(panel => panel.id === item.panelId)?.float !== false), ...(activePeek ? [activePeek] : [])];
+  const dockPanels: DockPanel[] = panels.filter(panel => shown.includes(panel.id) || floatingPanels.some(item => item.panelId === panel.id)).map(panel => ({
     id: panel.id, title: tx(panel.title), minWidth: panel.minWidth, minHeight: panel.minHeight,
     render: () => <InWorkspacePanelProvider value>{panel.render()}</InWorkspacePanelProvider>,
   }));
@@ -495,9 +533,51 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   const groupActions = (group: { panels: string[]; active: string }) => {
     const id = group.active;
-    const pin = panels.find(panel => panel.id === id)?.pin;
+    const panel = panels.find(panel => panel.id === id);
+    const pin = panel?.pin;
+    const floating = floatingPanels.find(panel => panel.panelId === id);
+    const area = () => {
+      const rect = fitSlot.current?.querySelector('[data-dock-layout]')?.getBoundingClientRect();
+      return { width: rect?.width || FLOAT_LARGE.width, height: rect?.height || FLOAT_LARGE.height };
+    };
+    const collapse = (edge: PanelEdge) => {
+      setPeek(null); setMaximized(null);
+      closeFocus.current = () => { focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-edge-panel="${id}"]`)); };
+      layoutChange(current => collapsePanel(current, id, primaryId, edge));
+    };
+    const float = () => {
+      setPeek(null); setMaximized(null);
+      const box = clampFloatingPanel(floating ?? { panelId: id, x: FLOAT_INSET, y: FLOAT_INSET, ...FLOAT_SMALL }, area());
+      closeFocus.current = () => { focusTab(id); };
+      layoutChange(current => floatPanel(current, box, primaryId));
+    };
+    const pinOpen = () => {
+      setPeek(null);
+      closeFocus.current = () => { focusTab(id); };
+      update(current => showPanel(current, id, primaryId, presets.find(preset => preset.id === current.preset) ?? presets[0]!));
+      focusTab(id);
+    };
+    const changeBox = (change: Partial<DockFloatingPanel>) => {
+      if (!floating) return;
+      const box = clampFloatingPanel({ ...floating, ...change }, area());
+      update(current => floatPanel(current, box, primaryId));
+      closeFocus.current = () => { focusTab(id); };
+    };
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
+      edgeActions={id === primaryId || edgesNarrow ? undefined : {
+        left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left'); } : undefined,
+        top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top'); } : undefined,
+        float: panel?.float !== false && (!floating || activePeek?.panelId === id) ? float : undefined,
+        overlay: floating ? {
+          pin: pinOpen,
+          close: activePeek?.panelId === id ? dismissPeek : () => { collapse(state.collapsed?.[id] ?? 'top'); focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-edge-panel="${id}"]`)); },
+          position: activePeek?.panelId === id ? undefined : place => {
+            const size = area(); changeBox(place === 'top-left' ? { x: FLOAT_INSET, y: FLOAT_INSET } : { x: (size.width - floating.width) / 2, y: (size.height - floating.height) / 2 });
+          },
+          size: activePeek?.panelId === id ? undefined : size => { changeBox(size === 'small' ? FLOAT_SMALL : FLOAT_LARGE); },
+        } : undefined,
+      }}
       onMaximize={(maximize, fromMenu) => { if (!maximize && fromMenu) closeFocus.current = () => { focusTab(id); }; requestMaximized(maximize ? id : null); }}
       onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
@@ -508,26 +588,41 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
         layoutChange(current => hidePanel(current, id, primaryId));
       }}
-      onMinimize={chipOf(id) === null ? undefined : () => {
-        const next = hidePanel(state, id, primaryId);
-        layoutChange(current => hidePanel(current, id, primaryId));
-        // Focus follows the panel to its chip; a hosted toolbar draws no chip here, so the next tab takes it.
-        if (hosted) focusTab(tabAfterHide(state, next, id, primaryId)); else focusSoon(() => root.current?.querySelector<HTMLElement>(`[data-workspace-minimized="${id}"]`));
-      }} />;
+      />;
+  };
+
+  const edgeItems = (edge: PanelEdge) => edgesNarrow || !edges.includes(edge) ? [] : panels.filter(panel => state.hidden.includes(panel.id) && panel.collapse !== false && (panel.float === false || !state.floating?.some(item => item.panelId === panel.id)) && (state.collapsed?.[panel.id] ?? 'top') === edge)
+    .map(panel => ({ id: panel.id, title: titleOf(panel.id), summary: summaryOf(panel.id), icon: panel.icon }));
+  const openPeek = (id: string, trigger: HTMLElement) => {
+    if (activePeek?.panelId === id) { dismissPeek(); return; }
+    const dock = fitSlot.current?.querySelector('[data-dock-layout]')?.getBoundingClientRect();
+    const tab = trigger.getBoundingClientRect();
+    const area = { width: dock?.width || FLOAT_LARGE.width, height: dock?.height || FLOAT_LARGE.height };
+    peekTrigger.current = trigger;
+    setPeek(clampFloatingPanel({ panelId: id, x: (state.collapsed?.[id] ?? 'top') === 'top' ? Math.max(0, tab.left - (dock?.left ?? 0)) : 0, y: PEEK_TOP, width: FLOAT_SMALL.width, height: Math.min(FLOAT_SMALL.height, Math.max(1, area.height - PEEK_TOP)) }, area));
   };
 
   return <WorkspaceDepthProvider value={depth}>
-    <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}>
+    <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}
+      onKeyDown={event => { if (event.key !== 'Escape' || event.defaultPrevented) return; if (activePeek) dismissPeek(); else if (maximizedId) requestMaximized(null); else return; event.preventDefault(); event.stopPropagation(); }}>
       {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={toolbarActions} />}
       {hosted && toolbarActions !== undefined && <div data-workspace-actions className="flex items-center justify-end gap-2">{toolbarActions}</div>}
-      <div ref={fitSlot} className={rows ? undefined : 'min-h-0 flex-1'}>
+      <WorkspaceEdges edge="top" items={edgeItems('top')} label={m('workspaceTopEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
+      <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
+      <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
+      <div ref={fitSlot} className="min-h-0 min-w-0 flex-1">
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
+          floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
+            const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
+            return { ...current, floating: next, hidden: [...new Set([...current.hidden.filter(id => !returned.includes(id)), ...next.map(panel => panel.panelId)])], layout: tree };
+          }); } }}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
           onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions}
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
-          stackBelow={compactSpec ? undefined : compactBelow} />
+          narrow={compactSpec ? false : edgesNarrow} />
+      </div>
       </div>
     </div>
   </WorkspaceDepthProvider>;

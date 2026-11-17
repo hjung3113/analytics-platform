@@ -3,7 +3,7 @@
  * public API. Sizes follow the engine's convention (`serializeBranchNode`, dockview-core main.esm.mjs:2336): a node's `size` is its extent
  * along its parent's split axis; the root's is the orthogonal extent.
  */
-import { canonicalDockTree, type DockNode } from './schema';
+import { canonicalDockTree, clampFloatingPanel, type DockNode, type DockFloatingPanel } from './schema';
 
 export type EngineLeaf = { type: 'leaf'; data: { id: string; views: string[]; activeView: string }; size: number };
 export type EngineBranch = { type: 'branch'; data: EngineNode[]; size: number };
@@ -12,6 +12,7 @@ export type EnginePanelState = { id: string; contentComponent: string; tabCompon
 export type EngineLayout = {
   grid: { root: EngineBranch; width: number; height: number; orientation: 'HORIZONTAL' | 'VERTICAL' };
   panels: Record<string, EnginePanelState>;
+  floatingGroups?: { data: { id: string; views: string[]; activeView: string }; position: { left: number; top: number; width: number; height: number } }[];
 };
 
 /** The size to lay out against while the container has none yet (before the first measure); the engine keeps ratios when it is resized. */
@@ -19,9 +20,11 @@ export const NOMINAL_SIZE = 1000;
 
 export function toEngineLayout(
   tree: DockNode, panels: readonly { id: string; title: string; minWidth?: number; minHeight?: number }[], min: { width: number; height: number }, size: { width: number; height: number },
+  floating: readonly DockFloatingPanel[] = [],
 ): EngineLayout {
   const width = size.width > 0 ? size.width : NOMINAL_SIZE;
   const height = size.height > 0 ? size.height : NOMINAL_SIZE;
+  const floatingBoxes = new Map(floating.map(panel => [panel.panelId, clampFloatingPanel(panel, { width, height })]));
   const flat = canonicalDockTree(tree);
   let groups = 0;
   const node = (current: DockNode, w: number, h: number, parentDir: 'row' | 'column'): EngineNode => {
@@ -38,9 +41,17 @@ export function toEngineLayout(
     : { type: 'branch', data: children(flat, width, height), size: flat.dir === 'row' ? height : width };
   return {
     grid: { root, width, height, orientation: flat.type === 'branch' && flat.dir === 'column' ? 'VERTICAL' : 'HORIZONTAL' },
-    panels: Object.fromEntries(panels.map(panel => [panel.id, {
-      id: panel.id, contentComponent: 'panel', tabComponent: 'tab', title: panel.title, renderer: 'always' as const, minimumWidth: panel.minWidth ?? min.width, minimumHeight: panel.minHeight ?? min.height,
-    }])),
+    ...(floating.length ? { floatingGroups: floating.map(panel => {
+      const box = clampFloatingPanel(panel, { width, height });
+      return { data: { id: `dock-float-${panel.panelId}`, views: [panel.panelId], activeView: panel.panelId }, position: { left: box.x, top: box.y, width: box.width, height: box.height } };
+    }) } : {}),
+    panels: Object.fromEntries(panels.map(panel => {
+      const box = floatingBoxes.get(panel.id);
+      return [panel.id, {
+        id: panel.id, contentComponent: 'panel', tabComponent: 'tab', title: panel.title, renderer: 'always' as const,
+        minimumWidth: Math.min(panel.minWidth ?? min.width, box?.width ?? Infinity), minimumHeight: Math.min(panel.minHeight ?? min.height, box?.height ?? Infinity),
+      }];
+    })),
   };
 }
 
@@ -52,7 +63,7 @@ const roundShares = (sizes: number[]): number[] => {
 };
 
 /** Reads the engine's serialised grid back. `measured` is false when any split had no size (jsdom, hidden container): those get equal shares. */
-export function fromEngineLayout(json: { grid: { root: EngineBranch; orientation: 'HORIZONTAL' | 'VERTICAL' } }): { tree: DockNode; measured: boolean } {
+export function fromEngineLayout(json: { grid: { root: EngineBranch; orientation: 'HORIZONTAL' | 'VERTICAL' }; floatingGroups?: EngineLayout['floatingGroups'] }): { tree: DockNode; measured: boolean; floating: DockFloatingPanel[] } {
   let measured = true;
   const read = (node: EngineNode, dir: 'row' | 'column'): DockNode => {
     if (node.type === 'leaf') {
@@ -66,7 +77,8 @@ export function fromEngineLayout(json: { grid: { root: EngineBranch; orientation
     return { type: 'branch', dir, sizes: total > 0 && sizes.every(size => size > 0) ? roundShares(sizes) : kids.map(() => 100 / kids.length), children: kids };
   };
   const rootDir = json.grid.orientation === 'VERTICAL' ? 'column' : 'row';
-  return { tree: canonicalDockTree(read(json.grid.root, rootDir)), measured };
+  const floating = (json.floatingGroups ?? []).flatMap(group => group.data.views.map(panelId => ({ panelId, x: group.position.left, y: group.position.top, width: group.position.width, height: group.position.height })));
+  return { tree: canonicalDockTree(read(json.grid.root, rootDir)), measured, floating };
 }
 
 /** Same structure, same tab order and active tabs; sizes compared only when `sizes` is set, within `tolerance` points. */

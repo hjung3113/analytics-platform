@@ -12,7 +12,7 @@ import {
 import { TransientOverlayScope, prefersReducedMotion } from '@ap/ui';
 import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
-import type { DockLayoutProps, DockPanel, DockRows } from './dockTypes';
+import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
 import { PanelBoundary } from './PanelBoundary';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
@@ -35,6 +35,7 @@ export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLay
   instanceId: string;
   /** Row mode (see `DockRows`); absent = the layout fills its container. */
   rows?: DockRows;
+  floating?: DockFloating;
 };
 
 type Context = {
@@ -52,6 +53,7 @@ type Context = {
   reconciles: number;
   /** Counts the engine's own panel moves: it puts a retained header into a new tab element there, with no reconcile (an accepted move skips `applyLayout`). */
   moves: number;
+  floating?: DockFloating;
   onActivate: (panelId: string) => void;
 };
 
@@ -68,6 +70,21 @@ function PanelHost({ api }: IDockviewPanelProps) {
   const id = api.id;
   const visible = engine.visible.has(id);
   const panel = engine.panels.get(id);
+  const content = useRef<HTMLDivElement>(null);
+  const fitPeek = engine.floating?.peekId === id;
+  useLayoutEffect(() => {
+    const element = content.current;
+    if (!fitPeek || !element) return;
+    const fit = () => {
+      if (api.location.type !== 'floating') return;
+      const natural = element.getBoundingClientRect().height;
+      const available = (element.closest('[data-dock-layout]')?.getBoundingClientRect().height ?? 0) - PEEK_TOP;
+      if (natural > 0 && available > 0) api.group.api.setSize({ height: Math.min(PEEK_HEIGHT, available, Math.ceil(natural) + HEADER_HEIGHT) });
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(element); fit();
+    return () => { observer.disconnect(); };
+  }, [api, fitPeek, engine.reconciles]);
   return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
     onFocus={event => {
       // Focus moving into the panel from outside it is the user choosing the panel. Not: focus the dock itself moved, or an event of a nested
@@ -78,7 +95,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div ref={content} data-dock-panel-content className={fitPeek ? 'min-w-0 w-full' : 'h-full min-w-0 w-full'}><PanelBoundary render={panel?.render} /></div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
   </div>;
 }
 
@@ -105,13 +122,16 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
 
 /** Fired on the layout root when a sash drag ends and the panel contents are released. */
 const RESIZE_END = 'dock-resize-end';
+const PEEK_TOP = 48;
+const PEEK_HEIGHT = 440;
+const HEADER_HEIGHT = 42;
 
 function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const engine = useEngine();
   const slot = useRef<HTMLDivElement>(null);
   const [stripWidth, setStripWidth] = useState(0);
   const anchor = activePanel?.id ?? panels[0]?.id;
-  const group = engine.renderGroupActions && anchor ? groupOf(engine.display, anchor) : undefined;
+  const group = engine.renderGroupActions && anchor ? groupOf(engine.display, anchor) ?? (engine.floating?.panels.some(panel => panel.panelId === anchor) ? { type: 'group' as const, panels: panels.map(panel => panel.id), active: anchor } : undefined) : undefined;
   const drawn = group !== undefined;
   // The header strip is the slot's container; its width is what the host fits the tabs and its own content into.
   useLayoutEffect(() => {
@@ -174,7 +194,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 
 export default function DockEngine({
   panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, separatorLabel, canDropAt,
-  containerRef, instanceId, rows,
+  containerRef, instanceId, rows, floating,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
   const [epoch, setEpoch] = useState(0);
@@ -198,14 +218,15 @@ export default function DockEngine({
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
   const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
-  const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize]), [panels, minPanelSize]);
+  const floatingKey = JSON.stringify(floating?.panels);
+  const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize, floatingKey]), [panels, minPanelSize, floatingKey]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
   const rowsTotal = rows ? rows.heights.reduce((sum, height) => sum + height, 0) : undefined;
   // The engine spaces top-level rows by the theme gap and shares only the rest among them. The box adds the gaps, so each row is drawn at its own px
   // and a resize of one row moves no other (the gap was shared out by proportion before: untouched rows changed by a few px while dragging).
   const rowsBox = rows && rowsTotal !== undefined ? (maximizedPanelId && rows.maximizedHeight !== undefined ? rows.maximizedHeight : rowsTotal + Math.max(0, rows.heights.length - 1) * THEME.gap) : undefined;
-  const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox });
-  useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox }; });
+  const live = useRef({ layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox, floating });
+  useLayoutEffect(() => { live.current = { layout, interactive, onLayoutChange, canonicalDisplay, panels, minPanelSize, rowsBox, floating }; });
   const panelMap = useMemo(() => new Map(panels.map(panel => [panel.id, panel])), [panels]);
 
   const measure = useCallback(() => {
@@ -232,6 +253,10 @@ export default function DockEngine({
   const refused = useCallback((event: DockviewWillDropEvent | DockviewWillShowOverlayLocationEvent): boolean => {
     const judge = canDrop.current;
     const data = event.getData();
+    // Each floating window belongs to one panel. In particular, a primary or opted-out tab cannot enter a floating group by a drop.
+    if (event.kind !== 'edge' && event.group?.panels.some(panel => live.current.floating?.panels.some(item => item.panelId === panel.id))) return true;
+    // A temporary peek stays hidden until its explicit pin action restores its place.
+    if (data?.panelId && data.panelId === live.current.floating?.peekId) return true;
     // A dragged whole group has no panel id: it keeps the engine's behaviour.
     if (!judge || !data?.panelId) return false;
     const target = event.kind === 'edge' ? undefined : event.group;
@@ -299,6 +324,15 @@ export default function DockEngine({
     if (!current.interactive) return;
     const shown = canonicalDockTree(current.layout);
     const read = readEngine(target, shown);
+    if (current.floating && !target.hasMaximizedGroup()) {
+      const floated = fromEngineLayout(target.toJSON() as unknown as EngineLayout).floating;
+      const persistent = floated.filter(panel => panel.panelId !== current.floating?.peekId);
+      const expected = current.floating.panels.filter(panel => panel.panelId !== current.floating?.peekId);
+      if (JSON.stringify(persistent) !== JSON.stringify(expected)) {
+        current.floating.onChange(persistent, keepStoredSizes(read.tree, shown));
+        return;
+      }
+    }
     const structural = !sameDockTree(read.tree, shown, { sizes: false });
     const resized = !structural && dragging.current && read.measured && !sameDockTree(read.tree, shown, { sizes: true, tolerance: 0.05 });
     // The first measured notification after the pointer is up is the drag's own final one: it consumes the permission before the parent is told,
@@ -367,7 +401,11 @@ export default function DockEngine({
       // `fromJSON` ends with a forced relayout at the size the engine had when it started, which would scale every row of the new layout to the
       // old height until the ResizeObserver tells the engine the new one. Put the engine on the new height first, so that size is the new one.
       if (total !== undefined && target.height !== total) target.layout(target.width, total);
-      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: total ?? target.height }) as unknown as SerializedLayout, { reuseExistingPanels: true });
+      target.fromJSON(toEngineLayout(wanted, wantedPanels, minimum, { width: target.width, height: total ?? target.height }, live.current.floating?.panels) as unknown as SerializedLayout, { reuseExistingPanels: true });
+      for (const item of live.current.floating?.panels ?? []) {
+        const panel = target.getPanel(item.panelId);
+        if (panel?.api.location.type === 'floating') panel.group.element.dataset.dockFloating = item.panelId;
+      }
     } finally {
       applying.current = false;
     }
@@ -581,7 +619,7 @@ export default function DockEngine({
     if (!element || !stripShown) return;
     const accepted = () => {
       const data = getPanelData();
-      return data && data.panelId && data.viewId === api?.id ? data.panelId : null;
+      return data && data.panelId && data.viewId === api?.id && data.panelId !== live.current.floating?.peekId ? data.panelId : null;
     };
     const effect = (event: DragEvent, value: 'move' | 'none') => { const transfer = event.dataTransfer as DataTransfer | null | undefined; if (transfer) transfer.dropEffect = value; };
     const enter = (event: DragEvent) => { event.stopPropagation(); };
@@ -610,8 +648,9 @@ export default function DockEngine({
     const active = new Set<string>();
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate]);
+    floating?.panels.forEach(panel => { active.add(panel.panelId); });
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate, floating };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate, floating]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {
@@ -625,7 +664,7 @@ export default function DockEngine({
     <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions} leftHeaderActionsComponent={GroupTabsEnd}
         onReady={onReady} onWillDrop={onWillDrop} theme={dockTheme(prefersReducedMotion())} dndEdges={dockDndEdges} dropOverlayModel={dockDropOverlayModel} defaultRenderer="always" singleTabMode="fullwidth"
-        disableFloatingGroups disableDnd={!interactive} announcements={false} />
+        disableFloatingGroups floatingGroupBounds="boundedWithinViewport" disableDnd={!interactive} announcements={false} />
     </div>
     {stripShown && <div ref={strip} data-dock-drop-below
       className={`${tabDrag ? 'sticky bottom-0 z-20 ' : ''}mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}>{rows?.dropBelowLabel}</div>}

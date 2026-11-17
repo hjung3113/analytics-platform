@@ -4,7 +4,7 @@
  */
 import { isRecord } from '@ap/contracts';
 import { activatePanel, addPanel, groupOf, moveToNewRow, panelOrder, removePanel } from '../dock/commands';
-import { dockGroupsInReadingOrder, normalizeDockTree, type DockNode } from '../dock/schema';
+import { dockGroupsInReadingOrder, normalizeDockTree, parseFloatingPanels, type DockNode, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
 import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
@@ -16,7 +16,7 @@ export type PanelWorkspaceLayout =
  * `mode` absent = fit (the workspace fills its container); `'stack'` = the top-level rows keep their own px in `rows` (the single source; the
  * layout's top-level shares are their projection). Both are optional so a state written before them still loads and an older reader ignores them.
  */
-export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[] };
+export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
 /** Static identifiers only: nothing from data can reach a storage key. */
@@ -66,7 +66,7 @@ const MAX_STORED_ROW_PX = 20000;
 
 /** The height mode of `state`: fit (no `mode`, no `rows`), or stack with `rows` (absent while they are still to be measured). */
 export function withRows(state: WorkspaceState, mode: 'fit' | 'stack', rows?: readonly number[]): WorkspaceState {
-  const base = { v: 1 as const, preset: state.preset, layout: state.layout, hidden: state.hidden };
+  const { mode: _mode, rows: _rows, ...base } = state;
   if (mode === 'fit') return base;
   return rows ? { ...base, layout: withRowShares(base.layout, rows), mode: 'stack', rows: [...rows] } : { ...base, mode: 'stack' };
 }
@@ -168,11 +168,16 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): Work
     const hidden = Array.isArray(raw.hidden)
       ? [...new Set(raw.hidden.filter((id): id is string => typeof id === 'string' && known.has(id) && id !== spec.primaryId))]
       : [];
+    const allowed = new Set(spec.panelIds.filter(id => id !== spec.primaryId));
+    const collapsed = isRecord(raw.collapsed) ? Object.fromEntries(Object.entries(raw.collapsed).filter((entry): entry is [string, PanelEdge] => allowed.has(entry[0]) && (entry[1] === 'left' || entry[1] === 'top'))) : {};
+    const floating = parseFloatingPanels(raw.floating, allowed);
+    floating.forEach(panel => { if (!hidden.includes(panel.panelId)) hidden.push(panel.panelId); });
+    const extra = { ...(Object.keys(collapsed).length ? { collapsed } : {}), ...(floating.length ? { floating } : {}) };
     const preset = typeof raw.preset === 'string' && spec.presets.some(candidate => candidate.id === raw.preset) ? raw.preset : presetOf(spec, spec.initialPreset).id;
     const shown = spec.panelIds.filter(id => !hidden.includes(id));
     const named = namedIds(raw.layout);
     const placed = shown.filter(id => named.has(id) || id === spec.primaryId);
-    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below), hidden }, spec);
+    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below), hidden, ...extra }, spec);
     let layout = normalizeDockTree(raw.layout, placed);
     let appended = false;
     for (const id of shown.filter(candidate => !placed.includes(candidate))) {
@@ -181,7 +186,7 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): Work
       if (before) layout = activatePanel(layout, before);
       if (spec.below?.includes(id) && panelOrder(layout).length > 1) { layout = moveToNewRow(layout, id); appended = true; }
     }
-    return restoreRows(raw, { v: 1, preset, layout, hidden }, spec, appended);
+    return restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, appended);
   } catch {
     return initialWorkspaceState(spec);
   }
@@ -199,7 +204,19 @@ export function applyPreset(state: WorkspaceState, preset: WorkspacePreset, belo
 
 /** `기본 배치`: the current preset's arrangement of every panel; nothing hidden. The height mode is the user's and stays as it is (never reset to `initialMode`). */
 export function resetLayout(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[]): WorkspaceState {
-  return { ...state, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden], below), hidden: [] };
+  return { ...state, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden], below), hidden: [], floating: [] };
+}
+
+export function collapsePanel(state: WorkspaceState, panelId: string, primaryId: string, edge: PanelEdge): WorkspaceState {
+  if (panelId === primaryId) return state;
+  const next = hidePanel(state, panelId, primaryId);
+  return { ...next, collapsed: { ...next.collapsed, [panelId]: edge }, floating: next.floating?.filter(panel => panel.panelId !== panelId) };
+}
+
+export function floatPanel(state: WorkspaceState, panel: DockFloatingPanel, primaryId: string): WorkspaceState {
+  if (panel.panelId === primaryId) return state;
+  const next = hidePanel(state, panel.panelId, primaryId);
+  return { ...next, floating: [...(next.floating ?? []).filter(item => item.panelId !== panel.panelId), panel] };
 }
 
 /**
@@ -226,7 +243,7 @@ export function showPanel(state: WorkspaceState, panelId: string, primaryId: str
   const primaryActive = groupActive(state.layout, primaryId);
   let layout = addPanel(state.layout, panelId, into !== undefined ? { panelId: into, position: 'center' } : { panelId: primaryId, position: 'right' });
   if (into !== undefined && groupOf(layout, panelId)?.panels.includes(primaryId) && primaryActive) layout = activatePanel(layout, primaryActive);
-  return { ...state, layout, hidden: state.hidden.filter(id => id !== panelId) };
+  return { ...state, layout, hidden: state.hidden.filter(id => id !== panelId), ...(state.floating ? { floating: state.floating.filter(panel => panel.panelId !== panelId) } : {}) };
 }
 
 /** The tab that should take focus after `panelId` was hidden: the one now active in the group it left, else the primary's. */

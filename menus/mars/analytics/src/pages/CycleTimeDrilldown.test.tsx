@@ -44,6 +44,20 @@ function renderPage(path: string) {
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
 }
 
+it('declares icons for the summary, distribution and slow workspace panels (#2435)', async () => {
+  const components = await import('@ap/components');
+  const workspaces = vi.spyOn(components, 'PanelWorkspace');
+  vi.stubGlobal('localStorage', memoryStorage());
+  vi.stubGlobal('sessionStorage', memoryStorage());
+  try {
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
+    await waitFor(() => expect(workspaces).toHaveBeenCalled());
+    const panels = workspaces.mock.calls.at(-1)![0].panels;
+    expect(panels.filter(panel => !panel.primary).map(panel => panel.id)).toEqual(['summary', 'distribution', 'slow']);
+    for (const panel of panels.filter(panel => !panel.primary)) expect(panel.icon, panel.id).toBeDefined();
+  } finally { cleanup(); workspaces.mockRestore(); vi.unstubAllGlobals(); }
+});
+
 function DraftActions() {
   const draft = useQueryDraft();
   return <>
