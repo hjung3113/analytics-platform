@@ -89,7 +89,7 @@
 | [0075](0075-page-head-one-line-fold-thin-outcome-strip.md) | fill 페이지 머리 영역(`contextNotes` + `contextExtension`)을 한 줄로 접고(기본 접힘, 메뉴별 기억, 적용 칩·미적용·확인 필요·안내 표식) fill 페이지의 공유 응답 배너를 얇은 띠(`자세히` Popover)로 바꾼다 — A 촘촘하게·B 한 줄 접기+띠·C 옆 패널 중 B | Decided(2026-10-23, 사용자) — #680 |
 | [0076](0076-kernel-host-entry-narrow-menu-platform.md) | `Platform` 값은 하나로 두고 타입을 `MenuPlatform`(root `usePlatform()`)과 `HostPlatform`(`@ap/kernel/host`의 `useHostPlatform()`)으로 나누며, 셸 전용 Provider·hook은 `@ap/kernel/host`로 옮기고 lint가 메뉴·모듈의 import를 막는다. `adapter`·`PlatformProvider`는 root에 남는다 | Decided(2026-10-23, 코디네이터, 사용자 위임) — 구현 #671 B8 |
 | [0077](0077-workspace-stack-mode-rows-keep-own-height.md) | `PanelWorkspace`에 두 번째 높이 방식 `아래로 쌓기`(줄이 px 높이를 갖고 페이지가 스크롤)를 선택 모드로 더하고(기본값은 뒤에 [ADR-0130](0130-workspace-stack-default-and-declared-stack-layout.md)이 쌓기로 바꿈), 경계는 그 위 줄만 바꾸며 마지막 줄 아래 띠가 새 줄을 받는다 — A 늘리기 손잡이·B 높이 프리셋·C 줄 px 쌓기 중 C. ADR-0067 결정 4·8·21을 고친다 | Decided(2026-10-23, 사용자) — #686 |
-| [0078](0078-hw-time-layout-recipes.md) | HW Time 단일 분석 화면과 연결 패널 — URL 드릴, 독립 분포·추세, 옛 id 호환 | Decided(2026-11-16, 사용자) |
+| [0078](0078-hw-time-layout-recipes.md) | HW Time 단일 분석 화면과 연결 패널 — URL 드릴, 독립 분포·추세; 부분 대체 — 0165, 옛 id는 `retiredMenus`(#2330) | Decided(2026-11-16, 사용자) |
 | [0079](0079-chart-row-focus-row-pitch.md) | `AnalysisChartFrame` 가로 막대에 제어형 `activeCategory`/`onActiveCategoryChange`/`revealActive`와 행 높이 viewport `rowPitch`를 더한다 — 동기화 그룹 컨텍스트 대신 제어형 prop(ADR-0063 패턴), `dataZoom` 창 대신 안쪽 스크롤(`rowPitch`에서는 범주 줌 끔). #541 F를 결정한다 | Decided(2026-10-24, 코디네이터, 되돌릴 수 있음) — #690 |
 | [0080](0080-inspector-forms.md) | `Inspector`는 보조 섹션을 한 번 선언하고 두 형태(`stack` APG 아코디언, `rail` 40 px 아이콘 열 + Popover peek)로 보인다 — A 아코디언 스택·B 레일+peek·C 탭 중 A+B를 한 부품으로, 동시 다중 열림이 기본. 섹션 내용은 질의를 소유하지 않는다 | Decided(2026-10-24, 코디네이터, 되돌릴 수 있음) — #690 |
 | [0081](0081-feedbackops-operator-screens-platform-frame.md) | FeedbackOps 운영 화면은 플랫폼 틀(사이드바 `목록 범위`, 한 줄 머리)로 업무 시스템 `FeedbackOps`(부제 `피드백 운영`) 하나에 옮긴다: 레일 7섹션, 신고자 항목 제외, 바닥 블록은 셸 안 이동 + 복귀 줄, 사용자 메뉴 `FeedbackOps 전체` 제거 | Decided(2026-10-24, 사용자 — 시안 A + UX 리뷰 개선) — #595, 0042·0045·0070 부분 대체, 구현됨 — #759 골격·#760 바닥 블록·#761 VOC·#763 Tasks·#762 Findings·연동·#764 Surveys·관리자·`FeedbackOps 전체` 제거 끝(독립 앱 은퇴 #597 남음) — FeedbackOps 항목은 0097·0100이 개정 |
@@ -167,7 +167,7 @@
 | [0152](0152-worker-input-delivery-source-owner-step.md) | 작업자 입력 전달은 공급자 중립인 Source 소유자의 별도 단계로 둔다 | Candidate |
 | [0153](0153-upstream-target-routing-and-declared-connectors.md) | 코어 서버가 기존 시스템에 직접 붙는다: 상류 대상 표·Scope 키 라우팅·fan-out 병합·선언형 연결기 | Decided(2026-11-12) |
 | [0154](0154-site-and-room-grants-are-platform-owned.md) | Site·room 부여는 플랫폼 부여 표가 소유하고, 막힌 자리에서 바로 신청한다 | Decided(2026-11-12) |
-| [0155](0155-categorized-permission-list-checkbox-rows.md) | 분류된 권한 목록은 체크박스 행·프리셋, 부여는 후보별 radio | Decided(2026-11-12, 고문·소유자 위임, 되돌릴 수 있음) |
+| [0155](0155-categorized-permission-list-checkbox-rows.md) | 분류된 권한 목록은 체크박스 행·프리셋, 부여는 다중 선택(#2420) | Decided(2026-11-12, 고문·소유자 위임, 되돌릴 수 있음) |
 | [0156](0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md) | 코어 서버는 선언 묶음을 앱 빌드가 낸 메뉴 선언 스냅샷과 대조한다 | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
 | [0157](0157-bundle-declares-menu-capabilities.md) | 선언 묶음이 자기 capability 행과 메타를 선언한다(ADR-0146 결정 3 개정) | Decided(2026-11-13, 소유자 «니추천대로», 고문 리뷰 반영, 되돌릴 수 있음) |
 | [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) | 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`) | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |

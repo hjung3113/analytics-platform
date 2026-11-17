@@ -8,7 +8,7 @@
 
 ## 0.2.0 — 2026-11-07
 
-- 운영 콘솔 권한 그룹의 서비스 토큰(`/operations/service-tokens`): 관리자 목록·발급·폐기, system Actor 선택·무기한 필터(#1443).
+- 운영 콘솔 «권한» 묶음의 서비스 토큰(`/operations/service-tokens`): 관리자 목록·발급·폐기, system Actor 선택·무기한 필터(#1443).
 
 ## 0.1.0 — 2026-11-03
 

@@ -13,7 +13,7 @@ A는 체크박스 행, B는 스위치 행이다. A를 채택한다. 체크박스
 
 도메인을 모르는 `GroupedSelectionList`를 SDK에 둔다([ADR-0052](0052-rich-content-stays-in-the-sdk.md)). 자리는 `@ap/ui`다. 소비자인 기능 화면은 플랫폼 중 `@ap/ui`만 import할 수 있고([ADR-0097](0097-platform-features-and-role-based-names.md)), `@ap/components`의 다른 조각과 달리 Kernel 문구 대신 `messages` prop을 받는다. 이름·분류·설명·민감 표시는 feature 선언이 소유한다. 동작 계약의 원본은 [공통 컴포넌트 §13](../contract/components.md#groupedselectionlist--분류된-선택-목록-decided-adr-0155)이다.
 
-토큰 발급은 개별 체크박스와 더하기 방식 프리셋을 제공한다. 운영 콘솔 부여 창은 서버 후보인 권한 × 대상 시스템마다 radio 한 행을 제공한다. 현재 API가 후보 하나와 사유·감사 기록을 받으므로 한 번에 하나를 부여한다. 단일 모드에는 프리셋과 일괄 선택이 없다. 필수 입력은 접근 가능하게 두고 제출·취소는 스크롤 영역 밖에 둔다.
+토큰 발급은 개별 체크박스와 더하기 방식 프리셋을 제공한다. 운영 콘솔 부여 창은 서버 후보인 권한 × 대상 시스템마다 radio 한 행을 제공한다. 현재 API가 후보 하나와 사유·감사 기록을 받으므로 한 번에 하나를 부여한다. 단일 모드에는 프리셋과 일괄 선택이 없다(#2420 개정으로 시스템 후보는 다중 선택). 필수 입력은 접근 가능하게 두고 제출·취소는 스크롤 영역 밖에 둔다.
 
 ## 개정 — 한 눈에 보이는 표시 옵션 (#2405, 2026-11-17)
 
@@ -21,7 +21,7 @@ A는 체크박스 행, B는 스위치 행이다. A를 채택한다. 체크박스
 
 `GroupedSelectionList`에 옵트인 옵션 `density: 'compact'`, `hideDisabled`, `selectionSummary: 'chips'`, `presetPreview`를 더한다. 기본값은 기존 모양이라 다른 소비자는 바뀌지 않는다. 소유자 보완: 접은 비활성 행의 토글은 이유를 글로 말하고 펼친 행도 이유를 글로 보인다, 프리셋 미리보기는 줄임표 없이 모두 보이고 없으면 «추가할 항목 없음», 칩은 머리 안 스크롤 대신 «+N»으로 접는다. 비활성 행은 **토큰 드로어에서** 기본으로 접는다. 동작 계약은 [§13](../contract/components.md#groupedselectionlist--분류된-선택-목록-decided-adr-0155)이다.
 
-## 개정 — 부여·신청 폼 다중 선택 (#2420)
+## 개정 — 부여·신청 폼 다중 선택 (#2420, 2026-11-17)
 
 #2420은 소유자가 고른 V1을 운영 콘솔 부여 폼과 권한 요청 페이지에도 적용한다. 시스템 권한 후보는 다중 선택하며 한 후보는 기존 단일 API, 둘 이상은 batch API를 쓴다. Site·공정 대상은 단일 선택이다. 화면 동작의 원본은 [권한 화면 계약](../../packages/feature/screens/docs/routes-and-layout.md#permission-close-out-composition-fo-adr-0066)이다.
 
