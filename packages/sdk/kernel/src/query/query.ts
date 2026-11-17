@@ -6,6 +6,7 @@ import { useHostPlatform, useQueryEngine } from '../platform/platform';
 import { clientCorrelationId, compareAuditEvents, CUSTOM_GROUP_AXIS, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type CustomGroupTarget, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, type SavedViewListItem, serializeGlobal, isAnswered } from '@ap/contracts';
 import { customGroupItemId, customGroupReadState, expandCustomGroups } from '../saved-view/expand-custom-groups';
 import { readEquipmentFacts } from '../scope/equipment-facts-cache';
+import { readCustomGroupList } from '../saved-view/custom-group-list-cache';
 import type { QueryEngine } from './query-engine';
 import { useCursorPages, type CursorMore, type CursorMoreError, type CursorMoreLast, type CursorMoreStatus, type FirstPage } from '../audit/cursor-pages';
 
@@ -272,7 +273,7 @@ async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: Menu
   if (!store) return queryError(`customGroup blocked: ${ids.join(', ')} (saved-view store is unavailable)`);
   let listed: readonly SavedViewListItem[];
   try {
-    listed = await store.list({ userId: inputs.session.user.id, menuId: null, kind: 'custom-group' });
+    listed = await readCustomGroupList(inputs.queryEngine.client, inputs.queryEngine.gen, store, inputs.session.user.id, signal);
   } catch (error) {
     if (aborted(signal)) throw error;
     return queryError(`customGroup expansion blocked: saved groups could not load (${error instanceof Error ? error.message : String(error)})`);

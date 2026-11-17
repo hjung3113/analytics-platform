@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { CustomGroupTarget, SavedViewListItem } from '@ap/contracts';
 import { customGroupItemId, customGroupReadState, useMessages } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { useCustomGroupList, useHostPlatform } from '@ap/kernel/host';
 import { SHELL_MESSAGES } from '../messages';
-import { useSessionKey } from '../frame/sessionKey';
 
 export type GroupOption = { id: string; label: string; target?: CustomGroupTarget; reason?: string; reasonWord?: string };
 export type BlockedGroup = { id: string; reason: string };
@@ -14,7 +13,6 @@ export type CustomGroupOptions = {
   /** Adds or replaces a group the user just saved, without reloading the list. */
   remember(entry: SavedViewListItem): void;
 };
-type GroupListState = { status: 'loading' | 'ready' | 'error'; key: string | null; items: readonly SavedViewListItem[] };
 
 /** A blocked group's reason code → its short word; the code itself stays in the query's technical detail. */
 const GROUP_REASON_WORD = {
@@ -28,26 +26,10 @@ const GROUP_REASON_WORD = {
  * session or Scope counts as loading until the new list arrives.
  */
 export function useCustomGroupOptions({ scopeId, selectedGroupIds, canEditCondition }: { scopeId: string | null; selectedGroupIds: readonly string[]; canEditCondition: boolean }): CustomGroupOptions {
-  const { savedViewStore, session } = useHostPlatform();
-  const sessionKey = useSessionKey();
+  const { savedViewStore } = useHostPlatform();
   const m = useMessages(SHELL_MESSAGES);
-  const listKey = JSON.stringify([sessionKey, scopeId, canEditCondition]);
-  const [groupList, setGroupList] = useState<GroupListState>({ status: 'loading', key: null, items: [] });
-  useEffect(() => {
-    if (!canEditCondition || !savedViewStore || !scopeId) {
-      setGroupList({ status: 'ready', key: listKey, items: [] });
-      return;
-    }
-    let live = true;
-    setGroupList({ status: 'loading', key: listKey, items: [] });
-    savedViewStore.list({ userId: session.user.id, menuId: null, kind: 'custom-group' }).then(
-      items => { if (live) setGroupList({ status: 'ready', key: listKey, items }); },
-      () => { if (live) setGroupList({ status: 'error', key: listKey, items: [] }); },
-    );
-    return () => { live = false; };
-  }, [canEditCondition, savedViewStore, session, scopeId, listKey]);
-
-  const current = useMemo(() => groupList.key === listKey ? groupList : { status: 'loading' as const, key: listKey, items: [] }, [groupList, listKey]);
+  const current = useCustomGroupList(scopeId, canEditCondition);
+  const { remember } = current;
   const optionsById = useMemo(() => {
     const result = new Map<string, GroupOption>();
     const blocked = (id: string, reason: string): GroupOption => {
@@ -72,10 +54,5 @@ export function useCustomGroupOptions({ scopeId, selectedGroupIds, canEditCondit
     return option?.reasonWord && option.reason !== 'loading' ? [{ id, reason: option.reasonWord }] : [];
   }) : []);
   const blocked = useMemo(() => JSON.parse(blockedKey) as BlockedGroup[], [blockedKey]);
-  // A save that settles after the session or Scope moved on belongs to the old list: it never touches the current one.
-  const remember = useCallback((entry: SavedViewListItem) => setGroupList(previous => previous.key !== listKey ? previous : ({
-    status: 'ready', key: listKey,
-    items: [...previous.items.filter(item => customGroupItemId(item) !== customGroupItemId(entry)), entry],
-  })), [listKey]);
   return useMemo(() => ({ optionsById, blocked, remember }), [optionsById, blocked, remember]);
 }
