@@ -4,7 +4,8 @@ import { Button, cn, InfoTip, Popover, PopoverContent, PopoverTrigger } from '@a
 import { formatMetricVersion } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
-import type { ChartChromeOptions } from './chartChrome';
+import type { ChartChrome, ChartChromeOptions } from './chartChrome';
+import type { AnalysisChartFrameProps } from './AnalysisChartFrame';
 import { chartTrustText, type ChartTrust } from '../state/trustFormat';
 
 /** Internal frame fragments: preserve the time-series frame's element tree. */
@@ -77,8 +78,8 @@ export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bo
 
 /** What the selection summary under the plot has to show; facts only, no element state. */
 export type SummaryFacts = {
-  chrome: 'full' | 'standard' | 'minimal';
-  summary?: 'standard' | 'quiet';
+  chrome: ChartChrome;
+  summary?: AnalysisChartFrameProps['summary'];
   /** `size="fill"`: the plot keeps the space until the user brushes or a range exists (ADR-0067 decision 21). */
   fill: boolean;
   brushMode: boolean;
