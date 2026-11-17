@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveOrder, moveWithinGroup, pinnedInOrder } from '../columnOrder';
+import { effectiveOrder, groupedOrder, moveWithinGroup, pinnedInOrder } from '../columnOrder';
 
 describe('effectiveOrder (#556a)', () => {
   const declared = ['a', 'b', 'c', 'd'];
@@ -11,6 +11,21 @@ describe('effectiveOrder (#556a)', () => {
     expect(effectiveOrder(['a', 'n', 'b', 'c'], ['c', 'a', 'b'])).toEqual(['c', 'a', 'n', 'b']);
   });
   it('a new first column goes first', () => expect(effectiveOrder(['n', 'a', 'b'], ['b', 'a'])).toEqual(['n', 'b', 'a']));
+});
+
+describe('groupedOrder (#2418)', () => {
+  const columns = [
+    { id: 'x' }, { id: 'a', columnGroup: ['A'] },
+    { id: 'b', columnGroup: ['A', 'inner'] }, { id: 'c', columnGroup: ['A', 'inner'] }, { id: 'y' },
+  ];
+  it('gathers scattered members recursively at the first member without mutating stored order', () => {
+    const saved = ['c', 'x', 'a', 'y', 'b'];
+    expect(groupedOrder(columns, saved)).toEqual(['c', 'b', 'a', 'x', 'y']);
+    expect(saved).toEqual(['c', 'x', 'a', 'y', 'b']);
+  });
+  it('leaves undeclared groups and missing saved columns compatible with effectiveOrder', () => {
+    expect(groupedOrder([{ id: 'x' }, { id: 'y' }], ['y'])).toEqual(['x', 'y']);
+  });
 });
 
 describe('pinnedInOrder / moveWithinGroup (#556a)', () => {

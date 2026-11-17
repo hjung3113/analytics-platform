@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PlatformColumn } from '../PlatformDataTable';
-import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx, xlsxText, XLSX_CELL_MAX } from '../tableExport';
+import { exportCell, exportColumns, exportHeaders, toClipboardHtml, toCsv, toTsv, toXlsx, xlsxText, XLSX_CELL_MAX } from '../tableExport';
 import { readXlsx } from './xlsxTestReader';
 
 type Row = { id: string; label: string | null; count: number; flag: boolean; bad?: unknown };
@@ -11,6 +11,40 @@ const columns: PlatformColumn<Row>[] = [
   { id: 'count', header: 'Count', align: 'right' },
   { id: 'flag', header: 'Flag' },
 ];
+
+describe('column group export (#2418)', () => {
+  const grouped: PlatformColumn<Row>[] = [
+    { id: 'id', header: 'ID' }, { id: 'label', header: 'Label', columnGroup: ['A'] },
+    { id: 'count', header: 'Count', columnGroup: ['A', 'inner'] }, { id: 'flag', header: 'Flag', columnGroup: ['A', 'inner'] },
+  ];
+  const labels = { A: 'Equipment A', inner: 'Measures' };
+  it('normalizes scattered stored order and pins before selecting exportable columns', () => {
+    expect(exportColumns(grouped, { visibility: {}, pinning: { left: ['count'] }, order: ['flag', 'id', 'label', 'count'] }).map(c => c.id)).toEqual(['flag', 'count', 'label', 'id']);
+  });
+  it('uses path names for CSV/TSV and merged multi-row headers for XLSX/HTML', async () => {
+    const { flat, rows } = exportHeaders(grouped, labels);
+    expect(flat).toEqual(['ID', 'Equipment A › Label', 'Equipment A › Measures › Count', 'Equipment A › Measures › Flag']);
+    expect(toCsv(flat, [[1, 2, 3, 4]])).toBe('\uFEFFID,Equipment A › Label,Equipment A › Measures › Count,Equipment A › Measures › Flag\r\n1,2,3,4\r\n');
+    expect(toTsv(flat, [])).toBe('ID\tEquipment A › Label\tEquipment A › Measures › Count\tEquipment A › Measures › Flag\n');
+    expect(rows).toEqual([
+      ['', { value: 'Equipment A', columnSpan: 3 }, null, null],
+      ['', '', { value: 'Measures', columnSpan: 2 }, null],
+      ['ID', 'Label', 'Count', 'Flag'],
+    ]);
+    const html = toClipboardHtml(rows, [[1, 2, 3, 4]]);
+    expect(html).toContain('colspan="3"');
+    expect(html.match(/<tr>/g)).toHaveLength(4);
+    const book = await readXlsx(await toXlsx(rows, [[1, 2, 3, 4]], []));
+    expect(book.sheets[0]).toMatchObject({ B1: 'Equipment A', C2: 'Measures', A3: 'ID', D4: 4 });
+    expect(book.sheetXml[0]).toContain('ref="B1:D1"');
+    expect(book.sheetXml[0]).toContain('ref="C2:D2"');
+  });
+  it('keeps plain export headers and serialized HTML byte-identical', () => {
+    const headers = exportHeaders(columns);
+    expect(headers).toEqual({ flat: ['ID', 'Label', 'Count', 'Flag'], rows: ['ID', 'Label', 'Count', 'Flag'] });
+    expect(toClipboardHtml(headers.rows, [])).toBe(toClipboardHtml(['ID', 'Label', 'Count', 'Flag'], []));
+  });
+});
 
 describe('exportColumns (#173)', () => {
   it('keeps visible columns in declaration order and drops hidden and exportable:false columns', () => {

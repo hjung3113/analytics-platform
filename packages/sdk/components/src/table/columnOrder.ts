@@ -20,6 +20,32 @@ export function effectiveOrder(declared: readonly string[], saved: readonly stri
   return result;
 }
 
+type GroupedColumn = { id: string; columnGroup?: readonly string[] };
+
+/** Gather every path's members at its first saved member, recursively. Never repairs storage on read. */
+export function groupedOrder(columns: readonly GroupedColumn[], saved: readonly string[]): string[] {
+  const paths = new Map(columns.map(c => [c.id, c.columnGroup ?? []]));
+  const collect = (ids: string[], depth: number): string[] => {
+    const seen = new Set<string>();
+    return ids.flatMap(id => {
+      const group = paths.get(id)?.[depth];
+      if (group === undefined) return [id];
+      if (seen.has(group)) return [];
+      seen.add(group);
+      return collect(ids.filter(member => paths.get(member)?.[depth] === group), depth + 1);
+    });
+  };
+  return collect(effectiveOrder(columns.map(c => c.id), saved), 0);
+}
+
+/** D12: any visible saved member pins its entire outer group; keep legacy pin order for plain tables. */
+export function groupedPins(columns: readonly GroupedColumn[], left: readonly string[], order: readonly string[], visibility: Readonly<Record<string, boolean>>, hasSavedOrder: boolean): string[] {
+  if (!columns.some(c => c.columnGroup?.length)) return pinnedInOrder(left, order, hasSavedOrder);
+  const pinnedGroups = new Set(columns.filter(c => left.includes(c.id) && visibility[c.id] !== false).map(c => c.columnGroup?.[0]).filter(g => g !== undefined));
+  const expanded = columns.filter(c => c.columnGroup?.length ? pinnedGroups.has(c.columnGroup[0]) : left.includes(c.id)).map(c => c.id);
+  return groupedOrder(columns, order).filter(id => expanded.includes(id));
+}
+
 /** The pinned ids in display order: the effective order once a saved order exists, the pinning order otherwise. */
 export function pinnedInOrder(left: readonly string[], effective: readonly string[], hasSavedOrder: boolean): string[] {
   const known = left.filter(id => effective.includes(id));

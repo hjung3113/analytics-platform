@@ -10,7 +10,9 @@ import { formatNumber } from '@ap/contracts';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
-import { toColumnDef } from './columnDef';
+import { toColumnDef, toGroupedColumnDefs } from './columnDef';
+import { columnGroupErrors, renderDisplayedUnits } from './columnGroups';
+import { isProductionEnv } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useElementSize } from '../state/useElementSize';
 import { OutcomeContent } from '../StateView';
@@ -19,7 +21,7 @@ import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
 import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from './tableMessages';
-import { effectiveOrder, moveWithinGroup, pinnedInOrder } from './columnOrder';
+import { groupedOrder, groupedPins, moveWithinGroup } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
 import { useRowsSource } from './useRowsSource';
@@ -51,6 +53,8 @@ export type PlatformColumn<T> = {
   id: string;
   /** Header text and the column-menu label. */
   header: string;
+  /** Column-group id path, outer → inner. Absent = not grouped. */
+  columnGroup?: readonly string[];
   /** Sort/default display value; default `(row as Record<string, unknown>)[id]`. */
   value?: (row: T) => unknown;
   /** Display; default String(value) ('' for null/undefined). */
@@ -144,6 +148,8 @@ type TableBaseProps<T> = {
   subtitle?: ReactNode;
   ariaLabel: string;
   columns: PlatformColumn<T>[];
+  /** Column-group id → header label. Every id used in a columnGroup path must be here. */
+  columnGroups?: Readonly<Record<string, string>>;
   getRowId: (row: T) => string;
   /** Identity of page-owned filters (a query the page holds outside the column filters, e.g. a search); a change returns to page 1 and clears row selection. Default `''`: no page-owned filter. */
   filterKey?: string;
@@ -382,16 +388,24 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const selectedCount = selectionState.count;
   const { headerState, clear: clearSelection } = selectionState;
   const { exporting, copying, exportNote, copyNote, runExport, runCopy, onShortcut, abortTransfers } = useTableTransfer<T>({
-    columns: p.columns, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
+    columns: p.columns, columnGroups: p.columnGroups, getRowId: p.getRowId, exportRows: p.exportRows, menuNote: p.exportNote, exportFilterSummary: p.exportFilterSummary, exportContext: p.exportContext,
     canExport, selectedIds, selection: effectiveSelection, allSelection: selectionState.all ? { excludedIds: selectionState.excludedIds, count: selectedCount } : null, columnFilters: effectiveFilters, filterFields, loadedRows: data.rows, total: data.total, resultOk: shown?.outcome === 'ok', activeSorting, preferences, overlayOpen,
   });
 
+  const orderedIds = useMemo(() => groupedOrder(p.columns, preferences.order), [p.columns, preferences.order]);
+  const pinnedIds = groupedPins(p.columns, preferences.pinning.left ?? [], orderedIds, preferences.visibility, preferences.order.length > 0);
+  const hasColumnGroups = p.columns.some(c => c.columnGroup?.length);
+  const paths = new Map(p.columns.map(c => [c.id, c.columnGroup]));
+  useEffect(() => {
+    if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
+    for (const error of columnGroupErrors(p.columns, p.columnGroups)) console.error(`[PlatformDataTable] ${error}`);
+  }, [p.columns, p.columnGroups]);
   const columnPrefsId = useId();
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
   // One width model for the fit estimates: the stored or declared size, clamped to what the table renders.
   const columnWidth = (id: string, size: number | undefined) => renderedWidth(preferences.sizing[id] ?? Math.round((size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
-  const leftPinnedWidth = (preferences.pinning.left ?? []).reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + columnWidth(id, p.columns.find(c => c.id === id)?.size), 0);
+  const leftPinnedWidth = pinnedIds.reduce((sum, id) => preferences.visibility[id] === false ? sum : sum + columnWidth(id, p.columns.find(c => c.id === id)?.size), 0);
   // When only the compact (72px, icon-only) form fits beside the left pins it stays pinned; narrower still it unpins in the normal form.
   const fitsFull = fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL;
   // Narrow table with columns scrolled off by more than a whole action column: the 56px saved by the compact form is worth more as data.
@@ -401,11 +415,12 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
   const actionWidth = actionCompact ? COMPACT_ACTION_WIDTH : ACTION_COLUMN_WIDTH;
   // #556a: `order` is the single order source; the pins only say which columns are pinned and are laid out by it.
-  const declaredIds = useMemo(() => p.columns.map(c => c.id), [p.columns]);
-  const orderedIds = useMemo(() => effectiveOrder(declaredIds, preferences.order), [declaredIds, preferences.order]);
-  const pinnedIds = pinnedInOrder(preferences.pinning.left ?? [], orderedIds, preferences.order.length > 0);
   const pinningState: ColumnPinningState = { left: pinnedIds, right: actionPinned ? ['_action'] : [] };
   // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
+  // Converted leaves depend on the declaration and the size scale only, never on the order (a reorder must not remount cells).
+  const leafDefs = useMemo(() => new Map(p.columns.map(c => [c.id, toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })])), [p.columns, widthScale]);
+  // Ungrouped tables keep declaration order here and leave ordering to the engine's `columnOrder`; grouped tables nest in the shown order.
+  const treeOrder = p.columns.some(c => (c.columnGroup?.length ?? 0) > 0) ? orderedIds : null;
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
     ...(selectable ? [{
       id: '_select', size: SELECT_COLUMN_SIZE, enableSorting: false, enableHiding: false, enableResizing: false,
@@ -420,8 +435,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       cell: ({ row }) => <Checkbox aria-label={m('tableSelectRow', { id: row.id })} checked={row.getIsSelected()} onCheckedChange={v => row.toggleSelected(v === true)} className="size-3.5 border-border-control" />,
     } as ColumnDef<T>] : []),
     // 크게 widens the DEFAULT widths by the font ratio; a width the user dragged is stored in `preferences.sizing` and wins over it.
-    ...p.columns.map(c => toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })),
-  ], [p.columns, m, selectable, widthScale]);
+    ...toGroupedColumnDefs(treeOrder ? treeOrder.flatMap(id => p.columns.filter(c => c.id === id)) : p.columns, p.columnGroups, c => leafDefs.get(c.id)!),
+  ], [p.columns, p.columnGroups, treeOrder, leafDefs, m, selectable]);
   const hasAction = !!p.rowAction;
   const allColumns = useMemo<ColumnDef<T>[]>(() => [
     ...baseColumns,
@@ -461,8 +476,24 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       setSorting(next); setPage(0); if (viewport.current) viewport.current.scrollTop = 0;
     },
     onRowSelectionChange: selectionState.onRowSelectionChange,
-    onColumnSizingChange: sizingChange, onColumnVisibilityChange, onColumnPinningChange: onColumnPinningChange(actionPinned),
+    onColumnSizingChange: sizingChange, onColumnVisibilityChange, onColumnPinningChange: update => {
+      const next = typeof update === 'function' ? update(pinningState) : update;
+      onColumnPinningChange(actionPinned)({ ...next, left: groupedPins(p.columns, next.left ?? [], orderedIds, preferences.visibility, preferences.order.length > 0) });
+    },
   });
+  const headerSegments = hasColumnGroups ? [
+    { side: 'left' as const, rows: table.getLeftHeaderGroups() },
+    { side: false as const, rows: table.getCenterHeaderGroups() },
+    { side: 'right' as const, rows: table.getRightHeaderGroups() },
+  ] : [{ side: false as const, rows: table.getHeaderGroups() }];
+  const headerRowCount = Math.max(1, ...headerSegments.map(segment => segment.rows.length));
+  const headerRows = Array.from({ length: headerRowCount }, (_, depth) => headerSegments.flatMap(segment =>
+    (segment.rows[depth]?.headers ?? []).map(header => ({ header, side: hasColumnGroups ? segment.side : header.column.getIsPinned() }))));
+  const renderCells = <C,>(items: readonly C[], columnOf: (item: C) => Column<T>, render: (item: C) => ReactNode) =>
+    renderDisplayedUnits(items, item => {
+      const column = columnOf(item);
+      return paths.get(column.id) ?? paths.get(column.getLeafColumns()[0]?.id);
+    }, render);
   const rows = table.getRowModel().rows;
   // #556d: group header rows are virtual items mixed into the list; null = flat, exactly as before (no groupBy, or a response without `groups`).
   const groupColumn = groupBy ? groupColumns.find(c => c.id === groupBy) : undefined;
@@ -564,6 +595,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6 [&_a.h-8]:h-6');
   const cellText = sized ? 'text-(length:--ap-table-font)' : 'text-sm';
   const headStyle = (column: Column<T>): CSSProperties => sized ? { ...cellStyle(column), fontSize: 'var(--ap-table-head-font)' } : cellStyle(column);
+  function groupHeadStyle(h: Header<T, unknown>, side: 'left' | 'right' | false): CSSProperties {
+    const leaves = h.getLeafHeaders().filter(leaf => leaf.subHeaders.length === 0);
+    return { width: leaves.reduce((sum, leaf) => sum + widthOf(leaf.column), 0), flexShrink: 0,
+      position: side ? 'sticky' : 'relative', left: side === 'left' ? leaves[0]?.column.getStart('left') : undefined,
+      right: side === 'right' ? leaves.at(-1)?.column.getAfter('right') : undefined, zIndex: side ? 2 : undefined,
+      ...(sized ? { fontSize: 'var(--ap-table-head-font)' } : {}) };
+  }
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
   const pinEdge = 'border-l border-l-border-control';
   /** A pinned cell fades the column scrolling beneath its inner edge (a pseudo-element of the cell itself, no pointer events), so a half-clipped column never reads as cut text. */
@@ -575,6 +613,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
   // #556a: every data column can be ordered (a non-hideable one shows no checkbox); moves stay inside the pinned / other group.
+  const engineColumns = new Map(table.getAllFlatColumns().map(column => [column.id, column]));
   const dataColumns = table.getAllLeafColumns().filter(c => c.id !== '_select' && c.id !== '_action');
   // A pin toggle moves its row between the groups, which remounts the button; give focus back to the same column's toggle.
   const refocusPin = useRef<string | null>(null);
@@ -603,14 +642,20 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     if (to === sequence.indexOf(c.id)) return;
     if (dir) refocusMove.current = { id: c.id, dir, fallback: dir === 'up' ? 'down' : 'up' };
     // No saved order yet: start from what is shown (pins in their pin order, then the rest), so the untouched group keeps its sequence.
-    const base = preferences.order.length > 0 ? orderedIds : [...pinnedIds, ...orderedIds.filter(id => !pinnedIds.includes(id))];
-    onColumnOrderChange(moveWithinGroup(base, sequence, c.id, to));
+    const base = groupedOrder(p.columns, preferences.order.length > 0 ? orderedIds : [...pinnedIds, ...orderedIds.filter(id => !pinnedIds.includes(id))]);
+    const leafIds = (column: Column<T>) => column.columns.length ? column.getLeafColumns().map(leaf => leaf.id) : [column.id];
+    const moved = moveWithinGroup(sequence, sequence, c.id, to).flatMap(id => leafIds(group.find(column => column.id === id)!));
+    const slots = new Set(group.flatMap(leafIds));
+    let index = 0;
+    onColumnOrderChange(base.map(id => slots.has(id) ? moved[index++] : id));
     setOrderNote(m('tableColumnMoved', { name: nameOf(c), position: to + 1 }));
   }
   /** Pointer drag on the handle: the row under the pointer (same group only) is the drop target; the move is committed on release. */
   function startDrag(e: React.PointerEvent<HTMLElement>, c: Column<T>, group: Column<T>[]) {
     if (e.button > 0) return;
-    const list = e.currentTarget.closest('ul');
+    const row = e.currentTarget.closest('[data-column-pref-row]');
+    const block = row?.parentElement?.parentElement;
+    const list = block?.hasAttribute('data-column-pref-block') ? block.parentElement : row?.parentElement;
     if (!list) return;
     e.preventDefault();
     const handle = e.currentTarget;
@@ -636,17 +681,34 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   }
   function columnPrefRow(c: Column<T>, at: number, group: Column<T>[]) {
     const pinned = c.getIsPinned() === 'left';
+    const isGroup = c.columns.length > 0;
+    const canPin = !c.parent;
     const name = nameOf(c);
     return <li key={c.id} data-column-pref-row className={cn('flex items-center gap-2', dragOver?.id === c.id && 'opacity-60', dragOver && dragOver.id !== c.id && dragOver.index === at && group.some(g => g.id === dragOver.id) && 'border-t border-t-border-control')}>
       <span role="presentation" aria-hidden className="shrink-0 cursor-grab touch-none text-text-muted" onPointerDown={e => startDrag(e, c, group)}><GripVertical className="size-3.5" /></span>
-      {c.getCanHide() ? <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" /> : <span className="size-3.5 shrink-0" aria-hidden />}
-      <div className="min-w-0 flex-1">{c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="text-sm">{name}</span>}</div>
+      {!isGroup && c.getCanHide() ? <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" /> : <span className="size-3.5 shrink-0" aria-hidden />}
+      <div className="min-w-0 flex-1">{!isGroup && c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="text-sm">{name}</span>}</div>
       <Button id={`${columnPrefsId}-${c.id}-up`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveUp', { name })} disabled={at === 0} onClick={() => moveColumn(c, group, at - 1, 'up')}><ArrowUp className="size-3.5" aria-hidden /></Button>
       <Button id={`${columnPrefsId}-${c.id}-down`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveDown', { name })} disabled={at === group.length - 1} onClick={() => moveColumn(c, group, at + 1, 'down')}><ArrowDown className="size-3.5" aria-hidden /></Button>
-      <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={m('tableColumnPinLeft', { name })} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
+      {canPin && <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={m('tableColumnPinLeft', { name })} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
         {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
-      </Button>
+      </Button>}
     </li>;
+  }
+  function columnPrefList(members: Column<T>[], depth = 0): ReactNode {
+    const units: { column: Column<T>; members: Column<T>[] }[] = [];
+    for (const member of members) {
+      const id = paths.get(member.id)?.[depth];
+      const previous = units.at(-1);
+      if (id && previous?.column.id === id) previous.members.push(member);
+      else units.push({ column: (id ? engineColumns.get(id) : undefined) ?? member, members: [member] });
+    }
+    const siblings = units.map(unit => unit.column);
+    return <ul className="space-y-2">{units.map((unit, index) => unit.column.columns.length ?
+      <li key={unit.column.id} data-column-pref-block>
+        <ul>{columnPrefRow(unit.column, index, siblings)}</ul>
+        <div className="ml-3 mt-2">{columnPrefList(unit.members, depth + 1)}</div>
+      </li> : columnPrefRow(unit.column, index, siblings))}</ul>;
   }
   const exportItems = (kind: ExportScopeKind, count: number | null) => (['xlsx', 'csv'] as const).map(format =>
     <DropdownMenuItem key={format} className={exportItemClass} disabled={exporting} aria-label={exportItemName(kind, count, format, lang)} onSelect={() => { void runExport(format, kind); }}>
@@ -712,11 +774,11 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       <div className="space-y-3">
         {pinnedPrefs.length > 0 && <div>
           <p className="mb-1 text-xs text-text-secondary">{m('tableColumnPinned')}</p>
-          <ul className="space-y-2">{pinnedPrefs.map((c, i) => columnPrefRow(c, i, pinnedPrefs))}</ul>
+          {columnPrefList(pinnedPrefs)}
         </div>}
         {otherPrefs.length > 0 && <div>
           {pinnedPrefs.length > 0 && <p className="mb-1 text-xs text-text-secondary">{m('tableColumnOther')}</p>}
-          <ul className="space-y-2">{otherPrefs.map((c, i) => columnPrefRow(c, i, otherPrefs))}</ul>
+          {columnPrefList(otherPrefs)}
         </div>}
       </div>
       <p className="sr-only" aria-live="polite">{orderNote}</p>
@@ -829,20 +891,29 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       // eslint-disable-next-line shadcn/no-inline-styles -- viewport max height comes from the height prop or the measured page fit at runtime
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined && !p.fill ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('scrollbar-panel overflow-auto border-t border-border-subtle [overflow-anchor:none]', p.fill && 'min-h-0', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} style={{ maxHeight: p.height ?? (p.fill ? undefined : fit.cap ?? ROW_AREA_FALLBACK) }}>
         {/* eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime */}
-        <div role="table" aria-label={p.ariaLabel} aria-rowcount={groupedItems || p.externalPagination ? -1 : data.total + 1} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
+        <div role="table" aria-label={p.ariaLabel} aria-rowcount={groupedItems || p.externalPagination ? -1 : data.total + headerRowCount} aria-busy={loading} className="min-w-full" style={{ width: tableWidth }}>
           <div role="rowgroup" className="sticky top-0 z-[5]">
-            <div role="row" className="flex">{table.getHeaderGroups()[0].headers.map(h => {
+            {headerRows.map((headers, depth) => <div role="row" key={depth} aria-rowindex={hasColumnGroups ? depth + 1 : undefined} className="flex">{renderCells(headers, item => item.header.column, ({ header: h, side }) => {
+              const isGroup = h.column.columns.length > 0 && !h.isPlaceholder;
+              const path = (paths.get(h.column.id) ?? []).map(id => p.columnGroups?.[id] ?? id).join(', ');
               const sorted = h.column.getIsSorted();
+              if (isGroup || h.isPlaceholder) {
+                // eslint-disable-next-line shadcn/no-inline-styles -- group span and pin offsets sum the rendered leaf widths
+                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-colspan={isGroup ? h.colSpan : undefined} style={isGroup ? groupHeadStyle(h, side) : headStyle(h.column)}
+                  className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', isGroup && 'overflow-visible after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-border-subtle after:content-[""]', side === 'right' && pinEdge, fadeClass(side, false))}>
+                  {isGroup && <span className="sticky left-0 min-w-0 truncate" title={nameOf(h.column)}>{nameOf(h.column)}</span>}
+                </div>;
+              }
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={headStyle(h.column)} title={typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
                 className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', h.column.getIsPinned() === 'right' && pinEdge, fadeClass(h.column.getIsPinned(), false), align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
-                      <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                      <span className="min-w-0 truncate">{path && <span className="sr-only">{path}, </span>}{flexRender(h.column.columnDef.header, h.getContext())}</span>
                       {sorted === 'asc' ? <ArrowUp className="size-3 shrink-0" aria-hidden /> : sorted === 'desc' ? <ArrowDown className="size-3 shrink-0" aria-hidden /> : <ArrowUpDown className="size-3 shrink-0 opacity-40" aria-hidden />}
                     </button>
-                  : <span className="min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>}
+                  : <span className="min-w-0 truncate">{path && <span className="sr-only">{path}, </span>}{flexRender(h.column.columnDef.header, h.getContext())}</span>}
                 {(() => {
                   const field = filterFields.find(f => f.origin === 'column' && f.id === h.column.id);
                   return field ? <HeaderFunnel field={field} lang={lang} limit={columnFilters.limit} check={fieldCheck(field, columnFilters.filters, filterFields, p.urlState?.validate)} active={columnFilters.filters.find(f => f.id === field.id)} onApply={next => droppedNote.change(field, next)} /> : null;
@@ -852,7 +923,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
                   <span className={cn('h-full w-px', h.column.getIsResizing() ? 'bg-accent-primary' : 'bg-border-subtle group-hover/resize:bg-accent-primary')} />
                 </div>}
               </div>;
-            })}</div>
+            })}</div>)}
           </div>
           {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5" />)}</div> :
             // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
@@ -863,12 +934,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
                 const displayed = [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()];
                 const subtotalIds = new Set(p.columns.filter(c => c.subtotal).map(c => c.id));
                 const { leading, trailing, leadSubtotal } = groupHeaderLayout(displayed, c => c.getIsPinned() === 'right', subtotalIds);
-                return <div role="row" key={entry.key} ref={virtual.measureElement} data-index={item.index} data-group-row={entry.group.key} aria-rowindex={item.index + 2}
+                return <div role="row" key={entry.key} ref={virtual.measureElement} data-index={item.index} data-group-row={entry.group.key} aria-rowindex={item.index + headerRowCount + 1}
                   // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
                     cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken', cellText)} labelClassName={cellText}
                     lead={{ style: { width: leading.reduce((sum, c) => sum + widthOf(c), 0), flexShrink: 0 }, span: leading.length, stickyLeft: table.getLeftVisibleLeafColumns().reduce((sum, c) => sum + widthOf(c), 0), subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
+                    leadingCells={hasColumnGroups ? leading.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined })) : undefined}
+                    renderCells={(cells, render) => renderCells(cells, cell => table.getColumn(cell.id)!, render)}
                     trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: c.getIsPinned() === 'right' ? pinEdge : undefined }))} />
                 </div>;
               }
@@ -878,7 +951,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
               const cells = row.getVisibleCells();
               const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
               const muted = p.isRowMuted?.(row.original) === true;
-              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={groupedItems ? item.index + 2 : shownPage * pageSize + item.index + 2}
+              return <div role="row" key={row.id} ref={virtual.measureElement} data-index={item.index} aria-rowindex={groupedItems ? item.index + headerRowCount + 1 : shownPage * pageSize + item.index + headerRowCount + 1}
                 aria-selected={row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id} data-muted={muted ? 'true' : undefined}
                 // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                 className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
@@ -888,8 +961,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
                   <span aria-hidden className="absolute left-0 inset-y-1 w-0.5 rounded-full bg-accent-primary" />
                 </div>}
                 {/* eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime */}
-                {cells.map((cell, cellIndex) => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
-                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card', cellText, 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cellIndex === firstDataCell && 'font-medium', muted && cell.column.id !== '_select' && cell.column.id !== '_action' && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
+                {renderCells(cells, cell => cell.column, cell => <div role="cell" key={cell.id} data-column={cell.column.id} style={cellStyle(cell.column)}
+                  className={cn(cellBase, 'border-b border-border-subtle bg-surface-card', cellText, 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', active && cells.indexOf(cell) === firstDataCell && 'font-medium', muted && cell.column.id !== '_select' && cell.column.id !== '_action' && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), cell.column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), cell.column.getIsPinned() === 'right' && pinEdge, fadeClass(cell.column.getIsPinned(), true, active), align(cell.column))}>
                   {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
                   {cell.column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>)}

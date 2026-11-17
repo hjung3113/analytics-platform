@@ -339,6 +339,10 @@ _Avoid_: 피드백 운영, FeedbackOps, 운영 콘솔 — 운영 콘솔은 플�
 업무 시스템 사이드바의 한 묶음이자 레일의 섹션 하나(예: MARS의 생산성 분석·설비관리·기준정보관리). 업무 시스템 소속은 메뉴 그룹에 걸리고, 메뉴는 그룹만 고른다. 메뉴 패키지 하나가 그룹 하나를 소유한다.
 _Avoid_: 그룹(단독) — 설비 그룹·PRC 그룹·StGroup·작업 영역의 묶음과 섞인다.
 
+**열 묶음** (column group):
+표의 여러 열 위에 공통 이름을 붙이는 다단 헤더. `PlatformColumn.columnGroup`의 바깥→안쪽 id 경로와 표의 `columnGroups` 문구 사전으로 선언한다([ADR-0166](docs/adr/0166-table-column-groups.md)). 행 그룹(서버가 행을 묶고 소계를 제공, ADR-0104), 메뉴 그룹, 권한 그룹과 다르다.
+_Avoid_: 그룹(단독), 행 그룹(열 헤더를 말할 때).
+
 **메뉴** (manifest, `MenuEntry`):
 Registry에 등록된 진입점 하나. manifest에서 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 연다. 공간 메뉴의 manifest 경로는 별칭이 될 수 있고 Registry의 `path`는 정규 경로다([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). 화면이 아직 없는 메뉴는 **예정 메뉴**로, 사이드바에 `예정`으로 보이고 열리지 않는다.
 
