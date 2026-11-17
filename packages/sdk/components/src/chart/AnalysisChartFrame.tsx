@@ -35,7 +35,7 @@ import { groupedRowText, rowGroup, rowLabel, type ChartRowGroups } from './chart
 export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
 
-import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout } from './analysisChartFrameParts';
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
 
 export type ChartSeries = {
   id: string;
@@ -770,14 +770,14 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   // The controlled value stays as given (the reveal and selection effects read it); only the summary names a row the plot draws.
   const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
-  const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
-  const quietSummary = compactChrome && p.summary === 'quiet';
-  const showRangeForm = rangeUi && rangeKeyboard && !!draft && (!quietSummary || brushMode);
-  const summaryBusy = !!preview || note !== null || !!clipNotice || annotationAlert || annotations.length > 0 || (brushMode && rangeKeyboard);
-  const quietRest = quietSummary && !selection && !summaryBusy;
-  const summaryHasControls = showRangeForm || !!selection || !!(preview && applyPeriod) || annotationAlert || annotations.some(a => a.mine);
-  const showSummary = quietSummary || chrome === 'standard' || rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || ((rowGroups || statusEnabled || bounds) && !!selectedPoint) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
+  const { quiet: quietSummary, show: showSummary, rest: quietRest, showRangeForm, rangeUi, focusable: summaryFocusable } = summaryPresentation({
+    chrome, summary: p.summary, fill: size === 'fill', brushMode, selection: !!selection, rangeKeyboard, draft: !!draft,
+    preview: !!preview, applyPeriod: !!applyPeriod, note: note !== null, clipNotice: !!clipNotice, annotationAlert,
+    annotations: annotations.length, ownAnnotation: annotations.some(a => a.mine), activeRow: drawnActive !== null,
+    selectedPoint: !!selectedPoint, pointDetail: !!(rowGroups || statusEnabled || bounds),
+    pointExtremes: !!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)),
+  });
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -968,7 +968,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     </div>}
 
     {compactChrome && canExport && <span role="status" className="sr-only">{host.status}</span>}
-    {showSummary && <section tabIndex={compactChrome && !summaryHasControls && !quietRest ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(
+    {showSummary && <section tabIndex={summaryFocusable ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(
       !quietSummary && (compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs'),
       quietSummary && (quietRest ? 'sr-only' : 'mx-2 mb-1 max-h-16 shrink-0 overflow-y-auto px-2 py-1 text-xs'),
     )}>
