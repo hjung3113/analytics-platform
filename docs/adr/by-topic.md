@@ -56,6 +56,7 @@ PlatformDataTable, 열 필터, 페이지 필터 모델.
 - [0137](0137-table-refresh-on-and-given-rows.md) — 표: `refreshOn`으로 쓰기 뒤 다시 읽기, `rows`로 가진 행 입력
 - [0166](0166-table-column-groups.md) — 표 열 묶음은 열별 id 경로로 선언하고 선언 폭 안에서 넘김
 - [0167](0167-editable-column-groups.md) — 열 묶음은 컬럼 팝오버에서 편집하고 사용자 열 설정에 저장
+- [0169](0169-tree-matrix.md) — 계층 행과 평면 열의 서버 윈도 행렬은 독립 SDK 부품으로 제공한다
 
 ## 차트
 

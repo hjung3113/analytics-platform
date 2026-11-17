@@ -21,6 +21,12 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
 
 - `filters/PageConditionCategories.tsx` renders declared page-condition categories (Candidate): controlled decoded key maps, raw codec recovery, per-category option lifecycles and section folds. `pageConditionOptions.ts` validates loader responses; `usePageConditionOptionsLoader.ts` adapts declared endpoints through Kernel. It owns no URL, draft store, overlay or Apply action.
 
+### Matrix
+
+- `matrix/TreeMatrix.tsx` is an opt-in server-windowed treegrid; the consumer owns meaning, fetching, counts, expansion and selection. Public wire types live in contracts `adapter/matrix.ts`; the component contract is [Components §13](../../../docs/contract/components.md#treematrix--서버-윈도-트리-행렬-decided-adr-0169-1768).
+- Reuse the private table filter pieces, table size and page-bound registration. Keep `table/*` unchanged when extending the matrix. `MatrixLevelOrder` uses the table column-list primitives; the consumer stores its page key and the server regroups.
+- `MatrixEmphasisBar`, the row editor and `sameValueRule` share transient typed rules. Only matching column ids survive window changes; change `generation` on session/Scope/query-order changes to clear these and pending focus. Never persist emphasis. Tests live in `matrix/__tests__/`.
+
 ## Table
 
 ### `table/PlatformDataTable.tsx` — server-paged table

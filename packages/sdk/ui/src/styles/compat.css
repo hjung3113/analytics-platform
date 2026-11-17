@@ -94,6 +94,11 @@
   border-radius: calc(var(--radius-md) - 2px);
 }
 
+/* Missing data stays distinct from a numeric zero; both colors follow the active theme. */
+@utility surface-hatched {
+  background-image: repeating-linear-gradient(135deg, rgb(var(--surface-sunken)) 0 0.25rem, rgb(var(--border-subtle)) 0.25rem 0.3125rem, rgb(var(--surface-sunken)) 0.3125rem 0.5rem);
+}
+
 /* Top-level card and analysis-panel elevation (DESIGN.md Layout). Here, not in
  * index.css, so both supported CSS entry recipes generate it. A panel nested in a card, a detail
  * surface or a dock group already sits on a raised plane, so it drops the shadow instead of stacking one.

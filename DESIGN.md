@@ -190,6 +190,7 @@ components:
 | `detail-panel-width` | 셸 고정 상세 슬롯 폭 | 공유 토큰; 소비 시 fallback·clamp는 06 §7 |
 | `rounded-inset-md` (utility) | 2px 여백을 둔 `rounded-md` 틀 안쪽 칸(segmented·filter toggle)의 반경 | `compat.css`의 `calc(var(--radius-md) - 2px)`; 별도 literal 아님 |
 | `scrollbar-panel` (utility) | 테두리 상자 안 스크롤 영역의 얇은 스크롤바(트랙 없음). `shell-scroll`은 별칭 | `compat.css`; `--border-strong` 색 |
+| `surface-hatched` (utility) | 결측 셀·범례의 대각선 빗금. 0·일반 중립 셀과 모양으로 구별 | `compat.css`; 기존 `--surface-sunken`·`--border-subtle` 색 변수를 사용해 테마를 따름. 새 색 token 없음 |
 
 사용하지 않는 overlay 전용 `width-detail-panel`/`w-detail-panel` 확장은 ADR-0013으로 폐기했다. 상세 슬롯은 공유 `--detail-panel-width`를 직접 소비한다. 반응형 정책의 상태·MVP 범위는 [06 §25](docs/contract/layout.md#25-responsive-strategy)와 [05](docs/overview/roadmap-and-open-questions.md#mvp-지원-환경--데스크톱-웹만-decided-2026-09-27)를 따른다. DetailDrawer는 지원 데스크톱에서 고정 슬롯을 유지한다.
 
