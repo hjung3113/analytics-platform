@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { pickTargetRoom, contextBar, evidence, expandPageHead, mainHeading, query, queryResultSurface, signInAs } from './support';
+import { pickTargetRoom, contextBar, evidence, expandPageHead, mainHeading, query, queryResultSurface, showSlowExecutions, signInAs } from './support';
 
 /**
  * Platform contract checks for Saved Views (docs/06 §21, #1011 node 1011g). The cycle-time detail is only the consumer the
@@ -73,14 +73,11 @@ test.describe('06 §21 저장된 뷰', () => {
     await startWithQueryBarOpen(page, 'cycle-time');
   });
   test('메뉴 뷰가 원본 표의 열 묶음을 복원하고 묶음 편집을 수정됨으로 표시한다', async ({ page }, testInfo) => {
+    // Cycle time is a saved-view menu whose slow-executions table opts into editable column groups.
     await signInAs(page, 'engineer');
-    await startWithQueryBarOpen(page, 'hw-time');
-    await page.goto(`/mars/hw-time?v=1&scopeId=MEM&${PERIOD}`);
-    await expandPageHead(page);
-    await expect(trigger(page)).toBeVisible();
-    await page.getByRole('button', { name: '패널 추가', exact: true }).click();
-    await page.getByRole('menuitem', { name: '원본 표', exact: true }).click();
-    const table = page.getByRole('region', { name: 'HW Time 분석 영역', exact: true }).locator('[data-dock-panel="table"]');
+    await openCycle(page);
+    await showSlowExecutions(page);
+    const table = page.locator('[data-dock-panel="slow"]');
     await table.getByRole('button', { name: '컬럼', exact: true }).click();
     await page.getByRole('button', { name: '묶음 만들기', exact: true }).click();
     const name = page.getByRole('textbox', { name: '묶음 이름', exact: true });
@@ -96,8 +93,11 @@ test.describe('06 §21 저장된 뷰', () => {
     await page.getByRole('button', { name: '기본값으로', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(modifiedBadge(page)).toBeVisible();
-    await pickView(page, 'E2E 표 묶음');
-    await page.getByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' }).getByRole('button', { name: '버리고 이동' }).click();
+    await showSlowExecutions(page);
+    await evidence(page, testInfo, 'saved-table-groups-reset');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+    await showSlowExecutions(page);
     await expect(table.getByRole('columnheader', { name: /E2E 비교 묶음/ }).first()).toBeVisible();
     await expect(modifiedBadge(page)).toHaveCount(0);
     await evidence(page, testInfo, 'saved-table-groups');

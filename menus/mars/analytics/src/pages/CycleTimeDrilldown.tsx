@@ -327,6 +327,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
             filterKey={filterKey}
             pageSize={50}
             fill
+            editableColumnGroups
             urlState={{
               page: pageResult.ok && pageResult.page !== 1 ? pageResult.page : null,
               sorting: [{ id: sortSpec.id, desc: sortSpec.desc }],
