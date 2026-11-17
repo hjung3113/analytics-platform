@@ -19,6 +19,7 @@ const bodies = {
   FeatureMilestones: 'tasks/components/milestone-detail/useMilestoneDetailParts.tsx',
   FeaturePermissionRequests: 'admin/permissions/permission-request-detail.tsx',
   FeaturePermissionGrants: 'admin/permissions/permission-grant-detail.tsx',
+  FeaturePermissionGroups: 'admin/permissions/permission-groups-screen.tsx',
   ServiceTokens: 'api-tokens/TokenIssueDrawer.tsx',
   ApiTokens: 'api-tokens/TokenIssueDrawer.tsx',
   FeatureIntegration: 'integration/recovery/RecoveryPanel.tsx',
