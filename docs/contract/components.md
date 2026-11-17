@@ -432,19 +432,37 @@ Cell padding     4px 16px
 
 ### 열 묶음 (Decided, ADR-0166, #2418)
 
-`PlatformColumn.columnGroup?: readonly string[]`는 바깥→안쪽 묶음 id 경로이고, `PlatformDataTable.columnGroups?: Readonly<Record<string, string>>`는 id→헤더 문구다. 엔진 타입은 비공개다. 같은 묶음의 열은 `columns`에서 연속이어야 한다. 경로의 모든 id에 문구가 있어야 하며, 묶음 id는 열 id·`_select`·`_action`과 겹치거나 서로 다른 부모 경로에 쓰일 수 없다. 엔진 id와 헤더 연결이 유일해야 하므로 개발 시 `console.error`로 선언 오류를 알리고 운영에서는 조용히 둔다.
+`PlatformColumn.columnGroup?: readonly string[]`는 바깥→안쪽 묶음 id 경로이고, `PlatformDataTable.columnGroups?: Readonly<Record<string, string | PlatformColumnGroup>>`는 id→헤더 선언이다. `PlatformColumnGroup = { label: string; width?: number }`는 `@ap/components`의 공개 타입이며 문자열은 문구만 지정한다. 엔진 타입은 비공개다. 같은 묶음의 열은 `columns`에서 연속이어야 한다. 경로의 모든 id에 문구가 있어야 하며, 묶음 id는 열 id·`_select`·`_action`과 겹치거나 서로 다른 부모 경로에 쓰일 수 없다. 엔진 id와 헤더 연결이 유일해야 하므로 개발 시 `console.error`로 선언 오류를 알리고 운영에서는 조용히 둔다.
 
 | 항목 | 규칙과 이유 |
 | --- | --- |
 | 순서 | `groupedOrder()` 하나가 저장 순서에서 흩어진 묶음을 첫 구성원 위치에 모은다. 화면·열 설정·이동 시작 순서·내보내기·복사가 이를 공유하므로 병합 헤더와 실제 열이 어긋나지 않는다. 읽기만으로 저장값을 쓰지 않는다. |
 | 이동 | 구성 열은 자기 부모 묶음 안에서만, 묶음은 한 블록으로 형제 묶음·묶이지 않은 열 사이를 이동한다. 팝오버 묶음 소제목에도 위/아래와 끌기 손잡이가 있고, 이동 알림은 묶음 이름을 말한다. 고정됨/나머지 구간은 넘지 않는다. |
 | 고정 | 최상위 묶음 단위이며 소제목에 핀 버튼을 둔다. 구성 열에는 개별 핀 버튼이 없다. 저장된 왼쪽 핀에 보이는 구성원이 하나라도 있으면 전체 묶음을 `groupedOrder` 순서로 연속 고정한다(저장 순서가 없어도 같다). 다음 핀 조작은 전체 구성원을 저장하므로 과거의 부분 핀도 일관되게 읽힌다. |
-| 숨기기 | 열마다 숨긴다. 묶음 폭은 보이는 구성 열 폭 합이고, 모두 숨기면 묶음 헤더도 없다. 묶음 전체 숨기기는 두지 않는다. |
-| 헤더 조작 | 정렬·필터·폭 조절은 실제 열 헤더에서만 한다. 묶음 헤더는 문구만 표시하며 이름은 자기 칸 안에서 가로 스크롤의 왼쪽을 따라오고, 말줄임과 `title`로 전체 이름을 제공한다. 폭은 실제 열 소유이므로 묶음 헤더 크기 조절은 없다. |
+| 숨기기 | 열마다 숨긴다. 폭 미선언 묶음 폭은 보이는 구성 열 폭 합이고, 폭 선언 묶음은 선언 폭을 유지한다. 모두 숨기면 묶음 헤더도 없다. 묶음 전체 숨기기는 두지 않는다. |
+| 헤더 조작 | 정렬·필터는 실제 열 헤더에서만 한다. 폭 미선언 묶음의 실제 열만 폭을 조절한다. 묶음 헤더는 문구만 표시하며 이름은 자기 칸 안에서 가로 스크롤의 왼쪽을 따라오고, 말줄임과 `title`로 전체 이름을 제공한다. 묶음 헤더 크기 조절은 없다. |
+| 묶음 경계선 | 맨 위 묶음이 시작하거나 끝나는 열의 왼쪽에 헤더부터 본문·행 그룹 행까지 1px `border-control` 선을 긋는다. 묶음 이름 줄의 선만으로는 본문에서 어느 묶음인지 읽히지 않기 때문이다. 폭 선언 묶음은 이 선을 넘겨도 움직이지 않는 잘림 상자에 둔다. 묶음을 선언하지 않은 표에는 없다. 선택 옵션 `columnDividers`는 열 헤더 줄과 본문의 다른 열 사이에 1px `border-subtle` 선을 더한다(기본 꺼짐: 모든 표 기본값을 바꾸지 않는다). |
 | 고정 경계 | 왼쪽/중앙/오른쪽 헤더를 따로 만든 뒤 잇는다. 묶이지 않은 열·선택·행 동작 위의 빈 헤더도 해당 열의 sticky·핀 가장자리 스타일을 따른다. `_action` 경계를 묶음으로 합치지 않는다. |
 | 접근성 | 묶음 헤더에 `aria-colspan`, 빈 칸은 이름 없는 `columnheader`를 남겨 열 위치를 보존한다. 실제 열 접근 이름 앞에 sr-only 묶음 경로를 붙인다(div 표의 다단 연결은 화면 낭독기마다 다르기 때문). `aria-rowcount`와 데이터·행 그룹의 `aria-rowindex`에 헤더 줄 수를 반영한다. 결과 전체가 미상인 표의 `-1`은 유지한다. |
 
 XLSX는 여러 헤더 줄을 `{ value, columnSpan }`와 `null` 채움으로 병합하고, 복사 HTML도 여러 줄과 `colspan`을 쓴다. CSV·복사 TSV는 한 줄 `바깥 묶음 › 안쪽 묶음 › 열`이다. 보이는 내보내기 가능 열만 대상으로 같은 순서를 쓴다. 선언이 없는 표는 한 헤더 줄·기존 DOM·파일 문자열·저장 객체 모양을 유지한다. 표 크기·행 그룹·소계·서버 및 `useRowsSource` 계약은 바뀌지 않는다. 결정 이유와 대안은 [ADR-0166](../adr/0166-table-column-groups.md).
+
+#### 묶음 넓이와 묶음 넘김
+
+`columnGroups={{ A: { label: '설비 A', width: 320 } }}`처럼 최상위 묶음에만 `width`를 선언할 수 있다. 보통 표 크기의 px이며 크게에서는 열의 선언 `size`와 같은 `widthScale`로 늘어난다. 중첩 묶음의 폭, 유한수가 아니거나 60 미만인 폭은 같은 개발 시 선언 오류로 알린다. 중첩 폭은 겹치는 넘김 영역을 만들기 때문에 지원하지 않는다.
+
+| 항목 | 규칙과 이유 |
+| --- | --- |
+| 표시 영역 | 헤더·본문·행 그룹 행 모두 묶음을 정확히 선언 폭 W로 배치한다. 공용 표시 단위 seam이 `role=none`, `data-column-group-clip`, `data-group-id`인 clip box와 내부 `role=none` flex를 만든다. box는 `width: W; overflow: clip; flex-shrink: 0`, 내부는 묶음별 CSS 변수의 음수 offset만큼 `translateX`한다. `overflow: clip`은 스크롤 컨테이너가 아니므로 포커스가 box를 몰래 스크롤하지 않고 sticky의 기준은 표 scrollport로 남는다. 셀 역할·DOM 순서·접근성 트리는 보존한다. |
+| 폭 계산 | 보이는 구성원 합이 W보다 작으면 표 fill과 같은 기본 폭 비율로 W까지 늘리고 넘기지 않는다. 표 전체 폭·fill·좌우 핀 offset·왼쪽 고정 폭·동작 열 fit·행 그룹 lead 폭과 sticky offset은 공용 displayed-width helper로 묶음을 W 한 번만 센다. 묶음 구성원은 표 전체 fill에서 제외한다. 원래 열 폭의 합을 쓰면 고정 영역이 겹치거나 동작 열이 불필요하게 풀리기 때문이다. 왼쪽 고정은 구성 셀이 아니라 모든 행 종류의 clip box에 적용한다. |
+| 크기 조절 | 폭 선언 묶음의 구성 열은 `enableResizing: false`이며 엔진에 넘기는 sizing state에서 제외한다. 저장된 sizing은 지우지 않아 폭 선언을 해제하면 다시 적용한다. 묶음 헤더에도 resize handle을 두지 않는다. 넘김과 폭 조절의 제스처를 구분하기 위해서다. |
+| 넘김 상태 | 묶음 id별 px offset을 `[0, content − W]`로 clamp한다. 페이지 이동·데이터 재조회에도 유지하고 열·가시성·표 크기가 바뀌면 다시 clamp한다. 스크롤 위치 같은 일시적인 화면 상태이므로 저장·URL·내보내기에 넣지 않는다. CSS 변수는 순번이 아닌 id별 안정된 map으로 정하고 pointer 이동 중에는 `role=table` ref에 RAF로 쓰며 release에서 React state에 반영한다. |
+| Pointer | 표에 위임한 primary `pointerdown`이 가장 가까운 clip box를 찾는다. 수평 이동이 4px보다 크고 수직 이동보다 클 때만 pointer capture·선택 방지·grabbing을 시작한다. up/cancel/lostcapture에서 끝낸다. 넘김을 끝낸 pointerup과 같은 task의 click만 capture 단계에서 막고, 그 listener는 실행 여부와 관계없이 다음 `setTimeout(0)`에서 제거한다. 작은 이동의 행 동작·정렬 클릭은 보존한다. box는 `touch-action: pan-y`, 숨은 내용이 있을 때만 grab이며, armed 동안 내부 dragstart를 막는다. resize handle·input·textarea·select·contenteditable에서는 시작하지 않는다. |
+| Wheel | 표에 native non-passive wheel listener를 둔다. box 위 `deltaX` 또는 Shift+`deltaY`로 그 묶음만 넘기며 해당 방향으로 움직일 수 있을 때만 `preventDefault`한다. 끝에서는 표 가로 스크롤에 넘겨, 내부 영역에 사용자를 가두지 않는다. |
+| 키보드·포커스 | 숨은 내용이 있을 때만 묶음 헤더를 Tab 정지점으로 둔다. ←/→는 이전/다음 구성 열 경계, Home/End는 양 끝으로 넘긴다. ko/en 안내 문구와 기존 visible focus ring을 제공한다. 잘린 셀의 링크·버튼·체크박스로 Tab 포커스가 들어오면 그 셀을 보이는 데 필요한 만큼만 넘긴다. 마우스 없이도 모든 구성 열의 기능에 접근하기 위해서다. |
+| 경계 표시 | 숨은 내용이 있는 내부 가장자리에 기존 pinned-column fade와 같은 gradient pseudo-element를 그린다(그림자 없음). 헤더·본문·행 그룹 행과 hover·선택·활성 배경을 따른다. offset commit과 0/max 경계 통과에서 갱신하고 매 pointer frame에 React를 갱신하지 않는다. |
+| 행 그룹 | `groupHeaderLayout`은 표시 단위를 받아 폭 선언 묶음을 쪼개지 않는다. 첫 subtotal이 묶음 안에 있으면 lead는 묶음 시작에서 끝나고, 묶음의 subtotal·빈 셀 모두 본문과 같은 box·translate wrapper 안에 둔다. 헤더와 소계의 열 정렬을 유지하기 위해서다. |
+| 전송·설정 | 내보내기·복사·컬럼 팝오버는 offset과 관계없이 `groupedOrder`의 모든 해당 구성원을 사용한다. 넘김은 시각 위치만 바꾸며 데이터나 설정의 순서를 바꾸지 않는다. |
 
 ### 표 내보내기·복사 구현 계약
 

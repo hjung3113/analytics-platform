@@ -4,6 +4,7 @@ import { EMPTY_GROUP_LABEL, formatNumber, type PageGroup } from '@ap/contracts';
 import { formatText, useMessages, type Lang } from '@ap/kernel';
 import { cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
+import type { DisplayUnit } from './columnGroups';
 
 /** One virtual item of a grouped table: a group header row (key `group:<key>`) or a data row (key = row id). */
 export type GroupedItem<R> =
@@ -51,10 +52,17 @@ export function buildGroupedItems<R extends { id: string }>(rows: readonly R[], 
  * columns stay separate cells. When the first displayed column is itself a subtotal column there is nothing before it: that column
  * becomes the leading cell and carries its own total beside the label (`leadSubtotal`).
  */
-export function groupHeaderLayout<C extends { id: string }>(displayed: readonly C[], isRightPinned: (c: C) => boolean, subtotalIds: ReadonlySet<string>): { leading: C[]; trailing: C[]; leadSubtotal: C | null } {
+export function groupHeaderLayout<C extends { id: string }>(input: readonly C[] | readonly DisplayUnit<C>[], isRightPinned: (c: C) => boolean, subtotalIds: ReadonlySet<string>): { leading: C[]; trailing: C[]; leadSubtotal: C | null } {
+  const units: readonly DisplayUnit<C>[] = input.map(item => 'leaves' in item ? item as DisplayUnit<C> : { kind: 'leaf', leaves: [item as C] });
+  const displayed = units.flatMap(unit => unit.leaves);
   const firstSubtotal = displayed.findIndex(c => subtotalIds.has(c.id));
-  const end = firstSubtotal >= 0 ? firstSubtotal : displayed.filter(c => !isRightPinned(c)).length;
-  if (end === 0 && displayed.length > 0) return { leading: [displayed[0]], trailing: displayed.slice(1), leadSubtotal: subtotalIds.has(displayed[0].id) ? displayed[0] : null };
+  let end = firstSubtotal >= 0 ? firstSubtotal : displayed.filter(c => !isRightPinned(c)).length;
+  let start = 0;
+  for (const unit of units) {
+    if (unit.kind === 'group' && start <= end && end < start + unit.leaves.length) { end = start; break; }
+    start += unit.leaves.length;
+  }
+  if (end === 0 && displayed.length > 0 && units[0]?.kind === 'leaf') return { leading: [displayed[0]], trailing: displayed.slice(1), leadSubtotal: subtotalIds.has(displayed[0].id) ? displayed[0] : null };
   return { leading: displayed.slice(0, end), trailing: displayed.slice(end), leadSubtotal: null };
 }
 

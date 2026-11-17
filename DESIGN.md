@@ -269,7 +269,9 @@ reference quality recipe는 coverage→blue, traceability→teal, consistency→
 
 ## Tables
 
-- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래와 오른쪽 끝에 기존 border 토큰의 1px 구분선을 둔다(오른쪽 끝 선은 열 너비 조절선과 같은 모양이라, 묶음 줄에서도 어디서 끝나는지 읽힌다). 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래에 `border-subtle` 선을 둔다. 맨 위 묶음이 시작하고 끝나는 자리에는 헤더부터 본문 끝까지(행 그룹 행 포함) 1px `border-control` 경계선을 둔다 — 오른쪽 고정 동작 열 경계와 같은 선이고, `border-strong`은 행 구분선(`border-subtle`)과 거의 같아 묶음이 갈려 보이지 않는다. 묶음을 선언한 표에만 있다. 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+- 열 구분선은 선택 옵션 `columnDividers`다: 열 헤더 줄과 본문의 열 사이에 1px `border-subtle`(기본은 행 구분선만). 묶음 경계 자리는 묶음 경계선이 이긴다.
+- 폭을 선언한 열 묶음의 묶음 넘김 경계는 기존 pinned-column fade와 같은 gradient pseudo-element를 안쪽 가장자리에 쓴다(그림자 없음). 헤더·본문·행 그룹 행의 배경과 hover·선택·활성 배경을 따른다. 숨은 내용이 있을 때만 `grab`, 끄는 동안 `grabbing` 커서와 기존 visible focus ring을 쓴다.
 
 플랫폼 table 동작은 [06 §15](docs/contract/components.md#15-platform-data-table-contract)가 소유한다. 이 문서의 `components.table-density`가 기본 시각 밀도의 원본이다:
 

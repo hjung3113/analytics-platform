@@ -34,7 +34,7 @@ const columns: PlatformColumn<Row>[] = [
   { id: 'score', header: 'Value', columnGroup: ['A'], filter: { kind: 'number' } },
   { id: 'qty', header: 'Qty', columnGroup: ['A'], subtotal: true },
 ];
-function Harness(extra: Partial<Pick<PlatformDataTableProps<Row>, 'columns' | 'columnGroups' | 'rowAction' | 'bulkActions'>>) {
+function Harness(extra: Partial<Pick<PlatformDataTableProps<Row>, 'columns' | 'columnGroups' | 'columnDividers' | 'rowAction' | 'bulkActions'>>) {
   return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
     <PlatformDataTable title="T" ariaLabel="table" rows={rows} columns={columns} columnGroups={{ A: 'Equipment A' }}
       getRowId={r => r.id} preferenceKey="column-groups" height={300} rowAction={r => <button>{r.id}</button>} {...extra} />
@@ -181,6 +181,57 @@ describe('column groups (#2418)', () => {
     expect(headerIds()).not.toEqual(['line', 'score', 'qty', '_action']);
     expect(screen.getByRole('textbox', { name: 'draft' })).toBe(input);
     expect(input).toHaveProperty('value', 'unsaved');
+  });
+  it.each([
+    { name: 'a block move', act: async () => userEvent.click(screen.getByRole('button', { name: 'Equipment A 위로' })) },
+    { name: 'hiding the column before the group', act: async () => userEvent.click(screen.getByRole('checkbox', { name: 'Line' })) },
+  ])('keeps a stateful cell inside a label-only group mounted across $name', async ({ act }) => {
+    const draftColumns: PlatformColumn<Row>[] = [
+      { id: 'line', header: 'Line' },
+      { id: 'score', header: 'Value', columnGroup: ['A'] },
+      { id: 'qty', header: 'Qty', columnGroup: ['A'], cell: () => <input aria-label="draft" defaultValue="" /> },
+    ];
+    render(<Harness columns={draftColumns} columnGroups={{ A: 'Equipment A' }} />);
+    const input = await screen.findByRole('textbox', { name: 'draft' });
+    await userEvent.type(input, 'unsaved');
+    await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    await act();
+    expect(headerIds()).not.toEqual(['line', 'score', 'qty', '_action']);
+    expect(screen.getByRole('textbox', { name: 'draft' })).toBe(input);
+    expect(input).toHaveProperty('value', 'unsaved');
+  });
+  it('draws a strong group edge from the header to the body, and nothing on a table without groups', async () => {
+    const view = render(<Harness />);
+    await screen.findByRole('button', { name: 'r1' });
+    const strong = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter(el => el.classList.contains('border-l-border-control') && el.getAttribute('data-column') !== '_action').map(el => el.getAttribute('data-column'));
+    expect(strong('[role=cell]')).toEqual(['score']);
+    expect(strong('[role=columnheader]')).toEqual(['A', 'score']);
+    expect(document.querySelector('[role=cell][data-column=_action]')).toHaveClass('border-l-border-control');
+    expect(document.querySelector('.border-l-border-subtle')).toBeNull();
+    view.rerender(<Harness columns={columns.map(({ columnGroup: _, ...c }) => c)} columnGroups={undefined} />);
+    await waitFor(() => expect(headerRows()).toHaveLength(1));
+    expect(strong('[role=cell]')).toEqual([]);
+    expect(strong('[role=columnheader]')).toEqual([]);
+    expect(document.querySelector('.border-l-border-subtle')).toBeNull();
+  });
+  it('keeps the group edge in row-group header rows', async () => {
+    save([], ['qty', 'score', 'line']);
+    const view = render(<Harness />);
+    await screen.findByRole('button', { name: 'r1' });
+    await userEvent.click(screen.getByRole('button', { name: /^그룹: / }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Line' }));
+    await waitFor(() => expect(view.container.querySelector('[data-group-row]')).toBeTruthy());
+    expect(view.container.querySelector('[data-group-row] [data-column=line]')).toHaveClass('border-l-border-control');
+  });
+  it('adds quiet column dividers only when asked, with the group edge still strong', async () => {
+    render(<Harness columnDividers />);
+    await screen.findByRole('button', { name: 'r1' });
+    const line = (id: string) => [...document.querySelector(`[role=cell][data-column=${id}]`)!.classList].filter(c => c.startsWith('border-l-'));
+    expect(line('line')).toEqual([]);
+    expect(line('score')).toEqual(['border-l-border-control']);
+    expect(line('qty')).toEqual(['border-l-border-subtle']);
+    expect(document.querySelector('[role=columnheader][data-column=qty]')).toHaveClass('border-l-border-subtle');
+    expect(document.querySelector('[role=columnheader][data-column=A]')).not.toHaveClass('border-l-border-subtle');
   });
   it('hides all group members without leaving a group header', async () => {
     render(<Harness />);

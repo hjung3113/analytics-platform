@@ -5,6 +5,7 @@ import { useEquipmentAxes, useI18n, useMessages, usePlatform, useQueryContext } 
 import { isProductionEnv } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PlatformColumn } from './PlatformDataTable';
+import type { ColumnGroups } from './columnGroups';
 import { downloadBlob, fileStamp, safeFileName } from './download';
 import { exportCell, exportColumns, exportHeaders, type ExportHeaders, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 import {
@@ -34,7 +35,7 @@ class ClipboardRejected extends Error { constructor(readonly cause: unknown) { s
 
 type TransferInput<T> = {
   columns: PlatformColumn<T>[];
-  columnGroups?: Readonly<Record<string, string>>;
+  columnGroups?: ColumnGroups;
   getRowId: (row: T) => string;
   exportRows: ((request: TableExportRequest, signal: AbortSignal) => Promise<ApiResponse<T[]>>) | undefined;
   /** Menu note appended to the export toast. */
