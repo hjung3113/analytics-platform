@@ -25,6 +25,33 @@ await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).
 afterEach(cleanup);
 
 describe('panel recipe', () => {
+  it.each(['inside', 'outside'] as const)('restores the same panel root only when focus is %s the recipe', async focus => {
+    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&moduleType=PM&drillModule=PM1&drillMotion=Chuck&pins=trend');
+    const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ ...testSpace(), homeMenuId: 'hw-time' }], groups: [{ id: groupId('hwTime'), label: { ko: 'HW', en: 'HW' }, icon: LayoutDashboard, space: testSpace().id }], menus: manifests });
+    const session = testSession(['analytics:view', 'platform:view']);
+    const adapter = testAdapter({ session: () => session, menuQuery: async () => ({ outcome: 'ok', data: { equipment: [], modules: [], motions: [], cells: [], rows: [], points: [], daily: [], total: 0, shown: 0, bounds: [], limits: { maxRows: 96 } }, assessments: [], trust: null, correlationId: 'recipe-focus' }) });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><button>외부 대상</button><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
+    const panel = await screen.findByRole('region', { name: 'panel trend' });
+    fireEvent.click(within(panel).getByRole('button', { name: '이 패널 만든 방법' }));
+    const back = within(panel).getByRole('button', { name: '앞면으로' });
+    const root = back.closest<HTMLElement>('[tabindex="-1"]');
+    const outside = screen.getByRole('button', { name: '외부 대상' });
+    (focus === 'inside' ? back : outside).focus();
+    fireEvent.click(back);
+    expect(within(panel).queryByRole('heading', { name: '이 패널 만든 방법' })).toBeNull();
+    if (focus === 'inside') {
+      expect(root).not.toBeNull();
+      expect(root?.isConnected).toBe(true);
+      expect(document.activeElement).toBe(root);
+    } else expect(document.activeElement).toBe(outside);
+  });
+  it('counts CSV only for panels that actually offer export', () => {
+    const motion = panelRecipe('motionTable', {}, { primary: false })!;
+    expect(motion.platform.find(feature => feature.id === 'csv')?.state).toBe('off');
+    expect(motion.platform.filter(feature => feature.state === 'on')).toHaveLength(8);
+    expect(panelRecipe('table', {}, { primary: false })!.platform.find(feature => feature.id === 'csv')?.state).toBe('on');
+    expect(panelRecipe('trend', {}, { primary: false })!.platform.find(feature => feature.id === 'csv')?.state).toBe('on');
+  });
   it.each(Object.keys(panelDeclarations))('%s has generated pieces and a rendered shape', id => {
     const recipe = panelRecipe(id, {}, { primary: false })!;
     expect(recipe.declaration).toBe(panelDeclarations[id as keyof typeof panelDeclarations]);

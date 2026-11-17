@@ -20,7 +20,7 @@ import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, val
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
 import { panelRecipe } from './recipeModel';
-import { RECIPE_ITEM, RecipeBack } from './PanelRecipe';
+import { RECIPE_ITEM, RecipePanel } from './PanelRecipe';
 
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
@@ -308,7 +308,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
         render: () => {
           const recipe = explained === id ? panelRecipe(id, panelContext, { primary: false }) : null;
-          return recipe ? <RecipeBack recipe={recipe} onClose={() => setExplained(null)} /> : renderPanel(id as CatalogId);
+          return <RecipePanel recipe={recipe} onClose={() => setExplained(null)}>{recipe ? null : renderPanel(id as CatalogId)}</RecipePanel>;
         } };
     }),
   ];

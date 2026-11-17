@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Check, CircleHelp, Minus, Undo2 } from 'lucide-react';
 import { formatText, useI18n, type Text } from '@ap/kernel';
 import { Badge, Button, cn } from '@ap/ui';
@@ -8,6 +8,7 @@ export const RECIPE_ITEM: Text = { ko: '이 패널 만든 방법', en: 'How this
 const FEATURE_STATES = { on: { ko: '제공', en: 'On' }, off: { ko: '미사용', en: 'Off' }, unknown: { ko: '미확인', en: 'Unknown' } } satisfies Record<PlatformFeature['state'], Text>;
 const W = {
   back: { ko: '앞면으로', en: 'Back to the panel' },
+  body: { ko: '패널 설명 본문', en: 'Panel recipe content' },
   menuMade: { ko: '메뉴가 선언한 것', en: 'Declared by the menu' }, sdkMade: { ko: '가져다 쓴 SDK 조각', en: 'SDK pieces used' }, platformMade: { ko: '플랫폼이 붙여 준 것', en: 'Added by the platform' },
   data: { ko: '데이터', en: 'Data' }, shape: { ko: '모양', en: 'Shape' }, follows: { ko: '따라갈 맥락', en: 'Follows' }, condition: { ko: '쓸 수 있는 조건', en: 'Available when' },
   code: { ko: '메뉴 코드', en: 'Menu code' }, decl: { ko: '직접 선언 {n}줄(빈 줄 제외·주석 포함, 공유 정의 제외)', en: 'Own declaration {n} lines (blank lines and shared definitions excluded; comments included)' }, file: { ko: '{name} {n}줄', en: '{name} {n} lines' },
@@ -57,6 +58,26 @@ function Features({ recipe }: { recipe: Recipe }) {
   </ul>;
 }
 const onCount = (recipe: Recipe) => recipe.platform.filter(item => item.state === 'on').length;
+
+/** A stable focus target across the front/back content swap. */
+export function RecipePanel({ recipe, onClose, children }: { recipe: Recipe | null; onClose: () => void; children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (recipe || !returnFocus.current) return;
+    returnFocus.current = false;
+    const target = root.current;
+    if (target && (document.activeElement === document.body || target.contains(document.activeElement))) target.focus({ preventScroll: true });
+  }, [recipe]);
+  const close = () => {
+    returnFocus.current = root.current?.contains(document.activeElement) ?? false;
+    onClose();
+  };
+  return <div ref={root} tabIndex={-1} className="h-full min-h-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+    {recipe ? <RecipeBack recipe={recipe} onClose={close} /> : children}
+  </div>;
+}
+
 function Summary({ recipe }: { recipe: Recipe }) {
   const w = useWords();
   return <span className="text-xs text-text-secondary break-keep">{w(W.summary, { decl: recipe.code.declaration, pieces: recipe.pieces.length, platform: onCount(recipe), total: recipe.platform.length })}</span>;
@@ -71,7 +92,7 @@ export function RecipeBack({ recipe, onClose }: { recipe: Recipe; onClose: () =>
       <Summary recipe={recipe} />
       <Button type="button" variant="ghost" size="toolbar" className="ml-auto" onClick={onClose}><Undo2 className="size-3.5" aria-hidden />{w(W.back)}</Button>
     </div>
-    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)] divide-x divide-border-subtle overflow-auto">
+    <div role="region" aria-label={w(W.body)} tabIndex={0} className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)] divide-x divide-border-subtle overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
       <div className="grid content-start gap-3 p-3">
         <h4 className="text-xs font-medium text-text-secondary">① {w(W.menuMade)}</h4>
         <Declared recipe={recipe} />

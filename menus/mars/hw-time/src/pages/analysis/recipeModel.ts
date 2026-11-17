@@ -72,7 +72,6 @@ export function panelRecipe(id: string, context: Readonly<Record<string, unknown
   const manifest = manifests[0]!;
   const pieces = declaration.pieces ?? [];
   const chart = pieces.some(piece => piece === 'AnalysisChart' || piece.startsWith('AnalysisChart:') || piece === 'AnalysisChartFrame');
-  const table = pieces.includes('PlatformDataTable');
   const range = ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(declaration.kind ?? '');
   const queryKeys = [...(declaration.queryInputs.context ?? []), ...(declaration.queryInputs.page ?? []).map(input => input.key)];
   const required = (declaration.queryInputs.page ?? []).filter(input => input.required).map(input => labelOf(input.key));
@@ -96,7 +95,7 @@ export function panelRecipe(id: string, context: Readonly<Record<string, unknown
       { id: 'range', label: { ko: '확대·구간', en: 'Zoom & range' }, state: on(range) },
       { id: 'annotate', label: { ko: '주석', en: 'Annotate' }, state: on(chart && manifest.features.annotate === true), note: chart && manifest.features.annotate !== true ? { ko: '메뉴가 끔', en: 'Off in this menu' } : undefined },
       { id: 'image', label: { ko: '이미지', en: 'Image' }, state: 'off', note: { ko: '메뉴가 안 켬(SDK 옵션 있음)', en: 'Not turned on by this menu (SDK option exists)' } },
-      { id: 'csv', label: { ko: 'CSV', en: 'CSV' }, state: on(manifest.features.export === true && (chart || table)) },
+      { id: 'csv', label: { ko: 'CSV', en: 'CSV' }, state: on(manifest.features.export === true && (chart || declaration.csvExport === true)) },
       { id: 'states', label: { ko: '빈·오류 상태', en: 'Empty & error states' }, state: on(pieces.includes('QueryView')) },
       { id: 'link', label: { ko: '공유 링크', en: 'Share link' }, state: 'on' },
       { id: 'permission', label: { ko: '권한', en: 'Permission' }, state: 'on', note: { ko: String(manifest.permission), en: String(manifest.permission) } },

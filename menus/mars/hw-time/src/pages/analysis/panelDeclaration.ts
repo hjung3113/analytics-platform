@@ -31,6 +31,10 @@ export type PanelDeclaration<K extends string = string> = {
   readonly kind?: string;
   /** SDK pieces used by this panel, listed by kind for its recipe. */
   readonly pieces?: readonly string[];
+  /** Table CSV opt-in, shared with the renderer that supplies exportRows.
+   * Charts use the SDK's manifest-gated CSV action without a menu callback.
+   */
+  readonly csvExport?: boolean;
 };
 
 type InputKey<I extends PanelInputs> = keyof GlobalContext | NonNullable<I['page']>[number]['key'];
@@ -117,7 +121,7 @@ export const panelDeclarations = {
     grain: 'run', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability, pieces: ['AnalysisChart', 'FilterLine', 'QueryView'] },
   distribution: { id: 'distribution', kind: 'histogram', title: S.distribution, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.distribution.id], availability: pointAvailability, pieces: ['AnalysisChart', 'QueryView'] },
-  motionTable: { id: 'motionTable', kind: 'table', title: S.motionTable,
+  motionTable: { id: 'motionTable', kind: 'table', csvExport: false, title: S.motionTable,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule', required: true }] }, displayInputs: { page: [{ key: 'motion' }] },
     outputs: [{ key: 'drillMotion', action: 'drill' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }],
     grain: 'motionStat', endpoints: [hwTimeOverview.motionStats.id],
@@ -127,7 +131,7 @@ export const panelDeclarations = {
     displayInputs: { page: [...verdictDisplay, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
     outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id],
     availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 }, pieces: ['AnalysisChartFrame', 'PanelOptions', 'PanelOptionChips', 'QueryView'] },
-  table: { id: 'table', kind: 'table', title: S.table,
+  table: { id: 'table', kind: 'table', csvExport: true, title: S.table,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'page' }, { key: 'sort' }, { key: 'focus' }] }, displayInputs: { page: checks },
     outputs: [{ key: 'moduleType', action: 'drill' }, { key: 'drillMotion', action: 'drill' }, { key: 'drillModule', action: 'drill' },
       { key: 'row', action: 'highlight' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }, { key: 'page', action: 'page' }, { key: 'sort', action: 'sort' }],
