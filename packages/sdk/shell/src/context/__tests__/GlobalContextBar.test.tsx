@@ -85,6 +85,12 @@ describe('Global Context priority overflow (#56)', () => {
     for (const el of filled) expect(el).toHaveClass('on-canvas-band:bg-transparent');
   });
 
+  it('names the period editor dialog after the period (#2487, WCAG 4.1.2)', async () => {
+    mount();
+    fireEvent.click(within(bar()).getByRole('button', { name: /^기간:/ }));
+    expect(await screen.findByRole('dialog', { name: '기간' })).toBeInTheDocument();
+  });
+
   it('uses badge typography for capability tags', () => {
     mount();
     const tags = within(bar()).getAllByText('참조만', { exact: true });
