@@ -34,6 +34,12 @@ export const permissionGrantsRoute = operatorRoute({
   keys: { tab: 'tab', selected: 'focus' },
 });
 
+export const permissionGroupsRoute = operatorRoute({
+  screenPath: '/admin/permissions/groups', screenFixed: {}, menuId: 'permission-groups', keys: { tab: 'tab', selected: 'focus' },
+});
+export const usePermissionGroupsSearch = routeSearch(permissionGroupsRoute);
+export const usePermissionGroupsHere = routeHere(permissionGroupsRoute);
+
 /** `/admin/settings`; its `#coverage` section is the page key `section` (the only fragment the table accepts). */
 export const settingsRoute = operatorRoute({
   screenPath: '/admin/settings',
@@ -61,5 +67,6 @@ export const adminOperatorTargets: TargetOf[] = [
   analyticsAreasRoute.target,
   permissionRequestsRoute.target,
   permissionGrantsRoute.target,
+  permissionGroupsRoute.target,
   settingsRoute.target,
 ];

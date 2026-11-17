@@ -39,6 +39,8 @@ import { useMeBridge } from '../../../lib/api/me';
 import { fetchPermissionGrantOptions, permissionGrantOptionsKey } from '../../../lib/api/permission-admin';
 import { ApiError } from '../../../lib/api/types';
 import { rejectedPermissionItem } from '../../../lib/api/permission-batch-error';
+import { usePermissionGroups } from '../../../lib/api/permission-groups';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
@@ -437,6 +439,9 @@ function DirectGrantFields({
   const [selectedCandidateKeys, setSelectedCandidateKeys] = React.useState<string[]>(initialCandidateKey ? [initialCandidateKey] : []);
   const [submittedCandidates, setSubmittedCandidates] = React.useState<DirectGrantCandidate[]>([]);
   const [grantScopeKind, setGrantScopeKind] = React.useState<GrantScopeKind>('managed_system');
+  const groups = usePermissionGroups({ kind: 'operator' }, grantScopeKind === 'managed_system');
+  const [presetSystem, setPresetSystem] = React.useState('');
+  const [presetOrigin, setPresetOrigin] = React.useState<string | null>(null);
   const [scopeSite, setScopeSite] = React.useState('');
   const [scopeRoom, setScopeRoom] = React.useState('');
   // The advisory `scope.read` candidate names the Site·공정 kinds; its catalog values come from the candidate read.
@@ -480,7 +485,8 @@ function DirectGrantFields({
     return candidate ? [candidate] : [];
   });
   const selectedCandidate = selectedCandidates[0];
-  const batch = scopeGrant === null && selectedCandidates.length > 1;
+  const originGroup = (groups.data ?? []).find(group => group.id === presetOrigin && selectedCandidates.length > 0 && selectedCandidates.every(candidate => group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem)));
+  const batch = scopeGrant === null && (selectedCandidates.length > 1 || originGroup !== undefined);
   const overLimit = selectedCandidateKeys.length > PERMISSION_BATCH_MAX_ITEMS;
   const rejectedCandidate = rejectedPermissionItem(batchMutation.error, submittedCandidates);
   // Held = an active (non-expired) grant the screen already loaded for this recipient.
@@ -563,6 +569,7 @@ function DirectGrantFields({
         : {}),
     };
     const batchBody = {
+      ...(originGroup ? { permission_group_id: originGroup.id } : {}),
       actor_id: body.actor_id,
       items: selectedCandidates.map(candidate => ({ capability: candidate.capability,
         ...(candidate.managed_system_id !== null ? { managed_system_id: candidate.managed_system_id } : {}) })),
@@ -671,23 +678,44 @@ function DirectGrantFields({
             disabled={pending}
           />
         ) : (
+        <div className="flex flex-col gap-3">
+        {groups.isError ? <p role="status">{PERMISSION_GROUP_COPY.error}</p> : null}
+        {presetOrigin ? <label className="flex flex-col gap-2 text-sm" htmlFor="grant-preset-system">{PERMISSION_GROUP_COPY.grantSystem}<Select value={presetSystem} onValueChange={system => {
+          setPresetSystem(system);
+          const group = groups.data?.find(item => item.id === presetOrigin);
+          if (!group) return;
+          const keys = systemCandidates.filter(candidate => group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === system) && !heldEntries.some(entry => entry.candidate === candidate)).map(candidateKey);
+          setSelectedCandidateKeys(previous => [...new Set([...previous.filter(key => !group.capabilities.some(capability => key.startsWith(`${capability}|`))), ...keys])]);
+        }} disabled={pending}><SelectTrigger id="grant-preset-system"><SelectValue placeholder={PERMISSION_GROUP_COPY.selectSystem} /></SelectTrigger><SelectContent><SelectGroup>{[...new Set(systemCandidates.map(candidate => candidate.managed_system_id ?? 'workspace'))].map(id => <SelectItem key={id} value={id}>{id === 'workspace' ? SCOPE_SELECTOR_COPY.workspaceAll : managedSystemNames[id] ?? PERMISSION_GROUP_COPY.system}</SelectItem>)}</SelectGroup></SelectContent></Select></label> : null}
         <GroupedSelectionList mode="multiple" density="compact" hideDisabled selectionSummary="chips"
+          presets={(groups.data ?? []).map(group => {
+            const candidates = systemCandidates.filter(candidate => presetSystem && group.capabilities.includes(candidate.capability) && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem));
+            const missing = group.capabilities.filter(capability => !candidates.some(candidate => candidate.capability === capability));
+            return { id: group.id, label: group.name, description: missing.length ? `${PERMISSION_GROUP_COPY.grantMissing}: ${missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}` : group.description ?? PERMISSION_GROUP_COPY.kind.operator, itemIds: candidates.map(candidateKey), onApply: () => setPresetOrigin(group.id) };
+          })}
+          presetPreview
           messages={{ hiddenItems: DIRECT_GRANT_COPY.hiddenItems }}
-          aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder="권한 이름·설명 검색"
+          aria-label={DIRECT_GRANT_COPY.optionLabel} searchPlaceholder={PERMISSION_GROUP_COPY.searchCapabilities}
           groups={groupPermissionItems([...CAPABILITIES, ...declaredCandidateIds].flatMap(capability => {
             const item = isDeclaredCapabilityId(capability) ? declaredSelectionItem(capability, declared) : permissionSelectionItem(capability);
             const candidates = systemCandidates.filter(candidate => candidate.capability === capability);
-            if (candidates.length === 0) return [{ ...item, capability, disabledReason: '이 대상에 부여할 수 없음' }];
+            if (candidates.length === 0) return [{ ...item, capability, disabledReason: PERMISSION_GROUP_COPY.noGrantCandidate }];
             return candidates.map(candidate => ({ ...item, capability, id: candidateKey(candidate), label: candidateLabel(candidate, managedSystemNames, declared),
               ...(rejectedCandidate && candidateKey(rejectedCandidate) === candidateKey(candidate) ? { badge: { label: DIRECT_GRANT_COPY.rejected, tone: 'danger' as const } } : {}),
               ...(heldEntries.some(entry => entry.candidate === candidate) ? { disabledReason: DIRECT_GRANT_COPY.alreadyGranted } : {}) }));
           }))}
           value={selectedCandidateKeys} onChange={value => { if (!pending) clearErrorAndUpdate(() => {
+            setPresetOrigin(null);
             setSelectedCandidateKeys(value);
             setGovernanceConfirmed(false);
             setPolicyCitation('');
             setPeerReviewerAbsence('');
           }); }} />
+          {presetSystem ? (groups.data ?? []).map(group => {
+            const missing = group.capabilities.filter(capability => !systemCandidates.some(candidate => candidate.capability === capability && (candidate.managed_system_id === null || candidate.managed_system_id === presetSystem)));
+            return missing.length ? <p key={group.id} className="text-xs text-text-secondary">{group.name}: {PERMISSION_GROUP_COPY.grantMissing}: {missing.map(capability => getCapabilityDisplayLabel(capability, declared)).join(', ')}</p> : null;
+          }) : null}
+        </div>
         )}
         {overLimit ? <p role="alert" className="text-sm text-text-danger">{DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)}</p> : null}
         {rejectedCandidate && mappedError ? <div role="alert" className="flex flex-col gap-1 text-sm text-text-danger">

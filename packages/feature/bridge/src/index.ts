@@ -30,6 +30,7 @@ export {
   useEvidenceHere, useEvidenceSearch, useIntegrationDashboardHere, useIntegrationDashboardSearch,
 } from './feature/integration-routes';
 export {
+  permissionGroupsRoute, usePermissionGroupsSearch, usePermissionGroupsHere,
   analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute, useAnalyticsAreasHere, useAnalyticsAreasSearch, useManagedSystemsHere,
   useManagedSystemsSearch, usePermissionGrantsHere, usePermissionGrantsSearch, usePermissionRequestsHere, usePermissionRequestsSearch, useSettingsHere, useSettingsSearch,
 } from './feature/admin-routes';

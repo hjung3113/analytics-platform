@@ -5,6 +5,9 @@
 // Supplement, edit and expiration stay in the standalone app (`OwnerPermissionRequestDialog`).
 
 import { ListStateMessage } from '../../../components/ListStateMessage';
+import { PermissionGroupCatalog } from './PermissionGroupCatalog';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
+import { submitMoreInfoPermissionRequestBatch } from '../../../lib/api/permission-groups';
 import {
   PermissionScopeTargetFields,
   scopeTargetMissing,
@@ -103,11 +106,11 @@ const SKELETON_KEYS = ['skeleton-0', 'skeleton-1', 'skeleton-2'];
 // The request target kind: a feature capability (today's form) or a Site·공정 `scope.read` target (ADR-0154).
 type TargetKind = 'capability' | PermissionScopeTargetKind;
 
-export function PermissionRequestsScreen(): React.ReactElement {
+export function PermissionRequestsScreen(props: { permissionGroup?: string; groupLink?: (id: string) => string } = {}): React.ReactElement {
   return (
     <div className="flex w-full flex-col gap-6" data-testid="permission-requests">
       <p className="text-sm text-text-muted">{COPY.notice}</p>
-      <NewRequestForm />
+      <NewRequestForm {...props} />
       <MyRequests />
     </div>
   );
@@ -123,7 +126,7 @@ function useManagedSystemsQuery() {
   });
 }
 
-function NewRequestForm(): React.ReactElement {
+function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: string; groupLink?: (id: string) => string }): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
@@ -139,6 +142,8 @@ function NewRequestForm(): React.ReactElement {
   const scopeKind: PermissionScopeTargetKind | null = targetKind === 'capability' ? null : targetKind;
   const isScope = scopeKind !== null;
   const [capabilities, setCapabilities] = React.useState<string[]>([]);
+  const [origin, setOrigin] = React.useState<{ id: string; capabilities: string[] } | null>(null);
+  const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [batchError, setBatchError] = React.useState<{ capability: string; message: string } | null>(null);
   const [managedSystemId, setManagedSystemId] = React.useState('');
   const [reason, setReason] = React.useState('');
@@ -171,7 +176,7 @@ function NewRequestForm(): React.ReactElement {
   const { key, markConsumed } = useIdempotencyKey(
     isScope
       ? `scope.read|${targetKind}|${scopeSite}|${scopeRoom}|${trimmedReason}`
-      : `${JSON.stringify(capabilities)}|${sentManagedSystemId ?? ''}|${trimmedReason}`,
+      : `${JSON.stringify(capabilities)}|${sentManagedSystemId ?? ''}|${trimmedReason}|${origin?.id ?? ''}`,
   );
 
   const mutation = useMutation({
@@ -179,7 +184,7 @@ function NewRequestForm(): React.ReactElement {
     mutationFn: async (submittedCapabilities: string[]) => {
       const items = submittedCapabilities.map(capability => ({ requested_capability: capability,
         ...(takesManagedSystem(capability) && sentManagedSystemId !== undefined ? { requested_managed_system_id: sentManagedSystemId } : {}) }));
-      if (!isScope && items.length > 1) return createPermissionRequestBatch({ items, reason: trimmedReason }, { idempotencyKey: key });
+      if (!isScope && (items.length > 1 || origin)) return createPermissionRequestBatch({ items, reason: trimmedReason, ...(origin ? { permission_group_id: origin.id } : {}) }, { idempotencyKey: key });
       return createPermissionRequest(
         scopeKind !== null
           ? {
@@ -201,6 +206,7 @@ function NewRequestForm(): React.ReactElement {
       markConsumed();
       notifySuccess(COPY.sent);
       setCapabilities([]);
+      setOrigin(null);
       setBatchError(null);
       setManagedSystemId('');
       setScopeSite('');
@@ -268,6 +274,7 @@ function NewRequestForm(): React.ReactElement {
   };
 
   const onCapabilityChange = (next: string[]) => {
+    if (origin && next.some(capability => !origin.capabilities.includes(capability))) setOrigin(null);
     setCapabilities(next);
     setBatchError(null);
     setCapabilityError(null);
@@ -285,6 +292,9 @@ function NewRequestForm(): React.ReactElement {
       <h2 id="permission-request-new-title" className="text-base font-semibold text-text-primary">
         {COPY.newRequest}
       </h2>
+      <PermissionGroupCatalog selected={origin?.id ?? null} selectionVersion={selectionVersion} requestable={[...REQUESTABLE_CAPABILITIES, ...requestableDeclared.map(item => item.id)]}
+        {...(sentManagedSystemId ? { managedSystemId: sentManagedSystemId } : {})} {...(permissionGroup ? { linkId: permissionGroup } : {})} {...(groupLink ? { groupLink } : {})}
+        disabled={mutation.isPending} onPick={(group, next) => { setTargetKind('capability'); onCapabilityChange(next); setOrigin({ id: group.id, capabilities: group.capabilities }); }} />
       <form
         className="flex flex-col gap-4"
         noValidate
@@ -300,6 +310,8 @@ function NewRequestForm(): React.ReactElement {
             value={targetKind}
             onValueChange={(next) => {
               setTargetKind(next as TargetKind);
+              setSelectionVersion(version => version + 1);
+              setOrigin(null);
               setBatchError(null);
               setScopeSite('');
               setScopeRoom('');
@@ -356,7 +368,7 @@ function NewRequestForm(): React.ReactElement {
             >
               <GroupedSelectionList mode="multiple" density="compact" selectionSummary="chips"
                 aria-label={COPY.listLabel} searchPlaceholder={COPY.search}
-                value={capabilities} onChange={next => { if (!mutation.isPending) onCapabilityChange(next); }}
+                value={capabilities} onChange={next => { if (!mutation.isPending) { setSelectionVersion(version => version + 1); setOrigin(null); onCapabilityChange(next); } }}
                 groups={groupPermissionItems([
                   ...REQUESTABLE_CAPABILITIES.map(capability => ({ ...permissionSelectionItem(capability), capability })),
                   ...requestableDeclared.map(item => ({ ...declaredSelectionItem(item.id, declared), capability: item.id as `ext.${string}` })),
@@ -592,9 +604,11 @@ function MyRequests(): React.ReactElement {
                   ? getCapabilityDisplayLabel(row.requested_capability, declared)
                   : systemName(row.requested_managed_system_id)}{' '}
                 · {formatDate(row.created_at)}
+                {row.permission_group ? ` · ${PERMISSION_GROUP_COPY.origin(row.permission_group.name)}` : null}
               </p>
               <p className="line-clamp-2 text-sm text-text-primary">{row.reason}</p>
-              {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} />}
+              {row.batch_id && row.status === 'needs_more_info' ? <BatchMoreInfo batchId={row.batch_id} rows={list.data.requests.filter(item => item.batch_id === row.batch_id)} rowId={row.id} /> : null}
+              {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} batch={Boolean(row.batch_id)} />}
               {OPEN_PERMISSION_REQUEST_STATUSES.has(row.status) &&
                 (confirmingId === row.id ? (
                   // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Escape bubbles from the confirm buttons inside; the wrapper is not itself interactive
@@ -657,9 +671,18 @@ function MyRequests(): React.ReactElement {
   );
 }
 
+function BatchMoreInfo({ batchId, rows, rowId }: { batchId: string; rows: MinePermissionRequestRow[]; rowId: string }) {
+  const [note, setNote] = React.useState('');
+  const client = useQueryClient();
+  const { notifySuccess } = useHostSeam();
+  const { key } = useIdempotencyKey(JSON.stringify({ batchId, rows: rows.map(row => [row.id, row.revision]), note }));
+  const mutation = useMutation({ mutationFn: () => submitMoreInfoPermissionRequestBatch(batchId, { note: note.trim(), expected_revisions: Object.fromEntries(rows.filter(row => row.status === 'needs_more_info').map(row => [row.id, row.revision])) }, key), onSuccess: async () => { setNote(''); notifySuccess(PERMISSION_GROUP_COPY.answered); await client.invalidateQueries({ queryKey: permissionRequestsMineKey }); await client.invalidateQueries({ queryKey: ['permission-requests'] }); } });
+  return <div className="flex flex-col gap-2"><Label htmlFor={`batch-answer-${rowId}`}>{PERMISSION_GROUP_COPY.answer}</Label><Textarea id={`batch-answer-${rowId}`} value={note} maxLength={REASON_MAX} disabled={mutation.isPending} onChange={event => setNote(event.target.value)} /><Button disabled={mutation.isPending || !note.trim()} onClick={() => mutation.mutate()}>{PERMISSION_GROUP_COPY.batchAnswer}</Button>{mutation.isError ? <p role="alert">{mapUnknownError(mutation.error).message}</p> : null}</div>;
+}
+
 // The latest admin question comes from the owner detail, fetched only for a row that asks for more information.
 // While it loads or if it fails, the row shows the hint alone.
-function MoreInfoNote({ id }: { id: string }): React.ReactElement {
+function MoreInfoNote({ id, batch }: { id: string; batch: boolean }): React.ReactElement {
   const detail = useQuery({
     queryKey: permissionRequestOwnerDetailKey(id),
     queryFn: ({ signal }) => fetchPermissionRequestOwnerDetail(id, signal),
@@ -673,7 +696,7 @@ function MoreInfoNote({ id }: { id: string }): React.ReactElement {
           {COPY.adminQuestion}: {question}
         </p>
       )}
-      <p className="text-xs text-text-muted">{COPY.moreInfoHint}</p>
+      {!batch ? <p className="text-xs text-text-muted">{COPY.moreInfoHint}</p> : null}
     </>
   );
 }

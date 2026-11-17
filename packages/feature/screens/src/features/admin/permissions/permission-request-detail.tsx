@@ -1,5 +1,6 @@
 import { ROLE_LEVEL_DISPLAY_LABELS } from '../../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../../lib/copy/glossary';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 
 import { OutlineBadge } from '../../../ui/index';
 import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
@@ -19,6 +20,7 @@ import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
 export function PermissionRequestDetail({
   request,
+  batch,
   actorName,
   managedSystemName,
   managedSystemNames,
@@ -32,6 +34,7 @@ export function PermissionRequestDetail({
   renderDetail,
 }: {
   request: PermissionRequestAdminDetail;
+  batch?: { id: string; items: PermissionRequestAdminDetail[] };
   actorName?: string | undefined;
   managedSystemName?: string | undefined;
   managedSystemNames?: Record<string, string> | undefined;
@@ -72,10 +75,11 @@ export function PermissionRequestDetail({
           {ADMIN_PERMISSIONS_COPY.reviewAgain}
         </p>
       ) : null}
-      <PermissionRequestRiskReview
+      {batch ? batch.items.map(item => <PermissionRequestRiskReview key={item.id} request={item} managedSystemNames={resolvedManagedSystemNames} />) : <PermissionRequestRiskReview
         request={request}
         managedSystemNames={resolvedManagedSystemNames}
-      />
+      />}
+      {batch ? <section className="flex flex-col gap-2"><PanelSectionTitle>{PERMISSION_GROUP_COPY.count(batch.items.length)}</PanelSectionTitle><ul>{batch.items.map(item => <li key={item.id}>{getCapabilityDisplayLabel(item.requested_capability)} · {permissionRequestStatusLabel[item.status]}</li>)}</ul><p>{PERMISSION_GROUP_COPY.outcome(batch.items.filter(item => item.status === 'approved').length, batch.items.filter(item => item.status === 'rejected').length)}</p></section> : null}
       <section className="flex flex-col gap-2">
         <PanelSectionTitle>요청 정보</PanelSectionTitle>
         <FieldRow label="요청자" inset="none">
@@ -137,6 +141,7 @@ export function PermissionRequestDetail({
       <PermissionRequestDecisionForm
         key={`${request.id}:${request.revision}:${reviewEpoch}`}
         request={request}
+        {...(batch ? { batch } : {})}
         actorName={actorName}
         managedSystemName={managedSystemName}
         {...(staleNotice ? { staleNoticeShown: true } : {})}

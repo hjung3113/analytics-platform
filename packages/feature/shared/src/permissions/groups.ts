@@ -123,3 +123,11 @@ export const submitMoreInfoPermissionRequestBatchSchema = z
   .object({ note: z.string().max(2000), expected_revisions: revisionsSchema })
   .strict();
 export type SubmitMoreInfoPermissionRequestBatch = z.infer<typeof submitMoreInfoPermissionRequestBatchSchema>;
+
+export const submitMoreInfoPermissionRequestBatchResultSchema = z.object({
+  batch_id: z.string().uuid(),
+  items: z.array(z.object({
+    id: z.string().uuid(), status: z.literal('pending'), revision: z.number().int().positive(),
+  }).strict()).min(1),
+}).strict();
+export type SubmitMoreInfoPermissionRequestBatchResult = z.infer<typeof submitMoreInfoPermissionRequestBatchResultSchema>;

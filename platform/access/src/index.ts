@@ -6,7 +6,7 @@
  * 권한 요청 검토 is the group's one primary menu. The paths stay under `/operations/` (the 운영 콘솔 space) and never alias `/admin/*`.
  */
 import { lazy } from 'react';
-import { KeyRound, FileCheck2, KeySquare } from 'lucide-react';
+import { KeyRound, FileCheck2, KeySquare, Layers } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, carrySetId, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 
@@ -31,6 +31,14 @@ export const manifests: MenuEntry[] = [
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeaturePermissionGrants')),
+  },
+  {
+    id: 'permission-groups', group: GROUP, label: { ko: '권한 그룹', en: 'Permission groups' },
+    description: { ko: '운영자·개인 권한 그룹 조회와 관리', en: 'Review and manage permission groups' },
+    path: '/operations/permission-groups', icon: Layers, permission: 'console:access', additionalPermissions: ['features:access'], requiresScope: false, pageType: 'management',
+    context: contextCapabilities(), features: NO_FEATURES,
+    pageKeys: ['tab', 'focus', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
+    component: lazy(() => import('./pages/FeaturePermissionGroups')),
   },
   {
     id: 'service-tokens', group: GROUP, label: { ko: '서비스 토큰', en: 'Service tokens' },

@@ -3,20 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { createRegistry } from '@ap/kernel';
 import { groupId, menuPermissions, spaceId, carrySetId } from '@ap/contracts';
 import { KeyRound } from 'lucide-react';
-import { permissionGrantsRoute, permissionRequestsRoute } from '@ap/feature-bridge';
+import { permissionGrantsRoute, permissionRequestsRoute, permissionGroupsRoute } from '@ap/feature-bridge';
 import { manifests } from './index';
 import { harnessMenus } from './test-support';
 
 const byId = (id: string) => manifests.find(entry => entry.id === id)!;
-const IDS = ['permission-request-review', 'permission-grants', 'service-tokens'];
+const IDS = ['permission-request-review', 'permission-grants', 'permission-groups', 'service-tokens'];
 
 describe('권한 manifests', () => {
   it('declares the three screens in order, 권한 요청 검토 the sole primary, all in access under the 운영 콘솔 paths', () => {
     expect(manifests.map(entry => entry.id)).toEqual(IDS);
     expect(manifests.filter(entry => entry.primary).map(entry => entry.id)).toEqual(['permission-request-review']);
     expect(manifests.every(entry => entry.group === 'access')).toBe(true);
-    expect(manifests.map(entry => entry.path)).toEqual(['/operations/permission-request-review', '/operations/permission-grants', '/operations/service-tokens']);
-    expect(manifests.map(entry => entry.label.ko)).toEqual(['권한 요청 검토', '부여 목록', '서비스 토큰']);
+    expect(manifests.map(entry => entry.path)).toEqual(['/operations/permission-request-review', '/operations/permission-grants', '/operations/permission-groups', '/operations/service-tokens']);
+    expect(manifests.map(entry => entry.label.ko)).toEqual(['권한 요청 검토', '부여 목록', '권한 그룹', '서비스 토큰']);
   });
 
   it('service tokens declares only restorable list filters, with no secret or issuance state', () => {
@@ -31,6 +31,7 @@ describe('권한 manifests', () => {
   it.each([
     ['permission-request-review', permissionRequestsRoute],
     ['permission-grants', permissionGrantsRoute],
+    ['permission-groups', permissionGroupsRoute],
   ])('%s declares its route table page keys plus the two keys the space carries', (id, route) => {
     // `managedSystem` (ignored by these screens) and `returnTo` are carried by the screen space, not route-table keys.
     const menu = byId(id);

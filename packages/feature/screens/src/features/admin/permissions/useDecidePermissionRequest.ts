@@ -11,12 +11,16 @@ import {
 import type { ApiError } from '../../../lib/api/types';
 import { useHostNotice } from '../../../lib/host/host-seam';
 import { invalidateRecovery } from '../../../lib/query/recovery';
+import { decidePermissionRequestBatch } from '../../../lib/api/permission-groups';
+import { fetchPermissionRequestAdminDetail } from '../../../lib/api/permission-admin';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 import type { ApprovePermissionRequest, PermissionDecisionResult } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const permissionRequestsReviewKey = ['permission-requests', 'review'] as const;
 
 export interface DecidePermissionRequestArgs {
+  batch?: { id: string; revisions: Record<string, number>; approveIds: string[] };
   id: string;
   expectedRevision: number;
   action: PermissionRequestDecisionAction;
@@ -37,7 +41,8 @@ export function useDecidePermissionRequest(
   const { notify } = useHostNotice();
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
+      batch,
       id,
       expectedRevision,
       action,
@@ -47,8 +52,22 @@ export function useDecidePermissionRequest(
       expiration,
       grantedManagedSystemId,
       grantedScope,
-    }: DecidePermissionRequestArgs) =>
-      decidePermissionRequest(
+    }: DecidePermissionRequestArgs) => {
+      if (batch) {
+        if (action === 'deny') throw new Error('Batch deny is not supported');
+        const result = await decidePermissionRequestBatch(batch.id, {
+          action, expected_revisions: batch.revisions, reason,
+          ...(action === 'approve' ? { approve_ids: batch.approveIds } : {}),
+          ...(expiration !== undefined ? { expiration } : {}),
+          ...(selfApproval ? { self_approval: selfApproval } : {}),
+          ...(grantedManagedSystemId !== undefined ? { granted_managed_system_id: grantedManagedSystemId } : {}),
+        }, idempotencyKey);
+        const fresh = await fetchPermissionRequestAdminDetail(id);
+        const outcome = result.items.find(item => item.id === id);
+        if (!outcome) throw new Error('Batch response omitted the selected request');
+        return { id, revision: fresh.revision, status: outcome.status, updated_at: fresh.updated_at };
+      }
+      return decidePermissionRequest(
         id,
         action,
         reason,
@@ -58,16 +77,18 @@ export function useDecidePermissionRequest(
         expiration,
         grantedManagedSystemId,
         grantedScope,
-      ),
+      );
+    },
     retry: false,
     onSettled: (data) => onSettled?.(data !== undefined),
     onSuccess: async (data, args) => {
       onSucceeded?.(data);
-      notify({ tone: 'success', message: '권한 요청이 처리되었습니다.' });
+      notify({ tone: 'success', message: args.batch && args.action === 'approve' ? PERMISSION_GROUP_COPY.decided(args.batch.approveIds.length, Object.keys(args.batch.revisions).length - args.batch.approveIds.length) : '권한 요청이 처리되었습니다.' });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: permissionRequestsReviewKey }),
         queryClient.invalidateQueries({ queryKey: permissionRequestAdminDetailKey(args.id) }),
         queryClient.invalidateQueries({ queryKey: permissionRequestOwnerDetailKey(args.id) }),
+        ...(args.batch ? [queryClient.invalidateQueries({ queryKey: ['permission-requests'] }), queryClient.invalidateQueries({ queryKey: ['permission-grants'] }), queryClient.invalidateQueries({ queryKey: ['permission-grant-options'] })] : []),
         queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey }),
         queryClient.invalidateQueries({ queryKey: ['permission-check'] }),
         invalidateRecovery(queryClient),
@@ -81,6 +102,7 @@ export function useDecidePermissionRequest(
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: permissionRequestsReviewKey }),
           queryClient.invalidateQueries({ queryKey: permissionRequestAdminDetailKey(args.id) }),
+          ...(args.batch ? Object.keys(args.batch.revisions).flatMap(id => [queryClient.invalidateQueries({ queryKey: permissionRequestAdminDetailKey(id) }), queryClient.invalidateQueries({ queryKey: permissionRequestOwnerDetailKey(id) })]) : []),
           queryClient.invalidateQueries({ queryKey: permissionRequestOwnerDetailKey(args.id) }),
           queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey }),
           queryClient.invalidateQueries({ queryKey: ['permission-check'] }),

@@ -9,7 +9,8 @@ import { requestedScopeTargetLabel } from '../../../lib/copy/permission-scope';
 import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { useHostSeam } from '../../../lib/host/host-seam';
-import { shortId } from '../../../lib/identity';
+import { PermissionRequestBatchDetail } from './permission-request-batch-detail';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 
 import {
   permissionRequestStatusLabel,
@@ -37,7 +38,6 @@ export function PermissionRequestsScreen({
     visibleRequests,
     activeTab,
     selected,
-    selectedId,
     actorNames,
     managedSystemNames,
     isPending,
@@ -65,7 +65,7 @@ export function PermissionRequestsScreen({
       : {}),
   }));
 
-  const detail = selected ? (
+  const detail = selected?.batch_id ? <PermissionRequestBatchDetail id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
     <SelectedPermissionRequestDetail
       key={selected.id}
       id={selected.id}
@@ -120,7 +120,7 @@ export function PermissionRequestsScreen({
                   ? managedSystemNames[request.requested_managed_system_id]
                   : undefined
               }
-              selected={selectedId === request.id}
+              selected={selected?.id === request.id}
               onSelect={() => handleSelect(request.id)}
             />
           ))}
@@ -154,10 +154,12 @@ function PermissionRequestRow({
   onSelect: () => void;
 }) {
   const scopeTarget = requestedScopeTargetLabel(request);
+  let requestLabel = getCapabilityDisplayLabel(request.requested_capability);
+  if (request.batch_id) requestLabel = request.permission_group ? PERMISSION_GROUP_COPY.origin(request.permission_group.name) : PERMISSION_GROUP_COPY.count((request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.length);
   return (
     <ObjectRow
-      id="권한 요청"
-      title={`${actorName ?? GLOSSARY.unknownUser} · ${getCapabilityDisplayLabel(request.requested_capability)}`}
+      id={PERMISSION_GROUP_COPY.requestTitle}
+      title={`${actorName ?? GLOSSARY.unknownUser} · ${requestLabel}`}
       selected={selected}
       onClick={onSelect}
       badges={
@@ -169,15 +171,12 @@ function PermissionRequestRow({
       }
       meta={
         <>
+          {request.batch_id ? <><span>{PERMISSION_GROUP_COPY.count((request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.length)}</span><span>·</span></> : null}
+          {request.batch_id && (request.status === 'approved' || request.status === 'rejected') ? <><span>{PERMISSION_GROUP_COPY.outcome((request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.filter(item => item.status === 'approved').length, (request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.filter(item => item.status === 'rejected').length)}</span><span>·</span></> : null}
           <span>
             {scopeTarget ??
               (request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '전체')}
           </span>
-          {request.requested_managed_system_id && !managedSystemName && (
-            <span className="font-mono text-text-muted">
-              {shortId(request.requested_managed_system_id)}
-            </span>
-          )}
           <span>·</span>
           <span>{formatDateTime(request.created_at)}</span>
           {request.requested_expiration ? (
@@ -187,16 +186,7 @@ function PermissionRequestRow({
               <span>만료 {formatDateOnly(request.requested_expiration.slice(0, 10))}</span>
             </>
           ) : null}
-          <span>·</span>
-          <span className="font-mono text-text-muted">{shortId(request.id)}</span>
         </>
-      }
-      trailing={
-        !actorName && (
-          <span className="text-right text-xs text-text-muted">
-            <span className="font-mono">{shortId(request.requester_actor_id)}</span>
-          </span>
-        )
       }
     />
   );

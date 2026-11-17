@@ -16,7 +16,10 @@ export type GroupedSelectionItem = {
   disabledReason?: string;
 };
 export type GroupedSelectionGroup = { id: string; label: string; items: readonly GroupedSelectionItem[] };
-export type GroupedSelectionPreset = { id: string; label: string; description: string; itemIds: readonly string[] };
+export type GroupedSelectionPreset = { id: string; label: string; description: string; itemIds: readonly string[];
+  /** Called after onChange when this preset is applied; lets the consumer record its source. Manual selection never calls it. */
+  onApply?: () => void;
+};
 /** The list's own copy. Built-in ko/en tables below; a menu that uses `useI18n` passes `GROUPED_SELECTION_MESSAGES[lang]`. */
 export type GroupedSelectionMessages = {
   search: string; clearSearch: string; clear: string; all: string; none: string; empty: string;
@@ -114,7 +117,7 @@ export function GroupedSelectionList(props: GroupedSelectionListProps) {
   const clearButton = props.mode === 'multiple'
     ? <Button type="button" variant="ghost" size="toolbar" disabled={!props.value.some(id => enabled.has(id))} onClick={() => props.onChange(props.value.filter(id => !enabled.has(id)))}>{copy.clear}</Button> : null;
   const presetButton = (preset: GroupedSelectionPreset, describedBy: string, className?: string) => <Tooltip key={preset.id}><TooltipTrigger asChild>
-    <Button type="button" variant="secondary" size="toolbar" className={className} aria-describedby={describedBy} onClick={() => toggle(preset.itemIds, true)}>{preset.label}</Button>
+    <Button type="button" variant="secondary" size="toolbar" className={className} aria-describedby={describedBy} onClick={() => { toggle(preset.itemIds, true); preset.onApply?.(); }}>{preset.label}</Button>
   </TooltipTrigger><TooltipContent>{preset.description}</TooltipContent><span id={`${prefix}-preset-${preset.id}`} className="sr-only">{preset.description}</span></Tooltip>;
   let header;
   if (props.mode === 'multiple' && (chips || presetPreview)) {

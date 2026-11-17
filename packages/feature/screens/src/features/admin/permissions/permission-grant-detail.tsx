@@ -3,6 +3,7 @@ import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from
 import type { ReactNode } from 'react';
 
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
@@ -160,6 +161,7 @@ function GrantFields({
 }) {
   return (
     <>
+      {item.permission_group ? <FieldRow label={PERMISSION_GROUP_COPY.source} inset="none">{PERMISSION_GROUP_COPY.origin(item.permission_group.name)}</FieldRow> : null}
       <FieldRow label={ADMIN_PERMISSIONS_COPY.grantor} inset="none">
         <ActorValue id={item.granted_by_actor_id} actorNames={actorNames} />
       </FieldRow>
