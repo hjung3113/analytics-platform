@@ -7,6 +7,7 @@ import type { DraftStore } from '../query/draft-state';
 import type { QueryEngine } from '../query/query-engine';
 import { PANE_USAGE_VIAS, type MainUsageVia, type Pair, type SpaceDef } from '@ap/contracts';
 import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
+import type { createViewSlotStore } from '../saved-view/table-slots';
 import type { HostPlatform, Recent, Toast } from './types';
 import type { SessionDraftStore } from './sessionDraft';
 import type { NavigationGuard } from './navigationGuard';
@@ -28,6 +29,7 @@ export type AppInternal = {
   usageSessionId: string;
   /** Saved View support the screens declare (`useSavedViewSupport`), read by the host hook `useSavedViews`. */
   savedViewSupports: SupportRegistry;
+  savedViewSlots: ReturnType<typeof createViewSlotStore>;
   userIdRef: { readonly current: string };
   /** Main-screen navigation trail for usage `entry` (#605): the last navigation's `via` and the menu of the screen shown before. Never persisted. A board pane keeps its own trail in `useScreenState` (`PaneUsageTrail`). */
   usageNav: { current: UsageNavTrail };

@@ -44,6 +44,13 @@ const snapshot = (storage: ReturnType<typeof memory>) => [...storage.data].filte
 afterEach(() => vi.useRealTimers());
 
 describe('reading the legacy buckets (#1105)', () => {
+  it('preserves table state while projecting a legacy menu view into an import draft (#2492)', () => {
+    const tables = { draftList: { groups: { basis: '[]', items: [{ id: 'u:g', label: 'G', members: ['a'] }] } }, declared: {} };
+    const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(view(1, { tables })) });
+    const read = readLegacyRows(storage, ACTOR);
+    expect(read.rows).toHaveLength(1);
+    expect(read.rows[0]?.draft).toMatchObject({ tables });
+  });
   it('an absent bucket is zero rows and sends and writes nothing', async () => {
     const storage = memory();
     const send = vi.fn(acceptAll);

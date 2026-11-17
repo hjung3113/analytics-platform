@@ -315,6 +315,20 @@ describe('sharing keeps its input until the store answers ok (C1)', () => {
 });
 
 describe('menu keys are declared once (C2, C3)', () => {
+  it('forwards tables through a menu-schema migration (#2492)', async () => {
+    const user = userEvent.setup();
+    const tables = { raw: { groups: { basis: '[]', items: [{ id: 'u:g', label: 'G', members: ['a'] }] } } };
+    support = { ...baseSupport, menuSchemaVersion: 2, migrate: (_from, view) => ({ ok: true, view: { ...view, menuSchemaVersion: 2, tables }, preview: [{ key: 'menuSchemaVersion', before: 1, after: 2 }] }) };
+    const store = createFakeViewStore([{ ...L1, name: '표 이전' } as never]);
+    mount(store, `/?scopeId=MEM&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await user.click(await screen.findByRole('button', { name: '뷰 관리' }));
+    const dialog = await screen.findByRole('dialog', { name: '뷰 관리' });
+    await user.click(within(dialog).getByRole('radio', { name: /낡음·권한 부족/ }));
+    await user.click(within(dialog).getAllByRole('button', { name: /표 이전/ })[0]!);
+    await user.click(await within(dialog).findByRole('button', { name: '미리 본 내용으로 갱신' }));
+    await waitFor(() => expect(store.rows.get('l1')).toMatchObject({ menuSchemaVersion: 2, tables }));
+  });
   it('shows a view saved with time and roomNames as up to date when only the menu keys are declared', async () => {
     const user = userEvent.setup();
     mount(createFakeViewStore([L1]), `/?scopeId=MEM&${period}`);

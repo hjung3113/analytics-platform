@@ -4,6 +4,7 @@ import { useMessages, usePlatform, useQueryContext } from '@ap/kernel';
 import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, useImeEnterGuard } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { MAX_GROUP_LABEL_LENGTH, MIN_GROUP_WIDTH, validGroupName } from './columnGroups';
+import { MAX_GROUP_MEMBERS, MAX_GROUP_ID_LENGTH } from '@ap/contracts';
 
 type Draft = { kind: 'idle' } | { kind: 'choose'; id?: string; name: string; members: string[] } | { kind: 'rename'; id: string; name: string };
 const idle: Draft = { kind: 'idle' };
@@ -49,7 +50,7 @@ export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave, onCan
       <p className="t-card-title min-w-0 truncate" title={draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : undefined}>{draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : m('tableGroupNew')}</p>
     </div>
     <ul className="max-h-80 space-y-2 overflow-y-auto">{columns.map(column => <li key={column.id} className="flex min-w-0 items-center gap-2">
-      <Checkbox id={`${idPrefix}-${column.id}-choose`} aria-label={m('tableGroupSelect', { name: column.label })} checked={draft.members.includes(column.id)} onCheckedChange={() => editor.toggle(column.id)} className="size-3.5 border-border-control" />
+      <Checkbox id={`${idPrefix}-${column.id}-choose`} aria-label={m('tableGroupSelect', { name: column.label })} checked={draft.members.includes(column.id)} disabled={column.id.length > MAX_GROUP_ID_LENGTH || (!draft.members.includes(column.id) && draft.members.length >= MAX_GROUP_MEMBERS)} onCheckedChange={() => editor.toggle(column.id)} className="size-3.5 border-border-control" />
       <Label className="min-w-0 flex-1" title={column.label} htmlFor={`${idPrefix}-${column.id}-choose`}><span className="block truncate">{column.label}</span></Label>
       {column.hidden && <span className="text-xs text-text-muted">{m('tableGroupHidden')}</span>}
       {column.group && <span className="max-w-24 truncate text-xs text-text-muted" title={column.group}>{column.group}</span>}

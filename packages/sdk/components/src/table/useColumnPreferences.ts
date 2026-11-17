@@ -107,6 +107,7 @@ export function useColumnPreferences(preferenceKey: string) {
     const sameOwner = previous?.key === key && previous.controller === controller;
     if (previous && !sameOwner) flush();
     const value = update(sameOwner ? previous.value : preferences);
+    if (value === (sameOwner ? previous.value : preferences)) return;
     pending.current = { key, value, controller, mode };
     if (controller) setTouched({ controller, raw: preferenceKey });
     setPreferences(value);
@@ -120,8 +121,17 @@ export function useColumnPreferences(preferenceKey: string) {
   }, 'now');
   const onColumnOrderChange = (order: string[]) => updatePreferences(pr => ({ ...pr, order }), 'now');
   /** Membership and its gathered order are one intent; width uses the same delayed write as column widths. */
-  const onColumnGroupsChange = (update: (previous: Preferences) => { groups: StoredColumnGroups; order?: string[] }, mode: 'now' | 'later') => updatePreferences(pr => ({ ...pr, ...update(pr) }), mode);
+  const onColumnGroupsChange = (update: (previous: Preferences) => { groups: StoredColumnGroups; order?: string[] } | null, mode: 'now' | 'later') => updatePreferences(pr => {
+    const next = update(pr);
+    return next === null ? pr : { ...pr, ...next };
+  }, mode);
+  /** Saved views replace only groups; absence restores the declaration, without changing column order or other settings. */
+  const applyColumnGroups = (groups: StoredColumnGroups | undefined) => updatePreferences(pr => {
+    if (JSON.stringify(pr.groups) === JSON.stringify(groups)) return pr;
+    const { groups: _groups, ...rest } = pr;
+    return groups === undefined ? rest : { ...rest, groups };
+  }, 'now');
   /** Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */
   const resetPreferences = () => updatePreferences(() => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }), 'now');
-  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, resetPreferences };
+  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences };
 }

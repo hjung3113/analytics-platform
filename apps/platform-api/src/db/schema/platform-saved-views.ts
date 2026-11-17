@@ -17,7 +17,7 @@ import { platformSchema } from './platform.js';
 
 // Platform saved views (#1105, ADR-0099). Object ACL only: nothing here grants menu or Scope access. Every
 // row carries `workspace_id` and every query filters on it. The `content` column holds the approved/current
-// body (context, page, chartOptions, layout, panels, menuSchemaVersion); `pending` holds an official copy's
+// body (context, page, chartOptions, layout, panels, menuSchemaVersion, optional tables); `pending` holds an official copy's
 // proposed change (name + body + approval state) apart from it, so readers keep the approved copy.
 export const platformSavedViews = platformSchema.table(
   'saved_views',

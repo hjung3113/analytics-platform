@@ -52,7 +52,7 @@ function rowMatches(row: unknown, actorId: string, menuId: string | null): row i
 function project(content: Record<string, unknown>): unknown {
   const common = { schemaVersion: content['schemaVersion'], kind: content['kind'], name: content['name'], context: content['context'] };
   if (content['kind'] === 'condition-set') return common;
-  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: content['panels'] };
+  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: content['panels'], ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
 }
 
 /** The server refuses NUL and unpaired surrogates in `legacyKey`; a row carrying one stays in the browser and never joins a request, so it cannot invalidate its neighbours. */

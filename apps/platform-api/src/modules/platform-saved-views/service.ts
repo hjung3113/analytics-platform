@@ -83,6 +83,7 @@ const bodyOf = (draft: SavedViewDraftIn): ViewBody => {
         chartOptions: draft.chartOptions,
         layout: draft.layout,
         panels: draft.panels,
+        ...(draft.tables === undefined ? {} : { tables: draft.tables }),
       };
 };
 
@@ -273,7 +274,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       if (!isPgSafeDeep(patch)) return fail('invalid', 'unicode');
       if (
         view.kind === 'condition-set' &&
-        ['menuSchemaVersion', 'page', 'chartOptions', 'layout', 'panels'].some((k) => k in patch)
+        ['menuSchemaVersion', 'page', 'chartOptions', 'layout', 'panels', 'tables'].some((k) => k in patch)
       ) {
         return fail('invalid', 'a condition set has no page');
       }

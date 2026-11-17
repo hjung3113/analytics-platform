@@ -45,6 +45,13 @@ const view = (over: Partial<ViewRecord> = {}): ViewRecord => ({
   ...over,
 });
 
+it('carries table state in the response and summarizes a proposal without labels (#2492)', () => {
+  const tables = { raw: { groups: { basis: '[]', items: [{ id: 'u:a', label: 'Private label', members: ['a'] }] } } };
+  const original = view();
+  expect(savedViewOf(view({ content: { ...original.content, tables } }), owner, none)).toMatchObject({ tables });
+  expect(proposalChanges(view({ pending: { name: original.name, content: { ...original.content, tables }, approval: 'pending', note: null } }))).toEqual(['열 묶음']);
+});
+
 describe('custom-group object ACL', () => {
   it('lets shared group members/managers read but only the owner edit/share, with no official capabilities', () => {
     const custom = view({ kind: 'custom-group', menuId: null, content: { savedScopeId: 'S', target: { fixed: ['e1'] } }, visibilityKind: 'groups', groupIds: ['g'] });

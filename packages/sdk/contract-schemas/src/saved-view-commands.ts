@@ -70,6 +70,22 @@ const chartOptionsSchema = noForbiddenKeys(z.record(z.string(), json));
 const layoutSchema = noForbiddenKeys(json);
 /** Opaque slot: finite JSON only; its content (including key names) is never inspected. */
 const panelsSchema = json;
+// Literal copy: contracts is test-only here. table-view-state tests pin all caps.
+export const TABLE_VIEW_CAPS = { tables: 20, key: 200, basis: 16_384, items: 200, id: 200, members: 500, label: 60, width: 60 } as const;
+const tableId = z.string().min(1).max(TABLE_VIEW_CAPS.id);
+const storedGroups = z.strictObject({
+  basis: z.string().max(TABLE_VIEW_CAPS.basis),
+  items: z.array(z.strictObject({
+    id: tableId,
+    label: z.string().refine(label => label.trim().length >= 1 && label.trim().length <= TABLE_VIEW_CAPS.label).optional(),
+    members: z.array(tableId).max(TABLE_VIEW_CAPS.members),
+    width: z.number().min(TABLE_VIEW_CAPS.width).optional(),
+  }).refine(item => !item.id.startsWith('u:') || item.label !== undefined)).max(TABLE_VIEW_CAPS.items)
+    .refine(items => new Set(items.map(item => item.id)).size === items.length),
+});
+export const tableViewStateSchema = z.strictObject({ groups: storedGroups.optional() });
+const tablesSchema = z.record(z.string().min(1).max(TABLE_VIEW_CAPS.key), tableViewStateSchema)
+  .refine(tables => Object.keys(tables).length <= TABLE_VIEW_CAPS.tables).meta({ maxProperties: TABLE_VIEW_CAPS.tables });
 const name = z.string().refine((value) => value.trim() !== '', { message: 'name is empty' });
 /** The Scope a content version was saved in (#2175): opaque metadata, never an authority; the server stores it and checks no grant. Bounded like `SAVED_SCOPE_ID_MAX` in @ap/contracts. */
 const savedScopeId = z.string().min(1).max(200);
@@ -95,6 +111,7 @@ export const savedViewDraftSchema = z.discriminatedUnion('kind', [
     chartOptions: chartOptionsSchema,
     layout: layoutSchema,
     panels: panelsSchema,
+    tables: tablesSchema.optional(),
   }),
 ]);
 /** Fields are checked as in a draft; the server validates the merged result like `save`, so `name` here is only a string. */
@@ -109,6 +126,7 @@ export const savedViewPatchSchema = z.strictObject({
   chartOptions: chartOptionsSchema.optional(),
   layout: layoutSchema.optional(),
   panels: panelsSchema.optional(),
+  tables: tablesSchema.optional(),
 });
 
 export const viewVisibilitySchema = z.discriminatedUnion('kind', [
@@ -183,7 +201,7 @@ export const savedViewSchema = z.discriminatedUnion('kind', [
     approval: z.literal('none'),
   }).omit({ context: true }),
   z.strictObject({ ...record, kind: z.literal('condition-set') }),
-  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: panelsSchema }),
+  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: panelsSchema, tables: tablesSchema.optional() }),
 ]);
 const capabilities = z.strictObject({ canView: z.boolean(), canCopy: z.boolean(), canEdit: z.boolean(), canShare: z.boolean(), canApprove: z.boolean(), canRevoke: z.boolean(), reason: z.string().optional() });
 export const savedViewEntrySchema = z.strictObject({ denied: z.literal(false).optional(), view: savedViewSchema, capabilities });

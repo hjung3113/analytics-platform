@@ -29,6 +29,7 @@ export interface ViewBody {
   chartOptions?: Record<string, unknown>;
   layout?: unknown;
   panels?: unknown;
+  tables?: Extract<SavedViewJson, { kind: 'menu-view' }>['tables'];
 }
 
 /** An official copy's proposed change, kept apart from the approved content. */
@@ -207,6 +208,7 @@ export function savedViewOf(
     chartOptions: shown.content.chartOptions,
     layout: shown.content.layout,
     panels: shown.content.panels,
+    ...(shown.content.tables === undefined ? {} : { tables: shown.content.tables }),
   } as SavedViewJson;
 }
 
@@ -230,6 +232,7 @@ export function proposalChanges(view: ViewRecord): string[] {
       lines.push('차트 옵션 변경');
     if (differs(pending.content.layout, view.content.layout)) lines.push('레이아웃 변경');
     if (differs(pending.content.panels, view.content.panels)) lines.push('패널 변경');
+    if (differs(pending.content.tables, view.content.tables)) lines.push('열 묶음');
   }
   return lines.length > 0 ? lines : ['내용 변경 없이 재승인 요청'];
 }

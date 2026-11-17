@@ -1,4 +1,5 @@
 import type { GlobalContext, Pair } from './url.js';
+import { isTableViewStates, type TableViewState } from './table-view-state.js';
 
 /** Anything JSON.stringify round-trips; saved payloads never hold functions, undefined or cycles. */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -39,6 +40,7 @@ export type MenuView = SavedViewBase & {
   layout: JsonValue;
   /** Opaque slot (#911): validation does not read the content. */
   panels: unknown;
+  tables?: Record<string, TableViewState>;
 };
 
 export type ViewVisibility = { kind: 'private' } | { kind: 'people'; userIds: string[] } | { kind: 'groups'; groupIds: string[] } | { kind: 'official' };
@@ -54,7 +56,7 @@ export type CustomGroupDraft = Omit<CustomGroupView, 'id' | 'ownerId' | 'version
 export type SavedViewDraft = ConditionSetDraft | MenuViewDraft | CustomGroupDraft;
 /** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
 /** `savedScopeId: null` clears the recorded Scope (an overwrite made with no current Scope). */
-export type SavedViewPatch = { name?: string; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown };
+export type SavedViewPatch = { name?: string; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown; tables?: MenuView['tables'] };
 
 export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string; memberCount: number; managerIds?: string[] };
 /** `affiliation` tells same-named people apart in people search and member lists. */
@@ -218,7 +220,7 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
     if (badContext) return invalid(badContext);
     if ('target' in input) return invalid('target is only for custom groups');
   }
-  const menuOnly = ['page', 'chartOptions', 'layout', 'panels'];
+  const menuOnly = ['page', 'chartOptions', 'layout', 'panels', 'tables'];
   if (input.kind === 'custom-group') {
     if ('visibility' in input && (!isObject(input.visibility) || (input.visibility.kind !== 'private' && input.visibility.kind !== 'groups'))) return invalid('custom groups allow private or groups visibility only');
     if ('approval' in input && input.approval !== 'none') return invalid('custom groups have no official approval');
@@ -242,6 +244,7 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
     const badPage = invalidPage(input.page);
     if (badPage) return invalid(badPage);
     if (!isObject(input.chartOptions)) return invalid('chartOptions must be an object');
+    if ('tables' in input && !isTableViewStates(input.tables)) return invalid('tables has the wrong shape');
     if (!('layout' in input) || !('panels' in input)) return invalid('layout and panels are required');
   } else return invalid('unknown kind');
   for (const [k, v] of Object.entries(input)) {

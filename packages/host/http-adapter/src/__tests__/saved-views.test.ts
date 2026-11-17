@@ -16,6 +16,39 @@ const ok = (value: unknown) => ({ ok: true, value });
 const key = { userId: 'u1', menuId: 'home' };
 const v1 = { expectedVersion: 1 };
 
+describe('strict table state across contract, schemas and HTTP guards (#2492)', () => {
+  const group = { id: 'u:g', label: 'G', members: ['a'], width: 60 };
+  const tablesWith = (change: object) => ({ draftList: { groups: { basis: '[]', items: [group], ...change } } });
+  const valid = [undefined, {}, { draftList: {} }, tablesWith({}), tablesWith({ basis: 'a'.repeat(16_384) }),
+    tablesWith({ items: Array.from({ length: 200 }, (_, n) => ({ id: `${n}`, members: [] })) }),
+    tablesWith({ items: [{ id: 'x'.repeat(200), label: ` ${'a'.repeat(60)} `, members: ['a'.repeat(200)], width: 60 }] }),
+    tablesWith({ items: [{ ...group, members: Array(500).fill('a') }] }),
+    { ['a'.repeat(200)]: {} }, Object.fromEntries(Array.from({ length: 20 }, (_, n) => [`t${n}`, {}]))];
+  const invalid = [{ '': {} }, { ['a'.repeat(201)]: {} }, Object.fromEntries(Array.from({ length: 21 }, (_, n) => [`t${n}`, {}])),
+    { draftList: { extra: 1 } }, { draftList: { groups: { basis: '', items: [], extra: 1 } } },
+    tablesWith({ basis: 'a'.repeat(16_385) }), tablesWith({ items: Array.from({ length: 201 }, (_, n) => ({ id: `${n}`, members: [] })) }),
+    ...[{ ...group, extra: 1 }, { ...group, id: '' }, { ...group, id: 'x'.repeat(201) }, { ...group, label: ' ' },
+      { ...group, label: 'a'.repeat(61) }, { ...group, label: undefined }, { ...group, width: 59 }, { ...group, width: Infinity },
+      { ...group, members: Array(501).fill('a') }, { ...group, members: [''] }, { ...group, members: ['a'.repeat(201)] }].map(item => tablesWith({ items: [item] })),
+    tablesWith({ items: [group, group] })];
+  it.each([...valid.map(tables => ({ tables, accepted: true })), ...invalid.map(tables => ({ tables, accepted: false }))])('boundary case $accepted %#', ({ tables, accepted }) => {
+    const tableField = tables === undefined ? {} : { tables };
+    const draft = { ...menuDraft, ...tableField };
+    const save = { version: 1, op: 'save', draft };
+    const update = { version: 1, op: 'update', id: 'v1', expectedVersion: 1, patch: tableField };
+    const response = { ...entry, view: { ...view, ...tableField } };
+    expect(validateSavedView(draft).ok).toBe(accepted);
+    expect(savedViewCommandSchema.safeParse(save).success).toBe(accepted);
+    expect(isSavedViewCommand(save)).toBe(accepted);
+    if (tables !== undefined) {
+      expect(savedViewCommandSchema.safeParse(update).success).toBe(accepted);
+      expect(isSavedViewCommand(update)).toBe(accepted);
+    }
+    expect(savedViewResponseSchemas.get.safeParse(response).success).toBe(accepted);
+    expect(responseGuards.get(response)).toBe(accepted);
+  });
+});
+
 type Case = { op: string; run: (s: Awaited<ReturnType<typeof open>>['store']) => Promise<unknown>; body: Record<string, unknown>; reply: unknown };
 const cases: Case[] = [
   { op: 'list', run: (s) => s.list(key), body: { key: { menuId: 'home' } }, reply: [entry, { id: 'd', denied: true, reason: 'r' }] },

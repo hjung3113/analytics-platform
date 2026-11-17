@@ -6,7 +6,8 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download,
 import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatNumber } from '@ap/contracts';
+import { formatNumber, isStoredColumnGroups } from '@ap/contracts';
+import { SavedTableState } from './SavedTableState';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
@@ -274,7 +275,7 @@ const isRetryable = (response: Pick<ApiResponse<unknown>, 'outcome'> | null, gro
 export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
   const source = useRowsSource<T>({ rows: props.rows, rowsLoading: !!props.rowsLoading, external: !!props.externalPagination, urlSorting: !!props.urlState, columns: props.columns, filterFields: props.filterFields });
-  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, resetPreferences } = useColumnPreferences(props.preferenceKey);
+  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences } = useColumnPreferences(props.preferenceKey);
   const effective = useMemo(() => props.editableColumnGroups ? effectiveColumnGroups(source.columns, props.columnGroups, preferences.groups) : { columns: source.columns, columnGroups: props.columnGroups }, [props.editableColumnGroups, source.columns, props.columnGroups, preferences.groups]);
   // The rest of the table reads one shape: always a `loadPage`, the (possibly stripped) columns and fields.
   const p = { ...props, ...effective, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
@@ -603,14 +604,17 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       body ? cn(active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken');
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   function editGroups(edit: (snapshot: StoredColumnGroups) => StoredColumnGroups, mode: 'now' | 'later', { gather = false }: { gather?: boolean } = {}) {
-    if (!p.editableColumnGroups) return;
+    if (!p.editableColumnGroups) return false;
+    let accepted = true;
     const displayed = [...table.getLeftLeafColumns(), ...table.getCenterLeafColumns(), ...table.getRightLeafColumns()].map(c => c.id).filter(id => id !== '_select' && id !== '_action');
     onColumnGroupsChange(previous => {
       const groups = edit(materializeColumnGroups(source.columns, props.columnGroups, previous.groups));
+      if (!isStoredColumnGroups(groups)) { accepted = false; groupEditor.setNote(m('tableGroupLimit')); toast(m('tableGroupLimit')); return null; }
       if (!gather) return { groups };
       const merged = effectiveColumnGroups(source.columns, props.columnGroups, groups);
       return { groups, order: groupedOrder(merged.columns, displayed) };
     }, mode);
+    return accepted;
   }
   // Every editor exit removes the focused control (rename input, choose view, ungrouped row); hand focus to the group's
   // menu, or to 묶음 만들기 when that group is new or gone.
@@ -635,7 +639,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   function saveGroupName(byKey: boolean) {
     const draft = groupEditor.draft;
     if (draft.kind !== 'rename' || !validGroupName(draft.name)) return;
-    editGroups(snapshot => renameColumnGroup(snapshot, draft.id, draft.name), 'now');
+    if (!editGroups(snapshot => renameColumnGroup(snapshot, draft.id, draft.name), 'now')) return;
     announceGroup('tableGroupChanged', draft.name.trim()); closeGroupEditor(byKey);
   }
   function saveGroupMembers() {
@@ -644,13 +648,13 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     const members = dataColumns.map(c => c.id).filter(id => draft.members.includes(id));
     if (draft.id) {
       const id = draft.id;
-      editGroups(snapshot => {
+      if (!editGroups(snapshot => {
         const changed = setColumnGroupMembers(snapshot, id, members);
         return draft.name.trim() === columnGroupLabel(p.columnGroups, id) ? changed : renameColumnGroup(changed, id, draft.name);
-      }, 'now', { gather: true });
+      }, 'now', { gather: true })) return;
       announceGroup('tableGroupChanged', draft.name.trim());
     } else {
-      editGroups(snapshot => createColumnGroup(snapshot, draft.name, members, [...source.columns.map(c => c.id), ...source.columns.flatMap(c => c.columnGroup ?? []), ...Object.keys(props.columnGroups ?? {})]), 'now', { gather: true });
+      if (!editGroups(snapshot => createColumnGroup(snapshot, draft.name, members, [...source.columns.map(c => c.id), ...source.columns.flatMap(c => c.columnGroup ?? []), ...Object.keys(props.columnGroups ?? {})]), 'now', { gather: true })) return;
       announceGroup('tableGroupCreated', draft.name.trim());
     }
     closeGroupEditor();
@@ -902,6 +906,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     </div>
   );
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
+    {p.editableColumnGroups && <SavedTableState preferenceKey={props.preferenceKey} columns={source.columns} declared={props.columnGroups} groups={preferences.groups} apply={applyColumnGroups} />}
     {/* R2 (#1234, #2310): lead, page controls and filters (left), results + controls (right) in one band; workspace panels retain two bands. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
       {/* With page controls the merged left group wraps: the filters (basis 320) drop under the controls instead of shrinking to nothing. */}

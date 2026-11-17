@@ -180,6 +180,7 @@
 | [0165](0165-workspace-per-step-panels-add-and-pin.md) | 작업 영역은 드릴 단계별 패널을 `persistKey`로 나누고, 패널 추가 목록과 고정(메뉴의 반복 page key)을 둔다 | Decided(2026-11-16, 고문·소유자 위임, 되돌릴 수 있음) — #2397 #2398 |
 | [0166](0166-table-column-groups.md) | 표 열 묶음은 열별 id 경로로 선언하고 선언 폭 안에서 넘김 | 부분 대체(ADR-0167, 2026-11-17) |
 | [0167](0167-editable-column-groups.md) | 열 묶음은 컬럼 팝오버에서 편집하고 사용자 열 설정에 저장 | Decided(2026-11-17) |
+| [0168](0168-saved-view-table-state.md) | 메뉴 뷰에 표 열 묶음을 저장하고 옛 뷰는 표 설정을 유지 | Decided(2026-11-18) · #2492 |
 | [0169](0169-tree-matrix.md) | 계층 행과 평면 열의 서버 윈도 행렬은 독립 SDK 부품으로 제공한다 | Decided(2026-11-18, #1768) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.

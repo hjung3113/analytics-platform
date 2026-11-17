@@ -140,6 +140,7 @@ function proposalChanges(stored: Stored): string[] {
     if (differs(pending.chartOptions, published.chartOptions)) lines.push('차트 옵션 변경');
     if (differs(pending.layout, published.layout)) lines.push('레이아웃 변경');
     if (differs(pending.panels, published.panels)) lines.push('패널 변경');
+    if (differs(pending.tables, published.tables)) lines.push('열 묶음');
   }
   return lines.length > 0 ? lines : ['내용 변경 없이 재승인 요청'];
 }
@@ -248,7 +249,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const t = target(c, id, expectedVersion, e => e.capabilities.canEdit || (e.view.ownerId === c.actor.userId && isOfficial(e.view)));
       if (!t.ok) return t;
       const stored = t.value; const view = shownTo(stored, c.actor, stored.ownerId === c.actor.userId);
-      if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch)) return fail('invalid', 'a condition set has no page');
+      if (view.kind === 'condition-set' && ('menuSchemaVersion' in patch || 'page' in patch || 'chartOptions' in patch || 'layout' in patch || 'panels' in patch || 'tables' in patch)) return fail('invalid', 'a condition set has no page');
       const { id: _id, ownerId: _o, version: _v, updatedAt: _u, visibility, approval, approvalNote, ...content } = view;
       void [_id, _o, _v, _u];
       const merged: Record<string, unknown> = { ...content, ...patch };
