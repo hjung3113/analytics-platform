@@ -1,5 +1,6 @@
 import type { Result, SavedViewDraft, SavedViewListItem, SavedViewStore } from '@ap/contracts';
 import type { ConformanceCheck, SavedViewPortMethod, ServerConformanceHarness } from '../../types';
+import { sameJson } from './shared';
 
 /**
  * The SavedViewStore port (ADR-0099) — the one port this kit judges that is not a `PlatformAdapter` member, so the
@@ -77,11 +78,11 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
       const saved = okOf(await user.save({ ...draft(), tables } as SavedViewDraft), 'save tables');
       if (typeof saved === 'string') return saved;
       const read = await user.get(saved.view.id);
-      if (!read || read.denied || read.view.kind !== 'menu-view' || JSON.stringify(read.view.tables) !== JSON.stringify(tables)) return 'get must preserve tables';
+      if (!read || read.denied || read.view.kind !== 'menu-view' || !sameJson(read.view.tables, tables)) return 'get must preserve tables';
       const updated = okOf(await user.update(saved.view.id, { tables: { draftList: {} } }, { expectedVersion: saved.view.version }), 'update tables');
       if (typeof updated === 'string') return updated;
       const reread = await user.get(saved.view.id);
-      if (!reread || reread.denied || reread.view.kind !== 'menu-view' || JSON.stringify(reread.view.tables) !== JSON.stringify({ draftList: {} })) return 'update/get must preserve explicit declared groups';
+      if (!reread || reread.denied || reread.view.kind !== 'menu-view' || !sameJson(reread.view.tables, { draftList: {} })) return 'update/get must preserve explicit declared groups';
       const malformed = want(await user.save({ ...draft(), tables: { raw: { extra: 1 } } } as unknown as SavedViewDraft), 'invalid', 'strict tables');
       if (malformed) return malformed;
       const condition = okOf(await user.save({ schemaVersion: 1, kind: 'condition-set', name: 'Conformance tables', context: {} }), 'condition');
