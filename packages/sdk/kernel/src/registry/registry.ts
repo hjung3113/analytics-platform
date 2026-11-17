@@ -645,6 +645,12 @@ export const CONTEXT_LABELS: Record<ContextKey, Text> = {
   metric: { ko: '지표·버전', en: 'Metric & version' },
 };
 
+/** Axis label of the saved custom query group (ADR-0164): one source for the Kernel, shell and components copies. */
+export const CUSTOM_GROUP_LABELS: { one: Text; many: Text } = {
+  one: { ko: '커스텀 조회 그룹', en: 'Custom query group' },
+  many: { ko: '커스텀 조회 그룹', en: 'Custom query groups' },
+};
+
 export const PAGE_TYPE_LABELS: Record<PageType, Text> = {
   overview: { ko: 'Overview', en: 'Overview' },
   analysis: { ko: 'Analysis Workspace', en: 'Analysis Workspace' },

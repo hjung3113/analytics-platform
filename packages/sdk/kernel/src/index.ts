@@ -5,13 +5,13 @@ export { classifyMetricInit, type MetricInit } from './registry/metric-init';
 export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, usePlatformOptional, useRecentVisits, useUnsavedGuard, type MenuPlatform, type AccessRequestSlot, type AccessRequestState, type AnalysisActionsProps, type AnalysisActionsSlot, type FeatureEntry, type FeatureSlot, type HomeTodoSlot, type ObjectLink, type ObjectLinkOptions, type LinkOptions, type LinkResolution, type NavCountsSlot, type NotificationsSlot, type PlannedSpace, type PlatformSlots, type Recent, type ReturnContextKey, type ReturnOrigin, type ScopeControlSlot, type SpaceNavSectionSlot, type ScopeState, type Toast, type ToastAction, type ToastOptions, type UndeclaredMenu, type UndeclaredMenusSlot, type VocComposeContext, type VocComposeContextItem, type VocAvailability, type VocComposeProps, type VocComposeSlot } from './platform/platform';
 export type { UnsavedGuardOptions } from './platform/navigationGuard';
 export { useSavedViewSupport, diagnoseSavedView } from './saved-view';
-export { customGroupMembers, expandCustomGroups } from './saved-view/expand-custom-groups';
+export { customGroupItemId, customGroupMembers, customGroupReadState, expandCustomGroups } from './saved-view/expand-custom-groups';
 export type { ExpandCustomGroupsInput, ExpandCustomGroupsResult } from './saved-view/expand-custom-groups';
 export type { DiagnoseCode, DiagnoseContext, DiagnoseReason, Migration, SavedViewDiagnosis } from './saved-view';
 export { useMenuAction, type MenuActionState } from './query/action';
 export { useEndpointRefreshEpoch, useEntityAudit, useEntityQuery, useMenuFetch, useMenuQuery, usePlatformQuery, type AuditMore, type AuditMoreError, type AuditMoreLast, type AuditMoreStatus, type MenuFetch, type MenuQueryOptions, type MenuQueryState, type QueryState, type QueryStatus, type RequestState } from './query/query';
 export {
-  CONTEXT_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
+  CONTEXT_LABELS, CUSTOM_GROUP_LABELS, createRegistry, isBoardPath, PAGE_TYPE_LABELS, pathFor, routeParamNames, RegistryError,
   type AnyGroupId, type GroupDef, type MenuEntry, type MissingLinkTarget, type ModuleGroupDef, type ModuleMenuEntry, type PageProps, type PlatformGroupDef, type MenuSuccessor, type PlatformMenuEntry, type Registry, type RetiredMenu, type RouteMatch, withPagePreset,
 } from './registry/registry';
 export { mountModule, type MountOptions } from './registry/module';

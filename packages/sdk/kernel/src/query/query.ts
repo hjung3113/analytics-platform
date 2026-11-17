@@ -4,7 +4,7 @@ import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
 import { useHostPlatform, useQueryEngine } from '../platform/platform';
 import { clientCorrelationId, compareAuditEvents, CUSTOM_GROUP_AXIS, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type CustomGroupTarget, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, type SavedViewListItem, serializeGlobal, isAnswered } from '@ap/contracts';
-import { expandCustomGroups } from '../saved-view/expand-custom-groups';
+import { customGroupItemId, customGroupReadState, expandCustomGroups } from '../saved-view/expand-custom-groups';
 import { readEquipmentFacts } from '../scope/equipment-facts-cache';
 import type { QueryEngine } from './query-engine';
 import { useCursorPages, type CursorMore, type CursorMoreError, type CursorMoreLast, type CursorMoreStatus, type FirstPage } from '../audit/cursor-pages';
@@ -256,15 +256,6 @@ function aborted(signal?: AbortSignal): boolean { return signal?.aborted === tru
 function queryError<T>(message: string): ApiResponse<T> {
   return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message };
 }
-function itemReason(item: SavedViewListItem | undefined, scopeId: string): string | null {
-  if (!item) return 'not-found';
-  if ('denied' in item && item.denied) return item.reason;
-  if (item.view.kind !== 'custom-group') return 'not-found';
-  if (!item.capabilities.canView) return item.capabilities.reason ?? 'forbidden';
-  if (item.view.savedScopeId !== scopeId) return 'scope-mismatch';
-  return null;
-}
-
 /** Resolves the reserved platform axis just before transport; neither URL state nor the query identity is rewritten. */
 async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: MenuQueryContext, signal?: AbortSignal): Promise<MenuQueryContext | ApiResponse<T>> {
   const condition = projected.condition;
@@ -287,13 +278,11 @@ async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: Menu
     return queryError(`customGroup expansion blocked: saved groups could not load (${error instanceof Error ? error.message : String(error)})`);
   }
   if (aborted(signal)) throw new DOMException('aborted', 'AbortError');
-  const byId = new Map(listed.map(item => ['denied' in item && item.denied ? item.id : item.view.id, item]));
+  const byId = new Map(listed.map(item => [customGroupItemId(item), item]));
   const groups: Record<string, CustomGroupTarget | { denied: string }> = Object.create(null);
   for (const id of ids) {
-    const item = byId.get(id);
-    const reason = itemReason(item, scopeId);
-    if (reason !== null) groups[id] = { denied: reason };
-    else if (item && !('denied' in item) && item.view.kind === 'custom-group') groups[id] = item.view.target;
+    const state = customGroupReadState(byId.get(id), scopeId);
+    groups[id] = 'denied' in state ? state : state.target;
   }
   const denied = Object.entries(groups).flatMap(([id, target]) => 'denied' in target ? [{ id, reason: target.denied }] : []);
   if (denied.length) return queryError(`customGroup blocked: ${denied.map(({ id, reason }) => `${id} (${reason})`).join(', ')}`);
