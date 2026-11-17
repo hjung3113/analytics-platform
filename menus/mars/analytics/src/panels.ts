@@ -3,7 +3,8 @@ import { cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPage
 import { ANALYTICS_MESSAGES as M } from './messages';
 
 const context = ['scopeId', 'time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'] as const;
-const inputs = (keys: readonly string[] = []): PanelInputs => ({ context, page: keys.map(key => ({ key })) });
+/** `conditionSet` narrows the global Condition before every endpoint call (condition preset), so every panel reads it. */
+const inputs = (keys: readonly string[] = []): PanelInputs => ({ context, page: ['conditionSet', ...keys].map(key => ({ key })) });
 
 /** Inputs reflect actual endpoint parameters; emphasis and controls remain page-owned. */
 export const cycleTimePanels: readonly PanelDeclaration[] = [
@@ -14,5 +15,5 @@ export const cycleTimePanels: readonly PanelDeclaration[] = [
     outputs: [{ key: 'bin', action: 'drill' }, { key: 'page', action: 'page' }], grain: 'binStat', endpoints: [cycleDistEndpoint] },
   { id: 'slow', title: M.cycleTimeDrilldownSlowExecutions2, queryInputs: inputs(['granularity', 'percentile', 'sort', 'bucket', 'bin', 'page']), displayInputs: {},
     outputs: [{ key: 'sort', action: 'sort' }, { key: 'page', action: 'page' }, { key: 'bucket', action: 'drill' }, { key: 'bin', action: 'drill' }, { key: 'percentile', action: 'verdict' }],
-    grain: 'execution', endpoints: [cycleSlowPageEndpoint, cycleExportEndpoint] },
+    grain: 'execution', endpoints: [cycleSlowPageEndpoint, cycleExportEndpoint, cycleKpiEndpoint] },
 ];

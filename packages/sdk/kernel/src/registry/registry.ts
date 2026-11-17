@@ -5,6 +5,7 @@ import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { isIdShape, isPermissionShape } from './shapes';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -158,10 +159,6 @@ const namespaceOf = (permission: string) => permission.split(':')[0];
 const KERNEL_NAMESPACES = new Set<string>(KERNEL_PERMISSIONS.map(namespaceOf));
 /** True when `id` is the namespace of a kernel permission; a module id may not take one. `createRegistry` also reserves the namespaces of the app's declared permissions. */
 export const isKernelNamespace = (id: string) => KERNEL_NAMESPACES.has(id);
-/** An id the URL and the Registry can carry as is: non-empty, no whitespace, none of `? # & /`. */
-const isIdShape = (id: unknown): id is string => typeof id === 'string' && /^[^\s?#&/]+$/.test(id);
-/** `<namespace>:<action>`, each part an id shape without `:`. */
-const isPermissionShape = (value: unknown): value is string => typeof value === 'string' && /^[^\s:?#&/]+:[^\s:?#&/]+$/.test(value);
 
 /** Roots the platform itself serves; a space id may not take one (ADR-0093). The app adds its own menu roots through `createRegistry`'s `reservedRoots`. */
 const RESERVED_PLATFORM_ROOTS: readonly string[] = ['board', 'api', 'auth'];

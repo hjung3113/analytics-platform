@@ -1,6 +1,7 @@
 import { CONTEXT_FIELDS, GLOBAL_KEYS, menuPermissions, type PanelDeclaration, type Permission, type Text } from '@ap/contracts';
 import type { MenuEntry } from './registry';
 import { disabledReason } from './panel-inputs';
+import { isIdShape, isPermissionShape } from './shapes';
 
 /** Panel identity stays menu-scoped; permission checks require every derived grant. */
 export type RegisteredPanel = PanelDeclaration & {
@@ -22,7 +23,7 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
     ...(menu.drill?.levels ?? []).map(level => [level.key, level.label]),
   ]);
   return menu.panels.map((panel: PanelDeclaration) => {
-    if (!panel || typeof panel.id !== 'string' || !/^[^\s?#&/]+$/.test(panel.id)) error('id must be nonempty and contain no URL separators');
+    if (!panel || !isIdShape(panel.id)) error('id must be nonempty and contain no URL separators');
     if (ids.has(panel.id)) error(`duplicate id "${panel.id}"`);
     ids.add(panel.id);
     const invalid = (message: string): never => error(`"${panel.id}" ${message}`);
@@ -52,7 +53,7 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
     if (!Array.isArray(panel.endpoints)) invalid('endpoints must be an array');
     for (const endpoint of panel.endpoints) {
       if (!endpoint || endpoint.menuId !== menu.id) invalid('endpoint must be owned by this menu');
-      if (typeof endpoint.id !== 'string' || !endpoint.id.trim() || typeof endpoint.permission !== 'string' || !/^[^\s:?#&/]+:[^\s:?#&/]+$/.test(endpoint.permission)) invalid('endpoint needs id and permission');
+      if (typeof endpoint.id !== 'string' || !endpoint.id.trim() || !isPermissionShape(endpoint.permission)) invalid('endpoint needs id and permission');
     }
     if (panel.availability !== undefined) {
       const availability = panel.availability;

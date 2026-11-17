@@ -3,15 +3,16 @@ import { CONTEXT_FIELDS, type ContextKey, type GlobalContext, type PanelDeclarat
 type InputKey<I extends PanelInputs> = keyof GlobalContext | NonNullable<I['page']>[number]['key'];
 /** Context keys name capabilities; identity reads the real GlobalContext fields behind them
  * (`time` → from/to, the same table as `projectContext`). membershipBasis counts only while
- * a condition applies, as in `projectContext`.
+ * an applied condition or PRC group is set, as in `projectContext`.
  */
 function contextFields(key: ContextKey | 'scopeId', context: Readonly<Record<string, unknown>>): readonly string[] {
   if (key === 'scopeId') return ['scopeId'];
   const fields = CONTEXT_FIELDS[key];
-  return key === 'condition' && context.condition != null ? [...fields, 'membershipBasis'] : fields;
+  const applies = (key === 'condition' && context.condition != null) || (key === 'prcGroup' && context.prcGroups != null);
+  return applies ? [...fields, 'membershipBasis'] : fields;
 }
 function project<I extends PanelInputs, C extends Record<string, unknown>>(inputs: I, context: C): Pick<C, Extract<InputKey<I>, keyof C>> {
-  const keys = [...(inputs.context ?? []).flatMap(key => contextFields(key, context)), ...(inputs.page ?? []).map(input => input.key)];
+  const keys = [...new Set([...(inputs.context ?? []).flatMap(key => contextFields(key, context)), ...(inputs.page ?? []).map(input => input.key)])];
   return Object.fromEntries(keys.filter(key => context[key] !== undefined).map(key => [key, context[key]])) as Pick<C, Extract<InputKey<I>, keyof C>>;
 }
 /** 조회 입력: only declared inputs participate in the panel input identity. */
