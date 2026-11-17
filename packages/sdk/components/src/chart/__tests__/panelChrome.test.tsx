@@ -51,6 +51,28 @@ describe('Panel chart chrome', () => {
     expect(tail).toHaveClass('flex-col', 'w-full');
     expect(tail).not.toHaveClass('items-center');
   });
+  it('puts toolbarStart on the plot tool row in panel chrome, outside More, and opens the full toolbar with it (#2459)', () => {
+    const withStart = (chrome?: 'full') => <AnalysisChartFrame chartId="panel" title="Chart" description="Chart explanation" unit="s" xType="category" series={series} size="fill" chrome={chrome}
+      toolbarStart={<button type="button">정렬: 원래 순서</button>} />;
+    mount(withStart());
+    const option = screen.getByRole('button', { name: '정렬: 원래 순서' });
+    const tools = screen.getByRole('toolbar', { name: '차트 동작' });
+    const start = option.closest('[data-chart-toolbar-start]')!;
+    expect(start.parentElement).toBe(tools.parentElement);
+    expect(start.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: '차트 설명' }).compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(within(tools).getByRole('button', { name: '더보기' }));
+    expect(within(screen.getByRole('dialog')).queryByRole('button', { name: '정렬: 원래 순서' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: '정렬: 원래 순서' })).toHaveLength(1);
+    cleanup();
+    mount(withStart('full'), false);
+    const full = screen.getByRole('toolbar', { name: '차트 동작' });
+    expect(full.firstElementChild).toHaveAttribute('data-chart-toolbar-start');
+    expect(within(full).getByRole('button', { name: '정렬: 원래 순서' })).toBeVisible();
+    cleanup();
+    mount();
+    expect(document.querySelector('[data-chart-toolbar-start]')).toBeNull();
+  });
   it.each<ChartSpec>([
     { kind: 'heatmap', xLabels: ['A'], yLabels: ['B'], cells: [{ x: 'A', y: 'B', value: 2 }] },
     { kind: 'scatter', points: [{ id: 'a', x: 1, y: 2 }], xUnit: 's', xLabel: 'X', yLabel: 'Y' },

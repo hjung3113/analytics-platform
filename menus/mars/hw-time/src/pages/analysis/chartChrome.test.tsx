@@ -68,27 +68,28 @@ it.each([
 
 it.each([
   '', '&moduleType=PM', '&moduleType=PM&drillMotion=Pump', '&moduleType=PM&drillMotion=Pump&drillModule=PM2',
-])('keeps options and changed chips together above and outside the current Frame at %s', async search => {
+])('draws the options at the start of the current Frame tool row, with no separate option or chip row, at %s (#2459)', async search => {
   const components = await import('@ap/components');
   const frames = vi.spyOn(components, 'AnalysisChartFrame');
   await renderOverview(search);
   const panel = screen.getByRole('region', { name: 'panel current' });
   const frame = within(panel).getByRole('region', { name: 'hw-current' });
   const toggle = within(panel).getByRole('button', { name: '시작 맞춤: 끔' });
-  expect(frame.contains(toggle)).toBe(false);
-  expect(toggle.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(panel.querySelector('[data-panel-option-chips]')).toBeNull();
+  // Owner-confirmed variant B: one row above the plot holds the options and the plot tools.
+  const start = toggle.closest('[data-chart-toolbar-start]')!;
+  expect(start).not.toBeNull();
+  expect(frame.contains(start)).toBe(true);
+  // The Frame puts `toolbarStart` on its plot-tool row (SDK panelChrome test); here: the options travel through it, not a menu row.
   fireEvent.click(toggle);
-  const chips = panel.querySelector<HTMLUListElement>('[data-panel-option-chips]')!;
-  expect(chips).not.toBeNull();
-  expect(within(chips).getByText('시작 맞춤')).toBeTruthy();
-  expect(frame.contains(chips)).toBe(false);
-  const row = toggle.parentElement!.parentElement!;
-  expect(row.contains(chips)).toBe(true);
-  expect(chips.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(row.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(start as HTMLElement).getByRole('button', { name: '시작 맞춤: 켬' }).getAttribute('aria-pressed')).toBe('true');
+  expect(panel.querySelector('[data-panel-option-chips]')).toBeNull();
   const current = frames.mock.calls.filter(([props]) => props.chartId === 'hw-current').at(-1)![0];
   expect(current.extraActions).toBeUndefined();
+  expect(current.toolbarStart).toBeDefined();
   expect(typeof current.title).toBe('string');
-  if (search) expect(screen.getByRole('region', { name: 'panel previous' }).querySelector('[data-panel-option-chips]')).toBeNull();
+  if (search) {
+    const previous = screen.getByRole('region', { name: 'panel previous' });
+    expect(previous.querySelector('[data-chart-toolbar-start]')).toBeNull();
+    expect(previous.querySelector('[data-panel-option-chips]')).toBeNull();
+  }
 });
