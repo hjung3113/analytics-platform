@@ -30,3 +30,8 @@ describe('cn with feature theme keys', () => {
     expect(cn(first, later)).toBe(later);
   });
 });
+
+it('treats elevation-panel as a box-shadow so a later shadow utility replaces it', () => {
+  expect(cn('border elevation-panel', 'shadow-none')).toBe('border shadow-none');
+  expect(cn('shadow-sm', 'elevation-panel')).toBe('elevation-panel');
+});

@@ -184,7 +184,7 @@ export function HomeTodoPanel(): React.ReactElement | null {
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-4"
+      className="rounded-lg border border-border-subtle bg-surface-card elevation-panel p-4"
       data-testid="home-todo"
     >
       <h2 id={headingId} className="mb-3 text-base font-semibold text-text-primary">

@@ -165,7 +165,7 @@ components:
 | 역할 클래스 | 크기 / line-height / weight | 추가 속성 | 사용 |
 | --- | --- | --- | --- |
 | `t-page-title` | 24px / 32px / 600 | tracking -0.3px | 본문 수준의 큰 제목; 한 줄 셸 머리의 강제 기본값 아님 |
-| `t-section-title` | 18px / 28px / 600 | — | 분석·목록 section 제목 |
+| `t-section-title` | 18px / 28px / 600 | — | 셸 페이지 제목, 분석·목록 section 제목 |
 | `t-card-title` | 14px / 20px / 600 | — | compact panel 제목 |
 | `t-stat` | 32px / 1.1 / 600 | tracking -0.5px, tabular lining numbers | primary KPI |
 | `t-stat-2` | 22px / 1.2 / 600 | tracking -0.3px, tabular lining numbers | secondary KPI·donut 값 |
@@ -198,8 +198,6 @@ components:
 [06 §26](docs/contract/platform-ui-contract.md#26-accessibility-baseline)의 색+shape/text, visible focus, 차트 대체 경로 의무를 소비한다. 아래는 플랫폼의 구체 token pairing 규칙이다. 작은 일반 글자는 최소 4.5:1, 의미 있는 control 경계는 최소 3:1을 확보한다. **필수 글자에 opacity fade를 적용하지 않는다.** `text-disabled`는 실제 비활성 표현에만 쓰고 그룹 제목·현재 Scope·도움말·상태·단위에 쓰지 않는다.
 
 ### Allowed foreground/surface pairs
-
-페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `shadow-sm`으로 캔버스와 분리하며, 내부 카드에는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `accent-primary` 막대를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠 위의 컨트롤은 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
 
 label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 
@@ -240,6 +238,8 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 ## Layout and analysis composition
 
 정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 공유 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 공유 variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 공유 표면, segmented 선택은 공유 segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 공유에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 공유 variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
+
+페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
 
 ### Compact analysis — Decided (#1141)
 

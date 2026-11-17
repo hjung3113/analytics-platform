@@ -26,7 +26,7 @@ export default function HomeAssignments() {
   const ready = !denied && !failed && !loading;
   const countName = `${c.homeOpen} · ${m('homeAssignmentsOpenImprovementItemsAssignedToMe', { homeTitle: c.homeTitle, total })}`;
 
-  return <section aria-labelledby={titleId} aria-busy={loading} className="flex h-36 max-w-xl flex-col gap-2 rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-3">
+  return <section aria-labelledby={titleId} aria-busy={loading} className="flex h-36 max-w-xl flex-col gap-2 rounded-lg border border-border-subtle bg-surface-card elevation-panel p-3">
     <h2 id={titleId} className="t-card-title">{c.homeTitle}</h2>
     <div className="flex-1" aria-live="polite">
       {denied ? <p className="text-sm text-text-secondary">{c.homeDenied}</p>

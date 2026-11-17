@@ -450,7 +450,7 @@ export function Panel({ title, subtitle, actions, children, className, bodyClass
 }) {
   // The workspace tab already shows this title.
   const inPanel = useInWorkspacePanel();
-  return <section aria-labelledby={title && id ? id : undefined} className={cn('rounded-lg border border-border-subtle bg-surface-card in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none', !inPanel && 'shadow-sm', className)}>
+  return <section aria-labelledby={title && id ? id : undefined} className={cn('rounded-lg border border-border-subtle bg-surface-card', !inPanel && 'elevation-panel', className)}>
     {(title || actions) && <header className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2 pt-3">
       <div>
         {title && <h2 id={id} className={cn('t-card-title', inPanel && 'sr-only')}>{title}</h2>}

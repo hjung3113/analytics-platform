@@ -94,6 +94,20 @@
   border-radius: calc(var(--radius-md) - 2px);
 }
 
+/* Top-level card and analysis-panel elevation (DESIGN.md Layout). Here, not in
+ * index.css, so both supported CSS entry recipes generate it. A panel nested in a card, a detail
+ * surface or a dock group already sits on a raised plane, so it drops the shadow instead of stacking one. */
+@utility elevation-panel {
+  @apply shadow-sm;
+  :where(.bg-surface-card, .bg-surface-detail, .dv-groupview) & {
+    @apply shadow-none;
+  }
+}
+
+/* A control on a canvas band (a `bg-surface-canvas` strip that is not the page shell or the rich editor)
+ * clears its fill so it reads as part of the band rather than a white chip on it (#2456). */
+@custom-variant on-canvas-band (&:where(.bg-surface-canvas:not([data-shell], .rich-editor) *));
+
 /* ADR-0127: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
 @layer base {
   :is(.rich-editor[data-surface="voc-description"] .ProseMirror, .rich-content[data-rich-extended]) {

@@ -288,6 +288,7 @@ export const COMPONENTS_MESSAGES = {
 
   // Table
   tableScrollportLabel: { ko: '스크롤 가능한 행 영역', en: 'Scrollable rows' },
+  tableColumnGroupPanHint: { ko: '←/→ 키로 묶음 안의 열을 넘겨 봅니다', en: 'Use ←/→ to pan the columns in this group' },
   tableExportRefusalForbidden: {
     ko: '서버가 이 조건의 내보내기를 거부했습니다. 현재 Scope와 접근 권한을 확인하세요.',
     en: 'The server rejected the export for this context. Check the current scope and your access rights.',

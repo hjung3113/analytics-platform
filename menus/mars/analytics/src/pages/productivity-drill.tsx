@@ -33,7 +33,7 @@ function EnterButton({ ko, value, onClick }: { ko: boolean; value: string; onCli
 }
 
 function tableShell(caption: string, head: ReactNode, body: ReactNode) {
-  return <div className="overflow-auto rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none">
+  return <div className="overflow-auto rounded-lg border border-border-subtle bg-surface-card elevation-panel">
     <Table density="compact">
       <TableCaption srOnly>{caption}</TableCaption>
       <TableHeader><TableRow>{head}</TableRow></TableHeader>

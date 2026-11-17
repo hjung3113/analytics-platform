@@ -5,8 +5,6 @@ import { trustInstantText } from '../state/trustFormat';
 
 /** Pure wording and formatting for the table's export/copy (#173, #174): no React, no state. */
 
-export const COLUMN_GROUP_PAN_DESCRIPTION = { ko: '←/→ 키로 묶음 안의 열을 넘겨 봅니다', en: 'Use ←/→ to pan the columns in this group' } as const;
-
 /** Export refusal copy per outcome (#173, 06 §26 원인/행동): every refusal names a next action; no specific cause is claimed the server did not state. */
 export const EXPORT_REFUSAL = {
   forbidden: COMPONENTS_MESSAGES.tableExportRefusalForbidden,

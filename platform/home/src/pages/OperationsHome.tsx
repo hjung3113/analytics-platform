@@ -143,7 +143,7 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
 
       <section aria-label={m('operationsHomeWorkSystems')}>
         {accessibleSpaces.length === 0
-          ? <div className="rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-4">
+          ? <div className="rounded-lg border border-border-subtle bg-surface-card elevation-panel p-4">
               <h2 className="t-section-title">{m('operationsHomeNoWorkSystemsAreAvailable')}</h2>
               {permissionRequests.allowed
                 ? <>
@@ -154,9 +154,9 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
             </div>
           : launcherGroups.length > 0 ? <div className="space-y-4">{launcherSections.map((group, index) => <section key={index} className="space-y-2">
               <h2 className="t-section-title">{tx(group.label)}</h2>
-              <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none">{group.spaces.map(compactEntry)}</ul>
+              <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card elevation-panel">{group.spaces.map(compactEntry)}</ul>
             </section>)}</div>
-          : <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none">{accessibleSpaces.map(compactEntry)}</ul>}
+          : <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface-card elevation-panel">{accessibleSpaces.map(compactEntry)}</ul>}
       </section>
 
       <section aria-label={m('operationsHomeNotices')} className="space-y-2">
