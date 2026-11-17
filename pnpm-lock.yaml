@@ -835,12 +835,21 @@ importers:
 
   menus/mars/configuration:
     dependencies:
+      '@ap/components':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/components
       '@ap/contracts':
         specifier: workspace:*
         version: link:../../../packages/sdk/contracts
       '@ap/kernel':
         specifier: workspace:*
         version: link:../../../packages/sdk/kernel
+      '@ap/mock-server':
+        specifier: workspace:*
+        version: link:../../../packages/host/mock-server
+      '@ap/ui':
+        specifier: workspace:*
+        version: link:../../../packages/sdk/ui
       lucide-react:
         specifier: ^1.72.0
         version: 1.73.0(@types/react@19.3.0)(react@19.3.1)
@@ -860,6 +869,9 @@ importers:
       eslint:
         specifier: ^10.14.0
         version: 10.14.0(jiti@2.7.0)
+      jsdom:
+        specifier: 26.1.0
+        version: 26.1.0
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -869,6 +881,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.6.3)(happy-dom@20.14.6)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.33.0)(yaml@2.9.1)
 
   menus/mars/equipment:
     dependencies:
