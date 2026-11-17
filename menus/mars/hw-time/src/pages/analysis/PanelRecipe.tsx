@@ -1,10 +1,12 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Check, CircleHelp, Minus, Undo2 } from 'lucide-react';
 import { formatText, useI18n, type Text } from '@ap/kernel';
 import { Badge, Button, cn } from '@ap/ui';
-import { labelOf, type PlatformFeature, type Recipe } from './recipeModel';
+import { labelOf, panelRecipe, type PlatformFeature, type Recipe } from './recipeModel';
+import { RECIPE_ITEM } from './RecipeFace';
 
-export const RECIPE_ITEM: Text = { ko: '이 패널 만든 방법', en: 'How this panel is built' };
+export { RECIPE_ITEM };
+
 const FEATURE_STATES = { on: { ko: '제공', en: 'On' }, off: { ko: '미사용', en: 'Off' }, unknown: { ko: '미확인', en: 'Unknown' } } satisfies Record<PlatformFeature['state'], Text>;
 const W = {
   back: { ko: '앞면으로', en: 'Back to the panel' },
@@ -60,24 +62,6 @@ function Features({ recipe }: { recipe: Recipe }) {
 const onCount = (recipe: Recipe) => recipe.platform.filter(item => item.state === 'on').length;
 
 /** A stable focus target across the front/back content swap. */
-export function RecipePanel({ recipe, onClose, children }: { recipe: Recipe | null; onClose: () => void; children: ReactNode }) {
-  const root = useRef<HTMLDivElement>(null);
-  const returnFocus = useRef(false);
-  useLayoutEffect(() => {
-    if (recipe || !returnFocus.current) return;
-    returnFocus.current = false;
-    const target = root.current;
-    if (target && (document.activeElement === document.body || target.contains(document.activeElement))) target.focus({ preventScroll: true });
-  }, [recipe]);
-  const close = () => {
-    returnFocus.current = root.current?.contains(document.activeElement) ?? false;
-    onClose();
-  };
-  return <div ref={root} tabIndex={-1} className="h-full min-h-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
-    {recipe ? <RecipeBack recipe={recipe} onClose={close} /> : children}
-  </div>;
-}
-
 function Summary({ recipe }: { recipe: Recipe }) {
   const w = useWords();
   return <span className="text-xs text-text-secondary break-keep">{w(W.summary, { decl: recipe.code.declaration, pieces: recipe.pieces.length, platform: onCount(recipe), total: recipe.platform.length })}</span>;
@@ -110,3 +94,9 @@ export function RecipeBack({ recipe, onClose }: { recipe: Recipe; onClose: () =>
   </section>;
 }
 
+
+/** Lazy entry for `RecipePanel`: builds the recipe from the declaration and shows its back, or the front when the panel has none. */
+export default function RecipeBackFor({ id, context, onClose, fallback }: { id: string; context: Readonly<Record<string, unknown>>; onClose: () => void; fallback: ReactNode }) {
+  const recipe = panelRecipe(id, context, { primary: false });
+  return recipe ? <RecipeBack recipe={recipe} onClose={onClose} /> : <>{fallback}</>;
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CustomGroupTarget, SavedViewListItem } from '@ap/contracts';
-import { useMessages } from '@ap/kernel';
+import { customGroupItemId, customGroupReadState, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { SHELL_MESSAGES } from '../messages';
 import { useSessionKey } from '../frame/sessionKey';
@@ -21,10 +21,6 @@ const GROUP_REASON_WORD = {
   'not-found': 'targetGroupReasonNotFound', forbidden: 'targetGroupReasonForbidden', 'scope-mismatch': 'targetGroupReasonScope',
   loading: 'targetGroupReasonLoading', unavailable: 'targetGroupReasonUnavailable', 'store-unavailable': 'targetGroupReasonNoStore',
 } as const satisfies Record<string, keyof typeof SHELL_MESSAGES>;
-
-function savedGroupItemId(item: SavedViewListItem): string {
-  return 'denied' in item && item.denied ? item.id : item.view.id;
-}
 
 /**
  * Resolves the chosen custom groups against the user's saved groups (ADR-0164). The query bar owns it, so the blocked result lives as
@@ -59,21 +55,10 @@ export function useCustomGroupOptions({ scopeId, selectedGroupIds, canEditCondit
       return { id, label: m('targetGroupMissing', { id, reason: reasonWord }), reason, reasonWord };
     };
     for (const item of current.items) {
-      const id = savedGroupItemId(item);
-      if ('denied' in item && item.denied) {
-        if (selectedGroupIds.includes(id)) result.set(id, blocked(id, item.reason));
-        continue;
-      }
-      if (item.view.kind !== 'custom-group') continue;
-      if (!item.capabilities.canView) {
-        if (selectedGroupIds.includes(id)) result.set(id, blocked(id, item.capabilities.reason ?? 'forbidden'));
-        continue;
-      }
-      if (item.view.savedScopeId !== scopeId) {
-        if (selectedGroupIds.includes(id)) result.set(id, blocked(id, 'scope-mismatch'));
-        continue;
-      }
-      result.set(id, { id, label: item.view.name, target: item.view.target });
+      const id = customGroupItemId(item);
+      const state = customGroupReadState(item, scopeId);
+      if (!('denied' in state)) result.set(id, { id, label: state.name, target: state.target });
+      else if (selectedGroupIds.includes(id)) result.set(id, blocked(id, state.denied));
     }
     for (const id of selectedGroupIds) if (!result.has(id)) {
       const reason = current.status === 'loading' ? 'loading' : current.status === 'error' ? 'unavailable' : savedViewStore ? 'not-found' : 'store-unavailable';
@@ -90,7 +75,7 @@ export function useCustomGroupOptions({ scopeId, selectedGroupIds, canEditCondit
   // A save that settles after the session or Scope moved on belongs to the old list: it never touches the current one.
   const remember = useCallback((entry: SavedViewListItem) => setGroupList(previous => previous.key !== listKey ? previous : ({
     status: 'ready', key: listKey,
-    items: [...previous.items.filter(item => savedGroupItemId(item) !== savedGroupItemId(entry)), entry],
+    items: [...previous.items.filter(item => customGroupItemId(item) !== customGroupItemId(entry)), entry],
   })), [listKey]);
   return useMemo(() => ({ optionsById, blocked, remember }), [optionsById, blocked, remember]);
 }

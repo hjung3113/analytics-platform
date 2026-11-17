@@ -1,4 +1,4 @@
-import { CUSTOM_GROUP_AXIS, narrowCondition, type Condition, type CustomGroupTarget, type EquipmentSummary } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, narrowCondition, type Condition, type CustomGroupTarget, type EquipmentSummary, type SavedViewListItem } from '@ap/contracts';
 
 export type ExpandCustomGroupsInput = {
   condition: Condition | null;
@@ -9,6 +9,24 @@ export type ExpandCustomGroupsInput = {
 export type ExpandCustomGroupsResult =
   | { ok: true; condition: Condition | null; selection: string[] | null }
   | { ok: false; denied: { id: string; reason: string }[] };
+
+/** The id a listed saved group is chosen by: a denied entry carries its own id, a readable one its view's. */
+export function customGroupItemId(item: SavedViewListItem): string {
+  return 'denied' in item && item.denied ? item.id : item.view.id;
+}
+
+/**
+ * The single read rule for a chosen custom group (ADR-0164): the query refuses and the query bar explains with the same verdict.
+ * Missing or another kind → `not-found`; a denied entry or a view the user cannot read → its reason; another Scope → `scope-mismatch`.
+ */
+export function customGroupReadState(item: SavedViewListItem | undefined, scopeId: string | null): { name: string; target: CustomGroupTarget } | { denied: string } {
+  if (!item) return { denied: 'not-found' };
+  if ('denied' in item && item.denied) return { denied: item.reason };
+  if (item.view.kind !== 'custom-group') return { denied: 'not-found' };
+  if (!item.capabilities.canView) return { denied: item.capabilities.reason ?? 'forbidden' };
+  if (item.view.savedScopeId !== scopeId) return { denied: 'scope-mismatch' };
+  return { name: item.view.name, target: item.view.target };
+}
 
 /** The single membership rule for a custom-group target (ADR-0164): fixed IDs or AND across axes, OR within each axis. */
 export function customGroupMembers(target: CustomGroupTarget, facts: readonly EquipmentSummary[]): string[] {
