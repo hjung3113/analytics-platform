@@ -612,15 +612,31 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       return { groups, order: groupedOrder(merged.columns, displayed) };
     }, mode);
   }
+  // Every editor exit removes the focused control (rename input, choose view, ungrouped row); hand focus to the group's
+  // menu, or to 묶음 만들기 when that group is new or gone.
+  const groupNewId = `${columnPrefsId}-group-new`;
+  const groupMenuId = (id: string) => `${columnPrefsId}-${id}-group-menu`;
+  const refocusGroup = useRef<string | null>(null);
+  useEffect(() => {
+    const id = refocusGroup.current;
+    if (id === null) return;
+    refocusGroup.current = null;
+    (document.getElementById(id) ?? document.getElementById(groupNewId))?.focus();
+  });
+  function closeGroupEditor(focus = true) {
+    const draft = groupEditor.draft;
+    if (focus && draft.kind !== 'idle') refocusGroup.current = draft.kind === 'rename' || draft.id ? groupMenuId(draft.id!) : groupNewId;
+    groupEditor.cancel();
+  }
   function announceGroup(message: 'tableGroupCreated' | 'tableGroupChanged' | 'tableGroupRemoved', name: string) {
     const note = m(message, { name });
     groupEditor.setNote(note); toast(note);
   }
-  function saveGroupName() {
+  function saveGroupName(byKey: boolean) {
     const draft = groupEditor.draft;
     if (draft.kind !== 'rename' || !validGroupName(draft.name)) return;
     editGroups(snapshot => renameColumnGroup(snapshot, draft.id, draft.name), 'now');
-    announceGroup('tableGroupChanged', draft.name.trim()); groupEditor.cancel();
+    announceGroup('tableGroupChanged', draft.name.trim()); closeGroupEditor(byKey);
   }
   function saveGroupMembers() {
     const draft = groupEditor.draft;
@@ -637,7 +653,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       editGroups(snapshot => createColumnGroup(snapshot, draft.name, members, [...source.columns.map(c => c.id), ...source.columns.flatMap(c => c.columnGroup ?? []), ...Object.keys(props.columnGroups ?? {})]), 'now', { gather: true });
       announceGroup('tableGroupCreated', draft.name.trim());
     }
-    groupEditor.cancel();
+    closeGroupEditor();
   }
   const setGroupWidth = (id: string, width: number | undefined) => editGroups(snapshot => setColumnGroupWidth(snapshot, id, width), 'later');
   const groupResize = useColumnGroupResize(editorIdentity, widthScale, setGroupWidth);
@@ -720,15 +736,15 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       <span role="presentation" aria-hidden className="shrink-0 cursor-grab touch-none text-text-muted" onPointerDown={e => startDrag(e, c, group)}><GripVertical className="size-3.5" /></span>
       {!isGroup && c.getCanHide() ? <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" /> : <span className="size-3.5 shrink-0" aria-hidden />}
       <div className="min-w-0 flex-1">{editable && groupEditor.draft.kind === 'rename' && groupEditor.draft.id === c.id
-        ? <ColumnGroupRename name={groupEditor.draft.name} onName={groupEditor.setName} onSave={saveGroupName} onCancel={groupEditor.cancel} />
+        ? <ColumnGroupRename name={groupEditor.draft.name} onName={groupEditor.setName} onSave={saveGroupName} onCancel={() => closeGroupEditor()} />
         : !isGroup && c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="block truncate text-sm" title={name}>{name}</span>}</div>
       <Button id={`${columnPrefsId}-${c.id}-up`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveUp', { name })} disabled={at === 0} onClick={() => moveColumn(c, group, at - 1, 'up')}><ArrowUp className="size-3.5" aria-hidden /></Button>
       <Button id={`${columnPrefsId}-${c.id}-down`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveDown', { name })} disabled={at === group.length - 1} onClick={() => moveColumn(c, group, at + 1, 'down')}><ArrowDown className="size-3.5" aria-hidden /></Button>
       {canPin && <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={m('tableColumnPinLeft', { name })} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
         {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
       </Button>}
-      {editable && <ColumnGroupRowMenu name={name} onRename={() => groupEditor.rename(c.id, name)} onMembers={() => groupEditor.edit(c.id, name, c.getLeafColumns().map(leaf => leaf.id))}
-        onUngroup={() => { editGroups(snapshot => ungroupColumns(snapshot, c.id), 'now'); announceGroup('tableGroupRemoved', name); }} />}
+      {editable && <ColumnGroupRowMenu triggerId={groupMenuId(c.id)} name={name} onRename={() => groupEditor.rename(c.id, name)} onMembers={() => groupEditor.edit(c.id, name, c.getLeafColumns().map(leaf => leaf.id))}
+        onUngroup={() => { refocusGroup.current = groupNewId; editGroups(snapshot => ungroupColumns(snapshot, c.id), 'now'); announceGroup('tableGroupRemoved', name); }} />}
     </li>;
   }
   function columnPrefList(members: Column<T>[], depth = 0): ReactNode {
@@ -801,12 +817,12 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
   const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => { if (!open) groupEditor.cancel(); setOverlayOpen(o => ({ ...o, columns: open })); }}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
-    <PopoverContent align="end" className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); groupEditor.cancel(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+    <PopoverContent align="end" className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); closeGroupEditor(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
       event.preventDefault();
       if (!columnsOutside.current) moreButton.current?.focus();
       columnsOutside.current = false;
     } : undefined}>
-      {p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? <ColumnGroupChooseView editor={groupEditor} idPrefix={columnPrefsId} onSave={saveGroupMembers}
+      {p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? <ColumnGroupChooseView editor={groupEditor} idPrefix={columnPrefsId} onSave={saveGroupMembers} onCancel={() => closeGroupEditor()}
         columns={dataColumns.map(c => ({ id: c.id, label: nameOf(c), hidden: !c.getIsVisible(), group: paths.get(c.id)?.[0] ? columnGroupLabel(p.columnGroups, paths.get(c.id)![0]) : undefined }))} /> : <>
       <p className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
       <div className="space-y-3">
@@ -821,7 +837,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       </div>
       <p className="sr-only" aria-live="polite">{orderNote}</p>
       {/* Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */}
-      <div className="mt-3 flex items-center gap-2">{p.editableColumnGroups && <Button type="button" variant="secondary" size="toolbar" onClick={groupEditor.start}>{m('tableGroupNew')}</Button>}<Button type="button" variant="secondary" size="toolbar" onClick={() => { groupEditor.cancel(); resetPreferences(); }}>{m('tableResetPrefs')}</Button></div>
+      <div className="mt-3 flex items-center gap-2">{p.editableColumnGroups && <Button id={groupNewId} type="button" variant="secondary" size="toolbar" onClick={groupEditor.start}>{m('tableGroupNew')}</Button>}<Button type="button" variant="secondary" size="toolbar" onClick={() => { groupEditor.cancel(); resetPreferences(); }}>{m('tableResetPrefs')}</Button></div>
       </>}
       {p.editableColumnGroups && <p className="sr-only" aria-live="polite">{groupEditor.note}</p>}
     </PopoverContent>

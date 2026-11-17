@@ -288,7 +288,7 @@ export const COMPONENTS_MESSAGES = {
 
   // Table
   tableGroupNew: { ko: '묶음 만들기', en: 'Create column group' },
-  tableGroupChangeTitle: { ko: '‹{name}› 열 바꾸기', en: 'Change columns in ‹{name}›' },
+  tableGroupChangeTitle: { ko: '{name} 열 바꾸기', en: 'Change columns in {name}' },
   tableGroupSelect: { ko: '{name} 선택', en: 'Select {name}' },
   tableGroupHidden: { ko: '숨김', en: 'Hidden' },
   tableGroupSelected: { ko: '{count}개 열 선택', en: '{count} columns selected' },
@@ -301,9 +301,9 @@ export const COMPONENTS_MESSAGES = {
   tableGroupMembers: { ko: '열 넣고 빼기', en: 'Change columns' },
   tableGroupUngroup: { ko: '묶음 풀기', en: 'Ungroup' },
   tableGroupResize: { ko: '{name} 묶음 폭', en: '{name} group width' },
-  tableGroupCreated: { ko: '‹{name}› 묶음을 만들었습니다', en: 'Created group ‹{name}›' },
-  tableGroupRemoved: { ko: '‹{name}› 묶음을 풀었습니다', en: 'Ungrouped ‹{name}›' },
-  tableGroupChanged: { ko: '‹{name}› 묶음을 바꿨습니다', en: 'Changed group ‹{name}›' },
+  tableGroupCreated: { ko: '{name} 묶음을 만들었습니다', en: 'Created group {name}' },
+  tableGroupRemoved: { ko: '{name} 묶음을 풀었습니다', en: 'Ungrouped {name}' },
+  tableGroupChanged: { ko: '{name} 묶음을 바꿨습니다', en: 'Changed group {name}' },
   tableScrollportLabel: { ko: '스크롤 가능한 행 영역', en: 'Scrollable rows' },
   tableColumnGroupPanHint: { ko: '←/→ 키로 묶음 안의 열을 넘겨 봅니다', en: 'Use ←/→ to pan the columns in this group' },
   tableExportRefusalForbidden: {

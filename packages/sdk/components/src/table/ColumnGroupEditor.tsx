@@ -31,11 +31,13 @@ export function useColumnGroupEditor(identity: string) {
 }
 
 type Editor = ReturnType<typeof useColumnGroupEditor>;
-export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave }: {
+export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave, onCancel }: {
   editor: Editor;
   columns: { id: string; label: string; hidden: boolean; group?: string }[];
   idPrefix: string;
   onSave: () => void;
+  /** Leaves the choose view; the table hands focus back to the control that opened it. */
+  onCancel: () => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const ime = useImeEnterGuard();
@@ -43,7 +45,7 @@ export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave }: {
   if (draft.kind !== 'choose') return null;
   return <div className="space-y-3 break-keep">
     <div className="flex min-w-0 items-center gap-2">
-      <Button autoFocus type="button" variant="ghost" size="icon-xs" aria-label={m('tableGroupCancel')} onClick={editor.cancel}><ArrowLeft className="size-3.5" aria-hidden /></Button>
+      <Button autoFocus type="button" variant="ghost" size="icon-xs" aria-label={m('tableGroupCancel')} onClick={onCancel}><ArrowLeft className="size-3.5" aria-hidden /></Button>
       <p className="t-card-title min-w-0 truncate" title={draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : undefined}>{draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : m('tableGroupNew')}</p>
     </div>
     <ul className="max-h-80 space-y-2 overflow-y-auto">{columns.map(column => <li key={column.id} className="flex min-w-0 items-center gap-2">
@@ -57,32 +59,34 @@ export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave }: {
       <div className="flex min-w-0 items-center gap-2">
         <Input inputSize="toolbar" className="min-w-0 flex-1" aria-label={m('tableGroupName')} placeholder={m('tableGroupName')} maxLength={MAX_GROUP_LABEL_LENGTH} value={draft.name} onChange={event => editor.setName(event.target.value)} />
         <Button type="submit" size="toolbar" variant="secondary" disabled={!validGroupName(draft.name) || draft.members.length < (draft.id ? 1 : 2)}>{draft.id ? m('tableGroupSave') : m('tableGroupCreate')}</Button>
-        <Button type="button" size="toolbar" variant="ghost" onClick={editor.cancel}>{m('tableGroupCancel')}</Button>
+        <Button type="button" size="toolbar" variant="ghost" onClick={onCancel}>{m('tableGroupCancel')}</Button>
       </div>
     </form>
   </div>;
 }
 
-export function ColumnGroupRename({ name, onName, onSave, onCancel }: { name: string; onName: (name: string) => void; onSave: () => void; onCancel: () => void }) {
+/** onSave(byKey): Enter hands focus back to the group's menu; a blur save keeps wherever the person moved focus. */
+export function ColumnGroupRename({ name, onName, onSave, onCancel }: { name: string; onName: (name: string) => void; onSave: (byKey: boolean) => void; onCancel: () => void }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const ime = useImeEnterGuard();
-  return <Input autoFocus inputSize="toolbar" className="min-w-0 w-full" aria-label={m('tableGroupName')} maxLength={MAX_GROUP_LABEL_LENGTH} value={name} onChange={event => onName(event.target.value)} onBlur={onSave}
+  return <Input autoFocus inputSize="toolbar" className="min-w-0 w-full" aria-label={m('tableGroupName')} maxLength={MAX_GROUP_LABEL_LENGTH} value={name} onChange={event => onName(event.target.value)} onBlur={() => onSave(false)}
     onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
     onKeyDown={event => {
       if (ime.isComposingEnter(event)) { event.preventDefault(); return; }
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
-      if (event.key === 'Enter') { event.preventDefault(); onSave(); }
+      if (event.key === 'Enter') { event.preventDefault(); onSave(true); }
     }} />;
 }
-export function ColumnGroupRowMenu({ name, onRename, onMembers, onUngroup }: { name: string; onRename: () => void; onMembers: () => void; onUngroup: () => void }) {
+export function ColumnGroupRowMenu({ triggerId, name, onRename, onMembers, onUngroup }: { triggerId: string; name: string; onRename: () => void; onMembers: () => void; onUngroup: () => void }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const editing = useRef(false);
   return <DropdownMenu modal={false}>
-    <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableGroupMenu', { name })}><MoreHorizontal className="size-3.5" aria-hidden /></Button></DropdownMenuTrigger>
+    <DropdownMenuTrigger asChild><Button id={triggerId} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableGroupMenu', { name })}><MoreHorizontal className="size-3.5" aria-hidden /></Button></DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="break-keep" onCloseAutoFocus={event => { if (editing.current) { event.preventDefault(); editing.current = false; } }}>
       <DropdownMenuItem onSelect={() => { editing.current = true; onRename(); }}>{m('tableGroupRename')}</DropdownMenuItem>
       <DropdownMenuItem onSelect={() => { editing.current = true; onMembers(); }}>{m('tableGroupMembers')}</DropdownMenuItem>
-      <DropdownMenuItem onSelect={onUngroup}>{m('tableGroupUngroup')}</DropdownMenuItem>
+      {/* Ungroup removes this trigger; the table moves focus, so the menu must not return it. */}
+      <DropdownMenuItem onSelect={() => { editing.current = true; onUngroup(); }}>{m('tableGroupUngroup')}</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>;
 }

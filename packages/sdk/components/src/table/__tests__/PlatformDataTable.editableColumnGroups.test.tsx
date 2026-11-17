@@ -93,7 +93,7 @@ describe('editable column groups (#2481)', () => {
     expect(leaves()).toEqual(['first', 'last', 'fixed', 'middle', '_action']);
     expect(stored().order).toEqual(['first', 'last', 'fixed', 'middle']);
     expect(stored().groups.items[0]).toEqual({ id: 'developer', members: ['fixed'] });
-    expect(screen.getByRole('list', { name: 'toasts' })).toHaveTextContent('‹비교› 묶음을 만들었습니다');
+    expect(screen.getByRole('list', { name: 'toasts' })).toHaveTextContent('비교 묶음을 만들었습니다');
     await userEvent.click(screen.getByRole('button', { name: '비교 아래로' }));
     expect(leaves()).toEqual(['fixed', 'first', 'last', 'middle', '_action']);
     await userEvent.click(screen.getByRole('button', { name: '마지막 위로' }));
@@ -126,7 +126,31 @@ describe('editable column groups (#2481)', () => {
     await menu('Blur', '묶음 풀기');
     expect(header('developer')).toBeNull();
     expect(stored().groups.items).toEqual([]);
-    expect(screen.getByRole('list', { name: 'toasts' })).toHaveTextContent('‹Blur› 묶음을 풀었습니다');
+    expect(screen.getByRole('list', { name: 'toasts' })).toHaveTextContent('Blur 묶음을 풀었습니다');
+  });
+  it('hands focus to a surviving control after every editor exit (keyboard)', async () => {
+    await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const groupMenu = (name: string) => screen.getByRole('button', { name: `${name} 메뉴` });
+    const createButton = () => screen.getByRole('button', { name: '묶음 만들기' });
+    await menu('개발자 묶음', '이름 바꾸기');
+    await userEvent.type(screen.getByRole('textbox', { name: '묶음 이름' }), '{Escape}');
+    expect(groupMenu('개발자 묶음')).toHaveFocus();
+    await menu('개발자 묶음', '이름 바꾸기');
+    const input = screen.getByRole('textbox', { name: '묶음 이름' });
+    await userEvent.clear(input); await userEvent.type(input, 'Kept{Enter}');
+    expect(groupMenu('Kept')).toHaveFocus();
+    await menu('Kept', '열 넣고 빼기');
+    await userEvent.keyboard('{Escape}');
+    expect(groupMenu('Kept')).toHaveFocus();
+    await menu('Kept', '열 넣고 빼기');
+    await userEvent.click(screen.getByRole('checkbox', { name: '첫째 선택' }));
+    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(groupMenu('Kept')).toHaveFocus();
+    await userEvent.click(createButton());
+    await userEvent.click(screen.getAllByRole('button', { name: '취소' }).at(-1)!);
+    expect(createButton()).toHaveFocus();
+    await menu('Kept', '묶음 풀기');
+    expect(createButton()).toHaveFocus();
   });
   it('hidden members stay hidden and editing requires at least one member', async () => {
     localStorage.setItem(key, JSON.stringify({ visibility: { last: false } }));
