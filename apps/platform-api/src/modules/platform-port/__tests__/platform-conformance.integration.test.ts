@@ -928,6 +928,10 @@ describe.skipIf(!runIntegration)('platform port server conformance (#674)', () =
   // other check is a skip (it ran, or was skipped, in the production run above); production readiness is unchanged.
   describeServerConformance('menuAction through @ap/http-adapter (test-only pair, #1193)', {
     ...harness,
+    // Saved-view checks key on the sample, not on `implemented`: without this they would run a second time on the same
+    // svUser/svAdmin pair within the minute and spend its global per-actor rate budget (#2492). Descriptors keep the
+    // other ports' getters lazy (they are read at run time, after beforeAll signs the actors in).
+    ports: Object.defineProperties({}, { ...Object.getOwnPropertyDescriptors(harness.ports), savedViews: { value: undefined, enumerable: true } }) as typeof harness.ports,
     implemented: ['menuAction'],
     cases: [],
     actions: [
