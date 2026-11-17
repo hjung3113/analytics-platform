@@ -128,6 +128,8 @@ export type ChartPointAction = { id: string; label: string; onSelect: (point: Ch
 type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void } } };
 
 export type AnalysisChartFrameProps = ChartChromeOptions & {
+  /** Selection summary presentation in standard/minimal chrome. Quiet hides resting text visually; full ignores it. Default: standard. */
+  summary?: 'standard' | 'quiet';
   /** Horizontal category charts only; ignored elsewhere with one dev warning. Read-only group spans, no hierarchy or group values. */
   rowGroups?: ChartRowGroups;
   /** Consumer-given bar-piece or line-point status. Undefined = none. Keep the callback stable, like isPointSelectable; the Frame never judges. */
@@ -764,8 +766,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
   const rangeUi = size !== 'fill' || brushMode || !!selection;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
-  const summaryHasControls = (rangeUi && rangeKeyboard && !!draft) || !!selection || !!(preview && applyPeriod) || annotationAlert || annotations.some(a => a.mine);
-  const showSummary = chrome === 'standard' || rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || ((rowGroups || statusEnabled || bounds) && !!selectedPoint) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
+  const quietSummary = compactChrome && p.summary === 'quiet';
+  const showRangeForm = rangeUi && rangeKeyboard && !!draft && (!quietSummary || brushMode);
+  const summaryBusy = !!preview || note !== null || !!clipNotice || annotationAlert || annotations.length > 0 || (brushMode && rangeKeyboard);
+  const quietRest = quietSummary && !selection && !summaryBusy;
+  const summaryHasControls = showRangeForm || !!selection || !!(preview && applyPeriod) || annotationAlert || annotations.some(a => a.mine);
+  const showSummary = quietSummary || chrome === 'standard' || rangeUi || !!clipNotice || !!preview || note !== null || annotations.length > 0 || annotationAlert || drawnActive !== null || ((rowGroups || statusEnabled || bounds) && !!selectedPoint) || (!!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)));
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -954,8 +960,11 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     </div>}
 
     {compactChrome && canExport && <span role="status" className="sr-only">{host.status}</span>}
-    {showSummary && <section tabIndex={compactChrome && !summaryHasControls ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs')}>
-      {rangeUi && rangeKeyboard && draft && <div role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
+    {showSummary && <section tabIndex={compactChrome && !summaryHasControls && !quietRest ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(
+      !quietSummary && (compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs'),
+      quietSummary && (quietRest ? 'sr-only' : 'mx-2 mb-1 max-h-16 shrink-0 overflow-y-auto px-2 py-1 text-xs'),
+    )}>
+      {showRangeForm && draft && <div role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{m('chartStart')}</span>
         <Select value={draft.from} onValueChange={chooseStart}>
           <SelectTrigger ref={rangeStart} aria-label={m('chartRangeStart')} className="h-8 w-44 border-border-control">
@@ -976,12 +985,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         </Select>
         <Button size="toolbar" onClick={() => (xType === 'category' ? rangeActions.categorySelect(draft) : commitRange(draft))}>{m('chartSelect')}</Button>
       </div>}
-      {drawnActive !== null && <p className="mb-1 font-semibold">{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
-      {(rowGroups || statusEnabled) && selectedPoint && <p className="mb-1">{labelOf(selectedPoint.x)} · {allSeries.find(s => s.id === selectedPoint.seriesId)?.name}{resolvedStatus(selectedPoint) ? `: ${statusText(resolvedStatus(selectedPoint))}` : ''}</p>}
-      {bounds && selectedPoint && !previousIds.has(selectedPoint.seriesId) && boundText(bounds, selectedPoint.x, format) && <p className="mb-1">{m('chartCurrentBounds', { bounds: boundText(bounds, selectedPoint.x, format) })}</p>}
+      {drawnActive !== null && <p className={quietSummary ? 'sr-only' : 'mb-1 font-semibold'}>{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
+      {(rowGroups || statusEnabled) && selectedPoint && <p className={quietSummary ? 'sr-only' : 'mb-1'}>{labelOf(selectedPoint.x)} · {allSeries.find(s => s.id === selectedPoint.seriesId)?.name}{resolvedStatus(selectedPoint) ? `: ${statusText(resolvedStatus(selectedPoint))}` : ''}</p>}
+      {bounds && selectedPoint && !previousIds.has(selectedPoint.seriesId) && boundText(bounds, selectedPoint.x, format) && <p className={quietSummary ? 'sr-only' : 'mb-1'}>{m('chartCurrentBounds', { bounds: boundText(bounds, selectedPoint.x, format) })}</p>}
       {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
       {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {m('chartMin')} {e.min.x} {format(e.min.value)} · {m('chartMax')} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
-      {!selection ? (rangeUi || chrome === 'standard') && <span className="text-text-secondary">{startAlign ? m('chartNoRangeSelection') : showKeyboard
+      {!selection ? (quietSummary || rangeUi || chrome === 'standard') && <span className={quietSummary ? 'sr-only' : 'text-text-secondary'}>{startAlign ? m('chartNoRangeSelection') : showKeyboard
         ? m('chartNoSelectionWithKeyboardHint')
         : m('chartNoSelectionHint')}</span>
         : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

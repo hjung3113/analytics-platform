@@ -11,6 +11,21 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
+it('opts all Bars into quiet summaries and moves scale captions into their descriptions', async () => {
+  const components = await import('@ap/components');
+  const frames = vi.spyOn(components, 'AnalysisChartFrame');
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM2&pins=moduleMotions');
+  for (const [id, panelId] of [['hw-current', 'current'], ['hw-previous', 'previous'], ['hw-module-motions', 'moduleMotions']]) {
+    const props = frames.mock.calls.filter(([p]) => p.chartId === id).at(-1)![0];
+    expect(props).toMatchObject({ summary: 'quiet' });
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const description = renderToStaticMarkup(<>{props.description}</>);
+    expect(description).toMatch(/합성 데이터/);
+    expect(description).toMatch(/2개 설비/);
+    expect(screen.getByRole('region', { name: `panel ${panelId}` }).querySelector('p.t-caption')).toBeNull();
+  }
+});
+
 it('declares the owner-picked chart chrome per panel with captions only on the bottom legends', async () => {
   const components = await import('@ap/components');
   const kinds = vi.spyOn(components, 'AnalysisChart');
