@@ -74,3 +74,60 @@ export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bo
     {placement !== 'top' && keys}
   </div>;
 }
+
+/** What the selection summary under the plot has to show; facts only, no element state. */
+export type SummaryFacts = {
+  chrome: 'full' | 'standard' | 'minimal';
+  summary?: 'standard' | 'quiet';
+  /** `size="fill"`: the plot keeps the space until the user brushes or a range exists (ADR-0067 decision 21). */
+  fill: boolean;
+  brushMode: boolean;
+  selection: boolean;
+  /** The start/end selects exist for this axis (time or category keyboard range). */
+  rangeKeyboard: boolean;
+  draft: boolean;
+  preview: boolean;
+  applyPeriod: boolean;
+  note: boolean;
+  clipNotice: boolean;
+  annotationAlert: boolean;
+  annotations: number;
+  ownAnnotation: boolean;
+  /** A controlled active row the plot draws. */
+  activeRow: boolean;
+  selectedPoint: boolean;
+  /** Row groups, point status or bounds give a selected point a detail line. */
+  pointDetail: boolean;
+  /** The selected point's series has a min/max or all-equal line. */
+  pointExtremes: boolean;
+};
+
+export type SummaryPresentation = {
+  /** `summary="quiet"` applies (compact chrome only). */
+  quiet: boolean;
+  /** The summary region renders at all. */
+  show: boolean;
+  /** Quiet and nothing to say: the region stays for screen readers only (`sr-only`). */
+  rest: boolean;
+  /** The range form and the empty-selection hint have room (not a fill card at rest). */
+  rangeUi: boolean;
+  showRangeForm: boolean;
+  /** The region holds its own controls, so it is not a tab stop itself. */
+  hasControls: boolean;
+  /** Compact chrome with only text: the region is a tab stop so keyboard users can read it. */
+  focusable: boolean;
+};
+
+/** The selection summary display rules of AnalysisChartFrame (#2472). Pure, so the rules read as one table. */
+export function summaryPresentation(f: SummaryFacts): SummaryPresentation {
+  const compact = f.chrome !== 'full';
+  const quiet = compact && f.summary === 'quiet';
+  const rangeUi = !f.fill || f.brushMode || f.selection;
+  const showRangeForm = rangeUi && f.rangeKeyboard && f.draft && (!quiet || f.brushMode);
+  const busy = f.preview || f.note || f.clipNotice || f.annotationAlert || f.annotations > 0 || (f.brushMode && f.rangeKeyboard);
+  const rest = quiet && !f.selection && !busy;
+  const hasControls = showRangeForm || f.selection || (f.preview && f.applyPeriod) || f.annotationAlert || f.ownAnnotation;
+  const show = quiet || f.chrome === 'standard' || rangeUi || f.clipNotice || f.preview || f.note || f.annotations > 0 || f.annotationAlert
+    || f.activeRow || (f.pointDetail && f.selectedPoint) || (f.selectedPoint && f.pointExtremes);
+  return { quiet, show, rest, rangeUi, showRangeForm, hasControls, focusable: compact && !hasControls && !rest };
+}
