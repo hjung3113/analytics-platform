@@ -33,6 +33,8 @@ export const permissionGrantAdminItemSchema = z
     granted_by_actor_id: z.string().uuid(),
     granted_at: z.string().datetime(),
     expires_at: z.string().datetime().nullable(),
+    /** #2408: origin group, null when granted one by one. */
+    permission_group: z.object({ id: z.string().uuid(), name: z.string() }).strict().nullable().optional(),
   })
   .strict();
 export type PermissionGrantAdminItem = z.infer<typeof permissionGrantAdminItemSchema>;
@@ -98,6 +100,8 @@ export const directPermissionGrantBatchSchema = z
     expires_at: z.string().datetime().optional(),
     reason: z.string().trim().min(1).max(2000),
     self_approval: directPermissionGrantSchema.shape.self_approval,
+    /** #2408: an operator group the items came from; each item must belong to it. */
+    permission_group_id: z.string().uuid().optional(),
   })
   .strict();
 export type DirectPermissionGrantBatch = z.infer<typeof directPermissionGrantBatchSchema>;

@@ -6,6 +6,7 @@ import * as React from 'react';
 
 import { type DeclaredCapabilityItem, useDeclaredCapabilities } from '../../../lib/api/declared-capabilities';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
@@ -14,7 +15,6 @@ import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
-import { shortId } from '../../../lib/identity';
 
 import {
   type DirectGrantDraft,
@@ -309,9 +309,6 @@ function ActivePermissionRow({
                 ? (managedSystemName ?? GLOSSARY.managedSystem)
                 : SCOPE_SELECTOR_COPY.workspaceAll)}
           </span>
-          {item.managed_system_id && !managedSystemName ? (
-            <span className="font-mono text-text-muted">{shortId(item.managed_system_id)}</span>
-          ) : null}
           <span>·</span>
           <span>{formatDateTime(when)}</span>
           {expiration ? (
@@ -322,16 +319,8 @@ function ActivePermissionRow({
               </span>
             </>
           ) : null}
-          <span>·</span>
-          <span className="font-mono text-text-muted">{shortId(item.id)}</span>
+          {'permission_group' in item && item.permission_group ? <><span>·</span><span>{PERMISSION_GROUP_COPY.origin(item.permission_group.name)}</span></> : null}
         </>
-      }
-      trailing={
-        !actorName ? (
-          <span className="text-right text-xs text-text-muted">
-            <span className="font-mono">{shortId(item.actor_id)}</span>
-          </span>
-        ) : undefined
       }
     />
   );

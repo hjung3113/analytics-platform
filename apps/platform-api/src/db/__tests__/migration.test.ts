@@ -16,6 +16,18 @@ import { describe, expect, it } from 'vitest';
 const MIGRATIONS_DIR = join(__dirname, '..', '..', '..', 'migrations');
 
 describe('migrations directory', () => {
+  it('0139 registers permission groups with narrow privileges and request batch origins', () => {
+    const sql = readFileSync(join(MIGRATIONS_DIR, '0139_permission_groups.sql'), 'utf8');
+    for (const name of ['permission_groups', 'permission_group_capabilities', 'permission_group_shares']) {
+      expect(sql).toContain(`"permission"."${name}"`);
+    }
+    expect(sql).toContain('"batch_id" uuid');
+    expect(sql).toMatch(/GRANT SELECT, INSERT\s+ON permission.permission_groups TO platform_app/);
+    expect(sql).toContain('GRANT UPDATE (name, description, updated_at, archived_at) ON permission.permission_groups TO platform_app');
+    expect(sql).toMatch(/GRANT SELECT, INSERT, DELETE\s+ON permission.permission_group_capabilities, permission.permission_group_shares TO platform_app/);
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, 'meta', '_journal.json'), 'utf8'));
+    expect(journal.entries).toContainEqual(expect.objectContaining({ idx: 139, tag: '0139_permission_groups' }));
+  });
   it('has at least the Slice 2 migrations applied (0000..0008)', () => {
     // The exact count grows with every Slice; pin only the floor so this
     // assertion does not block future migrations (test review H7). Per-file

@@ -7,6 +7,7 @@ import {
 import { OutlineBadge } from '../../../ui/index';
 import {
   Button,
+  Checkbox,
   DatePicker,
   Input,
   PanelSectionTitle,
@@ -27,6 +28,7 @@ import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import { useMeBridge } from '../../../lib/api/me';
 import type { PermissionRequestDecisionAction } from '../../../lib/api/permission-admin';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { usePermissionScopeCandidates } from '../../../lib/api/permission-scope-candidates';
@@ -108,6 +110,7 @@ function hasExpirationFieldError(error: unknown): boolean {
 
 export function PermissionRequestDecisionForm({
   request,
+  batch,
   actorName,
   managedSystemName,
   staleNoticeShown,
@@ -119,6 +122,7 @@ export function PermissionRequestDecisionForm({
   onReviewCompleted,
 }: {
   request: PermissionRequestAdminDetail;
+  batch?: { id: string; items: PermissionRequestAdminDetail[] };
   actorName?: string | undefined;
   managedSystemName?: string | undefined;
   staleNoticeShown?: boolean;
@@ -130,6 +134,13 @@ export function PermissionRequestDecisionForm({
   onReviewCompleted?: () => void;
 }) {
   const [reviewBlocked, setReviewBlocked] = React.useState(false);
+  const batchDecidable = batch?.items.filter(item => item.status === 'pending' || item.status === 'needs_more_info') ?? [];
+  const grantable = batchDecidable.filter(item => item.allowed_actions.includes('approve') && !item.effective_access.decision.allow);
+  const [approveIds, setApproveIds] = React.useState(() => grantable.map(item => item.id));
+  const selectedBatchItems = grantable.filter(item => approveIds.includes(item.id));
+  const approvalScopeCandidates = batch
+    ? (selectedBatchItems[0]?.approval_scope_candidates ?? []).filter(candidate => selectedBatchItems.every(item => item.approval_scope_candidates.some(other => other.managed_system_id === candidate.managed_system_id && other.scope_kind === candidate.scope_kind && other.scope_site === candidate.scope_site && other.scope_room === candidate.scope_room)))
+    : request.approval_scope_candidates;
   const [action, setAction] = React.useState<PermissionRequestDecisionAction | null>(null);
   const [reason, setReason] = React.useState('');
   const [reasonAttempted, setReasonAttempted] = React.useState(false);
@@ -206,7 +217,7 @@ export function PermissionRequestDecisionForm({
     (result) => onDecisionSucceeded?.(result),
   );
   const me = useMeBridge();
-  const siteCandidateOffered = request.approval_scope_candidates.some(
+  const siteCandidateOffered = approvalScopeCandidates.some(
     (candidate) => candidate.scope_kind === 'site' && candidate.scope_site === siteRequest,
   );
   const captureCopy = ADMIN_PERMISSIONS_COPY.selfApprovalCapture;
@@ -218,6 +229,7 @@ export function PermissionRequestDecisionForm({
     isDeclaredCapabilityId(request.requested_capability) &&
     request.risk_indicators.some((indicator) => indicator.code === 'sensitive_capability');
   const needsReason =
+    (action === 'approve' && batch !== undefined && (batchDecidable.length > selectedBatchItems.length || selectedBatchItems.some(item => item.risk_indicators.some(indicator => indicator.code === 'sensitive_capability')))) ||
     (selectedAction?.needsReason ?? false) ||
     (action === 'approve' &&
       ((isCapability(request.requested_capability) &&
@@ -281,15 +293,19 @@ export function PermissionRequestDecisionForm({
     setExpirationDate(request.requested_expiration?.slice(0, 10) ?? '');
   }, [request.requested_expiration, request.requested_managed_system_id]);
 
-  const reasonError =
-    reasonAttempted && needsReason && !reason.trim()
-      ? action === 'reject'
-        ? ADMIN_PERMISSIONS_COPY.rejectReasonRequired
-        : ADMIN_PERMISSIONS_COPY.reasonRequired
-      : null;
+  let reasonError: string | null = null;
+  if (reasonAttempted && batch && action === 'approve' && !selectedBatchItems.length)
+    reasonError = PERMISSION_GROUP_COPY.selectionRequired;
+  else if (reasonAttempted && needsReason && !reason.trim())
+    reasonError = action === 'reject' ? ADMIN_PERMISSIONS_COPY.rejectReasonRequired : ADMIN_PERMISSIONS_COPY.reasonRequired;
 
   function submit() {
     if (action === null || submitDisabled || submitting.current) return;
+    if (batch && action === 'approve' && !selectedBatchItems.length) {
+      setReasonAttempted(true);
+      reasonRef.current?.focus();
+      return;
+    }
     if (needsReason && !reason.trim()) {
       setReasonAttempted(true);
       reasonRef.current?.focus();
@@ -304,6 +320,7 @@ export function PermissionRequestDecisionForm({
       return;
     }
     const args = {
+      ...(batch ? { batch: { id: batch.id, revisions: Object.fromEntries(batchDecidable.map(item => [item.id, item.revision])), approveIds: selectedBatchItems.map(item => item.id) } } : {}),
       id: request.id,
       expectedRevision: request.revision,
       action,
@@ -371,7 +388,7 @@ export function PermissionRequestDecisionForm({
             ) &&
             // Site·공정 grants have no explicit deny (ADR-0154 decision 2); revocation does that job.
             !(candidate.value === 'deny' && request.requested_capability === 'scope.read'),
-        ).map((candidate) => (
+        ).filter(candidate => !batch || candidate.value !== 'deny').map((candidate) => (
           <Button
             key={candidate.value}
             type="button"
@@ -397,6 +414,7 @@ export function PermissionRequestDecisionForm({
           </Button>
         ))}
       </fieldset>
+      {batch && action === 'approve' ? <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">{PERMISSION_GROUP_COPY.checklist}</legend>{batch.items.map(item => <div key={item.id} className="flex items-center gap-2"><Checkbox id={`batch-approve-${item.id}`} checked={approveIds.includes(item.id) && grantable.some(candidate => candidate.id === item.id)} disabled={mutation.isPending || !grantable.some(candidate => candidate.id === item.id)} onCheckedChange={checked => setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} /><label htmlFor={`batch-approve-${item.id}`}>{getCapabilityDisplayLabel(item.requested_capability)}{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
       {selfApprovalBlockedByPolicy ? (
         <p className="text-xs text-accent-danger">
           운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
@@ -447,7 +465,7 @@ export function PermissionRequestDecisionForm({
       ) : null}
       {action === 'approve' &&
       scopeTargetLabel === null &&
-      request.approval_scope_candidates.length > 0 ? (
+      approvalScopeCandidates.length > 0 ? (
         <label
           htmlFor="permission-approval-scope"
           className="flex flex-col gap-2 text-sm text-text-secondary"
@@ -462,13 +480,16 @@ export function PermissionRequestDecisionForm({
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {request.approval_scope_candidates.map((candidate) => (
+                {approvalScopeCandidates.map((candidate) => (
                   <SelectItem
                     key={candidate.managed_system_id ?? 'workspace'}
                     value={candidate.managed_system_id ?? 'workspace'}
                   >
                     {candidate.managed_system_id
-                      ? `${candidate.managed_system_id === request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '시스템'} · ${shortId(candidate.managed_system_id)}`
+                      ? // A known system shows its name only; the short id tells unnamed systems apart.
+                        candidate.managed_system_id === request.requested_managed_system_id && managedSystemName
+                        ? managedSystemName
+                        : `시스템 · ${shortId(candidate.managed_system_id)}`
                       : '전체'}
                   </SelectItem>
                 ))}
@@ -642,7 +663,7 @@ export function PermissionRequestDecisionForm({
         disabled={submitDisabled}
         data-testid="permission-decision-submit"
       >
-        {showSelfApprovalCapture
+        {batch && action === 'approve' ? PERMISSION_GROUP_COPY.approve(selectedBatchItems.length) : showSelfApprovalCapture
           ? '직접 승인 확정 · 감사 캡처'
           : selectedAction
             ? `${selectedAction.label} 처리`

@@ -1,5 +1,6 @@
 import { ROLE_LEVEL_DISPLAY_LABELS } from '../../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../../lib/copy/glossary';
+import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 
 import { OutlineBadge } from '../../../ui/index';
 import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
@@ -19,6 +20,7 @@ import { permissionRequestStatusLabel } from './permission-requests-search.js';
 
 export function PermissionRequestDetail({
   request,
+  batch,
   actorName,
   managedSystemName,
   managedSystemNames,
@@ -32,6 +34,7 @@ export function PermissionRequestDetail({
   renderDetail,
 }: {
   request: PermissionRequestAdminDetail;
+  batch?: { id: string; items: PermissionRequestAdminDetail[] };
   actorName?: string | undefined;
   managedSystemName?: string | undefined;
   managedSystemNames?: Record<string, string> | undefined;
@@ -45,7 +48,14 @@ export function PermissionRequestDetail({
   /** Absent = the standalone panel. Present = the host draws the parts (its own header, close and fullscreen). */
   renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
 }) {
-  const resolvedManagedSystemNames = managedSystemNames ?? {};
+  const resolvedManagedSystemNames = { ...managedSystemNames };
+  // Batch review labels capabilities and known systems; unavailable names must not expose raw IDs.
+  for (const item of batch?.items ?? []) {
+    const systemIds = [item.requested_managed_system_id, item.effective_access.granted_managed_system_id,
+      ...(item.effective_access.scope.kind === 'scoped' ? item.effective_access.scope.managed_system_ids : []),
+      ...item.risk_indicators.flatMap(indicator => indicator.code === 'active_deny' ? indicator.evidence.denies.map(deny => deny.managed_system_id) : [])];
+    for (const id of systemIds) if (id && !resolvedManagedSystemNames[id]) resolvedManagedSystemNames[id] = PERMISSION_GROUP_COPY.system;
+  }
   // ADR-0157 decision 9: a declared capability shows its display name with its id beside it.
   const isDeclared = isDeclaredCapabilityId(request.requested_capability);
   const staleAlertRef = React.useRef<HTMLParagraphElement>(null);
@@ -59,6 +69,7 @@ export function PermissionRequestDetail({
   React.useEffect(() => {
     if (staleNotice) staleAlertRef.current?.focus();
   }, [staleNotice]);
+  const batchDecided = batch?.items.some(item => item.status !== 'pending' && item.status !== 'needs_more_info') ?? false;
   const body = (
     <div className="flex flex-col gap-5">
       {staleNotice ? (
@@ -72,27 +83,32 @@ export function PermissionRequestDetail({
           {ADMIN_PERMISSIONS_COPY.reviewAgain}
         </p>
       ) : null}
+      {/* A batch shares requester, reason and expiry, so its review notes show once (#2408); held rows show in the checklist. */}
       <PermissionRequestRiskReview
         request={request}
+        {...(batch ? { items: batch.items } : {})}
         managedSystemNames={resolvedManagedSystemNames}
       />
+      {batch && batchDecided ? <section className="flex flex-col gap-2"><PanelSectionTitle>{PERMISSION_GROUP_COPY.count(batch.items.length)}</PanelSectionTitle><ul>{batch.items.map(item => <li key={item.id}>{getCapabilityDisplayLabel(item.requested_capability)} · {permissionRequestStatusLabel[item.status]}</li>)}</ul><p>{PERMISSION_GROUP_COPY.outcome(batch.items.filter(item => item.status === 'approved').length, batch.items.filter(item => item.status === 'rejected').length)}</p></section> : null}
       <section className="flex flex-col gap-2">
         <PanelSectionTitle>요청 정보</PanelSectionTitle>
         <FieldRow label="요청자" inset="none">
           <span className="flex flex-col gap-0.5">
             <span>{actorName ?? GLOSSARY.unknownUser}</span>
-            {actorName ? null : (
+            {actorName || batch ? null : (
               <span className="font-mono text-xs text-text-muted">
                 {shortId(request.requester_actor_id)}
               </span>
             )}
           </span>
         </FieldRow>
-        <FieldRow label="요청 ID" inset="none">
+        {batch ? null : <FieldRow label="요청 ID" inset="none">
           <span className="font-mono text-xs text-text-muted">{shortId(request.id)}</span>
-        </FieldRow>
+        </FieldRow>}
         <FieldRow label="요청 권한" inset="none">
-          {isDeclared ? (
+          {batch ? (
+            <span>{batch.items.map(item => getCapabilityDisplayLabel(item.requested_capability)).join(', ')}</span>
+          ) : isDeclared ? (
             <span className="flex flex-col gap-0.5">
               <DeclaredCapabilityName id={request.requested_capability} />
               <span className="flex flex-wrap items-center gap-2">
@@ -112,7 +128,7 @@ export function PermissionRequestDetail({
                   ? (managedSystemName ?? '시스템')
                   : '전체')}
             </span>
-            {request.requested_managed_system_id && !managedSystemName && (
+            {request.requested_managed_system_id && !managedSystemName && !batch && (
               <span className="font-mono text-xs text-text-muted">
                 {shortId(request.requested_managed_system_id)}
               </span>
@@ -137,6 +153,7 @@ export function PermissionRequestDetail({
       <PermissionRequestDecisionForm
         key={`${request.id}:${request.revision}:${reviewEpoch}`}
         request={request}
+        {...(batch ? { batch } : {})}
         actorName={actorName}
         managedSystemName={managedSystemName}
         {...(staleNotice ? { staleNoticeShown: true } : {})}
@@ -191,7 +208,34 @@ export function PermissionRequestDetail({
 function PermissionRequestRiskReview({
   request,
   managedSystemNames,
+  items,
 }: {
+  request: PermissionRequestAdminDetail;
+  managedSystemNames: Record<string, string>;
+  items?: PermissionRequestAdminDetail[];
+}) {
+  const copy = ADMIN_PERMISSIONS_COPY.riskReview;
+  return <section className="flex flex-col gap-2" data-testid="permission-request-risk-review">
+    <PanelSectionTitle>{copy.title}</PanelSectionTitle>
+    {items ? <>
+      {items.some(item => item.risk_indicators.some(indicator => indicator.code === 'no_expiration')) ? <p className="text-sm text-text-muted">{copy.noExpiration}</p> : null}
+      {items.map(item => <section key={item.id} aria-label={getCapabilityDisplayLabel(item.requested_capability)} className="flex flex-col gap-2">
+        <p className="text-sm font-medium">{getCapabilityDisplayLabel(item.requested_capability)}</p>
+        <PermissionMemberRiskReview request={{ ...item, risk_indicators: item.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }} managedSystemNames={managedSystemNames} />
+      </section>)}
+    </> : <PermissionMemberRiskReview request={request} managedSystemNames={managedSystemNames} />}
+    <FieldRow label={copy.requesterRole} inset="none">{ROLE_LEVEL_DISPLAY_LABELS[request.requester.role_level]}</FieldRow>
+    <FieldRow label={copy.reviewAuthority} inset="none">
+      {getCapabilityDisplayLabel(request.administrative_authority.capability)} · {request.administrative_authority.allowed ? copy.allowed : copy.forbidden}
+    </FieldRow>
+    {request.administrative_authority.is_requester ? <FieldRow label={copy.selfRequest} inset="none">
+      {request.administrative_authority.permission_self_approval === 'allowed' ? copy.selfApprovalAllowed : copy.selfApprovalForbidden}
+      {' · '}{request.administrative_authority.self_approval_required ? copy.selfApprovalReasonRequired : copy.selfApprovalReasonOptional}
+    </FieldRow> : null}
+  </section>;
+}
+
+function PermissionMemberRiskReview({ request, managedSystemNames }: {
   request: PermissionRequestAdminDetail;
   managedSystemNames: Record<string, string>;
 }) {
@@ -208,8 +252,7 @@ function PermissionRequestRiskReview({
     : copy.accessReasons[accessDecision.reason];
 
   return (
-    <section className="flex flex-col gap-2" data-testid="permission-request-risk-review">
-      <PanelSectionTitle>{copy.title}</PanelSectionTitle>
+    <div className="flex flex-col gap-2">
       {request.status !== 'pending' && request.status !== 'needs_more_info' ? (
         <p className="text-sm text-text-muted">{copy.currentState}</p>
       ) : null}
@@ -229,9 +272,6 @@ function PermissionRequestRiskReview({
         </ul>
       )}
       <div className="flex flex-col gap-1">
-        <FieldRow label={copy.requesterRole} inset="none">
-          {ROLE_LEVEL_DISPLAY_LABELS[request.requester.role_level]}
-        </FieldRow>
         <FieldRow label={copy.effectiveDecision} inset="none">
           {effectiveDecision}
           {request.effective_access.scope.kind === 'all' ||
@@ -262,23 +302,8 @@ function PermissionRequestRiskReview({
             </>
           ) : null}
         </FieldRow>
-        <FieldRow label={copy.reviewAuthority} inset="none">
-          {getCapabilityDisplayLabel(request.administrative_authority.capability)} ·{' '}
-          {request.administrative_authority.allowed ? copy.allowed : copy.forbidden}
-        </FieldRow>
-        {request.administrative_authority.is_requester ? (
-          <FieldRow label={copy.selfRequest} inset="none">
-            {request.administrative_authority.permission_self_approval === 'allowed'
-              ? copy.selfApprovalAllowed
-              : copy.selfApprovalForbidden}
-            {' · '}
-            {request.administrative_authority.self_approval_required
-              ? copy.selfApprovalReasonRequired
-              : copy.selfApprovalReasonOptional}
-          </FieldRow>
-        ) : null}
       </div>
-    </section>
+    </div>
   );
 }
 

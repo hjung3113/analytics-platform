@@ -6,6 +6,7 @@
 import { z } from 'zod';
 
 export const ERROR_CODES = [
+  'conflict.permission_group_name_taken',
   // auth.* → 401
   'auth.session_invalid',
   // #2040 SER-11: OIDC email held by another Actor; operator clears the old Actor's email

@@ -31,6 +31,13 @@ import {
   rejectPermissionRequestSchema,
   revokePermissionBodySchema,
   submitMoreInfoPermissionRequestSchema,
+  createPermissionGroupSchema,
+  listPermissionGroupsQuerySchema,
+  updatePermissionGroupSchema,
+  archivePermissionGroupSchema,
+  sharePermissionGroupSchema,
+  decidePermissionRequestBatchSchema,
+  submitMoreInfoPermissionRequestBatchSchema,
 } from '@ap/feature-shared';
 import { HttpError, fieldsFromZodIssues, sendError } from '../../lib/errors.js';
 import { optionalIdempotencyKey } from '../../lib/http-headers.js';
@@ -41,6 +48,7 @@ import { applyAdminModuleBypass, capabilitiesOf } from './check-service.js';
 import type { ActorContext, CheckService, Decision } from './check-service.js';
 import type { DecisionService } from './decision-service.js';
 import type { GrantAdminService } from './grant-admin-service.js';
+import type { GroupService } from './group-service.js';
 import type { RequestService } from './request-service.js';
 import type { SelectedReadService } from './selected-read-service.js';
 import { type FrontendState, toFrontendState } from './state-mapper.js';
@@ -56,6 +64,7 @@ export interface PermissionsRoutesOptions {
   selectedReadService: SelectedReadService;
   decisionService: DecisionService;
   grantAdminService: GrantAdminService;
+  groupService: GroupService;
   workspaceId: string;
   rateLimitConfig?: {
     mutation: Record<string, unknown>;
@@ -74,10 +83,80 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
     selectedReadService,
     decisionService,
     grantAdminService,
+    groupService,
     workspaceId,
     rateLimitConfig,
   } = opts;
   const capabilities = capabilitiesOf(checkService);
+
+  app.route({
+    method: 'GET', url: '/permission-groups',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    schema: { querystring: listPermissionGroupsQuerySchema },
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      return groupService.list(sess, listPermissionGroupsQuerySchema.parse(req.query));
+    },
+  });
+  app.route({
+    method: 'GET', url: '/permission-groups/:id',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    schema: { params: z.object({ id: z.string().uuid() }) },
+    handler: async (req) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      return groupService.get(sess, (req.params as { id: string }).id);
+    },
+  });
+  const groupWrites = [
+    { method: 'POST', url: '/permission-groups', action: 'create', schema: createPermissionGroupSchema },
+    { method: 'PATCH', url: '/permission-groups/:id', action: 'update', schema: updatePermissionGroupSchema },
+    { method: 'POST', url: '/permission-groups/:id/archive', action: 'archive', schema: archivePermissionGroupSchema },
+    { method: 'PUT', url: '/permission-groups/:id/shares', action: 'share', schema: sharePermissionGroupSchema },
+  ] as const;
+  for (const route of groupWrites) app.route({
+    method: route.method, url: route.url,
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    schema: { body: route.schema, ...(route.action === 'create' ? {} : { params: z.object({ id: z.string().uuid() }) }) },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const key = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+      const id = route.action === 'create' ? null : (req.params as { id: string }).id;
+      const result = await groupService.write(sess, id, route.action, route.schema.parse(req.body), key);
+      return reply.code(result.status).send(result.body);
+    },
+  });
+  app.route({
+    method: 'POST', url: '/permissions/requests/batch/:batch_id/decide',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.sensitive as never } } : {}),
+    schema: { body: decidePermissionRequestBatchSchema, params: z.object({ batch_id: z.string().uuid() }) },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+      const result = await decisionService.decideBatch(sess, (req.params as { batch_id: string }).batch_id,
+        decidePermissionRequestBatchSchema.parse(req.body), { idempotencyKey });
+      return reply.code(result.status).send(result.body);
+    },
+  });
+  app.route({
+    method: 'POST', url: '/permission-requests/batch/:batch_id/submit-more-info',
+    preHandler: [requireSession(sessionService), requireWorkspace(workspaceId)],
+    ...(rateLimitConfig ? { config: { rateLimit: rateLimitConfig.mutation as never } } : {}),
+    schema: { body: submitMoreInfoPermissionRequestBatchSchema, params: z.object({ batch_id: z.string().uuid() }) },
+    handler: async (req, reply) => {
+      const sess = req.session;
+      if (!sess) throw new HttpError('internal.unexpected', 'session missing after middleware');
+      const idempotencyKey = optionalIdempotencyKey(req.headers as Record<string, unknown>);
+      const result = await requestService.submitMoreInfoBatch(sess, (req.params as { batch_id: string }).batch_id,
+        submitMoreInfoPermissionRequestBatchSchema.parse(req.body), idempotencyKey ? { idempotencyKey } : {});
+      return reply.code(result.status).send(result.body);
+    },
+  });
 
   // ADR-0157 decision 9: this server's declared capabilities for any authenticated workspace member — id, display name,
   // `sensitive` and whether the reader's current Role Level may request it. Organisation values only: no holder appears.

@@ -82,6 +82,9 @@ const permissionSelectedRequestSchema = z
     revision: z.number().int().positive(),
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),
+    /** #2408: rows of one batch request share `batch_id`; `permission_group` is the origin group. */
+    batch_id: z.string().uuid().nullable().optional(),
+    permission_group: z.object({ id: z.string().uuid(), name: z.string() }).strict().nullable().optional(),
   })
   .strict();
 

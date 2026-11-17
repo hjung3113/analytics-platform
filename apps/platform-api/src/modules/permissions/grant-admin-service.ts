@@ -43,6 +43,7 @@ import {
 import { capabilitiesOf, resolveCapabilityScope } from './check-service.js';
 import type { ActorContext, CapabilityScope, CheckService } from './check-service.js';
 import { writePermissionGrant } from './grant-command.js';
+import { permissionGroupOrigin, validateGroupBatch } from './group-service.js';
 import { revokePermissionGrant } from './revoke-command.js';
 import {
   supportedScopeCandidates,
@@ -247,7 +248,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     tx: Tx,
     actor: ActorContext,
     recipient: { role_level: ActorContext['role_level'] },
-    input: DirectPermissionGrant,
+    input: DirectPermissionGrant & { permission_group_id?: string | undefined },
     capabilities: ReturnType<typeof capabilitiesOf>,
     batchId?: string,
   ): Promise<PermissionGrantAdminItem> {
@@ -315,6 +316,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       grantedByActorId: actor.actor_id,
       expiresAt,
       reason: input.reason,
+      permissionGroupId: input.permission_group_id,
     });
     await deps.auditService.record(tx, {
       workspace_id: actor.workspace_id,
@@ -414,6 +416,8 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         await assertAdmin({ ...actor, role_level: recipient.role_level }, tx);
       }
       const requestHash = hashRequestBody({ action: 'direct_grant_batch', ...input });
+      await validateGroupBatch(tx, actor, deps.checkService, { id: input.permission_group_id,
+        capabilities: input.items.map((item) => item.capability), purpose: 'grant' });
       const run = async (): Promise<{ status: number; body: PermissionGrantBatchResult }> => {
         const batchId = randomUUID();
         const items: PermissionGrantAdminItem[] = [];
@@ -438,6 +442,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
     const rows = await deps.db
       .select({
         id: permissionGrants.id,
+        permissionGroupId: permissionGrants.permissionGroupId,
         actorId: permissionGrants.actorId,
         capability: permissionGrants.capability,
         scopeKind: permissionGrants.scopeKind,
@@ -462,7 +467,8 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
       .orderBy(desc(permissionGrants.grantedAt));
 
     return {
-      items: rows.map((row) => ({
+      items: await Promise.all(rows.map(async (row) => ({
+        permission_group: await permissionGroupOrigin(deps.db, actor.workspace_id, row.permissionGroupId),
         ...scopeFields(grantScope(row)),
         ...(row.scopeKind !== 'managed_system' ? { in_catalog: inScopeCatalog(grantScope(row), deps.scopeCatalog) } : {}),
         ...declarationMark(row.capability),
@@ -473,7 +479,7 @@ export function createGrantAdminService(deps: GrantAdminServiceDeps) {
         granted_by_actor_id: row.grantedByActorId,
         granted_at: row.grantedAt.toISOString(),
         expires_at: row.expiresAt?.toISOString() ?? null,
-      })),
+      }))),
     };
   }
 

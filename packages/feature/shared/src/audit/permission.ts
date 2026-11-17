@@ -9,6 +9,10 @@ import { permissionScopeFields, requestedPermissionScopeFields, grantedPermissio
 import { capabilityNameSchema } from '../permissions/admin.js';
 
 export const PERMISSION_AUDIT_EVENT_TYPES = [
+  'permission_group_created',
+  'permission_group_updated',
+  'permission_group_archived',
+  'permission_group_shared',
   'permission_requested',
   'permission_approved',
   'permission_rejected',
@@ -231,7 +235,19 @@ export const permissionGrantedDetailSchema = z
     }
   });
 export type PermissionGrantedDetail = z.infer<typeof permissionGrantedDetailSchema>;
+const permissionGroupDetailSchema = z.object({
+  group_id: z.string().uuid(),
+  kind: z.enum(['operator', 'personal']),
+  before_capabilities: z.array(z.string()),
+  after_capabilities: z.array(z.string()),
+  actor_ids: z.array(z.string().uuid()).optional(),
+}).strict();
+
 export const PERMISSION_AUDIT_EVENT_DETAIL_SCHEMAS = {
+  permission_group_created: permissionGroupDetailSchema,
+  permission_group_updated: permissionGroupDetailSchema,
+  permission_group_archived: permissionGroupDetailSchema,
+  permission_group_shared: permissionGroupDetailSchema,
   permission_requested: permissionRequestedDetailSchema,
   permission_approved: permissionApprovedDetailSchema,
   permission_rejected: permissionRejectedDetailSchema,

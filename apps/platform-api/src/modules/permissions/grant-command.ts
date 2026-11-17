@@ -10,6 +10,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { permissionGrants } from '../../db/schema/permission.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
+import { permissionGroupOrigin } from './group-service.js';
 
 export async function writePermissionGrant(
   tx: Tx,
@@ -22,6 +23,7 @@ export async function writePermissionGrant(
     grantedByActorId: string;
     expiresAt: Date | null;
     reason: string | null;
+    permissionGroupId?: string | null | undefined;
   },
 ): Promise<{ item: PermissionGrantAdminItem; previousGrantId?: string }> {
   const scope = input.scope ?? managedScope;
@@ -72,6 +74,7 @@ export async function writePermissionGrant(
       grantedByActorId: input.grantedByActorId,
       expiresAt: input.expiresAt,
       sensitiveReason: input.reason,
+      permissionGroupId: input.permissionGroupId ?? null,
     })
     .returning();
   if (!grant) throw new HttpError('internal.unexpected', 'permission grant insert returned no row');
@@ -79,6 +82,10 @@ export async function writePermissionGrant(
     item: permissionGrantAdminItemSchema.parse({
       ...scopeFields(grantScope(grant)),
       id: grant.id,
+      // A write response keeps the legacy shape unless the grant came from a group (#2408).
+      ...(grant.permissionGroupId
+        ? { permission_group: await permissionGroupOrigin(tx, input.workspaceId, grant.permissionGroupId) }
+        : {}),
       actor_id: grant.actorId,
       capability: grant.capability,
       managed_system_id: grant.managedSystemId,

@@ -16,7 +16,7 @@
 //   rows and expiry is enforced at write time in the permission service.
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgSchema, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgSchema, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // NOTE: Drizzle-kit's CJS loader cannot resolve the `.js` re-write that
 // NodeNext requires at runtime for cross-file `.ts` imports, so we declare
@@ -25,6 +25,34 @@ import { check, index, integer, pgSchema, text, timestamp, uniqueIndex, uuid } f
 // tables otherwise still tracks Drizzle's generated DDL 1:1.
 
 export const permissionSchema = pgSchema('permission');
+
+export const permissionGroups = permissionSchema.table('permission_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  kind: text('kind').notNull(),
+  ownerActorId: uuid('owner_actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  archivedAt: timestamp('archived_at', { withTimezone: true, precision: 3 }),
+}, (t) => ({
+  kindCheck: check('permission_groups_kind_check', sql`${t.kind} IN ('operator', 'personal')`),
+  operatorName: uniqueIndex('permission_groups_operator_name_uq').on(t.workspaceId, t.name)
+    .where(sql`${t.archivedAt} IS NULL AND ${t.kind} = 'operator'`),
+  personalName: uniqueIndex('permission_groups_personal_name_uq').on(t.workspaceId, t.ownerActorId, t.name)
+    .where(sql`${t.archivedAt} IS NULL AND ${t.kind} = 'personal'`),
+}));
+
+export const permissionGroupCapabilities = permissionSchema.table('permission_group_capabilities', {
+  groupId: uuid('group_id').notNull().references(() => permissionGroups.id, { onDelete: 'cascade' }),
+  capability: text('capability').notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.groupId, t.capability] }) }));
+
+export const permissionGroupShares = permissionSchema.table('permission_group_shares', {
+  groupId: uuid('group_id').notNull().references(() => permissionGroups.id, { onDelete: 'cascade' }),
+  actorId: uuid('actor_id').notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.groupId, t.actorId] }) }));
 
 // ─────────────────────────────────────────────────────────────────────────
 // permission.permission_grants — explicit grant of a Capability to an Actor.
@@ -38,6 +66,7 @@ export const permissionGrants = permissionSchema.table(
     workspaceId: uuid('workspace_id').notNull(),
     actorId: uuid('actor_id').notNull(),
     capability: text('capability').notNull(),
+    permissionGroupId: uuid('permission_group_id').references(() => permissionGroups.id),
     // ADR-0154: site/room rows never participate in Managed System judgments.
     scopeKind: text('scope_kind').notNull().default('managed_system'),
     scopeSite: text('scope_site'),
@@ -113,6 +142,8 @@ export const permissionRequests = permissionSchema.table(
     // F-003: workspace_id / actor_id FKs added by hand in migration 0003.
     workspaceId: uuid('workspace_id').notNull(),
     requesterActorId: uuid('requester_actor_id').notNull(),
+    permissionGroupId: uuid('permission_group_id').references(() => permissionGroups.id),
+    batchId: uuid('batch_id'),
     requestedCapability: text('requested_capability').notNull(),
     // Existing request writers keep the managed_system default.
     requestedScopeKind: text('requested_scope_kind').notNull().default('managed_system'),
@@ -143,6 +174,8 @@ export const permissionRequests = permissionSchema.table(
     recoveryOpenIdx: index('permission_requests_recovery_open_idx')
       .on(t.workspaceId, t.id)
       .where(sql`${t.status} IN ('pending', 'needs_more_info')`),
+    batchIdx: index('permission_requests_workspace_batch_idx').on(t.workspaceId, t.batchId)
+      .where(sql`${t.batchId} IS NOT NULL`),
     workspaceRequesterIdx: index('permission_requests_workspace_requester_idx').on(
       t.workspaceId,
       t.requesterActorId,

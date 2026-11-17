@@ -176,6 +176,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 - `mode: 'multiple'`은 `value: readonly string[]`와 `onChange(ids)`를 받는다. Checkbox 행, 현재 검색에 보이는 활성 행만 대상으로 하는 그룹 3상태 선택·`n/m`, 전체 선택 수, 모두 해제를 제공한다. `presets?: { id, label, description, itemIds }[]`는 활성 항목을 기존 선택에 더한다. 설명은 공유 Tooltip과 버튼의 접근성 설명으로 제공한다.
 - `mode: 'single'`은 `value: string | null`과 `onChange(id)`를 받는다. RadioGroup/RadioGroupItem을 사용하고 선택한 행 이름을 표시한다. 프리셋은 다중 선택 전용으로 타입에서도 금지하며 그룹 전체 선택·개수를 보이지 않는다.
+- 프리셋의 선택 옵션 `onApply?()`는 프리셋 적용의 `onChange` 다음에 실행한다. 소비자가 선택 출처를 기록할 수 있으며 수동 행 선택에는 실행하지 않는다. 생략하면 기존 동작 그대로다.
 - 검색은 그룹 이름·항목 이름·설명·id를 대소문자 구분 없이 찾는다. 검색과 프리셋 머리는 소비자가 소유한 한 스크롤 층 안에서 sticky다. 목록은 자체 높이 제한이나 스크롤 층을 만들지 않는다.
 - 비활성 항목은 설명 아래 이유를 표시하고 조작·프리셋·그룹 선택으로 바꾸지 않는다. 배지는 SDK가 StatusBadge로 렌더링한다. 키보드와 포커스는 공유 Checkbox·RadioGroup primitive를 따른다.
 - 선택 수는 기본 `role=status`로 알린다. `announceSelection={false}`는 수를 그대로 보이되 라이브 알림만 끈다(페이지 조건 편집기 등 소유 폼이 선택 표시를 맡는 경우).

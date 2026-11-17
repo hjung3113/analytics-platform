@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminOperatorTargets, analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, settingsRoute } from './admin-routes';
+import { adminOperatorTargets, analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, permissionGroupsRoute, settingsRoute } from './admin-routes';
 import { operatorHostLinks } from './operator-links';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
@@ -16,6 +16,7 @@ describe('Admin tables', () => {
     ['permission requests', permissionRequestsRoute, `/admin/permissions/requests?tab=approved&selected=${ROW}`, 'permission-request-review', { tab: 'approved', focus: ROW }],
     ['permission requests, bare', permissionRequestsRoute, '/admin/permissions/requests', 'permission-request-review', {}],
     ['permission grants', permissionGrantsRoute, `/admin/permissions/grants?tab=denies&selected=${ROW}`, 'permission-grants', { tab: 'denies', focus: ROW }],
+    ['permission groups', permissionGroupsRoute, `/admin/permissions/groups?tab=personal&selected=${ROW}`, 'permission-groups', { tab: 'personal', focus: ROW }],
     ['settings', settingsRoute, '/admin/settings', 'settings', {}],
   ])('maps the %s link to its menu and back to the same screen search', (_name, route, to, menuId, page) => {
     const target = route.target(to);
@@ -53,7 +54,7 @@ describe('Admin tables', () => {
   });
 
   it('exports the five targets, all wired into operatorHostLinks after the survey targets (764p2); an unmapped /admin path stays unlinked', () => {
-    expect(adminOperatorTargets).toHaveLength(5);
+    expect(adminOperatorTargets).toHaveLength(6);
     for (const to of [
       '/admin/managed-systems', `/admin/analytics-areas?managedSystem=${SYSTEM}&includeArchived=true`, `/admin/permissions/requests?tab=approved&selected=${ROW}`,
       `/admin/permissions/grants?tab=denies&selected=${ROW}`, '/admin/settings', '/admin/settings#coverage',

@@ -11,6 +11,7 @@ import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManaged
 import { useHostSearchWriter } from '../../../lib/host/useHostSearchWriter';
 import { type ReviewTab, validatePermissionRequestsSearch } from './permission-requests-search.js';
 import { permissionRequestsReviewKey } from './useDecidePermissionRequest.js';
+import { aggregatePermissionRequests } from '../../../lib/copy/permission-groups';
 
 const REQUESTS_PATH = '/admin/permissions/requests';
 // One identity while the list is absent, so the reconcile effect's dependency does not change on every render.
@@ -58,12 +59,13 @@ export function usePermissionRequestsConsole({
   const activeTab: ReviewTab = search.tab ?? 'pending';
   const selectedId = search.selected ?? null;
   const hasAppliedInitialSelection = React.useRef(false);
-  const allRequests = query.data?.requests ?? NO_REQUESTS;
+  const allRequests = aggregatePermissionRequests(query.data?.requests ?? NO_REQUESTS);
   const visibleRequests =
     activeTab === 'all'
       ? allRequests
       : allRequests.filter((request) => request.status === activeTab);
-  const selected = allRequests.find((request) => request.id === selectedId) ?? null;
+  const matchesSelection = (request: (typeof allRequests)[number]) => request.batchItems.some(item => item.id === selectedId);
+  const selected = allRequests.find(matchesSelection) ?? null;
 
   function handleTabChange(next: ReviewTab): void {
     // Existing selection rule: keep the selection if it is visible in the new
@@ -72,7 +74,7 @@ export function usePermissionRequestsConsole({
     const nextVisible =
       next === 'all' ? allRequests : allRequests.filter((request) => request.status === next);
     const selectionIsVisible =
-      selectedId !== null && nextVisible.some((request) => request.id === selectedId);
+      selectedId !== null && nextVisible.some(matchesSelection);
     const nextSelectedId = selectionIsVisible
       ? selectedId
       : autoSelect
@@ -103,12 +105,12 @@ export function usePermissionRequestsConsole({
     // links) are NOT re-selected here so history restores the exact prior UI.
     if (!query.isSuccess) return;
 
-    if (selectedId !== null && !visibleRequests.some((request) => request.id === selectedId)) {
+    if (selectedId !== null && !visibleRequests.some(request => request.batchItems.some(item => item.id === selectedId))) {
       // A refetch can move the selected request to another status tab. Keep its
       // detail/draft mounted so the revision-safe stale review can reconcile it.
       if (
         hasAppliedInitialSelection.current &&
-        allRequests.some((request) => request.id === selectedId)
+        allRequests.some(request => request.batchItems.some(item => item.id === selectedId))
       )
         return;
       // Stale/mismatched selection. On the very first reconcile (a deep link

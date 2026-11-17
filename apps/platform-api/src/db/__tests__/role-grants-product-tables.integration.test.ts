@@ -249,6 +249,9 @@ const EXPECTED_GRANTS: Record<string, readonly DmlPrivilege[]> = {
   // Migration 0126 (#1778): opinions on attempt items are append-only (guard trigger on top of the missing UPDATE / DELETE grant).
   'log_lifecycle.attempt_opinion': ['SELECT', 'INSERT'],
   // Migration 0134 (#1815 B1): attempt diagnostics are append-only for platform_app; bodies are erased only through the SECURITY DEFINER erase function.
+  'permission.permission_groups': ['SELECT', 'INSERT'],
+  'permission.permission_group_capabilities': ['SELECT', 'INSERT', 'DELETE'],
+  'permission.permission_group_shares': ['SELECT', 'INSERT', 'DELETE'],
   'log_lifecycle.attempt_diagnostic': ['SELECT', 'INSERT'],
   'log_lifecycle.attempt_diagnostic_item': ['SELECT', 'INSERT'],
   'log_lifecycle.validation_issue': ['SELECT', 'INSERT'],
@@ -394,6 +397,20 @@ describe.skipIf(!runIntegration)('FO ADR-0008 role grants — product tables (Sl
         public_execute: false,
       })),
     );
+  });
+
+  it('platform_app may update only permission-group content and archive columns', async () => {
+    const { rows } = await migrateHandle.pool.query<{ column_name: string }>(
+      `select column_name from information_schema.column_privileges
+       where grantee = 'platform_app' and table_schema = 'permission'
+       and table_name = 'permission_groups' and privilege_type = 'UPDATE' order by column_name`,
+    );
+    expect(rows.map((row) => row.column_name)).toEqual(['archived_at', 'description', 'name', 'updated_at']);
+    const privileges = await migrateHandle.pool.query(
+      `select has_table_privilege('platform_app', 'permission.permission_groups', 'UPDATE') as update,
+       has_table_privilege('platform_app', 'permission.permission_groups', 'DELETE') as delete`,
+    );
+    expect(privileges.rows[0]).toEqual({ update: false, delete: false });
   });
 
   it('platform_app UPDATE on review candidates is limited to resolution columns', async () => {

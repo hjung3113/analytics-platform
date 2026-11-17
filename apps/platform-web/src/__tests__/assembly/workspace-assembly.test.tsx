@@ -161,13 +161,13 @@ describe('workspace assembly (#260)', () => {
     expect(registry.menus.filter(menu => menu.carrySet === 'hwTime').map(menu => menu.id)).toEqual([]);
     expect(SPACE_DEFS[5]).not.toHaveProperty('carriedPageKeys');
     expect(SPACE_DEFS[6]).not.toHaveProperty('carriedPageKeys');
-    // Members: every 업무 흐름 menu and the two access menus (carry set `features`), plus global 내 Task; platform administration (group admin) is not a member.
+    // Members: every 업무 흐름 menu and the three access menus (carry set `features`), plus global 내 Task; platform administration (group admin) is not a member.
     const flowMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'flow');
     const operationsMenus = registry.menus.filter(menu => registry.spaceOf(menu)?.id === 'operations');
     const accessMenus = operationsMenus.filter(menu => menu.group === 'access');
     expect(flowMenus.length).toBeGreaterThan(0);
     expect(flowMenus.every(menu => menu.carrySet === 'features')).toBe(true);
-    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants', 'service-tokens']);
+    expect(accessMenus.map(menu => menu.id)).toEqual(['permission-request-review', 'permission-grants', 'permission-groups', 'service-tokens']);
     const accessCarryMenus = accessMenus.filter(menu => menu.id !== 'service-tokens');
     expect(registry.menuById('service-tokens').carrySet).toBeUndefined();
     expect(accessCarryMenus.every(menu => menu.carrySet === 'features')).toBe(true);
@@ -222,7 +222,7 @@ describe('workspace assembly (#260)', () => {
     const settingsIds = ['managed-systems', 'analytics-areas', 'settings'];
     expect(registry.menus.filter(menu => menu.group === 'flowSettings').map(menu => menu.id)).toEqual(settingsIds);
     expect(registry.menuById('managed-systems')).toMatchObject({ path: '/flow/managed-systems', primary: true });
-    const accessIds = ['permission-request-review', 'permission-grants'];
+    const accessIds = ['permission-request-review', 'permission-grants', 'permission-groups'];
     expect(registry.menus.filter(menu => menu.group === 'access').map(menu => menu.id)).toEqual([...accessIds, 'service-tokens']);
     expect(registry.menuById('service-tokens')).toMatchObject({ path: '/operations/service-tokens', permission: 'console:access', additionalPermissions: ['features:access'], pageKeys: ['noExpiry', 'kind'] });
     expect(registry.menuById('permission-request-review')).toMatchObject({ path: '/operations/permission-request-review', primary: true });

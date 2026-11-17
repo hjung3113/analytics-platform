@@ -24,6 +24,7 @@ import { permissionVocSourceSummary } from '../voc/index.js';
 import { getResolvedWorkspaceSettings } from '../workspace-settings/index.js';
 import { type ActorContext, type CheckService, applyAdminModuleBypass, capabilitiesOf } from './check-service.js';
 import { isSupportedScope, supportedScopeCandidates } from './supported-scope-policy.js';
+import { permissionGroupOrigin } from './group-service.js';
 
 type RequestRow = typeof permissionRequests.$inferSelect;
 export type SelectedReadService = ReturnType<typeof createSelectedReadService>;
@@ -72,6 +73,8 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
     // Survey/response and unsupported source identities remain opaque. No raw candidate reads.
     return {
       id: row.id,
+      batch_id: row.batchId,
+      permission_group: await permissionGroupOrigin(tx, actor.workspace_id, row.permissionGroupId),
       requester_actor_id: row.requesterActorId,
       ...requestedScopeFields(requestScope(row)),
       requested_capability: row.requestedCapability,

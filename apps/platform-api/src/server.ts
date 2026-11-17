@@ -1,5 +1,6 @@
 import { createGrantTableScopeResolver, countOutOfCatalogScopeGrants } from './modules/permissions/grant-table-scope-resolver.js';
 import type { ScopeCatalog } from './modules/permissions/scope-catalog.js';
+import { createGroupService } from './modules/permissions/group-service.js';
 import type { NotificationSubjectReference } from '@ap/feature-shared';
 import { resolveCorrelationId } from './lib/correlation-id.js';
 import { createOwnerRecoveryRecorder } from './modules/dashboard/truth.js';
@@ -641,6 +642,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     selectedReadService: createSelectedReadService({ db: dbHandle.db, checkService, ...scopeDeps }),
     decisionService,
     grantAdminService,
+    groupService: createGroupService({ db: dbHandle.db, checkService, auditService, idempotencyService }),
     workspaceId,
     rateLimitConfig: {
       mutation: app.rateLimitConfig.mutation,

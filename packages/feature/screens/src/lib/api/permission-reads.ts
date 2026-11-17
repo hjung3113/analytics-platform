@@ -36,6 +36,8 @@ export interface PermissionCheckResponse {
 export type CapabilityScope = { kind: 'all' } | { kind: 'scoped'; managed_system_ids: string[] };
 
 export interface AdminPermissionRequestRow {
+  batch_id?: string | null;
+  permission_group?: { id: string; name: string } | null;
   id: string;
   revision: number;
   requester_actor_id: string;

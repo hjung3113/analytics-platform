@@ -15,6 +15,10 @@ import { describe, expect, it } from 'vitest';
 import { AUDIT_EVENT_DETAIL_SCHEMAS, AUDIT_EVENT_TYPES } from '../../enums/audit-events.js';
 
 const EXPECTED_AUDIT_EVENT_TYPES = [
+  'permission_group_created',
+  'permission_group_updated',
+  'permission_group_archived',
+  'permission_group_shared',
   'permission_requested',
   'permission_approved',
   'permission_rejected',
@@ -231,7 +235,7 @@ const EXPECTED_AUDIT_EVENT_TYPES = [
 describe('audit event registry', () => {
   it('locks event-type order, uniqueness, and detail-map key coverage', () => {
     expect([...AUDIT_EVENT_TYPES]).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
-    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(211);
+    expect(new Set(AUDIT_EVENT_TYPES).size).toBe(215);
     expect(Object.keys(AUDIT_EVENT_DETAIL_SCHEMAS)).toEqual([...EXPECTED_AUDIT_EVENT_TYPES]);
   });
 });
