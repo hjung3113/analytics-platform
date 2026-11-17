@@ -15,8 +15,8 @@
   --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
   /* --- Raw color tokens (R G B triple format per ADR-0021) --- */
-  --color-pitch-black: 243 247 254;   /* #f3f7fe — canvas / lightest bg */
-  --color-graphite: 251 253 255;      /* #fbfdff — detail / card surface */
+  --color-pitch-black: 243 247 254;   /* #f3f7fe — list / background / inverse text */
+  --color-graphite: 255 255 255;      /* #ffffff — detail / card surface */
   --color-deep-slate: 237 243 251;    /* #edf3fb — popover / elevated */
   --color-charcoal-grey: 203 214 230; /* #cbd6e6 — subtle border */
   --color-muted-ash: 184 196 214;     /* #b8c4d6 — strong border */
@@ -25,7 +25,7 @@
   --color-light-steel: 55 65 81;      /* #374151 — secondary text */
   /* #525: was 104 115 134 / #687386 — 4.457:1 on canvas, just under WCAG AA
    * 4.5:1. Nudged darker (hue/saturation unchanged) to 4.64:1. */
-  --color-storm-cloud: 102 112 131;   /* #667083 — muted text */
+  --color-storm-cloud: 102 112 131;   /* #667083 — neutral accent / control border */
   --color-fog-grey: 152 162 179;      /* #98a2b3 — disabled text */
   --color-alabaster: 229 229 230;     /* #e5e5e6 */
   --color-neon-lime: 20 40 160;       /* #1428a0 — Samsung blue; name historical per ADR-0021 */
@@ -41,7 +41,7 @@
   /* --- Semantic text tokens --- */
   --text-primary: var(--color-porcelain);
   --text-secondary: var(--color-light-steel);
-  --text-muted: var(--color-storm-cloud);
+  --text-muted: 95 105 123;          /* #5f697b — small secondary metadata */
   --text-disabled: var(--color-fog-grey);
   --text-danger: var(--color-warning-red);
   --text-warning: var(--color-amber);
@@ -59,7 +59,7 @@
   --text-danger-label: 178 32 43;    /* #b2202b — 4.51:1 */
 
   /* --- Surface tokens --- */
-  --surface-canvas: var(--color-pitch-black);
+  --surface-canvas: 238 242 249;     /* #eef2f9 — page canvas */
   --surface-sidebar: 238 244 251;      /* #eef4fb */
   --surface-list: var(--color-pitch-black);
   --surface-row-hover: 231 239 252;    /* #e7effc */

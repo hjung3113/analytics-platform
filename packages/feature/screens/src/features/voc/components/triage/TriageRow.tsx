@@ -8,7 +8,7 @@
  *
  * Token translations (PROTOTYPE-TO-PACK17.md §3.8):
  *   .object-row.expanded → min-h-row-expanded py-3.5 px-5
- *   .object-row.selected::before → before:absolute before:left-0 before:inset-y-0 before:w-0.5 before:bg-accent-primary
+ *   .object-row.selected::before → before:absolute before:left-0 before:inset-y-0 before:w-0.5 before:bg-border-selected
  *   .row-body → flex flex-col min-w-0 gap-0.5
  *   .row-title → text-sm font-medium text-text-primary truncate
  *   .row-meta → text-xs text-text-muted flex items-center gap-2 flex-wrap
@@ -81,7 +81,7 @@ export function TriageRow({
       onKeyDown={handleKeyDown}
       className={cn(
         // Base layout — .object-row.expanded (§3.8)
-        'relative flex w-full items-center gap-3 min-h-row-expanded py-3.5 px-5 text-left',
+        'group/triage-row relative flex w-full items-center gap-3 min-h-row-expanded py-3.5 px-5 text-left',
         // Bottom border
         'border-b border-border-subtle',
         // Hover
@@ -89,8 +89,8 @@ export function TriageRow({
         // Selected state
         selected && [
           'bg-surface-row-selected',
-          // 2px neon-lime left bar (§3.8 .object-row.selected::before)
-          'before:absolute before:left-0 before:inset-y-0 before:w-0.5 before:bg-accent-primary',
+          // Shared 2px selection marker; severity retains its separate pill.
+          'before:absolute before:left-0 before:inset-y-0 before:w-0.5 before:bg-border-selected',
         ],
         className,
       )}
@@ -111,7 +111,7 @@ export function TriageRow({
         </div>
 
         {/* Meta row — .row-meta */}
-        <div id={metaId} className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
+        <div id={metaId} className={cn('flex items-center gap-2 text-xs flex-wrap group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
           <ReporterStatusBadge status={voc.reporter_facing_status} />
 
           {showPostponedMarker && voc.review_postponed_at != null && (
@@ -120,7 +120,7 @@ export function TriageRow({
                 className="w-0.5 h-0.5 rounded-full bg-text-disabled shrink-0"
                 aria-hidden="true"
               />
-              <span className="text-text-muted">{VOC_TRIAGE_TAB_LABELS.waiting}</span>
+              <span className={cn('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{VOC_TRIAGE_TAB_LABELS.waiting}</span>
             </>
           )}
 
@@ -130,7 +130,7 @@ export function TriageRow({
                 className="w-0.5 h-0.5 rounded-full bg-text-disabled shrink-0"
                 aria-hidden="true"
               />
-              <span className="text-text-muted">분석 영역 미지정</span>
+              <span className={cn('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>분석 영역 미지정</span>
             </>
           )}
 
@@ -148,7 +148,7 @@ export function TriageRow({
 
       {/* TRAILING: created-at — .row-trailing */}
       <div className="flex items-center shrink-0">
-        <span className="text-xs text-text-muted">{relTime}</span>
+        <span className={cn('text-xs group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{relTime}</span>
       </div>
     </button>
   );

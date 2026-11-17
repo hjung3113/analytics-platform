@@ -103,13 +103,14 @@ export function PublicVocListScreen({
         {items.map((voc) => (
           <li key={voc.id}>
             <button type="button" aria-current={selectedId === voc.id ? 'true' : undefined} onClick={() => { onSelect(voc.id); }}
-              className={cn('flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left hover:bg-surface-card',
+              className={cn('group/public-voc-row relative flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left hover:bg-surface-card',
                 selectedId === voc.id && 'bg-surface-row-selected')}>
+              {selectedId === voc.id && <span aria-hidden="true" data-testid="public-voc-row-selected-bar" className="absolute inset-y-0 left-0 w-0.5 bg-border-selected" />}
               <span className="flex w-full min-w-0 flex-wrap items-baseline gap-2">
-                <span className="font-mono text-xs text-text-muted whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
+                <span className={cn('font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate group-hover/public-voc-row:text-text-secondary', selectedId === voc.id ? 'text-text-secondary' : 'text-text-muted')} title={voc.display_id}>{voc.display_id}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary">{voc.title}</span>
               </span>
-              <span className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+              <span className={cn('flex flex-wrap items-center gap-2 text-xs group-hover/public-voc-row:text-text-secondary', selectedId === voc.id ? 'text-text-secondary' : 'text-text-muted')}>
                 <ManagedSystemPill name={voc.managed_system.name} />
                 <ReporterStatusBadge status={voc.reporter_facing_status} />
                 {voc.mine && <span className="rounded-full bg-surface-card-elevated px-2 py-0.5 text-text-secondary">내가 등록</span>}

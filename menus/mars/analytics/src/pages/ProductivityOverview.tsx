@@ -339,7 +339,7 @@ export default function ProductivityOverview(_: PageProps) {
                   ]}
                   trust={t}
                 />
-                <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card">
+                <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none">
                   <Table density="compact">
                     <TableCaption srOnly>{m('productivityTableCaption')}</TableCaption>
                     <TableHeader><TableRow>

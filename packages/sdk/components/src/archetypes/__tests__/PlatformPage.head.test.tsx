@@ -36,6 +36,13 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); window.histor
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('PlatformPage fill head disclosure (#680)', () => {
+  it('uses the section title scale inside the centred fixed-height header', () => {
+    mount();
+    const title = screen.getByRole('heading', { level: 1 });
+    expect(title).toHaveClass('t-section-title', 'text-text-primary', 'truncate');
+    expect(title).not.toHaveClass('text-sm');
+    expect(title.closest('header')).toHaveClass('h-[50px]', 'items-center');
+  });
   it('starts collapsed: the expand button points at the mounted, hidden head content and the extension keeps its state', () => {
     mount();
     const expand = screen.getByRole('button', { name: '페이지 머리 펼치기' });

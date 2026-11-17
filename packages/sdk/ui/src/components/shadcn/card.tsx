@@ -10,7 +10,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     <div
       ref={ref}
       className={cn(
-        'rounded-lg border border-border-subtle bg-surface-card text-text-primary shadow-sm',
+        'rounded-lg border border-border-subtle bg-surface-card text-text-primary shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none',
         padding === 'compact' && 'p-3.5',
         className,
       )}

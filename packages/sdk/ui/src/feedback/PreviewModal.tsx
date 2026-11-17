@@ -27,7 +27,7 @@
 //
 // Pack 17 translation:
 //   Dialog size="lg" → max-w-3xl (prototype has a wider preview card)
-//   bg-surface-card  → var(--surface-card)  #fbfdff
+//   bg-surface-card  → var(--surface-card)  #ffffff
 //   border-border-subtle → var(--border-subtle) #cbd6e6
 
 import * as React from 'react';

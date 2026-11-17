@@ -41,6 +41,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 .ap-dock .dv-groupview.dv-active-group {
   border-color: var(--color-border-selected);

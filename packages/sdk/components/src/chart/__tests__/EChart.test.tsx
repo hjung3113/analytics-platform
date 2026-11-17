@@ -82,9 +82,9 @@ describe('chart text tokens (#193)', () => {
     const oldColor = root.style.getPropertyValue('--text-muted');
     try {
       root.style.setProperty('--font-sans', "'Inter Variable', 'Pretendard Variable', sans-serif");
-      root.style.setProperty('--text-muted', '102 112 131');
+      root.style.setProperty('--text-muted', '95 105 123');
       expect(baseTextStyle.fontFamily).toBe("'Inter Variable', 'Pretendard Variable', sans-serif");
-      expect(baseTextStyle.color).toBe('rgb(102,112,131)');
+      expect(baseTextStyle.color).toBe('rgb(95,105,123)');
     } finally {
       if (oldFont) root.style.setProperty('--font-sans', oldFont); else root.style.removeProperty('--font-sans');
       if (oldColor) root.style.setProperty('--text-muted', oldColor); else root.style.removeProperty('--text-muted');
@@ -98,7 +98,7 @@ describe('ECharts base theme (#544)', () => {
     const values = {
       '--border-strong': '184 196 214',
       '--chart-grid': '237 241 247',
-      '--text-muted': '102 112 131',
+      '--text-muted': '95 105 123',
       '--surface-popover': '237 243 251',
       '--border-subtle': '203 214 230',
       '--text-primary': '16 24 40',
@@ -111,7 +111,7 @@ describe('ECharts base theme (#544)', () => {
       const theme = chartTheme();
       expect(theme.axisLine.lineStyle.color).toBe('rgb(184,196,214)');
       expect(theme.splitLine.lineStyle.color).toBe('rgb(237,241,247)');
-      expect(theme.axisLabel.color).toBe('rgb(102,112,131)');
+      expect(theme.axisLabel.color).toBe('rgb(95,105,123)');
       expect(theme.tooltip.backgroundColor).toBe('rgb(237,243,251)');
       expect(theme.tooltip.borderColor).toBe('rgb(203,214,230)');
       expect(theme.tooltip.textStyle.color).toBe('rgb(16,24,40)');

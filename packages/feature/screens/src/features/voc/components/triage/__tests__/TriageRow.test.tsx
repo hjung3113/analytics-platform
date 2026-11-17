@@ -24,6 +24,11 @@ const BASE_VOC: VocListItem = {
 };
 
 describe('TriageRow', () => {
+  it.each([false, true])('uses secondary metadata on hover and selection (selected=%s)', selected => {
+    render(<TriageRow voc={BASE_VOC} selected={selected} onSelect={vi.fn()} />);
+    expect(screen.getByRole('button')).toHaveClass('group/triage-row');
+    expect(screen.getByText('분석 영역 미지정')).toHaveClass('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
+  });
   it('keeps the VOC number unbroken beside the title', () => {
     render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
     expect(screen.getByText('VOC-001')).toHaveClass('whitespace-nowrap', 'shrink-0');

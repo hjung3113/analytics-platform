@@ -7,7 +7,7 @@ frontend component behavior — use `docs/design/features/README.md` and
 `packages/feature/screens/docs/ui-design-system.md` for implementation-facing UI contracts.
 
 Values are Pack 17 light per FO ADR-0021. If a dark value is found, replace it
-with the FO ADR-0021 hex (`#f3f7fe` canvas, `#1428a0` accent, `#101828` text) and
+with the FO ADR-0021 hex (`#eef2f9` canvas, `#1428a0` accent, `#101828` text) and
 keep the token name. None are in this file today. The Entity Icon table's
 `#e4f222` (Finding) and `#08090a` (dark foreground) are shipped Entity Icon
 colors (FO ADR-0060), not dark-theme leftovers; this replacement rule does not
@@ -19,21 +19,23 @@ Reference inspiration: Samsung One UI.
 
 **Theme:** light
 
-The feature suite presents a focused light-mode experience, inspired by Samsung's enterprise design language. A soft porcelain base creates a calm, open canvas, while subtle layered surfaces build depth without harsh contrasts. Distinctive text colors (#374151 for secondary, #667083 for muted, and #98a2b3 for disabled) maintain readability against the light backdrop. Critically, interaction is marked by a single Samsung blue (#1428a0), applied selectively to primary calls to action, preventing visual clutter and guiding the user's eye with precision.
+The feature suite presents a focused light-mode experience, inspired by Samsung's enterprise design language. A soft porcelain base creates a calm, open canvas, while subtle layered surfaces build depth without harsh contrasts. Distinctive text colors (#374151 for secondary, #5f697b for muted, and #98a2b3 for disabled) maintain readability against the light backdrop. Critically, interaction is marked by a single Samsung blue (#1428a0), applied selectively to primary calls to action, preventing visual clutter and guiding the user's eye with precision.
 
 ## Tokens — Colors
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Pitch Black | `#f3f7fe` | `--color-pitch-black` | Page background, primary surface for base elements, subtly integrated into shadows for depth. |
-| Graphite | `#fbfdff` | `--color-graphite` | Elevated card backgrounds, slightly lighter than the canvas to denote layering. |
+| Pitch Black | `#f3f7fe` | `--color-pitch-black` | List and compatibility background; canvas uses `--surface-canvas` (#eef2f9). |
+| Page Canvas | `#eef2f9` | `--surface-canvas` | Page background, independent of the list and compatibility background. |
+| Muted Text | `#5f697b` | `--text-muted` | Small metadata; selected and hovered rows use `text-secondary` for reading margin. |
+| Graphite | `#ffffff` | `--color-graphite` | Elevated card backgrounds, slightly lighter than the canvas to denote layering. |
 | Deep Slate | `#edf3fb` | `--color-deep-slate` | Secondary elevated card backgrounds, providing another layer of visual hierarchy. |
 | Charcoal Grey | `#cbd6e6` | `--color-charcoal-grey` | Borders and some shadowed card surfaces, framing elements with a subtle distinction. |
 | Muted Ash | `#b8c4d6` | `--color-muted-ash` | Subtle borders and dividers, indicating soft separations within the light theme. |
 | Gunmetal | `#94a3b8` | `--color-gunmetal` | Tertiary background elements and input borders, a darker neutral for functional elements. |
 | Porcelain | `#101828` | `--color-porcelain` | Primary text and icons, providing strong contrast for readability against light backgrounds. |
 | Light Steel | `#374151` | `--color-light-steel` | Secondary text and borders, for less prominent information or structural lines. |
-| Storm Cloud | `#667083` | `--color-storm-cloud` | Muted text, descriptive labels, and inactive states, recedes into the background for low-priority details. |
+| Storm Cloud | `#667083` | `--color-storm-cloud` | Neutral accents and control borders; muted text uses `--text-muted` (#5f697b). |
 | Fog Grey | `#98a2b3` | `--color-fog-grey` | Disabled text for metadata, timestamps, and further de-emphasized content. |
 | Alabaster | `#e5e5e6` | `--color-alabaster` | Informational borders and subtle fills, often seen in code blocks or explanatory components. |
 | Neon Lime | `#1428a0` | `--color-neon-lime` | Primary action indicators, active states, and focus elements — a high-energy focal point. |
@@ -63,14 +65,14 @@ row-selected / blocked / field-filled / 14% card tint`.
 
 | Token | R G B | Hex | Ratios |
 |-------|-------|-----|--------|
-| `--text-success-label` | `16 115 74` | `#10734a` | `5.47 / 5.76 / 5.27 / 5.31 / 5.08 / 4.69 / 5.23 / 5.88 / 4.98` |
-| `--text-info-label` | `0 111 148` | `#006f94` | `5.28 / 5.56 / 5.08 / 5.13 / 4.90 / 4.52 / 5.05 / 5.67 / 4.84` |
-| `--text-warning-label` | `142 85 0` | `#8e5500` | `5.67 / 5.97 / 5.45 / 5.50 / 5.26 / 4.85 / 5.42 / 6.09 / 4.98` |
-| `--text-danger-label` | `178 32 43` | `#b2202b` | `6.24 / 6.57 / 6.00 / 6.05 / 5.79 / 5.34 / 5.96 / 6.70 / 5.32` |
+| `--text-success-label` | `16 115 74` | `#10734a` | `5.23 / 5.88 / 5.27 / 5.31 / 5.08 / 4.69 / 5.23 / 5.88 / 5.07` |
+| `--text-info-label` | `0 111 148` | `#006f94` | `5.05 / 5.67 / 5.08 / 5.12 / 4.90 / 4.52 / 5.05 / 5.67 / 4.92` |
+| `--text-warning-label` | `142 85 0` | `#8e5500` | `5.42 / 6.09 / 5.45 / 5.50 / 5.26 / 4.85 / 5.42 / 6.09 / 5.07` |
+| `--text-danger-label` | `178 32 43` | `#b2202b` | `5.97 / 6.70 / 6.00 / 6.05 / 5.79 / 5.34 / 5.96 / 6.70 / 5.42` |
 
 12% badge tint ratios (`canvas / card / hovered row / 60%-blocked row`):
-success `4.85 / 5.09 / 4.53 / 4.73`; warning `4.87 / 5.11 / 4.54 / 4.75`;
-danger `5.23 / 5.49 / 4.87 / 5.09`. Danger on the 12% tint over a selected row: `4.51`.
+success `4.66 / 5.18 / 4.53 / 4.65`; warning `4.67 / 5.21 / 4.54 / 4.67`;
+danger `5.01 / 5.59 / 4.87 / 5.01`. Danger on the 12% tint over a selected row: `4.51`.
 Info has no current badge usage.
 
 ### Task Status Label Tokens (#799)
@@ -88,13 +90,13 @@ tint to the 8-bit color a browser paints; every label still clears 4.5:1 there.
 
 | Token | R G B | Hex | Ratios |
 |-------|-------|-----|--------|
-| `--status-internal-backlog-label` | `87 98 118` | `#576276` | `5.23 / 5.48 / 5.05 / 4.89 / 4.54 / 5.48` |
-| `--status-internal-todo-label` | `86 94 111` | `#565e6f` | `5.24 / 5.50 / 5.05 / 4.89 / 4.54 / 5.50` |
-| `--status-internal-doing-label` | `20 40 160` | `#1428a0` | `8.52 / 8.95 / 8.22 / 7.94 / 7.36 / 8.95` |
-| `--status-internal-review-label` | `15 71 255` | `#0f47ff` | `5.20 / 5.45 / 5.02 / 4.86 / 4.51 / 5.45` |
-| `--status-internal-done-label` | `16 108 69` | `#106c45` | `5.33 / 5.59 / 5.15 / 4.98 / 4.63 / 5.59` |
-| `--status-internal-released-label` | `0 104 139` | `#00688b` | `5.20 / 5.45 / 5.02 / 4.86 / 4.52 / 5.45` |
-| `--status-internal-reopened-label` | `178 32 43` | `#b2202b` | `5.23 / 5.49 / 5.04 / 4.87 / 4.51 / 5.49` |
+| `--status-internal-backlog-label` | `87 98 118` | `#576276` | `5.01 / 5.59 / 5.04 / 4.90 / 4.55 / 5.59` |
+| `--status-internal-todo-label` | `86 94 111` | `#565e6f` | `5.02 / 5.61 / 5.05 / 4.90 / 4.54 / 5.61` |
+| `--status-internal-doing-label` | `20 40 160` | `#1428a0` | `8.18 / 9.12 / 8.24 / 7.94 / 7.35 / 9.12` |
+| `--status-internal-review-label` | `15 71 255` | `#0f47ff` | `4.99 / 5.53 / 5.02 / 4.85 / 4.51 / 5.53` |
+| `--status-internal-done-label` | `16 108 69` | `#106c45` | `5.11 / 5.70 / 5.14 / 4.96 / 4.61 / 5.70` |
+| `--status-internal-released-label` | `0 104 139` | `#00688b` | `4.98 / 5.55 / 5.02 / 4.87 / 4.54 / 5.55` |
+| `--status-internal-reopened-label` | `178 32 43` | `#b2202b` | `5.00 / 5.59 / 5.04 / 4.88 / 4.52 / 5.59` |
 
 ### Managed System Identity Tokens
 
@@ -252,6 +254,8 @@ Icon chips use `--radius-icon-chip` (5px), exposed as `rounded-icon-chip`.
 
 ### Shadows
 
+Top-level cards and analysis panels use `shadow-sm` to separate their white surface from the canvas. Cards inside another card or Dockview panel use `shadow-none` so elevation does not stack. Page titles use `t-section-title` (18px/28px/600) within the centred 50px header. List selection combines the selected surface with a 2px `accent-primary` bar; severity pills retain their separate 3px width.
+
 | Name | Value | Token |
 |------|-------|-------|
 | sm | `rgba(16, 24, 40, 0.06) 0px 2px 4px 0px` | `--shadow-sm` |
@@ -307,7 +311,7 @@ Ghost button with transparent background, 'Storm Cloud' text (#667083), 2px bord
 ### Default Card
 **Role:** Content container
 
-Card with 'Graphite' background (#fbfdff), 6px border-radius, and an outer shadow of rgba(16, 24, 40, 0.06) 0px 2px 4px 0px. Padding is 8px on all sides.
+Card with 'Graphite' background (#ffffff), 6px border-radius, and an outer shadow of rgba(16, 24, 40, 0.06) 0px 2px 4px 0px. Padding is 8px on all sides.
 
 ### Elevated Card
 **Role:** Prominent content container
@@ -342,13 +346,13 @@ Badge with a 'Gunmetal' background (#94a3b8), 'Storm Cloud' text (#667083), 4px 
 ## Do's and Don'ts
 
 ### Do
-- Use 'Pitch Black' (#f3f7fe) for the primary page background to establish the light theme.
+- Use `surface-canvas` (#eef2f9) for the primary page background to establish the light theme.
 - Apply 'Porcelain' (#101828) for all primary text and important icons to ensure readability.
 - Highlight primary interactive elements exclusively with 'Neon Lime' (#1428a0) as a background, restricting its use to guide user attention.
-- Create depth and hierarchy by layering surfaces using 'Pitch Black' (#f3f7fe), 'Graphite' (#fbfdff), and 'Deep Slate' (#edf3fb) backgrounds.
+- Create depth and hierarchy by layering surfaces using `surface-canvas` (#eef2f9), 'Graphite' (#ffffff), and 'Deep Slate' (#edf3fb) backgrounds.
 - Employ the Inter font family with specific letter-spacing adjustments for all UI text, such as -0.22px for display sizes and -0.13px for body text, to maintain a tight, precise feel.
 - Utilize 6px border-radius for all primary buttons, cards, and input fields to maintain a consistent, subtly rounded aesthetic.
-- Use 'Storm Cloud' (#667083) for muted text and descriptive labels to recede into the background.
+- Use `text-muted` (#5f697b) for muted text and descriptive labels to recede into the background.
 
 ### Don't
 - Do not introduce additional bright or saturated colors beyond 'Neon Lime' (#1428a0) for interactive elements; maintain its singular role.
@@ -363,8 +367,8 @@ Badge with a 'Gunmetal' background (#94a3b8), 'Storm Cloud' text (#667083), 4px 
 
 | Level | Name | Value | Purpose |
 |-------|------|-------|---------|
-| 0 | Pitch Black Canvas | `#f3f7fe` | Base page background and deepest surface level. |
-| 1 | Graphite Card | `#fbfdff` | Primary card surface for general content, slightly elevated from the canvas. |
+| 0 | Page Canvas | `#eef2f9` | Base page background and deepest surface level. |
+| 1 | Graphite Card | `#ffffff` | Primary card surface for general content, slightly elevated from the canvas. |
 | 2 | Deep Slate Elevated Card | `#edf3fb` | More prominent card surface, used for focused content sections or lists. |
 | 3 | Charcoal Grey Overlay | `#cbd6e6` | Accent surface for borders, shadows, and subtle overlays, providing clear separation. |
 
@@ -403,14 +407,14 @@ and scroll behavior automatic; JS motion also reads the shared preference helper
 
 Quick Color Reference:
 - text: #101828 (Porcelain)
-- background: #f3f7fe (Pitch Black)
+- background: #eef2f9 (surface-canvas)
 - border: #cbd6e6 (Charcoal Grey)
 - accent: #1428a0 (Aether Blue)
 - primary action: #1428a0 (filled action)
 
 3-5 Example Component Prompts:
 - Create a call-to-action button: 'Neon Lime' background (#1428a0), white text (#ffffff), Inter font weight 590 at 15px, 6px border-radius, 12px vertical and 24px horizontal padding.
-- Create a default card with content: 'Graphite' background (#fbfdff), 6px border-radius, rgba(16, 24, 40, 0.06) 0px 2px 4px 0px shadow. Inside, use Inter font weight 400 at 14px with 'Porcelain' text (#101828), and a subsection headline at 17px weight 510 with 'Porcelain' text (#101828). Apply 8px padding internally.
+- Create a default card with content: 'Graphite' background (#ffffff), 6px border-radius, rgba(16, 24, 40, 0.06) 0px 2px 4px 0px shadow. Inside, use Inter font weight 400 at 14px with 'Porcelain' text (#101828), and a subsection headline at 17px weight 510 with 'Porcelain' text (#101828). Apply 8px padding internally.
 - Create a sidebar navigation item: Ghost button with transparent background, 'Storm Cloud' text (#667083), Inter font weight 400 at 14px, 2px border-radius, no padding.
 - Create an input field: transparent background with a 'Gunmetal' fill (#94a3b8), 'Light Steel' text (#374151) using Inter font weight 400 at 14px, 6px border-radius. Inset with a 1px 'Charcoal Grey' border (#cbd6e6). Padding 12px vertical and 14px horizontal.
 

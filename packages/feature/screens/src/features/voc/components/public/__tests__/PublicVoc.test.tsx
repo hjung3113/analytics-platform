@@ -33,6 +33,23 @@ afterEach(() => {
 });
 
 describe('PublicVocListScreen', () => {
+  it('marks only the selected row and strengthens selected and hovered metadata', async () => {
+    stubFetch([item(ID_1, 'First'), item(ID_2, 'Second')]);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <PublicVocListScreen query={{ q: '', mine: false, systemId: null }} onQueryChange={vi.fn()} selectedId={ID_2} onSelect={vi.fn()} />
+    </QueryClientProvider>);
+    await screen.findByText('Second');
+    for (const [id, selected] of [['VOC-11', false], ['VOC-22', true]] as const) {
+      const meta = screen.getByText(id);
+      const row = meta.closest('button');
+      if (row === null) throw new Error('VOC metadata must belong to a row button');
+      expect(row).toHaveClass('relative', 'group/public-voc-row');
+      expect(meta).toHaveClass('group-hover/public-voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
+      const bar = row.querySelector('[data-testid="public-voc-row-selected-bar"]');
+      if (selected) expect(bar).toHaveClass('absolute', 'inset-y-0', 'left-0', 'w-0.5', 'bg-border-selected');
+      else expect(bar).toBeNull();
+    }
+  });
   it('groups the range and bounded system filter before a pane-responsive full-row search', async () => {
     stubFetch([]);
     const { container } = render(

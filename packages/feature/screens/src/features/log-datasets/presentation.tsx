@@ -41,7 +41,7 @@ export function Pager({ page, total, size = 25, onChange, showCount = true }: { 
   return <div className="flex items-center justify-end gap-2 text-xs">{showCount ? <span>{total}건 · {page + 1}페이지</span> : null}<Button variant="secondary" size="toolbar" disabled={page === 0} onClick={() => onChange(page - 1)}>이전</Button><Button variant="secondary" size="toolbar" disabled={(page + 1) * size >= total} onClick={() => onChange(page + 1)}>다음</Button></div>;
 }
 // eslint-disable-next-line shadcn/no-unknown-classes -- t-card-title is supplied by the platform host through @ap/ui/styles.css.
-export function Panel({ title, children }: { title: string; children: ReactNode }) { return <section aria-label={title} className="min-w-0 space-y-3 rounded-lg border border-border-subtle bg-surface-card p-3"><h2 className="t-card-title">{title}</h2>{children}</section>; }
+export function Panel({ title, children }: { title: string; children: ReactNode }) { return <section aria-label={title} className="min-w-0 space-y-3 rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-3"><h2 className="t-card-title">{title}</h2>{children}</section>; }
 export function WriteError({ result, onRetry }: { result: WriteResult | null; onRetry(): void }) {
   if (!result || result.outcome === 'ok') return null;
   const limit = result.fieldErrors.some(f => f.code === 'suite.run_limit');

@@ -111,7 +111,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
     },
     "xAxis": {
       "axisLabel": {
-        "color": "rgb(102,112,131)",
+        "color": "rgb(95,105,123)",
         "showMaxLabel": false,
         "showMinLabel": false,
       },
@@ -133,7 +133,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
     },
     "yAxis": {
       "axisLabel": {
-        "color": "rgb(102,112,131)",
+        "color": "rgb(95,105,123)",
         "showMaxLabel": false,
         "showMinLabel": false,
       },

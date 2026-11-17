@@ -108,7 +108,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     return segmentText(model, item, props.formatTooltip, lang);
   }
   return <section ref={root} role="region" aria-label={props.ariaLabel} aria-describedby={`${helpId} ${summaryId}`} tabIndex={0}
-    className="relative min-w-0 rounded-lg border border-border-subtle bg-surface-card text-xs text-text-primary"
+    className="relative min-w-0 rounded-lg border border-border-subtle bg-surface-card text-xs text-text-primary shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none"
     onKeyDown={event => {
       if (event.target !== event.currentTarget) return;
       if (brushOn && brush.keyDown(event, engine.current?.view() ?? model.domain)) return;
