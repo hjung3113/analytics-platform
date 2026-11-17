@@ -21,11 +21,11 @@ export function usePermissionReviewState(members: ReviewMember[]) {
     setDraft({ ...next, key: revisionKey });
   }, [revisionKey]);
   if (draft && draft.key !== revisionKey) {
-    // Member queries may settle separately. Only exact revisions returned by this panel's decision,
-    // or still-unrefreshed members from its draft, belong to that successful transition.
+    // Member queries may settle separately. A member is this panel's own transition when it is unchanged since the
+    // draft (still unrefreshed, or closed and never sent) or sits at the exact revision this panel's decision returned.
     const previousMembers = new Set(draft.key.split('|'));
     const ownRevision = ownDecision !== null && members.length === previousMembers.size && members.every(item =>
-      ownDecision[item.id] !== undefined && (ownDecision[item.id] === item.revision || previousMembers.has(`${item.id}:${item.revision}`)));
+      previousMembers.has(`${item.id}:${item.revision}`) || ownDecision[item.id] === item.revision);
     if (draft.nonEmpty && !ownRevision) setDiscardedReason(draft.reason);
     setDraft(null);
   }

@@ -75,3 +75,30 @@ it('recognizes its own successful whole-batch decision without a discarded-draft
   expect(screen.queryByTestId('permission-decision-reset-notice')).not.toBeInTheDocument();
   expect(screen.queryByTestId('permission-request-stale-alert')).not.toBeInTheDocument();
 });
+
+it('recognizes its own decision when an untouched closed member stays in the batch (C7)', async () => {
+  const [open, closedSource] = initial;
+  if (!open || !closedSource) throw new Error('fixture');
+  const closed = { ...closedSource, status: 'cancelled' as const, revision: 2, allowed_actions: [] };
+  let items = [open, closed];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/decide')) {
+      items = [{ ...open, status: 'needs_more_info' as const, revision: 2 }, closed];
+      return json({ batch_id: batch, items: [{ id: open.id, status: 'needs_more_info' }] });
+    }
+    const item = items.find(item => url.endsWith(item.id));
+    if (item) return json(item);
+    throw new Error(url);
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  render(<QueryClientProvider client={client}><PermissionRequestBatchDetail rows={items.map(({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }) => ({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }))} id={batch} managedSystemNames={{}} onClose={vi.fn()} /></QueryClientProvider>);
+  await screen.findByTestId('permission-decision-section');
+  fireEvent.click(screen.getByRole('button', { name: '추가 정보 요청' }));
+  fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'please add detail' } });
+  fireEvent.click(screen.getByTestId('permission-decision-submit'));
+  await waitFor(() => expect(client.getQueryData(permissionRequestAdminDetailKey(open.id))).toMatchObject({ revision: 2 }));
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.queryByTestId('permission-decision-reset-notice')).not.toBeInTheDocument();
+  expect(screen.queryByTestId('permission-request-stale-alert')).not.toBeInTheDocument();
+});
