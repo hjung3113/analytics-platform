@@ -18,6 +18,8 @@ Platform Kernel runtime (contract/kernel.md §4). It knows neither the menu list
 
 ## Registry (`registry.ts`, `module.ts`, `module-host.ts`)
 
+- Optional `MenuMeta.panels` is validated and indexed by `registry/panels.ts` via `createRegistry`; `panel-inputs.ts` exports input projection, disabled-reason and query-identity helpers (#2433).
+
 - `opensObject` declares which object kinds a menu opens (들어오는 연결; not the `platform-inbound-link` codec); `subjectLinks` opts into header lists. Registry validates both and builds `objectDestinations(kind)` once; screen-bound `objectLinks` reuses `resolveLink` with returnTo/page/global (06 §22).
 
 - `createRegistry({ spaces, groups, menus, permissions?, platformHomeMenuId?, reservedRoots?, carrySets?, retiredMenus? })`. Contract: platformHome designation and validation, canonical paths, aliases and redirects, retired menu ids (`retiredMenus` → `successorOf`, `withPagePreset`; favorites and recents are read through `platform/retiredMenus.ts`, #2330), and the `replace` option are in [contract/kernel.md §6.4](../../../docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate); `registry.canonical.test.ts` and `platform.alias-redirect.test.tsx` and `platform.retired-menus.test.tsx` verify them.

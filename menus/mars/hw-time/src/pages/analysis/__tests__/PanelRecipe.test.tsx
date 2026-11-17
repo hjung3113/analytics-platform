@@ -10,7 +10,7 @@ import HwTimePage from '../../../HwTimePage';
 import { panelDeclarations } from '../panelDeclaration';
 import { panelRecipe } from '../recipeModel';
 import { RecipeBack } from '../PanelRecipe';
-import declarationSource from '../panelDeclaration.ts?raw';
+import declarationSource from '../../../panels.ts?raw';
 
 vi.mock('@ap/components', async original => {
   const actual = await original<typeof import('@ap/components')>();

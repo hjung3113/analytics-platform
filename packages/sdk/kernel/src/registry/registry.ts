@@ -1,3 +1,4 @@
+import { registerPanels, type RegisteredPanel } from './panels';
 import { registerPageConditions } from './page-conditions';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import { hasDotSegment } from '../context/location';
@@ -107,6 +108,9 @@ export function withPagePreset(search: string, page: Readonly<Record<string, str
 }
 
 export type Registry = {
+  panels: (menuId: string) => readonly RegisteredPanel[];
+  panelsReading: (key: string) => readonly RegisteredPanel[];
+  panelsWriting: (key: string) => readonly RegisteredPanel[];
   groups: readonly GroupDef[];
   menus: readonly MenuEntry[];
   spaces: readonly SpaceDef[];
@@ -545,6 +549,11 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const noDestinations: readonly MenuEntry[] = [];
   const objectDestinations = (kind: string): readonly MenuEntry[] => objectsByKind.get(kind) ?? noDestinations;
 
+  const registeredPanels = menus.flatMap(menu => registerPanels(menu, fail));
+  const panels = (menuId: string) => registeredPanels.filter(panel => panel.menuId === menuId);
+  const panelsReading = (key: string) => registeredPanels.filter(panel => [panel.queryInputs, panel.displayInputs].some(inputs => inputs.context?.some(input => input === key) || inputs.page?.some(input => input.key === key)));
+  const panelsWriting = (key: string) => registeredPanels.filter(panel => panel.outputs.some(output => output.key === key));
+
   const groupById = (id: AnyGroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
   const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
   const spaceOf = (menu: MenuEntry): SpaceDef | null => {
@@ -613,7 +622,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, successorOf, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { panels, panelsReading, panelsWriting, groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, successorOf, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */

@@ -864,3 +864,56 @@ describe('pageConditions declarations (#2337)', () => {
     expect(JSON.stringify(output)).toBe(JSON.stringify({ ...catalog, path: '/mars/catalog', aliases: ['/metrics'] }));
   });
 });
+
+
+describe('panel registration (#2433)', () => {
+  const panel = { id: 'summary', title: { ko: '요약', en: 'Summary' }, queryInputs: { page: [{ key: 'level', required: true }] }, displayInputs: { page: [{ key: 'focus' }] }, outputs: [{ key: 'level', action: 'drill' }], grain: 'dailyStat', endpoints: [{ id: 'catalog.summary', menuId: 'catalog', permission: menuPermission('data:read') }] };
+  const entry = { ...catalog, pageKeys: ['level', 'focus'], contextResetKeys: ['level'], drill: { levels: [{ key: 'level', label: { ko: '단계', en: 'Level' } }] } };
+  const build = (panels: unknown = [panel]) => createRegistry({ spaces, groups, menus: [{ ...entry, panels } as PlatformMenuEntry] });
+  it('keeps undeclared menus and URLs identical', () => {
+    const registry = createRegistry({ spaces, groups, menus: [catalog] });
+    expect(registry.menuById('catalog')).toEqual({ ...catalog, path: '/mars/catalog', aliases: ['/metrics'] });
+    expect(registry.canonicalHref('/mars/catalog?v=1')).toBe('/mars/catalog?v=1');
+    expect(registry.panels('catalog')).toEqual([]);
+    expect(registry.panelsReading('level')).toEqual([]);
+  });
+  it.each([
+    [{ queryInputs: { page: [{ key: 'unknown' }] } }, /page key.*unknown/],
+    [{ queryInputs: { context: ['from'] } }, /context key.*from/],
+    [{ displayInputs: { page: [{ key: 'level' }] } }, /query.*display/],
+    [{ queryInputs: { context: ['time'] }, displayInputs: { context: ['time'] } }, /query.*display/],
+    [{ outputs: [{ key: 'unknown', action: 'drill' }] }, /output.*page key/],
+    [{ outputs: [{ key: 'from', action: 'date' }] }, /output.*page key/],
+    [{ title: { ko: '', en: 'Summary' } }, /title/],
+    [{ title: { ko: '요약', en: ' ' } }, /title/],
+    [{ availability: { requires: [{ anyOf: ['derived'] }], disabledReason: { ko: '', en: 'Choose' } } }, /disabledReason/],
+    [{ availability: { requires: [{ anyOf: [] }], disabledReason: { ko: '선택', en: 'Choose' } } }, /availability/],
+    [{ grain: 'daily-stat' }, /grain/],
+    [{ endpoints: [{ id: 'other.query', menuId: 'other', permission: menuPermission('data:read') }] }, /endpoint.*owned/],
+  ])('rejects malformed panel %j', (patch, message) => {
+    expect(() => build([{ ...panel, ...patch }])).toThrow(message);
+  });
+  it('rejects duplicate ids', () => expect(() => build([panel, panel])).toThrow(/duplicate.*summary/));
+  it('indexes readers and writers with menu identity, permissions and derived reason', () => {
+    const registry = build();
+    const [registered] = registry.panels('catalog');
+    expect(registered).toMatchObject({ id: 'summary', menuId: 'catalog', permissions: [menuPermission('metrics:view'), menuPermission('data:read')] });
+    expect(registered.disabledReason({})).toEqual({ ko: '단계', en: 'Level' });
+    expect(registered.disabledReason({ level: 'a' })).toBeUndefined();
+    expect(registry.panelsReading('level')).toEqual([registered]);
+    expect(registry.panelsReading('focus')).toEqual([registered]);
+    expect(registry.panelsWriting('level')).toEqual([registered]);
+    expect(registry.panelsWriting('focus')).toEqual([]);
+  });
+  it('derives query labels and falls back to key names', () => {
+    const registry = createRegistry({ spaces, groups, menus: [{ ...catalog, pageKeys: ['focus', 'other'], context: { ...none, time: 'apply' }, query: { mode: 'apply', required: { page: [{ key: 'focus', label: { ko: '초점', en: 'Focus' } }] } }, panels: [{ ...panel, queryInputs: { page: [{ key: 'focus', required: true }, { key: 'other', required: true }] }, displayInputs: {}, outputs: [] }] }] });
+    expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: '초점, other', en: 'Focus, other' });
+  });
+  it('allows capability names, derived override keys and opaque S2 metadata; deduplicates permissions', () => {
+    const registry = build([{ ...panel, queryInputs: { context: ['scopeId', 'time'] }, endpoints: [{ ...panel.endpoints[0], permission: catalog.permission }], availability: { requires: [{ anyOf: ['step4'] }], disabledReason: { ko: '4단계', en: 'Step 4' } }, pieces: ['opaque'], version: { future: true } }]);
+    expect(registry.panelsReading('time')).toHaveLength(1);
+    expect(registry.panels('catalog')[0].permissions).toEqual([catalog.permission]);
+    expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: '4단계', en: 'Step 4' });
+    expect(registry.panels('catalog')[0].disabledReason({ step4: true })).toBeUndefined();
+  });
+});

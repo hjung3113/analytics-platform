@@ -99,7 +99,7 @@ describe('panel declarations', () => {
   });
   it('declares distribution with the scatter run inputs (verdict/date links), display-only checks and run grain', () => {
     const declaration = panelDeclarations.distribution;
-    expect(declaration).toMatchObject({ id: 'distribution', title: { ko: '분포', en: 'Distribution' }, grain: 'run', outputs: [], endpoints: ['hwTime.distribution'] });
+    expect(declaration).toMatchObject({ id: 'distribution', title: S.distributionCatalog, grain: 'run', outputs: [], endpoints: [{ id: 'hwTime.distribution', menuId: 'hw-time' }] });
     expect(declaration.queryInputs).toEqual(panelDeclarations.scatter.queryInputs);
     expect(declaration.queryInputs.page.map(input => input.key)).toEqual(expect.arrayContaining(['verdict', 'date']));
     expect(panelQueryIdentity(declaration, { ...context, verdict: 'over' })).not.toBe(panelQueryIdentity(declaration, context));

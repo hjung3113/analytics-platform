@@ -6,6 +6,7 @@ import { lazy } from 'react';
 import { Activity, Route, Timer } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
+import { cycleTimePanels } from './panels';
 import { PERMISSION } from './permission';
 
 const GROUP = groupId('analytics');
@@ -35,6 +36,7 @@ export const manifests: MenuEntry[] = [
     component: lazy(() => import('./pages/ProductivityOverview')),
   },
   {
+    panels: cycleTimePanels,
     id: 'cycle-time', group: GROUP, label: { ko: '사이클타임 상세', en: 'Cycle time detail' }, keywords: { ko: ['택트', '택트타임'] },
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',

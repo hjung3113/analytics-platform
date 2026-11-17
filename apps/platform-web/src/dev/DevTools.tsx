@@ -1,4 +1,5 @@
 import { useMessages, useI18n, usePlatform } from '@ap/kernel';
+import { PanelCatalog } from './PanelCatalog';
 import { DEV_MESSAGES } from './messages';
 import { Check, FlaskConical, UserCog } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
@@ -40,6 +41,7 @@ export function DevTools() {
   };
 
   return <>
+    <PanelCatalog />
     <Popover>
       <PopoverTrigger asChild>
         <button type="button" aria-label={t('scenario')} title={t('scenario')}
