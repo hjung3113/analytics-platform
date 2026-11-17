@@ -21,7 +21,7 @@ export function mockEchartsCanvas(): CanvasProbe {
 }
 
 export type DockEngineApi = { panels: { api: { setSize: (size: { width: number }) => void } }[] };
-export type DockEngineProbe = { api: undefined | DockEngineApi };
+export type DockEngineProbe = { api: undefined | DockEngineApi; beforeRender?: () => void };
 
 /** Wraps the real `DockviewReact` and captures the engine `api` from its ready event. Returns the probe holding it. */
 export function probeDockEngine(): DockEngineProbe {
@@ -29,7 +29,10 @@ export function probeDockEngine(): DockEngineProbe {
   vi.doMock('dockview-react', async importOriginal => {
     const actual = await importOriginal<{ DockviewReact: ComponentType<{ onReady: (event: { api: DockEngineApi }) => void }> }>();
     const Real = actual.DockviewReact;
-    return { ...actual, DockviewReact: (props: { onReady: (event: { api: DockEngineApi }) => void }) => <Real {...props} onReady={event => { probe.api = event.api; props.onReady(event); }} /> };
+    return { ...actual, DockviewReact: (props: { onReady: (event: { api: DockEngineApi }) => void }) => {
+      probe.beforeRender?.();
+      return <Real {...props} onReady={event => { probe.api = event.api; props.onReady(event); }} />;
+    } };
   });
   return probe;
 }

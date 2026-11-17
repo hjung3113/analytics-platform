@@ -49,7 +49,7 @@ function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
     return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global, pending: null };
   }
   if (state.pending?.source === input.url || state.address === input.url) return state;
-  return { ...state, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
+  return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
 }
 export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   return [

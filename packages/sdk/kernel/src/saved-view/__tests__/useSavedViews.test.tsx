@@ -1,9 +1,10 @@
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildQuery, emptyGlobal, groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, usePlatform, type MenuPlatform } from '../../index';
-import { useHostPlatform, useSavedViews, type SavedViews } from '../../host';
+import { PaneScreenProvider, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
 import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities, type FakeSavedViewStore as FakeStore } from '../../testing';
 /** A promise the test resolves by hand, to finish a store call out of order. */
 function deferred(): { promise: Promise<void>; release: () => void } {
@@ -24,10 +25,19 @@ const session = testSession(['platform:view']);
 
 let views: SavedViews; let host: ReturnType<typeof useHostPlatform>;
 function Probe() { useSavedViewSupport(support); views = useSavedViews(); host = useHostPlatform(); return <p>{views.status}</p>; }
+function NoSupportProbe() { views = useSavedViews(); host = useHostPlatform(); return <p>{views.status}</p>; }
 function mount(store: FakeStore | undefined, url = '/') {
   window.history.replaceState(null, '', url);
   const ui = (s: FakeStore | undefined) => <I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} savedViews={s}><Probe /></PlatformProvider></I18nProvider>;
   return render(ui(store));
+}
+
+function mountAutoApply(store: FakeStore, Content = Probe, search = '') {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu('home', '/', true, true), pageKeys: [...base.pageKeys, 'returnTo'], query: { mode: 'apply', autoApplyDefault: true } }] });
+  window.history.replaceState(null, '', chosen.menus[0].path + search);
+  const replace = vi.spyOn(window.history, 'replaceState');
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Content /></PlatformProvider></I18nProvider>);
+  return replace;
 }
 const KEY = 'platform:saved-view:selected:u1:home';
 beforeEach(() => window.sessionStorage.clear());
@@ -76,6 +86,219 @@ it('applies the personal default to a bare route with one replace that Back cann
   expect(replace.mock.calls.filter(([, , url]) => String(url).includes('line'))).toHaveLength(1);
   await waitFor(() => expect(views.selected?.view.id).toBe('l1'));
   expect(window.sessionStorage.getItem(KEY)).toBe('l1');
+});
+
+it('lets the personal default win while its restore is still pending on an auto Apply entry', async () => {
+  const held = deferred();
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  store.getHold.set('l1', held.promise);
+  const replace = mountAutoApply(store);
+  await waitFor(() => expect(store.reads).toContain('get'));
+  expect(window.location.search).toBe('');
+  await act(async () => held.release());
+  await waitFor(() => expect(views.selected?.view.id).toBe('l1'));
+  expect(window.location.search).toBe(query(['L1']));
+  expect(replace.mock.calls.filter(([, , url]) => String(url).includes('from='))).toHaveLength(1);
+});
+
+it('restores an auto Apply default when the host omits the Saved View control', async () => {
+  function Screen() { useSavedViewSupport(support); return <p>Custom context bar</p>; }
+  const replace = mountAutoApply(createFakeStore([L1], { 'u1:home': 'l1' }), Screen);
+  await waitFor(() => expect(window.location.search).toBe(query(['L1'])));
+  expect(replace.mock.calls.filter(([, , url]) => String(url).includes('from='))).toHaveLength(1);
+});
+
+it('loads the non-opt-in board pane’s Saved Views without requesting the main screen’s lists', async () => {
+  const board = menu('board-menu', '/board-menu', true);
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+    { ...menu('home', '/', true, true), query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support },
+    { ...board, features: { ...board.features, board: true } },
+  ] });
+  const paneView = viewOf({ id: 'pane-view', kind: 'menu-view', menuId: board.id, menuSchemaVersion: 1, page: [] });
+  const store = createFakeStore([L1, paneView], { 'u1:home': 'l1' });
+  const list = vi.spyOn(store, 'list');
+  const paneSupport = { ...support, menuId: board.id };
+  function PaneControl() {
+    useSavedViewSupport(paneSupport);
+    const { menuViews } = useSavedViews();
+    return <p>{menuViews.map(item => item.denied ? item.id : item.view.id).join(', ')}</p>;
+  }
+  window.history.replaceState(null, '', '/');
+  const mounted = render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}>
+    <PaneScreenProvider paneId="background" screen={{ menuId: board.id, params: {}, query: query(['L2']) }} onChange={() => {}} onLeave={() => {}}>
+      <PaneControl />
+    </PaneScreenProvider>
+  </PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(window.location.search).toBe(query(['L1'])));
+  expect(list.mock.calls.map(([key]) => key.menuId)).toEqual([board.id, null]);
+  expect(await mounted.findByText(paneView.id)).toBeInTheDocument();
+});
+
+it('restores a declared default through a held lazy main screen with one replace', async () => {
+  const held = deferred();
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  function Screen() { useSavedViewSupport(support); return <p>Lazy screen</p>; }
+  const component = lazy(async () => { await held.promise; return { default: Screen }; });
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...menu('home', '/', true, true), features: { ...menu('home', '/', true).features, board: true },
+    query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support, component,
+  }] });
+  window.history.replaceState(null, '', chosen.canonicalHref('/'));
+  const replace = vi.spyOn(window.history, 'replaceState');
+  const Page = component;
+  const content = <Suspense fallback={<p>Loading screen</p>}><Page /></Suspense>;
+  const mounted = render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}>
+    {content}
+  </PlatformProvider></I18nProvider>);
+  await act(async () => {});
+  expect(mounted.queryByText('Lazy screen')).toBeNull();
+  await act(async () => held.release());
+  expect(window.location.search).toBe(query(['L1']));
+  expect(replace).toHaveBeenCalledTimes(1);
+});
+
+it('checks a recovered selection on a new parameterized pathname and preserves it on query edits', async () => {
+  const chosen = createRegistry({ spaces: [testSpace({ homeMenuId: 'plain' })], groups: registry.groups, menus: [
+    menu('plain', '/', false, true), { ...menu('home', '/items/:id', true), query: { mode: 'apply', autoApplyDefault: true } },
+  ] });
+  window.history.replaceState(null, '', '/items/a' + query(['L1']));
+  window.sessionStorage.setItem(KEY, 'l1');
+  const store = createFakeStore([L1]);
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(views.selected?.view.id).toBe('l1'));
+  act(() => { host.setGlobal({ lineNames: ['L2'] }); });
+  expect(views.selected?.view.id).toBe('l1');
+  act(() => { host.navigate('/items/b' + query(['L2'])); });
+  await waitFor(() => expect(window.sessionStorage.getItem(KEY)).toBeNull());
+  expect(views.selected).toBeNull();
+});
+
+it('keeps the full-screen selection when a background pane materializes its period', async () => {
+  const home = menu('home', '/', true, true);
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+    { ...home, features: { ...home.features, board: true }, query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support },
+  ] });
+  window.history.replaceState(null, '', '/board');
+  window.sessionStorage.setItem(KEY, 'l2');
+  const store = createFakeStore([L1, L2], { 'u1:home': 'l1' });
+  const onChange = vi.fn();
+  const getDefaultId = vi.spyOn(store, 'getDefaultId');
+  function Body() {
+    const platform = useHostPlatform();
+    host = platform;
+    return platform.route?.menu.id === 'home' ? <Probe /> :
+      <PaneScreenProvider paneId="background" screen={{ menuId: 'home', params: {}, query: '' }} onChange={onChange} onLeave={() => {}}>{null}</PaneScreenProvider>;
+  }
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Body /></PlatformProvider></I18nProvider>);
+  expect(onChange).toHaveBeenCalledExactlyOnceWith({
+    menuId: 'home', params: {}, query: buildQuery({ ...emptyGlobal, from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, []),
+  }, 'replace');
+  expect(getDefaultId).not.toHaveBeenCalled();
+  expect(store.reads).toEqual([]);
+  act(() => { host.navigate('/' + query(['L2'])); });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  expect(views.selected?.view.id).toBe('l2');
+  expect(window.sessionStorage.getItem(KEY)).toBe('l2');
+});
+
+it('resolves the new Scope default while the old Scope read is still held', async () => {
+  const held = deferred();
+  const store = createFakeStore([L1, L2], { 'u1:home': 'l1' });
+  store.getHold.set('l1', held.promise);
+  mountAutoApply(store, Probe, '?scopeId=MEM');
+  await waitFor(() => {
+    expect(host.scope).toMatchObject({ scopeId: 'MEM', status: 'valid' });
+    expect(store.reads).toContain('get');
+  });
+  await store.setDefault({ userId: 'u1', menuId: 'home' }, 'l2');
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => {
+    expect(host.scope).toMatchObject({ scopeId: 'FDRY', status: 'valid' });
+    expect(host.global).toMatchObject({ scopeId: 'FDRY', lineNames: ['L2'] });
+  });
+  await act(async () => held.release());
+  expect(host.global.lineNames).toEqual(['L2']);
+});
+
+it.each(['list', 'get'] as const)('discards a personal default when the %s read outlasts the deadline', async read => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([L1], { 'u1:home': 'l1' });
+    if (read === 'list') store.listHold = held.promise;
+    else store.getHold.set('l1', held.promise);
+    const replace = mountAutoApply(store);
+    await act(async () => {});
+    expect(store.reads).toContain(read);
+    expect(host.queryPolicy.autoApplyingDefault).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+      held.release();
+    });
+    expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
+    expect(host.queryPolicy.autoApplyingDefault).toBeFalsy();
+    expect(replace).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('resumes the auto Apply default after a denied pick while the old read is held', async () => {
+  const held = deferred();
+  const store = createFakeStore([L1, L2], { 'u1:home': 'l1' });
+  store.getHold.set('l1', held.promise);
+  mountAutoApply(store);
+  await waitFor(() => expect(store.reads).toContain('get'));
+  store.getHold.delete('l1');
+  store.denied.add('l2');
+  await act(async () => { expect(await views.select('l2')).toEqual({ ok: false, reason: 'denied' }); });
+  await waitFor(() => expect(window.location.search).toBe(query(['L1'])));
+  await act(async () => held.release());
+  expect(window.location.search).toBe(query(['L1']));
+});
+
+it('preserves an explicit return address when an auto Apply menu has a personal default', async () => {
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  const search = '?returnTo=%2Fplain';
+  mountAutoApply(store, Probe, search);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => {});
+  expect(window.location.search).toBe(search);
+  expect(views.selected).toBeNull();
+});
+
+it.each(['no default', 'missing default', 'unavailable list'] as const)(
+  'applies the default period only after the saved-view decision settles with %s',
+  async outcome => {
+    const held = deferred();
+    const get = deferred();
+    const store = createFakeStore([], outcome === 'missing default' ? { 'u1:home': 'missing' } : {});
+    store.listHold = held.promise;
+    store.getHold.set('missing', get.promise);
+    if (outcome === 'unavailable list') vi.spyOn(store, 'list').mockImplementation(async () => {
+      await held.promise;
+      throw new Error('unavailable');
+    });
+    const replace = mountAutoApply(store);
+    expect(views.status).toBe('loading');
+    expect(window.location.search).toBe('');
+    await act(async () => held.release());
+    if (outcome === 'missing default') {
+      await waitFor(() => expect(store.reads).toContain('get'));
+      expect(window.location.search).toBe('');
+      await act(async () => get.release());
+    }
+    await waitFor(() => expect(host.global.from).toBe('2026-09-25T09:00:00'));
+    expect(replace.mock.calls.filter(([, , url]) => String(url).includes('from='))).toHaveLength(1);
+  },
+);
+it('applies the default period when the saved-view controller is disabled', () => {
+  const store = createFakeStore();
+  const replace = mountAutoApply(store, NoSupportProbe);
+  expect(views.status).toBe('disabled');
+  expect(store.reads).toEqual([]);
+  expect(host.global.from).toBe('2026-09-25T09:00:00');
+  expect(replace).toHaveBeenCalledTimes(1);
 });
 it.each([
   ['a Context key', query(['L2'])],

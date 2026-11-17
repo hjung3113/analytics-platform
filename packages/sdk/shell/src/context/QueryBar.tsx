@@ -65,8 +65,9 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   // A Scope that is absent or failed is a finished state that cannot run a query: it settles the decision as expanded, it does not wait.
   const scopeStatus = platform.scope.status;
   const scopeSettled = scopeStatus === 'valid' || scopeStatus === 'forbidden' || scopeStatus === 'unknown_scope' || scopeStatus === 'error' || (scopeStatus === 'none' && global.scopeId === null);
-  const settled = platform.metricInit.phase === 'skip' && (platform.queryPolicy.ready || scopeSettled);
-  if (choice === null && (dirty.length > 0 || settled)) {
+  const pendingDefault = platform.queryPolicy.autoApplyingDefault === true;
+  const settled = !pendingDefault && platform.metricInit.phase === 'skip' && (platform.queryPolicy.ready || scopeSettled);
+  if (choice === null && !pendingDefault && (dirty.length > 0 || settled)) {
     const applied = settled && platform.queryPolicy.ready && global.from !== null && global.to !== null && canApply && missing.length === 0 && dirty.length === 0 && !applying && !platform.queryPolicy.idle;
     setChoice(!applied);
   }
@@ -113,7 +114,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const groups = useCustomGroupOptions({ scopeId: g.scopeId, selectedGroupIds: g.condition?.[CUSTOM_GROUP_AXIS] ?? NO_GROUPS, canEditCondition: cap.condition === 'apply' });
   const reasons = missing.map(item => ({ key: item.key, reason: item.key === 'customGroupMembershipBasis' ? m('customGroupCurrentOnly') : queryMissingSentence(lang, item.label) }));
   if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: m('queryScopeRequired') });
-  if (applying) reasons.push({ key: 'commit', reason: m('queryApplying') });
+  if (applying || pendingDefault) reasons.push({ key: 'commit', reason: m('queryApplying') });
   const periodInputInvalid = (periodEditor.mode === 'reference' && periodEditor.invalidReference) || range.from !== (g.from ?? '') || range.to !== (g.to ?? '');
   if (periodInputInvalid) reasons.push({ key: 'period-input', reason: m('queryInvalidPeriodInput') });
   if (editError) reasons.push({ key: 'edit', reason: editError });
@@ -142,14 +143,14 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const actions = <div role="group" aria-label={m('queryActionsLabel')} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
     {changes > 0 ? <span className="text-xs text-text-secondary">{m('queryUnappliedChanges', { count: changes })}</span>
       : notApplied && <span className="text-xs text-text-secondary">{m('queryNotApplied')}</span>}
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{m('queryRevertDraft')}</Button>
-    <Button type="button" variant="ghost" size="toolbar" onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('resetContext')}</Button>
+    <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{m('queryRevertDraft')}</Button>
+    <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('resetContext')}</Button>
     {historySlot}
     {stableView.present && <span ref={stableView.adopt} className="contents" />}
     {/* A page-supplied hint keeps the button focusable (aria-disabled, click ignored) so keyboard, screen-reader and touch users reach the explanation too. */}
     <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild>
       <span className={extension?.applyHint !== undefined ? 'inline-flex cursor-not-allowed opacity-50' : 'inline-flex'}>
-        <Button type="button" size="toolbar" disabled={extension?.applyHint === undefined && (!canApply || reasons.length > 0)} aria-disabled={extension?.applyHint !== undefined ? true : undefined}
+        <Button type="button" size="toolbar" disabled={pendingDefault || (extension?.applyHint === undefined && (!canApply || reasons.length > 0))} aria-disabled={extension?.applyHint !== undefined ? true : undefined}
           aria-describedby={extension?.applyHint === undefined ? reasonId : `${reasonId} ${reasonId}-apply-hint`} onClick={() => { if (extension?.applyHint === undefined) apply(); }}>{t('apply')}</Button>
       </span>
     </TooltipTrigger>{extension?.applyHint !== undefined && <TooltipContent>{extension.applyHint}</TooltipContent>}</Tooltip></TooltipProvider>
@@ -183,31 +184,31 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
   }}>
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
-        {cap.time === 'apply' && <PeriodFields global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
+        {cap.time === 'apply' && <PeriodFields disabled={pendingDefault} global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
         {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
-          <TargetPicker global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
+          <TargetPicker disabled={pendingDefault} global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
           {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
         </div>}
     </div>
     {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <div role="group" aria-label={m('queryEquipmentConditions')} className="flex min-w-0 flex-wrap items-start gap-3">
         {switcher && <div className="grid gap-1 text-xs text-text-secondary">
           <span id={`${id}-preset`}>{m('queryConditionSet')}</span>
-          <SegmentedRadio label={m('queryConditionSet')} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
+          <SegmentedRadio disabled={pendingDefault} label={m('queryConditionSet')} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
           <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
         </div>}
         {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid w-80 max-w-full gap-1 text-xs text-text-secondary">
           <span id={`${id}-membership`}>{m('queryMembershipBasis')}</span>
           {/* SegmentedRadio uses these primitives too, but cannot disable just the historical option. */}
-          <RadioGroup appearance="segmented" orientation="horizontal" aria-labelledby={`${id}-membership`} value={g.membershipBasis ?? 'current'} onValueChange={value => write({ membershipBasis: value === 'asOf' ? 'asOf' : null })} onKeyDownCapture={event => {
+          <RadioGroup disabled={pendingDefault} appearance="segmented" orientation="horizontal" aria-labelledby={`${id}-membership`} value={g.membershipBasis ?? 'current'} onValueChange={value => write({ membershipBasis: value === 'asOf' ? 'asOf' : null })} onKeyDownCapture={event => {
             // Match SegmentedRadio's synchronous focus/selection, skipping the unavailable historical choice.
-            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+            if (pendingDefault || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
             const next = !history || event.key === 'Home' ? null : event.key === 'End' ? 'asOf' : g.membershipBasis === 'asOf' ? null : 'asOf';
             write({ membershipBasis: next });
             event.currentTarget.querySelector<HTMLButtonElement>(next === 'asOf' ? 'button[value="asOf"]' : 'button[value="current"]')?.focus();
           }}>
-            <RadioGroupItem appearance="segmented" value="current">{m('queryCurrentMembership')}</RadioGroupItem>
-            <RadioGroupItem appearance="segmented" value="asOf" disabled={!history} aria-describedby={!history ? `${id}-history` : undefined}>{t('membershipAsOf')}</RadioGroupItem>
+            <RadioGroupItem appearance="segmented" value="current" disabled={pendingDefault}>{m('queryCurrentMembership')}</RadioGroupItem>
+            <RadioGroupItem appearance="segmented" value="asOf" disabled={pendingDefault || !history} aria-describedby={!history ? `${id}-history` : undefined}>{t('membershipAsOf')}</RadioGroupItem>
           </RadioGroup>
           {!history && <p id={`${id}-history`}>{m('queryMembershipHistoryHint')}</p>}
         </div>}
@@ -215,7 +216,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     {carried.length > 0 && <div role="group" aria-label={m('queryCarriedConditions')} className="flex flex-wrap gap-2 text-xs">
       {carried.map(item => <span key={item.key} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle p-2 [overflow-wrap:anywhere]">
         {item.label} {item.value} · {item.key.startsWith('condition:') && outside.includes(item.key.slice('condition:'.length)) ? m('queryNotAppliedInPreset', { name: presetName }) : item.capability === 'unsupported' ? t('notUsed') : item.capability === 'reference' ? t('referenceOnly') : t('applied')}
-        <Button type="button" variant="ghost" size="toolbar" aria-label={`${t('clear')} ${item.label}`} onClick={() => remove(item.key)}>×</Button>
+        <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} aria-label={`${t('clear')} ${item.label}`} onClick={() => remove(item.key)}>×</Button>
       </span>)}
     </div>}
     {board && <><p className="text-xs [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="text-xs [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p>{actions}{issues}<Button type="button" variant="ghost" size="toolbar" onClick={() => toggle(false)}>{t('close')}</Button></>}
@@ -227,7 +228,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={m('queryViewFullConditions')} onClick={() => toggle(true)}><span className="truncate">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {summary}</span></Button>}
       {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>}
       {!expanded && actions}
-      {board && !expanded && <span id={reasonId} className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
+      {board && !expanded && <span id={reasonId} role="status" className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
       <ShareControl compact={false} align="start" />
     </div>
     {!board && !expanded && <WorkspaceQueryBarRow />}
@@ -239,7 +240,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
 const NO_GROUPS: readonly string[] = [];
 /** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
 const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
-function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string }) {
+function PeriodFields({ disabled, global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; disabled: boolean }) {
   const { defaultRangeTo } = useHostPlatform();
   const { lang, t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -263,15 +264,15 @@ function PeriodFields({ global: g, range, setRange, write, invalid, reasonId, pe
   return <div className="grid min-w-0 max-w-full gap-1 text-xs text-text-secondary" role="group" aria-label={t('period')}>
     <span className="flex flex-wrap items-baseline gap-x-2">{t('period')}<span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span></span>
     <div className="flex flex-wrap items-center gap-1">
-      {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} disabled={defaultRangeTo === null} onClick={p.apply}>{p.label}</Button>)}
+      {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} disabled={disabled || defaultRangeTo === null} onClick={p.apply}>{p.label}</Button>)}
       {/* Presets pick a range, the pair picks how to type one: a divider keeps two pressed buttons from reading as one choice. */}
       <span aria-hidden className="mx-1 h-5 w-px bg-border-subtle" data-period-divider />
-      <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{m('queryReferenceDate')}</Button>
-      <Button type="button" size="toolbar" variant={mode === 'range' ? 'secondary' : 'ghost'} aria-pressed={mode === 'range'} onClick={() => setMode('range')}>{m('queryCustomRange')}</Button>
+      <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} disabled={disabled} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{m('queryReferenceDate')}</Button>
+      <Button type="button" size="toolbar" variant={mode === 'range' ? 'secondary' : 'ghost'} disabled={disabled} aria-pressed={mode === 'range'} onClick={() => setMode('range')}>{m('queryCustomRange')}</Button>
     </div>
-    {mode === 'reference' ? <Input type="date" aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={m('queryReferenceDate')} value={reference} onChange={event => date(event.target.value)} className="w-44 max-w-full" /> : <div className="flex flex-wrap gap-2">
-      <Input type="datetime-local" step="1" aria-label={m('queryRangeFrom')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="w-64 max-w-full" />
-      <Input type="datetime-local" step="1" aria-label={m('queryRangeTo')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="w-64 max-w-full" />
+    {mode === 'reference' ? <Input type="date" disabled={disabled} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={m('queryReferenceDate')} value={reference} onChange={event => date(event.target.value)} className="w-44 max-w-full" /> : <div className="flex flex-wrap gap-2">
+      <Input type="datetime-local" disabled={disabled} step="1" aria-label={m('queryRangeFrom')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="w-64 max-w-full" />
+      <Input type="datetime-local" disabled={disabled} step="1" aria-label={m('queryRangeTo')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="w-64 max-w-full" />
     </div>}
   </div>;
 }

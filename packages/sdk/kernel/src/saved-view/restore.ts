@@ -29,9 +29,9 @@ export type RestoreResult =
   | { ok: false; reason: RestoreFailure };
 
 /** True when the address already carries Context or page keys. A bare route is the only place a personal default may apply. */
-export function hasExplicitContext(current: Applied): boolean {
+export function hasExplicitContext(current: Applied, { includeReturnTo = false } = {}): boolean {
   const { scopeId: _scope, ...keys } = current.global;
-  return Object.values(keys).some(value => value !== null) || current.page.some(([key]) => key !== RETURN_TO_KEY);
+  return Object.values(keys).some(value => value !== null) || current.page.some(([key]) => includeReturnTo || key !== RETURN_TO_KEY);
 }
 
 /** The saved copy restricted to what this menu supports, with a relative period resolved and the Site-bound values of another Scope left out: the shape `viewState` compares with the applied state. */
@@ -75,12 +75,12 @@ export function comparableApplied(view: SavedView, applied: SavedState): SavedSt
  * Applies a view to the current address: supported keys are replaced by the view, unsupported ones are listed and left out, other page
  * keys and `extras` stay as they are. A `default` source applies only to a bare route. Pure: the caller writes `href` with one `replace` (default) or a push (picked).
  */
-export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string | null; source: RestoreSource }): RestoreResult {
+export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string | null; source: RestoreSource; includeReturnTo?: boolean }): RestoreResult {
   const { view, support, current } = input;
   if (view.kind === 'custom-group') return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuId !== support.menuId) return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuSchemaVersion !== support.menuSchemaVersion) return { ok: false, reason: 'stale-schema' };
-  if (input.source === 'default' && hasExplicitContext(current)) return { ok: true, applied: false, reason: 'explicit-address' };
+  if (input.source === 'default' && hasExplicitContext(current, { includeReturnTo: input.includeReturnTo })) return { ok: true, applied: false, reason: 'explicit-address' };
   const fields = supportedFields(support);
   const resolved = resolveContext(view.context, input.anchor);
   const dropped = new Set<string>(siteBoundDropped(view, current.global.scopeId));

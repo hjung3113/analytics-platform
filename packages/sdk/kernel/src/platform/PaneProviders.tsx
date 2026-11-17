@@ -45,8 +45,9 @@ export function PaneQueryDraftProvider({ screens, children }: { screens: Readonl
  */
 export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeave, countUsage = true, children }: {
   paneId: string; /** Caption for a detail panel opened from this pane (`칸 2 · 메뉴`); read back as `usePlatform().paneLabel`. */ paneLabel?: string; screen: PaneScreen; onChange: (next: PaneScreen, how: 'push' | 'replace') => void; onLeave: (href: string) => void;
-  /** Default true. The board's Context bar mounts a second, controlled provider for the selected pane; it passes false so that stay is counted once. */
-  countUsage?: boolean; children: ReactNode;
+  /** Default true. Pass false when the host already counts this pane's stay. */
+  countUsage?: boolean;
+  children: ReactNode;
 }) {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);

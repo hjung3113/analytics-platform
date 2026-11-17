@@ -1,7 +1,7 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { lazy, Suspense, useRef } from 'react';
 import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, contractErrorSentence, useI18n, useMessages } from '@ap/kernel';
-import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
+import { ScreenContentLoading, useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
 import { Button, StatusBadge, shortcutLabel } from '@ap/ui';
 import { menuPermissions, type Capability, type ContextKey, type Permission } from '@ap/contracts';
@@ -30,7 +30,7 @@ export function RouteOutlet() {
   // has its own: a lazy screen that suspends under a shared boundary makes React hide the mounted board sibling and re-run its layout effects (ECharts disposed).
   const fallback = <div className="p-5"><LoadingBlock rows={6} height={320} /></div>;
   return <>
-    {!maximized && <Suspense fallback={fallback}><ScreenOutlet /></Suspense>}
+    {!maximized && <Suspense fallback={<>{fallback}<ScreenContentLoading /></>}><ScreenOutlet /></Suspense>}
     {/* A stale board chunk (or a board render throw) shows a retry in place of the open or windowed board; only a really minimized board draws nothing. The rail and the screen stay (#1876). */}
     {mounted && <ShellBoundary fallback={maximized || floating ? undefined : null}><Suspense fallback={maximized ? fallback : null}><BoardHost Outlet={ScreenOutlet} display={maximized ? 'maximized' : floating ? 'window' : 'minimized'} /></Suspense></ShellBoundary>}
   </>;

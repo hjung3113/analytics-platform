@@ -180,8 +180,9 @@ export type HostPlatform = {
   queryHistoryStore?: QueryHistoryStore;
   /** Host-only (never on `MenuPlatform`, ADR-0076). Not the feature-bridge `savedViewsSlot`, which is a sidebar slot. */
   savedViewStore?: SavedViewStore;
-  /** `drillGap`: a later drill step has a value while an earlier one is empty (06 §6.4 format error); menu queries stay closed. */
-  queryPolicy: { ready: boolean; idle: boolean; drillGap: boolean; missing: readonly QueryMissing[] };
+  /** `drillGap`: a later drill step has a value while an earlier one is empty (06 §6.4 format error); menu queries stay closed.
+   * `autoApplyingDefault`: an opted-in first entry is still waiting for its applied address. */
+  queryPolicy: { ready: boolean; idle: boolean; drillGap: boolean; missing: readonly QueryMissing[]; autoApplyingDefault?: boolean };
   equipmentAxes: readonly EquipmentAxisDescriptor[];
   registry: Registry;
   /** The server port. Menus read it for the console and audit ports and the session-bound generation of the my-activity bridge; the query hooks are the usual route. */

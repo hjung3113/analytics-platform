@@ -15,7 +15,7 @@ function HistorySession() {
   const history = useQueryHistory();
   const { lang, t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
-  const { route, equipmentAxes } = useHostPlatform();
+  const { route, equipmentAxes, queryPolicy } = useHostPlatform();
   const extension = useQueryBarExtension();
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -57,8 +57,8 @@ function HistorySession() {
     if (minutes === 0) return m('historyJustNow');
     return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-(minutes < 60 ? minutes : minutes < 1440 ? Math.floor(minutes / 60) : Math.floor(minutes / 1440)), minutes < 60 ? 'minute' : minutes < 1440 ? 'hour' : 'day');
   };
-  return <Popover open={open} onOpenChange={value => { setOpen(value); setConfirm(false); if (value) history.open(); }}>
-    <PopoverTrigger asChild><Button ref={trigger} type="button" variant="ghost" size="toolbar">{m('historyButton')}</Button></PopoverTrigger>
+  return <Popover open={open && !queryPolicy.autoApplyingDefault} onOpenChange={value => { setOpen(value); setConfirm(false); if (value) history.open(); }}>
+    <PopoverTrigger asChild><Button ref={trigger} type="button" variant="ghost" size="toolbar" disabled={queryPolicy.autoApplyingDefault}>{m('historyButton')}</Button></PopoverTrigger>
     <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)]" onEscapeKeyDown={() => { setOpen(false); trigger.current?.focus(); }}>
       <div className="space-y-2">
       <p className="text-xs text-text-secondary">{m('historyRestoresNote')}</p>

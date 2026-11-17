@@ -12,7 +12,10 @@ function useMerged(): HostPlatform | null {
   const paneScreen = useContext(PaneScreenContext);
   // `use` reads the main screen only outside a pane, so a pane reader has no dependency on it.
   const screen = paneScreen ?? use(ScreenContext);
-  return useMemo(() => (app && main && screen ? { ...app.pub, ...main, ...screen } : null), [app, main, screen]);
+  return useMemo(() => {
+    if (!app || !main || !screen) return null;
+    return { ...app.pub, ...main, ...screen };
+  }, [app, main, screen]);
 }
 
 /** Recent visits of the main screen, newest first. For a rendered list; an event handler reads `readRecent()` (host). Throws outside a provider. */
