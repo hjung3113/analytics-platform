@@ -105,7 +105,7 @@ Registry는 `navTree`와 `navHidden`의 병존, `navViews`의 병존(빈 배열 
 
 **조회 실행 선언(Decided, [ADR-0061](../adr/0061-query-draft-applied-address-and-required-gate.md)):** 선택적 `query: { mode: 'apply', required?: { context?: ContextKey[], page?: {key,label: Text}[] } }`로 일괄 적용을 선택한다. 부재는 live 모드다. Apply는 time capability가 apply여야 하며 필수 Context는 메뉴가 apply하는 알려진 키, 필수 page는 `pageKeys`와 비어 있지 않은 ko/en label이어야 한다. Scope는 `requiresScope`로 선언한다. 엔드포인트의 선택적 `requiredContext`도 그 엔드포인트가 apply하는 키만 받는다. Apply 메뉴와 엔드포인트가 함께 apply하는 키의 명시적 required 선언은 일치해야 한다(등록 검증). 보조 엔드포인트의 작은 투영에는 메뉴의 다른 필수 키를 강요하지 않는다. 서버는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 모든 투영 필드 구조적 존재 검사에 더해 required의 의미적 존재를 검사한다. 초안 API·실행은 §11, 서버 표본은 [연결 체크리스트](../integration/real-server-checklist.md) §4를 따른다.
 
-### 패널 등록 (Candidate, #2433)
+### 패널 선언 (Candidate, #2433)
 
 선택 필드 `MenuMeta.panels`는 메뉴 안의 패널을 선언한다. 별도 Registry를 만들지 않고 Menu Registry가 등록·검증·역방향 조회를 맡는다. 선언하지 않은 메뉴의 출력과 URL은 그대로다.
 
@@ -613,7 +613,7 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 | 조건 세트 | 지원 Context(기간 규칙, 설비 Selection/Condition, `membershipBasis`, Line·PRC 그룹). 메뉴 사이에 재사용한다. 메뉴가 지원하지 않는 값은 §6.4대로 적용되지 않음을 표시한다. |
 | 메뉴 뷰 | 한 메뉴의 적용 조건 + page-owned 키(필터·표 열 상태·분석 표시) + 차트 옵션 + 배치 + 패널별 좁히기 설정(`panels`) + `schemaVersion`·메뉴 안정 ID·메뉴 스키마 버전. |
 
-`custom-group`은 한 Scope(`savedScopeId` 필수)의 설비 묶음을 저장하는 세 번째 kind다. `target.rule`은 축 간 AND·축 안 OR 규칙이며 `customGroup` 중첩은 금지하고, `target.fixed`는 중복 없는 설비 ID 1~5,000개다. 공개 대상은 나만(`private`) 또는 공유 그룹(`groups`)이며 공식 등급·승인·개인 기본이 없고 뷰로 복원하지 않는다. `{ menuId: null }` 목록은 계속 조건 세트만 반환하며 커스텀 조회 그룹은 `kind: 'custom-group'`을 명시해 읽는다([ADR-0164](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0164-target-picker-dialog-and-custom-groups.md) 결정 6–8). 공유는 데이터 권한을 주지 않으며 소유자만 고치고 지운다.
+`custom-group`은 한 Scope(`savedScopeId` 필수)의 조회 대상 묶음을 저장하는 세 번째 kind다. 구성원은 그 메뉴의 조회 대상 단위(HW Time은 설비)이고, 규칙은 어느 축으로든 쓸 수 있다. `target.rule`은 축 간 AND·축 안 OR 규칙이며 `customGroup` 중첩은 금지하고, `target.fixed`는 중복 없는 대상 ID 1~5,000개다(지금 구현은 설비 ID). 공개 대상은 나만(`private`) 또는 공유 그룹(`groups`)이며 공식 등급·승인·개인 기본이 없고 뷰로 복원하지 않는다. `{ menuId: null }` 목록은 계속 조건 세트만 반환하며 커스텀 조회 그룹은 `kind: 'custom-group'`을 명시해 읽는다([ADR-0164](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0164-target-picker-dialog-and-custom-groups.md) 결정 6–8). 공유는 데이터 권한을 주지 않으며 소유자만 고치고 지운다.
 
 - 보드 시트는 메뉴 뷰 여러 개의 배치이며 새 형식이 없다. 패널은 따로 저장하지 않고 메뉴 뷰의 `panels`다.
 - 저장하지 않는 것: 일시 hover, 단순 chart zoom, 열린 modal, 미적용 draft. 원시 데이터와 엔진 raw JSON은 저장하지 않는다(엔진 중립 배치만). 이름 제한은 자유 형식 `chartOptions`·`layout`에 적용하며, 선언된 적용 page 키(`returnTo` 제외)와 Condition 축 ID는 이름과 관계없이 저장한다.

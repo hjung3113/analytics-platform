@@ -442,6 +442,20 @@ batch rejection marks that row `거절됨`, shows its name and mapped error unde
 the list, and preserves the draft for deselection and retry. Single-known-capability
 request buttons and owner dialogs remain single.
 
+Permission groups (#2408, ADR-0163) are named capability sets with no system or
+Site scope; the system is picked when requesting or granting. The operations
+console «권한 그룹» screen lists operator and personal groups in two tabs, with a
+detail drawer and create, edit and archive. On the requester page, picking an
+operator group or one of the requester's own groups checks those capabilities in
+the same selection list, and capabilities that cannot be requested show as one
+«빠짐» line; requesters can create, edit and share their own groups. A group
+request is one row in request review: approval is a confirmation list where
+unchecked capabilities are rejected with one reason, while reject and
+request-more-info apply to the whole request; rows the requester already holds
+are disabled and unchecked. The grant form's operator-group button picks the
+system, then checks the capabilities, and the grant records its origin (권한 그룹
+«name»). API: [permissions](../../../../docs/architecture/platform-api/api/permissions.md#permission-groups-adr-0163-2408).
+
 No new frontend route is required. `/home` own open-request rows open owner-scoped
 detail/dialog with edit, withdrawal or supplementation as permitted by the server.
 Do not send requesters to an Admin-only console. Preserve Home context on close;

@@ -288,9 +288,10 @@ dashboard
 - recovery_identities / recovery_history / recovery_presentations (56-H owner-derived projections)
 
 permission
-- permission_requests
-- permission_grants
+- permission_requests (`permission_group_id`·`batch_id` 출처 열, migration 0139)
+- permission_grants (`permission_group_id` 출처 열, migration 0139)
 - permission_denies
+- permission_groups / permission_group_capabilities / permission_group_shares (migration 0139, ADR-0163; capability만, 범위 없음)
 
 knowledge (log knowledge hub, migration 0080, #1193, ADR-0107)
 - vendor / process_category / equipment_model / software_version (typed `code` + module-computed `code_key`; `row_version`; `active` — deactivate only, `platform_app` has SELECT, INSERT, UPDATE and no DELETE)
