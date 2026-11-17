@@ -1,5 +1,6 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **미구현 — 셸 기간 편집 대화창의 접근성 이름 (v0.41 슬라이스 Impeccable F1, major):** `packages/sdk/shell/src/context/GlobalContextBar.tsx`의 기간 `PopoverContent`(`role="dialog"`)에 이름이 없다(AX 트리 `name=""`). 고침은 `aria-label={t('period')}` 한 줄과 AX 이름 시험. 이유: v0.40.0 이전부터 있던 결함이고 v0.41 변경(`on-canvas-band:` 클래스)이 만든 것이 아니라 릴리스를 붙잡지 않는다; 근거 `.review/W-S41-IMP.md`(작업 트리 리뷰 보고서). 다시 열 조건: 다음 셸(`packages/sdk/shell`) 변경 PR 또는 v0.42 슬라이스 시작 때 이슈로 올려 함께 고친다.
 - **미구현 — 패널 내부 조회 훅의 접기 후 재펼치기 재조회 0회 (#2435):** 작업 영역 위에 조회 소유자가 남는 구조는 0회를 검증했다. 패널 안 `useMenuQuery`가 언마운트되면 Kernel의 `staleTime: 0` 때문에 peek·pin 리마운트 때 재조회한다. 이유: #2435 작업자 범위는 components 및 메뉴 아이콘이며 Kernel 캐시 신선도 변경은 포함되지 않았다. 다시 열 조건: 호스트가 Kernel의 remount/refetch 정책 또는 소비자 조회 소유권 이동 범위를 확정할 때. 이번 구현은 이 보장을 전체 패널에 제공하지 않는다.
 
 - **미구현 — HW Time 파레토 → Finding/VOC 생성 링크 (#2431 PR2):** 이유: §22는 Context Link 정책만 정하고, 이 분석 지점의 목적지·생성 입력(설비·Module·Motion 증거)을 받는 계약은 없다. 생성 단추 숨김. 재개 조건: 목적지가 허용하는 생성 입력과 메뉴 링크 계약 확정. 임의 page key나 URL은 만들지 않았다.
