@@ -44,6 +44,10 @@ describe('PublicVocListScreen', () => {
       const row = meta.closest('button');
       if (row === null) throw new Error('VOC metadata must belong to a row button');
       expect(row).toHaveClass('relative', 'group/public-voc-row');
+      // Hover must not cover the selected surface (#2485).
+      expect(row).toHaveClass(selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover');
+      expect(row.classList.contains('hover:bg-surface-row-hover')).toBe(!selected);
+      expect(row).not.toHaveClass('hover:bg-surface-card');
       expect(meta).toHaveClass('group-hover/public-voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
       const bar = row.querySelector('[data-testid="public-voc-row-selected-bar"]');
       if (selected) expect(bar).toHaveClass('absolute', 'inset-y-0', 'left-0', 'w-0.5', 'bg-border-selected');

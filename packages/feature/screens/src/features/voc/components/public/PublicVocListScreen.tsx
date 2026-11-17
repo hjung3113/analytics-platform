@@ -103,8 +103,8 @@ export function PublicVocListScreen({
         {items.map((voc) => (
           <li key={voc.id}>
             <button type="button" aria-current={selectedId === voc.id ? 'true' : undefined} onClick={() => { onSelect(voc.id); }}
-              className={cn('group/public-voc-row relative flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left hover:bg-surface-card',
-                selectedId === voc.id && 'bg-surface-row-selected')}>
+              className={cn('group/public-voc-row relative flex w-full flex-col gap-1 border-b border-border-subtle px-4 py-3 text-left',
+                selectedId === voc.id ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover')}>
               {selectedId === voc.id && <span aria-hidden="true" data-testid="public-voc-row-selected-bar" className="absolute inset-y-0 left-0 w-0.5 bg-border-selected" />}
               <span className="flex w-full min-w-0 flex-wrap items-baseline gap-2">
                 <span className={cn('font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate group-hover/public-voc-row:text-text-secondary', selectedId === voc.id ? 'text-text-secondary' : 'text-text-muted')} title={voc.display_id}>{voc.display_id}</span>

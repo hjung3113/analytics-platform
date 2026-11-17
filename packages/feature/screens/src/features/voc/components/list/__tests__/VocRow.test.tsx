@@ -41,6 +41,9 @@ describe('<VocRow>', () => {
   it.each([false, true])('uses secondary metadata on hover and selection (selected=%s)', selected => {
     render(<VocRow voc={{ ...BASE_VOC, attachment_count: 2 }} selected={selected} onSelect={vi.fn()} managedSystem={null} areaName="Area" />);
     expect(screen.getByRole('row')).toHaveClass('group/voc-row');
+    // Hover must not cover the selected surface (#2485).
+    expect(screen.getByRole('row')).toHaveClass(selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover');
+    expect(screen.getByRole('row').classList.contains('hover:bg-surface-row-hover')).toBe(!selected);
     for (const meta of [screen.getByText('Area').parentElement, screen.getByLabelText('첨부 2개')]) {
       expect(meta).toHaveClass('group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
     }

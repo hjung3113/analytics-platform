@@ -79,6 +79,10 @@ describe('Global Context priority overflow (#56)', () => {
     expect(bar()).not.toHaveClass('bg-surface-canvas/95');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveClass('bg-surface-card', 'on-canvas-band:bg-transparent');
+    // Every filled control on the band (target chip, overflow chip, carried chips) follows the same rule (#2485).
+    const filled = Array.from(bar().querySelectorAll('.bg-surface-card'));
+    expect(filled.length).toBeGreaterThan(1);
+    for (const el of filled) expect(el).toHaveClass('on-canvas-band:bg-transparent');
   });
 
   it('uses badge typography for capability tags', () => {

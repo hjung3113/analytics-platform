@@ -27,6 +27,9 @@ describe('TriageRow', () => {
   it.each([false, true])('uses secondary metadata on hover and selection (selected=%s)', selected => {
     render(<TriageRow voc={BASE_VOC} selected={selected} onSelect={vi.fn()} />);
     expect(screen.getByRole('button')).toHaveClass('group/triage-row');
+    // Hover must not cover the selected surface (#2485).
+    expect(screen.getByRole('button')).toHaveClass(selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover');
+    expect(screen.getByRole('button').classList.contains('hover:bg-surface-row-hover')).toBe(!selected);
     expect(screen.getByText('분석 영역 미지정')).toHaveClass('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
   });
   it('keeps the VOC number unbroken beside the title', () => {
