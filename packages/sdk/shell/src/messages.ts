@@ -1,4 +1,4 @@
-import type { Text } from '@ap/kernel';
+import { CUSTOM_GROUP_LABELS, type Text } from '@ap/kernel';
 
 /**
  * Shell package message table (#2174): copy owned by `@ap/shell` (shared SDK words stay in the Kernel dictionary).
@@ -13,7 +13,7 @@ export const SHELL_MESSAGES = {
   targetFixed: { ko: '고정 {count}', en: 'Fixed {count}' },
   targetFactsMissing: { ko: '호스트가 listEquipmentFacts를 제공하지 않습니다.', en: 'The host does not provide listEquipmentFacts.' },
   targetFactsError: { ko: '설비 기본 정보를 불러오지 못했습니다. 다시 시도하세요.', en: 'Could not load equipment facts. Retry the request.' },
-  targetGroupFacet: { ko: '커스텀 조회 그룹', en: 'Custom query groups' },
+  targetGroupFacet: CUSTOM_GROUP_LABELS.many,
   targetGroupMissing: { ko: '{id} · {reason}', en: '{id} · {reason}' },
   targetGroupReasonNotFound: { ko: '없는 그룹', en: 'Not found' },
   targetGroupReasonForbidden: { ko: '볼 권한 없음', en: 'No access' },

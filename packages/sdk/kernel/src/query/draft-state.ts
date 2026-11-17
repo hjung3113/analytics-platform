@@ -4,7 +4,7 @@ import { buildQuery, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, missi
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
 import { classifyMetricInit } from '../registry/metric-init';
-import { CONTEXT_LABELS, type MenuEntry } from '../registry/registry';
+import { CONTEXT_LABELS, CUSTOM_GROUP_LABELS, type MenuEntry } from '../registry/registry';
 import { dropResetKeys } from '../context/paneContext';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import type { ScopeState } from '../platform/platform';
@@ -56,7 +56,7 @@ export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page
     ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
     ...(menu?.query?.required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
     ...(global.membershipBasis === 'asOf' && global.condition?.[CUSTOM_GROUP_AXIS]?.length
-      ? [{ key: 'customGroupMembershipBasis', label: { ko: '커스텀 조회 그룹', en: 'Custom query groups' } }]
+      ? [{ key: 'customGroupMembershipBasis', label: CUSTOM_GROUP_LABELS.many }]
       : []),
   ];
 }
