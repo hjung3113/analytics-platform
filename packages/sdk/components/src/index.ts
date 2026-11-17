@@ -1,4 +1,12 @@
 export type { ChartChrome, ChartChromeOptions } from './chart/chartChrome';
+export { TreeMatrix, type TreeMatrixProps } from './matrix/TreeMatrix';
+export { MatrixLevelOrder, type MatrixLevelOrderProps } from './matrix/MatrixLevelOrder';
+export { MatrixEmphasisBar, type MatrixEmphasisBarProps } from './matrix/MatrixEmphasisBar';
+export { MatrixToneLegend, type MatrixToneLegendProps } from './matrix/MatrixToneLegend';
+export type { MatrixFilterField } from './matrix/MatrixFilters';
+export type { MatrixCellTone } from './matrix/tones';
+export { sameValueRule, type MatrixValueOf } from './matrix/emphasis';
+export type { MatrixNode, MatrixColumn, MatrixWindowQuery, MatrixWindow, MatrixEmphasisRule, MatrixCell } from '@ap/contracts';
 export type { ChartBounds, ChartBoundLabels } from './chart/chartBounds';
 export type { ChartStatus, ChartRowGroups } from './chart';
 export { orderRows, type OrderableRow, type RowOrderOptions, type RowOrderResult, type RowOrderSort } from './chart/rowOrder';
