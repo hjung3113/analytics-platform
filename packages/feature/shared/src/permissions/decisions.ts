@@ -104,6 +104,8 @@ export const createPermissionRequestBatchSchema = z
     reason: z.string().min(1).max(2000),
     requested_expiration: z.string().datetime().optional(),
     return_route_intent: z.string().min(1).optional(),
+    /** #2408: the group the items came from; each item must belong to it. */
+    permission_group_id: z.string().uuid().optional(),
   })
   .strict();
 export type CreatePermissionRequestBatch = z.infer<typeof createPermissionRequestBatchSchema>;

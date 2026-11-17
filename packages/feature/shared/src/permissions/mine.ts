@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { requestedPermissionScopeFields } from './scope-kinds.js';
 
+import { permissionGroupOriginSchema } from './groups.js';
 import { permissionRequestStatusSchema } from './selected-detail.js';
 
 // GET /permission-requests/mine query. Omitted = the caller's open requests (pending, needs_more_info);
@@ -29,6 +30,9 @@ export const minePermissionRequestRowSchema = z.object({
   return_route_intent: z.string().nullable(),
   status: permissionRequestStatusSchema,
   created_at: z.string().datetime(),
+  /** #2408: rows of one batch request share `batch_id`; `permission_group` is the origin group. */
+  batch_id: z.string().uuid().nullable().optional(),
+  permission_group: permissionGroupOriginSchema.nullable().optional(),
 });
 export type MinePermissionRequestRow = z.infer<typeof minePermissionRequestRowSchema>;
 
