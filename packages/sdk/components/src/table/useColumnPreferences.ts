@@ -5,16 +5,19 @@ import type { JsonValue } from '@ap/contracts';
 import { usePlatformOptional, usePreferenceController, usePreferenceState, type PreferenceController } from '@ap/kernel';
 
 import { browserPreferenceKey, readBrowserPreference } from '../preferences/browserPreference';
+import { sanitizeColumnGroups, type StoredColumnGroups } from './columnGroups';
 
-export type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState; /** Column ids in display order; `[]` = declaration order (#556a). */ order: string[] };
+export type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState; /** Column ids in display order; `[]` = declaration order (#556a). */ order: string[]; groups?: StoredColumnGroups };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] };
-function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: unknown }; order?: unknown } | null): Preferences {
+function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: unknown }; order?: unknown; groups?: unknown } | null): Preferences {
   if (!p || typeof p !== 'object') return defaults;
+  const groups = sanitizeColumnGroups(p.groups);
   return {
     sizing: Object.fromEntries(Object.entries(p.sizing || {}).filter(([, v]) => typeof v === 'number' && v >= 60 && v <= 600)) as ColumnSizingState,
     visibility: Object.fromEntries(Object.entries(p.visibility || {}).filter(([, v]) => typeof v === 'boolean')) as VisibilityState,
     pinning: { left: Array.isArray(p.pinning?.left) ? p.pinning.left.filter((v: unknown) => typeof v === 'string') : [], right: [] },
     order: Array.isArray(p.order) ? p.order.filter((v: unknown): v is string => typeof v === 'string') : [],
+    ...(groups !== undefined && { groups }),
   };
 }
 function readPreferences(key: string, legacyKey: string): Preferences {
@@ -116,7 +119,9 @@ export function useColumnPreferences(preferenceKey: string) {
     return { ...pr, pinning: { left: (next.left ?? []).filter(id => id !== '_action'), right: [] } };
   }, 'now');
   const onColumnOrderChange = (order: string[]) => updatePreferences(pr => ({ ...pr, order }), 'now');
+  /** Membership and its gathered order are one intent; width uses the same delayed write as column widths. */
+  const onColumnGroupsChange = (update: (previous: Preferences) => { groups: StoredColumnGroups; order?: string[] }, mode: 'now' | 'later') => updatePreferences(pr => ({ ...pr, ...update(pr) }), mode);
   /** Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */
   const resetPreferences = () => updatePreferences(() => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }), 'now');
-  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, resetPreferences };
+  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, resetPreferences };
 }
