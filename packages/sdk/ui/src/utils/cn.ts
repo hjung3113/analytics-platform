@@ -8,8 +8,6 @@ import { extendTailwindMerge } from 'tailwind-merge';
 const twMerge = extendTailwindMerge<'animation-duration'>({
   extend: {
     classGroups: {
-      // `elevation-panel` (styles/index.css) is a box-shadow utility: a later `shadow-*` must replace it.
-      shadow: ['elevation-panel'],
       'animation-duration': [{ 'animation-duration': ['fast', 'base', 'slow'] }],
     },
     theme: {

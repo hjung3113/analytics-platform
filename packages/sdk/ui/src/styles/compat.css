@@ -96,10 +96,11 @@
 
 /* Top-level card and analysis-panel elevation (DESIGN.md Layout). Here, not in
  * index.css, so both supported CSS entry recipes generate it. A panel nested in a card, a detail
- * surface or a dock group already sits on a raised plane, so it drops the shadow instead of stacking one. */
+ * surface or a dock group already sits on a raised plane, so it drops the shadow instead of stacking one.
+ * The guard's `:is()` outranks a plain `shadow-*` a caller adds, which still sets top-level elevation. */
 @utility elevation-panel {
   @apply shadow-sm;
-  :where(.bg-surface-card, .bg-surface-detail, .dv-groupview) & {
+  :is(.bg-surface-card, .bg-surface-detail, .dv-groupview) & {
     @apply shadow-none;
   }
 }

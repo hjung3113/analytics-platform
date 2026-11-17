@@ -31,7 +31,7 @@ describe('cn with feature theme keys', () => {
   });
 });
 
-it('treats elevation-panel as a box-shadow so a later shadow utility replaces it', () => {
-  expect(cn('border elevation-panel', 'shadow-none')).toBe('border shadow-none');
-  expect(cn('shadow-sm', 'elevation-panel')).toBe('elevation-panel');
+// v0.41 review C1: `elevation-panel` carries the nested no-shadow guard, so a caller's shadow must not merge it away.
+it('keeps elevation-panel next to a caller shadow so its nested guard survives', () => {
+  expect(cn('border elevation-panel', 'shadow-lg')).toBe('border elevation-panel shadow-lg');
 });
