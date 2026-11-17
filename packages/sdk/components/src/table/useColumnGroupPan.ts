@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { clampGroupPan, groupPanKey, groupPanMax, revealGroupCell } from './columnGroupPan';
+import { clampGroupPan, groupPanKey, groupPanMax, revealGroupCell, snapGroupPan } from './columnGroupPan';
 
 export type PanGroup = { id: string; width: number; widths: number[] };
 type Geometry = PanGroup & { content: number; max: number; variable: string };
@@ -101,7 +101,8 @@ export function useColumnGroupPan(input: PanGroup[]) {
       delete node.dataset.columnGroupPanning;
       if (node.hasPointerCapture?.(ended.pointerId)) node.releasePointerCapture(ended.pointerId);
       if (ended.kind !== 'panning') return;
-      commit(groups.get(ended.id)!, ended.offset);
+      const group = groups.get(ended.id)!;
+      commit(group, snapGroupPan(ended.offset, group.widths, group.width));
       if (event.type !== 'pointerup') return;
       removeClick?.();
       if (clickTimer !== undefined) clearTimeout(clickTimer);

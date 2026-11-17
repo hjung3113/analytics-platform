@@ -23,10 +23,11 @@ test.describe('열 묶음 넘김', () => {
     const startY = box.y + box.height / 2;
     await page.mouse.move(startX, startY);
     await page.mouse.down();
+    // Released 120px in: the pan snaps to the next member boundary, so A moves by its first member's width.
+    const firstWidth = (await a.boundingBox())!.width;
     await page.mouse.move(startX - 120, startY, { steps: 8 });
     await page.mouse.up();
-    await expect.poll(async () => aStart - (await a.boundingBox())!.x).toBeCloseTo(120, 0);
-    expect(Math.abs((await a.boundingBox())!.x - (aStart - 120))).toBeLessThanOrEqual(2);
+    await expect.poll(async () => aStart - (await a.boundingBox())!.x).toBeCloseTo(firstWidth, 0);
     expect((await b.boundingBox())!.x).toBeCloseTo(bStart, 1);
     expect((await note.boundingBox())!.x).toBeCloseTo(noteStart, 1);
     await evidence(page, testInfo, 'column-groups-width-pan-A');

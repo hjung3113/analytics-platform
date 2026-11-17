@@ -141,9 +141,9 @@ describe('declared column group width (#2418 N2)', () => {
     drag(target, 4); fireEvent.click(target);
     expect(clicked).toHaveBeenCalledTimes(1);
     expect(offset()).toBe(0);
-    drag(target, 120); fireEvent.click(target);
+    drag(target, 200); fireEvent.click(target);
     expect(clicked).toHaveBeenCalledTimes(1);
-    expect(offset()).toBe(120);
+    expect(offset()).toBe(300);
     await new Promise(resolve => setTimeout(resolve, 0));
     fireEvent.click(target);
     expect(clicked).toHaveBeenCalledTimes(2);
@@ -151,8 +151,8 @@ describe('declared column group width (#2418 N2)', () => {
   it('ends outside the table, clears the temporary cursor and leaves the next plain click working', async () => {
     const clicked = vi.fn();
     render(<Harness rowAction={() => <button onClick={clicked}>mark</button>} />); await ready();
-    drag(clip(body()).querySelector('[data-column=b]')!, 120, document.body);
-    expect(offset()).toBe(120);
+    drag(clip(body()).querySelector('[data-column=b]')!, 200, document.body);
+    expect(offset()).toBe(300);
     expect(screen.getByRole('table')).not.toHaveClass('select-none', 'cursor-grabbing');
     await new Promise(resolve => setTimeout(resolve, 0));
     fireEvent.click(screen.getByRole('button', { name: 'mark' }));
@@ -180,6 +180,8 @@ describe('declared column group width (#2418 N2)', () => {
     await waitFor(() => expect(offset()).toBe(140));
     expect(committed).not.toHaveBeenCalled();
     fireEvent.pointerUp(target, { clientX: 110, clientY: 100 });
+    // Free travel while dragging; the release snaps to the nearest member boundary (140 → 0, the first member is 300 wide).
+    expect(offset()).toBe(0);
   });
   it('does not arm from editable controls, a resize handle or a secondary button', async () => {
     render(<Harness columns={columns.map(c => c.id === 'a' ? { ...c, cell: () => <><input aria-label="edit" /><span data-column-resizer>resize</span></> } : c)} />); await ready();
@@ -199,9 +201,9 @@ describe('declared column group width (#2418 N2)', () => {
     fireEvent.pointerCancel(target);
     expect(offset()).toBe(0);
     fireEvent.pointerDown(target, { button: 0, clientX: 250, clientY: 100 });
-    fireEvent.pointerMove(target, { clientX: 130, clientY: 100 });
+    fireEvent.pointerMove(target, { clientX: 50, clientY: 100 });
     fireEvent.lostPointerCapture(screen.getByRole('table'));
-    expect(offset()).toBe(120);
+    expect(offset()).toBe(300);
     expect(screen.getByRole('table')).not.toHaveClass('cursor-grabbing');
   });
   it('pans horizontal/Shift wheel only when it can move and lets edge/vertical wheels propagate', async () => {

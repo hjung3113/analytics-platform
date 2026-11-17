@@ -20,3 +20,12 @@ export function revealGroupCell(offset: number, start: number, end: number, cont
   if (end > offset + width) return clampGroupPan(Math.min(start, end - width), content, width);
   return clampGroupPan(offset, content, width);
 }
+
+/** Release stop for a drag: the nearest member boundary (or the far end), so a pan never rests on half a column at the group's start. */
+export function snapGroupPan(offset: number, widths: readonly number[], width: number): number {
+  const content = widths.reduce((sum, member) => sum + member, 0);
+  const max = groupPanMax(content, width);
+  let start = 0;
+  const stops = [...widths.map(member => { const at = start; start += member; return at; }).filter(at => at < max), max];
+  return stops.reduce((best, stop) => Math.abs(stop - offset) < Math.abs(best - offset) ? stop : best, stops[0]);
+}
