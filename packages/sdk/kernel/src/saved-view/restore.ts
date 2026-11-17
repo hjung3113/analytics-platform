@@ -107,7 +107,7 @@ export function restoreSavedView(input: { view: SavedView; support: SavedViewSup
  * Saved from another Scope than the view's (#2175): the stored Site-bound fields are NOT kept, supported or not, because they describe the other Scope's Site and
  * would be relabelled as this one's; only what the applied state holds is written. The patch always records the current Scope (`null` clears it, when there is none).
  */
-export function overwritePatch(view: SavedView, applied: SavedState, support: SavedViewSupport, anchor: string | null, scopeId: string | null): Pick<SavedViewPatch, 'context' | 'page' | 'savedScopeId'> {
+export function overwritePatch(view: SavedView, applied: SavedState, support: SavedViewSupport, anchor: string | null, scopeId: string | null, tables?: Extract<SavedView, { kind: 'menu-view' }>['tables']): Pick<SavedViewPatch, 'context' | 'page' | 'savedScopeId' | 'tables'> {
   if (view.kind === 'custom-group') throw new Error('custom groups cannot be overwritten as views');
   const fields = supportedFields(support);
   const cross = savedInOtherScope(view, scopeId);
@@ -129,7 +129,7 @@ export function overwritePatch(view: SavedView, applied: SavedState, support: Sa
     }
   }
   if (view.kind !== 'menu-view') return { context, savedScopeId: scopeId };
-  return { context, savedScopeId: scopeId, page: pagePairs([...savedPage(view).filter(([key]) => !support.pageKeys.includes(key)), ...applied.page]) };
+  return { context, savedScopeId: scopeId, page: pagePairs([...savedPage(view).filter(([key]) => !support.pageKeys.includes(key)), ...applied.page]), ...((view.tables || tables) && { tables: { ...view.tables, ...tables } }) };
 }
 
 const FIELD_TO_GLOBAL ={ from: 'from', to: 'to', roomNames: 'roomNames', lineNames: 'lineNames', prcGroups: 'prcGroups', condition: 'condition', membershipBasis: 'membershipBasis', selection: 'selection', relativePeriod: 'from' } as const;

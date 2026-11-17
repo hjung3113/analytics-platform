@@ -12,6 +12,8 @@ import {
   savedViewResponseSchemas,
 } from './index.ts';
 import type { SavedViewOp } from './index.ts';
+import { MAX_VIEW_TABLES, MAX_TABLE_KEY_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS, MAX_GROUP_LABEL_LENGTH, MIN_GROUP_WIDTH } from '@ap/contracts';
+import { TABLE_VIEW_CAPS } from './saved-view-commands.ts';
 
 const V = { version: 1 } as const;
 const key = { menuId: 'm1' };
@@ -20,6 +22,43 @@ const menuDraft = {
   schemaVersion: 1, kind: 'menu-view', name: 'View', menuId: 'm1', menuSchemaVersion: 2,
   context: { relativePeriod: { hours: 24 }, condition: { axis: ['x'] } }, page: { tab: ['a'] }, chartOptions: { stack: true }, layout: [], panels: { anything: 'goes', draftX: 1 },
 };
+
+describe('table view state (#2492)', () => {
+  it('pins the schema cap copy to contracts', () => {
+    expect(TABLE_VIEW_CAPS).toEqual({ tables: MAX_VIEW_TABLES, key: MAX_TABLE_KEY_LENGTH, basis: MAX_GROUP_BASIS_LENGTH, items: MAX_COLUMN_GROUPS, id: MAX_GROUP_ID_LENGTH, members: MAX_GROUP_MEMBERS, label: MAX_GROUP_LABEL_LENGTH, width: MIN_GROUP_WIDTH });
+  });
+  const groups = { basis: '[]', items: [{ id: 'u:a', label: 'Group', members: ['a'], width: 60 }] };
+  const accepts = (tables: unknown) => {
+    const draft = { ...menuDraft, tables };
+    return [validateSavedView(draft).ok, savedViewDraftSchema.safeParse(draft).success];
+  };
+  it('accepts declared preference keys and explicit declared groups', () => {
+    expect(accepts({ draftList: { groups }, empty: {} })).toEqual([true, true]);
+  });
+  it.each([
+    { a: { unknown: 1 } }, { a: { groups: { ...groups, unknown: 1 } } },
+    { a: { groups: { ...groups, items: [{ ...groups.items[0], unknown: 1 }] } } },
+    { a: { groups: { ...groups, basis: 'a'.repeat(16_385) } } },
+    { a: { groups: { ...groups, items: Array.from({ length: 201 }, (_, n) => ({ id: `g${n}`, members: [] })) } } },
+    { a: { groups: { ...groups, items: [{ id: '', members: [] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'x'.repeat(201), members: [] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'u:a', members: [] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'x', label: ' ', members: [] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'x', label: 'a'.repeat(61), members: [] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'x', members: [''] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'x', members: ['a'.repeat(201)] }] } } },
+    { a: { groups: { ...groups, items: [{ id: 'x', members: Array(501).fill('a') }] } } },
+    { a: { groups: { ...groups, items: [groups.items[0], groups.items[0]] } } },
+    { a: { groups: { ...groups, items: [{ ...groups.items[0], width: 59 }] } } },
+    { a: { groups: { ...groups, items: [{ ...groups.items[0], width: Infinity }] } } },
+    { '': {} }, { ['a'.repeat(201)]: {} }, Object.fromEntries(Array.from({ length: 21 }, (_, n) => [`t${n}`, {}])),
+  ])('refuses malformed tables %j', tables => expect(accepts(tables)).toEqual([false, false]));
+  it('accepts each inclusive cap boundary', () => {
+    const boundary = { basis: 'a'.repeat(16_384), items: Array.from({ length: 200 }, (_, n) => ({ id: String(n).padEnd(200, 'x'), label: ` ${'a'.repeat(60)} `, members: Array(500).fill('a'.repeat(200)), width: 60 })) };
+    expect(accepts({ ['a'.repeat(200)]: { groups: boundary } })).toEqual([true, true]);
+    expect(accepts(Object.fromEntries(Array.from({ length: 20 }, (_, n) => [`t${n}`, {}])))).toEqual([true, true]);
+  });
+});
 const view = { id: 'v1', schemaVersion: 1, kind: 'condition-set', name: 'Set', ownerId: 'u1', version: 3, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none', context: {} };
 const caps = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
 const entry = { view, capabilities: caps };

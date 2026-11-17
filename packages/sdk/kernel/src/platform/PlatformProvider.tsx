@@ -22,6 +22,7 @@ import { MainScreenProvider } from './MainScreenProvider';
 import { createSessionDraftStore } from './sessionDraft';
 import { createNavigationGuard } from './navigationGuard';
 import { createSupportRegistry } from '../saved-view/useSavedViewSupport';
+import { createViewSlotStore } from '../saved-view/table-slots';
 
 const NO_EQUIPMENT_AXES: readonly EquipmentAxisDescriptor[] = [];
 const NO_SLOTS: PlatformSlots = {};
@@ -150,6 +151,7 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const lastScope = preferences ? serverScope : localLastScope;
   // Tab-scoped usage session id (docs/05): sessionStorage, never localStorage — tabs must not share it.
   const [savedViewSupports] = useState(createSupportRegistry);
+  const savedViewSlots = useMemo(() => createViewSlotStore(gen), [gen]);
   const [guard] = useState(createNavigationGuard);
   // A new session generation never asks: a request still open for the old one is dropped (never confirmed).
   useEffect(() => { guard.dropRequest(); }, [guard, gen]);
@@ -390,9 +392,9 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
       toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector,
     },
-    internal: { sessionDrafts, currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, mainNavigation: pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
+    internal: { sessionDrafts, currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, savedViewSlots, userIdRef, usageNav, mainNavigation: pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
   }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, savedViews, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
-    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector, revisions, selectionPortCache, queryEngine, sessionDrafts, enters, usageSessionId, savedViewSupports, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
+    toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector, revisions, selectionPortCache, queryEngine, sessionDrafts, enters, usageSessionId, savedViewSupports, savedViewSlots, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
   return (
     <AppContext.Provider value={value}>

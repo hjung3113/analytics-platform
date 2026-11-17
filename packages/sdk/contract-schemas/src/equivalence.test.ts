@@ -30,6 +30,12 @@ import {
 } from './index.ts';
 import { contextCapabilitySchema } from './menu-query.ts';
 import { APPLIED_CAPABILITIES } from './vocab.ts';
+import type { TableViewState } from '@ap/contracts';
+import { tableViewStateSchema } from './saved-view-commands.ts';
+
+it('table state schema equals its contracts type', () => {
+  expectTypeOf<z.infer<typeof tableViewStateSchema>>().toEqualTypeOf<TableViewState>();
+});
 
 /** Readonly arrays and properties are a source-type nicety; the wire shape is mutable. Mapping also flattens intersections. A fixed-length tuple keeps its length (part of the wire shape); only unbounded arrays collapse to `Wire<U>[]`. */
 type Wire<T> = T extends readonly (infer U)[] ? (number extends T['length'] ? Wire<U>[] : { -readonly [K in keyof T]: Wire<T[K]> }) : T extends object ? { -readonly [K in keyof T]: Wire<T[K]> } : T;

@@ -17,3 +17,4 @@ export { useSavedViews, type SaveInput, type SavedViews, type SelectOutcome, typ
 export { type LeaveRequest } from './platform/navigationGuard';
 export { type ScopeSelectorRequest } from './scope/scopeSelectorRequest';
 export { useCustomGroupList, type CustomGroupList } from './saved-view/useCustomGroupList';
+export { useSavedViewTableState } from './saved-view/useSavedViewTableState';

@@ -1,5 +1,6 @@
 import { isPortError, menuPermission, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
 import type { ConformanceCheck, ServerConformanceHarness } from '../../types';
+import { sameJson } from './shared';
 
 /** All vocabulary and authorization evidence belong to the integrating app/server. */
 export type OptionPortSamples = {
@@ -14,12 +15,7 @@ export type OptionPortSamples = {
   upperEquipment?: readonly string[];
 };
 const names = ['global lineNames options', 'global prcGroups options', 'options paging', 'search paging', 'options query', 'search query', 'dependent options', 'denied-room options', 'options lower clamp', 'search lower clamp', 'options upper clamp', 'search upper clamp', 'options authorization', 'search authorization', 'resolution authorization', 'explicit denied-room filter', 'resolve authorized', 'resolve forbidden no detail', 'resolve cross-site absent', 'resolve order and duplicates', 'options invalid input', 'search invalid input', 'resolution invalid input', 'options cursor identity', 'search cursor identity', 'global metadata needs no equipment permission'] as const;
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value !== null && typeof value === 'object') return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => [k, canonical(v)]));
-  return value;
-}
-const same = (a: unknown, b: unknown) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+const same = sameJson;
 async function rejects(run: () => Promise<unknown>, code: PortErrorCode): Promise<string | null> {
   try { await run(); return `Expected rejection ${code}, received successful data`; }
   catch (e) { return isPortError(e) && e.code === code ? null : `Expected PortError ${code}, got ${String(e)}`; }

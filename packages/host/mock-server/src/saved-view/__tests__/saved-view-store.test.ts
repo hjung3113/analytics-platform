@@ -34,6 +34,21 @@ const visible = (items: readonly SavedViewListItem[]): SavedViewEntry[] => items
 const byName = (items: readonly SavedViewListItem[], name: string) => visible(items).find(i => i.view.name === name)!;
 const ok = <T,>(r: { ok: true; value: T } | { ok: false; reason: string }): T => { if (!r.ok) throw new Error(r.reason); return r.value; };
 
+it('round-trips tables, refuses invalid nested fields and condition-set patches, and summarizes proposals (#2492)', async () => {
+  const s = store(); const tables = { draftList: { groups: { basis: '[]', items: [{ id: 'u:a', label: 'Group', members: ['a'] }] } } };
+  const saved = ok(await s.save({ ...draft(), tables } as SavedViewDraft));
+  expect(await s.get(saved.view.id)).toMatchObject({ view: { tables } });
+  expect(await s.save({ ...draft(), tables: { raw: { extra: 1 } } } as unknown as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  const condition = ok(await s.save({ schemaVersion: 1, kind: 'condition-set', name: 'C', context: {} }));
+  expect(await s.update(condition.view.id, { tables }, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+  const changed = ok(await s.update(saved.view.id, { tables: { draftList: {} } }, { expectedVersion: 1 }));
+  expect(await s.get(saved.view.id)).toMatchObject({ view: { tables: { draftList: {} } } });
+  const requested = ok(await s.requestOfficial(saved.view.id, { expectedVersion: changed.view.version }));
+  as('admin'); const approved = ok(await s.decide(saved.view.id, 'approve', undefined, { expectedVersion: requested.view.version }));
+  as('engineer'); ok(await s.update(saved.view.id, { tables }, { expectedVersion: approved.view.version }));
+  expect((await s.listApprovalRequests(key(ENG))).find(request => request.viewId === saved.view.id)?.changes).toEqual(['열 묶음']);
+});
+
 it('stores custom groups separately from condition sets, with owner-only editing and private/groups sharing', async () => {
   const s = store();
   const group = ok(await s.save({ schemaVersion: 1, kind: 'custom-group', name: 'Targets', savedScopeId: 'S', target: { rule: { model: ['A'] } } })).view;

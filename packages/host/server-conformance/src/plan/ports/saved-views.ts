@@ -1,5 +1,6 @@
 import type { Result, SavedViewDraft, SavedViewListItem, SavedViewStore } from '@ap/contracts';
 import type { ConformanceCheck, SavedViewPortMethod, ServerConformanceHarness } from '../../types';
+import { sameJson } from './shared';
 
 /**
  * The SavedViewStore port (ADR-0099) — the one port this kit judges that is not a `PlatformAdapter` member, so the
@@ -67,6 +68,28 @@ export function planSavedViewChecks(harness: ServerConformanceHarness): Conforma
   })();
   const idOf = (item: { denied?: false; view: { id: string } } | { denied: true; id: string }) =>
     item.denied === true ? item.id : item.view.id;
+
+  checks.push({
+    id: 'port · savedViews: table groups round-trip, strict shape and condition-set refusal (#2492)',
+    uses: ['save', 'update', 'get'], mode: 'sequential', nonEnvelope: true,
+    run: async () => {
+      const { user } = sample;
+      const tables = { draftList: { groups: { basis: '[]', items: [{ id: 'u:a', label: 'Group', members: ['a'], width: 60 }] } } };
+      const saved = okOf(await user.save({ ...draft(), tables } as SavedViewDraft), 'save tables');
+      if (typeof saved === 'string') return saved;
+      const read = await user.get(saved.view.id);
+      if (!read || read.denied || read.view.kind !== 'menu-view' || !sameJson(read.view.tables, tables)) return 'get must preserve tables';
+      const updated = okOf(await user.update(saved.view.id, { tables: { draftList: {} } }, { expectedVersion: saved.view.version }), 'update tables');
+      if (typeof updated === 'string') return updated;
+      const reread = await user.get(saved.view.id);
+      if (!reread || reread.denied || reread.view.kind !== 'menu-view' || !sameJson(reread.view.tables, { draftList: {} })) return 'update/get must preserve explicit declared groups';
+      const malformed = want(await user.save({ ...draft(), tables: { raw: { extra: 1 } } } as unknown as SavedViewDraft), 'invalid', 'strict tables');
+      if (malformed) return malformed;
+      const condition = okOf(await user.save({ schemaVersion: 1, kind: 'condition-set', name: 'Conformance tables', context: {} }), 'condition');
+      if (typeof condition === 'string') return condition;
+      return want(await user.update(condition.view.id, { tables }, { expectedVersion: condition.view.version }), 'invalid', 'condition tables');
+    },
+  });
 
   /** ADR-0099 §1: out of access answers exactly `{ id, denied: true, reason }` — no title, owner, groups or body may ride along (both denied reads go through here). */
   const deniedEntry = (item: SavedViewListItem | null, id: string, what: string): string | null => {

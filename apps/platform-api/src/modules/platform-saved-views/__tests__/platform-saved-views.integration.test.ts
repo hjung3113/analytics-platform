@@ -514,6 +514,21 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
       expect(await call(alice, 'get', { id: v.id })).toBeNull();
     });
 
+    it('round-trips table groups, rejects nested extras, and refuses tables on condition sets (#2492)', async () => {
+      const tables = { draftList: { groups: { basis: '[]', items: [{ id: 'u:g', label: 'G', members: ['a'], width: 60 }] } } };
+      const v = await save(alice, menuDraft('table groups', { tables }));
+      expect(v.tables).toEqual(tables);
+      expect((await call(alice, 'get', { id: v.id })).view.tables).toEqual(tables);
+      const updated = await call(alice, 'update', { id: v.id, expectedVersion: v.version, patch: { tables: { draftList: {} } } });
+      expect(updated).toMatchObject({ ok: true, value: { view: { tables: { draftList: {} } } } });
+      expect((await call(alice, 'get', { id: v.id })).view.tables).toEqual({ draftList: {} });
+      expect((await q('select content from platform.saved_views where id = $1', [v.id])).rows[0]?.content.tables).toEqual({ draftList: {} });
+      const malformed = await send(alice, URL, { version: 1, op: 'update', id: v.id, expectedVersion: updated.value.view.version, patch: { tables: { draftList: { extra: 'refuse' } } } });
+      expect(malformed.statusCode).toBe(422);
+      const c = await save(alice, condDraft('no tables'));
+      expect(await call(alice, 'update', { id: c.id, expectedVersion: c.version, patch: { tables: {} } })).toMatchObject({ ok: false, reason: 'invalid', detail: 'a condition set has no page' });
+    });
+
     it('a condition set refuses page fields; a forbidden page key is invalid', async () => {
       const c = await save(alice, condDraft('c'));
       expect(

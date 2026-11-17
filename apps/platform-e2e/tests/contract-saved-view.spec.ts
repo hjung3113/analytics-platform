@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { pickTargetRoom, contextBar, evidence, mainHeading, query, queryResultSurface, signInAs } from './support';
+import { pickTargetRoom, contextBar, evidence, expandPageHead, mainHeading, query, queryResultSurface, showSlowExecutions, signInAs } from './support';
 
 /**
  * Platform contract checks for Saved Views (docs/06 §21, #1011 node 1011g). The cycle-time detail is only the consumer the
@@ -71,6 +71,36 @@ test.describe('06 §21 저장된 뷰', () => {
   // These checks operate the open editor (condition chips, apply); an applied address starts collapsed without a stored choice (#1892).
   test.beforeEach(async ({ page }) => {
     await startWithQueryBarOpen(page, 'cycle-time');
+  });
+  test('메뉴 뷰가 원본 표의 열 묶음을 복원하고 묶음 편집을 수정됨으로 표시한다', async ({ page }, testInfo) => {
+    // Cycle time is a saved-view menu whose slow-executions table opts into editable column groups.
+    await signInAs(page, 'engineer');
+    await openCycle(page);
+    await showSlowExecutions(page);
+    const table = page.locator('[data-dock-panel="slow"]');
+    await table.getByRole('button', { name: '컬럼', exact: true }).click();
+    await page.getByRole('button', { name: '묶음 만들기', exact: true }).click();
+    const name = page.getByRole('textbox', { name: '묶음 이름', exact: true });
+    const editor = page.getByRole('dialog').filter({ has: name });
+    await editor.getByRole('checkbox').nth(0).check();
+    await editor.getByRole('checkbox').nth(1).check();
+    await name.fill('E2E 비교 묶음');
+    await editor.getByRole('button', { name: '묶기', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await savePrivate(page, 'E2E 표 묶음');
+    await expect(modifiedBadge(page)).toHaveCount(0);
+    await table.getByRole('button', { name: '컬럼', exact: true }).click();
+    await page.getByRole('button', { name: '기본값으로', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(modifiedBadge(page)).toBeVisible();
+    await showSlowExecutions(page);
+    await evidence(page, testInfo, 'saved-table-groups-reset');
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+    await showSlowExecutions(page);
+    await expect(table.getByRole('columnheader', { name: /E2E 비교 묶음/ }).first()).toBeVisible();
+    await expect(modifiedBadge(page)).toHaveCount(0);
+    await evidence(page, testInfo, 'saved-table-groups');
   });
   test('조건을 저장하고 다른 뷰를 적용한 뒤 고치면 수정됨이 뜨고, 저장한 뷰를 다시 고르면 그 조건으로 돌아온다', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');

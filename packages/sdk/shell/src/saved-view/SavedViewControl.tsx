@@ -259,7 +259,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     let next: SavedView;
     try { next = diagnosis.migration.apply(); } catch { report({ ok: false, reason: 'unavailable' }, ''); return; }
     const done = m('savedViewMigrated', { name: item.view.name });
-    const patch = next.kind === 'menu-view' ? { menuSchemaVersion: support.menuSchemaVersion, context: next.context, page: next.page, chartOptions: next.chartOptions, layout: next.layout, panels: next.panels } : { context: next.context };
+    const patch = next.kind === 'menu-view' ? { menuSchemaVersion: support.menuSchemaVersion, context: next.context, page: next.page, chartOptions: next.chartOptions, layout: next.layout, panels: next.panels, ...(next.tables === undefined ? {} : { tables: next.tables }) } : { context: next.context };
     report(await views.update(id, patch, { expectedVersion: item.view.version }), done);
   };
 

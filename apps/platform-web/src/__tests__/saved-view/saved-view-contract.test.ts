@@ -30,6 +30,11 @@ const menuView = {
 };
 
 describe('validateSavedView (21.1 두 저장 단위)', () => {
+  it('validates the closed table shape without applying forbidden page/UI key rules', () => {
+    expect(validateSavedView({ ...menuView, tables: { draftList: {} } }).ok).toBe(true);
+    expect(validateSavedView({ ...menuView, tables: { raw: { groups: { basis: '[]', items: [] }, extra: 1 } } }).ok).toBe(false);
+    expect(validateSavedView({ ...conditionSet, tables: {} }).ok).toBe(false);
+  });
   it.each([['조건 세트', conditionSet], ['메뉴 뷰', menuView]])('%s 통과', (_n, input) => {
     expect(validateSavedView(input).ok).toBe(true);
   });

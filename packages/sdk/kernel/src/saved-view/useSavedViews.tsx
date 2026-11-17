@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { buildQuery, validateSavedView, type JsonValue, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport } from '@ap/contracts';
+import { buildQuery, validateSavedView, type JsonValue, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport, type TableViewState } from '@ap/contracts';
 import { useHostPlatform } from '../platform/platform';
 import { AppContext } from '../platform/contexts';
 import { captureApplied, viewState, type ViewState } from './capture';
@@ -106,6 +106,8 @@ export function useSavedViews(): SavedViews {
   const menu = host.route?.menu ?? null;
   const menuId = menu?.id ?? '';
   const userId = host.user.id;
+  const slots = useMemo(() => app?.internal.savedViewSlots.screen(JSON.stringify([menuId, host.global.scopeId])), [app?.internal.savedViewSlots, menuId, host.global.scopeId]);
+  const slotRevision = useSyncExternalStore(slots?.subscribe ?? NOOP_SUBSCRIBE, slots?.snapshot ?? ZERO_SNAPSHOT);
   const support = useSyncExternalStore(registry?.subscribe ?? NOOP_SUBSCRIBE, () => registry?.get(menuId));
   const enabled = store !== undefined && menu?.features.savedView === true && support !== undefined;
   // An address the contract rejects (06 §6.4) is neither rewritten by a default nor replaced by a pick: the error and the original address stay.
@@ -117,6 +119,7 @@ export function useSavedViews(): SavedViews {
   const scopeKey = `${host.scope.scopeId}\0${host.scope.status}`;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only: a new generation object whenever any of them changes
   const gen = useMemo(() => ({}), [store, session, revision, scopeKey, identity, enabled, support]);
+  useEffect(() => () => slots?.select(null), [slots, gen]);
   // The entry of a screen is not a security read: a revalidation (new `gen`) keeps a selection that is still allowed, only a real arrival re-judges it against the address.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only
   const entryGen = useMemo(() => ({}), [identity, enabled]);
@@ -124,7 +127,7 @@ export function useSavedViews(): SavedViews {
   const [selection, setSelection] = useState(() => ({ key, id: readSelected(key) }));
   if (selection.key !== key) setSelection({ key, id: readSelected(key) });
   const selectedId = selection.key === key ? selection.id : readSelected(key);
-  const setSelected = useCallback((id: string | null) => { writeSelected(key, id); setSelection({ key, id }); }, [key]);
+  const setSelected = useCallback((id: string | null) => { slots?.select(id); writeSelected(key, id); setSelection({ key, id }); }, [key, slots]);
 
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick(n => n + 1), []);
@@ -149,7 +152,9 @@ export function useSavedViews(): SavedViews {
   const find = useCallback((id: string | null) => id === null ? null : entryOf([...menuViews, ...conditionSets].find(item => (item.denied ? item.id : item.view.id) === id)), [menuViews, conditionSets]);
   const selected = selectedId !== null && fresh?.gen === gen && fresh.entry.view.id === selectedId ? entryOf(fresh.entry) : find(selectedId);
   const applied = useMemo(() => ({ global: host.global, page: host.page }), [host.global, host.page]);
-  const state = useMemo(() => support === undefined ? OFF_STATE : viewState({ applied: selected ? comparableApplied(selected.view, captureApplied(applied, support)) : captureApplied(applied, support), saved: selected ? savedStateOf(selected.view, support, anchor, host.global.scopeId) : null, draftDirty: host.queryDraft.dirty }), [support, applied, selected, anchor, host.global.scopeId, host.queryDraft.dirty]);
+  const selectedTables = selected?.view.kind === 'menu-view' ? selected.view.tables : undefined;
+  const tableModified = useMemo(() => slotRevision >= 0 && (slots?.differs('tables', selectedTables) ?? false), [slots, slotRevision, selectedTables]);
+  const state = useMemo(() => support === undefined ? OFF_STATE : viewState({ applied: selected ? comparableApplied(selected.view, captureApplied(applied, support)) : captureApplied(applied, support), saved: selected ? savedStateOf(selected.view, support, anchor, host.global.scopeId) : null, draftDirty: host.queryDraft.dirty, tableModified }), [support, applied, selected, anchor, host.global.scopeId, host.queryDraft.dirty, tableModified]);
   // Derived from the saved copy, so a selection recovered after a reload lists the same Context as right after the pick.
   const unsupported = useMemo(() => selected && support ? unsupportedOf(selected.view, support, anchor) : NO_UNSUPPORTED, [selected, support, anchor]);
   const currentScope = host.global.scopeId;
@@ -224,11 +229,14 @@ export function useSavedViews(): SavedViews {
     // The address omits hidden page keys (ADR-0105), so "already here" also compares the full applied state.
     // With no hidden pair the address is the whole state; with some, only the full rebuilt query can equal the target.
     const sameAddress = (current.appliedUrl === current.url && result.href === current.url) || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
+    const applyTables = () => slots?.apply(id, { tables: found.view.kind === 'menu-view' ? found.view.tables : undefined });
+    if (sameAddress) applyTables();
     if (!sameAddress) {
       const before = guard?.getRequest();
       let held = false;
       const moved = current.navigate(result.href, { replace: source === 'default', run: () => {
         if (stale(at) || intent.current !== mine || live.current.host.appliedUrl !== startUrl) return false;
+        applyTables();
         // The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too.
         if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next, current), entry: found });
         return true;
@@ -246,7 +254,7 @@ export function useSavedViews(): SavedViews {
     setFresh({ gen: at, entry: found });
     setSelected(id);
     return { ok: true, unsupported: result.unsupported, excludedByScope: result.excludedByScope };
-  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard]);
+  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, slots]);
   const validated = useRef<object | null>(null);
 
   // Entering a screen: a selection that no longer matches the address is dropped (the address wins), then the personal default fills a bare route once.
@@ -280,11 +288,12 @@ export function useSavedViews(): SavedViews {
   const saveAs = useCallback(async (input: SaveInput): Promise<Result<SavedViewEntry>> => {
     if (!enabled || !support) return OFF;
     const captured = captureApplied(applied, support);
+    const tables = { ...(selected?.view.kind === 'menu-view' ? selected.view.tables : undefined), ...slots?.capture<TableViewState>('tables') };
     // The Scope the content is saved in (#2175); with no current Scope nothing is recorded and the view reads as an old one.
     const scopeStamp = applied.global.scopeId !== null ? { savedScopeId: applied.global.scopeId } : {};
     const draft = input.kind === 'condition-set'
       ? { schemaVersion: 1, kind: 'condition-set', name: input.name, context: captured.context, ...scopeStamp }
-      : { schemaVersion: 1, kind: 'menu-view', name: input.name, menuId: support.menuId, menuSchemaVersion: support.menuSchemaVersion, context: captured.context, ...scopeStamp, page: captured.page, chartOptions: input.chartOptions ?? {}, layout: input.layout ?? null, panels: input.panels ?? null };
+      : { schemaVersion: 1, kind: 'menu-view', name: input.name, menuId: support.menuId, menuSchemaVersion: support.menuSchemaVersion, context: captured.context, ...scopeStamp, page: captured.page, chartOptions: input.chartOptions ?? {}, layout: input.layout ?? null, panels: input.panels ?? null, tables };
     const checked = validateSavedView(draft);
     if (!checked.ok) return checked;
     // Latest action wins: a save that finishes after another pick or save, or on another address, does not take the selection back.
@@ -299,14 +308,14 @@ export function useSavedViews(): SavedViews {
       refresh();
     }
     return result;
-  }, [enabled, support, applied, store, gen, setSelected, refresh]);
+  }, [enabled, support, applied, store, gen, setSelected, refresh, slots, selected]);
   const saveToSelected = useCallback(async (): Promise<Result<SavedViewEntry>> => {
     if (!enabled || !support || !selected) return OFF;
     const at = gen;
     if (stale(at)) return OFF;
     ++intent.current;
     const mine = intent.current;
-    const patch = overwritePatch(selected.view, captureApplied(applied, support), support, anchor, applied.global.scopeId);
+    const patch = overwritePatch(selected.view, captureApplied(applied, support), support, anchor, applied.global.scopeId, slots?.capture<TableViewState>('tables'));
     let result: Result<SavedViewEntry>;
     try { result = await store.update(selected.view.id, patch, { expectedVersion: selected.view.version }); } catch { return OFF; }
     if (result.ok && !stale(at)) {
@@ -316,7 +325,7 @@ export function useSavedViews(): SavedViews {
     // A write refused for its version rereads the list (06 §21.2): the selection and the applied conditions stay, and the next save goes at the version the store now holds.
     if (!result.ok && result.reason === 'conflict' && !stale(at)) refresh();
     return result;
-  }, [enabled, support, selected, applied, anchor, store, gen, refresh]);
+  }, [enabled, support, selected, applied, anchor, store, gen, refresh, slots]);
   const revertToSaved = useCallback(async (): Promise<SelectOutcome> => selected ? apply(selected.view.id, 'selected') : { ok: false, reason: 'unavailable' }, [selected, apply]);
   const remove = useCallback(async (id: string): Promise<Result<null>> => {
     const at = gen;
@@ -364,3 +373,4 @@ export function useSavedViews(): SavedViews {
   }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
 }
 const NOOP_SUBSCRIBE = () => () => {};
+const ZERO_SNAPSHOT = () => 0;

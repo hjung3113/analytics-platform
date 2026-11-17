@@ -288,10 +288,13 @@ export const COMPONENTS_MESSAGES = {
 
   // Table
   tableGroupNew: { ko: '묶음 만들기', en: 'Create column group' },
+  tableGroupLimit: { ko: '열 묶음은 200개, 묶음당 열은 500개까지 저장할 수 있습니다. 열과 묶음 ID는 200자, 선언 정보는 16,384자 이내여야 합니다.', en: 'Save up to 200 column groups with 500 columns per group. Column and group IDs must be at most 200 characters, and the declaration fingerprint at most 16,384 characters.' },
   tableGroupChangeTitle: { ko: '{name} 열 바꾸기', en: 'Change columns in {name}' },
   tableGroupSelect: { ko: '{name} 선택', en: 'Select {name}' },
   tableGroupHidden: { ko: '숨김', en: 'Hidden' },
   tableGroupSelected: { ko: '{count}개 열 선택', en: '{count} columns selected' },
+  tableGroupMemberLimit: { ko: '한 묶음에 최대 {count}열', en: 'Up to {count} columns per group' },
+  tableGroupUnavailable: { ko: '묶을 수 없는 열', en: 'This column cannot be grouped' },
   tableGroupName: { ko: '묶음 이름', en: 'Group name' },
   tableGroupCreate: { ko: '묶기', en: 'Group' },
   tableGroupSave: { ko: '저장', en: 'Save' },

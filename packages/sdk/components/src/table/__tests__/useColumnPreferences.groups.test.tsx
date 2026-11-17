@@ -8,6 +8,36 @@ const groups = { basis: 'declaration', items: [{ id: 'D', members: ['a'] }, { id
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); vi.useFakeTimers(); });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('column group preferences', () => {
+  it('enforces the saved-view size bounds when reading stored column groups (#2492)', () => {
+    for (const oversized of [
+      { basis: 'a'.repeat(16_385), items: [] },
+      { basis: '[]', items: Array.from({ length: 201 }, (_, n) => ({ id: `${n}`, members: [] })) },
+    ]) {
+      localStorage.setItem(key, JSON.stringify({ groups: oversized }));
+      const hook = renderHook(() => useColumnPreferences('groups'));
+      expect(hook.result.current.preferences.groups).toBeUndefined(); hook.unmount();
+    }
+    for (const invalid of [{ id: 'x'.repeat(201), members: [] }, { id: 'x', members: Array(501).fill('a') }, { id: 'x', members: ['a'.repeat(201)] }]) {
+      localStorage.setItem(key, JSON.stringify({ groups: { basis: '[]', items: [invalid] } }));
+      const hook = renderHook(() => useColumnPreferences('groups'));
+      expect(hook.result.current.preferences.groups).toEqual({ basis: '[]', items: [] }); hook.unmount();
+    }
+  });
+  it('applies and clears only groups, and equal snapshots write nothing', () => {
+    const { result } = renderHook(() => useColumnPreferences('groups'));
+    act(() => result.current.onColumnSizingChange({ a: 123 }));
+    act(() => result.current.onColumnOrderChange(['b', 'a']));
+    act(() => result.current.applyColumnGroups(groups));
+    const write = vi.spyOn(localStorage, 'setItem');
+    act(() => result.current.applyColumnGroups(groups));
+    expect(write).not.toHaveBeenCalled();
+    act(() => result.current.applyColumnGroups(undefined));
+    expect(result.current.preferences).toMatchObject({ sizing: { a: 123 }, order: ['b', 'a'], visibility: {}, pinning: { left: [], right: [] } });
+    expect(result.current.preferences).not.toHaveProperty('groups');
+    write.mockClear();
+    act(() => result.current.applyColumnGroups(undefined));
+    expect(write).not.toHaveBeenCalled();
+  });
   it('round-trips groups, spreads them through ordinary writes, and clears them on reset', () => {
     const first = renderHook(() => useColumnPreferences('groups'));
     act(() => first.result.current.onColumnGroupsChange(() => ({ groups, order: ['a', 'b'] }), 'now'));

@@ -1,6 +1,5 @@
 # 백로그 — 이슈로 올리지 않은 것
 
-- **미구현 — 열 묶음 상태를 저장된 뷰에 담기 ([#2492](https://github.com/hjung3113/analytics-platform/issues/2492), 소유자 2026-11-17):** #2481은 사용자가 바꾼 열 묶음을 다른 열 설정과 같은 사용자별 기록(`useColumnPreferences`)에만 저장한다. Saved View·ViewSelector에는 담지 않았다. 이유: 저장 뷰에 표 열 설정이 아예 없어 `@ap/contracts` 뷰 타입·`contract-schemas`·서버 DB·옛 뷰 호환을 함께 바꿔야 하는 별도 계약 변경이다. 저장 객체(`groups: { basis, items }`)는 자체 완결이고 `effectiveColumnGroups`는 순수 함수라 뷰가 같은 객체를 그대로 실을 수 있다(ADR-0167). 다시 열 조건: #2481 병합 뒤 #2492가 레인에 배정될 때.
 - **미구현 — 패널 내부 조회 훅의 접기 후 재펼치기 재조회 0회 (#2435):** 작업 영역 위에 조회 소유자가 남는 구조는 0회를 검증했다. 패널 안 `useMenuQuery`가 언마운트되면 Kernel의 `staleTime: 0` 때문에 peek·pin 리마운트 때 재조회한다. 이유: #2435 작업자 범위는 components 및 메뉴 아이콘이며 Kernel 캐시 신선도 변경은 포함되지 않았다. 다시 열 조건: 호스트가 Kernel의 remount/refetch 정책 또는 소비자 조회 소유권 이동 범위를 확정할 때. 이번 구현은 이 보장을 전체 패널에 제공하지 않는다.
 
 - **미구현 — HW Time 파레토 → Finding/VOC 생성 링크 (#2431 PR2):** 이유: §22는 Context Link 정책만 정하고, 이 분석 지점의 목적지·생성 입력(설비·Module·Motion 증거)을 받는 계약은 없다. 생성 단추 숨김. 재개 조건: 목적지가 허용하는 생성 입력과 메뉴 링크 계약 확정. 임의 page key나 URL은 만들지 않았다.
