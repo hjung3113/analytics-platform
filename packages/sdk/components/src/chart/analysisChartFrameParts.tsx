@@ -15,13 +15,15 @@ export function AnalysisChartPart({ enabled, body, bounded, children }: { enable
 }
 
 /** Panel tabs own the title. Keep the plot's primary tools on one row; disclose the existing secondary controls unchanged. */
-export function PanelChartChrome({ enabled, toolsReveal, titleId, title, description, metricVersion, actions, open, onOpenChange, onOpenAutoFocus, children }: { enabled: boolean; toolsReveal?: ChartChromeOptions['toolsReveal']; titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; actions: ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void; onOpenAutoFocus?: (event: Event) => void; children: ReactNode }) {
+export function PanelChartChrome({ enabled, start, toolsReveal, titleId, title, description, metricVersion, actions, open, onOpenChange, onOpenAutoFocus, children }: { enabled: boolean; start?: ReactNode; toolsReveal?: ChartChromeOptions['toolsReveal']; titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; actions: ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void; onOpenAutoFocus?: (event: Event) => void; children: ReactNode }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const [localOpen, setLocalOpen] = useState(false);
   const expanded = open ?? localOpen;
   if (!enabled) return <>{children}</>;
   return <header data-tools-reveal={toolsReveal} className={cn('flex shrink-0 items-center gap-1 px-2 pt-1', toolsReveal === 'hover' && !expanded && 'opacity-0 group-hover/chart:opacity-100 group-focus-within/chart:opacity-100')}>
     <ChartHeading titleId={titleId} title={title} description={description} metricVersion={metricVersion} compact hideTitle />
+    {/* Menu controls share the plot tools' row (#2459): one row above the plot instead of an option row plus a tool row. */}
+    {start != null && <div data-chart-toolbar-start className="flex min-w-0 items-center gap-1">{start}</div>}
     <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto">
       {actions}
       <Popover open={expanded} onOpenChange={next => { setLocalOpen(next); onOpenChange?.(next); }}>

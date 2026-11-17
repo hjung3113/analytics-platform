@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { formatText, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PanelAddMenu, PanelOptionChips, PanelOptions, PanelWorkspace, QueryView,
+  AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
   usePanelOptions, usePinnedPanels, type ChartPoint, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
@@ -101,7 +101,7 @@ function Hierarchy({ filter, currentId, onDrill }: { filter: HwTimeFilter; curre
 
 type BarsProps = {
   depth: Step; queries: MatrixQueries; typeId: string | null; motionId: string | null; moduleId: string | null; filter: HwTimeFilter;
-  options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void; onReset: (id: string) => void;
+  options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void;
   onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
 };
@@ -115,7 +115,7 @@ function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMot
   const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
   return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
-function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onReset, onOpenTrend, previous = false, allMotions = false }: BarsProps) {
+function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false }: BarsProps) {
   const m = useMessages(S);
   const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
@@ -165,12 +165,10 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   if (allMotions) chartId = 'hw-module-motions';
   const scaleText = depth === 1 ? m('scaleTypes', { equipment: String(shaped.equipmentCount), types: String(HW_TIME_MODULE_TYPES.length) })
     : m('scale', { equipment: String(shaped.equipmentCount), modules: String(shaped.moduleCount) });
+  // The panel options open the chart's tool row (#2459, owner-confirmed variant B): the inline values say the state, so no chip row.
+  const toolbarStart = !previous && !allMotions ? <PanelOptions options={chartOptions} values={values} onChange={onChange} /> : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
-    {!previous && !allMotions && <div className="flex items-center justify-between gap-2 px-2 py-1">
-      <div className="min-w-0 flex-1"><PanelOptionChips options={chartOptions} values={values} onReset={onReset} /></div>
-      <PanelOptions options={chartOptions} values={values} onChange={onChange} />
-    </div>}
-    <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet"
+    <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
@@ -218,7 +216,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   if (keys.invalid) return <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />;
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
   const population = JSON.stringify([step, session.user.id, context]);
-  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} values={state.values} onChange={state.setValue} onReset={state.reset}
+  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} values={state.values} onChange={state.setValue}
     onDrill={id => {
       const [type, motion, module] = id.split('/');
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });

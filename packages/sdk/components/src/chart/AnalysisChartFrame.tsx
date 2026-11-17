@@ -177,6 +177,12 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   /** Legend and reading-aid labels; defaults to localized Upper bound / Lower bound / Bound range. */
   boundLabels?: ChartBoundLabels;
   extraActions?: ReactNode;
+  /**
+   * Opt-in (#2459): menu controls drawn at the start of the plot's tool row, for example `PanelOptions`. In panel chrome (`standard`/`minimal`)
+   * they sit after ⓘ on the same row as the plot tools, so a panel needs no separate option row; in `full` chrome they open the toolbar.
+   * Omitted: the output is unchanged. Unlike `extraActions`, never moved into More.
+   */
+  toolbarStart?: ReactNode;
   /** A second value axis on the right for series with `axis: 'right'`: its own scale from 0, this unit in the axis name, in the tooltip, the table and CSV headers (`name (unit)`), and `valueFormat` for tooltip, point selector and table values (default: the Frame's `valueFormat`). Vertical, unstacked charts only; with `orientation="horizontal"` or `stacked` every series is drawn on the left, with a dev warning. `markLines` stay on the left axis. */
   rightAxis?: { unit: string; valueFormat?: (v: number) => string };
   /** Adds a `이미지 복사` button (PNG to the clipboard, or a download when the clipboard is unavailable), shown only when the current menu manifest enables `features.export`. Without a `PlatformProvider` it shows only when `exportActions.exportAllowed` is true (#1953). */
@@ -841,7 +847,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && 'rounded-none border-0 shadow-none')}>
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
-    <PanelChartChrome enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} open={panelToolsOpen} onOpenChange={setPanelToolsOpen} onOpenAutoFocus={event => {
+    <PanelChartChrome enabled={compactChrome} start={p.toolbarStart} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} open={panelToolsOpen} onOpenChange={setPanelToolsOpen} onOpenAutoFocus={event => {
       if (!focusPanelAnnotate.current) return;
       focusPanelAnnotate.current = false;
       event.preventDefault();
@@ -861,6 +867,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
         wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
       <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+        {!compactChrome && p.toolbarStart != null && <div data-chart-toolbar-start className="flex flex-wrap items-center gap-1">{p.toolbarStart}</div>}
         {pointControls && <div className="flex flex-wrap items-center gap-1">
           <select aria-label={m('chartSelectPoint')} value={selectedPoint ? chartPointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
             className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => chartPointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>

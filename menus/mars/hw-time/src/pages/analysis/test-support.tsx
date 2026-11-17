@@ -33,9 +33,9 @@ vi.mock('@ap/components', async importOriginal => {
       }}>{`activate ${cell.y} ${cell.x}`}</button>)}
     </section>,
     AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => <section aria-label={p.chartId}>
-      {p.title}{p.extraActions}
+      {p.title}{p.toolbarStart != null && <div data-chart-toolbar-start>{p.toolbarStart}</div>}{p.extraActions}
       <pre data-testid={p.chartId}>{JSON.stringify({ series: p.series, activeCategory: p.activeCategory, revealActive: p.revealActive, rowPitch: p.rowPitch, startAlign: p.startAlign, minMax: p.minMax, legend: p.legend, activation: p.pointActivation?.on,
-        optionKeys: (p.extraActions as import('react').ReactElement<import('@ap/components').PanelOptionsProps> | undefined)?.props.options.filter(option => !option.hidden).map(option => option.id),
+        optionKeys: ((p.toolbarStart ?? p.extraActions) as import('react').ReactElement<import('@ap/components').PanelOptionsProps> | undefined)?.props.options.filter(option => !option.hidden).map(option => option.id),
         actions: (typeof p.pointActions === 'function' && p.series[0]?.points[0] ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => action.label), emphasisFocus: p.emphasisFocus,
         rowGroups: p.rowGroups && { header: p.rowGroups.header, byCategory: [...p.rowGroups.byCategory] },
         bounds: p.bounds && [...p.bounds],
