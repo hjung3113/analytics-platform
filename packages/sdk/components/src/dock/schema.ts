@@ -1,5 +1,28 @@
 import { isRecord } from '@ap/contracts';
 
+/** Workspace-only local preference. Coordinates and dimensions are container-relative px. */
+export type DockFloatingPanel = { panelId: string; x: number; y: number; width: number; height: number };
+export type PanelEdge = 'left' | 'top';
+
+export function parseFloatingPanels(raw: unknown, allowed: ReadonlySet<string>): DockFloatingPanel[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  return raw.flatMap(item => {
+    if (!isRecord(item) || typeof item.panelId !== 'string' || !allowed.has(item.panelId) || seen.has(item.panelId)) return [];
+    const { panelId, x, y, width, height } = item;
+    if (![x, y, width, height].every(value => typeof value === 'number' && Number.isFinite(value)) || (width as number) <= 0 || (height as number) <= 0) return [];
+    seen.add(panelId);
+    return [{ panelId, x, y, width, height } as DockFloatingPanel];
+  });
+}
+
+/** Clamp on display/load, never to the screen or the browser window. */
+export function clampFloatingPanel(panel: DockFloatingPanel, area: { width: number; height: number }): DockFloatingPanel {
+  const width = Math.min(panel.width, Math.max(1, area.width));
+  const height = Math.min(panel.height, Math.max(1, area.height));
+  return { ...panel, width, height, x: Math.max(0, Math.min(panel.x, area.width - width)), y: Math.max(0, Math.min(panel.y, area.height - height)) };
+}
+
 /**
  * Dock layout schema (ADR-0067 decision 4): one recursive tree shared by the board and the menu workspace.
  * Maximize is never stored. A menu workspace's `hidden` list and `preset` live in its own state (`PanelWorkspace`), not in this tree.

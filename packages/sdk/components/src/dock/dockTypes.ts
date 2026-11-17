@@ -1,6 +1,16 @@
 import type { ReactNode } from 'react';
 import type { DockDropPosition } from './commands';
-import type { DockNode } from './schema';
+import type { DockNode, DockFloatingPanel } from './schema';
+
+/** Internal workspace capability; BoardDock keeps floating disabled. Peek geometry is never persisted. */
+export type DockFloating = {
+  panels: readonly DockFloatingPanel[];
+  peekId?: string;
+  /** Minimum outer peek height, including its single tabbar; still capped by available space and 440px. */
+  peekHeightFloor?: number;
+  onChange: (panels: DockFloatingPanel[], tree: DockNode) => void;
+  onDismissPeek: () => void;
+};
 
 export type DockPanel = {
   id: string;

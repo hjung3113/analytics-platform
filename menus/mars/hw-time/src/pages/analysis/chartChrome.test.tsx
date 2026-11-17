@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
-import { renderOverview, requests } from './test-support';
+import { answer, renderOverview, requests } from './test-support';
 
 beforeEach(() => {
   requests.length = 0;
@@ -24,6 +24,17 @@ it('opts all Bars into quiet summaries and moves scale captions into their descr
     expect(description).toMatch(/2개 설비/);
     expect(screen.getByRole('region', { name: `panel ${panelId}` }).querySelector('p.t-caption')).toBeNull();
   }
+});
+
+it('declares an icon for every non-primary workspace panel (#2435)', async () => {
+  const components = await import('@ap/components');
+  const workspaces = vi.spyOn(components, 'PanelWorkspace');
+  await renderOverview('&moduleType=PM&drillModule=PM1&drillMotion=Chuck&pins=scatter&pins=heatmap&pins=distribution&pins=donut&pins=pareto&pins=equipmentDays&pins=boundHistory&pins=motionTable&pins=moduleMotions&pins=table', request => {
+    if (['hwTime.matrix', 'hwTime.runs', 'hwTime.motionStats'].includes(request.endpoint)) return answer(request);
+    return { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'icons-fixture' };
+  });
+  const panels = workspaces.mock.calls.at(-1)![0].panels;
+  for (const panel of panels.filter(panel => !panel.primary)) expect(panel.icon, panel.id).toBeDefined();
 });
 
 it('declares the owner-picked chart chrome per panel with captions only on the bottom legends', async () => {

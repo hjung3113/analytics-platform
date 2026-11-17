@@ -131,8 +131,8 @@ export function DockLayout(props: DockLayoutProps) {
   return <DockLayoutBase {...props} />;
 }
 
-/** Internal (the workspace imports it from this file; `index.ts` does not): `DockLayout` plus the row capability of `DockRows`. */
-export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null }) {
+/** Internal workspace capabilities: rows, reveal, floating and a narrow projection measured once outside the edge strips. */
+export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean }) {
   const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y, canDropAt } = props;
   const { t } = useI18n();
   const instanceId = useId();
@@ -152,7 +152,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     observer.observe(element);
     return () => { observer.disconnect(); };
   }, [stackBelow]);
-  const narrow = stackBelow !== undefined && belowStack;
+  const narrow = props.narrow ?? (stackBelow !== undefined && belowStack);
   /** Row mode is on screen (D8): programmatic focus then also reveals the element in the page's scroll container. */
   const rowMode = rows !== undefined && !narrow;
 
@@ -171,7 +171,9 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
   const shown = currentPanelId !== undefined && known.has(currentPanelId) ? currentPanelId : stackedChoice;
   const display = useMemo(() => (narrow ? stackedTree(layout, shown, panels.map(panel => panel.id)) : layout), [narrow, layout, shown, panels]);
   const maximized = !narrow && maximizedPanelId !== null && known.has(maximizedPanelId) ? maximizedPanelId : null;
-  const visible = useMemo(() => visiblePanelIds(display, maximized), [display, maximized]);
+  // Workspace edges have their own breakpoint; a compact dock can still host a peek above that edge breakpoint.
+  const floating = props.floating;
+  const visible = useMemo(() => new Set([...visiblePanelIds(display, maximized), ...(floating?.panels.map(panel => panel.panelId) ?? [])]), [display, maximized, floating]);
 
   const activate = useCallback((panelId: string) => {
     if (narrow) setChoice({ base: firstActive, id: panelId });
@@ -303,7 +305,11 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     const tab = tabOf(event.target, container.current);
     if (event.key === 'Escape') {
       // Whatever consumed Escape first (menu, popover, dialog: they call preventDefault) keeps it; only the innermost maximize ends.
-      if (event.defaultPrevented || !maximized) return;
+      if (event.defaultPrevented) return;
+      if (floating?.peekId) {
+        event.preventDefault(); event.stopPropagation(); floating.onDismissPeek(); return;
+      }
+      if (!maximized) return;
       event.preventDefault();
       event.stopPropagation();
       onMaximizedChange?.(null);
@@ -345,7 +351,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
           onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel} canDropAt={canDropAt}
-          containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} />
+          containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} floating={floating} />
       </Suspense>
     </ChunkLoadBoundary>
   </div>;
