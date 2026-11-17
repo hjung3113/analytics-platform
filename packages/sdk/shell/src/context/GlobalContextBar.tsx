@@ -104,7 +104,7 @@ function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capabili
   const { global } = useHostPlatform();
   const fullValue = k === 'time' ? (global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')) : value;
   return <span role={k === 'time' ? 'group' : undefined} aria-label={k === 'time' ? `${tx(CONTEXT_LABELS[k])}: ${fullValue}${capStatus(cap, t)}` : undefined} className={cn('inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border pl-2.5 pr-1 whitespace-nowrap text-xs',
-    cap === 'unsupported' ? 'border-dashed border-border-control text-text-muted' : 'border-border-control bg-surface-card')}
+    cap === 'unsupported' ? 'border-dashed border-border-control text-text-muted' : 'border-border-control bg-surface-card on-canvas-band:bg-transparent')}
     title={cap === 'unsupported' ? m('carriedUnsupportedTitle') : undefined}>
     <span className="text-text-muted">{tx(CONTEXT_LABELS[k])}</span>
     <span className="min-w-0 max-w-48 truncate font-medium tabular" title={fullValue}>{value}</span>

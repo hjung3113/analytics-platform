@@ -116,8 +116,8 @@ export function VocRow({
         'group/voc-row relative flex w-full items-center gap-3 px-5 py-2.5 min-h-row-default text-left cursor-pointer',
         // Row divider — prototype .object-row { border-bottom: 1px solid var(--border-subtle) }
         'border-b border-border-subtle',
-        // Hover
-        'hover:bg-surface-row-hover',
+        // Hover only on unselected rows so the selected surface stays under the pointer (#2485)
+        !selected && 'hover:bg-surface-row-hover',
         // Selected: tinted background
         selected && 'bg-surface-row-selected',
         // Permission-limited

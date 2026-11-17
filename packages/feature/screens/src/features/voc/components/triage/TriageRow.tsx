@@ -84,8 +84,8 @@ export function TriageRow({
         'group/triage-row relative flex w-full items-center gap-3 min-h-row-expanded py-3.5 px-5 text-left',
         // Bottom border
         'border-b border-border-subtle',
-        // Hover
-        'hover:bg-surface-row-hover',
+        // Hover only on unselected rows so the selected surface stays under the pointer (#2485)
+        !selected && 'hover:bg-surface-row-hover',
         // Selected state
         selected && [
           'bg-surface-row-selected',
