@@ -9,7 +9,7 @@ import { manifests } from '../../../index';
 import HwTimePage from '../../../HwTimePage';
 import { panelDeclarations } from '../panelDeclaration';
 import { panelRecipe } from '../recipeModel';
-import { RecipeBack } from '../PanelRecipe';
+import { PanelRecipeBack } from '@ap/components';
 import declarationSource from '../../../panels.ts?raw';
 
 vi.mock('@ap/components', async original => {
@@ -23,6 +23,8 @@ vi.mock('@ap/components', async original => {
 });
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
 afterEach(cleanup);
+const recipeRegistry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ ...testSpace(), homeMenuId: 'hw-time' }], groups: [{ id: groupId('hwTime'), label: { ko: 'HW', en: 'HW' }, icon: LayoutDashboard, space: testSpace().id }], menus: manifests });
+const recipeOf = (id: string, primary = false) => panelRecipe(recipeRegistry.panels('hw-time').find(panel => panel.id === id), {}, { primary });
 
 describe('panel recipe', () => {
   it.each(['inside', 'outside'] as const)('restores the same panel root only when focus is %s the recipe', async focus => {
@@ -46,23 +48,23 @@ describe('panel recipe', () => {
     } else expect(document.activeElement).toBe(outside);
   });
   it('counts CSV only for panels that actually offer export', () => {
-    const motion = panelRecipe('motionTable', {}, { primary: false })!;
+    const motion = recipeOf('motionTable')!;
     expect(motion.platform.find(feature => feature.id === 'csv')?.state).toBe('off');
     expect(motion.platform.filter(feature => feature.state === 'on')).toHaveLength(8);
-    expect(panelRecipe('table', {}, { primary: false })!.platform.find(feature => feature.id === 'csv')?.state).toBe('on');
-    expect(panelRecipe('trend', {}, { primary: false })!.platform.find(feature => feature.id === 'csv')?.state).toBe('on');
+    expect(recipeOf('table')!.platform.find(feature => feature.id === 'csv')?.state).toBe('on');
+    expect(recipeOf('trend')!.platform.find(feature => feature.id === 'csv')?.state).toBe('on');
   });
   it.each(Object.keys(panelDeclarations))('%s has generated pieces and a rendered shape', id => {
-    const recipe = panelRecipe(id, {}, { primary: false })!;
-    expect(recipe.declaration).toBe(panelDeclarations[id as keyof typeof panelDeclarations]);
+    const recipe = recipeOf(id)!;
+    expect(recipe.panel).toMatchObject({ id, menuId: 'hw-time', pieces: panelDeclarations[id as keyof typeof panelDeclarations].pieces });
     expect(recipe.pieces.length).toBeGreaterThan(0);
     expect(recipe.shape.ko).not.toBe('—');
-    expect(recipe.code.files.length).toBeGreaterThan(0);
-    expect(recipe.code.declaration).toBeGreaterThan(0);
+    expect(recipe.code?.files.length).toBeGreaterThan(0);
+    expect(recipe.code?.declaration).toBeGreaterThan(0);
   });
   it('renders ordered columns and source-derived summary with counting rules and chart kind', () => {
-    const recipe = panelRecipe('trend', {}, { primary: false })!;
-    render(<I18nProvider><RecipeBack recipe={recipe} onClose={() => {}} /></I18nProvider>);
+    const recipe = recipeOf('trend')!;
+    render(<I18nProvider><PanelRecipeBack recipe={recipe} onClose={() => {}} /></I18nProvider>);
     const block = declarationSource.split('  trend: {')[1]!.split('  scatter: {')[0]!;
     const lines = block.split(/\r?\n/).filter(line => line.trim()).length;
     expect(screen.getByText(`직접 선언 ${lines}줄(공유 정의 제외) · SDK 조각 ${panelDeclarations.trend.pieces.length}개 · 플랫폼 기능 10/13개 제공`)).toBeTruthy();

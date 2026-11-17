@@ -1,6 +1,7 @@
 /// <reference path="./recipeRaw.d.ts" />
 import type { Text } from '@ap/contracts';
-import { CONTEXT_LABELS } from '@ap/kernel';
+import type { RegisteredPanel } from '@ap/kernel';
+import { panelRecipe as sdkPanelRecipe, type PanelRecipe } from '@ap/components';
 import { manifests } from '../../index';
 import { HW_TIME_NEW_PANEL_MESSAGES as N } from '../../messages';
 import workspaceSource from './AnalysisWorkspace.tsx?raw';
@@ -10,7 +11,7 @@ import tableSource from '../table/RawTablePanel.tsx?raw';
 import newPanelsSource from './NewPanels.tsx?raw';
 import distributionSource from './DistributionPanel.tsx?raw';
 import declarationSource from '../../panels.ts?raw';
-import { disabledReason, panelDeclarations, type PanelDeclaration } from './panelDeclaration';
+import type { HwTimePanelDeclaration } from '../../panels';
 
 /** Key → words. A key glossary (one entry per input key), not copy per panel. */
 const PAGE_LABELS: Readonly<Record<string, Text>> = {
@@ -30,7 +31,6 @@ const ACTION_LABELS: Readonly<Record<string, Text>> = {
   verdict: N.verdict, date: N.date,
   drill: { ko: '단계 이동', en: 'Drill' }, highlight: { ko: '같이 강조', en: 'Highlight' }, page: { ko: '페이지', en: 'Page' }, sort: { ko: '정렬', en: 'Sort' },
 };
-export const labelOf = (key: string): Text => (key in CONTEXT_LABELS ? CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS] : PAGE_LABELS[key]) ?? { ko: key, en: key };
 
 const sources = { workspace: ['AnalysisWorkspace.tsx', workspaceSource], additional: ['AdditionalPanels.tsx', additionalSource], run: ['RunPanel.tsx', runSource], table: ['RawTablePanel.tsx', tableSource], newPanels: ['NewPanels.tsx', newPanelsSource], distribution: ['DistributionPanel.tsx', distributionSource] } as const;
 /** Which menu files hold the panel's code. Shared files are named whole, not a per-panel implementation total. */
@@ -48,58 +48,22 @@ function declarationLines(id: string): number {
   return lines.slice(start, end).filter(line => line.trim() !== '').length;
 }
 
-export type PlatformFeature = { id: string; label: Text; state: 'on' | 'off' | 'unknown'; note?: Text };
 /** What the panel draws, as a reader names it; the SDK piece that draws it stays in `pieces`. */
 const SHAPE_LABELS: Readonly<Record<string, Text>> = {
   heatmap: { ko: '히트맵', en: 'Heatmap' }, line: { ko: '선 차트', en: 'Line chart' }, scatter: { ko: '산점도', en: 'Scatter plot' },
   histogram: { ko: '히스토그램', en: 'Histogram' }, donut: { ko: '도넛 차트', en: 'Donut chart' }, pareto: { ko: '파레토 차트', en: 'Pareto chart' },
   audit: { ko: '변경 이력', en: 'Audit timeline' }, table: { ko: '표', en: 'Table' }, 'bar-horizontal': { ko: '가로 막대', en: 'Horizontal bars' },
 };
-export type Recipe = {
-  declaration: PanelDeclaration;
-  shape: Text;
-  data: { endpoints: readonly string[]; grain: Text; inputs: readonly string[] };
-  pieces: readonly string[];
-  follows: { inputs: readonly string[]; outputs: readonly { key: string; action: Text }[] };
-  condition: { declared: Text | null; now: Text | undefined };
-  code: { declaration: number; files: readonly { name: string; lines: number }[] };
-  platform: readonly PlatformFeature[];
-};
 
-export function panelRecipe(id: string, context: Readonly<Record<string, unknown>>, options: { primary: boolean }): Recipe | null {
-  if (!Object.hasOwn(panelDeclarations, id)) return null;
-  const declaration: PanelDeclaration = panelDeclarations[id as keyof typeof panelDeclarations];
-  const manifest = manifests[0]!;
-  const pieces = declaration.pieces ?? [];
-  const chart = pieces.some(piece => piece === 'AnalysisChart' || piece.startsWith('AnalysisChart:') || piece === 'AnalysisChartFrame');
-  const range = ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(declaration.kind ?? '');
-  const queryKeys = [...(declaration.queryInputs.context ?? []), ...(declaration.queryInputs.page ?? []).map(input => input.key)];
-  const required = (declaration.queryInputs.page ?? []).filter(input => input.required).map(input => labelOf(input.key));
-  const declared = declaration.availability?.disabledReason
-    ?? (required.length ? { ko: `${required.map(label => label.ko).join(', ')} 필요`, en: `Needs ${required.map(label => label.en).join(', ')}` } : null);
-  const on = (value: boolean) => value ? 'on' as const : 'off' as const;
-  return {
-    declaration,
-    shape: SHAPE_LABELS[declaration.kind ?? ''] ?? { ko: '—', en: '—' },
-    data: { endpoints: declaration.endpoints.map(endpoint => endpoint.id), grain: GRAIN_LABELS[declaration.grain] ?? { ko: declaration.grain, en: declaration.grain }, inputs: queryKeys },
-    pieces,
-    follows: { inputs: (declaration.displayInputs.page ?? []).map(input => input.key), outputs: declaration.outputs.map(output => ({ key: output.key, action: ACTION_LABELS[output.action] ?? { ko: output.action, en: output.action } })) },
-    condition: { declared, now: disabledReason(declaration, context, PAGE_LABELS) },
-    code: { declaration: declarationLines(id), files: (SOURCE_OF[id] ?? []).map(key => ({ name: sources[key][0], lines: codeLines(sources[key][1]) })) },
-    platform: [
-      { id: 'add', label: { ko: '패널 추가', en: 'Add panel' }, state: 'on' },
-      { id: 'pin', label: { ko: '고정', en: 'Pin' }, state: 'on' },
-      { id: 'hide', label: { ko: '숨기기', en: 'Hide' }, state: on(!options.primary) },
-      { id: 'layout', label: { ko: '배치 저장', en: 'Saved layout' }, state: 'on' },
-      { id: 'maximize', label: { ko: '크게 보기', en: 'Maximize' }, state: 'on' },
-      { id: 'range', label: { ko: '확대·구간', en: 'Zoom & range' }, state: on(range) },
-      { id: 'annotate', label: { ko: '주석', en: 'Annotate' }, state: on(chart && manifest.features.annotate === true), note: chart && manifest.features.annotate !== true ? { ko: '메뉴가 끔', en: 'Off in this menu' } : undefined },
-      { id: 'image', label: { ko: '이미지', en: 'Image' }, state: 'off', note: { ko: '메뉴가 안 켬(SDK 옵션 있음)', en: 'Not turned on by this menu (SDK option exists)' } },
-      { id: 'csv', label: { ko: 'CSV', en: 'CSV' }, state: on(manifest.features.export === true && (chart || declaration.csvExport === true)) },
-      { id: 'states', label: { ko: '빈·오류 상태', en: 'Empty & error states' }, state: on(pieces.includes('QueryView')) },
-      { id: 'link', label: { ko: '공유 링크', en: 'Share link' }, state: 'on' },
-      { id: 'permission', label: { ko: '권한', en: 'Permission' }, state: 'on', note: { ko: String(manifest.permission), en: String(manifest.permission) } },
-      { id: 'audit', label: { ko: '감사', en: 'Audit' }, state: 'unknown', note: { ko: '공통 경로, 이 패널 기록은 확인 안 함', en: 'Shared path, not checked per panel' } },
-    ],
-  };
+/** HW Time's words and code counts on the SDK recipe of a registered panel (#2471). */
+export function panelRecipe(panel: RegisteredPanel | undefined, context: Readonly<Record<string, unknown>>, options: { primary: boolean }): PanelRecipe | null {
+  if (!panel || panel.menuId !== manifests[0]!.id) return null;
+  const own = panel as RegisteredPanel & Pick<HwTimePanelDeclaration, 'kind' | 'csvExport'>;
+  return sdkPanelRecipe({
+    panel, menu: manifests[0]!, context,
+    host: { add: true, pin: true, hide: !options.primary, layout: true, maximize: true, range: ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(own.kind ?? ''), csv: own.csvExport === true },
+    labels: { keys: PAGE_LABELS, grains: GRAIN_LABELS, actions: ACTION_LABELS },
+    ...(SHAPE_LABELS[own.kind ?? ''] ? { shape: SHAPE_LABELS[own.kind ?? '']! } : {}),
+    code: { declaration: declarationLines(panel.id), files: (SOURCE_OF[panel.id] ?? []).map(key => ({ name: sources[key][0], lines: codeLines(sources[key][1]) })) },
+  });
 }
