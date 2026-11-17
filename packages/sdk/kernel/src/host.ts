@@ -16,4 +16,4 @@ export { captureApplied } from './saved-view/capture';
 export { useSavedViews, type SaveInput, type SavedViews, type SelectOutcome, type Unsupported, type ViewState } from './saved-view';
 export { type LeaveRequest } from './platform/navigationGuard';
 export { type ScopeSelectorRequest } from './scope/scopeSelectorRequest';
-export { useCustomGroupList } from './saved-view/useCustomGroupList';
+export { useCustomGroupList, type CustomGroupList } from './saved-view/useCustomGroupList';

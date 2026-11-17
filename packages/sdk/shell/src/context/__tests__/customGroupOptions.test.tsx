@@ -26,7 +26,7 @@ it('ignores a save that settles after the Scope moved on, so the new Scope keeps
 });
 
 
-it('remembers a saved group for the following query without another list read (#2470)', async () => {
+it('shows a saved group immediately but rereads the list on the following query (#2470)', async () => {
   window.history.replaceState(null, '', '/' + buildQuery({ scopeId: 'MEM', from: '2026-01-01T00:00:00', to: '2026-01-02T00:00:00', roomNames: ['PHOTO'], lineNames: null, prcGroups: null, condition: { customGroup: ['g1'] }, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }));
   const store = createFakeSavedViewStore();
   const list = vi.spyOn(store, 'list');
@@ -42,12 +42,11 @@ it('remembers a saved group for the following query without another list read (#
   // The selected id exists only in the write response, not in a subsequent store list.
   const entry = { ...saved.value, view: { ...saved.value.view, id: 'g1' } };
   act(() => result.current.groups.remember(entry));
-  await act(async () => { expect((await result.current.query.fetch(null)).outcome).toBe('empty'); });
+  await waitFor(() => expect(result.current.groups.optionsById.get('g1')?.target).toEqual({ fixed: ['E1'] }));
   expect(list).toHaveBeenCalledTimes(1);
-  expect(menuQuery).toHaveBeenCalledOnce();
   await act(async () => { expect((await result.current.query.fetch(null)).outcome).toBe('error'); });
   expect(list).toHaveBeenCalledTimes(2);
-  expect(menuQuery).toHaveBeenCalledOnce();
+  expect(menuQuery).not.toHaveBeenCalled();
 });
 
 it('hides the previous Scope list until the new Scope read settles (#2470)', async () => {

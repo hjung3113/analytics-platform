@@ -1,3 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
+import { customGroupListQueryOptions } from '../../saved-view/custom-group-list-cache';
+import { equipmentFactsQueryOptions } from '../../scope/equipment-facts-cache';
+import { useCustomGroupList } from '../../saved-view/useCustomGroupList';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { useLayoutEffect } from 'react';
 import { House } from 'lucide-react';
@@ -288,4 +292,74 @@ it('an aborted waiter does not poison the shared list for another query', async 
   await expect(second).resolves.toMatchObject({ outcome: 'ok' });
   expect(menuQuery).toHaveBeenCalledTimes(1);
   expect(list).toHaveBeenCalledTimes(1);
+});
+
+
+for (const resource of ['list', 'facts'] as const) {
+  it.each(['disable', 'unmount'] as const)(`keeps a held ${resource} alive when its hook observer %s leaves (#2470 FIX1)`, async action => {
+    window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
+    const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+    let release!: () => void;
+    const hold = new Promise<void>(resolve => { release = resolve; });
+    if (resource === 'list') store.listHold = hold;
+    const list = vi.spyOn(store, 'list');
+    const listEquipmentFacts = vi.fn(async () => { if (resource === 'facts') await hold; return facts; });
+    const menuQuery = menuQuerySpy();
+    const adapter = testAdapter({ session: () => session, menuQuery, listEquipmentFacts });
+    let request: ReturnType<typeof menuRequest<null, { hits: number }>> | undefined;
+    function ListObserver({ enabled }: { enabled: boolean }) {
+      const { client, gen } = useQueryEngine();
+      useQuery({ ...customGroupListQueryOptions(client, gen, store, session.user.id), enabled }, client);
+      return null;
+    }
+    function FactsObserver({ enabled }: { enabled: boolean }) {
+      const { client, gen } = useQueryEngine();
+      useQuery({ ...equipmentFactsQueryOptions(client, gen, adapter, 'MEM'), enabled }, client);
+      return null;
+    }
+    const Observer = resource === 'list' ? ListObserver : FactsObserver;
+    function WaiterProbe() {
+      const platform = useHostPlatform();
+      const queryEngine = useQueryEngine();
+      useLayoutEffect(() => { request = menuRequest(endpoint, { ...platform, queryEngine }); });
+      return null;
+    }
+    const view = (show: boolean, enabled: boolean) => <I18nProvider><PlatformProvider registry={registry} adapter={adapter} savedViews={store}>{show && <Observer enabled={enabled} />}<WaiterProbe /></PlatformProvider></I18nProvider>;
+    const mounted = render(view(true, true));
+    await waitFor(() => expect(request?.ready).toBe(true));
+    const pending = request!.send(null);
+    await waitFor(() => expect(resource === 'list' ? list : listEquipmentFacts).toHaveBeenCalledTimes(1));
+    mounted.rerender(view(action !== 'unmount', false));
+    await act(async () => { release(); });
+    await expect(pending).resolves.toMatchObject({ outcome: 'ok' });
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(listEquipmentFacts).toHaveBeenCalledTimes(1);
+  });
+}
+
+it('rechecks revoked A after remembering unrelated saved B (#2470 FIX1)', async () => {
+  window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
+  const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+  const list = vi.spyOn(store, 'list');
+  const menuQuery = menuQuerySpy();
+  let release!: () => void;
+  store.listHold = new Promise<void>(resolve => { release = resolve; });
+  let groups: ReturnType<typeof useCustomGroupList> | undefined;
+  function Groups() { groups = useCustomGroupList('MEM', true); return null; }
+  render(tree({ session: () => session, menuQuery, listEquipmentFacts: async () => facts }, store, <><Groups /><QueryProbe /></>));
+  await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+  await act(async () => { release(); });
+  await waitFor(() => expect(state?.response?.outcome).toBe('ok'));
+  const initialReads = list.mock.calls.length;
+  list.mockResolvedValue([{ id: 'g1', denied: true, reason: 'scope' }]);
+  const saved = await store.save({ schemaVersion: 1, kind: 'custom-group', name: 'B', savedScopeId: 'MEM', target: { fixed: ['E2'] } });
+  if (!saved.ok) throw new Error('save failed');
+  act(() => groups?.remember(saved.value));
+  expect(list).toHaveBeenCalledTimes(initialReads);
+  menuQuery.mockClear();
+  act(() => state?.refetch());
+  await waitFor(() => expect(state?.response?.message).toBe('customGroup blocked: g1 (scope)'));
+  expect(list).toHaveBeenCalledTimes(initialReads + 1);
+  expect(menuQuery).not.toHaveBeenCalled();
 });

@@ -5,7 +5,7 @@ import { useHostPlatform, useQueryEngine } from '../platform/platform';
 import { customGroupItemId } from './expand-custom-groups';
 import { customGroupListQueryKey, customGroupListQueryOptions, type GroupListResult } from './custom-group-list-cache';
 
-type CustomGroupList = {
+export type CustomGroupList = {
   status: 'loading' | 'ready' | 'error';
   items: readonly SavedViewListItem[];
   remember(entry: SavedViewListItem): void;
@@ -35,7 +35,7 @@ export function useCustomGroupList(scopeId: string | null, enabled: boolean): Cu
   const remember = useCallback((entry: SavedViewListItem) => {
     if (!identity.live || !active) return;
     client.setQueryData<GroupListResult>(customGroupListQueryKey(gen, userId), previous => ({
-      ok: true, remembered: true,
+      ok: true,
       items: [...(previous?.ok ? previous.items : []).filter(item => customGroupItemId(item) !== customGroupItemId(entry)), entry],
     }));
   }, [identity, active, client, gen, userId]);

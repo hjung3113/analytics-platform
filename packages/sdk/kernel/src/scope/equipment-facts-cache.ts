@@ -1,3 +1,4 @@
+import { readSharedQuery } from '../query/shared-query-read';
 import type { QueryClient } from '@tanstack/react-query';
 import type { EquipmentFacts, PlatformAdapter } from '@ap/contracts';
 
@@ -38,7 +39,7 @@ export function equipmentFactsQueryOptions(client: QueryClient, gen: string, ada
 export async function readEquipmentFacts(client: QueryClient, gen: string, adapter: PlatformAdapter, scopeId: string, signal?: AbortSignal): Promise<EquipmentFacts> {
   if (!adapter.listEquipmentFacts) throw new Error('listEquipmentFacts is not implemented');
   if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
-  const request = await client.fetchQuery(equipmentFactsQueryOptions(client, gen, adapter, scopeId));
+  const request = await readSharedQuery(client, equipmentFactsQueryOptions(client, gen, adapter, scopeId), signal);
   if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
   if (!request.ok) {
     client.removeQueries({ queryKey: equipmentFactsQueryKey(gen, scopeId), exact: true });
