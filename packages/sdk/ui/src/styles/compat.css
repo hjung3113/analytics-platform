@@ -105,6 +105,14 @@
   }
 }
 
+/* The same nesting guard without the default shadow, for a panel whose host already draws the
+ * frame (a workspace panel). A caller's own `shadow-*` still yields to a card, detail or dock ancestor. */
+@utility elevation-flat {
+  :is(.bg-surface-card, .bg-surface-detail, .dv-groupview) & {
+    @apply shadow-none;
+  }
+}
+
 /* A control on a canvas band (a `bg-surface-canvas` strip that is not the page shell or the rich editor)
  * clears its fill so it reads as part of the band rather than a white chip on it (#2456). */
 @custom-variant on-canvas-band (&:where(.bg-surface-canvas:not([data-shell], .rich-editor) *));
