@@ -742,3 +742,127 @@ fields; approval also records requested/granted targets. Any Role Level can hold
 `scope.read`; Admin self-grant uses the existing policy/envelope and self_grant
 audit. Resolver calls observe writes immediately. Production session snapshot and
 sessionVersion polling integration remain #1844d's assembly responsibility.
+
+## Permission groups (ADR-0163, #2408)
+
+A permission group is a named capability set. It holds **no** managed-system or
+Site scope: the scope is picked on the request or grant. Grants and requests made
+from a group are ordinary capability rows; `permission_group_id` on them only
+records the origin. Editing or archiving a group never changes existing grants or
+open requests.
+
+```text
+GET    /permission-groups                 # groups visible to the caller
+GET    /permission-groups/:id             # one visible group (share links)
+POST   /permission-groups
+PATCH  /permission-groups/:id
+POST   /permission-groups/:id/archive
+PUT    /permission-groups/:id/shares      # personal groups only
+POST   /permissions/requests/batch/:batch_id/decide
+POST   /permission-requests/batch/:batch_id/submit-more-info
+```
+
+### Model and visibility
+
+- `kind`: `operator` (made by `workspace.admin`, usable for direct grants, visible
+  to every workspace session) or `personal` (made by anyone, a request template
+  only, visible to its owner, the actors it is shared with, and `workspace.admin`).
+- `name` 1–80 characters after trim, unique among non-archived groups of the same
+  kind and owner (`operator` groups: unique in the workspace) →
+  `409 conflict.permission_group_name_taken`. `description` ≤ 500.
+- `capabilities`: 1–50 distinct known capability names. A personal group rejects a
+  sensitive capability or `workspace.admin` with `422 validation.failed` and
+  `fields: [{ path: ['capabilities', i], code: 'custom' }]`.
+- An unknown, archived or invisible group id returns `404 not_found.record`
+  (never `403`, so ids do not leak).
+
+### Group item
+
+```ts
+{
+  id: uuid; name: string; description: string | null;
+  kind: 'operator' | 'personal';
+  owner: { actor_id: uuid; display_name: string };
+  capabilities: string[];          // registry order
+  shared_with: { actor_id: uuid; display_name: string }[]; // owner and admin only, else []
+  grant_count: number | null;      // admin only: active grants whose origin is this group
+  can_edit: boolean;               // operator: admin; personal: owner
+  updated_at: iso8601;
+}
+```
+
+`GET /permission-groups` returns `{ items }`, operator groups first, then by name.
+`?kind=operator|personal` filters. For `workspace.admin`, `?scope=all` adds every
+personal group in the workspace (the console's 개인 tab); otherwise only visible ones.
+
+### Writes
+
+- `POST /permission-groups` `{ name, description?, kind, capabilities }`.
+  `kind: 'operator'` requires `workspace.admin` (`403 permission.denied`).
+  `201` group item.
+- `PATCH /permission-groups/:id` `{ expected_updated_at, name?, description?, capabilities? }`;
+  editor per `can_edit`, else `403 permission.denied`. A different `updated_at`
+  returns `409 conflict.stale_write`. `200` group item.
+- `POST /permission-groups/:id/archive` `{ expected_updated_at }`; same gate; `200 { id, archived_at }`.
+- `PUT /permission-groups/:id/shares` `{ actor_ids: uuid[] }` (≤ 50, workspace
+  human actors, not the owner); personal groups only (`422 validation.failed`
+  on an operator group); owner only. `200` group item.
+- Every write writes one audit event (`permission_group_created`, `_updated`
+  with before/after capability sets, `_archived`, `_shared`) and accepts an
+  `Idempotency-Key` like the batch endpoints.
+
+### Requests and grants from a group
+
+- `POST /permission-requests/batch` and `POST /permissions/grants/batch` accept
+  `permission_group_id?: uuid`. The group must be visible to the caller; batch
+  grants accept only `operator` groups (`422 validation.failed` with
+  `path: ['permission_group_id']`). Every item's capability must belong to the
+  group (`422`, row-scoped with `detail.item_index`); a subset is allowed, since
+  held or unrequestable capabilities are left out by the client.
+- Each written row stores `permission_group_id`; batch requests also store
+  `batch_id` on every request row (single requests leave both null).
+- Request list and detail items (`GET /permissions/requests`,
+  `/permission-requests/mine`, both selected details) add
+  `batch_id: uuid | null` and `permission_group: { id, name } | null` (name kept
+  even after archive). Grant list and detail items add
+  `permission_group: { id, name } | null`.
+
+### `POST /permissions/requests/batch/:batch_id/decide`
+
+One decision over every decidable row of a batch request (`pending` or
+`needs_more_info`), in one transaction with the single-decision gate,
+idempotency, rate tier and per-row audit:
+
+```ts
+{
+  action: 'approve' | 'reject' | 'need-more-info';
+  expected_revisions: Record<uuid, positive_integer>; // every decidable row
+  approve_ids?: uuid[];   // approve only: ≥1 decidable row
+  reason?: string;        // ≤ 2000
+  granted_managed_system_id?: uuid | null; // approve: same narrowing rule, all rows
+  expiration?: iso8601 | null;             // approve: same rule, all rows
+  self_approval?: { policy_citation: string; peer_reviewer_absence: string };
+}
+```
+
+- `approve`: rows in `approve_ids` are approved like the single approve (grant
+  row per capability with the request's `permission_group_id`); every other
+  decidable row is **rejected** with `reason`. `reason` is required when any row
+  is rejected or any approved row is sensitive (`422 validation.failed`,
+  `path: ['reason']`); it is written as each sensitive grant's reason and each
+  rejected row's reason.
+- `reject`: every decidable row is rejected; `reason` required.
+- `need-more-info`: every decidable row moves to `needs_more_info` with `reason`
+  as the note; `reason` required.
+- A missing or stale revision for any decidable row returns
+  `409 conflict.stale_write`; a row-scoped refusal (deny overlap, already
+  granted) rolls the batch back with `detail.request_id`.
+- `200 { batch_id, items: [{ id, status, grant_id? }] }`. One
+  `permission_request.decided` notification per batch (`outcome`: `approved`
+  when ≥1 row is approved, else `rejected`).
+
+### `POST /permission-requests/batch/:batch_id/submit-more-info`
+
+The requester answers once for the whole batch:
+`{ note, expected_revisions }`; every row in `needs_more_info` returns to
+`pending` with the same note, following the single route's rules.
