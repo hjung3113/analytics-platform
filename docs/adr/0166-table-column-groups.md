@@ -1,7 +1,7 @@
 # 표 열 묶음은 열별 id 경로로 선언하고 선언 폭 안에서 넘김
 
 상태: **Decided (2026-11-17)**
-- 결정자: 코디네이터(사용자 위임), #2418 N1·N2. 선택 옵션이며 되돌릴 수 있다. 묶음 넘김의 사용자 캡처 확인은 병합 전 조건이다.
+- 결정자: 코디네이터(사용자 위임), #2418 N1·N2. 선택 옵션이며 되돌릴 수 있다. 묶음 넘김은 사용자가 캡처로 확인했다(#2418, PR #2480).
 
 ## 결정
 
@@ -17,7 +17,7 @@
 - **Carbon DataTable**: 내장 묶음 헤더 없음.
 - **TanStack Table v8 (채택)**: 중첩 `columns`와 `getHeaderGroups()`의 `isPlaceholder`·`colSpan`. 이미 사용하는 엔진이므로 교체 없이 확장 가능하다.
 - **WAI**: native table은 `<th scope="colgroup" colspan>`. div `role=table`의 `aria-colspan`만으로 다단 헤더 연결이 화면 낭독기마다 안정적이지 않아 실제 열 이름에 sr-only 경로를 붙인다.
-- **묶음 안 넘김**: 위 제품에 같은 동작은 없다. 가장 가까운 AG Grid `columnGroupShow`는 열 수를 줄이는 접기다. 사용자 고유 상호작용이므로 N2에서 캡처로 확인한다.
+- **묶음 안 넘김**: 위 제품에 같은 동작은 없다. 가장 가까운 AG Grid `columnGroupShow`는 열 수를 줄이는 접기다. 사용자 고유 상호작용이므로 사용자 확인을 거쳤다.
 
 ## 검토한 대안
 
@@ -34,4 +34,4 @@
 - 공개 API는 추가만 한다. 엔진 타입과 묶음 id는 사용자 저장값에 노출하지 않는다. 기존 표는 도입할 필요가 없다.
 - 중첩 헤더·본문·행 그룹은 공용 표시 단위와 displayed-width helper로 같은 clip 경계와 pin offset을 사용한다. 구성 열은 리사이즈하지 않고 저장 폭은 보존하므로 폭 선언을 되돌릴 수 있다.
 - pointer frame은 CSS 변수만 갱신하고 React 상태는 release와 경계 cue에 반영한다. export/copy는 시각 offset과 독립적으로 전체 구성원을 유지한다.
-- 같은 상호작용의 prior art가 없으므로 mock fixture의 «묶음 넓이 지정» 캡처로 사용자 확인을 받은 뒤 병합한다.
+- 같은 상호작용의 prior art가 없어 mock fixture로 검증한다. 놓을 때 구성 열 경계에 맞추기와 경계선 색은 사용자 확인으로 정했다(세부는 Components §15).

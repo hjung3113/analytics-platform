@@ -6,8 +6,8 @@ root `DESIGN.md`. It is not the product design source of truth and does not defi
 frontend component behavior — use `docs/design/features/README.md` and
 `packages/feature/screens/docs/ui-design-system.md` for implementation-facing UI contracts.
 
-Values are Pack 17 light per FO ADR-0021. If a dark value is found, replace it
-with the FO ADR-0021 hex (`#eef2f9` canvas, `#1428a0` accent, `#101828` text) and
+Values are Pack 17 light (FO ADR-0021 direction; current values follow DESIGN.md, #2456). If a dark value is found, replace it
+with the current light hex (`#eef2f9` canvas, `#1428a0` accent, `#101828` text) and
 keep the token name. None are in this file today. The Entity Icon table's
 `#e4f222` (Finding) and `#08090a` (dark foreground) are shipped Entity Icon
 colors (FO ADR-0060), not dark-theme leftovers; this replacement rule does not
@@ -254,7 +254,7 @@ Icon chips use `--radius-icon-chip` (5px), exposed as `rounded-icon-chip`.
 
 ### Shadows
 
-Top-level cards and analysis panels use the `elevation-panel` utility (`shadow-sm`) to separate their white surface from the canvas; inside a card, detail surface or Dockview panel it drops to no shadow so elevation does not stack. Page titles use `t-section-title` (18px/28px/600) within the centred 50px header. List selection combines the selected surface with a 2px `border-selected` bar; severity pills retain their separate 3px width.
+Elevation, page-title role and list-selection bar rules are owned by [DESIGN.md](../../../../DESIGN.md#표면-위계선택-표시--decided-2456); severity pills keep their separate 3px width.
 
 | Name | Value | Token |
 |------|-------|-------|

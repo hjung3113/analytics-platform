@@ -1,9 +1,9 @@
 {
   "name": "@ap/menu-improvement-items",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "ap": {
-    "sdk": ">=0.40.0 <0.41.0"
+    "sdk": ">=0.41.0 <0.42.0"
   },
   "type": "module",
   "exports": {

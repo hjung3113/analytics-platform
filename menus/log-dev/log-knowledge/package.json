@@ -1,9 +1,9 @@
 {
   "name": "@ap/menu-log-knowledge",
   "private": true,
-  "version": "0.12.13",
+  "version": "0.12.14",
   "ap": {
-    "sdk": ">=0.40.0 <0.41.0"
+    "sdk": ">=0.41.0 <0.42.0"
   },
   "type": "module",
   "exports": {

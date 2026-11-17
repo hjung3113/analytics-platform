@@ -1,8 +1,8 @@
 {
   "name": "@ap/menu-home",
   "private": true,
-  "version": "0.2.3",
-  "ap": { "sdk": ">=0.40.0 <0.41.0" },
+  "version": "0.2.4",
+  "ap": { "sdk": ">=0.41.0 <0.42.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
