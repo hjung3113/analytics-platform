@@ -42,6 +42,10 @@ PageActionButton
 EquipmentDeactivateButton
 ```
 
+### PanelWorkspace menu-declared panel actions
+
+Decided (#2432). `PanelWorkspaceProps.panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[]` lets a menu declare actions for each active panel. Translated items follow **all** platform items (collapse/float included), preceded by one separator. Absent or empty results leave the existing menu unchanged. The SDK does not filter primary panels: the menu decides by returning items or an empty list. Items use the existing dropdown keyboard selection, close and trigger-focus return behavior. Selection calls `onSelect`; the SDK owns no menu content or panel presentation state.
+
 ### PanelWorkspace edge collapse, peek and float
 
 Decided (#2435, owner-confirmed c3, 2026-11-17). Every `PanelWorkspace` enables left and top edges and in-workspace Dockview floating groups by default. BoardDock is unchanged. Nothing starts collapsed. Panel `⋯` offers «왼쪽으로 접기», «위로 접기», «띄우기»; the primary panel can never collapse or float. `collapse?: false | { summary?: Text }` removes collapse actions or supplies the summary; `float?: false` removes floating; workspace `edges?: ('left' | 'top')[]` defaults to both and limits collapse destinations. The deprecated `minimize.summary` is a fallback for `collapse.summary`; there is no minimize button.

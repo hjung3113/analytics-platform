@@ -74,6 +74,24 @@ function shell(children: ReactNode) {
 }
 const mountWorkspace = (props: Partial<PanelWorkspaceProps> = {}) => render(shell(<PanelWorkspace {...BASE} {...props} />));
 
+it.each(['ko', 'en'] as const)('appends translated %s menu declarations on a primary panel after platform actions, selects by keyboard and returns focus', async lang => {
+  const selected = vi.fn();
+  storage.setItem('platform:lang', lang);
+  mountWorkspace({ panels: PANELS.map(panel => ({ ...panel, primary: panel.id === 'selector' })), panelMenuItems: () => [{ id: 'recipe', label: { ko: '만든 방법', en: 'Recipe' }, onSelect: selected }] });
+  await ready();
+  const trigger = document.querySelector<HTMLButtonElement>('[data-dock-group-menu]')!;
+  await userEvent.click(trigger);
+  const item = await screen.findByRole('menuitem', { name: lang === 'ko' ? '만든 방법' : 'Recipe' });
+  expect(screen.queryByRole('menuitem', { name: lang === 'ko' ? 'Recipe' : '만든 방법' })).toBeNull();
+  expect(item.previousElementSibling).toHaveAttribute('role', 'separator');
+  const items = screen.getAllByRole('menuitem');
+  expect(items.at(-1)).toBe(item);
+  item.focus();
+  await userEvent.keyboard('{Enter}');
+  expect(selected).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
 const ready = async () => {
   await screen.findAllByRole('tab');
   await waitFor(() => {

@@ -1,6 +1,7 @@
 import type { TextParams } from '@ap/kernel';
 import { useMessages, formatText } from '@ap/kernel';
 import { HW_TIME_MESSAGES } from '../../messages';
+import { panelDeclarations } from '../analysis/panelDeclaration';
 /**
  * HW Time raw table (ADR-0078): paging, export and a detail drawer over existing SDK pieces.
  * In the linked workspace, raw rows stay at the root population; standalone consumers follow the §12.7 drill level; entry is a visible `<값> 들어가기` button in a series cell, never a whole-row click.
@@ -175,10 +176,10 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
         loadPage={(query, signal) => pages.fetch({ ...queryDrill, ...query }, signal)}
         rowAction={(row, { compact }) => row.auxiliary ? null
           : <RowAction compact={compact} icon={PanelRight} label={m('tablePageView', { value: String(rowIdLabel(row.id)) })} text={m('tablePageView2')} onClick={() => setPage({ focus: row.id })} />}
-        exportRows={async (request, signal) => {
+        exportRows={panelDeclarations.table.csvExport ? async (request, signal) => {
           const response = await exports.fetch(exportParams(queryDrill, request), signal);
           return response.data && filter ? { ...response, data: response.data.map(row => filterRow(row, activeSeries)) } : response;
-        }}
+        } : undefined}
         exportNote={m('tablePageRowsOfTheCurrentLevelValuesNot')}
         exportFilterSummary={exportFilterSummary(module, motion, lang === 'ko')}
         exportContext={hwTime.exportRows.context}

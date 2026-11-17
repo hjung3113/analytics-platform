@@ -19,6 +19,9 @@ import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelDa
 import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
+import { panelRecipe } from './recipeModel';
+import { RECIPE_ITEM, RecipePanel } from './PanelRecipe';
+
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
 const BAR_ROW_PITCH = 28;
@@ -228,6 +231,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
 }) {
   const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill } = props;
   const common = useMessages(HW_TIME_MESSAGES);
+  const [explained, setExplained] = useState<string | null>(null);
   const [added, setAdded] = useState<readonly string[]>([]);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
   useEffect(() => {
@@ -302,12 +306,16 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       };
       return { id, icon: ChartNoAxesCombined, title: item.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
         pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
-        render: () => renderPanel(id as CatalogId) };
+        render: () => {
+          const recipe = explained === id ? panelRecipe(id, panelContext, { primary: false }) : null;
+          return <RecipePanel recipe={recipe} onClose={() => setExplained(null)}>{recipe ? null : renderPanel(id as CatalogId)}</RecipePanel>;
+        } };
     }),
   ];
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
+      panelMenuItems={id => Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: RECIPE_ITEM, onSelect: () => setExplained(id) }] : []}
       revealRequest={reveal}
       toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={(id, pin) => {
         setAdded(current => [...new Set([...current, id])]); if (pin) pins.pin(id);
