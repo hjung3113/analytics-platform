@@ -15,10 +15,12 @@ it('insets every filter toggle cell, including cells without selected-filter app
     <ToggleGroupItem value="one" appearance="selected-filter">One</ToggleGroupItem>
     <ToggleGroupItem value="two">Two</ToggleGroupItem>
   </ToggleGroup>);
+  expect(screen.getByRole('radiogroup')).toHaveClass('bg-surface-card', 'in-[.bg-surface-canvas:not([data-shell])]:bg-transparent');
   for (const item of screen.getAllByRole('radio')) expect(item).toHaveClass(insetRadius);
 });
 
 it('preserves the default toggle appearance', () => {
   render(<ToggleGroup type="single"><ToggleGroupItem value="one">One</ToggleGroupItem></ToggleGroup>);
   expect(screen.getByRole('radio')).not.toHaveClass(insetRadius);
+  expect(screen.getByRole('radiogroup')).not.toHaveClass('in-[.bg-surface-canvas:not([data-shell])]:bg-transparent');
 });

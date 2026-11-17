@@ -32,6 +32,10 @@
   --dv-tab-font-size: inherit;
 }
 
+.ap-dock .dv-dockview {
+  background-color: var(--color-surface-canvas);
+}
+
 /* dockview puts a `.visible` class on shown split views; it equals Tailwind's `.visible` utility, which re-shows views inside a hidden pane, so inherit instead. */
 .ap-dock .dv-view {
   visibility: inherit;

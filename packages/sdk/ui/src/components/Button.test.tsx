@@ -20,3 +20,15 @@ it.each([
   expect(hover).toBe('hover:bg-surface-row-hover');
   if (rest) expect(hover!.replace('hover:', '')).not.toBe(rest);
 });
+
+// Whole-page canvas shells must not turn controls on cards or floating content transparent.
+it('limits secondary transparency to canvas bands rather than whole-page shells', () => {
+  const { getByRole } = render(<Button variant="secondary">Save</Button>);
+  expect(getByRole('button')).toHaveClass('bg-surface-raised', 'in-[.bg-surface-canvas:not([data-shell])]:bg-transparent');
+  expect(getByRole('button')).not.toHaveClass('in-[.bg-surface-canvas]:bg-transparent');
+});
+
+it('does not add the canvas-band override to primary buttons', () => {
+  const { getByRole } = render(<Button>Save</Button>);
+  expect(getByRole('button')).not.toHaveClass('in-[.bg-surface-canvas:not([data-shell])]:bg-transparent');
+});

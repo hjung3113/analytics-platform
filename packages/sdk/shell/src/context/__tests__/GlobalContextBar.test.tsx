@@ -73,6 +73,14 @@ function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
 
 describe('Global Context priority overflow (#56)', () => {
+  it('uses an opaque canvas band and the shared period-control transparency rule', () => {
+    mount();
+    expect(bar()).toHaveClass('bg-surface-canvas', 'backdrop-blur');
+    expect(bar()).not.toHaveClass('bg-surface-canvas/95');
+    const period = within(bar()).getByRole('button', { name: /^기간:/ });
+    expect(period).toHaveClass('bg-surface-card', 'in-[.bg-surface-canvas:not([data-shell])]:bg-transparent');
+  });
+
   it('uses badge typography for capability tags', () => {
     mount();
     const tags = within(bar()).getAllByText('참조만', { exact: true });

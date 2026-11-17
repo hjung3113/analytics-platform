@@ -125,9 +125,11 @@ describe('VOC through the feature bridge', () => {
     vocFetch();
     mountAt(session(['features:access']).adapter, `/voc?v=1&focus=${ID_B}&q=chart`);
     const pane = await screen.findByRole('region', { name: 'VOC 상세' });
+    expect(pane.classList.contains('bg-surface-detail')).toBe(true);
     expect(pane.parentElement?.parentElement?.classList.contains('@container/voc')).toBe(true);
     expect(pane.parentElement?.classList.contains('@3xl/voc:grid-cols-[minmax(320px,2fr)_3fr]')).toBe(true);
     const list = screen.getByRole('searchbox').closest('[data-voc-list]');
+    expect(list?.classList.contains('bg-surface-list')).toBe(true);
     expect(list?.classList.contains('hidden')).toBe(true);
     expect(list?.classList.contains('@3xl/voc:block')).toBe(true);
     const back = within(pane).getByRole('button', { name: '목록 보기' });

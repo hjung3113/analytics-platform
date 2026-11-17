@@ -199,7 +199,7 @@ components:
 
 ### Allowed foreground/surface pairs
 
-페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `shadow-sm`으로 캔버스와 분리하며, 내부 카드에는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `accent-primary` 막대를 함께 써서 색과 형태로 현재 행을 표시한다.
+페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `shadow-sm`으로 캔버스와 분리하며, 내부 카드에는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `accent-primary` 막대를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠 위의 컨트롤은 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
 
 label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 

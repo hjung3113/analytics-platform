@@ -142,7 +142,7 @@ function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: bo
   return <div className="flex min-w-0 items-center gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-md border border-border-control bg-surface-card px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
+        <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-md border border-border-control bg-surface-card in-[.bg-surface-canvas:not([data-shell])]:bg-transparent px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
           {global.from ? <span className="min-w-0 truncate font-medium tabular">{periodShort(global.from)} → {periodShort(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
           {!compact && h !== null && <span className="text-text-muted tabular">({periodSpan(h, lang)})</span>}
