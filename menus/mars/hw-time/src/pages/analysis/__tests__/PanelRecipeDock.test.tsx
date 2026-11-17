@@ -2,10 +2,16 @@
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider } from '@ap/kernel';
-import { PanelWorkspace } from '@ap/components';
-import { RecipeBack, RECIPE_ITEM } from '../PanelRecipe';
+import { I18nProvider, createRegistry } from '@ap/kernel';
+import { testSpace } from '@ap/kernel/testing';
+import { groupId, menuPermission } from '@ap/contracts';
+import { LayoutDashboard } from 'lucide-react';
+import { PANEL_RECIPE_ITEM, PanelRecipeBack, PanelWorkspace } from '@ap/components';
+import { manifests } from '../../../index';
 import { panelRecipe } from '../recipeModel';
+
+const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ ...testSpace(), homeMenuId: 'hw-time' }], groups: [{ id: groupId('hwTime'), label: { ko: 'HW', en: 'HW' }, icon: LayoutDashboard, space: testSpace().id }], menus: manifests });
+const trend = registry.panels('hw-time').find(panel => panel.id === 'trend');
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -14,10 +20,10 @@ function Workspace() {
   return <PanelWorkspace label={{ ko: '설명 작업 영역', en: 'Recipe workspace' }} persistKey="recipe-keyboard" initialMode="stack" compactBelow={0} initialPreset="two"
     presets={[{ id: 'two', label: { ko: '둘', en: 'Two' }, layout: { type: 'branch', dir: 'row', sizes: [1, 1], children: [{ type: 'group', panels: ['trend'] }, { type: 'group', panels: ['next'] }] } }]}
     panels={[
-      { id: 'trend', primary: true, title: { ko: '추세', en: 'Trend' }, render: () => back ? <RecipeBack recipe={panelRecipe('trend', {}, { primary: true })!} onClose={() => setBack(false)} /> : <p>앞면</p> },
+      { id: 'trend', primary: true, title: { ko: '추세', en: 'Trend' }, render: () => back ? <PanelRecipeBack recipe={panelRecipe(trend, {}, { primary: true })!} onClose={() => setBack(false)} /> : <p>앞면</p> },
       { id: 'next', title: { ko: '다음 패널', en: 'Next panel' }, render: () => <button>다음 내용</button> },
     ]}
-    panelMenuItems={id => id === 'trend' ? [{ id: 'recipe', label: RECIPE_ITEM, onSelect: () => setBack(true) }] : []} />;
+    panelMenuItems={id => id === 'trend' ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setBack(true) }] : []} />;
 }
 
 describe('recipe keyboard in the real workspace DockLayout', () => {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree } from 'lucide-react';
 import { formatText, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
+  AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
   usePanelOptions, usePinnedPanels, type ChartPoint, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
@@ -19,7 +19,7 @@ import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelDa
 import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
-import { RECIPE_ITEM, RecipePanel } from './RecipeFace';
+import { RecipePanel } from './RecipeFace';
 
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
@@ -311,7 +311,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
-      panelMenuItems={id => Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: RECIPE_ITEM, onSelect: () => setExplained(id) }] : []}
+      panelMenuItems={id => Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []}
       revealRequest={reveal}
       toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={(id, pin) => {
         setAdded(current => [...new Set([...current, id])]); if (pin) pins.pin(id);
