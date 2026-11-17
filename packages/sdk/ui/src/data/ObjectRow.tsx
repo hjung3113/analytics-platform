@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Checkbox } from '../components/shadcn/checkbox.js';
 import { cn } from '../utils/cn.js';
+import { RowSelectionBar } from './RowSelectionBar.js';
 
 export type ObjectRowSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type ObjectRowDensity = 'compact' | 'default' | 'expanded';
@@ -99,15 +100,11 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
           densityClassName[density],
           className,
         )}
+        data-list-row=""
+        data-selected={selected ? '' : undefined}
         {...clickableProps}
       >
-        {selected && (
-          <span
-            aria-hidden="true"
-            className="absolute inset-y-0 left-0 w-0.5 bg-border-selected"
-            data-testid="object-row-selected-bar"
-          />
-        )}
+        {selected && <RowSelectionBar data-testid="object-row-selected-bar" />}
 
         {showLeadingCell && <div className="flex shrink-0 items-center gap-2.5">
           {severity && (
@@ -125,17 +122,17 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
               onCheckedChange={(nextChecked) => onCheckedChange?.(nextChecked === true)}
             />
           )}
-          {icon && <span className={cn('flex shrink-0 group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{icon}</span>}
+          {icon && <span className={'row-meta flex shrink-0'}>{icon}</span>}
         </div>}
 
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex min-w-0 items-center gap-2">
-            {id && <span className={cn('shrink-0 font-mono text-xs group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{id}</span>}
+            {id && <span className={'row-meta shrink-0 font-mono text-xs'}>{id}</span>}
             <span className="truncate text-sm font-medium text-text-primary">{title}</span>
           </div>
 
           {(badges || meta) && (
-            <div className={cn('flex flex-wrap items-center gap-2 text-xs group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
+            <div className={'row-meta flex flex-wrap items-center gap-2 text-xs'}>
               {badges}
               {meta}
             </div>

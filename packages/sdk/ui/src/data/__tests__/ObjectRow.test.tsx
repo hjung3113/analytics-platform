@@ -8,16 +8,16 @@ import { ObjectRow } from '../ObjectRow.js';
 describe('ObjectRow', () => {
   it.each([false, true])('keeps metadata readable on hover and selection (selected=%s)', selected => {
     const { container } = render(<ObjectRow selected={selected} id="ID" title="Title" meta="Metadata" />);
-    expect(container.firstElementChild).toHaveClass('group/object-row');
-    for (const meta of [screen.getByText('ID'), screen.getByText('Metadata')]) {
-      expect(meta).toHaveClass('group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
-    }
+    // The shared row-meta rule (#2482): the row marks itself and its selection; the meta text reads that.
+    expect(container.firstElementChild).toHaveAttribute('data-list-row');
+    expect(container.firstElementChild?.hasAttribute('data-selected')).toBe(selected);
+    for (const meta of [screen.getByText('ID'), screen.getByText('Metadata')]) expect(meta).toHaveClass('row-meta');
   });
   it('renders title and mono id', () => {
     const { container } = render(<ObjectRow id="VOC-1042" title="권한 요청이 반복됩니다" />);
 
     expect(screen.getByText('권한 요청이 반복됩니다')).toBeInTheDocument();
-    expect(screen.getByText('VOC-1042')).toHaveClass('font-mono', 'text-text-muted');
+    expect(screen.getByText('VOC-1042')).toHaveClass('font-mono', 'row-meta');
     expect(container.firstElementChild).toHaveClass('grid');
   });
 

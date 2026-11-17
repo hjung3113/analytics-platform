@@ -30,7 +30,11 @@ describe('TriageRow', () => {
     // Hover must not cover the selected surface (#2485).
     expect(screen.getByRole('button')).toHaveClass(selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover');
     expect(screen.getByRole('button').classList.contains('hover:bg-surface-row-hover')).toBe(!selected);
-    expect(screen.getByText('분석 영역 미지정')).toHaveClass('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
+    expect(screen.getByRole('button')).toHaveAttribute('data-list-row');
+    expect(screen.getByRole('button').hasAttribute('data-selected')).toBe(selected);
+    expect(screen.getByText('분석 영역 미지정')).toHaveClass('row-meta');
+    if (selected) expect(screen.getByTestId('triage-row-selected-bar')).toHaveClass('w-0.5', 'bg-border-selected');
+    else expect(screen.queryByTestId('triage-row-selected-bar')).toBeNull();
   });
   it('keeps the VOC number unbroken beside the title', () => {
     render(<TriageRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} />);
@@ -72,7 +76,7 @@ describe('TriageRow', () => {
     const owner = screen.getByText('담당자 없음');
     expect(owner).toBeInTheDocument();
     const area = screen.getByText('분석 영역 미지정');
-    expect(area).toHaveClass('text-text-muted');
+    expect(area).toHaveClass('row-meta');
     expect(area).not.toHaveClass('text-text-danger', 'text-text-warning', 'text-accent-primary');
     expect(screen.queryByText('같은 시스템의 VOC 3건')).not.toBeInTheDocument();
   });

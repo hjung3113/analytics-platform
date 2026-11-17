@@ -94,7 +94,7 @@ function KernelStatePage({ title, children }: { title: string; children: React.R
   // Explicit arrival only, including delayed dialog release; the board owns a pane's heading and automatic arrival focus (ADR-0049).
   useArrivalFocus(() => heading.current?.focus({ preventScroll: true }), { enabled: screenMode !== 'pane' });
   return <div data-platform-page className="flex min-h-full flex-col">
-    {screenMode !== 'pane' && <header className="flex h-[50px] shrink-0 items-center border-b border-border-subtle bg-surface-canvas px-4">
+    {screenMode !== 'pane' && <header data-canvas-band className="flex h-[50px] shrink-0 items-center border-b border-border-subtle bg-surface-canvas px-4">
       <h1 ref={heading} tabIndex={0} title={title} className="min-w-0 truncate t-section-title text-text-primary">{title}</h1>
     </header>}
     <div data-platform-page-content tabIndex={-1} className="p-6">{children}</div>

@@ -113,9 +113,29 @@
   }
 }
 
-/* A control on a canvas band (a `bg-surface-canvas` strip that is not the page shell or the rich editor)
- * clears its fill so it reads as part of the band rather than a white chip on it (#2456). */
-@custom-variant on-canvas-band (&:where(.bg-surface-canvas:not([data-shell], .rich-editor) *));
+/* Small meta text of a list row (id, meta line, leading icon): muted at rest and `text-secondary` on the hovered or
+ * selected row, because `text-muted` falls below 4.5:1 on the selected surface (DESIGN.md contrast table, #2482).
+ * The row marks itself `data-list-row`, and `data-selected` while selected; pair it with `RowSelectionBar`.
+ * Each row sets the colour as an inherited custom property, so meta text follows its nearest row: a row nested in a
+ * selected or hovered row keeps its own state (a descendant selector would let the outer row's state leak in). */
+@layer base {
+  [data-list-row] {
+    --row-meta-color: var(--color-text-muted);
+  }
+  [data-list-row]:hover,
+  [data-list-row][data-selected] {
+    --row-meta-color: var(--color-text-secondary);
+  }
+}
+@utility row-meta {
+  color: var(--row-meta-color, var(--color-text-muted));
+}
+
+/* A control on a canvas band clears its fill so it reads as part of the band rather than a white chip on it
+ * (#2456). A band is a horizontal control strip on the canvas outside cards (Context and query bars, page and
+ * board heads, toolbars); its owner marks itself `data-canvas-band` (#2482). Canvas-coloured insets that are not
+ * bands (wells inside cards, sticky footers, the page shell) carry no marker, so their controls keep their fill. */
+@custom-variant on-canvas-band (&:where([data-canvas-band] *));
 
 /* ADR-0127: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
 @layer base {

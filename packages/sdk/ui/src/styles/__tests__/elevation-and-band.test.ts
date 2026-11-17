@@ -28,5 +28,17 @@ it.each(Object.entries(recipes))('publishes elevation-panel and on-canvas-band t
   // elevation-flat is the guard alone: no default shadow, same nested reset.
   expect(css).toMatch(/:is\(\.bg-surface-card, \.bg-surface-detail, \.dv-groupview\) \.elevation-flat \{ --tw-shadow: 0 0 #0000;/);
   expect(css).not.toMatch(/[};] \.elevation-flat \{/);
-  expect(css).toContain('.on-canvas-band\\:bg-transparent:where(.bg-surface-canvas:not([data-shell], .rich-editor) *) { background-color: transparent; }');
+  expect(css).toContain('.on-canvas-band\\:bg-transparent:where([data-canvas-band] *) { background-color: transparent; }');
+});
+
+// #2482 (v0.41 review-quality Q6): one row-meta rule for list rows' small meta text, in both CSS recipes.
+it.each(Object.entries(recipes))('publishes row-meta through the %s recipe', async (_recipe, imports) => {
+  const compiler = await compile(imports.join('\n'), { base, onDependency: () => {} });
+  const css = compiler.build(['row-meta']).replace(/\s+/g, ' ');
+  // The colour comes from the nearest row's inherited property, so an outer row's hover or selection never reaches a
+  // nested row's meta text (no descendant selector from a row to .row-meta).
+  expect(css).toMatch(/\.row-meta \{ color: var\(--row-meta-color, var\(--color-text-muted\)\); \}/);
+  expect(css).toMatch(/\[data-list-row\] \{ --row-meta-color: var\(--color-text-muted\); \}/);
+  expect(css).toMatch(/\[data-list-row\]:hover, \[data-list-row\]\[data-selected\] \{ --row-meta-color: var\(--color-text-secondary\); \}/);
+  expect(css).not.toMatch(/\[data-list-row\][^{]*\.row-meta/);
 });

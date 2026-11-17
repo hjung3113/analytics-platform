@@ -117,6 +117,7 @@ export function SurveyBuilder({
       <header
         className="flex h-toolbar items-center gap-3 border-b border-border-subtle px-4"
         data-shell-header="toolbar"
+        data-canvas-band=""
         data-testid="survey-builder-toolbar"
         data-toolbar-height="50"
       >

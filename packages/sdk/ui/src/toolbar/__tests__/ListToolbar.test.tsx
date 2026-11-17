@@ -141,6 +141,8 @@ describe('ListToolbar — tabs mode', () => {
     const toolbar = container.firstElementChild;
     // A stable hook, no height claim: two rows would make a fixed `50` false, and nothing reads a measured value (#946 Q9).
     expect(toolbar).toHaveAttribute('data-list-toolbar');
+    // The toolbar is a canvas band: its owner marks it (#2482).
+    expect(toolbar).toHaveAttribute('data-canvas-band');
     expect(toolbar).not.toHaveAttribute('data-toolbar-height');
     expect(toolbar?.className).not.toContain('h-toolbar');
     // 50px including the rule: the toolbar adds no border or padding of its own, so one row is exactly one row height

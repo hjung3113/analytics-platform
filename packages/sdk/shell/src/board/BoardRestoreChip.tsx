@@ -24,7 +24,7 @@ export function BoardRestoreChip() {
     if (board.minimized && takeChipFocus(user.id)) button.current?.focus({ preventScroll: true });
   }, [board.minimized, user.id]);
   return <>
-    {board.minimized && <div data-board-chip-row className="flex h-11 shrink-0 items-center border-t border-border-subtle bg-surface-canvas px-3">
+    {board.minimized && <div data-board-chip-row data-canvas-band className="flex h-11 shrink-0 items-center border-t border-border-subtle bg-surface-canvas px-3">
       <Button ref={button} type="button" variant="secondary" size="sm" aria-describedby={hint} onClick={() => { board.restore(text.announceRestored); }}>
         <LayoutGrid className="size-3.5" aria-hidden />{text.chipLabel(board.sheetName)}
       </Button>

@@ -12,7 +12,7 @@ const SECTIONS = [['summary', '모델 요약'], ['software', 'SW 버전'], ['ite
 const anchor = (id: string) => `model-profile-${id}`;
 
 function SectionNav() {
-  return <nav aria-label="섹션 이동" className="sticky top-[var(--page-sticky-offset,0px)] z-10 -mx-1 flex gap-1 bg-surface-canvas px-1 py-1">
+  return <nav aria-label="섹션 이동" data-canvas-band="" className="sticky top-[var(--page-sticky-offset,0px)] z-10 -mx-1 flex gap-1 bg-surface-canvas px-1 py-1">
     {SECTIONS.map(([id, label]) => <Button key={id} type="button" size="sm" variant="ghost" onClick={() => document.getElementById(anchor(id))?.scrollIntoView?.({ block: 'start' })}>{label}</Button>)}
   </nav>;
 }

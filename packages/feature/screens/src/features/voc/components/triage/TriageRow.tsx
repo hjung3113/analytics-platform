@@ -8,10 +8,10 @@
  *
  * Token translations (PROTOTYPE-TO-PACK17.md §3.8):
  *   .object-row.expanded → min-h-row-expanded py-3.5 px-5
- *   .object-row.selected::before → before:absolute before:left-0 before:inset-y-0 before:w-0.5 before:bg-border-selected
+ *   .object-row.selected::before → `RowSelectionBar` (@ap/ui)
  *   .row-body → flex flex-col min-w-0 gap-0.5
  *   .row-title → text-sm font-medium text-text-primary truncate
- *   .row-meta → text-xs text-text-muted flex items-center gap-2 flex-wrap
+ *   .row-meta → `row-meta` (@ap/ui) text-xs flex items-center gap-2 flex-wrap
  *   .row-meta .dot → w-0.5 h-0.5 rounded-full bg-text-disabled
  *   .row-trailing → flex items-center gap-2 shrink-0
  *   Semantic row color is limited to SeverityIndicator and ReporterStatusBadge.
@@ -20,7 +20,7 @@
 import { formatRelativeTime } from '../../../../lib/format/datetime';
 import type { VocListItem } from '@ap/feature-shared';
 import { ReporterStatusBadge, UnassignedBadge } from '../../../../ui/index';
-import { SeverityIndicator, cn } from '@ap/ui';
+import { RowSelectionBar, SeverityIndicator, cn } from '@ap/ui';
 import { useId } from 'react';
 import type * as React from 'react';
 
@@ -74,6 +74,8 @@ export function TriageRow({
       type="button"
       role="button"
       aria-selected={selected}
+      data-list-row=""
+      data-selected={selected ? '' : undefined}
       aria-label={`${voc.display_id} ${voc.title}`}
       aria-describedby={metaId}
       tabIndex={0}
@@ -87,14 +89,12 @@ export function TriageRow({
         // Hover only on unselected rows so the selected surface stays under the pointer (#2485)
         !selected && 'hover:bg-surface-row-hover',
         // Selected state
-        selected && [
-          'bg-surface-row-selected',
-          // Shared 2px selection marker; severity retains its separate pill.
-          'before:absolute before:left-0 before:inset-y-0 before:w-0.5 before:bg-border-selected',
-        ],
+        selected && 'bg-surface-row-selected',
         className,
       )}
     >
+      {/* Shared 2px selection marker; severity retains its separate pill. */}
+      {selected && <RowSelectionBar data-testid="triage-row-selected-bar" />}
       {/* LEFT: severity indicator — 3px × 16px pill (§3.2) */}
       <div className="flex items-center shrink-0">
         {voc.severity !== undefined && <SeverityIndicator severity={voc.severity} />}
@@ -111,7 +111,7 @@ export function TriageRow({
         </div>
 
         {/* Meta row — .row-meta */}
-        <div id={metaId} className={cn('flex items-center gap-2 text-xs flex-wrap group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
+        <div id={metaId} className="row-meta flex items-center gap-2 text-xs flex-wrap">
           <ReporterStatusBadge status={voc.reporter_facing_status} />
 
           {showPostponedMarker && voc.review_postponed_at != null && (
@@ -120,7 +120,7 @@ export function TriageRow({
                 className="w-0.5 h-0.5 rounded-full bg-text-disabled shrink-0"
                 aria-hidden="true"
               />
-              <span className={cn('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{VOC_TRIAGE_TAB_LABELS.waiting}</span>
+              <span className="row-meta">{VOC_TRIAGE_TAB_LABELS.waiting}</span>
             </>
           )}
 
@@ -130,7 +130,7 @@ export function TriageRow({
                 className="w-0.5 h-0.5 rounded-full bg-text-disabled shrink-0"
                 aria-hidden="true"
               />
-              <span className={cn('group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>분석 영역 미지정</span>
+              <span className="row-meta">분석 영역 미지정</span>
             </>
           )}
 
@@ -148,7 +148,7 @@ export function TriageRow({
 
       {/* TRAILING: created-at — .row-trailing */}
       <div className="flex items-center shrink-0">
-        <span className={cn('text-xs group-hover/triage-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{relTime}</span>
+        <span className="row-meta text-xs">{relTime}</span>
       </div>
     </button>
   );

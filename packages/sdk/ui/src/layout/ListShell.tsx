@@ -31,6 +31,7 @@ export function ListShell({ toolbar, list, tabs, detailPanel, className }: ListS
         <div
           className="flex h-toolbar items-center border-b border-border-subtle px-4 bg-surface-canvas"
           data-list-shell-tabs=""
+          data-canvas-band=""
           data-toolbar-height="50"
         >
           {tabs}

@@ -505,6 +505,8 @@ describe('설문 screens', () => {
     const toolbar = screen.getByTestId('survey-builder-toolbar');
     expect(shell).toBeInTheDocument();
     expect(toolbar).toHaveAttribute('data-shell-header', 'toolbar');
+    // The toolbar is a canvas band (#2482 Q7): its secondary buttons keep the band surface.
+    expect(toolbar).toHaveAttribute('data-canvas-band', '');
   });
 
   it('keeps the builder question list scrollable inside the WorkbenchShell body', () => {

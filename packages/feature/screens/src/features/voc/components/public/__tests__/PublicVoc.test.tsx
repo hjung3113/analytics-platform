@@ -48,7 +48,9 @@ describe('PublicVocListScreen', () => {
       expect(row).toHaveClass(selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover');
       expect(row.classList.contains('hover:bg-surface-row-hover')).toBe(!selected);
       expect(row).not.toHaveClass('hover:bg-surface-card');
-      expect(meta).toHaveClass('group-hover/public-voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
+      expect(meta).toHaveClass('row-meta');
+      expect(row).toHaveAttribute('data-list-row');
+      expect(row.hasAttribute('data-selected')).toBe(selected);
       const bar = row.querySelector('[data-testid="public-voc-row-selected-bar"]');
       if (selected) expect(bar).toHaveClass('absolute', 'inset-y-0', 'left-0', 'w-0.5', 'bg-border-selected');
       else expect(bar).toBeNull();
