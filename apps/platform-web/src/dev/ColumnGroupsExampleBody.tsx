@@ -42,7 +42,7 @@ export default function ColumnGroupsExampleBody() {
       </div>
     </div>
     <p role="status" className="text-sm text-text-secondary">{active ? m('columnGroupsMarked', { id: active.equipment }) : m('columnGroupsMarkHint')}</p>
-    <PlatformDataTable title={m('columnGroupsExample')} ariaLabel={m('columnGroupsExample')} columns={columns} columnGroups={mode === 'plain' ? undefined : groups} columnDividers={dividers}
+    <PlatformDataTable editableColumnGroups title={m('columnGroupsExample')} ariaLabel={m('columnGroupsExample')} columns={columns} columnGroups={mode === 'plain' ? undefined : groups} columnDividers={dividers}
       rows={ROWS} getRowId={row => row.id} preferenceKey={persistKey} pageSize={30} height={440} activeRowId={active?.id}
       rowAction={(row, { compact }) => <RowAction compact={compact} icon={Check} label={m('columnGroupsMarkRow', { id: row.equipment })} text={m('columnGroupsMark')} onClick={() => setActive(row)} />} />
   </div>;

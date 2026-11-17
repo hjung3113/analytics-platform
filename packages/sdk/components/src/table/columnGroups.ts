@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import type { PlatformColumnGroup } from './PlatformDataTable';
+import { groupedOrder } from './columnOrder';
 
 export type ColumnGroups = Readonly<Record<string, string | PlatformColumnGroup>>;
-const MIN_GROUP_WIDTH = 60;
+export const MIN_GROUP_WIDTH = 60;
+export const MAX_GROUP_LABEL_LENGTH = 60;
 const isGroupWidth = (width: number) => Number.isFinite(width) && width >= MIN_GROUP_WIDTH;
 export const columnGroupLabel = (groups: ColumnGroups | undefined, id: string): string => {
   const group = groups?.[id];
@@ -15,6 +17,68 @@ export function columnGroupWidth(groups: ColumnGroups | undefined, id: string, s
 }
 
 type GroupedColumn = { id: string; columnGroup?: readonly string[] };
+
+/** Self-contained preference value; also usable by a future saved view without a hook. */
+export type StoredColumnGroups = { basis: string; items: { id: string; label?: string; members: string[]; width?: number }[] };
+export const validGroupName = (name: string) => name.trim().length > 0 && name.trim().length <= MAX_GROUP_LABEL_LENGTH;
+
+/** Shape validation only. Declaration-dependent filtering happens at read, never by rewriting storage. */
+export function sanitizeColumnGroups(value: unknown): StoredColumnGroups | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const envelope = value as Record<string, unknown>;
+  if (typeof envelope.basis !== 'string' || !Array.isArray(envelope.items)) return undefined;
+  const items: StoredColumnGroups['items'] = [];
+  const ids = new Set<string>();
+  for (const raw of envelope.items) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const item = raw as Record<string, unknown>;
+    if (typeof item.id !== 'string' || !item.id || ids.has(item.id) || !Array.isArray(item.members) || !item.members.every(member => typeof member === 'string')) continue;
+    if (item.label !== undefined && (typeof item.label !== 'string' || !validGroupName(item.label))) continue;
+    if (item.id.startsWith('u:') && typeof item.label !== 'string') continue;
+    if (item.width !== undefined && (typeof item.width !== 'number' || !isGroupWidth(item.width))) continue;
+    ids.add(item.id);
+    items.push({ id: item.id, members: [...new Set(item.members as string[])], ...(typeof item.label === 'string' && { label: item.label.trim() }), ...(typeof item.width === 'number' && { width: item.width }) });
+  }
+  return { basis: envelope.basis, items };
+}
+
+/** Only declared grouping structure participates: translation, widths and new plain columns are harmless. */
+export function columnGroupBasis(columns: readonly GroupedColumn[], groups: ColumnGroups | undefined): string {
+  const grouped = columns.filter(c => c.columnGroup?.length);
+  const top = new Set(grouped.map(c => c.columnGroup![0]));
+  return JSON.stringify([grouped.map(c => [c.id, c.columnGroup]), Object.keys(groups ?? {}).filter(id => top.has(id))]);
+}
+
+/** One substitution for every screen, pin, order, engine, aria and transfer consumer. Invalid merges fall back as a pair. */
+export function effectiveColumnGroups<C extends GroupedColumn>(columns: C[], declaredGroups: ColumnGroups | undefined, stored: StoredColumnGroups | undefined): { columns: C[]; columnGroups: ColumnGroups | undefined } {
+  const declared = { columns, columnGroups: declaredGroups };
+  const snapshot = sanitizeColumnGroups(stored);
+  if (!snapshot || snapshot.basis !== columnGroupBasis(columns, declaredGroups)) return declared;
+  const columnIds = new Set(['_select', '_action', ...columns.map(c => c.id)]);
+  const known = new Set(columns.map(c => c.id));
+  const seen = new Set<string>();
+  const membership = new Map<string, string>();
+  const labels: Record<string, string | PlatformColumnGroup> = { ...declaredGroups };
+  for (const item of snapshot.items) {
+    if (columnIds.has(item.id)) continue;
+    const label = item.label ?? (Object.hasOwn(labels, item.id) ? columnGroupLabel(labels, item.id) : undefined);
+    if (label === undefined) continue;
+    const members = item.members.filter(id => known.has(id) && !seen.has(id));
+    if (!members.length) continue;
+    for (const member of members) { seen.add(member); membership.set(member, item.id); }
+    const width = item.width ?? columnGroupWidth(declaredGroups, item.id, 1);
+    labels[item.id] = width === undefined ? label : { label, width };
+  }
+  const mapped = columns.map(c => {
+    const id = membership.get(c.id);
+    const columnGroup = id === undefined ? undefined : c.columnGroup?.[0] === id ? c.columnGroup : [id];
+    return { ...c, columnGroup };
+  });
+  const byId = new Map(mapped.map(c => [c.id, c]));
+  const ordered = groupedOrder(mapped, []).map(id => byId.get(id)!);
+  if (columnGroupErrors(ordered, labels).length) return declared;
+  return { columns: ordered, columnGroups: labels };
+}
 
 /** Declaration diagnostics only: production stays silent and no stored preferences are rewritten. */
 export function columnGroupErrors(columns: readonly GroupedColumn[], labels: ColumnGroups = {}): string[] {

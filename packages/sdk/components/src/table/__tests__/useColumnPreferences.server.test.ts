@@ -28,6 +28,19 @@ describe('column preferences with the server seam', () => {
   beforeEach(() => { vi.useFakeTimers(); const data = new Map<string, string>(); vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); } }); });
   afterEach(() => { controller = null; vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+  it('reads and writes the same self-contained groups object through the server seam', async () => {
+    const groups = { basis: 'declared', items: [{ id: 'D', members: ['a'] }] };
+    const f = fakeController({ 'columns:h1_t': { groups } });
+    controller = f.c;
+    const { result } = renderHook(() => useColumnPreferences('t'));
+    await flushPromises();
+    expect(result.current.preferences.groups).toEqual(groups);
+    const edited = { ...groups, items: [{ id: 'D', label: 'Renamed', members: ['a'] }] };
+    act(() => result.current.onColumnGroupsChange(() => ({ groups: edited, order: ['a'] }), 'now'));
+    expect(f.written.at(-1)).toEqual({ raw: 't', value: { sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: ['a'], groups: edited } });
+    expect(localStorage.getItem('t')).toBeNull();
+  });
+
   it('shows the server value, not the browser one, and writes nothing because of hydration', async () => {
     localStorage.setItem('t', JSON.stringify({ sizing: { a: 500 }, visibility: {}, pinning: { left: [], right: [] } }));
     const f = fakeController({ 'columns:h1_t': { sizing: { a: 120 }, visibility: {}, pinning: { left: ['x'], right: [] } } });

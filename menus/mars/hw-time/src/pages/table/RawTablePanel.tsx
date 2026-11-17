@@ -168,7 +168,7 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
   const table = tableInvalid ? <TableUrlWarning sentences={sentences} />
     : emptyDetail ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('tablePageNoRecordsForModule', { module: String(kept.module), motion: String(kept.motion) })}
       body={m('tablePageOtherMotionsOfThisModuleAreOne')} />
-      : <PlatformDataTable<HwTimeTableRow> fill
+      : <PlatformDataTable<HwTimeTableRow> fill editableColumnGroups
         title={m('tablePageHwTimeTable')} ariaLabel={m('tablePageHwTimeOperationTimeTable')}
         subtitle={level === 2 ? undefined : (m('tablePageUseTheArrowBesideAValueTo'))}
         columns={columns} getRowId={row => row.id} filterKey={JSON.stringify(queryDrill)} preferenceKey={`hw-time-table:columns:v1:L${level + 1}`}

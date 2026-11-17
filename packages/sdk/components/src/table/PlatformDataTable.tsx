@@ -11,7 +11,9 @@ import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKe
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef, toGroupedColumnDefs } from './columnDef';
-import { columnGroupErrors, columnGroupLabel, displayedUnits, displayedWidth } from './columnGroups';
+import { columnGroupBasis, columnGroupErrors, columnGroupLabel, displayedUnits, displayedWidth, effectiveColumnGroups, validGroupName, type StoredColumnGroups } from './columnGroups';
+import { createColumnGroup, materializeColumnGroups, renameColumnGroup, setColumnGroupMembers, setColumnGroupWidth, ungroupColumns } from './columnGroupEdits';
+import { ColumnGroupChooseView, ColumnGroupRename, ColumnGroupResizer, ColumnGroupRowMenu, useColumnGroupEditor, useColumnGroupResize } from './ColumnGroupEditor';
 import { columnGroupModel, FADE_BASE, useColumnGroupLayout } from './useColumnGroupLayout';
 import { isProductionEnv } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
@@ -159,6 +161,8 @@ type TableBaseProps<T> = {
   columns: PlatformColumn<T>[];
   /** Column-group id → header label. Every id used in a columnGroup path must be here. */
   columnGroups?: Readonly<Record<string, string | PlatformColumnGroup>>;
+  /** Opt-in editing of top-level column groups in the Columns popover, persisted with the other column settings. Default false. */
+  editableColumnGroups?: boolean;
   /** Opt-in 1px `border-subtle` line between columns in the column-header row and the body (default off: rows are told apart by
    *  row lines only). For dense side-by-side comparisons such as the members of a column group. */
   columnDividers?: boolean;
@@ -270,8 +274,10 @@ const isRetryable = (response: Pick<ApiResponse<unknown>, 'outcome'> | null, gro
 export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
   const source = useRowsSource<T>({ rows: props.rows, rowsLoading: !!props.rowsLoading, external: !!props.externalPagination, urlSorting: !!props.urlState, columns: props.columns, filterFields: props.filterFields });
+  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, resetPreferences } = useColumnPreferences(props.preferenceKey);
+  const effective = useMemo(() => props.editableColumnGroups ? effectiveColumnGroups(source.columns, props.columnGroups, preferences.groups) : { columns: source.columns, columnGroups: props.columnGroups }, [props.editableColumnGroups, source.columns, props.columnGroups, preferences.groups]);
   // The rest of the table reads one shape: always a `loadPage`, the (possibly stripped) columns and fields.
-  const p = { ...props, columns: source.columns, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
+  const p = { ...props, ...effective, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
   const dataVersion = props.rows ? source.version : epoch;
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -294,7 +300,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // The visible title and the quick search lead the band; a hidden title keeps ⓘ beside the result count (R2).
   const titleShown = !inPanel && !p.hideTitle;
   const hasLead = canMerge && !alwaysMerge;
-  const { route } = usePlatform();
+  const { route, toast } = usePlatform();
   const { screenMode } = useHostPlatform();
   // §15: a workspace panel or board pane body scrolls too, so the row area chains the wheel outward at its edge; flow pages and drawers contain it.
   const chainWheel = inPanel || screenMode === 'pane';
@@ -303,11 +309,12 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // Selection exists only for features that read it (export/copy, bulk actions); ADR-0037.
   const selectable = canExport || !!p.bulkActions || !!p.bulkSelectionActions;
   const pageSize = p.pageSize ?? 100;
-  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, resetPreferences } = useColumnPreferences(p.preferenceKey);
   const [sorting, setSorting] = useState<PageSort[]>([]);
   const [copyTip, setCopyTip] = useState(false);
   /** Column popover / export menu open: the Ctrl/⌘+C shortcut stays native while either is open. */
   const [overlayOpen, setOverlayOpen] = useState({ columns: false, export: false });
+  const editorIdentity = JSON.stringify([props.preferenceKey, !!props.editableColumnGroups, columnGroupBasis(source.columns, props.columnGroups)]);
+  const groupEditor = useColumnGroupEditor(editorIdentity);
   const viewport = useRef<HTMLDivElement | null>(null);
   const section = useRef<HTMLElement>(null);
   useRegisterPageBound(!!p.fill);
@@ -410,8 +417,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const { paths, hasColumnGroups, groupWidth, inWidthGroup } = columnGroups;
   useEffect(() => {
     if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
-    for (const error of columnGroupErrors(p.columns, p.columnGroups)) console.error(`[PlatformDataTable] ${error}`);
-  }, [p.columns, p.columnGroups]);
+    for (const error of columnGroupErrors(props.columns, props.columnGroups)) console.error(`[PlatformDataTable] ${error}`);
+  }, [props.columns, props.columnGroups]);
   const columnPrefsId = useId();
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
@@ -431,7 +438,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const pinningState: ColumnPinningState = { left: pinnedIds, right: actionPinned ? ['_action'] : [] };
   // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
   // Converted leaves depend on the declaration and the size scale only, never on the order (a reorder must not remount cells).
-  const leafDefs = useMemo(() => new Map(p.columns.map(c => [c.id, toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })])), [p.columns, widthScale]);
+  // Group edits change paths/labels only; leaf renderers continue to depend on the source declaration, preserving cell state.
+  const leafDefs = useMemo(() => new Map(source.columns.map(c => [c.id, toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })])), [source.columns, widthScale]);
   // Ungrouped tables keep declaration order here and leave ordering to the engine's `columnOrder`; grouped tables nest in the shown order.
   const treeOrder = p.columns.some(c => (c.columnGroup?.length ?? 0) > 0) ? orderedIds : null;
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
@@ -594,6 +602,61 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     : cn(FADE_BASE, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
       body ? cn(active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken');
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
+  function editGroups(edit: (snapshot: StoredColumnGroups) => StoredColumnGroups, mode: 'now' | 'later', { gather = false }: { gather?: boolean } = {}) {
+    if (!p.editableColumnGroups) return;
+    const displayed = [...table.getLeftLeafColumns(), ...table.getCenterLeafColumns(), ...table.getRightLeafColumns()].map(c => c.id).filter(id => id !== '_select' && id !== '_action');
+    onColumnGroupsChange(previous => {
+      const groups = edit(materializeColumnGroups(source.columns, props.columnGroups, previous.groups));
+      if (!gather) return { groups };
+      const merged = effectiveColumnGroups(source.columns, props.columnGroups, groups);
+      return { groups, order: groupedOrder(merged.columns, displayed) };
+    }, mode);
+  }
+  // Every editor exit removes the focused control (rename input, choose view, ungrouped row); hand focus to the group's
+  // menu, or to 묶음 만들기 when that group is new or gone.
+  const groupNewId = `${columnPrefsId}-group-new`;
+  const groupMenuId = (id: string) => `${columnPrefsId}-${id}-group-menu`;
+  const refocusGroup = useRef<string | null>(null);
+  useEffect(() => {
+    const id = refocusGroup.current;
+    if (id === null) return;
+    refocusGroup.current = null;
+    (document.getElementById(id) ?? document.getElementById(groupNewId))?.focus();
+  });
+  function closeGroupEditor(focus = true) {
+    const draft = groupEditor.draft;
+    if (focus && draft.kind !== 'idle') refocusGroup.current = draft.kind === 'rename' || draft.id ? groupMenuId(draft.id!) : groupNewId;
+    groupEditor.cancel();
+  }
+  function announceGroup(message: 'tableGroupCreated' | 'tableGroupChanged' | 'tableGroupRemoved', name: string) {
+    const note = m(message, { name });
+    groupEditor.setNote(note); toast(note);
+  }
+  function saveGroupName(byKey: boolean) {
+    const draft = groupEditor.draft;
+    if (draft.kind !== 'rename' || !validGroupName(draft.name)) return;
+    editGroups(snapshot => renameColumnGroup(snapshot, draft.id, draft.name), 'now');
+    announceGroup('tableGroupChanged', draft.name.trim()); closeGroupEditor(byKey);
+  }
+  function saveGroupMembers() {
+    const draft = groupEditor.draft;
+    if (draft.kind !== 'choose' || !validGroupName(draft.name) || draft.members.length < (draft.id ? 1 : 2)) return;
+    const members = dataColumns.map(c => c.id).filter(id => draft.members.includes(id));
+    if (draft.id) {
+      const id = draft.id;
+      editGroups(snapshot => {
+        const changed = setColumnGroupMembers(snapshot, id, members);
+        return draft.name.trim() === columnGroupLabel(p.columnGroups, id) ? changed : renameColumnGroup(changed, id, draft.name);
+      }, 'now', { gather: true });
+      announceGroup('tableGroupChanged', draft.name.trim());
+    } else {
+      editGroups(snapshot => createColumnGroup(snapshot, draft.name, members, [...source.columns.map(c => c.id), ...source.columns.flatMap(c => c.columnGroup ?? []), ...Object.keys(props.columnGroups ?? {})]), 'now', { gather: true });
+      announceGroup('tableGroupCreated', draft.name.trim());
+    }
+    closeGroupEditor();
+  }
+  const setGroupWidth = (id: string, width: number | undefined) => editGroups(snapshot => setColumnGroupWidth(snapshot, id, width), 'later');
+  const groupResize = useColumnGroupResize(editorIdentity, widthScale, setGroupWidth);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
   // #556a: every data column can be ordered (a non-hideable one shows no checkbox); moves stay inside the pinned / other group.
@@ -666,17 +729,22 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   function columnPrefRow(c: Column<T>, at: number, group: Column<T>[]) {
     const pinned = c.getIsPinned() === 'left';
     const isGroup = c.columns.length > 0;
+    const editable = !!p.editableColumnGroups && isGroup && !c.parent;
     const canPin = !c.parent;
     const name = nameOf(c);
     return <li key={c.id} data-column-pref-row className={cn('flex items-center gap-2', dragOver?.id === c.id && 'opacity-60', dragOver && dragOver.id !== c.id && dragOver.index === at && group.some(g => g.id === dragOver.id) && 'border-t border-t-border-control')}>
       <span role="presentation" aria-hidden className="shrink-0 cursor-grab touch-none text-text-muted" onPointerDown={e => startDrag(e, c, group)}><GripVertical className="size-3.5" /></span>
       {!isGroup && c.getCanHide() ? <Checkbox id={`${columnPrefsId}-${c.id}-visible`} checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(v === true)} className="size-3.5 border-border-control" /> : <span className="size-3.5 shrink-0" aria-hidden />}
-      <div className="min-w-0 flex-1">{!isGroup && c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="text-sm">{name}</span>}</div>
+      <div className="min-w-0 flex-1">{editable && groupEditor.draft.kind === 'rename' && groupEditor.draft.id === c.id
+        ? <ColumnGroupRename name={groupEditor.draft.name} onName={groupEditor.setName} onSave={saveGroupName} onCancel={() => closeGroupEditor()} />
+        : !isGroup && c.getCanHide() ? <Label htmlFor={`${columnPrefsId}-${c.id}-visible`}>{name}</Label> : <span className="block truncate text-sm" title={name}>{name}</span>}</div>
       <Button id={`${columnPrefsId}-${c.id}-up`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveUp', { name })} disabled={at === 0} onClick={() => moveColumn(c, group, at - 1, 'up')}><ArrowUp className="size-3.5" aria-hidden /></Button>
       <Button id={`${columnPrefsId}-${c.id}-down`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('tableColumnMoveDown', { name })} disabled={at === group.length - 1} onClick={() => moveColumn(c, group, at + 1, 'down')}><ArrowDown className="size-3.5" aria-hidden /></Button>
       {canPin && <Button id={`${columnPrefsId}-${c.id}-pin`} type="button" variant="ghost" size="icon-xs" className="shrink-0" aria-pressed={pinned} aria-label={m('tableColumnPinLeft', { name })} disabled={!c.getCanPin()} onClick={() => { refocusPin.current = c.id; c.pin(pinned ? false : 'left'); }}>
         {pinned ? <PinOff className="size-3.5" aria-hidden /> : <Pin className="size-3.5" aria-hidden />}
       </Button>}
+      {editable && <ColumnGroupRowMenu triggerId={groupMenuId(c.id)} name={name} onRename={() => groupEditor.rename(c.id, name)} onMembers={() => groupEditor.edit(c.id, name, c.getLeafColumns().map(leaf => leaf.id))}
+        onUngroup={() => { refocusGroup.current = groupNewId; editGroups(snapshot => ungroupColumns(snapshot, c.id), 'now'); announceGroup('tableGroupRemoved', name); }} />}
     </li>;
   }
   function columnPrefList(members: Column<T>[], depth = 0): ReactNode {
@@ -747,13 +815,15 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   </MoreMenu> : null;
   const columnsButton = <Button variant="secondary" size="toolbar"><Columns3 className="size-3.5" aria-hidden />{m('tableColumns')}</Button>;
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
-  const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => setOverlayOpen(o => ({ ...o, columns: open }))}>
+  const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => { if (!open) groupEditor.cancel(); setOverlayOpen(o => ({ ...o, columns: open })); }}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
-    <PopoverContent align="end" className="w-72" onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+    <PopoverContent align="end" className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); closeGroupEditor(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
       event.preventDefault();
       if (!columnsOutside.current) moreButton.current?.focus();
       columnsOutside.current = false;
     } : undefined}>
+      {p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? <ColumnGroupChooseView editor={groupEditor} idPrefix={columnPrefsId} onSave={saveGroupMembers} onCancel={() => closeGroupEditor()}
+        columns={dataColumns.map(c => ({ id: c.id, label: nameOf(c), hidden: !c.getIsVisible(), group: paths.get(c.id)?.[0] ? columnGroupLabel(p.columnGroups, paths.get(c.id)![0]) : undefined }))} /> : <>
       <p className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
       <div className="space-y-3">
         {pinnedPrefs.length > 0 && <div>
@@ -767,7 +837,9 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
       </div>
       <p className="sr-only" aria-live="polite">{orderNote}</p>
       {/* Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */}
-      <div className="mt-3"><Button type="button" variant="secondary" size="toolbar" onClick={resetPreferences}>{m('tableResetPrefs')}</Button></div>
+      <div className="mt-3 flex items-center gap-2">{p.editableColumnGroups && <Button id={groupNewId} type="button" variant="secondary" size="toolbar" onClick={groupEditor.start}>{m('tableGroupNew')}</Button>}<Button type="button" variant="secondary" size="toolbar" onClick={() => { groupEditor.cancel(); resetPreferences(); }}>{m('tableResetPrefs')}</Button></div>
+      </>}
+      {p.editableColumnGroups && <p className="sr-only" aria-live="polite">{groupEditor.note}</p>}
     </PopoverContent>
   </Popover>;
   const toolbarActions = <>
@@ -882,12 +954,16 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
               const path = (paths.get(h.column.id) ?? []).map(id => columnGroupLabel(p.columnGroups, id)).join(', ');
               const sorted = h.column.getIsSorted();
               const panGroup = pan.groups.get(h.column.id);
+              const editableGroup = !!p.editableColumnGroups && isGroup && !h.column.parent;
               if (isGroup || h.isPlaceholder) {
                 // eslint-disable-next-line shadcn/no-inline-styles -- group span and pin offsets sum the rendered leaf widths
-                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-colspan={isGroup ? h.colSpan : undefined} tabIndex={panGroup && panGroup.max > 0 ? 0 : undefined} aria-description={panGroup && panGroup.max > 0 ? m('tableColumnGroupPanHint') : undefined} style={isGroup ? groupHeadStyle(h, side) : headStyle(h.column)}
+                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-label={editableGroup ? nameOf(h.column) : undefined} aria-colspan={isGroup ? h.colSpan : undefined} tabIndex={panGroup && panGroup.max > 0 ? 0 : undefined} aria-description={panGroup && panGroup.max > 0 ? m('tableColumnGroupPanHint') : undefined} style={isGroup ? groupHeadStyle(h, side) : headStyle(h.column)}
                   className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', isGroup && 'overflow-visible', lineClass(h.column.getLeafColumns()[0]?.id ?? h.column.id, false), panGroup && panGroup.max > 0 && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring', side === 'right' && pinEdge, fadeClass(h.column.getLeafColumns().some(c => inWidthGroup(c.id)) ? false : side, false))}>
                   {/* eslint-disable-next-line shadcn/no-inline-styles -- keep the top-level label in its declared clip span as member columns pan underneath */}
-                  {isGroup && <span className="sticky left-0 min-w-0 truncate" style={panGroup ? { transform: `translateX(var(${panGroup.variable}, 0px))`, maxWidth: panGroup.width - CELL_INLINE_PADDING } : undefined} title={nameOf(h.column)}>{nameOf(h.column)}</span>}
+                  {isGroup && <span className={cn('sticky left-0 min-w-0', editableGroup ? 'flex h-full w-full items-center break-keep' : 'truncate')} style={panGroup ? { transform: `translateX(var(${panGroup.variable}, 0px))`, maxWidth: panGroup.width - CELL_INLINE_PADDING } : undefined} title={nameOf(h.column)}>
+                    <span className="min-w-0 truncate">{nameOf(h.column)}</span>
+                    {editableGroup && <ColumnGroupResizer id={h.column.id} controlId={`${columnPrefsId}-${h.column.id}-resize`} name={nameOf(h.column)} width={panGroup?.width ?? displayedSize(h.column.getLeafColumns())} widthScale={widthScale} resize={groupResize} onWidth={setGroupWidth} />}
+                  </span>}
                 </div>;
               }
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime

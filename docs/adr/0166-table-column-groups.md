@@ -1,11 +1,11 @@
 # 표 열 묶음은 열별 id 경로로 선언하고 선언 폭 안에서 넘김
 
-상태: **Decided (2026-11-17)**
+상태: **부분 대체 (ADR-0167, 2026-11-17)**
 - 결정자: 코디네이터(사용자 위임), #2418 N1·N2. 선택 옵션이며 되돌릴 수 있다. 묶음 넘김은 사용자가 캡처로 확인했다(#2418, PR #2480).
 
 ## 결정
 
-기존 `PlatformColumn`에 `columnGroup` 경로, 표에 문자열 또는 `PlatformColumnGroup` 사전 `columnGroups`를 선택적으로 추가한다. 최상위 묶음의 `width`는 표시 영역의 폭을 선언하고, 넘치는 구성 열은 그 영역 안에서 헤더·본문·소계를 함께 넘겨 본다(묶음 넘김). 열 선언이 순서와 소속의 단일 원천이다. 엔진은 기존 TanStack v8을 유지하며 중첩 정의로 변환한다. 기본 동작과 저장 형식을 바꾸지 않는다. 세부 동작은 [Components §15](../contract/components.md#열-묶음-decided-adr-0166-2418), 모양은 [DESIGN Tables](../../DESIGN.md#tables)가 소유한다.
+기존 `PlatformColumn`에 `columnGroup` 경로, 표에 문자열 또는 `PlatformColumnGroup` 사전 `columnGroups`를 선택적으로 추가한다. 최상위 묶음의 `width`는 표시 영역의 폭을 선언하고, 넘치는 구성 열은 그 영역 안에서 헤더·본문·소계를 함께 넘겨 본다(묶음 넘김). 열 선언이 순서와 소속의 단일 원천이다(사용자 편집 옵션과 유효한 snapshot이 있는 경우는 [ADR-0167](0167-editable-column-groups.md)이 부분 대체). 엔진은 기존 TanStack v8을 유지하며 중첩 정의로 변환한다. 기본 동작과 저장 형식을 바꾸지 않는다. 세부 동작은 [Components §15](../contract/components.md#열-묶음-decided-adr-0166-2418), 모양은 [DESIGN Tables](../../DESIGN.md#tables)가 소유한다.
 
 묶음은 하나의 이동·고정 단위이고 열은 부모 묶음 안에서 이동한다. 흩어진 저장 순서는 공용 `groupedOrder`로 읽으며 읽기만으로 저장하지 않는다. 부분 저장 핀은 보이는 구성원 기준으로 전체 묶음으로 확장한다. 헤더와 내보내기의 같은 순서를 보장하기 위해서다. 실제 메뉴 모습은 바꾸지 않고 mock dev-tools 예시로 검증한다.
 

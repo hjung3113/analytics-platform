@@ -178,7 +178,8 @@
 | [0163](0163-permission-groups-replace-role-levels-as-templates.md) | 역할 단계는 늘리지 않고, 이름 있는 권한 묶음(권한 그룹)을 템플릿으로 둔다 | Decided(2026-11-16) |
 | [0164](0164-target-picker-dialog-and-custom-groups.md) | 조회 대상은 한 대화창에서 축을 나란히 좁히고, 커스텀 조회 그룹은 코어 서버에 저장해 조회 직전에 펼친다 | Decided(2026-11-16, 개념·배치·이름 소유자, 포트·저장 방식 레인, 되돌릴 수 있음), 개정 2026-11-17(#2464, 소유자): 조회 대상 묶음 이름 «커스텀 조회 그룹» |
 | [0165](0165-workspace-per-step-panels-add-and-pin.md) | 작업 영역은 드릴 단계별 패널을 `persistKey`로 나누고, 패널 추가 목록과 고정(메뉴의 반복 page key)을 둔다 | Decided(2026-11-16, 고문·소유자 위임, 되돌릴 수 있음) — #2397 #2398 |
-| [0166](0166-table-column-groups.md) | 표 열 묶음은 열별 id 경로로 선언하고 선언 폭 안에서 넘김 | Decided(2026-11-17) |
+| [0166](0166-table-column-groups.md) | 표 열 묶음은 열별 id 경로로 선언하고 선언 폭 안에서 넘김 | 부분 대체(ADR-0167, 2026-11-17) |
+| [0167](0167-editable-column-groups.md) | 열 묶음은 컬럼 팝오버에서 편집하고 사용자 열 설정에 저장 | Decided(2026-11-17) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 
