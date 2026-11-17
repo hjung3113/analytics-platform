@@ -21,7 +21,7 @@ import { useSharedOutcomeNotice } from '../filters/OutcomeScope';
 import { SCROLLPORT_LABEL } from '../scrollportLabel';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { ACTION_PIN_MIN_SCROLL, ROW_AREA_FALLBACK, useTableFit } from './tableFit';
-import { COLUMN_GROUP_PAN_DESCRIPTION, exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from './tableMessages';
+import { exportItemName, exportTarget, FORMAT_LABEL, type ExportScopeKind } from './tableMessages';
 import { groupedOrder, groupedPins, moveWithinGroup } from './columnOrder';
 import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
@@ -965,7 +965,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
               const panGroup = pan.groups.get(h.column.id);
               if (isGroup || h.isPlaceholder) {
                 // eslint-disable-next-line shadcn/no-inline-styles -- group span and pin offsets sum the rendered leaf widths
-                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-colspan={isGroup ? h.colSpan : undefined} tabIndex={panGroup && panGroup.max > 0 ? 0 : undefined} aria-description={panGroup && panGroup.max > 0 ? COLUMN_GROUP_PAN_DESCRIPTION[lang] : undefined} style={isGroup ? groupHeadStyle(h, side) : headStyle(h.column)}
+                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-colspan={isGroup ? h.colSpan : undefined} tabIndex={panGroup && panGroup.max > 0 ? 0 : undefined} aria-description={panGroup && panGroup.max > 0 ? m('tableColumnGroupPanHint') : undefined} style={isGroup ? groupHeadStyle(h, side) : headStyle(h.column)}
                   className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', isGroup && 'overflow-visible', lineClass(h.column.getLeafColumns()[0]?.id ?? h.column.id, false), panGroup && panGroup.max > 0 && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring', side === 'right' && pinEdge, fadeClass(h.column.getLeafColumns().some(c => inWidthGroup(c.id)) ? false : side, false))}>
                   {/* eslint-disable-next-line shadcn/no-inline-styles -- keep the top-level label in its declared clip span as member columns pan underneath */}
                   {isGroup && <span className="sticky left-0 min-w-0 truncate" style={panGroup ? { transform: `translateX(var(${panGroup.variable}, 0px))`, maxWidth: panGroup.width - CELL_INLINE_PADDING } : undefined} title={nameOf(h.column)}>{nameOf(h.column)}</span>}

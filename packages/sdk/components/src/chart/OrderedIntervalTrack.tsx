@@ -292,7 +292,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
       aria-busy={loading}
       tabIndex={0}
       onKeyDown={keyboard}
-      className="relative min-w-0 break-keep rounded-lg border border-border-subtle bg-surface-card text-xs text-text-primary shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none"
+      className="relative min-w-0 break-keep rounded-lg border border-border-subtle bg-surface-card text-xs text-text-primary elevation-panel"
     >
       <header
         className={cn(

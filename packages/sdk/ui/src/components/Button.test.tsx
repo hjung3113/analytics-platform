@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
 import { Button } from './Button';
@@ -24,14 +27,16 @@ it.each([
 // Whole-page canvas shells must not turn controls on cards or floating content transparent.
 it('limits secondary transparency to canvas bands rather than whole-page shells', () => {
   const { getByRole } = render(<Button variant="secondary">Save</Button>);
-  expect(getByRole('button')).toHaveClass('bg-surface-raised', 'in-[.bg-surface-canvas:not([data-shell],.rich-editor)]:bg-transparent');
+  expect(getByRole('button')).toHaveClass('bg-surface-raised', 'on-canvas-band:bg-transparent');
   expect(getByRole('button')).not.toHaveClass('in-[.bg-surface-canvas]:bg-transparent');
 });
 
 // #2456 review C1: the rich editor wrapper paints canvas but is not a band; its floating selection toolbar sits on a popover.
 it('treats a page band and the editor toolbar as bands but not the rich editor wrapper', () => {
   const { getByRole } = render(<Button variant="secondary">Bold</Button>);
-  const band = getByRole('button').className.match(/in-\[(.+?)\]:bg-transparent/)![1];
+  expect(getByRole('button')).toHaveClass('on-canvas-band:bg-transparent');
+  const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../styles/compat.css'), 'utf8');
+  const band = css.match(/@custom-variant on-canvas-band \(&:where\((.+) \*\)\);/)![1];
   const nearestBand = (html: string) => {
     const host = document.createElement('div');
     host.innerHTML = html;
@@ -45,5 +50,5 @@ it('treats a page band and the editor toolbar as bands but not the rich editor w
 
 it('does not add the canvas-band override to primary buttons', () => {
   const { getByRole } = render(<Button>Save</Button>);
-  expect(getByRole('button')).not.toHaveClass('in-[.bg-surface-canvas:not([data-shell],.rich-editor)]:bg-transparent');
+  expect(getByRole('button')).not.toHaveClass('on-canvas-band:bg-transparent');
 });

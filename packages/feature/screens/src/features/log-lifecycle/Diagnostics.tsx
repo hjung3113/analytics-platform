@@ -74,14 +74,14 @@ function DiagnosticListReader(props: Props & { attempt: Attempt; filter: string;
     // row (one shell scroll layer), while a short list leaves its slack inside the frame. Stack to content below 64rem.
     return <div className="flex min-w-0 flex-col @5xl:flex-1">
       <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 @5xl:flex-1 @5xl:grid-cols-4">
-        <div data-testid="diagnostic-list-frame" className="flex min-w-0 flex-col self-stretch rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none">
+        <div data-testid="diagnostic-list-frame" className="flex min-w-0 flex-col self-stretch rounded-lg border border-border-subtle bg-surface-card elevation-panel">
           {rows.length ? ui.table({ title: copy.list, hideTitle: true, fill: true, embedded: true, preferenceKey: 'log-lifecycle-diagnostic-list', rows, activeRowId: identity, pagination: <Pager page={page} total={data.total} onChange={onPage} />, columns: [{ id: 'title', header: copy.title, sortable: false, cell: r => <div className="grid min-w-0 gap-1 break-keep">
           <Button variant="link" size="toolbar" className="h-auto max-w-full justify-start whitespace-normal text-left" onClick={() => onSelect(r.id)}>{rowTitle(r)}</Button>
           <p className="break-all font-mono text-sm text-text-secondary">{r.producer}</p>
           <p className="text-sm text-text-secondary">{copy[r.origin]} · {copy.tables} {r.tableCount} · {r.rowCounts.join('/')} {copy.rows} · {copy.evidence} {r.evidenceCount} · {copy[r.bodyState]}</p>
           <p className="break-all font-mono text-sm text-text-muted">{r.itemKey}</p>
         </div> }] }) : null}</div>
-        <div data-testid="diagnostic-detail-frame" className="grid min-w-0 content-start gap-3 self-stretch rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-3 @5xl:col-span-3">
+        <div data-testid="diagnostic-detail-frame" className="grid min-w-0 content-start gap-3 self-stretch rounded-lg border border-border-subtle bg-surface-card elevation-panel p-3 @5xl:col-span-3">
           {detail}
         </div>
       </div>

@@ -22,7 +22,7 @@ export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip 
   const paneBorderOnly = inPanel && workspace !== null;
   const Tag = onClick ? 'button' : 'div';
   return <Tag type={onClick ? 'button' : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-    className={cn('flex min-h-[100px] w-full items-start rounded-lg bg-surface-card text-left in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none', !paneBorderOnly && 'border shadow-sm', compact ? 'gap-2 p-3' : 'gap-3 p-4',
+    className={cn('flex min-h-[100px] w-full items-start rounded-lg bg-surface-card text-left', !paneBorderOnly && 'border elevation-panel', compact ? 'gap-2 p-3' : 'gap-3 p-4',
       active ? 'border-accent-primary ring-1 ring-accent-primary' : 'border-border-subtle',
       onClick && (paneBorderOnly ? 'transition-colors hover:bg-surface-row-hover' : 'transition-colors hover:border-border-strong'))}>
     <span className={cn('grid size-10 shrink-0 place-items-center rounded-md', chipClass)}><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>

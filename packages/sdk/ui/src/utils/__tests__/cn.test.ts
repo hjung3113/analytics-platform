@@ -30,3 +30,8 @@ describe('cn with feature theme keys', () => {
     expect(cn(first, later)).toBe(later);
   });
 });
+
+// v0.41 review C1: `elevation-panel` carries the nested no-shadow guard, so a caller's shadow must not merge it away.
+it('keeps elevation-panel next to a caller shadow so its nested guard survives', () => {
+  expect(cn('border elevation-panel', 'shadow-lg')).toBe('border elevation-panel shadow-lg');
+});

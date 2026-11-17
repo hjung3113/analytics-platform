@@ -254,7 +254,7 @@ Icon chips use `--radius-icon-chip` (5px), exposed as `rounded-icon-chip`.
 
 ### Shadows
 
-Top-level cards and analysis panels use `shadow-sm` to separate their white surface from the canvas. Cards inside another card or Dockview panel use `shadow-none` so elevation does not stack. Page titles use `t-section-title` (18px/28px/600) within the centred 50px header. List selection combines the selected surface with a 2px `accent-primary` bar; severity pills retain their separate 3px width.
+Top-level cards and analysis panels use the `elevation-panel` utility (`shadow-sm`) to separate their white surface from the canvas; inside a card, detail surface or Dockview panel it drops to no shadow so elevation does not stack. Page titles use `t-section-title` (18px/28px/600) within the centred 50px header. List selection combines the selected surface with a 2px `border-selected` bar; severity pills retain their separate 3px width.
 
 | Name | Value | Token |
 |------|-------|-------|
