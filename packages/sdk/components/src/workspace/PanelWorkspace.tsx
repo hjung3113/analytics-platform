@@ -83,6 +83,8 @@ export type PanelWorkspacePanel = {
 export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorkspaceLayout };
 
 export type PanelWorkspaceProps = {
+  /** Menu-declared actions for the active panel, after all platform items and a separator. Absent/empty leaves the menu unchanged; primary panels are not filtered. */
+  panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[];
   panels: readonly PanelWorkspacePanel[];
   presets: readonly PanelWorkspacePreset[];
   initialPreset: string;
@@ -199,7 +201,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -576,6 +578,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     };
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
+      menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
         left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
         top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top', { fromMenu: true }); } : undefined,

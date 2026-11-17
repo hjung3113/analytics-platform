@@ -27,6 +27,9 @@ export type PanelDeclaration<K extends string = string> = {
     readonly requires: readonly { readonly anyOf: readonly string[] }[];
     readonly disabledReason: Text;
   };
+  /** Rendered form, separate from the SDK container used to draw it. */
+  readonly kind?: string;
+  /** SDK pieces used by this panel, listed by kind for its recipe. */
   readonly pieces?: readonly string[];
 };
 
@@ -104,39 +107,39 @@ const pointAvailability = { requires: [{ anyOf: ['drillModule', 'trend'] }], dis
  * reshape already-fetched data. Table is the existing root aggregate.
  */
 export const panelDeclarations = {
-  heatmap: { id: 'heatmap', title: S.heatmap,
+  heatmap: { id: 'heatmap', kind: 'heatmap', title: S.heatmap,
     queryInputs: { context: common, page: [{ key: 'moduleType', required: true }] }, displayInputs: { page: [...verdictDisplay, { key: 'drillMotion' }] },
     outputs: [{ key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id],
-    availability: { requires: [{ anyOf: ['moduleType'] }], disabledReason: S.needsType } },
-  trend: { id: 'trend', title: S.trend, queryInputs: runInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
-    grain: 'dailyStat', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
-  scatter: { id: 'scatter', title: S.scatter, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
-    grain: 'run', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability },
-  distribution: { id: 'distribution', title: S.distribution, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
-    grain: 'run', endpoints: [hwTimeOverview.distribution.id], availability: pointAvailability },
-  motionTable: { id: 'motionTable', title: S.motionTable,
+    availability: { requires: [{ anyOf: ['moduleType'] }], disabledReason: S.needsType }, pieces: ['AnalysisChart', 'QueryView'] },
+  trend: { id: 'trend', kind: 'line', title: S.trend, queryInputs: runInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
+    grain: 'dailyStat', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability, pieces: ['AnalysisChartFrame', 'AnalysisChart', 'FilterLine', 'QueryView'] },
+  scatter: { id: 'scatter', kind: 'scatter', title: S.scatter, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
+    grain: 'run', endpoints: [hwTimeOverview.runs.id], availability: pointAvailability, pieces: ['AnalysisChart', 'FilterLine', 'QueryView'] },
+  distribution: { id: 'distribution', kind: 'histogram', title: S.distribution, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
+    grain: 'run', endpoints: [hwTimeOverview.distribution.id], availability: pointAvailability, pieces: ['AnalysisChart', 'QueryView'] },
+  motionTable: { id: 'motionTable', kind: 'table', title: S.motionTable,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule', required: true }] }, displayInputs: { page: [{ key: 'motion' }] },
     outputs: [{ key: 'drillMotion', action: 'drill' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }],
     grain: 'motionStat', endpoints: [hwTimeOverview.motionStats.id],
-    availability: { requires: [{ anyOf: ['drillModule'] }], disabledReason: S.needsModule } },
-  moduleMotions: { id: 'moduleMotions', title: S.moduleMotions,
+    availability: { requires: [{ anyOf: ['drillModule'] }], disabledReason: S.needsModule }, pieces: ['PlatformDataTable', 'RowAction', 'QueryView'] },
+  moduleMotions: { id: 'moduleMotions', kind: 'bar-horizontal', title: S.moduleMotions,
     queryInputs: { context: common, page: [{ key: 'moduleType' }] },
     displayInputs: { page: [...verdictDisplay, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
     outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id],
-    availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 } },
-  table: { id: 'table', title: S.table,
+    availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 }, pieces: ['AnalysisChartFrame', 'PanelOptions', 'PanelOptionChips', 'QueryView'] },
+  table: { id: 'table', kind: 'table', title: S.table,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'page' }, { key: 'sort' }, { key: 'focus' }] }, displayInputs: { page: checks },
     outputs: [{ key: 'moduleType', action: 'drill' }, { key: 'drillMotion', action: 'drill' }, { key: 'drillModule', action: 'drill' },
       { key: 'row', action: 'highlight' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }, { key: 'page', action: 'page' }, { key: 'sort', action: 'sort' }],
-    grain: 'rootAggregate', endpoints: [hwTime.levelRows.id, hwTime.tableRows.id, hwTime.exportRows.id, hwTime.trend.id] },
-  donut: { id: 'donut', title: N.donut, queryInputs: { context: common, page: [{ key: 'moduleType' }] }, displayInputs: { page: [...checks, { key: 'verdict' }] },
-    outputs: [{ key: 'verdict', action: 'verdict' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id], pieces: ['AnalysisChart:donut'] },
-  pareto: { id: 'pareto', title: N.pareto, queryInputs: { context: common, page: [{ key: 'moduleType' }] }, displayInputs: { page: checks },
-    outputs: [], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id], pieces: ['AnalysisChart:pareto'] },
-  equipmentDays: { id: 'equipmentDays', title: N.equipmentDays,
+    grain: 'rootAggregate', endpoints: [hwTime.levelRows.id, hwTime.tableRows.id, hwTime.exportRows.id, hwTime.trend.id], pieces: ['PlatformDataTable', 'RowAction', 'DetailDrawer', 'QueryView', 'StateMessage'] },
+  donut: { id: 'donut', kind: 'donut', title: N.donut, queryInputs: { context: common, page: [{ key: 'moduleType' }] }, displayInputs: { page: [...checks, { key: 'verdict' }] },
+    outputs: [{ key: 'verdict', action: 'verdict' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id], pieces: ['AnalysisChart:donut', 'QueryView'] },
+  pareto: { id: 'pareto', kind: 'pareto', title: N.pareto, queryInputs: { context: common, page: [{ key: 'moduleType' }] }, displayInputs: { page: checks },
+    outputs: [], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix.id], pieces: ['AnalysisChart:pareto', 'QueryView'] },
+  equipmentDays: { id: 'equipmentDays', kind: 'heatmap', title: N.equipmentDays,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }] }, displayInputs: { page: [{ key: 'verdict' }] },
-    outputs: [{ key: 'date', action: 'date' }], grain: 'equipmentDay', endpoints: [hwTimeOverview.equipmentDays.id], pieces: ['AnalysisChart:heatmap'] },
-  boundHistory: { id: 'boundHistory', title: N.boundHistory,
+    outputs: [{ key: 'date', action: 'date' }], grain: 'equipmentDay', endpoints: [hwTimeOverview.equipmentDays.id], pieces: ['AnalysisChart:heatmap', 'QueryView'] },
+  boundHistory: { id: 'boundHistory', kind: 'audit', title: N.boundHistory,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }] }, displayInputs: {},
-    outputs: [], grain: 'auditEvent', endpoints: [hwTimeOverview.boundHistory.id], pieces: ['AuditTimeline'] },
+    outputs: [], grain: 'auditEvent', endpoints: [hwTimeOverview.boundHistory.id], pieces: ['AuditTimeline', 'QueryView'] },
 } as const satisfies Readonly<Record<string, PanelDeclaration>>;
