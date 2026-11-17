@@ -269,6 +269,8 @@ reference quality recipe는 coverage→blue, traceability→teal, consistency→
 
 ## Tables
 
+- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래와 오른쪽 끝에 기존 border 토큰의 1px 구분선을 둔다(오른쪽 끝 선은 열 너비 조절선과 같은 모양이라, 묶음 줄에서도 어디서 끝나는지 읽힌다). 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+
 플랫폼 table 동작은 [06 §15](docs/contract/components.md#15-platform-data-table-contract)가 소유한다. 이 문서의 `components.table-density`가 기본 시각 밀도의 원본이다:
 
 ```yaml

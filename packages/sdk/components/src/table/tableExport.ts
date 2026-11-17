@@ -9,7 +9,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
  */
 import { isProductionEnv } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
-import { effectiveOrder, pinnedInOrder } from './columnOrder';
+import { groupedOrder, groupedPins } from './columnOrder';
 
 type ExportPreferences = { visibility: Record<string, boolean>; pinning: { left?: string[] }; order?: string[] };
 
@@ -19,14 +19,39 @@ type ExportPreferences = { visibility: Record<string, boolean>; pinning: { left?
  * The `_select`/`_action` system columns never join (they are not `PlatformColumn`s).
  */
 export function exportColumns<T>(columns: PlatformColumn<T>[], { visibility, pinning, order = [] }: ExportPreferences): PlatformColumn<T>[] {
-  const effective = effectiveOrder(columns.map(c => c.id), order);
-  const left = pinnedInOrder(pinning.left ?? [], effective, order.length > 0);
+  const effective = groupedOrder(columns, order);
+  const left = groupedPins(columns, pinning.left ?? [], effective, visibility, order.length > 0);
   const pinned = new Set(left);
   const visible = effective.flatMap(id => columns.filter(c => c.id === id && c.exportable !== false && visibility[c.id] !== false));
   return [
     ...left.flatMap(id => visible.filter(c => c.id === id)),
     ...visible.filter(c => !pinned.has(c.id)),
   ];
+}
+
+/** Backward-compatible flat headers, or multi-row headers with explicit merged-cell fills. */
+export type ExportHeaderCell = string | { value: string; columnSpan: number } | null;
+export type ExportHeaders = string[] | ExportHeaderCell[][];
+const headerRows = (headers: ExportHeaders): ExportHeaderCell[][] => Array.isArray(headers[0]) ? headers as ExportHeaderCell[][] : [headers as string[]];
+
+export function exportHeaders<T>(columns: PlatformColumn<T>[], labels: Readonly<Record<string, string>> = {}): { flat: string[]; rows: ExportHeaders } {
+  const depth = Math.max(0, ...columns.map(c => c.columnGroup?.length ?? 0));
+  if (depth === 0) { const flat = columns.map(c => c.header); return { flat, rows: flat }; }
+  const rows: ExportHeaderCell[][] = Array.from({ length: depth }, (_, level) => {
+    const row: ExportHeaderCell[] = [];
+    for (let index = 0; index < columns.length;) {
+      const id = columns[index].columnGroup?.[level];
+      if (id === undefined) { row.push(''); index += 1; continue; }
+      const path = JSON.stringify(columns[index].columnGroup?.slice(0, level + 1));
+      let end = index + 1;
+      while (end < columns.length && JSON.stringify(columns[end].columnGroup?.slice(0, level + 1)) === path) end += 1;
+      row.push({ value: labels[id] ?? id, columnSpan: end - index }, ...Array<null>(end - index - 1).fill(null));
+      index = end;
+    }
+    return row;
+  });
+  rows.push(columns.map(c => c.header));
+  return { flat: columns.map(c => [...(c.columnGroup ?? []).map(id => labels[id] ?? id), c.header].join(' › ')), rows };
 }
 
 /** One coerced cell value: `null`/`undefined`/`NaN`/`±Infinity` → '', boolean → TRUE/FALSE, number stays number, string stays string. */
@@ -100,10 +125,13 @@ export function xlsxCell(value: string | number | null): string | number | null 
  * (key/value rows describing what was exported). Sheet names follow the UI language. `write-excel-file/browser` is loaded with a runtime `import()` so it lands in its
  * own chunk — pages that never export never download it.
  */
-export async function toXlsx(headers: string[], rows: (string | number)[][], info: [string, string | number][], lang: 'ko' | 'en' = 'ko'): Promise<Blob> {
+export async function toXlsx(headers: ExportHeaders, rows: (string | number)[][], info: [string, string | number][], lang: 'ko' | 'en' = 'ko'): Promise<Blob> {
   const { default: writeXlsxFile } = await import('write-excel-file/browser');
   return writeXlsxFile([
-    { sheet: formatText(COMPONENTS_MESSAGES.tableSheetData, lang), data: [headers.map(xlsxText), ...rows.map(row => row.map(xlsxCell))] },
+    { sheet: formatText(COMPONENTS_MESSAGES.tableSheetData, lang), data: [...headerRows(headers).map(row => row.map(cell => {
+      if (cell === null) return null;
+      return typeof cell === 'string' ? xlsxText(cell) : { ...cell, value: xlsxText(cell.value) };
+    })), ...rows.map(row => row.map(xlsxCell))] },
     { sheet: formatText(COMPONENTS_MESSAGES.tableSheetInfo, lang), data: info.map(([key, value]) => [key, xlsxCell(value)]) },
   ]).toBlob();
 }
@@ -116,9 +144,14 @@ const escapeHtml = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<
  * String cells also carry Excel's text format (`mso-number-format:"\@"`) so leading zeros and long numeric ids paste
  * as text; an in-cell newline becomes Excel's same-cell break (the TSV quotes it). Numbers stay numbers.
  */
-export function toClipboardHtml(headers: string[], rows: (string | number)[][]): string {
+export function toClipboardHtml(headers: ExportHeaders, rows: (string | number)[][]): string {
   const td = (value: string | number, tag: 'th' | 'td') => typeof value === 'number'
     ? `<${tag}>${value}</${tag}>`
     : `<${tag} style="mso-number-format:'\\@'">${escapeHtml(guardFormula(value)).replace(/\r\n|\r|\n/g, '<br style="mso-data-placement:same-cell">')}</${tag}>`;
-  return `<table><thead><tr>${headers.map(h => td(h, 'th')).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(c => td(c, 'td')).join('')}</tr>`).join('')}</tbody></table>`;
+  const head = headerRows(headers).map(row => `<tr>${row.map(cell => {
+    if (cell === null) return '';
+    if (typeof cell === 'string') return td(cell, 'th');
+    return td(cell.value, 'th').replace('<th ', `<th colspan="${cell.columnSpan}" `);
+  }).join('')}</tr>`).join('');
+  return `<table><thead>${head}</thead><tbody>${rows.map(row => `<tr>${row.map(c => td(c, 'td')).join('')}</tr>`).join('')}</tbody></table>`;
 }

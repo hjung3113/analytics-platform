@@ -6,7 +6,7 @@ import { isProductionEnv } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PlatformColumn } from './PlatformDataTable';
 import { downloadBlob, fileStamp, safeFileName } from './download';
-import { exportCell, exportColumns, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
+import { exportCell, exportColumns, exportHeaders, type ExportHeaders, toClipboardHtml, toCsv, toTsv, toXlsx } from './tableExport';
 import {
   clipboardFailure, copiedText, copyingNote, copyRowCapNote, copyUnavailable, exportDoneText, EXPORT_REFUSAL, exportPreparingNote, exportRefusal, EXPORT_ROW_CAP,
   exportRowCapNote, exportTarget, globalContextRows, loadedRowsOnlyNote, noSelectedOnPage, provisionalSuffix, selectionShortNote,
@@ -34,6 +34,7 @@ class ClipboardRejected extends Error { constructor(readonly cause: unknown) { s
 
 type TransferInput<T> = {
   columns: PlatformColumn<T>[];
+  columnGroups?: Readonly<Record<string, string>>;
   getRowId: (row: T) => string;
   exportRows: ((request: TableExportRequest, signal: AbortSignal) => Promise<ApiResponse<T[]>>) | undefined;
   /** Menu note appended to the export toast. */
@@ -89,9 +90,10 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   }
 
   /** Export serializer for rows already read: header + cells of the visible exportable columns. Throws on a column bug. */
-  function serialize(rows: T[]): { headers: string[]; cells: (string | number)[][] } {
+  function serialize(rows: T[]): { headers: string[]; headerRows: ExportHeaders; cells: (string | number)[][] } {
     const exportable = exportColumns(columns, preferences);
-    return { headers: exportable.map(c => c.header), cells: rows.map(row => exportable.map(c => exportCell(c, row))) };
+    const headers = exportHeaders(exportable, input.columnGroups);
+    return { headers: headers.flat, headerRows: headers.rows, cells: rows.map(row => exportable.map(c => exportCell(c, row))) };
   }
 
   // Table-owned export (#173): the target (selection / all filtered rows) and format come from the chosen menu item —
@@ -136,9 +138,10 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       // Serializer (#173 review P2-1): outside the server-request try, so a column bug is not reported as a server
       // failure. Dev logs the error — it names the column that needs exportValue; production stays silent + toast.
       let headers: string[];
+      let headerRows: ExportHeaders;
       let cells: (string | number)[][];
       try {
-        ({ headers, cells } = serialize(rows));
+        ({ headers, headerRows, cells } = serialize(rows));
       } catch (error) {
         if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
         toast(EXPORT_REFUSAL.error[lang], 'warning');
@@ -176,7 +179,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
           [t('source'), trust?.source ?? ''],
           ['Correlation ID', response.correlationId ?? ''],
         ];
-        blob = await toXlsx(headers, cells, info, lang);
+        blob = await toXlsx(headerRows, cells, info, lang);
         if (controller.signal.aborted) return;
       }
       downloadBlob(blob, `${safeFileName(route?.menu.id ?? 'table')}-${stamp}${response.trust?.provisional ? '-provisional' : ''}.${format}`);
@@ -203,7 +206,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
       throw new CopyStop(EXPORT_REFUSAL.error[lang]);
     }
-    return { tsv: toTsv(serialized.headers, serialized.cells), html: toClipboardHtml(serialized.headers, serialized.cells), count: rows.length };
+    return { tsv: toTsv(serialized.headers, serialized.cells), html: toClipboardHtml(serialized.headerRows, serialized.cells), count: rows.length };
   }
   /** Server read of the selection in the table's sort, reconciled by getRowId like export. Rejects with CopyStop for the user. */
   async function readSelection(ids: string[], signal: AbortSignal): Promise<CopyPayload> {

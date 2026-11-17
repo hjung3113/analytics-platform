@@ -1,6 +1,24 @@
 import type { Text } from '@ap/contracts';
 
 export const DEV_MESSAGES = {
+  columnGroupsExample: { ko: '열 묶음 표 예시', en: 'Column groups example' },
+  columnGroupsDescription: { ko: '합성 설비 비교 데이터로 열 묶음과 열 설정을 확인합니다.', en: 'Inspect column groups and preferences with synthetic equipment comparisons.' },
+  columnGroupsMode: { ko: '표 모양', en: 'Table mode' },
+  columnGroupsPlain: { ko: '묶음 없음', en: 'No groups' },
+  columnGroupsGrouped: { ko: '열 묶음', en: 'Column groups' },
+  columnGroupsEquipment: { ko: '설비', en: 'Equipment' },
+  columnGroupsEquipmentLabel: { ko: '설비 {id}', en: 'Equipment {id}' },
+  columnGroupsValue: { ko: '값', en: 'Value' },
+  columnGroupsJudgment: { ko: '판정', en: 'Judgment' },
+  columnGroupsReference: { ko: '기준', en: 'Reference' },
+  columnGroupsDeviation: { ko: '편차', en: 'Deviation' },
+  columnGroupsMeasuredAt: { ko: '측정 시각', en: 'Measured at' },
+  columnGroupsNote: { ko: '비고', en: 'Note' },
+  columnGroupsPass: { ko: '적합', en: 'Pass' },
+  columnGroupsMarkHint: { ko: '행 표시 버튼으로 행을 선택할 수 있습니다.', en: 'Use Mark row to highlight a row.' },
+  columnGroupsMarked: { ko: '설비 {id} 표시 중', en: 'Equipment {id} highlighted' },
+  columnGroupsMarkRow: { ko: '설비 {id} 행 표시', en: 'Mark equipment {id} row' },
+  columnGroupsMark: { ko: '행 표시', en: 'Mark row' },
 
   panelCatalog: { ko: '패널 카탈로그', en: 'Panel catalog' },
   panelCatalogDescription: { ko: '메뉴가 등록한 패널의 입력·출력과 권한을 확인합니다.', en: 'Inspect registered panel inputs, outputs and permissions.' },

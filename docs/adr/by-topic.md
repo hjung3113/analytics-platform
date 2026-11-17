@@ -54,6 +54,7 @@ PlatformDataTable, 열 필터, 페이지 필터 모델.
 - [0105](0105-one-table-filter-model.md) — 표 필터는 하나의 모델: 페이지·열 필터 통합, Excel 수준 연산자·와이어 스펙(`ops`·`instant`·`requires`), 빈 값·부정 연산자 의미, 숨은 페이지 상태. 0022·0037·0104 보충
 - [0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) — 지표 카탈로그는 표 필터 모델로 완전히 합치고(`status`·`domain` → 숨은 `filter` 키), 분석 조건 줄은 초안 + 적용 한 번을 지키며 적용된 조건·차트 좁히기만 같은 칩 줄 어휘로 보인다(`PageFilterBar` 추가형 opt-in); 버킷 값 표기 통일. 0105 보충
 - [0137](0137-table-refresh-on-and-given-rows.md) — 표: `refreshOn`으로 쓰기 뒤 다시 읽기, `rows`로 가진 행 입력
+- [0166](0166-table-column-groups.md) — 표 열 묶음은 열별 id 경로로 선언하고 다단 헤더로 표시
 
 ## 차트
 

@@ -62,6 +62,7 @@ export const groupCountText = (count: number, lang: Lang) => formatText(COMPONEN
 export const groupToggleName = (label: string, collapsed: boolean, lang: Lang) =>
   formatText(collapsed ? COMPONENTS_MESSAGES.tableGroupExpand : COMPONENTS_MESSAGES.tableGroupCollapse, lang, { label });
 
+type GroupRowCell = { id: string; style: CSSProperties; subtotal: boolean; className?: string };
 type HeaderProps = {
   lang: Lang;
   item: Extract<GroupedItem<unknown>, { kind: 'group' }>;
@@ -72,7 +73,10 @@ type HeaderProps = {
    */
   lead: { style: CSSProperties; span: number; stickyLeft: number; /** Set when the leading cell is itself a subtotal column: its total follows the label. */ subtotal?: { id: string } };
   /** The cells after the leading one: subtotal cells under their columns, empty cells elsewhere. */
-  trailing: { id: string; style: CSSProperties; subtotal: boolean; className?: string }[];
+  trailing: GroupRowCell[];
+  /** Column-group rows keep leading cells separate so the shared display-unit renderer can wrap any top-level group. */
+  leadingCells?: GroupRowCell[];
+  renderCells?: (cells: GroupRowCell[], render: (cell: GroupRowCell) => ReactNode) => ReactNode;
   /** Typography of the sticky label (the size step's font); default 보통. */
   labelClassName?: string;
   onToggle: () => void;
@@ -80,7 +84,7 @@ type HeaderProps = {
 };
 
 /** A group header row's content: collapse button, label, result-wide count and subtotal cells (labelled as whole-result). */
-export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellClassName, labelClassName = 'text-sm' }: HeaderProps): ReactNode {
+export function GroupHeaderCells({ lang, item, lead, trailing, leadingCells, renderCells = (cells, render) => cells.map(render), onToggle, cellClassName, labelClassName = 'text-sm' }: HeaderProps): ReactNode {
   const { group, collapsed, continued, rowsOnPage } = item;
   const m = useMessages(COMPONENTS_MESSAGES);
   const total = (id: string) => {
@@ -108,11 +112,12 @@ export function GroupHeaderCells({ lang, item, lead, trailing, onToggle, cellCla
         {collapsed && <span className="shrink-0 text-xs font-normal text-text-muted tabular">{m('tableGroupHiddenRows', { count: formatNumber(rowsOnPage, lang) })}</span>}
       </div>
     </div>
+    {!leadingCells && <>
     {/* eslint-disable-next-line shadcn/no-inline-styles -- band width comes from column sizing at runtime */}
     <div role="cell" aria-colspan={lead.span} data-column={lead.subtotal?.id} data-group-subtotal={lead.subtotal ? '' : undefined} style={lead.style} className={cn(cellClassName, 'gap-2 font-medium')}>
       {lead.subtotal && <span className="ml-auto shrink-0 text-right tabular" title={m('tableGroupSubtotalTitle')}>{total(lead.subtotal.id)}</span>}
-    </div>
-    {trailing.map(cell => {
+    </div></>}
+    {renderCells([...(leadingCells ?? []), ...trailing], cell => {
       return <div role="cell" key={cell.id} data-column={cell.id} data-group-subtotal={cell.subtotal ? '' : undefined} style={cell.style}
         title={cell.subtotal ? m('tableGroupSubtotalTitle') : undefined}
         className={cn(cellClassName, 'justify-end text-right tabular', cell.className)}>
