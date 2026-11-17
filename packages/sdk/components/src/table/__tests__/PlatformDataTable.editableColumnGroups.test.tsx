@@ -67,6 +67,12 @@ describe('editable column groups (#2481)', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: '중간' }));
     expect(stored()).not.toHaveProperty('groups');
   });
+  it('bounds the popover to the available height so the footer stays reachable in a short dialog', async () => {
+    await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    const box = screen.getByRole('button', { name: '묶음 만들기' }).closest<HTMLElement>('[role=dialog]')!;
+    expect(box.className).toContain('max-h-[var(--radix-popover-content-available-height)]');
+    expect(box.className).toContain('overflow-y-auto');
+  });
   it('chooses in a separate view, includes hidden and declared members, and Escape returns to visibility', async () => {
     localStorage.setItem(key, JSON.stringify({ visibility: { last: false } }));
     await mount(); await start();

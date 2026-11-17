@@ -801,7 +801,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
   const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => { if (!open) groupEditor.cancel(); setOverlayOpen(o => ({ ...o, columns: open })); }}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
-    <PopoverContent align="end" className="w-72 break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); groupEditor.cancel(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+    <PopoverContent align="end" className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); groupEditor.cancel(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
       event.preventDefault();
       if (!columnsOutside.current) moreButton.current?.focus();
       columnsOutside.current = false;
