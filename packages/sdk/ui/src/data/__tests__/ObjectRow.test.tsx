@@ -50,8 +50,15 @@ describe('ObjectRow', () => {
     expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument();
   });
 
-  it('preserves the empty leading cell by default', () => {
+  // #2455: an empty leading cell plus its gap indented every plain row 12px past the list's other content.
+  it('omits the empty leading cell by default', () => {
     const { container } = render(<ObjectRow title="Default row" trailing={<button>Open</button>} />);
+    expect(container.firstElementChild).toHaveClass('grid-cols-[1fr_auto]');
+    expect(container.firstElementChild?.firstElementChild).toHaveTextContent('Default row');
+  });
+
+  it('keeps the empty leading cell when asked to, for lists that mix rows with and without leading content', () => {
+    const { container } = render(<ObjectRow leadingCell="always" title="Always row" trailing={<button>Open</button>} />);
     expect(container.firstElementChild).toHaveClass('grid-cols-[auto_1fr_auto]');
     expect(container.firstElementChild?.firstElementChild).toBeEmptyDOMElement();
   });
