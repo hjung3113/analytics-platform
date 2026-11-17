@@ -81,7 +81,7 @@ describe('panel recipe', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
     const region = await screen.findByRole('region', { name: 'panel trend' });
     fireEvent.click(within(region).getByRole('button', { name: '이 패널 만든 방법' }));
-    expect(within(region).getByRole('heading', { name: '이 패널 만든 방법' })).toBeTruthy();
+    expect(await within(region).findByRole('heading', { name: '이 패널 만든 방법' })).toBeTruthy();
     fireEvent.click(within(region).getByRole('button', { name: '앞면으로' }));
     expect(within(region).queryByRole('heading', { name: '이 패널 만든 방법' })).toBeNull();
     for (const id of Object.keys(panelDeclarations)) expect(within(screen.getByRole('region', { name: `panel ${id}` })).getByRole('button', { name: '이 패널 만든 방법' })).toBeTruthy();
