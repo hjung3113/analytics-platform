@@ -78,12 +78,15 @@ function PanelHost({ api }: IDockviewPanelProps) {
     if (!fitPeek || !element) return;
     const fit = () => {
       if (api.location.type !== 'floating') return;
-      const natural = element.getBoundingClientRect().height;
+      // The content keeps `h-full` so fill-height bodies (charts) get a height; overflow beyond the floor grows the peek up to its cap.
+      const natural = element.scrollHeight;
       const available = (element.closest('[data-dock-layout]')?.getBoundingClientRect().height ?? 0) - PEEK_TOP;
       if (available > 0) api.group.api.setSize({ height: Math.min(PEEK_HEIGHT, available, Math.max(peekHeightFloor, Math.ceil(natural) + HEADER_HEIGHT)) });
     };
     const observer = new ResizeObserver(fit);
-    observer.observe(element); fit();
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    fit();
     return () => { observer.disconnect(); };
   }, [api, fitPeek, peekHeightFloor, engine.reconciles]);
   return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
@@ -96,7 +99,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div ref={content} data-dock-panel-content className={fitPeek ? 'min-w-0 w-full' : 'h-full min-w-0 w-full'}><PanelBoundary render={panel?.render} /></div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
   </div>;
 }
 

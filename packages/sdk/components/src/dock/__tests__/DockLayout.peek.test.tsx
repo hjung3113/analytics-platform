@@ -58,11 +58,18 @@ describe('workspace peek regressions (#2435)', () => {
     const panel = engine.api!.getPanel('b')!;
     const setSize = vi.spyOn(panel.group.api, 'setSize');
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const height = this.hasAttribute('data-dock-panel-content') ? natural : available + 48;
+      const height = available + 48;
       return { x: 0, y: 0, top: 0, left: 0, right: 1000, bottom: height, width: 1000, height, toJSON() {} };
+    });
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-dock-panel-content') ? natural : 0;
     });
     act(() => observer.resize(1000, available + 48));
     expect(setSize).toHaveBeenCalledWith({ height: expected });
+  });
+  it('peek content keeps the full height so fill-height bodies (charts) can draw', async () => {
+    await mount();
+    for (const content of document.querySelectorAll('[data-dock-panel-content]')) expect(content.className).toContain('h-full');
   });
   it('workspace floats use only the panel tabbar as their header', async () => {
     await mount();
