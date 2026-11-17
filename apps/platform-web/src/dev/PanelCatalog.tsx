@@ -35,8 +35,10 @@ export function PanelCatalog() {
     <DialogTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={m('panelCatalog')} title={m('panelCatalog')}><LayoutDashboard className="size-4" aria-hidden /></Button></DialogTrigger>
     <DialogContent className="max-w-7xl">
       <DialogHeader><DialogTitle>{m('panelCatalog')}</DialogTitle><DialogDescription>{m('panelCatalogDescription')}</DialogDescription></DialogHeader>
-      <Label>{m('panelKeyFilter')}<Input value={key} onChange={event => setKey(event.target.value)} /></Label>
-      <PlatformDataTable title={m('panelCatalog')} ariaLabel={m('panelCatalog')} rows={rows} columns={columns} getRowId={panelId} preferenceKey="dev-panel-catalog" pageSize={50} />
+      <div className="flex min-w-0 flex-col gap-3">
+        <Label>{m('panelKeyFilter')}<Input value={key} onChange={event => setKey(event.target.value)} /></Label>
+        <PlatformDataTable title={m('panelCatalog')} ariaLabel={m('panelCatalog')} rows={rows} columns={columns} getRowId={panelId} preferenceKey="dev-panel-catalog" pageSize={50} />
+      </div>
     </DialogContent>
   </Dialog>;
 }
