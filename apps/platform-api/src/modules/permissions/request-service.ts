@@ -39,6 +39,7 @@ import {
   type CancelPermissionRequestResult,
   type CapabilityName,
   type CreatePermissionRequestBatch,
+  type SubmitMoreInfoPermissionRequestBatch,
   PERMISSION_REQUESTS_MINE_ALL_LIMIT,
   type SubmitMoreInfoPermissionRequest,
   type SubmitMoreInfoPermissionRequestResult,
@@ -57,8 +58,11 @@ import type { NotificationNotifier } from '../notifications/index.js';
 import { type ActorContext, type CheckScope, type CheckService, capabilitiesOf } from './check-service.js';
 import type { OpenRequestSummary } from './state-mapper.js';
 import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
+import { permissionGroupOrigin, validateGroupBatch } from './group-service.js';
+import { assertBatchRevisions, lockRequestBatch } from './batch-requests.js';
 
 export interface CreatePermissionRequestBody {
+  permission_group_id?: string | undefined;
   requested_scope_kind?: 'managed_system' | 'site' | 'site_room' | undefined;
   requested_scope_site?: string | null | undefined;
   requested_scope_room?: string | null | undefined;
@@ -185,6 +189,8 @@ export function createRequestService(deps: RequestServiceDeps) {
         .values({
           workspaceId: actor.workspace_id,
           requesterActorId: actor.actor_id,
+          permissionGroupId: body.permission_group_id ?? null,
+          batchId: batchId ?? null,
           requestedCapability: capability,
           requestedScopeKind: scope.kind,
           requestedScopeSite: scope.site,
@@ -335,6 +341,8 @@ export function createRequestService(deps: RequestServiceDeps) {
     return await db.transaction(async (tx) => {
       await lockRecoveryCommand(tx, actor.workspace_id);
       await lockWorkspaceActor(tx, { workspaceId: actor.workspace_id, actorId: actor.actor_id });
+      await validateGroupBatch(tx, actor, checkService, { id: body.permission_group_id,
+        capabilities: body.items.map((item) => item.requested_capability), purpose: 'request' });
       const run = async () => {
         const batchId = randomUUID();
         const items = [];
@@ -362,6 +370,7 @@ export function createRequestService(deps: RequestServiceDeps) {
     body: SubmitMoreInfoPermissionRequest,
     options: CreatePermissionRequestOptions = {},
     action: 'submit_more_info' | 'edit' = 'submit_more_info',
+    context?: { tx: Tx },
   ): Promise<SubmitMoreInfoPermissionRequestResultEnvelope> {
     const idempotency = options.idempotencyKey
       ? {
@@ -374,7 +383,7 @@ export function createRequestService(deps: RequestServiceDeps) {
         }
       : undefined;
 
-    return await db.transaction(async (tx) => {
+    const execute = async (tx: Tx) => {
       await lockRecoveryCommand(tx, actor.workspace_id);
       await lockWorkspaceActor(tx, { workspaceId: actor.workspace_id, actorId: actor.actor_id });
       // Owner authorization precedes replay, including Admin callers.
@@ -618,6 +627,31 @@ export function createRequestService(deps: RequestServiceDeps) {
         idempotency.requestHash,
         run,
       );
+    };
+    return context ? execute(context.tx) : db.transaction(execute);
+  }
+
+  async function submitMoreInfoBatch(actor: ActorContext, batchId: string, body: SubmitMoreInfoPermissionRequestBatch, options: CreatePermissionRequestOptions = {}) {
+    return db.transaction(async (tx) => {
+      await lockRecoveryCommand(tx, actor.workspace_id);
+      const locked = await lockRequestBatch(tx, actor, batchId, { ownerOnly: true });
+      const run = async () => {
+        const rows = locked.rows.filter((row) => row.status === 'needs_more_info');
+        assertBatchRevisions(rows, body.expected_revisions);
+        const items = [];
+        for (const row of rows) {
+          try {
+            const result = await submitMoreInfoRequest(actor, row.id, { expected_revision: row.revision, reason: body.note }, {}, 'submit_more_info', { tx });
+            items.push({ id: result.body.id, status: result.body.status, revision: result.body.revision });
+          } catch (error) {
+            if (error instanceof HttpError) throw new HttpError(error.code, error.message, { ...error.detail, request_id: row.id });
+            throw error;
+          }
+        }
+        return { status: 200, body: { batch_id: batchId, items } };
+      };
+      return options.idempotencyKey ? idempotencyService.runIdempotent(tx, actor.actor_id, options.idempotencyKey,
+        hashRequestBody({ action: 'submit_more_info_batch', batch_id: batchId, ...body }), run) : run();
     });
   }
 
@@ -775,6 +809,8 @@ export function createRequestService(deps: RequestServiceDeps) {
       .select({
         id: permissionRequests.id,
         requesterActorId: permissionRequests.requesterActorId,
+        batchId: permissionRequests.batchId,
+        permissionGroupId: permissionRequests.permissionGroupId,
         requestedScopeKind: permissionRequests.requestedScopeKind,
         requestedScopeSite: permissionRequests.requestedScopeSite,
         requestedScopeRoom: permissionRequests.requestedScopeRoom,
@@ -799,7 +835,9 @@ export function createRequestService(deps: RequestServiceDeps) {
     // ADR-0157 decision 7: a declared-prefix request carries whether this server still declares it («선언에 없음»).
     const capabilities = capabilitiesOf(checkService);
     return {
-      requests: rows.map((r) => ({
+      requests: await Promise.all(rows.map(async (r) => ({
+        batch_id: r.batchId,
+        permission_group: await permissionGroupOrigin(db, actor.workspace_id, r.permissionGroupId),
         id: r.id,
         requester_actor_id: r.requesterActorId,
         ...requestedScopeFields(requestScope(r)),
@@ -814,7 +852,7 @@ export function createRequestService(deps: RequestServiceDeps) {
         revision: r.revision,
         updated_at: r.updatedAt.toISOString(),
         created_at: r.createdAt.toISOString(),
-      })),
+      }))),
       count: rows.length,
     };
   }
@@ -825,6 +863,8 @@ export function createRequestService(deps: RequestServiceDeps) {
     const query = db
       .select({
         id: permissionRequests.id,
+        batchId: permissionRequests.batchId,
+        permissionGroupId: permissionRequests.permissionGroupId,
         requestedScopeKind: permissionRequests.requestedScopeKind,
         requestedScopeSite: permissionRequests.requestedScopeSite,
         requestedScopeRoom: permissionRequests.requestedScopeRoom,
@@ -858,7 +898,9 @@ export function createRequestService(deps: RequestServiceDeps) {
           .limit(PERMISSION_REQUESTS_MINE_ALL_LIMIT)
       : query.orderBy(desc(permissionRequests.createdAt)));
 
-    return rows.map((r) => ({
+    return Promise.all(rows.map(async (r) => ({
+      batch_id: r.batchId,
+      permission_group: await permissionGroupOrigin(db, actor.workspace_id, r.permissionGroupId),
       id: r.id,
       ...requestedScopeFields(requestScope(r)),
       requested_capability: r.requestedCapability,
@@ -875,7 +917,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       return_route_intent: r.returnRouteIntent,
       status: r.status,
       created_at: r.createdAt.toISOString(),
-    }));
+    })));
   }
 
   async function resolveNotificationReference(actor: ActorContext, requestId: string) {
@@ -913,6 +955,7 @@ export function createRequestService(deps: RequestServiceDeps) {
     scopeCandidates: (actor: ActorContext) => scopeCatalogCandidates(db, actor.workspace_id, actor.actor_id, deps.scopeCatalog),
     createRequest,
     createRequestBatch,
+    submitMoreInfoBatch,
     submitMoreInfoRequest,
     editRequest: (
       actor: ActorContext,

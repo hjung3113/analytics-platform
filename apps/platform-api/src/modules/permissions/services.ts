@@ -1,5 +1,6 @@
 import { createDecisionService, type DecisionServiceDeps } from './decision-service.js';
 import { createGrantAdminService } from './grant-admin-service.js';
+import { createGroupService } from './group-service.js';
 import { createRequestService } from './request-service.js';
 import { createSelectedReadService } from './selected-read-service.js';
 
@@ -9,6 +10,7 @@ export function createPermissionServices(deps: DecisionServiceDeps) {
     requestService: createRequestService(deps),
     decisionService: createDecisionService(deps),
     grantAdminService: createGrantAdminService(deps),
+    groupService: createGroupService(deps),
     selectedReadService: createSelectedReadService(deps),
   };
 }

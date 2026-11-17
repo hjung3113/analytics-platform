@@ -14,6 +14,8 @@ import type { DatabaseError } from 'pg';
 
 import {
   type ApprovePermissionRequest,
+  type DecidePermissionRequestBatch,
+  type DecidePermissionRequestBatchResult,
   type AuditEventType,
   type CapabilityName,
   type DenyPermissionRequest,
@@ -36,6 +38,7 @@ import { getResolvedWorkspaceSettingsForUpdate } from '../workspace-settings/ind
 import { type ActorContext, type CheckService, capabilitiesOf } from './check-service.js';
 import { writePermissionGrant } from './grant-command.js';
 import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
+import { assertBatchRevisions, lockRequestBatch } from './batch-requests.js';
 
 export interface DecisionServiceDeps {
   scopeCatalog?: ScopeCatalog | undefined;
@@ -84,6 +87,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
     action: DecisionAction,
     body: DecisionBody,
     options: DecisionOptions = {},
+    context?: { tx: Tx; suppressNotification: boolean },
   ): Promise<{ status: number; body: PermissionDecisionResult }> {
     const requestHash = hashRequestBody({
       request_id: requestId,
@@ -91,7 +95,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
       ...body,
     });
 
-    return deps.db.transaction(async (tx) => {
+    const execute = async (tx: Tx) => {
       await lockRecoveryCommand(tx, actor.workspace_id);
       // Gate before idempotency replay as well: a cached response never
       // bypasses the authoritative workspace.admin capability check.
@@ -339,6 +343,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
               grantedByActorId: actor.actor_id,
               expiresAt: grantedExpiration,
               reason: reason || null,
+              permissionGroupId: request.permissionGroupId,
             });
             grantId = result.item.id;
             previousGrantId = result.previousGrantId;
@@ -421,7 +426,7 @@ export function createDecisionService(deps: DecisionServiceDeps) {
           detail,
         });
 
-        if (action === 'approve' || action === 'reject' || action === 'deny') {
+        if (!context?.suppressNotification && (action === 'approve' || action === 'reject' || action === 'deny')) {
           await deps.notify(tx, 'permission_request.decided', {
             workspace_id: actor.workspace_id,
             actor_ids: [request.requesterActorId],
@@ -463,10 +468,71 @@ export function createDecisionService(deps: DecisionServiceDeps) {
         requestHash,
         run,
       );
+    };
+    return context ? execute(context.tx) : deps.db.transaction(execute);
+  }
+
+  async function decideBatch(actor: ActorContext, batchId: string, body: DecidePermissionRequestBatch, options: DecisionOptions = {}) {
+    return deps.db.transaction(async (tx) => {
+      await lockRecoveryCommand(tx, actor.workspace_id);
+      const admin = await deps.checkService.checkCapability(actor, 'workspace.admin', { workspace_id: actor.workspace_id }, { tx });
+      if (!admin.allow) throw new HttpError('permission.denied', 'workspace.admin required');
+      const locked = await lockRequestBatch(tx, actor, batchId, { ownerOnly: false });
+      if (locked.requester?.id === actor.actor_id) {
+        const refreshed = await deps.checkService.checkCapability({ ...actor, role_level: locked.requester.role_level },
+          'workspace.admin', { workspace_id: actor.workspace_id }, { tx });
+        if (!refreshed.allow) throw new HttpError('permission.denied', 'workspace.admin required');
+      }
+      const run = async (): Promise<{ status: number; body: DecidePermissionRequestBatchResult }> => {
+        const rows = locked.rows.filter((row) => DECIDABLE_STATUSES.includes(row.status as DecidableStatus));
+        assertBatchRevisions(rows, body.expected_revisions);
+        const approveIds = new Set(body.approve_ids?.map((id) => id.toLowerCase()) ?? []);
+        if (body.action === 'approve' && (!approveIds.size || approveIds.size !== body.approve_ids?.length ||
+          [...approveIds].some((id) => !rows.some((row) => row.id === id)))) {
+          throw new HttpError('validation.failed', 'approve_ids must identify decidable rows of this batch', { fields: [{ path: ['approve_ids'], code: 'custom' }] });
+        }
+        if (body.action !== 'approve' && body.approve_ids !== undefined) {
+          throw new HttpError('validation.failed', 'approve_ids is only valid for approval', { fields: [{ path: ['approve_ids'], code: 'custom' }] });
+        }
+        const registry = capabilitiesOf(deps.checkService);
+        const needsReason = body.action !== 'approve' || rows.some((row) => !approveIds.has(row.id) ||
+          (registry.has(row.requestedCapability) && registry.meta(row.requestedCapability).sensitive));
+        if (needsReason && !body.reason?.trim()) throw new HttpError('validation.failed', 'a non-empty batch reason is required', { fields: [{ path: ['reason'], code: 'too_small' }] });
+        const items: DecidePermissionRequestBatchResult['items'] = [];
+        for (const row of rows) {
+          let action: DecisionAction = 'reject';
+          if (body.action === 'need-more-info') action = 'need_more_info';
+          else if (body.action === 'approve' && approveIds.has(row.id)) action = 'approve';
+          try {
+            const result = await decide(actor, row.id, action, {
+              expected_revision: row.revision,
+              reason: body.reason,
+              ...(action === 'need_more_info' ? { note: body.reason } : {}),
+              ...(action === 'approve' ? { granted_managed_system_id: body.granted_managed_system_id,
+                expiration: body.expiration, self_approval: body.self_approval } : {}),
+            }, {}, { tx, suppressNotification: true });
+            items.push({ id: row.id, status: result.body.status, ...(result.body.grant_id ? { grant_id: result.body.grant_id } : {}) });
+          } catch (error) {
+            if (error instanceof HttpError) throw new HttpError(error.code, error.message, { ...error.detail, request_id: row.id });
+            throw error;
+          }
+        }
+        const first = rows[0];
+        if (!first) throw new HttpError('internal.unexpected', 'empty permission batch');
+        await deps.notify(tx, 'permission_request.decided', {
+          workspace_id: actor.workspace_id, actor_ids: [first.requesterActorId], subject_id: first.id,
+          correlation_id: randomUUID(), detail: { permission_request_id: first.id, batch_id: batchId },
+          params: { outcome: items.some((row) => row.status === 'approved') ? 'approved' : 'rejected' },
+        });
+        return { status: 200, body: { batch_id: batchId, items } };
+      };
+      return options.idempotencyKey ? deps.idempotencyService.runIdempotent(tx, actor.actor_id, options.idempotencyKey,
+        hashRequestBody({ command: 'decide_batch', batch_id: batchId, ...body }), run) : run();
     });
   }
 
   return {
+    decideBatch,
     approveRequest: (
       actor: ActorContext,
       requestId: string,

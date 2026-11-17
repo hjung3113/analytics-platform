@@ -825,7 +825,8 @@ personal group in the workspace (the console's 개인 tab); otherwise only visib
   `/permission-requests/mine`, both selected details) add
   `batch_id: uuid | null` and `permission_group: { id, name } | null` (name kept
   even after archive). Grant list and detail items add
-  `permission_group: { id, name } | null`.
+  `permission_group: { id, name } | null`; a grant write response carries it only
+  when the grant came from a group, so single grants keep their legacy shape.
 
 ### `POST /permissions/requests/batch/:batch_id/decide`
 
@@ -866,3 +867,4 @@ idempotency, rate tier and per-row audit:
 The requester answers once for the whole batch:
 `{ note, expected_revisions }`; every row in `needs_more_info` returns to
 `pending` with the same note, following the single route's rules.
+`200 { batch_id, items: [{ id, status, revision }] }`.
