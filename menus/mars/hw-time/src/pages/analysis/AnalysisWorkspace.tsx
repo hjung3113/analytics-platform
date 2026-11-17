@@ -19,8 +19,7 @@ import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelDa
 import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
-import { panelRecipe } from './recipeModel';
-import { RECIPE_ITEM, RecipePanel } from './PanelRecipe';
+import { RECIPE_ITEM, RecipePanel } from './RecipeFace';
 
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
@@ -306,10 +305,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       };
       return { id, icon: ChartNoAxesCombined, title: item.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
         pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
-        render: () => {
-          const recipe = explained === id ? panelRecipe(id, panelContext, { primary: false }) : null;
-          return <RecipePanel recipe={recipe} onClose={() => setExplained(null)}>{recipe ? null : renderPanel(id as CatalogId)}</RecipePanel>;
-        } };
+        render: () => <RecipePanel id={id} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(id as CatalogId)}</RecipePanel> };
     }),
   ];
   return <div className="flex min-h-0 flex-1 flex-col gap-2">

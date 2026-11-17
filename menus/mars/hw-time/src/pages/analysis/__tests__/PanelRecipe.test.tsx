@@ -33,7 +33,7 @@ describe('panel recipe', () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><button>외부 대상</button><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
     const panel = await screen.findByRole('region', { name: 'panel trend' });
     fireEvent.click(within(panel).getByRole('button', { name: '이 패널 만든 방법' }));
-    const back = within(panel).getByRole('button', { name: '앞면으로' });
+    const back = await within(panel).findByRole('button', { name: '앞면으로' });
     const root = back.closest<HTMLElement>('[tabindex="-1"]');
     const outside = screen.getByRole('button', { name: '외부 대상' });
     (focus === 'inside' ? back : outside).focus();
