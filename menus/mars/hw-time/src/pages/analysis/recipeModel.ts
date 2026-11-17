@@ -9,7 +9,7 @@ import runSource from './RunPanel.tsx?raw';
 import tableSource from '../table/RawTablePanel.tsx?raw';
 import newPanelsSource from './NewPanels.tsx?raw';
 import distributionSource from './DistributionPanel.tsx?raw';
-import declarationSource from './panelDeclaration.ts?raw';
+import declarationSource from '../../panels.ts?raw';
 import { disabledReason, panelDeclarations, type PanelDeclaration } from './panelDeclaration';
 
 /** Key → words. A key glossary (one entry per input key), not copy per panel. */
@@ -81,7 +81,7 @@ export function panelRecipe(id: string, context: Readonly<Record<string, unknown
   return {
     declaration,
     shape: SHAPE_LABELS[declaration.kind ?? ''] ?? { ko: '—', en: '—' },
-    data: { endpoints: declaration.endpoints, grain: GRAIN_LABELS[declaration.grain] ?? { ko: declaration.grain, en: declaration.grain }, inputs: queryKeys },
+    data: { endpoints: declaration.endpoints.map(endpoint => endpoint.id), grain: GRAIN_LABELS[declaration.grain] ?? { ko: declaration.grain, en: declaration.grain }, inputs: queryKeys },
     pieces,
     follows: { inputs: (declaration.displayInputs.page ?? []).map(input => input.key), outputs: declaration.outputs.map(output => ({ key: output.key, action: ACTION_LABELS[output.action] ?? { ko: output.action, en: output.action } })) },
     condition: { declared, now: disabledReason(declaration, context, PAGE_LABELS) },

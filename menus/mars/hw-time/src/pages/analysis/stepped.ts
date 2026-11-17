@@ -51,17 +51,13 @@ export function workspaceOptions(step: Step): PanelOption[] {
 }
 export function panelCatalog({ step, typeId, moduleId, trend }: { step: Step; typeId: string | null; moduleId: string | null; trend: string | null }): PanelAddItem[] {
   const context = workspacePanelContext({ step, typeId, moduleId, trend });
-  const reason = (id: CatalogId) => disabledReason(panelDeclarations[id], context);
-  return [
-    { id: 'heatmap', title: S.heatmap, disabledReason: reason('heatmap') },
-    { id: 'trend', title: S.trend, disabledReason: reason('trend') },
-    { id: 'scatter', title: S.scatter, disabledReason: reason('scatter') },
-    { id: 'distribution', title: S.distributionCatalog, disabledReason: reason('distribution') },
-    { id: 'motionTable', title: S.motionTable, disabledReason: reason('motionTable') },
-    { id: 'moduleMotions', title: { ko: S.moduleMotions.ko.replace('{module}', moduleId ?? 'Module'), en: S.moduleMotions.en.replace('{module}', moduleId ?? 'Module') }, disabledReason: reason('moduleMotions') },
-    { id: 'table', title: S.table },
-    ...(['donut', 'pareto', 'equipmentDays', 'boundHistory'] as const).map(id => ({ id, title: panelDeclarations[id].title, disabledReason: reason(id) })),
-  ];
+  return Object.values(panelDeclarations).map(panel => ({
+    id: panel.id,
+    title: panel.id === 'moduleMotions'
+      ? { ko: panel.title.ko.replace('{module}', moduleId ?? 'Module'), en: panel.title.en.replace('{module}', moduleId ?? 'Module') }
+      : panel.title,
+    disabledReason: disabledReason(panel, context),
+  }));
 }
 
 type ChartRowsArgs = { depth: Step; matrices: Readonly<Record<string, HwTimeMatrix | undefined>>; typeId: string | null; motionId: string | null; moduleId: string | null; selection: (type: string) => Checks; values?: PanelOptionValues; lang?: 'ko' | 'en'; allMotions?: boolean };

@@ -105,6 +105,26 @@ Registry는 `navTree`와 `navHidden`의 병존, `navViews`의 병존(빈 배열 
 
 **조회 실행 선언(Decided, [ADR-0061](../adr/0061-query-draft-applied-address-and-required-gate.md)):** 선택적 `query: { mode: 'apply', required?: { context?: ContextKey[], page?: {key,label: Text}[] } }`로 일괄 적용을 선택한다. 부재는 live 모드다. Apply는 time capability가 apply여야 하며 필수 Context는 메뉴가 apply하는 알려진 키, 필수 page는 `pageKeys`와 비어 있지 않은 ko/en label이어야 한다. Scope는 `requiresScope`로 선언한다. 엔드포인트의 선택적 `requiredContext`도 그 엔드포인트가 apply하는 키만 받는다. Apply 메뉴와 엔드포인트가 함께 apply하는 키의 명시적 required 선언은 일치해야 한다(등록 검증). 보조 엔드포인트의 작은 투영에는 메뉴의 다른 필수 키를 강요하지 않는다. 서버는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 모든 투영 필드 구조적 존재 검사에 더해 required의 의미적 존재를 검사한다. 초안 API·실행은 §11, 서버 표본은 [연결 체크리스트](../integration/real-server-checklist.md) §4를 따른다.
 
+### 패널 등록 (Candidate, #2433)
+
+선택 필드 `MenuMeta.panels`는 메뉴 안의 패널을 선언한다. 별도 Registry를 만들지 않고 Menu Registry가 등록·검증·역방향 조회를 맡는다. 선언하지 않은 메뉴의 출력과 URL은 그대로다.
+
+| 필드 | 선언 |
+| --- | --- |
+| `id`, `title` | 메뉴 안에서 유일한 id, 비어 있지 않은 ko/en 제목. 전체 표기는 `<menuId>/<panelId>` |
+| `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required? }[] }`. 조회 입력과 강조·표시 전용 입력을 분리 |
+| `outputs` | 패널 컨트롤이 바꾸는 `{ key, action }[]`. 메뉴 page key만 허용 |
+| `grain` | 메뉴가 이름 붙인 데이터 단위. `^[a-z][a-zA-Z0-9]*$` 형태만 검사 |
+| `endpoints` | 메뉴의 엔드포인트 spec 목록. 등록에 사용하는 필드는 `id`, `menuId`, `permission` |
+| `availability` | 선택 재정의 `{ requires: { anyOf: string[] }[], disabledReason: Text }`. OR 키 묶음들을 AND로 판정 |
+| `pieces`, `version` | 선택 설명 문자열 목록, S2용 예약 값. S1에서는 해석·검증하지 않음 |
+
+`createRegistry`는 page 입력·출력이 그 메뉴의 `pageKeys`인지, context 입력이 `CONTEXT_FIELDS`의 capability 이름 또는 `scopeId`인지 검사한다. URL 표현인 `from`·`to`를 capability 이름 대신 쓰지 않는다. 같은 키를 조회·표시 입력 양쪽에 선언하거나 중복 id, 빈 ko/en 제목·재정의 이유, 잘못된 grain, 다른 메뉴 소유 엔드포인트를 선언하면 거부한다. `availability.requires`는 파생 상태도 받을 수 있어 page key로 제한하지 않고 비어 있지 않은 키 묶음 구조만 검사한다. 출력에 전역 Context를 선언할 수 없다. 전역 변경은 메뉴 Apply 경로가 맡고, 드릴 키 출력은 기존 `drill.resetKeys` 연쇄를 그대로 따른다.
+
+`registry.panels(menuId)`는 선언 순서대로 `menuId`, 중복을 제거한 `permissions`(메뉴의 모든 권한 AND 엔드포인트 권한), `disabledReason(context)`를 더한 등록을 돌려준다. `registry.panelsReading(key)`는 조회·표시 입력을, `registry.panelsWriting(key)`는 출력을 역방향으로 찾는다. 가용성 재정의가 없으면 누락된 필수 page 입력의 드릴 레벨·`query.required.page` 라벨을 이유로 쓰며 라벨이 없으면 키 이름을 쓴다. Scope와 전역 Context 준비 판정은 기존 Kernel 게이트가 소유한다.
+
+순수 도우미 `projectQueryInputs`, `projectDisplayInputs`, `disabledReason`, `panelQueryIdentity`는 `@ap/kernel`에 있다. 동일 조회 입력에서 재조회를 하지 않는 실행 불변식은 Registry가 보장하지 않으므로 메뉴 단위 테스트로 검증한다. 개발 도구 카탈로그는 실제 등록을 표와 키 필터로 읽는다. 다른 메뉴에 빌려주기·바인딩·인스턴스(#911), 저장 검증·version 의미(#294), 개인 대시보드 위젯·동적 로딩·운영 콘솔 카탈로그는 S2 범위이며 S1에서 구현하지 않는다.
+
 ### 페이지 조건 레이어 (Candidate, #2337; 필드명 Candidate)
 
 `MenuMeta.pageConditions`는 메뉴 소유 페이지 조건을 JSON으로 선언한다. `categories` 선언 순서가 레이어·요약 순서다. 범주는 `{ id, label: Text, disabled?: { reason: Text }, required?: true, kind }`이며 id는 `^[a-z][a-zA-Z0-9]*$`다. 선택적 `sections: { id, label: Text, categories: string[] }[]`는 범주 id의 시각적 묶음만 선언한다. `disabled`는 표시하되 편집하지 않는 상태다. 관리·카탈로그는 기존 표 필터 계약을 따르므로 이 선언을 받지 않는다.

@@ -2,6 +2,19 @@ import type { Text } from '@ap/contracts';
 
 export const DEV_MESSAGES = {
 
+  panelCatalog: { ko: '패널 카탈로그', en: 'Panel catalog' },
+  panelCatalogDescription: { ko: '메뉴가 등록한 패널의 입력·출력과 권한을 확인합니다.', en: 'Inspect registered panel inputs, outputs and permissions.' },
+  panelKeyFilter: { ko: '키 필터', en: 'Key filter' },
+  panelId: { ko: '패널', en: 'Panel' },
+  panelTitle: { ko: '제목', en: 'Title' },
+  panelQuery: { ko: '조회 입력', en: 'Query inputs' },
+  panelDisplay: { ko: '표시 입력', en: 'Display inputs' },
+  panelOutputs: { ko: '출력', en: 'Outputs' },
+  panelGrain: { ko: '데이터 단위', en: 'Grain' },
+  panelEndpoints: { ko: '엔드포인트', en: 'Endpoints' },
+  panelPermissions: { ko: '필요 권한', en: 'Required permissions' },
+  panelWriting: { ko: '이 키를 쓰는 패널', en: 'Panels writing this key' },
+  panelReading: { ko: '이 키를 읽는 패널', en: 'Panels reading this key' },
   // DevTools
   devToolsNormal: { ko: '정상', en: 'Normal' },
   devToolsSlow22s: { ko: '느린 응답 (+2.2s)', en: 'Slow (+2.2s)' },

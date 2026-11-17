@@ -3,11 +3,12 @@ import { lazy } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { contextCapabilities, groupId, menuPermission, NO_FEATURES } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
+import { panelDeclarations } from './panels';
 import { HW_TIME_CONTEXT } from './endpoints';
 import { HW_TIME_FILTER_HIDDEN_KEYS, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_REPEATED_KEYS } from './shared/useHwTimeFilter';
 
 // S0: data only; panel implementations retain their lazy route boundary.
-export { panelDeclarations } from './pages/analysis/panelDeclaration';
+export { panelDeclarations } from './panels';
 
 const OPTION_KEYS = ['barsSort', 'barsGroup', 'barsMinMax', 'align', 'trend', 'pins'];
 const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', 'verdict', 'date', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
@@ -33,6 +34,7 @@ export const manifests: MenuEntry[] = [
     hiddenPageKeys: [...HW_TIME_FILTER_HIDDEN_KEYS, ...OPTION_KEYS],
     contextResetKeys: ['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend'],
     drill: DRILL,
+    panels: Object.values(panelDeclarations),
     component: lazy(() => import('./HwTimePage')),
   },
 ];

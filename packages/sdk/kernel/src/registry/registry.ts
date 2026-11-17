@@ -1,9 +1,11 @@
+import { registerPanels, type RegisteredPanel } from './panels';
 import { registerPageConditions } from './page-conditions';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { isIdShape, isPermissionShape } from './shapes';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -107,6 +109,9 @@ export function withPagePreset(search: string, page: Readonly<Record<string, str
 }
 
 export type Registry = {
+  panels: (menuId: string) => readonly RegisteredPanel[];
+  panelsReading: (key: string) => readonly RegisteredPanel[];
+  panelsWriting: (key: string) => readonly RegisteredPanel[];
   groups: readonly GroupDef[];
   menus: readonly MenuEntry[];
   spaces: readonly SpaceDef[];
@@ -154,10 +159,6 @@ const namespaceOf = (permission: string) => permission.split(':')[0];
 const KERNEL_NAMESPACES = new Set<string>(KERNEL_PERMISSIONS.map(namespaceOf));
 /** True when `id` is the namespace of a kernel permission; a module id may not take one. `createRegistry` also reserves the namespaces of the app's declared permissions. */
 export const isKernelNamespace = (id: string) => KERNEL_NAMESPACES.has(id);
-/** An id the URL and the Registry can carry as is: non-empty, no whitespace, none of `? # & /`. */
-const isIdShape = (id: unknown): id is string => typeof id === 'string' && /^[^\s?#&/]+$/.test(id);
-/** `<namespace>:<action>`, each part an id shape without `:`. */
-const isPermissionShape = (value: unknown): value is string => typeof value === 'string' && /^[^\s:?#&/]+:[^\s:?#&/]+$/.test(value);
 
 /** Roots the platform itself serves; a space id may not take one (ADR-0093). The app adds its own menu roots through `createRegistry`'s `reservedRoots`. */
 const RESERVED_PLATFORM_ROOTS: readonly string[] = ['board', 'api', 'auth'];
@@ -545,6 +546,11 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const noDestinations: readonly MenuEntry[] = [];
   const objectDestinations = (kind: string): readonly MenuEntry[] => objectsByKind.get(kind) ?? noDestinations;
 
+  const registeredPanels = menus.flatMap(menu => registerPanels(menu, fail));
+  const panels = (menuId: string) => registeredPanels.filter(panel => panel.menuId === menuId);
+  const panelsReading = (key: string) => registeredPanels.filter(panel => [panel.queryInputs, panel.displayInputs].some(inputs => inputs.context?.some(input => input === key) || inputs.page?.some(input => input.key === key)));
+  const panelsWriting = (key: string) => registeredPanels.filter(panel => panel.outputs.some(output => output.key === key));
+
   const groupById = (id: AnyGroupId) => groups.find(g => g.id === id) ?? fail(`Unknown group ${id}`);
   const spaceById = (id: SpaceId) => spaceByIdMap.get(id) ?? fail(`Unknown space ${id}`);
   const spaceOf = (menu: MenuEntry): SpaceDef | null => {
@@ -613,7 +619,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     return value;
   };
 
-  return { groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, successorOf, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
+  return { panels, panelsReading, panelsWriting, groups, menus, spaces, carrySets, permissions, groupById, spaceById, spaceOf, carrySetOf, menuById, has, successorOf, missingLinkTargets, objectDestinations, platformHome, matchRoute, canonicalHref, safeReturnTo };
 }
 
 /** Parameter names declared by route segments, in route order. */
