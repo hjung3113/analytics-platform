@@ -12,7 +12,7 @@ export interface ObjectRowProps {
   badges?: React.ReactNode;
   trailing?: React.ReactNode;
   icon?: React.ReactNode;
-  /** Keep the leading cell by default; auto omits it when no leading content is set. */
+  /** `auto` (default) omits the leading cell when no leading content is set; `always` keeps an empty one so a list mixing rows with and without leading content stays aligned. */
   leadingCell?: 'always' | 'auto';
   severity?: ObjectRowSeverity;
   selected?: boolean;
@@ -56,7 +56,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
       badges,
       trailing,
       icon,
-      leadingCell = 'always',
+      leadingCell = 'auto',
       severity,
       selected = false,
       density = 'default',

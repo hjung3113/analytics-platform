@@ -18,12 +18,17 @@ export interface ShellHeaderProps {
  * Locks the visual rhythm per ADR-0020 §50px Header Rhythm. Height is non-negotiable.
  */
 export function ShellHeader({ title, subtitle, actions, variant = 'default', className }: ShellHeaderProps) {
+  // A toolbar holding only actions takes no row when they all render elsewhere (a host-owned primary action portals
+  // into the page header), and an entirely empty toolbar is not drawn (#2455). Other variants keep their 50px rhythm.
+  const actionsOnlyToolbar = variant === 'toolbar' && !title && !subtitle;
+  if (actionsOnlyToolbar && !actions) return null;
   return (
     <header
       className={cn(
         'flex items-center justify-between gap-3 px-4 h-toolbar border-b border-border-subtle bg-surface-canvas',
         variant === 'drawer' && 'bg-surface-detail',
         variant === 'toolbar' && 'bg-surface-canvas',
+        actionsOnlyToolbar && 'has-[[data-shell-header-actions]:empty]:hidden',
         className,
       )}
       data-shell-header={variant}
@@ -39,7 +44,7 @@ export function ShellHeader({ title, subtitle, actions, variant = 'default', cla
         )}
         {subtitle && <div className="min-w-0 flex-1 text-xs text-text-muted truncate">{subtitle}</div>}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex items-center gap-2 shrink-0" data-shell-header-actions="">{actions}</div>}
     </header>
   );
 }
