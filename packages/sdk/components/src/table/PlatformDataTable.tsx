@@ -11,8 +11,8 @@ import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKe
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef, toGroupedColumnDefs } from './columnDef';
-import { columnGroupErrors, columnGroupLabel, columnGroupWidth, displayedUnits, displayedWidth, renderDisplayedUnits } from './columnGroups';
-import { useColumnGroupPan } from './useColumnGroupPan';
+import { columnGroupErrors, columnGroupLabel, displayedUnits, displayedWidth } from './columnGroups';
+import { columnGroupModel, FADE_BASE, useColumnGroupLayout } from './useColumnGroupLayout';
 import { isProductionEnv } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useElementSize } from '../state/useElementSize';
@@ -406,8 +406,8 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
 
   const orderedIds = useMemo(() => groupedOrder(p.columns, preferences.order), [p.columns, preferences.order]);
   const pinnedIds = groupedPins(p.columns, preferences.pinning.left ?? [], orderedIds, preferences.visibility, preferences.order.length > 0);
-  const hasColumnGroups = p.columns.some(c => c.columnGroup?.length);
-  const paths = new Map(p.columns.map(c => [c.id, c.columnGroup]));
+  const columnGroups = columnGroupModel(p.columns, p.columnGroups, widthScale);
+  const { paths, hasColumnGroups, groupWidth, inWidthGroup } = columnGroups;
   useEffect(() => {
     if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
     for (const error of columnGroupErrors(p.columns, p.columnGroups)) console.error(`[PlatformDataTable] ${error}`);
@@ -416,8 +416,6 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
   // One width model for the fit estimates: the stored or declared size, clamped to what the table renders.
-  const groupWidth = (id: string) => columnGroupWidth(p.columnGroups, id, widthScale);
-  const inWidthGroup = (id: string) => { const group = paths.get(id)?.[0]; return group !== undefined && groupWidth(group) !== undefined; };
   const columnWidth = (id: string, size: number | undefined) => renderedWidth((inWidthGroup(id) ? undefined : preferences.sizing[id]) ?? Math.round((size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
   const visibleDataColumns = p.columns.filter(c => preferences.visibility[c.id] !== false);
   const leftPinnedWidth = displayedWidth(pinnedIds.flatMap(id => visibleDataColumns.filter(c => c.id === id)), c => c.columnGroup, c => columnWidth(c.id, c.size), groupWidth);
@@ -557,51 +555,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     // groupedOutcome: joining or leaving a group swaps the state message (and its retry button) without any other change here (#1175).
   }, [loading, previousDisabled, nextDisabled, shown, success, groupedOutcome]);
 
-  // Fill (#1166): a table narrower than its scrollport hands the leftover width to the columns nobody fixed — not the checkbox/action
-  // columns, not left-pinned columns (their offsets are sums of widths) and not columns the user resized. Proportional to base width;
-  // once the columns outgrow the scrollport the extra is 0 and the row area scrolls horizontally as before.
-  const displayedColumns = [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()];
-  const displayedPath = (c: Column<T>) => paths.get(c.id);
-  const baseTotal = displayedWidth(displayedColumns, displayedPath, c => c.getSize(), groupWidth);
-  // Column-group boundaries (#2418): where a top-level group starts or ends, a `border-control` line (the action pin edge) runs from the header to the
-  // last row, so groups read apart in the body too. Only tables that declare groups; a width group carries its edge on the clip
-  // box, which does not pan. The optional column divider is the quieter `border-subtle` line between all other columns.
-  const groupEdgeIds = new Set(hasColumnGroups ? displayedColumns.filter((c, i) => i > 0 && paths.get(c.id)?.[0] !== paths.get(displayedColumns[i - 1].id)?.[0]).map(c => c.id) : []);
-  /** A column-group edge is the same line as the action pin edge: `border-strong` is too close to the row lines to separate groups. */
-  const groupEdge = 'border-l border-l-border-control';
-  const lineClass = (id: string, divider = true) => groupEdgeIds.has(id) ? (inWidthGroup(id) ? undefined : groupEdge)
-    : divider && p.columnDividers && id !== displayedColumns[0]?.id ? 'border-l border-l-border-subtle' : undefined;
-  const flexIds = new Set(table.getVisibleLeafColumns().filter(c => c.id !== '_select' && c.id !== '_action' && !inWidthGroup(c.id) && !c.getIsPinned() && preferences.sizing[c.id] === undefined).map(c => c.id));
-  const flexBase = table.getVisibleLeafColumns().reduce((sum, c) => flexIds.has(c.id) ? sum + c.getSize() : sum, 0);
-  const extra = fit.width !== null && flexBase > 0 ? Math.max(0, fit.width - baseTotal) : 0;
-  // Floored shares leave a remainder of at most one pixel per column; the last grown column takes it so the cells sum to the scrollport.
-  const flexList = table.getVisibleLeafColumns().filter(c => flexIds.has(c.id));
-  const shares = new Map(flexList.map(c => [c.id, extra > 0 ? Math.floor(extra * c.getSize() / flexBase) : 0]));
-  if (flexList.length > 0 && extra > 0) { const last = flexList[flexList.length - 1].id; shares.set(last, (shares.get(last) ?? 0) + extra - [...shares.values()].reduce((a, b) => a + b, 0)); }
-  for (const unit of displayedUnits(displayedColumns, displayedPath)) {
-    const width = unit.kind === 'group' ? groupWidth(unit.id) : undefined;
-    if (width === undefined) continue;
-    const content = unit.leaves.reduce((sum, c) => sum + c.getSize(), 0);
-    const growth = Math.max(0, width - content);
-    let remaining = growth;
-    unit.leaves.forEach((c, index) => {
-      const share = index === unit.leaves.length - 1 ? remaining : Math.floor(growth * c.getSize() / content);
-      shares.set(c.id, share); remaining -= share;
-    });
-  }
-  const widthOf = (column: Column<T>) => column.getSize() + (shares.get(column.id) ?? 0);
-  const pan = useColumnGroupPan(displayedUnits(displayedColumns, displayedPath).flatMap(unit => {
-    const width = unit.kind === 'group' ? groupWidth(unit.id) : undefined;
-    return unit.kind === 'group' && width !== undefined ? [{ id: unit.id, width, widths: unit.leaves.map(widthOf) }] : [];
-  }));
-  const displayedSize = (columns: readonly Column<T>[]) => displayedWidth(columns, displayedPath, widthOf, groupWidth);
-  const leftOffset = (column: Column<T>) => {
-    const group = paths.get(column.id)?.[0];
-    const columns = table.getLeftVisibleLeafColumns();
-    const index = columns.findIndex(c => c.id === column.id || (group !== undefined && inWidthGroup(column.id) && paths.get(c.id)?.[0] === group));
-    return displayedSize(columns.slice(0, Math.max(0, index)));
-  };
-  const tableWidth = baseTotal + (extra > 0 ? extra : 0);
+  const { pan, tableWidth, widthOf, displayedSize, lineClass, cellStyle, groupHeadStyle: groupSpanStyle, renderCells } = useColumnGroupLayout({ table, model: columnGroups, sizing: preferences.sizing, fitWidth: fit.width, columnDividers: p.columnDividers });
   // A resize drag is computed from the rendered width plus the pointer's travel, not from the engine's base size (which is narrower for a
   // fill-grown column and floors a large shrink); the result is clamped to 60–600. Gesture-scoped; automatic fill widths are never stored.
   const startResize = (h: Header<T, unknown>) => (event: React.MouseEvent | React.TouchEvent) => {
@@ -625,11 +579,6 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     document.addEventListener('touchend', clear, { once: true });
     h.getResizeHandler()(event);
   };
-  function cellStyle(column: Column<T>): CSSProperties {
-    const pinned = inWidthGroup(column.id) ? false : column.getIsPinned();
-    const right = table.getRightVisibleLeafColumns();
-    return { width: widthOf(column), flexShrink: 0, position: pinned ? 'sticky' : 'relative', left: pinned === 'left' ? leftOffset(column) : undefined, right: pinned === 'right' ? displayedSize(right.slice(right.findIndex(c => c.id === column.id) + 1)) : undefined, zIndex: pinned ? 2 : undefined };
-  }
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
   // 보통 keeps today's literal; 작게/크게 take the row height and font from the section's variables (checkboxes are excluded from the 작게 button height: they stay 14×14).
   const headerBase = sized ? 'flex min-h-(--ap-table-row-h) items-center overflow-hidden whitespace-nowrap px-4 py-0 pointer-coarse:min-h-11' : 'flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11';
@@ -638,42 +587,12 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6 [&_a.h-8]:h-6');
   const cellText = sized ? 'text-(length:--ap-table-font)' : 'text-sm';
   const headStyle = (column: Column<T>): CSSProperties => sized ? { ...cellStyle(column), fontSize: 'var(--ap-table-head-font)' } : cellStyle(column);
-  function groupHeadStyle(h: Header<T, unknown>, side: 'left' | 'right' | false): CSSProperties {
-    const leaves = h.getLeafHeaders().filter(leaf => leaf.subHeaders.length === 0);
-    const pinned = leaves.some(leaf => inWidthGroup(leaf.column.id)) ? false : side;
-    return { width: leaves.reduce((sum, leaf) => sum + widthOf(leaf.column), 0), flexShrink: 0,
-      position: pinned ? 'sticky' : 'relative', left: pinned === 'left' && leaves[0] ? leftOffset(leaves[0].column) : undefined,
-      right: pinned === 'right' ? leaves.at(-1)?.column.getAfter('right') : undefined, zIndex: pinned ? 2 : undefined,
-      ...(sized ? { fontSize: 'var(--ap-table-head-font)' } : {}) };
-  }
+  const groupHeadStyle = (h: Header<T, unknown>, side: 'left' | 'right' | false): CSSProperties => sized ? { ...groupSpanStyle(h, side), fontSize: 'var(--ap-table-head-font)' } : groupSpanStyle(h, side);
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
   const pinEdge = 'border-l border-l-border-control';
-  /** A pinned cell fades the column scrolling beneath its inner edge (a pseudo-element of the cell itself, no pointer events), so a half-clipped column never reads as cut text. */
-  const fadeBase = 'before:pointer-events-none before:absolute before:inset-y-0 before:w-5 before:from-transparent before:content-[""]';
   const fadeClass = (side: 'left' | 'right' | false | null, body: boolean, active = false) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
-    : cn(fadeBase, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
+    : cn(FADE_BASE, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
       body ? cn(active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken');
-  const renderCells = <C,>(items: readonly C[], columnOf: (item: C) => Column<T>, render: (item: C) => ReactNode, row: { body: boolean; active?: boolean } = { body: false }) =>
-    renderDisplayedUnits(items, item => {
-      const column = columnOf(item);
-      return paths.get(column.id) ?? paths.get(column.getLeafColumns()[0]?.id);
-    }, render, (unit, cells) => {
-      const width = groupWidth(unit.id);
-      if (width === undefined) return undefined;
-      const first = columnOf(unit.leaves[0]).getLeafColumns()[0] ?? columnOf(unit.leaves[0]);
-      const group = pan.groups.get(unit.id)!;
-      const edge = pan.edges[unit.id] ?? { left: false, right: group.max > 0 };
-      const background = row.body ? cn('bg-surface-card group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', row.active && 'bg-surface-row-selected') : 'bg-surface-sunken';
-      const beforeBackground = row.body ? cn(row.active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken';
-      const afterBackground = row.body ? cn(row.active ? 'after:to-surface-row-selected' : 'after:to-surface-card', 'group-hover:after:to-surface-row-hover group-aria-selected:after:to-surface-row-selected') : 'after:to-surface-sunken';
-      return <div key={unit.id} role="none" data-column-group-clip data-group-id={unit.id} data-pan-left={edge.left} data-pan-right={edge.right}
-        className={cn(background, groupEdgeIds.has(first.id) && groupEdge, group.max > 0 && 'cursor-grab group-data-[column-group-panning=true]/pan-table:cursor-grabbing', edge.left && cn(fadeBase, 'before:left-0 before:z-[3] before:bg-linear-to-l', beforeBackground), edge.right && cn('after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:z-[3] after:w-5 after:from-transparent after:bg-linear-to-r after:content-[""]', afterBackground))}
-        // eslint-disable-next-line shadcn/no-inline-styles -- declared group width, pin offset and clip behavior come from runtime layout
-        style={{ width, overflow: 'clip', flexShrink: 0, touchAction: 'pan-y', position: first.getIsPinned() === 'left' ? 'sticky' : 'relative', left: first.getIsPinned() === 'left' ? leftOffset(first) : undefined, zIndex: first.getIsPinned() ? 2 : undefined }}>
-        {/* eslint-disable-next-line shadcn/no-inline-styles -- all group cells share one visual pan offset without changing their roles or order */}
-        <div role="none" className="flex" style={{ transform: `translateX(calc(-1 * var(${group.variable}, 0px)))` }}>{cells}</div>
-      </div>;
-    });
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   // #239 (ADR-0024): the Columns popover lists each hideable column with a visibility checkbox and a pin toggle at the
   // row end; pinned columns sit in their own group on top. Width is set by dragging the header edge only.
