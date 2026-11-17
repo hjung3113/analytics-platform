@@ -34,6 +34,14 @@ async function mount({ workspace = true, floor = 360 } = {}) {
   if (workspace) await waitFor(() => expect(engine.api?.getPanel('b')?.api.location.type).toBe('floating'));
 }
 
+/** The content's natural height shows only while its height is released; otherwise it reads as the allocated height, as `h-full` does in a browser. */
+function contentHeight(natural: () => number, allocated = 398) {
+  vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    if (!this.hasAttribute('data-dock-panel-content')) return 0;
+    return this.style.height === 'auto' ? natural() : Math.max(natural(), allocated);
+  });
+}
+
 describe('workspace peek regressions (#2435)', () => {
   it.each(['content', 'edge'])('whole peek group cannot preview or drop onto %s', async kind => {
     await mount();
@@ -61,11 +69,35 @@ describe('workspace peek regressions (#2435)', () => {
       const height = available + 48;
       return { x: 0, y: 0, top: 0, left: 0, right: 1000, bottom: height, width: 1000, height, toJSON() {} };
     });
-    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.hasAttribute('data-dock-panel-content') ? natural : 0;
-    });
+    contentHeight(() => natural);
     act(() => observer.resize(1000, available + 48));
-    expect(setSize).toHaveBeenCalledWith({ height: expected });
+    expect(setSize).toHaveBeenLastCalledWith({ height: expected });
+  });
+  it('content that gets shorter shrinks the peek back to its floor (the measure never echoes the allocated height)', async () => {
+    await mount();
+    const panel = engine.api!.getPanel('b')!;
+    const setSize = vi.spyOn(panel.group.api, 'setSize');
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ x: 0, y: 0, top: 0, left: 0, right: 1000, bottom: 700, width: 1000, height: 700, toJSON() {} }));
+    let natural = 900;
+    contentHeight(() => natural);
+    act(() => observer.resize(1000, 700));
+    expect(setSize).toHaveBeenLastCalledWith({ height: 440 });
+    natural = 60;
+    act(() => observer.resize(1000, 701));
+    expect(setSize).toHaveBeenLastCalledWith({ height: 360 });
+  });
+  it('a float moved or resized in the compact display is saved with the stored layout unchanged', async () => {
+    const onChange = vi.fn();
+    const layout = group(['a']);
+    render(<I18nProvider><DockLayoutBase label="배치" narrow panels={['a', 'b'].map(id => ({ id, title: id, render: () => <div>{id}</div> }))}
+      layout={layout} onLayoutChange={vi.fn()} separatorLabel={() => '경계'}
+      floating={{ panels: [{ panelId: 'b', x: 0, y: 48, width: 500, height: 300 }], onDismissPeek: vi.fn(), onChange }} /></I18nProvider>);
+    await waitFor(() => expect(engine.api?.getPanel('b')?.api.location.type).toBe('floating'));
+    act(() => { engine.api!.getPanel('b')!.group.api.setSize({ width: 320, height: 200 }); });
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [panels, tree] = onChange.mock.lastCall!;
+    expect(panels.map((panel: { panelId: string }) => panel.panelId)).toEqual(['b']);
+    expect(tree).toBe(layout);
   });
   it('peek content keeps the full height so fill-height bodies (charts) can draw', async () => {
     await mount();

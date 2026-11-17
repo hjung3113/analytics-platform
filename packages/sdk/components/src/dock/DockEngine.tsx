@@ -78,8 +78,11 @@ function PanelHost({ api }: IDockviewPanelProps) {
     if (!fitPeek || !element) return;
     const fit = () => {
       if (api.location.type !== 'floating') return;
-      // The content keeps `h-full` so fill-height bodies (charts) get a height; overflow beyond the floor grows the peek up to its cap.
+      // The content keeps `h-full` so fill-height bodies (charts) get a height. Its natural height is read with the height released for this one
+      // synchronous read (no paint in between), so the measure never echoes the peek's current size: short content shrinks back to the floor.
+      element.style.height = 'auto';
       const natural = element.scrollHeight;
+      element.style.height = '';
       const available = (element.closest('[data-dock-layout]')?.getBoundingClientRect().height ?? 0) - PEEK_TOP;
       if (available > 0) api.group.api.setSize({ height: Math.min(PEEK_HEIGHT, available, Math.max(peekHeightFloor, Math.ceil(natural) + HEADER_HEIGHT)) });
     };
@@ -329,18 +332,21 @@ export default function DockEngine({
     const sashDrag = dragging.current && !released.current;
     if (!sashDrag) scheduleMeasure();
     const current = live.current;
-    if (!current.interactive) return;
     const shown = canonicalDockTree(current.layout);
-    const read = readEngine(target, shown);
     if (current.floating && !target.hasMaximizedGroup()) {
       const floated = fromEngineLayout(target.toJSON() as unknown as EngineLayout).floating;
       const persistent = floated.filter(panel => panel.panelId !== current.floating?.peekId);
       const expected = current.floating.panels.filter(panel => panel.panelId !== current.floating?.peekId);
       if (JSON.stringify(persistent) !== JSON.stringify(expected)) {
-        current.floating.onChange(persistent, keepStoredSizes(read.tree, shown));
+        // A float's own move or resize is saved even while the dock tree is not editable (compact display): only its geometry changes, and the
+        // stored layout stays as it is, since the engine then shows a display projection, not the user's tree.
+        if (current.interactive) current.floating.onChange(persistent, keepStoredSizes(readEngine(target, shown).tree, shown));
+        else if (JSON.stringify(persistent.map(panel => panel.panelId)) === JSON.stringify(expected.map(panel => panel.panelId))) current.floating.onChange(persistent, current.layout);
         return;
       }
     }
+    if (!current.interactive) return;
+    const read = readEngine(target, shown);
     const structural = !sameDockTree(read.tree, shown, { sizes: false });
     const resized = !structural && dragging.current && read.measured && !sameDockTree(read.tree, shown, { sizes: true, tolerance: 0.05 });
     // The first measured notification after the pointer is up is the drag's own final one: it consumes the permission before the parent is told,
