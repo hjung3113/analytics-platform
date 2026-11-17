@@ -19,6 +19,12 @@ const row = (equipmentId: string, at: string, status: HtmJudgement['status']) =>
 };
 const data: HwTimeRuns = { points: [], daily: [row('EQ-001', '2026-09-19T00:00:00', 'over'), row('EQ-002', '2026-09-20T00:00:00', 'under')], bounds: [], shown: 0, total: 0 };
 function mount(runs = data) { render(<I18nProvider><RunPanel kind="trend" data={runs} moduleId="LK1" motionId="Pump" motions={['Pump']} /></I18nProvider>); }
+it('opts the daily trend into quiet selection summaries', () => {
+  mount();
+  for (const id of ['hw-overview-runs-trend', 'hw-overview-runs-trend-verdicts']) {
+    expect(frames.mock.calls.find(([p]) => p.chartId === id)![0]).toMatchObject({ summary: 'quiet' });
+  }
+});
 it('passes daily categories and stacked verdict bars, and omits empty bounds for multiple equipment', () => {
   mount();
   const line = frames.mock.calls.find(([p]) => p.chartId === 'hw-overview-runs-trend')![0] as AnalysisChartFrameProps;

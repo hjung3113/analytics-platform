@@ -163,20 +163,20 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   };
   let chartId = previous ? 'hw-previous' : 'hw-current';
   if (allMotions) chartId = 'hw-module-motions';
+  const scaleText = depth === 1 ? m('scaleTypes', { equipment: String(shaped.equipmentCount), types: String(HW_TIME_MODULE_TYPES.length) })
+    : m('scale', { equipment: String(shaped.equipmentCount), modules: String(shaped.moduleCount) });
   const body = <div className="flex h-full min-h-0 flex-col">
     {!previous && !allMotions && <div className="flex items-center justify-between gap-2 px-2 py-1">
       <div className="min-w-0 flex-1"><PanelOptionChips options={chartOptions} values={values} onReset={onReset} /></div>
       <PanelOptions options={chartOptions} values={values} onChange={onChange} />
     </div>}
-    <AnalysisChartFrame chartId={chartId} title={title[lang]}
-      series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={overview('synthetic')}
+    <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet"
+      series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
       rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={row => setPage({ row }, { replace: true })} revealActive
       canApplyRange={false} reaggregation="sum" valueLabels="both" pointStatus={statusOf}
       pointActivation={depth < 4 ? { on: 'dblclick', onActivate: openTrend } : undefined} pointActions={pointActions} />
-    {!previous && <p className="t-caption px-2 text-text-secondary">{depth === 1 ? m('scaleTypes', { equipment: String(shaped.equipmentCount), types: String(HW_TIME_MODULE_TYPES.length) })
-      : m('scale', { equipment: String(shaped.equipmentCount), modules: String(shaped.moduleCount) })}</p>}
   </div>;
   return matricesView(queries, required, body);
 }

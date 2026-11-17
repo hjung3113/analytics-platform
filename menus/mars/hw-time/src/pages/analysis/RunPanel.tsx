@@ -111,10 +111,10 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
         <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} description={contextNote} chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
       </div>}
       {kind === 'trend' && (projected.trend.categories.length < 2 ? <p className="t-caption px-2 text-text-secondary">{m('trendNeedsDays')}</p> : <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        <div className="flex min-h-52 flex-1 flex-col"><AnalysisChartFrame legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="category"
+        <div className="flex min-h-52 flex-1 flex-col"><AnalysisChartFrame summary="quiet" legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="category"
           unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN} emphasisFocus="none"
           canApplyRange={false} activeCategory={activeDay || null} pointStatus={trendStatusOf} bounds={projected.trend.bounds.size ? projected.trend.bounds : undefined} boundLabels={projected.trend.boundLabels} /></div>
-        <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
+        <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame summary="quiet" chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
           series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
           legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>
       </div>)}
