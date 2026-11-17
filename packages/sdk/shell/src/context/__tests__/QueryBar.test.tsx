@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
+import { buildQuery, defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, QueryBarExtensionContext, QueryView, useFocusContextEditor, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
-import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
 import { QueryBar } from '../QueryBar';
 
@@ -619,4 +619,25 @@ it('derives one period error and clears reference invalidity on a mode switch (#
   fireEvent.click(screen.getByRole('button', { name: '직접 범위' }));
   expect(screen.queryByText('유효한 시작·종료 시각을 입력하세요.')).toBeNull();
   expect(screen.getByLabelText('시작 시각')).not.toHaveAttribute('aria-invalid');
+});
+
+
+it('shares the query bar list with one menu query on each Apply (#2470)', async () => {
+  const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+  let release!: () => void;
+  store.listHold = new Promise<void>(resolve => { release = resolve; });
+  const list = vi.spyOn(store, 'list');
+  const groupedEndpoint = defineEndpoint<null, unknown>({ ...endpoint, context: { time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply' } });
+  let query!: ReturnType<typeof useMenuQuery>;
+  function GroupQuery() { query = useMenuQuery(groupedEndpoint, null); return null; }
+  window.history.replaceState(null, '', '/' + buildQuery({ scopeId: 'MEM', from: '2026-01-01T00:00:00', to: '2026-01-02T00:00:00', roomNames: ['PHOTO'], lineNames: null, prcGroups: null, condition: { customGroup: ['g1'] }, membershipBasis: null, selection: null, lotIds: null, ppid: null, recipeIds: null, metricId: null, metricVersion: null }));
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} savedViews={store} adapter={testAdapter({ session: () => session, menuQuery: send, listEquipmentFacts: async () => ({ version: '1', items: [{ equipmentId: 'E1', room: 'PHOTO', axes: {} }] }) })}><GroupQuery /><QueryBar /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(query.status).toBe('loading'));
+  await act(async () => { release(); });
+  await waitFor(() => expect(send).toHaveBeenCalledOnce());
+  expect(list).toHaveBeenCalledTimes(1);
+  act(() => query.refetch());
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  expect(list).toHaveBeenCalledTimes(2);
 });
