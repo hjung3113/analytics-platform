@@ -754,7 +754,7 @@ Capability authority granted to an **Actor** for a supported scope, optionally e
 _Avoid_: Promotion, request approval record
 
 **Permission Group** (권한 그룹):
-A named set of capabilities (no managed-system or site scope; the scope is picked when requesting or granting) that expands into per-capability **Permission Grant** rows when granted or approved; the grant row keeps only a `permission_group_id` origin column. Editing a group never changes grants already given. A personal group is a request template only; granting is an operator (`workspace.admin`) action, and a department rule auto-grants operator groups only. It does not add a **Role Level**. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom group (a bundle of query conditions, 커스텀 그룹); those two never carry capabilities. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom query group (a bundle of query targets, 커스텀 조회 그룹); those two never carry capabilities.
+A named set of capabilities (no managed-system or site scope; the scope is picked when requesting or granting) that expands into per-capability **Permission Grant** rows when granted or approved; the grant row keeps only a `permission_group_id` origin column. Editing a group never changes grants already given. A personal group is a request template only; granting is an operator (`workspace.admin`) action, and a department rule auto-grants operator groups only. It does not add a **Role Level**. Not a share group (the people a saved view is shared with, 공유 그룹) and not a custom query group (a bundle of query targets, 커스텀 조회 그룹); those two never carry capabilities.
 _Avoid_: Role, 그룹 (alone), role tier
 
 **Request Withdrawal**:
