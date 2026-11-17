@@ -293,6 +293,8 @@ export const COMPONENTS_MESSAGES = {
   tableGroupSelect: { ko: '{name} 선택', en: 'Select {name}' },
   tableGroupHidden: { ko: '숨김', en: 'Hidden' },
   tableGroupSelected: { ko: '{count}개 열 선택', en: '{count} columns selected' },
+  tableGroupMemberLimit: { ko: '한 묶음에 최대 {count}열', en: 'Up to {count} columns per group' },
+  tableGroupUnavailable: { ko: '묶을 수 없는 열', en: 'This column cannot be grouped' },
   tableGroupName: { ko: '묶음 이름', en: 'Group name' },
   tableGroupCreate: { ko: '묶기', en: 'Group' },
   tableGroupSave: { ko: '저장', en: 'Save' },

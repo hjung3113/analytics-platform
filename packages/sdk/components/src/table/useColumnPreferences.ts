@@ -133,5 +133,7 @@ export function useColumnPreferences(preferenceKey: string) {
   }, 'now');
   /** Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */
   const resetPreferences = () => updatePreferences(() => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }), 'now');
-  return { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences };
+  // A saved-view intent stays in the slot until both the controller read and this table's hash/baseline are ready.
+  const groupsReady = !controller || (controllerState.status === 'ready' && derived?.controller === controller && derived.raw === preferenceKey && derived.key !== null && synced?.controller === controller && synced.raw === preferenceKey);
+  return { preferences, groupsReady, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences };
 }

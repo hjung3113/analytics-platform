@@ -50,13 +50,14 @@ export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave, onCan
       <p className="t-card-title min-w-0 truncate" title={draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : undefined}>{draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : m('tableGroupNew')}</p>
     </div>
     <ul className="max-h-80 space-y-2 overflow-y-auto">{columns.map(column => <li key={column.id} className="flex min-w-0 items-center gap-2">
-      <Checkbox id={`${idPrefix}-${column.id}-choose`} aria-label={m('tableGroupSelect', { name: column.label })} checked={draft.members.includes(column.id)} disabled={column.id.length > MAX_GROUP_ID_LENGTH || (!draft.members.includes(column.id) && draft.members.length >= MAX_GROUP_MEMBERS)} onCheckedChange={() => editor.toggle(column.id)} className="size-3.5 border-border-control" />
+      <Checkbox id={`${idPrefix}-${column.id}-choose`} aria-label={m('tableGroupSelect', { name: column.label })} aria-describedby={column.id.length > MAX_GROUP_ID_LENGTH ? `${idPrefix}-${column.id}-unavailable` : undefined} checked={draft.members.includes(column.id)} disabled={column.id.length > MAX_GROUP_ID_LENGTH || (!draft.members.includes(column.id) && draft.members.length >= MAX_GROUP_MEMBERS)} onCheckedChange={() => editor.toggle(column.id)} className="size-3.5 border-border-control" />
       <Label className="min-w-0 flex-1" title={column.label} htmlFor={`${idPrefix}-${column.id}-choose`}><span className="block truncate">{column.label}</span></Label>
       {column.hidden && <span className="text-xs text-text-muted">{m('tableGroupHidden')}</span>}
+      {column.id.length > MAX_GROUP_ID_LENGTH && <span id={`${idPrefix}-${column.id}-unavailable`} className="text-xs text-text-muted">{m('tableGroupUnavailable')}</span>}
       {column.group && <span className="max-w-24 truncate text-xs text-text-muted" title={column.group}>{column.group}</span>}
     </li>)}</ul>
     <form className="space-y-2" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={event => { event.preventDefault(); onSave(); }}>
-      <p className="text-xs text-text-secondary">{m('tableGroupSelected', { count: draft.members.length })}</p>
+      <p className="text-xs text-text-secondary">{m('tableGroupSelected', { count: draft.members.length })}{draft.members.length >= MAX_GROUP_MEMBERS && <> · <span>{m('tableGroupMemberLimit', { count: MAX_GROUP_MEMBERS })}</span></>}</p>
       <div className="flex min-w-0 items-center gap-2">
         <Input inputSize="toolbar" className="min-w-0 flex-1" aria-label={m('tableGroupName')} placeholder={m('tableGroupName')} maxLength={MAX_GROUP_LABEL_LENGTH} value={draft.name} onChange={event => editor.setName(event.target.value)} />
         <Button type="submit" size="toolbar" variant="secondary" disabled={!validGroupName(draft.name) || draft.members.length < (draft.id ? 1 : 2)}>{draft.id ? m('tableGroupSave') : m('tableGroupCreate')}</Button>

@@ -3,7 +3,7 @@ import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type MenuViewDraft, type SavedViewSupport, type TableViewState } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, useUnsavedGuard } from '../../index';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, useSavedViewSupport, useUnsavedGuard } from '../../index';
 import { PaneScreenProvider, useLeaveRequest, useSavedViewTableState, useSavedViews, type LeaveRequest, type SavedViews } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSpace } from '../../testing';
 
@@ -79,4 +79,26 @@ it.each(['cancel', 'confirm'] as const)('a held navigation writes only on confir
 it('a default yielding to an explicit address never writes tables', async () => {
   await mount([row('default', { tables: { raw: {} } })], { 'u1:home': 'default' }, '/?filter=explicit');
   await act(async () => {}); expect(applied).not.toHaveBeenCalled();
+});
+
+it.each([false, true])('retries a page-dependent basis after navigation (remount=%s)', async remount => {
+  function DestinationTable({ basis }: { basis: string }) {
+    const [value, update] = useState<TableViewState>({});
+    useSavedViewTableState('raw', { value, basis, apply: next => { applied(next); update(next); } });
+    return null;
+  }
+  function Destination() {
+    const host = usePlatform();
+    useSavedViewSupport(support); views = useSavedViews();
+    const basis = host.page.some(([key, value]) => key === 'filter' && value === 'B') ? 'B' : 'A';
+    return <DestinationTable key={remount ? basis : 'stable'} basis={basis} />;
+  }
+  const next = { groups: { basis: 'B', items: [] } };
+  const store = createFakeSavedViewStore([row('move', { page: [['filter', 'B']], tables: { raw: next } })]);
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()} savedViews={store}><Destination /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('move'); });
+  await waitFor(() => expect(applied).toHaveBeenCalledExactlyOnceWith(next));
+  expect(views.state.modified).toBe(false);
 });

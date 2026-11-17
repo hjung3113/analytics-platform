@@ -275,7 +275,7 @@ const isRetryable = (response: Pick<ApiResponse<unknown>, 'outcome'> | null, gro
 export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   const epoch = useEndpointRefreshEpoch((props.refreshOn ?? []).map(e => e.id));
   const source = useRowsSource<T>({ rows: props.rows, rowsLoading: !!props.rowsLoading, external: !!props.externalPagination, urlSorting: !!props.urlState, columns: props.columns, filterFields: props.filterFields });
-  const { preferences, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences } = useColumnPreferences(props.preferenceKey);
+  const { preferences, groupsReady, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences } = useColumnPreferences(props.preferenceKey);
   const effective = useMemo(() => props.editableColumnGroups ? effectiveColumnGroups(source.columns, props.columnGroups, preferences.groups) : { columns: source.columns, columnGroups: props.columnGroups }, [props.editableColumnGroups, source.columns, props.columnGroups, preferences.groups]);
   // The rest of the table reads one shape: always a `loadPage`, the (possibly stripped) columns and fields.
   const p = { ...props, ...effective, filterFields: source.filterFields, loadPage: props.loadPage ?? source.loadPage! };
@@ -906,7 +906,7 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     </div>
   );
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
-    {p.editableColumnGroups && <SavedTableState preferenceKey={props.preferenceKey} columns={source.columns} declared={props.columnGroups} groups={preferences.groups} apply={applyColumnGroups} />}
+    {p.editableColumnGroups && <SavedTableState preferenceKey={props.preferenceKey} columns={source.columns} declared={props.columnGroups} groups={preferences.groups} apply={applyColumnGroups} ready={groupsReady} />}
     {/* R2 (#1234, #2310): lead, page controls and filters (left), results + controls (right) in one band; workspace panels retain two bands. */}
     <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
       {/* With page controls the merged left group wraps: the filters (basis 320) drop under the controls instead of shrinking to nothing. */}

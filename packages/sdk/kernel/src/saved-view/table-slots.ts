@@ -1,4 +1,4 @@
-type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean };
+type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
@@ -20,14 +20,17 @@ function createScreenSlots() {
     const entries = fields.get(field)?.get(key);
     const values = applied.fields[field];
     if (!entries?.length || !values || !Object.hasOwn(values, key) || applied.consumed.has(tokenKey)) return;
+    const accepted = entries.filter(entry => !entry.accepts || entry.accepts(values[key] as never));
+    if (!accepted.length) return;
     applied.consumed.add(tokenKey);
-    for (const entry of entries) if (!entry.accepts || entry.accepts(values[key] as never)) entry.apply(values[key] as never);
+    for (const entry of accepted) entry.apply(values[key] as never);
   };
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     snapshot: () => revision,
     changed: emit,
-    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean }) {
+    retry(field: string, key: string) { applyKey(field, key); emit(); },
+    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
@@ -49,7 +52,7 @@ function createScreenSlots() {
       if (!saved) return false;
       return [...(fields.get(field) ?? [])].some(([key, entries]) => {
         const entry = entries.at(-1);
-        return entry !== undefined && Object.hasOwn(saved, key) && (!entry.accepts || entry.accepts(saved[key] as never)) && !sameValue(entry.value, saved[key]);
+        return entry !== undefined && Object.hasOwn(saved, key) && (!entry.accepts || entry.accepts(saved[key] as never)) && !sameValue(entry.value, entry.project ? entry.project(saved[key] as never) : saved[key]);
       });
     },
     apply(viewId: string, values: Record<string, Record<string, unknown> | undefined>) {

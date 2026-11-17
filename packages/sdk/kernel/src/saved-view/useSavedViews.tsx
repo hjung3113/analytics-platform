@@ -152,7 +152,8 @@ export function useSavedViews(): SavedViews {
   const find = useCallback((id: string | null) => id === null ? null : entryOf([...menuViews, ...conditionSets].find(item => (item.denied ? item.id : item.view.id) === id)), [menuViews, conditionSets]);
   const selected = selectedId !== null && fresh?.gen === gen && fresh.entry.view.id === selectedId ? entryOf(fresh.entry) : find(selectedId);
   const applied = useMemo(() => ({ global: host.global, page: host.page }), [host.global, host.page]);
-  const tableModified = slotRevision >= 0 && selected?.view.kind === 'menu-view' && (slots?.differs('tables', selected.view.tables) ?? false);
+  const selectedTables = selected?.view.kind === 'menu-view' ? selected.view.tables : undefined;
+  const tableModified = useMemo(() => slotRevision >= 0 && (slots?.differs('tables', selectedTables) ?? false), [slots, slotRevision, selectedTables]);
   const state = useMemo(() => support === undefined ? OFF_STATE : viewState({ applied: selected ? comparableApplied(selected.view, captureApplied(applied, support)) : captureApplied(applied, support), saved: selected ? savedStateOf(selected.view, support, anchor, host.global.scopeId) : null, draftDirty: host.queryDraft.dirty, tableModified }), [support, applied, selected, anchor, host.global.scopeId, host.queryDraft.dirty, tableModified]);
   // Derived from the saved copy, so a selection recovered after a reload lists the same Context as right after the pick.
   const unsupported = useMemo(() => selected && support ? unsupportedOf(selected.view, support, anchor) : NO_UNSUPPORTED, [selected, support, anchor]);
