@@ -395,7 +395,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
 
   // The loop's own terminal status stands in when re-reading the job failed, so the retry button is never lost.
   const partial = finished && (result?.job.status ?? (end?.kind === 'done' ? end.status : job?.status)) === 'partial_failure';
-  const footer = <footer className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-card px-4 py-2.5">
+  const footer = <footer className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none px-4 py-2.5">
     <div className="flex gap-2">
       {step === 2 && <Button type="button" variant="secondary" disabled={busy} onClick={() => { setStep(1); }}>다시 붙여넣기</Button>}
       {(step === 3 || (step === 4 && phase === 'ready')) && <Button type="button" variant="secondary" disabled={busy} onClick={() => setStep(previousStep(step, conflicts.length))}>이전</Button>}
@@ -414,13 +414,13 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
   </footer>;
 
   return <div ref={rootRef} className="grid min-w-0 gap-3">
-    <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-card px-4 py-3">
+    <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none px-4 py-3">
       <div><h2 className="text-base font-semibold text-text-primary">모델 가져오기</h2>
         <p className="t-caption text-text-muted">설비사명 · 공정명 · 모델명을 붙여넣어 검사한 뒤, 확인한 결과만 카탈로그에 반영합니다. 코드는 이름으로 자동 부여됩니다.</p></div>
       <Button type="button" variant="ghost" size="sm" disabled={phase === 'running'} onClick={requestExit}><X className="size-4" aria-hidden />목록으로</Button>
     </div>
     <StepBar step={step} conflicts={job ? conflicts.length : 1} />
-    <section aria-labelledby={`${uid}-heading`} className="rounded-lg border border-border-subtle bg-surface-card p-4">
+    <section aria-labelledby={`${uid}-heading`} className="rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-4">
       <h3 id={`${uid}-heading`} ref={heading} tabIndex={-1} className="mb-3 text-sm font-semibold text-text-primary outline-none">{headingText}</h3>
       {error && <div className="mb-3"><Notice tone={error.busy ? 'amber' : 'red'} title={error.busy ? '지금은 검사할 수 없습니다' : '진행하지 못했습니다'}>{error.text}</Notice></div>}
       {body}

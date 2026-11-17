@@ -844,7 +844,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   let fillPlotClass = loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS;
   if (rowPitch !== undefined) fillPlotClass = loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS;
   if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden';
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && 'rounded-none border-0 shadow-none')}>
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && 'rounded-none border-0 shadow-none')}>
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
     <PanelChartChrome enabled={compactChrome} start={p.toolbarStart} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} open={panelToolsOpen} onOpenChange={setPanelToolsOpen} onOpenAutoFocus={event => {

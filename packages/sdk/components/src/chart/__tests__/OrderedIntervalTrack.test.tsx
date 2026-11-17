@@ -477,7 +477,7 @@ it.each(['interval', 'point'] as const)(
       selectedId: '0',
     });
     const index = strokes.findIndex(
-      (stroke) => stroke.width === (kind === 'point' ? 6 : 2) && stroke.color === 'rgb(251,253,255)',
+      (stroke) => stroke.width === (kind === 'point' ? 6 : 2) && stroke.color === 'rgb(255,255,255)',
     );
     expect(index).toBeGreaterThanOrEqual(0);
     expect(strokes[index + 1]).toEqual({ color: 'rgb(20,40,160)', width: 2 });
@@ -636,13 +636,13 @@ it.each([1, 9, 10, 30])(
       items: [{ ...items[0], orderStart: 20, orderEnd: 20 + (width * 100) / 488 }],
       selectedId: '0',
     });
-    const halos = strokes.filter((stroke) => stroke.color === 'rgb(251,253,255)');
+    const halos = strokes.filter((stroke) => stroke.color === 'rgb(255,255,255)');
     const outline = strokes.find((stroke) => stroke.color === 'rgb(20,40,160)');
     expect(outline?.width).toBe(2);
     const x = 112 + (20 / 100) * 488;
     if (width >= 10) {
       expect(halos).toEqual([
-        { color: 'rgb(251,253,255)', width: 2, rect: [x + 3, 3, width - 6, 18] },
+        { color: 'rgb(255,255,255)', width: 2, rect: [x + 3, 3, width - 6, 18] },
       ]);
       expect(outline?.rect).toEqual([x + 1, 1, width - 2, 22]);
     } else {

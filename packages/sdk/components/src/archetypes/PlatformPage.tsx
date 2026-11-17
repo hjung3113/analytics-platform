@@ -353,7 +353,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
           <TooltipProvider><Tooltip open={headingTooltipOpen} onOpenChange={open => {
             if (!open || !programmaticHeadingFocus.current) setHeadingTooltipOpen(open);
           }}><TooltipTrigger asChild>
-            <h1 ref={heading} tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-28 shrink truncate text-sm font-semibold text-text-primary">{titleResolved}</h1>
+            <h1 ref={heading} tabIndex={0} title={typeof titleResolved === 'string' ? titleResolved : undefined} className="min-w-28 shrink truncate t-section-title text-text-primary">{titleResolved}</h1>
           </TooltipTrigger><TooltipContent>{titleResolved}</TooltipContent></Tooltip></TooltipProvider>
           {favoriteTarget && <button type="button" onClick={() => toggleFavorite(favoriteTarget.id)} aria-pressed={isFavorite}
             aria-label={isFavorite ? t('removeFavorite') : t('addFavorite')} title={isFavorite ? t('removeFavorite') : t('addFavorite')}
@@ -444,13 +444,13 @@ function ReturnRow() {
   </div>;
 }
 
-/** panel-card: hairline border, 8px radius, no shadow. */
+/** panel-card: hairline border, shared radius and one top-level shadow. */
 export function Panel({ title, subtitle, actions, children, className, bodyClassName, id }: {
   title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string; id?: string;
 }) {
   // The workspace tab already shows this title.
   const inPanel = useInWorkspacePanel();
-  return <section aria-labelledby={title && id ? id : undefined} className={cn('rounded-lg border border-border-subtle bg-surface-card', className)}>
+  return <section aria-labelledby={title && id ? id : undefined} className={cn('rounded-lg border border-border-subtle bg-surface-card in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none', !inPanel && 'shadow-sm', className)}>
     {(title || actions) && <header className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2 pt-3">
       <div>
         {title && <h2 id={id} className={cn('t-card-title', inPanel && 'sr-only')}>{title}</h2>}

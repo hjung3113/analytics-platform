@@ -74,7 +74,7 @@ export default function EquipmentDetail({ params }: PageProps) {
     {!validTab ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />} title={m('equipmentDetailThisTabIsNotRegistered')} body={m('equipmentDetailGoBackToTheAttributesTab')} action={<Button size="sm" variant="secondary" onClick={() => setPage({ tab: 'attributes' })}>{m('equipmentDetailOpenAttributes')}</Button>} /> :
       <Tabs value={requestedTab} onValueChange={tab => setPage({ tab })}>
         <TabsList aria-label={m('equipmentDetailEquipmentDetailTabs')} className="max-w-4xl">{tabs.map(t => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}</TabsList>
-        {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl"><div className="rounded-lg border border-border-subtle bg-surface-card p-4"><EquipmentPanel id={id} kind={t.id} /></div></TabsContent>)}
+        {tabs.map(t => <TabsContent key={t.id} value={t.id} className="mt-4 max-w-4xl"><div className="rounded-lg border border-border-subtle bg-surface-card shadow-sm in-[.bg-surface-card]:shadow-none in-[.dv-groupview]:shadow-none p-4"><EquipmentPanel id={id} kind={t.id} /></div></TabsContent>)}
       </Tabs>}
   </PlatformPage>;
 }

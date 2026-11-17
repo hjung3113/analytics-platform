@@ -208,6 +208,14 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     expect(screen.queryByText('이 업무 시스템에 들어갈 수 없습니다')).toBeNull();
   });
 
+  it('uses the shared page title scale for a kernel state page', async () => {
+    mountGlobal('/secret', true);
+    const title = await screen.findByRole('heading', { level: 1, name: 'secret' });
+    expect(title).toHaveClass('t-section-title', 'text-text-primary', 'truncate');
+    expect(title).not.toHaveClass('text-sm');
+    expect(title.closest('header')).toHaveClass('h-[50px]', 'items-center');
+  });
+
   it('links home to the menu at / when the sidebar space is null', async () => {
     mountGlobal('/missing', true);
     const home = await screen.findByRole('link', { name: '홈' });

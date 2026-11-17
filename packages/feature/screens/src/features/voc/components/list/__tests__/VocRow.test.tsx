@@ -38,6 +38,13 @@ const MANAGED_SYSTEM = {
 // ---------------------------------------------------------------------------
 
 describe('<VocRow>', () => {
+  it.each([false, true])('uses secondary metadata on hover and selection (selected=%s)', selected => {
+    render(<VocRow voc={{ ...BASE_VOC, attachment_count: 2 }} selected={selected} onSelect={vi.fn()} managedSystem={null} areaName="Area" />);
+    expect(screen.getByRole('row')).toHaveClass('group/voc-row');
+    for (const meta of [screen.getByText('Area').parentElement, screen.getByLabelText('첨부 2개')]) {
+      expect(meta).toHaveClass('group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
+    }
+  });
   it.each([false, true])('keeps the VOC number unbroken (permissionLimited=%s)', (permissionLimited) => {
     render(<VocRow voc={BASE_VOC} selected={false} onSelect={vi.fn()} managedSystem={null} permissionLimited={permissionLimited} />);
     expect(screen.getByText('VOC-001')).toHaveClass('whitespace-nowrap', 'shrink-0');
@@ -209,10 +216,11 @@ describe('<VocRow>', () => {
     const row = screen.getByRole('row');
     // Prototype parity: tinted selected background
     expect(row.className).toContain('bg-surface-row-selected');
-    // Left edge bar exists and uses accent-primary color when selected
+    // The shared selection marker is 2px; severity pills remain 3px.
     const bar = row.querySelector('[data-testid="voc-row-left-bar"]');
     expect(bar).not.toBeNull();
-    expect(bar?.className).toContain('bg-accent-primary');
+    expect(bar).toHaveClass('absolute', 'inset-y-0', 'left-0', 'w-0.5', 'bg-border-selected');
+    expect(bar).not.toHaveClass('w-row-accent', 'rounded-r-sm');
   });
 
   it.each([['high'], ['low'], ['medium'], ['critical'], [null]] as const)(

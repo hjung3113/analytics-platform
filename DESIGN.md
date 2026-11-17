@@ -199,19 +199,21 @@ components:
 
 ### Allowed foreground/surface pairs
 
+페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `shadow-sm`으로 캔버스와 분리하며, 내부 카드에는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `accent-primary` 막대를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠 위의 컨트롤은 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
+
 label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의 opaque sRGB token 계산이다. 렌더 검증을 대신하지 않는다. `surface-popover`는 sunken과 같은 공유 palette를 쓰므로 동일 제한을 받는다.
 
 | 전경 | 허용 표면 / 대비 | 제한·적용 예 |
 | --- | --- | --- |
 | `text-primary`, `text-secondary` | canvas/card/sidebar/sunken/hover/selected | 필수 제목·검색 입력·열 머리·popover 설명. secondary는 sunken 9.23:1, sidebar/hover/selected 9.310/8.909/8.218:1 |
-| `text-muted` | canvas 4.642:1, card 4.892:1, sidebar 4.505:1 | 원래 opaque 값으로 보조 문구·section label; sidebar에서도 여유가 작으므로 fade 금지 |
-| `text-muted` | sunken **4.469:1** (약 4.47), hover 4.311:1, selected 3.977:1 | **필수 작은 글자에 금지**. sunken 열 머리·검색 문구·popover, hover/selected 상태 label은 `text-secondary`로 |
-| 공유 `text-text-success-label` | card 5.764:1, success-soft 5.191:1; canvas/sunken/hover/selected 포함 최저 4.686:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
-| 공유 `text-text-info-label` | card 5.564:1, primary-soft 4.639:1; 동일 표면 집합 최저 4.523:1 | 작은 정보 의미 글자 |
-| 공유 `text-text-warning-label` | card 5.971:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
-| 공유 `text-text-danger-label` | card 6.571:1, danger-soft 5.560:1; 동일 표면 집합 최저 5.342:1 | 작은 오류 의미 글자 |
+| `text-muted` | canvas 4.931:1, card 5.536:1, sidebar 5.001:1 | opaque 보조 문구·section label; fade 금지 |
+| `text-muted` | sunken 4.960:1, hover 4.785:1, selected **4.414:1** | selected에서 필수 작은 글자에 금지. 상태 변화에도 읽기 여유를 유지하도록 hover/selected 행의 작은 메타 글자는 `text-secondary`로 |
+| 공유 `text-text-success-label` | card 5.877:1, success-soft 5.191:1; canvas/sunken/hover/selected 포함 최저 4.686:1 | 작은 성공 의미 글자; vivid success는 dot/icon/tint로 분리 |
+| 공유 `text-text-info-label` | card 5.674:1, primary-soft 4.639:1; 동일 표면 집합 최저 4.523:1 | 작은 정보 의미 글자 |
+| 공유 `text-text-warning-label` | card 6.088:1, warn-soft 5.195:1; 동일 표면 집합 최저 4.854:1 | 작은 경고 의미 글자 |
+| 공유 `text-text-danger-label` | card 6.700:1, danger-soft 5.560:1; 동일 표면 집합 최저 5.342:1 | 작은 오류 의미 글자 |
 | `text-secondary` (neutral label) | sunken/neutral-soft 9.23:1 | 중립 배지·필수 미평가 설명 |
-| `border-control` | card/canvas/sunken/hover/selected 4.892/4.642/4.469/4.311/3.977:1; sidebar 4.505:1 | interactive control 식별 경계로 모두 ≥3:1; text-muted와 같은 값이어도 비텍스트 기준은 다름 |
+| `border-control` | card/canvas/sunken/hover/selected 4.988/4.442/4.469/4.311/3.977:1; sidebar 4.505:1 | interactive control 식별 경계로 모두 ≥3:1; text-muted와 독립된 중립 색 |
 | `border-subtle` | 구조 divider·card·행 구분 | 입력/checkbox의 유일한 식별 경계로 사용 금지 |
 | 공유 `focus-ring` / 플랫폼 `accent-primary` | sidebar/hover/selected 10.304/9.859/9.095:1 | opaque focus/current 막대; 색 외 형태 단서 동반 |
 
@@ -399,12 +401,12 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 
 **B 구현 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline 전용 stroke alias를 추가했고 category fill·기존 palette는 유지한다. 사용자가 확인한 B2 값과 각 표면 대비는 아래와 같다.
 
-| Stroke alias | 값 | 카드 `#fbfdff` | 캔버스 `#f3f7fe` | Sunken `#edf3fb` |
+| Stroke alias | 값 | 카드 `#ffffff` | 캔버스 `#eef2f9` | Sunken `#edf3fb` |
 | --- | --- | ---: | ---: | ---: |
-| `chart-blue-stroke` | `#2577cc` | 4.49:1 | 4.26:1 | 4.10:1 |
-| `chart-teal-stroke` | `#008090` | 4.59:1 | 4.35:1 | 4.19:1 |
-| `chart-purple-stroke` | `#8154ce` | 5.03:1 | 4.78:1 | 4.60:1 |
-| `cat-amber-stroke` | `#b45309` | 4.93:1 | 4.67:1 | 4.50:1 |
+| `chart-blue-stroke` | `#2577cc` | 4.58:1 | 4.08:1 | 4.10:1 |
+| `chart-teal-stroke` | `#008090` | 4.68:1 | 4.17:1 | 4.19:1 |
+| `chart-purple-stroke` | `#8154ce` | 5.13:1 | 4.57:1 | 4.60:1 |
+| `cat-amber-stroke` | `#b45309` | 5.02:1 | 4.47:1 | 4.50:1 |
 
 `AnalysisChartFrame`은 blue/teal/purple/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
 

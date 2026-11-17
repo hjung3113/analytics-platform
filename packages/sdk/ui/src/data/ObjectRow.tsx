@@ -92,7 +92,7 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
       <div
         ref={ref}
         className={cn(
-          'relative grid items-center gap-3 border-b border-border-subtle transition-colors duration-75',
+          'group/object-row relative grid items-center gap-3 border-b border-border-subtle transition-colors duration-75',
           showLeadingCell ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[1fr_auto]',
           selected ? 'bg-surface-row-selected' : 'hover:bg-surface-row-hover',
           onClick && 'cursor-pointer',
@@ -125,17 +125,17 @@ export const ObjectRow = React.forwardRef<HTMLDivElement, ObjectRowProps>(
               onCheckedChange={(nextChecked) => onCheckedChange?.(nextChecked === true)}
             />
           )}
-          {icon && <span className="flex shrink-0 text-text-muted">{icon}</span>}
+          {icon && <span className={cn('flex shrink-0 group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{icon}</span>}
         </div>}
 
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex min-w-0 items-center gap-2">
-            {id && <span className="shrink-0 font-mono text-xs text-text-muted">{id}</span>}
+            {id && <span className={cn('shrink-0 font-mono text-xs group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>{id}</span>}
             <span className="truncate text-sm font-medium text-text-primary">{title}</span>
           </div>
 
           {(badges || meta) && (
-            <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+            <div className={cn('flex flex-wrap items-center gap-2 text-xs group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
               {badges}
               {meta}
             </div>

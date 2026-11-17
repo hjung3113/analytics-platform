@@ -71,10 +71,10 @@ export default function MyVoc() {
       <div className="@container/voc relative h-full">
         {/* At 48rem the list's 320px minimum still leaves a usable reading pane. Below it, the URL selection chooses the pane. */}
         <div className="absolute inset-0 grid grid-cols-1 @3xl/voc:grid-cols-[minmax(320px,2fr)_3fr]">
-          <div ref={listPaneRef} tabIndex={-1} data-voc-list className={`min-h-0 min-w-0 border-r border-border-subtle @3xl/voc:block ${focus === null ? '' : 'hidden'}`}>
+          <div ref={listPaneRef} tabIndex={-1} data-voc-list className={`bg-surface-list min-h-0 min-w-0 border-r border-border-subtle @3xl/voc:block ${focus === null ? '' : 'hidden'}`}>
             <PublicVocListScreen query={query} initialFocus={clearedFocus} onInitialFocusClaimed={onInitialFocusClaimed} onQueryChange={onQueryChange} selectedId={focus} onSelect={onSelect} />
           </div>
-          <section ref={detailPaneRef} tabIndex={-1} aria-label={m('myVocVOCDetails')} className={`min-h-0 min-w-0 overflow-y-auto @3xl/voc:block ${focus === null ? 'hidden' : ''}`}>
+          <section ref={detailPaneRef} tabIndex={-1} aria-label={m('myVocVOCDetails')} className={`bg-surface-detail min-h-0 min-w-0 overflow-y-auto @3xl/voc:block ${focus === null ? 'hidden' : ''}`}>
             {focus === null
               ? <p className="p-6 text-sm text-text-muted">{m('myVocPickAVOCInTheListTo')}</p>
               : <>

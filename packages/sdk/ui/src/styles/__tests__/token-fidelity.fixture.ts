@@ -23,6 +23,7 @@
  * #799 (2026-10-06): internal Task status labels gained matching `-label`
  * tokens measured on each status tint over every Task badge surface.
  * #1945: caption is 12px, matching the current DESIGN typography contract.
+ * #2456: white card palette; canvas and muted text have independent semantic values.
  */
 
 export interface TokenEntry {
@@ -35,7 +36,7 @@ export interface TokenEntry {
 export const PACK_17_TOKENS: TokenEntry[] = [
   // --- Raw color tokens ---
   { tokenName: '--color-pitch-black', hex: '#f3f7fe', rgb: '243 247 254' },
-  { tokenName: '--color-graphite', hex: '#fbfdff', rgb: '251 253 255' },
+  { tokenName: '--color-graphite', hex: '#ffffff', rgb: '255 255 255' },
   { tokenName: '--color-deep-slate', hex: '#edf3fb', rgb: '237 243 251' },
   { tokenName: '--color-charcoal-grey', hex: '#cbd6e6', rgb: '203 214 230' },
   { tokenName: '--color-muted-ash', hex: '#b8c4d6', rgb: '184 196 214' },
@@ -70,7 +71,7 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   // --- Semantic text tokens ---
   { tokenName: '--text-primary', raw: 'var(--color-porcelain)' },
   { tokenName: '--text-secondary', raw: 'var(--color-light-steel)' },
-  { tokenName: '--text-muted', raw: 'var(--color-storm-cloud)' },
+  { tokenName: '--text-muted', raw: '95 105 123' },
   { tokenName: '--text-disabled', raw: 'var(--color-fog-grey)' },
   { tokenName: '--text-danger', raw: 'var(--color-warning-red)' },
   { tokenName: '--text-warning', raw: 'var(--color-amber)' },
@@ -83,7 +84,7 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--text-on-accent', hex: '#ffffff', rgb: '255 255 255' },
 
   // --- Surface tokens ---
-  { tokenName: '--surface-canvas', raw: 'var(--color-pitch-black)' },
+  { tokenName: '--surface-canvas', raw: '238 242 249' },
   { tokenName: '--surface-sidebar', hex: '#eef4fb', rgb: '238 244 251' },
   { tokenName: '--surface-list', raw: 'var(--color-pitch-black)' },
   { tokenName: '--surface-row-hover', hex: '#e7effc', rgb: '231 239 252' },

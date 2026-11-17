@@ -113,7 +113,7 @@ export function VocRow({
       onKeyDown={handleKeyDown}
       className={cn(
         // Base layout — prototype .object-row: min-height 60px, padding 10px 20px, gap 12px
-        'relative flex w-full items-center gap-3 px-5 py-2.5 min-h-row-default text-left cursor-pointer',
+        'group/voc-row relative flex w-full items-center gap-3 px-5 py-2.5 min-h-row-default text-left cursor-pointer',
         // Row divider — prototype .object-row { border-bottom: 1px solid var(--border-subtle) }
         'border-b border-border-subtle',
         // Hover
@@ -130,7 +130,7 @@ export function VocRow({
         <div
           data-testid="voc-row-left-bar"
           aria-hidden="true"
-          className="absolute left-0 top-0 bottom-0 w-row-accent rounded-r-sm bg-accent-primary"
+          className="absolute inset-y-0 left-0 w-0.5 bg-border-selected"
         />
       )}
 
@@ -139,7 +139,7 @@ export function VocRow({
         {permissionLimited === true ? (
           // Permission-limited peek: display_id + status only
           <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-            <span className="font-mono text-text-muted text-xs whitespace-nowrap shrink-0 max-w-full truncate" title={voc.display_id}>{voc.display_id}</span>
+            <span className={cn('font-mono text-xs whitespace-nowrap shrink-0 max-w-full truncate group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')} title={voc.display_id}>{voc.display_id}</span>
             <ReporterStatusBadge status={voc.reporter_facing_status} />
           </div>
         ) : (
@@ -151,7 +151,7 @@ export function VocRow({
               <span className="min-w-0 flex-1 font-medium text-text-primary truncate">{voc.title}</span>
               {voc.attachment_count > 0 && (
                 <span
-                  className="inline-flex items-center gap-1 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs font-medium text-text-muted shrink-0"
+                  className={cn('inline-flex items-center gap-1 rounded-full bg-text-muted/10 px-1.5 py-0.5 text-xs font-medium shrink-0 group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}
                   aria-label={`첨부 ${voc.attachment_count}개`}
                 >
                   <Paperclip className="h-2.5 w-2.5" aria-hidden="true" />
@@ -159,7 +159,7 @@ export function VocRow({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-text-muted overflow-hidden">
+            <div className={cn('flex items-center gap-2 text-xs overflow-hidden group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
               <ReporterStatusBadge status={voc.reporter_facing_status} />
               {voc.severity != null && !reporterView && <SeverityBadge severity={voc.severity} />}
               {managedSystem !== null && managedSystem !== undefined && (
@@ -193,7 +193,7 @@ export function VocRow({
           {showOwnerMissing && ownerMissing ? (
             <UnassignedBadge tone={unassignedBadgeTone ?? 'danger'} />
           ) : voc.owner_team_id != null ? (
-            <span className="text-xs text-text-muted">
+            <span className={cn('text-xs group-hover/voc-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted')}>
               {RESPONSIBILITY_COPY.teamMark} · {ownerTeamName ?? `팀 ${shortId(voc.owner_team_id)}`}
             </span>
           ) : owner !== null && owner !== undefined ? (

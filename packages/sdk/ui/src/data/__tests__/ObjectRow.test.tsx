@@ -6,6 +6,13 @@ import { vi } from 'vitest';
 import { ObjectRow } from '../ObjectRow.js';
 
 describe('ObjectRow', () => {
+  it.each([false, true])('keeps metadata readable on hover and selection (selected=%s)', selected => {
+    const { container } = render(<ObjectRow selected={selected} id="ID" title="Title" meta="Metadata" />);
+    expect(container.firstElementChild).toHaveClass('group/object-row');
+    for (const meta of [screen.getByText('ID'), screen.getByText('Metadata')]) {
+      expect(meta).toHaveClass('group-hover/object-row:text-text-secondary', selected ? 'text-text-secondary' : 'text-text-muted');
+    }
+  });
   it('renders title and mono id', () => {
     const { container } = render(<ObjectRow id="VOC-1042" title="권한 요청이 반복됩니다" />);
 
