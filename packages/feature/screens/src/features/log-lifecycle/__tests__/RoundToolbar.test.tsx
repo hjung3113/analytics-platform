@@ -13,10 +13,10 @@ const round: RoundDetail = { id: 'round', projectId: 'project', seq: 3, stage: '
 
 const page = vi.fn<Presentation['page']>(p => <section data-testid="page"><h1>{p.title}</h1>{p.primaryAction ? <button type="button" onClick={p.primaryAction.onSelect}>{p.primaryAction.label}</button> : null}{p.children}</section>);
 const ui = fakeUi({ page, drawer: () => null, sourceView: undefined });
-function setup() {
+function setup(initialState: Record<string, string> = {}, includeSourceView = false) {
   const options = { status: 'done' as ReadState<unknown>['status'], projectStatus: 'done' as ReadState<unknown>['status'], roundStatus: 'done' as ReadState<unknown>['status'], canGate: true, empty: false, denied: false, missing: false, manifestMatches: true, opinionCount: 1, scaleStatus: 'done' as ReadState<unknown>['status'], grades: [{ key: 'review', label: '검토' }] };
   function Host() {
-    const [state, setState] = useState<Record<string, string>>({});
+    const [state, setState] = useState(initialState);
     const empty = options.empty && state.result !== 'all';
     const values: Record<string, unknown> = {
       roundDetail: round, requests: { rows: [request], total: 1 },
@@ -25,7 +25,7 @@ function setup() {
     };
     const statuses: Record<string, ReadState<unknown>['status']> = { ruleResults: options.status, roundDetail: options.roundStatus, opinionScale: options.scaleStatus };
     const props: ScreenProps = {
-      ui, actorId: 'actor', canProject: false, canRound: false, canGate: options.canGate, state,
+      ui: includeSourceView ? fakeUi({ page, drawer: () => null, sourceView: () => null }) : ui, actorId: 'actor', canProject: false, canRound: false, canGate: options.canGate, state,
       setState: patch => setState(previous => { const next = { ...previous }; for (const [key, value] of Object.entries(patch)) { if (value === undefined) delete next[key]; else next[key] = value; } return next; }),
       setSelection: vi.fn(), api: {
         useAction: () => ({ pending: false, run: vi.fn() }),
@@ -93,6 +93,17 @@ it('keeps required unchecked warning visible beside inline metadata', () => {
   setup();
   expect(screen.getByText('필수 오류·미검증·건너뜀 1건')).toHaveClass('text-text-warning-label');
   expect(screen.getByLabelText('선택 시도 서버 판정').closest('dl')).toBeTruthy();
+});
+
+it('places the Round sample ordering and Top View note in page info on the source tab', () => {
+  setup({ view: 'source' }, true);
+  const received = page.mock.calls.at(-1)?.[0];
+  expect(received ? Reflect.get(received, 'description') : undefined).toBe('0파일 · 파일 순서 → 줄 번호 · Top View 미연결');
+});
+it.each(['verify', 'source'] as const)('uses a stable fill page layout for the Round %s view', view => {
+  setup({ view }, view === 'source');
+  const received = page.mock.calls.at(-1)?.[0];
+  expect(received ? Reflect.get(received, 'layout') : undefined).toBe('fill');
 });
 
 it.each([

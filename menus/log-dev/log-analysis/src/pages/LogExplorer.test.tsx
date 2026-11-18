@@ -83,10 +83,10 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     const basket = await screen.findByRole('button', { name: '근거 위치 바구니 · 0' });
     expect(screen.getByRole('combobox', { name: '샘플 목록' }).classList.contains('h-8')).toBe(true);
     expect(await screen.findByText('합성 데이터')).toBeTruthy();
-    expect(screen.getByText('1파일 · 파일 순서 → 줄 번호')).toBeTruthy();
+    expect(screen.getByText('1파일 · 파일 순서 → 줄 번호 · Top View 미연결')).toBeTruthy();
     const tools = basket.parentElement!;
     expect(tools.parentElement?.firstElementChild).toBe(tools);
-    expect(tools.classList.contains('shrink-0')).toBe(true);
+    expect(tools.classList.contains('flex-nowrap')).toBe(true);
     fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
     const add = await screen.findByRole('button', { name: '근거 위치 담기' });
     await waitFor(() => expect((add as HTMLButtonElement).disabled).toBe(false));
@@ -452,7 +452,7 @@ describe('recent Sources in the create dialog (#2543b)', () => {
       mount(<ReopenableDialog />);
       let dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
       fireEvent.click(await within(dialog).findByRole('button', { name: 'Recent source' }));
-      expect((await screen.findByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner');
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner'));
       fireEvent.change(within(dialog).getByLabelText('조사 이름'), { target: { value: '작성 중' } });
       fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
       await waitFor(() => expect(screen.queryByRole('dialog', { name: '조사 만들기' })).toBeNull());
@@ -523,7 +523,7 @@ describe('recent Sources in the create dialog (#2543b)', () => {
       const mounted = mountWithSession(<SampleDialog open onOpenChange={() => undefined} />);
       const createDialog = await screen.findByRole('dialog', { name: '조사 만들기' });
       fireEvent.click(await within(createDialog).findByRole('button', { name: 'Recent source' }));
-      expect((await screen.findByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner');
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner'));
       mounted.changeSession(testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], { user: { id: 'u2' } }));
       await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe(''));
       expect((screen.getByLabelText(/파일 참조/) as HTMLTextAreaElement).value).toBe('');
@@ -693,7 +693,7 @@ describe('Round evidence handoff dialog (#1474, confirmed prototype A)', () => {
 });
 
 describe('embedded read-only body (#1475, Round detail tab)', () => {
-  const embedded = () => mount(<InvestigationScreen embedded picker={null} investigation={investigation} frame={({ contextExtension, children }) => <div className="flex h-full flex-col">{contextExtension}{children}</div>} />);
+  const embedded = () => mount(<InvestigationScreen embedded picker={null} investigation={investigation} frame={({ children }) => <div className="flex h-full flex-col">{children}</div>} />);
   it('shows the Source table and the record drawer but offers no write: no saved conditions, no basket, no add-to-basket', async () => {
     embedded();
     fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
@@ -1024,9 +1024,8 @@ describe('minor bundle regressions (#2056)', () => {
     expect(write.mock.calls[1]![0].expectedVersion).toBe('2');
   });
   it('refuses a half-filled Context condition before applying or saving it', async () => {
-    mount(<InvestigationScreen investigation={investigation} picker={null} frame={({ contextExtension, children }) => <>{contextExtension}{children}</>} />); await screen.findByRole('button', { name: '근거 위치 바구니 · 0' });
-    const expand = screen.queryByRole('button', { name: /조회 조건.*펼치기/ });
-    if (expand) fireEvent.click(expand);
+    mount(<InvestigationScreen investigation={investigation} picker={null} frame={({ children }) => <>{children}</>} />); await screen.findByRole('button', { name: '근거 위치 바구니 · 0' });
+    await openFilters();
     fireEvent.change(await screen.findByLabelText('Context 키'), { target: { value: 'job' } });
     expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
     expect(await screen.findByRole('alert')).toBeTruthy();
@@ -1054,17 +1053,44 @@ it('resets local Source filters when the host changes Round (#2056)', async () =
     return <><button onClick={() => setRound('14750000-0000-4000-8000-000000000002')}>다음 Round</button><RoundSourceView roundId={round} sampleSet={set} /></>;
   }
   mount(<SwitchingRound />, ['sourceTab', 'sourceFocus', 'sourceDrawer', 'sourceLogType', 'sourceModule', 'sourceEvent', 'sourceContextKey', 'sourceContextValue', 'sourceText']);
-  fireEvent.click(await screen.findByRole('button', { name: '조회 조건 펼치기' }));
+  await openFilters();
   fireEvent.change(screen.getByLabelText('Module'), { target: { value: 'module-a' } });
   fireEvent.click(screen.getByRole('button', { name: '적용' }));
   await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { module: 'module-a' } }));
   fireEvent.click(screen.getByRole('button', { name: '다음 Round' }));
   await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: {} }));
+  await openFilters();
   expect((screen.getByLabelText('Module') as HTMLInputElement).value).toBe('');
 });
 
-// The bar starts collapsed; once opened, the stored preference keeps it open on remount.
-const openFilters = async () => { await screen.findByRole('button', { name: /조회 조건 (펼치기|접기)/ }); const expand = screen.queryByRole('button', { name: '조회 조건 펼치기' }); if (expand) fireEvent.click(expand); };
+// The editor is always editable on open; only the applied values survive a remount.
+const openFilters = async () => { const trigger = await screen.findByRole('button', { name: /조회 조건/ }); if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger); };
+
+it('opens editable fields in one click, then Escape closes and returns focus to the trigger', async () => {
+  mount();
+  const trigger = await screen.findByRole('button', { name: /조회 조건/ });
+  fireEvent.click(trigger);
+  const firstField = await screen.findByLabelText('로그 타입');
+  expect(document.activeElement).toBe(firstField);
+  expect(screen.queryByRole('button', { name: /조회 조건.*접기/ })).toBeNull();
+  fireEvent.keyDown(firstField, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByLabelText('로그 타입')).toBeNull());
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.click(trigger);
+  expect(await screen.findByLabelText('로그 타입')).toBeTruthy();
+});
+
+it('shows applied field/value pairs and a pending-edit mark in the closed trigger', async () => {
+  mount();
+  const trigger = await screen.findByRole('button', { name: /조회 조건/ });
+  fireEvent.click(trigger);
+  fireEvent.change(await screen.findByLabelText('Module'), { target: { value: 'module-a' } });
+  expect(trigger.textContent).toContain('미적용 변경');
+  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(screen.queryByLabelText('Module')).toBeNull());
+  expect(trigger.textContent).toContain('Module module-a');
+  expect(trigger.textContent).not.toContain('미적용 변경');
+});
 
 it('applies a filter on Enter, stores it in the URL and restores it after remount', async () => {
   const mounted = mount();

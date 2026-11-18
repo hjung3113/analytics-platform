@@ -29,6 +29,8 @@
 | 명세 초안 편집과 발행 확인 | 로그 지식 허브 › 모델 명세 | `drawer=draft&revision=` 주소가 전체 페이지 편집기를 연다. 현재 모델 발행본과 파싱된 초안을 비교해 Module·Event·관계의 추가·변경·삭제 수를 보인다. 첫 발행·변경 없음·비교 불가 상태를 구분하고, 같은 기준 Revision과 건수를 발행 확인에도 보인다 | §6.4, §13 | 화면 점검(실서버) |
 | Source 없는 실서버 | 로그 분석 › 로그 탐색 | 실서버에는 Source 어댑터가 없어 지어낸 결과 없이 지원 안 됨 상태를 보인다 | [ADR-0119](../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md) 결정 2·7 | 화면 점검(실서버) |
 | 합성 표시 | 로그 탐색, mock | 합성 결과에 `합성` 표시가 있다 | ADR-0119 결정 7 | 화면 점검(mock) |
+| 로그 탐색 조회 조건 | 로그 분석 › 로그 탐색 | 한 번 열어 바로 편집할 수 있고, 닫힌 트리거에 적용된 조건과 미적용 변경을 보인다. Escape는 트리거로 포커스를 돌리고 필터는 주소에서 복원된다 | #2543c1, `pageKeys`, Enter·IME 가드 | 화면 점검(mock) |
 | 저장된 조사 복원 | 로그 탐색, 조사 열기, 새로고침 | 탭과 선택이 복원된다 | manifest `pageKeys`, §6.4 | 화면 점검(mock) |
+| Round 원본 탭 | 표준 로그 개발 › Round › 원본 탭 | 압축 탭과 조회 조건 편집을 제공한다. 조건은 `source*` 주소 키로 유지하고 조회 전용으로 보여 준다. 표는 남은 Round 높이를 채우고 행은 표 안에서 스크롤한다. 샘플 선택·바구니·조건 저장은 없으며 «이 Round로 조사 시작»은 유지한다. 파일 수·정렬 기준·Top View 안내는 페이지 정보에 표시한다 | #2543c1, `view=source`, `sourceTab`, `sourceModule` | 화면 점검(mock) |
 | Round에서 조사 시작 | 표준 로그 개발 › Round › 원본 탭 | 권한이 있으면 «이 Round로 조사 시작»으로 Round 조사를 만든다. 제목은 첫 파일 참조를 담고 제목 한도를 넘으면 줄여 표시한다. 원문 서랍에서 시작하면 같은 파일 순서와 줄로 열린다. 권한이 없으면 버튼이 사유와 함께 막힌다 | #2543b, `investigationCreate`, manifest `focus` | 화면 점검(mock) |
 | 조사 만들기 최근 Source | 로그 탐색 › 조사 만들기 | 본인 소유의 열린 standalone 조사 중 최근 5개를 수정 시각 최신순으로 보여 준다. 선택하면 Source 소유자와 순서 있는 파일 참조·SHA-256을 채우며 편집할 수 있다. 최근 Source가 없으면 직접 입력을 열고, 목록 로딩·실패 중에도 입력할 수 있다 | `investigationsEndpoint`, `investigationDetailEndpoint` | 화면 점검(mock) |

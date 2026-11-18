@@ -1,9 +1,9 @@
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Info, PanelRight } from 'lucide-react';
 import type { ApiResponse, PageResult } from '@ap/contracts';
 import { useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
-import { HeaderOverflowItem, OrderedIntervalTrack, PageFilterBar, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, StateMessage, useHeaderOverflowDialog, usePageKeyRules, type PageFilterField, type PlatformColumn } from '@ap/components';
-import { Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SearchInput, Skeleton, StatusBadge, Tabs, TabsList, TabsTrigger, useImeEnterGuard } from '@ap/ui';
+import { HeaderOverflowItem, OrderedIntervalTrack, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, StateMessage, useHeaderOverflowDialog, usePageKeyRules, type PlatformColumn } from '@ap/components';
+import { Button, Input, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SearchInput, Skeleton, StatusBadge, Tabs, TabsList, TabsTrigger, useImeEnterGuard } from '@ap/ui';
 import { investigationsEndpoint, investigationDetailEndpoint, investigationUpdate, isUuid, periodsEndpoint, recordsEndpoint, type Investigation, type InvestigationFilters, type SampleSet, type SourceRow } from '../endpoints';
 import { BasketDrawer, ExportDialog, RecordDrawer, RoundStartButton, SampleDialog, SourceNotice, useRoundInvestigationStart } from './ExplorerPanels';
 import { periodSelectionOf, queryFrom, selectionOf, sequenceData, sourceReadable } from './explorerModel';
@@ -45,7 +45,7 @@ export default function LogExplorer({ params }: PageProps) {
   const picker = <div className="flex min-w-0 items-center gap-2 break-keep">
     <Select value={id ?? ''} onValueChange={investigationId => navigate(linkTo('log-explorer-view', { params: { investigationId } }))}><SelectTrigger density="compact" aria-label="샘플 목록" className="w-64 min-w-0"><SelectValue placeholder="저장한 조사 선택" /></SelectTrigger><SelectContent><SelectGroup>{list.response?.data?.rows.map(row => <SelectItem key={row.id} value={row.id}>{row.title}</SelectItem>)}</SelectGroup></SelectContent></Select>
     <Button variant="secondary" size="toolbar" className="shrink-0 whitespace-nowrap" onClick={() => setSampleOpen(true)}>조사 만들기</Button>
-    {list.response?.data && list.response.data.total > 200 && <p className="min-w-0 text-xs text-text-secondary">최근 조사 200개 표시 · 조사 주소로 직접 열 수 있습니다.</p>}
+    {list.response?.data && list.response.data.total > 200 && <p className="max-w-48 min-w-0 truncate whitespace-nowrap text-xs text-text-secondary">최근 조사 200개 표시 · 조사 주소로 직접 열 수 있습니다.</p>}
   </div>;
   const failed = !list.response || !isAnswered(list.response.outcome) || !!detail.response && !isAnswered(detail.response.outcome);
   if (!valid) return <PlatformPage><StateMessage icon={<Info className="size-4" aria-hidden />} title="조사 주소를 확인하세요." /></PlatformPage>;
@@ -57,7 +57,7 @@ export default function LogExplorer({ params }: PageProps) {
   </>;
 }
 
-type FrameProps = { contextExtension: React.ReactNode; children: React.ReactNode };
+type FrameProps = { children: React.ReactNode };
 /**
  * The investigation body: conditions, 원본/시퀀스 tabs, the record drawer. `embedded` is a read-only host (the Round detail tab, #1475):
  * no saved-conditions write, no evidence basket, no add-to-basket; the conditions stay local. `frame` replaces the page frame when a host
@@ -107,6 +107,8 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const periods = useSourceRead(periodsEndpoint, { sampleSet: set!, query, cursor: periodCursor, limit: 200 }, !!set && !keys.invalid && tab === 'sequence');
   const update = useMenuAction(investigationUpdate);
   const [writeNotice, setWriteNotice] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const firstFilterRef = useRef<HTMLInputElement>(null);
   const narrow = useSyncExternalStore(subscribeNarrow, narrowSnapshot, () => false);
   const filterIme = useImeEnterGuard();
   const selection = set ? selectionOf(focus, set) : null;
@@ -135,35 +137,57 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
     if (contextInvalid) return;
     setFilters(f => ({ ...f, applied: f.draft }));
     setPage(filterAddress(filters.draft));
+    setFilterOpen(false);
   };
   const clearFilters = () => {
     setFilters(f => ({ ...f, draft: {}, applied: {} }));
     setPage(Object.fromEntries(FILTER_KEYS.map(key => [pageKeys[key], null])));
+    setFilterOpen(false);
   };
-  const fields: PageFilterField[] = FILTER_BAR_KEYS.map(key => ({ key, testId: key, label: FILTER_LABELS[key], kind: 'text', value: String(filters.draft[key] ?? ''), onValueChange: value => setFilters(f => ({ ...f, draft: { ...f.draft, [key]: value.slice(0, FILTER_MAX_LENGTH[key]) } })) }));
-  const summaryItems = [...fields.map(f => ({ key: f.key, label: f.label, value: String(filters.applied[f.key] || '전체') })), { key: 'text', label: '검색', value: String(filters.applied.text || '없음') }];
+  const summaryItems = [...FILTER_BAR_KEYS.map(key => ({ key, label: FILTER_LABELS[key], value: String(filters.applied[key] || '전체') })), { key: 'text', label: '검색', value: String(filters.applied.text || '없음') }];
   const summary = summaryItems.map(i => `${i.label} ${i.value}`).join(' · ');
+  const appliedPairs = FILTER_KEYS.flatMap(key => {
+    const value = filters.applied[key];
+    return typeof value === 'string' && value !== '' ? [`${FILTER_LABELS[key]} ${value}`] : [];
+  });
+  const appliedSummary = appliedPairs.length ? appliedPairs.join(' · ') : '적용 조건 없음';
   const track = set ? sequenceData(set, periodData?.rows ?? []) : null;
   const closeDrawer = () => setPage({ [pageKeys.focus]: null, [pageKeys.drawer]: null });
-  const contextExtension = <div className="flex flex-col gap-3 break-keep">
-      <div onCompositionStart={filterIme.onCompositionStart} onCompositionEnd={filterIme.onCompositionEnd} onKeyDownCapture={event => {
+  const conditions = <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="secondary" size="toolbar" className="shrink min-w-0 max-w-[min(24rem,28vw)] justify-start whitespace-nowrap">
+          <span className="shrink-0">조회 조건</span>
+          <span className="min-w-0 truncate text-xs text-text-secondary">{appliedSummary}</span>
+          {pending && <span className="shrink-0 text-xs text-text-warning-label">미적용 변경</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent aria-label="조회 조건" align="start" collisionPadding={8} padding="default" className="max-h-[min(var(--radix-popper-available-height),calc(100dvh-1rem))] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); firstFilterRef.current?.focus(); }}>
+        <div className="grid gap-3 break-keep" onCompositionStart={filterIme.onCompositionStart} onCompositionEnd={filterIme.onCompositionEnd} onKeyDownCapture={event => {
         const target = event.target;
         if (!(target instanceof HTMLInputElement) || !FILTER_BAR_KEYS.includes(target.dataset.testid as typeof FILTER_BAR_KEYS[number])) return;
         if (filterIme.isComposingEnter(event)) { event.preventDefault(); return; }
         if (event.key === 'Enter') { event.preventDefault(); applyFilters(); }
       }}>
-        <PageFilterBar collapsible defaultCollapsed preferenceKey="log-explorer" label="조회 조건" summaryItems={summaryItems} hasPendingChanges={pending} fields={[
-          ...fields, { key: 'period', label: '기간 시작·끝', kind: 'custom', content: <p className="text-xs text-text-secondary">Source 조회 계약에서 미지원</p> },
-        ]} actions={<><Button size="toolbar" disabled={!pending || contextInvalid} onClick={applyFilters}>적용</Button><Button variant="ghost" size="toolbar" onClick={clearFilters}>초기화</Button>{!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending || contextInvalid} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: currentInvestigation.version }).then(r => { if (r.outcome === 'ok' && r.version) acceptVersion(r.version); setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 저장 여부를 다시 확인하세요.' : '조건을 저장하지 못했습니다.'); }).catch(() => undefined); }}>조건 저장</Button>}</>} />
+        {FILTER_BAR_KEYS.map((key, index) => <div key={key} className="grid gap-1.5">
+          <Label htmlFor={`log-explorer-${key}`}>{FILTER_LABELS[key]}</Label>
+          <Input id={`log-explorer-${key}`} ref={index === 0 ? firstFilterRef : undefined} data-testid={key} maxLength={FILTER_MAX_LENGTH[key]} value={String(filters.draft[key] ?? '')} onChange={event => { const value = event.currentTarget.value.slice(0, FILTER_MAX_LENGTH[key]); setFilters(f => ({ ...f, draft: { ...f.draft, [key]: value } })); }} />
+        </div>)}
+        <p className="text-xs text-text-secondary">기간 시작·끝 조건은 Source 조회 계약에서 미지원</p>
+        {contextInvalid && <p role="alert" className="text-xs text-text-danger-label">Context 키와 값을 함께 입력하세요.</p>}
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border-subtle pt-3">
+          <Button size="toolbar" disabled={!pending || contextInvalid} onClick={applyFilters}>적용</Button>
+          <Button variant="ghost" size="toolbar" onClick={clearFilters}>초기화</Button>
+          {!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending || contextInvalid} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: currentInvestigation.version }).then(r => { if (r.outcome === 'ok' && r.version) acceptVersion(r.version); setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 저장 여부를 다시 확인하세요.' : '조건을 저장하지 못했습니다.'); }).catch(() => undefined); }}>조건 저장</Button>}
+        </div>
       </div>
-      {contextInvalid && <p role="alert" className="text-xs text-text-danger-label">Context 키와 값을 함께 입력하세요.</p>}
-    </div>;
+    </PopoverContent>
+  </Popover>;
   const inner = (
     <div className="flex min-h-0 flex-1 flex-col gap-3 break-keep">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">{picker}{synthetic && <StatusBadge tone="info">합성 데이터</StatusBadge>}{set && <span className="text-xs text-text-secondary">{set.files.length}파일 · 파일 순서 → 줄 번호</span>}{embedded && <RoundStartButton action={roundStart} location="toolbar" />}{!embedded && <Button variant="secondary" size="toolbar" className="whitespace-nowrap" onClick={() => setPage({ [pageKeys.drawer]: 'basket' })}>근거 위치 바구니 · {investigation.evidence.length}</Button>}</div>
+      <div className="flex min-w-0 shrink-0 flex-nowrap items-center gap-2">{picker}{conditions}{synthetic && <StatusBadge tone="info">합성 데이터</StatusBadge>}{embedded && <RoundStartButton action={roundStart} location="toolbar" />}{!embedded && <Button variant="secondary" size="toolbar" className="shrink-0 whitespace-nowrap" onClick={() => setPage({ [pageKeys.drawer]: 'basket' })}>근거 위치 바구니 · {investigation.evidence.length}</Button>}</div>
       {writeNotice && <p role="status" className="text-xs text-text-secondary">{writeNotice}</p>}
       {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : !set ? <StateMessage icon={<Info className="size-4" aria-hidden />} title="원본 없음" body="Round의 샘플 목록을 열 수 없습니다." /> : <>
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2"><Tabs value={tab} onValueChange={value => setPage({ [pageKeys.tab]: value })}><TabsList aria-label="로그 보기"><TabsTrigger value="raw">원본</TabsTrigger><TabsTrigger value="sequence">시퀀스</TabsTrigger></TabsList></Tabs><span className="text-xs text-text-secondary">{selection ? `선택 ${selection.fileRef}:${selection.line} · ` : ''}Top View 미연결</span></div>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2"><Tabs value={tab} onValueChange={value => setPage({ [pageKeys.tab]: value })}><TabsList aria-label="로그 보기"><TabsTrigger value="raw">원본</TabsTrigger><TabsTrigger value="sequence">시퀀스</TabsTrigger></TabsList></Tabs>{selection && <span className="text-xs text-text-secondary">선택 {selection.fileRef}:{selection.line}</span>}</div>
         {active.loading ? <Loading onCancel={active.cancel} /> : active.cancelled ? <StateMessage icon={<Info className="size-4" aria-hidden />} title="조회를 취소했습니다." action={<Button variant="secondary" size="toolbar" onClick={active.retry}>다시 조회</Button>} /> : active.failed ? <StateMessage icon={<Info className="size-4" aria-hidden />} title="원본을 읽지 못했습니다." action={<Button variant="secondary" size="toolbar" onClick={active.retry}>다시 시도</Button>} /> : <>
           <SourceNotice answer={accessDenied ? { state: 'permission_denied', reason: null, synthetic: false, label: null } : tab === 'raw' ? data : periodData} />
           {accessDenied && <Button variant="secondary" size="toolbar" onClick={() => { closeDrawer(); setAccessDenied(false); records.retry(); periods.retry(); }}>접근 권한 다시 확인</Button>}
@@ -178,6 +202,6 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
       {!keys.invalid && (embedded || drawer !== 'basket') && selection && set && <RecordDrawer onVersion={acceptVersion} embedded={embedded} roundStart={roundStart} key={`${selection.fileRef}:${selection.line}`} investigation={currentInvestigation} blocked={accessDenied} onDenied={() => setAccessDenied(true)} set={set} selection={selection} onClose={closeDrawer} />}
     </div>
   );
-  const framed = frame ? frame({ contextExtension, children: inner }) : <PlatformPage layout="fill" contextExtension={contextExtension} queryBarExtension={{ pageSummary: summaryItems, appliedPageSummary: summaryItems, issues: [] }} secondaryActions={set && <ExportEntry set={set} summary={summary} />}>{inner}</PlatformPage>;
+  const framed = frame ? frame({ children: inner }) : <PlatformPage layout="fill" description={set ? `${set.files.length}파일 · 파일 순서 → 줄 번호 · Top View 미연결` : undefined} secondaryActions={set && <ExportEntry set={set} summary={summary} />}>{inner}</PlatformPage>;
   return <PageKeysContext.Provider value={pageKeys}>{framed}</PageKeysContext.Provider>;
 }
