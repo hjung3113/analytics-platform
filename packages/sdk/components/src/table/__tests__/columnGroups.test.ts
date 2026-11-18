@@ -40,10 +40,16 @@ describe('stored column-group item rule', () => {
     expect(isStoredColumnGroups({ basis: 'b', items: [good, bad] })).toBe(false);
     expect(sanitizeColumnGroups({ basis: 'b', items: [good, bad] })).toEqual({ basis: 'b', items: [{ id: 'u:a', label: '비교', members: ['x', 'y'], width: 60 }] });
   });
-  it('an unknown key or a repeated id fails the saved-view guard but only drops that item on screen', () => {
+  it('an unknown key or a repeated id fails the saved-view guard; on screen the extra key is ignored and only the later duplicate is dropped', () => {
     expect(isStoredColumnGroupItem({ ...good, extra: 1 })).toBe(true);
     expect(isStoredColumnGroups({ basis: 'b', items: [good, { id: 'g', members: [], extra: 1 }] })).toBe(false);
     expect(isStoredColumnGroups({ basis: 'b', items: [good, good] })).toBe(false);
-    expect(sanitizeColumnGroups({ basis: 'b', items: [good, good, { id: 'g', members: ['z'], extra: 1 }] })?.items.map(i => i.id)).toEqual(['u:a', 'g']);
+    expect(sanitizeColumnGroups({ basis: 'b', items: [good, good, { id: 'g', members: ['z'], extra: 1 }] })?.items).toEqual([{ id: 'u:a', label: '비교', members: ['x', 'y'], width: 60 }, { id: 'g', members: ['z'] }]);
+  });
+  it('rejects an unknown key and skips a repeated id before reading the other fields', () => {
+    const throwing = (extra: object) => Object.defineProperty({ id: 'u:a', ...extra }, 'members', { enumerable: true, get() { throw new Error('read members'); } });
+    expect(isStoredColumnGroups({ basis: 'b', items: [throwing({ extra: 1 })] })).toBe(false);
+    expect(isStoredColumnGroups({ basis: 'b', items: [good, throwing({})] })).toBe(false);
+    expect(sanitizeColumnGroups({ basis: 'b', items: [good, throwing({})] })?.items.map(i => i.id)).toEqual(['u:a']);
   });
 });

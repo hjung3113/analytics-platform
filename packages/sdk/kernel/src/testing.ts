@@ -19,15 +19,18 @@ export function testSpace(over: Partial<SpaceDef> = {}): SpaceDef {
 
 /**
  * Menu fixture: a live `management` menu `home` in group `overview` behind `platform:view`, with every feature off.
- * Pass the fields the test means; `features` merges, so `{ features: { export: true } }` keeps the rest off.
+ * Pass the fields the test means; `features` merges, so `{ features: { export: true } }` keeps the rest off. An `undefined`
+ * value is ignored, and every call gets its own `context` record.
  * `query` defaults to live, so `pageType: 'analysis'` registers without the Apply period it would otherwise need.
  */
 export function testMenu(over: Partial<Omit<PlatformMenuEntry, 'features'>> & { features?: Partial<PlatformMenuEntry['features']> } = {}): PlatformMenuEntry {
+  // An `undefined` override counts as omitted, so a required field keeps its default.
+  const defined = <T extends object>(value: T | undefined) => Object.fromEntries(Object.entries(value ?? {}).filter(([, v]) => v !== undefined)) as Partial<T>;
   const { features, ...rest } = over;
   return {
     id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House,
-    permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', query: { mode: 'live' }, pageKeys: [], ...rest,
-    features: { export: false, savedView: false, annotate: false, compare: false, ...features },
+    permission: 'platform:view', requiresScope: false, context: contextCapabilities(), pageType: 'management', query: { mode: 'live' }, pageKeys: [], ...defined(rest),
+    features: { export: false, savedView: false, annotate: false, compare: false, ...defined(features) },
   };
 }
 

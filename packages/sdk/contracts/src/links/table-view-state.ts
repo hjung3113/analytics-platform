@@ -17,7 +17,8 @@ const identifier = (value: unknown): value is string => typeof value === 'string
 /**
  * The one rule for a stored column-group item (#2514): id and members 1–200 characters, at most 500 members, a trimmed
  * label of 1–60, a label on every `u:` group, a finite width of at least 60. Unknown keys and repeated ids are the
- * caller's policy: the saved-view guard rejects them, the screen's sanitize drops the item and keeps the rest.
+ * caller's policy: the saved-view guard rejects the whole snapshot for either; the screen's sanitize keeps an item with
+ * unknown keys (copying only the known fields), keeps the first item of a repeated id and drops the later ones.
  */
 export function isStoredColumnGroupItem(value: unknown): value is StoredColumnGroupItem {
   if (!isRecord(value) || !identifier(value.id)) return false;
@@ -30,7 +31,8 @@ export function isStoredColumnGroups(value: unknown): value is StoredColumnGroup
   if (!isRecord(value) || !closed(value, ['basis', 'items']) || typeof value.basis !== 'string' || value.basis.length > MAX_GROUP_BASIS_LENGTH || !Array.isArray(value.items) || value.items.length > MAX_COLUMN_GROUPS) return false;
   const ids = new Set<string>();
   for (const item of value.items) {
-    if (!isStoredColumnGroupItem(item) || !closed(item, ['id', 'label', 'members', 'width']) || ids.has(item.id)) return false;
+    // Closed keys and repeated ids are rejected before the item rule reads any other field.
+    if (!isRecord(item) || !closed(item, ['id', 'label', 'members', 'width']) || (typeof item.id === 'string' && ids.has(item.id)) || !isStoredColumnGroupItem(item)) return false;
     ids.add(item.id);
   }
   return true;

@@ -56,4 +56,11 @@ describe('testMenu (#2514 Q8)', () => {
     expect(menu.features).toEqual({ export: true, savedView: false, annotate: false, compare: false });
     expect(menu.query).toEqual({ mode: 'live' });
   });
+  it('ignores undefined overrides and gives each menu its own context record', () => {
+    const menu = testMenu({ pageKeys: undefined, features: { export: undefined } });
+    expect(menu.pageKeys).toEqual([]);
+    expect(menu.features.export).toBe(false);
+    testMenu().context.time = 'apply';
+    expect(testMenu().context.time).toBe('unsupported');
+  });
 });

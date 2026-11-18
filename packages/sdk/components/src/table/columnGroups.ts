@@ -30,7 +30,9 @@ export function sanitizeColumnGroups(value: unknown): StoredColumnGroups | undef
   const items: StoredColumnGroups['items'] = [];
   const ids = new Set<string>();
   for (const item of envelope.items) {
-    if (!isStoredColumnGroupItem(item) || ids.has(item.id)) continue;
+    // A repeated id is skipped before the item rule reads its other fields.
+    if (item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string' && ids.has((item as { id: string }).id)) continue;
+    if (!isStoredColumnGroupItem(item)) continue;
     ids.add(item.id);
     items.push({ id: item.id, members: [...new Set(item.members)], ...(item.label !== undefined && { label: item.label.trim() }), ...(item.width !== undefined && { width: item.width }) });
   }
