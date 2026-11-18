@@ -1,21 +1,27 @@
-// HomeTodoPanel — the platform home's `내 할 일` section (platform ADR-0070 decision 8, #657): surveys to answer,
-// my VOCs with a new public update, and my permission requests. Each group hides when it has nothing; with
-// nothing in any group (or while loading) the panel renders nothing. Every read is the caller's own.
+// HomeTodoPanel — the platform home's `내 할 일` section (platform ADR-0070 decision 8, #657): one count line for
+// accessible permission-review and VOC-triage queues, plus surveys to answer, my VOC updates, and my permission
+// requests. Existing groups hide when empty; the card hides when it has no visible work and no queue errors.
 //
 // Bridge-safe: no router, no `../../../lib/api` barrel, no `lib/auth`, no `sonner`; links go through the host seam.
 
 import { notificationTarget } from '../InboxPanel';
 import { useAnswerableSurveysFirstPage } from '../../surveys/hooks/useSurveys';
 import { fetchNotifications, notificationsQueryKey } from '../../../lib/api/notifications';
+import { fetchNavCounts } from '../../../lib/api/nav';
+import { fetchPermissionRequestsMine, permissionRequestsMineAllKey } from '../../../lib/api/permission-requests';
 import {
-  fetchPermissionRequestsMine,
-  permissionRequestsMineAllKey,
-} from '../../../lib/api/permission-requests';
+  fetchPermissionCheckViaClient,
+  fetchPermissionRequestsAllViaClient,
+} from '../../../lib/api/permission-reads';
+import { permissionRequestsReviewKey } from '../../admin/permissions/useDecidePermissionRequest';
+import { aggregatePermissionRequests } from '../../../lib/copy/permission-groups';
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';
 import { HOME_TODO_COPY as COPY } from '../../../lib/copy/home-todo';
 import { formatRelativeTime } from '../../../lib/format/datetime';
-import { HostLink } from '../../../lib/host/host-seam';
+import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
+import { permissionCheckQueryKey } from '../../../lib/cross-system/usePermissionCheckBridge';
+import { NAV_COUNTS_QUERY_KEY } from '../../../lib/query/navCounts';
 import {
   type MinePermissionRequestRow,
   type NotificationDto,
@@ -37,8 +43,13 @@ const PUBLIC_UPDATE_EVENT = 'voc.public_update_posted';
 const SURVEYS_ALL = '/surveys/participate';
 const NOTIFICATIONS_ALL = '/notifications';
 const PERMISSION_REQUESTS_ALL = '/permission-requests';
+// These destinations match their exact list tabs: VOC unassigned and permission review's default pending tab.
+const TRIAGE_QUEUE_TO = '/vocs?view=triage&tab=unassigned';
+const PERMISSION_REVIEW_QUEUE_TO = '/admin/permissions/requests';
+const PERMISSION_REVIEW_CAPABILITY = 'workspace.admin';
 
 type Row = { key: string; to: string; title: string; meta: string };
+type QueueCount = { id: string; label: string; to: string; count: number };
 type Group = {
   id: string;
   title: string;
@@ -124,6 +135,10 @@ function permissionRows(requests: readonly MinePermissionRequestRow[], now: numb
     }));
 }
 
+function isVisibleCount(count: number | undefined): count is number {
+  return typeof count === 'number' && Number.isSafeInteger(count) && count >= 0;
+}
+
 function usePermissionGroup(): Group {
   const query = useQuery({
     queryKey: permissionRequestsMineAllKey,
@@ -174,22 +189,107 @@ function TodoGroup({ group }: { group: Group }): React.ReactElement {
   );
 }
 
-export function HomeTodoPanel(): React.ReactElement | null {
+export function HomeTodoPanel({
+  canAccessFeatures = false,
+  canReviewPermissionRequests = false,
+}: {
+  canAccessFeatures?: boolean;
+  canReviewPermissionRequests?: boolean;
+} = {}): React.ReactElement | null {
   const headingId = React.useId();
+  const { canLink } = useHostSeam();
+  const canLinkTriage = canAccessFeatures && canLink(TRIAGE_QUEUE_TO);
+  const canLinkPermissionReview = canReviewPermissionRequests && canLink(PERMISSION_REVIEW_QUEUE_TO);
+  const navCountsQuery = useQuery({
+    queryKey: [...NAV_COUNTS_QUERY_KEY, undefined] as const,
+    queryFn: ({ signal }) => fetchNavCounts({ signal }),
+    enabled: canLinkTriage,
+    retry: false,
+  });
+  const permissionCheckQuery = useQuery({
+    queryKey: permissionCheckQueryKey({ capability: PERMISSION_REVIEW_CAPABILITY }),
+    queryFn: ({ signal }) =>
+      fetchPermissionCheckViaClient(PERMISSION_REVIEW_CAPABILITY, { signal }),
+    enabled: canLinkPermissionReview,
+    retry: false,
+    staleTime: 30_000,
+  });
+  const permissionReviewApproved =
+    canLinkPermissionReview &&
+    !permissionCheckQuery.isError &&
+    permissionCheckQuery.data?.state === 'approved';
+  const reviewRequestsQuery = useQuery({
+    queryKey: permissionRequestsReviewKey,
+    queryFn: ({ signal }) => fetchPermissionRequestsAllViaClient({ status: 'all', signal }),
+    enabled: permissionReviewApproved,
+    retry: false,
+  });
+  const queueCounts: QueueCount[] = [];
+  if (permissionReviewApproved && reviewRequestsQuery.data) {
+    const pendingCount = aggregatePermissionRequests(reviewRequestsQuery.data.requests).filter(
+      (request) => request.status === 'pending',
+    ).length;
+    if (pendingCount > 0) {
+      queueCounts.push({
+        id: 'permission-requests',
+        label: COPY.reviewPermissionRequests,
+        to: PERMISSION_REVIEW_QUEUE_TO,
+        count: pendingCount,
+      });
+    }
+  }
+  const triageCount = navCountsQuery.data?.counts['voc.tab.unassigned'];
+  if (canLinkTriage && isVisibleCount(triageCount) && triageCount > 0) {
+    queueCounts.push({
+      id: 'vocs',
+      label: COPY.triageVocs,
+      to: TRIAGE_QUEUE_TO,
+      count: triageCount,
+    });
+  }
+  const queueReadFailed =
+    (canLinkTriage && navCountsQuery.isError) ||
+    (permissionReviewApproved && reviewRequestsQuery.isError);
   const groups = [useSurveyGroup(), useVocGroup(), usePermissionGroup()];
-  const anyItems = groups.some((group) => group.rows.length > 0);
+  const anyItems = queueCounts.length > 0 || groups.some((group) => group.rows.length > 0);
   if (!anyItems && groups.some((group) => group.state === 'pending')) return null;
   const shown = groups.filter((group) => group.rows.length > 0 || group.state === 'error' || (group.state === 'ready' && group.moreTo === NOTIFICATIONS_ALL));
-  if (shown.length === 0) return null;
+  if (shown.length === 0 && queueCounts.length === 0 && !queueReadFailed) return null;
   return (
     <section
       aria-labelledby={headingId}
       className="rounded-lg border border-border-subtle bg-surface-card elevation-panel p-4"
       data-testid="home-todo"
     >
-      <h2 id={headingId} className="mb-3 text-base font-semibold text-text-primary">
+      <h2
+        id={headingId}
+        className={`${queueCounts.length > 0 ? 'mb-2' : 'mb-3'} text-base font-semibold text-text-primary`}
+      >
         {COPY.title}
       </h2>
+      {queueCounts.length > 0 && (
+        <p
+          className="mb-3 flex flex-wrap items-center gap-x-2 text-sm text-text-secondary"
+          data-testid="home-todo-queue-counts"
+        >
+          {queueCounts.map((queue, index) => (
+            <React.Fragment key={queue.id}>
+              {index > 0 && <span aria-hidden="true"> · </span>}
+              <HostLink
+                to={queue.to}
+                className="font-medium text-accent-primary hover:underline"
+              >
+                {queue.label} {queue.count}
+              </HostLink>
+            </React.Fragment>
+          ))}
+        </p>
+      )}
+      {queueReadFailed && (
+        <p className="mb-3 text-sm text-text-muted" data-testid="home-todo-queue-counts-error">
+          {COPY.loadError}
+        </p>
+      )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
         {shown.map((group) => (
           <TodoGroup key={group.id} group={group} />

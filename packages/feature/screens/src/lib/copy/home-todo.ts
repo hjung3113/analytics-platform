@@ -3,6 +3,8 @@
 // The platform home `내 할 일` section (platform ADR-0070 decision 8): bridge-only, no feature route.
 export const HOME_TODO_COPY = {
   title: '내 할 일',
+  reviewPermissionRequests: '검토할 권한 요청',
+  triageVocs: '분류할 VOC',
   surveys: '응답할 설문',
   vocs: '내 VOC',
   permissionRequests: '권한 요청',

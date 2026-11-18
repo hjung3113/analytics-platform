@@ -59,6 +59,12 @@ const request = (n: number, status: string, updatedAt: string, capability = 'voc
   created_at: updatedAt,
 });
 
+const reviewRequest = (n: number, status: string, batchId: string | null = null) => ({
+  id: uuid(400 + n),
+  status,
+  batch_id: batchId,
+});
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -105,6 +111,52 @@ function mount(client = new QueryClient({ defaultOptions: { queries: { retry: fa
     </QueryClientProvider>,
   );
   return { client, view };
+}
+
+function installQueueFetch(data: {
+  navCounts?: unknown;
+  permissionCheck?: unknown;
+  reviewRequests?: unknown;
+}) {
+  urls = [];
+  globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    urls.push({ url, method: init?.method ?? 'GET' });
+    const path = new URL(url, 'http://x').pathname;
+    const body =
+      path === '/api/features/me/answerable-surveys'
+        ? { items: [], page: { has_more: false } }
+        : path === '/api/features/notifications'
+          ? { items: [], page: { has_more: false }, unread_count: 0 }
+          : path === '/api/features/permission-requests/mine'
+            ? { requests: [] }
+            : path === '/api/features/nav/counts'
+              ? (data.navCounts ?? { counts: {} })
+              : path === '/api/features/me/permissions/check'
+                ? (data.permissionCheck ?? { state: 'approved', decision: { allow: true } })
+                : path === '/api/features/permissions/requests'
+                  ? (data.reviewRequests ?? { requests: [], count: 0 })
+                  : undefined;
+    if (body === undefined) return new Response('not mocked', { status: 500 });
+    return body === 'fail' ? json({ error: 'x' }, 500) : json(body);
+  }) as typeof fetch;
+}
+
+function mountQueuePanel(access: { canAccessFeatures: boolean; canReviewPermissionRequests: boolean }) {
+  const seam = {
+    canLink: () => true,
+    Link: ({ to, children }: HostLinkProps) => <a href={to}>{children}</a>,
+    notifyError: vi.fn(),
+    notifySuccess: vi.fn(),
+  } satisfies HostSeam;
+  const view = render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <HostSeamProvider value={seam}>
+        <HomeTodoPanel {...access} />
+      </HostSeamProvider>
+    </QueryClientProvider>,
+  );
+  return view;
 }
 
 const originalFetch = globalThis.fetch;
@@ -166,6 +218,117 @@ describe('HomeTodoPanel', () => {
     globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) as typeof fetch;
     const { view } = mount();
     expect(view.container.innerHTML).toBe('');
+  });
+
+  it('T2 shows one permission-aware count line whose links open exactly the counted queues', async () => {
+    installQueueFetch({
+      navCounts: { counts: { 'voc.triage': 8, 'voc.tab.unassigned': 3 } },
+      permissionCheck: { state: 'approved', decision: { allow: true } },
+      reviewRequests: {
+        requests: [
+          reviewRequest(1, 'pending', 'bundle-1'),
+          reviewRequest(2, 'needs_more_info', 'bundle-1'),
+          reviewRequest(3, 'pending'),
+          reviewRequest(4, 'needs_more_info'),
+        ],
+        count: 4,
+      },
+    });
+    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('home-todo-queue-counts').textContent).toBe(
+        '검토할 권한 요청 2 · 분류할 VOC 3',
+      ),
+    );
+    const line = screen.getByTestId('home-todo-queue-counts');
+    const links = within(line).getAllByRole('link');
+    expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['검토할 권한 요청 2', '/admin/permissions/requests'],
+      ['분류할 VOC 3', '/vocs?view=triage&tab=unassigned'],
+    ]);
+    expect(urls.some((entry) => entry.url === '/api/features/permissions/requests?status=all')).toBe(
+      true,
+    );
+  });
+
+  it('T2 omits queues without their destination permissions and does not request their counts', async () => {
+    installQueueFetch({
+      navCounts: { counts: { 'voc.tab.unassigned': 3 } },
+      permissionCheck: { state: 'approved', decision: { allow: true } },
+      reviewRequests: { requests: [reviewRequest(1, 'pending')], count: 1 },
+    });
+    mountQueuePanel({ canAccessFeatures: false, canReviewPermissionRequests: false });
+    await waitFor(() => expect(urls).toHaveLength(3));
+
+    expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
+    expect(urls.some((entry) => entry.url.includes('/nav/counts'))).toBe(false);
+    expect(urls.some((entry) => entry.url.includes('/me/permissions/check'))).toBe(false);
+    expect(urls.some((entry) => entry.url.includes('/permissions/requests'))).toBe(false);
+  });
+
+  it('T2 exposes VOC triage but not permission review without console access', async () => {
+    installQueueFetch({ navCounts: { counts: { 'voc.tab.unassigned': 3 } } });
+    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: false });
+
+    const line = await screen.findByTestId('home-todo-queue-counts');
+    expect(line.textContent).toBe('분류할 VOC 3');
+    await waitFor(() => expect(urls.some((entry) => entry.url.includes('/nav/counts'))).toBe(true));
+    expect(urls.some((entry) => entry.url.includes('/me/permissions/check'))).toBe(false);
+    expect(urls.some((entry) => entry.url.includes('/permissions/requests'))).toBe(false);
+  });
+
+  it('T2 counts only the pending permission view and hides a zero queue', async () => {
+    installQueueFetch({
+      navCounts: { counts: { 'voc.triage': 9, 'voc.tab.unassigned': 5 } },
+      permissionCheck: { state: 'approved', decision: { allow: true } },
+      reviewRequests: {
+        requests: [reviewRequest(1, 'needs_more_info'), reviewRequest(2, 'approved')],
+        count: 2,
+      },
+    });
+    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+
+    const line = await screen.findByTestId('home-todo-queue-counts');
+    expect(line.textContent).toBe('분류할 VOC 5');
+    expect(within(line).getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('T2 omits permission review counts unless the destination workspace-admin check is approved', async () => {
+    installQueueFetch({
+      navCounts: { counts: { 'voc.tab.unassigned': 2 } },
+      permissionCheck: { state: 'request_access', decision: { allow: false } },
+      reviewRequests: { requests: [reviewRequest(1, 'pending')], count: 1 },
+    });
+    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+
+    const line = await screen.findByTestId('home-todo-queue-counts');
+    expect(line.textContent).toBe('분류할 VOC 2');
+    await waitFor(() => expect(urls.some((entry) => entry.url.includes('/me/permissions/check'))).toBe(true));
+    expect(urls.some((entry) => entry.url.includes('/permissions/requests'))).toBe(false);
+  });
+
+  it('T2 hides the count line when both accessible queues are empty', async () => {
+    installQueueFetch({
+      navCounts: { counts: { 'voc.tab.unassigned': 0 } },
+      permissionCheck: { state: 'approved', decision: { allow: true } },
+      reviewRequests: { requests: [reviewRequest(1, 'needs_more_info')], count: 1 },
+    });
+    const view = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+    await waitFor(() => expect(urls.some((entry) => entry.url.includes('/permissions/requests'))).toBe(true));
+
+    expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
+    expect(view.container.innerHTML).toBe('');
+  });
+
+  it('T2 surfaces a queue count read failure instead of rendering an empty count', async () => {
+    installQueueFetch({ navCounts: 'fail' });
+    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: false });
+
+    expect(await screen.findByTestId('home-todo-queue-counts-error')).toHaveTextContent(
+      '불러오지 못했습니다',
+    );
+    expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
   });
 
   it.each([
