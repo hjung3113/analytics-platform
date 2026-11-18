@@ -1,0 +1,49 @@
+import { buildQuery, type Pair } from '@ap/contracts';
+import { createPageNavigation } from '../context/pageNavigation';
+import type { LentPanelProps } from '../registry/LentPanel';
+import type { HostPlatform } from './types';
+
+const noWrite = () => {};
+const scopeSelector = { open: noWrite, answer: () => noWrite, available: () => false, subscribe: () => noWrite };
+
+/** The embedded source has bound reads and no ownership of a navigable screen. */
+export function lentPanelPlatform(receiver: HostPlatform, inputs: LentPanelProps['inputs']): HostPlatform {
+  const global = structuredClone(inputs.context);
+  const page: Pair[] = [];
+  for (const [key, value] of Object.entries(inputs.page)) {
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (typeof item === 'string') page.push([key, item]);
+    }
+  }
+  const pathname = '/';
+  const url = pathname + buildQuery(global, page);
+  return {
+    ...receiver,
+    global, page, url, pathname, appliedUrl: url,
+    route: null, platformScreen: null, extras: [], contractError: null, metricInit: { phase: 'skip' }, currentSpace: null,
+    scope: global.scopeId === null
+      ? { scopeId: null, status: 'none', validatedFor: null, grantedRooms: [] }
+      : { ...receiver.scope, grantedRooms: [...receiver.scope.grantedRooms] },
+    pageParam: key => page.find(([name]) => name === key)?.[1] ?? null,
+    pageParams: key => page.filter(([name]) => name === key).map(([, value]) => value),
+    location: { read: () => url, push: noWrite, replace: noWrite, href: href => receiver.location.href(href), absoluteUrl: href => receiver.location.absoluteUrl(href) },
+    pageNavigation: createPageNavigation(url),
+    navigate: () => false, setPage: noWrite, setGlobal: noWrite, resetContext: noWrite, switchSpace: noWrite,
+    spaceEntry: () => null, spaceResume: () => null,
+    detailExpanded: false, setDetailExpanded: noWrite, retryScope: noWrite, scopeSelector,
+    // Cross-menu link and return state belong to the action slot's receiving screen.
+    resolveLink: () => ({ kind: 'none', href: null, allowed: false, droppedPageKeys: [] }),
+    linkTo: () => { throw new Error('Lent panel navigation belongs to the receiving screen'); },
+    objectLinks: () => [],
+    returnTarget: () => url,
+    returnOrigin: () => ({ href: url, menuLabel: { ko: '', en: '' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null }),
+    reportError: receiver.reportShellError,
+    queryDraft: {
+      mode: 'live', draft: { global, page }, dirty: [], missing: [], canApply: false, applying: false,
+      setDraftGlobal: noWrite, setDraftPage: noWrite, apply: noWrite, revert: noWrite, reset: noWrite,
+    },
+    queryHistory: {
+      status: 'disabled', entries: [], restore: async () => false, remove: async () => {}, clear: async () => {}, open: noWrite,
+    },
+  };
+}

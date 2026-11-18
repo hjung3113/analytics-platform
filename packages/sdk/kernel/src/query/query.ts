@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ContextType } from 'react';
 import { hashKey, useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import type { QueryMissing } from './query-draft';
 import { narrowedGlobal } from './condition-preset';
+import { LentPanelQueryContext } from './lent-panel-context';
 import { useHostPlatform, useQueryEngine } from '../platform/platform';
 import { clientCorrelationId, compareAuditEvents, CUSTOM_GROUP_AXIS, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type CustomGroupTarget, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, type SavedViewListItem, serializeGlobal, isAnswered } from '@ap/contracts';
 import { customGroupItemId, customGroupReadState, expandCustomGroups } from '../saved-view/expand-custom-groups';
@@ -308,24 +309,32 @@ async function expandedMenuContext<T>(inputs: MenuRequestInputs, projected: Menu
  * The request gates shared by useMenuQuery, useMenuFetch and the module host port: Scope validated for this session,
  * absolute period when time applies, no drill gap in the page (06 §6.4), Context projection and the assessment check. Not a hook.
  */
-export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestInputs, options?: { detached?: boolean }) {
+export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestInputs, options?: { detached?: boolean; lent?: ContextType<typeof LentPanelQueryContext> }) {
   const { adapter, global, scope, session, queryPolicy } = inputs;
-  const projected = projectMenuContext(spec, inputs, options);
+  const lent = options?.lent;
+  const projected = lent ? projectContext(spec, lent.context) : projectMenuContext(spec, inputs, options);
+  // A lent implementation can only read through the source specifications that passed registration.
+  const endpointAllowed = !lent || lent.source.endpoints.some(endpoint => endpoint === spec);
   const scopeReady = !spec.requiresScope || (scope.status === 'valid' && scope.scopeId === global.scopeId && scope.validatedFor === session);
   const groupReadPending = Boolean(projected.condition?.[CUSTOM_GROUP_AXIS]?.length) && scope.status === 'validating';
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const transport = async (context: MenuQueryContext, params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
-    if (aborted(signal)) throw new DOMException('aborted', 'AbortError');
-    return checkMenuResponse(spec, context, await adapter.menuQuery({ endpoint: spec.id, context, params }, signal));
+    if (aborted(signal) || (lent && !lent.current())) throw new DOMException('aborted', 'AbortError');
+    const response = await adapter.menuQuery({ endpoint: spec.id, context, params }, signal);
+    if (lent && (aborted(signal) || !lent.current())) throw new DOMException('aborted', 'AbortError');
+    return checkMenuResponse(spec, context, response);
   };
   // Without a chosen custom group the adapter is called in the same tick as before; only expansion adds awaits.
-  const send = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
+  const send = (params: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> => {
+    const signal = lent && callerSignal ? AbortSignal.any([lent.signal, callerSignal]) : lent?.signal ?? callerSignal;
+    if (lent && (aborted(signal) || !lent.current())) return Promise.reject(new DOMException('aborted', 'AbortError'));
     if (!projected.condition?.[CUSTOM_GROUP_AXIS]?.length) return transport(projected, params, signal);
     return expandedMenuContext<T>(inputs, projected, signal).then(outgoing => 'outcome' in outgoing ? outgoing : transport(outgoing, params, signal));
   };
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
-  // `detached` (the sidebar `Source`'s `useMenuFetch`): the request is not part of the screen in view, so that screen's Apply/drill gate cannot block it unless the endpoint belongs to this very menu. A screen's own panels (`useMenuQuery`, the module host) keep the gate whatever menu their endpoint is declared under (HW Time's trend panel, #2007).
-  const ownScreen = !options?.detached || spec.menuId === inputs.route?.menu.id;
+  // A detached sidebar fetch follows the screen's Apply/drill gate only for that screen's own endpoints.
+  // Screen panels keep their gate even when their endpoint belongs to another menu.
+  const ownScreen = !!lent || !options?.detached || spec.menuId === inputs.route?.menu.id;
   // Declared option sources are auxiliary reads: requiring a completed query to choose its required inputs deadlocks Apply.
   const optionSource = options?.detached && spec.menuId === inputs.route?.menu.id && inputs.route.menu.pageConditions?.categories.some(({ kind }) => {
     if (kind.type === 'groupedChecks' || kind.type === 'tree') return kind.source === spec.id;
@@ -333,7 +342,7 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   });
   const screenReady = !ownScreen || (queryPolicy.ready && (optionSource || (!queryPolicy.idle && !queryPolicy.drillGap)));
   const missing = ownScreen && queryPolicy.idle ? queryPolicy.missing : null;
-  return { projected, ready: scopeReady && !groupReadPending && periodReady && screenReady, missing, send, notReady };
+  return { projected, ready: endpointAllowed && scopeReady && !groupReadPending && periodReady && screenReady, missing, send, notReady };
 }
 
 /** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */
@@ -365,9 +374,12 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
   const enabled = (typeof third === 'boolean' ? third : true) && (options?.enabled ?? true);
   const platform = useHostPlatform();
   const queryEngine = useQueryEngine();
-  const { projected, ready, missing, send } = menuRequest(spec, { ...platform, queryEngine });
+  const lent = useContext(LentPanelQueryContext);
+  const { projected, ready, missing, send } = menuRequest(spec, { ...platform, queryEngine }, { lent });
   // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.
-  return useQueryLifecycle<T>(['menu', spec.id, projected, params], signal => send(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? [spec.id, projected] : undefined, { value: params }) as MenuQueryState<P, T>;
+  const identity = lent ? [spec.id, projected, lent.instanceId] : [spec.id, projected];
+  const parts = lent ? ['menu', spec.id, projected, params, lent.instanceId] as const : ['menu', spec.id, projected, params] as const;
+  return useQueryLifecycle<T>(parts, signal => send(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? identity : undefined, { value: params }) as MenuQueryState<P, T>;
 }
 
 export type MenuFetch<P, T> = {
@@ -386,8 +398,9 @@ export type MenuFetch<P, T> = {
 export function useMenuFetch<P, T>(spec: EndpointSpec<P, T>): MenuFetch<P, T> {
   const platform = useHostPlatform();
   const queryEngine = useQueryEngine();
-  const { ready, send, notReady } = menuRequest(spec, { ...platform, queryEngine }, { detached: true });
-  const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready
+  const lent = useContext(LentPanelQueryContext);
+  const { ready, send, notReady } = menuRequest(spec, { ...platform, queryEngine }, { detached: true, lent });
+  const fetch = (params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => ready && (!lent || lent.current())
     ? send(params, signal)
     : Promise.resolve(notReady());
   return { ready, fetch };

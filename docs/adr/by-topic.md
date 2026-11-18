@@ -39,6 +39,7 @@ Context 계약, URL·딥링크, 권한, Scope, 조회·쓰기 수명주기, 저�
 - [0163](0163-permission-groups-replace-role-levels-as-templates.md) — 역할 단계는 늘리지 않고 권한 그룹(템플릿·소급 없음·개인 그룹은 신청용·부서 규칙은 자동 부여)
 - [0164](0164-target-picker-dialog-and-custom-groups.md) — 조회 대상 고르기 대화창, 설비 기본 정보 전량 포트, 커스텀 조회 그룹 저장·공유·조회 직전 펼치기
 - [0170](0170-analysis-apply-and-saved-view-defaults.md) — Analysis 메뉴의 기본 조회는 Apply이며 저장된 뷰를 켠다
+- [0171](0171-registered-panel-lending.md) — 등록된 패널을 다른 메뉴에 빌려준다
 
 ## 표·페이지 필터
 

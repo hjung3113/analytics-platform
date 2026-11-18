@@ -1,6 +1,6 @@
 import { useContext, useLayoutEffect } from 'react';
 import type { SavedViewSupport } from '@ap/contracts';
-import { AppContext } from '../platform/contexts';
+import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import type { MenuEntry } from '../registry/registry';
 
 /** Screens' declared Saved View support, keyed by menu id. Owned by the provider; the host hook reads it, menus only write through `useSavedViewSupport`. */
@@ -46,5 +46,8 @@ export function createSupportRegistry(): SupportRegistry {
  */
 export function useSavedViewSupport(support: SavedViewSupport): void {
   const registry = useContext(AppContext)?.internal.savedViewSupports;
-  useLayoutEffect(() => registry?.register(support), [registry, support]);
+  const lent = useContext(LentPanelPlatformContext) !== null;
+  useLayoutEffect(() => {
+    if (!lent) return registry?.register(support);
+  }, [registry, support, lent]);
 }

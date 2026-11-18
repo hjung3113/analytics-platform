@@ -16,6 +16,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
   - `/mock` is imported only by the app mock assembly `src/dev/mock-assembly.tsx` (`pnpm gen:menu` registers it in the `MOCK_ENDPOINTS` marker region). The server conformance test reads that `MOCK_ENDPOINTS`.
   - Lint enforces these; none of them ship in the production build.
 - Other restricted subpaths, each imported only by the named file:
+  - `@ap/menu-hw-time/lent-panels`: app `src/main.tsx` registers the lazy source component with the Kernel for receivers that declare a panel binding.
   - `@ap/menu-improvement-items/analysis-actions`: app `src/main.tsx`, injected through `analysisActions` for analysis-page overflow actions.
   - `@ap/menu-improvement-items/home-todo-slot`: app `src/main.tsx`, composed with the feature bridge in the existing Kernel `homeTodo` slot. Home imports neither consumer.
   - `@ap/menu-home/launcher`: `apps/platform-web/src/menus.ts`. It is a private home configuration entry; its root stays manifest-only and its screen stays lazy.

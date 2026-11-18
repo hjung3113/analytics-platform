@@ -4,18 +4,20 @@ import type { QueryEngine } from '../query/query-engine';
 import type { EquipmentAxisDescriptor, MainUsageVia } from '@ap/contracts';
 import type { HostPlatform, MenuPlatform, Recent, Toast } from './types';
 import type { LeaveRequest, UnsavedGuardOptions } from './navigationGuard';
-import { AppContext, MainBoundContext, OverlayContext, PaneScreenContext, RecentContext, ScreenContext, ToastsContext, type OverlayState } from './contexts';
+import { AppContext, LentPanelPlatformContext, MainBoundContext, OverlayContext, PaneScreenContext, RecentContext, ScreenContext, ToastsContext, type OverlayState } from './contexts';
 
 function useMerged(): HostPlatform | null {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);
   const paneScreen = useContext(PaneScreenContext);
+  const lent = useContext(LentPanelPlatformContext);
   // `use` reads the main screen only outside a pane, so a pane reader has no dependency on it.
-  const screen = paneScreen ?? use(ScreenContext);
+  const screen = lent ?? paneScreen ?? use(ScreenContext);
   return useMemo(() => {
+    if (lent) return lent;
     if (!app || !main || !screen) return null;
     return { ...app.pub, ...main, ...screen };
-  }, [app, main, screen]);
+  }, [app, main, screen, lent]);
 }
 
 /** Recent visits of the main screen, newest first. For a rendered list; an event handler reads `readRecent()` (host). Throws outside a provider. */
@@ -103,17 +105,20 @@ export function useSelectionPortCache(): PortCache {
 export function useUnsavedGuard(dirty: boolean, options?: UnsavedGuardOptions): void {
   const guard = useContext(AppContext)?.internal.guard;
   const unloadOnly = useContext(PaneScreenContext) !== null;
+  const lent = useContext(LentPanelPlatformContext) !== null;
   const latest = useRef<UnsavedGuardOptions>(options ?? {});
   useLayoutEffect(() => { latest.current = options ?? {}; });
   useEffect(() => {
-    if (!dirty || !guard) return;
+    if (!dirty || !guard || lent) return;
     return guard.register(() => latest.current, { unloadOnly });
-  }, [dirty, guard, unloadOnly]);
+  }, [dirty, guard, unloadOnly, lent]);
 }
 
 /** The navigation waiting for the person's answer, or null (`@ap/kernel/host`). The shell renders the confirmation and calls `confirm()` or `cancel()`. Throws outside a provider. */
 export function useLeaveRequest(): LeaveRequest | null {
   const guard = useContext(AppContext)?.internal.guard;
+  const lent = useContext(LentPanelPlatformContext) !== null;
   if (!guard) throw new Error('useLeaveRequest outside PlatformProvider');
-  return useSyncExternalStore(guard.subscribe, guard.getRequest);
+  const request = useSyncExternalStore(guard.subscribe, guard.getRequest);
+  return lent ? null : request;
 }

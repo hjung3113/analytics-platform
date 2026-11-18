@@ -1,5 +1,5 @@
 /** Deterministic server-side synthetic averages and runs, never real equipment names or observations. */
-import { formatDateTime, parseDateTime, type GlobalContext } from '@ap/contracts';
+import { formatDateTime, normalizeSet, parseDateTime, type GlobalContext } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
   HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, hwTimeOverview, verdictCodec, validPanelDate,
@@ -52,7 +52,7 @@ function runValues(equipmentId: string, params: HwTimeRunParams): number[] {
   const type = HW_TIME_MODULE_TYPES.find(t => t.id === params.moduleType)!;
   const motionIndex = (type.motions as readonly string[]).indexOf(params.drillMotion);
   const moduleIndex = (type.modules as readonly string[]).indexOf(params.drillModule);
-  const equipmentNumber = Number(equipmentId.slice('EQ-'.length));
+  const equipmentNumber = Number(equipmentId.match(/\d+$/)?.[0]);
   const bounds = htmBounds(params.moduleType, params.drillMotion);
   return Array.from({ length: RUNS_PER_EQUIPMENT }, (_, run) => {
     const jitter = ((equipmentNumber * 7 + moduleIndex * 11 + motionIndex * 3 + run * 5) % 17) / 100;
@@ -190,8 +190,27 @@ export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTimeOverview.runs, {
-    validate: ({ params, context }) => validate(params, 'motion', context),
-    handle: ({ params, context, equipment }) => overviewRuns(syntheticEquipmentIds(equipment), params, context, { sample: true }),
+    validate: ({ params, context }) => {
+      const { equipmentId } = params;
+      if (equipmentId !== undefined) {
+        if (typeof equipmentId !== 'string') return 'Invalid equipmentId';
+        try {
+          normalizeSet([equipmentId], 'equipmentId');
+        } catch {
+          return 'Invalid equipmentId';
+        }
+        // The shared server checks access and answers explicit empty intersections before reading data.
+        if (context.selection?.length !== 0 && (context.selection?.length !== 1 || context.selection[0] !== equipmentId)) {
+          return 'equipmentId must match the single selected equipment';
+        }
+      }
+      return validate(params, 'motion', context);
+    },
+    handle: ({ params, context, equipment }) => {
+      const ids = params.equipmentId === undefined ? syntheticEquipmentIds(equipment)
+        : equipment.filter(item => item.equipmentId === params.equipmentId).map(item => item.equipmentId);
+      return overviewRuns(ids, params, context, { sample: true });
+    },
     isEmpty: data => data.points.length === 0,
   }),
   defineMockEndpoint(hwTimeOverview.distribution, {

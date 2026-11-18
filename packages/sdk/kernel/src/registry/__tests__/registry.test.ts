@@ -8,7 +8,7 @@ import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
 import { disabledReason, projectQueryInputs } from '../panel-inputs';
-import { carrySetId, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type SpaceDef } from '@ap/contracts';
+import { carrySetId, emptyGlobal, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type Pair, type SpaceDef } from '@ap/contracts';
 
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
 const createRegistry = (input: Parameters<typeof create>[0]) => create({ permissions: [menuPermission('metrics:view')], ...input });
@@ -974,5 +974,89 @@ describe('panel registration (#2433)', () => {
     expect(registry.panels('catalog')[0].permissions).toEqual([catalog.permission]);
     expect(registry.panels('catalog')[0].disabledReason({})).toEqual({ ko: '4단계', en: 'Step 4' });
     expect(registry.panels('catalog')[0].disabledReason({ step4: true })).toBeUndefined();
+  });
+});
+
+describe('lent panel registration (#2490)', () => {
+  const receiving = menuPermission('receiver:view');
+  const owner = menuPermission('source:view');
+  const endpointPermission = menuPermission('data:read');
+  const shared = menuPermission('workspace:read');
+  const endpoint = { id: 'source.summary', menuId: 'source', permission: endpointPermission, requiresScope: true, context: { time: 'apply' } } as const;
+  const panel = {
+    id: 'summary', title: { ko: '요약', en: 'Summary' }, grain: 'dailyStat',
+    queryInputs: { context: ['scopeId', 'time'], page: [{ key: 'level', required: true }] },
+    displayInputs: {}, outputs: [{ key: 'level', action: 'drill' }], endpoints: [endpoint],
+  } as const;
+  const binding = {
+    source: 'source/summary',
+    context: { scopeId: { kind: 'context', key: 'scopeId' }, time: { kind: 'context', key: 'time' } },
+    page: { level: { kind: 'page', key: 'chosen' } },
+  } as const;
+  const build = (lentPanels: unknown = [binding], requiresScope = true) => createRegistry({
+    spaces, groups, permissions: [receiving, owner, endpointPermission, shared],
+    menus: [
+      { ...catalog, permission: receiving, additionalPermissions: [shared], requiresScope, pageKeys: ['chosen'], lentPanels } as PlatformMenuEntry,
+      menu('source', '/metrics/source', { permission: owner, additionalPermissions: [shared], pageKeys: ['level'], panels: [panel] }),
+    ],
+  });
+  const inputs = {
+    context: { ...emptyGlobal, scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
+    page: [['chosen', 'second']] as Pair[],
+  };
+
+  it('indexes the registered source and deduplicates a grant shared by the two menus', () => {
+    const registry = build();
+    const [lent] = registry.lentPanels('catalog');
+    expect(lent.source).toBe(registry.panels('source')[0]);
+    expect(lent.permissions).toEqual([receiving, shared, owner, endpointPermission]);
+    expect(lent.verdict(testSession(lent.permissions), inputs)).toEqual({ allowed: true, reason: null });
+    expect(registry.lentPanels('source')).toEqual([]);
+  });
+
+  it.each([receiving, owner, endpointPermission])('denies when the session lacks %s', absent => {
+    const [lent] = build().lentPanels('catalog');
+    const session = testSession([receiving, owner, endpointPermission, shared].filter(permission => permission !== absent));
+    expect(lent.verdict(session, inputs)).toMatchObject({ allowed: false, reason: { kind: 'permission', text: { ko: expect.any(String), en: expect.any(String) } } });
+  });
+
+  it('reports a missing required value separately from permission', () => {
+    const [lent] = build().lentPanels('catalog');
+    expect(lent.verdict(testSession(lent.permissions), { ...inputs, page: [] })).toMatchObject({
+      allowed: false, reason: { kind: 'missing-input', text: { ko: expect.any(String), en: expect.any(String) } },
+    });
+  });
+
+  it.each([
+    [{ ...binding, page: {} }, /required query input "level"/],
+    [{ ...binding, context: { time: binding.context.time } }, /required query input "scopeId"/],
+    [{ ...binding, context: { scopeId: binding.context.scopeId } }, /required query input "time"/],
+    [{ ...binding, page: { level: { kind: 'page', key: 'unknown' } } }, /undeclared receiving page key "unknown"/],
+    [{ ...binding, source: 'other/summary' }, /unknown source panel "other\/summary"/],
+    [{ ...binding, source: 'source/other' }, /unknown source panel "source\/other"/],
+    [{ ...binding, outputs: { level: { kind: 'context', key: 'time' } } }, /cannot bind outputs/],
+  ])('rejects invalid binding %j', (declaration, message) => {
+    expect(() => build([declaration])).toThrow(RegistryError);
+    expect(() => build([declaration])).toThrow(message);
+  });
+
+  it('rejects a scoped source if the receiver does not require Scope', () => {
+    expect(() => build([binding], false)).toThrow(RegistryError);
+    expect(() => build([binding], false)).toThrow(/requiresScope: true/);
+  });
+
+  it('rejects a source endpoint that drops Scope on a scoped receiver, even if another endpoint keeps it', () => {
+    const assemble = () => createRegistry({
+      spaces, groups, permissions: [receiving, owner, endpointPermission],
+      menus: [
+        { ...catalog, permission: receiving, requiresScope: true, pageKeys: ['chosen'], lentPanels: [binding] },
+        menu('source', '/metrics/source', {
+          permission: owner, pageKeys: ['level'],
+          panels: [{ ...panel, endpoints: [endpoint, { ...endpoint, id: 'source.unscoped', requiresScope: false }] }],
+        }),
+      ],
+    });
+    expect(assemble).toThrow(RegistryError);
+    expect(assemble).toThrow(/source\.unscoped.*scopeId/);
   });
 });

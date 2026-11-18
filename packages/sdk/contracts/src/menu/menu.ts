@@ -1,4 +1,4 @@
-import type { PanelDeclaration } from './panels';
+import type { PanelBinding, PanelDeclaration } from './panels';
 import type { Text } from '../i18n.js';
 import type { PageConditions } from './page-conditions.js';
 
@@ -97,6 +97,8 @@ export type NavView = { id: string; label: Text; page: Readonly<Record<string, s
 export type MenuMeta = {
   /** Optional panel declarations; createRegistry validates and indexes them (#2433). */
   panels?: readonly PanelDeclaration[];
+  /** Registered panels rendered within this menu, with read-only input bindings. */
+  lentPanels?: readonly PanelBinding[];
   id: string;
   group: GroupId;
   label: Text;

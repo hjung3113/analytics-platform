@@ -76,7 +76,9 @@ describe('overview distribution', () => {
   it('validates the new endpoint with the same drill constraints and ownership as runs', () => {
     const endpoint = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!;
     const runs = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.runs')!;
-    expect({ ...endpoint.spec, id: runs.spec.id }).toEqual(runs.spec);
+    // `equipmentId` is the runs-only single-equipment mode of a lent trend (#2490); the drill constraints are otherwise the same.
+    const { equipmentId: _lentOnly, ...runsParamKeys } = runs.spec.paramKeys as Record<string, unknown>;
+    expect({ ...endpoint.spec, id: runs.spec.id }).toEqual({ ...runs.spec, paramKeys: runsParamKeys });
     expect(endpoint.validate?.({ params, context })).toBeNull();
     // A valid in-range link must pass: validation needs the request context for the date range.
     expect(endpoint.validate?.({ params: { ...params, verdict: 'over', date: '2026-09-20' }, context })).toBeNull();

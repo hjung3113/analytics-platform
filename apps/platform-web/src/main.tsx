@@ -11,6 +11,8 @@ import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { savedViewsSlot } from '@ap/feature-bridge/saved-views';
 import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
 import { vocComposeSlot } from '@ap/feature-bridge/voc-compose-slot';
+import { registerLentPanel } from '@ap/kernel/host';
+import { lentTrendPanel } from '@ap/menu-hw-time/lent-panels';
 import { improvementAnalysisActions } from '@ap/menu-improvement-items/analysis-actions';
 import { improvementHomeTodoSlot } from '@ap/menu-improvement-items/home-todo-slot';
 import { RoundSourceView } from '@ap/menu-log-analysis/view';
@@ -47,6 +49,7 @@ void startAppHost({
   queryHistory: createLocalQueryHistoryStore(),
   slots: useAppSlots,
   onAssembly: (assembly) => {
+    registerLentPanel('hw-time/trend', lentTrendPanel);
     // The bridge screens' feature API comes from the assembly (ADR-0071); mock builds have none → "실서버 필요".
     setFeatureApi(assembly.featureApi ?? null);
     // The Round detail's «원본/시퀀스» tab: the app joins the two log menus here, they never import each other (#1475).

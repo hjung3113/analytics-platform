@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { buildQuery, validateSavedView, type JsonValue, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport, type TableViewState } from '@ap/contracts';
 import { useI18n } from '../i18n';
 import { useHostPlatform } from '../platform/hooks';
-import { AppContext } from '../platform/contexts';
+import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import type { LeaveRequest } from '../platform/navigationGuard';
 import { pathFor } from '../registry/registry';
 import { captureApplied, viewState, type ViewState } from './capture';
@@ -111,11 +111,12 @@ const ScreenLoadingContext = createContext<((loading: boolean) => void) | null>(
 /** Place in a screen's Suspense fallback when its Saved View support is registered by the page. */
 export function ScreenContentLoading() {
   const setLoading = useContext(ScreenLoadingContext);
+  const lent = useContext(LentPanelPlatformContext) !== null;
   useLayoutEffect(() => {
-    if (!setLoading) return;
+    if (!setLoading || lent) return;
     setLoading(true);
     return () => setLoading(false);
-  }, [setLoading]);
+  }, [setLoading, lent]);
   return null;
 }
 
@@ -150,11 +151,12 @@ export function ScreenSavedViews({ initial, children }: { initial: InitialSavedV
 export function useSavedViews(): SavedViews {
   const host = useHostPlatform();
   const owner = useContext(ScreenSavedViewsContext);
-  const owned = host.screenMode === 'main' ? owner : null;
+  const lent = useContext(LentPanelPlatformContext) !== null;
+  const owned = host.screenMode === 'main' && !lent ? owner : null;
   const requestLists = owned?.requestLists;
   useLayoutEffect(() => requestLists?.(), [requestLists]);
   const paneWithoutPicker = host.screenMode === 'pane' && host.route?.menu.query?.mode === 'apply' && host.route.menu.query.autoApplyDefault === true;
-  const views = useSavedViewController(host, owned || paneWithoutPicker ? 'inactive' : 'legacy', null);
+  const views = useSavedViewController(host, lent || owned || paneWithoutPicker ? 'inactive' : 'legacy', null);
   return owned?.views ?? views;
 }
 

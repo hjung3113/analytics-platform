@@ -131,6 +131,10 @@ const dict = {
   stateIdle: { ko: '아직 조회하지 않았습니다', en: 'No query has run yet' },
   stateIdleSeeQueryBar: { ko: '위 조회 조건의 안내를 확인하세요.', en: 'See the notes in the query conditions above.' },
   queryMissing: { ko: '{label}{particle} 선택하세요', en: 'Select {label}' },
+  lentPanelPermission: { ko: '패널을 볼 권한이 없습니다.', en: 'You don’t have permission to view this panel.' },
+  lentPanelMissingInput: { ko: '패널에 필요한 입력을 확인하세요 ({key}).', en: 'Check the panel’s required input ({key}).' },
+  lentPanelUnsupportedContext: { ko: '이 패널이 현재 적용 조건을 지원하지 않습니다.', en: 'This panel does not support the current applied filters.' },
+  lentPanelUnavailable: { ko: '이 화면에서 패널을 사용할 수 없습니다.', en: 'This panel is unavailable on this screen.' },
   stateEmpty: { ko: '조건에 맞는 결과가 없습니다', en: 'No matching result' },
   stateEmptyBody: { ko: '조회는 성공했고 결과가 0건입니다. 조건을 바꿔 다시 조회하세요.', en: 'The query succeeded with zero rows. Change the conditions and query again.' },
   stateEmptyCauseCollection: { ko: '아직 수집되지 않았습니다', en: 'Not collected yet' },
@@ -276,6 +280,12 @@ export type TextParams = Record<string, string | number>;
 /** One message in `lang`, `{name}` placeholders filled from `params` (an unknown name stays as written). */
 export function formatText(text: Text, lang: Lang, params?: TextParams): string {
   return text[lang].replace(/\{(\w+)\}/g, (token, name: string) => params?.[name] === undefined ? token : String(params[name]));
+}
+
+/** A verdict carries both languages without needing an active I18nProvider. */
+export function messageText(key: Key, params?: TextParams): Text {
+  const text = dict[key];
+  return params ? { ko: formatText(text, 'ko', params), en: formatText(text, 'en', params) } : text;
 }
 
 const makeI18n = (lang: Lang, setLang: (lang: Lang) => void): I18n => ({ lang, setLang, t: (key, params) => formatText(dict[key], lang, params), tx: text => text[lang], text: key => dict[key] });

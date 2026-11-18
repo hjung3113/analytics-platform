@@ -386,6 +386,9 @@ const rows: Row[] = [
   { file: 'apps/platform-web/src/menus.ts', code: `import { x } from '@ap/menu-home/src/index';`, rule: 'no-restricted-imports' },
 
   // --- composition-root menu subpath allowance (issue #60): main.tsx ONLY ---
+  { file: 'apps/platform-web/src/main.tsx', code: `import { LentTrendPanel } from '@ap/menu-hw-time/lent-panels';`, rule: '' },
+  { file: 'apps/platform-web/src/menus.ts', code: `import { LentTrendPanel } from '@ap/menu-hw-time/lent-panels';`, rule: 'no-restricted-imports' },
+  { file: MENU, code: `await import('@ap/menu-hw-time/lent-panels');`, rule: 'ap/restricted-import-source' },
   { file: 'apps/platform-web/src/main.tsx', code: `import { x } from '@ap/menu-notice-voc/styles.css';`, rule: 'no-restricted-imports' },
   // #145/#153: the server conformance test takes its endpoints from the mock assembly's MOCK_ENDPOINTS, so it no
   // longer reaches a menu `/mock` subpath itself; only src/dev/** does.

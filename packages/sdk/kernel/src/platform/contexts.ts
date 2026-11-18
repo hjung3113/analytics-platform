@@ -52,6 +52,7 @@ export const ScreenContext = createContext<ScreenState | null>(null);
 // A pane gets its own context object: React re-renders every ScreenContext reader under the main provider when the main
 // screen changes, even below a nested provider of the same context, so a shared object would wake all panes (C3).
 export const PaneScreenContext = createContext<ScreenState | null>(null);
+export const LentPanelPlatformContext = createContext<HostPlatform | null>(null);
 
 // Shell state that changes often lives in contexts of its own, one per concern, so a toast, an overlay or a visit wakes only its readers
 // and never a menu, a chart or a table behind `usePlatform()` (ADR-0076 supplement, #824).

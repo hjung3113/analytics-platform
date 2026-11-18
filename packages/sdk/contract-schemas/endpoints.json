@@ -1037,7 +1037,8 @@
       "drillModule",
       "drillMotion",
       "verdict",
-      "date"
+      "date",
+      "equipmentId"
     ],
     "permission": "analytics:view",
     "requiresScope": true,
