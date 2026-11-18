@@ -50,7 +50,7 @@ test.describe('EV 메뉴 계약 (06 §5·§17, #801)', () => {
     await evidence(page, testInfo, 'eqv-inherited-window-recovered');
   });
 
-  test('engineer opens Top View, then Focus with Occurrence evidence labels', async ({ page }, testInfo) => {
+  test('engineer opens Top View, then synchronized playback with Occurrence evidence labels', async ({ page }, testInfo) => {
     await page.goto(TOPVIEW);
     await expect(sidebar(page).getByRole('link', { name: MENU })).toBeVisible();
     await expect(page.locator('[data-component-id]').first()).toBeVisible({ timeout: 15_000 });
@@ -58,7 +58,7 @@ test.describe('EV 메뉴 계약 (06 §5·§17, #801)', () => {
     await expect(page.getByRole('heading', { level: 1, name: MENU })).toBeVisible();
     await evidence(page, testInfo, 'eqv-topview');
 
-    await page.getByRole('button', { name: 'Focus 열기' }).click();
+    await page.getByRole('button', { name: '동기 재생 열기' }).click();
     await expect(page).toHaveURL(/\/tools\/eqv-focus\?.*anchor=/);
     const occurrences = page.getByRole('grid', { name: 'Occurrence 목록' });
     await expect(occurrences).toBeVisible({ timeout: 15_000 });

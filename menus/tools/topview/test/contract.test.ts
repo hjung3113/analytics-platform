@@ -17,7 +17,8 @@ describe('manifests vs the Kernel registry', () => {
   it('registers as ordinary menus: ids, paths, aliases, one primary screen and the eqv:view permission', () => {
     const registry = build();
     expect(registry.menuById('eqv:topview')).toMatchObject({ path: '/tools/eqv-topview', aliases: ['/tools/topview'], primary: true, permission: 'eqv:view', group: 'topview' });
-    expect(registry.menuById('eqv:focus')).toMatchObject({ path: '/tools/eqv-focus', aliases: ['/tools/topview/focus'], parent: 'eqv:topview', permission: 'eqv:view' });
+    expect(registry.menuById('eqv:focus')).toMatchObject({ path: '/tools/eqv-focus', aliases: ['/tools/topview/focus'], parent: 'eqv:topview', permission: 'eqv:view', label: { ko: '동기 재생', en: 'Synchronized playback' } });
+    expect(registry.menuById('eqv:topview')?.linkTargets).toEqual({ optional: ['eqv-studio'] });
   });
 
   it('keeps the equipment a page key, never a route param, and no page key is a global Context key', () => {

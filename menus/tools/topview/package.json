@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-topview",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "ap": {
     "sdk": ">=0.43.0 <0.44.0"
   },

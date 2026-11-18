@@ -58,5 +58,6 @@ export function FocusScreen() {
   }, [identity, pageParam, setPage]);
   const rules = usePageKeyRulesFor(useEquipmentOptions().state, true, identityChanged);
   // A rejected key sends no replay query: the load lives in `FocusBody`, which is not mounted while a key is invalid.
-  return <PlatformPage title="Focus">{rules.invalid ? <PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} /> : <FocusBody identityChanged={identityChanged} />}</PlatformPage>;
+  const m = useMessages(TOPVIEW_MESSAGES);
+  return <PlatformPage title={m('focusMenuLabel')}>{rules.invalid ? <PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} /> : <FocusBody identityChanged={identityChanged} />}</PlatformPage>;
 }

@@ -43,6 +43,7 @@ describe('queries', () => {
     const fake = fakeFor('focus');
     const view = fake.render(FocusScreen);
     await waitFor(() => expect(row('occ-open')).not.toBeNull());
+    screen.getByRole('heading', { name: '동기 재생' });
     expect(fake.log.queries.filter(({ id }) => id !== OPTIONS_ID).map(({ id, params }) => [id, params])).toEqual([
       [CONTEXT_ID, { equipmentId: EQUIPMENT }],
       [EVENTS_ID, { equipmentId: EQUIPMENT }],
@@ -362,20 +363,40 @@ describe('Top View', () => {
     fake.render(TopViewScreen);
     await screen.findAllByText('2026-01-01 10:30:00');
     expect(document.querySelector('[data-layer="replay"]')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Focus 열기' }));
+    fireEvent.click(screen.getByRole('button', { name: '동기 재생 열기' }));
     await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor: '58', cursor: '2026-01-01T10:30:00.000' }));
+  });
+
+  it('opens the displayed layout in Studio only for an allowed target and carries its id as the layout page key', async () => {
+    const fake = fakeFor('topview', { studio: 'allowed' });
+    fake.render(TopViewScreen);
+    await screen.findAllByText('2026-01-01 10:30:00');
+    const open = screen.getByRole('button', { name: '동기 재생 열기' });
+    const edit = screen.getByRole('button', { name: '레이아웃 편집' });
+    expect(open.parentElement).toBe(edit.parentElement);
+    fireEvent.click(edit);
+    await waitFor(() => expect(window.location.pathname).toBe('/tools/eqv-studio'));
+    expect(fake.page('layout')).toBe('eq-synth-01-layout');
+  });
+
+  it.each(['denied', 'missing'] as const)('does not offer a Studio link when its target is %s', async (studio) => {
+    const fake = fakeFor('topview', { studio });
+    fake.render(TopViewScreen);
+    await screen.findAllByText('2026-01-01 10:30:00');
+    expect(screen.queryByRole('button', { name: '레이아웃 편집' })).toBeNull();
+    expect(screen.queryByText(/레이아웃 편집/)).toBeNull();
   });
 
   it.each([
     [null, '1'],
     ['pm-b', '19'],
     ['pm-a', '18'],
-  ] as const)('Focus 열기 at 10:08:30 with %s selected opens Focus on that Component\'s open Occurrence (its RecordSequence), else the first one open at the cursor', async (id, anchor) => {
+  ] as const)('동기 재생 열기 at 10:08:30 with %s selected opens Focus on that Component\'s open Occurrence (its RecordSequence), else the first one open at the cursor', async (id, anchor) => {
     const fake = fakeFor('topview', { context: { from: HOST_TIME.from, to: '2026-01-01T10:08:30' }, query: server({ events: token => { const [first, second] = pages(); return ok({ ...(token === undefined ? first : second), to: '2026-01-01T10:08:30.000' }); } }) });
     fake.render(TopViewScreen);
     await screen.findAllByText('2026-01-01 10:08:30');
     if (id !== null) fireEvent.click(document.querySelector(`[data-component-id="${id}"]`)!);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus 열기' }));
+    fireEvent.click(screen.getByRole('button', { name: '동기 재생 열기' }));
     await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor, cursor: '2026-01-01T10:08:30.000' }));
   });
 
@@ -567,6 +588,16 @@ describe('Focus 재생 구간 in the page keys', () => {
     expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:30:00');
     fireEvent.keyDown(slider, { key: 'Home' });
     await waitFor(() => expect(fake.page('cursor')).toBe('2026-01-01T10:00:00.000'));
+  });
+
+  it('commits a playback-slider seek to the shared cursor page key with replace navigation', async () => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor: '2026-01-01T10:06:00.000' } });
+    fake.render(FocusScreen);
+    const slider = await screen.findByRole('slider', { name: '재생 커서 시각' });
+    fireEvent.keyDown(slider, { key: 'Home' });
+    fireEvent.keyUp(slider, { key: 'Home' });
+    await waitFor(() => expect(fake.page('cursor')).toBe('2026-01-01T10:00:00.000'));
+    expect(window.location.search).toContain('cursor=2026-01-01T10%3A00%3A00.000');
   });
 });
 

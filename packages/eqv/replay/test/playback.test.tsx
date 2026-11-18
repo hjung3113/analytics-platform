@@ -131,10 +131,23 @@ it.each([['cursor', null, range], ['range', range.from, null]] as const)('losing
 const controls = (over: Partial<PlaybackControlsProps> = {}, sequence: Partial<PlaybackControlsProps['sequence']> = {}) => {
   const props: PlaybackControlsProps = { playing: false, onPlay: vi.fn(), onPause: vi.fn(), speed: 1, onSpeedChange: vi.fn(),
     onPreviousBreakpoint: vi.fn(), onNextBreakpoint: vi.fn(),
+    slider: { min: 0, max: 10_000, value: 0, startLabel: '2026-01-01 10:00:00', currentLabel: '2026-01-01 10:00:00', endLabel: '2026-01-01 10:00:10', onValueChange: vi.fn(), onValueCommit: vi.fn() },
     sequence: { available: true, active: false, onToggle: vi.fn(), onPrevious: null, onNext: null, step: null, ...sequence }, ...over };
   render(<PlaybackControls {...props} />);
   return props;
 };
+
+it('PlaybackControls: slider and speed share the first row; steps and Record Sequence share the second with inline hints', () => {
+  controls();
+  const rows = screen.getAllByRole('group', { name: /재생 컨트롤|단계 이동|기록 단위 보기/ });
+  expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['재생 컨트롤', '단계 이동', '기록 단위 보기']);
+  expect(within(rows[0]!).getByRole('slider', { name: '재생 커서 시각' })).toBeTruthy();
+  expect(within(rows[0]!).getByRole('radiogroup', { name: '재생 속도' })).toBeTruthy();
+  expect(within(rows[0]!).getByText('Space')).toBeTruthy();
+  expect(within(rows[1]!).getByText('←')).toBeTruthy();
+  expect(within(rows[1]!).getByText('→')).toBeTruthy();
+  expect(within(rows[2]!).getByRole('button', { name: '기록 단위 보기' })).toBeTruthy();
+});
 
 it('PlaybackControls: one play/pause button, the five speeds, breakpoint buttons', () => {
   const props = controls();
@@ -166,7 +179,7 @@ it('PlaybackControls: record buttons are disabled at the ends; the status names 
   expect(screen.getByRole('status').textContent).toBe('기록 단위 · Record Sequence 7 · 2026-01-01 10:02:00');
   cleanup();
   controls();
-  expect(screen.getByRole('status').textContent).toBe('');
+  expect(screen.queryByRole('status')).toBeNull();
   cleanup();
   controls({}, { available: false, unavailableReason: '이 시점까지 적용된 기록이 구간 안에 없어 기록 단위 보기를 쓸 수 없습니다' });
   const disabledToggle = screen.getByRole('button', { name: '기록 단위 보기' }) as HTMLButtonElement;

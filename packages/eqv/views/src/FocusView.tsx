@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { createPortal } from 'react-dom';
 import { ArrowRight, ChartGantt, Inbox, MapPinOff, ServerCrash } from 'lucide-react';
 import {
-  bindingLayout, hasKnownOccurrenceInWindow, replayTimeline, replayTimelineFrame, parseWallClockRange, wallClockToMillis, seekSceneState, stepSceneState,
+  bindingLayout, hasKnownOccurrenceInWindow, replayTimeline, replayTimelineFrame, parseWallClockRange, millisToWallClock, wallClockToMillis, seekSceneState, stepSceneState,
   type ReplayInput, type ReplayTimeline, type ReplayTimelineFrame, type SceneState, type SiteWallClock,
 } from '@eqv/core';
 import { TopViewer } from '@eqv/renderer';
@@ -29,6 +29,7 @@ type View = {
   rangeError: string | null;
   rangeExpanded: boolean;
   cursorMoveNotice: { from: SiteWallClock; to: SiteWallClock } | null;
+  cursorAnnouncement: string | null;
   /** null means the entry's default cursor. */
   cursor: SiteWallClock | null;
   selectedOccurrenceId: string | null;
@@ -117,7 +118,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   // An anchor naming an Occurrence of the batch is the entry: it starts selected (view state only; the cursor is the entry's own).
   const entryId = entryOccurrence(input.batch, { entityType, anchor })?.id ?? null;
   const entry = useMemo(() => focusRange(input.batch, { entityType, anchor }, initialCursor), [input.batch, entityType, anchor, initialCursor]);
-  const fresh = (): View => ({ resetKey, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice: null, cursor: entry.cursor,
+  const fresh = (): View => ({ resetKey, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice: null, cursorAnnouncement: null, cursor: entry.cursor,
     selectedOccurrenceId: entryId, selectedComponentId: null, expanded: new Set(), mode: { kind: 'time' }, illustrative: false });
   const [view, setView] = useState<View>(fresh);
   const [ownTab, setOwnTab] = useState<FocusTab>('list');
@@ -136,7 +137,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   // selection belong to one batch.
   const cursorMoveNotice = initialCursor === null && view.cursor !== null && view.cursor !== entry.cursor ? { from: view.cursor, to: entry.cursor } : null;
   if (view.resetKey !== resetKey) setView(fresh());
-  else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice, cursor: entry.cursor, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
+  else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice, cursorAnnouncement: null, cursor: entry.cursor, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
 
   const range = (hostRange ? hostRange.value : view.applied) ?? entry.range ?? null;
   const noData = range !== null && !hasKnownOccurrenceInWindow(input.batch, range);
@@ -210,7 +211,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   }, [renderDetail, detail]);
 
   const patch = useCallback((changes: Partial<View>) => setView((previous) => ({ ...previous, ...changes })), []);
-  const updateCursor = useCallback((at: SiteWallClock) => patch({ cursor: at, mode: { kind: 'time' }, cursorMoveNotice: null }), [patch]);
+  const updateCursor = useCallback((at: SiteWallClock) => patch({ cursor: at, mode: { kind: 'time' }, cursorMoveNotice: null, cursorAnnouncement: null }), [patch]);
   const playback = usePlayback({ cursor, range, onCursorChange: updateCursor, resetKey: JSON.stringify([resetKey, entryKey]), scheduler });
   const { pause: pausePlayback, play: playPlayback, playing } = playback;
   useEffect(() => { cursorSnapshot.current = cursor; }, [cursor]);
@@ -222,16 +223,18 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const breakpoints = frame?.breakpoints ?? [];
   const previousBreakpoint = shownAt === null ? undefined : [...breakpoints].reverse().find((t) => t < shownAt);
   const nextBreakpoint = shownAt === null ? undefined : breakpoints.find((t) => t > shownAt);
+  const announceCursor = useCallback((at: SiteWallClock) => patch({ cursorAnnouncement: `재생 커서를 ${wallClockText(at)}로 옮겼습니다` }), [patch]);
+  const commitCursor = useCallback((at: SiteWallClock) => { announceCursor(at); onCursorCommit?.(at); }, [announceCursor, onCursorCommit]);
   const stepBreakpoint = useCallback((at: SiteWallClock) => {
     const wasPlaying = playing;
     pausePlayback();
     updateCursor(at);
+    announceCursor(at);
     if (!wasPlaying) onCursorCommit?.(at);
-  }, [onCursorCommit, pausePlayback, playing, updateCursor]);
-  const commitCursor = useCallback((at: SiteWallClock) => onCursorCommit?.(at), [onCursorCommit]);
+  }, [announceCursor, onCursorCommit, pausePlayback, playing, updateCursor]);
   const togglePlayback = useCallback(() => {
     if (playing) pausePlayback();
-    else { patch({ mode: { kind: 'time' }, cursorMoveNotice: null }); playPlayback(); }
+    else { patch({ mode: { kind: 'time' }, cursorMoveNotice: null, cursorAnnouncement: null }); playPlayback(); }
   }, [patch, playPlayback, pausePlayback, playing]);
   useEffect(() => {
     const onPageKeyDown = (event: KeyboardEvent) => {
@@ -271,14 +274,14 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
     const nextCursor = outside ? parsed.range.from : cursor;
     const cursorMove = cursor !== null && nextCursor !== cursor ? { from: cursor, to: nextCursor } : null;
     hostRange?.onChange(parsed.range, nextCursor);
-    patch({ applied: parsed.range, draft: null, rangeError: null, rangeExpanded: false, mode: { kind: 'time' }, cursor: nextCursor, cursorMoveNotice: cursorMove });
+    patch({ applied: parsed.range, draft: null, rangeError: null, rangeExpanded: false, mode: { kind: 'time' }, cursor: nextCursor, cursorMoveNotice: cursorMove, cursorAnnouncement: null });
     changeButton.current?.focus();
   };
   const select = (id: string, moveCursor: boolean) => {
     const start = input.batch.occurrences.find((o) => o.id === id)?.start.at ?? null;
     const move = moveCursor && start !== null && range !== null && cursorIsInRange(start, range);
     patch({ selectedOccurrenceId: id, ...(move ? { cursor: start, mode: { kind: 'time' }, cursorMoveNotice: null } : {}) });
-    if (move && start !== null) onCursorCommit?.(start);
+    if (move && start !== null) commitCursor(start);
   };
   // With the host's detail slot there is no inline "detail" tab: a tab value of 'detail' shows the list.
   const tab = renderDetail && (controlledTab ?? ownTab) === 'detail' ? 'list' : controlledTab ?? ownTab;
@@ -286,6 +289,13 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
 
   const showTopView = !noData && !!(frame && state && cursor);
   const noticeLine = <NoticeList notices={[...notices, ...(entry.notice ? [entry.notice] : [])]} className="mb-2" />;
+  const cursorNotice = currentCursorMoveNotice
+    ? `재생 커서를 ${wallClockText(currentCursorMoveNotice.from)} → ${wallClockText(currentCursorMoveNotice.to)}로 옮겼습니다`
+    : view.cursorAnnouncement;
+  const sliderMin = range ? wallClockToMillis(range.from) : 0;
+  const rangeEnd = range ? wallClockToMillis(range.to) : sliderMin;
+  const sliderMax = range && state && range.to === input.batch.to && state.at === range.to ? rangeEnd : Math.max(sliderMin, rangeEnd - 1);
+  const sliderValue = state ? wallClockToMillis(state.at) : sliderMin;
 
   return (
     <div ref={focusRoot} className="contents">
@@ -297,9 +307,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
             <Button ref={changeButton} type="button" variant="secondary" size="toolbar" aria-expanded={view.rangeExpanded} aria-controls={rangeRegionId}
               onClick={() => patch({ rangeExpanded: !view.rangeExpanded })}>변경</Button>
           </div>
-          {currentCursorMoveNotice && <p aria-live="polite" className="m-0 mb-2 text-sm text-text-secondary">
-            {`재생 커서를 ${wallClockText(currentCursorMoveNotice.from)} → ${wallClockText(currentCursorMoveNotice.to)}로 옮겼습니다`}
-          </p>}
+          {cursorNotice && <p aria-live="polite" className="m-0 mb-2 text-sm text-text-secondary">{cursorNotice}</p>}
           <div id={rangeRegionId} role="region" aria-label="재생 구간 변경" hidden={!view.rangeExpanded} className="mb-3">
           <form aria-label="구간" className="grid gap-3" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => { event.preventDefault(); apply(); }}>
             <div className="flex flex-wrap items-end gap-3">
@@ -329,16 +337,6 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
       {sceneState && 'error' in sceneState && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${sceneState.error}`} />}
       {showTopView && (
         <>
-          <PlaybackControls playing={playing} onPlay={togglePlayback} onPause={pausePlayback}
-            speed={playback.speed} onSpeedChange={playback.setSpeed}
-            onPreviousBreakpoint={previousBreakpoint === undefined ? null : () => stepBreakpoint(previousBreakpoint)}
-            onNextBreakpoint={nextBreakpoint === undefined ? null : () => stepBreakpoint(nextBreakpoint)}
-            sequence={{ available: entryStep !== undefined || sequenceSeq !== null,
-              unavailableReason: '이 시점까지 적용된 기록이 구간 안에 없어 기록 단위 보기를 쓸 수 없습니다', active: sequenceSeq !== null,
-              onToggle: () => sequenceSeq !== null ? patch({ mode: { kind: 'time' } }) : enterSequence(),
-              onPrevious: stepIndex > 0 ? () => moveStep(stepIndex - 1) : null,
-              onNext: stepIndex >= 0 && stepIndex < steps.length - 1 ? () => moveStep(stepIndex + 1) : null,
-              step: sequenceSeq === null ? null : { seq: sequenceSeq, at: state.at } }} />
           <div className="flex flex-wrap items-start gap-4">
             <Panel title="Top View" className="max-w-full min-w-0 flex-none overflow-auto"
               actions={<>
@@ -356,6 +354,20 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
                   selectedId={view.selectedComponentId} onSelectedChange={(id) => patch({ selectedComponentId: id })}
                   renderControls={(controls) => zoomHost && createPortal(<ViewerZoomControls controls={controls} labels={{ zoomIn: '확대', zoomOut: '축소', fit: '맞춤' }} />, zoomHost)} />
               ) : <EmptyState size="sm" icon={<MapPinOff className="size-4" aria-hidden />} title="이 시점에 적용된 Binding이 없어 Top View를 표시할 수 없습니다" />}
+              <PlaybackControls playing={playing} onPlay={togglePlayback} onPause={pausePlayback}
+                speed={playback.speed} onSpeedChange={playback.setSpeed}
+                onPreviousBreakpoint={previousBreakpoint === undefined ? null : () => stepBreakpoint(previousBreakpoint)}
+                onNextBreakpoint={nextBreakpoint === undefined ? null : () => stepBreakpoint(nextBreakpoint)}
+                slider={{ min: sliderMin, max: sliderMax, value: sliderValue, startLabel: range ? wallClockText(range.from) : '',
+                  currentLabel: shownAt ? wallClockText(shownAt) : '', endLabel: range ? wallClockText(range.to) : '',
+                  onValueChange: (value) => updateCursor(millisToWallClock(value)),
+                  onValueCommit: (value) => commitCursor(millisToWallClock(value)) }}
+                sequence={{ available: entryStep !== undefined || sequenceSeq !== null,
+                  unavailableReason: '이 시점까지 적용된 기록이 구간 안에 없어 기록 단위 보기를 쓸 수 없습니다', active: sequenceSeq !== null,
+                  onToggle: () => sequenceSeq !== null ? patch({ mode: { kind: 'time' } }) : enterSequence(),
+                  onPrevious: stepIndex > 0 ? () => moveStep(stepIndex - 1) : null,
+                  onNext: stepIndex >= 0 && stepIndex < steps.length - 1 ? () => moveStep(stepIndex + 1) : null,
+                  step: sequenceSeq === null ? null : { seq: sequenceSeq, at: state.at } }} />
             </Panel>
             <div className="min-w-0 flex-1 basis-96">
               <CursorStateList state={state} {...(ghosts ? { illustrative: ghosts } : {})} />

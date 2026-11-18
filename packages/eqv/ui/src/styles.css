@@ -1,2 +1,42 @@
 /* Tailwind scans this package's components (they live outside the host app). Import after the @ap/ui theme. */
 @source "./";
+
+.eqv-time-slider {
+  appearance: none;
+  background: transparent;
+  touch-action: pan-y;
+}
+
+.eqv-time-slider::-webkit-slider-runnable-track {
+  height: 0.375rem;
+  border: 1px solid rgb(var(--border-control));
+  border-radius: 9999px;
+  background: rgb(var(--surface-sunken));
+}
+
+.eqv-time-slider::-moz-range-track {
+  height: 0.375rem;
+  border: 1px solid rgb(var(--border-control));
+  border-radius: 9999px;
+  background: rgb(var(--surface-sunken));
+}
+
+.eqv-time-slider::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.375rem;
+  appearance: none;
+  border: 2px solid rgb(var(--surface-card));
+  border-radius: 9999px;
+  background: rgb(var(--accent-primary));
+  box-shadow: 0 0 0 1px rgb(var(--border-control));
+}
+
+.eqv-time-slider::-moz-range-thumb {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid rgb(var(--surface-card));
+  border-radius: 9999px;
+  background: rgb(var(--accent-primary));
+  box-shadow: 0 0 0 1px rgb(var(--border-control));
+}
