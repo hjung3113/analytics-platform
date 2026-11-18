@@ -98,7 +98,7 @@ const CYCLE_TIME: MetricDef = {
     version({
       version: '4', state: 'published', unit: 's', numerator: null,
       formula: { ko: '분포 재계산. PRC 구간과 큐 대기 포함. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval plus queue wait included. averageOfQuantilesAllowed=false.' },
-      filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3',
+      filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간과 큐 대기 포함', en: 'Process interval plus queue wait included' }], sourceContractRef: 'cycle-time-basis-v3',
       changeReason: { ko: 'PRC 구간과 큐 대기 포함. 발행 포인터.', en: 'Process interval plus queue wait included. Published pointer.' },
       registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
     }),
