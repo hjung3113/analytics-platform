@@ -53,6 +53,7 @@ export const ADMIN_PERMISSIONS_COPY = {
     required: '— (필수)',
   },
   riskReview: {
+    findingRoleRequired: '승인해도 요청자는 Finding 목록·상세를 열 수 없습니다. Developer 이상 역할이 필요합니다.',
     title: '검토 시 확인할 사항',
     currentState: '현재 상태 기준',
     noSignals: '추가 확인 사항 없음',

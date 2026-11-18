@@ -486,6 +486,7 @@ function FindingsListBody({
   onResetFilters: () => void;
 }): React.ReactElement {
   const permissionError = isPermissionDenied(error) ? error : null;
+  const roleRequired = permissionError?.detail?.reason === 'role_required';
   const isReadDenied = isError && permissionError !== null;
 
   return (
@@ -509,7 +510,7 @@ function FindingsListBody({
           <SkeletonRows count={3} size="compact" />
         </div>
       ) : isError && isPermissionDenied(error) ? (
-        permissionError?.envelope.requestable_permission ? (
+        !roleRequired && permissionError?.envelope.requestable_permission ? (
           <RequestAccessButton
             capability={permissionError.envelope.requestable_permission.permission}
             returnRouteIntent="/findings"
@@ -536,7 +537,9 @@ function FindingsListBody({
             <PermissionBlockedPanel
               state="blocked_not_requestable"
               category="Findings"
-              reason={PERMISSION_BLOCKED_REASONS.findingsList}
+              reason={roleRequired
+                ? PERMISSION_BLOCKED_REASONS.findingsListRoleRequired
+                : PERMISSION_BLOCKED_REASONS.findingsList}
             />
             <MyVocsRecoveryLink />
           </div>

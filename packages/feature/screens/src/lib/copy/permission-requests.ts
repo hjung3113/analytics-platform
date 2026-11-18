@@ -11,6 +11,7 @@ export const PERMISSION_REQUESTS_PAGE_COPY = {
   newRequest: '새 권한 요청',
   targetKind: '요청 대상',
   capability: '기능',
+  findingRoleRequired: 'Developer 이상 역할 필요 — 이 권한만으로는 Finding 목록·상세가 열리지 않습니다',
   capabilityPlaceholder: '기능 선택',
   managedSystem: '시스템',
   managedSystemPlaceholder: '시스템 선택',

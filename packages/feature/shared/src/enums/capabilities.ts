@@ -10,6 +10,8 @@
 // it must carry a non-empty reason and the audit detail must mark it
 // `sensitive: true`. See F-014 in `.review/SLICE-1-REVIEW.md`.
 
+import { ROLE_LEVEL_VALUES, type RoleLevel } from './index.js';
+
 export const CAPABILITIES = [
   'scope.read',
   'workspace.read',
@@ -78,11 +80,15 @@ export type Capability = (typeof CAPABILITIES)[number];
  */
 export type AdminModuleBypass = 'none' | 'unless_denied' | 'always';
 
+export const FINDING_SCREEN_ROLE_FLOOR = 'developer' satisfies RoleLevel;
+
 export interface CapabilityMeta {
   /** When true, permission_requests must include a non-empty reason. */
   sensitive: boolean;
   /** Admin-role satisfaction layered above `roleSatisfies`. */
   adminModuleBypass: AdminModuleBypass;
+  /** Minimum role for the associated screens. This hint does not limit where the grant itself applies. */
+  screenRoleFloor?: RoleLevel;
   /**
    * ADR-0116 decision 4: high-risk capability that only a human login session may exercise. An API token is
    * refused (`permission.session_required`) even when the capability is in its scopes, and it cannot be
@@ -123,8 +129,8 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
   'voc.create': { sensitive: false, adminModuleBypass: 'unless_denied' },
   // Finding point authorization short-circuits on the admin role before
   // consulting Permission (`modules/findings/authorization.ts`).
-  'finding.read': { sensitive: false, adminModuleBypass: 'always' },
-  'finding.manage': { sensitive: false, adminModuleBypass: 'always' },
+  'finding.read': { sensitive: false, adminModuleBypass: 'always', screenRoleFloor: FINDING_SCREEN_ROLE_FLOOR },
+  'finding.manage': { sensitive: false, adminModuleBypass: 'always', screenRoleFloor: FINDING_SCREEN_ROLE_FLOOR },
   // Self-approval is sensitive because it bypasses normal reviewer separation.
   // `hasSelfApprovalCapability` still short-circuits on the admin role.
   'task_request.self_approve': { sensitive: true, adminModuleBypass: 'always', sessionOnly: true },
@@ -201,6 +207,12 @@ export const CAPABILITY_META: Readonly<Record<Capability, CapabilityMeta>> = {
 
 export function isCapability(value: string): value is Capability {
   return (CAPABILITIES as readonly string[]).includes(value);
+}
+
+/** Whether the role meets the screen prerequisite, assuming a valid grant. */
+export function grantOpensScreensFor(capability: string, roleLevel: RoleLevel): boolean {
+  const floor = isCapability(capability) ? CAPABILITY_META[capability].screenRoleFloor : undefined;
+  return floor === undefined || ROLE_LEVEL_VALUES.indexOf(roleLevel) <= ROLE_LEVEL_VALUES.indexOf(floor);
 }
 
 export function isSensitiveCapability(cap: Capability): boolean {

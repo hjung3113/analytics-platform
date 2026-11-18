@@ -13,6 +13,17 @@ const items = ['workspace.read', 'finding.read', 'finding.manage'].map((capabili
   created_at: '2026-11-17T00:00:00.000Z', batch_id: batchId,
 }));
 
+it('shows the Finding role requirement on a later User request in the batch', () => {
+  const [first] = items;
+  if (!first) throw new Error('fixture');
+  render(<PermissionRequestDetail request={first} batch={{ id: batchId, items }} actorName="김하나" onClose={() => undefined} />);
+
+  const note = '승인해도 요청자는 Finding 목록·상세를 열 수 없습니다. Developer 이상 역할이 필요합니다.';
+  expect(within(screen.getByRole('region', { name: 'Finding 조회' })).getByText(note)).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Finding 관리' })).getByText(note)).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: '전체 읽기' })).queryByText(note)).not.toBeInTheDocument();
+});
+
 it('labels later sensitive and denied member evidence while keeping shared notes once', () => {
   const first = items[0];
   const later = items[2];

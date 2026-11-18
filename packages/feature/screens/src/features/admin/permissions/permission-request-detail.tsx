@@ -12,7 +12,7 @@ import { grantedScopeTargetLabel, requestedScopeTargetLabel } from '../../../lib
 import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { shortId } from '../../../lib/identity';
-import { type PermissionRequestAdminDetail, isDeclaredCapabilityId } from '@ap/feature-shared';
+import { type PermissionRequestAdminDetail, grantOpensScreensFor, isDeclaredCapabilityId } from '@ap/feature-shared';
 
 import { DeclaredCapabilityName } from './declared-capability-name.js';
 import { PermissionRequestDecisionForm } from './permission-request-decision-form.js';
@@ -240,6 +240,8 @@ function PermissionMemberRiskReview({ request, managedSystemNames }: {
   managedSystemNames: Record<string, string>;
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
+  const { role_level: requesterRole } = request.requester;
+  const roleRequired = !grantOpensScreensFor(request.requested_capability, requesterRole);
   const accessDecision = request.effective_access.decision;
   const effectiveDecision = accessDecision.allow
     ? `${copy.allowed} · ${
@@ -256,9 +258,10 @@ function PermissionMemberRiskReview({ request, managedSystemNames }: {
       {request.status !== 'pending' && request.status !== 'needs_more_info' ? (
         <p className="text-sm text-text-muted">{copy.currentState}</p>
       ) : null}
-      {request.risk_indicators.length === 0 ? (
+      {request.risk_indicators.length === 0 && !roleRequired ? (
         <output className="text-sm text-text-muted">{copy.noSignals}</output>
-      ) : (
+      ) : null}
+      {request.risk_indicators.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {request.risk_indicators.map((indicator, index) => (
             // eslint-disable-next-line react/no-array-index-key -- risk indicator codes can repeat within one request and the list is rendered once, never reordered; the index disambiguates the key
@@ -270,7 +273,8 @@ function PermissionMemberRiskReview({ request, managedSystemNames }: {
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
+      {roleRequired ? <p className="text-sm text-text-secondary">{copy.findingRoleRequired}</p> : null}
       <div className="flex flex-col gap-1">
         <FieldRow label={copy.effectiveDecision} inset="none">
           {effectiveDecision}
