@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MIN_GROUP_WIDTH, MAX_GROUP_LABEL_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS, type StoredColumnGroups } from '@ap/contracts';
+import { MIN_GROUP_WIDTH, MAX_GROUP_LABEL_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, isStoredColumnGroupItem, type StoredColumnGroups } from '@ap/contracts';
 export { MIN_GROUP_WIDTH, MAX_GROUP_LABEL_LENGTH } from '@ap/contracts';
 export type { StoredColumnGroups } from '@ap/contracts';
 import type { PlatformColumnGroup } from './PlatformDataTable';
@@ -22,22 +22,17 @@ type GroupedColumn = { id: string; columnGroup?: readonly string[] };
 /** The editor accepts the same trimmed label bound as saved views. */
 export const validGroupName = (name: string) => name.trim().length > 0 && name.trim().length <= MAX_GROUP_LABEL_LENGTH;
 
-/** Shape validation only. Declaration-dependent filtering happens at read, never by rewriting storage. */
+/** Shape validation only, per item with the saved-view rule (`isStoredColumnGroupItem`): a bad item is dropped, not the whole snapshot. Declaration-dependent filtering happens at read, never by rewriting storage. */
 export function sanitizeColumnGroups(value: unknown): StoredColumnGroups | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const envelope = value as Record<string, unknown>;
   if (typeof envelope.basis !== 'string' || envelope.basis.length > MAX_GROUP_BASIS_LENGTH || !Array.isArray(envelope.items) || envelope.items.length > MAX_COLUMN_GROUPS) return undefined;
   const items: StoredColumnGroups['items'] = [];
   const ids = new Set<string>();
-  for (const raw of envelope.items) {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
-    const item = raw as Record<string, unknown>;
-    if (typeof item.id !== 'string' || !item.id || item.id.length > MAX_GROUP_ID_LENGTH || ids.has(item.id) || !Array.isArray(item.members) || item.members.length > MAX_GROUP_MEMBERS || !item.members.every(member => typeof member === 'string' && member.length >= 1 && member.length <= MAX_GROUP_ID_LENGTH)) continue;
-    if (item.label !== undefined && (typeof item.label !== 'string' || !validGroupName(item.label))) continue;
-    if (item.id.startsWith('u:') && typeof item.label !== 'string') continue;
-    if (item.width !== undefined && (typeof item.width !== 'number' || !isGroupWidth(item.width))) continue;
+  for (const item of envelope.items) {
+    if (!isStoredColumnGroupItem(item) || ids.has(item.id)) continue;
     ids.add(item.id);
-    items.push({ id: item.id, members: [...new Set(item.members as string[])], ...(typeof item.label === 'string' && { label: item.label.trim() }), ...(typeof item.width === 'number' && { width: item.width }) });
+    items.push({ id: item.id, members: [...new Set(item.members)], ...(item.label !== undefined && { label: item.label.trim() }), ...(item.width !== undefined && { width: item.width }) });
   }
   return { basis: envelope.basis, items };
 }

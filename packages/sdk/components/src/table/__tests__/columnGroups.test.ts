@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { columnGroupErrors, displayedUnits } from '../columnGroups';
+import { isStoredColumnGroupItem, isStoredColumnGroups } from '@ap/contracts';
+import { columnGroupErrors, displayedUnits, sanitizeColumnGroups } from '../columnGroups';
 
 // N1 prepares a shared layout seam for N2; no pan interaction is shipped here.
 describe('column group declaration and display units', () => {
@@ -18,5 +19,31 @@ describe('column group declaration and display units', () => {
     expect(displayedUnits(items, c => c.columnGroup)).toEqual([
       { kind: 'leaf', leaves: [items[0]] }, { kind: 'group', id: 'A', leaves: [items[1], items[2]] }, { kind: 'leaf', leaves: [items[3]] },
     ]);
+  });
+});
+
+// #2514 Q3: one item rule in contracts; the saved-view guard rejects the snapshot, the screen's sanitize drops the item.
+describe('stored column-group item rule', () => {
+  const good = { id: 'u:a', label: ' 비교 ', members: ['x', 'x', 'y'], width: 60 };
+  it.each([
+    ['empty id', { id: '', members: [] }],
+    ['long id', { id: 'g'.repeat(201), members: [] }],
+    ['too many members', { id: 'g', members: Array.from({ length: 501 }, (_, i) => `c${i}`) }],
+    ['empty member', { id: 'g', members: [''] }],
+    ['blank label', { id: 'g', label: '  ', members: [] }],
+    ['long label', { id: 'g', label: 'l'.repeat(61), members: [] }],
+    ['unlabelled u: group', { id: 'u:g', members: [] }],
+    ['narrow width', { id: 'g', members: [], width: 59 }],
+    ['infinite width', { id: 'g', members: [], width: Infinity }],
+  ])('rejects an item with %s on both sides', (_name, bad) => {
+    expect(isStoredColumnGroupItem(bad)).toBe(false);
+    expect(isStoredColumnGroups({ basis: 'b', items: [good, bad] })).toBe(false);
+    expect(sanitizeColumnGroups({ basis: 'b', items: [good, bad] })).toEqual({ basis: 'b', items: [{ id: 'u:a', label: '비교', members: ['x', 'y'], width: 60 }] });
+  });
+  it('an unknown key or a repeated id fails the saved-view guard but only drops that item on screen', () => {
+    expect(isStoredColumnGroupItem({ ...good, extra: 1 })).toBe(true);
+    expect(isStoredColumnGroups({ basis: 'b', items: [good, { id: 'g', members: [], extra: 1 }] })).toBe(false);
+    expect(isStoredColumnGroups({ basis: 'b', items: [good, good] })).toBe(false);
+    expect(sanitizeColumnGroups({ basis: 'b', items: [good, good, { id: 'g', members: ['z'], extra: 1 }] })?.items.map(i => i.id)).toEqual(['u:a', 'g']);
   });
 });
