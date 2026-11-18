@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download,
 import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatNumber, isStoredColumnGroups } from '@ap/contracts';
+import { formatNumber, isStoredColumnGroups, MAX_COLUMN_GROUPS, MAX_GROUP_BASIS_LENGTH, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS } from '@ap/contracts';
 import { SavedTableState } from './SavedTableState';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -609,7 +609,10 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     const displayed = [...table.getLeftLeafColumns(), ...table.getCenterLeafColumns(), ...table.getRightLeafColumns()].map(c => c.id).filter(id => id !== '_select' && id !== '_action');
     onColumnGroupsChange(previous => {
       const groups = edit(materializeColumnGroups(source.columns, props.columnGroups, previous.groups));
-      if (!isStoredColumnGroups(groups)) { accepted = false; groupEditor.setNote(m('tableGroupLimit')); toast(m('tableGroupLimit')); return null; }
+      if (!isStoredColumnGroups(groups)) {
+        const limit = m('tableGroupLimit', { groups: formatNumber(MAX_COLUMN_GROUPS, lang), members: formatNumber(MAX_GROUP_MEMBERS, lang), id: formatNumber(MAX_GROUP_ID_LENGTH, lang), basis: formatNumber(MAX_GROUP_BASIS_LENGTH, lang) });
+        accepted = false; groupEditor.setNote(limit); toast(limit); return null;
+      }
       if (!gather) return { groups };
       const merged = effectiveColumnGroups(source.columns, props.columnGroups, groups);
       return { groups, order: groupedOrder(merged.columns, displayed) };

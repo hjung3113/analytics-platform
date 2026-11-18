@@ -73,6 +73,21 @@ describe('editable column groups (#2481)', () => {
     await userEvent.click(screen.getByRole('button', { name: '묶음 만들기' }));
     expect(screen.getByRole('dialog', { name: '묶음 만들기' })).toBeInTheDocument();
   });
+  it('a save over the stored limits explains them with the contracts constants (#2514 Q4)', async () => {
+    // 90 declared members of ~190 characters push the declaration fingerprint past 16,384, so any new group is refused.
+    const wide: PlatformColumn<Row>[] = [{ id: 'free', header: '자유' }, ...Array.from({ length: 90 }, (_, i) => ({ id: `${'w'.repeat(186)}${String(i).padStart(4, '0')}`, header: `넓은 ${i}`, columnGroup: ['developer'] }))];
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+      <PlatformDataTable editableColumnGroups title="T" ariaLabel="limit" columns={wide} columnGroups={labels} rows={rows} getRowId={r => r.id} preferenceKey="limit" height={300} rowAction={() => <button>ready</button>} />
+      <ToastProbe />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('button', { name: 'ready' });
+    await start();
+    await userEvent.click(screen.getByRole('checkbox', { name: '자유 선택' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: '넓은 0 선택' }));
+    await userEvent.type(screen.getByRole('textbox', { name: '묶음 이름' }), '비교');
+    await userEvent.click(screen.getByRole('button', { name: '묶기' }));
+    expect((await screen.findAllByText('열 묶음은 200개, 묶음당 열은 500개까지 저장할 수 있습니다. 열과 묶음 ID는 200자, 선언 정보는 16,384자 이내여야 합니다.')).length).toBeGreaterThan(0);
+  });
   it('bounds the popover to the available height so the footer stays reachable in a short dialog', async () => {
     await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
     const box = screen.getByRole('button', { name: '묶음 만들기' }).closest<HTMLElement>('[role=dialog]')!;
