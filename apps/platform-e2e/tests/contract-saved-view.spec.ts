@@ -1,10 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { pickTargetRoom, contextBar, evidence, expandPageHead, mainHeading, query, queryResultSurface, showSlowExecutions, signInAs } from './support';
+import { pickTargetRoom, contextBar, evidence, expandPageHead, mainHeading, query, queryBar, queryResultSurface, showSlowExecutions, signInAs } from './support';
 
 /**
- * Platform contract checks for Saved Views (docs/06 §21, #1011 node 1011g). The cycle-time detail is only the consumer the
- * contract is observed through; the views, groups and people named below come from the app's local store seed.
+ * Platform contract checks for Saved Views (docs/06 §21). Cycle Time and HW Time observe the same store and query bar.
  */
 const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
 const PHOTO_CHIP = /대상 조건 · 지금 .*공정: PHOTO/;
@@ -66,6 +65,78 @@ async function openManagement(page: Page) {
   await expect(dialog).toBeVisible();
   return dialog;
 }
+
+test.describe('HW Time saved views and shared conditions', () => {
+  test('restores source-table column groups and shares the applied conditions', async ({ page }) => {
+    const TWO_DAYS = 'from=2026-09-24T09:00:00&to=2026-09-26T09:00:00';
+    await signInAs(page, 'engineer');
+    await startWithQueryBarOpen(page, 'hw-time');
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } });
+    });
+    await page.goto(`/mars/hw-time?v=1&scopeId=MEM&roomNames=PHOTO&pins=table&${TWO_DAYS}`);
+    const workspace = page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
+    const tableTab = workspace.getByRole('tab', { name: '원본 표', exact: true });
+    await tableTab.click();
+    const table = page.locator('[data-dock-panel="table"]');
+    const tablePin = workspace.getByRole('button', { name: '원본 표 고정', exact: true });
+    await expect(tablePin).toHaveAttribute('aria-pressed', 'true');
+    const groupHeader = table.getByRole('columnheader', { name: /HW 비교 묶음/ }).first();
+    const columns = table.getByRole('button', { name: '컬럼', exact: true });
+    await columns.click();
+    await page.getByRole('button', { name: '묶음 만들기', exact: true }).click();
+    const name = page.getByRole('textbox', { name: '묶음 이름', exact: true });
+    const editor = page.getByRole('dialog').filter({ has: name });
+    await editor.getByRole('checkbox').nth(0).check();
+    await editor.getByRole('checkbox').nth(1).check();
+    await name.fill('HW 비교 묶음');
+    await editor.getByRole('button', { name: '묶기', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(groupHeader).toBeVisible();
+    await savePrivate(page, 'E2E HW Time PHOTO');
+
+    const list = await openList(page);
+    await list.getByRole('button', { name: 'E2E HW Time PHOTO 동작' }).click();
+    await page.getByRole('menuitem', { name: '내 기본으로 지정' }).click();
+    await expect(toast(page, '개인 기본 뷰로 지정했습니다.')).toBeVisible();
+    await page.goto('/hw-time/steps?v=1&scopeId=MEM&roomNames=ETCH&pins=table');
+    await expect.poll(() => query(page).get('from')).toBe('2026-09-25T09:00:00');
+    expect(query(page).get('roomNames')).toBe('ETCH');
+
+    await tableTab.click();
+    await columns.click();
+    await page.getByRole('button', { name: '기본값으로', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(groupHeader).toHaveCount(0);
+    await tablePin.click();
+    await expect(tablePin).toHaveAttribute('aria-pressed', 'false');
+    await pickTargetRoom(page, queryBar(page), 'PHOTO');
+    expect(query(page).get('roomNames')).toBe('ETCH');
+    await pickView(page, 'E2E HW Time PHOTO');
+    await page.getByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' }).getByRole('button', { name: '버리고 이동' }).click();
+    await expect(trigger(page)).toHaveAccessibleName('저장된 뷰: E2E HW Time PHOTO');
+    await expect.poll(() => query(page).get('roomNames')).toBe('PHOTO');
+    await expect.poll(() => query(page).get('from')).toBe('2026-09-24T09:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+    await tableTab.click();
+    await expect(tablePin).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupHeader).toBeVisible();
+
+    await queryBar(page).getByRole('button', { name: '현재 조건 공유', exact: true }).click();
+    const link = new URL(await page.getByRole('textbox', { name: '복사할 링크' }).inputValue());
+    expect(link.searchParams.get('roomNames')).toBe('PHOTO');
+    expect(link.searchParams.get('from')).toBe('2026-09-24T09:00:00');
+    expect(link.searchParams.get('to')).toBe('2026-09-26T09:00:00');
+    expect(link.searchParams.getAll('pins')).toContain('table');
+    await page.goto(link.href);
+    await expect(tableTab).toBeVisible();
+    expect(query(page).get('roomNames')).toBe('PHOTO');
+    expect(query(page).get('from')).toBe('2026-09-24T09:00:00');
+    await tableTab.click();
+    await expect(tablePin).toHaveAttribute('aria-pressed', 'true');
+    await expect(table.getByRole('row').filter({ has: page.getByRole('cell') }).first()).toBeVisible();
+  });
+});
 
 test.describe('06 §21 저장된 뷰', () => {
   // These checks operate the open editor (condition chips, apply); an applied address starts collapsed without a stored choice (#1892).

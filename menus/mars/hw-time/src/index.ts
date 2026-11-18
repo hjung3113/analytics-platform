@@ -1,7 +1,7 @@
 /** @ap/menu-hw-time — hwTime group manifests. One linked-panel HW Time screen; the four menus it replaced are retired in the app assembly (`retiredMenus`, #2330). */
 import { lazy } from 'react';
 import { LayoutDashboard } from 'lucide-react';
-import { contextCapabilities, groupId, menuPermission, NO_FEATURES } from '@ap/contracts';
+import { contextCapabilities, groupId, menuPermission, NO_FEATURES, type SavedViewSupport } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 import { panelDeclarations } from './panels';
 import { HW_TIME_CONTEXT } from './endpoints';
@@ -12,6 +12,10 @@ export { panelDeclarations } from './panels';
 
 const OPTION_KEYS = ['barsSort', 'barsGroup', 'barsMinMax', 'align', 'trend', 'pins'];
 const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', 'verdict', 'date', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
+const SAVED_VIEW_SUPPORT: SavedViewSupport = {
+  menuId: 'hw-time', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames', 'condition', 'selection'],
+  pageKeys: PAGE_KEYS.filter(key => key !== 'page' && key !== 'focus'),
+};
 const DRILL = { levels: [
   { key: 'moduleType', label: { ko: 'Module 타입', en: 'Module type' } },
   { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } },
@@ -28,7 +32,8 @@ export const manifests: MenuEntry[] = [
     description: { ko: '연결된 패널에서 설비 동작시간을 분석합니다.', en: 'Analyze operation time with linked panels.' },
     path: '/hw-time', icon: LayoutDashboard, permission: PERMISSION,
     requiresScope: true, context: contextCapabilities(HW_TIME_CONTEXT), pageType: 'analysis',
-    query: { mode: 'live' },
+    query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
+    savedViewSupport: SAVED_VIEW_SUPPORT,
     features: { ...NO_FEATURES, board: true, export: true },
     pageKeys: PAGE_KEYS,
     repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins'],

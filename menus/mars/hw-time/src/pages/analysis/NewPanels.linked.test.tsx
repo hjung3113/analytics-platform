@@ -132,6 +132,7 @@ describe('real chart output and request boundaries', () => {
     await waitFor(() => expect(page().has('date')).toBe(false));
     expect(page().get('verdict')).toBe('over');
     expect(screen.queryByText(/URL.*잘못/)).toBeNull();
-    expect(await screen.findByRole('img', { name: '판정 비율 도넛' })).toBeTruthy();
+    // Apply menu (#2503): the low-level resetContext clears the applied period, so results wait for the next Apply (kernel.md §21).
+    if (action !== 'Reset context') expect(await screen.findByRole('img', { name: '판정 비율 도넛' })).toBeTruthy();
   });
 });

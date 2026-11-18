@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { evidence, expectScopeValid, query, signInAs } from './support';
+import { evidence, expectScopeValid, expandQueryBar, pickTargetRoom, query, queryBar, signInAs } from './support';
 
 const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
 const workspace = (page: Page) => page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
@@ -25,6 +25,30 @@ async function activatePoint(page: Page, row: string) {
 
 test.describe('HW Time stepped workspace — drill, options, add and pin', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
+
+  test('first entry queries automatically and target edits wait for Apply', async ({ page }) => {
+    await page.goto(SCREEN);
+    await expect(panel(page, 'current').getByRole('img')).toBeVisible();
+    const period = query(page).get('from');
+    expect(period).toBeTruthy();
+    const bar = queryBar(page);
+    await expandQueryBar(page, bar);
+    await pickTargetRoom(page, bar, 'PHOTO');
+    expect(query(page).get('roomNames')).toBeNull();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('roomNames')).toBe('PHOTO');
+    expect(query(page).get('from')).toBe(period);
+  });
+
+  test('legacy periodless link applies its target and drill conditions on arrival', async ({ page }) => {
+    await page.goto('/hw-time/steps?v=1&scopeId=MEM&roomNames=PHOTO&moduleType=PM&drillMotion=Chuck');
+    await expect(panel(page, 'current').getByRole('img')).toBeVisible();
+    await expect(node(page, 'PM/Chuck')).toHaveAttribute('aria-current', 'true');
+    expect(query(page).get('roomNames')).toBe('PHOTO');
+    expect(query(page).get('drillMotion')).toBe('Chuck');
+    expect(query(page).has('from')).toBe(true);
+    expect(query(page).has('to')).toBe(true);
+  });
 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
     test(`${viewport.width}: type → Motion → Module restores four step defaults`, async ({ page }, testInfo) => {
