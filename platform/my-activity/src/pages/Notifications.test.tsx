@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, improvementRegistry, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../feature/test-support';
+import { ID_A, ID_B, improvementRegistry, notificationRegistry, listOf, mount, notification, stubFetch, switchableAdapter, json } from '../feature/test-support';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -27,7 +27,7 @@ describe('Notifications through the feature bridge', () => {
   const onSessionLost = vi.fn();
   beforeEach(() => { onSessionLost.mockReset(); setFeatureApi({ basePath: '/api/features', onSessionLost }); });
 
-  it('lists unread notifications from /api/features with the session cookie, unlinked, and marks one read', async () => {
+  it('lists unread notifications from /api/features with the session cookie and marks a linked row read', async () => {
     const calls = stubFetch((path, method) => {
       if (method === 'POST') return json(notification(ID_A, { read_at: '2026-07-28T00:00:00.000Z' }));
       return listOf(notification(ID_A));
@@ -35,30 +35,43 @@ describe('Notifications through the feature bridge', () => {
     mount(switchableAdapter().adapter);
     const row = await screen.findByTestId(`home-inbox-row-${ID_A}`);
     expect(calls[0]).toEqual({ path: '/api/features/notifications?unread=true', method: 'GET', credentials: 'include' });
-    expect(within(row).queryByRole('link')).toBeNull();
+    expect(within(row).getByRole('link')).toBeTruthy();
     fireEvent.click(within(row).getAllByRole('button')[0]!);
     await waitFor(() => expect(calls.map(c => `${c.method} ${c.path}`)).toContain(`POST /api/features/notifications/${ID_A}/read`));
     expect(calls.filter(c => /^\/api\/features\/(me|auth)/.test(c.path) || /^\/(me|auth)/.test(c.path))).toEqual([]);
   });
 
-  it('V9: voc.public_update_posted links to the reporter VOC page with a returnTo to 알림; an operator event stays unlinked', async () => {
+  it('V9: voc.public_update_posted links to the reporter VOC page and Task requests link to their operator route', async () => {
     stubFetch(() => listOf(
       notification(ID_A, { event_type: 'voc.public_update_posted', detail: { voc_id: ID_B } }),
-      notification(ID_B, { event_type: 'voc.assigned_to_me', detail: { voc_id: ID_B } }),
+      notification(ID_B, { event_type: 'task_request.approved', subject_type: 'task_request', subject_id: ID_B, detail: { task_request_id: ID_B } }),
     ));
-    mount(switchableAdapter().adapter);
+    mount(switchableAdapter().adapter, notificationRegistry);
     const linked = await screen.findByTestId(`home-inbox-row-${ID_A}`);
     const link = within(linked).getByRole('link');
     const href = new URL(link.getAttribute('href')!, window.location.origin);
     expect(href.pathname).toBe(`/voc/${ID_B}`);
     expect(new URL(href.searchParams.get('returnTo')!, window.location.origin).pathname).toBe('/notifications');
-    expect(within(screen.getByTestId(`home-inbox-row-${ID_B}`)).queryByRole('link')).toBeNull();
+    const taskRequest = within(screen.getByTestId(`home-inbox-row-${ID_B}`)).getByRole('link');
+    const taskHref = new URL(taskRequest.getAttribute('href')!, window.location.origin);
+    expect(taskHref.pathname).toBe('/tasks');
+    expect(taskHref.searchParams.get('focus')).toBe(ID_B);
   });
 
-  it('improvement.assigned_to_me links to the 개선 아이템 상세 with a returnTo to 알림; an operator event stays unlinked', async () => {
+  it('links a permission decision to the requester access-request page', async () => {
+    stubFetch(() => listOf(
+      notification(ID_A, { event_type: 'permission_request.decided', subject_type: 'permission_request', detail: { permission_request_id: ID_B } }),
+    ));
+    mount(switchableAdapter().adapter, notificationRegistry);
+    const row = await screen.findByTestId(`home-inbox-row-${ID_A}`);
+    const link = within(row).getByRole('link');
+    expect(new URL(link.getAttribute('href')!, window.location.origin).pathname).toBe('/permission-requests');
+  });
+
+  it('improvement.assigned_to_me links to the 개선 아이템 상세 and an unmapped VOC event stays unlinked', async () => {
     stubFetch(() => listOf(
       notification(ID_A, { event_type: 'improvement.assigned_to_me', subject_type: 'improvement_item', subject_id: ID_B, summary: '개선 아이템 IM-7이 지정되었습니다.', detail: { item_id: ID_B, item_no: 7 } }),
-      notification(ID_B, { event_type: 'voc.assigned_to_me', detail: { voc_id: ID_B } }),
+      notification(ID_B, { event_type: 'voc.public_update_posted', detail: {} }),
     ));
     mount(switchableAdapter().adapter, improvementRegistry);
     const linked = await screen.findByTestId(`home-inbox-row-${ID_A}`);

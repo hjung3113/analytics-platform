@@ -55,7 +55,12 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     // The platform carries the return path as its own `returnTo`, so a screen adds no feature one (Design 6).
     hostCarriesReturn: true,
     notifyError: message => toast(message, 'danger'),
-    notifySuccess: message => toast(message),
+    notifySuccess: (message, options) => toast(
+      message,
+      'info',
+      undefined,
+      options?.action ? { action: options.action, durationMs: UNDO_WINDOW_MS } : undefined,
+    ),
     useNavigate,
     useSearch,
     useTitle,

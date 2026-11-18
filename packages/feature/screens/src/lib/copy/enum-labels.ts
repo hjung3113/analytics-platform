@@ -128,6 +128,14 @@ export const TASK_REQUEST_STATUS_LABELS: Record<TaskRequestStatus, string> = {
   converted: 'Task 전환됨',
 };
 
+export const IMPROVEMENT_ITEM_STATUS_LABELS: Record<'open' | 'in_progress' | 'done' | 'verified' | 'dropped', string> = {
+  open: '열림',
+  in_progress: '진행 중',
+  done: '완료',
+  verified: '검증됨',
+  dropped: '중단됨',
+};
+
 export const ENTITY_LINK_RELATION_LABELS: Record<EntityLinkRelationType, string> = {
   related_to: '관련 항목',
   created_finding: '생성한 Finding',

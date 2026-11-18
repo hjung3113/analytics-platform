@@ -18,7 +18,7 @@ export { ListScope } from './feature/ListScope';
 export { fetchAllManagedSystems, fetchSpaceLinks, FeatureReadError, parseSpaceLinks, type ManagedSystemRow, type SpaceLink, type SpaceLinks } from './feature/space-links';
 export { useSystemsOverview, type SystemsOverviewData } from './feature/systems-overview';
 export { FeatureDetailDrawer } from './feature/FeatureDetailDrawer';
-export { operatorHostLinks } from './feature/operator-links';
+export { notificationHostLinks, operatorHostLinks } from './feature/operator-links';
 export {
   milestonesRoute, myTasksRoute, taskBoardRoute, taskListRoute, taskRequestsRoute, useMilestonesHere, useMilestonesSearch, useMyTasksHere, useMyTasksSearch,
   useTaskBoardHere, useTaskBoardSearch, useTaskListHere, useTaskListSearch, useTaskRequestsHere, useTaskRequestsSearch,

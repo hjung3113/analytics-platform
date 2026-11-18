@@ -260,7 +260,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       actor_ids: adminActorIds,
       subject_id: insertedId,
       correlation_id: randomUUID(),
-      detail: { permission_request_id: insertedId },
+      detail: { permission_request_id: insertedId, actor_id: actor.actor_id, status: 'pending' },
       params: {},
     });
 

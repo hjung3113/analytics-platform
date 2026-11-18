@@ -9,12 +9,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@ap/ui';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Check } from 'lucide-react';
 import * as React from 'react';
 
 import { ListStateMessage } from '../../components/ListStateMessage';
 import { useDeclaredCapabilities } from '../../lib/api/declared-capabilities';
+import { resolveActors } from '../../lib/api/actors';
 import { mapUnknownError } from '../../lib/api/errorMapper';
 import {
   archiveNotification,
@@ -25,10 +26,56 @@ import {
 import type { ApiError } from '../../lib/api/types';
 import { getCapabilityDisplayLabel } from '../../lib/copy/capabilities';
 import { HOME_INBOX_COPY } from '../../lib/copy/home';
+import { IMPROVEMENT_ITEM_STATUS_LABELS, permissionRequestStatusLabel, TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS, TRIAGE_STATE_LABELS } from '../../lib/copy/enum-labels';
+import { REPORTER_STATUS_LABELS } from '../../lib/copy/reporter-status-labels';
 import { formatRelativeTime } from '../../lib/format/datetime';
 import { HostLink, useHostSeam } from '../../lib/host/host-seam';
 
 type InboxFilter = 'unread' | 'all';
+
+const ACTOR_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function labelFrom<T extends Record<string, string>>(labels: T, value: unknown): string | null {
+  if (typeof value !== 'string' || !Object.hasOwn(labels, value)) return null;
+  const label = labels[value as keyof T];
+  return typeof label === 'string' ? label : null;
+}
+
+function notificationStatusLabel(notification: NotificationDto): string | null {
+  switch (notification.event_type) {
+    case 'task_request.approved':
+    case 'task_request.rejected':
+    case 'task_request.needs_more_evidence':
+      return labelFrom(TASK_REQUEST_STATUS_LABELS, notification.detail['status']);
+    case 'task.assigned_to_me':
+    case 'task.released':
+      return labelFrom(TASK_STATUS_LABELS, notification.detail['status']);
+    case 'improvement.assigned_to_me':
+      return labelFrom(IMPROVEMENT_ITEM_STATUS_LABELS, notification.detail['status']);
+    case 'permission_request.submitted':
+    case 'permission_request.decided':
+    case 'permission_grant.revoked':
+      return labelFrom(permissionRequestStatusLabel, notification.detail['status']);
+    case 'voc.public_update_posted':
+      return labelFrom(REPORTER_STATUS_LABELS, notification.detail['reporter_facing_status']);
+    case 'voc.assigned_to_me':
+    case 'voc.reporter_replied':
+    case 'voc.severity_set_high_or_critical':
+      return labelFrom(REPORTER_STATUS_LABELS, notification.detail['reporter_facing_status']);
+    case 'voc.submitted':
+      return labelFrom(TRIAGE_STATE_LABELS, notification.detail['triage_state']);
+    default:
+      return null;
+  }
+}
+
+function notificationAnswerNumber(notification: NotificationDto): number | null {
+  const value = notification.detail['public_update_number'];
+  return notification.event_type === 'voc.public_update_posted' &&
+    typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : null;
+}
 
 function vocTarget(notification: NotificationDto, view = 'inbox'): string | null {
   const vocId = notification.detail['voc_id'];
@@ -40,6 +87,7 @@ export function notificationTarget(notification: NotificationDto): string | null
   const subjectId = encodeURIComponent(notification.subject_id);
   switch (notification.event_type) {
     case 'voc.assigned_to_me':
+    case 'voc.submitted':
     case 'voc.reporter_replied':
     case 'voc.severity_set_high_or_critical':
     case 'task.released':
@@ -58,7 +106,7 @@ export function notificationTarget(notification: NotificationDto): string | null
       return `/admin/permissions/requests?tab=all&selected=${subjectId}`;
     case 'permission_request.decided':
     case 'permission_grant.revoked':
-      return null;
+      return '/permission-requests';
   }
 }
 
@@ -119,6 +167,16 @@ export function InboxPanel({
     });
   };
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const actorIds = [...new Set(items
+    .map((notification) => notification.detail['actor_id'])
+    .filter((actorId): actorId is string => typeof actorId === 'string' && ACTOR_ID_PATTERN.test(actorId)))].sort();
+  const resolvedActors = useQuery({
+    queryKey: ['notification-actors', ...actorIds],
+    queryFn: ({ signal }) => resolveActors({ actorIds }, signal),
+    enabled: actorIds.length > 0,
+    retry: false,
+  });
+  const actorNames = new Map((resolvedActors.data?.actors ?? []).map((actor) => [actor.id, actor.display_name]));
   const sectionRef = React.useRef<HTMLElement>(null);
   const emptyRef = React.useRef<HTMLDivElement>(null);
   // Where the row that was just acted on sat; set by an action, consumed once focus has fallen to <body>.
@@ -249,6 +307,7 @@ export function InboxPanel({
               <NotificationRow
                 key={notification.id}
                 notification={notification}
+                actorName={actorNames.get(String(notification.detail['actor_id'])) ?? null}
                 actionsDisabled={rowActionPending(notification.id)}
                 onMarkRead={() => {
                   rememberFocus(notification.id);
@@ -282,11 +341,13 @@ export function InboxPanel({
 
 function NotificationRow({
   notification,
+  actorName,
   actionsDisabled,
   onMarkRead,
   onArchive,
 }: {
   notification: NotificationDto;
+  actorName: string | null;
   actionsDisabled: boolean;
   onMarkRead: () => void;
   onArchive: () => void;
@@ -304,6 +365,11 @@ function NotificationRow({
     notification.subject_ref?.visibility_state === 'allowed'
       ? subjectRefTitle(notification, notification.subject_ref.title, declared)
       : null;
+  const summary = actorName === null
+    ? notification.summary
+    : HOME_INBOX_COPY.notificationActorSummary(actorName, notification.summary);
+  const statusLabel = notificationStatusLabel(notification);
+  const answerNumber = notificationAnswerNumber(notification);
   const titleTooltipOnArchive =
     subjectTitle !== null &&
     linkTarget === null &&
@@ -329,7 +395,13 @@ function NotificationRow({
           <span className="shrink-0 text-caption font-medium tracking-wide text-text-muted">
             {HOME_INBOX_COPY.categories[notification.subject_type]}
           </span>
-          <span className="truncate text-sm text-text-primary">{notification.summary}</span>
+          <span className="truncate text-sm text-text-primary">{summary}</span>
+          {statusLabel !== null || answerNumber !== null ? (
+            <span className="shrink-0 text-xs text-text-muted">
+              {statusLabel}
+              {answerNumber === null ? '' : ` · ${HOME_INBOX_COPY.answerNumber(answerNumber)}`}
+            </span>
+          ) : null}
         </span>
         {notification.subject_ref ? (
           <span className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-text-muted">

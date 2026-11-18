@@ -3,6 +3,7 @@ export {
   lockWorkspaceActor,
   findWorkspaceActorIds,
   listWorkspaceAdminActorIds,
+  listWorkspaceInternalActorContexts,
   listWorkspaceInternalMembers,
   listWorkspaceResponsibilityActors,
   type WorkspaceActor,

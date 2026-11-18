@@ -151,3 +151,20 @@ export async function listWorkspaceInternalMembers(
     .where(and(eq(actors.workspaceId, workspaceId), eq(actors.actorType, 'internal_member')));
   return rows;
 }
+
+/** Auth contexts needed by a same-workspace permission scope check. System actors are not people. */
+export async function listWorkspaceInternalActorContexts(
+  tx: Tx,
+  workspaceId: string,
+): Promise<Array<{ id: string; role_level: RoleLevel }>> {
+  const rows = await tx
+    .select({ id: actors.id, role_level: actors.roleLevel })
+    .from(actors)
+    .where(and(eq(actors.workspaceId, workspaceId), eq(actors.actorType, 'internal_member')));
+  return rows.map((row) => {
+    if (row.role_level !== 'admin' && row.role_level !== 'developer' && row.role_level !== 'user') {
+      throw new Error(`unexpected role_level for actor ${row.id}: ${row.role_level}`);
+    }
+    return { id: row.id, role_level: row.role_level };
+  });
+}

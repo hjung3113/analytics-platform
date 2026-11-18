@@ -514,6 +514,8 @@ describe.skipIf(!runIntegration)('task conversion and link-existing (#134)', () 
           task_id: body.id,
           primary_managed_system_id: request.msId,
           source_task_request_id: request.id,
+          actor_id: adminActorId,
+          status: 'backlog',
         },
         correlation_id: expect.any(String),
       }),

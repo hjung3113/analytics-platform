@@ -78,7 +78,7 @@ export async function revokePermissionGrant(
     actor_ids: [grant.actorId],
     subject_id: grant.id,
     correlation_id: randomUUID(),
-    detail: { permission_grant_id: grant.id },
+    detail: { permission_grant_id: grant.id, actor_id: input.revokedByActorId, status: 'revoked' },
     params: {},
   });
 

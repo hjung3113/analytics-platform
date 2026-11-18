@@ -534,7 +534,7 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
         event_type: 'permission_request.decided',
         subject_id: rejected,
         summary: '권한 요청이 반려되었습니다.',
-        detail: { permission_request_id: rejected },
+        detail: { permission_request_id: rejected, actor_id: adminId, status: 'rejected' },
         correlation_id: expect.any(String),
       }),
     ]);
@@ -565,7 +565,7 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
           subject_type: 'permission_request',
           subject_id: requestId,
           summary,
-          detail: { permission_request_id: requestId },
+          detail: { permission_request_id: requestId, actor_id: adminId, status: outcome },
           correlation_id: expect.any(String),
         }),
       ]);

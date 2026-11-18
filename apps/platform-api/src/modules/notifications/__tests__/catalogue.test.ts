@@ -22,6 +22,7 @@ describe('notification catalogue', () => {
   it('pins the implemented event keys and email flags', () => {
     expect(Object.keys(notificationCatalogue)).toEqual([
       'voc.assigned_to_me',
+      'voc.submitted',
       'voc.reporter_replied',
       'voc.public_update_posted',
       'voc.severity_set_high_or_critical',
@@ -41,6 +42,7 @@ describe('notification catalogue', () => {
       ),
     ).toEqual({
       'voc.assigned_to_me': false,
+      'voc.submitted': false,
       'voc.reporter_replied': false,
       'voc.public_update_posted': false,
       'voc.severity_set_high_or_critical': true,
@@ -60,6 +62,7 @@ describe('notification catalogue', () => {
     expect(notificationCatalogue['voc.assigned_to_me'].summary()).toBe(
       'VOC 담당자로 지정되었습니다.',
     );
+    expect(notificationCatalogue['voc.submitted'].summary()).toBe('새 VOC가 접수되었습니다.');
     expect(notificationCatalogue['voc.reporter_replied'].summary()).toBe(
       'VOC에 작성자 답변이 등록되었습니다.',
     );

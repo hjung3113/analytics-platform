@@ -101,12 +101,13 @@ function installFetch(post: Response = json({ id: VOC_ID, display_id: 'VOC-7' },
   }) as typeof fetch;
 }
 
-function mount(over: Partial<VocComposeScreenProps> = {}) {
+function mount(over: Partial<VocComposeScreenProps> = {}, host: Partial<HostSeam> = {}) {
   const seam = {
     canLink: () => false,
     Link: () => null,
     notifyError: vi.fn(),
     notifySuccess: vi.fn(),
+    ...host,
   } satisfies HostSeam;
   const props: VocComposeScreenProps = {
     contextBlock: BLOCK,
@@ -234,6 +235,23 @@ describe('<VocComposeScreen> submit (F1)', () => {
       open(BLOCK.href as string),
     ]);
     expect(disallowed(body.description_rich_content as unknown as RichNode)).toEqual([]);
+  });
+
+  it('adds an 열기 action to the success toast when the host can open the reporter VOC', async () => {
+    installFetch();
+    const navigate = vi.fn();
+    const target = `/vocs?view=my&selected=${VOC_ID}`;
+    const { seam } = mount({}, { canLink: (to) => to === target, useNavigate: () => navigate });
+    await fillAndPick();
+    await submit();
+
+    await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalledTimes(1));
+    expect(seam.notifySuccess).toHaveBeenCalledWith('접수 완료: VOC-7', {
+      action: { label: '열기', onAction: expect.any(Function) },
+    });
+    const options = vi.mocked(seam.notifySuccess).mock.calls[0]?.[1];
+    options?.action?.onAction();
+    expect(navigate).toHaveBeenCalledWith(target);
   });
 
   it.each([

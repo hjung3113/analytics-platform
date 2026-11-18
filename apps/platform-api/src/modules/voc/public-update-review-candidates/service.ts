@@ -86,7 +86,7 @@ export function createPublicUpdateReviewCandidatesService(deps: {
             actor_ids: [releaseContext.ownerUserId],
             subject_id: candidate.id,
             correlation_id: input.correlation_id,
-            detail: { voc_id: link.voc_id, task_id: input.task_id },
+            detail: { voc_id: link.voc_id, task_id: input.task_id, actor_id: input.triggered_by_actor_id, status: 'released' },
             params: {},
           });
         }

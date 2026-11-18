@@ -7,6 +7,7 @@ import type { CreateVocRequest } from '@ap/feature-shared';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
 import { sanitizeRichContentOrThrow } from '../../../lib/rich-content/sanitize-or-throw.js';
+import { listWorkspaceInternalActorContexts } from '../../auth/index.js';
 import { assertActiveAnalyticsAreaForManagedSystem } from '../../analytics-areas/index.js';
 import {
   LinkAttachmentsRejected,
@@ -15,13 +16,14 @@ import {
 } from '../../attachments/index.js';
 import { lockManagedSystem } from '../../managed-systems/index.js';
 import { canCreateVoc, listVocCreateTargets } from '../../permissions/voc-create-policy.js';
+import { scopeIncludes } from '../../permissions/scope-service.js';
 import { insertVoc } from '../repo.js';
 import { operatorOnlyVocFields } from '../reporter-projection.js';
 import { resolveOwner } from '../responsibility.js';
 import type { CreateVocActor, VocEnvelope, VocServiceDeps } from '../service.js';
 import { type ReporterFacingStatus, nextReporterStates } from '../transitions.js';
 
-import { actorEffectiveScope, inReporterArm } from '../authorization.js';
+import { actorEffectiveScope, actorTriageScope, inReporterArm } from '../authorization.js';
 
 export function createVocCreateCommands(deps: VocServiceDeps) {
   async function assertOwnerOverride(
@@ -184,6 +186,31 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
         source_context: row.sourceContext,
         attachment_ids: input.attachment_ids ?? [],
       },
+    });
+
+    const triageRecipients: string[] = [];
+    const workspaceActors = await listWorkspaceInternalActorContexts(tx, actor.workspace_id);
+    for (const candidate of workspaceActors) {
+      if (candidate.id === actor.actor_id) continue;
+      const scope = await actorTriageScope(tx, {
+        actor_id: candidate.id,
+        workspace_id: actor.workspace_id,
+        role_level: candidate.role_level,
+      });
+      if (scopeIncludes(scope, row.primaryManagedSystemId)) triageRecipients.push(candidate.id);
+    }
+    await deps.notify(tx, 'voc.submitted', {
+      workspace_id: actor.workspace_id,
+      actor_ids: triageRecipients,
+      subject_id: row.id,
+      correlation_id: randomUUID(),
+      detail: {
+        voc_id: row.id,
+        actor_id: actor.actor_id,
+        triage_state: 'untriaged',
+        reporter_facing_status: row.reporterFacingStatus,
+      },
+      params: {},
     });
 
     // 6b. #168 (FO ADR-0034 D6) — enqueue the embedding job. Deliberately the

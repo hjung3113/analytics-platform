@@ -38,6 +38,18 @@ export const improvementRegistry = createRegistry({
   menus: [...MENUS, improvementItems, improvementItem],
 });
 
+const taskGroup = { id: groupId('task'), label: { ko: 'Task', en: 'Task' }, icon: UserRound, space: null };
+const adminGroup = { id: groupId('admin'), label: { ko: '관리', en: 'Administration' }, icon: UserRound, space: null };
+const taskRequests = { ...filler, primary: true, id: 'task-requests', group: groupId('task'), path: '/tasks', pageKeys: ['focus', 'reviewer', 'reviewerTeam', 'managedSystem'] } as MenuEntry;
+const permissionReview = { ...filler, primary: true, id: 'permission-request-review', group: groupId('admin'), path: '/admin/permissions/requests', pageKeys: ['tab', 'focus'] } as MenuEntry;
+
+/** Registry entries reached by the notification page and bell row links. */
+export const notificationRegistry = createRegistry({
+  spaces: SPACES,
+  groups: [...GROUPS, taskGroup, adminGroup],
+  menus: [...MENUS, taskRequests, permissionReview],
+});
+
 export const ID_A = '11111111-1111-4111-8111-111111111111';
 export const ID_B = '22222222-2222-4222-8222-222222222222';
 

@@ -157,6 +157,7 @@ describe.skipIf(!runIntegration)('improvement item assignee notification (#1328 
       subject_type: 'improvement_item',
       subject_id: item.id,
       summary: `개선 아이템 IM-${item.no}이 지정되었습니다.`,
+      detail: { item_id: item.id, item_no: item.no, actor_id: admin.id, status: 'open' },
     });
     expect(JSON.stringify(jobs[0])).not.toContain('secret problem');
   });
@@ -167,6 +168,12 @@ describe.skipIf(!runIntegration)('improvement item assignee notification (#1328 
     const first = await act('itemAssign', { itemId: item.id, assigneeId: assignee.id }, { expectedVersion: item.version });
     expect(first.body.outcome).toBe('ok');
     expect(jobsFor(item.id).map((j) => j.actor_id)).toEqual([assignee.id]);
+    expect(jobsFor(item.id)[0]?.detail).toEqual({
+      item_id: item.id,
+      item_no: item.no,
+      actor_id: admin.id,
+      status: 'open',
+    });
 
     const replay = await act('itemAssign', { itemId: item.id, assigneeId: assignee.id }, { expectedVersion: String(first.body.version) });
     expect(replay.body.outcome).toBe('ok');

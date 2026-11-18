@@ -427,13 +427,14 @@ export function createDecisionService(deps: DecisionServiceDeps) {
         });
 
         if (!context?.suppressNotification && (action === 'approve' || action === 'reject' || action === 'deny')) {
+          const outcome = action === 'approve' ? 'approved' : 'rejected';
           await deps.notify(tx, 'permission_request.decided', {
             workspace_id: actor.workspace_id,
             actor_ids: [request.requesterActorId],
             subject_id: request.id,
             correlation_id: randomUUID(),
-            detail: { permission_request_id: request.id },
-            params: { outcome: action === 'approve' ? 'approved' : 'rejected' },
+            detail: { permission_request_id: request.id, actor_id: actor.actor_id, status: outcome },
+            params: { outcome },
           });
         }
         if (recovery) await deps.recoveryRecorder?.finish(tx, recovery, actor.actor_id, 'decide');
@@ -519,10 +520,11 @@ export function createDecisionService(deps: DecisionServiceDeps) {
         }
         const first = rows[0];
         if (!first) throw new HttpError('internal.unexpected', 'empty permission batch');
+        const outcome = items.some((row) => row.status === 'approved') ? 'approved' : 'rejected';
         await deps.notify(tx, 'permission_request.decided', {
           workspace_id: actor.workspace_id, actor_ids: [first.requesterActorId], subject_id: first.id,
-          correlation_id: randomUUID(), detail: { permission_request_id: first.id, batch_id: batchId },
-          params: { outcome: items.some((row) => row.status === 'approved') ? 'approved' : 'rejected' },
+          correlation_id: randomUUID(), detail: { permission_request_id: first.id, batch_id: batchId, actor_id: actor.actor_id, status: outcome },
+          params: { outcome },
         });
         return { status: 200, body: { batch_id: batchId, items } };
       };

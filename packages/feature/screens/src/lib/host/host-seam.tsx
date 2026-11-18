@@ -36,7 +36,7 @@ export type HostSeam = {
   canLink(to: string): boolean;
   Link: ComponentType<HostLinkProps>;
   notifyError(message: string): void;
-  notifySuccess(message: string): void;
+  notifySuccess(message: string, options?: { action?: { label: string; onAction: () => void } }): void;
   /**
    * Hooks, optional so a seam that only links and notifies stays valid. A seam's hooks are stable functions (hook
    * order never changes). `to` is the complete feature path+query: a key absent from it is cleared.
@@ -92,6 +92,14 @@ export function useHostSeam(): HostSeam {
 export function useHostNavigate(): HostNavigate {
   const { useNavigate } = useHostSeam();
   if (useNavigate === undefined) throw new Error('HostSeamProvider is missing');
+  return useNavigate();
+}
+
+const useNoNavigate = (): null => null;
+
+/** Navigation hook for optional destinations such as a toast action. */
+export function useOptionalHostNavigate(): HostNavigate | null {
+  const { useNavigate = useNoNavigate } = useHostSeam();
   return useNavigate();
 }
 

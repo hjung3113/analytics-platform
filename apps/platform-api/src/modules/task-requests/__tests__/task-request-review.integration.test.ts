@@ -298,6 +298,8 @@ describe.skipIf(!runIntegration)('task-request review queue and decisions (#133)
           detail: {
             task_request_id: request.id,
             primary_managed_system_id: request.msId,
+            actor_id: adminActorId,
+            status,
           },
           correlation_id: expect.any(String),
         }),
@@ -551,6 +553,8 @@ describe.skipIf(!runIntegration)('task-request review queue and decisions (#133)
         detail: {
           task_request_id: request.id,
           primary_managed_system_id: request.msId,
+          actor_id: adminActorId,
+          status: 'approved',
         },
       }),
     ]);

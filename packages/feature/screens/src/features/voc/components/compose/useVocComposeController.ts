@@ -9,7 +9,7 @@ import { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS, fetchVocCrea
 import { useAttachmentUploadQueue } from '../../../../lib/attachments/useAttachmentUploadQueue';
 import { VOC_CREATE_COPY } from '../../../../lib/copy/voc';
 import { useIdempotencyKey } from '../../../../lib/api/useIdempotencyKey';
-import { useHostSeam } from '../../../../lib/host/host-seam';
+import { useHostSeam, useOptionalHostNavigate } from '../../../../lib/host/host-seam';
 import type { DraftJson } from '../../../../lib/session-draft/registry';
 import { useFormDraftAcrossExpiry } from '../../../../lib/session-draft/useFormDraftAcrossExpiry';
 import {
@@ -74,7 +74,9 @@ export function useVocComposeController({
   onSubmitted: (result: VocComposeSubmitted) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const { notifyError, notifySuccess } = useHostSeam();
+  const host = useHostSeam();
+  const { notifyError, notifySuccess } = host;
+  const navigate = useOptionalHostNavigate();
 
   // The prefill is the form's initial value, taken once when the draft starts; a later change of `errorReport` never rewrites typed text.
   const [initialDoc] = React.useState<TipTapDoc>(() => (errorReport ? paragraphDoc(errorReport.body) : emptyTipTapDoc()));
@@ -128,7 +130,14 @@ export function useVocComposeController({
       markConsumed();
       submittedRef.current = true;
       discardDraft();
-      notifySuccess(`접수 완료: ${data.display_id}`);
+      const target = `/vocs?view=my&selected=${encodeURIComponent(data.id)}`;
+      if (navigate !== null && host.canLink(target)) {
+        notifySuccess(`접수 완료: ${data.display_id}`, {
+          action: { label: VOC_CREATE_COPY.open, onAction: () => navigate(target) },
+        });
+      } else {
+        notifySuccess(`접수 완료: ${data.display_id}`);
+      }
       onDirtyChange(false);
       onSubmitted({ vocId: data.id, displayId: data.display_id });
     },

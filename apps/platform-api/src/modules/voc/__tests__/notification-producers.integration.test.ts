@@ -273,6 +273,23 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
     return `${SESSION_COOKIE_NAME}=${actor.sessionId}`;
   }
 
+  function createVoc(targetApp: FastifyInstance, actor: TestActor, idempotencyKey = randomUUID()) {
+    return targetApp.inject({
+      method: 'POST',
+      url: '/vocs',
+      headers: {
+        cookie: actorCookie(actor),
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      payload: {
+        primary_managed_system_id: managedSystemId,
+        title: `${TEST_PREFIX} new VOC`,
+        description_rich_content: paragraphDoc('new VOC detail'),
+      },
+    });
+  }
+
   function patchVoc(
     targetApp: FastifyInstance,
     actor: TestActor,
@@ -374,7 +391,7 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
   function assertVocJob(
     eventType: 'voc.assigned_to_me' | 'voc.reporter_replied' | 'voc.severity_set_high_or_critical',
     vocId: string,
-    detail: Record<string, string>,
+    detail: Record<string, unknown>,
     expectedSummary: string,
   ): void {
     const jobs = notifications.jobs.filter(
@@ -399,6 +416,53 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
     ).toBe(true);
   }
 
+  it('notifies scoped triage actors on VOC creation, excluding the submitter and actors outside scope', async () => {
+    const reporterGrantId = await grantCapability(
+      migrateHandle,
+      workspaceId,
+      reporter.id,
+      'voc.triage',
+      managedSystemId,
+      admin.id,
+    );
+    const idempotencyKey = randomUUID();
+    try {
+      const created = await createVoc(app, reporter, idempotencyKey);
+      expect(created.statusCode).toBe(201);
+      const body = created.json<{ id: string }>();
+      fixtureVocIds.push(body.id);
+      const submittedJobs = notifications.jobs.filter(
+        (job) => String(job.event_type) === 'voc.submitted' && job.subject_id === body.id,
+      );
+      expect(submittedJobs.map((job) => job.actor_id)).toContain(owner.id);
+      expect(submittedJobs.map((job) => job.actor_id)).not.toContain(reporter.id);
+      expect(submittedJobs.map((job) => job.actor_id)).not.toContain(user.id);
+      expect(submittedJobs[0]).toMatchObject({
+        workspace_id: workspaceId,
+        subject_type: 'voc',
+        subject_id: body.id,
+        summary: '새 VOC가 접수되었습니다.',
+        detail: {
+          voc_id: body.id,
+          actor_id: reporter.id,
+          triage_state: 'untriaged',
+          reporter_facing_status: 'received',
+        },
+        correlation_id: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+      });
+
+      const replay = await createVoc(app, reporter, idempotencyKey);
+      expect(replay.json()).toEqual(created.json());
+      expect(
+        notifications.jobs.filter(
+          (job) => String(job.event_type) === 'voc.submitted' && job.subject_id === body.id,
+        ),
+      ).toHaveLength(submittedJobs.length);
+    } finally {
+      await migrateHandle.pool.query('delete from permission.permission_grants where id = $1', [reporterGrantId]);
+    }
+  });
+
   it('notifies only each newly assigned user owner', async () => {
     const voc = await seedVoc();
     const first = await patchVoc(app, admin, voc.id, voc.updatedAt, {
@@ -412,6 +476,8 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
       {
         voc_id: voc.id,
         primary_managed_system_id: managedSystemId,
+        actor_id: admin.id,
+        reporter_facing_status: 'received',
       },
       'VOC 담당자로 지정되었습니다.',
     );
@@ -458,6 +524,8 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
       {
         voc_id: voc.id,
         primary_managed_system_id: managedSystemId,
+        actor_id: reporter.id,
+        reporter_facing_status: 'received',
       },
       'VOC에 작성자 답변이 등록되었습니다.',
     );
@@ -500,7 +568,12 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
       assertVocJob(
         'voc.severity_set_high_or_critical',
         voc.id,
-        { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+        {
+          voc_id: voc.id,
+          primary_managed_system_id: managedSystemId,
+          actor_id: secondAdmin.id,
+          reporter_facing_status: 'received',
+        },
         summary,
       );
     },
@@ -528,13 +601,23 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
     assertVocJob(
       'voc.severity_set_high_or_critical',
       voc.id,
-      { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+      {
+        voc_id: voc.id,
+        primary_managed_system_id: managedSystemId,
+        actor_id: secondAdmin.id,
+        reporter_facing_status: 'received',
+      },
       'VOC 심각도가 높음으로 설정되었습니다.',
     );
     assertVocJob(
       'voc.assigned_to_me',
       voc.id,
-      { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+      {
+        voc_id: voc.id,
+        primary_managed_system_id: managedSystemId,
+        actor_id: secondAdmin.id,
+        reporter_facing_status: 'received',
+      },
       'VOC 담당자로 지정되었습니다.',
     );
   });
@@ -557,7 +640,12 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
       assertVocJob(
         'voc.severity_set_high_or_critical',
         voc.id,
-        { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+        {
+          voc_id: voc.id,
+          primary_managed_system_id: managedSystemId,
+          actor_id: secondAdmin.id,
+          reporter_facing_status: 'received',
+        },
         summary,
       );
     },
@@ -586,13 +674,23 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
     assertVocJob(
       'voc.severity_set_high_or_critical',
       voc.id,
-      { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+      {
+        voc_id: voc.id,
+        primary_managed_system_id: managedSystemId,
+        actor_id: secondAdmin.id,
+        reporter_facing_status: 'received',
+      },
       'VOC 심각도가 높음으로 설정되었습니다.',
     );
     assertVocJob(
       'voc.assigned_to_me',
       voc.id,
-      { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+      {
+        voc_id: voc.id,
+        primary_managed_system_id: managedSystemId,
+        actor_id: secondAdmin.id,
+        reporter_facing_status: 'received',
+      },
       'VOC 담당자로 지정되었습니다.',
     );
   });
@@ -608,7 +706,12 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
     assertVocJob(
       'voc.assigned_to_me',
       voc.id,
-      { voc_id: voc.id, primary_managed_system_id: managedSystemId },
+      {
+        voc_id: voc.id,
+        primary_managed_system_id: managedSystemId,
+        actor_id: admin.id,
+        reporter_facing_status: 'received',
+      },
       'VOC 담당자로 지정되었습니다.',
     );
   });
@@ -798,7 +901,13 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
       subject_id: voc.id,
       summary,
     });
-    expect(jobs[0]?.detail).toEqual({ voc_id: voc.id, public_update_id: publicUpdateId });
+      expect(jobs[0]?.detail).toEqual({
+        voc_id: voc.id,
+        public_update_id: publicUpdateId,
+        actor_id: admin.id,
+        reporter_facing_status: payload.next_reporter_facing_status,
+        ...(payload.skip_public_update ? {} : { public_update_number: 1 }),
+      });
   });
 
   it('does not notify when the Reporter is the posting actor', async () => {

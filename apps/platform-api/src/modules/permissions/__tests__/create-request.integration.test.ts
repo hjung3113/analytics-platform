@@ -216,6 +216,12 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     });
     expect(res.statusCode).toBe(201);
     const requestId = res.json<{ id: string }>().id;
+    const submitter = await dbHandle.pool.query<{ id: string }>(
+      `select id from core.actors where workspace_id = $1 and external_id = 'mock-user-1'`,
+      [WORKSPACE_ID],
+    );
+    const submitterId = submitter.rows[0]?.id;
+    if (!submitterId) throw new Error('mock requester missing');
 
     const adminIds = await dbHandle.pool.query<{ id: string }>(
       `select id from core.actors where workspace_id = $1 and role_level = 'admin'`,
@@ -232,7 +238,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
           subject_type: 'permission_request',
           subject_id: requestId,
           summary: '새 권한 요청이 등록되었습니다.',
-          detail: { permission_request_id: requestId },
+          detail: { permission_request_id: requestId, actor_id: submitterId, status: 'pending' },
           correlation_id: expect.any(String),
         }),
       ),

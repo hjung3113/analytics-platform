@@ -307,7 +307,7 @@ describe.skipIf(!runIntegration)('released Task review-candidate worker (#165)',
         subject_type: 'public_update_review_candidate',
         subject_id: candidates.rows.find((candidate) => candidate.voc_id === voc.id)?.id,
         summary: '연결된 VOC에 공개 업데이트 검토 요청이 등록되었습니다.',
-        detail: { voc_id: voc.id, task_id: task.id },
+        detail: { voc_id: voc.id, task_id: task.id, actor_id: actorId, status: 'released' },
         correlation_id: payload.correlation_id,
       }),
     ]);
