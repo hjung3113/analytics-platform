@@ -9,6 +9,7 @@ import { readTableFilters, type FilterValueCheck } from '../table/tableFilterUrl
 import { useTableFilterDeclaration } from '../table/useTableFilterDeclaration';
 import { MATRIX_MESSAGES } from './messages';
 
+/** @deprecated Only for the deprecated `TreeMatrix` built-in filter; declare fields with `useTableFilterDeclaration` instead. Removed next SDK minor (#2514). */
 export type MatrixFilterField = {
   id: string;
   label: string | Text;
