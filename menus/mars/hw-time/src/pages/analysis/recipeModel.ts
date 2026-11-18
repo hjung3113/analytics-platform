@@ -7,6 +7,7 @@ import { HW_TIME_NEW_PANEL_MESSAGES as N } from '../../messages';
 import workspaceSource from './AnalysisWorkspace.tsx?raw';
 import additionalSource from './AdditionalPanels.tsx?raw';
 import runSource from './RunPanel.tsx?raw';
+import trendChartSource from './RunTrendChart.tsx?raw';
 import tableSource from '../table/RawTablePanel.tsx?raw';
 import newPanelsSource from './NewPanels.tsx?raw';
 import distributionSource from './DistributionPanel.tsx?raw';
@@ -32,10 +33,10 @@ const ACTION_LABELS: Readonly<Record<string, Text>> = {
   drill: { ko: '단계 이동', en: 'Drill' }, highlight: { ko: '같이 강조', en: 'Highlight' }, page: { ko: '페이지', en: 'Page' }, sort: { ko: '정렬', en: 'Sort' },
 };
 
-const sources = { workspace: ['AnalysisWorkspace.tsx', workspaceSource], additional: ['AdditionalPanels.tsx', additionalSource], run: ['RunPanel.tsx', runSource], table: ['RawTablePanel.tsx', tableSource], newPanels: ['NewPanels.tsx', newPanelsSource], distribution: ['DistributionPanel.tsx', distributionSource] } as const;
+const sources = { workspace: ['AnalysisWorkspace.tsx', workspaceSource], additional: ['AdditionalPanels.tsx', additionalSource], run: ['RunPanel.tsx', runSource], trendChart: ['RunTrendChart.tsx', trendChartSource], table: ['RawTablePanel.tsx', tableSource], newPanels: ['NewPanels.tsx', newPanelsSource], distribution: ['DistributionPanel.tsx', distributionSource] } as const;
 /** Which menu files hold the panel's code. Shared files are named whole, not a per-panel implementation total. */
 const SOURCE_OF: Readonly<Record<string, readonly (keyof typeof sources)[]>> = {
-  heatmap: ['workspace'], trend: ['additional', 'run'], scatter: ['additional', 'run'], motionTable: ['additional'], moduleMotions: ['workspace'], table: ['table'], distribution: ['distribution'], donut: ['workspace', 'newPanels'], pareto: ['workspace', 'newPanels'], equipmentDays: ['newPanels'], boundHistory: ['newPanels'],
+  heatmap: ['workspace'], trend: ['additional', 'run', 'trendChart'], scatter: ['additional', 'run'], motionTable: ['additional'], moduleMotions: ['workspace'], table: ['table'], distribution: ['distribution'], donut: ['workspace', 'newPanels'], pareto: ['workspace', 'newPanels'], equipmentDays: ['newPanels'], boundHistory: ['newPanels'],
 };
 const codeLines = (source: string) => source.split(/\r?\n/).filter(line => line.trim() !== '').length;
 /** The declaration's own lines: from `<id>: {` to the line before the next panel entry. */

@@ -41,6 +41,6 @@ export { PORT_INPUT_PATTERNS, AUDIT_TYPE_TOKEN, MENU_ID_PATTERN, FILTER_TEXT_PAT
 export { pageConditionKeys, isRepeatedPageCondition } from './menu/page-conditions.js';
 export type { EndpointId, PageConditionCategory, PageConditions, PageConditionOption, PageConditionOptionSource, PageConditionOptionsResponse, PageConditionGroupedOptionsResponse, PageConditionTreeSource } from './menu/page-conditions.js';
 
-export type { PanelDeclaration, PanelInputs } from './menu/panels';
+export type { PanelBinding, PanelContextKey, PanelDeclaration, PanelInputBinding, PanelInputs } from './menu/panels';
 export { MIN_GROUP_WIDTH, MAX_GROUP_LABEL_LENGTH, MAX_VIEW_TABLES, MAX_TABLE_KEY_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS, isStoredColumnGroupItem, isStoredColumnGroups, isTableViewStates } from './links/table-view-state.js';
 export type { StoredColumnGroupItem, StoredColumnGroups, TableViewState } from './links/table-view-state.js';

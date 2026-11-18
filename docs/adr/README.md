@@ -183,6 +183,7 @@
 | [0168](0168-saved-view-table-state.md) | 메뉴 뷰에 표 열 묶음을 저장하고 옛 뷰는 표 설정을 유지 | Decided(2026-11-18) · #2492 |
 | [0169](0169-tree-matrix.md) | 계층 행과 평면 열의 서버 윈도 행렬은 독립 SDK 부품으로 제공한다 | Decided(2026-11-18, #1768) |
 | [0170](0170-analysis-apply-and-saved-view-defaults.md) | Analysis 메뉴의 기본 조회는 Apply이며 저장된 뷰를 켠다 | Decided(2026-11-18, #2503) |
+| [0171](0171-registered-panel-lending.md) | 등록된 패널을 다른 메뉴에 빌려준다 | Decided(2026-11-18, #2490) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

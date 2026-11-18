@@ -88,6 +88,7 @@ const IMPROVEMENT_HOME_SLOT_SUBPATH = 'menu-improvement-items/home-todo-slot';
 const LOG_EXPLORER_VIEW_SUBPATH = 'menu-log-analysis/view';
 const LOG_ROUND_SOURCE_SLOT_SUBPATH = 'menu-log-models/round-source-slot';
 const LOG_MODEL_TOPVIEW_SLOT_SUBPATH = 'menu-log-knowledge/model-topview-slot';
+const HW_TIME_LENT_PANELS_SUBPATH = 'menu-hw-time/lent-panels';
 const SCOPE_CONTROL_SLOT_SUBPATH = 'feature-bridge/scope-control';
 const NAV_COUNTS_SLOT_SUBPATH = 'feature-bridge/nav-counts';
 const SAVED_VIEWS_SLOT_SUBPATH = 'feature-bridge/saved-views';
@@ -131,7 +132,7 @@ const TOPVIEW_MOCK_DATA_SUBPATH = 'menu-topview/mock-data';
 const APP_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: false, denyDev: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH] };
 // src/main.tsx is the composition root: only the screen API and notifications slot subpaths; no mock, no ./dev (#153).
 const APP_REAL_RESTRICTION = { ...APP_RESTRICTION, denyHttpAdapter: false };
-const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, ACCESS_REQUEST_SLOT_SUBPATH, LOG_EXPLORER_VIEW_SUBPATH, LOG_ROUND_SOURCE_SLOT_SUBPATH, LOG_MODEL_TOPVIEW_SLOT_SUBPATH, TOPVIEW_MODEL_SUBPATH] };
+const APP_MAIN_RESTRICTION = { ...APP_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, DOCK_ENTRY_SUBPATH, HOST_ENTRY_SUBPATH, FEATURE_API_SUBPATH, NOTIFICATIONS_SLOT_SUBPATH, VOC_COMPOSE_SLOT_SUBPATH, HOME_TODO_SLOT_SUBPATH, IMPROVEMENT_HOME_SLOT_SUBPATH, IMPROVEMENT_ANALYSIS_ACTIONS_SUBPATH, SCOPE_CONTROL_SLOT_SUBPATH, NAV_COUNTS_SLOT_SUBPATH, SAVED_VIEWS_SLOT_SUBPATH, ACCESS_REQUEST_SLOT_SUBPATH, LOG_EXPLORER_VIEW_SUBPATH, LOG_ROUND_SOURCE_SLOT_SUBPATH, LOG_MODEL_TOPVIEW_SLOT_SUBPATH, TOPVIEW_MODEL_SUBPATH, HW_TIME_LENT_PANELS_SUBPATH] };
 // The mock assembly and DevTools: mock-server and the menu `/mock` subpaths.
 const APP_DEV_RESTRICTION = { allowEqv: APP_EQV_ENTRIES, allow: null, denyReact: false, denyQueryEngine: true, mockAllowed: true, denyHttpAdapter: true, allowSubpaths: [...UI_THEME_SUBPATHS, MENU_MOCK_SUBPATH, TOPVIEW_MOCK_DATA_SUBPATH] };
 // The conformance test: mock-server, and from ./dev only the mock assembly's MOCK_ENDPOINTS list (#153 follow-up —

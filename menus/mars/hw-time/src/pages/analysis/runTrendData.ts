@@ -5,6 +5,8 @@ import type { HwTimeRunObservation } from '../../endpoints';
 import { htmStatusView } from '../../shared/htm';
 import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValueSettings } from './runScatterData';
 
+export const DEFAULT_RUN_TREND_SETTINGS = { axis: 'equipment-module', color: 'equipment', value: 'motion' } as const;
+
 /** Daily averages are already server-judged. No client aggregation or value/bound comparison; drawn through the Frame's `bounds` and `pointStatus` (#2333). */
 export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en') {
   const dates = [...new Set(daily.map(point => point.at.slice(0, 10)))].sort();

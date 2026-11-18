@@ -1,21 +1,19 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { AnalysisChart, AnalysisChartFrame, FilterLine, type ChartPoint, type ScatterSpec } from '@ap/components';
+import { AnalysisChart, AnalysisChartFrame, FilterLine, type ScatterSpec } from '@ap/components';
 import type { ColumnFilter } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
 import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation, type HwTimeRuns } from '../../endpoints';
 import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
-import { formatSeconds } from '../../shared/format';
 import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
 import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, validatePanelFilters } from './runPanelFilters';
 import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatterData';
-import { shapeRunTrend } from './runTrendData';
+import { DEFAULT_RUN_TREND_SETTINGS, shapeRunTrend } from './runTrendData';
+import { RunTrendChart } from './RunTrendChart';
 
 // The scatter starts in one colour (24 equipment colours and a 24-entry legend were the noise); the trend keeps one line per equipment.
-const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: { axis: 'equipment-module', color: 'equipment', value: 'motion' } } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
-/** Lowest plot height before the panel body scrolls (px). */
-const RUN_FILL_MIN = 200;
+const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: DEFAULT_RUN_TREND_SETTINGS } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
 /** Short lower plot; Frame owns chart geometry and chrome. */
 const VERDICT_HEIGHT = 160;
 function Setting<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (next: T) => void }) {
@@ -68,10 +66,6 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
       status: htmEmphasisStatus(point.status) })),
     xCategories: projected.scatter.xCategories,
   };
-  const trendStatusOf = useMemo(() => {
-    const of = projected.trend.pointStatusOf;
-    return (point: ChartPoint) => htmEmphasisStatus(of(point));
-  }, [projected.trend.pointStatusOf]);
   const change = <K extends keyof RunScatterSettings>(key: K, value: RunScatterSettings[K]) => setSettings(current => ({ ...current, [key]: value }));
   return <section aria-label={m('runs', { module: moduleId, motion: motionId })} data-testid={`hw-overview-${kind}`} className="flex h-full min-h-0 flex-col">
     <p className="sr-only">{contextNote}</p>
@@ -111,9 +105,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
         <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} description={contextNote} chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
       </div>}
       {kind === 'trend' && (projected.trend.categories.length < 2 ? <p className="t-caption px-2 text-text-secondary">{m('trendNeedsDays')}</p> : <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        <div className="flex min-h-52 flex-1 flex-col"><AnalysisChartFrame summary="quiet" legendPlacement="side" toolsReveal="hover" description={contextNote} chartId="hw-overview-runs-trend" title={m('trend')} series={projected.trend.series} xType="category"
-          unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN} emphasisFocus="none"
-          canApplyRange={false} activeCategory={activeDay || null} pointStatus={trendStatusOf} bounds={projected.trend.bounds.size ? projected.trend.bounds : undefined} boundLabels={projected.trend.boundLabels} /></div>
+        <div className="flex min-h-52 flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} /></div>
         <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame summary="quiet" chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
           series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
           legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>

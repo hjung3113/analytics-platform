@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { contextCapabilities, groupId, menuPermission, type ApiResponse, type MenuMeta } from '@ap/contracts';
 import { EQUIPMENT, createMockAdapter, getRole, setRole } from '@ap/mock-server';
 import { HW_TIME_UNIT, hwTime } from '../endpoints';
-import type { HwTimeDistribution, HwTimeLevelData, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
+import type { HwTimeDistribution, HwTimeLevelData, HwTimeRuns, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
 import { hwTimeMock } from './index';
 
 const context = {
@@ -329,5 +329,50 @@ describe('HW Time Module types and server judgements (#2328)', () => {
     for (const params of [{ moduleType: 'unknown' }, { moduleType: 'TR', drillModule: 'PM1' }, { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pick' }]) {
       expect((await query(hwTime.levelRows.id, params)).outcome).toBe('error');
     }
+  });
+});
+
+describe('HW Time single-equipment run query', () => {
+  const selected = EQUIPMENT.find(item => item.site === 'MEM' && item.room === 'PHOTO')!.equipmentId;
+  const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump', equipmentId: selected };
+  const applied = { selection: [selected], from: '2026-09-25T00:00:00', to: '2026-09-28T00:00:00' };
+
+  it('returns daily HTM bounds for the one equipment resolved by Scope and Selection', async () => {
+    const runs = await data<HwTimeRuns>('hwTime.runs', params, applied);
+    expect(runs.daily.length).toBeGreaterThan(1);
+    expect([...new Set(runs.daily.map(point => point.equipmentId))]).toEqual([selected]);
+    expect(runs.bounds).toEqual([{ equipmentId: selected, moduleId: 'LK1', motion: 'Pump', lower: 2.4, upper: 4 }]);
+  });
+
+  it('rejects an equipment parameter that does not match the selected equipment', async () => {
+    const response = await query('hwTime.runs', { ...params, equipmentId: 'other-equipment' }, applied);
+    expect(response.outcome).toBe('error');
+  });
+
+  it('returns no rows if the selected equipment is outside the scoped room filter', async () => {
+    const response = await query('hwTime.runs', params, { ...applied, roomNames: ['ETCH'] });
+    expect(response.outcome).toBe('empty');
+  });
+
+  it('returns an empty envelope when the applied intersection excludes the selected equipment', async () => {
+    const response = await query('hwTime.runs', params, { ...applied, selection: [] });
+    expect(response).toMatchObject({ outcome: 'empty', data: null, assessments: [] });
+  });
+
+  it('checks permission before returning an empty intersection', async () => {
+    setRole('viewer');
+    const response = await query('hwTime.runs', params, { ...applied, selection: [] });
+    expect(response.outcome).toBe('forbidden');
+  });
+
+  it('still rejects an invalid equipment ID with an empty intersection', async () => {
+    const response = await query('hwTime.runs', { ...params, equipmentId: ' ' }, { ...applied, selection: [] });
+    expect(response).toMatchObject({ outcome: 'error', message: 'Invalid equipmentId' });
+  });
+
+  it('uses the endpoint permission from the server declaration', async () => {
+    setRole('viewer');
+    const response = await query('hwTime.runs', params, applied);
+    expect(response.outcome).toBe('forbidden');
   });
 });

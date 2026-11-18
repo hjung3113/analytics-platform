@@ -1,5 +1,5 @@
 import { useCallback, useContext, useLayoutEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import { AppContext } from './contexts';
+import { AppContext, LentPanelPlatformContext } from './contexts';
 import { useHostPlatform } from './hooks';
 
 /**
@@ -11,14 +11,15 @@ import { useHostPlatform } from './hooks';
  */
 export function useSessionDraft<T>(key: string, initial: T, options?: { ready?: boolean; isEqual?: (value: T, initial: T) => boolean }): [T, Dispatch<SetStateAction<T>>, { restored: boolean; discard: () => void }] {
   const app = useContext(AppContext);
+  const lent = useContext(LentPanelPlatformContext) !== null;
   const { route, paneId } = useHostPlatform();
   if (!app) throw new Error('useSessionDraft outside PlatformProvider');
   const store = app.internal.sessionDrafts;
   const owner = app.pub.user.id;
   const scopedKey = JSON.stringify([route?.menu.id, Object.entries(route?.params ?? {}).sort(([a], [b]) => a.localeCompare(b)), paneId, key]);
-  const ready = options?.ready ?? true;
+  const ready = !lent && (options?.ready ?? true);
   const read = () => {
-    const entry = store.owner === owner ? store.entries.get(scopedKey) : undefined;
+    const entry = !lent && store.owner === owner ? store.entries.get(scopedKey) : undefined;
     const carried = entry?.owner === owner ? entry : undefined;
     const restored = ready && carried !== undefined;
     return { store, key: scopedKey, ready, initial, carried, value: restored ? carried.value as T : initial, restored };
@@ -38,16 +39,18 @@ export function useSessionDraft<T>(key: string, initial: T, options?: { ready?: 
   // publishing effect above has already written a newer value.
   const carried = current.carried;
   useLayoutEffect(() => {
+    if (lent) return;
     if (carried && !store.entries.has(scopedKey)) store.entries.set(scopedKey, carried);
     return () => { store.entries.delete(scopedKey); };
-  }, [store, scopedKey, carried]);
+  }, [store, scopedKey, carried, lent]);
   const setValue = useCallback<Dispatch<SetStateAction<T>>>(next => {
     if (!ready) return;
     setState(held => ({ ...held, value: typeof next === 'function' ? (next as (value: T) => T)(held.value) : next }));
   }, [ready]);
   const discard = useCallback(() => {
+    if (lent) return;
     store.entries.delete(scopedKey);
     setState(held => ({ ...held, value: held.initial, restored: false }));
-  }, [store, scopedKey]);
+  }, [store, scopedKey, lent]);
   return [ready ? current.value : initial, setValue, { restored: ready && current.restored, discard }];
 }

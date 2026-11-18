@@ -11,6 +11,8 @@ const common = ['scopeId', 'time', 'roomNames', 'condition', 'selection'] as con
 const checks = [{ key: 'module' }, { key: 'motion' }] as const;
 const verdictDisplay = [...checks, { key: 'verdict' }] as const;
 const runInputs = { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }, { key: 'trend' }] } as const;
+// The workspace still uses the availability override for its compound trend target. Lending binds the individual parts.
+const trendInputs = { ...runInputs, page: runInputs.page.map(input => input.key === 'trend' ? input : { ...input, required: true }) };
 /** Run panels that read the same linked population as the scatter: drill plus verdict/date. */
 const linkedRunInputs = { ...runInputs, page: [...runInputs.page, { key: 'verdict' }, { key: 'date' }] } as const;
 const pointAvailability = { requires: [{ anyOf: ['drillModule', 'trend'] }], disabledReason: S.needsPoint } as const;
@@ -21,7 +23,7 @@ export const panelDeclarations = {
     queryInputs: { context: common, page: [{ key: 'moduleType', required: true }] }, displayInputs: { page: [...verdictDisplay, { key: 'drillMotion' }] },
     outputs: [{ key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
     availability: { requires: [{ anyOf: ['moduleType'] }], disabledReason: S.needsType }, pieces: ['AnalysisChart', 'QueryView'] },
-  trend: { id: 'trend', kind: 'line', title: S.trend, queryInputs: runInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
+  trend: { id: 'trend', kind: 'line', title: S.trend, queryInputs: trendInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
     grain: 'dailyStat', endpoints: [hwTimeOverview.runs], availability: pointAvailability, pieces: ['AnalysisChartFrame', 'AnalysisChart', 'FilterLine', 'QueryView'] },
   scatter: { id: 'scatter', kind: 'scatter', title: S.scatter, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],
     grain: 'run', endpoints: [hwTimeOverview.runs], availability: pointAvailability, pieces: ['AnalysisChart', 'FilterLine', 'QueryView'] },

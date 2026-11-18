@@ -11,6 +11,7 @@ import { panelDeclarations } from '../panelDeclaration';
 import { panelRecipe } from '../recipeModel';
 import { PanelRecipeBack } from '@ap/components';
 import declarationSource from '../../../panels.ts?raw';
+import trendChartSource from '../RunTrendChart.tsx?raw';
 
 vi.mock('@ap/components', async original => {
   const actual = await original<typeof import('@ap/components')>();
@@ -27,6 +28,11 @@ const recipeRegistry = createRegistry({ permissions: [menuPermission('analytics:
 const recipeOf = (id: string, primary = false) => panelRecipe(recipeRegistry.panels('hw-time').find(panel => panel.id === id), {}, { primary });
 
 describe('panel recipe', () => {
+  it('counts the shared RunTrendChart source in the trend recipe', () => {
+    const lines = trendChartSource.split(/\r?\n/).filter(line => line.trim()).length;
+    expect(recipeOf('trend')?.code?.files).toContainEqual({ name: 'RunTrendChart.tsx', lines });
+  });
+
   it.each(['inside', 'outside'] as const)('restores the same panel root only when focus is %s the recipe', async focus => {
     window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&moduleType=PM&drillModule=PM1&drillMotion=Chuck&pins=trend');
     const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ ...testSpace(), homeMenuId: 'hw-time' }], groups: [{ id: groupId('hwTime'), label: { ko: 'HW', en: 'HW' }, icon: LayoutDashboard, space: testSpace().id }], menus: manifests });

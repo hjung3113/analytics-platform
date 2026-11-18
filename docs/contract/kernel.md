@@ -125,7 +125,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 | `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required? }[] }`. 조회 입력과 강조·표시 전용 입력을 분리 |
 | `outputs` | 패널 컨트롤이 바꾸는 `{ key, action }[]`. 메뉴 page key만 허용 |
 | `grain` | 메뉴가 이름 붙인 데이터 단위. `^[a-z][a-zA-Z0-9]*$` 형태만 검사 |
-| `endpoints` | 메뉴의 엔드포인트 spec 목록. 등록에 사용하는 필드는 `id`, `menuId`, `permission` |
+| `endpoints` | 메뉴의 엔드포인트 spec 목록. 패널 등록은 `id`, `menuId`, `permission`을 읽고, 빌려주기 등록은 `requiresScope`, `context`, `requiredContext`도 읽음 |
 | `availability` | 선택 재정의 `{ requires: { anyOf: string[] }[], disabledReason: Text }`. OR 키 묶음들을 AND로 판정 |
 | `pieces`, `version` | 선택 설명 문자열 목록, S2용 예약 값. S1에서는 해석·검증하지 않음 |
 
@@ -133,7 +133,18 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 
 `registry.panels(menuId)`는 선언 순서대로 `menuId`, 중복을 제거한 `permissions`(메뉴의 모든 권한 AND 엔드포인트 권한), `disabledReason(context)`를 더한 등록을 돌려준다. `registry.panelsReading(key)`는 조회·표시 입력을, `registry.panelsWriting(key)`는 출력을 역방향으로 찾는다. 가용성 재정의가 없으면 누락된 필수 page 입력의 드릴 레벨·`query.required.page` 라벨을 이유로 쓰며 라벨이 없으면 키 이름을 쓴다. Scope와 전역 Context 준비 판정은 기존 Kernel 게이트가 소유한다.
 
-순수 도우미 `projectQueryInputs`, `projectDisplayInputs`, `disabledReason`, `panelQueryIdentity`는 `@ap/kernel`에 있다. 동일 조회 입력에서 재조회를 하지 않는 실행 불변식은 Registry가 보장하지 않으므로 메뉴 단위 테스트로 검증한다. 개발 도구 카탈로그는 실제 등록을 표와 키 필터로 읽는다. 다른 메뉴에 빌려주기·바인딩·인스턴스(#911), 저장 검증·version 의미(#294), 개인 대시보드 위젯·동적 로딩·운영 콘솔 카탈로그는 S2 범위이며 S1에서 구현하지 않는다.
+순수 도우미 `projectQueryInputs`, `projectDisplayInputs`, `disabledReason`, `panelQueryIdentity`는 `@ap/kernel`에 있다. 동일 조회 입력에서 재조회를 하지 않는 실행 불변식은 Registry가 보장하지 않으므로 메뉴 단위 테스트로 검증한다. 개발 도구 카탈로그는 실제 등록을 표와 키 필터로 읽는다. 저장 가능한 패널 인스턴스(#911), 저장 검증·version 의미(#294), 개인 대시보드 위젯과 운영 콘솔 카탈로그는 S1 범위 밖이다.
+
+#### 패널 빌려주기 (S2, #2490)
+
+받는 메뉴는 선택 필드 `MenuMeta.lentPanels`에 `{ source, context?, page? }`를 선언한다. `source`는 `<menuId>/<panelId>`다. `context`와 `page`는 원본 조회 입력을 키로 삼고, 각 값은 받는 메뉴의 적용 Context(`{ kind: 'context', key }`), 선언된 page key(`{ kind: 'page', key }`), 렌더링 시 넘기는 값(`{ kind: 'value', key }`)을 가리킨다. 받는 메뉴가 화면 데이터와 원본 입력의 대응을 정한다. [ADR-0171](../adr/0171-registered-panel-lending.md)
+
+- Registry는 등록되지 않은 원본, 중복 연결, 원본 조회 입력이나 받는 메뉴의 page key에 없는 이름을 거부한다. 원본 패널의 필수 page 입력과 원본 엔드포인트가 적용하는 Context는 모두 연결해야 한다. 원본 패널이나 엔드포인트가 Scope를 요구하면 `scopeId` 연결과 받는 메뉴의 `requiresScope: true`가 필요하다. 받는 메뉴가 Scope를 요구하면 원본 엔드포인트 각각이 `scopeId`를 보내야 한다. 어느 쪽에서 빌리더라도 Scope 권한 경계를 유지하기 위한 등록 검사다.
+- Scope와 전역 조회 조건을 보존하기 위해 원본 Context 입력은 받는 메뉴의 같은 Context 키에서 가져온다. Selection은 page key나 렌더링 값으로 좁힐 수 있다. 적용된 Selection이 있으면 좁힌 ID는 그 집합 안에 있어야 하고, Scope와 나머지 적용 제약도 따른다. 출력 연결은 받지 않는다. 빌린 패널이 받는 메뉴의 전역 Context를 바꾸면 사용자가 적용한 조회 조건을 우회하기 때문이다.
+- `registry.lentPanels(receivingMenuId)`는 원본 등록, 받는 메뉴·원본 메뉴·원본 패널 엔드포인트의 권한을 중복 제거해 모두 요구하는 `permissions`, 순수 `verdict(session, { context, page?, values? })`를 돌려준다. 판정은 `{ allowed, reason }`이며 사유는 ko/en `Text`로 권한 없음, 필수 입력 누락, 원본이 지원하지 않는 적용 조건을 구분한다. 받는 메뉴가 적용 중인 제약은 명시 공집합까지 원본 엔드포인트 각각에서 투영해야 한다. 하나라도 빠지면 패널과 조회를 닫아 데이터 범위가 넓어지는 것을 막는다. 적용 Context 필드는 구조상 모두 연결하되 값이 필요한 항목은 Scope, 적용 기간, 엔드포인트의 `requiredContext`, 필수 page 입력이다.
+- 호스트는 `registerLentPanel(source, { component, accepts? })`로 원본을 등록한다. 선택 함수 `accepts(inputs)`는 빠졌거나 지원하지 않는 입력 키를 반환한다. 출처가 실제로 읽을 수 있는 입력만 허용하므로 받는 메뉴가 표시할 사유와 원본 마운트가 어긋나지 않는다. `useLentPanel(source, values)`와 `<LentPanel source={source} values={values} actions={actions} />`는 이 검사와 공간 접근 및 현재 세션의 Scope 검증을 공유한다. 허용된 원본만 마운트되고 조회를 시작할 수 있다.
+- 원본은 연결된 `inputs`와 받는 메뉴의 선택적 `actions`를 props로 받는다. `accepts`와 원본이 받는 `inputs`는 받는 화면 상태와 분리된 동결 사본이고, 조회는 검사를 마친 Context 스냅샷으로만 나간다. 원본이 입력을 바꿔 검사한 조회 범위를 넓히지 못하게 하기 위해서다. 복제·동결할 수 없는 렌더링 값(심벌·함수 등)은 그 키의 입력 누락으로 판정한다. 원본의 화면 훅은 연결된 Context와 page 입력만 읽는다. URL 이동, 적용 Context 및 조회 초안 변경은 받는 메뉴가 소유하므로 원본의 화면 쓰기는 효력이 없다. 헤더 `actions`는 받는 메뉴의 화면 경계에서 동작한다.
+- 원본 조회는 등록된 원본 엔드포인트와 연결된 Context를 사용한다. 수동 조회 콜백도 호출 시점에 연결을 확인하고, 연결이 닫히거나 입력·세션이 바뀌면 진행 중인 요청을 취소한다. 예전 선택의 요청이 새 데이터처럼 표시되거나 이미 닫힌 패널에서 조회를 다시 시작하는 것을 막는다. 서버는 자기 엔드포인트 선언으로 접근과 입력을 최종 판정한다([ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)).
 
 ### 페이지 조건 레이어 (Candidate, #2337; 필드명 Candidate)
 

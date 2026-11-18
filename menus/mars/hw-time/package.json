@@ -1,13 +1,14 @@
 {
   "name": "@ap/menu-hw-time",
   "private": true,
-  "version": "0.11.4",
+  "version": "0.11.5",
   "ap": {
     "sdk": ">=0.42.0 <0.43.0"
   },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./lent-panels": "./src/lent-panels.ts",
     "./mock": "./src/mock/index.ts",
     "./styles.css": "./src/styles.css"
   },

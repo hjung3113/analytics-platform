@@ -7,6 +7,8 @@ import type { PlatformMenuEntry } from './registry/registry';
 import { useToastList, type Toast } from './platform/platform';
 import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type JsonValue, type ModuleScopedId, type PreferencesSnapshot, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, groupId, spaceId } from '@ap/contracts';
 
+export { registerLentPanel } from './registry/LentPanel';
+
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 /** A registered screen that draws nothing: a menu entry with `component: testScreen` is not «planned» (no screen), so visits and resume record it (#1944). */
 export const testScreen = lazy(async () => ({ default: () => null }));
