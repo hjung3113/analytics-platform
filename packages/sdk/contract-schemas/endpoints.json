@@ -383,7 +383,7 @@
       "focus"
     ],
     "permission": "analytics:view",
-    "requiresScope": false,
+    "requiresScope": true,
     "context": {
       "time": "apply"
     },
@@ -411,7 +411,7 @@
       "limit"
     ],
     "permission": "analytics:view",
-    "requiresScope": false,
+    "requiresScope": true,
     "context": {
       "time": "apply"
     },
@@ -432,7 +432,7 @@
       "equipment"
     ],
     "permission": "analytics:view",
-    "requiresScope": false,
+    "requiresScope": true,
     "context": {
       "time": "apply"
     },
@@ -457,7 +457,7 @@
       "levels"
     ],
     "permission": "analytics:view",
-    "requiresScope": false,
+    "requiresScope": true,
     "context": {
       "time": "apply"
     },
@@ -485,7 +485,7 @@
       "limit"
     ],
     "permission": "analytics:view",
-    "requiresScope": false,
+    "requiresScope": true,
     "context": {
       "time": "apply"
     },
@@ -515,7 +515,7 @@
       "direction"
     ],
     "permission": "analytics:view",
-    "requiresScope": false,
+    "requiresScope": true,
     "context": {
       "time": "apply"
     },
@@ -1038,7 +1038,8 @@
       "drillMotion",
       "verdict",
       "date",
-      "equipmentId"
+      "equipmentId",
+      "equipmentIds"
     ],
     "permission": "analytics:view",
     "requiresScope": true,

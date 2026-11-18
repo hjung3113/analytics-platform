@@ -9,7 +9,7 @@
 declare module '#platform-assembly' {
   import type { ReactNode } from 'react';
   import type { Registry } from '@ap/kernel';
-  import type { HostAssembly } from '@ap/app-host';
+  import type { CreateRegistryInput, HostAssembly } from '@ap/app-host';
   import type { SpaceLinks } from '@ap/feature-bridge';
 
   /**
@@ -34,6 +34,9 @@ declare module '#platform-assembly' {
    */
   export type AssemblyOutcome = Assembly | { redirect: string } | { screen: ReactNode };
   /** Synchronous in mock builds; the real assembly awaits the bootstrap, so the caller awaits either. */
-  export type CreateAssembly = (o: { registry: Registry }) => AssemblyOutcome | Promise<AssemblyOutcome>;
+  export type CreateAssembly = ((o: { registry: Registry }) => AssemblyOutcome | Promise<AssemblyOutcome>) & {
+    /** Opt-in declarations for a development-only synthetic assembly fixture. */
+    configureDeclarations?: (input: CreateRegistryInput) => CreateRegistryInput;
+  };
   export const createAssembly: CreateAssembly;
 }

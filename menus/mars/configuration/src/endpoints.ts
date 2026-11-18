@@ -57,12 +57,14 @@ export const filterSpecs = (equipment: readonly string[]): Record<string, Column
 export const readFilters = (values: readonly string[], equipment: readonly string[]) => parseFilterParams(values, filterSpecs(equipment), 'filter');
 
 export const TREND_ITEM_KEY = 'trendItem';
+export const HW_TREND_ITEM_KEY = 'hwTrendItem';
+export const HW_TREND_CLOSED = 'off';
 export const AXIS_KEY = 'axis';
 export const EQUIPMENT_AXIS = 'equipment';
-export const PAGE_KEYS = [AXIS_KEY, 'equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY];
+export const PAGE_KEYS = [AXIS_KEY, 'equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY, HW_TREND_ITEM_KEY];
 export const SAVED_VIEW_SUPPORT: SavedViewSupport = { menuId: 'configuration', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: PAGE_KEYS };
 // The synthetic latest value represents the end-of-period snapshot.
-const base = { menuId: 'configuration', permission: menuPermission('analytics:view'), requiresScope: false, context: { time: 'apply' } as const, kinds: ['collection', 'coverage'] as const, mergeTimeDomain: false };
+const base = { menuId: 'configuration', permission: menuPermission('analytics:view'), requiresScope: true, context: { time: 'apply' } as const, kinds: ['collection', 'coverage'] as const, mergeTimeDomain: false };
 const conditions = { eq: true, mode: true, ref: true, status: true, q: true, asOf: true, coreOnly: true, filters: true, levels: true } as const;
 export const configurationPivotEndpoint = defineEndpoint<PivotParams, PivotResult>({ ...base, id: 'configuration.pivot', paramKeys: conditions });
 export const configurationTreeEndpoint = defineEndpoint<TreeParams, TreePage>({ ...base, id: 'configuration.tree', paramKeys: { ...conditions, expanded: true, offset: true, limit: true } });

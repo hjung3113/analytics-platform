@@ -18,7 +18,7 @@ import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } f
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
@@ -70,9 +70,10 @@ export type PanelWorkspacePanel = {
   /**
    * Where the panel opens when the layout does not hold it yet (#2398): absent = a tab in the primary panel's group; `'below'` = a new last row
    * (full width). Applies when the panel first joins `panels` (a panel the user added) and to presets that do not name it. A layout the user
-   * already arranged, stored or not, is never moved by it.
+   * already arranged, stored or not, is never moved by it. `{ row }` gives same-row panels a shared lower row in declaration
+   * order. The workspace keeps its height and split as members leave or return.
    */
-  placement?: 'below';
+  placement?: 'below' | { row: string };
   /**
    * Opt-in (#2398): a pin button in the panel header. The menu owns what pinning means (with `usePinnedPanels`, the panel stays in `panels` at
    * the next drill step); the SDK only draws the state and calls `onToggle`.
@@ -216,7 +217,16 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const declaredHeights = new Map(panels.flatMap(panel => (panel.preferredHeight === undefined ? [] : [[panel.id, panel.preferredHeight] as const])));
   const rowPreferred = declaredHeights.size > 0 ? rowPreferredOf(declaredHeights, panelMinimums, dockTheme(true).gap) : undefined;
   const below = panels.filter(panel => panel.placement === 'below' && panel.id !== primaryId).map(panel => panel.id);
-  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset, below };
+  const declaredRows = new Map<string, string[]>();
+  for (const panel of panels) {
+    if (panel.id === primaryId || typeof panel.placement !== 'object') continue;
+    const { row } = panel.placement;
+    const members = declaredRows.get(row);
+    if (members) members.push(panel.id);
+    else declaredRows.set(row, [panel.id]);
+  }
+  const sharedRows = Array.from(declaredRows, ([id, members]) => ({ id, panels: members }));
+  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset, below, sharedRows };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
   /** The panel's badge with its description localised. */
   const summaryOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); const summary = panel?.collapse && panel.collapse.summary !== undefined ? panel.collapse.summary : panel?.minimize?.summary; return summary ? tx(summary) : ''; };
@@ -227,21 +237,20 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     return { saved, state: saved ?? initialWorkspaceState(spec) };
   });
   const [storedState, setStored] = useState(initial.state);
-  const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort()]);
+  const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort(), sharedRows]);
   const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below });
   const panelsChanged = seenPanels.identity !== panelIdentity;
   // A changed panel set renders its repaired state at once and commits it before paint. Not a render-phase setState: an observer
   // update queued right after one is computed eagerly against the state before it and would put the old panel set back (#2518).
   const stored = useMemo(() => (panelsChanged ? updateWorkspacePanels(storedState, spec, seenPanels.below) : storedState),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is a new object each render; `panelIdentity` is its identity here.
-    [panelsChanged, storedState, seenPanels.below, panelIdentity]);
+    [panelsChanged, storedState, seenPanels, panelIdentity]);
   useLayoutEffect(() => {
     if (!panelsChanged) return;
     setSeenPanels({ identity: panelIdentity, below });
-    const previousBelow = seenPanels.below;
-    setStored(previous => (previous === storedState ? stored : updateWorkspacePanels(previous, spec, previousBelow)));
+    setStored(previous => (previous === storedState ? stored : updateWorkspacePanels(previous, spec, seenPanels.below)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is rebuilt each render; the effect acts only while `panelsChanged`, whose inputs are listed.
-  }, [panelsChanged, panelIdentity, below, seenPanels.below, storedState, stored]);
+  }, [panelsChanged, panelIdentity, below, seenPanels, storedState, stored]);
 
   // Width of the workspace: under `compactBelow` with a compact preset the arrangement is the preset's, in memory.
   const root = useRef<HTMLDivElement>(null);
@@ -298,8 +307,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   useRegisterPageFlow(stackActive);
 
   // Commands read the latest render at call time, so their identity depends on what they display only.
-  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below });
-  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below }; });
+  const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below, sharedRows });
+  useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below, sharedRows }; });
   /** px that make one row fill what the page shows: the scroll container less the workspace offset, toolbar and its gap, and page bottom padding. */
   const oneRowHeight = useCallback(() => {
     const element = root.current;
@@ -316,13 +325,18 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, []);
   const rowEnv = useCallback((): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME), oneRow: oneRowHeight(), preferred: live.current.rowPreferred }), [oneRowHeight]);
   /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
-  const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string) => {
+  const update = useCallback((change: (current: WorkspaceState) => WorkspaceState, settle: 'keep' | 'enter' | 'raw' = 'keep', created?: string, { dockEdit = false } = {}) => {
     if (live.current.compact) setCompactState(previous => change(previous ?? live.current.derived));
     else {
       // One snapshot at the command boundary: the updater stays pure (React may replay it) and never reads the DOM.
       const env = settle === 'raw' ? null : rowEnv();
-      const declaredBelow = live.current.below;
-      setStored(previous => { const next = change(previous); return settle === 'raw' || env === null ? next : settleRows(previous, next, settle, env, created, declaredBelow); });
+      const { below: declaredBelow, sharedRows: declaredSharedRows } = live.current;
+      setStored(previous => {
+        const next = change(previous);
+        if (settle === 'raw' || env === null) return next;
+        const sized = dockEdit && created === undefined ? rememberSharedRows(previous, next, declaredSharedRows) : next;
+        return settleRows(previous, sized, settle, env, created, declaredBelow, declaredSharedRows);
+      });
     }
   }, [rowEnv]);
   // A reveal persists like a user activation. The seq present at mount counts as handled.
@@ -339,7 +353,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
       return;
     }
-    const { maximizedId: other, primaryId, presets, derived, below } = live.current;
+    const { maximizedId: other, primaryId, presets, derived, below, sharedRows } = live.current;
     const restoring = restoreHidden === true && derived.hidden.includes(revealId)
       && !derived.collapsed?.[revealId] && !derived.floating?.some(panel => panel.panelId === revealId);
     if (other !== null && other !== revealId) {
@@ -348,7 +362,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     }
     update(current => {
       const next = restoring
-        ? showPanel(current, revealId, primaryId, presets.find(candidate => candidate.id === current.preset) ?? presets[0]!, below)
+        ? showPanel(current, revealId, primaryId, presets.find(candidate => candidate.id === current.preset) ?? presets[0]!, below, sharedRows)
         : current;
       const home = groupOf(next.layout, revealId);
       return home && home.active !== revealId ? { ...next, layout: activatePanel(next.layout, revealId) } : next;
@@ -360,7 +374,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
     const env = rowEnv();
-    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset, below: live.current.below }, env), 'raw');
+    update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset, below: live.current.below, sharedRows: live.current.sharedRows }, env), 'raw');
   }, [update, rowEnv]);
   // Measure missing rows before paint. An automatic fill row stays tied to the scrollport while its provenance is intact.
   const needsRows = storedRows === undefined;
@@ -370,7 +384,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const declaredBelow = live.current.below;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows?.length === topLevelRows(previous.layout).length) return previous;
-      return measureWorkspaceRows(previous, env, declaredBelow);
+      return measureWorkspaceRows(previous, env, declaredBelow, live.current.sharedRows);
     });
   }, [stackActive, needsRows, visible, rowEnv]);
 
@@ -380,7 +394,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const measure = () => {
       const env = rowEnv();
       const declaredBelow = live.current.below;
-      setStored(previous => hasAutomaticRows(previous) ? measureWorkspaceRows(previous, env, declaredBelow) : previous);
+      setStored(previous => hasAutomaticRows(previous) ? measureWorkspaceRows(previous, env, declaredBelow, live.current.sharedRows) : previous);
     };
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     const container = scrollContainerOf(element);
@@ -439,7 +453,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     return [
       ...parsed.presets.map(([id, text]): WorkspaceCommand => ({
         id: `${PRESET_PREFIX}${id}`, label: text, kind: 'radio', checked: id === parsed.current, disabled: parsed.narrow, description: parsed.narrow ? m('workspaceCompactPresetOff') : undefined,
-        run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next, live.current.below), 'enter'); },
+        run: () => { const next = preset(id); if (next && !live.current.narrow) update(current => applyPreset(current, next, live.current.below, live.current.sharedRows), 'enter'); },
       })),
       ...(['fit', 'stack'] as const).map((mode): WorkspaceCommand => ({
         id: `${MODE_PREFIX}${mode}`, label: m(mode === 'fit' ? 'workspaceModeFit' : 'workspaceModeStack'), kind: 'radio', group: 'mode', groupLabel: m('workspaceHeightMode'),
@@ -447,11 +461,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       })),
       ...parsed.hidden.map(([id, text, description, warning, chip]): WorkspaceCommand => ({
         id: `${SHOW_PREFIX}${id}`, label: m('workspaceShowPanel', { title: text }), kind: 'action', description: description ?? undefined, warning: warning || undefined, chip: chip ?? undefined,
-        run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!, hasAutomaticRows(current) ? live.current.below : [])); },
+        run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!, hasAutomaticRows(current) ? live.current.below : [], live.current.sharedRows)); },
       })),
       {
         id: RESET_ID, label: m('workspaceResetLayout'), kind: 'action',
-        run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next, live.current.below), 'enter'); },
+        run: () => { const next = preset(parsed.current) ?? live.current.presets[0]!; update(current => resetLayout(current, next, live.current.below, live.current.sharedRows), 'enter'); },
       },
     ];
   }, [shape, update, setMode, m]);
@@ -469,7 +483,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    if (next && storageKey) { writeWorkspaceState(storageKey, next, storageRef.current); persisted.current = next; }
+    if (next && storageKey) { writeWorkspaceState(storageKey, next, storageRef.current, { sharedRows: live.current.sharedRows.length > 0 }); persisted.current = next; }
   }, [storageKey]);
   useEffect(() => {
     if (!storageKey) return;
@@ -562,7 +576,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       setStored(previous => {
         const minimums = topLevelRows(previous.layout).map(live.current.rowMinimum);
         if (previous.mode !== 'stack' || next.length !== minimums.length) return previous;
-        return withRows(previous, 'stack', next.map((px, index) => clampRow(px, minimums[index]!, Math.max(live.current.maxRow, px))));
+        const resized = withRows(previous, 'stack', next.map((px, index) => clampRow(px, minimums[index]!, Math.max(live.current.maxRow, px))));
+        return rememberSharedRows(previous, resized, live.current.sharedRows);
       });
     },
     onDropBelow: moveBelow, onPanelDrop, dropBelowLabel: m('workspaceDropBelow'),
@@ -636,7 +651,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     };
     const pinOpen = () => {
       setPeek(null);
-      update(current => showPanel(current, id, primaryId, presets.find(preset => preset.id === current.preset) ?? presets[0]!));
+      update(current => showPanel(current, id, primaryId, presets.find(preset => preset.id === current.preset) ?? presets[0]!, [], sharedRows));
       focusTab(id);
     };
     const changeBox = (change: Partial<DockFloatingPanel>) => {
@@ -705,7 +720,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
             return { ...current, floating: next, hidden: [...new Set([...current.hidden.filter(id => !returned.includes(id)), ...next.map(panel => panel.panelId)])], layout: tree };
           }); } }}
-          onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
+          onLayoutChange={next => {
+            const moved = dropped.current ?? undefined;
+            dropped.current = null;
+            update(current => ({ ...current, layout: next }), 'keep', moved, { dockEdit: true });
+          }}
           onActivate={id => { update(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current), 'raw'); }}
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions}

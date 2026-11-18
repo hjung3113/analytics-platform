@@ -64,9 +64,9 @@ function columnModel(data: EquipmentResult, params: PivotParams, m: Message) {
   return { columns, groups };
 }
 
-export function EquipmentAxisTable({ data, params, selection, selectedItem, onSelect, openDetail, openTrend, m }: {
+export function EquipmentAxisTable({ data, params, selection, selectedItem, onSelect, openDetail, openTrend, trendReason, m }: {
   data: EquipmentResult; params: PivotParams; selection: MatrixCell | null; selectedItem: ConfigRow | null;
-  onSelect: (cell: MatrixCell, item: ConfigRow) => void; openDetail: () => void; openTrend: (id: string) => void; m: Message;
+  onSelect: (cell: MatrixCell, item: ConfigRow) => void; openDetail: () => void; openTrend: (id: string) => void; trendReason: string | null; m: Message;
 }) {
   const { columns, groups } = useMemo(() => columnModel(data, params, m), [data, params, m]);
   const itemsByKey = useMemo(() => new Map(data.columns.map(item => [item.key, item])), [data.columns]);
@@ -87,6 +87,7 @@ export function EquipmentAxisTable({ data, params, selection, selectedItem, onSe
       onSelectCell={select} onActivateCell={activate} />
     <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-1 text-xs tabular" data-configuration-bottom>
       <span className="min-w-0 flex-1 truncate" title={selectedItem ? selectionLabel : undefined}>{m('equipmentCount', { count: data.rows.length })} · {m('selection')} {selectionLabel}</span>
+      {trendReason && <span role="status" className="break-keep text-text-secondary">{trendReason}</span>}
       <MatrixToneLegend labels={{ info: m('valueDifference'), danger: m('violation'), missing: m('missingLegend') }} />
       <Button variant="ghost" size="toolbar" disabled={!selectedItem} onClick={openDetail}>{m('openSelected')}<ChevronRight className="size-3" /></Button>
     </div>

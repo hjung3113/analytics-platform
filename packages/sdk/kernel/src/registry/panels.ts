@@ -46,6 +46,16 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
     };
     const query = new Set(inputKeys('queryInputs'));
     if (inputKeys('displayInputs').some(key => query.has(key))) invalid('key occurs in both query and display inputs');
+    if (panel.display !== undefined && !Array.isArray(panel.display)) invalid('display must be an array');
+    const displayKeys = new Set<string>();
+    for (const input of panel.display ?? []) {
+      if (!input || typeof input.key !== 'string' || !input.key.trim()) invalid('display input needs a nonempty key');
+      if (menu.pageKeys.includes(input.key) || menu.drill?.levels.some(level => level.key === input.key)) invalid(`display input "${input.key}" must not be a page key`);
+      // A display name equal to a Context query key would let a source rejection of that key pass as an omitted display value.
+      if (input.key === 'scopeId' || Object.hasOwn(CONTEXT_FIELDS, input.key)) invalid(`display input "${input.key}" must not be a Context key`);
+      if (displayKeys.has(input.key)) invalid(`duplicate display input "${input.key}"`);
+      displayKeys.add(input.key);
+    }
     if (!Array.isArray(panel.outputs)) invalid('outputs must be an array');
     for (const output of panel.outputs) {
       if (!output || GLOBAL_KEYS.has(output.key) || !menu.pageKeys.includes(output.key)) invalid(`output "${output?.key}" must be a page key`);

@@ -137,3 +137,21 @@ export const createAssembly: CreateAssembly = ({ registry }) => {
     spaceSystems: async () => MOCK_SPACE_SYSTEMS,
   };
 };
+
+// The two real sample manifests currently share analytics:view. This dev-only fixture gives HW Time
+// an independent gate so the Configuration denial can be exercised through the assembled application.
+function configurationLendingDenialEnabled() {
+  if (process.env.NODE_ENV !== 'development') return false;
+  try { return localStorage.getItem('platform:test:configuration-lending-denial') === '1'; }
+  catch { return false; /* The optional fixture is unavailable if browser storage is blocked. */ }
+}
+
+createAssembly.configureDeclarations = input => {
+  if (!configurationLendingDenialEnabled()) return input;
+  return {
+    ...input,
+    menus: input.menus.map(menu => menu.id === 'hw-time'
+      ? { ...menu, additionalPermissions: [...(menu.additionalPermissions ?? []), 'console:access'] }
+      : menu),
+  };
+};

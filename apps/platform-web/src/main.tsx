@@ -40,7 +40,7 @@ const useAppSlots = makeAppSlots({ notifications: notificationsSlot, vocCompose,
 
 void startAppHost({
   container: document.getElementById('root')!,
-  declarations,
+  declarations: createAssembly.configureDeclarations?.(declarations) ?? declarations,
   createAssembly,
   basePath: import.meta.env.BASE_URL,
   spaceIdMigrations: SPACE_ID_MIGRATIONS,

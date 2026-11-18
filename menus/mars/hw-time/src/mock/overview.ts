@@ -2,7 +2,7 @@
 import { formatDateTime, normalizeSet, parseDateTime, type GlobalContext } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
-  HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, hwTimeOverview, verdictCodec, validPanelDate,
+  HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLOR_BY_ID, HW_TIME_OVERVIEW_MAX_ROWS, HW_TIME_LENT_EQUIPMENT_LIMIT, hwTimeOverview, verdictCodec, validPanelDate,
   type HwTimeDistribution, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
 } from '../endpoints';
 import { htmBounds, judge, rollUp } from './htm';
@@ -191,7 +191,21 @@ export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
   }),
   defineMockEndpoint(hwTimeOverview.runs, {
     validate: ({ params, context }) => {
-      const { equipmentId } = params;
+      const { equipmentId, equipmentIds } = params;
+      if (equipmentIds !== undefined) {
+        if (equipmentId !== undefined || !Array.isArray(equipmentIds) || !equipmentIds.length || equipmentIds.length > HW_TIME_LENT_EQUIPMENT_LIMIT
+          || equipmentIds.some(id => typeof id !== 'string')) return 'Invalid equipmentIds';
+        let ids: string[];
+        try {
+          ids = normalizeSet(equipmentIds, 'equipmentIds');
+        } catch {
+          return 'Invalid equipmentIds';
+        }
+        if (ids.length !== equipmentIds.length) return 'Invalid equipmentIds';
+        if (context.selection?.length !== 0 && (context.selection?.length !== ids.length || ids.some(id => !context.selection?.includes(id)))) {
+          return 'equipmentIds must match the selected equipment';
+        }
+      }
       if (equipmentId !== undefined) {
         if (typeof equipmentId !== 'string') return 'Invalid equipmentId';
         try {
@@ -207,8 +221,9 @@ export const hwTimeOverviewMock: readonly AnyMockEndpoint[] = [
       return validate(params, 'motion', context);
     },
     handle: ({ params, context, equipment }) => {
-      const ids = params.equipmentId === undefined ? syntheticEquipmentIds(equipment)
-        : equipment.filter(item => item.equipmentId === params.equipmentId).map(item => item.equipmentId);
+      const exact = params.equipmentIds ?? (params.equipmentId === undefined ? undefined : [params.equipmentId]);
+      const ids = exact === undefined ? syntheticEquipmentIds(equipment)
+        : equipment.filter(item => exact.includes(item.equipmentId)).map(item => item.equipmentId);
       return overviewRuns(ids, params, context, { sample: true });
     },
     isEmpty: data => data.points.length === 0,

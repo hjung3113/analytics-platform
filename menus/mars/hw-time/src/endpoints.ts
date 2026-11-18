@@ -150,8 +150,10 @@ export const HW_TIME_OVERVIEW_MAX_ROWS = 96;
 export type HwTimeMatrixParams = { moduleType: string };
 export type HwTimeMotionParams = HwTimeMatrixParams & { drillModule: string };
 export type HwTimeRunParams = HwTimeMotionParams & { drillMotion: string; verdict?: HtmStatus; date?: string };
-/** Omit equipmentId for the workspace population. A lent trend supplies one scoped equipment ID. */
-export type HwTimeRunQueryParams = HwTimeRunParams & { equipmentId?: string };
+/** Limit the lent chart to the maximum number of compared equipment in one Configuration matrix. */
+export const HW_TIME_LENT_EQUIPMENT_LIMIT = 20;
+/** The workspace uses its existing population. A lent trend supplies an exact scoped selection. */
+export type HwTimeRunQueryParams = HwTimeRunParams & ({ equipmentId?: string; equipmentIds?: never } | { equipmentId?: never; equipmentIds: string[] });
 export type HwTimePanelParams = { moduleType?: string; drillModule?: string; drillMotion?: string };
 export type HwTimeEquipmentDays = { rows: { equipmentId: string; date: string; judgement: HtmJudgement }[] };
 export type HwTimeMatrixCell = { equipmentId: string; moduleId: string; motions: Record<string, HtmJudgement>; module: HtmJudgement };
@@ -190,7 +192,7 @@ export const hwTimeOverview = {
     ...common, id: 'hwTime.motionStats', paramKeys: { moduleType: true, drillModule: true },
   }),
   runs: defineEndpoint<HwTimeRunQueryParams, HwTimeRuns>({
-    ...common, id: 'hwTime.runs', paramKeys: { moduleType: true, drillModule: true, drillMotion: true, verdict: true, date: true, equipmentId: true },
+    ...common, id: 'hwTime.runs', paramKeys: { moduleType: true, drillModule: true, drillMotion: true, verdict: true, date: true, equipmentId: true, equipmentIds: true },
   }),
   equipmentDays: defineEndpoint<HwTimePanelParams, HwTimeEquipmentDays>({
     ...common, id: 'hwTime.equipmentDays', paramKeys: { moduleType: true, drillModule: true, drillMotion: true },

@@ -8,7 +8,9 @@ import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValue
 export const DEFAULT_RUN_TREND_SETTINGS = { axis: 'equipment-module', color: 'equipment', value: 'motion' } as const;
 
 /** Daily averages are already server-judged. No client aggregation or value/bound comparison; drawn through the Frame's `bounds` and `pointStatus` (#2333). */
-export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en') {
+export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en', { sharedBounds = false, equipmentLabels }: {
+  sharedBounds?: boolean; equipmentLabels?: ReadonlyMap<string, string>;
+} = {}) {
   const dates = [...new Set(daily.map(point => point.at.slice(0, 10)))].sort();
   // Frame categories are also display labels. Keep the year only when MM-DD would merge distinct dates.
   const shortDates = dates.map(date => date.slice(5));
@@ -26,9 +28,19 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
     // A status can change along the line. Keep the equipment line identity; point colours/status carry those changes.
     const baseStatus = group.every(row => row.judgement.status === 'unjudgeable') ? 'unjudgeable' : 'normal';
     const color = settings.color === 'status' ? runColor(baseStatus, 0, 'status') : runColor(key, colorKeys.indexOf(key), settings.color);
-    return { id, name: id, kind: 'line', color, points: categories.map(day => [day, pointBySeries.get(`${id}/${day}`)?.value ?? null]) };
+    return { id, name: equipmentLabels?.get(id) ?? id, kind: 'line', color, points: categories.map(day => [day, pointBySeries.get(`${id}/${day}`)?.value ?? null]) };
   });
   const bounds = new Map<string, RunBound>();
+  if (sharedBounds && equipment.length > 1 && settings.value === 'motion') {
+    for (const day of categories) {
+      const criteria = equipment.map(id => pointBySeries.get(`${id}/${day}`)?.judgement).filter(value => value !== undefined);
+      const first = criteria[0];
+      // A common band represents the returned series only where their daily criteria agree.
+      const common = first && criteria.length === equipment.length && criteria.every(value => value.lower === first.lower && value.upper === first.upper);
+      bounds.set(day, common ? runBound(first) : {});
+    }
+    if ([...bounds.values()].every(bound => bound.lower === undefined && bound.upper === undefined)) bounds.clear();
+  }
   if (equipment.length === 1 && settings.value === 'motion' && rows.some(row => row.judgement.lower !== null || row.judgement.upper !== null)) {
     // An explicit empty day clears the SDK's preceding step instead of carrying an old criterion forward.
     for (const { point, judgement } of rows) bounds.set(dayKey(point.at), runBound(judgement));
@@ -44,5 +56,6 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
     points: categories.map(day => [day, new Set(rows.filter(row => dayKey(row.point.at) === day && row.judgement.status === status).map(row => row.point.equipmentId)).size]),
   }));
   const boundLabels = { lower: formatText(HW_TIME_OVERVIEW_MESSAGES.lower, lang), upper: formatText(HW_TIME_OVERVIEW_MESSAGES.upper, lang), band: formatText(HW_TIME_OVERVIEW_MESSAGES.htm, lang) };
-  return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels, bandPolicy: 'single-equipment-only' as const };
+  return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels,
+    bandPolicy: sharedBounds ? 'matching-equipment-bounds' as const : 'single-equipment-only' as const };
 }

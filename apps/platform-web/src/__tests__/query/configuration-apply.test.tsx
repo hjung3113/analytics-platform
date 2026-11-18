@@ -9,12 +9,20 @@ import { memoryStorage, settleQueries, testAdapter, testSession, testSpace } fro
 import { GlobalContextBar } from '@ap/shell';
 import type { PageFilterField } from '@ap/components';
 import { manifests } from '@ap/menu-configuration';
+import { manifests as hwTimeMenus } from '@ap/menu-hw-time';
 
 const controls = vi.hoisted(() => ({ fields: [] as readonly PageFilterField[] }));
 vi.mock('@ap/components', async original => ({ ...await original<object>(),
   PageFilterBar: ({ fields, actions }: { fields: readonly PageFilterField[]; actions: ReactNode }) => { controls.fields = fields; return <div>{actions}</div>; },
 }));
-const registry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [testSpace({ homeMenuId: 'configuration' })], groups: [{ id: groupId('configuration'), space: spaceId('mars'), label: { ko: '설정', en: 'Configuration' }, icon: Settings }], menus: manifests });
+const registry = createRegistry({
+  permissions: [menuPermission('analytics:view')], spaces: [testSpace({ homeMenuId: 'configuration' })],
+  groups: [
+    { id: groupId('configuration'), space: spaceId('mars'), label: { ko: '설정', en: 'Configuration' }, icon: Settings },
+    { id: groupId('hwTime'), space: spaceId('mars'), label: { ko: 'HW Time', en: 'HW Time' }, icon: Settings },
+  ],
+  menus: [...manifests, ...hwTimeMenus],
+});
 let draft: ReturnType<typeof useQueryDraft>;
 function Probe() { draft = useQueryDraft(); return null; }
 let root: Root;
@@ -24,7 +32,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('sessionStorage', memoryStorage());
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
-  window.history.replaceState(null, '', '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&mode=reference&ref=EQ01&hideSameCols=1');
+  window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&mode=reference&ref=EQ01&hideSameCols=1');
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
