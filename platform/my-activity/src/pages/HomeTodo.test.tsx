@@ -1,13 +1,27 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from '../feature/test-support';
+import { ID_A, ID_B, homeTodoRegistry, json, listOf, notification, registry, stubFetch, switchableAdapter } from '../feature/test-support';
 import HomeTodo from '@ap/feature-bridge/home-todo-page';
 
 const SURVEY_ID = '33333333-3333-4333-8333-333333333333';
 const request = { id: ID_A, requested_capability: 'voc.read', requested_managed_system_id: null, reason: '사유', requested_object_type: null, requested_object_id: null, source_object_type: null, source_object_id: null, source_action_id: null, revision: 1, requested_expiration: null, updated_at: new Date().toISOString(), return_route_intent: null, status: 'pending', created_at: new Date().toISOString() };
+
+function stubHomeTodoQueueReads() {
+  return stubFetch(path => path.includes('/nav/counts')
+    ? json({ counts: { 'voc.tab.unassigned': 4 } })
+    : path.includes('/me/permissions/check')
+      ? json({ state: 'approved', decision: { allow: true } })
+      : path.startsWith('/api/features/permissions/requests')
+        ? json({ requests: [{ id: ID_A, status: 'pending', batch_id: ID_B }], count: 1 })
+        : path.startsWith('/api/features/me/answerable-surveys')
+          ? json({ items: [], page: { has_more: false } })
+          : path.startsWith('/api/features/notifications')
+            ? json({ items: [], page: { has_more: false }, unread_count: 0 })
+            : json({ requests: [] }));
+}
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -42,5 +56,44 @@ describe('HomeTodo page', () => {
       expect(more.getAttribute('href')!.split('?')[0]).toBe('/notifications');
       cleanup();
     }
+  });
+
+  it('C4 does not read either queue without features access, even when console access is present', async () => {
+    const calls = stubHomeTodoQueueReads();
+    render(<I18nProvider><PlatformProvider adapter={switchableAdapter('user-a', ['platform:view', 'console:access']).adapter} registry={homeTodoRegistry}><HomeTodo /></PlatformProvider></I18nProvider>);
+
+    await waitFor(() => expect(calls.filter(call =>
+      call.path.includes('/me/answerable-surveys') || call.path.includes('/notifications') || call.path.includes('/permission-requests/mine'),
+    )).toHaveLength(3));
+    expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
+    expect(calls.some(call => call.path.includes('/nav/counts'))).toBe(false);
+    expect(calls.some(call => call.path.includes('/me/permissions/check'))).toBe(false);
+    expect(calls.some(call => call.path.includes('/permissions/requests'))).toBe(false);
+  });
+
+  it('C4 reads VOC triage with features access but omits permission review without console access', async () => {
+    const calls = stubHomeTodoQueueReads();
+    render(<I18nProvider><PlatformProvider adapter={switchableAdapter('user-a', ['platform:view', 'features:access']).adapter} registry={homeTodoRegistry}><HomeTodo /></PlatformProvider></I18nProvider>);
+
+    const triage = await screen.findByRole('link', { name: '분류할 VOC 4' });
+    const href = new URL(triage.getAttribute('href')!, 'http://localhost');
+    expect(href.pathname).toBe('/flow/triage');
+    expect(href.searchParams.get('tab')).toBe('unassigned');
+    expect(screen.queryByText(/검토할 권한 요청/)).toBeNull();
+    expect(calls.some(call => call.path.includes('/nav/counts'))).toBe(true);
+    expect(calls.some(call => call.path.includes('/me/permissions/check'))).toBe(false);
+    expect(calls.some(call => call.path.includes('/permissions/requests'))).toBe(false);
+  });
+
+  it('C4 maps both queue links to their registered destinations and the review default tab', async () => {
+    stubHomeTodoQueueReads();
+    render(<I18nProvider><PlatformProvider adapter={switchableAdapter('user-a', ['platform:view', 'features:access', 'console:access']).adapter} registry={homeTodoRegistry}><HomeTodo /></PlatformProvider></I18nProvider>);
+
+    const triage = new URL((await screen.findByRole('link', { name: '분류할 VOC 4' })).getAttribute('href')!, 'http://localhost');
+    const review = new URL((await screen.findByRole('link', { name: '검토할 권한 요청 1' })).getAttribute('href')!, 'http://localhost');
+    expect(triage.pathname).toBe('/flow/triage');
+    expect(triage.searchParams.get('tab')).toBe('unassigned');
+    expect(review.pathname).toBe('/operations/permission-request-review');
+    expect(review.searchParams.has('tab')).toBe(false);
   });
 });

@@ -9,18 +9,14 @@ import { useAnswerableSurveysFirstPage } from '../../surveys/hooks/useSurveys';
 import { fetchNotifications, notificationsQueryKey } from '../../../lib/api/notifications';
 import { fetchNavCounts } from '../../../lib/api/nav';
 import { fetchPermissionRequestsMine, permissionRequestsMineAllKey } from '../../../lib/api/permission-requests';
-import {
-  fetchPermissionCheckViaClient,
-  fetchPermissionRequestsAllViaClient,
-} from '../../../lib/api/permission-reads';
+import { fetchPermissionRequestsAllViaClient } from '../../../lib/api/permission-reads';
 import { permissionRequestsReviewKey } from '../../admin/permissions/useDecidePermissionRequest';
-import { aggregatePermissionRequests } from '../../../lib/copy/permission-groups';
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';
 import { HOME_TODO_COPY as COPY } from '../../../lib/copy/home-todo';
 import { formatRelativeTime } from '../../../lib/format/datetime';
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
-import { permissionCheckQueryKey } from '../../../lib/cross-system/usePermissionCheckBridge';
+import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { NAV_COUNTS_QUERY_KEY } from '../../../lib/query/navCounts';
 import {
   type MinePermissionRequestRow,
@@ -206,29 +202,25 @@ export function HomeTodoPanel({
     enabled: canLinkTriage,
     retry: false,
   });
-  const permissionCheckQuery = useQuery({
-    queryKey: permissionCheckQueryKey({ capability: PERMISSION_REVIEW_CAPABILITY }),
-    queryFn: ({ signal }) =>
-      fetchPermissionCheckViaClient(PERMISSION_REVIEW_CAPABILITY, { signal }),
-    enabled: canLinkPermissionReview,
-    retry: false,
-    staleTime: 30_000,
-  });
+  const permissionCheckQuery = usePermissionCheckBridge(
+    { capability: PERMISSION_REVIEW_CAPABILITY },
+    { enabled: canLinkPermissionReview },
+  );
   const permissionReviewApproved =
     canLinkPermissionReview &&
     !permissionCheckQuery.isError &&
     permissionCheckQuery.data?.state === 'approved';
   const reviewRequestsQuery = useQuery({
-    queryKey: permissionRequestsReviewKey,
-    queryFn: ({ signal }) => fetchPermissionRequestsAllViaClient({ status: 'all', signal }),
+    queryKey: [...permissionRequestsReviewKey, 'pending'],
+    queryFn: ({ signal }) => fetchPermissionRequestsAllViaClient({ status: 'pending', signal }),
     enabled: permissionReviewApproved,
     retry: false,
   });
   const queueCounts: QueueCount[] = [];
   if (permissionReviewApproved && reviewRequestsQuery.data) {
-    const pendingCount = aggregatePermissionRequests(reviewRequestsQuery.data.requests).filter(
-      (request) => request.status === 'pending',
-    ).length;
+    const pendingCount = new Set(
+      reviewRequestsQuery.data.requests.map((request) => request.batch_id ?? request.id),
+    ).size;
     if (pendingCount > 0) {
       queueCounts.push({
         id: 'permission-requests',
@@ -247,14 +239,12 @@ export function HomeTodoPanel({
       count: triageCount,
     });
   }
-  const queueReadFailed =
-    (canLinkTriage && navCountsQuery.isError) ||
-    (permissionReviewApproved && reviewRequestsQuery.isError);
+  const permissionReviewReadFailed = permissionReviewApproved && reviewRequestsQuery.isError;
   const groups = [useSurveyGroup(), useVocGroup(), usePermissionGroup()];
   const anyItems = queueCounts.length > 0 || groups.some((group) => group.rows.length > 0);
   if (!anyItems && groups.some((group) => group.state === 'pending')) return null;
   const shown = groups.filter((group) => group.rows.length > 0 || group.state === 'error' || (group.state === 'ready' && group.moreTo === NOTIFICATIONS_ALL));
-  if (shown.length === 0 && queueCounts.length === 0 && !queueReadFailed) return null;
+  if (shown.length === 0 && queueCounts.length === 0 && !permissionReviewReadFailed) return null;
   return (
     <section
       aria-labelledby={headingId}
@@ -285,9 +275,9 @@ export function HomeTodoPanel({
           ))}
         </p>
       )}
-      {queueReadFailed && (
+      {permissionReviewReadFailed && (
         <p className="mb-3 text-sm text-text-muted" data-testid="home-todo-queue-counts-error">
-          {COPY.loadError}
+          {COPY.reviewPermissionRequestsLoadError}
         </p>
       )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">

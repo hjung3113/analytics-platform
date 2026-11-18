@@ -3,9 +3,12 @@
 import { surveyKeys } from '../../../surveys/hooks/useSurveys';
 import { configureApiClient } from '../../../../lib/api/client';
 import { permissionRequestsMineAllKey } from '../../../../lib/api/permission-requests';
+import { permissionCheckQueryKey } from '../../../../lib/cross-system/usePermissionCheckBridge';
+import { permissionRequestsReviewKey } from '../../../admin/permissions/useDecidePermissionRequest';
+import { NAV_COUNTS_QUERY_KEY } from '../../../../lib/query/navCounts';
 import { type HostLinkProps, type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeTodoPanel } from '../HomeTodoPanel';
 
@@ -122,7 +125,12 @@ function installQueueFetch(data: {
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     urls.push({ url, method: init?.method ?? 'GET' });
-    const path = new URL(url, 'http://x').pathname;
+    const parsedUrl = new URL(url, 'http://x');
+    const path = parsedUrl.pathname;
+    const reviewResponse = (data.reviewRequests ?? { requests: [], count: 0 }) as {
+      requests: Array<{ status: string }>;
+      count: number;
+    };
     const body =
       path === '/api/features/me/answerable-surveys'
         ? { items: [], page: { has_more: false } }
@@ -135,7 +143,15 @@ function installQueueFetch(data: {
               : path === '/api/features/me/permissions/check'
                 ? (data.permissionCheck ?? { state: 'approved', decision: { allow: true } })
                 : path === '/api/features/permissions/requests'
-                  ? (data.reviewRequests ?? { requests: [], count: 0 })
+                  ? data.reviewRequests === 'fail'
+                    ? 'fail'
+                    : {
+                      ...reviewResponse,
+                      requests:
+                        parsedUrl.searchParams.get('status') === 'pending'
+                          ? reviewResponse.requests.filter((request) => request.status === 'pending')
+                          : reviewResponse.requests,
+                    }
                   : undefined;
     if (body === undefined) return new Response('not mocked', { status: 500 });
     return body === 'fail' ? json({ error: 'x' }, 500) : json(body);
@@ -149,14 +165,22 @@ function mountQueuePanel(access: { canAccessFeatures: boolean; canReviewPermissi
     notifyError: vi.fn(),
     notifySuccess: vi.fn(),
   } satisfies HostSeam;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={client}>
       <HostSeamProvider value={seam}>
         <HomeTodoPanel {...access} />
       </HostSeamProvider>
     </QueryClientProvider>,
   );
-  return view;
+  return { client, view };
+}
+
+async function settleQueries(client: QueryClient) {
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  await act(async () => { await Promise.resolve(); });
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  await act(async () => { await Promise.resolve(); });
 }
 
 const originalFetch = globalThis.fetch;
@@ -226,16 +250,21 @@ describe('HomeTodoPanel', () => {
       permissionCheck: { state: 'approved', decision: { allow: true } },
       reviewRequests: {
         requests: [
-          reviewRequest(1, 'pending', 'bundle-1'),
-          reviewRequest(2, 'needs_more_info', 'bundle-1'),
+          reviewRequest(1, 'pending', uuid(500)),
+          reviewRequest(2, 'needs_more_info', uuid(500)),
           reviewRequest(3, 'pending'),
           reviewRequest(4, 'needs_more_info'),
         ],
         count: 4,
       },
     });
-    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+    const { client } = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
 
+    await waitFor(() => {
+      expect(client.getQueryState([...NAV_COUNTS_QUERY_KEY, undefined])?.status).toBe('success');
+      expect(client.getQueryState([...permissionRequestsReviewKey, 'pending'])?.status).toBe('success');
+    });
+    await settleQueries(client);
     await waitFor(() =>
       expect(screen.getByTestId('home-todo-queue-counts').textContent).toBe(
         '검토할 권한 요청 2 · 분류할 VOC 3',
@@ -247,9 +276,7 @@ describe('HomeTodoPanel', () => {
       ['검토할 권한 요청 2', '/admin/permissions/requests'],
       ['분류할 VOC 3', '/vocs?view=triage&tab=unassigned'],
     ]);
-    expect(urls.some((entry) => entry.url === '/api/features/permissions/requests?status=all')).toBe(
-      true,
-    );
+    expect(urls.some((entry) => entry.url === '/api/features/permissions/requests?status=pending')).toBe(true);
   });
 
   it('T2 omits queues without their destination permissions and does not request their counts', async () => {
@@ -287,8 +314,13 @@ describe('HomeTodoPanel', () => {
         count: 2,
       },
     });
-    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+    const { client } = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
 
+    await waitFor(() => {
+      expect(client.getQueryState([...NAV_COUNTS_QUERY_KEY, undefined])?.status).toBe('success');
+      expect(client.getQueryState([...permissionRequestsReviewKey, 'pending'])?.status).toBe('success');
+    });
+    await settleQueries(client);
     const line = await screen.findByTestId('home-todo-queue-counts');
     expect(line.textContent).toBe('분류할 VOC 5');
     expect(within(line).getAllByRole('link')).toHaveLength(1);
@@ -300,11 +332,16 @@ describe('HomeTodoPanel', () => {
       permissionCheck: { state: 'request_access', decision: { allow: false } },
       reviewRequests: { requests: [reviewRequest(1, 'pending')], count: 1 },
     });
-    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+    const { client } = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
 
+    const checkKey = permissionCheckQueryKey({ capability: 'workspace.admin' });
+    await waitFor(() =>
+      expect(client.getQueryData(checkKey)).toEqual({ state: 'request_access', decision: { allow: false } }),
+    );
+    await settleQueries(client);
     const line = await screen.findByTestId('home-todo-queue-counts');
     expect(line.textContent).toBe('분류할 VOC 2');
-    await waitFor(() => expect(urls.some((entry) => entry.url.includes('/me/permissions/check'))).toBe(true));
+    expect(urls.some((entry) => entry.url.includes('/me/permissions/check'))).toBe(true);
     expect(urls.some((entry) => entry.url.includes('/permissions/requests'))).toBe(false);
   });
 
@@ -314,19 +351,38 @@ describe('HomeTodoPanel', () => {
       permissionCheck: { state: 'approved', decision: { allow: true } },
       reviewRequests: { requests: [reviewRequest(1, 'needs_more_info')], count: 1 },
     });
-    const view = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
-    await waitFor(() => expect(urls.some((entry) => entry.url.includes('/permissions/requests'))).toBe(true));
+    const { client, view } = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+    await waitFor(() => {
+      expect(client.getQueryState([...NAV_COUNTS_QUERY_KEY, undefined])?.status).toBe('success');
+      expect(client.getQueryState([...permissionRequestsReviewKey, 'pending'])?.status).toBe('success');
+    });
+    await settleQueries(client);
 
     expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
     expect(view.container.innerHTML).toBe('');
   });
 
-  it('T2 surfaces a queue count read failure instead of rendering an empty count', async () => {
+  it('T2 hides a failed VOC count read without exposing the queue', async () => {
     installQueueFetch({ navCounts: 'fail' });
-    mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: false });
+    const { client, view } = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: false });
 
-    expect(await screen.findByTestId('home-todo-queue-counts-error')).toHaveTextContent(
-      '불러오지 못했습니다',
+    await waitFor(() => expect(client.getQueryState([...NAV_COUNTS_QUERY_KEY, undefined])?.status).toBe('error'));
+    await settleQueries(client);
+    expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
+    expect(screen.queryByTestId('home-todo-queue-counts-error')).toBeNull();
+    expect(view.container.innerHTML).toBe('');
+  });
+
+  it('T2 names the permission-review queue when its approved read fails', async () => {
+    installQueueFetch({ reviewRequests: 'fail' });
+    const { client } = mountQueuePanel({ canAccessFeatures: true, canReviewPermissionRequests: true });
+
+    await waitFor(() =>
+      expect(client.getQueryState([...permissionRequestsReviewKey, 'pending'])?.status).toBe('error'),
+    );
+    await settleQueries(client);
+    expect(screen.getByTestId('home-todo-queue-counts-error')).toHaveTextContent(
+      '검토할 권한 요청 · 불러오지 못했습니다',
     );
     expect(screen.queryByTestId('home-todo-queue-counts')).toBeNull();
   });
