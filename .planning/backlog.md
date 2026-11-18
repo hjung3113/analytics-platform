@@ -50,6 +50,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — Finding 상세 «근거 VOC»의 VOC 읽기 상한(#2531 리뷰 C3):** 근거 링크마다 `GET /vocs/:id`를 한 번 읽는다(상한 없음, 30초 캐시). 이유: `vocEntityLinkProvider.getInternalSummary`가 `null`이고 `entityLinkTargetSummarySchema`에 `voc`가 없어 링크 응답만으로 제목을 낼 수 없다. 다시 여는 조건: 한 Finding의 근거 링크가 수십 건을 넘는 실사용이 보이거나, entity-links가 VOC 요약을 줄 때.
 | 항목 | 미구현 사유 | 다시 여는 조건 |
 | --- | --- | --- |
 | 미구현 — HW Time step 4 기본 분포 히스토그램 ([#2391](https://github.com/hjung3113/analytics-platform/issues/2391)) | 엔드포인트 계약과 mock은 `distribution`을 준다(#2429). 사내 서버 집계가 없어 4단계 기본은 HTM 추세로 둠 | 사내 서버의 HW Time 응답에 분포(bin count) 집계가 생길 때 |

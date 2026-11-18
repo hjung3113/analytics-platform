@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchEntityLinksBySource } from '../entity-links';
+import { fetchEntityLinksBySource, fetchEntityLinksByTarget } from '../entity-links';
 
 const SOURCE = '11111111-1111-4111-8111-111111111111';
 const link = (id: string) => ({
@@ -47,6 +47,43 @@ describe('fetchEntityLinksBySource', () => {
     expect(urls.map((url) => [url.searchParams.get('limit'), url.searchParams.get('cursor')])).toEqual([
       ['100', null],
       ['100', 'next'],
+    ]);
+  });
+});
+
+describe('fetchEntityLinksByTarget', () => {
+  it('queries by target endpoint and follows the cursor past the first page', async () => {
+    const urls: URL[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        urls.push(url);
+        const body =
+          url.searchParams.get('cursor') === null
+            ? { items: [link('c1111111-1111-4111-8111-111111111111')], page: { has_more: true, cursor: 'p2' } }
+            : { items: [link('d2222222-2222-4222-8222-222222222222')], page: { has_more: false } };
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+    const result = await fetchEntityLinksByTarget('finding', SOURCE);
+    expect(result.items.map((item) => item.id)).toEqual([
+      'c1111111-1111-4111-8111-111111111111',
+      'd2222222-2222-4222-8222-222222222222',
+    ]);
+    expect(
+      urls.map((url) => [
+        url.searchParams.get('target_type'),
+        url.searchParams.get('target_id'),
+        url.searchParams.get('limit'),
+        url.searchParams.get('cursor'),
+      ]),
+    ).toEqual([
+      ['finding', SOURCE, '100', null],
+      ['finding', SOURCE, '100', 'p2'],
     ]);
   });
 });

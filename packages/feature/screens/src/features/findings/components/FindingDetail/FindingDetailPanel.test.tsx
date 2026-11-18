@@ -507,8 +507,8 @@ describe('FindingDetailPanel', () => {
       });
       let entityLinkReads = 0;
       globalThis.fetch = vi.fn<typeof fetch>(async (input) => {
-        const path = new URL(String(input), 'http://localhost').pathname;
-        if (path === '/entity-links') {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/entity-links' && url.searchParams.get('source_type') === 'finding') {
           entityLinkReads += 1;
           if (entityLinkReads === 1) return failedRead;
           return retryRead;

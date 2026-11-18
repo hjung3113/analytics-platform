@@ -23,6 +23,9 @@ const KIND_LABELS: Record<ConversationEntry['kind'], string> = {
   internal_comment: '내부 코멘트',
 };
 
+// The entry is history, so no «현재»: a later update may move the status.
+const STATUS_UNCHANGED_LABEL = '답변 추가 · 상태 그대로';
+
 // Surface per entry kind: the SDK default (`public-update` for reporter_visible) would strip
 // a Reporter Reply's attachmentRef before the name lookup.
 const RENDERER_SURFACE: Record<
@@ -89,8 +92,17 @@ export function TimelineEntry({
         <AttachmentChipList attachments={entry.attachments} />
       </div>
 
-      {/* Status transition pair (public_update only) */}
-      {hasStatusTransition && (
+      {/* Status transition pair (public_update only). A body-only answer stores
+          before = after (#2531): one badge, no arrow. */}
+      {hasStatusTransition &&
+      entry.reporter_facing_status_before === entry.reporter_facing_status_after ? (
+        <div className="pl-8 flex items-center gap-2 mt-1">
+          <span className="text-text-muted text-xs">{STATUS_UNCHANGED_LABEL}</span>
+          <ReporterStatusBadge
+            status={entry.reporter_facing_status_after as ReporterFacingStatusEnum}
+          />
+        </div>
+      ) : hasStatusTransition ? (
         <div className="pl-8 flex items-center gap-2 mt-1">
           <ReporterStatusBadge
             status={entry.reporter_facing_status_before as ReporterFacingStatusEnum}
@@ -100,7 +112,7 @@ export function TimelineEntry({
             status={entry.reporter_facing_status_after as ReporterFacingStatusEnum}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -94,6 +94,21 @@ describe('<TimelineEntry>', () => {
     expect(screen.getByText('→')).toBeInTheDocument();
   });
 
+  // #2531: a body-only answer stores before = after; the reporter read «접수됨 → 접수됨».
+  it('shows «답변 추가 · 상태 그대로» with one badge when the status did not change', () => {
+    const entry: ConversationEntry = {
+      ...BASE,
+      kind: 'public_update',
+      visibility: 'public',
+      reporter_facing_status_before: 'received',
+      reporter_facing_status_after: 'received',
+    };
+    render(<TimelineEntry entry={entry} />);
+    expect(screen.queryByText('→')).not.toBeInTheDocument();
+    expect(screen.getAllByText('접수됨')).toHaveLength(1);
+    expect(screen.getByText('답변 추가 · 상태 그대로')).toBeInTheDocument();
+  });
+
   it('does NOT render status transition when fields are absent', () => {
     const entry: ConversationEntry = { ...BASE, kind: 'public_update', visibility: 'public' };
     render(<TimelineEntry entry={entry} />);
