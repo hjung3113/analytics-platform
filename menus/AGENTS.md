@@ -5,7 +5,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
 - **Products, not samples:** every package under `menus/log-dev/` is built for real use; [`log-dev/AGENTS.md`](log-dev/AGENTS.md) says what that changes. Every other menu here is a sample Consumer.
 - Group ownership is recorded per system/group folder in `.github/CODEOWNERS`; add the line when you create a group folder (ADR-0090 D4).
 - `menus/_global/`, `menus/feedbackops/` and `menus/operations/` do not exist; those packages live in `platform/` ([ADR-0097](../docs/adr/0097-platform-features-and-role-based-names.md)).
-- `ls menus/*/*` lists the packages. Groups without screens (for example `master-data`, `rcc`, `mcc`, `wpt`, `configuration`, `log-my-work`, `log-cross`) own their group through planned-menu manifests only.
+- `ls menus/*/*` lists the packages. Groups without screens (for example `master-data`, `rcc`, `mcc`, `wpt`, `log-my-work`, `log-cross`) own their group through planned-menu manifests only.
 
 ## Rules
 
@@ -52,7 +52,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
 
 ## Verification
 
-- Narrow with `pnpm --filter @ap/menu-<group> test`, then run the root checks (root `AGENTS.md`). Every menu package has a `test` script except those with planned menus only (`master-data`, `rcc`, `mcc`, `wpt`, `configuration`, `log-my-work`, `log-cross`).
+- Narrow with `pnpm --filter @ap/menu-<group> test`, then run the root checks (root `AGENTS.md`). Every menu package has a `test` script except those with planned menus only (`master-data`, `rcc`, `mcc`, `wpt`, `log-my-work`, `log-cross`).
 - When a screen changes, check it in the browser with `pnpm dev`.
 
 Next: screen authoring is [apps/platform-web README "페이지 작성 가이드"](../apps/platform-web/README.md#페이지-작성-가이드-consumer-규칙); the menu declaration contract is 06 §5.
