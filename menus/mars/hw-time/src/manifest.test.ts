@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { contextCapabilities, groupId, menuPermission, NO_FEATURES, spaceId, type SpaceDef } from '@ap/contracts';
+import { buildQuery, contextCapabilities, groupId, parseQuery, menuPermission, NO_FEATURES, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef } from '@ap/kernel';
 import { manifests } from './index';
 import { HW_TIME_CONTEXT, hwTime } from './endpoints';
 
 describe('manifest', () => {
+  it('keeps lent equipment labels out of the URL: not a page key, dropped by applied parsing and the share query (#2490)', () => {
+    const menu = manifests.find(entry => entry.id === 'hw-time')!;
+    expect(menu.pageKeys).not.toContain('equipmentLabels');
+    expect(menu.hiddenPageKeys ?? []).not.toContain('equipmentLabels');
+    // The shell parses applied page pairs over declared keys and shares only those pairs (shareLink.ts).
+    const parsed = parseQuery('?v=1&scopeId=MEM&moduleType=LK&equipmentLabels=x', menu.pageKeys, { repeated: menu.repeatedPageKeys });
+    expect(parsed.page.map(([key]) => key)).toEqual(['moduleType']);
+    const shared = new URLSearchParams(buildQuery(parsed.global, parsed.page));
+    expect(shared.get('scopeId')).toBe('MEM');
+    expect(shared.has('equipmentLabels')).toBe(false);
+  });
+
   it('declares one linked-panel menu and passes createRegistry', () => {
     // The four menus it replaced are retired in the app assembly (#2330), not hidden entries here.
     expect(manifests.map(menu => menu.id)).toEqual(['hw-time']);

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { evidence, expandPageHead, query, queryBar, signInAs } from './support';
 
-const SCREEN = '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00';
+const SCREEN = '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00';
 const grid = (page: Page) => page.getByRole('treegrid', { name: 'Configuration', exact: true });
 const summary = (page: Page) => page.locator('[data-configuration-summary]');
 async function open(page: Page, suffix = '') {
@@ -21,8 +21,8 @@ async function filter(page: Page, field: string, value: string) {
 test.describe('Configuration', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 
-  test('bare route shows the matrix with default conditions and a folded query bar', async ({ page }, testInfo) => {
-    await page.goto('/mars/configuration');
+  test('Scope-only route shows the matrix with default conditions and a folded query bar', async ({ page }, testInfo) => {
+    await page.goto('/mars/configuration?v=1&scopeId=MEM');
     await expect(grid(page)).toBeVisible();
     await expect(queryBar(page).getByRole('button', { name: '조회 조건 펼치기', exact: true })).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByRole('button', { name: '비교 실행', exact: true })).toHaveCount(0);
@@ -257,6 +257,71 @@ async function saveConfigurationView(page: Page, name: string) {
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.getByRole('button', { name: `저장된 뷰: ${name}` })).toBeVisible();
 }
+
+test.describe('Configuration lent HW Time trend', () => {
+  const lent = (page: Page) => page.locator('[data-configuration-lent-hwtime]');
+  const cell = (page: Page, item: string) => grid(page).locator(`[data-matrix-row="${item}"] [data-matrix-column="EQ03"]`);
+  const scopeComparison = '&status=all&equipment=EQ01,EQ03';
+  const requests = (page: Page) => page.evaluate(() => performance.getEntriesByName('platform:mock-menu-query')
+    .filter(entry => (entry as PerformanceMark).detail?.endpoint === 'hwTime.runs').length);
+
+  test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
+
+  test('opens both trends side by side, closes to the selected cell, and restores the saved and shared views', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await open(page, scopeComparison);
+    await expandPageHead(page);
+    const selected = cell(page, 'cfg-000000');
+    await selected.dblclick();
+    const settings = page.locator('[data-dock-panel="trend"]');
+    const hwTime = page.locator('[data-dock-panel="hw-time-trend"]');
+    await expect(lent(page)).toBeVisible();
+    await expect(lent(page).getByRole('img', { name: /EQ01.*EQ03/ })).toBeVisible();
+    await expect.poll(async () => {
+      const [left, right] = await Promise.all([settings.boundingBox(), hwTime.boundingBox()]);
+      return !!left && !!right && Math.abs(left.y - right.y) <= 1 && left.x + left.width <= right.x + 1;
+    }).toBe(true);
+    const link = lent(page).getByRole('link', { name: 'HW Time에서 열기', exact: true });
+    const destination = new URL((await link.getAttribute('href'))!, page.url());
+    expect(destination.pathname).toBe('/mars/hw-time');
+    expect(destination.searchParams.get('scopeId')).toBe('MEM');
+    expect(destination.searchParams.getAll('selectedEquipmentIds')).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0108']);
+    expect(destination.searchParams.get('from')).toBe(query(page).get('from'));
+    expect(destination.searchParams.get('drillMotion')).toBe('Pump');
+    await evidence(page, testInfo, 'configuration-shared-trend-row');
+    const shared = page.url();
+    await saveConfigurationView(page, 'Configuration HW Time 추세');
+    await lent(page).getByRole('button', { name: 'HW Time 추세 닫기', exact: true }).click();
+    await expect(lent(page)).toHaveCount(0);
+    await expect(selected).toBeFocused();
+    await expect(settings).toBeVisible();
+    await revertConfigurationView(page);
+    await expect(lent(page)).toBeVisible();
+    await page.goto(shared);
+    await expect(settings).toBeVisible();
+    await expect(lent(page)).toBeVisible();
+    await cell(page, 'cfg-000002').click();
+    await expect(lent(page)).toHaveCount(0);
+    await expect(settings).toBeVisible();
+  });
+
+  test('keeps a permitted Configuration trend and sends zero HW Time requests when the source is denied', async ({ page }, testInfo) => {
+    await page.addInitScript(() => localStorage.setItem('platform:test:configuration-lending-denial', '1'));
+    await open(page, `${scopeComparison}&trendItem=cfg-000000`);
+    await expect(page.locator('[data-configuration-trend]')).toBeVisible();
+    await expect(page.locator('[data-configuration-bottom]')).toContainText('패널을 볼 권한이 없습니다.');
+    await expect(lent(page)).toHaveCount(0);
+    expect(await requests(page)).toBe(0);
+    await evidence(page, testInfo, 'configuration-lending-denial');
+  });
+
+  test('asks for Scope before sending a request for the linked item', async ({ page }) => {
+    await page.goto(SCREEN.replace('&scopeId=MEM', '') + scopeComparison + '&trendItem=cfg-000000');
+    await expect(page.getByRole('main').getByText('Scope를 선택하세요')).toBeVisible();
+    await expect(lent(page)).toHaveCount(0);
+    expect(await requests(page)).toBe(0);
+  });
+});
 
 async function revertConfigurationView(page: Page) {
   await page.getByRole('button', { name: '저장', exact: true }).click();

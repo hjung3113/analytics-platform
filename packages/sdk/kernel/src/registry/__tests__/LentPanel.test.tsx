@@ -63,12 +63,12 @@ function Receiver({ selection }: { selection: Readonly<Record<string, unknown>> 
   </>;
 }
 
-function mount(selection: Readonly<Record<string, unknown>>, { permission = true, menuQuery = vi.fn(async () => answer) } = {}) {
+function mount(selection: Readonly<Record<string, unknown>>, { permission = true, menuQuery = vi.fn(async () => answer), panelRegistry = registry } = {}) {
   const session = testSession(permission ? [receiving, owning, reading] : [receiving, owning]);
   const adapter = testAdapter({ session: () => session, menuQuery });
   window.history.replaceState(null, '', url);
   const tree = (selected: Readonly<Record<string, unknown>>) => (
-    <I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Receiver selection={selected} /></PlatformProvider></I18nProvider>
+    <I18nProvider><PlatformProvider registry={panelRegistry} adapter={adapter}><Receiver selection={selected} /></PlatformProvider></I18nProvider>
   );
   const result = render(tree(selection));
   return { menuQuery, update: (selected: Readonly<Record<string, unknown>>) => result.rerender(tree(selected)) };
@@ -77,6 +77,111 @@ function mount(selection: Readonly<Record<string, unknown>>, { permission = true
 afterEach(cleanup);
 
 describe('LentPanel', () => {
+  function displayRegistry() {
+    return createRegistry({
+      spaces: registry.spaces, groups: registry.groups, permissions: [receiving, owning, reading],
+      menus: [home, {
+        ...receiver,
+        lentPanels: receiver.lentPanels!.map(binding => ({ ...binding, display: { labels: { kind: 'value', key: 'aliases' } } })),
+      }, {
+        ...owner,
+        panels: owner.panels!.map(panel => ({ ...panel, display: [{ key: 'labels' }] })),
+      }],
+    });
+  }
+
+  it('passes detached frozen display values without changing the query or the source page', async () => {
+    let received: LentPanelProps['inputs'] | undefined;
+    function DisplaySummary(props: LentPanelProps) {
+      const labels = props.inputs.display?.labels as { alias: string };
+      const platform = usePlatform();
+      useEffect(() => { received = props.inputs; }, [props.inputs]);
+      return <><SourceSummary {...props} /><p>{labels?.alias}</p><p>{`page labels: ${platform.pageParam('labels')}`}</p></>;
+    }
+    registerLentPanel(source, DisplaySummary);
+    const aliases = { alias: 'Initial alias' };
+    const { menuQuery, update } = mount({ ...values, aliases }, { panelRegistry: displayRegistry() });
+    await screen.findByText('from source');
+    expect(screen.getByText('Initial alias')).toBeTruthy();
+    expect(screen.getByText('page labels: null')).toBeTruthy();
+    expect(received?.display?.labels).toEqual(aliases);
+    expect(received?.display?.labels).not.toBe(aliases);
+    expect(Object.isFrozen(received?.display)).toBe(true);
+    expect(Object.isFrozen(received?.display?.labels)).toBe(true);
+    expect(Object.isFrozen(aliases)).toBe(false);
+    expect(received?.page).toEqual({ level: 'mapped-level' });
+    expect(menuQuery).toHaveBeenCalledWith({
+      endpoint: spec.id, context: { ...queryContext, selection: ['EQ02'] }, params: { level: 'mapped-level' },
+    }, expect.any(AbortSignal));
+    update({ ...values, aliases: { alias: 'Updated alias' } });
+    expect(screen.getByText('Updated alias')).toBeTruthy();
+    await settleQueries();
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a display record with a null constructor field mounted across a receiver rerender', async () => {
+    let received: LentPanelProps['inputs'] | undefined;
+    function DisplayRecord(props: LentPanelProps) {
+      useEffect(() => { received = props.inputs; }, [props.inputs]);
+      return <SourceSummary {...props} />;
+    }
+    registerLentPanel(source, DisplayRecord);
+    const { menuQuery, update } = mount({ ...values, aliases: { constructor: null, alias: 'A' } }, { panelRegistry: displayRegistry() });
+    await screen.findByText('from source');
+    update({ ...values, aliases: { constructor: null, alias: 'A' } });
+    await settleQueries();
+    expect(screen.getByText('from source')).toBeTruthy();
+    expect(received?.display?.labels).toEqual({ constructor: null, alias: 'A' });
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, 0, '', [], null].map(value => ({ value })))('passes through the supplied display value $value', async ({ value }) => {
+    const accepts = vi.fn(() => undefined);
+    registerLentPanel(source, { component: SourceSummary, accepts });
+    mount({ ...values, aliases: value }, { panelRegistry: displayRegistry() });
+    await screen.findByText('from source');
+    expect(accepts).toHaveBeenCalledWith(expect.objectContaining({ display: { labels: value } }));
+  });
+
+  it.each([
+    ['absent', values],
+    ['symbol', { ...values, aliases: Symbol('label') }],
+    ['Map', { ...values, aliases: new Map([['alias', 'Label']]) }],
+    ['nested Map', { ...values, aliases: { label: new Map() } }],
+    ['Uint8Array', { ...values, aliases: new Uint8Array([1]) }],
+    ['deep object', { ...values, aliases: Array.from({ length: 9 }).reduce<object>(child => ({ child }), {}) }],
+  ] as const)('opens without the %s display value', async (_label, selection) => {
+    await expectOmittedDisplay(selection);
+  });
+
+  async function expectOmittedDisplay(selection: Readonly<Record<string, unknown>>) {
+    const accepts = vi.fn((inputs: LentPanelProps['inputs']) => Object.hasOwn(inputs.display ?? {}, 'labels') ? undefined : 'labels');
+    registerLentPanel(source, {
+      component: props => <><SourceSummary {...props} /><p>{Object.keys(props.inputs.display ?? {}).length} display values</p></>,
+      accepts,
+    });
+    mount(selection, { panelRegistry: displayRegistry() });
+    await screen.findByText('from source');
+    expect(screen.getByText('0 display values')).toBeTruthy();
+    expect(accepts).toHaveBeenCalled();
+    expect(accepts.mock.calls.every(([inputs]) => !Object.hasOwn(inputs.display ?? {}, 'labels'))).toBe(true);
+  }
+
+  it.skipIf(typeof SharedArrayBuffer === 'undefined')('omits a SharedArrayBuffer display value', async () => {
+    await expectOmittedDisplay({ ...values, aliases: new SharedArrayBuffer(4) });
+  });
+
+  it('omits a cyclic display record across a rerender', async () => {
+    registerLentPanel(source, props => <><SourceSummary {...props} /><p>{Object.keys(props.inputs.display ?? {}).length} display values</p></>);
+    const aliases: Record<string, unknown> = {};
+    aliases.self = aliases;
+    const selection = { ...values, aliases };
+    const { update } = mount(selection, { panelRegistry: displayRegistry() });
+    await screen.findByText('from source');
+    update({ ...selection });
+    expect(screen.getByText('0 display values')).toBeTruthy();
+  });
+
   it('closes the panel and sends no query when the receiver applies Line and the source cannot', async () => {
     registerLentPanel(source, SourceSummary);
     const lineRegistry = createRegistry({

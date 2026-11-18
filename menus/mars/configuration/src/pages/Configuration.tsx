@@ -5,9 +5,9 @@ import { encodeFilterParams, formatInstant, type ColumnFilter, type GlobalContex
 import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryDraft, type QueryState } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
-import { AXIS_KEY, COLUMN_LIMIT, EQUIPMENT_AXIS, configurationPivotEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type PivotParams, type PivotResult, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { AXIS_KEY, COLUMN_LIMIT, EQUIPMENT_AXIS, configurationPivotEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, HW_TREND_CLOSED, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type PivotParams, type PivotResult, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { MESSAGES } from '../messages';
-import { ConfigurationWorkspace } from './ConfigurationWorkspace';
+import { ConfigurationWorkspace, type TrendActions } from './ConfigurationWorkspace';
 import { EquipmentAxisTable, itemFromEquipment, validEquipmentResult } from './EquipmentAxisTable';
 import { distribution, distributionText, PrimaryChip, RowStatus, valueMeaning, valueTone, type Message } from './comparison';
 
@@ -180,7 +180,7 @@ function useItemAxisTools(owner: string, conditions: string, swapped: boolean) {
 }
 
 const valueOf = (node: TreeRow, column: MatrixColumn) => node.item?.values[column.id]?.value ?? null;
-function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { params: PivotParams; swapped: boolean; hideSame: boolean; itemTools: ReturnType<typeof useItemAxisTools>; m: Message; openTrend: (id: string) => void }) {
+function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, followSelection, reason, matrixRoot }: { params: PivotParams; swapped: boolean; hideSame: boolean; itemTools: ReturnType<typeof useItemAxisTools>; m: Message } & TrendActions) {
   const { lang } = useI18n();
   const { setPage } = usePlatform();
   const { grouped, setGrouped, hidden, setHidden } = itemTools;
@@ -190,8 +190,9 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { pa
   const [drawer, setDrawer] = useState<ConfigRow | null>(null);
   const selectEquipmentCell = useCallback((cell: MatrixCell, item: ConfigRow) => {
     setSelection(cell);
+    followSelection(cell.row);
     setDrawer(current => current && item);
-  }, []);
+  }, [followSelection]);
   const [emphasis, setEmphasis] = useState<MatrixEmphasisRule[]>([]);
   const [onlyMatching, setOnlyMatching] = useState(false);
   const [nav, setNav] = useState<{ kind: 'idle' | 'loading' | 'error'; ordinal: number | null }>({ kind: 'idle', ordinal: null });
@@ -260,7 +261,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { pa
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') throw new Error('navigation');
       const target = response.data;
-      if (target) { setEmphasis([]); setOnlyMatching(false); setWindow({ expanded: target.expanded, offset: target.offset, reveal: { row: target.focus, column: eq } }); setSelection({ row: target.focus, column: eq }); }
+      if (target) { setEmphasis([]); setOnlyMatching(false); setWindow({ expanded: target.expanded, offset: target.offset, reveal: { row: target.focus, column: eq } }); setSelection({ row: target.focus, column: eq }); followSelection(target.focus); }
       setNav(current => ({ kind: 'idle', ordinal: target?.ordinal ?? current.ordinal }));
     } catch { if (!controller.signal.aborted) setNav(current => ({ ...current, kind: 'error' })); } // Failure is visible; no empty destination is substituted.
   };
@@ -277,7 +278,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { pa
   const result = response?.data;
   const same = hideSame ? result?.sameColumns ?? [] : [];
   const hiddenColumns = [...new Set([...hidden, ...same, ...(grouped ? params.eq : [])])].filter(id => !(params.mode === 'reference' && id === params.ref));
-  return <div className="flex h-full min-h-0 min-w-0 flex-col break-keep">
+  return <div ref={matrixRoot} className="flex h-full min-h-0 min-w-0 flex-col break-keep">
     <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle px-2 py-1" data-configuration-toolbar>
       {(result || swapped) && <Summary data={result} status={params.status} select={selectStatus} m={m} />}
       {response && <DataTrustIndicator trust={response.trust} assessments={response.assessments} compact />}
@@ -309,7 +310,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { pa
     {swapped && <QueryView query={equipmentView} fill emptyAction={<Button variant="secondary" onClick={() => filters([])}>{m('clear')}</Button>}>{data => data.over
       ? <p role="status" className="break-keep px-4 py-12 text-center text-sm">{m('axisLimit', { count: data.count.toLocaleString(lang), limit: COLUMN_LIMIT })}</p>
       : <EquipmentAxisTable data={data} params={params} selection={selection} selectedItem={pivotItem} m={m} openTrend={openTrend}
-          onSelect={selectEquipmentCell} openDetail={() => setDrawer(pivotItem)} />}
+          onSelect={selectEquipmentCell} trendReason={reason} openDetail={() => setDrawer(pivotItem)} />}
     </QueryView>}
     {!swapped && <QueryView query={query} fill emptyAction={<div className="space-y-2"><Button variant="secondary" onClick={() => filters([])}>{m('clear')}</Button></div>}>{result => {
       const selected = result.nodes.find(row => row.id === selectedId);
@@ -317,7 +318,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { pa
       return <>
         <div className="px-2"><MatrixEmphasisBar emphasis={emphasis} onEmphasisChange={setEmphasis} onlyMatchingColumns={onlyMatching} onOnlyMatchingColumnsChange={setOnlyMatching} rowLabel={id => result.nodes.find(row => row.id === id)?.label ?? id} label={count => m('emphasisCount', { count })} onlyMatchingLabel={m('onlyMatching')} /></div>
         <TreeMatrix fill keepSelectionInView nodes={result.nodes} columns={columns} identityColumn="identity" label={m('title')} offset={result.offset} totalVisible={result.totalVisible} windowSize={TREE_WINDOW}
-          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); const item = result.nodes.find(row => row.id === cell.row)?.item ?? null; setDrawer(current => current && item); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
+          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); const item = result.nodes.find(row => row.id === cell.row)?.item ?? null; followSelection(cell.row); setDrawer(current => current && item); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
           onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(null); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
           onWindowChange={offset => { if (!staleSearch) setWindow(current => ({ ...current, offset, reveal: null })); }} reveal={window.reveal} hiddenColumns={hiddenColumns} busy={query.status === 'loading' || query.status === 'refreshing'} generation={generation}
           emphasis={emphasis} onEmphasisChange={staleSearch ? undefined : setEmphasis} onlyMatchingColumns={onlyMatching} emphasisActionLabel={m('emphasisAction')} emphasisColumnLabel={m('emphasis')} formatEmphasisCount={count => m('matchCount', { count })}
@@ -326,6 +327,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { pa
         <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-1 text-xs tabular" data-configuration-bottom>
           <span>{m('navigate')}</span><Button variant="secondary" size="icon-xs" aria-label={m('previous')} disabled={staleSearch || nav.kind === 'loading' || nav.ordinal === 1 || !result.counts.diff} onClick={() => navigate('previous')}><ChevronLeft className="size-3" /></Button><Button variant="secondary" size="icon-xs" aria-label={m('next')} disabled={staleSearch || nav.kind === 'loading' || nav.ordinal === result.counts.diff || !result.counts.diff} onClick={() => navigate('next')}><ChevronRight className="size-3" /></Button>
           <span>{nav.ordinal ?? '—'}/{result.counts.diff.toLocaleString()}</span><span className="min-w-0 flex-1 truncate" title={selected?.item?.key ?? selectedPath ?? undefined}>{m('selection')} {selected?.item?.key ?? selectedPath ?? m('noSelection')}</span>
+          {reason && <span role="status" className="break-keep text-text-secondary">{reason}</span>}
           <MatrixToneLegend labels={{ info: m('valueDifference'), danger: m('violation'), missing: m('missingLegend') }} />
           <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item || valueOf(selected, { id: eq, label: eq }) === null} onClick={() => { if (!selected) return; const rule = sameValueRule(selected, { id: eq, label: eq }, valueOf); if (rule) setEmphasis(current => [...current.filter(value => value.row !== rule.row), rule]); }}>{m('sameValue')}</Button>
           <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item} onClick={() => { if (selected?.item) setDrawer(selected.item); }}>{m('openSelected')}<ChevronRight className="size-3" /></Button>
@@ -370,6 +372,7 @@ export default function Configuration() {
     { key: 'status', label: MESSAGES.status, valid: raw => STATUS.includes(raw as CompareStatus) },
     { key: 'levels', label: MESSAGES.levelOrder, valid: raw => validLevels(raw.split(',')) },
     { key: TREND_ITEM_KEY, label: MESSAGES.trendItem, valid: isRowId },
+    { key: HW_TREND_ITEM_KEY, label: MESSAGES.hwTimeTrend, valid: raw => raw === HW_TREND_CLOSED || isRowId(raw) },
     { key: 'hideSameCols', label: MESSAGES.hideSame, valid: raw => raw === '1' },
     { key: 'filter', label: MESSAGES.filter, repeated: true, valid: () => parsedFilters.ok },
   ]);
@@ -380,7 +383,7 @@ export default function Configuration() {
   else if (!validEquipment(eq)) content = <EmptyState title={m('chooseEquipment')} />;
   else if (params.mode === 'reference' && !eq.includes(params.ref)) content = <EmptyState title={m('referenceRequired')} />;
   else content = <ConfigurationWorkspace itemId={trendItem} params={params}>
-    {openTrend => <Comparison key={`matrix:${identity}`} params={params} swapped={swapped} hideSame={pageParam('hideSameCols') === '1'} itemTools={tools} m={m} openTrend={openTrend} />}
+    {actions => <Comparison key={`matrix:${identity}`} params={params} swapped={swapped} hideSame={pageParam('hideSameCols') === '1'} itemTools={tools} m={m} {...actions} />}
   </ConfigurationWorkspace>;
   return <PlatformPage layout="fill" contextExtension={<Conditions m={m} />}
     queryBarExtension={{ pageSummary: summaryFor(query.draft.page, m), appliedPageSummary: summaryFor(page, m), historyPageSummary, issues }}>

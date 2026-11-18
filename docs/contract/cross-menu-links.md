@@ -56,7 +56,7 @@ Registry는 조립 시 `RegistryError`로 다음을 거부한다: 종류가 `sub
 
 **종류 소유권:** [객체 종류](../../GLOSSARY.md)는 `subjectPageKeys`·`opensObject`·`subjectLinks`·개선 아이템 Target kind·감사 target type이 공유하는 이름 공간이다. 메뉴 저자가 id의 의미를 책임진다. 같은 이름은 조립 전체에서 같은 ID 공간을 뜻하며 시스템 로컬 id는 `clasEquipment`처럼 한정한 종류를 써야 한다. Kernel은 종류별 표시 이름을 갖지 않는다. 선언은 표시용이며 권한을 주지 않고 ADR-0156 서버 스냅샷에도 들어가지 않는다. 목록에 나타난 목적지를 출발 `linkTargets`에 추가하지 않는다.
 
-상세에서 분석으로 복귀할 때는 §6.4에 따라 진입 전 Context를 그대로 복원하며, 목적지 ID로 출발 설비 선택을 변경하지 않는다. **CFG의 다른 메뉴와의 Context Link 연계는 Deferred**다. CFG 자체의 시각화·분석 범위와는 구분하며 이번 예시 경로에 CFG hop을 추가하지 않는다.
+상세에서 분석으로 복귀할 때는 §6.4에 따라 진입 전 Context를 그대로 복원하며, 목적지 ID로 출발 설비 선택을 변경하지 않는다. **Configuration에서 빌린 추세의 «HW Time에서 열기»는 #2490에서 결정한 연결이다.** 검증된 Scope의 설비 Selection과 적용 기간을 분석 Context로 전달한다. Module 타입·Module·Motion은 HW Time의 page key로 전달한다. 그 밖의 CFG Context Link 연계는 Deferred며 위 예시 경로에는 CFG를 거치지 않는다.
 
 **운영 기능의 맥락·진입·복귀 경계 (Decided, 2026-10-29, [ADR-0100](../adr/0100-feature-navigation-and-independent-access.md), #1099c):** carry set `features`(`managedSystem`·`returnTo`)의 멤버는 모든 운영 기능 메뉴, 기능 관리 메뉴, 전역 내 Task이고 플랫폼 관리는 멤버가 아니다. 사이드바·레일·팔레트·화면 링크·직접 기능 항목은 같은 `resolveLink` 정책을 쓴다 — 멤버 사이에서 키를 이어받고, 명시적 page 값이 이기며 `null`은 지운다. 필터된 VOC → 내 Task → 다른 운영 메뉴로 가도 처음 채택한 출발지로 돌아온다. 홈·다른 업무 시스템·범위 없는 콘솔 진입(공간 진입·전환기·홈 카드)은 흐름을 끝내고 깨끗한 주소로 열린다. 개인 메뉴(내 VOC·알림·응답 설문·권한 요청)의 일반 진입은 다른 곳의 선택을 빌리지 않는다. 틀리거나 거부된 `managedSystem`은 보이게 거부하고 전체로 넓히지 않는다. 대상 허용 목록은 기능 Consumer 선언이 고르고 Kernel은 고르지 않는다.
 

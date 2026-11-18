@@ -35,7 +35,7 @@ export function missingLentPanelInput(key: string): Extract<LentPanelVerdict, { 
   };
 }
 
-type ResolvedInputs = { context: GlobalContext; page: Readonly<Record<string, unknown>> };
+type ResolvedInputs = { context: GlobalContext; page: Readonly<Record<string, unknown>>; display?: Readonly<Record<string, unknown>> };
 type ResolvedLending = Extract<LentPanelVerdict, { allowed: false }> | { allowed: true; reason: null; inputs: ResolvedInputs };
 
 export type RegisteredLentPanel = {
@@ -89,6 +89,32 @@ function pageInputPresent(value: unknown): boolean {
   return value != null && value !== false && (typeof value !== 'string' || value.trim() !== '');
 }
 
+const DISPLAY_MAX_DEPTH = 8;
+
+function copyDisplayValue(value: unknown, depth = 0, ancestors: readonly object[] = []): unknown {
+  if (depth > DISPLAY_MAX_DEPTH) return undefined;
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' || Number.isFinite(value)) return value;
+  if (typeof value !== 'object' || ancestors.includes(value)) return undefined;
+
+  const array = Array.isArray(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) return undefined;
+  const keys = Reflect.ownKeys(value).filter(key => !array || key !== 'length');
+  // JSON arrays are dense and have only indexed values.
+  if (array && keys.length !== value.length) return undefined;
+  const path = [...ancestors, value];
+  const entries: [string, unknown][] = [];
+  for (const [index, key] of keys.entries()) {
+    if (typeof key !== 'string' || (array && key !== String(index))) return undefined;
+    const property = Object.getOwnPropertyDescriptor(value, key);
+    if (!property?.enumerable || !Object.hasOwn(property, 'value')) return undefined;
+    const child = copyDisplayValue(property.value, depth + 1, path);
+    if (child === undefined) return undefined;
+    entries.push([key, child]);
+  }
+  return Object.freeze(array ? entries.map(([, child]) => child) : Object.fromEntries(entries));
+}
+
 function copyContextField<K extends keyof GlobalContext>(target: GlobalContext, source: Readonly<GlobalContext>, key: K) {
   target[key] = structuredClone(source[key]);
 }
@@ -116,6 +142,7 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
   const allowedContext = new Set([...requiredMappings, ...(source.queryInputs.context ?? [])]);
   const allowedPage = new Set(source.queryInputs.page?.map(input => input.key));
   const requiredPage = source.queryInputs.page?.filter(input => input.required).map(input => input.key) ?? [];
+  const allowedDisplay = new Set(source.display?.map(input => input.key));
   const validateInput = (input: PanelInputBinding) => {
     if (!input || typeof input.key !== 'string' || !input.key.trim()) fail('input binding needs a nonempty key');
     switch (input.kind) {
@@ -145,13 +172,18 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
     if (!allowedPage.has(key)) fail(`unknown source page query input "${key}"`);
     validateInput(input);
   }
+  const displayBindings = new Map(Object.entries(binding.display ?? {}));
+  for (const [key, input] of displayBindings) {
+    if (!allowedDisplay.has(key)) fail(`unknown source display input "${key}"`);
+    validateInput(input);
+    if (input.kind !== 'value') fail(`source display input "${key}" must use a value binding`);
+  }
   for (const key of requiredMappings) {
     if (!contextBindings.has(key)) fail(`missing binding for required query input "${key}"`);
   }
   for (const key of requiredPage) {
     if (!pageBindings.has(key)) fail(`missing binding for required query input "${key}"`);
   }
-
   const permissions = [...new Set([...menuPermissions(menu), ...source.permissions])];
   const resolve = (session: Session, values: LentPanelBindingValues): ResolvedLending => {
     if (!permissions.every(permission => session.user.permissions.includes(permission))) return LENT_PANEL_PERMISSION_DENIED;
@@ -178,7 +210,20 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
     const page = Object.fromEntries([...pageBindings].map(([key, input]) => [key, readInput(input, values, menu)]));
     const missingPage = requiredPage.find(key => !pageInputPresent(page[key]));
     if (missingPage !== undefined) return missingLentPanelInput(missingPage);
-    return { allowed: true, reason: null, inputs: { context, page } };
+    const inputs: ResolvedInputs = { context, page };
+    if (source.display !== undefined) {
+      const display: [string, unknown][] = [];
+      for (const [key, input] of displayBindings) {
+        try {
+          const value = copyDisplayValue(readInput(input, values, menu));
+          if (value !== undefined) display.push([key, value]);
+        } catch {
+          // An unreadable binding (for example a revoked proxy) is unsupported and is omitted.
+        }
+      }
+      inputs.display = Object.freeze(Object.fromEntries(display));
+    }
+    return { allowed: true, reason: null, inputs };
   };
   return {
     binding, source, permissions, resolve,
@@ -202,7 +247,7 @@ export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly
       if (seen.has(binding.source)) invalid('has a duplicate binding');
       seen.add(binding.source);
       if ('outputs' in binding) invalid('cannot bind outputs');
-      for (const map of [binding.context, binding.page]) {
+      for (const map of [binding.context, binding.page, binding.display]) {
         if (map !== undefined && (!map || typeof map !== 'object' || Array.isArray(map))) invalid('input bindings must be maps');
       }
       return registerBinding(menu, binding, source, invalid);

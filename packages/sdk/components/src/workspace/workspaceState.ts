@@ -5,7 +5,8 @@
 import { isRecord } from '@ap/contracts';
 import { activatePanel, addPanel, groupOf, moveToNewRow, panelOrder, removePanel } from '../dock/commands';
 import { dockTheme } from '../dock/dockPresentation';
-import { dockGroupsInReadingOrder, normalizeDockTree, parseFloatingPanels, type DockNode, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
+import { dockGroupsInReadingOrder, isValidDockTree, normalizeDockTree, parseFloatingPanels, type DockNode, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
+import { legacyFitShares, placeSharedRows, readSharedRowSizes, rememberSharedRowSizes, restoreSharedRowHeights, sharedRowOf, type LegacyFitShare, type SharedRow, type SharedRowSize } from './workspaceSharedRows';
 import { clampRow, enterRows, isFillRow, NEW_ROW_HEIGHT, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
@@ -18,10 +19,12 @@ export type PanelWorkspaceLayout =
  * layout's top-level shares are their projection). Both are optional so a state written before them still loads and an older reader ignores them.
  */
 const AUTO_FILL = Symbol('workspace auto fill');
-type AutoFill = { kind: 'single' } | { kind: 'below'; panelId: string };
+// Keep unmapped legacy shares for this mount without adding a field to stored preferences.
+const LEGACY_FIT_SHARES = Symbol('workspace legacy fit shares');
+type AutoFill = { kind: 'single' } | { kind: 'below'; panelId: string } | { kind: 'shared'; rowId: string };
 const SINGLE_FILL: AutoFill = { kind: 'single' };
 
-export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; [AUTO_FILL]?: AutoFill };
+export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; sharedRowSizes?: SharedRowSize[]; [AUTO_FILL]?: AutoFill; [LEGACY_FIT_SHARES]?: LegacyFitShare[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
 /** Static identifiers only: nothing from data can reach a storage key. */
@@ -38,12 +41,12 @@ function toShares(layout: unknown): unknown {
 }
 
 /** The preset's tree over exactly `ids` (panels the preset does not name join its first group; ids it names that are not in `ids` are dropped). */
-export function presetTree(layout: PanelWorkspaceLayout, ids: readonly string[], below: readonly string[] = []): DockNode {
+export function presetTree(layout: PanelWorkspaceLayout, ids: readonly string[], below: readonly string[] = [], sharedRows: readonly SharedRow[] = []): DockNode {
   let tree = normalizeDockTree(toShares(layout), ids);
   // #2398: a `placement: 'below'` panel the preset does not name becomes a new last row instead of a tab in the first group.
   const named = namedIds(layout);
   for (const id of below) if (ids.includes(id) && !named.has(id) && panelOrder(tree).length > 1) tree = moveToNewRow(tree, id);
-  return tree;
+  return placeSharedRows(tree, ids, sharedRows, [], below);
 }
 
 /** Every string the raw value names as a panel id, however malformed the rest is. */
@@ -64,6 +67,7 @@ export type WorkspaceSpec = {
   stackPreset?: string;
   /** Panels declared with `placement: 'below'` (#2398): when the layout does not hold them yet they open as a new last row, not a tab. */
   below?: readonly string[];
+  sharedRows?: readonly SharedRow[];
 };
 
 /** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
@@ -93,18 +97,20 @@ export function workspacePreference(state: WorkspaceState): WorkspaceState {
  * A rowless stack state is automatic when its rows are a fill row alone, or a fill row over one lone declared below panel: rows are omitted
  * from the saved preference only while they are automatic, so a reload with the below panel open keeps that provenance.
  */
-function automaticFill(state: WorkspaceState, rows: readonly DockNode[], env: RowEnv, below: readonly string[]): AutoFill | undefined {
+function automaticFill(state: WorkspaceState, rows: readonly DockNode[], env: RowEnv, below: readonly string[], sharedRows: readonly SharedRow[]): AutoFill | undefined {
   if (state[AUTO_FILL]) return state[AUTO_FILL];
   if (isFillRow(rows, env.preferred)) return SINGLE_FILL;
   if (state.rows !== undefined || rows.length !== 2 || !isFillRow(rows.slice(0, 1), env.preferred)) return undefined;
+  const shared = sharedRowOf(rows[1]!, sharedRows);
+  if (shared && !state.sharedRowSizes?.some(size => size.id === shared.id && size.height !== undefined)) return { kind: 'shared', rowId: shared.id };
   const lone = panelOrder(rows[1]!);
   return lone.length === 1 && below.includes(lone[0]!) ? { kind: 'below', panelId: lone[0]! } : undefined;
 }
 
-export function measureWorkspaceRows(state: WorkspaceState, env: RowEnv, below: readonly string[] = []): WorkspaceState {
+export function measureWorkspaceRows(state: WorkspaceState, env: RowEnv, below: readonly string[] = [], sharedRows: readonly SharedRow[] = []): WorkspaceState {
   const rows = topLevelRows(state.layout);
-  const fill = automaticFill(state, rows, env, below);
-  if (!fill) return withRows(state, 'stack', enterRows(state.layout, env.baseline, env.minimum, env.maximum, env));
+  const fill = automaticFill(state, rows, env, below, sharedRows);
+  if (!fill) return withRestoredSharedHeights(state, enterRows(state.layout, env.baseline, env.minimum, env.maximum, env), { sharedRows, rowMinimum: env.minimum });
 
   const first = rows[0]!;
   if (env.preferred?.(first) !== undefined) {
@@ -115,7 +121,7 @@ export function measureWorkspaceRows(state: WorkspaceState, env: RowEnv, below: 
   // The fill row takes the whole visible height: the drop strip shows only during a tab drag and overlays the box (#2508).
   const available = clampRow(env.oneRow, minimum, env.maximum);
   const heights = [available];
-  if (fill.kind === 'below') {
+  if (fill.kind !== 'single') {
     // The two rows share the visible height evenly. When either would fall under its minimum, each keeps its own height and the page grows.
     const last = rows[1]!;
     const lastMinimum = env.minimum(last);
@@ -147,16 +153,49 @@ function followBelowPanel(previous: WorkspaceState, next: WorkspaceState, below:
   return next;
 }
 
+/** Record a user resize before a later visibility change can discard its dimensions. */
+export function rememberSharedRows(previous: WorkspaceState, state: WorkspaceState, declarations: readonly SharedRow[]): WorkspaceState {
+  if (!declarations.length || !sameArrangement(previous.layout, state.layout)) return state;
+  const sharedRowSizes = rememberSharedRowSizes(previous.layout, state.layout, declarations, state.sharedRowSizes ?? [], {
+    stack: state.mode === 'stack', previousHeights: previous.rows, heights: state.rows,
+  });
+  return sharedRowSizes.length ? { ...state, sharedRowSizes } : state;
+}
+
+function withRestoredSharedHeights(state: WorkspaceState, heights: readonly number[], spec: Pick<WorkspaceSpec, 'sharedRows' | 'rowMinimum'>): WorkspaceState {
+  const rows = topLevelRows(state.layout);
+  const restored = restoreSharedRowHeights(state.layout, heights, spec.sharedRows ?? [], state.sharedRowSizes ?? []);
+  return withRows(state, 'stack', restored.map((height, index) => Math.max(height, spec.rowMinimum?.(rows[index]!) ?? ROW_MIN_HEIGHT)));
+}
+
 /** Repair the live panel set while keeping the height of a survivor when its declared below panel leaves. */
 export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceSpec, previousBelow: readonly string[]): WorkspaceState {
   const next = normalizeWorkspaceState(previous, spec);
   if (next.mode !== 'stack') return next;
+  const shared = followSharedPanel(previous, next, spec.sharedRows ?? []);
+  if (shared !== next) return shared;
   if (hasAutomaticRows(previous) && sameArrangement(previous.layout, next.layout)) return { ...next, [AUTO_FILL]: previous[AUTO_FILL] };
   const followed = followBelowPanel(previous, next, spec.below ?? []);
   if (hasAutomaticRows(followed)) return followed;
-  const removed = appendedPanel(topLevelRows(next.layout), topLevelRows(previous.layout));
-  if (removed !== undefined && previousBelow.includes(removed) && previous.rows?.length === 2) {
+  const removedBelow = appendedPanel(topLevelRows(next.layout), topLevelRows(previous.layout));
+  if (removedBelow !== undefined && previousBelow.includes(removedBelow) && previous.rows?.length === 2) {
     return withRows(next, 'stack', previous.rows.slice(0, 1));
+  }
+  return next;
+}
+
+function followSharedPanel(previous: WorkspaceState, next: WorkspaceState, declarations: readonly SharedRow[]): WorkspaceState {
+  const fill = previous[AUTO_FILL];
+  if (fill?.kind === 'single' || fill?.kind === 'shared') {
+    const beforeRows = topLevelRows(previous.layout);
+    const nextRows = topLevelRows(next.layout);
+    if (sameArrangement(beforeRows[0]!, nextRows[0]!)) {
+      if (fill.kind === 'shared' && nextRows.length === 1) return { ...next, [AUTO_FILL]: SINGLE_FILL };
+      const declared = nextRows.length === 2 ? sharedRowOf(nextRows[1]!, declarations) : undefined;
+      if (declared && (fill.kind === 'single' || fill.rowId === declared.id) && !next.sharedRowSizes?.some(size => size.id === declared.id && size.height !== undefined)) {
+        return { ...next, [AUTO_FILL]: { kind: 'shared', rowId: declared.id } };
+      }
+    }
   }
   return next;
 }
@@ -166,14 +205,17 @@ export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceS
  * gets 360, a gone row is dropped (rows still to be measured stay so). Stack, `enter` (preset, `기본 배치`): rows are derived again from the new
  * shares and the baseline, never from the current stack height. `created`: the panel the edit moved into a row of its own (see `reconcileRows`).
  */
-export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 'keep' | 'enter', env: RowEnv, created?: string, below: readonly string[] = []): WorkspaceState {
+export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 'keep' | 'enter', env: RowEnv, created?: string, below: readonly string[] = [], sharedRows: readonly SharedRow[] = []): WorkspaceState {
   if (next === previous) return previous;
   if (next.mode !== 'stack') return next.mode !== undefined || next.rows !== undefined ? withRows(next, 'fit') : next;
-  if (how === 'enter') return measureWorkspaceRows(withRows(next, 'stack'), env, below);
+  if (how === 'enter') return measureWorkspaceRows(withRows(next, 'stack'), env, below, sharedRows);
+  const shared = followSharedPanel(previous, next, sharedRows);
+  if (shared !== next) return measureWorkspaceRows(shared, env, below, sharedRows);
   const followed = followBelowPanel(previous, next, below);
   if (followed !== next) return measureWorkspaceRows(followed, env, below);
   if (previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return withRows(next, 'stack');
-  return withRows(next, 'stack', reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum, created, env.preferred));
+  const heights = reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum, created, env.preferred);
+  return sameArrangement(previous.layout, next.layout) ? withRows(next, 'stack', heights) : withRestoredSharedHeights(next, heights, { sharedRows, rowMinimum: env.minimum });
 }
 
 /**
@@ -188,7 +230,7 @@ function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: 
   const stored = Array.isArray(raw.rows) && raw.rows.every(px => typeof px === 'number' && Number.isFinite(px) && px > 0 && px <= MAX_STORED_ROW_PX) ? (raw.rows as number[]).map(px => Math.round(px)) : undefined;
   if (stored && appended) {
     const previous = normalizeDockTree(raw.layout, [...namedIds(raw.layout)]);
-    if (topLevelRows(previous).length === stored.length) return withRows(state, 'stack', reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX));
+    if (topLevelRows(previous).length === stored.length) return withRestoredSharedHeights(state, reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX), spec);
   }
   if (stored?.length !== rows.length) return withRows(state, 'stack');
   return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), stored[index]!)));
@@ -203,7 +245,7 @@ const stackPresetOf = (spec: Pick<WorkspaceSpec, 'presets' | 'stackPreset'>) => 
 export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
   const stack = spec.initialMode !== 'fit';
   const preset = (stack ? stackPresetOf(spec) : undefined) ?? presetOf(spec, spec.initialPreset);
-  const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds, spec.below), hidden: [] };
+  const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds, spec.below, spec.sharedRows), hidden: [] };
   return stack ? { ...state, mode: 'stack' } : state;
 }
 
@@ -217,27 +259,27 @@ function sameArrangement(a: DockNode, b: DockNode): boolean {
 }
 
 /** `state` moved from the arrangement of preset `from` to that of preset `to`, only while it still is `from`'s (the user's own arrangement is the user's). */
-function moveArrangement(state: WorkspaceState, presets: readonly WorkspacePreset[], from: string, to: string | undefined, below?: readonly string[]): WorkspaceState {
+function moveArrangement(state: WorkspaceState, presets: readonly WorkspacePreset[], from: string, to: string | undefined, below?: readonly string[], sharedRows?: readonly SharedRow[]): WorkspaceState {
   const source = presets.find(preset => preset.id === from);
   const target = to === undefined ? undefined : presets.find(preset => preset.id === to);
   if (!source || !target) return state;
   const shown = panelOrder(state.layout);
-  return sameArrangement(state.layout, presetTree(source.layout, shown, below)) ? applyPreset(state, target, below) : state;
+  return sameArrangement(state.layout, presetTree(source.layout, shown, below, sharedRows)) ? applyPreset(state, target, below, sharedRows) : state;
 }
 
 /**
  * The height mode switch (`화면 맞춤` ↔ `아래로 쌓기`). Fit to stack applies `stackPreset` when the layout is still the initial preset's; stack to fit applies the
  * initial preset when it is still the `stackPreset`'s; any other arrangement is kept. Without a usable `stackPreset` the arrangement is always kept.
  */
-export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec: Pick<WorkspaceSpec, 'presets' | 'initialPreset' | 'stackPreset' | 'below'>, env: RowEnv): WorkspaceState {
+export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec: Pick<WorkspaceSpec, 'presets' | 'initialPreset' | 'stackPreset' | 'below' | 'sharedRows'>, env: RowEnv): WorkspaceState {
   const stackPreset = stackPresetOf(spec)?.id;
   if (mode === 'fit') {
     if (current.mode !== 'stack') return current;
-    return withRows(stackPreset === undefined ? current : moveArrangement(current, spec.presets, stackPreset, spec.initialPreset, spec.below), 'fit');
+    return withRows(stackPreset === undefined ? current : moveArrangement(current, spec.presets, stackPreset, spec.initialPreset, spec.below, spec.sharedRows), 'fit');
   }
   if (current.mode === 'stack') return current;
-  const arranged = stackPreset === undefined ? current : moveArrangement(current, spec.presets, spec.initialPreset, stackPreset, spec.below);
-  return withRows(arranged, 'stack', enterRows(arranged.layout, env.baseline, env.minimum, env.maximum, env));
+  const arranged = stackPreset === undefined ? current : moveArrangement(current, spec.presets, spec.initialPreset, stackPreset, spec.below, spec.sharedRows);
+  return withRestoredSharedHeights(arranged, enterRows(arranged.layout, env.baseline, env.minimum, env.maximum, env), { sharedRows: spec.sharedRows, rowMinimum: env.minimum });
 }
 
 /**
@@ -247,7 +289,7 @@ export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec:
  * than `'stack'` is fit; stack `rows` that are not finite positive numbers, or not one per top-level row, are dropped (the workspace measures
  * them again), and each is raised to its row's minimum.
  */
-export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): WorkspaceState {
+export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fromStorage = false } = {}): WorkspaceState {
   try {
     if (!isRecord(raw) || raw.v !== 1) return initialWorkspaceState(spec);
     const known = new Set(spec.panelIds);
@@ -258,21 +300,38 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec): Work
     const collapsed = isRecord(raw.collapsed) ? Object.fromEntries(Object.entries(raw.collapsed).filter((entry): entry is [string, PanelEdge] => allowed.has(entry[0]) && (entry[1] === 'left' || entry[1] === 'top'))) : {};
     const floating = parseFloatingPanels(raw.floating, allowed);
     floating.forEach(panel => { if (!hidden.includes(panel.panelId)) hidden.push(panel.panelId); });
-    const extra = { ...(Object.keys(collapsed).length ? { collapsed } : {}), ...(floating.length ? { floating } : {}) };
+    let extra = { ...(Object.keys(collapsed).length ? { collapsed } : {}), ...(floating.length ? { floating } : {}) };
     const preset = typeof raw.preset === 'string' && spec.presets.some(candidate => candidate.id === raw.preset) ? raw.preset : presetOf(spec, spec.initialPreset).id;
     const shown = spec.panelIds.filter(id => !hidden.includes(id));
     const named = namedIds(raw.layout);
+    const shared = spec.sharedRows ?? [];
+    const sizes = readSharedRowSizes(raw.sharedRowSizes);
+    let legacy = (raw as Partial<WorkspaceState>)[LEGACY_FIT_SHARES] ?? [];
+    if (fromStorage && raw.mode !== 'stack' && raw.sharedRowSizes === undefined && isValidDockTree(raw.layout, [...named])) {
+      legacy = legacyFitShares(normalizeDockTree(raw.layout, [...named]), spec.primaryId);
+    }
+    const pending = legacy.filter(({ panels, share }) => {
+      const declaration = shared.find(row => panels.every(id => row.panels.includes(id)));
+      if (!declaration) return true;
+      if (!sizes.some(size => size.id === declaration.id)) sizes.push({ id: declaration.id, share });
+      return false;
+    });
+    const sharedChanged = shared.some(row => row.panels.some(id => shown.includes(id) !== named.has(id)));
+    extra = { ...extra, ...(sizes.length ? { sharedRowSizes: sizes } : {}), ...(pending.length ? { [LEGACY_FIT_SHARES]: pending } : {}) };
     const placed = shown.filter(id => named.has(id) || id === spec.primaryId);
-    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below), hidden, ...extra }, spec);
+    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below, shared), hidden, ...extra }, spec);
     let layout = normalizeDockTree(raw.layout, placed);
     let appended = false;
-    for (const id of shown.filter(candidate => !placed.includes(candidate))) {
+    const incoming = shown.filter(id => !placed.includes(id));
+    for (const id of incoming) {
+      if (shared.some(row => row.panels.includes(id))) continue;
       const before = groupActive(layout, spec.primaryId);
       layout = addPanel(layout, id, { panelId: spec.primaryId, position: 'center' });
       if (before) layout = activatePanel(layout, before);
       if (spec.below?.includes(id) && panelOrder(layout).length > 1) { layout = moveToNewRow(layout, id); appended = true; }
     }
-    return restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, appended);
+    if (sharedChanged) layout = placeSharedRows(layout, shown, shared, sizes, spec.below ?? []);
+    return restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, appended || sharedChanged || (sizes.length > 0 && named.size !== shown.length));
   } catch {
     return initialWorkspaceState(spec);
   }
@@ -284,13 +343,14 @@ function groupActive(tree: DockNode, panelId: string): string | undefined {
 }
 
 /** Switches to `preset`: its arrangement of the panels that are shown; hidden panels stay hidden. The panels stay the same, so nothing remounts. */
-export function applyPreset(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[]): WorkspaceState {
-  return { ...state, preset: preset.id, layout: presetTree(preset.layout, panelOrder(state.layout), below) };
+export function applyPreset(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[], sharedRows?: readonly SharedRow[]): WorkspaceState {
+  return { ...state, preset: preset.id, layout: presetTree(preset.layout, panelOrder(state.layout), below, sharedRows) };
 }
 
 /** `기본 배치`: the current preset's arrangement of every panel; nothing hidden. The height mode is the user's and stays as it is (never reset to `initialMode`). */
-export function resetLayout(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[]): WorkspaceState {
-  return { ...state, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden], below), hidden: [], floating: [] };
+export function resetLayout(state: WorkspaceState, preset: WorkspacePreset, below?: readonly string[], sharedRows?: readonly SharedRow[]): WorkspaceState {
+  const { sharedRowSizes: _sizes, [LEGACY_FIT_SHARES]: _legacy, ...rest } = state;
+  return { ...rest, preset: preset.id, layout: presetTree(preset.layout, [...panelOrder(state.layout), ...state.hidden], below, sharedRows), hidden: [], floating: [] };
 }
 
 export function collapsePanel(state: WorkspaceState, panelId: string, primaryId: string, edge: PanelEdge): WorkspaceState {
@@ -319,9 +379,13 @@ export function hidePanel(state: WorkspaceState, panelId: string, primaryId: str
  * (the active tab there, unless that group holds the primary, which then stays active); else into the first group in reading order that
  * does not hold the primary; else to the right of the primary. For a panel listed in `below`, the fallback is a new last row.
  */
-export function showPanel(state: WorkspaceState, panelId: string, primaryId: string, preset: WorkspacePreset, below: readonly string[] = []): WorkspaceState {
+export function showPanel(state: WorkspaceState, panelId: string, primaryId: string, preset: WorkspacePreset, below: readonly string[] = [], sharedRows: readonly SharedRow[] = []): WorkspaceState {
   if (!state.hidden.includes(panelId)) return state;
   const shown = panelOrder(state.layout);
+  const after = { ...state, hidden: state.hidden.filter(id => id !== panelId), ...(state.floating ? { floating: state.floating.filter(panel => panel.panelId !== panelId) } : {}) };
+  if (sharedRows.some(row => row.panels.includes(panelId))) {
+    return { ...after, layout: placeSharedRows(state.layout, [...shown, panelId], sharedRows, state.sharedRowSizes ?? [], below) };
+  }
   const home = groupOf(presetTree(preset.layout, [...shown, ...state.hidden], below), panelId);
   const sibling = home?.panels.find(id => id !== panelId && shown.includes(id));
   const appendBelow = sibling === undefined && below.includes(panelId);
@@ -331,7 +395,7 @@ export function showPanel(state: WorkspaceState, panelId: string, primaryId: str
   let layout = addPanel(state.layout, panelId, into !== undefined ? { panelId: into, position: 'center' } : { panelId: primaryId, position: 'right' });
   if (into !== undefined && groupOf(layout, panelId)?.panels.includes(primaryId) && primaryActive) layout = activatePanel(layout, primaryActive);
   if (appendBelow) layout = moveToNewRow(layout, panelId);
-  return { ...state, layout, hidden: state.hidden.filter(id => id !== panelId), ...(state.floating ? { floating: state.floating.filter(panel => panel.panelId !== panelId) } : {}) };
+  return { ...after, layout };
 }
 
 /** The tab that should take focus after `panelId` was hidden: the one now active in the group it left, else the primary's. */

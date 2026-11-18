@@ -1714,3 +1714,30 @@ describe('PanelWorkspace: edges, peek and float (#2435)', () => {
     await waitFor(() => expect(floating('selector')).not.toBeNull());
   });
 });
+
+it.each(['settings', 'runs'])('joins the shared trend row after %s without remounting its surviving body', async first => {
+  const primary = PANELS[0]!;
+  const trends = ['settings', 'runs'].map(id => ({
+    id, title: { ko: id, en: id }, placement: { row: 'trends' }, render: () => <Probe id={id} />,
+  }));
+  const props = { presets: [{ id: 'single', label: BASE.label, layout: group([primary.id]) }], initialPreset: 'single' };
+  const view = (ids: string[]) => shell(<PanelWorkspace {...BASE} {...props} panels={[primary, ...trends.filter(panel => ids.includes(panel.id))]} />);
+  const { rerender } = render(view([first]));
+  await ready();
+  const survivor = await screen.findByTestId(`probe-${first}`);
+  const [top, bottom] = ['trend', 'settings'];
+  rerender(view(['settings', 'runs']));
+  await screen.findByTestId('probe-runs');
+  const original = dockProps.current!.layout as { children: { type: string }[] };
+  expect(original.children.map(row => row.type)).toEqual(['group', 'branch']);
+  const resized = { ...original, sizes: [62, 38], children: [original.children[0], { ...original.children[1], sizes: [31, 69] }] };
+  act(() => dockProps.current!.onLayoutChange(resized));
+  rerender(view([first]));
+  await waitFor(() => expect(dockProps.current!.layout).toMatchObject({ children: [{ panels: [top] }, { panels: [first] }] }));
+  rerender(view(['settings', 'runs']));
+  await waitFor(() => expect(dockProps.current!.layout).toMatchObject({
+    sizes: [62, 38],
+    children: [{ panels: [top] }, { sizes: [31, 69], children: [{ panels: [bottom] }, { panels: ['runs'] }] }],
+  }));
+  expect(screen.getByTestId(`probe-${first}`)).toBe(survivor);
+});

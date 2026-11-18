@@ -3,15 +3,16 @@ import { act, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Settings } from 'lucide-react';
-import { contextCapabilities, groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
+import { contextCapabilities, defineEndpoint, groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
+import { createRegistry, I18nProvider, PlatformProvider, useMenuQuery, useQueryDraft, type LentPanelProps } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { settleQueries, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
+import { registerLentPanel, settleQueries, testAdapter, testMenu, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type ConfigHistory, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
+import { OpenHwTimeLink } from './ConfigurationWorkspace';
 
 await vi.hoisted(async () => (await import('@ap/components/testing/engines')).mockEchartsCanvas());
 const controls = vi.hoisted(() => ({ fields: [] as readonly PageFilterField[] }));
@@ -28,8 +29,39 @@ function windowPage(params: TreeParams): TreePage {
   });
   return { nodes, offset: params.offset, totalVisible: totalItems, totalItems, expanded: ['fixture-group'], sameColumns: [], firstItem: nodes[0]?.id ?? null, counts: { all: totalItems, review: totalItems, diff: totalItems, missing: 0, violation: 0 } };
 }
-const assembly = { permissions: [menuPermission('analytics:view')], spaces: [testSpace({ homeMenuId: 'configuration' })], groups: [{ id: groupId('configuration'), label: { ko: '설정', en: 'Configuration' }, icon: Settings, space: spaceId('mars') }] };
-const registry = createRegistry({ ...assembly, menus: manifests });
+const analytics = menuPermission('analytics:view');
+const sourcePermission = menuPermission('console:access');
+const sourceGroup = groupId('hwTime');
+const sourceTitle = { ko: 'HW Time', en: 'HW Time' };
+const sourceRuns = defineEndpoint<{ equipment: readonly string[] | null; moduleType: unknown; module: unknown; motion: unknown }, string>({
+  id: 'hwTime.runs', menuId: 'hw-time', permission: analytics, requiresScope: true,
+  paramKeys: { equipment: true, moduleType: true, module: true, motion: true }, kinds: [], mergeTimeDomain: false,
+  context: { time: 'apply', selection: 'apply', roomNames: 'apply', condition: 'apply' },
+});
+const sourcePageKeys = ['moduleType', 'drillModule', 'drillMotion'];
+const sourceMenu = testMenu({
+  id: 'hw-time', path: '/hw-time', group: sourceGroup, permission: analytics, requiresScope: true,
+  context: contextCapabilities(sourceRuns.context), pageKeys: sourcePageKeys,
+  panels: [{
+    id: 'trend', title: sourceTitle, grain: 'dailyStat', endpoints: [sourceRuns], displayInputs: {}, outputs: [],
+    queryInputs: { context: ['scopeId', 'time', 'selection', 'roomNames', 'condition'], page: sourcePageKeys.map(key => ({ key, required: true })) },
+    display: [{ key: 'equipmentLabels' }],
+  }],
+});
+const assembly = {
+  permissions: [analytics], spaces: [testSpace({ homeMenuId: 'configuration' })],
+  groups: [
+    { id: groupId('configuration'), label: { ko: '설정', en: 'Configuration' }, icon: Settings, space: spaceId('mars') },
+    { id: sourceGroup, label: sourceTitle, icon: Settings, space: spaceId('mars') },
+  ],
+};
+const registry = createRegistry({ ...assembly, menus: [...manifests, sourceMenu] });
+function SourceTrend({ inputs, actions }: LentPanelProps) {
+  const query = useMenuQuery(sourceRuns, {
+    equipment: inputs.context.selection, moduleType: inputs.page.moduleType, module: inputs.page.drillModule, motion: inputs.page.drillMotion,
+  });
+  return <>{actions}<output data-test-source-result data-test-equipment-labels={JSON.stringify(inputs.display?.equipmentLabels)}>{query.response?.data}</output></>;
+}
 let draft: ReturnType<typeof useQueryDraft>;
 function DraftProbe() { draft = useQueryDraft(); return null; }
 function Toasts() { const toasts = useToastsForTest(); return <output>{JSON.stringify(toasts)}</output>; }
@@ -38,15 +70,15 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
-  window.history.replaceState(null, '', '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
+  window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 const ok = <T,>(data: T): ApiResponse<T> => ({ outcome: 'ok', data, assessments: [{ kind: 'collection', state: 'unknown', reason: 'source_unavailable' }, { kind: 'coverage', state: 'unknown', reason: 'source_unavailable' }], trust: null, correlationId: 'configuration-test' });
-async function mount(menuQuery = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => ok(windowPage(query as TreeParams)))) {
+async function mount(menuQuery = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => ok(windowPage(query as TreeParams))), testRegistry = registry) {
   const session = testSession(['analytics:view']);
   const adapter = testAdapter({ session: () => session, menuQuery });
-  await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Configuration /><Toasts /><DraftProbe /></PlatformProvider></I18nProvider>));
+  await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={testRegistry}><Configuration /><Toasts /><DraftProbe /></PlatformProvider></I18nProvider>));
   await settleQueries();
   await vi.waitFor(() => expect(host.querySelector('[data-matrix-viewport]'), host.textContent ?? '').not.toBeNull());
   return menuQuery;
@@ -124,10 +156,10 @@ describe('Configuration lifecycle regressions', () => {
     expect(host.textContent).not.toContain('아직 조회하지 않았습니다');
     expect([...host.querySelectorAll('button')].filter(button => button.textContent === '비교 실행')).toHaveLength(0);
     expect(picker().props.values).toEqual(DEFAULT_EQUIPMENT);
-    expect(() => createRegistry({ ...assembly, menus: manifests })).not.toThrow();
+    expect(() => createRegistry({ ...assembly, menus: [...manifests, sourceMenu] })).not.toThrow();
   });
-  it('loads the matrix on a bare route with the default conditions', async () => {
-    window.history.replaceState(null, '', '/mars/configuration');
+  it('loads the matrix with default conditions when only the Scope is provided', async () => {
+    window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM');
     const requests = await mount();
     expect(requests.mock.calls[0]?.[0].params).toMatchObject({ eq: DEFAULT_EQUIPMENT });
     expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
@@ -149,7 +181,7 @@ describe('Configuration lifecycle regressions', () => {
   });
   it('C3 keeps the search input and focus during multi-character queries, including empty results', async () => {
     // Dates let this regression reach the old Apply implementation too.
-    window.history.replaceState(null, '', '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
+    window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
     await mount();
     const input = host.querySelector<HTMLInputElement>('input[type="search"]')!;
     act(() => input.focus());
@@ -162,7 +194,7 @@ describe('Configuration lifecycle regressions', () => {
     }
   });
   it('C1 retains the real matrix, focus and matching columns across a delayed window beyond 80 rows', async () => {
-    window.history.replaceState(null, '', '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all&levels=module,category');
+    window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all&levels=module,category');
     let complete: ((value: ApiResponse<unknown>) => void) | undefined;
     let pending: TreeParams | undefined;
     const requests = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
@@ -248,7 +280,7 @@ describe('Configuration lifecycle regressions', () => {
     expect(exportSignal?.aborted).toBe(true);
   });
   it.each(['error', 'forbidden'] as const)('C2 retains SDK refusal guidance for %s export envelopes', async outcome => {
-    window.history.replaceState(null, '', '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
+    window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
     const reason = `Export exceeds ${EXPORT_LIMIT} rows`;
     await mount(vi.fn(async ({ endpoint: id, params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => id.endsWith('export')
       ? { outcome, data: null, assessments: [], trust: null, correlationId: 'cap-reason', message: reason }
@@ -266,7 +298,7 @@ describe('Configuration lifecycle regressions', () => {
     expect(host.textContent).toContain('조건');
   });
   it('K3 pads the emphasis bar to the same inset as the summary', async () => {
-    window.history.replaceState(null, '', '/mars/configuration?v=1&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
+    window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all');
     await mount();
     act(() => host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!.focus());
     act(() => [...host.querySelectorAll('button')].find(button => button.textContent === '같은 값 강조')!.click());
@@ -600,4 +632,155 @@ describe('Configuration equipment axis', () => {
     await switchAxis('항목 기준');
     expect(button('선택 상세 열기')?.disabled).toBe(true);
   });
+
+  it('queries the same linked motion from the item and equipment axes', async () => {
+    registerLentPanel('hw-time/trend', SourceTrend);
+    const requests = await mount(vi.fn(async ({ endpoint, params: query }) => {
+      const params = query as TreeParams;
+      if (endpoint === sourceRuns.id) return { ...ok('linked motion'), assessments: [] };
+      if (endpoint === 'configuration.pivot') return ok(pivot(params));
+      if (endpoint === 'configuration.history') return { ...ok(null), outcome: 'empty' as const };
+      return ok(windowPage(params));
+    }));
+    const itemCell = host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!;
+    await act(async () => { itemCell.focus(); itemCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+    await vi.waitFor(() => expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('linked motion'));
+    const previous = requests.mock.calls.find(([request]) => request.endpoint === sourceRuns.id)![0];
+    await act(async () => button('HW Time 추세 닫기')!.click());
+    await switchAxis('설비 기준');
+    await vi.waitFor(() => expect(swapped()).not.toBeNull());
+    const equipmentCell = swapped()!.querySelector<HTMLElement>('[data-row-id="EQ03"] [data-table-focus-column]')!;
+    await act(async () => { equipmentCell.focus(); equipmentCell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+    await vi.waitFor(() => expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('linked motion'));
+    expect(requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id).map(([request]) => request)).toEqual([previous, previous]);
+    await act(async () => button('HW Time 추세 닫기')!.click());
+    expect(document.activeElement).toBe(equipmentCell);
+  });
+});
+
+it('binds a selected Configuration item to its scoped equipment and opens both trends from the shared URL', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all&equipment=EQ01,EQ03&trendItem=cfg-000000');
+  const endpointRequests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === 'configuration.history') return { ...ok(null), outcome: 'empty' as const };
+    return ok(null);
+  }));
+  await vi.waitFor(() => expect(host.querySelector('[data-configuration-lent-hwtime]')).not.toBeNull());
+  expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
+  expect(JSON.parse(host.querySelector('[data-test-source-result]')!.getAttribute('data-test-equipment-labels')!)).toEqual({
+    'MEM-PHOTO-0103': 'EQ01', 'MEM-PHOTO-0108': 'EQ03',
+  });
+  expect(endpointRequests).toHaveBeenCalledWith(expect.objectContaining({
+    endpoint: 'hwTime.runs', params: {
+      equipment: ['MEM-PHOTO-0103', 'MEM-PHOTO-0108'], moduleType: 'LK', module: 'LK1', motion: 'Pump',
+    },
+  }), expect.any(AbortSignal));
+  const href = host.querySelector<HTMLAnchorElement>('[data-configuration-lent-hwtime] a')!.href;
+  const destination = new URL(href);
+  expect(destination.pathname).toBe('/mars/hw-time');
+  expect(destination.searchParams.getAll('selectedEquipmentIds')).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0108']);
+  expect(destination.searchParams.get('from')).toBe('2026-11-16T00:00:00');
+  expect(destination.searchParams.get('to')).toBe('2026-11-18T00:00:00');
+  expect(destination.searchParams.get('drillModule')).toBe('LK1');
+  expect(destination.searchParams.get('drillMotion')).toBe('Pump');
+});
+
+it('keeps the settings trend and shows a reason without querying a separately denied HW Time source', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const denied = createRegistry({ ...assembly, menus: [...manifests, { ...sourceMenu, additionalPermissions: [sourcePermission] }] });
+  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) =>
+    endpoint === 'configuration.tree' ? ok(windowPage(params as TreeParams)) : { ...ok(null), outcome: 'empty' as const }), denied);
+  const cell = host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!;
+  await act(async () => { cell.focus(); cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  await vi.waitFor(() => expect(host.querySelector('[data-configuration-trend]')).not.toBeNull());
+  expect(host.textContent).toContain('패널을 볼 권한이 없습니다.');
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(requests.mock.calls.some(([request]) => request.endpoint === 'hwTime.runs')).toBe(false);
+});
+
+it.each(['no matrix selection', 'a different matrix selection'])('returns focus after closing the restored HW Time trend with %s', async selection => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const load = vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) =>
+    endpoint === 'configuration.tree' ? ok(windowPage(params as TreeParams)) : { ...ok(null), outcome: 'empty' as const });
+  const url = new URL(window.location.href);
+  url.searchParams.set('trendItem', 'cfg-000000');
+  url.searchParams.set('hwTrendItem', 'cfg-000000');
+  const withSelection = selection === 'a different matrix selection';
+  if (!withSelection) window.history.replaceState(null, '', url);
+  const requests = await mount(load);
+  let target = host.querySelector<HTMLElement>('[data-platform-page-content]');
+  if (withSelection) {
+    target = host.querySelector<HTMLElement>('[data-matrix-row="cfg-000001"] [data-matrix-column="EQ03"]');
+    await act(async () => target!.focus());
+    expect(target?.getAttribute('aria-selected')).toBe('true');
+    await act(async () => {
+      window.history.pushState(null, '', url);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  } else {
+    expect(host.querySelector('[role="gridcell"][aria-selected="true"]')).toBeNull();
+  }
+  const close = host.querySelector<HTMLButtonElement>('button[aria-label="HW Time 추세 닫기"]');
+  expect(close).not.toBeNull();
+  const sourceQueryCount = requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id).length;
+  await act(async () => { close!.focus(); close!.click(); });
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('off');
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
+  expect(document.activeElement).toBe(target);
+  expect(requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(sourceQueryCount);
+});
+
+it('renders a disabled destination with a reason when registered and hides an unregistered destination', async () => {
+  await act(async () => root.render(<I18nProvider><OpenHwTimeLink link={{
+    kind: 'link', href: '/mars/hw-time', allowed: false, droppedPageKeys: [],
+  }} /></I18nProvider>));
+  const disabled = host.querySelector<HTMLButtonElement>('button')!;
+  expect(disabled.disabled).toBe(true);
+  expect(disabled.getAttribute('aria-description')).toBeTruthy();
+  expect(host.querySelector('a')).toBeNull();
+  await act(async () => root.render(<I18nProvider><OpenHwTimeLink link={{
+    kind: 'none', href: null, allowed: false, droppedPageKeys: [],
+  }} /></I18nProvider>));
+  expect(host.children).toHaveLength(0);
+});
+
+it('follows a second linked item and ignores the late HW Time result after selecting an unbound item', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  let complete: ((response: ApiResponse<unknown>) => void) | undefined;
+  let sourceSignal: AbortSignal | undefined;
+  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }, signal?: AbortSignal) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint !== sourceRuns.id) return { ...ok(null), outcome: 'empty' as const };
+    if ((params as { module: string }).module === 'LK1') {
+      sourceSignal = signal;
+      return new Promise<ApiResponse<unknown>>(resolve => { complete = resolve; });
+    }
+    return { ...ok('second motion'), assessments: [] };
+  }));
+  const cell = (item: string) => host.querySelector<HTMLElement>(`[data-matrix-row="${item}"] [data-matrix-column="EQ03"]`)!;
+  const first = cell('cfg-000000');
+  await act(async () => { first.focus(); first.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  await vi.waitFor(() => expect(complete).toBeDefined());
+  await settleQueries();
+  const second = cell('cfg-000001');
+  await act(async () => { second.focus(); second.click(); });
+  await settleQueries();
+  expect(second.getAttribute('aria-selected'), window.location.search).toBe('true');
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem'), window.location.search).toBe('cfg-000001');
+  expect(requests).toHaveBeenCalledWith(expect.objectContaining({ endpoint: sourceRuns.id, params: expect.objectContaining({ module: 'LK2' }) }), expect.any(AbortSignal));
+  expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('second motion');
+  const unbound = cell('cfg-000002');
+  await act(async () => { unbound.focus(); unbound.click(); });
+  await vi.waitFor(() => expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull());
+  await act(async () => complete!({ ...ok('late first motion'), assessments: [] }));
+  expect(sourceSignal?.aborted).toBe(true);
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
+  await act(async () => { first.focus(); first.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  const close = host.querySelector<HTMLButtonElement>('button[aria-label="HW Time 추세 닫기"]');
+  await act(async () => { close!.focus(); close!.click(); });
+  expect(document.activeElement).toBe(first);
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
 });

@@ -8,7 +8,7 @@ import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
 import { disabledReason, projectQueryInputs } from '../panel-inputs';
-import { carrySetId, emptyGlobal, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type Pair, type SpaceDef } from '@ap/contracts';
+import { carrySetId, emptyGlobal, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type Pair, type PanelDeclaration, type SpaceDef } from '@ap/contracts';
 
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
 const createRegistry = (input: Parameters<typeof create>[0]) => create({ permissions: [menuPermission('metrics:view')], ...input });
@@ -940,6 +940,8 @@ describe('panel registration (#2433)', () => {
     [{ availability: { requires: [{ anyOf: ['derived'] }], disabledReason: { ko: '', en: 'Choose' } } }, /disabledReason/],
     [{ availability: { requires: [{ anyOf: [] }], disabledReason: { ko: '선택', en: 'Choose' } } }, /availability/],
     [{ grain: 'daily-stat' }, /grain/],
+    [{ display: [{ key: 'selection' }] }, /display input "selection" must not be a Context key/],
+    [{ display: [{ key: 'scopeId' }] }, /display input "scopeId" must not be a Context key/],
     [{ endpoints: [{ id: 'other.query', menuId: 'other', permission: menuPermission('data:read') }] }, /endpoint.*owned/],
   ])('rejects malformed panel %j', (patch, message) => {
     expect(() => build([{ ...panel, ...patch }])).toThrow(message);
@@ -993,11 +995,11 @@ describe('lent panel registration (#2490)', () => {
     context: { scopeId: { kind: 'context', key: 'scopeId' }, time: { kind: 'context', key: 'time' } },
     page: { level: { kind: 'page', key: 'chosen' } },
   } as const;
-  const build = (lentPanels: unknown = [binding], requiresScope = true) => createRegistry({
+  const build = (lentPanels: unknown = [binding], requiresScope = true, declaration: PanelDeclaration = panel) => createRegistry({
     spaces, groups, permissions: [receiving, owner, endpointPermission, shared],
     menus: [
       { ...catalog, permission: receiving, additionalPermissions: [shared], requiresScope, pageKeys: ['chosen'], lentPanels } as PlatformMenuEntry,
-      menu('source', '/metrics/source', { permission: owner, additionalPermissions: [shared], pageKeys: ['level'], panels: [panel] }),
+      menu('source', '/metrics/source', { permission: owner, additionalPermissions: [shared], pageKeys: ['level'], panels: [declaration] }),
     ],
   });
   const inputs = {
@@ -1027,11 +1029,18 @@ describe('lent panel registration (#2490)', () => {
     });
   });
 
+  it('opens without an optional display binding even if an older declaration marks it required', () => {
+    const declaration = { ...panel, display: [{ key: 'label', required: true }] };
+    const [lent] = build([binding], true, declaration).lentPanels('catalog');
+    expect(lent.resolve(testSession(lent.permissions), inputs)).toMatchObject({ allowed: true, inputs: { display: {} } });
+  });
+
   it.each([
     [{ ...binding, page: {} }, /required query input "level"/],
     [{ ...binding, context: { time: binding.context.time } }, /required query input "scopeId"/],
     [{ ...binding, context: { scopeId: binding.context.scopeId } }, /required query input "time"/],
     [{ ...binding, page: { level: { kind: 'page', key: 'unknown' } } }, /undeclared receiving page key "unknown"/],
+    [{ ...binding, display: { unknown: { kind: 'value', key: 'label' } } }, /unknown source display input "unknown"/],
     [{ ...binding, source: 'other/summary' }, /unknown source panel "other\/summary"/],
     [{ ...binding, source: 'source/other' }, /unknown source panel "source\/other"/],
     [{ ...binding, outputs: { level: { kind: 'context', key: 'time' } } }, /cannot bind outputs/],

@@ -1,6 +1,10 @@
 import type { Text } from '@ap/contracts';
 
 export const MESSAGES = {
+  hwTimeTrend: { ko: 'HW Time', en: 'HW Time' },
+  closeHwTime: { ko: 'HW Time 추세 닫기', en: 'Close HW Time trend' },
+  openHwTime: { ko: 'HW Time에서 열기', en: 'Open in HW Time' },
+  hwTimeLinkDenied: { ko: 'HW Time 메뉴를 열 권한이 없습니다.', en: 'You do not have permission to open HW Time.' },
   allIncluding: { ko: '일치 포함 전체', en: 'All including matches' },
   hiddenEqual: { ko: '일치 {count}건 숨김', en: '{count} matching items hidden' },
   hideSame: { ko: '차이 없는 설비 숨기기', en: 'Hide unchanged equipment' },

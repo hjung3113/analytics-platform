@@ -15,7 +15,7 @@ export const workspaceStorageKey = (userId: string, menuId: string, persistKey: 
 
 /** The stored state repaired against `spec`, or null when there is none or storage cannot be read. Without `storage`, `localStorage`. */
 export function readWorkspaceState(key: string, spec: WorkspaceSpec, storage?: PanelWorkspaceStorage): WorkspaceState | null {
-  const decode = (stored: string | null) => stored === null ? null : normalizeWorkspaceState(JSON.parse(stored) as unknown, spec);
+  const decode = (stored: string | null) => stored === null ? null : normalizeWorkspaceState(JSON.parse(stored) as unknown, spec, { fromStorage: true });
   if (!storage) return readLocalStorage(key, decode, null);
   try {
     return decode(storage.getItem(key));
@@ -24,11 +24,13 @@ export function readWorkspaceState(key: string, spec: WorkspaceSpec, storage?: P
   }
 }
 
-export function writeWorkspaceState(key: string, state: WorkspaceState, storage?: PanelWorkspaceStorage): void {
+export function writeWorkspaceState(key: string, state: WorkspaceState, storage?: PanelWorkspaceStorage, { sharedRows = false } = {}): void {
+  // An empty list records that this workspace uses shared rows and has no manual sizes.
+  const stored = JSON.stringify(sharedRows && state.sharedRowSizes === undefined ? { ...state, sharedRowSizes: [] } : state);
   // a refusing storage leaves the preference in memory
-  if (!storage) { writeLocalStorage(key, JSON.stringify(state)); return; }
+  if (!storage) { writeLocalStorage(key, stored); return; }
   try {
-    storage.setItem(key, JSON.stringify(state));
+    storage.setItem(key, stored);
   } catch {
     // same as localStorage: the preference stays in memory
   }

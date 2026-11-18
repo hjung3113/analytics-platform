@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageFilterField, PanelWorkspaceProps, QueryBarExtension, TreeMatrixProps } from '@ap/components';
 import { encodeFilterParams, parseQuery, buildQuery, emptyGlobal, type MatrixColumn } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
-import { DEFAULT_LEVELS, PAGE_KEYS, SAVED_VIEW_SUPPORT, TREND_ITEM_KEY, equipmentFromKey, equipmentToKey, validEquipmentKey, type TreeRow } from '../endpoints';
+import { DEFAULT_LEVELS, PAGE_KEYS, SAVED_VIEW_SUPPORT, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, equipmentFromKey, equipmentToKey, validEquipmentKey, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
 
@@ -13,6 +13,8 @@ const state = vi.hoisted(() => ({ page: {} as Record<string, string | string[]>,
 let extension: QueryBarExtension;
 const leaf: TreeRow = { id: 'cfg-000000', label: 'Pressure', level: 4, kind: 'leaf', expanded: false, hasChildren: false, differences: 1, item: { id: 'cfg-000000', key: 'PM1 / Gas / Pressure / config.cfg', module: 'PM1', category: 'Gas', item: 'Pressure', filename: 'config.cfg', group: 'PM1 / Gas', coreKnown: true, diff: true, violation: false, missing: false, notComparable: false, source: 'CFG', collectedAt: '2026-11-17T00:00:00Z', values: { EQ01: { value: 120, state: 'equal' }, EQ02: { value: 125, state: 'diff' } } } };
 vi.mock('@ap/kernel', async original => ({ ...await original<object>(),
+  useLentPanel: () => ({ allowed: false, reason: { kind: 'not-registered' } }),
+  useQueryContext: () => emptyGlobal,
   usePlatform: () => ({ page: Object.entries(state.page), pageParam: (key: string) => state.page[key] ?? null, pageParams: (key: string) => state.page[key] ?? [], setPage: state.setPage, session: { user: { id: 'test' } }, revision: 1, global: { scopeId: null } }),
   useMessages: () => (key: string, values?: Record<string, unknown>) => ({ allIncluding: '일치 포함 전체', hiddenEqual: `일치 ${values?.count}건 숨김`, hideSame: '차이 없는 설비 숨기기', groupValues: '같은 값 묶기', sameValue: '같은 값 강조' }[key] ?? key),
   useSavedViewSupport: (support: unknown) => state.support(support),
@@ -38,7 +40,7 @@ describe('Configuration page', () => {
   it('labels toolbar keys and formats arbitrary history candidates without capturing current values', () => {
     state.page = { equipment: 'EQ01,EQ02', mode: 'reference', ref: 'EQ01', core: '1', levels: 'category,module', hideSameCols: '1', q: 'Pressure', status: 'all', filter: ['module:eq:PM1'] };
     draw();
-    expect(extension.appliedPageSummary?.map(item => item.key)).toEqual(expect.arrayContaining(PAGE_KEYS.filter(key => key !== TREND_ITEM_KEY)));
+    expect(extension.appliedPageSummary?.map(item => item.key)).toEqual(expect.arrayContaining(PAGE_KEYS.filter(key => key !== TREND_ITEM_KEY && key !== HW_TREND_ITEM_KEY)));
     expect(extension.appliedPageSummary?.find(item => item.key === 'levels')?.value).toBe('Category › Module');
     expect(extension.appliedPageSummary?.find(item => item.key === 'mode')?.value).toBe('referenceMode');
     expect(extension.appliedPageSummary?.find(item => item.key === 'hideSameCols')).toEqual({ key: 'hideSameCols', label: '차이 없는 설비 숨기기', value: 'enabled' });

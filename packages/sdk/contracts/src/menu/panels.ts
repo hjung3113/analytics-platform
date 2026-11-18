@@ -16,6 +16,8 @@ export type PanelDeclaration<K extends string = string> = {
   readonly title: Text;
   readonly queryInputs: PanelInputs<K>;
   readonly displayInputs: PanelInputs<K>;
+  /** Optional in-memory JSON inputs for lending, independent of page state. */
+  readonly display?: readonly { readonly key: string }[];
   readonly outputs: readonly { readonly key: K; readonly action: string }[];
   readonly grain: string;
   readonly endpoints: readonly (Pick<AnyEndpointSpec, 'id' | 'menuId' | 'permission'>
@@ -42,5 +44,6 @@ export type PanelBinding<K extends string = string> = {
   readonly source: `${string}/${string}`;
   readonly context?: Readonly<Partial<Record<PanelContextKey, PanelInputBinding<K>>>>;
   readonly page?: Readonly<Record<string, PanelInputBinding<K>>>;
+  readonly display?: Readonly<Record<string, Extract<PanelInputBinding<K>, { kind: 'value' }>>>;
 };
 

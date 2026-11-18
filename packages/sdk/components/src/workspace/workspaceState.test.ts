@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { groupOf, panelOrder } from '../dock/commands';
 import { dockGroups, isValidDockTree, type DockNode } from '../dock/schema';
-import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
+import { applyPreset, changeMode, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withRows, type PanelWorkspaceLayout, type WorkspacePreset, type WorkspaceSpec } from './workspaceState';
 import { topLevelRows } from './workspaceRows';
+import { readWorkspaceState, writeWorkspaceState } from './workspaceStorage';
 
 const IDS = ['trend', 'selector', 'detail', 'kpi'];
 const group = (panels: string[], active?: string): PanelWorkspaceLayout => ({ type: 'group', panels, active });
@@ -445,5 +446,143 @@ describe('placement below (#2398)', () => {
   it('a panel without placement still joins the primary group as a tab', () => {
     const next = normalizeWorkspaceState(initialWorkspaceState({ ...spec, presets: [focus], initialPreset: 'focus' }), { ...below, below: [] });
     expect(groupOf(next.layout, 'extra')?.panels).toContain('trend');
+  });
+});
+
+describe('shared lower rows (#2490)', () => {
+  const base: WorkspaceSpec = {
+    panelIds: ['matrix', 'settings', 'runs'],
+    primaryId: 'matrix',
+    presets: [{ id: 'matrix', layout: group(['matrix']) }],
+    initialPreset: 'matrix',
+    initialMode: 'fit',
+    sharedRows: [{ id: 'trends', panels: ['settings', 'runs'] }],
+  };
+  const only = (id: string): WorkspaceSpec => ({ ...base, panelIds: ['matrix', id] });
+
+  it('uses the stored fit share when the settings trend first joins the live panel set', () => {
+    const stored = JSON.stringify({
+      v: 1, preset: 'matrix', hidden: [],
+      layout: { type: 'branch', dir: 'column', sizes: [63, 37], children: [group(['matrix'], 'matrix'), group(['settings'], 'settings')] },
+    });
+    const setItem = vi.fn();
+    const storage = { getItem: () => stored, setItem };
+    const loaded = readWorkspaceState('workspace', { ...base, panelIds: ['matrix'], sharedRows: [] }, storage);
+    if (loaded === null) throw new Error('Expected the legacy preference');
+    expect(panelOrder(loaded.layout)).toEqual(['matrix']);
+    writeWorkspaceState('workspace', loaded, storage);
+    expect(JSON.parse(setItem.mock.calls[0]![1])).toEqual({
+      v: 1, preset: 'matrix', layout: group(['matrix'], 'matrix'), hidden: [],
+    });
+
+    const spec = { ...only('settings'), sharedRows: [{ id: 'trends', panels: ['settings'] }] };
+    const opened = updateWorkspacePanels(loaded, spec, []);
+    expect(opened.layout).toMatchObject({ dir: 'column', sizes: [63, 37] });
+    const hidden = hidePanel(opened, 'settings', spec.primaryId);
+    const reopened = showPanel(hidden, 'settings', spec.primaryId, spec.presets[0]!, [], spec.sharedRows);
+    expect(reopened.layout).toMatchObject({ dir: 'column', sizes: [63, 37] });
+    const resized = rememberSharedRows(reopened, {
+      ...reopened, layout: { type: 'branch', dir: 'column', sizes: [60, 40], children: topLevelRows(reopened.layout) },
+    }, spec.sharedRows);
+    const absent = updateWorkspacePanels(resized, { ...spec, panelIds: ['matrix'], sharedRows: [] }, []);
+    expect(updateWorkspacePanels(absent, spec, []).layout).toMatchObject({ dir: 'column', sizes: [60, 40] });
+  });
+
+  it('remembers a legacy 63/37 fit split when the settings trend is first hidden and shown', () => {
+    const stored = JSON.stringify({
+      v: 1, preset: 'matrix', hidden: [],
+      layout: { type: 'branch', dir: 'column', sizes: [63, 37], children: [group(['matrix'], 'matrix'), group(['settings'], 'settings')] },
+    });
+    const loaded = readWorkspaceState('workspace', only('settings'), { getItem: () => stored, setItem: () => {} });
+    if (loaded === null) throw new Error('Expected the legacy preference');
+    const hidden = hidePanel(loaded, 'settings', base.primaryId);
+    const reopened = showPanel(hidden, 'settings', base.primaryId, base.presets[0]!, [], base.sharedRows);
+    expect(reopened.layout).toMatchObject({ dir: 'column', sizes: [63, 37] });
+  });
+
+  it('does not remember an automatically redistributed fit split after reloading a current preference', () => {
+    const spec = { ...base, sharedRows: [{ id: 'settings-row', panels: ['settings'] }, { id: 'runs-row', panels: ['runs'] }] };
+    const initial = initialWorkspaceState(spec);
+    const hidden = hidePanel(initial, 'runs', base.primaryId);
+    let stored: string | null = null;
+    const storage = { getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; } };
+    writeWorkspaceState('workspace', hidden, storage, { sharedRows: true });
+    const loaded = readWorkspaceState('workspace', spec, storage);
+    if (loaded === null) throw new Error('Expected the current preference');
+    expect(loaded.sharedRowSizes).toBeUndefined();
+    const reopened = showPanel(loaded, 'runs', base.primaryId, base.presets[0]!, [], spec.sharedRows);
+    expect(reopened.layout).toEqual(initial.layout);
+  });
+
+  it.each([
+    ['settings', 'runs'],
+    ['runs', 'settings'],
+  ])('restores default and manually resized fit shares after hiding %s then %s', (first, second) => {
+    const sharedRows = [{ id: 'settings-row', panels: ['settings'] }, { id: 'runs-row', panels: ['runs'] }];
+    const separate = { ...base, sharedRows };
+    const initial = initialWorkspaceState(separate);
+    const env = { baseline: 850, minimum: () => 200, maximum: 2000, oneRow: 850 };
+    const hide = (state: typeof initial, id: string) => settleRows(state, hidePanel(state, id, base.primaryId), 'keep', env, undefined, [], sharedRows);
+    const show = (state: typeof initial, id: string) => showPanel(state, id, base.primaryId, base.presets[0]!, [], sharedRows);
+    const cycle = (state: typeof initial) => show(show(hide(hide(state, first), second), first), second);
+    const shares = (state: typeof initial) => state.layout.type === 'branch' ? state.layout.sizes : [];
+    const expectShares = (state: typeof initial, expected: typeof initial) => {
+      expect(shares(state)).toHaveLength(shares(expected).length);
+      shares(expected).forEach((share, index) => expect(shares(state)[index]).toBeCloseTo(share));
+    };
+    const reopened = cycle(initial);
+    expectShares(reopened, initial);
+    expect(reopened.sharedRowSizes).toBeUndefined();
+
+    if (initial.layout.type !== 'branch') throw new Error('Expected three fit rows');
+    const resized = rememberSharedRows(initial, { ...initial, layout: { ...initial.layout, sizes: [45, 20, 35] } }, sharedRows);
+    expectShares(cycle(resized), resized);
+    const oneAbsent = normalizeWorkspaceState(resized, { ...separate, panelIds: separate.panelIds.filter(panel => panel !== first) });
+    const bothAbsent = normalizeWorkspaceState(oneAbsent, { ...separate, panelIds: ['matrix'] });
+    const restored = normalizeWorkspaceState(bothAbsent, separate);
+    expectShares(restored, resized);
+  });
+
+  it.each(['settings', 'runs'])('fills the lower row with %s and joins its sibling in declaration order', id => {
+    const old = { v: 1, preset: 'matrix', layout: group(['matrix']), hidden: [] };
+    const lone = normalizeWorkspaceState(old, only(id));
+    expect(topLevelRows(lone.layout)).toEqual([
+      { type: 'group', panels: ['matrix'], active: 'matrix' },
+      { type: 'group', panels: [id], active: id },
+    ]);
+    expect(normalizeWorkspaceState(lone, base).layout).toEqual(initialWorkspaceState(base).layout);
+  });
+
+  it('keeps the resized height and split through a saved preference with both panels absent, and clears them on reset', () => {
+    const initial = initialWorkspaceState(base);
+    const [matrix, trends] = topLevelRows(initial.layout);
+    if (trends?.type !== 'branch') throw new Error('Expected a split row');
+    const layout: DockNode = { type: 'branch', dir: 'column', sizes: [63, 37], children: [matrix!, { ...trends, sizes: [28, 72] }] };
+    const resized = rememberSharedRows(initial, { ...initial, layout }, base.sharedRows!);
+    const alone = normalizeWorkspaceState(resized, { ...base, panelIds: ['matrix'] });
+    expect(topLevelRows(alone.layout)).toHaveLength(1);
+    const restored = normalizeWorkspaceState(JSON.parse(JSON.stringify(alone)), base);
+    expect(restored.layout).toEqual(layout);
+    const reset = resetLayout(alone, base.presets[0]!, [], base.sharedRows);
+    expect(normalizeWorkspaceState(reset, base).layout).toEqual(initial.layout);
+  });
+
+  it('restores stack height and split after hiding both members and showing them in reverse order', () => {
+    const initial = initialWorkspaceState({ ...base, initialMode: 'stack' });
+    const [matrix, trends] = topLevelRows(initial.layout);
+    if (trends?.type !== 'branch') throw new Error('Expected a split row');
+    const layout: DockNode = { type: 'branch', dir: 'column', sizes: [50, 50], children: [matrix!, { ...trends, sizes: [28, 72] }] };
+    const withSplit = rememberSharedRows(initial, { ...initial, layout }, base.sharedRows!);
+    const measured = withRows(withSplit, 'stack', [410, 360]);
+    const resized = rememberSharedRows(measured, withRows(withSplit, 'stack', [410, 510]), base.sharedRows!);
+    const env = { baseline: 850, minimum: () => 200, maximum: 2000, oneRow: 850 };
+    const hide = (state: typeof resized, id: string) => settleRows(state, hidePanel(state, id, base.primaryId), 'keep', env, undefined, [], base.sharedRows);
+    const show = (state: ReturnType<typeof settleRows>, id: string) => settleRows(state, showPanel(state, id, base.primaryId, base.presets[0]!, [], base.sharedRows), 'keep', env, undefined, [], base.sharedRows);
+    const lone = hide(resized, 'runs');
+    const neither = settleRows(lone, hidePanel(lone, 'settings', base.primaryId), 'keep', env, undefined, [], base.sharedRows);
+    expect(topLevelRows(neither.layout)).toHaveLength(1);
+    const reversed = show(show(neither, 'runs'), 'settings');
+    expect(reversed.rows).toEqual(resized.rows);
+    expect(reversed.layout).toEqual(resized.layout);
   });
 });

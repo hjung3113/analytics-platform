@@ -37,7 +37,8 @@ describe('workspace assembly (#260)', () => {
   });
   it('registers configuration as a live MARS screen with Apply and saved views (#2434)', () => {
     const entry = registry.menuById('configuration');
-    expect(entry).toMatchObject({ group: 'configuration', path: '/mars/configuration', permission: 'analytics:view', query: { mode: 'apply' } });
+    expect(entry).toMatchObject({ group: 'configuration', path: '/mars/configuration', permission: 'analytics:view', requiresScope: true, query: { mode: 'apply' } });
+    expect(registry.lentPanels('configuration').map(({ binding }) => binding.source)).toEqual(['hw-time/trend']);
     expect(entry.component).toBeDefined();
     expect(entry.features.savedView).toBe(true);
     expect(registry.spaceOf(entry)?.id).toBe('mars');

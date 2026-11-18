@@ -376,3 +376,44 @@ describe('HW Time single-equipment run query', () => {
     expect(response.outcome).toBe('forbidden');
   });
 });
+
+describe('HW Time exact compared-equipment run query', () => {
+  const selection = EQUIPMENT.filter(item => item.site === 'MEM' && item.room === 'PHOTO').slice(0, 2).map(item => item.equipmentId);
+  const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump', equipmentIds: selection };
+  const applied = { selection, from: '2026-09-25T00:00:00', to: '2026-09-28T00:00:00' };
+
+  it('serves each canonical selected equipment without expanding the population', async () => {
+    const runs = await data<HwTimeRuns>('hwTime.runs', params, applied);
+    expect([...new Set(runs.daily.map(point => point.equipmentId))]).toEqual(selection);
+    expect(runs.bounds.map(bound => bound.equipmentId)).toEqual(selection);
+  });
+
+  it('rejects an equipment list that does not match Selection', async () => {
+    expect((await query('hwTime.runs', { ...params, equipmentIds: selection.slice(0, 1) }, applied)).outcome).toBe('error');
+  });
+
+  const etch = EQUIPMENT.find(item => item.site === 'MEM' && item.room === 'ETCH')!.equipmentId;
+  const mixed = [selection[0]!, etch];
+
+  it('rejects a same-count equipment list with different IDs from Selection', async () => {
+    expect((await query('hwTime.runs', { ...params, equipmentIds: mixed }, applied)).outcome).toBe('error');
+  });
+
+  it('returns only the requested equipment that passes the process filter', async () => {
+    const runs = await data<HwTimeRuns>('hwTime.runs', { ...params, equipmentIds: mixed }, { ...applied, selection: mixed, roomNames: ['PHOTO'] });
+    expect([...new Set(runs.daily.map(point => point.equipmentId))]).toEqual([selection[0]]);
+    expect(runs.bounds.map(bound => bound.equipmentId)).toEqual([selection[0]]);
+  });
+
+  it('returns empty when the process filter excludes all requested equipment', async () => {
+    const response = await query('hwTime.runs', params, { ...applied, roomNames: ['ETCH'] });
+    expect(response).toMatchObject({ outcome: 'empty', data: { daily: [], bounds: [], points: [], total: 0, shown: 0 } });
+  });
+
+  it('rejects a requested equipment outside Scope even when Selection matches', async () => {
+    const outside = EQUIPMENT.find(item => item.site === 'FDRY')!.equipmentId;
+    const requested = [selection[0]!, outside];
+    const response = await query('hwTime.runs', { ...params, equipmentIds: requested }, { ...applied, selection: requested });
+    expect(response.outcome).toBe('forbidden');
+  });
+});

@@ -15,13 +15,13 @@ type Values = Readonly<Record<string, unknown>>;
 
 /** Bound source inputs and the receiver's optional header actions. */
 export type LentPanelProps = {
-  inputs: { context: Readonly<GlobalContext>; page: Values };
+  inputs: { context: Readonly<GlobalContext>; page: Values; display?: Values };
   actions?: ReactNode;
 };
 
 export type LentPanelRegistration = {
   component: ComponentType<LentPanelProps>;
-  /** Returns the missing or unsupported input key, or undefined when the source accepts the inputs. */
+  /** Returns the missing or unsupported query input key, or undefined when the source accepts the inputs. */
   accepts?: (inputs: LentPanelProps['inputs']) => string | undefined;
 };
 
@@ -47,20 +47,42 @@ function deepFreeze<T>(value: T): T {
 
 type Inputs = LentPanelProps['inputs'];
 
-/**
- * A detached, frozen copy for source code, so a source cannot reach the receiver's state. A page value that cannot be
- * copied or frozen (a symbol, a function, a typed array) is reported as that key's missing input instead of throwing.
- */
-function sourceCopy(inputs: Inputs): Inputs | { missing: string } {
-  const page: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(inputs.page)) {
+function copyPageValues(values: Values): { values: Values } | { missing: string } {
+  const entries: [string, unknown][] = [];
+  for (const [key, value] of Object.entries(values)) {
     try {
-      page[key] = deepFreeze(structuredClone(value));
+      entries.push([key, deepFreeze(structuredClone(value))]);
     } catch {
+      // An unreadable query input leaves its page key missing.
       return { missing: key };
     }
   }
-  return Object.freeze({ context: deepFreeze(structuredClone(inputs.context)), page: Object.freeze(page) });
+  return { values: Object.freeze(Object.fromEntries(entries)) };
+}
+
+/** A detached, frozen copy for source code, so a source cannot reach the receiver's state. */
+function sourceCopy(inputs: Inputs): Inputs | { missing: string } {
+  const page = copyPageValues(inputs.page);
+  if ('missing' in page) return page;
+  const copied: Inputs = { context: deepFreeze(structuredClone(inputs.context)), page: page.values };
+  // Binding resolution already validated, detached and froze the entire display tree.
+  if (inputs.display !== undefined) copied.display = inputs.display;
+  return Object.freeze(copied);
+}
+
+/** Display trees are validated JSON (acyclic, depth 8), so they compare by own keys; a data field named `constructor` is plain data. */
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(key => Object.hasOwn(right, key) && jsonEqual(left[key], right[key]));
+}
+
+function sameInputs(held: Inputs, next: Inputs): boolean {
+  const query = { context: held.context, page: held.page };
+  return replaceEqualDeep(query, { context: next.context, page: next.page }) === query && jsonEqual(held.display, next.display);
 }
 
 function useResolvedLending(source: Source, values: Values | undefined) {
@@ -85,7 +107,7 @@ function useResolvedLending(source: Source, values: Values | undefined) {
   const checked = sourceCopy(resolved.inputs);
   if ('missing' in checked) return missingLentPanelInput(checked.missing);
   const missing = registration.accepts?.(checked);
-  if (missing !== undefined) return missingLentPanelInput(missing);
+  if (missing !== undefined && !binding.source.display?.some(input => input.key === missing)) return missingLentPanelInput(missing);
   const inputs = sourceCopy(resolved.inputs);
   if ('missing' in inputs) return missingLentPanelInput(inputs.missing);
   return { ...resolved, inputs, requestContext, Component: registration.component, source: binding.source, receiverPlatform };
@@ -109,12 +131,13 @@ function LentPanelSource({ resolved, actions }: {
   actions?: ReactNode;
 }) {
   const { Component, receiverPlatform, requestContext, source } = resolved;
-  const inputs = useStable(resolved.inputs, (held, next) => replaceEqualDeep(held, next) === held);
+  const inputs = useStable(resolved.inputs, sameInputs);
+  const queryInputs = useStable({ context: inputs.context, page: inputs.page }, (held, next) => replaceEqualDeep(held, next) === held);
   const { adapter, route, session, revision, queryPolicy } = receiverPlatform;
   const currentRevision = useContext(AppContext)?.internal.currentRevision;
   const instanceId = useId();
   const queryReady = queryPolicy.ready && !queryPolicy.idle && !queryPolicy.drillGap;
-  const binding = useStable({ source, inputs, adapter, route, session, revision, queryReady }, shallowEqual);
+  const binding = useStable({ source, queryInputs, adapter, route, session, revision, queryReady }, shallowEqual);
   const [held, setHeld] = useState(() => ({ binding, generation: 0, controller: new AbortController() }));
   let lifetime = held;
   if (held.binding !== binding) {
@@ -134,7 +157,7 @@ function LentPanelSource({ resolved, actions }: {
     </LentPanelPlatformContext.Provider>
   );
   return <LentPanelQueryContext.Provider value={query}>
-    <LentPanelPlatformContext.Provider value={lentPanelPlatform(receiverPlatform, inputs)}>
+    <LentPanelPlatformContext.Provider value={lentPanelPlatform(receiverPlatform, queryInputs)}>
       <Suspense fallback={null}>
         <Component inputs={inputs} actions={headerActions} />
       </Suspense>
