@@ -216,7 +216,7 @@ Breakdown Table
 Data Trust
 ```
 
-Analysis의 기본은 공통 Apply 조회 막대와 저장된 뷰다. 즉시 실행을 쓰는 화면은 manifest에서 `query: { mode: 'live' }`로 명시적으로 opt-out한다. Apply만 쓸 화면은 `features.savedView: false`를 선언한다([커널 §21](kernel.md#21-saved-view-contract), [ADR-0170](../adr/0170-analysis-apply-and-saved-view-defaults.md)).
+공통 조회 막대가 이 배치에 들어갈 때는 [Kernel §5의 조회 선언](kernel.md#5-menu-extension-contract)과 [§21의 저장된 뷰 계약](kernel.md#21-saved-view-contract)을 따른다([ADR-0170](../adr/0170-analysis-apply-and-saved-view-defaults.md)).
 
 **접힌 조회 막대의 둘째 줄 (Decided, #1941, [ADR-0160](../adr/0160-folded-analysis-workspace-query-bar.md)).** 본 화면의 `PlatformPage layout="fill"`·`pageType: 'analysis'`에서 apply 조회 막대 슬롯이 있고 관문 없이 조회 막대가 접혔으면, 막대 영역 안에 고정 둘째 줄을 둔다. 첫 행의 높이·패딩은 그대로이고, 둘째 줄은 같은 좌우 inset과 아래 `pb-2`를 가진 독립 행이다. flex wrapping이나 창 너비로 행을 만들지 않는다. 1440×900에서 첫 차트의 위쪽 목표는 y ≤ 270이다(승인 시안 262).
 
@@ -279,7 +279,7 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 | Archetype | layout 부품 | 검증 소비자 (메뉴 경로 또는 화면) | 상태 |
 | --- | --- | --- | --- |
 | Overview (12.1) | 없음. 뼈대만 | 공통 layout 없이 화면을 직접 배치한다. 구성 화면: `/home`, `/analytics/productivity`, `/tools/eqv-topview`(`/log/my-queue`는 아직 화면이 없다) | Decided: 승격하지 않음, 이유는 아래 «Overview·Catalog» 문단 ([#1684](https://github.com/hjung3113/analytics-platform/issues/1684)) |
-| Analysis Workspace (12.2) | `AnalysisLayout`, 기본 Apply·저장된 뷰 | `menus/clas/clas`의 `OperationTime`. 다른 analysis 메뉴는 `pageType`만 선언하고 자체 배치를 쓴다 | Decided |
+| Analysis Workspace (12.2) | `AnalysisLayout` | `menus/clas/clas`의 `OperationTime`. 다른 analysis 메뉴는 `pageType`만 선언하고 자체 배치를 쓴다 | Decided |
 | Management (12.3) | `ManagementLayout` | `EquipmentMaster`, `AccessDirectory`, `AuditTrail`, `ImprovementItems`, `RulesScreen`, `CatalogManagement`, `ItemList`, `ModelExplore` | Decided |
 | Catalog (12.4) | 없음. 뼈대만 | 공통 layout 없이 화면을 직접 배치한다. 구성 화면: `/metrics`, `/metrics/:metricId`, `/admin/registry`, `/operations/systems`, `/tools/eqv-studio`, `/log/rules`·`/log/rules/:ruleSetKey/:ruleKey`(`ManagementLayout`을 쓴다. `/log/recent-models`는 아직 화면이 없다) | Decided: 승격하지 않음, 이유는 아래 «Overview·Catalog» 문단 ([#1684](https://github.com/hjung3113/analytics-platform/issues/1684)) |
 | Workflow (12.5) | 없음. 뼈대만 | 없음. 선언한 메뉴가 없고, VOC 메뉴도 `management`다 | Deferred: 검증 [#1685](https://github.com/hjung3113/analytics-platform/issues/1685) |
