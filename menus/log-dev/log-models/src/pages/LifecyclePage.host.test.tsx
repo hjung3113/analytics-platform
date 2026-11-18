@@ -358,6 +358,7 @@ describe('lifecycle interactions with the real Kernel host', () => {
       click(element('[role="radio"][value="approved"]'));
       change('textarea[id^="gate-reason"]', '검토 완료');
       click(button('Gate 결정 기록'));
+      click(button('기록', element('[role="alertdialog"]')));
     } else {
       activateRoundTab('설정·이력');
       const title = kind === 'close' ? 'Round 종료' : '요청 등록';
@@ -520,6 +521,7 @@ describe('review-final regressions (#1809)', () => {
     click(element('[role="radio"][value="approved"]'));
     change('textarea[id^="gate-reason"]', '합성 검토 완료');
     click(button('Gate 결정 기록'));
+    click(button('기록', element('[role="alertdialog"]')));
     await waitFor(() => expect(t.sent).toHaveLength(1));
     await act(async () => { t.sent[0]!.resolve({ outcome, data: null, fieldErrors: [], version: null, replayed: false, correlationId: 'gate-retained' }); await settleQueries(); });
     activateRoundTab('설정·이력');
@@ -541,6 +543,7 @@ describe('review-final regressions (#1809)', () => {
     click(element('[role="radio"][value="approved"]'));
     change('textarea[id^="gate-reason"]', '합성 검토 완료');
     click(button('Gate 결정 기록'));
+    click(button('기록', element('[role="alertdialog"]')));
     await waitFor(() => expect(t.sent).toHaveLength(1));
     click(element('button[aria-label="R-002 상세 열기"]'));
     await waitFor(() => expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull());

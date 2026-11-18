@@ -6,7 +6,7 @@ import { RoundFrame } from '../RoundScreen';
 import { fakeUi } from './presentation';
 
 const project = { id: 'project', model: { code: 'SYN-300' }, softwareLabel: '3.2.1' } as Project;
-const attempt: Attempt = { id: 'attempt', attemptNo: 2, outcome: 'succeeded', verdict: 'fail', workerActorId: 'actor', manifestMatches: true, counts: { FAIL: 4, NOT_CHECKED: 5, PASS: 21 }, requiredUnchecked: 5, ruleCount: 30, startedAt: '', endedAt: '', ruleSetRevision: null, inputManifestDigest: '' };
+const attempt: Attempt = { id: 'attempt', attemptNo: 2, outcome: 'succeeded', verdict: 'fail', workerActorId: 'actor', manifestMatches: true, counts: { ERROR: 1, FAIL: 4, PASS: 25 }, requiredUnchecked: 1, ruleCount: 30, startedAt: '', endedAt: '', ruleSetRevision: null, inputManifestDigest: '' };
 const request = { id: 'request', roundId: 'round', state: 'failed', attempts: [attempt, { ...attempt, id: 'latest', attemptNo: 3, outcome: 'failed', verdict: null }] } as RequestDetail;
 const rule: RuleResult = { id: 'rule-result', ruleId: 'SYN-R001', result: 'FAIL', required: true, expected: '종료 이벤트', observed: '종료 이벤트 없음', evidence: [], hasExcerpt: false };
 const round: RoundDetail = { id: 'round', projectId: 'project', seq: 3, stage: 'alpha', status: 'open', version: '1', createdAt: '', specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'synthetic', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '1', reasons: [], decisions: { approved: { allowed: false, reasons: ['verdict_not_pass'] }, rejected: { allowed: true, reasons: [] }, exception: { allowed: true, reasons: [] } }, basis: { decisiveAttemptId: 'attempt', decisiveVerdict: 'fail', attempts: [{ attemptId: 'attempt', requestId: 'request', attemptNo: 2, verdict: 'fail' }] } } };
@@ -91,7 +91,7 @@ it('keeps opinion scale loading and undeclared messages in the controls', () => 
 });
 it('keeps required unchecked warning visible beside inline metadata', () => {
   setup();
-  expect(screen.getByText('필수 미검증 5건')).toHaveClass('text-text-warning-label');
+  expect(screen.getByText('필수 오류·미검증·건너뜀 1건')).toHaveClass('text-text-warning-label');
   expect(screen.getByLabelText('선택 시도 서버 판정').closest('dl')).toBeTruthy();
 });
 

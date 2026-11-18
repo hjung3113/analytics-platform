@@ -93,6 +93,12 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     await screen.findByRole('button', { name: 'source-b:1 상세' });
     expect(screen.getByRole('heading', { name: '레코드 상세' })).toBeTruthy();
   });
+  it('does not present verdict placeholders when the source has no verdict data', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
+    await screen.findByRole('heading', { name: '원문 줄' });
+    for (const placeholder of ['판정 축', '미검증', '규칙 결과 연결 준비 중', '없음 · 미저장']) expect(screen.queryByText(placeholder)).toBeNull();
+  });
   it('shows an export range and limit while keeping the unsupported transport disabled with a reason', async () => {
     mount(); await screen.findByRole('table', { name: '원본 이벤트 목록' });
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
@@ -180,6 +186,61 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     fireEvent.click(await within(dialog).findByRole('button', { name: '같은 요청 다시 시도' }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
     expect(write.mock.calls[1]![0].idempotencyKey).toBe(write.mock.calls[0]![0].idempotencyKey);
+  });
+  it('associates local title, owner and numbered file-line errors with their fields', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: '조사 만들기' }));
+    const dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+    fireEvent.change(within(dialog).getByLabelText('Source 소유자'), { target: { value: 'bad\u0000owner' } });
+    fireEvent.change(within(dialog).getByLabelText(/파일 참조/), { target: { value: `source-a\tbad\nsource-a\tbad` } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '조사 만들기' }));
+    const title = within(dialog).getByLabelText('조사 이름');
+    const owner = within(dialog).getByLabelText('Source 소유자');
+    const files = within(dialog).getByLabelText(/파일 참조/);
+    expect(title.getAttribute('aria-invalid')).toBe('true');
+    expect(title.getAttribute('aria-describedby')).toBe('explorer-title-error');
+    expect(within(dialog).getByText('조사 이름을 입력하세요.')).toBeTruthy();
+    expect(owner.getAttribute('aria-invalid')).toBe('true');
+    expect(owner.getAttribute('aria-describedby')).toBe('explorer-owner-error');
+    expect(within(dialog).getByText('제어 문자를 포함할 수 없습니다.')).toBeTruthy();
+    expect(files.getAttribute('aria-describedby')).toContain('explorer-files-line-1-sha256-error');
+    expect(files.getAttribute('aria-describedby')).toContain('explorer-files-line-2-fileRef-error');
+    expect(within(dialog).getByText('1행 SHA-256: 소문자 16진수 64자리로 입력하세요.')).toBeTruthy();
+    expect(within(dialog).getByText('2행 파일 참조: 중복된 파일 참조입니다.')).toBeTruthy();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it('maps server sample fieldErrors back to the owner and numbered file lines', async () => {
+    write.mockResolvedValueOnce({ outcome: 'invalid', data: null, version: null, fieldErrors: [
+      { path: ['sampleSet', 'sourceOwner'], code: 'malformed' },
+      { path: ['sampleSet', 'files', '1', 'fileRef'], code: 'duplicate' },
+      { path: ['sampleSet', 'files', '1', 'sha256'], code: 'malformed' },
+    ], replayed: false, correlationId: 'field-errors' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: '조사 만들기' }));
+    const dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+    fireEvent.change(within(dialog).getByLabelText('조사 이름'), { target: { value: '새 조사' } });
+    fireEvent.change(within(dialog).getByLabelText('Source 소유자'), { target: { value: 'synthetic-absent' } });
+    fireEvent.change(within(dialog).getByLabelText(/파일 참조/), { target: { value: `source-a\t${'a'.repeat(64)}\nsource-b\t${'b'.repeat(64)}` } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '조사 만들기' }));
+    await waitFor(() => expect(within(dialog).getByText('형식을 확인해 주세요.')).toBeTruthy());
+    const files = within(dialog).getByLabelText(/파일 참조/);
+    expect(files.getAttribute('aria-describedby')).toContain('explorer-files-line-2-fileRef-error');
+    expect(files.getAttribute('aria-describedby')).toContain('explorer-files-line-2-sha256-error');
+    expect(within(dialog).getByText('2행 파일 참조: 중복된 파일 참조입니다.')).toBeTruthy();
+    expect(within(dialog).getByText('2행 SHA-256: 소문자 16진수 64자리로 입력하세요.')).toBeTruthy();
+  });
+  it('accepts an unknown but well-formed source owner without a catalog lookup', async () => {
+    write.mockResolvedValueOnce({ outcome: 'ok', data: { id: '14730000-0000-4000-8000-000000000009', version: '1' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'created' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: '조사 만들기' }));
+    const dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+    fireEvent.change(within(dialog).getByLabelText('조사 이름'), { target: { value: '새 조사' } });
+    fireEvent.change(within(dialog).getByLabelText('Source 소유자'), { target: { value: 'synthetic-absent' } });
+    fireEvent.change(within(dialog).getByLabelText(/파일 참조/), { target: { value: `source-a\t${'a'.repeat(64)}` } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '조사 만들기' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]![0].input).toMatchObject({ sampleSet: { sourceOwner: 'synthetic-absent' } });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '조사 만들기' })).toBeNull());
   });
 });
 
@@ -635,7 +696,7 @@ it('resets local Source filters when the host changes Round (#2056)', async () =
     const [round, setRound] = useState('14750000-0000-4000-8000-000000000001');
     return <><button onClick={() => setRound('14750000-0000-4000-8000-000000000002')}>다음 Round</button><RoundSourceView roundId={round} sampleSet={set} /></>;
   }
-  mount(<SwitchingRound />, ['sourceTab', 'sourceFocus', 'sourceDrawer']);
+  mount(<SwitchingRound />, ['sourceTab', 'sourceFocus', 'sourceDrawer', 'sourceLogType', 'sourceModule', 'sourceEvent', 'sourceContextKey', 'sourceContextValue', 'sourceText']);
   fireEvent.click(await screen.findByRole('button', { name: '조회 조건 펼치기' }));
   fireEvent.change(screen.getByLabelText('Module'), { target: { value: 'module-a' } });
   fireEvent.click(screen.getByRole('button', { name: '적용' }));
@@ -643,6 +704,63 @@ it('resets local Source filters when the host changes Round (#2056)', async () =
   fireEvent.click(screen.getByRole('button', { name: '다음 Round' }));
   await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: {} }));
   expect((screen.getByLabelText('Module') as HTMLInputElement).value).toBe('');
+});
+
+it('applies a filter on Enter, stores it in the URL and restores it after remount', async () => {
+  const mounted = mount();
+  const module = await screen.findByLabelText('Module');
+  fireEvent.change(module, { target: { value: 'module-a' } });
+  fireEvent.keyDown(module, { key: 'Enter' });
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { module: 'module-a' } }));
+  expect(new URLSearchParams(window.location.search).get('module')).toBe('module-a');
+  expect(write).not.toHaveBeenCalled();
+  mounted.unmount();
+  mount();
+  expect((await screen.findByLabelText('Module') as HTMLInputElement).value).toBe('module-a');
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { module: 'module-a' } }));
+});
+
+it('does not apply a composing Enter in a filter field', async () => {
+  mount();
+  const module = await screen.findByLabelText('Module');
+  fireEvent.change(module, { target: { value: 'module-a' } });
+  fireEvent.keyDown(module, { key: 'Enter', isComposing: true });
+  expect(new URLSearchParams(window.location.search).has('module')).toBe(false);
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: {} }));
+  fireEvent.keyDown(module, { key: 'Enter' });
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { module: 'module-a' } }));
+});
+
+it('commits table search text alone and writes its text page key', async () => {
+  mount();
+  fireEvent.change(await screen.findByLabelText('Module'), { target: { value: 'draft-module' } });
+  const search = await screen.findByPlaceholderText('요약 검색');
+  fireEvent.change(search, { target: { value: 'needle' } });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { text: 'needle' } }));
+  const params = new URLSearchParams(window.location.search);
+  expect(params.get('text')).toBe('needle');
+  expect(params.has('module')).toBe(false);
+});
+
+it('restores a single Context URL key into draft only and keeps apply disabled', async () => {
+  window.history.replaceState(null, '', '/log/explorer?v=1&contextKey=job');
+  mount();
+  expect((await screen.findByLabelText('Context 키') as HTMLInputElement).value).toBe('job');
+  expect((screen.getByLabelText('Context 값') as HTMLInputElement).value).toBe('');
+  expect(screen.getByRole('alert').textContent).toContain('Context 키와 값을 함께 입력하세요.');
+  expect((screen.getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
+  await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: {} }));
+  expect(new URLSearchParams(window.location.search).get('contextKey')).toBe('job');
+});
+
+it('rejects an overlong filter page key without rewriting the URL or reading records', async () => {
+  const tooLong = 'm'.repeat(101);
+  window.history.replaceState(null, '', `/log/explorer?v=1&module=${tooLong}`);
+  mount();
+  expect(await screen.findByRole('alert')).toBeTruthy();
+  expect(read.mock.calls.some(([r]) => r.endpoint === 'logExplorer.records')).toBe(false);
+  expect(new URLSearchParams(window.location.search).get('module')).toBe(tooLong);
 });
 
 it('reports an unknown basket write as unconfirmed rather than failed (#2056)', async () => {

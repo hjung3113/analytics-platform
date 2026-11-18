@@ -9,7 +9,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await expect(page.getByRole('heading', { name: '로그 탐색', exact: true })).toBeVisible();
     await expandPageHead(page);
     await expect(page.getByText('합성 데이터', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: '조회 조건 펼치기', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: '조회 조건 접기', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('button', { name: 'source-b:1 상세', exact: true }).click();
     await expect(page.getByRole('heading', { name: '원문 줄', exact: true })).toBeVisible();
     await expect(page.getByText(/payload="<script>synthetic<\/script>"/).first()).toBeVisible();

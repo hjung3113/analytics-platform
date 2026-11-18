@@ -60,7 +60,43 @@ describe('log lifecycle screens', () => {
     await user.click(screen.getByRole('radio', { name: '승인' }));
     await user.type(screen.getByLabelText('결정 사유 (필수)'), '검토 완료');
     await user.click(screen.getByRole('button', { name: /결정 기록/ }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '기록' }));
     expect(run).toHaveBeenCalledWith({ roundId: ID, targetStage: 'beta', decision: 'approved', reason: '검토 완료' }, { expectedVersion: '7' });
+  });
+  it('requires a confirm click before a Gate write and states exception details', async () => {
+    const user = userEvent.setup(); render(<GatePanel {...props()} round={gate(['verdict_not_pass'])} />);
+    await user.click(screen.getByRole('radio', { name: '예외' }));
+    await user.type(screen.getByLabelText('결정 사유 (필수)'), '일정상 예외');
+    await user.type(screen.getByLabelText('예외 범위 (필수)'), '이 Round에 한함');
+    const riskActor = screen.getByLabelText('위험 수용자 Actor ID (필수)');
+    fireEvent.keyDown(riskActor, { key: 'Enter', isComposing: true });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(run).not.toHaveBeenCalled();
+    await user.click(riskActor);
+    await user.keyboard('{Enter}');
+    let confirmation = await screen.findByRole('alertdialog');
+    expect(confirmation).toHaveTextContent('예외');
+    expect(confirmation).toHaveTextContent('일정상 예외');
+    expect(confirmation).toHaveTextContent('이 Round에 한함');
+    expect(confirmation).toHaveTextContent(ID);
+    await user.click(within(confirmation).getByRole('button', { name: '취소' }));
+    expect(run).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Gate 결정 기록' }));
+    confirmation = screen.getByRole('alertdialog');
+    await user.click(within(confirmation).getByRole('button', { name: '기록' }));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith({ roundId: ID, targetStage: 'beta', decision: 'exception', reason: '일정상 예외', exception: { riskAcceptedBy: ID, scope: '이 Round에 한함' } }, { expectedVersion: '7' });
+  });
+  it('labels the selected attempt only when it differs from the Gate decisive attempt', () => {
+    const sourceRound = gate();
+    const round = { ...sourceRound, gateAvailability: { ...sourceRound.gateAvailability, basis: { decisiveAttemptId: 'decisive', attempts: [{ attemptId: 'decisive', requestId: 'request', attemptNo: 1 }] } } };
+    const decisiveAttempt = { id: 'decisive', attemptNo: 1, outcome: 'succeeded', workerActorId: ID, verdict: 'fail', manifestMatches: true, counts: { FAIL: 1, NOT_CHECKED: 2 }, requiredUnchecked: 0, ruleCount: 3, startedAt: '', endedAt: '', ruleSetRevision: null, inputManifestDigest: '' };
+    const detail: RequestDetail = { id: 'request', roundId: ID, roundSeq: 3, projectId: ID, modelId: ID, modelCode: 'ETCH-300', softwareLabel: null, priority: 1, immediate: false, state: 'failed', attemptCount: 1, maxAttempts: 3, leaseExpiresAt: null, lastHeartbeatAt: null, requestedBy: { id: ID, displayName: 'Worker' }, createdAt: '', endedAt: '', latestVerdict: 'fail', version: '1', attempts: [decisiveAttempt], cancelReason: null };
+    const p = props({ requestDetail: detail, ruleResults: { rows: [], total: 0 } });
+    const view = render(<GatePanel {...p} round={round} selectedAttempt={{ id: 'decisive', attemptNo: 1 }} />);
+    expect(screen.queryByText(/선택한 시도 #/)).toBeNull();
+    view.rerender(<GatePanel {...p} round={round} selectedAttempt={{ id: 'selected', attemptNo: 2 }} />);
+    expect(screen.getByText(/완료 시도 #1 \(선택한 시도 #2와 다름\)/)).toBeVisible();
   });
   it('fixes the Round when request registration starts there', async () => {
     render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} fixedRound={{ id: ID, seq: 3 }} register />);
@@ -185,6 +221,7 @@ describe('mutation and recovery boundaries', () => {
     expect(screen.getByRole('button', { name: /결정 기록/ })).toBeDisabled();
     await user.type(screen.getByLabelText('예외 범위 (필수)'), '이 Round에 한함');
     await user.click(screen.getByRole('button', { name: /결정 기록/ }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '기록' }));
     expect(run).toHaveBeenCalledWith({ roundId: ID, targetStage: 'beta', decision: 'exception', reason: '일정상 예외', exception: { riskAcceptedBy: ID, scope: '이 Round에 한함' } }, { expectedVersion: '7' });
   });
   it('opens a Round with the explicit sample order and no client spec pin or UI row keys', async () => {
