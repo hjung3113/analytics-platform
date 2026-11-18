@@ -50,6 +50,8 @@ import {
   OPEN_PERMISSION_REQUEST_STATUSES,
   PERMISSION_BATCH_MAX_ITEMS,
   grantOpensScreensFor,
+  ROLE_LEVEL_VALUES,
+  type RoleLevel,
   isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 import {
@@ -131,6 +133,8 @@ function useManagedSystemsQuery() {
 function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: string; groupLink?: (id: string) => string }): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const roleLevel = useMeBridge().data?.actor.role_level;
+  const isRoleLevel = (value: string | undefined): value is RoleLevel =>
+    (ROLE_LEVEL_VALUES as readonly (string | undefined)[]).includes(value);
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
   const [targetKind, setTargetKind] = React.useState<TargetKind>('capability');
@@ -146,7 +150,7 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
   const isScope = scopeKind !== null;
   const [capabilities, setCapabilities] = React.useState<string[]>([]);
   const requiresScreenRole = (capability: string) =>
-    roleLevel === 'user' && !grantOpensScreensFor(capability, roleLevel);
+    isRoleLevel(roleLevel) && !grantOpensScreensFor(capability, roleLevel);
   const showFindingRoleNote = !isScope && capabilities.some(requiresScreenRole);
   const [origin, setOrigin] = React.useState<{ id: string; capabilities: string[] } | null>(null);
   const [selectionVersion, setSelectionVersion] = React.useState(0);

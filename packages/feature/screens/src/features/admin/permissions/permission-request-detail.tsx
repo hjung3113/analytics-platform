@@ -241,8 +241,7 @@ function PermissionMemberRiskReview({ request, managedSystemNames }: {
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const { role_level: requesterRole } = request.requester;
-  const roleRequired = requesterRole === 'user' &&
-    !grantOpensScreensFor(request.requested_capability, requesterRole);
+  const roleRequired = !grantOpensScreensFor(request.requested_capability, requesterRole);
   const accessDecision = request.effective_access.decision;
   const effectiveDecision = accessDecision.allow
     ? `${copy.allowed} · ${
