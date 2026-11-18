@@ -1,20 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useReducer, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import type { ActionResult } from '@ap/contracts';
-import { useMenuAction, usePlatform } from '@ap/kernel';
+import { useMenuAction, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
 import { DetailDrawer, StateMessage } from '@ap/components';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, Textarea } from '@ap/ui';
 import { usePageKeys } from './pageKeys';
-import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, parsedEndpoint, windowEndpoint, type HandoffResult, type Investigation, type SampleSet, type SourceAnswer } from '../endpoints';
+import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, investigationDetailEndpoint, investigationsEndpoint, parsedEndpoint, windowEndpoint, type HandoffResult, type Investigation, type InvestigationSummary, type SampleSet, type SourceAnswer } from '../endpoints';
 import { evidenceFor, exportRange, sourceReadable } from './explorerModel';
 import { KnowledgeHandoffDialog, knowledgeHandoffBlock } from './KnowledgeHandoffDialog';
 import { useSourceRead } from './useSourceRead';
+import { EXPLORER_MESSAGES } from '../messages';
 
 const SAMPLE_SET_MAX_FILES = 1000;
 const SAMPLE_TEXT_MAX_LENGTH = 200;
 const SAMPLE_OWNER_MAX_LENGTH = SAMPLE_TEXT_MAX_LENGTH;
 const SAMPLE_FILE_REF_MAX_LENGTH = 1024;
 const SAMPLE_LINE_OFFSET = 1;
+const INVESTIGATION_LIST_PAGE_SIZE = 200;
+const RECENT_SOURCE_LIMIT = 5;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const SOURCE_REASON: Record<string, string> = { source_not_connected: 'Source가 연결되지 않았습니다.', source_missing: '파일을 찾을 수 없습니다.', capability_not_held: '원본 조회 권한이 없습니다.', source_owner_not_granted: '이 Source의 접근 권한이 없습니다.', source_denied: 'Source 접근 권한이 철회되었습니다.', parser_not_connected: 'Parser가 연결되지 않았습니다.', periods_not_supported: '기간 행 미지원', capability_missing: '이 조회 미지원' };
 export function SourceNotice({ answer }: { answer: SourceAnswer | null | undefined }) {
@@ -86,7 +89,101 @@ export function BasketDrawer({ investigation, onClose, onVersion }: { investigat
     </div>)}<p role="status" className="text-xs text-text-secondary">{notice}</p>
   </div> }]} />;
 }
-export function RecordDrawer({ investigation, set, selection, blocked, embedded = false, onDenied, onClose, onVersion }: { onVersion?: (version: string) => void; blocked: boolean; embedded?: boolean; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
+export type RoundStartLocation = 'toolbar' | 'drawer';
+type RoundStartRetry = { run: () => Promise<ActionResult<{ id: string; version: string }>>; focus?: string };
+export type RoundStartController = {
+  pending: boolean;
+  retrying: boolean;
+  reason: string | null;
+  notice: string;
+  noticeLocation: RoundStartLocation | null;
+  start: (focus: string | undefined, location: RoundStartLocation) => void;
+};
+
+export function useRoundInvestigationStart(investigation: Investigation): RoundStartController {
+  const create = useMenuAction(investigationCreate);
+  const { can, navigate, linkTo } = usePlatform();
+  const t = useMessages(EXPLORER_MESSAGES);
+  const [again, setAgain] = useState<RoundStartRetry | null>(null);
+  const [notice, setNotice] = useState('');
+  const [noticeLocation, setNoticeLocation] = useState<RoundStartLocation | null>(null);
+  const allowed = can(investigationCreate.permission);
+  let reason: string | null = null;
+  if (!allowed) reason = t('roundInvestigationPermission');
+  else if (!investigation.roundId) reason = t('roundInvestigationMissing');
+  const pending = create.pending;
+
+  function settle(answer: ActionResult<{ id: string; version: string }>, focus: string | undefined, location: RoundStartLocation) {
+    if (answer.outcome === 'ok' && answer.data?.id) {
+      setAgain(null);
+      setNotice('');
+      setNoticeLocation(null);
+      const page = focus ? { focus } : undefined;
+      navigate(linkTo('log-explorer-view', { params: { investigationId: answer.data.id }, ...(page ? { page } : {}) }));
+      return;
+    }
+    if ((answer.outcome === 'unknown' || answer.outcome === 'error') && answer.retry) {
+      setAgain(() => ({ run: answer.retry!, focus }));
+      const retryMessage = answer.outcome === 'unknown' ? 'roundInvestigationUnknown' : 'roundInvestigationError';
+      setNotice(t(retryMessage));
+      setNoticeLocation(location);
+      return;
+    }
+    setAgain(null);
+    const roundMissing = answer.fieldErrors.some(field => field.path[0] === 'roundId' && field.code === 'not_found');
+    let message = t('roundInvestigationFailed');
+    if (answer.outcome === 'forbidden' || roundMissing) message = t('roundInvestigationMissing');
+    setNotice(message);
+    setNoticeLocation(location);
+  }
+
+  function fail(location: RoundStartLocation) {
+    setAgain(null);
+    setNotice(t('roundInvestigationFailed'));
+    setNoticeLocation(location);
+  }
+
+  function start(focus: string | undefined, location: RoundStartLocation) {
+    if (pending || reason) return;
+    setNotice('');
+    setNoticeLocation(null);
+    if (again) {
+      const retry = again;
+      void retry.run().then(answer => settle(answer, retry.focus, location)).catch(() => fail(location));
+      return;
+    }
+    const firstFile = investigation.sampleSet?.files.slice().sort((a, b) => a.order - b.order)[0]?.fileRef;
+    let title = firstFile ? t('roundInvestigationTitle', { fileRef: firstFile }) : t('roundInvestigationTitleFallback');
+    if (firstFile && [...title].length > SAMPLE_TEXT_MAX_LENGTH) {
+      const prefix = t('roundInvestigationTitle', { fileRef: '' });
+      const available = SAMPLE_TEXT_MAX_LENGTH - [...prefix].length - 1;
+      const shortenedFile = [...firstFile].slice(0, available).join('') + '…';
+      title = t('roundInvestigationTitle', { fileRef: shortenedFile });
+    }
+    void create.run({ title, origin: 'round', roundId: investigation.roundId! }).then(answer => settle(answer, focus, location)).catch(() => fail(location));
+  }
+
+  return { pending, retrying: again !== null, reason, notice, noticeLocation, start };
+}
+
+export function RoundStartButton({ action, location, focus }: { action: RoundStartController; location: RoundStartLocation; focus?: string }) {
+  const t = useMessages(EXPLORER_MESSAGES);
+  const id = useId();
+  const reasonId = id + '-reason';
+  const noticeId = id + '-notice';
+  const showNotice = action.notice !== '' && action.noticeLocation === location;
+  const describedBy = [action.reason ? reasonId : '', showNotice ? noticeId : ''].filter(Boolean).join(' ') || undefined;
+  let buttonLabel = t('roundInvestigationStart');
+  if (action.pending) buttonLabel = t('roundInvestigationStarting');
+  else if (action.retrying) buttonLabel = t('roundInvestigationRetry');
+  return <div className="flex flex-col items-start gap-1">
+    <Button variant="secondary" size="toolbar" disabled={action.pending || action.reason !== null} aria-describedby={describedBy} onClick={() => action.start(focus, location)}>{buttonLabel}</Button>
+    {action.reason && <p id={reasonId} className="text-xs text-text-secondary">{action.reason}</p>}
+    {showNotice && <p id={noticeId} role="alert" className="text-xs text-text-danger-label">{action.notice}</p>}
+  </div>;
+}
+
+export function RecordDrawer({ investigation, set, selection, blocked, embedded = false, roundStart, onDenied, onClose, onVersion }: { onVersion?: (version: string) => void; blocked: boolean; embedded?: boolean; roundStart?: RoundStartController; onDenied: () => void; investigation: Investigation; set: SampleSet; selection: { fileRef: string; line: number }; onClose: () => void }) {
   const location = { fileRef: selection.fileRef, line: selection.line }; // the read contracts reject unknown keys such as fileOrder
   const windowRead = useSourceRead(windowEndpoint, { sourceOwner: set.sourceOwner, ...location, before: 3, after: 3, ...(investigation.roundId ? { roundId: investigation.roundId } : {}) });
   const parsedRead = useSourceRead(parsedEndpoint, { sourceOwner: set.sourceOwner, ...location });
@@ -101,8 +198,11 @@ export function RecordDrawer({ investigation, set, selection, blocked, embedded 
   const ref = evidenceFor(set, selection);
   const already = investigation.evidence.some(e => e.ref.fileRef === selection.fileRef && e.ref.line === selection.line);
   const writable = investigation.canInvestigate && investigation.status === 'open' && !!row && !!ref && !already && investigation.evidence.length < 100;
+  const selectedFile = set.files.find(item => item.fileRef === selection.fileRef);
+  const startFocus = selectedFile ? String(selectedFile.order) + ':' + selection.line : undefined;
   return <DetailDrawer title="레코드 상세" subtitle={`${selection.fileRef}:${selection.line}`} onClose={onClose} tabs={[{ id: 'record', label: '레코드 상세', content: <div className="flex flex-col gap-5 break-keep text-xs">
     <section className="flex flex-col gap-2"><h3 className="text-xs font-semibold text-text-secondary">근거 위치</h3><p className="t-mono break-all">{selection.fileRef}:{selection.line}</p><p className="text-text-secondary">파일 해시</p><p className="t-mono break-all">{ref?.fileSha256}</p>
+      {embedded && roundStart && <RoundStartButton action={roundStart} location="drawer" focus={startFocus} />}
       {!embedded && <><Button variant="secondary" size="toolbar" disabled={!writable || add.pending} onClick={() => { if (!ref) return; void add.run({ id: investigation.id, ref }, { expectedVersion: investigation.version }).then(r => { if (r.outcome === 'ok' && r.version) onVersion?.(r.version); setNotice(r.outcome === 'ok' ? '근거 위치를 담았습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 근거 위치 저장 여부를 다시 확인하세요.' : '근거 위치를 담지 못했습니다.'); }).catch(() => undefined); }}>{already ? '담은 근거 위치' : '근거 위치 담기'}</Button>
       {!investigation.canInvestigate && <p>조사 쓰기 권한이 없습니다.</p>}<p role="status">{notice}</p></>}
     </section>
@@ -165,9 +265,48 @@ function sampleFieldErrors(errors: readonly { path: readonly string[]; code: str
   return mapped;
 }
 
+type RecentSourcesState = {
+  identity: string;
+  page: number;
+  rows: InvestigationSummary[];
+  loaded: number;
+  status: 'idle' | 'loading' | 'done' | 'error';
+  processedPage: number | null;
+  responseKey: string | null;
+};
+type RecentSourcesAction =
+  | { type: 'reset'; identity: string }
+  | { type: 'page'; identity: string; page: number; responseKey: string; rows: InvestigationSummary[]; total: number }
+  | { type: 'error'; identity: string; page: number; responseKey: string };
+
+function recentSourcesReducer(state: RecentSourcesState, action: RecentSourcesAction): RecentSourcesState {
+  if (action.type === 'reset') return { identity: action.identity, page: 0, rows: [], loaded: 0, status: 'idle', processedPage: null, responseKey: null };
+  const current = state.identity === action.identity ? state : { identity: action.identity, page: 0, rows: [], loaded: 0, status: 'idle' as const, processedPage: null, responseKey: null };
+  if (current.page !== action.page || (current.processedPage === action.page && current.responseKey === action.responseKey)) return current;
+  if (action.type === 'error') return { ...current, status: 'error', processedPage: action.page, responseKey: action.responseKey };
+  const rowsById = new Map([...current.rows, ...action.rows].map(row => [row.id, row]));
+  const rows = [...rowsById.values()];
+  const standaloneCount = rows.filter(row => row.origin === 'standalone' && row.status === 'open').length;
+  const loaded = current.loaded + action.rows.length;
+  const complete = standaloneCount >= RECENT_SOURCE_LIMIT || loaded >= action.total || action.rows.length === 0;
+  return { ...current, page: complete ? action.page : action.page + 1, rows, loaded, status: complete ? 'done' : 'loading', processedPage: action.page, responseKey: action.responseKey };
+}
+
 export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const create = useMenuAction(investigationCreate);
-  const { can, navigate, linkTo } = usePlatform();
+  const { can, navigate, linkTo, user, revision, scope } = usePlatform();
+  const t = useMessages(EXPLORER_MESSAGES);
+  const recentIdentity = JSON.stringify([user.id, revision, scope.scopeId]);
+  const [recentState, dispatchRecent] = useReducer(recentSourcesReducer, { identity: recentIdentity, page: 0, rows: [], loaded: 0, status: 'idle', processedPage: null, responseKey: null });
+  const recentPage = recentState.identity === recentIdentity ? recentState.page : 0;
+  const recent = useMenuQuery(investigationsEndpoint, { status: 'open', page: recentPage, pageSize: INVESTIGATION_LIST_PAGE_SIZE }, { enabled: open });
+  const recentRows = recentState.identity === recentIdentity ? recentState.rows : [];
+  const recentStatus = recentState.identity === recentIdentity ? recentState.status : 'idle';
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const selectedSource = useMenuQuery(investigationDetailEndpoint, { investigationId: selectedSourceId ?? '' }, { enabled: open && !!selectedSourceId });
+  const [manualOpen, setManualOpen] = useState(false);
+  const [sourceError, setSourceError] = useState('');
+  const prefilledSourceId = useRef<string | null>(null);
   const [title, setTitle] = useState('');
   const [sourceOwner, setOwner] = useState('');
   const [text, setText] = useState('');
@@ -175,16 +314,67 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // An unknown answer is uncertain: the next click resends the same request (same idempotency key), never a new create.
   const [again, setAgain] = useState<null | (() => Promise<ActionResult<{ id: string }>>)>(null);
+  const recentSources = recentRows.filter(row => row.origin === 'standalone' && row.status === 'open')
+    .slice().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, RECENT_SOURCE_LIMIT);
+  const recentLoading = recentStatus === 'idle' || recentStatus === 'loading' || recent.status === 'loading' || recent.status === 'refreshing';
+  const recentError = recentStatus === 'error';
+
+  useEffect(() => {
+    if (!open) {
+      dispatchRecent({ type: 'reset', identity: recentIdentity });
+      return;
+    }
+    if (recent.status !== 'done' || !recent.response) return;
+    const response = recent.response;
+    if (response.outcome === 'ok' && response.data) {
+      dispatchRecent({ type: 'page', identity: recentIdentity, page: recentPage, responseKey: response.correlationId, rows: response.data.rows, total: response.data.total });
+    } else if (response.outcome === 'empty') {
+      dispatchRecent({ type: 'page', identity: recentIdentity, page: recentPage, responseKey: response.correlationId, rows: [], total: 0 });
+    } else {
+      dispatchRecent({ type: 'error', identity: recentIdentity, page: recentPage, responseKey: response.correlationId });
+    }
+  }, [open, recentIdentity, recent.status, recent.response, recentPage]);
+
+  useEffect(() => {
+    if (recentStatus === 'done' && recentSources.length === 0) setManualOpen(true);
+  }, [recentStatus, recentSources.length]);
+
+  useEffect(() => {
+    if (!selectedSourceId || selectedSource.status !== 'done' || prefilledSourceId.current === selectedSourceId) return;
+    prefilledSourceId.current = selectedSourceId;
+    const source = selectedSource.response?.outcome === 'ok' ? selectedSource.response.data : null;
+    if (!source || source.id !== selectedSourceId || source.origin !== 'standalone' || source.status !== 'open' || !source.sampleSet) {
+      setSourceError(t('recentSourceError'));
+      return;
+    }
+    setOwner(source.sampleSet.sourceOwner);
+    setText(source.sampleSet.files.slice().sort((a, b) => a.order - b.order).map(file => file.fileRef + '\t' + file.sha256).join('\n'));
+    setSourceError('');
+    setError('');
+    setFieldErrors({});
+    setAgain(null);
+  }, [selectedSourceId, selectedSource.status, selectedSource.response, t]);
+
+  function chooseRecentSource(id: string) {
+    if (id === selectedSourceId) selectedSource.refetch();
+    prefilledSourceId.current = null;
+    setSelectedSourceId(id);
+    setManualOpen(true);
+    setSourceError('');
+  }
+
   const edit = (set: (value: string) => void) => (value: string) => { set(value); setAgain(null); setError(''); setFieldErrors({}); };
   function settle(r: ActionResult<{ id: string }>) {
-    if (r.outcome === 'ok' && r.data) { setAgain(null); setTitle(''); setOwner(''); setText(''); setError(''); setFieldErrors({}); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
+    if (r.outcome === 'ok' && r.data) { setAgain(null); setTitle(''); setOwner(''); setText(''); setError(''); setFieldErrors({}); setSelectedSourceId(null); setManualOpen(false); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
     if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 만들어졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '조사를 만들지 못했습니다. 같은 요청으로 다시 시도하세요.'); return; }
     setAgain(null);
     const mapped = sampleFieldErrors(r.fieldErrors);
     setFieldErrors(mapped);
+    if (Object.keys(mapped).some(key => key === 'sourceOwner' || key === 'files' || key.startsWith('file:'))) setManualOpen(true);
     setError(Object.keys(mapped).length ? '' : '조사를 만들지 못했습니다. 입력과 권한을 확인하세요.');
   }
   function submit() {
+    setManualOpen(true);
     if (again) { void again().then(settle).catch(() => undefined); return; }
     const lines = text.trim() ? text.trim().split('\n') : [];
     const files = lines.map((line, i) => { const at = line.lastIndexOf('\t'); return { fileRef: at < 0 ? '' : line.slice(0, at).trim(), sha256: at < 0 ? '' : line.slice(at + 1).trim(), order: i + 1 }; });
@@ -218,11 +408,25 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const fileErrorKeys = Object.keys(fieldErrors).filter(key => key.startsWith('file:'));
   const filesDescribedBy = [fieldErrors.files ? 'explorer-files-error' : '', ...fileErrorKeys.map(key => `explorer-files-line-${key.split(':')[1]}-${key.split(':')[2]}-error`)].filter(Boolean).join(' ') || undefined;
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>조사 만들기</DialogTitle><DialogDescription>Source 소유자가 제공한 파일 참조와 SHA-256을 읽을 순서대로 입력하세요. 참조만 저장합니다.</DialogDescription></DialogHeader>
+    <section aria-labelledby="explorer-recent-heading" className="grid gap-2">
+      <h3 id="explorer-recent-heading" className="text-sm font-semibold">{t('recentSources')}</h3>
+      {recentLoading && <p role="status" className="text-xs text-text-secondary">{t('recentSourcesLoading')}</p>}
+      {recentError && <p role="status" className="text-xs text-text-secondary">{t(recentRows.length ? 'recentSourcesPartialError' : 'recentSourcesError')}</p>}
+      {!recentLoading && !recentError && recentSources.length === 0 && <p className="text-xs text-text-secondary">{t('recentSourcesEmpty')}</p>}
+      {recentSources.length > 0 && <ul className="grid gap-1">{recentSources.map(source => <li key={source.id}>
+        <Button type="button" variant={selectedSourceId === source.id ? 'secondary' : 'ghost'} size="sm" onClick={() => chooseRecentSource(source.id)}>{source.title}</Button>
+      </li>)}</ul>}
+      {selectedSourceId && (selectedSource.status === 'loading' || selectedSource.status === 'refreshing') && <p role="status" className="text-xs text-text-secondary">{t('recentSourceLoading')}</p>}
+      {sourceError && <p role="alert" className="text-xs text-text-danger-label">{sourceError}</p>}
+    </section>
     <Label htmlFor="explorer-title">조사 이름</Label><Input id="explorer-title" aria-invalid={!!fieldErrors.title || undefined} aria-describedby={fieldErrors.title ? 'explorer-title-error' : undefined} value={title} onChange={e => edit(setTitle)(e.target.value)} maxLength={SAMPLE_OWNER_MAX_LENGTH} />
     {fieldErrors.title && <p id="explorer-title-error" className="text-xs text-text-danger-label">{fieldErrors.title}</p>}
+    <details open={manualOpen} onToggle={event => setManualOpen(event.currentTarget.open)} className="grid gap-2">
+      <summary className="cursor-pointer text-sm font-medium">{t('directInput')}</summary>
     <Label htmlFor="explorer-owner">Source 소유자</Label><Input id="explorer-owner" aria-invalid={!!fieldErrors.sourceOwner || undefined} aria-describedby={fieldErrors.sourceOwner ? 'explorer-owner-error' : undefined} value={sourceOwner} onChange={e => edit(setOwner)(e.target.value)} maxLength={SAMPLE_OWNER_MAX_LENGTH} />
     {fieldErrors.sourceOwner && <p id="explorer-owner-error" className="text-xs text-text-danger-label">{fieldErrors.sourceOwner}</p>}
     <Label htmlFor="explorer-files">파일 참조 · 탭 · SHA-256 · 한 줄에 한 파일</Label><Textarea id="explorer-files" aria-invalid={!!filesDescribedBy || undefined} aria-describedby={filesDescribedBy} value={text} onChange={e => edit(setText)(e.target.value)} />
+    </details>
     {fieldErrors.files && <p id="explorer-files-error" className="text-xs text-text-danger-label">{fieldErrors.files}</p>}
     {fileErrorKeys.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(key => { const [, line, field] = key.split(':'); return <p key={key} id={`explorer-files-line-${line}-${field}-error`} className="text-xs text-text-danger-label">{line}행 {field === 'fileRef' ? '파일 참조' : 'SHA-256'}: {fieldErrors[key]}</p>; })}
     {error && <p role="alert" className="text-sm">{error}</p>}{!can(investigationCreate.permission) && <p className="text-xs text-text-secondary">조사 쓰기 권한이 없습니다.</p>}

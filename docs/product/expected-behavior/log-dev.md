@@ -27,3 +27,5 @@
 | Source 없는 실서버 | 로그 분석 › 로그 탐색 | 실서버에는 Source 어댑터가 없어 지어낸 결과 없이 지원 안 됨 상태를 보인다 | [ADR-0119](../../adr/0119-log-explorer-source-read-port-and-evidence-refs.md) 결정 2·7 | 화면 점검(실서버) |
 | 합성 표시 | 로그 탐색, mock | 합성 결과에 `합성` 표시가 있다 | ADR-0119 결정 7 | 화면 점검(mock) |
 | 저장된 조사 복원 | 로그 탐색, 조사 열기, 새로고침 | 탭과 선택이 복원된다 | manifest `pageKeys`, §6.4 | 화면 점검(mock) |
+| Round에서 조사 시작 | 표준 로그 개발 › Round › 원본 탭 | 권한이 있으면 «이 Round로 조사 시작»으로 Round 조사를 만든다. 제목은 첫 파일 참조를 담고 제목 한도를 넘으면 줄여 표시한다. 원문 서랍에서 시작하면 같은 파일 순서와 줄로 열린다. 권한이 없으면 버튼이 사유와 함께 막힌다 | #2543b, `investigationCreate`, manifest `focus` | 화면 점검(mock) |
+| 조사 만들기 최근 Source | 로그 탐색 › 조사 만들기 | 본인 소유의 열린 standalone 조사 중 최근 5개를 수정 시각 최신순으로 보여 준다. 선택하면 Source 소유자와 순서 있는 파일 참조·SHA-256을 채우며 편집할 수 있다. 최근 Source가 없으면 직접 입력을 열고, 목록 로딩·실패 중에도 입력할 수 있다 | `investigationsEndpoint`, `investigationDetailEndpoint` | 화면 점검(mock) |

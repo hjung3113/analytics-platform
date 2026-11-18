@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScrollText } from 'lucide-react';
 import { groupId, menuPermission, spaceId, type ApiResponse, type PlatformAdapter } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -12,6 +12,7 @@ import { manifests } from '../index';
 import type { Investigation, SourceRow, SourceState } from '../endpoints';
 import LogExplorer, { InvestigationScreen } from './LogExplorer';
 import { RoundSourceView } from '../view';
+import { SampleDialog } from './ExplorerPanels';
 const id = '14730000-0000-4000-8000-000000000001';
 const set = { sourceOwner: 'synthetic-ok', files: [{ fileRef: 'source-b', order: 1, sha256: 'b'.repeat(64) }] };
 const row: SourceRow = { fileRef: 'source-b', fileOrder: 1, line: 1, text: '<script>private-source</script>', timestamp: '2026-11-08T09:00:01', truncated: false, timeReversal: true, synthetic: true };
@@ -39,11 +40,19 @@ const write = vi.fn<PlatformAdapter['menuAction']>(async req => {
   return { outcome: 'ok', data: { version: '2' }, version: '2', fieldErrors: [], replayed: false, correlationId: 'test' };
 });
 function Slot() { const slot = useDetailPanelSlotHost(); return <aside aria-label="상세" ref={slot.ref} />; }
+function HostFocusProbe() { const { pageParam } = usePlatform(); return <output data-testid="host-focus">{pageParam('focus') ?? ''}</output>; }
 function mount(body?: React.ReactNode, hostKeys: string[] = []) {
   const registry = createRegistry({ permissions: [menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus: hostKeys.length ? manifests.map(m => ({ ...m, pageKeys: [...(m.pageKeys ?? []), ...hostKeys] })) : manifests });
   const session = testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')]);
   const adapter = testAdapter({ session: () => session, menuQuery: read, menuAction: write });
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{body ?? <LogExplorer params={{}} />}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+}
+function mountWithoutInvestigationPermission(body: React.ReactNode, hostKeys: string[] = []) {
+  const menus = hostKeys.length ? manifests.map(manifest => ({ ...manifest, pageKeys: [...(manifest.pageKeys ?? []), ...hostKeys] })) : manifests;
+  const registry = createRegistry({ permissions: [menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus });
+  const session = testSession(['platform:view']);
+  const adapter = testAdapter({ session: () => session, menuQuery: read, menuAction: write });
+  return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{body}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
 }
 beforeEach(() => {
   restore = stubCompactTableGeometry(800);
@@ -241,6 +250,187 @@ describe('confirmed list + right drawer (#1473, synthetic)', () => {
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     expect(write.mock.calls[0]![0].input).toMatchObject({ sampleSet: { sourceOwner: 'synthetic-absent' } });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '조사 만들기' })).toBeNull());
+  });
+});
+
+describe('start a Round investigation from its Source (#2543b)', () => {
+  const roundId = '14750000-0000-4000-8000-000000000001';
+  const createdId = '14730000-0000-4000-8000-000000000009';
+  const view = (sampleSet = set) => mount(<><RoundSourceView roundId={roundId} sampleSet={sampleSet} /><HostFocusProbe /></>, ['sourceTab', 'sourceFocus', 'sourceDrawer']);
+
+  it('creates a Round-origin investigation from the toolbar and disables the button while pending', async () => {
+    type ActionEnvelope = Awaited<ReturnType<PlatformAdapter['menuAction']>>;
+    let resolveWrite: (value: ActionEnvelope) => void = () => undefined;
+    write.mockImplementationOnce(() => new Promise<ActionEnvelope>(resolve => { resolveWrite = resolve; }));
+    view();
+    const start = await screen.findByRole('button', { name: '이 Round로 조사 시작' });
+    fireEvent.click(start);
+    await waitFor(() => expect(start.hasAttribute('disabled')).toBe(true));
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0]![0].input).toEqual({ title: 'Round 조사 · source-b', origin: 'round', roundId });
+    resolveWrite({ outcome: 'ok', data: { id: createdId, version: '1' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'round-created' });
+    await waitFor(() => expect(window.location.pathname).toBe(`/log-dev/log-explorer-view/${createdId}`));
+  });
+
+  it('keeps the default title within the create contract when the first fileRef is long', async () => {
+    const sampleSet = { sourceOwner: 'synthetic-ok', files: [{ fileRef: 'source-'.repeat(40), order: 1, sha256: 'b'.repeat(64) }] };
+    view(sampleSet);
+    fireEvent.click(await screen.findByRole('button', { name: '이 Round로 조사 시작' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    const title = (write.mock.calls[0]![0].input as { title: string }).title;
+    expect(title.startsWith('Round 조사 · source-')).toBe(true);
+    expect(title.endsWith('…')).toBe(true);
+    expect([...title].length).toBeLessThanOrEqual(200);
+  });
+
+  it('starts from the RecordDrawer and opens the selected file-order and line in the new investigation', async () => {
+    window.history.replaceState(null, '', '/log/explorer?v=1&sourceFocus=1:1&sourceDrawer=record');
+    write.mockResolvedValueOnce({ outcome: 'ok', data: { id: createdId, version: '1' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'record-created' });
+    view();
+    expect(await screen.findByRole('heading', { name: '원문 줄' })).toBeTruthy();
+    const startButtons = await screen.findAllByRole('button', { name: '이 Round로 조사 시작' });
+    fireEvent.click(startButtons.at(-1)!);
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]![0].input).toEqual({ title: 'Round 조사 · source-b', origin: 'round', roundId });
+    await waitFor(() => {
+      expect(window.location.pathname).toBe(`/log-dev/log-explorer-view/${createdId}`);
+      expect(screen.getByTestId('host-focus').textContent).toBe('1:1');
+    });
+  });
+
+  it('keeps the start action visible but disabled with its permission reason', async () => {
+    mountWithoutInvestigationPermission(<RoundSourceView roundId={roundId} sampleSet={set} />, ['sourceTab', 'sourceFocus', 'sourceDrawer']);
+    const starts = await screen.findAllByRole('button', { name: '이 Round로 조사 시작' });
+    expect(starts).toHaveLength(1);
+    expect(starts[0]!.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('조사 쓰기 권한이 없습니다.')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'source-b:1 상세' }));
+    const drawerStarts = await screen.findAllByRole('button', { name: '이 Round로 조사 시작' });
+    expect(drawerStarts).toHaveLength(2);
+    expect(drawerStarts.at(-1)!.hasAttribute('disabled')).toBe(true);
+    expect(screen.getAllByText('조사 쓰기 권한이 없습니다.').length).toBeGreaterThan(0);
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('retries an unknown create with the same request and then navigates', async () => {
+    write.mockResolvedValueOnce({ outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'round-timeout', message: 'timeout' });
+    write.mockResolvedValueOnce({ outcome: 'ok', data: { id: createdId, version: '1' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'round-retry' });
+    view();
+    fireEvent.click(await screen.findByRole('button', { name: '이 Round로 조사 시작' }));
+    fireEvent.click(await screen.findByRole('button', { name: '같은 요청 다시 시도' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write.mock.calls[1]![0].idempotencyKey).toBe(write.mock.calls[0]![0].idempotencyKey);
+    expect(write.mock.calls[1]![0].input).toEqual(write.mock.calls[0]![0].input);
+    await waitFor(() => expect(window.location.pathname).toBe(`/log-dev/log-explorer-view/${createdId}`));
+  });
+});
+
+describe('recent Sources in the create dialog (#2543b)', () => {
+  const dialog = () => mount(<SampleDialog open onOpenChange={() => undefined} />);
+  const summary = (id: string, title: string, origin: 'standalone' | 'round', status: 'open' | 'archived', updatedAt: string) => ({
+    id, title, origin, roundId: origin === 'round' ? 'round-1' : null, status, version: '1', evidenceCount: 0,
+    createdAt: updatedAt, updatedAt,
+  });
+
+  it('shows at most five open standalone investigations, newest updated first', async () => {
+    const rows = [
+      summary('oldest', 'Source 1', 'standalone', 'open', '2026-11-01T00:00:00Z'),
+      summary('round', 'Round only', 'round', 'open', '2026-11-09T00:00:00Z'),
+      summary('source-2', 'Source 2', 'standalone', 'open', '2026-11-02T00:00:00Z'),
+      summary('archived', 'Archived source', 'standalone', 'archived', '2026-11-10T00:00:00Z'),
+      summary('source-3', 'Source 3', 'standalone', 'open', '2026-11-03T00:00:00Z'),
+      summary('source-4', 'Source 4', 'standalone', 'open', '2026-11-04T00:00:00Z'),
+      summary('source-5', 'Source 5', 'standalone', 'open', '2026-11-05T00:00:00Z'),
+      summary('source-6', 'Source 6', 'standalone', 'open', '2026-11-06T00:00:00Z'),
+    ];
+    await read.withImplementation(async request => request.endpoint === 'logExplorer.investigations' ? ok({ rows, total: rows.length }) : ok(null), async () => {
+      dialog();
+      expect(await screen.findByRole('button', { name: 'Source 6' })).toBeTruthy();
+      const recent = screen.getAllByRole('button').filter(button => /^Source /.test(button.textContent ?? ''));
+      expect(recent.map(button => button.textContent)).toEqual(['Source 6', 'Source 5', 'Source 4', 'Source 3', 'Source 2']);
+      expect(screen.queryByRole('button', { name: 'Source 1' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Round only' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Archived source' })).toBeNull();
+      expect(read.mock.calls.some(([request]) => request.endpoint === 'logExplorer.investigations' && (request.params as { status?: string }).status === 'open')).toBe(true);
+    });
+  });
+
+  it('continues paging past Round investigations until it finds standalone Sources', async () => {
+    const roundRows = Array.from({ length: 200 }, (_, index) => summary(`round-${index}`, `Round ${index}`, 'round', 'open', `2026-11-19T00:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}Z`));
+    const sourceRows = Array.from({ length: 5 }, (_, index) => summary(`source-page-${index}`, `Source ${index + 1}`, 'standalone', 'open', `2026-11-${String(index + 1).padStart(2, '0')}T00:00:00Z`));
+    await read.withImplementation(async request => {
+      if (request.endpoint !== 'logExplorer.investigations') return ok(null);
+      const page = (request.params as { page: number }).page;
+      return ok({ rows: page === 0 ? roundRows : sourceRows, total: 205 });
+    }, async () => {
+      dialog();
+      expect(await screen.findByRole('button', { name: 'Source 5' })).toBeTruthy();
+      const recent = screen.getAllByRole('button').filter(button => /^Source /.test(button.textContent ?? ''));
+      expect(recent.map(button => button.textContent)).toEqual(['Source 5', 'Source 4', 'Source 3', 'Source 2', 'Source 1']);
+      expect(read.mock.calls.some(([request]) => request.endpoint === 'logExplorer.investigations' && (request.params as { page: number }).page === 1)).toBe(true);
+    });
+  });
+
+  it('loads the selected Source detail into owner and ordered file fields, which remain editable', async () => {
+    const rows = [summary('recent-1', 'Recent source', 'standalone', 'open', '2026-11-18T00:00:00Z')];
+    const detail: Investigation = {
+      ...investigation,
+      id: 'recent-1',
+      title: 'Recent source',
+      sampleSet: { sourceOwner: 'source-owner', files: [
+        { fileRef: 'second.log', order: 2, sha256: 'b'.repeat(64) },
+        { fileRef: 'first.log', order: 1, sha256: 'a'.repeat(64) },
+      ] },
+    };
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.investigations') return ok({ rows, total: rows.length });
+      if (request.endpoint === 'logExplorer.investigationDetail') return ok(detail);
+      return ok(null);
+    }, async () => {
+      dialog();
+      fireEvent.click(await screen.findByRole('button', { name: 'Recent source' }));
+      const owner = await screen.findByLabelText('Source 소유자') as HTMLInputElement;
+      const files = await screen.findByLabelText(/파일 참조/) as HTMLTextAreaElement;
+      expect(owner.value).toBe('source-owner');
+      expect(files.value).toBe('first.log\t' + 'a'.repeat(64) + '\n' + 'second.log\t' + 'b'.repeat(64));
+      fireEvent.change(owner, { target: { value: 'edited-owner' } });
+      expect(owner.value).toBe('edited-owner');
+      expect(read.mock.calls.some(([request]) => request.endpoint === 'logExplorer.investigationDetail' && (request.params as { investigationId: string }).investigationId === 'recent-1')).toBe(true);
+    });
+  });
+
+  it('opens direct entry when there are no recent Sources', async () => {
+    await read.withImplementation(async request => request.endpoint === 'logExplorer.investigations' ? ok({ rows: [], total: 0 }) : ok(null), async () => {
+      dialog();
+      expect(await screen.findByLabelText('Source 소유자')).toBeTruthy();
+      expect(screen.getByLabelText(/파일 참조/)).toBeTruthy();
+      await waitFor(() => expect((screen.getByText('직접 입력').parentElement as HTMLDetailsElement).open).toBe(true));
+    });
+  });
+
+  it('keeps direct entry usable while the recent list is loading', async () => {
+    type QueryEnvelope = Awaited<ReturnType<PlatformAdapter['menuQuery']>>;
+    const pendingList = new Promise<QueryEnvelope>(() => undefined);
+    await read.withImplementation(async () => pendingList, async () => {
+      dialog();
+      fireEvent.click(await screen.findByText('직접 입력'));
+      fireEvent.change(await screen.findByLabelText('Source 소유자'), { target: { value: 'manual-owner' } });
+      fireEvent.change(screen.getByLabelText(/파일 참조/), { target: { value: 'manual.log\t' + 'c'.repeat(64) } });
+      fireEvent.change(screen.getByLabelText('조사 이름'), { target: { value: 'Manual investigation' } });
+      fireEvent.click(screen.getByRole('button', { name: '조사 만들기' }));
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      expect(write.mock.calls[0]![0].input).toMatchObject({ title: 'Manual investigation', origin: 'standalone', sampleSet: { sourceOwner: 'manual-owner' } });
+    });
+  });
+
+  it('keeps direct entry usable after the recent list fails', async () => {
+    await read.withImplementation(async () => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'recent-error', message: 'offline' }), async () => {
+      dialog();
+      expect(await screen.findByText(/최근 Source를 불러오지 못했습니다/)).toBeTruthy();
+      fireEvent.click(screen.getByText('직접 입력'));
+      expect(await screen.findByLabelText('Source 소유자')).toBeTruthy();
+      expect(screen.getByLabelText(/파일 참조/)).toBeTruthy();
+    });
   });
 });
 
