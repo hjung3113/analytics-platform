@@ -17,9 +17,9 @@ const registry = createRegistry({
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     { ...menu('home', '/'), primary: true },
-    menu('trend', '/trend', { pageType: 'analysis', pageKeys: ['sort', 'tag', 'pick', 'eqp', 'proc'], repeatedPageKeys: ['tag'], hiddenPageKeys: ['pick'], subjectPageKeys: { equipment: 'eqp', process: 'proc' } }),
-    menu('plain', '/plain', { pageType: 'analysis', pageKeys: ['eqp'] }),
-    menu('locked', '/locked', { pageType: 'analysis', permission: 'console:access' }),
+    menu('trend', '/trend', { pageType: 'analysis', query: { mode: 'live' as const }, pageKeys: ['sort', 'tag', 'pick', 'eqp', 'proc'], repeatedPageKeys: ['tag'], hiddenPageKeys: ['pick'], subjectPageKeys: { equipment: 'eqp', process: 'proc' } }),
+    menu('plain', '/plain', { pageType: 'analysis', query: { mode: 'live' as const }, pageKeys: ['eqp'] }),
+    menu('locked', '/locked', { pageType: 'analysis', query: { mode: 'live' as const }, permission: 'console:access' }),
   ],
 });
 

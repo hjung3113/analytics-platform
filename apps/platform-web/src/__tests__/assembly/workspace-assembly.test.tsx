@@ -31,7 +31,8 @@ describe('workspace assembly (#260)', () => {
     expect(entry).toMatchObject({ group: id, path: `/mars/${id}`, aliases: [`/${id}`], label: { ko: label, en: label }, description: { ko, en }, permission: 'analytics:view', requiresScope: false, pageKeys: [] });
     expect(entry.component).toBeUndefined();
     expect(entry.moduleScreen).toBeUndefined();
-    expect(entry.features).toEqual(NO_FEATURES);
+    expect(entry.features).toEqual({ ...NO_FEATURES, savedView: false });
+    expect(entry.query).toEqual({ mode: 'live' });
     expect(registry.spaceOf(entry)?.id).toBe('mars');
   });
   it('registers configuration as a live MARS screen with Apply and saved views (#2434)', () => {
@@ -40,6 +41,12 @@ describe('workspace assembly (#260)', () => {
     expect(entry.component).toBeDefined();
     expect(entry.features.savedView).toBe(true);
     expect(registry.spaceOf(entry)?.id).toBe('mars');
+  });
+  it('uses the shared Apply and saved-view declarations for CLAS operation time (#2503)', () => {
+    expect(registry.menuById('operation-time')).toMatchObject({
+      query: { mode: 'apply', autoApplyDefault: true }, features: { savedView: true },
+      savedViewSupport: { menuId: 'operation-time', contextKeys: ['time', 'roomNames'], pageKeys: ['eqp'] },
+    });
   });
   it('enters productivity analysis at equipment-master for a partial-permission session (#264)', async () => {
     const assembly = await createAssembly({ registry }) as Assembly;

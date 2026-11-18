@@ -52,9 +52,10 @@ function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
   return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
 }
 export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
+  const required = menu?.query?.mode === 'apply' ? menu.query.required : undefined;
   return [
-    ...missingRequiredContext(menu?.query?.required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
-    ...(menu?.query?.required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
+    ...missingRequiredContext(required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
+    ...(required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
     ...(global.membershipBasis === 'asOf' && global.condition?.[CUSTOM_GROUP_AXIS]?.length
       ? [{ key: 'customGroupMembershipBasis', label: CUSTOM_GROUP_LABELS.many }]
       : []),

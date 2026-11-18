@@ -33,7 +33,7 @@ export const manifests: PlatformMenuEntry[] = [
     path: '/tools/eqv-focus', aliases: ['/tools/topview/focus'], icon: Radar, permission: VIEW_PERMISSION,
     requiresScope: false,
     context: contextCapabilities({ time: 'apply' }), defaultPeriodHours: EQV_MAX_WINDOW_HOURS,
-    pageType: 'analysis', features: NO_FEATURES,
+    pageType: 'analysis', query: { mode: 'live' }, features: NO_FEATURES,
     // `equipment` selects the equipment; the entityType/anchor pair survives navigation on this route; rangeFrom/rangeTo hold the
     // applied 재생 구간 so a refresh or a copied link reopens it.
     pageKeys: ['equipment', 'entityType', 'anchor', 'rangeFrom', 'rangeTo'],

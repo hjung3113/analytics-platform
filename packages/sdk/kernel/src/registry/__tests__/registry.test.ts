@@ -8,7 +8,7 @@ import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
 import { disabledReason, projectQueryInputs } from '../panel-inputs';
-import { carrySetId, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, spaceId, type SpaceDef } from '@ap/contracts';
+import { carrySetId, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type SpaceDef } from '@ap/contracts';
 
 /** The fixtures' menus use `metrics:view`, which the app (here: the test) declares. */
 const createRegistry = (input: Parameters<typeof create>[0]) => create({ permissions: [menuPermission('metrics:view')], ...input });
@@ -23,6 +23,51 @@ const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}):
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...extra,
 });
 const catalog = menu('catalog', '/metrics', { primary: true });
+
+describe('analysis menu defaults (#2503)', () => {
+  it('defaults to Apply and saved views even when NO_FEATURES is spread', () => {
+    const entry = { ...catalog, pageType: 'analysis' as const, context: { ...none, time: 'apply' as const }, features: { ...NO_FEATURES, board: true } };
+    const resolved = createRegistry({ spaces, groups, menus: [entry] }).menuById(entry.id);
+    expect(resolved.query).toEqual({ mode: 'apply' });
+    expect(resolved.features).toMatchObject({ savedView: true, board: true });
+    expect(entry).not.toHaveProperty('query');
+    expect(entry.features).not.toHaveProperty('savedView');
+  });
+
+  it('honors a live opt-out without requiring time', () => {
+    const entry = { ...catalog, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: NO_FEATURES };
+    const resolved = createRegistry({ spaces, groups, menus: [entry] }).menuById(entry.id);
+    expect(resolved.query).toEqual({ mode: 'live' });
+    expect(resolved.features.savedView).toBe(false);
+  });
+
+  it.each([
+    ['autoApplyDefault', { mode: 'live', autoApplyDefault: true }],
+    ['applyPeriodOnLegacyEntry', { mode: 'live', applyPeriodOnLegacyEntry: true }],
+    ['required', { mode: 'live', required: { context: ['roomNames'] } }],
+  ] as const)('rejects Apply-only field %s on a live query declaration', (field, query) => {
+    const entry = { ...catalog, pageType: 'analysis' as const, query: query as unknown as PlatformMenuEntry['query'], features: NO_FEATURES };
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(new RegExp(`live query.*"${field}".*apply`));
+  });
+
+  it('allows Apply with an explicit saved-view opt-out', () => {
+    const entry = { ...catalog, pageType: 'analysis' as const, context: { ...none, time: 'apply' as const }, features: { ...NO_FEATURES, savedView: false } };
+    const resolved = createRegistry({ spaces, groups, menus: [entry] }).menuById(entry.id);
+    expect(resolved.query?.mode).toBe('apply');
+    expect(resolved.features.savedView).toBe(false);
+  });
+
+  it('names the live opt-out when analysis cannot apply time', () => {
+    const entry = { ...catalog, pageType: 'analysis' as const, features: NO_FEATURES };
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/catalog.*time: 'apply'.*query: \{ mode: 'live' \}/);
+  });
+
+  it('keeps non-analysis menus live and saved views off by default', () => {
+    const resolved = createRegistry({ spaces, groups, menus: [{ ...catalog, features: NO_FEATURES }] }).menuById(catalog.id);
+    expect(resolved.query).toBeUndefined();
+    expect(resolved.features.savedView).toBe(false);
+  });
+});
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
   it('rejects live saved views with actionable Apply-only guidance (#2047 KER-22)', () => {
@@ -796,7 +841,7 @@ describe('inbound object declarations (#1930)', () => {
 describe('pageConditions declarations (#2337)', () => {
   const label = { ko: '조건', en: 'Condition' };
   const category = { id: 'choice', label, kind: { type: 'select' as const, key: 'choice', options: { static: [{ value: 'a', label }] } } };
-  const entry = (): PlatformMenuEntry => ({ ...catalog, pageType: 'analysis', pageKeys: ['choice'], pageConditions: { categories: [category] } }) as PlatformMenuEntry;
+  const entry = (): PlatformMenuEntry => ({ ...catalog, pageType: 'analysis', query: { mode: 'live' }, pageKeys: ['choice'], pageConditions: { categories: [category] } }) as PlatformMenuEntry;
   it('rejects workflow page conditions (#2339)', () => {
     expect(() => createRegistry({ spaces, groups, menus: [{ ...entry(), pageType: 'workflow' }] })).toThrow(/pageType/);
   });
@@ -857,7 +902,7 @@ describe('pageConditions declarations (#2337)', () => {
   it('merges required keys without mutating the manifest', () => {
     const input = { ...entry(), context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const }, pageConditions: { categories: [{ ...category, required: true as const }] } };
     const output = createRegistry({ spaces, groups, menus: [input] }).menuById('catalog');
-    expect(output.query?.required?.page).toEqual([{ key: 'choice', label }]);
+    expect(output.query).toEqual({ mode: 'apply', required: { page: [{ key: 'choice', label }] } });
     expect(input.query).toEqual({ mode: 'apply' });
   });
   it('does not add fields to a menu without a declaration', () => {

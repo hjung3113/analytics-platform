@@ -21,8 +21,8 @@ const registry = createRegistry({
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
-    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'equipment-detail', group: groupId('equipment'), label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment-detail', group: groupId('equipment'), label: { ko: '설비 상세', en: 'Equipment detail' }, description: { ko: '', en: '' }, path: '/equipment/:equipmentId', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: noFeatures, pageKeys: [], navHidden: true, parent: 'equipment' },
     { id: 'admin-roles', group: groupId('admin'), primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
     { id: 'admin-child', group: groupId('admin'), label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
   ],
@@ -249,9 +249,9 @@ const navRegistry = createRegistry({
   spaces: [spaces[0]!],
   groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [
-    { id: 'home', group: groupId('equipment'), label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/mars/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
-    { id: 'lots', group: groupId('equipment'), label: { ko: 'Lot', en: 'Lots' }, description: { ko: '', en: '' }, path: '/mars/lots', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: [] },
+    { id: 'home', group: groupId('equipment'), label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/mars/equipment', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: noFeatures, pageKeys: ['page'] },
+    { id: 'lots', group: groupId('equipment'), label: { ko: 'Lot', en: 'Lots' }, description: { ko: '', en: '' }, path: '/mars/lots', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: noFeatures, pageKeys: [] },
   ],
 });
 

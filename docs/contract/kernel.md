@@ -103,11 +103,13 @@ Registry는 `navTree`와 `navHidden`의 병존, `navViews`의 병존(빈 배열 
 
 화면(`component`) 없이 manifest만 등록한 메뉴도 허용한다. 사이드바·팔레트에 '예정'으로 표시되고 선언(권한·pageType·Context capability)만 보여 준다.
 
-**조회 실행 선언(Decided, [ADR-0061](../adr/0061-query-draft-applied-address-and-required-gate.md)):** 선택적 `query: { mode: 'apply', autoApplyDefault?: boolean, required?: { context?: ContextKey[], page?: {key,label: Text}[] } }`로 일괄 적용을 선택한다. 부재는 live 모드다. Apply는 time capability가 apply여야 하며 필수 Context는 메뉴가 apply하는 알려진 키, 필수 page는 `pageKeys`와 비어 있지 않은 ko/en label이어야 한다. Scope는 `requiresScope`로 선언한다. 엔드포인트의 선택적 `requiredContext`도 그 엔드포인트가 apply하는 키만 받는다. Apply 메뉴와 엔드포인트가 함께 apply하는 키의 명시적 required 선언은 일치해야 한다(등록 검증). 보조 엔드포인트의 작은 투영에는 메뉴의 다른 필수 키를 강요하지 않는다. 서버는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 모든 투영 필드 구조적 존재 검사에 더해 required의 의미적 존재를 검사한다. 초안 API·실행은 §11, 서버 표본은 [연결 체크리스트](../integration/real-server-checklist.md) §4를 따른다.
+**조회 실행 선언(Decided, [ADR-0061](../adr/0061-query-draft-applied-address-and-required-gate.md)):** Registry는 `pageType: 'analysis'`의 생략된 조회 모드를 `apply`로, 다른 페이지 유형의 생략된 모드를 live로 해석한다([ADR-0170](../adr/0170-analysis-apply-and-saved-view-defaults.md)). `query: { mode: 'live' }`로 일괄 적용을 명시적으로 끌 수 있으며, live 선언에는 Apply 전용 필드(`autoApplyDefault`·`applyPeriodOnLegacyEntry`·`required`)를 둘 수 없다. Apply 선언은 `autoApplyDefault`와 `required.context/page`로 첫 진입 및 필수값을 설정한다. Apply는 time capability가 apply여야 하며 필수 Context는 메뉴가 apply하는 알려진 키, 필수 page는 `pageKeys`와 비어 있지 않은 ko/en label이어야 한다. Scope는 `requiresScope`로 선언한다. 엔드포인트의 선택적 `requiredContext`도 그 엔드포인트가 apply하는 키만 받는다. Apply 메뉴와 엔드포인트가 함께 apply하는 키의 명시적 required 선언은 일치해야 한다(등록 검증). 보조 엔드포인트의 작은 투영에는 메뉴의 다른 필수 키를 강요하지 않는다. 서버는 [ADR-0019](../adr/0019-menu-query-endpoint-declaration.md)의 모든 투영 필드 구조적 존재 검사에 더해 required의 의미적 존재를 검사한다. 초안 API·실행은 §11, 서버 표본은 [연결 체크리스트](../integration/real-server-checklist.md) §4를 따른다.
 
 **Apply 첫 진입 기본 조회(Decided, #2502)**. `query.autoApplyDefault: true`인 메뉴는 유효한 맨 주소로 처음 열 때 기본 기간(§6.3)을 현재 주소에 replace로 반영한다. 기간·전역 조회 조건·메뉴 page key가 있는 주소는 그대로 사용한다. 옵션을 생략하거나 `false`로 두면 기본 기간은 초안에 채워진다.
 
-메인 화면은 Scope 검증을 기다린 뒤 개인 기본 뷰를 우선 적용한다. 판정이 끝날 때까지 조회 바의 기간·대상·조건 편집, 최근 조건 복원, 적용과 선언된 페이지 조건 편집을 막는다. Scope 선택은 계속 쓸 수 있다. Scope 검증이 실패하면 해당 진입의 자동 적용을 끝내고 편집을 허용한다. 같은 Scope를 다시 검증해도 자동 적용은 재개하지 않는다. Scope나 세션이 바뀌면 유효한 맨 주소에서 다시 판정한다. 기본 뷰가 없거나 주소를 바꾸지 못했거나 저장 뷰 기능을 쓸 수 없으면 기본 기간을 반영한다. 개인 기본 뷰를 읽기 시작한 뒤 목록·기본 ID·뷰 조회가 3초 안에 끝나지 않아도 기본 기간을 반영하고 편집을 허용한다. 늦게 도착한 응답은 주소에 반영하지 않는다.
+live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoApplyDefault`와 함께 선언할 수 있다. 유효한 첫 진입 주소에 기간 양끝이 모두 없고 조건이 있으면 그 조건과 page 키를 그대로 두고 기본 기간만 replace로 채운다. 이 경로에서는 개인 기본 뷰를 적용하지 않는다. 명시·부분·무효 기간은 그대로 처리하며 옵션을 생략한 메뉴에는 적용하지 않는다.
+
+맨 주소의 메인 화면은 Scope 검증을 기다린 뒤 개인 기본 뷰를 우선 적용한다. 판정이 끝날 때까지 조회 바의 기간·대상·조건 편집, 최근 조건 복원, 적용과 선언된 페이지 조건 편집을 막는다. Scope 선택은 계속 쓸 수 있다. Scope 검증이 실패하면 해당 진입의 자동 적용을 끝내고 편집을 허용한다. 같은 Scope를 다시 검증해도 자동 적용은 재개하지 않는다. Scope나 세션이 바뀌면 유효한 맨 주소에서 다시 판정한다. 기본 뷰가 없거나 주소를 바꾸지 못했거나 저장 뷰 기능을 쓸 수 없으면 기본 기간을 반영한다. 개인 기본 뷰를 읽기 시작한 뒤 목록·기본 ID·뷰 조회가 3초 안에 끝나지 않아도 기본 기간을 반영하고 편집을 허용한다. 늦게 도착한 응답은 주소에 반영하지 않는다.
 
 `savedViewSupport`를 선언한 메뉴는 화면을 불러오기 전부터 기본 뷰를 읽을 수 있다. `useSavedViewSupport`로 등록하는 메뉴는 화면 로딩이 끝날 때까지 기다린다. 별도 호스트는 이 경우 화면 Suspense의 fallback에 `ScreenContentLoading`을 둔다. 저장 뷰 컨트롤은 읽기를 공유한다. 컨트롤이 없으면 첫 진입에서 기본 ID와 해당 뷰만 읽는다. 같은 메뉴에서 경로 매개변수가 바뀌면 새 주소로 선택을 재판정하며 같은 경로의 쿼리 편집은 선택을 유지한다.
 
@@ -548,7 +550,7 @@ Line·PRC 그룹도 두 바의 대상 대화창에서 편집하되 독립 전역
 - 초안 setter는 URL·조회·적용 결과를 바꾸지 않는다. global setter는 codec·주입 축·소속 기준을 검증하며 실제 의미 변경 시 `contextResetKeys`를 즉시 초안 page에서 제거한다. page setter는 선언된 키만 받고 null/빈 문자열은 삭제한다. 미지원 등록 Context와 extras는 Apply의 한 번의 push에도 보존한다. 잘못된 기간·지표 쌍·축·이력 미지원 asOf는 명시적 오류이며 자동 보정하지 않는다. 초기화는 Scope와 기본 기간만 가진 초안 + 빈 page, 되돌림은 적용 global/page다.
 - dirty는 정규화한 의미가 바뀐 GlobalContext 필드명과 page 키 목록이다. 집합·Condition 순서 변경은 dirty가 아니다. Apply는 정확히 최종 후보의 required와 Scope를 검사하며 global 변경으로 제거될 required page도 누락으로 본다. 불가·동일 후보는 no-op이다. 초기화 경로의 초안 id-only 지표는 서버 발행 버전을 먼저 채워 한 번에 커밋한다. 미등록·미발행은 거부하며 비초기화 경로의 incomplete 쌍 오류는 유지한다. URL id-only 확인 replace는 초안 기본 기간을 적용하지 않는다.
 - 주소의 실제 변경은 다른 writer·링크·history·보드 일괄 적용 모두 초안을 새 적용값으로 rebase한다. `autoApplyDefault`가 개인 기본 뷰나 기본 기간을 첫 진입 주소에 반영할 때도 새 적용값으로 초안을 다시 채운다. 같은 주소 이동은 유지한다. Scope 선택은 기존 즉시 API로 Site 경계 필드를 지운 뒤 rebase한다. 자체 Apply의 지연 반영은 클릭 뒤 편집을 보존하고 중복 호출을 동기 억제한다. `applying`은 현재 turn의 커밋 전달 중이며 조회 loading과 별개다. 전달 뒤 false로 정착하고 미확인 제안은 중복 억제만 유지한다(주소 확인/다른 주소 이동 때 해제).
-- 실행 게이트는 주소의 명시적 유효한 from/to + 선언 필수값이다. bare route, v/extras만, Scope만, page만, 미지원 Context만 있는 주소는 적용 기간이 생기기 전까지 idle이다. `autoApplyDefault`는 §5의 조건을 충족할 때 적용 기간을 주소에 쓴다. 필수 Scope는 현재 세션에서 검증해야 요청할 수 있다. 시간 없는 Apply opt-in은 실행 여부를 주소로 재현할 표현이 없어 Registry 오류로 거부한다. 실행 marker나 세션 hasApplied flag를 추가하지 않는다.
+- 실행 게이트는 주소의 명시적 유효한 from/to + 선언 필수값이다. bare route, v/extras만, Scope만, page만, 미지원 Context만 있는 주소는 적용 기간이 생기기 전까지 idle이다. `autoApplyDefault`는 §5의 조건을 충족할 때 적용 기간을 주소에 쓴다. 필수 Scope는 현재 세션에서 검증해야 요청할 수 있다. 시간 없는 Apply 메뉴는 실행 여부를 주소로 재현할 표현이 없어 Registry 오류로 거부한다. 실행 marker나 세션 hasApplied flag를 추가하지 않는다.
 - 필수 Context의 대응은 time→from+to, roomNames→roomNames, line→lineNames, prcGroup→prcGroups, condition→condition, selection→selection, lot→lotIds, ppid→ppid, recipe→recipeIds, metric→metricId+metricVersion이다. null/undefined는 누락, 기간·지표는 유효한 완전한 쌍이어야 한다. 집합 `[]`는 존재이며 기존 원천 조회 없는 empty 응답을 유지한다. 빈 page는 누락이다. `missing`은 `{key,label: Text}[]`이고 Context에는 CONTEXT_LABELS, page에는 선언 label을 사용하며 queryMissing 사전으로 선택 사유를 번역한다. 필수값 없이 실행 전이면 missing=[]와 일반 조회 전 문구를 쓴다.
 - 분석 요청(useMenuQuery, 공유 menuRequest를 쓰는 useMenuFetch·ModuleHost.query)에 게이트를 적용한다. fetch.ready는 false이며 직접 호출도 adapter 대신 기존 not_ready envelope로 답한다. raw usePlatformQuery·목적지/entity·감사·주석은 보조 요청으로 유지한다. Scope·session·투영 검증은 유지하고 required는 서버 검증을 대신하지 않는다. 조회 바와 cycle-time opt-in은 #553에서 제공하며 최근 조건 저장·복원은 아래 계약을 따른다.
 
@@ -613,6 +615,8 @@ URL Context는 보안 경계가 아니며 서버가 항상 재검증한다.
 ## 21. Saved View Contract
 
 Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산이다. 결정은 [ADR-0092](../adr/0092-saved-view-units-tiers-and-groups.md)(#294, Decided 2026-10-27), 구현은 #1011(mock 범위)이다. 이 절은 **포트와 UI 계약**을 정한다. 서버 정책(객체 ACL 대 데이터 경계의 판정 분리, 공식 승인, 이전)은 [ADR-0099](../adr/0099-server-saved-view-persistence.md)(Decided 2026-10-29)가 정했고 서버 모듈(객체 ACL·영속·감사·이전, #1105a)이 구현됐다. HTTP 저장소·브라우저 이전·화면 연결은 #1105b에서 구현됐다. 실서버 rendered 저장된 뷰 UI는 미검증이며 범위와 한계는 §21.4를 따른다. 아래 「서버 몫」이 결정과 구현 범위를 구분한다.
+
+**Analysis 기본값 (#2503).** Registry는 `pageType: 'analysis'`의 Apply 메뉴에서 생략한 `features.savedView`를 `true`로 해석한다. Apply만 쓸 메뉴는 `features: { ...NO_FEATURES, savedView: false }`, 둘 다 쓰지 않을 메뉴는 `query: { mode: 'live' }`를 선언한다. `NO_FEATURES`에는 `savedView` 키가 없다. 선택기는 저장소와 메뉴의 `savedViewSupport` 선언(또는 화면 등록)이 있을 때 제공한다.
 
 ### 21.1 저장 단위 (Decided)
 

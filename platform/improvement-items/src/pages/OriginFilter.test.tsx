@@ -13,7 +13,7 @@ it('offers registered accessible analysis menus with their declared names (FEA-1
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   Element.prototype.scrollIntoView = vi.fn();
-  const source = { ...manifests[0]!, id: 'synthetic-analysis', path: '/synthetic-analysis', primary: true, group: groupId('test'), pageType: 'analysis' as const, label: { ko: '합성 분석', en: 'Synthetic analysis' } };
+  const source = { ...manifests[0]!, id: 'synthetic-analysis', path: '/synthetic-analysis', primary: true, group: groupId('test'), pageType: 'analysis' as const, query: { mode: 'live' as const }, label: { ko: '합성 분석', en: 'Synthetic analysis' } };
   const denied = { ...source, primary: false, id: 'denied-analysis', path: '/denied-analysis', label: { ko: '제한된 분석', en: 'Restricted analysis' }, additionalPermissions: [menuPermission('synthetic:read')] };
   const registry = createRegistry({ spaces: [testSpace({ homeMenuId: source.id })], groups: [{ id: groupId('test'), label: source.label, icon: source.icon, space: testSpace().id }, { id: groupId('improvementItems'), label: manifests[0]!.label, icon: manifests[0]!.icon, space: null }], menus: [...manifests, source, denied], permissions: [menuPermission('synthetic:read')] });
   window.history.replaceState(null, '', '/improvement-items?v=1&view=all');

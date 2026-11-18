@@ -143,7 +143,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, di
   };
   // All selected means "no condition" (ADR-0164), but a key the menu requires cannot be absent:
   // there it is written as every authorized value of that facet, so applying "all rooms" keeps the query runnable.
-  const required = route?.menu.query?.required?.context ?? [];
+  const required = route?.menu.query?.mode === 'apply' ? route.menu.query.required?.context ?? [] : [];
   const picked = (value: FacetedSetValue, facetId: string, key: ContextKey) => {
     const values = ownPicks(value.rule, facetId);
     if (values?.length) return [...values];

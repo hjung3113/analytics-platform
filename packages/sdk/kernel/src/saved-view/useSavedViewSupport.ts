@@ -1,6 +1,7 @@
 import { useContext, useLayoutEffect } from 'react';
 import type { SavedViewSupport } from '@ap/contracts';
 import { AppContext } from '../platform/contexts';
+import type { MenuEntry } from '../registry/registry';
 
 /** Screens' declared Saved View support, keyed by menu id. Owned by the provider; the host hook reads it, menus only write through `useSavedViewSupport`. */
 export type SupportRegistry = {
@@ -8,6 +9,15 @@ export type SupportRegistry = {
   get: (menuId: string) => SavedViewSupport | undefined;
   subscribe: (listener: () => void) => () => void;
 };
+
+/** Resolves Saved View support for a menu: manifest `savedViewSupport` first, then screen registration (`useSavedViewSupport`). */
+export function resolveSavedViewSupport(
+  menu: Pick<MenuEntry, 'id' | 'savedViewSupport'> | null | undefined,
+  registry?: SupportRegistry,
+): SavedViewSupport | undefined {
+  if (!menu) return undefined;
+  return (menu.savedViewSupport?.menuId === menu.id ? menu.savedViewSupport : undefined) ?? registry?.get(menu.id);
+}
 export function createSupportRegistry(): SupportRegistry {
   // One entry per registration, so releasing one screen never removes what another screen of the same menu declared.
   const supports = new Map<string, { support: SavedViewSupport }[]>();

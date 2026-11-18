@@ -24,7 +24,7 @@ const registry = createRegistry({
     { id: groupId('admin'), label: { ko: '관리·감사', en: 'Administration' }, icon: House, space: spaceId('operations') },
   ],
   menus: [
-    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: noFeatures, pageKeys: ['page'] },
+    { id: 'equipment', group: groupId('equipment'), primary: true, label: { ko: '설비', en: 'Equipment' }, description: { ko: '', en: '' }, path: '/equipment', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: noFeatures, pageKeys: ['page'] },
     { id: 'admin-roles', group: groupId('admin'), primary: true, label: { ko: '권한/역할 관리', en: 'Roles & access' }, description: { ko: '', en: '' }, path: '/admin/roles', icon: House, component: testScreen, permission: 'console:access', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
     { id: 'admin-child', group: groupId('admin'), label: { ko: '콘솔 하위', en: 'Console child' }, description: { ko: '', en: '' }, path: '/admin/child', icon: House, component: testScreen, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: noFeatures, pageKeys: [] },
   ],

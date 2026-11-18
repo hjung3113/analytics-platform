@@ -10,7 +10,7 @@ import { carrySetId, groupId, spaceId } from '@ap/contracts';
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, group: string, path: string, pageKeys: string[], extra: object = {}) => ({
-  id, group: groupId(group), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, component: testScreen, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys, ...extra,
+  id, group: groupId(group), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, component: testScreen, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: noFeatures, pageKeys, ...extra,
 });
 // `carry` carries `returnTo` (like a feature space); `plain` carries nothing; `g-detail` is a global menu that accepts a way back.
 const registry = createRegistry({

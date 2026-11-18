@@ -13,7 +13,7 @@ afterEach(() => { cleanup(); });
 const KNOWN = ['dist', 'scatter', 'trend'];
 const menu: MenuEntry = {
   id: 'home', path: '/bars', primary: true, group: groupId('overview'), label: { ko: '막대', en: 'Bars' }, description: { ko: '', en: '' }, icon: House,
-  permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis',
+  permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const },
   features: { export: false, savedView: false, annotate: false, compare: false },
   pageKeys: ['pins'], repeatedPageKeys: ['pins'],
 };

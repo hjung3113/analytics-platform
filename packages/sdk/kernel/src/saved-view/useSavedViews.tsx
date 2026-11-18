@@ -6,6 +6,7 @@ import type { LeaveRequest } from '../platform/navigationGuard';
 import { pathFor } from '../registry/registry';
 import { captureApplied, viewState, type ViewState } from './capture';
 import { comparableApplied, excludedByScope, contextKeysOf, overwritePatch, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
+import { resolveSavedViewSupport } from './useSavedViewSupport';
 
 /** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
 export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys a view saved in another Scope did not apply here (#2175). */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
@@ -117,7 +118,7 @@ export function ScreenContentLoading() {
 
 export function ScreenSavedViews({ initial, children }: { initial: InitialSavedView | null; children: ReactNode }) {
   const host = useHostPlatform();
-  const ownsViews = host.route?.menu.query?.autoApplyDefault === true && host.route.menu.features.savedView && host.savedViewStore !== undefined
+  const ownsViews = host.route?.menu.query?.mode === 'apply' && host.route.menu.query.autoApplyDefault === true && host.route.menu.features.savedView && host.savedViewStore !== undefined
     && host.canOpen(host.route.menu.id);
   const [controls, setControls] = useState(0);
   const requestLists = useCallback(() => {
@@ -149,7 +150,7 @@ export function useSavedViews(): SavedViews {
   const owned = host.screenMode === 'main' ? owner : null;
   const requestLists = owned?.requestLists;
   useLayoutEffect(() => requestLists?.(), [requestLists]);
-  const paneWithoutPicker = host.screenMode === 'pane' && host.route?.menu.query?.autoApplyDefault === true;
+  const paneWithoutPicker = host.screenMode === 'pane' && host.route?.menu.query?.mode === 'apply' && host.route.menu.query.autoApplyDefault === true;
   const views = useSavedViewController(host, owned || paneWithoutPicker ? 'inactive' : 'legacy', null);
   return owned?.views ?? views;
 }
@@ -172,8 +173,7 @@ function useSavedViewController(
   const userId = host.user.id;
   const slots = useMemo(() => app?.internal.savedViewSlots.screen(JSON.stringify([menuId, host.global.scopeId])), [app?.internal.savedViewSlots, menuId, host.global.scopeId]);
   const slotRevision = useSyncExternalStore(slots?.subscribe ?? NOOP_SUBSCRIBE, slots?.snapshot ?? ZERO_SNAPSHOT);
-  const declaredSupport = mode === 'owner' && menu?.savedViewSupport?.menuId === menuId ? menu.savedViewSupport : undefined;
-  const support = useSyncExternalStore(registry?.subscribe ?? NOOP_SUBSCRIBE, () => declaredSupport ?? registry?.get(menuId));
+  const support = useSyncExternalStore(registry?.subscribe ?? NOOP_SUBSCRIBE, () => (mode === 'inactive' ? undefined : resolveSavedViewSupport(menu, registry)));
   const enabled = mode !== 'inactive' && store !== undefined && menu?.features.savedView === true && support !== undefined;
   // An address the contract rejects (06 §6.4) is neither rewritten by a default nor replaced by a pick: the error and the original address stay.
   const blocked = host.contractError !== null;
@@ -335,7 +335,7 @@ function useSavedViewController(
     // A relative period needs the server anchor; without one it is not restorable (absolute views still are).
     if (found.view.context.relativePeriod && anchor === null) return fail('unavailable');
     const current = live.current.host;
-    const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source, includeReturnTo: current.route?.menu.query?.autoApplyDefault });
+    const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source, includeReturnTo: current.route?.menu.query?.mode === 'apply' ? current.route.menu.query.autoApplyDefault : undefined });
     if (!result.ok) return fail(result.reason);
     if (!result.applied) { unchanged(); return { ok: true, unsupported: NO_UNSUPPORTED, excludedByScope: NO_KEYS }; }
     // One write: a default replaces the bare entry so Back leaves the app; a picked view is a normal push.
@@ -382,7 +382,7 @@ function useSavedViewController(
     if (alreadyDeciding()) return;
     if (!enabled) {
       // Read the committed fallback and support: their layout effects may have run since this render.
-      if (waitingForContent || loadingNow?.current || registry?.get(menuId) !== undefined) return;
+      if (waitingForContent || loadingNow?.current || resolveSavedViewSupport(menu, registry) !== undefined) return;
       initial.settle();
       return;
     }
@@ -402,7 +402,7 @@ function useSavedViewController(
       () => { if (!cancelled) finish(null); },
     );
     return () => { cancelled = true; };
-  }, [initial, gen, enabled, waitingForContent, loadingNow, loaded, tick, registry, menuId, apply, rearmed, readLists, readDefault]);
+  }, [initial, gen, enabled, waitingForContent, loadingNow, loaded, tick, registry, menu, apply, rearmed, readLists, readDefault]);
 
   // Entering a screen: a selection that no longer matches the address is dropped (the address wins), then the personal default fills a bare route once.
   useEffect(() => {

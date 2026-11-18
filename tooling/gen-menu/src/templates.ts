@@ -151,7 +151,7 @@ export const manifests: PlatformMenuEntry[] = [
     label: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     description: { ko: '${i.labelKo}', en: '${i.labelEn}' },
     path: '${i.path}', icon: LayoutDashboard, permission: '${SCAFFOLD_PERMISSION}',
-    requiresScope: false, context: contextCapabilities(), pageType: '${i.pageType}', features: NO_FEATURES, pageKeys: [],
+    requiresScope: false, context: contextCapabilities(), pageType: '${i.pageType}',${i.pageType === 'analysis' ? " query: { mode: 'live' }," : ''} features: NO_FEATURES, pageKeys: [],
     component: lazy(() => import('./pages/${i.page}')),
   },
 ];

@@ -20,7 +20,7 @@ const trust: Trust = { updatedAt: '2026-09-26T00:02:00Z', dataThrough: '2026-09-
 const registry = createRegistry({
   spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }],
+  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: { export: false, compare: false, annotate: false, savedView: false }, pageKeys: [] }],
 });
 const session = testSession(['platform:view']);
 const mountIn = (element: ReactElement) => {

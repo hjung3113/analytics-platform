@@ -36,7 +36,7 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
   whenEmpty?: ReactNode;
 } = {}) {
   const { route, screenMode } = useHostPlatform();
-  const hideViewSlot = screenMode === 'pane' && route?.menu.query?.autoApplyDefault === true;
+  const hideViewSlot = screenMode === 'pane' && route?.menu.query?.mode === 'apply' && route.menu.query.autoApplyDefault === true;
   return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} viewSlot={hideViewSlot ? null : <SavedViewControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
 }
 

@@ -69,4 +69,18 @@ test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText('MEM-ETCH-0122 · 상위 10개 밖');
   });
+
+  test('기간 없는 설비 링크로 CLAS를 열어도 유효한 Scope이면 설비·돌아가기·기본 기간이 채워진다', async ({ page }) => {
+    const id = 'MEM-PHOTO-0103';
+    const returnTo = '/mars/productivity-overview?v=1&scopeId=MEM';
+    await page.goto(`/clas/operation-time?v=1&scopeId=MEM&eqp=${id}&returnTo=${encodeURIComponent(returnTo)}`);
+    await expect(mainHeading(page)).toHaveText('CLAS');
+    await expectScopeValid(page, 'MEM · 메모리');
+    await expect.poll(() => new URL(page.url()).searchParams.has('from') && new URL(page.url()).searchParams.has('to')).toBe(true);
+    const params = new URL(page.url()).searchParams;
+    expect(params.get('eqp')).toBe(id);
+    expect(params.get('returnTo')).toBe(returnTo);
+    await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText(id);
+    await expect((await headerMore(page)).getByRole('link', { name: '← 생산성 개요', exact: true })).toBeVisible();
+  });
 });

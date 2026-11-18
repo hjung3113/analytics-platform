@@ -14,7 +14,7 @@ import { groupId, spaceId, type ActionResponse, type ApiResponse, type ClientErr
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const menu = (id: string, path: string, over: object = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
+  requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: ['tab'], ...over,
 });
 function Crash(): never { throw new Error('boom'); }
 

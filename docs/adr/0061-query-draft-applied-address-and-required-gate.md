@@ -8,7 +8,7 @@
 
 ## 결정
 
-- 선언이 없는 메뉴는 live 모드다. 기존 `setGlobal`·`setPage`·드릴·링크는 즉시 적용 API로 유지하고, 새 `useQueryDraft`의 두 setter만 초안을 편집한다. live 모드에서는 초안이 적용값을 비추고 setter가 기존 API로 통과하며 Apply·되돌림·초기화는 no-op이다.
+- 선언이 없는 메뉴는 live 모드였다. Analysis 유형의 기본값은 [ADR-0170](0170-analysis-apply-and-saved-view-defaults.md)이 변경했다. 기존 `setGlobal`·`setPage`·드릴·링크는 즉시 적용 API로 유지하고, 새 `useQueryDraft`의 두 setter만 초안을 편집한다. live 모드에서는 초안이 적용값을 비추고 setter가 기존 API로 통과하며 Apply·되돌림·초기화는 no-op이다.
 - 초안은 [ADR-0049](0049-analysis-context-belongs-to-a-pane.md)의 논리적 칸에 하나다. 보드 본문과 선택된 Context 바의 별도 Provider가 같은 수명 소유자의 저장소를 공유한다. 선택 변경·본문 접기 동안 유지하고 칸/시트 제거, 메뉴·경로 params·세션 교체 때 폐기한다. 모듈 화면 메타데이터도 같은 선택적 선언을 상속한다.
 - Apply는 정규화·검증한 global/page와 기존 extras를 한 번에 push한다. 실제 global 변경이면 `contextResetKeys`를 초안 setter 시점부터 제거하고 최종 후보에서도 검사한다. 미지원 등록 Context는 보존한다. 의미가 같은 집합·Condition 순서 변경은 dirty가 아니다. Scope 선택은 즉시 적용하며 Site 경계 필드를 지운 뒤 초안을 rebase한다.
 - 적용 주소의 실제 변경은 초안을 새 적용값으로 rebase한다. 동일 주소 이동은 초안을 유지한다. 자체 Apply의 지연된 주소 반영은 클릭 뒤 편집을 보존하며, 동기 중복 Apply는 같은 제안을 다시 보내지 않는다. `applying`은 커밋 전달 중(현재 turn 끝까지)이며 조회 loading과 별개다. 주소 확인 대기는 중복 억제용으로만 남고 무한 조회 스피너를 만들지 않는다.

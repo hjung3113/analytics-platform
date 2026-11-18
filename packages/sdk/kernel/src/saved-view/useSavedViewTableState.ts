@@ -2,12 +2,14 @@ import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import type { TableViewState } from '@ap/contracts';
 import { AppContext } from '../platform/contexts';
 import { useHostPlatformOptional } from '../platform/platform';
+import { resolveSavedViewSupport } from './useSavedViewSupport';
 
 /** Host-only table contribution. Board panes and screens without saved-view support never contribute. */
 export function useSavedViewTableState(preferenceKey: string, options: { value: TableViewState; apply(entry: TableViewState): void; project?(entry: TableViewState): TableViewState; /** False until the preferences baseline has hydrated. */ ready?: boolean; /** Declaration fingerprint, including when the current value is {}. */ basis?: string }): void {
   const app = useContext(AppContext);
   const host = useHostPlatformOptional();
-  const menuId = host?.route?.menu.id;
+  const menu = host?.route?.menu;
+  const menuId = menu?.id;
   const scopeId = host?.global.scopeId;
   const registry = app?.internal.savedViewSlots;
   const slots = useMemo(() => registry?.screen(JSON.stringify([menuId, scopeId])), [registry, menuId, scopeId]);
@@ -18,21 +20,22 @@ export function useSavedViewTableState(preferenceKey: string, options: { value: 
   const supports = app?.internal.savedViewSupports;
   const participates = host?.paneId === null && host.route?.menu.features.savedView === true;
   useLayoutEffect(() => {
-    if (!participates || !menuId || !slots || !supports) return;
+    if (!participates || !menu || !slots || !supports) return;
     // Support may be declared in an ancestor layout effect, after the table's effect.
     let release: (() => void) | undefined;
     const sync = () => {
-      if (supports.get(menuId) && !release) release = slots.register('tables', preferenceKey, {
+      const supported = resolveSavedViewSupport(menu, supports) !== undefined;
+      if (supported && !release) release = slots.register('tables', preferenceKey, {
         get value() { return committed.current.value; },
         apply: entry => committed.current.apply(entry),
         accepts: entry => committed.current.ready !== false && (!entry.groups || committed.current.basis === undefined || entry.groups.basis === committed.current.basis),
         project: entry => committed.current.project?.(entry) ?? entry,
       });
-      else if (!supports.get(menuId) && release) { release(); release = undefined; }
+      else if (!supported && release) { release(); release = undefined; }
     };
     sync(); const unsubscribe = supports.subscribe(sync);
     return () => { unsubscribe(); release?.(); };
-  }, [participates, menuId, slots, supports, preferenceKey]);
+  }, [participates, menu, slots, supports, preferenceKey]);
   useLayoutEffect(() => {
     if (participates) slots?.retry('tables', preferenceKey);
   }, [participates, slots, preferenceKey, options.basis, options.ready]);

@@ -8,6 +8,6 @@ export const manifests: MenuEntry[] = [
     id: 'mcc', primary: true, group: groupId('mcc'), label: { ko: 'MCC', en: 'MCC' },
     description: { ko: '설비 사이클 분석 (예정)', en: 'Equipment cycle (planned)' },
     path: '/mcc', icon: CircleGauge, permission: menuPermission('analytics:view'), requiresScope: false, pageType: 'analysis',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: [],
+    context: contextCapabilities(), query: { mode: 'live' }, features: NO_FEATURES, pageKeys: [],
   },
 ];

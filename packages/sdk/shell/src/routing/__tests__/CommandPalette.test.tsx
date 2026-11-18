@@ -29,7 +29,7 @@ const registry = createRegistry({
   ],
   menus: [
     menu('home', groupId('overview'), '/home', { ko: '홈', en: 'Home' }, { primary: true, pageType: 'overview', component: page }),
-    menu('equipment', groupId('equipment'), '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, pageType: 'analysis', component: page }),
+    menu('equipment', groupId('equipment'), '/equipment', { ko: '설비', en: 'Equipment' }, { primary: true, pageType: 'analysis', query: { mode: 'live' as const }, component: page }),
     menu('roles', groupId('admin'), '/admin/roles', { ko: '권한', en: 'Roles' }, { primary: true, permission: 'console:access', pageType: 'management', component: page }),
     menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', pageType: 'catalog' }),
     menu('notices-detail', groupId('noticeVoc'), '/notices/:id', { ko: '공지 상세', en: 'Notice detail' }, { permission: 'notice:view', navHidden: true, parent: 'notices' }),

@@ -15,7 +15,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const apply = { ...noContext, time: 'apply' as const };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: { ...features, board: true }, pageKeys: ['page', 'tab', 'returnTo'], ...over,
+  requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: { ...features, board: true }, pageKeys: ['page', 'tab', 'returnTo'], ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' }), testSpace({ id: spaceId('operations'), label: { ko: '운영', en: 'Ops' }, permission: 'console:access', homeMenuId: 'ops' })],

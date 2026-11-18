@@ -31,7 +31,7 @@ function renderAudit(entityAudit: (req: EntityAuditRequest, signal?: AbortSignal
 
 const topViewMenuBase = (id: string, path: string): MenuEntry => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '모듈', en: 'Module' },
-  path, icon: Boxes, permission: menuPermission('equipment:view'), requiresScope: false, pageType: 'analysis',
+  path, icon: Boxes, permission: menuPermission('equipment:view'), requiresScope: false, pageType: 'analysis', query: { mode: 'live' as const },
   context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference' }),
   features: NO_FEATURES, pageKeys: [], component: lazy(() => import('./EquipmentDetail')),
 });

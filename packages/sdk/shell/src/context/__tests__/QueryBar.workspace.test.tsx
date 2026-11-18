@@ -30,7 +30,7 @@ function Workspace() {
 }
 const done = { status: 'done', completedAt: 1_800_000_000_000 } as const;
 function mount({ result = done, expanded = false, pageType = 'analysis', apply = true, scopeGate = false, issues = false }: { result?: PlatformPageProps['queryResult']; expanded?: boolean; pageType?: 'analysis' | 'overview'; apply?: boolean; scopeGate?: boolean; issues?: boolean } = {}) {
-  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), space: spaceId('mars'), label: { ko: '개요', en: 'Overview' }, icon: House }], menus: [{ id: 'home', primary: true, path: '/', group: groupId('overview'), label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: scopeGate, context: { ...noContext, time: 'apply' }, ...(apply ? { query: { mode: 'apply' as const } } : {}), pageType, pageKeys: ['grain'], features }] });
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), space: spaceId('mars'), label: { ko: '개요', en: 'Overview' }, icon: House }], menus: [{ id: 'home', primary: true, path: '/', group: groupId('overview'), label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: scopeGate, context: { ...noContext, time: 'apply' }, query: apply ? { mode: 'apply' as const } : { mode: 'live' as const }, pageType, pageKeys: ['grain'], features }] });
   window.history.replaceState(null, '', `/${period}`);
   localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', String(!expanded));
   const session = testSession(['platform:view']);

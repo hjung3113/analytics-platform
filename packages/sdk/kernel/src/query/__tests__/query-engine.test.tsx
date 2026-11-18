@@ -17,7 +17,7 @@ const endpoint = (id: string) => defineEndpoint<Params, { n: number }>({ id, men
 const listEndpoint = endpoint('fx.list');
 const otherEndpoint = endpoint('fx.other');
 
-const meta = { description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const, requiresScope: false, pageType: 'analysis' as const, pageKeys: [] };
+const meta = { description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const, requiresScope: false, pageType: 'analysis' as const, query: { mode: 'live' as const }, pageKeys: [] };
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const group = { id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') };
 const registry = createRegistry({ spaces: [testSpace()], groups: [group], menus: [{ ...meta, id: 'home', group: group.id, primary: true, label: { ko: '홈', en: 'Home' }, path: '/', context: noContext, features }] });

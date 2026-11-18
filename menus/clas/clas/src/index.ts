@@ -4,11 +4,14 @@
  */
 import { lazy } from 'react';
 import { Timer } from 'lucide-react';
-import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
+import { NO_FEATURES, contextCapabilities, groupId, type SavedViewSupport } from '@ap/contracts';
 import type { PlatformMenuEntry } from '@ap/kernel';
 import { PERMISSION } from './permission';
 
 const GROUP = groupId('clas');
+const SAVED_VIEW_SUPPORT: SavedViewSupport = {
+  menuId: 'operation-time', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames'], pageKeys: ['eqp'],
+};
 
 export const manifests: PlatformMenuEntry[] = [
   {
@@ -19,6 +22,8 @@ export const manifests: PlatformMenuEntry[] = [
     subjectLinks: { equipment: true },
     path: '/clas/operation-time', icon: Timer, permission: PERMISSION,
     requiresScope: true, context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), pageType: 'analysis',
+    query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
+    savedViewSupport: SAVED_VIEW_SUPPORT,
     features: { ...NO_FEATURES, board: true }, pageKeys: ['eqp', 'returnTo'], contextResetKeys: ['eqp'], subjectPageKeys: { equipment: 'eqp' },
     component: lazy(() => import('./pages/OperationTime')),
   },

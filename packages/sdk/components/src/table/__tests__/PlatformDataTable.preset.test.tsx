@@ -47,7 +47,7 @@ const presets = [
 const baseMenu = {
   id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House,
   label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const,
-  requiresScope: false, pageType: 'analysis' as const, features: { export: true, savedView: false, annotate: false, compare: false },
+  requiresScope: false, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: { export: true, savedView: false, annotate: false, compare: false },
   pageKeys: ['view'], conditionPresets: presets, conditionPreset: { key: 'view', default: 'eqp' },
 };
 const registryFor = (menu: Record<string, unknown>) => createRegistry({

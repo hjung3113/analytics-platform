@@ -1,7 +1,7 @@
 import { browserPreferenceKey } from './support';
 import { expect, test, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { contextBar, evidence, expandPageHead, fitWorkspace, query, setScenario, signInAs, tableStatusLine } from './support';
+import { contextBar, evidence, expandPageHead, expandQueryBar, fitWorkspace, pickTargetRoom, query, queryBar, setScenario, signInAs, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -427,6 +427,21 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
 // 사이클타임은 3b에서 PanelWorkspace로 옮겨 갔다. 차트 2개가 한 행에 서는 정렬 검사는 AnalysisLayout 소비자(차트 2개 이상)가 없어
 // 내렸다(.planning/backlog.md). 접기·칩·기억·포커스는 남은 소비자인 OperationTime으로 검사한다.
 test.describe('분석 레이아웃 접기 (06 §12.6, ADR-0022)', () => {
+  test('CLAS는 첫 기간을 자동 적용하고 공정 변경은 적용 전까지 초안에 둔다', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto('/clas/operation-time?v=1&scopeId=MEM');
+    const ranking = page.getByRole('region', { name: '설비별 동작시간', exact: true });
+    await expect(ranking).toBeVisible();
+    expect(query(page).has('from')).toBe(true);
+    const bar = queryBar(page);
+    await expandQueryBar(page, bar);
+    await pickTargetRoom(page, bar, 'PHOTO');
+    expect(query(page).get('roomNames')).toBeNull();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('roomNames')).toBe('PHOTO');
+    await expect(ranking).toBeVisible();
+  });
+
   test('접힌 차트·분해 영역을 기억하여 칩으로 복원하고 포커스를 옮긴다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/clas/operation-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`);

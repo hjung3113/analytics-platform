@@ -11,7 +11,7 @@ import { HeaderOverflowItem, PlatformPage } from '../PlatformPage';
 
 const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}): PlatformMenuEntry => ({
   id, path, group: groupId('objects'), label: { ko: id, en: id }, description: { ko: '', en: '' }, icon: House,
-  permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis',
+  permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const },
   features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [], ...extra,
 });
 const registry = createRegistry({

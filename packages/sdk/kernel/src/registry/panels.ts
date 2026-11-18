@@ -18,8 +18,9 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
   const error = (message: string): never => fail(`Menu "${menu.id}" panel ${message}`);
   if (!Array.isArray(menu.panels)) error('panels must be an array');
   const ids = new Set<string>();
+  const requiredPage = menu.query?.mode === 'apply' ? menu.query.required?.page ?? [] : [];
   const labels: Record<string, Text> = Object.fromEntries([
-    ...(menu.query?.required?.page ?? []).map(input => [input.key, input.label]),
+    ...requiredPage.map(input => [input.key, input.label]),
     ...(menu.drill?.levels ?? []).map(level => [level.key, level.label]),
   ]);
   return menu.panels.map((panel: PanelDeclaration) => {
