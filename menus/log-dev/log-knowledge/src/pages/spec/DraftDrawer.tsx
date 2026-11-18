@@ -197,7 +197,7 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
   const baseRevision = publicationSpec?.revision.revisionNo ?? null;
   let baseRevisionText: string;
   if (baseRevision !== null) baseRevisionText = `r${baseRevision}`;
-  else if (publication.response?.outcome === 'ok' && publicationData === null) baseRevisionText = w('없음 · 첫 발행', 'None · first publication');
+  else if (publication.response?.outcome === 'ok' && publicationData === null) baseRevisionText = w('없음', 'None');
   else if (publication.response === null || publication.response === undefined) baseRevisionText = w('불러오는 중', 'Loading');
   else baseRevisionText = w('확인 불가', 'Unavailable');
   const form = <div className="grid min-w-0 gap-4 xl:grid-cols-2">
