@@ -160,6 +160,28 @@ describe('production model spec screen', () => {
     expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(true);
     expect(writes[0]?.expectedVersion).toBe('1');
   });
+  it('keeps the loaded publication Revision visible before a draft is created', async () => {
+    mount('&drawer=draft');
+    const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });
+    await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r1'));
+  });
+  it('keeps the loaded publication Revision visible when TSV parsing is unavailable', async () => {
+    mount('&drawer=draft&revision=' + rev);
+    const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });
+    fireEvent.change(await screen.findByLabelText('명세 TSV'), { target: { value: 'kind\tmodule\nconstructor\tA' } });
+    await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r1'));
+  });
+  it('refetches the publication while recovering after a write conflict', async () => {
+    conflict = true; mount('&drawer=draft&revision=' + rev);
+    fireEvent.change(await screen.findByLabelText('명세 TSV'), { target: { value: 'kind\tmodule\nmodule\tKept' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    const recover = await screen.findByRole('button', { name: '최신 발행본 확인' });
+    result = ok(publishedB);
+    fireEvent.click(recover);
+    await screen.findByRole('group', { name: '열린 초안 r1 (다른 사람이 저장)' });
+    const summary = screen.getByRole('region', { name: '발행 전 변경 요약' });
+    await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r4'));
+  });
   // #2073: recovery shows what it read and writes nothing before the user picks.
   const publishedB: ModelSpecData = { ...spec, revision: { ...spec.revision, revisionNo: 4 }, modules: [...spec.modules, { id: 'm3', moduleKey: 'BPUB', name: 'BPublished', parentModuleId: null }] };
   const conflictThenRecover = async (search = '&drawer=draft&revision=' + rev) => {

@@ -30,7 +30,7 @@ function SummaryCounts({ summary }: { summary: SpecSummary }) {
     </li>)}
   </ul>;
 }
-function SpecChangeSummary({ summary, revisionId }: { summary: SpecSummary; revisionId: string | null }) {
+function SpecChangeSummary({ summary, revisionId, baseRevisionText }: { summary: SpecSummary; revisionId: string | null; baseRevisionText: string }) {
   const w = useSpecWords();
   let stateText = w('비교 불가', 'Comparison unavailable');
   switch (summary.state) {
@@ -39,13 +39,9 @@ function SpecChangeSummary({ summary, revisionId }: { summary: SpecSummary; revi
     case 'changes': stateText = w('변경 사항', 'Changes found'); break;
     case 'unavailable': stateText = !revisionId ? w('초안을 만든 뒤 비교합니다.', 'Comparison is available after the draft is created.') : w('비교 불가', 'Comparison unavailable'); break;
   }
-  let baseText: string;
-  if (summary.state !== 'unavailable' && summary.baseRevision !== null) baseText = `r${summary.baseRevision}`;
-  else if (summary.state === 'first_publication') baseText = w('없음', 'None');
-  else baseText = w('확인 불가', 'Unavailable');
   return <section aria-labelledby="draft-summary-heading" className="min-w-0 rounded-md border border-border-subtle bg-surface-card p-3">
     <h3 id="draft-summary-heading" className="text-sm font-semibold">{w('발행 전 변경 요약', 'Before-publish change summary')}</h3>
-    <p className="mt-1 text-sm">{stateText} · {w('기준 Revision', 'Base revision')}: {baseText}</p>
+    <p className="mt-1 text-sm">{stateText} · {w('기준 Revision', 'Base revision')}: {baseRevisionText}</p>
     <div className="mt-3"><SummaryCounts summary={summary} /></div>
     {summary.state !== 'unavailable' && summary.rows.length > 0 && <ul className="mt-3 grid max-h-[min(65vh,42rem)] gap-2 overflow-auto border-t border-border-subtle pt-3">
       {summary.rows.map((row, index) => <li key={`${row.kind}:${row.change}:${row.label}:${index}`} className="min-w-0 rounded border border-border-subtle p-2 text-xs">
@@ -133,7 +129,8 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
   async function recover() {
     setRecovering(true);
     try {
-      const fresh = await latest.fetch({ modelId }), revisions = await history.fetch({ modelId, page: 0, pageSize: 200 });
+      publication.refetch();
+      const [fresh, revisions] = await Promise.all([latest.fetch({ modelId }), history.fetch({ modelId, page: 0, pageSize: 200 })]);
       if (fresh.outcome !== 'ok' || revisions.outcome !== 'ok' || !revisions.data) { setProblem(w('최신 상태를 확인하지 못했습니다. 입력은 유지됩니다.', 'Could not check the latest state. Your input is preserved.')); return; }
       const published = fresh.data && !('effective' in fresh.data && fresh.data.effective) ? fresh.data as ModelSpecData : null;
       const existing = revisions.data.rows.find(r => r.state === 'draft');
@@ -197,15 +194,15 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
       }} /></label>
     </>}
   </div>;
-  const baseRevision = summary.state !== 'unavailable' ? summary.baseRevision : null;
+  const baseRevision = publicationSpec?.revision.revisionNo ?? null;
   let baseRevisionText: string;
   if (baseRevision !== null) baseRevisionText = `r${baseRevision}`;
-  else if (summary.state === 'first_publication') baseRevisionText = w('없음 · 첫 발행', 'None · first publication');
+  else if (publication.response?.outcome === 'ok' && publicationData === null) baseRevisionText = w('없음 · 첫 발행', 'None · first publication');
   else if (publication.response === null || publication.response === undefined) baseRevisionText = w('불러오는 중', 'Loading');
   else baseRevisionText = w('확인 불가', 'Unavailable');
   const form = <div className="grid min-w-0 gap-4 xl:grid-cols-2">
     <div className="grid min-w-0 content-start gap-4">{editorFields}</div>
-    <SpecChangeSummary summary={summary} revisionId={revisionId} />
+    <SpecChangeSummary summary={summary} revisionId={revisionId} baseRevisionText={baseRevisionText} />
   </div>;
   const loadedForm = !revisionId ? form : <QueryView widgetName={w('명세 초안', 'Spec draft')} query={draft}>{value => value ? form : <div role="alert" className="grid gap-3"><p>{w('초안이 이미 발행되거나 반려됐습니다. 입력을 유지하고 최신 상태를 확인해 주세요.', 'The draft was already published or rejected. Keep your input and check the latest state.')}</p>{form}</div>}</QueryView>;
   return <>

@@ -149,20 +149,22 @@ describe('Event table freshness (fix C2)', () => {
   });
 });
 
-describe('Event navigation guard (fix C3)', () => {
-  it('asks before an Event click replaces a dirty draft, and keeps or discards on request', async () => {
+describe('page-editor navigation guard (fix C1)', () => {
+  it('asks before a tab click replaces a dirty draft, and keeps or discards on request', async () => {
     mount('&drawer=draft&revision=' + rev, { draft: () => ({ ...published, revision: { ...published.revision, state: 'draft', version: 1 } }) });
     await screen.findByLabelText('명세 TSV');
     fireEvent.change(textarea(), { target: { value: 'kind\tmodule\nmodule\tKept' } });
-    fireEvent.click(await screen.findByRole('button', { name: 'Move' }));
+    const changes = screen.getByRole('tab', { name: '변경점' });
+    fireEvent.mouseDown(changes); fireEvent.click(changes);
     const dialog = await screen.findByRole('dialog', { name: '저장하지 않은 입력을 버릴까요?' });
     expect(window.location.search).toContain('drawer=draft');
     fireEvent.click(within(dialog).getByRole('button', { name: '계속 편집' }));
     expect(window.location.search).toContain('drawer=draft');
     expect(textarea().value).toContain('Kept');
-    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    fireEvent.mouseDown(changes); fireEvent.click(changes);
     fireEvent.click(within(await screen.findByRole('dialog', { name: '저장하지 않은 입력을 버릴까요?' })).getByRole('button', { name: '버리고 이동' }));
-    await waitFor(() => expect(window.location.search).toContain('drawer=event'));
+    await waitFor(() => expect(window.location.search).toContain('tab=changes'));
+    expect(new URLSearchParams(window.location.search).has('revision')).toBe(false);
     expect(screen.queryByLabelText('명세 TSV')).toBeNull();
   });
 });

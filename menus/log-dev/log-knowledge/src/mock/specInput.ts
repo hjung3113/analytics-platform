@@ -1,5 +1,5 @@
 import type { FieldError } from '@ap/contracts';
-import { SPEC_FIELD_TYPES, SPEC_SAVE_LIMITS, type SpecDraftSaveInput } from '../endpoints';
+import { SPEC_FIELD_TYPES, SPEC_SAVE_LIMITS, SPEC_TSV_COLUMNS, type SpecDraftSaveInput } from '../endpoints';
 import { eventKey, specId, type Revision } from './specStore';
 import { toCodeKey } from './store';
 
@@ -144,7 +144,6 @@ const relationRowOf = (row: Record<string, unknown>, index: string, errors: Fiel
 
 /** The TSV text parser (`domain/spec-tsv.ts`): the same header, kind, cell and cap errors on the same `text.line N.column C` paths. */
 const TSV_ERROR_CAP = 20;
-const TSV_COLUMNS = ['kind', 'module', 'parent_module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'];
 type TsvKind = 'module' | 'event' | 'relation';
 /** A Map, not an object: an inherited key (`constructor`, `__proto__`) is just an unknown kind. */
 const KIND_COLUMNS = new Map<string, string[]>([['module', ['kind', 'module', 'parent_module']], ['event', ['kind', 'module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json']], ['relation', ['kind', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref']]]);
@@ -177,7 +176,7 @@ function parseText(text: string): TsvParse {
   const headerLine = headerNo + 1, headerCells = lines[headerNo]!.split('\t'), position = new Map<string, number>();
   headerCells.forEach((raw, i) => {
     const column = raw.trim();
-    if (!TSV_COLUMNS.includes(column)) cellFail(parse, headerLine, echoHeaderCell(column), 'unknown_column');
+    if (!(SPEC_TSV_COLUMNS as readonly string[]).includes(column)) cellFail(parse, headerLine, echoHeaderCell(column), 'unknown_column');
     else if (position.has(column)) cellFail(parse, headerLine, echoHeaderCell(column), 'duplicate_column');
     else position.set(column, i);
   });

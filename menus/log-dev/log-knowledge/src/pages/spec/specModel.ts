@@ -1,4 +1,4 @@
-import type { ModelSpecData, ModelSpecEffective, ModelSpecUnchanged, SpecChangeRow, SpecDraftData, SpecDraftSaveInput, SpecFieldInput, SpecChangeTarget } from '../../endpoints';
+import { SPEC_TSV_COLUMNS, type ModelSpecData, type ModelSpecEffective, type ModelSpecUnchanged, type SpecChangeRow, type SpecDraftData, type SpecDraftSaveInput, type SpecFieldInput, type SpecChangeTarget } from '../../endpoints';
 export type Spec = ModelSpecData | ModelSpecEffective | ModelSpecUnchanged;
 export const encodeKey = (s: string) => s.replace(/%/g, '%25').replace(/\//g, '%2F').replace(/#/g, '%23');
 export const decodeKey = (s: string) => s.replace(/%23/g, '#').replace(/%2F/g, '/').replace(/%25/g, '%');
@@ -29,7 +29,7 @@ export function targetOf(row: Pick<SpecChangeRow, 'targetKind' | 'targetKey'>): 
 export function specText(spec: Pick<SpecDraftData, 'modules' | 'events' | 'relations'>): string {
   const modules = new Map(spec.modules.map(m => [m.id, m.name]));
   const events = new Map(spec.events.map(e => [e.id, e]));
-  const rows = [ ['kind', 'module', 'parent_module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'] ];
+  const rows: string[][] = [[...SPEC_TSV_COLUMNS]];
   for (const m of spec.modules) rows.push(['module', m.name, m.parentModuleId ? modules.get(m.parentModuleId) ?? '' : '']);
   for (const e of spec.events) rows.push(['event', modules.get(e.moduleId) ?? '', '', e.name, e.triggerRule ?? '', e.detailDocRef ?? '', JSON.stringify(e.fields ?? [])]);
   for (const r of spec.relations) { const s = events.get(r.sourceEventId), t = events.get(r.targetEventId); rows.push(['relation', '', '', '', '', '', '', modules.get(s?.moduleId ?? '') ?? '', s?.name ?? '', r.predicate, modules.get(t?.moduleId ?? '') ?? '', t?.name ?? '', r.ruleRef ?? '']); }

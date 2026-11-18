@@ -1,4 +1,4 @@
-import type { ModelSpecData, SpecDraftSaveInput, SpecFieldInput } from '../../endpoints';
+import { SPEC_FIELD_TYPES, SPEC_SAVE_LIMITS, SPEC_TSV_COLUMNS, type ModelSpecData, type SpecDraftSaveInput, type SpecFieldInput, type SpecFieldType } from '../../endpoints';
 
 type DraftRows = Pick<SpecDraftSaveInput, 'modules' | 'events' | 'relations'>;
 type Kind = 'module' | 'event' | 'relation';
@@ -9,12 +9,9 @@ export type SpecSummary =
   | { state: 'unavailable'; reason: 'draft' | 'publication' }
   | { state: 'first_publication' | 'verified_zero' | 'changes'; counts: Record<Kind, SpecChangeCount>; rows: SpecSummaryRow[]; baseRevision: number | null };
 
-const COLUMNS = ['kind', 'module', 'parent_module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'] as const;
-type Column = (typeof COLUMNS)[number];
+type Column = (typeof SPEC_TSV_COLUMNS)[number];
 type SnapshotEntry = { label: string; value: unknown };
 type Snapshot = Record<Kind, Map<string, SnapshotEntry>>;
-const CHANGE_KINDS: readonly ChangeKind[] = ['added', 'changed', 'removed'];
-const SPEC_FIELD_TYPES = new Set(['string', 'int', 'float', 'bool', 'enum', 'timestamp']);
 
 const normalizedName = (value: string) => value.normalize('NFC').trim().replace(/\s+/gu, ' ');
 const codeKey = (value: string) => normalizedName(value).normalize('NFKC').trim().replace(/\s+/gu, ' ').toUpperCase();
@@ -32,16 +29,28 @@ const emptyCounts = (): Record<Kind, SpecChangeCount> => ({
 });
 const labelFor = (kind: Kind, key: string) => kind === 'relation' ? key.replaceAll('\u0000', ' · ').replaceAll('\u0001', ' → ') : key.replaceAll('\u0000', ' / ');
 
-function validFields(value: unknown): value is SpecFieldInput[] {
-  return Array.isArray(value) && value.every(field => {
-    if (!field || typeof field !== 'object' || Array.isArray(field)) return false;
-    const record = field as Record<string, unknown>;
-    return typeof record['name'] === 'string' && typeof record['type'] === 'string' && SPEC_FIELD_TYPES.has(record['type'])
-      && typeof record['description'] === 'string'
-      && (record['unit'] === undefined || record['unit'] === null || typeof record['unit'] === 'string')
-      && (record['allowedValues'] === undefined || (Array.isArray(record['allowedValues']) && record['allowedValues'].every(item => typeof item === 'string')))
-      && Object.keys(record).every(key => ['name', 'type', 'description', 'unit', 'allowedValues'].includes(key));
-  });
+function normalizeFields(value: unknown): SpecFieldInput[] | null {
+  if (!Array.isArray(value)) return null;
+  const fields: SpecFieldInput[] = [];
+  for (const field of value) {
+    if (!field || typeof field !== 'object' || Array.isArray(field)) return null;
+    const record = field as Record<string, unknown>, name = typeof record['name'] === 'string' ? normalizedName(record['name']) : '';
+    const type = record['type'], description = record['description'], unit = record['unit'], rawAllowedValues = record['allowedValues'];
+    if (!name || typeof type !== 'string' || !SPEC_FIELD_TYPES.includes(type as SpecFieldType) || typeof description !== 'string'
+      || (unit !== undefined && unit !== null && typeof unit !== 'string')
+      || Object.keys(record).some(key => !['name', 'type', 'description', 'unit', 'allowedValues'].includes(key))) return null;
+    let allowedValues: string[] | undefined;
+    if (rawAllowedValues !== undefined) {
+      if (!Array.isArray(rawAllowedValues) || !rawAllowedValues.every(item => typeof item === 'string')) return null;
+      allowedValues = rawAllowedValues.map(item => normalizedName(item));
+      if (allowedValues.some(item => !item)) return null;
+    }
+    const normalized: SpecFieldInput = { name, type: type as SpecFieldType, description: description.trim() };
+    if (typeof unit === 'string' && unit.trim()) normalized.unit = unit.trim();
+    if (allowedValues !== undefined) normalized.allowedValues = allowedValues;
+    fields.push(normalized);
+  }
+  return fields;
 }
 
 function snapshotFromRows(rows: DraftRows): Snapshot | null {
@@ -71,8 +80,8 @@ function snapshotFromRows(rows: DraftRows): Snapshot | null {
 
   for (const event of events) {
     const moduleKey = codeKey(event.module), eventKey = codeKey(event.name), key = qualified(moduleKey, eventKey);
-    const fields = event.fields ?? [];
-    if (!moduleKey || !eventKey || !snapshot.module.has(moduleKey) || snapshot.event.has(key) || !validFields(fields)) return null;
+    const fields = normalizeFields(event.fields ?? []);
+    if (!moduleKey || !eventKey || !snapshot.module.has(moduleKey) || snapshot.event.has(key) || fields === null) return null;
     snapshot.event.set(key, { label: `${moduleKey} / ${eventKey}`, value: { name: normalizedName(event.name), fields, triggerRule: optionalText(event.triggerRule), detailDocRef: optionalText(event.detailDocRef) } });
   }
   for (const relation of relations) {
@@ -101,11 +110,12 @@ function snapshotFromPublication(publication: ModelSpecData): Snapshot | null {
   const eventKeys = new Map<string, string>();
   for (const event of publication.events) {
     const moduleKey = moduleKeys.get(event.moduleId), eventKey = event.eventKey || codeKey(event.name);
-    if (!moduleKey || !eventKey || !validFields(event.fields) || typeof event.triggerRule !== 'string' && event.triggerRule !== null || typeof event.detailDocRef !== 'string' && event.detailDocRef !== null) return null;
+    const fields = normalizeFields(event.fields);
+    if (!moduleKey || !eventKey || fields === null || typeof event.triggerRule !== 'string' && event.triggerRule !== null || typeof event.detailDocRef !== 'string' && event.detailDocRef !== null) return null;
     const key = qualified(moduleKey, eventKey);
     if (snapshot.event.has(key)) return null;
     eventKeys.set(event.id, key);
-    snapshot.event.set(key, { label: `${moduleKey} / ${eventKey}`, value: { name: normalizedName(event.name), fields: event.fields, triggerRule: optionalText(event.triggerRule), detailDocRef: optionalText(event.detailDocRef) } });
+    snapshot.event.set(key, { label: `${moduleKey} / ${eventKey}`, value: { name: normalizedName(event.name), fields, triggerRule: optionalText(event.triggerRule), detailDocRef: optionalText(event.detailDocRef) } });
   }
   for (const relation of publication.relations) {
     const source = eventKeys.get(relation.sourceEventId), target = eventKeys.get(relation.targetEventId);
@@ -121,38 +131,39 @@ function parseFields(raw: string): SpecFieldInput[] | null {
   if (!raw.trim()) return [];
   try {
     const value: unknown = JSON.parse(raw);
-    return validFields(value) ? value : null;
+  return normalizeFields(value);
   } catch { return null; }
 }
 
 /** Conservative client preview parser; any malformed, duplicate or unresolved row makes the comparison unavailable. */
 export function parseSpecDraftText(text: string): { ok: true; rows: DraftRows } | { ok: false } {
-  if (new TextEncoder().encode(text).length > 512 * 1024) return { ok: false };
+  if (new TextEncoder().encode(text).length > SPEC_SAVE_LIMITS.bodyBytes) return { ok: false };
   const lines = (text.startsWith('\uFEFF') ? text.slice(1) : text).split(/\r\n|\r|\n/u);
   const headerIndex = lines.findIndex(line => line.trim() !== '');
   if (headerIndex < 0) return { ok: false };
   const header = lines[headerIndex]!.split('\t').map(value => value.trim());
   const positions = new Map<Column, number>();
   for (const [index, column] of header.entries()) {
-    if (!COLUMNS.includes(column as Column) || positions.has(column as Column)) return { ok: false };
+    if (!(SPEC_TSV_COLUMNS as readonly string[]).includes(column) || positions.has(column as Column)) return { ok: false };
     positions.set(column as Column, index);
   }
   if (!positions.has('kind')) return { ok: false };
   const rawRows = lines.slice(headerIndex + 1).filter(line => line.trim() !== '');
-  if (rawRows.length > 2000) return { ok: false };
+  if (rawRows.length > SPEC_SAVE_LIMITS.rows) return { ok: false };
   const rows: { modules: NonNullable<DraftRows['modules']>; events: NonNullable<DraftRows['events']>; relations: NonNullable<DraftRows['relations']> } = { modules: [], events: [], relations: [] };
-  const allowed: Record<string, readonly Column[]> = {
-    module: ['kind', 'module', 'parent_module'], event: ['kind', 'module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json'],
-    relation: ['kind', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'],
-  };
+  const allowed = new Map<string, readonly Column[]>([
+    ['module', ['kind', 'module', 'parent_module']], ['event', ['kind', 'module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json']],
+    ['relation', ['kind', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref']],
+  ]);
   const cell = (cells: string[], column: Column) => cells[positions.get(column) ?? -1] ?? '';
   for (const line of rawRows) {
     const cells = line.split('\t');
     const width = cells.reduce((last, value, index) => value.trim() ? index + 1 : last, 0);
     if (width > header.length) return { ok: false };
     const kind = cell(cells, 'kind').trim();
-    if (!allowed[kind]) return { ok: false };
-    for (const column of positions.keys()) if (!allowed[kind]!.includes(column) && cell(cells, column).trim()) return { ok: false };
+    const allowedColumns = allowed.get(kind);
+    if (!allowedColumns) return { ok: false };
+    for (const column of positions.keys()) if (!allowedColumns.includes(column) && cell(cells, column).trim()) return { ok: false };
     const value = (column: Column) => cell(cells, column).trim();
     if (kind === 'module') {
       const name = value('module'), parent = value('parent_module');
@@ -193,20 +204,12 @@ function compareSnapshots(draft: Snapshot, publication: Snapshot | null, baseRev
 
 export function compareSpecDraft(rows: DraftRows, publication: ModelSpecData | null): SpecSummary {
   const draft = snapshotFromRows(rows), published = publication ? snapshotFromPublication(publication) : null;
-  if (!draft || (publication && !published)) return { state: 'unavailable', reason: 'draft' };
+  if (!draft) return { state: 'unavailable', reason: 'draft' };
+  if (publication && !published) return { state: 'unavailable', reason: 'publication' };
   return compareSnapshots(draft, published, publication?.revision.revisionNo ?? null);
-}
-
-export function summarizeSpecDraftText(text: string, publication: ModelSpecData | null): SpecSummary {
-  const parsed = parseSpecDraftText(text);
-  if (!parsed.ok) return { state: 'unavailable', reason: 'draft' };
-  return compareSpecDraft(parsed.rows, publication);
 }
 
 export function unavailableSpecSummary(reason: 'draft' | 'publication'): SpecSummary {
   return { state: 'unavailable', reason };
 }
 
-export function changeCounts(counts: Record<Kind, SpecChangeCount>): number {
-  return CHANGE_KINDS.reduce((sum, change) => sum + (['module', 'event', 'relation'] as const).reduce((subtotal, kind) => subtotal + counts[kind][change], 0), 0);
-}

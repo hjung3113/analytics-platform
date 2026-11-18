@@ -77,14 +77,15 @@ describe('confirmed knowledge search', () => {
     expect(screen.getByRole('combobox', { name: 'Event B' })).toBeTruthy();
     expect(requests.some(r => r.endpoint === 'logKnowledge.search')).toBe(false);
   });
-  it('shows owner, states, match reasons and related-count metadata without a second Item link or exact totals', async () => {
+  it('shows owner, states, match reasons and linked related counts without exact totals', async () => {
     data.hasMore = true; data.nextCursor = 'next'; data.capped = true;
     Object.assign(data, { total: 9854, counts: { observed: 9853 } });
     mount();
     expect(await screen.findByText(item.title)).toBeTruthy();
     expect(screen.getByText('같은 방향 · 관찰')).toBeTruthy();
-    expect(screen.getByText('관련 Item 2건').closest('a')).toBeNull();
-    expect(screen.getAllByRole('link').filter(link => link.getAttribute('href')?.includes(item.itemId))).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'KI-1501' }).getAttribute('href')).toContain(item.itemId);
+    expect(screen.getByText('관련 Item 2건').closest('a')?.getAttribute('href')).toContain(item.itemId);
+    expect(screen.getAllByRole('link').filter(link => link.getAttribute('href')?.includes(item.itemId))).toHaveLength(3);
     expect(screen.getByText('MX-100')).toBeTruthy();
     expect(screen.getByText('100건 이상')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/9854|9853|총\s*\d|\d+\s*\/\s*\d+/);
@@ -246,7 +247,7 @@ describe('confirmed knowledge search', () => {
     const section = await screen.findByRole('region', { name: '반대 방향' });
     expect(within(section).getByText('역방향 관찰')).toBeTruthy();
     expect(within(section).queryByText('일치 이유')).toBeNull();
-    expect(within(section).getByText('관련 Item 2건').closest('a')).toBeNull();
+    expect(within(section).getByText('관련 Item 2건').closest('a')?.getAttribute('href')).toContain('00000005-0000-4000-8000-000000000002');
     expect(within(screen.getByRole('region', { name: '검색 결과' })).queryByText('역방향 관찰')).toBeNull();
     expect(new URLSearchParams(window.location.search).get('opposite')).toBe('true');
     fireEvent.click(toggle);

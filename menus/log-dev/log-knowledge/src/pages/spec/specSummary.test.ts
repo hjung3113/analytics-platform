@@ -57,4 +57,32 @@ describe('spec publication summary', () => {
   it.each(['kind\tmodule\nmodule\tA\tunexpected', 'kind\tmodule\tevent\nmodule\tA\nrelation\t\t\t\t\t\t\tA\tMissing\tbefore\tA\tMissing', 'kind\tmodule\tevent\tfields_json\nevent\tA\tE\t{'])('refuses a draft whose comparison cannot be parsed or resolved', text => {
     expect(parseSpecDraftText(text).ok).toBe(false);
   });
+
+  it.each(['constructor', 'toString'])('treats inherited object key %s as an unknown row kind', kind => {
+    expect(parseSpecDraftText(`kind\tmodule\n${kind}\tA`).ok).toBe(false);
+  });
+
+  it('normalizes draft event fields to the stored publication shape', () => {
+    const published = { ...publication, events: publication.events.map((event, index) => index === 0 ? { ...event, fields: [{ name: 'Amount', type: 'float', description: 'Pressure', allowedValues: ['low', 'high'] }, { name: 'Pressure', type: 'float', description: 'Value', unit: 'kPa' }] } : event), relations: [] };
+    const parsed = parseSpecDraftText([
+      'kind\tmodule\tevent\ttrigger_rule\tdetail_doc_ref\tfields_json',
+      'module\tArm',
+      'module\tOld',
+      'event\tArm\tMove\ton move\t\t[{"name":"  Amount  ","type":"float","description":" Pressure ","unit":null,"allowedValues":[" low ","high"]},{"name":"Pressure","type":"float","description":" Value ","unit":" kPa "}]',
+      'event\tArm\tStop\t\t\t[]',
+      'event\tOld\tGone\t\t\t[]',
+    ].join('\n'));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(compareSpecDraft(parsed.rows, published as ModelSpecData).state).toBe('verified_zero');
+  });
+
+  it.each(['[{"name":" ","type":"string","description":"x"}]', '[{"name":"x","type":"enum","description":"x","allowedValues":[" "]}]'])('refuses field values the server cannot normalize: %s', fields => {
+    expect(parseSpecDraftText(`kind\tmodule\tevent\tfields_json\nmodule\tArm\nevent\tArm\tMove\t${fields}`).ok).toBe(false);
+  });
+
+  it('marks a malformed loaded publication as unavailable because of publication data', () => {
+    const parsed = parseSpecDraftText('kind\tmodule\tevent\ttrigger_rule\tfields_json\nmodule\tArm\nevent\tArm\tMove\ton move\t[]');
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(compareSpecDraft(parsed.rows, { ...publication, events: [{ ...publication.events[0]!, moduleId: 'missing' }] })).toMatchObject({ state: 'unavailable', reason: 'publication' });
+  });
 });

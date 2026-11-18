@@ -144,13 +144,13 @@ export default function SpecScreen({ params }: PageProps) {
   const tabsList = <TabsList aria-label={w('모델 명세 탭', 'Model specification tabs')}><TabsTrigger value="spec">{w('명세', 'Specification')}</TabsTrigger><TabsTrigger value="changes">{w('변경점', 'Changes')}</TabsTrigger><TabsTrigger value="concept" aria-label={conceptTabLabel}><span className="inline-block min-w-40 tabular">{conceptTabLabel}</span></TabsTrigger><TabsTrigger value="history">{w('Revision 이력', 'Revision history')}</TabsTrigger></TabsList>;
   let content;
   if (!enabled) content = <StateMessage icon={<AlertTriangle aria-hidden />} title={w('모델 주소를 확인해 주세요.', 'Check the model URL.')} />;
-  else if (editingDraft) content = <Tabs value="spec" onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null })}>
+  else if (editingDraft) content = <Tabs value="spec" onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null, revision: null })}>
     {tabsList}<TabsContent value="spec"><DraftEditor key={`draft:${discardEpoch}`} modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} /></TabsContent>
   </Tabs>;
   else if (!spec.response) content = <StateMessage icon={<Loader2 aria-hidden />} title={w('명세를 불러오는 중…', 'Loading specification…')} />;
   else if (spec.response.outcome === 'forbidden') content = <StateMessage icon={<LockKeyhole aria-hidden />} title={w('명세를 볼 권한이 없습니다', 'No permission to view the specification')} />;
   else if (!isAnswered(spec.response.outcome)) content = <StateMessage icon={<ServerCrash aria-hidden />} title={w('명세를 불러오지 못했습니다', 'Could not load specification')} tone="danger" correlationId={spec.response.correlationId} action={<Button size="sm" variant="secondary" onClick={spec.refetch}>{w('다시 시도', 'Retry')}</Button>} />;
-  else content = <Tabs value={tab} onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null })}>
+  else content = <Tabs value={tab} onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null, revision: null })}>
     {tabsList}
     <TabsContent value="spec">{current ? <SpecBody spec={current} modelId={modelId} freshness={freshness} onOpenEvent={id => navigate({ drawer: 'event', event: id, change: null })} conceptCounts={conceptReady ? conceptCounts : undefined} /> : <StateMessage icon={<Inbox aria-hidden />} title={w('발행된 모델 명세가 없습니다', 'No published model specification')} body={w('초안을 작성하고 발행하면 모델의 기준 명세가 됩니다.', 'Create and publish a draft to establish the model specification.')} action={canWrite && <Button onClick={openDraft}>{w('첫 명세 작성', 'Create first specification')}</Button>} />}</TabsContent>
     <TabsContent value="concept"><ConceptReview modelId={modelId} current={current} mappings={mappings} suggestions={suggestions} reload={reloadConcepts} historyQueries={[confirmed, rejected]} page={conceptPage} onPage={setConceptPage} historyPage={conceptHistoryPage} onHistoryPage={setConceptHistoryPage} /></TabsContent>

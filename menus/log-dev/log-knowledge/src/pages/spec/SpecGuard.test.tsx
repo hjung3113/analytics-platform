@@ -89,10 +89,10 @@ describe('spec editing navigation guard (#1410)', () => {
     expect(moved).toBe(true);
     await waitFor(() => expect(window.location.search).toContain('tab=changes'));
   });
-  it('re-selecting the open draft rewrites nothing: it neither asks nor discards the edits (review C1)', async () => {
+  it('re-selecting the active spec tab while editing rewrites nothing or discards edits (review C1)', async () => {
     mount(`&drawer=draft&revision=${rev}`);
     await dirtyEditor();
-    fireEvent.click(await screen.findByRole('button', { name: /초안 편집/ }));
+    fireEvent.click(screen.getByRole('tab', { name: '명세' }));
     expect(screen.queryByRole('dialog', { name: '저장하지 않은 입력을 버릴까요?' })).toBeNull();
     expect((screen.getByLabelText('명세 TSV') as HTMLTextAreaElement).value).toContain('Kept');
   });
@@ -105,6 +105,7 @@ describe('spec editing navigation guard (#1410)', () => {
     expect(window.location.search).not.toContain('tab=changes');
     fireEvent.click(within(await screen.findByRole('dialog', { name: '저장하지 않은 입력을 버릴까요?' })).getByRole('button', { name: '버리고 이동' }));
     await waitFor(() => expect(window.location.search).toContain('tab=changes'));
+    expect(new URLSearchParams(window.location.search).has('revision')).toBe(false);
     expect(screen.queryByLabelText('명세 TSV')).toBeNull();
   });
 });
