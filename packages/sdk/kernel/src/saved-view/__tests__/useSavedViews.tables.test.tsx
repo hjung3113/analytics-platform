@@ -102,3 +102,41 @@ it.each([false, true])('retries a page-dependent basis after navigation (remount
   await waitFor(() => expect(applied).toHaveBeenCalledExactlyOnceWith(next));
   expect(views.state.modified).toBe(false);
 });
+
+it('captures and restores table column groups when support is declared only in the manifest (even without autoApplyDefault)', async () => {
+  const manifestOnly = createRegistry({
+    spaces: [testSpace()],
+    groups: [{ id: groupId('g'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }],
+    menus: [{
+      id: 'home', group: groupId('g'), primary: true, path: '/', icon: House,
+      label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' },
+      permission: 'platform:view', requiresScope: false,
+      context: { ...noContext, time: 'apply' }, query: { mode: 'apply' },
+      pageType: 'analysis', pageKeys: ['filter'],
+      features: { export: false, savedView: true, annotate: false, compare: false, board: true },
+      savedViewSupport: support,
+    }],
+  });
+  function ManifestOnlyProbe() {
+    const [value, update] = useState(grouped);
+    setValue = update;
+    views = useSavedViews();
+    return <Table value={value} />;
+  }
+  window.history.replaceState(null, '', '/');
+  const store = createFakeSavedViewStore([]);
+  render(<I18nProvider><PlatformProvider registry={manifestOnly} adapter={testAdapter()} savedViews={store}><ManifestOnlyProbe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  expect(views.support).toEqual(support);
+  let savedId = '';
+  await act(async () => {
+    const result = await views.saveAs({ kind: 'menu-view', name: 'Manifest only' });
+    expect(result).toMatchObject({ ok: true, value: { view: { tables: { raw: grouped } } } });
+    if (result.ok) savedId = result.value.view.id;
+  });
+  act(() => setValue({}));
+  expect(views.state.modified).toBe(true);
+  await act(async () => { await views.select(savedId); });
+  expect(applied).toHaveBeenCalledWith(grouped);
+  expect(views.state.modified).toBe(false);
+});

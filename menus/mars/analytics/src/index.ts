@@ -15,7 +15,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'chart-catalog', group: GROUP, label: { ko: '차트 카탈로그', en: 'Chart catalog' },
     description: { ko: '차트 종류별 동작과 지원 조건을 확인합니다.', en: 'Explore chart interactions and support conditions.' },
-    path: '/analytics/chart-catalog', icon: Activity, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
+    path: '/analytics/chart-catalog', icon: Activity, permission: PERMISSION, requiresScope: true, pageType: 'analysis', query: { mode: 'live' },
     context: contextCapabilities({ time: 'apply' }), features: { export: true, savedView: false, annotate: true, compare: true }, pageKeys: ['kind', 'node'], contextResetKeys: ['node'],
     component: lazy(() => import('./pages/chart-catalog/ChartCatalog')),
   },
@@ -54,7 +54,7 @@ export const manifests: MenuEntry[] = [
     id: 'execution-detail', group: GROUP, parent: 'cycle-time', navHidden: true, label: { ko: '실행 상세', en: 'Execution detail' },
     description: { ko: 'occurrence 식별키 (equipmentId, entityType, anchor)로 식별되는 실행의 공정 타임라인.', en: 'Process timeline of one occurrence keyed by (equipmentId, entityType, anchor).' },
     subjectLinks: { equipment: { param: 'equipmentId' } },
-    path: '/analytics/executions/:equipmentId', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
+    path: '/analytics/executions/:equipmentId', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis', query: { mode: 'live' },
     context: contextCapabilities({ time: 'reference', roomNames: 'reference', condition: 'reference', selection: 'reference', lot: 'reference', ppid: 'reference', recipe: 'reference', metric: 'reference' }),
     features: NO_FEATURES, pageKeys: ['entityType', 'anchor', 'returnTo'],
     component: lazy(() => import('./pages/ExecutionDetail')),
@@ -62,7 +62,7 @@ export const manifests: MenuEntry[] = [
   {
     id: 'wafer-journey', group: GROUP, label: { ko: 'Wafer Journey', en: 'Wafer journey' },
     description: { ko: '이송 분포', en: 'Transfer distribution' },
-    path: '/analytics/wafer-journey', icon: Route, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
+    path: '/analytics/wafer-journey', icon: Route, permission: PERMISSION, requiresScope: true, pageType: 'analysis', query: { mode: 'live' },
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', selection: 'apply', lot: 'apply', metric: 'reference' }), features: NO_FEATURES, pageKeys: [],
   },
 ];

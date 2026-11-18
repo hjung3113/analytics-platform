@@ -10,7 +10,7 @@ import { legacyBoard, legacySheet, v2Board } from '../__fixtures__/legacyBoard';
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: ['view', 'tab'], ...over,
+  requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: ['view', 'tab'], ...over,
 });
 const declarations = {
   spaces: [testSpace({ homeMenuId: 'hub' })],

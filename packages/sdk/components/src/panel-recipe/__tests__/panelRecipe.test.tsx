@@ -13,7 +13,7 @@ afterEach(cleanup);
 const endpoint = { id: 'samples.rows', menuId: 'samples', permission: 'platform:view' } as const;
 const menu: MenuEntry = {
   id: 'samples', path: '/samples', primary: true, group: groupId('overview'), label: { ko: '예시', en: 'Samples' }, description: { ko: '', en: '' }, icon: House,
-  permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis',
+  permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const },
   features: { export: true, savedView: false, annotate: false, compare: false },
   pageKeys: ['level', 'mark'],
   panels: [

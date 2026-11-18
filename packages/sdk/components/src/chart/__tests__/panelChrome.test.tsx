@@ -101,7 +101,7 @@ describe('Panel chart chrome', () => {
   });
 
   it('keeps feature-gated comparison, annotation, quick ranges and image actions inside More', () => {
-    const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'Home', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
+    const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'Home', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
     const session = testSession(['platform:view']);
     const adapter = testAdapter({ session: () => session });
     const timed = [{ ...series[0], points: [['2026-09-01T00:00:00', 1], ['2026-09-01T01:00:00', 2]] as [string, number][] }];

@@ -302,20 +302,29 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const scopeView = useStable(maskedScope, sameScopeState);
   const scopeReady = !routeMenu?.requiresScope || scopeView.status === 'valid';
 
-  // Closing first entry on an explicit or invalid address also keeps a later Reset or Back exact.
-  const autoApplyRoute = route?.menu.query?.autoApplyDefault === true ? route : null;
-  const bare = autoApplyRoute !== null && routeContractError === null && !hasExplicitContext({ global, page }, { includeReturnTo: true });
-  const [entry, setEntry] = useState({ route: autoApplyRoute, paneId, bare });
+  // Closing first entry on a complete or invalid address also keeps a later Reset or Back exact.
+  const query = route?.menu.query;
+  const autoApplyRoute = query?.mode === 'apply' && query.autoApplyDefault === true ? route : null;
+  let candidate: 'bare' | 'legacy' | null = null;
+  if (autoApplyRoute !== null && routeContractError === null && global.from === null && global.to === null) {
+    if (!hasExplicitContext({ global, page }, { includeReturnTo: true })) candidate = 'bare';
+    else if (autoApplyRoute.menu.query?.mode === 'apply' && autoApplyRoute.menu.query.applyPeriodOnLegacyEntry === true) candidate = 'legacy';
+  }
+  const [traversal, setTraversal] = useState(0);
+  useEffect(() => (mode === 'main' ? app.internal.guard.onTraversal(() => setTraversal(n => n + 1)) : undefined), [app.internal.guard, mode]);
+  const [entry, setEntry] = useState<{ route: typeof autoApplyRoute; paneId: typeof paneId; kind: typeof candidate; pendingDefault: boolean; traversal: number }>(() => ({
+    route: autoApplyRoute, paneId, kind: candidate, pendingDefault: false, traversal,
+  }));
   const newEntry = entry.route !== autoApplyRoute || entry.paneId !== paneId;
-  const bareEntry = bare && (newEntry || entry.bare);
-  if (newEntry || entry.bare !== bareEntry) setEntry({ route: autoApplyRoute, paneId, bare: bareEntry });
-  const canApplyBareDefault = autoApplyRoute !== null && bareEntry && canOpen(autoApplyRoute.menu.id);
+  const switchingToLegacy = !newEntry && entry.kind === 'bare' && candidate === 'legacy' && entry.pendingDefault && entry.traversal === traversal;
+  const entryKind = newEntry || entry.kind === candidate || switchingToLegacy ? candidate : null;
+  const canApplyEntryDefault = autoApplyRoute !== null && entryKind !== null && canOpen(autoApplyRoute.menu.id);
   const arrival = useMemo(() => ({ autoApplyRoute, appliedUrl, session }), [autoApplyRoute, appliedUrl, session]);
   const [failedArrival, setFailedArrival] = useState<typeof arrival | null>(null);
   const scopeFailed = scopeView.status !== 'valid' && scopeView.status !== 'validating' && scopeView.status !== 'none';
   // A retry can recover Scope access, but edits made after a failure own this arrival.
-  if (mode === 'main' && canApplyBareDefault && scopeFailed && failedArrival !== arrival) setFailedArrival(arrival);
-  const eligible = mode === 'main' && canApplyBareDefault && !scopeFailed && failedArrival !== arrival;
+  if (mode === 'main' && canApplyEntryDefault && scopeFailed && failedArrival !== arrival) setFailedArrival(arrival);
+  const eligible = mode === 'main' && canApplyEntryDefault && !scopeFailed && failedArrival !== arrival;
   const scopeReadyForDefault = scopeReady && scopeView.status !== 'validating';
   const savedViewStore = app.pub.savedViewStore;
   const revision = app.pub.revision;
@@ -328,9 +337,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const materializeDefault = useCallback((href: string) => commitState(href, 'replace', { materialize: true }), [commitState]);
   const initialDecision = useMemo<InitialSavedView>(() => ({ settle: () => setSettledSavedView(savedViewEntry), materialize: materializeDefault }), [savedViewEntry, materializeDefault]);
-  const waitingForSavedView = eligible && savedViewEnabled && settledSavedView !== savedViewEntry;
+  const waitingForSavedView = eligible && entryKind === 'bare' && savedViewEnabled && settledSavedView !== savedViewEntry;
+  if (newEntry || entry.kind !== entryKind || entry.pendingDefault !== waitingForSavedView || entry.traversal !== traversal) {
+    setEntry({ route: autoApplyRoute, paneId, kind: entryKind, pendingDefault: waitingForSavedView, traversal });
+  }
   const autoApplyingDefault = eligible && (defaultRangeTo !== null || waitingForSavedView);
-  const canAutoApply = mode === 'pane' ? canApplyBareDefault : eligible && scopeReadyForDefault && !waitingForSavedView;
+  const canAutoApply = mode === 'pane' ? canApplyEntryDefault : eligible && scopeReadyForDefault && !waitingForSavedView;
   const initialSavedView = waitingForSavedView && scopeReadyForDefault && !route?.viaAlias ? initialDecision : null;
 
   // Materialize the default period for time-applying menus (§6.3/§6.4: absolute from/to written into the address)

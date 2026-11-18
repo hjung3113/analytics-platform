@@ -14,7 +14,7 @@ import { TEST_AXES } from '../test-axes';
 const destinations = ['equipment-detail', 'voc'].map(id => ({
   id, group: groupId('analytics'), label: { ko: id, en: id }, description: { ko: id, en: id },
   path: id === 'voc' ? '/voc' : '/equipment/:equipmentId', icon: Timer, permission: PERMISSION, requiresScope: false,
-  pageType: 'analysis' as const, context: contextCapabilities({}), features: NO_FEATURES, pageKeys: [],
+  pageType: 'analysis' as const, query: { mode: 'live' as const }, context: contextCapabilities({}), features: NO_FEATURES, pageKeys: [],
 }));
 const registry = createRegistry({
   permissions: [menuPermission('analytics:view')],

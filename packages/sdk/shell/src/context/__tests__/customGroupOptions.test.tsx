@@ -7,7 +7,7 @@ import { createRegistry, I18nProvider, PlatformProvider, useMenuFetch } from '@a
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { useCustomGroupOptions } from '../customGroupOptions';
 
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: { ...noContext, condition: 'apply' }, pageKeys: [], pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false } }] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: { ...noContext, condition: 'apply' }, pageKeys: [], pageType: 'analysis', query: { mode: 'live' as const }, features: { export: false, savedView: false, annotate: false, compare: false } }] });
 
 it('ignores a save that settles after the Scope moved on, so the new Scope keeps its groups and blockers (#2390)', async () => {
   const store = createFakeSavedViewStore([testSavedView({ id: 'b-1', kind: 'custom-group', savedScopeId: 'B', target: { fixed: ['E1'] } })]);

@@ -11,7 +11,7 @@ import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScre
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const entry = (id: string) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path: `/${id}`, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, features, pageKeys: [],
+  requiresScope: false, context: noContext, component: testScreen, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: [],
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],

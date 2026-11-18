@@ -28,6 +28,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: '연결된 패널에서 설비 동작시간을 분석합니다.', en: 'Analyze operation time with linked panels.' },
     path: '/hw-time', icon: LayoutDashboard, permission: PERMISSION,
     requiresScope: true, context: contextCapabilities(HW_TIME_CONTEXT), pageType: 'analysis',
+    query: { mode: 'live' },
     features: { ...NO_FEATURES, board: true, export: true },
     pageKeys: PAGE_KEYS,
     repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins'],

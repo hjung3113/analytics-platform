@@ -16,7 +16,7 @@ const registry = createRegistry({
   menus: [{
     id: 'period', group: groupId('g'), primary: true, label: { ko: '기간', en: 'Period' }, description: { ko: '', en: '' }, path: '/mars/period', icon: House,
     permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const, lot: 'apply' as const },
-    pageType: 'analysis' as const, features, pageKeys: ['q', 'returnTo'],
+    pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: ['q', 'returnTo'],
   }],
 });
 type Data = { ok: true };

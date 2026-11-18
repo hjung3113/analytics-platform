@@ -18,7 +18,7 @@ const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'home' })],
   groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'home', group: groupId('equipment'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view' as const,
-    requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: [], component: (() => <PlatformPage><p>page body</p></PlatformPage>) as unknown as PlatformMenuEntry['component'] }],
+    requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: [], component: (() => <PlatformPage><p>page body</p></PlatformPage>) as unknown as PlatformMenuEntry['component'] }],
 });
 
 function Probe() {

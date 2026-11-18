@@ -30,13 +30,12 @@ describe('contextCapabilities', () => {
 });
 
 describe('NO_FEATURES', () => {
-  it('turns every feature flag off and leaves board absent', () => {
-    expect(NO_FEATURES).toEqual({ export: false, savedView: false, annotate: false, compare: false });
-    expect('board' in NO_FEATURES).toBe(false);
+  it('turns the base flags off and leaves savedView and board undeclared', () => {
+    expect(NO_FEATURES).toEqual({ export: false, annotate: false, compare: false });
   });
 
   it('spreads into a manifest features record that turns one flag on', () => {
-    expect({ ...NO_FEATURES, export: true, board: true }).toEqual({ export: true, savedView: false, annotate: false, compare: false, board: true });
+    expect({ ...NO_FEATURES, export: true, board: true }).toEqual({ export: true, annotate: false, compare: false, board: true });
   });
 });
 

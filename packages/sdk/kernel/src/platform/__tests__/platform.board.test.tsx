@@ -12,8 +12,8 @@ const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'main' })],
   groups: [{ id: groupId('equipment'), label: { ko: '그룹', en: 'Group' }, icon: House, space: spaceId('mars') }],
   menus: [
-    { id: 'main', group: groupId('equipment'), primary: true, label: { ko: '본', en: 'Main' }, description: { ko: '', en: '' }, path: '/main', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
-    { id: 'boards', group: groupId('equipment'), label: { ko: '분석 보드', en: 'Boards' }, description: { ko: '', en: '' }, path: '/boards', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', features, pageKeys: [] },
+    { id: 'main', group: groupId('equipment'), primary: true, label: { ko: '본', en: 'Main' }, description: { ko: '', en: '' }, path: '/main', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features, pageKeys: [] },
+    { id: 'boards', group: groupId('equipment'), label: { ko: '분석 보드', en: 'Boards' }, description: { ko: '', en: '' }, path: '/boards', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features, pageKeys: [] },
   ],
 });
 

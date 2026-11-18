@@ -24,7 +24,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const apply = { ...noContext, time: 'apply' as const };
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: apply, pageType: 'analysis' as const, features, pageKeys: ['tab'], ...over,
+  requiresScope: false, context: apply, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: ['tab'], ...over,
 });
 function Body() {
   const { global, pageParam, paneId } = useHostPlatform();

@@ -17,7 +17,7 @@ const features = { export: false, savedView: false, annotate: false, compare: fa
 const Body = lazy(async () => ({ default: () => <PlatformPage><p>body</p></PlatformPage> }));
 const entry = (id: string, path: string, label: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: label, en: label }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features, pageKeys: [], component: Body, ...over,
+  requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: [], component: Body, ...over,
 });
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'alpha' }), testSpace({ id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Ops' }, homeMenuId: 'ops' })],

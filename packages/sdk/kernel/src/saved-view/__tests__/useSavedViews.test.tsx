@@ -1136,3 +1136,78 @@ it('a save made with no current Scope records none, and an overwrite with none c
   await act(async () => { await views.saveToSelected(); });
   expect(store.rows.get('m1')).not.toHaveProperty('savedScopeId');
 });
+
+it.each(['drill', 'same-path-link'] as const)('switches a pending bare arrival to an explicit legacy candidate on %s and ignores the stale personal default', async action => {
+  const chosen = createRegistry({
+    spaces: registry.spaces,
+    groups: registry.groups,
+    menus: [{
+      ...menu('home', '/', true, true),
+      context: { ...noContext, time: 'apply' as const, line: 'apply' as const },
+      query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
+      savedViewSupport: support,
+    }],
+  });
+  const held = deferred();
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  store.getHold.set('l1', held.promise);
+  window.history.replaceState(null, '', chosen.menus[0].path);
+  const replace = vi.spyOn(window.history, 'replaceState');
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(store.reads).toContain('get'));
+  expect(host.global.from).toBeNull();
+  if (action === 'drill') act(() => host.setPage({ filter: 'linked' }));
+  else act(() => { host.navigate(chosen.menus[0].path + '?lineNames=L2'); });
+  await waitFor(() => expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }));
+  await act(async () => held.release());
+  if (action === 'drill') {
+    expect(host.pageParam('filter')).toBe('linked');
+    expect(host.global.lineNames).toBeNull();
+  } else {
+    expect(host.global.lineNames).toEqual(['L2']);
+  }
+  expect(views.selected).toBeNull();
+  expect(replace.mock.calls.filter(([, , url]) => String(url).includes('from='))).toHaveLength(1);
+});
+
+it('keeps completed-then-reset, invalid, and history-restored legacy entries exact during or after bare arrival', async () => {
+  const chosen = createRegistry({
+    spaces: registry.spaces,
+    groups: registry.groups,
+    menus: [{
+      ...menu('home', '/', true, true),
+      context: { ...noContext, time: 'apply' as const, line: 'apply' as const },
+      query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
+      savedViewSupport: support,
+    }],
+  });
+  const held = deferred();
+  const store = createFakeStore([L1], { 'u1:home': 'l1' });
+  store.getHold.set('l1', held.promise);
+  window.history.replaceState(null, '', chosen.menus[0].path);
+  const ui = render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(store.reads).toContain('get'));
+  act(() => {
+    window.history.replaceState(null, '', chosen.menus[0].path + '?v=1&lineNames=L2');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await act(async () => held.release());
+  expect(window.location.search).toBe('?v=1&lineNames=L2');
+  expect(host.global.from).toBeNull();
+
+  ui.unmount();
+  store.getHold.clear();
+  window.history.replaceState(null, '', chosen.menus[0].path + '?from=invalid&lineNames=L2');
+  const uiInvalid = render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
+  await act(async () => {});
+  expect(window.location.search).toBe('?from=invalid&lineNames=L2');
+  expect(host.global.from).toBeNull();
+
+  uiInvalid.unmount();
+  window.history.replaceState(null, '', chosen.menus[0].path);
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(host.global.lineNames).toEqual(['L1']));
+  act(() => host.resetContext());
+  await act(async () => {});
+  expect(host.global).toMatchObject({ from: null, to: null, lineNames: null });
+});

@@ -14,7 +14,7 @@ const registry = createRegistry({
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'home', primary: true, group: groupId('overview'), path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' },
     icon: House, permission: 'platform:view', requiresScope: false, context: noContext,
-    features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }],
+    features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', query: { mode: 'live' as const }, pageKeys: [] }],
 });
 const endpoint = defineEndpoint<{ page: number }, string>({
   id: 'fixture.keep-previous', menuId: 'home', paramKeys: { page: true }, permission: 'platform:view',

@@ -266,7 +266,12 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   // Canonical paths (ADR-0093): a menu in a space lives at /{space}/{menu-slug} + its manifest's :param segments; the manifest path becomes a legacy alias.
   const slugs = new Map<string, string>();
   const menus: MenuEntry[] = menusIn.map(input => {
-    const m = registerPageConditions(input, { carried: input.carrySet === undefined ? [] : carrySetByIdMap.get(input.carrySet)?.pageKeys ?? [], endpoints, fail });
+    const analysis = input.pageType === 'analysis';
+    const query = input.query ?? (analysis ? { mode: 'apply' as const } : undefined);
+    const savedView = input.features.savedView ?? (analysis && query?.mode === 'apply');
+    const resolved = query === input.query && savedView === input.features.savedView
+      ? input : { ...input, query, features: { ...input.features, savedView } };
+    const m = registerPageConditions(resolved, { carried: input.carrySet === undefined ? [] : carrySetByIdMap.get(input.carrySet)?.pageKeys ?? [], endpoints, fail });
     const space = groupSpace.get(m.group) ?? null;
     const params = segments(m.path).filter(isParam);
     // A retired id's addresses: its declared paths, plus the canonical path it had in the successor's space.
@@ -350,8 +355,17 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (m.defaultPeriodHours !== undefined && (!Number.isInteger(m.defaultPeriodHours) || m.defaultPeriodHours <= 0 || m.context.time !== 'apply')) fail(`Menu "${m.id}" defaultPeriodHours must be a positive integer on a time-applying menu`);
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (m.features.savedView === true && m.query?.mode !== 'apply') fail(`Menu "${m.id}" savedView requires query.mode: 'apply' with time: 'apply': saved views use the Apply query toolbar; remove features.savedView for a live menu`);
-    if (m.query) {
-      if (m.query.mode !== 'apply' || m.context.time !== 'apply') fail(`Menu "${m.id}" apply mode requires time: apply`);
+    if (m.query && m.query.mode !== 'apply' && m.query.mode !== 'live') fail(`Menu "${m.id}" query.mode must be 'apply' or 'live'`);
+    if (m.query?.mode === 'live') {
+      const raw = m.query as Record<string, unknown>;
+      const applyOnly = ['autoApplyDefault', 'applyPeriodOnLegacyEntry', 'required'].filter(field => raw[field] !== undefined);
+      if (applyOnly.length > 0) fail(`Menu "${m.id}" live query cannot declare Apply-only field(s) ${applyOnly.map(field => `"${field}"`).join(', ')}; use query.mode: 'apply' or remove them`);
+    }
+    if (m.query?.mode === 'apply') {
+      if (m.context.time !== 'apply') {
+        const optOut = m.pageType === 'analysis' ? "; declare query: { mode: 'live' } to opt out" : '';
+        fail(`Menu "${m.id}" apply mode requires time: 'apply'${optOut}`);
+      }
       const contextError = requiredContextError(m.query.required?.context ?? [], m.context);
       if (contextError) {
         const detail = contextError.replace(/^required Context ([\s\S]*) must be applied$/, 'required Context "$1" must be applied');

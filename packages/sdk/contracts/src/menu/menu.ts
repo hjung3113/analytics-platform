@@ -24,8 +24,8 @@ export function contextCapabilities(declared: Partial<Record<ContextKey, Capabil
     lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported', ...declared,
   };
 }
-/** A manifest's `features` with every flag off (`board` absent = false). Spread it to turn one on: `{ ...NO_FEATURES, export: true }`. */
-export const NO_FEATURES: Readonly<MenuMeta['features']> = Object.freeze({ export: false, savedView: false, annotate: false, compare: false });
+/** Base flags for a manifest. Saved views follow the Registry default unless explicitly declared. */
+export const NO_FEATURES = Object.freeze({ export: false, annotate: false, compare: false });
 export type PageType = 'overview' | 'analysis' | 'management' | 'catalog' | 'workflow';
 declare const brand: unique symbol;
 type Brand<Name extends string> = string & { readonly [brand]: Name };
@@ -115,17 +115,21 @@ export type MenuMeta = {
   context: Record<ContextKey, Capability>;
   /** Initial period in whole hours for time-applying menus; positive integer so boundaries stay on whole seconds. Absent = 24 (§6.3). */
   defaultPeriodHours?: number;
-  /** Opt-in deferred analysis execution. The address remains the applied query. */
-  query?: {
-    mode: 'apply';
-    /** Apply the default period on a bare first entry. The main screen tries the personal default Saved View first. */
-    autoApplyDefault?: boolean;
-    required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] };
-  };
+  /** Analysis defaults to Apply; other archetypes default to live. The address remains the applied query. */
+  query?:
+    | { mode: 'live' }
+    | {
+        mode: 'apply';
+        /** Apply the default period on a bare first entry. The main screen tries the personal default Saved View first. */
+        autoApplyDefault?: boolean;
+        /** With autoApplyDefault, fill only the missing period on a first entry carrying legacy conditions. */
+        applyPeriodOnLegacyEntry?: boolean;
+        required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] };
+      };
   pageType: PageType;
   /** Candidate: declarative page-owned conditions; absent preserves legacy behavior (§5/§6.4). */
   pageConditions?: PageConditions;
-  features: { export: boolean; savedView: boolean; annotate: boolean; compare: boolean; /** The menu can be shown in an analysis-board pane (ADR-0049). Absent = false. */ board?: boolean };
+  features: { export: boolean; /** Defaults on for Apply analysis menus. */ savedView?: boolean; annotate: boolean; compare: boolean; /** The menu can be shown in an analysis-board pane (ADR-0049). Absent = false. */ board?: boolean };
   /** Registered page-owned URL keys (§6.1). Only these survive on this route besides globals/extras. */
   pageKeys: readonly string[];
   /**

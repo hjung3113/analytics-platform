@@ -23,7 +23,7 @@ const plain = action();
 const versioned = action({ id: 'fx.save-v', concurrency: 'version' });
 const scoped = action({ id: 'fx.save-s', requiresScope: true });
 
-const meta = { description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, pageKeys: [] };
+const meta = { description: { ko: '', en: '' }, icon: House, permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, pageKeys: [] };
 const registry = createRegistry({
   spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],

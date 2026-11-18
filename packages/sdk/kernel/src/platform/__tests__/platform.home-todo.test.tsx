@@ -14,7 +14,7 @@ const registry = createRegistry({
   groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'source', group: groupId('equipment'), label: { ko: 'source', en: 'source' }, description: { ko: '', en: '' }, path: '/source', icon: House, permission: 'platform:view',
-    requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], primary: true,
+    requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: noFeatures, pageKeys: [], primary: true,
   }],
 });
 

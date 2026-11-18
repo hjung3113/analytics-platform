@@ -316,7 +316,7 @@ it('requires every mapped Context field, treats explicit empty sets as present, 
   expect(draft.missing.map(item => item.key)).toEqual(['condition']);
 });
 it('live mode mirrors applied values and setters write through, with no draft actions', async () => {
-  const { query: _query, ...live } = menu;
+  const live = { ...menu, query: { mode: 'live' as const } };
   const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [live] });
   mount('/' + period, chosen);
   await waitFor(() => expect(query.status).toBe('done'));
@@ -498,7 +498,7 @@ it('apply mode: switching a Condition preset queries nothing, Apply queries once
 });
 
 it('live mode: an axis outside the active preset neither reaches the request nor refetches; switching the preset refetches once', async () => {
-  const { query: _applyOnly, ...liveMenu } = menu;
+  const liveMenu = { ...menu, query: { mode: 'live' as const } };
   const presetMenu = { ...liveMenu, ...presetFields, pageKeys: [...menu.pageKeys, ...presetFields.pageKeys], context: { ...menu.context, condition: 'apply' as const } };
   const { send } = mountPreset(presetMenu as never, presetEndpoint({ condition: 'apply' }), '/?v=1' + groupParam(fullCondition));
   await waitFor(() => expect(presetQuery.status).toBe('done'));
@@ -545,7 +545,7 @@ it('without a server anchor the apply draft has no default period, cannot apply,
 });
 
 it('without a server anchor a live-mode screen is not given a materialized default period', async () => {
-  const liveMenu = { ...menu, query: undefined };
+  const liveMenu = { ...menu, query: { mode: 'live' as const } };
   const liveRegistry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [liveMenu] });
   const replace = vi.spyOn(window.history, 'replaceState');
   window.history.replaceState(null, '', '/');
@@ -580,7 +580,7 @@ it.each([
   [undefined, '2026-09-25T09:00:00'],
   [8, '2026-09-26T01:00:00'],
 ] as const)('materializes the live default period (%s hours), preserving explicit periods', (defaultPeriodHours, from) => {
-  const chosen = createRegistry({ spaces: [testSpace()], groups: registry.groups, menus: [{ ...menu, query: undefined, defaultPeriodHours }] });
+  const chosen = createRegistry({ spaces: [testSpace()], groups: registry.groups, menus: [{ ...menu, query: { mode: 'live' }, defaultPeriodHours }] });
   const first = mount('/', chosen);
   expect(platform.global).toMatchObject({ from, to: '2026-09-26T09:00:00' });
   expect(new URLSearchParams(window.location.search).get('from')).toBe(from);
@@ -615,6 +615,32 @@ it.each([
   mount('/' + search, chosen);
   await act(async () => {});
   expect(window.location.search).toBe(search);
+});
+
+it.each([
+  ['legacy conditions without a period', '?filter=linked&page=3&roomNames=PHOTO', '2026-09-26T01:00:00'],
+  ['conditions with an explicit period', `${period}&filter=linked&page=3&roomNames=PHOTO`, '2026-09-25T09:00:00'],
+] as const)('applies %s and preserves the linked page and Context', async (_label, search, from) => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...menu, context: { ...menu.context, roomNames: 'apply' }, defaultPeriodHours: 8,
+    query: { ...autoApplyDefault, applyPeriodOnLegacyEntry: true },
+  }] });
+  const { send } = mount('/' + search, chosen);
+  await waitFor(() => expect(query.status).toBe('done'));
+  expect(platform.global).toMatchObject({ from, to: '2026-09-26T09:00:00', roomNames: ['PHOTO'] });
+  expect(platform.pageParam('filter')).toBe('linked');
+  expect(platform.pageParam('page')).toBe('3');
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+it.each(['?from=2026-09-25T09:00:00&filter=linked', '?from=invalid&filter=linked'])('does not repair a partial or invalid legacy period at %s', async search => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...menu, query: { ...autoApplyDefault, applyPeriodOnLegacyEntry: true },
+  }] });
+  const { send } = mount('/' + search, chosen);
+  await act(async () => {});
+  expect(window.location.search).toBe(search);
+  expect(send).not.toHaveBeenCalled();
 });
 
 it('waits for the required Scope before applying the default period', async () => {
@@ -684,7 +710,7 @@ it('rejects malformed declared page conditions before an applied query runs (#23
 
 it('rejects malformed declared page conditions in live mode too, and still runs valid ones (#2337)', async () => {
   const live = () => {
-    const { query: _applyOnly, ...liveMenu } = menu;
+    const liveMenu = { ...menu, query: { mode: 'live' as const } };
     return createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...liveMenu, pageConditions: { categories: [{ id: 'interval', label: menu.label, kind: { type: 'range', key: 'filter' } }] } }] });
   };
   const bad = mount(`/${period}&filter=5..2`, live());
@@ -694,7 +720,7 @@ it('rejects malformed declared page conditions in live mode too, and still runs 
 });
 
 it('still runs a live menu whose declared page condition is well formed (#2337)', async () => {
-  const { query: _applyOnly, ...liveMenu } = menu;
+  const liveMenu = { ...menu, query: { mode: 'live' as const } };
   const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [{ ...liveMenu, pageConditions: { categories: [{ id: 'interval', label: menu.label, kind: { type: 'range', key: 'filter' } }] } }] });
   const { send } = mount(`/${period}&filter=2..5`, registry);
   await settleQueries();

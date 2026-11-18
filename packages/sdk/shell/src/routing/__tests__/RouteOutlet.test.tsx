@@ -20,7 +20,7 @@ function hasTextWithoutChild(node: Element | null, needle: string) {
 }
 const menu = (id: string, path: string, over: object = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
-  requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys: [], ...over,
+  requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: noFeatures, pageKeys: [], ...over,
 });
 
 let broken = true;

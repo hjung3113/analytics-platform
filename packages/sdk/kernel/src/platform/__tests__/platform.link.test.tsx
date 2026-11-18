@@ -11,7 +11,7 @@ import { carrySetId, groupId, spaceId, type Permission, menuPermission, type Ses
 
 const noFeatures = { export: false, savedView: false, annotate: false, compare: false };
 const entry = (id: string, group: 'equipment' | 'admin' | 'overview', path: string, permission: Permission, pageKeys: string[]) => ({
-  id, group: groupId(group), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: noContext, pageType: 'analysis' as const, features: noFeatures, pageKeys,
+  id, group: groupId(group), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission, requiresScope: false, context: noContext, pageType: 'analysis' as const, query: { mode: 'live' as const }, features: noFeatures, pageKeys,
 });
 
 const spaces: SpaceDef[] = [

@@ -190,6 +190,11 @@ describe('page archetype skeletons (06 §12, #104)', () => {
     expect(enNames(messagesOf(pageType))).toEqual(CONTRACT[pageType]);
   });
 
+  it('opts an analysis scaffold without time Context out of Apply', () => {
+    const manifest = renderFiles({ ...INPUTS, pageType: 'analysis' }).find(file => file.relPath === 'src/index.ts')!.content;
+    expect(manifest).toContain("query: { mode: 'live' }");
+  });
+
   it.each(PAGE_TYPES)('%s: generated JSX renders placeholders in independent contract order', pageType => {
     const expected: Record<MenuInputs['pageType'], string[]> = {
       overview: ['summary', 'trend', 'attention', 'trust'],

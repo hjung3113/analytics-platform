@@ -23,7 +23,7 @@ const registry = createRegistry({
     label: { ko: '설비 분석', en: 'Equipment analysis' },
     description: { ko: '', en: '' }, path: '/analysis/equipment',
     permission: 'platform:view', requiresScope: false, context: {},
-    pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false },
+    pageType: 'analysis', query: { mode: 'live' as const }, features: { export: false, savedView: false, annotate: false, compare: false },
     pageKeys: [],
   }],
 });
