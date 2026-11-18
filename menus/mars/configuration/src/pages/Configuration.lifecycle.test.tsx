@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Settings } from 'lucide-react';
 import { contextCapabilities, groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { settleQueries, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
 import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type ConfigHistory, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
@@ -273,6 +274,55 @@ describe('Configuration lifecycle regressions', () => {
     const summary = host.querySelector('[data-configuration-summary]')!;
     expect(summary.classList.contains('px-2')).toBe(false);
     expect(summary.closest('[data-configuration-toolbar]')!.classList.contains('px-2')).toBe(true);
+  });
+});
+
+function SlotHost() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} data-test-slot />; }
+describe('Configuration item drawer follows the selection (#2525)', () => {
+  const group = { id: 'group:PM1', label: 'PM1', level: 0, kind: 'group', hasChildren: true, expanded: true, differences: 3 } as unknown as TreeRow;
+  const named = (row: TreeRow): TreeRow => ({ ...row, item: { ...row.item!, item: `Item ${row.id}` } });
+  async function mountDrawer() {
+    const menuQuery = vi.fn(async ({ endpoint, params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
+      const { focus } = query as { focus?: string };
+      if (endpoint === 'configuration.detail') return focus === 'cfg-000001' ? new Promise(() => {}) : ok(named(windowPage({ ...(query as TreeParams), offset: Number(focus!.slice(4)) }).nodes[0]!).item);
+      const page = windowPage(query as TreeParams);
+      return ok({ ...page, nodes: [group, ...page.nodes.map(named)] });
+    });
+    const session = testSession(['analytics:view']);
+    const adapter = testAdapter({ session: () => session, menuQuery });
+    await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><Configuration /><SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+    await settleQueries();
+    await vi.waitFor(() => expect(host.querySelector('[data-matrix-row="cfg-000001"]'), host.textContent ?? '').not.toBeNull());
+  }
+  const cell = (row: string, column: string) => host.querySelector<HTMLElement>(`[data-matrix-row="${row}"] [data-matrix-column="${column}"]`)!;
+  const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find(node => node.textContent?.trim() === label);
+  const slot = () => host.querySelector('[data-test-slot]')!;
+  async function openDrawer() {
+    act(() => cell('cfg-000000', 'EQ01').focus());
+    await act(async () => button('선택 상세 열기')!.click());
+    await settleQueries();
+    await vi.waitFor(() => expect(slot().textContent).toContain('비교 상세'));
+  }
+  it('moves the drawer header and «이력» to another selected item while its detail loads', async () => {
+    await mountDrawer();
+    await openDrawer();
+    expect(slot().querySelector('h2')?.textContent).toBe('Item cfg-000000');
+    act(() => cell('cfg-000001', 'EQ01').focus());
+    await settleQueries();
+    // Its detail is still loading: the header already names the selected item, not the row the drawer opened on.
+    expect(slot().querySelector('h2')?.textContent).toBe('Item cfg-000001');
+    await act(async () => slot().querySelector<HTMLElement>('[role="tab"][id$="-trigger-history"]')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })));
+    await act(async () => button('추세 열기')!.click());
+    expect(new URLSearchParams(window.location.search).get('trendItem')).toBe('cfg-000001');
+  });
+  it('closes the drawer when a group row is selected, so «이력» never opens a group', async () => {
+    await mountDrawer();
+    await openDrawer();
+    act(() => cell('group:PM1', 'identity').focus());
+    await settleQueries();
+    expect(slot().textContent).not.toContain('비교 상세');
+    expect(button('추세 열기')).toBeUndefined();
+    expect(new URLSearchParams(window.location.search).get('trendItem')).toBeNull();
   });
 });
 

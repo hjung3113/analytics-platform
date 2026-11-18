@@ -174,6 +174,11 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
   }, [query.response, selectedId]);
   const detail = useMenuQuery(configurationDetailEndpoint, { ...treeParams, focus: selectedId ?? '' }, drawer !== null && selectedId !== null);
   const eq = selection && params.eq.includes(selection.column) ? selection.column : params.eq[0];
+  // One row drives the drawer header and «이력»: the loaded detail, else the selected tree item, else the row it opened on
+  // (only while navigation moves the selection outside the current window). Group selections close the drawer (#2525).
+  const loadedDetail = detail.response?.outcome === 'ok' && detail.response.data?.id === selectedId ? detail.response.data : null;
+  const selectedItem = query.response?.data?.nodes.find(row => row.id === selectedId)?.item ?? null;
+  const shown = drawer && (loadedDetail ?? selectedItem ?? drawer);
   const equipment = params.mode === 'reference' ? [params.ref, ...params.eq.filter(id => id !== params.ref)] : params.eq;
   const columns: MatrixColumn[] = [
     { id: 'identity', label: m('identity'), width: 'identity', pin: 'left' },
@@ -239,7 +244,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
       return <>
         <div className="px-2"><MatrixEmphasisBar emphasis={emphasis} onEmphasisChange={setEmphasis} onlyMatchingColumns={onlyMatching} onOnlyMatchingColumnsChange={setOnlyMatching} rowLabel={id => result.nodes.find(row => row.id === id)?.label ?? id} label={count => m('emphasisCount', { count })} onlyMatchingLabel={m('onlyMatching')} /></div>
         <TreeMatrix fill keepSelectionInView nodes={result.nodes} columns={columns} identityColumn="identity" label={m('title')} offset={result.offset} totalVisible={result.totalVisible} windowSize={TREE_WINDOW}
-          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
+          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); const item = result.nodes.find(row => row.id === cell.row)?.item ?? null; setDrawer(current => current && item); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
           onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(null); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
           onWindowChange={offset => { if (!staleSearch) setWindow(current => ({ ...current, offset, reveal: null })); }} reveal={window.reveal} hiddenColumns={hiddenColumns} busy={query.status === 'loading' || query.status === 'refreshing'} generation={generation}
           emphasis={emphasis} onEmphasisChange={staleSearch ? undefined : setEmphasis} onlyMatchingColumns={onlyMatching} emphasisActionLabel={m('emphasisAction')} emphasisColumnLabel={m('emphasis')} formatEmphasisCount={count => m('matchCount', { count })}
@@ -255,7 +260,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
       </>;
     }}</QueryView>
     {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: EXPORT_LIMIT.toLocaleString() })}</span>}
-    {drawer && <ItemDrawer row={detail.response?.outcome === 'ok' && detail.response.data ? detail.response.data : drawer} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { const id = selectedId ?? drawer.id; setDrawer(null); openTrend(id); }} />}
+    {shown && <ItemDrawer row={shown} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { setDrawer(null); openTrend(shown.id); }} />}
   </div>;
 }
 
