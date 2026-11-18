@@ -5,7 +5,7 @@ import { useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/ke
 import { HeaderOverflowItem, OrderedIntervalTrack, PageFilterBar, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, StateMessage, useHeaderOverflowDialog, usePageKeyRules, type PageFilterField, type PlatformColumn } from '@ap/components';
 import { Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SearchInput, Skeleton, StatusBadge, Tabs, TabsList, TabsTrigger, useImeEnterGuard } from '@ap/ui';
 import { investigationsEndpoint, investigationDetailEndpoint, investigationUpdate, isUuid, periodsEndpoint, recordsEndpoint, type Investigation, type InvestigationFilters, type SampleSet, type SourceRow } from '../endpoints';
-import { BasketDrawer, ExportDialog, RecordDrawer, SampleDialog, SourceNotice } from './ExplorerPanels';
+import { BasketDrawer, ExportDialog, RecordDrawer, RoundStartButton, SampleDialog, SourceNotice, useRoundInvestigationStart } from './ExplorerPanels';
 import { periodSelectionOf, queryFrom, selectionOf, sequenceData, sourceReadable } from './explorerModel';
 import { DEFAULT_PAGE_KEYS, PageKeysContext, type PageKeys } from './pageKeys';
 import { useSourceRead } from './useSourceRead';
@@ -66,6 +66,7 @@ type FrameProps = { contextExtension: React.ReactNode; children: React.ReactNode
 export function InvestigationScreen({ investigation, picker, embedded = false, pageKeys = DEFAULT_PAGE_KEYS, frame }: { investigation: Investigation; picker: React.ReactNode; embedded?: boolean; pageKeys?: PageKeys; frame?: (props: FrameProps) => React.ReactNode }) {
   const { pageParam, setPage } = usePlatform();
   const set = investigation.sampleSet;
+  const roundStart = useRoundInvestigationStart(investigation);
   const keys = usePageKeyRules(rulesFor(pageKeys).map(rule => rule.key === pageKeys.focus && set ? { ...rule, valid: (value: string) => selectionOf(value, set) !== null } : rule));
   const tab = pageParam(pageKeys.tab) ?? 'raw';
   const focus = pageParam(pageKeys.focus);
@@ -159,7 +160,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
     </div>;
   const inner = (
     <div className="flex min-h-0 flex-1 flex-col gap-3 break-keep">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">{picker}{synthetic && <StatusBadge tone="info">합성 데이터</StatusBadge>}{set && <span className="text-xs text-text-secondary">{set.files.length}파일 · 파일 순서 → 줄 번호</span>}{!embedded && <Button variant="secondary" size="toolbar" className="whitespace-nowrap" onClick={() => setPage({ [pageKeys.drawer]: 'basket' })}>근거 위치 바구니 · {investigation.evidence.length}</Button>}</div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">{picker}{synthetic && <StatusBadge tone="info">합성 데이터</StatusBadge>}{set && <span className="text-xs text-text-secondary">{set.files.length}파일 · 파일 순서 → 줄 번호</span>}{embedded && <RoundStartButton action={roundStart} location="toolbar" />}{!embedded && <Button variant="secondary" size="toolbar" className="whitespace-nowrap" onClick={() => setPage({ [pageKeys.drawer]: 'basket' })}>근거 위치 바구니 · {investigation.evidence.length}</Button>}</div>
       {writeNotice && <p role="status" className="text-xs text-text-secondary">{writeNotice}</p>}
       {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : !set ? <StateMessage icon={<Info className="size-4" aria-hidden />} title="원본 없음" body="Round의 샘플 목록을 열 수 없습니다." /> : <>
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2"><Tabs value={tab} onValueChange={value => setPage({ [pageKeys.tab]: value })}><TabsList aria-label="로그 보기"><TabsTrigger value="raw">원본</TabsTrigger><TabsTrigger value="sequence">시퀀스</TabsTrigger></TabsList></Tabs><span className="text-xs text-text-secondary">{selection ? `선택 ${selection.fileRef}:${selection.line} · ` : ''}Top View 미연결</span></div>
@@ -174,7 +175,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
         </>}
       </>}
       {!keys.invalid && !embedded && drawer === 'basket' && <BasketDrawer onVersion={acceptVersion} investigation={currentInvestigation} onClose={closeDrawer} />}
-      {!keys.invalid && (embedded || drawer !== 'basket') && selection && set && <RecordDrawer onVersion={acceptVersion} embedded={embedded} key={`${selection.fileRef}:${selection.line}`} investigation={currentInvestigation} blocked={accessDenied} onDenied={() => setAccessDenied(true)} set={set} selection={selection} onClose={closeDrawer} />}
+      {!keys.invalid && (embedded || drawer !== 'basket') && selection && set && <RecordDrawer onVersion={acceptVersion} embedded={embedded} roundStart={roundStart} key={`${selection.fileRef}:${selection.line}`} investigation={currentInvestigation} blocked={accessDenied} onDenied={() => setAccessDenied(true)} set={set} selection={selection} onClose={closeDrawer} />}
     </div>
   );
   const framed = frame ? frame({ contextExtension, children: inner }) : <PlatformPage layout="fill" contextExtension={contextExtension} queryBarExtension={{ pageSummary: summaryItems, appliedPageSummary: summaryItems, issues: [] }} secondaryActions={set && <ExportEntry set={set} summary={summary} />}>{inner}</PlatformPage>;
