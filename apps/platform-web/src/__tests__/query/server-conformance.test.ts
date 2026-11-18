@@ -41,6 +41,7 @@ const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null }
 const PARAMS: Record<string, Record<string, unknown>> = {
   // New Configuration reads: bounded synthetic requests, including an export below its declared cap.
   'configuration.history': { itemId: 'cfg-000000', equipment: ['EQ01', 'EQ02'] },
+  'configuration.lending': { itemId: 'cfg-000000', equipment: ['EQ01', 'EQ02'] },
   'configuration.pivot': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: 'Auxiliary Chamber', asOf: 'latest', levels: ['module', 'category', 'item', 'filename'], filters: [] },
   'configuration.tree': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: 'Auxiliary Chamber', asOf: 'latest', levels: ['module', 'category', 'item', 'filename'], expanded: [], offset: 0, limit: 80, filters: [] },
   'configuration.tree-navigation': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: '', asOf: 'latest', levels: ['module'], expanded: [], offset: 0, limit: 80, filters: [], focus: null, direction: 'next' },

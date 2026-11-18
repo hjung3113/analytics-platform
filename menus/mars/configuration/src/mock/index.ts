@@ -1,7 +1,9 @@
 /** Deterministic synthetic CFG fixture, promoted from the approved A′ prototype. */
 import { defineMockEndpoint, MockRequestError, type AnyMockEndpoint } from '@ap/mock-server';
 import { filterRows, validateFilters, type ColumnFilter } from '@ap/contracts';
-import { configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationPivotEndpoint, COLUMN_LIMIT, historyPeriod, type ConfigHistory, type HistoryParams, DEFAULT_EQUIPMENT, EQUIPMENT, ROW_COUNT, TREE_WINDOW, EXPORT_LIMIT, STATUS, isRowId, validEquipment, validLevels, filterSpecs, type CompareParams, type ConfigRow, type ConfigValue, type StatusCounts, type TreeParams, type PivotParams, type PivotResult, type TreePage, type TreeRow, type TreeNavigationParams, type TreeNavigation } from '../endpoints';
+import { configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationLendingEndpoint, configurationPivotEndpoint, COLUMN_LIMIT, historyPeriod, type ConfigHistory, type HistoryParams, DEFAULT_EQUIPMENT, EQUIPMENT, ROW_COUNT, TREE_WINDOW, EXPORT_LIMIT, STATUS, isRowId, validEquipment, validLevels, filterSpecs, type CompareParams, type ConfigRow, type ConfigValue, type StatusCounts, type TreeParams, type PivotParams, type PivotResult, type TreePage, type TreeRow, type TreeNavigationParams, type TreeNavigation } from '../endpoints';
+import { configurationLending, linkedMotionForItem } from './lending';
+
 const SEED = 2434;
 const ITEMS_PER_CATEGORY = 1000;
 const CATEGORIES_PER_MODULE = 15;
@@ -121,7 +123,7 @@ function flags(index: number, params: CompareParams) {
 
 export function makeRow(index: number, params: CompareParams): ConfigRow {
   const spec = numericSetup(index)?.spec;
-  return { ...identity(index), ...flags(index, params), coreKnown: index % 10 >= 4, values: valuesFor(index, params), source: 'CFG', collectedAt: '2026-11-17T00:00:00Z', spec };
+  return { ...identity(index), linkedMotion: linkedMotionForItem(idOf(index)), ...flags(index, params), coreKnown: index % 10 >= 4, values: valuesFor(index, params), source: 'CFG', collectedAt: '2026-11-17T00:00:00Z', spec };
 }
 
 /** Shared interior transitions give the synthetic majority identical trajectories. The final value is the matrix snapshot. */
@@ -296,7 +298,7 @@ export function navigateTree(params: TreeNavigationParams): TreeNavigation {
   const expanded = [...new Set([...plan.expanded, ...plan.ancestors.get(target)!])];
   const destination = treePlan({ ...params, expanded });
   const position = destination.visible.indexOf(target);
-  return { focus: idOf(target), expanded, offset: Math.floor(position / params.limit) * params.limit, ordinal: differences.indexOf(target) + 1, total: differences.length };
+  return { focus: idOf(target), linkedMotion: linkedMotionForItem(idOf(target)), expanded, offset: Math.floor(position / params.limit) * params.limit, ordinal: differences.indexOf(target) + 1, total: differences.length };
 }
 
 function validExpansion(id: unknown, levels: string[]) {
@@ -325,10 +327,15 @@ export function validateTree(input: { params: TreeParams }) {
   return null;
 }
 const syntheticSource = { source: 'synthetic.configuration' };
+const validItemEquipment = (params: HistoryParams) => typeof params?.itemId === 'string' && isRowId(params.itemId)
+  && Array.isArray(params.equipment) && validEquipment(params.equipment);
 export const configurationMock: readonly AnyMockEndpoint[] = [
+  defineMockEndpoint(configurationLendingEndpoint, { ...syntheticSource,
+    validate: ({ params }) => validItemEquipment(params) ? null : 'Invalid lending request',
+    handle: ({ params, context, equipment }) => configurationLending(params, context.scopeId, equipment),
+  }),
   defineMockEndpoint(configurationHistoryEndpoint, { ...syntheticSource,
-    validate: ({ params, context }) => typeof params?.itemId === 'string' && isRowId(params.itemId)
-      && Array.isArray(params.equipment) && validEquipment(params.equipment) && historyPeriod(context) ? null : 'Invalid history request',
+    validate: ({ params, context }) => validItemEquipment(params) && historyPeriod(context) ? null : 'Invalid history request',
     handle: ({ params, context }) => {
       const period = historyPeriod(context);
       if (!period) throw new MockRequestError('Invalid history period');

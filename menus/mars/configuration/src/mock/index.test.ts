@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { emptyGlobal } from '@ap/contracts';
-import { DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, ROW_COUNT, TREE_WINDOW, type TreeParams } from '../endpoints';
+import { contextCapabilities, emptyGlobal, groupId, type MenuMeta } from '@ap/contracts';
+import { createMockAdapter, getRole, setRole, USERS } from '@ap/mock-server';
+import { configurationLendingEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, ROW_COUNT, TREE_WINDOW, type TreeParams } from '../endpoints';
 import { configurationMock, compareTree, makeRow, navigateTree } from './index';
 
 const params: TreeParams = { eq: DEFAULT_EQUIPMENT, mode: 'all', ref: 'EQ01', status: 'all', q: '', asOf: 'latest', levels: DEFAULT_LEVELS, expanded: ['collapsed'], offset: 0, limit: TREE_WINDOW, filters: [] };
@@ -107,4 +108,36 @@ describe('Equipment-axis endpoint', () => {
       expect(answer).toHaveProperty('rows.0.id', 'EQ03');
     }
   });
+});
+
+it('C1 returns only authorized equipment IDs in a successful lending response', async () => {
+  const { id, menuId, context, permission, requiresScope } = configurationLendingEndpoint;
+  const menu: MenuMeta = {
+    id: menuId, group: groupId('configuration'), label: { ko: '설정', en: 'Configuration' }, description: { ko: '', en: '' },
+    path: '/configuration', permission, requiresScope, context: contextCapabilities(context),
+    pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [],
+  };
+  const adapter = createMockAdapter({
+    endpoints: configurationMock.filter(endpoint => endpoint.spec.id === id), registry: { menus: [menu] }, latency: 0,
+  });
+  const previousRole = getRole();
+  const previousRooms = USERS.engineer.grants.MEM;
+  try {
+    setRole('engineer');
+    USERS.engineer.grants.MEM = ['PHOTO', 'CVD'];
+    const response = await adapter.menuQuery({
+      endpoint: id, context: { scopeId: 'MEM', from: '2026-11-16T00:00:00', to: '2026-11-18T00:00:00' },
+      params: { itemId: 'cfg-000000', equipment: ['EQ01', 'EQ11', 'EQ20'] },
+    });
+    expect(response.outcome, response.message).toBe('ok');
+    expect(response.data).toMatchObject({ equipmentColumns: [
+      { id: 'EQ01', label: 'EQ01', equipmentId: 'MEM-PHOTO-0103' },
+      { id: 'EQ11', label: 'EQ11', equipmentId: null },
+      { id: 'EQ20', label: 'EQ20', equipmentId: 'MEM-CVD-0146' },
+    ] });
+    expect(JSON.stringify(response.data)).not.toContain('MEM-ETCH-0125');
+  } finally {
+    USERS.engineer.grants.MEM = previousRooms;
+    setRole(previousRole);
+  }
 });

@@ -1,5 +1,5 @@
 import type { PanelDeclaration } from '@ap/contracts';
-import { AXIS_KEY, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationPivotEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, TREND_ITEM_KEY } from './endpoints';
+import { AXIS_KEY, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationLendingEndpoint, configurationPivotEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, TREND_ITEM_KEY } from './endpoints';
 import { MESSAGES } from './messages';
 
 const context = ['time'] as const;
@@ -12,7 +12,7 @@ export const configurationPanels = {
     queryInputs: { context, page: [equipment, ...comparison, { key: 'asOf' }, { key: 'core' }, { key: 'status' }, { key: 'q' }, { key: 'levels' }, { key: 'filter' }] },
     displayInputs: { page: [{ key: 'hideSameCols' }, { key: AXIS_KEY }] },
     outputs: [{ key: TREND_ITEM_KEY, action: 'drill' }],
-    endpoints: [configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationPivotEndpoint],
+    endpoints: [configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationPivotEndpoint, configurationLendingEndpoint],
     pieces: ['TreeMatrix', 'QueryView', 'DetailDrawer', 'PlatformDataTable'],
   },
   trend: {
