@@ -1,4 +1,4 @@
-import { formatWallClock } from '@ap/contracts';
+import { formatInstant, formatWallClock } from '@ap/contracts';
 import { useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
@@ -20,7 +20,7 @@ export default function OperationTimeScreen() {
   // Opened from another screen's object list (06 §22, #1930): the way back to that screen.
   const returning = pageParam('returnTo') !== null;
   return <PlatformPage {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    <QueryView query={query}>{data => <OperationTimeBody data={data} previousEquipment={query.showingPrevious ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
+    <QueryView query={query}>{data => <OperationTimeBody data={data} updatedAt={query.response?.trust?.updatedAt ?? null} previousEquipment={query.showingPrevious ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }
 
@@ -34,10 +34,9 @@ export function PreviousEquipmentLine({ equipment }: { equipment: string | null 
   return <p className="px-1 text-xs text-text-secondary">{tx({ ko: `이전 설비(${equipment})의 결과 · 갱신 중`, en: `Result of the previous equipment (${equipment}) · refreshing` })}</p>;
 }
 
-function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeData; previousEquipment: string | null }) {
+function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: OperationTimeData; updatedAt: string | null; previousEquipment: string | null }) {
   const { tx, lang } = useI18n();
   const { global, setPage } = usePlatform();
-  const ko = lang === 'ko';
   const number = (value: number) => formatNumber(value, lang);
   // The shown equipment's own row joins the chart input only when it ranks below the response's cap (#2187).
   const chartRows = useMemo(() => data.equipmentRow ? [...data.ranking, data.equipmentRow] : data.ranking, [data.ranking, data.equipmentRow]);
@@ -47,15 +46,24 @@ function OperationTimeBody({ data, previousEquipment }: { data: OperationTimeDat
     ...lane, segments: lane.segments.map(segment => ({ id: segment.id, start: segment.start, end: segment.end, colorToken: KIND_COLOR[segment.kind], rank: segment.kind })),
   })), [data.lanes]);
   const total = data.ranking.reduce((sum, row) => sum + row.minutes, 0);
-  const top = data.ranking[0];
+  const topMinutes = data.ranking.length ? Math.max(...data.ranking.map(row => row.minutes)) : null;
+  const leaders = topMinutes === null ? [] : data.ranking.filter(row => row.minutes === topMinutes).map(row => row.equipmentId).sort((a, b) => a.localeCompare(b));
+  let leaderCaption = '—';
+  if (leaders.length > 1) leaderCaption = tx({ ko: `공동 1위 ${leaders.length}대 · ${leaders.join(', ')}`, en: `Tied first, ${leaders.length} · ${leaders.join(', ')}` });
+  else if (leaders.length === 1) leaderCaption = tx({ ko: `최장 ${leaders[0]}`, en: `Longest ${leaders[0]}` });
   const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
-  const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated: formatWallClock(global.to), coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
+  let updated = '—';
+  if (updatedAt) {
+    try { updated = formatInstant(updatedAt, lang, undefined, 'monthDayMinute'); }
+    catch { updated = '—'; }
+  }
+  const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated, coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
   const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`.trim();
   return <AnalysisLayout
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">
       <StatCard icon={Cpu} chip="blue" label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
       <StatCard icon={Clock} chip="teal" label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(Math.round(total / 60))} unit={tx({ ko: '시간', en: 'h' })} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
-      <StatCard icon={Gauge} chip="blue" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length / 6) / 10 : 0)} unit={tx({ ko: '시간', en: 'h' })} caption={`${tx({ ko: '최장', en: 'Longest' })} ${top?.equipmentId ?? '—'}`} />
+      <StatCard icon={Gauge} chip="blue" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={tx({ ko: '분', en: 'min' })} caption={leaderCaption} />
     </div> }}
     charts={[
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"

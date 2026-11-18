@@ -2,7 +2,7 @@ import { useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks } from '@ap/components';
 import { compareBreakdownCells } from './breakdownSort';
-import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
+import { formatInstant, formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
  * Header → Global Context (kernel) → page-owned granularity → KPI row → main trend →
@@ -18,7 +18,7 @@ import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, D
 import { Button, InfoTip, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import {
-  CYCLE_VERSION_NOTE, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
+  CYCLE_VERSION_NOTE, CYCLE_VERSION_TEXT, METRIC_VERSIONS, attentionEndpoint, breakdownEndpoint, drillEndpoint, kpisEndpoint, trendEndpoint,
   type AttentionRow, type Granularity, type KpiKey, type KpiSet, type TrendBucket, type TrendData,
 } from '../endpoints';
 import { pctHint, ProductivityDrillBody } from './productivity-drill';
@@ -152,7 +152,7 @@ export default function ProductivityOverview(_: PageProps) {
           <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
         </span>} unit={m('productivityOverviewMinP50P95')}
         delta={delta ? { ...delta, value: `P50 ${delta.value}` } : undefined}
-        caption={`${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${ver(METRIC_VERSIONS.cycleTime)}`} />;
+        caption={`${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${ver(METRIC_VERSIONS.cycleTime)} (${CYCLE_VERSION_TEXT[METRIC_VERSIONS.cycleTime as keyof typeof CYCLE_VERSION_TEXT][lang]})`} />;
     }
     const t = c.throughput; const pt = p?.throughput ?? null;
     return <StatCard key={kpi} icon={BarChart3} chip="blue" label={m('productivityOverviewJobThroughput')}
@@ -186,7 +186,7 @@ export default function ProductivityOverview(_: PageProps) {
     shownKpi === 'occupancy' ? b.occupancyPct : shownKpi === 'dwell' ? b.dwellPerJobH : shownKpi === 'throughput' ? b.jobs : i === 0 ? b.p50 : b.p95;
   const fmtTrend = (v: number) => formatNumber(v, lang, { decimals: meta.decimals });
 
-  function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null } {
+  function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null; knownBucketCount: number; bucketCount: number } {
     const build = (source: TrendBucket[], previous: boolean): ChartSeries[] => meta.names.map((name, i) => ({
       id: `${shownKpi}-${previous ? 'prev' : 'cur'}-${i}`,
       name: previous ? `${name} (${m('productivityOverviewPreviousPeriod')})` : name,
@@ -197,11 +197,20 @@ export default function ProductivityOverview(_: PageProps) {
       // Each period keeps its own bucket starts for the plot, table and CSV.
       points: source.map(bucket => [bucket.start, trendValue(bucket, i)] as [string, number | null]),
     }));
+    const knownBuckets = shownKpi === 'throughput' ? data.current.filter(bucket => bucket.known) : [];
     return {
       series: build(data.current, false),
       compareSeries: build(data.previous, true),
-      total: shownKpi === 'throughput' ? data.current.reduce((s, b) => s + (b.jobs ?? 0), 0) : null,
+      total: shownKpi === 'throughput' ? knownBuckets.reduce((sum, bucket) => sum + (bucket.jobs ?? 0), 0) : null,
+      knownBucketCount: knownBuckets.length,
+      bucketCount: shownKpi === 'throughput' ? data.current.length : 0,
     };
+  }
+
+  function trustInstant(value: string | null | undefined): string {
+    if (!value) return '—';
+    try { return formatInstant(value, lang, undefined, 'monthDayMinute'); }
+    catch { return '—'; }
   }
 
   const stgroupData = stgroupQ.response?.outcome === 'ok' ? stgroupQ.response.data : null;
@@ -279,21 +288,38 @@ export default function ProductivityOverview(_: PageProps) {
 
       {/* Main Trend */}
       <section aria-label={m('productivityOverviewMainTrend')}>
+        {shownKpi === 'throughput' && trendQ.response?.outcome === 'empty' && trendQ.response.data !== null
+          && trendQ.response.data.equipmentCount > 0 && trendQ.response.data.current.length > 0
+          && trendQ.response.data.current.every(bucket => !bucket.known)
+          && <p role="status" className="t-caption text-text-secondary">{m('productivityOverviewUnconfirmedTrendTotal')}</p>}
         <QueryView widgetName={meta.title} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
-            const { series, compareSeries, total } = trendSeriesFor(data);
+            const { series, compareSeries, total, knownBucketCount, bucketCount } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
+            let sourceCoverage = '';
+            if (t) sourceCoverage = t.coverage === null ? m('productivityTableUnknown') : `${(t.coverage * 100).toFixed(1)}%`;
+            const trendTrust = shownKpi === 'throughput' && t ? {
+              source: t.source,
+              updated: trustInstant(t.updatedAt),
+              coverage: `${sourceCoverage} · ${m('productivityOverviewObservedBucketCoverage', { observed: String(knownBucketCount), total: String(bucketCount) })}`,
+            } : t;
+            let totalDescription = '';
+            if (total !== null && knownBucketCount > 0 && knownBucketCount < bucketCount) {
+              totalDescription = ` · ${m('productivityOverviewObservedBucketTotal', { observed: String(knownBucketCount), total: String(bucketCount), value: ni(total) })}`;
+            } else if (total !== null && knownBucketCount === bucketCount) {
+              totalDescription = ` · ${m('productivityOverviewTotal')} ${ni(total)} Job (${m('productivityOverviewSameSumAsTheKpiCard')})`;
+            }
             return <AnalysisChartFrame
               chartId={`productivity-trend-${shownKpi}`}
               title={meta.title}
-              description={`${meta.description} · ${shownGranLabel}${total !== null ? ` · ${m('productivityOverviewTotal')} ${ni(total)} Job (${m('productivityOverviewSameSumAsTheKpiCard')})` : ''}`}
+              description={`${meta.description} · ${shownGranLabel}${totalDescription}`}
               metricVersion={METRIC_VERSIONS[shownKpi]}
               series={series}
               compareSeries={compareSeries}
               unit={meta.unit}
               valueFormat={fmtTrend}
               height={280}
-              trust={t}
+              trust={trendTrust}
             />;
           }}
         </QueryView>

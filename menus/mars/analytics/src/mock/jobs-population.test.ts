@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { computeKpis, trendBuckets } from './productivity';
 import { percentile, population } from './cycle';
-import { cycleMinutes, EQUIPMENT, jobsInPeriod } from '@ap/mock-server';
+import { CYCLE_TIME_VERSION_DEFINITIONS, cycleMinutes, EQUIPMENT, jobsInPeriod } from '@ap/mock-server';
 import { emptyGlobal } from '@ap/contracts';
+import { CYCLE_VERSION_NOTE, CYCLE_VERSION_TEXT } from '../endpoints';
 
 const FROM = '2026-09-20T00:00:00';
 const TO = '2026-09-25T00:00:00';
@@ -61,6 +62,15 @@ describe('screen 11 and 12 share one job population', () => {
     expect(cycleMinutes(job, '3')).toBe(job.cycleMinV3);
     expect(job.cycleMinV4).toBeGreaterThan(job.cycleMinV3);
     expect(job.startedAt < '2026-09-26T08:00:00').toBe(true);
+  });
+
+  it('keeps the localized overview and detail version text aligned with the mock-server definition', () => {
+    for (const version of ['3', '4'] as const) {
+      for (const lang of ['ko', 'en'] as const) {
+        expect(CYCLE_VERSION_TEXT[version][lang]).toBe(CYCLE_TIME_VERSION_DEFINITIONS[version][lang]);
+        expect(CYCLE_VERSION_NOTE[lang]).toContain(CYCLE_VERSION_TEXT[version][lang]);
+      }
+    }
   });
 
   it('varies hourly throughput deterministically with shift-boundary dips and a maintenance trough', () => {

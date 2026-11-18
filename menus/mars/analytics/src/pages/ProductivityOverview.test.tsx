@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Timer } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../index';
-import type { KpiSet, KpisData } from '../endpoints';
+import { trendEndpoint, type KpiSet, type KpisData, type TrendBucket, type TrendData } from '../endpoints';
 import ProductivityOverview from './ProductivityOverview';
 import { groupId, menuPermission, spaceId, type ApiResponse, type Assessment } from '@ap/contracts';
 import { TEST_AXES } from '../test-axes';
 
-afterEach(cleanup);
+const chartCanvas = await vi.hoisted(async () => (await import('@ap/components/testing/engines')).mockEchartsCanvas());
+beforeEach(() => { chartCanvas.init.mockClear(); chartCanvas.dispose.mockClear(); chartCanvas.options.length = 0; });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 const registry = createRegistry({
   permissions: [menuPermission('analytics:view')],
@@ -149,6 +151,19 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('renders the cycle-time caption with the definition for its selected version', async () => {
+    const storage = memoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    try {
+      storage.setItem('platform:lang', 'ko');
+      renderWithKpis(kpis(40, 39));
+      await screen.findByRole('radiogroup', { name: '집계 단위' });
+      expect(screen.getByText(/v4 \(PRC 구간과 큐 대기 포함\)/)).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('ProductivityOverview compact guidance (#2302)', () => {
@@ -171,5 +186,60 @@ describe('ProductivityOverview compact guidance (#2302)', () => {
     expect(warning.textContent).toContain('기본 집계 단위');
     expect(warning.closest('.sr-only, [role="tooltip"]')).toBeNull();
     expect(warning.className).toContain('text-text-warning-label');
+  });
+});
+
+describe('ProductivityOverview throughput trend observation totals (#2532)', () => {
+  const bucket = (start: string, known: boolean, jobs: number | null): TrendBucket => ({
+    start, known, jobs, p50: null, p95: null, occupancyPct: null, dwellPerJobH: null,
+  });
+  const trendReply = (outcome: 'ok' | 'empty', data: TrendData, coverage: number | null = 0.8): ApiResponse<TrendData> => ({
+    outcome, data,
+    assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'processing_delay', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }],
+    trust: { updatedAt: '2026-09-26T09:02:00+09:00', dataThrough: '2026-09-26T08:00:00+09:00', coverage, provisional: false, source: 'throughput source' },
+    correlationId: 'trend-fixture',
+  });
+  function renderWithTrend(response: ApiResponse<TrendData>) {
+    const trendAdapter = testAdapter({
+      session: () => session,
+      menuQuery: async request => request.endpoint === trendEndpoint.id ? response as ApiResponse<unknown> : empty,
+    });
+    window.history.replaceState(null, '', '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00&kpi=throughput');
+    render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={trendAdapter} registry={registry}><ProductivityOverview params={{}} /></PlatformProvider></I18nProvider>);
+  }
+
+  it.each([
+    { name: 'nonempty all-unknown buckets with equipment', equipmentCount: 2, current: [bucket('2026-09-26T09:00:00', false, null)], visible: true },
+    { name: 'zero equipment', equipmentCount: 0, current: [bucket('2026-09-26T09:00:00', false, null)], visible: false },
+    { name: 'zero-length result', equipmentCount: 2, current: [], visible: false },
+  ])('shows the unconfirmed total only for $name', async ({ equipmentCount, current, visible }) => {
+    renderWithTrend(trendReply('empty', { equipmentCount, current, previous: [] }));
+    await screen.findByRole('radiogroup', { name: '집계 단위' });
+    if (visible) expect(await screen.findByText('합계 미확인')).toBeTruthy();
+    else expect(screen.queryByText('합계 미확인')).toBeNull();
+  });
+
+  it('sums and counts known current buckets, including observed zero, and includes the count in footer coverage', async () => {
+    renderWithTrend(trendReply('ok', {
+      equipmentCount: 2,
+      current: [bucket('2026-09-25T09:00:00', true, 4), bucket('2026-09-25T10:00:00', false, null), bucket('2026-09-25T11:00:00', true, 0)],
+      previous: [bucket('2026-09-18T09:00:00', true, 100)],
+    }));
+    expect(await screen.findByText(/관측 2\/3 구간 합계 4 Job/)).toBeTruthy();
+    const footer = [...document.querySelectorAll('footer')].find(node => node.textContent?.includes('throughput source'));
+    expect(footer?.textContent).toContain('관측 2/3 구간');
+    expect(footer?.textContent).toContain('80.0%');
+  });
+
+  it('keeps unknown source coverage unknown and preserves a fully observed zero total', async () => {
+    renderWithTrend(trendReply('ok', {
+      equipmentCount: 1,
+      current: [bucket('2026-09-25T09:00:00', true, 0)],
+      previous: [bucket('2026-09-18T09:00:00', true, 100)],
+    }, null));
+    expect(await screen.findByText(/합계 0 Job/)).toBeTruthy();
+    const footer = [...document.querySelectorAll('footer')].find(node => node.textContent?.includes('throughput source'));
+    expect(footer?.textContent).toContain('미확인');
+    expect(footer?.textContent).not.toContain('100.0%');
   });
 });

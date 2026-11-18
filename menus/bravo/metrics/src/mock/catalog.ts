@@ -4,6 +4,7 @@
  * client does not pick a max version number (13 §3.2, Open policy).
  */
 import type { AuditEvent } from '@ap/contracts';
+import { CYCLE_TIME_VERSION_DEFINITIONS } from '@ap/mock-server';
 import {
   PERIOD_BASIS as WALL, versionDiff,
   type CatalogRow, type DefinitionPayload, type Lang, type MetricDef, type MetricVersion,
@@ -48,6 +49,8 @@ const COUNT_COV = coverage(
   null,
 );
 
+type CatalogSearchRow = CatalogRow & { aliases?: string[] };
+
 const OWN = {
   prod: { ownerId: 'productivity-analyst', owner: { ko: '생산성 분석 담당', en: 'Productivity analyst' }, organizationRef: 'ORG-PRODUCTIVITY' },
   time: { ownerId: 'time-analyst', owner: { ko: '시간 분석 담당', en: 'Time analyst' }, organizationRef: 'ORG-TIME' },
@@ -80,15 +83,15 @@ export const METRICS: MetricDef[] = [
       }),
       quantile({
         version: '3', state: 'published', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: '분포 재계산. 큐 대기를 포함.', en: 'Recompute from the distribution, including queue wait.' },
-        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'anchor 보유', en: 'Has an anchor' }], sourceContractRef: 'cycle-time-basis-v2', coverage: JOB_COV,
-        changeReason: { ko: '큐 대기 포함', en: 'Queue wait included' }, registeredAt: '2026-08-12T09:00:00', publishedAt: '2026-08-13T09:00:00', deprecatedAt: null, updatedAt: '2026-08-13T09:00:00', updatedBy: 'park.seo',
+        formula: { ko: `분포 재계산. ${CYCLE_TIME_VERSION_DEFINITIONS['3'].ko}.`, en: `Recompute from the distribution. ${CYCLE_TIME_VERSION_DEFINITIONS['3'].en}.` },
+        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'anchor 보유', en: 'Has an anchor' }, CYCLE_TIME_VERSION_DEFINITIONS['3']], sourceContractRef: 'cycle-time-basis-v2', coverage: JOB_COV,
+        changeReason: CYCLE_TIME_VERSION_DEFINITIONS['3'], registeredAt: '2026-08-12T09:00:00', publishedAt: '2026-08-13T09:00:00', deprecatedAt: null, updatedAt: '2026-08-13T09:00:00', updatedBy: 'park.seo',
       }),
       quantile({
         version: '4', state: 'published', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
-        formula: { ko: '분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
-        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3', coverage: JOB_COV,
-        changeReason: { ko: 'PRC 구간으로 grain 설명 수정. 발행 포인터.', en: 'Process-interval wording. Released pointer.' }, registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', deprecatedAt: null, updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
+        formula: { ko: `분포 재계산. ${CYCLE_TIME_VERSION_DEFINITIONS['4'].ko}. averageOfQuantilesAllowed=false.`, en: `Recompute from the distribution. ${CYCLE_TIME_VERSION_DEFINITIONS['4'].en}. averageOfQuantilesAllowed=false.` },
+        filters: [{ ko: '완료 Job', en: 'Completed jobs' }, CYCLE_TIME_VERSION_DEFINITIONS['4']], sourceContractRef: 'cycle-time-basis-v3', coverage: JOB_COV,
+        changeReason: { ko: `${CYCLE_TIME_VERSION_DEFINITIONS['4'].ko}. 발행 포인터.`, en: `${CYCLE_TIME_VERSION_DEFINITIONS['4'].en}. Released pointer.` }, registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', deprecatedAt: null, updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
       }),
       quantile({
         version: '5', state: 'draft', unit: 's', grain: { ko: 'Job 실행', en: 'Job execution' },
@@ -366,11 +369,11 @@ export function previousVersion(metric: MetricDef, version: string): MetricVersi
   return idx > 0 ? metric.versions[idx - 1] : null;
 }
 
-export function catalogRows(lang: Lang): CatalogRow[] {
+export function catalogRows(lang: Lang): CatalogSearchRow[] {
   return METRICS.map(m => {
     const v = versionOf(m, m.catalogVersion);
     if (!v) throw new Error(`catalogVersion ${m.catalogVersion} missing on ${m.metricId}`);
-    return {
+    const row: CatalogRow = {
       metricId: m.metricId,
       nameKo: m.name.ko,
       nameEn: m.name.en,
@@ -387,14 +390,16 @@ export function catalogRows(lang: Lang): CatalogRow[] {
       owner: m.owner[lang],
       updatedAt: m.updatedAt,
     };
+    return m.metricId === 'cycle_time' ? { ...row, aliases: ['P50', 'P95'] } : row;
   });
 }
 
 /** The quick search (URL page key `q`) narrows the rows; the wire conditions are applied by `mock/index.ts` through the shared `filterRows`. */
-export function filterCatalog(rows: CatalogRow[], q: string | null): CatalogRow[] {
+export function filterCatalog(rows: CatalogSearchRow[], q: string | null): CatalogSearchRow[] {
   const needle = q?.trim().toLowerCase() ?? '';
   if (!needle) return rows;
-  return rows.filter(r => r.metricId.toLowerCase().includes(needle) || r.nameKo.toLowerCase().includes(needle) || r.nameEn.toLowerCase().includes(needle));
+  return rows.filter(r => r.metricId.toLowerCase().includes(needle) || r.nameKo.toLowerCase().includes(needle) || r.nameEn.toLowerCase().includes(needle)
+    || r.aliases?.some(alias => alias.toLowerCase().includes(needle)) === true);
 }
 
 /** Catalog wall-clock (Asia/Seoul, no DST, 06 §6.3) → the recorded instant, canonical `Z`. */

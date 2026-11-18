@@ -325,6 +325,19 @@ describe('productivity-overview applies PPID·Recipe to the job population', () 
     expect((filtered.data as TrendData).equipmentCount).toBe((base.data as TrendData).equipmentCount);
   });
 
+  it('keeps the nonempty all-unknown trend data on the real empty response', async () => {
+    const response = await adapter.menuQuery({
+      endpoint: trendEndpoint.id,
+      context: { ...context, from: '2026-09-26T09:00:00', to: '2026-09-26T12:00:00' },
+      params: { kpi: 'throughput', granularity: 'hour' },
+    });
+    expect(response.outcome).toBe('empty');
+    const data = response.data as TrendData;
+    expect(data.equipmentCount).toBeGreaterThan(0);
+    expect(data.current.length).toBeGreaterThan(0);
+    expect(data.current.every(bucket => !bucket.known && bucket.jobs === null)).toBe(true);
+  });
+
   it('breakdown and attention rows follow the ppid filter', async () => {
     const applied = { ppid: 'PPID-100' };
     const baseRows = await adapter.menuQuery({ endpoint: breakdownEndpoint.id, context, params: { axis: 'stgroup' } });

@@ -97,9 +97,9 @@ const CYCLE_TIME: MetricDef = {
     }),
     version({
       version: '4', state: 'published', unit: 's', numerator: null,
-      formula: { ko: '분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval only. averageOfQuantilesAllowed=false.' },
-      filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간', en: 'Process interval' }], sourceContractRef: 'cycle-time-basis-v3',
-      changeReason: { ko: 'PRC 구간으로 grain 설명 수정. 발행 포인터.', en: 'Process-interval wording. Released pointer.' },
+      formula: { ko: '분포 재계산. PRC 구간과 큐 대기 포함. averageOfQuantilesAllowed=false.', en: 'Recompute from the distribution, process interval plus queue wait included. averageOfQuantilesAllowed=false.' },
+      filters: [{ ko: '완료 Job', en: 'Completed jobs' }, { ko: 'PRC 구간과 큐 대기 포함', en: 'Process interval plus queue wait included' }], sourceContractRef: 'cycle-time-basis-v3',
+      changeReason: { ko: 'PRC 구간과 큐 대기 포함. 발행 포인터.', en: 'Process interval plus queue wait included. Published pointer.' },
       registeredAt: '2026-09-18T09:00:00', publishedAt: '2026-09-20T11:00:00', updatedAt: '2026-09-20T11:00:00', updatedBy: 'park.seo',
     }),
     version({
@@ -274,12 +274,12 @@ describe('MetricDetail keeps the previous version while another version loads (#
   it('shows the old definition as refreshing without a skeleton, marks the new version as chosen and offers no apply action until it arrives', async () => {
     const { adapter, hold } = heldAdapter();
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
-    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간과 큐 대기 포함. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
     await settleQueries();
     hold();
     fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
     // The v4 definition is still drawn, the refreshing label shows, no loading skeleton replaced it.
-    expect(screen.getAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('분포 재계산. PRC 구간과 큐 대기 포함. averageOfQuantilesAllowed=false.').length).toBeGreaterThan(0);
     expect(screen.getAllByText('이전 선택의 결과 · 갱신 중').length).toBeTruthy();
     expect(document.querySelectorAll('[role="status"][aria-busy]').length).toBe(0);
     // The chosen version is v5 right away, not the version of the old result; applying it as Context is not offered for the stale v4.
@@ -304,7 +304,7 @@ describe('MetricDetail shows one refreshing notice per version transition (#1365
       },
     };
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
-    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간과 큐 대기 포함. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
     await settleQueries();
     held = true;
     fireEvent.click(screen.getByRole('button', { name: /^v5/ }));
@@ -330,7 +330,7 @@ describe('MetricDetail shows one refreshing notice per version transition (#1365
       },
     };
     renderDetail('/metrics/cycle_time?version=4', 'cycle_time', adapter);
-    expect((await screen.findAllByText('분포 재계산. PRC 구간만. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('분포 재계산. PRC 구간과 큐 대기 포함. averageOfQuantilesAllowed=false.')).length).toBeGreaterThan(0);
     await settleQueries();
     held = true;
     fireEvent.click(screen.getByRole('button', { name: /^v5/ }));

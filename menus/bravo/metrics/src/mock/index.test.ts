@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createMockAdapter, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
+import { CYCLE_TIME_VERSION_DEFINITIONS, createMockAdapter, EQUIPMENT, getRole, setRole, USERS, type RoleId } from '@ap/mock-server';
 import { metricsAuditEvents, metricsMock } from './index';
 import { METRICS } from './catalog';
 import {
@@ -63,6 +63,33 @@ describe('metric endpoints', () => {
     expect(ok.version?.version).toBe('4');
     const bad = (await adapter.menuQuery({ endpoint: definitionEndpoint.id, context: {}, params: { metricId: 'cycle_time', version: '999' } })).data as DefinitionPayload;
     expect(bad.problem).toBe('version-not-member');
+  });
+
+  it('uses the shared cycle-time definition for both published versions', async () => {
+    for (const version of ['3', '4'] as const) {
+      const response = await adapter.menuQuery({ endpoint: definitionEndpoint.id, context: {}, params: { metricId: 'cycle_time', version } });
+      expect(response.outcome).toBe('ok');
+      const payload = response.data as DefinitionPayload;
+      const definition = CYCLE_TIME_VERSION_DEFINITIONS[version];
+      expect(payload.version?.formula.ko).toContain(definition.ko);
+      expect(payload.version?.formula.en).toContain(definition.en);
+      expect(payload.version?.filters.map(filter => filter.ko).join(' ')).toContain(definition.ko);
+      expect(payload.version?.filters.map(filter => filter.en).join(' ')).toContain(definition.en);
+      expect(payload.version?.changeReason.ko).toContain(definition.ko);
+      expect(payload.version?.changeReason.en).toContain(definition.en);
+    }
+  });
+
+  it.each(['P50', 'P95'] as const)('searches cycle_time by the %s alias on page and export without narrowing the full list', async alias => {
+    const page = await adapter.menuQuery({ endpoint: catalogPageEndpoint.id, context: {}, params: { q: alias, lang: 'ko', page: 0, pageSize: 50, sorting: [], filters: [] } });
+    const exported = await adapter.menuQuery({ endpoint: catalogExportEndpoint.id, context: {}, params: { q: alias, lang: 'ko', ids: null, sorting: [], filters: [] } });
+    const list = await adapter.menuQuery({ endpoint: catalogListEndpoint.id, context: {}, params: { lang: 'ko' } });
+    expect(page.outcome).toBe('ok');
+    expect(exported.outcome).toBe('ok');
+    expect((page.data as PageResult<CatalogRow>).rows.map(row => row.metricId)).toEqual(['cycle_time']);
+    expect((exported.data as CatalogRow[]).map(row => row.metricId)).toEqual(['cycle_time']);
+    expect((list.data as CatalogList).rows).toHaveLength(METRICS.length);
+    for (const response of [page.data, exported.data, list.data]) expect(JSON.stringify(response)).not.toContain('"aliases"');
   });
 
   it('never carries equipment IDs or room names in a definition: the endpoint declares no Scope, so nothing it reads is filtered by the caller\'s grants (#2054)', async () => {

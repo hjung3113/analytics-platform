@@ -1,6 +1,6 @@
 import { useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../../messages';
-import { formatWallClock } from '@ap/contracts';
+import { formatInstant, formatWallClock } from '@ap/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { AnalysisChart, AnalysisChartFrame, LaneTimeline, type ChartSeries, type ChartSpec } from '@ap/components';
@@ -9,9 +9,9 @@ import { BreakdownBars } from './BreakdownBars';
 import { kindLabels } from './support';
 
 
-export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: CatalogData; height: number }) {
+export function CatalogChart({ kind, data, height, updatedAt }: { kind: CatalogKind; data: CatalogData; height: number; updatedAt: string | null }) {
   const m = useMessages(ANALYTICS_MESSAGES);
-  const { tx } = useI18n();
+  const { tx, lang } = useI18n();
   const { global } = usePlatform();
   const identity = JSON.stringify(global);
   const [detail, setDetail] = useState<{ identity: string; target: string } | null>(null);
@@ -23,6 +23,11 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   }, [detail, identity]);
   const title = `${tx(kindLabels[kind])} ${m('catalogChartChart')}`;
   const description = m('catalogChartSyntheticData') + ` · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
+  let updated = '—';
+  if (updatedAt) {
+    try { updated = formatInstant(updatedAt, lang, undefined, 'monthDayMinute'); }
+    catch { updated = '—'; }
+  }
   const previousLabel = m('catalogChartPreviousEqualPeriod') + ` · ${formatWallClock(data.previousFrom)} – ${formatWallClock(data.previousTo)}`;
   const currentLabel = m('catalogChartCurrentPeriod');
   const spec = useMemo<ChartSpec | null>(() => {
@@ -52,7 +57,7 @@ export function CatalogChart({ kind, data, height }: { kind: CatalogKind; data: 
   const lanes = data.lane ?? [];
   const unit = kind === 'bar' || kind === 'donut' || kind === 'pareto' || kind === 'topNBar' ? m('catalogChartJobs2') : m('catalogChartMin');
   const common = { chartId: `chart-catalog-${kind}`, title, description, metricVersion: 'synthetic v1', unit, size: 'hero' as const, height,
-    trust: { source: m('catalogChartSyntheticData2'), updated: formatWallClock(global.to), coverage: m('catalogChartSampleData') } };
+    trust: { source: m('catalogChartSyntheticData2'), updated, coverage: m('catalogChartSampleData') } };
   return <>
     {kind === 'breakdown' ? <BreakdownBars height={height} trust={common.trust} /> : kind === 'lane' ? <LaneTimeline key={identity} lanes={lanes} ariaLabel={title} description={description} trust={common.trust} height={height} densityInstants={densityInstants} outlineWidthsByRank={{ 높음: 3, 보통: 2, 낮음: 1.5 }} formatTooltip={() => m('catalogChartWorkInterval')} rangeBrush={{}} /> : spec ? <AnalysisChart {...common} spec={spec} /> : <AnalysisChartFrame {...common} series={series.current} compareSeries={series.previous} />}
     {detail?.identity === identity && <p ref={result} role="status" aria-label={m('catalogChartDetailsResult')} className="t-caption px-4 py-2 text-text-secondary">

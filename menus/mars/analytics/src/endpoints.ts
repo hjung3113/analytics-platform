@@ -1,4 +1,4 @@
-import { ANALYTICS_MESSAGES } from './messages';
+import { ANALYTICS_MESSAGES, CYCLE_VERSION_TEXT } from './messages';
 import type { ThemeColorToken } from '@ap/ui/theme';
 /**
  * Analytics query endpoints (packages/sdk/contracts/src/menu/menu-query.ts, #114–#115).
@@ -185,6 +185,7 @@ export const occurrenceEndpoint = defineEndpoint<OccurrenceParams, OccurrenceRes
 
 /** Version note shown next to cycle-time figures (display constant shared by both analytics pages). */
 export const CYCLE_VERSION_NOTE = ANALYTICS_MESSAGES.endpointCycleVersionNote;
+export { CYCLE_VERSION_TEXT };
 
 export const PAGE_METRIC_ID = 'cycle_time';
 /** cycle_time versions the synthetic series computes (v3 drops queue wait, v4 includes it). The server rejects others (#123). */

@@ -213,6 +213,12 @@ export function jobsInPeriod(equipment: Equipment[], from: string, to: string): 
   return out;
 }
 
+/** Shared cycle_time definition text used by sample consumers; v3 excludes queue wait and v4 includes it. */
+export const CYCLE_TIME_VERSION_DEFINITIONS = {
+  '3': { ko: 'PRC 구간만, 큐 대기 제외', en: 'Process interval only, queue wait excluded' },
+  '4': { ko: 'PRC 구간과 큐 대기 포함', en: 'Process interval plus queue wait included' },
+} as const;
+
 export function cycleMinutes(job: Job, version: string): number {
   return version === '4' ? job.cycleMinV4 : job.cycleMinV3;
 }
