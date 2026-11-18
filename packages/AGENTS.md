@@ -33,7 +33,7 @@ Folders are grouped one level (ADR-0090): the five SDK packages and the unpublis
 - A package that uses Tailwind classes registers its own source with `@source` in `styles.css`, and the app `src/style.css` imports it. Add both when creating a package. A package without Tailwind (`mock-server`) has no `styles.css`.
 - New tests go in the `__tests__/` folder of the feature folder they test ([ADR-0090](../docs/adr/0090-repo-structure-by-branch.md)).
 - Test-only entry points are exported as `exports["./testing"]` (ADR-0040, extended #413). Import them only from test files (`*.test.ts(x)`, `test-support.ts(x)`, `test-setup.ts`); lint blocks production sources.
-  - `@ap/kernel/testing`: `testAdapter`, `testSession`, `testSpace`, `noContext`, `memoryStorage`, `ToastProbe`, `useToastsForTest`, `settleQueries`. Build adapter stubs with `testAdapter({ … })`, never by hand.
+  - `@ap/kernel/testing`: `testAdapter`, `testSession`, `testSpace`, `testMenu`, `noContext`, `memoryStorage`, `ToastProbe`, `useToastsForTest`, `settleQueries`, `registerLentPanel`. Build adapter stubs with `testAdapter({ … })`, never by hand.
   - `@ap/components/testing`: `stubCompactTableGeometry` (table geometry stub); components' own tests use `./testing`.
   - `@ap/components/testing/engines`: `mockEchartsCanvas`, `probeDockEngine` (engine seams registered with `vi.doMock` from inside the package, so tests outside it never import `echarts` or `dockview-react`). Call as `await vi.hoisted(async () => (await import('@ap/components/testing/engines')).fn())`.
   - `@ap/feature-bridge/testing`: `createFeatureMenuHarness` (registry and `mountAt` harness for bridge menus). Only bridge menus (`featureBridgeMenuPreset`) tests and `test-support` import it; the root does not re-export it.

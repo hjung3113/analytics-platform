@@ -24,6 +24,7 @@ captureApplied | function | function captureApplied(applied: Applied, support: S
 hasDotSegment | function | function hasDotSegment(pathname: string): boolean
 isChunkLoadFailure | function | function isChunkLoadFailure(error: unknown): boolean
 paneHref | function | function paneHref(registry: @ap/kernel#Registry, screen: @ap/kernel/host#PaneScreen): string
+registerLentPanel | function | function registerLentPanel(source: Source, registration: @ap/kernel#LentPanelRegistration | ComponentType<@ap/kernel#LentPanelProps>): void
 useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean, options?: { shared?: boolean; }): @ap/kernel#RequestState<T>
 useArrivalFocus | function | function useArrivalFocus(arrive: (request: @ap/kernel/host#PageFocus) => void, { enabled, rereadKey }?: @ap/kernel/host#ArrivalFocusOptions): void
 useCustomGroupList | function | function useCustomGroupList(scopeId: null | string, enabled: boolean): @ap/kernel/host#CustomGroupList
@@ -45,5 +46,6 @@ RefreshEpochs | type | type RefreshEpochs = { bump: (endpointIds: readonly strin
 RestorableEntry | type | type RestorableEntry = @ap/contracts#SavedViewEntry & { view: Exclude<@ap/contracts#SavedViewEntry['view'], { kind: 'custom-group'; }>; }
 RestoreFailure | type | type RestoreFailure = 'stale-schema' | 'wrong-menu'
 SavedState | type | type SavedState = { context: @ap/contracts#SavedViewContext; page: @ap/contracts#Pair[]; }
+Source | type | type Source = @ap/contracts#PanelBinding['source']
 SupportedKeys | type | type SupportedKeys = Pick<@ap/contracts#SavedViewSupport, 'contextKeys' | 'pageKeys'>
 createPageNavigation | function | function createPageNavigation(initialUrl: string, isBlocked?: () => boolean, canonicalHref?: (href: string) => string): { advance(next: string, focus?: @ap/kernel/host#PageFocus): void; cancel(preservePage?: boolean): void; claimsDetailFocus(): boolean; consume(path: string): @ap/kernel/host#PageFocus | null; materialize(next: string): void; notify(): void; redirect(next: string): void; requestReturn(href: string): void; subscribe(listener: () => void, owner?: unknown): () => void; }

@@ -3,8 +3,10 @@ ToastProbe | function | function ToastProbe(): ReactElement
 createFakeSavedViewStore | function | function createFakeSavedViewStore(seed?: @ap/contracts#SavedView[], defaults?: Record<string, string>): @ap/kernel/testing#FakeSavedViewStore
 memoryStorage | function | function memoryStorage(): Storage
 noContext | const | const noContext: Record<@ap/contracts#ContextKey, @ap/contracts#Capability>
+registerLentPanel | function | function registerLentPanel(source: Source, registration: @ap/kernel#LentPanelRegistration | ComponentType<@ap/kernel#LentPanelProps>): void
 settleQueries | function | function settleQueries(): Promise<void>
 testAdapter | function | function testAdapter(over?: Partial<@ap/contracts#PlatformAdapter>): @ap/contracts#PlatformAdapter
+testMenu | function | function testMenu(over?: Partial<Omit<@ap/kernel#PlatformMenuEntry, 'features'>> & { features?: Partial<@ap/kernel#PlatformMenuEntry['features']>; }): @ap/kernel#PlatformMenuEntry
 testSavedView | function | function testSavedView<K extends @ap/contracts#SavedView['kind'] = 'condition-set'>(over: Partial<@ap/contracts#SavedView> & { id: string; kind?: K; }): [ K ] extends [ 'custom-group' ] ? GroupView : RestorableView
 testScreen | const | const testScreen: import("react").LazyExoticComponent<() => null>
 testSession | function | function testSession(permissions: readonly (@ap/contracts#ModuleScopedId | @ap/contracts#Permission)[], over?: { scopes?: readonly @ap/contracts#ScopeOption[]; user?: Partial<@ap/contracts#SessionUser>; }): @ap/contracts#Session
@@ -14,3 +16,4 @@ useToastsForTest | function | function useToastsForTest(): readonly @ap/kernel#T
 # reachable types
 GroupView | type | type GroupView = Extract<@ap/contracts#SavedView, { kind: 'custom-group'; }>
 RestorableView | type | type RestorableView = Exclude<@ap/contracts#SavedView, { kind: 'custom-group'; }>
+Source | type | type Source = @ap/contracts#PanelBinding['source']

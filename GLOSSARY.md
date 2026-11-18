@@ -446,6 +446,9 @@ _Avoid_: 커스텀 권한, 사내 capability
 **Scope 카탈로그 (Scope catalog)** (`scopeCatalog`):
 배포 설정 묶음이 내는 `{ site, label, rooms }` 목록. 부여·신청할 수 있는 site·room과 표시 순서의 원본이며 배포의 모든 workspace가 공유한다. 카탈로그만으로 접근을 부여하지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 
+**Site 전체 보증** (`timeDomainAssertions`):
+지정된 유효 구간에 Site의 모든 설비가 같은 시간 기준으로 기록된다는 배포의 선언. 여러 설비를 한 시간축으로 병합할 때 서버가 사용하는 증명이다([ADR-0172](docs/adr/0172-site-wide-time-domain-guarantee.md)).
+
 **막힌 자리 (blocked place)**:
 메뉴·Scope·room 또는 조회 권한이 없어 사용자가 진행하지 못한 자리. 그 대상이 미리 채워진 권한 신청으로 이어진다. 진입과 대상 규칙은 [셸 슬롯 계약](docs/contract/layout.md#8-shell-slots)을 따르고 메뉴 거부 자리의 남은 범위는 [백로그](.planning/backlog.md)에 기록한다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 
@@ -632,6 +635,9 @@ _Avoid_: 최소화(단독) — 분석 보드 최소화와 섞인다.
 **패널 선언** (`MenuMeta.panels`, Candidate):
 메뉴가 Menu Registry에 적는 패널 하나의 계약 — 조회 입력·표시 입력·출력 page key·데이터 단위(`grain`)·엔드포인트. 별도 Registry는 없고 Menu Registry가 검증·역조회한다([Kernel §5](docs/contract/kernel.md#5-menu-extension-contract), #2433). 화면의 작업 영역 패널(`PanelWorkspace` `panels`)과 같은 id를 쓰지만 선언은 배치를 정하지 않는다. 개발 도구의 «패널 카탈로그»는 이 선언을 보여 주는 화면의 이름이다.
 _Avoid_: 패널 레지스트리 — 별도 Registry로 읽힌다. 패널 카탈로그(개념 이름으로) — Catalog Page Archetype과 섞인다. 패널 등록.
+
+**패널 빌려주기** (`MenuMeta.lentPanels`, `PanelBinding`):
+받는 메뉴가 자신의 입력을 연결해 원본 메뉴에 선언된 패널을 재사용하는 방식. 원본의 데이터 접근 권한과 받는 메뉴에 적용된 조회 조건을 함께 따른다([ADR-0171](docs/adr/0171-registered-panel-lending.md)).
 
 **묶음**:
 작업 영역에서 패널 여러 개가 한 자리를 탭으로 나누어 쓰는 단위. 한 번에 패널 하나만 보이고 묶음 위 띠의 탭으로 바꾼다. 화면 문구는 `<제목> 묶음으로 옮기기`다(예: `요약 묶음으로 옮기기`, 보드는 `칸 3 묶음으로 옮기기`).

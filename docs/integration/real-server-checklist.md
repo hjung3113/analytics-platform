@@ -64,7 +64,7 @@
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), 기능 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
-**위 순서는 문자열 행(`MENU_UPSTREAM_BASE_URL`로 가는 envelope 전달)에서 바뀌지 않는다.** `endpointOwners`의 값이 경로 문자열이면 1~7단계는 코어가 끝내고 8단계 핸들러가 상류에 그대로 전달하며, 9단계(`limits.maxRows`)는 이 행에 선언하면 기동 거부다. 아래는 선언 묶음이 `targets`와 라우팅 객체를 쓰는 엔드포인트에서 8~10단계가 달라지는 부분이다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 3~6·10). 1~7단계(형태·params·권한·Scope·한도·공집합)는 같은 순서로 코어가 먼저 끝낸다. 라우팅은 8단계 핸들러 안에서만 일어난다.
+**위 순서는 문자열 행(`MENU_UPSTREAM_BASE_URL`로 가는 envelope 전달)에서 바뀌지 않는다.** `endpointOwners`의 값이 경로 문자열이면 1~7단계는 코어가 끝내고 8단계 핸들러가 상류에 그대로 전달하며, 9단계(`limits.maxRows`)는 이 행에 선언하면 기동 거부다. 아래는 선언 묶음이 `targets`와 라우팅 객체를 쓰는 엔드포인트에서 8~10단계가 달라지는 부분이다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 3~6·10). 라우팅된 엔드포인트에도 위 1~7단계를 그대로 적용한다. 라우팅은 8단계 핸들러 안에서만 일어난다.
 
 **라우팅된 대상의 8~10단계 (코어가 판정자)** — 순서도 계약이다:
 

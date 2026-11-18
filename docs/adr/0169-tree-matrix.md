@@ -1,7 +1,7 @@
 # 계층 행과 평면 열의 서버 윈도 행렬은 독립 SDK 부품으로 제공한다
 
 상태: **Decided (2026-11-18)**.
-- 결정자: 사용자 — #2434 A′ 시각 선택. #1768 PR1 작업 지시가 아래 범용 부품의 범위와 소비자 제어 경계를 정한다.
+- 결정자: 사용자 — #2434, #1768.
 
 한 단계 서버 그룹을 갖는 `PlatformDataTable`에 여러 단계 트리·행 전체 그룹 표면·셀 단위 2차원 선택을 덧붙이면 표의 행 선택·쪽 넘김·접근성 의미가 달라진다. 새 부품은 선택 사용이며 기존 표를 고치지 않는다. 세부 행동·타입·접근성의 소유 문서는 [Components §13 TreeMatrix](../contract/components.md#treematrix--서버-윈도-트리-행렬-decided-adr-0169-1768)다.
 
@@ -11,7 +11,7 @@
 - `@ap/contracts`에 축 중립 `MatrixNode`, `MatrixColumn`, `MatrixWindowQuery`, `MatrixWindow<N>`를 둔다. 브라우저에는 서버가 평탄화한 한 윈도만 전달하고 전체 필터 결과의 개수는 서버가 제공한다. 기존 필터 모델·editor·URL codec과 표 크기를 가져오되 표 파일은 바꾸지 않는다.
 - 활성화 제스처는 소비자 선언 `activateOn`이다. 기본은 Enter이며 click/doubleClick을 골라도 Enter는 항상 활성화한다. 모든 소비자에게 동등한 키보드 경로를 보장하려는 이유다. 선택·클릭으로 Global Context를 바꾸지 않는다.
 - 행별 강조는 값/범위 규칙, 채움 없는 점선, 일치 열의 합집합 좁히기를 제공한다. chart zoom과 같은 일시적 상태로 두고 URL·Saved View에 저장하지 않는다. 단계 순서와 필터는 소비자의 page key다.
-- 뒤집는 보기는 이 PR에서 구현하지 않는다(#2498). 같은 타입으로 평면 엔터티를 행에, 잎을 열에 두고 계층 단계는 표 column-group 헤더로 표현할 수 있다. **소비자가 열 한도를 선언한 경우에만** 허용한다. 표에는 열 가상화가 없어 DOM 크기, 머리 문구의 가독성, 스크린리더가 다룰 열 수를 제어해야 한다.
+- 평면 엔터티를 행에 놓는 보기는 계층의 잎을 표의 열로 조립한다. 표에 열 가상화가 없으므로 DOM 크기, 머리글 가독성, 스크린리더 탐색을 고려한 열 한도는 소비자가 선언한다. 현행 조립 방식과 Configuration 한도는 [Components §13 TreeMatrix](../contract/components.md#treematrix--서버-윈도-트리-행렬-decided-adr-0169-1768)를 따른다.
 
 ## Considered Options
 
@@ -24,4 +24,3 @@
 
 - 기존 표·화면의 기본 동작을 바꾸지 않는 새 export다. MARS Configuration이 메뉴별 CFG 비교·조회·URL·항목 탐색을 연결한다(#2434, PR #2504).
 - `fill`은 공통 page-bound 등록을 사용하므로 프로토타입의 페이지 높이 측정 우회를 가져오지 않는다. 빗금은 기존 색 변수만 쓰는 유틸리티다.
-- #2498에서 Configuration이 설비 기준 보기를 [§15의 열 그룹 표](../contract/components.md#15-platform-data-table-contract)로 조립한다. Configuration이 열 한도를 잠정 200개로 선언하고, 초과 응답으로 초과 여부와 전체 잎 개수를 제공한다.
