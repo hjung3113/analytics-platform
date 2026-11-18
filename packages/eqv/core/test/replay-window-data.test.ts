@@ -34,6 +34,12 @@ it.each([
     expected: false,
   },
   {
+    name: 'an interval that ends exactly at the window start (exclusive end)',
+    data: batch('2026-01-01T11:00:00.000', [occurrence('2026-01-01T10:00:00.000', '2026-01-01T10:20:00.000')]),
+    window: { from: time('2026-01-01T10:20:00.000'), to: time('2026-01-01T10:30:00.000') },
+    expected: false,
+  },
+  {
     name: 'a window with a known overlapping interval',
     data: batch('2026-01-01T11:00:00.000', [occurrence('2026-01-01T10:00:00.000', '2026-01-01T10:25:00.000')]),
     window: { from: time('2026-01-01T10:20:00.000'), to: time('2026-01-01T10:30:00.000') },
