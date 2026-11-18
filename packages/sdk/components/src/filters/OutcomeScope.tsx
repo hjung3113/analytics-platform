@@ -1,7 +1,7 @@
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
-import { errorGuidance, useI18n, type QueryState } from '@ap/kernel';
+import { errorGuidance, errorGuidanceLabel, useI18n, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { emptyCauses, emptyOutcomeText } from '../state/emptyCause';
 
@@ -151,21 +151,22 @@ function OutcomeBanner({ group, multiple, onRetry, compact = false }: { group: G
   const danger = outcomeIsDanger(response);
   const warning = outcome === 'forbidden';
   const title = warning ? t('stateForbidden') : blocked ? t('stateQueryBlocked') : outcome === 'error' ? t('stateError') : outcome === 'timeout' ? t('stateTimeout') : emptyOutcomeText(emptyCauses(group.widgets[0].response!), t).title;
-  const label = warning ? t('sharedOutcomeForbidden') : blocked ? t('sharedOutcomeBlocked') : outcome === 'error' ? t('sharedOutcomeError') : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
   const Icon = warning ? Ban : blocked ? SlidersHorizontal : outcome === 'error' ? ServerCrash : outcome === 'timeout' ? Clock : Inbox;
   const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
   const names = multiple ? memberNames(group.widgets) : [];
   const body = warning ? t('stateForbiddenBody') : outcome === 'timeout' ? t('stateTimeoutBody')
-    : outcome === 'error' ? <>{t(guide.cause)} {t(guide.action)}</> : emptyOutcomeText(emptyCauses(response), t).body;
+    : outcome === 'error' ? `${t(guide.cause)} ${t(guide.action)}` : emptyOutcomeText(emptyCauses(response), t).body;
   const retry = warning || blocked ? null : <Button type="button" size="sm" variant="secondary" aria-busy={group.busy} aria-disabled={group.busy} onClick={onRetry}>
     {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
   </Button>;
   if (compact) {
+    const label = warning ? t('sharedOutcomeForbidden') : outcome === 'error' ? t(errorGuidanceLabel(guide.code)) : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
+    const inlineText = outcome === 'error' && guide.code !== null && !blocked ? body : summary;
     return <section id={group.bannerId} ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={t('sharedOutcomeRegion')}
       className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken')}>
       <Icon aria-hidden className={cn('size-4 shrink-0', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')} />
       <span className={cn('shrink-0 whitespace-nowrap font-semibold', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')}>{label} ·</span>
-      <p className="min-w-0 flex-1 truncate" title={summary}>{summary}</p>
+      <p className="min-w-0 flex-1 truncate" title={inlineText}>{inlineText}</p>
       <Popover>
         <PopoverTrigger asChild><Button type="button" size="toolbar" variant="ghost" className="shrink-0">{t('outcomeDetails')}</Button></PopoverTrigger>
         <PopoverContent data-outcome-details={detailsId} aria-labelledby={titleId} align="end" padding="compact" className="max-w-sm"

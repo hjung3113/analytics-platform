@@ -122,6 +122,7 @@ const dict = {
   sharedOutcomeNotice: { ko: '위 안내 참고', en: 'See the notice above' },
   sharedOutcomeNoticeFor: { ko: '위 안내 참고({status})', en: 'See the notice above ({status})' },
   sharedOutcomeError: { ko: '서버 오류', en: 'server error' },
+  sharedOutcomeCannotAggregate: { ko: '집계 불가', en: 'cannot aggregate' },
   sharedOutcomeBlocked: { ko: '조회 안 함', en: 'not queried' },
   sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
@@ -334,14 +335,25 @@ export function useMessages<K extends string>(messages: Readonly<Record<K, Text>
 }
 
 const ERROR_GUIDANCE = {
-  time_domain_unverified: { cause: 'timeDomainUnverifiedCause', action: 'timeDomainUnverifiedAction', blocked: false },
-  time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction', blocked: false },
+  time_domain_unverified: { cause: 'timeDomainUnverifiedCause', action: 'timeDomainUnverifiedAction', label: 'sharedOutcomeCannotAggregate', blocked: false },
+  time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction', label: 'sharedOutcomeCannotAggregate', blocked: false },
   // The Kernel's own pre-send block (ADR-0164 decision 8): the ID and code stay in the technical detail.
   // `blocked`: the query was refused by its own conditions, so the screen says so as a notice and offers no retry (#2440).
   // A failed expansion is a load that may succeed again, so it stays an error with a retry.
-  'customGroup blocked': { cause: 'customGroupBlockedCause', action: 'customGroupBlockedAction', blocked: true },
-  'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction', blocked: false },
-} as const satisfies Record<string, { cause: Key; action: Key; blocked: boolean }>;
+  'customGroup blocked': { cause: 'customGroupBlockedCause', action: 'customGroupBlockedAction', label: 'sharedOutcomeBlocked', blocked: true },
+  'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction', label: 'sharedOutcomeError', blocked: false },
+} as const satisfies Record<string, { cause: Key; action: Key; label: Key; blocked: boolean }>;
+
+function guidanceByCode(code: string | null) {
+  return code !== null && Object.hasOwn(ERROR_GUIDANCE, code)
+    ? ERROR_GUIDANCE[code as keyof typeof ERROR_GUIDANCE]
+    : undefined;
+}
+
+/** Short outcome label for an error guidance code, with the server error label as fallback. */
+export function errorGuidanceLabel(code: ErrorGuidance['code']): Key {
+  return guidanceByCode(code)?.label ?? 'sharedOutcomeError';
+}
 
 /** `blocked`: refused before sending by the query's own conditions — a notice the user fixes in the conditions, not a failure to retry. */
 export type ErrorGuidance = { code: string | null; cause: Key; action: Key; blocked: boolean };
@@ -349,8 +361,8 @@ export type ErrorGuidance = { code: string | null; cause: Key; action: Key; bloc
 /** Classify a server `message` by the prefix before the first colon. Unmapped text uses the general error copy. */
 export function errorGuidance(message: string | undefined): ErrorGuidance {
   const code = message?.split(':', 1)[0]?.trim() ?? '';
-  if (code && Object.prototype.hasOwnProperty.call(ERROR_GUIDANCE, code)) {
-    const guide = ERROR_GUIDANCE[code as keyof typeof ERROR_GUIDANCE];
+  const guide = guidanceByCode(code);
+  if (guide) {
     return { code, cause: guide.cause, action: guide.action, blocked: guide.blocked };
   }
   return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction', blocked: false };

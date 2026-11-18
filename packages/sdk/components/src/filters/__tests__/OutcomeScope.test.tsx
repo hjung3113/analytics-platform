@@ -22,6 +22,44 @@ function textWithoutDetail(node: HTMLElement) {
 }
 afterEach(cleanup);
 
+describe('compact error banner wording (#2509)', () => {
+  it('names the refusal label in each widget reference when several groups share the page', () => {
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      <Widget q={query(response('error', 'time_domain_unverified: X-1'))} name="Refused A" />
+      <Widget q={query(response('error', 'time_domain_unverified: X-1'))} name="Refused B" />
+      <Widget q={query(response('error', 'err'))} name="Error C" />
+      <Widget q={query(response('error', 'err'))} name="Error D" />
+    </OutcomeScope></I18nProvider>);
+    expect(screen.getByRole('group', { name: 'Refused A' })).toHaveTextContent('위 안내 참고(집계 불가)');
+    expect(screen.getByRole('group', { name: 'Error C' })).toHaveTextContent('위 안내 참고(서버 오류)');
+  });
+
+  it('shows the aggregation refusal and its guidance inline', () => {
+    const q = query(response('error', 'time_domain_unverified: X-1, X-2'));
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      <Widget q={q} /><Widget q={q} name="Widget B" />
+    </OutcomeScope></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    const guidance = '시간 기준이 확인되지 않아 함께 집계할 수 없습니다. 설비를 좁히거나 기간을 줄이세요.';
+    expect(banner).toHaveTextContent('집계 불가');
+    expect(within(banner).getByText(guidance)).toHaveAttribute('title', guidance);
+    expect(banner).not.toHaveTextContent('서버 오류');
+    expect(banner).not.toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+    fireEvent.click(within(banner).getByRole('button', { name: '자세히' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+  });
+
+  it('keeps the server error wording and summary for an unguided error', () => {
+    const q = query(response('error', 'Something went wrong'));
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      <Widget q={q} /><Widget q={q} name="Widget B" />
+    </OutcomeScope></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(banner).toHaveTextContent('서버 오류');
+    expect(banner).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
+  });
+});
+
 it('unregisters grouped outcomes when their queries become idle without leaving a retry banner', () => {
   const first = query(); const second = query();
   const view = render(<Page><Widget q={first} /><Widget q={second} name="Widget B" /></Page>);
