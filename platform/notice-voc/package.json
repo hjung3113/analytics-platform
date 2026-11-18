@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-notice-voc",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.3.3",
   "ap": {
     "sdk": ">=0.43.0 <0.44.0"
   },

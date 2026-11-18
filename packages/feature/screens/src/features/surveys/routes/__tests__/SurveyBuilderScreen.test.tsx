@@ -9,13 +9,17 @@ import {
 } from '../../__tests__/surveys-seam-fixtures';
 import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SurveyBuilderScreen } from '../SurveyBuilderScreen';
+import { useSurvey } from '../../hooks/useSurveys';
+import { SurveyBuilderScreen, SurveyBuilderView } from '../SurveyBuilderScreen';
+import { useEffect, useState } from 'react';
 
 const DRAFT_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const onBack = vi.fn();
 let titles: (string | null)[] = [];
+// Live registrations of the host seam's guard, modelled on the kernel: registered in an effect while dirty, dropped in its cleanup.
+let registered = 0;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -32,7 +36,7 @@ function installFetch(options: { canManage: boolean }): void {
   }) as typeof globalThis.fetch;
 }
 
-function mount(surveyId: string) {
+function mount(surveyId: string, view?: React.ReactElement) {
   const seam: HostSeam = {
     canLink: () => true,
     Link: ({ to, children }) => <a href={to}>{children}</a>,
@@ -43,12 +47,21 @@ function mount(surveyId: string) {
     useTitle: (title) => {
       titles.push(title);
     },
+    useUnsavedGuard: (dirty) => {
+      useEffect(() => {
+        if (!dirty) return;
+        registered += 1;
+        return () => {
+          registered -= 1;
+        };
+      }, [dirty]);
+    },
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <HostSeamProvider value={seam}>
-        <SurveyBuilderScreen surveyId={surveyId} onBack={onBack} />
+        {view ?? <SurveyBuilderScreen surveyId={surveyId} onBack={onBack} />}
       </HostSeamProvider>
     </QueryClientProvider>,
   );
@@ -57,6 +70,7 @@ function mount(surveyId: string) {
 beforeEach(() => {
   onBack.mockReset();
   titles = [];
+  registered = 0;
   installFetch({ canManage: true });
 });
 afterEach(cleanup);
@@ -116,5 +130,44 @@ describe('SurveyBuilderScreen over the host seam', () => {
     fireEvent.click(screen.getByRole('button', { name: '이동' }));
     expect(onBack).toHaveBeenCalledTimes(1);
     add.mockRestore();
+  });
+
+  it('holds a menu switch while the draft is dirty, and a confirmed Back leaves with no guard left (#2533)', async () => {
+    let atBack = -1;
+    onBack.mockImplementation(() => {
+      atBack = registered;
+    });
+    mount(DRAFT_ID);
+    const title = await screen.findByLabelText('설문 제목');
+    expect(registered).toBe(0);
+    fireEvent.change(title, { target: { value: '바뀐 제목' } });
+    await waitFor(() => expect(registered).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+    fireEvent.click(await screen.findByRole('button', { name: '이동' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
+    // A synchronous Back would still meet the registration its passive cleanup has not dropped yet.
+    expect(atBack).toBe(0);
+  });
+
+  it('drops the guard with the editor when a failed refetch removes it, and a remounted clean editor holds nothing (#2533)', async () => {
+    let setBroken: (broken: boolean) => void = () => {};
+    function Host() {
+      const query = useSurvey(DRAFT_ID);
+      const [broken, set] = useState(false);
+      setBroken = set;
+      const shown = broken ? ({ ...query, isError: true, isSuccess: false, status: 'error', data: undefined } as unknown as typeof query) : query;
+      return <SurveyBuilderView surveyQuery={shown} onBack={onBack} />;
+    }
+    mount(DRAFT_ID, <Host />);
+    fireEvent.change(await screen.findByLabelText('설문 제목'), { target: { value: '바뀐 제목' } });
+    await waitFor(() => expect(registered).toBe(1));
+    act(() => setBroken(true));
+    expect(await screen.findByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
+    expect(registered).toBe(0);
+    act(() => setBroken(false));
+    await screen.findByLabelText('설문 제목');
+    expect(registered).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

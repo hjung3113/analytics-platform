@@ -196,7 +196,16 @@ describe('save', () => {
     expect(m.saveNotice.mock.calls[0]![0]).toMatchObject({ id: 'n-soon', expectedVersion: 'v1' });
     expect(m.saveNotice).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    // The edit is still unsaved: reloading asks first and «계속 작성» keeps it (#2533).
     fireEvent.click(within(dialog).getByRole('button', { name: '최신 내용 불러오기' }));
+    const ask = await screen.findByRole('alertdialog');
+    expect(ask.textContent).toContain('새로 불러오면 작성 중인 공지가 사라집니다');
+    fireEvent.click(within(ask).getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect((within(dialog).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('고친 제목');
+    expect(m.listNotices).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole('button', { name: '최신 내용 불러오기' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '버리고 불러오기' }));
     await waitFor(() => expect(m.listNotices).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -373,5 +382,64 @@ describe('empty list', () => {
     mount(ADMIN, '/notices', { items: [] });
     expect(await screen.findByText('공지가 없습니다')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: '공지 작성' }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('unsaved compose (#2533)', () => {
+  it('asks before Escape discards a typed draft, keeps it on «계속 작성» and closes on discard', async () => {
+    mount(ADMIN, '/notices');
+    const dialog = await fillCreate();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    const ask = await screen.findByRole('alertdialog');
+    expect(ask.textContent).toContain('작성 중인 공지가 사라집니다');
+    fireEvent.click(within(ask).getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect((within(screen.getByRole('dialog')).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('새 공지');
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '버리기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('asks on Escape over the alert only to close the alert, and on the close button and an outside click', async () => {
+    mount(ADMIN, '/notices');
+    const dialog = await fillCreate();
+    fireEvent.click(within(dialog).getByRole('button', { name: '닫기' }));
+    const ask = await screen.findByRole('alertdialog');
+    fireEvent.keyDown(ask, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect((within(screen.getByRole('dialog')).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('새 공지');
+    fireEvent.pointerDown(document.body);
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
+    // The compose dialog stays mounted under the alert (Radix hides it from the accessibility tree meanwhile).
+    expect(screen.getByRole('dialog', { hidden: true })).toBeTruthy();
+  });
+
+  it('keeps leaving guarded while a save is pending, and treats a restored end time as untouched', async () => {
+    let finish: (res: ActionResponse<Notice>) => void = () => {};
+    mount(ADMIN, '/notices?focus=n-soon', { save: () => new Promise(resolve => { finish = resolve; }) });
+    fireEvent.click(await screen.findByRole('button', { name: '수정' }));
+    const dialog = await screen.findByRole('dialog');
+    const until = within(dialog).getByLabelText(/종료 일시/) as HTMLInputElement;
+    // The notice ends at 2026-11-05T00:00:00; the browser control reports it without the zero seconds.
+    fireEvent.change(until, { target: { value: '2026-11-05T00:01' } });
+    fireEvent.change(until, { target: { value: '2026-11-05T00:00' } });
+    const unload = () => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
+    expect(unload()).toBe(false);
+    fireEvent.change(within(dialog).getByLabelText('제목 (한국어)'), { target: { value: '고친 제목' } });
+    submit(dialog);
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '저장' })).toHaveProperty('disabled', true));
+    expect(unload()).toBe(true);
+    await act(async () => { finish(action<Notice>({ outcome: 'conflict', version: 'v2' })); });
+    expect(await within(dialog).findByText('다른 곳에서 먼저 바뀌었습니다')).toBeTruthy();
+    expect((within(dialog).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('고친 제목');
+    expect(unload()).toBe(true);
+  });
+
+  it('closes an untouched dialog at once', async () => {
+    mount(ADMIN, '/notices');
+    fireEvent.click(await screen.findByRole('button', { name: /공지 작성/ }));
+    fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });
