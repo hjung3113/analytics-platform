@@ -6,6 +6,7 @@ export const pageCopy = {
   software: 'SW', owner: '담당', target: '목표일', unassigned: '미지정', unknownVersion: '버전 이름 확인 불가', unknownName: '이름 확인 불가', undecided: '미정',
   move: (stage: string) => `${stage}로 이동`, projectTitle: (model: string) => `${model} · 개발 건`,
   roundTitle: (model: string, seq?: number) => `${model} · Round${seq === undefined ? '' : ` ${seq}`}`,
+  sourceInfo: (count: number) => `${count}파일 · 파일 순서 → 줄 번호 · Top View 미연결`,
   gateDecision: 'Gate 결정', attempt: '시도', latestExecution: '최신 실행', gate: 'Gate', resultScope: '결과 범위',
   opinionGrade: '의견 등급', opinionGradePrefix: '의견 등급:', all: '전체', problems: '문제만', noOpinion: '의견 없음',
   resultsLoading: '규칙 결과 불러오는 중…', resultsUnavailable: '규칙 결과 집계 불가',

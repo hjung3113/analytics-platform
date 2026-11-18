@@ -9,7 +9,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await expect(page.getByRole('heading', { name: '로그 탐색', exact: true })).toBeVisible();
     await expandPageHead(page);
     await expect(page.getByText('합성 데이터', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: '조회 조건 펼치기', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: /^조회 조건/ })).toHaveAttribute('aria-expanded', 'false');
     await page.getByRole('button', { name: 'source-b:1 상세', exact: true }).click();
     await expect(page.getByRole('heading', { name: '원문 줄', exact: true })).toBeVisible();
     await expect(page.getByText(/payload="<script>synthetic<\/script>"/).first()).toBeVisible();
@@ -23,6 +23,47 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await page.keyboard.press('Escape');
     await expect(page.getByText(/공식 FAIL·지식 발행은 별도 확정/)).toBeVisible();
     await evidence(page, info, 'log-explorer-synthetic-basket');
+  });
+  test('조회 조건 popover keeps the pager visible, restores focus and fits the desktop viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(investigation(1));
+    await expandPageHead(page);
+    const main = page.getByRole('main');
+    const table = page.getByRole('table', { name: '원본 이벤트 목록', exact: true });
+    const trigger = page.getByRole('button', { name: /^조회 조건/ });
+    await expect(table).toBeVisible();
+    await expect(page.getByRole('button', { name: '다음 범위', exact: true })).toBeVisible();
+    await expect.poll(() => main.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+
+    await trigger.click();
+    const editor = page.getByRole('dialog', { name: '조회 조건', exact: true });
+    await expect(page.getByLabel('로그 타입', { exact: true })).toBeFocused();
+    await page.getByLabel('Module', { exact: true }).fill('module-a');
+    await expect(trigger).toContainText('미적용 변경');
+    await expect(editor).toBeVisible();
+    await expect.poll(() => main.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    await expect(editor).toHaveCount(0);
+
+    await trigger.click();
+    await expect(page.getByLabel('Module', { exact: true })).toHaveValue('module-a');
+    await page.getByRole('button', { name: '적용', exact: true }).click();
+    await expect(page).toHaveURL(/module=module-a/);
+    await expect(trigger).toContainText('Module module-a');
+    await expect(trigger).not.toContainText('미적용 변경');
+    await page.reload();
+    await expandPageHead(page);
+    const restoredTrigger = page.getByRole('button', { name: /^조회 조건/ });
+    await expect(restoredTrigger).toContainText('Module module-a');
+    await restoredTrigger.click();
+    await expect(page.getByLabel('Module', { exact: true })).toHaveValue('module-a');
+    await page.keyboard.press('Escape');
+
+    const width1280 = (await table.boundingBox())!.width;
+    await page.setViewportSize({ width: 1920, height: 900 });
+    await expect.poll(async () => (await table.boundingBox())?.width ?? 0).toBeGreaterThan(width1280);
+    await expect.poll(() => main.evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
   });
   test('Round에서 시작한 조사: 근거 위치를 Round로 넘기는 확인 대화상자(#1474)', async ({ page }, info) => {
     await page.goto(investigation(7));

@@ -83,7 +83,7 @@ function LifecycleFrame({ parts }: { parts: Parameters<Presentation['page']>[0] 
     const trigger = target.closest<HTMLElement>('header button[aria-haspopup="dialog"]');
     if (trigger && parts.actionReturnFocusRef) parts.actionReturnFocusRef.current = trigger;
   };
-  return <div ref={frame} className="contents" onFocusCapture={rememberOverflow} onClickCapture={rememberOverflow}><PlatformPage title={parts.title} layout={parts.layout}
+  return <div ref={frame} className="contents" onFocusCapture={rememberOverflow} onClickCapture={rememberOverflow}><PlatformPage title={parts.title} description={parts.description} layout={parts.layout}
     crumbs={parts.crumbs?.map(crumb => ({ label: crumb.label, href: linkTo('log-model-project', { params: { projectId: crumb.projectId }, returnTo: true }) }))}
     primaryAction={parts.primaryAction ? <Button variant="primary" size="toolbar" disabled={parts.primaryAction.allowed === false} title={parts.primaryAction.allowed === false ? parts.primaryAction.reason : undefined} onClick={event => { if (parts.actionReturnFocusRef) parts.actionReturnFocusRef.current = event.currentTarget; parts.primaryAction?.onSelect(); }}>{parts.primaryAction.label}</Button> : undefined}
     secondaryActions={parts.secondaryActions?.length ? parts.secondaryActions.map(action => <HeaderOverflowItem key={action.label} {...action} />) : undefined}
@@ -96,7 +96,7 @@ const ui: Presentation = {
   // The app injects the body (round-source-slot.ts); read at render so a late `setRoundSourceView` is seen. A fixed height with a readable minimum gives the body's table its flex budget; the page itself scrolls when the viewport is short.
   get sourceView() {
     const View = roundSourceView();
-    return View ? (parts: Parameters<NonNullable<Presentation['sourceView']>>[0]) => <div className="flex h-[calc(100vh-25rem)] min-h-[40rem] flex-col gap-2" data-testid="round-source-slot"><p className="shrink-0 break-keep text-xs text-text-secondary">이 Round의 샘플 목록을 읽기 전용으로 보여 줍니다. 근거 위치 담기와 조사 저장은 로그 탐색에서 합니다.</p><div className="min-h-0 flex-1"><View {...parts} /></div></div> : undefined;
+    return View ? (parts: Parameters<NonNullable<Presentation['sourceView']>>[0]) => <div className="flex h-[calc(100vh-25rem)] min-h-0 flex-col gap-2" data-testid="round-source-slot"><p className="shrink-0 break-keep text-xs text-text-secondary">이 Round의 샘플 목록을 읽기 전용으로 보여 줍니다. 근거 위치 담기와 조사 저장은 로그 탐색에서 합니다.</p><div className="min-h-0 flex-1"><View {...parts} /></div></div> : undefined;
   },
   table: parts => <MetadataTable {...parts} />,
   drawer: parts => <DetailDrawer title={parts.title} subtitle={parts.subtitle} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,

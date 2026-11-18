@@ -8,8 +8,8 @@ import type { RoundSourceViewProps } from './view';
 const ROUND_SOURCE_PAGE_KEYS = { tab: 'sourceTab', focus: 'sourceFocus', drawer: 'sourceDrawer', logType: 'sourceLogType', module: 'sourceModule', event: 'sourceEvent', contextKey: 'sourceContextKey', contextValue: 'sourceContextValue', text: 'sourceText' } as const;
 const ROUND_FILTER_KEYS = ['sourceLogType', 'sourceModule', 'sourceEvent', 'sourceContextKey', 'sourceContextValue', 'sourceText'] as const;
 
-const frame = ({ contextExtension, children }: { contextExtension: ReactNode; children: ReactNode }) => (
-  <div className="flex h-full min-h-0 flex-col gap-3">{contextExtension}{children}</div>
+const frame = ({ children }: { children: ReactNode }) => (
+  <div className="flex h-full min-h-0 flex-col gap-3">{children}</div>
 );
 
 export default function RoundSourceBody({ roundId, sampleSet }: RoundSourceViewProps) {

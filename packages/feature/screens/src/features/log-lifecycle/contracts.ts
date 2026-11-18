@@ -64,6 +64,7 @@ export type DrawerParts = { title: ReactNode; subtitle?: ReactNode; body: ReactN
 export type PageAction = { label: string; onSelect(): void; allowed?: boolean; reason?: string };
 export type PageParts = {
   title: string;
+  description?: ReactNode;
   crumbs?: { label: string; projectId: string }[];
   primaryAction?: PageAction | undefined;
   secondaryActions?: PageAction[];
