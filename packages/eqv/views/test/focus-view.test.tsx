@@ -36,10 +36,29 @@ it('renders the Top View, the Gantt and the Occurrence list from props', () => {
   const panel = screen.getByRole('region', { name: 'Top View' });
   expect(within(panel).getAllByRole('status')).toHaveLength(1);
   expect(within(panel).getByRole('status').textContent).toBe('안내 한 줄 · 부분 데이터 · 진입 키가 없어 전체 구간을 표시합니다');
+  const drawing = panel.querySelector('[data-layer="replay"]')!;
+  const controls = within(panel).getByRole('group', { name: '재생 컨트롤' });
+  const slider = within(controls).getByRole('slider', { name: '재생 커서 시각' });
+  expect(drawing.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:00:00');
   screen.getByRole('heading', { name: 'Top View' });
   screen.getByRole('heading', { name: 'Gantt' });
   expect(row()).toBeTruthy();
   screen.getByRole('tab', { name: '근거 상세' });
+});
+
+it('the playback slider moves the shared cursor, commits the URL value once, and announces a deliberate seek', () => {
+  const onCursorCommit = vi.fn();
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={time('10:06:00')} onCursorCommit={onCursorCommit} />);
+  const slider = screen.getByRole('slider', { name: '재생 커서 시각' });
+  fireEvent.keyDown(slider, { key: 'Home' });
+  fireEvent.keyUp(slider, { key: 'Home' });
+
+  expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:00:00');
+  expect(shownAt()).toBe('2026-01-01 10:00:00');
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:00:00'));
+  const announcement = document.querySelector('[aria-live="polite"]');
+  expect(announcement?.textContent).toBe('재생 커서를 2026-01-01 10:00:00로 옮겼습니다');
 });
 
 it('shows a no-data state after the watermark and keeps the range controls available', () => {

@@ -1,10 +1,11 @@
-/** @ap/menu-topview — the Top View viewer group: Top View and Focus (EV ADR-0012). Manifest only: the screens are lazy, so `@eqv/*` stays out of this import graph. */
+/** @ap/menu-topview — the Top View viewer group: Top View and synchronized playback (EV ADR-0012). Manifest only: the screens are lazy, so `@eqv/*` stays out of this import graph. */
 import { lazy } from 'react';
 import { Map as MapIcon, Radar } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { PlatformMenuEntry } from '@ap/kernel';
 import { EQV_MAX_WINDOW_HOURS } from './limits.js';
 import { VIEW_PERMISSION } from './endpoints.js';
+import { FOCUS_MENU_LABEL } from './labels.js';
 
 const GROUP = groupId('topview');
 
@@ -23,12 +24,12 @@ export const manifests: PlatformMenuEntry[] = [
     requiresScope: false,
     // The board is drawn for the applied time window (topview-context / topview-events are time-projected).
     context: contextCapabilities({ time: 'apply' }), defaultPeriodHours: EQV_MAX_WINDOW_HOURS,
-    pageType: 'overview', features: NO_FEATURES, pageKeys: ['equipment'],
+    pageType: 'overview', features: NO_FEATURES, pageKeys: ['equipment'], linkTargets: { optional: ['eqv-studio'] },
     component: lazy(() => import('./screens/TopViewScreen.js').then(m => ({ default: m.TopViewScreen }))),
   },
   {
     id: 'eqv:focus', group: GROUP, parent: 'eqv:topview',
-    label: { ko: 'Focus', en: 'Focus' },
+    label: FOCUS_MENU_LABEL,
     description: { ko: 'Top View, Gantt, Occurrence 목록을 하나의 커서로 함께 재생합니다.', en: 'Replays the Top View, Gantt and Occurrence list on one shared cursor.' },
     path: '/tools/eqv-focus', aliases: ['/tools/topview/focus'], icon: Radar, permission: VIEW_PERMISSION,
     requiresScope: false,

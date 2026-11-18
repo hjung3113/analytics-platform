@@ -19,7 +19,7 @@ const hops = [
 const row = (n: number) => within(document.querySelector(`tr[data-hop="${n}"]`) as HTMLElement);
 
 it('lists a hop per row with location, the three evidence facets and each boundary, labelling an open departure', () => {
-  render(<JourneyHopList hops={hops} selectedHop={null} onSelectHop={vi.fn()} renderAction={(h) => <a href={`#${h.number}`}>Focus 열기</a>} />);
+  render(<JourneyHopList hops={hops} selectedHop={null} onSelectHop={vi.fn()} renderAction={(h) => <a href={`#${h.number}`}>동기 재생 열기</a>} />);
   expect(screen.getAllByRole('columnheader').map((c) => c.textContent)).toEqual(['#', '위치', '위치 근거', '식별 근거', '도착', '떠남', '동작']);
   expect(row(1).getByText('pm-a')).toBeTruthy();
   expect(row(1).getByText('10:00:00.250 · Record Sequence 4')).toBeTruthy();
@@ -30,7 +30,7 @@ it('lists a hop per row with location, the three evidence facets and each bounda
   expect(row(2).getByText('열림')).toBeTruthy();
   expect(row(2).getAllByText('미확인')).toHaveLength(2);
   expect(row(3).getByText('위치 미확인 (alias PM5)')).toBeTruthy();
-  expect(row(3).getByRole('link', { name: 'Focus 열기' })).toBeTruthy();
+  expect(row(3).getByRole('link', { name: '동기 재생 열기' })).toBeTruthy();
 });
 
 it('selects a hop on activation and marks the selected row', () => {

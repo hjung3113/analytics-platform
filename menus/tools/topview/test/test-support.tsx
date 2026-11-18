@@ -1,8 +1,8 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { act, render } from '@testing-library/react';
 import { Map as MapIcon } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ApiResponse, type Assessment, type MenuQuery, type PlatformAdapter, type Trust } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
+import { contextCapabilities, groupId, menuPermission, NO_FEATURES, spaceId, type ApiResponse, type Assessment, type MenuQuery, type Permission, type PlatformAdapter, type Trust } from '@ap/contracts';
+import { createRegistry, I18nProvider, PlatformProvider, usePlatform, type PlatformMenuEntry } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../src/index.js';
@@ -27,13 +27,21 @@ export type FakeOptions = {
   /** `null` leaves the URL without a window. */
   context?: { from: string; to: string } | null;
   query: QueryHandler | null;
+  /** A target menu for link permission and page-key tests. */
+  studio?: 'allowed' | 'denied' | 'missing';
 };
 
-const registry = createRegistry({
-  permissions: [menuPermission('eqv:view')],
+const studioMenu: PlatformMenuEntry = {
+  id: 'eqv-studio', group: groupId('topview'), label: { ko: 'Top View 작성', en: 'Top View Studio' },
+  description: { ko: '레이아웃 작성', en: 'Edit a layout' }, path: '/tools/eqv-studio', icon: MapIcon,
+  permission: menuPermission('eqv-studio:view'), requiresScope: false, context: contextCapabilities({}),
+  pageType: 'management', features: NO_FEATURES, pageKeys: ['layout'],
+};
+const registryFor = (includeStudio: boolean) => createRegistry({
+  permissions: [menuPermission('eqv:view'), ...(includeStudio ? [menuPermission('eqv-studio:view')] : [])],
   spaces: [{ id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'eqv:topview' }],
   groups: [{ id: groupId('topview'), label: { ko: '설비', en: 'Equipment' }, icon: MapIcon, space: spaceId('tools') }],
-  menus: manifests,
+  menus: includeStudio ? [...manifests, studioMenu] : manifests,
 });
 
 type Platform = ReturnType<typeof usePlatform>;
@@ -50,8 +58,10 @@ function SlotHost() {
  */
 export function createFake(options: FakeOptions) {
   const log = { queries: [] as QueryCall[] };
+  const registry = registryFor(options.studio !== 'missing');
   let platform!: Platform;
-  let session = testSession(['platform:view', 'eqv:view']);
+  const sessionPermissions: Permission[] = ['platform:view' as Permission, menuPermission('eqv:view'), ...(options.studio === 'allowed' ? [menuPermission('eqv-studio:view')] : [])];
+  let session = testSession(sessionPermissions);
   // One adapter shares the log and the current session; `subscribe` lets a test announce a change (a user switch, a Kernel revision).
   const makeAdapter = () => {
     const listeners = new Set<() => void>();
@@ -84,7 +94,7 @@ export function createFake(options: FakeOptions) {
   return {
     log,
     /** Another user signs in on the same adapter (the session store announces it). */
-    switchUser: (id: string) => act(() => { session = testSession(['platform:view', 'eqv:view'], { user: { id } }); current.announce(); }),
+    switchUser: (id: string) => act(() => { session = testSession(sessionPermissions, { user: { id } }); current.announce(); }),
     /** The adapter announces a change without a new session: the Kernel revision moves. */
     bumpRevision: () => act(() => { current.announce(); }),
     /** A different adapter object (same session), as after a reconnect. */

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
-import { Button, ToggleGroup, ToggleGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, KeyboardShortcut, ToggleGroup, ToggleGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { TimeSlider, type TimeSliderProps } from '@eqv/ui';
 import { SPEEDS, type PlaybackSpeed } from './use-playback.js';
 import { wallClockText } from './words.js';
 
@@ -13,6 +14,7 @@ export interface PlaybackControlsProps {
   /** Previous / next timeline breakpoint; null disables the button. */
   onPreviousBreakpoint: (() => void) | null;
   onNextBreakpoint: (() => void) | null;
+  slider: TimeSliderProps;
   sequence: {
     /** The sequence-step toggle can be pressed (the entry step exists) or the mode is already active. */
     available: boolean;
@@ -31,27 +33,42 @@ export interface PlaybackControlsProps {
 const isSpeed = (value: string): value is `${PlaybackSpeed}` => SPEEDS.some((speed) => String(speed) === value);
 
 /** Presentational playback and debug-step controls; the page owns the cursor and the mode. */
-export function PlaybackControls({ playing, onPlay, onPause, speed, onSpeedChange, onPreviousBreakpoint, onNextBreakpoint, sequence }: PlaybackControlsProps) {
+export function PlaybackControls({ playing, onPlay, onPause, speed, onSpeedChange, onPreviousBreakpoint, onNextBreakpoint, slider, sequence }: PlaybackControlsProps) {
   const reasonId = useId();
   const unavailable = !sequence.available && !sequence.active && sequence.unavailableReason !== undefined;
   return (
     <TooltipProvider>
-      <div className="my-2 flex flex-wrap items-center gap-x-3 gap-y-2" role="group" aria-label="재생 컨트롤">
-      <Button type="button" variant="secondary" size="toolbar" onClick={playing ? onPause : onPlay}>
-        {playing ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
-        {playing ? '일시정지' : '재생'}
-      </Button>
-      <ToggleGroup type="single" variant="outline" size="sm" appearance="filter" aria-label="재생 속도" value={String(speed)}
-        onValueChange={(value) => { if (isSpeed(value)) onSpeedChange(Number(value) as PlaybackSpeed); }}>
-        {SPEEDS.map((value) => <ToggleGroupItem key={value} value={String(value)} appearance="selected-filter">{`x${value}`}</ToggleGroupItem>)}
-      </ToggleGroup>
-      <Button type="button" variant="secondary" size="toolbar" disabled={onPreviousBreakpoint === null} onClick={() => onPreviousBreakpoint?.()}>
-        <SkipBack className="size-3.5" aria-hidden />이전 단계
-      </Button>
-      <Button type="button" variant="secondary" size="toolbar" disabled={onNextBreakpoint === null} onClick={() => onNextBreakpoint?.()}>
-        <SkipForward className="size-3.5" aria-hidden />다음 단계
-      </Button>
-      <span className="flex flex-wrap items-center gap-2 border-l border-border-subtle pl-3" role="group" aria-label="기록 단위 보기 (디버그)">
+      <div className="my-2 flex flex-col gap-2" role="group" aria-label="재생 컨트롤">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex shrink-0 items-center gap-2">
+            <Button type="button" variant="secondary" size="toolbar" onClick={playing ? onPause : onPlay}>
+              {playing ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
+              {playing ? '일시정지' : '재생'}
+            </Button>
+            <KeyboardShortcut>Space</KeyboardShortcut>
+          </span>
+          <TimeSlider {...slider} />
+          <ToggleGroup type="single" variant="outline" size="sm" appearance="filter" aria-label="재생 속도" value={String(speed)}
+            onValueChange={(value) => { if (isSpeed(value)) onSpeedChange(Number(value) as PlaybackSpeed); }}>
+            {SPEEDS.map((value) => <ToggleGroupItem key={value} value={String(value)} appearance="selected-filter">{`x${value}`}</ToggleGroupItem>)}
+          </ToggleGroup>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex shrink-0 flex-wrap items-center gap-2" role="group" aria-label="단계 이동">
+            <span className="inline-flex shrink-0 items-center gap-2">
+              <Button type="button" variant="secondary" size="toolbar" disabled={onPreviousBreakpoint === null} onClick={() => onPreviousBreakpoint?.()}>
+                <SkipBack className="size-3.5" aria-hidden />이전 단계
+              </Button>
+              <KeyboardShortcut>←</KeyboardShortcut>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-2">
+              <Button type="button" variant="secondary" size="toolbar" disabled={onNextBreakpoint === null} onClick={() => onNextBreakpoint?.()}>
+                <SkipForward className="size-3.5" aria-hidden />다음 단계
+              </Button>
+              <KeyboardShortcut>→</KeyboardShortcut>
+            </span>
+          </span>
+          <span className="flex min-w-0 flex-wrap items-center gap-2 border-l border-border-subtle pl-3" role="group" aria-label="기록 단위 보기">
         {unavailable ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -73,10 +90,11 @@ export function PlaybackControls({ playing, onPlay, onPause, speed, onSpeedChang
         <Button type="button" variant="secondary" size="toolbar" disabled={!sequence.active || sequence.onNext === null} onClick={() => sequence.onNext?.()}>
           <ChevronRight className="size-3.5" aria-hidden />다음 기록
         </Button>
-        <span role="status" className="tabular-nums text-text-secondary">
-          {sequence.active && sequence.step ? `기록 단위 · Record Sequence ${sequence.step.seq} · ${wallClockText(sequence.step.at)}` : ''}
-        </span>
-      </span>
+        {sequence.active && sequence.step && <span role="status" className="tabular-nums text-text-secondary">
+          {`기록 단위 · Record Sequence ${sequence.step.seq} · ${wallClockText(sequence.step.at)}`}
+        </span>}
+          </span>
+        </div>
       </div>
     </TooltipProvider>
   );

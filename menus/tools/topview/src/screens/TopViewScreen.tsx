@@ -35,9 +35,9 @@ function ComponentDetail({ layout, state, componentId }: { layout: EquipmentLayo
 }
 
 /**
- * The Focus entry keys for "Focus 열기" (analytics-platform ADR-0094): `job` plus the RecordSequence string of an Occurrence open at the cursor, so Focus opens on it. The selected Component's own
+ * The playback entry keys for "동기 재생 열기" (analytics-platform ADR-0094): `job` plus the RecordSequence string of an Occurrence open at the cursor, so the destination opens on it. The selected Component's own
  * activity Occurrence first, then a material held there, then any activity or material Occurrence at the cursor (ids sorted by code
- * unit, so the choice is deterministic). None open: no entry keys, and Focus shows the whole window.
+ * unit, so the choice is deterministic). None open: no entry keys, and the destination shows the whole window.
  */
 function focusEntry(state: SceneState, batch: OccurrenceBatch, componentId: string | null): { entityType: string; anchor: string } | null {
   const own = componentId === null ? [] : [
@@ -92,7 +92,7 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
     <div className="flex flex-wrap items-start gap-4">
       <Panel title="Top View" actions={<>
         <TrustBadge trust={load.trust} assessments={load.assessments} />
-        <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
+        <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />{m('focusOpen')}</Button>
       </>}>
         <NoticeList notices={load.notices} className="mb-2" />
         <ReplayStateMessage icon={Inbox} title={m('replayNoDataTitle')} body={`${m('replayNoDataLastData')} ${wallClockText(load.input.batch.watermark.at)}`} />
@@ -101,6 +101,7 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
   </>;
   // The read itself succeeded: its trust and notices stay visible above the replay error.
   if (scene === null || 'error' in scene) return <>{bar}<TrustLine trust={load.trust} assessments={load.assessments} /><NoticeList notices={load.notices} className="mb-2" /><StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
+  const studioLink = scene.layout ? resolveLink('eqv-studio', { page: { layout: scene.layout.id } }) : null;
   return (
     <>
       {bar}
@@ -113,7 +114,12 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
           actions={<>
             <TrustBadge trust={load.trust} assessments={load.assessments} />
             <span ref={setZoomHost} className="contents" />
-            <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId), cursor: scene.state.at } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
+            <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap">
+              <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId), cursor: scene.state.at } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />{m('focusOpen')}</Button>
+              {studioLink?.kind === 'link' && studioLink.allowed && <Button variant="secondary" size="toolbar" onClick={() => navigate(studioLink.href, { focus: 'page', via: 'link' })}>{m('layoutEdit')}</Button>}
+              {studioLink?.kind === 'link' && !studioLink.allowed && <span role="note" className="text-xs text-text-muted">{m('layoutEditDenied')}</span>}
+              {studioLink?.kind === 'none' && <span role="note" className="text-xs text-text-muted">{m('layoutEdit')}</span>}
+            </span>
           </>}>
           <NoticeList notices={load.notices} className="mb-2" />
           {scene.layout ? (

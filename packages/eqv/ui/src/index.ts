@@ -4,6 +4,7 @@ export { OutlineBadge } from './OutlineBadge.js';
 export { EvidenceBadge, type EvidenceBadgeProps } from './EvidenceBadge.js';
 export { Legend, type LegendItem, type LegendProps } from './Legend.js';
 export { ViewerZoomControls, type ViewerZoomControlsProps, type ViewerZoomControlsState } from './ViewerZoomControls.js';
+export { TimeSlider, type TimeSliderProps } from './TimeSlider.js';
 export { Panel, type PanelProps } from './Panel.js';
 export { LoadingBlock, StateMessage, type LoadingBlockProps, type StateMessageProps } from './StateMessage.js';
 export { DetailFields, type DetailField, type DetailFieldsProps } from './DetailFields.js';
