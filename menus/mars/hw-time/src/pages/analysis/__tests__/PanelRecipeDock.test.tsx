@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, createRegistry } from '@ap/kernel';
 import { testSpace } from '@ap/kernel/testing';
@@ -37,7 +37,12 @@ describe('recipe keyboard in the real workspace DockLayout', () => {
     render(<I18nProvider><Workspace /></I18nProvider>);
     const tab = await screen.findByRole('tab', { name: '추세' });
     const layout = tab.closest('[data-dock-layout]')!;
-    const trigger = layout.querySelector<HTMLElement>('[data-dock-group-actions][data-dock-active="trend"] [data-dock-group-menu]')!;
+    // The group actions mount in their slot after the layout effects; on a loaded runner the tab can appear first.
+    const trigger = await waitFor(() => {
+      const found = layout.querySelector<HTMLElement>('[data-dock-group-actions][data-dock-active="trend"] [data-dock-group-menu]');
+      expect(found).not.toBeNull();
+      return found!;
+    });
     fireEvent.keyDown(trigger, { key: 'Enter' });
     const item = await screen.findByRole('menuitem', { name: '이 패널 만든 방법' });
     fireEvent.keyDown(item, { key: 'Enter' });
