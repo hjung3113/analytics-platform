@@ -384,8 +384,7 @@ describe('Top View', () => {
     fake.render(TopViewScreen);
     await screen.findAllByText('2026-01-01 10:30:00');
     expect(screen.queryByRole('button', { name: '레이아웃 편집' })).toBeNull();
-    if (studio === 'denied') expect(screen.getByText('레이아웃 편집 권한이 없습니다 (eqv-studio:view)')).toBeTruthy();
-    else expect(screen.getByText('레이아웃 편집')).toBeTruthy();
+    expect(screen.queryByText(/레이아웃 편집/)).toBeNull();
   });
 
   it.each([

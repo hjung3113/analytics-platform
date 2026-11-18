@@ -117,8 +117,6 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
             <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap">
               <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId), cursor: scene.state.at } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />{m('focusOpen')}</Button>
               {studioLink?.kind === 'link' && studioLink.allowed && <Button variant="secondary" size="toolbar" onClick={() => navigate(studioLink.href, { focus: 'page', via: 'link' })}>{m('layoutEdit')}</Button>}
-              {studioLink?.kind === 'link' && !studioLink.allowed && <span role="note" className="text-xs text-text-muted">{m('layoutEditDenied')}</span>}
-              {studioLink?.kind === 'none' && <span role="note" className="text-xs text-text-muted">{m('layoutEdit')}</span>}
             </span>
           </>}>
           <NoticeList notices={load.notices} className="mb-2" />

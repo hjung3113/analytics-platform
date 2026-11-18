@@ -34,12 +34,18 @@ export function TimeSlider({ min, max, value, startLabel, currentLabel, endLabel
     beginInteraction();
     const smallStep = Math.max(1, Math.round((max - min) / KEYBOARD_STEP_DIVISOR));
     const largeStep = Math.max(smallStep, Math.round((max - min) / LARGE_KEYBOARD_STEP_DIVISOR));
-    const next = event.key === 'Home' ? min
-      : event.key === 'End' ? max
-      : clamp(value + (event.key === 'ArrowRight' || event.key === 'ArrowUp' ? smallStep
-        : event.key === 'PageUp' ? largeStep
-        : event.key === 'PageDown' ? -largeStep
-        : -smallStep), min, max);
+    let next: number;
+    switch (event.key) {
+      case 'Home': next = min; break;
+      case 'End': next = max; break;
+      case 'ArrowRight':
+      case 'ArrowUp': next = clamp(value + smallStep, min, max); break;
+      case 'PageUp': next = clamp(value + largeStep, min, max); break;
+      case 'PageDown': next = clamp(value - largeStep, min, max); break;
+      case 'ArrowLeft':
+      case 'ArrowDown': next = clamp(value - smallStep, min, max); break;
+      default: return;
+    }
     if (next !== value) onValueChange(next);
   };
   const keyUp = (event: KeyboardEvent<HTMLInputElement>) => {
