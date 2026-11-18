@@ -283,6 +283,13 @@ export function FullFindingDetail({
                         </span>
                       );
                     }
+                    if (item.kind === 'error') {
+                      return (
+                        <span key={item.linkId} className="text-sm text-text-danger">
+                          근거 VOC를 불러오지 못했습니다.
+                        </span>
+                      );
+                    }
                     if (item.kind === 'restricted') {
                       return (
                         <span

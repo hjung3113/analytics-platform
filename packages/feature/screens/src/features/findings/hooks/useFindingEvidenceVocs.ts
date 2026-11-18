@@ -11,16 +11,25 @@ import {
   vocSummaryEnvelopeSchema,
 } from '@ap/feature-shared';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 
-const vocEvidenceSummarySchema = z.union([vocDetailEnvelopeSchema, vocSummaryEnvelopeSchema]);
 type VocReadResult = VocDetailEnvelope | VocSummaryEnvelope;
+
+// Pick the schema by shape: a full detail that fails its schema must surface as an
+// error, not fall back to the summary parse and read as «권한 제한».
+const vocEvidenceRefSchema = {
+  parse(data: unknown): VocReadResult {
+    return typeof data === 'object' && data !== null && 'title' in data
+      ? vocDetailEnvelopeSchema.parse(data)
+      : vocSummaryEnvelopeSchema.parse(data);
+  },
+};
 
 const EVIDENCE_LINKS_STALE_TIME_MS = 30 * 1000;
 
 export type LinkedEvidenceVocItem =
   | { kind: 'loading'; linkId: string }
   | { kind: 'restricted'; linkId: string }
+  | { kind: 'error'; linkId: string }
   | { kind: 'readable'; linkId: string; vocId: string; displayId: string; title: string };
 
 export interface FindingEvidenceVocsResult {
@@ -38,6 +47,8 @@ export function evidenceVocLinksFromEntityLinks(
       link.source_type === 'voc' &&
       link.target_type === 'finding' &&
       link.relation_type === 'evidence_of' &&
+      // ADR-0023 §A: a hidden link's existence stays concealed (no placeholder, no count).
+      link.visibility_state !== 'hidden' &&
       (link.visibility_state !== 'allowed' || link.target_id === findingId),
   );
 }
@@ -84,12 +95,13 @@ export function useFindingEvidenceVocs(findingId: string): FindingEvidenceVocsRe
   // has no 'voc' variant, so resolve readable VOC display_id + title via GET /vocs/:id.
   const vocQueries = useQueries({
     queries: allowedVocIds.map((vocId) => ({
-      queryKey: ['voc', vocId] as const,
+      // Own key: useVocDetail caches the raw response under ['voc', id].
+      queryKey: ['voc', vocId, 'evidence-ref'] as const,
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         const res = await apiRequest(
           'GET',
           apiPath`/vocs/${vocId}`,
-          withRequestedId(vocEvidenceSummarySchema, vocId),
+          withRequestedId(vocEvidenceRefSchema, vocId),
           { signal },
         );
         return res.data;
@@ -115,6 +127,13 @@ export function useFindingEvidenceVocs(findingId: string): FindingEvidenceVocsRe
     const vocQuery = vocQueryById.get(link.source_id);
     if (!vocQuery || vocQuery.isPending) {
       return { kind: 'loading', linkId: link.id };
+    }
+    // A read the server refused stays a placeholder; any other failure (parse, 5xx) is an error.
+    if (
+      vocQuery.isError &&
+      !(vocQuery.error instanceof ApiError && (vocQuery.error.status === 403 || vocQuery.error.status === 404))
+    ) {
+      return { kind: 'error', linkId: link.id };
     }
     if (!vocQuery.isError && vocQuery.isSuccess && hasFullVocTitle(vocQuery.data)) {
       return {

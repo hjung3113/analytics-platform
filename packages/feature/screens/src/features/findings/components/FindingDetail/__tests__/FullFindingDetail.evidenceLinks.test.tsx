@@ -341,11 +341,6 @@ describe('FullFindingDetail linked evidence VOCs (#2531)', () => {
 
   it.each([
     {
-      name: 'hidden entity link',
-      items: [makeRestrictedLink('a1000000-0000-4000-8000-000000000010', 'hidden')],
-      vocStatus: 200,
-    },
-    {
       name: 'denied entity link',
       items: [makeRestrictedLink('a1000000-0000-4000-8000-000000000011', 'denied')],
       vocStatus: 200,
@@ -400,6 +395,56 @@ describe('FullFindingDetail linked evidence VOCs (#2531)', () => {
       expect(linksSection.textContent).not.toContain('a1000000');
     },
   );
+
+  // #2531 review C1 (ADR-0023 §A): a hidden link is concealed — no placeholder, no count.
+  it('conceals a hidden evidence link completely', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname === '/entity-links' && url.searchParams.get('target_type') === 'finding') {
+        return jsonResponse({
+          items: [makeRestrictedLink('a1000000-0000-4000-8000-000000000010', 'hidden')],
+          page: { has_more: false },
+        });
+      }
+      return jsonResponse({ items: [] });
+    }) as typeof globalThis.fetch;
+
+    renderWithSeam(<FullFindingDetail finding={BASE_FINDING} />);
+
+    const linksSection = screen
+      .getByTestId('finding-detail-panel')
+      .querySelector('[data-anchor="links"]') as HTMLElement;
+    await waitFor(() =>
+      expect(within(linksSection).queryByLabelText('근거 VOC 불러오는 중')).not.toBeInTheDocument(),
+    );
+    expect(within(linksSection).queryByTestId('linked-evidence-voc-restricted')).not.toBeInTheDocument();
+    expect(within(linksSection).queryByTestId('linked-evidence-voc-list')).not.toBeInTheDocument();
+  });
+
+  // #2531 review C2: a detail response that fails its schema is an error, not «권한 제한».
+  it('shows a read error, not the restricted placeholder, when a VOC detail fails its schema', async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname === '/entity-links' && url.searchParams.get('target_type') === 'finding') {
+        return jsonResponse({
+          items: [makeAllowedEvidenceLink('a1000000-0000-4000-8000-000000000020', HIDDEN_VOC_ID)],
+          page: { has_more: false },
+        });
+      }
+      if (url.pathname === `/vocs/${HIDDEN_VOC_ID}`) {
+        return jsonResponse({ id: HIDDEN_VOC_ID, display_id: 'VOC-BROKEN', title: '깨진 응답' });
+      }
+      return jsonResponse({ items: [] });
+    }) as typeof globalThis.fetch;
+
+    renderWithSeam(<FullFindingDetail finding={BASE_FINDING} />);
+
+    const linksSection = screen
+      .getByTestId('finding-detail-panel')
+      .querySelector('[data-anchor="links"]') as HTMLElement;
+    expect(await within(linksSection).findByText('근거 VOC를 불러오지 못했습니다.')).toBeInTheDocument();
+    expect(within(linksSection).queryByTestId('linked-evidence-voc-restricted')).not.toBeInTheDocument();
+  });
 
   it('shows an error state when the entity-links target read fails', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
