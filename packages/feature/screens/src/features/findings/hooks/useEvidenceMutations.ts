@@ -44,6 +44,10 @@ export function useAddEvidenceHighlightMutation(
       void queryClient.invalidateQueries({
         queryKey: ['finding', findingId, 'evidence-highlights'],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['entity-links', 'finding', findingId, 'evidence_of'],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['entity-links'] });
       onSuccess?.(data);
     },
     ...(onError ? { onError } : {}),
@@ -86,6 +90,10 @@ export function useLinkEvidenceMutation(
       void queryClient.invalidateQueries({
         queryKey: ['finding', findingId, 'evidence-highlights'],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['entity-links', 'finding', findingId, 'evidence_of'],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['entity-links'] });
       onSuccess?.(data);
     },
     ...(onError ? { onError } : {}),

@@ -20,9 +20,12 @@ import {
   PanelSectionTitle,
   PanelTitleBlock,
   type SeverityEnum,
+  SkeletonBlocks,
   UserChip,
 } from '@ap/ui';
+import { Lock } from 'lucide-react';
 import type * as React from 'react';
+import { useFindingEvidenceVocs } from '../../hooks/useFindingEvidenceVocs';
 import { AddEvidenceModal } from './AddEvidenceModal';
 import { EvidenceHighlightsSection } from './EvidenceHighlights';
 import {
@@ -76,6 +79,7 @@ export function FullFindingDetail({
     markNotActionableDisabled,
   } = useFindingDetailController(finding);
   const executionController = useFindingExecutionSection(finding);
+  const evidenceVocs = useFindingEvidenceVocs(finding.id);
   const { canLink } = useHostSeam();
   const linkedTaskTo = searchHref('/tasks', {
     view: 'backlog',
@@ -258,6 +262,60 @@ export function FullFindingDetail({
                 )
               ) : (
                 <span className="text-text-muted">—</span>
+              )}
+            </FieldRow>
+            <FieldRow label="근거 VOC" inset="none">
+              {evidenceVocs.status === 'loading' ? (
+                <div className="w-40" aria-label="근거 VOC 불러오는 중">
+                  <SkeletonBlocks blocks={[{ kind: 'body', size: 'compact', width: 'full' }]} />
+                </div>
+              ) : evidenceVocs.status === 'error' ? (
+                <p className="text-sm text-text-danger">근거 VOC 목록을 불러오지 못했습니다.</p>
+              ) : evidenceVocs.items.length === 0 ? (
+                <span className="text-text-muted">—</span>
+              ) : (
+                <div className="flex flex-col items-end gap-1.5" data-testid="linked-evidence-voc-list">
+                  {evidenceVocs.items.map((item) => {
+                    if (item.kind === 'loading') {
+                      return (
+                        <span key={item.linkId} className="text-sm text-text-muted">
+                          불러오는 중…
+                        </span>
+                      );
+                    }
+                    if (item.kind === 'restricted') {
+                      return (
+                        <span
+                          key={item.linkId}
+                          className="inline-flex items-center gap-1.5 text-sm text-text-muted"
+                          data-testid="linked-evidence-voc-restricted"
+                        >
+                          <span className="inline-flex items-center gap-1 rounded border border-border-subtle bg-surface-blocked px-2 py-0.5 text-xs font-medium text-text-muted">
+                            <Lock className="h-3 w-3" aria-hidden="true" />
+                            권한 제한
+                          </span>
+                          <span>접근할 수 없는 항목</span>
+                        </span>
+                      );
+                    }
+                    const vocTo = searchHref('/vocs', { view: 'inbox', selected: item.vocId });
+                    const label = (
+                      <>
+                        <span>{item.title}</span>
+                        <span className="font-mono text-xs text-text-muted">{item.displayId}</span>
+                      </>
+                    );
+                    return canLink(vocTo) ? (
+                      <HostLink key={item.linkId} to={vocTo} className={LINKED_SOURCE_CLASS}>
+                        {label}
+                      </HostLink>
+                    ) : (
+                      <span key={item.linkId} className={LINKED_SOURCE_CLASS}>
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </FieldRow>
           </div>

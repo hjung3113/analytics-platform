@@ -19,6 +19,23 @@ export async function fetchEntityLinksBySource(
   sourceId: string,
   options: { signal?: AbortSignal } = {},
 ): Promise<ListEntityLinksResponse> {
+  return fetchEntityLinksByEndpoint('source', sourceType, sourceId, options);
+}
+
+export async function fetchEntityLinksByTarget(
+  targetType: EntityLinkEntityType,
+  targetId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<ListEntityLinksResponse> {
+  return fetchEntityLinksByEndpoint('target', targetType, targetId, options);
+}
+
+async function fetchEntityLinksByEndpoint(
+  side: 'source' | 'target',
+  endpointType: EntityLinkEntityType,
+  endpointId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<ListEntityLinksResponse> {
   // Endpoint mode accepts the endpoint plus paging (relation_type is an inventory-only
   // filter); callers pick the relevant row from the response, so follow the cursor to
   // return every link, not just the first page.
@@ -26,8 +43,9 @@ export async function fetchEntityLinksBySource(
   let cursor: string | undefined;
   do {
     const query = new URLSearchParams({
-      source_type: sourceType,
-      source_id: sourceId,
+      ...(side === 'source'
+        ? { source_type: endpointType, source_id: endpointId }
+        : { target_type: endpointType, target_id: endpointId }),
       limit: String(LIST_MAX_LIMIT),
     });
     if (cursor !== undefined) query.set('cursor', cursor);
