@@ -72,6 +72,60 @@ describe('page-owned comparison table options', () => {
     expect(activate.mock.calls).toEqual([[{ row: 'south', column: 'limit' }], [{ row: 'south', column: 'limit' }]]);
   });
 
+  it('moves cell selection with the shared grid keys: Home/End, Ctrl+Home/End and PageUp/PageDown (#2549)', async () => {
+    function Controlled() {
+      const [selected, setSelected] = useState<TableCell | null>(null);
+      return <Harness selectedCell={selected} onSelectCell={setSelected} />;
+    }
+    render(<Controlled />);
+    const north = await screen.findByRole('gridcell', { name: 'north value 10 above spec' });
+    fireEvent.click(north);
+    fireEvent.keyDown(north, { key: 'End' });
+    const northLimit = screen.getByRole('gridcell', { name: '15' });
+    expect(northLimit).toHaveFocus();
+    expect(northLimit).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(northLimit, { key: 'Home' });
+    expect(north).toHaveFocus();
+    fireEvent.keyDown(north, { key: 'PageDown' });
+    const southValue = screen.getByRole('gridcell', { name: 'south value 20 above spec' });
+    expect(southValue).toHaveFocus();
+    fireEvent.keyDown(southValue, { key: 'PageUp' });
+    expect(north).toHaveFocus();
+    fireEvent.keyDown(north, { key: 'End', ctrlKey: true });
+    const southLimit = screen.getByRole('gridcell', { name: '25' });
+    expect(southLimit).toHaveFocus();
+    expect(southLimit).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(southLimit, { key: 'Home', ctrlKey: true });
+    expect(north).toHaveFocus();
+  });
+
+  it('sizes PageDown by the rows below the rendered sticky block, not one nominal header row (#2549)', async () => {
+    const readings = Array.from({ length: 12 }, (_, index) => ({ id: `r${index}`, value: index, limit: 100 + index }));
+    const rect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-table-sticky-rows')
+        ? { width: 1280, height: 96, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 96, toJSON() {} }
+        : rect.call(this);
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get() {
+      return (this as HTMLElement).querySelector(':scope > * [data-table-sticky-rows], :scope > [data-table-sticky-rows]') ? 192 : 0;
+    } });
+    try {
+      function Controlled() {
+        const [selected, setSelected] = useState<TableCell | null>(null);
+        return <Harness rows={readings} selectedCell={selected} onSelectCell={setSelected} />;
+      }
+      render(<Controlled />);
+      const first = await screen.findByRole('gridcell', { name: 'r0 value 0 above spec' });
+      fireEvent.click(first);
+      fireEvent.keyDown(first, { key: 'PageDown' });
+      // 192px viewport − 96px sticky block (two header bands and a pinned row) = three 32px rows.
+      expect(screen.getByRole('gridcell', { name: 'r3 value 3 above spec' })).toHaveFocus();
+    } finally {
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
+    }
+  });
+
   it('skips unrelated row renders when controlled cell selection moves', async () => {
     const renderValue = vi.fn((row: Row) => row.value);
     const readings = [...rows, { id: 'west', value: 30, limit: 35 }];

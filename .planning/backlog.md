@@ -59,6 +59,7 @@
 | 구현 안 함 — 모듈 메뉴 opensObject/subjectLinks (#1930) | module contract 1을 넓혀야 함 | 첫 모듈이 객체 종류 목록을 요구할 때 |
 | 구현 안 함 — 다른 공간 목적지의 공간 둘째 줄 항상 표시 (#1930) | 겹치는 label만으로 현재 구분 가능 | 소유자가 공간 식별을 항상 요구할 때 |
 | 구현 안 함 — 출발 시험 vi.mock('@ap/kernel') 정리 (#1930) | 선언/목록 구현과 독립된 시험 구조 변경 | 출발 시험을 실제 Provider로 바꿀 범위를 잡을 때 |
+| 미구현 — 격자 활성화 prop 이름 하나로 (`TreeMatrix` `onActivate(node, column)`+`activateOn` / `PlatformDataTable` `onActivateCell(cell)`) ([#2549](https://github.com/hjung3113/analytics-platform/issues/2549)) | #2549는 키 표(`gridKeyTarget`)와 좌표 타입(`TableCell` = `MatrixCell`)만 하나로 함. 이름 변경은 소비자 이전이 필요한 공개 API 변경인데 사용자 동작 차이가 없어, deprecated 경로를 한 릴리스 더 두는 비용만 생김 | SDK breaking 릴리스([#2190](https://github.com/hjung3113/analytics-platform/issues/2190))를 묶을 때, 또는 세 번째 격자 조각이 활성화 prop을 새로 정할 때 |
 
 
 - **구현 안 함 — 손으로 만든 폼 필드 사본 7곳을 `FormField`로 이전 (#1890 항목 3):** 이유: 조각이 먼저 들어왔고(ADR-0161) 소비자 하나(`log-knowledge` 판단 변경의 「사유」)로 API를 증명했으며, 사본 이전은 메뉴 화면을 바꾸는 별도 작업이다. 대상: `log-knowledge` `CatalogDrawer`·`ItemFormParts`의 `Field`와 `SpecField`, `improvement-items` `parts.tsx`, `notice-voc` `NoticeDialogs.tsx`(`type FormField`와 이름 충돌, 별칭 필요), `log-analysis` `KnowledgeHandoffDialog`·`HandoffOwnerFields`. 다시 여는 조건: 해당 메뉴를 손볼 때 또는 사본 간 간격·접근성 차이로 결함이 보고될 때.
