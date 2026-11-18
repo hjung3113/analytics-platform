@@ -2,8 +2,10 @@
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
 import { act, createElement, lazy, type ReactElement } from 'react';
+import { House } from 'lucide-react';
+import type { PlatformMenuEntry } from './registry/registry';
 import { useToastList, type Toast } from './platform/platform';
-import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type JsonValue, type ModuleScopedId, type PreferencesSnapshot, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, spaceId } from '@ap/contracts';
+import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type JsonValue, type ModuleScopedId, type PreferencesSnapshot, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, groupId, spaceId } from '@ap/contracts';
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 /** A registered screen that draws nothing: a menu entry with `component: testScreen` is not «planned» (no screen), so visits and resume record it (#1944). */
@@ -13,6 +15,20 @@ export const noContext: Record<ContextKey, Capability> = contextCapabilities();
 /** analytics space fixture. Pass the fields the test means (id · homeMenuId · permission · label); the rest are filler. */
 export function testSpace(over: Partial<SpaceDef> = {}): SpaceDef {
   return { id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'home', ...over };
+}
+
+/**
+ * Menu fixture: a live `management` menu `home` in group `overview` behind `platform:view`, with every feature off.
+ * Pass the fields the test means; `features` merges, so `{ features: { export: true } }` keeps the rest off.
+ * `query` defaults to live, so `pageType: 'analysis'` registers without the Apply period it would otherwise need.
+ */
+export function testMenu(over: Partial<Omit<PlatformMenuEntry, 'features'>> & { features?: Partial<PlatformMenuEntry['features']> } = {}): PlatformMenuEntry {
+  const { features, ...rest } = over;
+  return {
+    id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House,
+    permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', query: { mode: 'live' }, pageKeys: [], ...rest,
+    features: { export: false, savedView: false, annotate: false, compare: false, ...features },
+  };
 }
 
 /** Session fixture with the given permissions; override the user fields or scopes the test means. */

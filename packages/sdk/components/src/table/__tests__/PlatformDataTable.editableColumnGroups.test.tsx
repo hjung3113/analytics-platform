@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace, ToastProbe } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testMenu, testSession, testSpace, ToastProbe } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { stubCompactTableGeometry } from '../../testing';
 import { PlatformDataTable, type PlatformColumn } from '../PlatformDataTable';
@@ -13,7 +13,7 @@ import { columnGroupBasis } from '../columnGroups';
 type Row = { id: string };
 const registry = createRegistry({ spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [testMenu()],
 });
 const session = testSession(['platform:view'], { user: { id: 'group-user' } });
 const adapter = testAdapter({ session: () => session });
