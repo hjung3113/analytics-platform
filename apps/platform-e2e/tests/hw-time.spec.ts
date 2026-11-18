@@ -26,6 +26,15 @@ async function activatePoint(page: Page, row: string) {
 test.describe('HW Time stepped workspace — drill, options, add and pin', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 
+  test('explains the aggregation refusal for a seven-day PHOTO query', async ({ page }) => {
+    await page.goto(`${SCREEN}&roomNames=PHOTO&pins=table&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00`);
+    const banners = page.locator('[data-outcome-banner][data-outcome-compact]');
+    const refusal = banners.filter({ hasText: '집계 불가' });
+    await expect(refusal.getByText('집계 불가 ·', { exact: true })).toBeVisible();
+    await expect(refusal.getByText('시간 기준이 확인되지 않아 함께 집계할 수 없습니다.')).toBeVisible();
+    await expect(banners.filter({ hasText: '서버 오류' })).toHaveCount(0);
+  });
+
   test('first entry queries automatically and target edits wait for Apply', async ({ page }) => {
     await page.goto(SCREEN);
     await expect(panel(page, 'current').getByRole('img')).toBeVisible();

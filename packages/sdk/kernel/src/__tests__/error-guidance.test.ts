@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errorGuidance, userFacingEntries } from '../i18n';
+import { errorGuidance, errorGuidanceLabel, userFacingEntries } from '../i18n';
 
 const BANNED = /Candidate|Deferred|\bOpen\b|\[from, to\)|초 정렬/;
 /** Named exceptions. Empty: no user-facing dictionary entry may match the banned pattern. */
@@ -24,6 +24,17 @@ describe('contract error copy (#304)', () => {
     undefined,
   ])('maps unknown code %s to the general error', message => {
     expect(errorGuidance(message)).toEqual({ code: null, cause: 'stateErrorCause', action: 'stateErrorAction', blocked: false });
+  });
+
+  it.each([
+    ['time_domain_unverified', 'sharedOutcomeCannotAggregate'],
+    ['time_domain_mismatch', 'sharedOutcomeCannotAggregate'],
+    ['customGroup blocked', 'sharedOutcomeBlocked'],
+    ['customGroup expansion blocked', 'sharedOutcomeError'],
+    [null, 'sharedOutcomeError'],
+    ['toString', 'sharedOutcomeError'],
+  ] as const)('maps guidance code %s to compact outcome label %s', (code, label) => {
+    expect(errorGuidanceLabel(code)).toBe(label);
   });
 
   it('keeps contract vocabulary out of the user-facing dictionary', () => {
