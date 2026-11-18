@@ -124,6 +124,7 @@ import {
   type MenuDispatchContribution,
   createMenuDispatchRegistry,
   type ScopeResolver,
+  type SiteTimeDomainAssertion,
   menuActionRoutes,
 } from './modules/menu-dispatch/index.js';
 import {
@@ -266,6 +267,11 @@ export interface BuildServerOptions {
    * Absent → the registry refuses any `requiresScope` declaration; every existing default is unchanged.
    */
   scopeResolver?: ScopeResolver;
+  /**
+   * Deployment-owned Site-wide time-domain guarantees (menu-dispatch step 7, ADR-0172). Absent or `[]` → the registry
+   * refuses any `mergeTimeDomain` declaration; every existing default is unchanged.
+   */
+  timeDomainAssertions?: readonly SiteTimeDomainAssertion[];
   scopeCatalog?: ScopeCatalog;
   /**
    * Log explorer Source seams (#1469). Production defaults to neither; an explicit Source provider configuration enables the adapter. Without it every read answers
@@ -1075,7 +1081,10 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     eqvContribution({ db: dbHandle.db, checkService, knowledgeLookup, uploads: { readUnlinkedUpload: (input) => attachmentsService.readUnlinkedUpload(input) } }),
     logDatasetsContribution({ db: dbHandle.db, checkService, knowledgeLookup, ruleCoverage, lifecycleRequests: lifecycleSuiteRequests, lifecycleResults: lifecycleSuiteResults, sourceRead: opts.logDatasets?.sourceRead ?? opts.logExplorer?.sourceReadPort, sourceOwnerAccess: opts.logDatasets?.sourceOwnerAccess ?? logExplorerDeps.sourceOwnerAccess }),
     ...(opts.menuDispatch ?? []),
-  ], scopeResolver ? { scopeResolver } : {});
+  ], {
+    ...(scopeResolver ? { scopeResolver } : {}),
+    ...(opts.timeDomainAssertions ? { timeDomainAssertions: opts.timeDomainAssertions } : {}),
+  });
   // #1846: compare only after built-in and deployment contributions share one registry. Warn only;
   // the same findings feed the console read, and the declarations below feed the session resolver.
   const menuPermissionFindings = undeclaredMenuPermissions(opts.menuRequirements ?? [], menuRegistry.permissions.map(row => row.permission));

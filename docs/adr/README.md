@@ -184,6 +184,7 @@
 | [0169](0169-tree-matrix.md) | 계층 행과 평면 열의 서버 윈도 행렬은 독립 SDK 부품으로 제공한다 | Decided(2026-11-18, #1768) |
 | [0170](0170-analysis-apply-and-saved-view-defaults.md) | Analysis 메뉴의 기본 조회는 Apply이며 저장된 뷰를 켠다 | Decided(2026-11-18, #2503) |
 | [0171](0171-registered-panel-lending.md) | 등록된 패널을 다른 메뉴에 빌려준다 | Decided(2026-11-18, #2490) |
+| [0172](0172-site-wide-time-domain-guarantee.md) | 시간 도메인 병합은 배포 소유 Site 전체 보증으로 증명한다 | Decided(2026-11-18, #2544) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

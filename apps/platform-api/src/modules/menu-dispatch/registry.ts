@@ -3,7 +3,7 @@
 // Checks the server can make without the app's menu Registry: duplicate ids, `invalidates` entries
 // are registered endpoints of the same menu, a `version` action has `currentVersion`, `limits`
 // rules, scope-free endpoints applying no site-bound Context (rule 6), the injected Scope resolver
-// gate, and the time-domain refusal until step 7 is implemented.
+// gate, and the time-domain gate (step 7 needs Scope, an applied time and the deployment's Site guarantees).
 //
 // Action replay size bound: an `ok` answer is stored whole in `core.idempotency_keys` for replay, up to
 // 128 KiB of JSON (`MENU_ACTION_REPLAY_MAX_BYTES`). A handler whose `data` is larger gets its transaction
@@ -20,10 +20,13 @@ import type {
 } from './types.js';
 import { PLATFORM_PERMISSION_TABLE } from '../platform-port/permissions.js';
 import type { ScopeResolver } from './scope-resolver.js';
+import { siteTimeDomainProblems, siteTimeDomainsOf, type SiteTimeDomainAssertion, type SiteTimeDomains } from './time-domain.js';
 import { CONTEXT_KEYS } from './types.js';
 
 export interface MenuDispatchRegistry {
   readonly scopeResolver?: ScopeResolver;
+  /** Validated Site-wide time-domain guarantees (ADR-0172); absent = `mergeTimeDomain` endpoints are refused at startup. */
+  readonly timeDomains?: SiteTimeDomains;
   endpoint(id: string): MenuEndpointDeclaration | undefined;
   action(id: string): MenuActionDeclaration | undefined;
   readonly endpointIds: readonly string[];
@@ -51,16 +54,24 @@ export class MenuDispatchRegistrationError extends Error {
   }
 }
 
-function endpointProblems(spec: EndpointDeclarationSpec, scopeResolver?: ScopeResolver): string[] {
+const TIME_DOMAIN_BLOCKER =
+  'step 7 (§6.3) needs the deployment\'s Site time-domain guarantees (timeDomainAssertions), and none are supplied';
+
+function endpointProblems(
+  spec: EndpointDeclarationSpec,
+  scopeResolver?: ScopeResolver,
+  timeDomains?: SiteTimeDomains,
+): string[] {
   const at = `endpoint ${spec.id}`;
   const problems: string[] = [];
   if (spec.requiresScope && !scopeResolver) problems.push(`${at}: requiresScope is refused — ${SCOPE_BLOCKER}`);
   if (spec.mergeTimeDomain) {
-    problems.push(
-      scopeResolver
-        ? `${at}: mergeTimeDomain is refused — step 7 (§6.3) time-domain judgment is not implemented`
-        : `${at}: mergeTimeDomain is refused — step 7 (§6.3) compares the time domains of the resolved equipment set, and ${SCOPE_BLOCKER}`,
-    );
+    if (!scopeResolver) {
+      problems.push(`${at}: mergeTimeDomain is refused — step 7 (§6.3) proves the time domain of the requested Site, and ${SCOPE_BLOCKER}`);
+    }
+    if (!timeDomains) problems.push(`${at}: mergeTimeDomain is refused — ${TIME_DOMAIN_BLOCKER}`);
+    if (!spec.requiresScope) problems.push(`${at}: mergeTimeDomain needs requiresScope (the proof is for the requested Site)`);
+    if (spec.context.time !== 'apply') problems.push(`${at}: mergeTimeDomain needs context.time = apply`);
   }
   if (!spec.requiresScope) {
     for (const key of SITE_BOUND_KEYS) {
@@ -122,7 +133,7 @@ function actionProblems(
 /** Builds the registry from what modules contribute; throws `MenuDispatchRegistrationError` on any problem. */
 export function createMenuDispatchRegistry(
   contributions: readonly MenuDispatchContribution[],
-  options: { scopeResolver?: ScopeResolver } = {},
+  options: { scopeResolver?: ScopeResolver; timeDomainAssertions?: readonly SiteTimeDomainAssertion[] } = {},
 ): MenuDispatchRegistry {
   const endpoints = new Map<string, MenuEndpointDeclaration>();
   const actions = new Map<string, MenuActionDeclaration>();
@@ -148,14 +159,20 @@ export function createMenuDispatchRegistry(
       else permissions.set(permission, declaration);
     }
   }
+  // `[]` is the same as none: an empty guarantee list proves nothing.
+  const assertions = options.timeDomainAssertions ?? [];
+  const assertionProblems = siteTimeDomainProblems(assertions);
+  problems.push(...assertionProblems);
+  const timeDomains = assertions.length > 0 && assertionProblems.length === 0 ? siteTimeDomainsOf(assertions) : undefined;
   const endpointMenus = new Map([...endpoints].map(([id, d]) => [id, d.spec.menuId]));
-  for (const declaration of endpoints.values()) problems.push(...endpointProblems(declaration.spec, options.scopeResolver));
+  for (const declaration of endpoints.values()) problems.push(...endpointProblems(declaration.spec, options.scopeResolver, timeDomains));
   for (const declaration of actions.values()) {
     problems.push(...actionProblems(declaration.spec, declaration, endpointMenus, options.scopeResolver));
   }
   if (problems.length > 0) throw new MenuDispatchRegistrationError(problems);
   return {
     ...(options.scopeResolver ? { scopeResolver: options.scopeResolver } : {}),
+    ...(timeDomains ? { timeDomains } : {}),
     endpoint: (id) => endpoints.get(id),
     action: (id) => actions.get(id),
     endpointIds: [...endpoints.keys()],

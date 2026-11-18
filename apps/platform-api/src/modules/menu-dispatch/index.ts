@@ -8,3 +8,4 @@ export {
 export type * from './types.js';
 export type { ScopeGrant, ScopeResolver } from './scope-resolver.js';
 export { hasRequestScope } from './scope-resolver.js';
+export type { SiteTimeDomainAssertion, TimeDomainWindow } from './time-domain.js';
