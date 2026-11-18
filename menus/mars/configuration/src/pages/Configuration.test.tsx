@@ -89,7 +89,8 @@ describe('Configuration page', () => {
     state.page.mode = 'reference'; state.page.ref = 'EQ02'; draw(); expect(state.matrix.hiddenColumns).toEqual([]);
   });
   it('registers saved-view keys with Kernel Apply and round-trips repeated filters and levels', () => {
-    draw(); expect(state.support).toHaveBeenCalledWith(SAVED_VIEW_SUPPORT);
+    // The manifest owns Saved View support (resolved before the screen mounts); the screen does not register it again.
+    draw(); expect(manifests[0].savedViewSupport).toBe(SAVED_VIEW_SUPPORT); expect(state.support).not.toHaveBeenCalled();
     expect(manifests[0].pageKeys).toEqual(PAGE_KEYS); expect(manifests[0].repeatedPageKeys).toEqual(['filter']);
     expect(manifests[0].query?.mode).toBe('apply');
     const filters = encodeFilterParams([{ id: 'module', op: 'equals', value: 'PM1' }, { id: 'value.EQ02.number', op: 'gt', value: 120 }]);

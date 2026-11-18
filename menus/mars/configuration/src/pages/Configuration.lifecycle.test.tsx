@@ -87,6 +87,13 @@ describe('Configuration lifecycle regressions', () => {
     const picks = [...document.querySelectorAll('[data-filter-pick]')].map(node => node.getAttribute('data-filter-pick'));
     expect(picks.sort()).toEqual(filterDeclarations(DEFAULT_EQUIPMENT).map(field => field.id).sort());
   });
+  it.each(['열 선택', '고급 조건'])('UX-2 names the %s popover for screen readers', async label => {
+    await mount();
+    const trigger = [...host.querySelectorAll('button')].find(node => node.getAttribute('aria-label') === label || node.textContent?.trim() === label)!;
+    expect(trigger).toBeDefined();
+    await act(async () => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 })); trigger.click(); });
+    expect(document.querySelector(`[role="dialog"][aria-label="${label}"]`)).not.toBeNull();
+  });
   it('FIX3 clears matrix emphasis, selection and grouping on search without replacing the toolbar', async () => {
     const requests = await mount();
     const toolbar = host.querySelector('[data-configuration-toolbar]');

@@ -1,6 +1,7 @@
 import { useContext, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
+import { useHostPlatformOptional } from '@ap/kernel/host';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PageFilterExpandedContext } from './pageFilterPresentation';
 import { useCollapsePreference } from './useCollapsePreference';
@@ -163,6 +164,9 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
   const panelId = `${id}-panel`;
+  // While the first-entry automatic decision is pending (#2502), the arriving applied address resets the draft, so an edit here would vanish (#2515).
+  // `disabled` covers native inputs; `inert` also stops pointer-opened controls (Radix Select opens on pointerdown, which a disabled fieldset does not block).
+  const pendingDefault = useHostPlatformOptional()?.queryPolicy.autoApplyingDefault === true;
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
   const expandedByParent = useContext(PageFilterExpandedContext);
@@ -189,7 +193,7 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
     (buttons?.[cleared.index] ?? buttons?.[cleared.index - 1] ?? firstField ?? (expandedByParent ? barRef.current : collapsed ? expandRef.current : collapseRef.current))?.focus();
   });
 
-  return <fieldset ref={barRef} tabIndex={expandedByParent ? -1 : undefined} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
+  return <fieldset ref={barRef} tabIndex={expandedByParent ? -1 : undefined} disabled={pendingDefault || undefined} inert={pendingDefault || undefined} aria-busy={pendingDefault || undefined} data-testid="page-filter-bar" className="mb-3 rounded-md border border-border-subtle bg-surface-card p-3">
     <legend className={collapsed ? 'sr-only' : 'px-1 text-xs text-text-secondary'}>{label}</legend>
     {collapsed && <div className="flex flex-wrap items-center gap-2">
       <Button ref={expandRef} type="button" variant="secondary" size="toolbar" wrapText onClick={() => toggle(false)}

@@ -355,6 +355,8 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (m.defaultPeriodHours !== undefined && (!Number.isInteger(m.defaultPeriodHours) || m.defaultPeriodHours <= 0 || m.context.time !== 'apply')) fail(`Menu "${m.id}" defaultPeriodHours must be a positive integer on a time-applying menu`);
     const clash = m.pageKeys.find(k => GLOBAL_KEYS.has(k));
     if (m.features.savedView === true && m.query?.mode !== 'apply') fail(`Menu "${m.id}" savedView requires query.mode: 'apply' with time: 'apply': saved views use the Apply query toolbar; remove features.savedView for a live menu`);
+    // Manifest support decides before the screen mounts whether first entry waits for the personal default view (#2502); a mismatched id would silently drop it.
+    if (m.savedViewSupport && m.savedViewSupport.menuId !== m.id) fail(`Menu "${m.id}" savedViewSupport.menuId "${m.savedViewSupport.menuId}" must equal the menu id "${m.id}"`);
     if (m.query && m.query.mode !== 'apply' && m.query.mode !== 'live') fail(`Menu "${m.id}" query.mode must be 'apply' or 'live'`);
     if (m.query?.mode === 'live') {
       const raw = m.query as Record<string, unknown>;

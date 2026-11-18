@@ -75,6 +75,11 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(RegistryError);
     expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/savedView.*query.mode: 'apply'.*query toolbar/);
   });
+  it('rejects manifest saved-view support declared for another menu id', () => {
+    const entry = { ...catalog, context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const },
+      savedViewSupport: { menuId: 'other-menu', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] } } as PlatformMenuEntry;
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/savedViewSupport.menuId "other-menu".*"catalog"/);
+  });
   it('accepts saved views on Apply menus (#2047 KER-22)', () => {
     const entry = { ...catalog, features: { ...catalog.features, savedView: true }, context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const } };
     expect(() => createRegistry({ spaces, groups, menus: [entry] })).not.toThrow();

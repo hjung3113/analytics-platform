@@ -2,10 +2,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Columns3, Download } from 'lucide-react';
 import { encodeFilterParams, formatInstant, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
-import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, useSavedViewSupport } from '@ap/kernel';
+import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, SAVED_VIEW_SUPPORT, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { MESSAGES } from '../messages';
 import { ConfigurationWorkspace } from './ConfigurationWorkspace';
 import { distribution, distributionText, PrimaryChip, RowStatus, valueMeaning, type Message } from './comparison';
@@ -59,7 +59,7 @@ function Summary({ data, status, select, m }: { data: TreePage; status: CompareS
 }
 
 function Advanced({ checked, onChange, m }: { checked: boolean; onChange: (checked: boolean) => void; m: Message }) {
-  return <Popover><PopoverTrigger asChild><Button variant="secondary" size="toolbar">{m('advanced')}<ChevronDown className="size-3" aria-hidden /></Button></PopoverTrigger><PopoverContent align="end" className="break-keep"><div className="space-y-3">
+  return <Popover><PopoverTrigger asChild><Button variant="secondary" size="toolbar">{m('advanced')}<ChevronDown className="size-3" aria-hidden /></Button></PopoverTrigger><PopoverContent align="end" aria-label={m('advanced')} className="break-keep"><div className="space-y-3">
     <label className="flex items-center gap-2 text-sm"><Checkbox checked={checked} onCheckedChange={value => onChange(value === true)} />{m('coreOnly')}</label>
     <label className="flex items-center gap-2 text-sm text-text-muted"><Checkbox disabled checked={false} />{m('toleranceDisabled')}</label>
   </div></PopoverContent></Popover>;
@@ -206,7 +206,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
       <Button variant={grouped ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={grouped} onClick={() => setGrouped(value => !value)}>{m('groupValues')}</Button>
       <Button variant={hideSame ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={hideSame} onClick={() => setPage({ hideSameCols: hideSame ? null : '1' })}>{m('hideSame')}</Button>
       <MatrixLevelOrder levels={LEVELS} value={params.levels} defaultValue={DEFAULT_LEVELS} label={m('levelOrder')} onChange={levels => setPage({ levels: levels.join(',') })} />
-      <Popover><PopoverTrigger asChild><Button variant="secondary" size="icon-sm" aria-label={m('columns')}><Columns3 className="size-4" /></Button></PopoverTrigger><PopoverContent align="end" className="max-h-80 overflow-auto"><div className="space-y-2">{equipment.map(id => <label key={id} className="flex items-center gap-2 text-sm"><Checkbox checked={!hiddenColumns.includes(id)} disabled={params.mode === 'reference' && id === params.ref || same.includes(id) || grouped} onCheckedChange={checked => setHidden(current => checked ? current.filter(value => value !== id) : [...current, id])} />{id}</label>)}</div></PopoverContent></Popover>
+      <Popover><PopoverTrigger asChild><Button variant="secondary" size="icon-sm" aria-label={m('columns')}><Columns3 className="size-4" /></Button></PopoverTrigger><PopoverContent align="end" aria-label={m('columns')} className="max-h-80 overflow-auto"><div className="space-y-2">{equipment.map(id => <label key={id} className="flex items-center gap-2 text-sm"><Checkbox checked={!hiddenColumns.includes(id)} disabled={params.mode === 'reference' && id === params.ref || same.includes(id) || grouped} onCheckedChange={checked => setHidden(current => checked ? current.filter(value => value !== id) : [...current, id])} />{id}</label>)}</div></PopoverContent></Popover>
       <Button variant="secondary" size="icon-sm" aria-label={m('export')} disabled={staleSearch || !result || !workbook.canExport || workbook.exporting} onClick={async () => {
         setExportError(false);
         const outcome = await workbook.exportWorkbook(async signal => {
@@ -255,7 +255,6 @@ export default function Configuration() {
   if (!validEquipment(draft.eq)) issues.push({ key: 'equipment', label: m('equipment'), reason: m('chooseEquipment') });
   if (draft.mode === 'reference' && !draft.eq.includes(draft.ref)) issues.push({ key: 'ref', label: m('referenceEquipment'), reason: m('referenceRequired') });
   const historyPageSummary = useCallback((_global: GlobalContext, candidate: readonly Pair[]) => summaryFor(candidate, m), [m]);
-  useSavedViewSupport(SAVED_VIEW_SUPPORT);
   const eq = equipmentFromKey(pageParam('equipment'));
   const levels = pageParam('levels')?.split(',') ?? DEFAULT_LEVELS;
   const rawFilters = pageParams('filter');
