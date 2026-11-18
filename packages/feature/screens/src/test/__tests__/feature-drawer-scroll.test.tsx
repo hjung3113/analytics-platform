@@ -32,6 +32,7 @@ const bodies = {
 
 // These exact existing bounded pickers are independent interactive surfaces, not drawer reading bodies.
 const exemptions = [
+  { module: 'voc-cluster/components/modals/CreateFindingFromClusterModal.tsx', classes: 'flex max-h-52 flex-col gap-2 overflow-y-auto', reason: 'Portaled create-Finding dialog bounds its evidence VOC checklist so the form and submit button stay on screen (#2531).' },
   { module: 'voc-cluster/components/modals/AddVocModal.tsx', classes: 'flex max-h-[50vh] flex-col gap-1 overflow-y-auto', reason: 'Portaled Add VOC dialog candidate list has a separate viewport, outside the drawer body.' },
   { module: 'tasks/routes/task-requests/TaskRequestDecisionSection.tsx', classes: 'max-h-52 overflow-y-auto rounded border border-border-subtle bg-surface-card', reason: 'Existing Task link picker bounds candidate rows while the decision section remains visible.' },
   { module: 'cross-system/mentions/MentionPickerButton.tsx', classes: 'max-h-48 overflow-y-auto py-1', reason: 'Portaled mention combobox listbox; keyboard navigation needs its own scroll viewport.' },
