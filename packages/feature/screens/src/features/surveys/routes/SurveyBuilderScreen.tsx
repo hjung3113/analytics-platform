@@ -38,16 +38,7 @@ export function SurveyBuilderView({
   leaveGuard,
 }: SurveyBuilderViewProps): React.ReactElement {
   const ownGuard = useBuilderDirtyGuard();
-  const { dirtyRef, setDirty } = leaveGuard ?? ownGuard;
-  const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const [hostDirty, setHostDirty] = React.useState(false);
-  const [leaving, setLeaving] = React.useState(false);
-  useHostUnsavedGuard(hostDirty && !leaveGuard);
-  const onBackRef = React.useRef(onBack);
-  React.useEffect(() => { onBackRef.current = onBack; });
-  // A confirmed Back runs after the commit that dropped the host guard, so the shell does not ask a second time.
-  React.useEffect(() => { if (leaving) { setLeaving(false); onBackRef.current(); } }, [leaving]);
-  const reportDirty = React.useCallback((next: boolean) => { setDirty(next); setHostDirty(next); }, [setDirty]);
+  const guard = leaveGuard ?? ownGuard;
   const gate = useSurveyManageGate(query.data?.primary_managed_system_id);
   const managedSystemNames = useManagedSystemNamesResult();
   const managedSystemNamesById = managedSystemNames.isSuccess
@@ -78,6 +69,49 @@ export function SurveyBuilderView({
       </div>
     );
 
+  return (
+    <BuilderEditor guard={guard} hostOwnsGuard={leaveGuard !== undefined} onBack={onBack}>
+      {(handlers) => (
+        <SurveyBuilder
+          survey={query.data}
+          canManage
+          {...(gate.gateState ? { gateState: gate.gateState } : {})}
+          managedSystemNamesById={managedSystemNamesById}
+          {...handlers}
+        />
+      )}
+    </BuilderEditor>
+  );
+}
+
+/**
+ * The dirty state, the host guard and the Back confirmation live exactly as long as the mounted editor: a refetch error or a lost manage
+ * gate unmounts it, and with it the draft, so nothing keeps asking about a draft the person can no longer reach (#2533).
+ */
+function BuilderEditor({
+  guard,
+  hostOwnsGuard,
+  onBack,
+  children,
+}: {
+  guard: SurveyBuilderLeaveGuard;
+  /** The host blocks leaving itself over `guard` (the standalone route); otherwise the draft is declared to the host seam's guard. */
+  hostOwnsGuard: boolean;
+  onBack: () => void;
+  children: (handlers: { onBack: () => void; onDirtyChange: (dirty: boolean) => void }) => React.ReactElement;
+}): React.ReactElement {
+  const { dirtyRef, setDirty } = guard;
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [hostDirty, setHostDirty] = React.useState(false);
+  const [leaving, setLeaving] = React.useState(false);
+  useHostUnsavedGuard(hostDirty && !hostOwnsGuard);
+  const onBackRef = React.useRef(onBack);
+  React.useEffect(() => { onBackRef.current = onBack; });
+  // A confirmed Back runs after the commit that dropped the host guard, so the shell does not ask a second time.
+  React.useEffect(() => { if (leaving) { setLeaving(false); onBackRef.current(); } }, [leaving]);
+  React.useEffect(() => () => setDirty(false), [setDirty]);
+  const onDirtyChange = React.useCallback((next: boolean) => { setDirty(next); setHostDirty(next); }, [setDirty]);
+
   const handleBack = (): void => {
     if (dirtyRef.current) setConfirmOpen(true);
     else onBack();
@@ -92,14 +126,7 @@ export function SurveyBuilderView({
 
   return (
     <>
-      <SurveyBuilder
-        survey={query.data}
-        canManage
-        {...(gate.gateState ? { gateState: gate.gateState } : {})}
-        managedSystemNamesById={managedSystemNamesById}
-        onBack={handleBack}
-        onDirtyChange={reportDirty}
-      />
+      {children({ onBack: handleBack, onDirtyChange })}
       <DirtyConfirmation
         open={confirmOpen}
         onConfirm={confirmBack}

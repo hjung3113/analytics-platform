@@ -43,6 +43,8 @@ export const NOTICE_VOC_MESSAGES = {
   noticeDialogsDiscardMessage: { ko: '닫으면 작성 중인 공지가 사라집니다.', en: 'Closing discards the notice you are writing.' },
   noticeDialogsDiscardConfirm: { ko: '버리기', en: 'Discard' },
   noticeDialogsKeepWriting: { ko: '계속 작성', en: 'Keep writing' },
+  noticeDialogsReloadDiscardMessage: { ko: '새로 불러오면 작성 중인 공지가 사라집니다. 필요한 내용은 먼저 복사해 두세요.', en: 'Reloading discards the notice you are writing. Copy anything you need first.' },
+  noticeDialogsReloadDiscardConfirm: { ko: '버리고 불러오기', en: 'Discard and reload' },
   noticeDialogsSave: { ko: '저장', en: 'Save' },
   noticeDialogsNoticeDeleted: { ko: '공지를 삭제했습니다.', en: 'Notice deleted.' },
   noticeDialogsClose2: { ko: '닫기', en: 'Close' },
