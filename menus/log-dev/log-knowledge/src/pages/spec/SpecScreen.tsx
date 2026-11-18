@@ -9,7 +9,7 @@ import { ChangeMark, ConnectedChanges, EventDrawer, SpecBody } from './SpecViews
 import { ConceptReview } from './ConceptReview';
 import { useConceptMappings, useConceptSuggestions } from './useConceptData';
 import { countsByTarget, proposedQueue, unmappedSuggestions } from './conceptModel';
-import { DraftDrawer } from './DraftDrawer';
+import { DraftEditor } from './DraftDrawer';
 import { ChangeDrawer } from './ChangeDrawer';
 import { ChangeComparison } from './ChangeComparison';
 import { SpecCoverageBadge } from './SpecCoverageBadge';
@@ -133,6 +133,7 @@ export default function SpecScreen({ params }: PageProps) {
   const conceptTabLabel = w(`개념 (검토 대기 ${pendingCount}건)`, `Concepts (${pendingCount} awaiting review)`);
   const reloadConcepts = () => { setConceptEpoch(value => value + 1); mappingCount.refetch(); suggestionCount.refetch(); };
   const current = spec.response?.outcome === 'ok' ? spec.response.data : null;
+  const editingDraft = drawer === 'draft' && canWrite && enabled;
   // The Event table reloads when a projection response ARRIVES (accepted by the query), never when a write closes the
   // drawer: the query keeps the previous response until the refetch answers, so the close moment still holds old rows.
   const [projection, setProjection] = useState(spec.response), [freshness, setFreshness] = useState(0);
@@ -140,22 +141,26 @@ export default function SpecScreen({ params }: PageProps) {
   const revisionData = history.response?.outcome === 'ok' ? history.response.data : null;
   const openDraft = () => navigate({ drawer: 'draft', change: null, revision: revisionData?.rows.find(r => r.state === 'draft')?.id ?? null });
   const close = () => { writePage({ event: null, drawer: null, change: null, revision: null }); setEpoch(v => v + 1); spec.refetch(); history.refetch(); };
+  const tabsList = <TabsList aria-label={w('모델 명세 탭', 'Model specification tabs')}><TabsTrigger value="spec">{w('명세', 'Specification')}</TabsTrigger><TabsTrigger value="changes">{w('변경점', 'Changes')}</TabsTrigger><TabsTrigger value="concept" aria-label={conceptTabLabel}><span className="inline-block min-w-40 tabular">{conceptTabLabel}</span></TabsTrigger><TabsTrigger value="history">{w('Revision 이력', 'Revision history')}</TabsTrigger></TabsList>;
   let content;
   if (!enabled) content = <StateMessage icon={<AlertTriangle aria-hidden />} title={w('모델 주소를 확인해 주세요.', 'Check the model URL.')} />;
+  else if (editingDraft) content = <Tabs value="spec" onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null, revision: null })}>
+    {tabsList}<TabsContent value="spec"><DraftEditor key={`draft:${discardEpoch}`} modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} /></TabsContent>
+  </Tabs>;
   else if (!spec.response) content = <StateMessage icon={<Loader2 aria-hidden />} title={w('명세를 불러오는 중…', 'Loading specification…')} />;
   else if (spec.response.outcome === 'forbidden') content = <StateMessage icon={<LockKeyhole aria-hidden />} title={w('명세를 볼 권한이 없습니다', 'No permission to view the specification')} />;
   else if (!isAnswered(spec.response.outcome)) content = <StateMessage icon={<ServerCrash aria-hidden />} title={w('명세를 불러오지 못했습니다', 'Could not load specification')} tone="danger" correlationId={spec.response.correlationId} action={<Button size="sm" variant="secondary" onClick={spec.refetch}>{w('다시 시도', 'Retry')}</Button>} />;
-  else content = <Tabs value={tab} onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null })}>
-    <TabsList aria-label={w('모델 명세 탭', 'Model specification tabs')}><TabsTrigger value="spec">{w('명세', 'Specification')}</TabsTrigger><TabsTrigger value="changes">{w('변경점', 'Changes')}</TabsTrigger><TabsTrigger value="concept" aria-label={conceptTabLabel}><span className="inline-block min-w-40 tabular">{conceptTabLabel}</span></TabsTrigger><TabsTrigger value="history">{w('Revision 이력', 'Revision history')}</TabsTrigger></TabsList>
+  else content = <Tabs value={tab} onValueChange={value => navigate({ tab: value, event: null, drawer: null, change: null, revision: null })}>
+    {tabsList}
     <TabsContent value="spec">{current ? <SpecBody spec={current} modelId={modelId} freshness={freshness} onOpenEvent={id => navigate({ drawer: 'event', event: id, change: null })} conceptCounts={conceptReady ? conceptCounts : undefined} /> : <StateMessage icon={<Inbox aria-hidden />} title={w('발행된 모델 명세가 없습니다', 'No published model specification')} body={w('초안을 작성하고 발행하면 모델의 기준 명세가 됩니다.', 'Create and publish a draft to establish the model specification.')} action={canWrite && <Button onClick={openDraft}>{w('첫 명세 작성', 'Create first specification')}</Button>} />}</TabsContent>
     <TabsContent value="concept"><ConceptReview modelId={modelId} current={current} mappings={mappings} suggestions={suggestions} reload={reloadConcepts} historyQueries={[confirmed, rejected]} page={conceptPage} onPage={setConceptPage} historyPage={conceptHistoryPage} onHistoryPage={setConceptHistoryPage} /></TabsContent>
     <TabsContent value="changes"><div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm"><Checkbox checked={pageParam('review') === 'needed'} onCheckedChange={value => setPage({ review: value === true ? 'needed' : null })} />{w('재검토 필요만', 'Needs revalidation only')}</label>{canWrite && current && <Button size="sm" onClick={() => navigate({ drawer: 'add', change: null })}>{w('변경점 추가', 'Add change')}</Button>}</div><QueryView widgetName={w('변경점', 'Changes')} query={changes}>{data => <ChangeList rows={data.rows} software={software} canWrite={canWrite} navigate={navigate} />}</QueryView></div></TabsContent>
     <TabsContent value="history"><QueryView widgetName={w('Revision 이력', 'Revision history')} query={history}>{data => <div className="grid gap-3"><ul className="grid gap-2">{data.rows.map(r => <li key={r.id} className="grid min-h-8 gap-1 border-b border-border-subtle py-2 text-sm"><div className="flex items-center gap-2">r{r.revisionNo} · {w(r.state === 'published' ? '발행됨' : r.state === 'draft' ? '초안' : '반려됨', r.state)} · {r.eventCount} Event {canWrite && r.state === 'draft' && <Button size="sm" variant="secondary" onClick={() => navigate({ drawer: 'draft', revision: r.id })}>{w('초안 편집', 'Edit draft')}</Button>}</div><p>{r.publishedBy ?? '—'} · {r.publishedAt ? instant(r.publishedAt) : '—'}</p><p className="t-mono break-all">{r.contentSha256 ?? w('봉인 전', 'Not sealed')}</p></li>)}</ul><Pager page={revisionPage} size={50} total={data.total} onChange={setRevisionPage} /></div>}</QueryView></TabsContent>
   </Tabs>;
-  return <PlatformPage title={w('모델 명세', 'Model specification')} crumbs={model ? [{ label: modelLabel, href: linkTo('log-knowledge-model', { params: { modelId } }) }] : []} secondaryActions={<ReturnLink />} primaryAction={enabled && canWrite && history.response?.outcome === 'ok' ? <Button onClick={openDraft}>{w('초안 편집', 'Edit draft')}</Button> : undefined}>
+  return <PlatformPage title={w('모델 명세', 'Model specification')} crumbs={model ? [{ label: modelLabel, href: linkTo('log-knowledge-model', { params: { modelId } }) }] : []} secondaryActions={<ReturnLink />} primaryAction={enabled && canWrite && !editingDraft && history.response?.outcome === 'ok' ? <Button onClick={openDraft}>{w('초안 편집', 'Edit draft')}</Button> : undefined}>
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
       {!canWrite && <p role="status" className="text-sm text-text-muted">{w('읽기 전용: 작성·발행·개념 검토는 명세 관리 권한을 관리자에게 요청하세요.', 'Read only: ask an administrator for specification management permission to edit, publish or review concepts.')}</p>}
-      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+      {!editingDraft && <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-2 text-sm"><span className="shrink-0 text-text-secondary">{w('SW 버전', 'Software version')}</span><QueryView widgetName={w('SW 버전', 'Software versions')} query={swState}>{() => <SpecSelect hideLabel width="content" label={w('SW 버전', 'Software version')} value={softwareId ?? 'model'} options={[{ value: 'model', label: w('모델 기준', 'Model basis') }, ...software.map(s => ({ value: s.id, label: `${s.releaseOrder}. ${s.versionLabel}` }))]} onChange={value => navigate({ software: value === 'model' ? null : value, drawer: null, change: null })} />}</QueryView></div>
         {current && <FieldList layout="inline" className="min-w-0">
           <FieldRow label={w('Revision', 'Revision')}>r{current.revision.revisionNo}</FieldRow>
@@ -168,10 +173,10 @@ export default function SpecScreen({ params }: PageProps) {
         {current && changes.response?.outcome === 'ok' && changes.response.data?.rows.some(c => c.needsRevalidation && !c.retiredAt) && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}
         {enabled && <SpecCoverageBadge modelId={modelId} softwareId={softwareId} enabled={enabled} />}
         <PlatformLink href={linkTo('log-knowledge-model', { params: { modelId } })}>{w('모델 프로파일', 'Model profile')}</PlatformLink>
-      </div>
+      </div>}
+      {enabled && editingDraft && <SpecCoverageBadge modelId={modelId} softwareId={null} enabled={enabled} />}
       {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> : content}
-      {enabled && eventOpen && current && <EventDrawer spec={current} modelId={modelId} identity={eventKey} rows={mappingRows} count={conceptReady ? conceptCounts.get(eventKey)?.proposed ?? 0 : boundedCount === 0 ? 0 : null} reload={reloadConcepts} onClose={close} connectedChanges={<QueryView widgetName={w('연결된 변경점', 'Connected changes')} query={eventChanges}>{data => <ConnectedChanges rows={data.rows} spec={current} identity={eventKey} onChange={id => navigate({ tab: 'changes', event: null, review: null, drawer: canWrite ? 'retire' : null, change: id })} />}</QueryView>} />}
-      {enabled && drawer === 'draft' && canWrite && <DraftDrawer key={`draft:${discardEpoch}`} modelLabel={modelLabel} modelId={modelId} revisionId={revision} onClose={close} onDirtyChange={onDirtyChange} />}
+      {enabled && !editingDraft && eventOpen && current && <EventDrawer spec={current} modelId={modelId} identity={eventKey} rows={mappingRows} count={conceptReady ? conceptCounts.get(eventKey)?.proposed ?? 0 : boundedCount === 0 ? 0 : null} reload={reloadConcepts} onClose={close} connectedChanges={<QueryView widgetName={w('연결된 변경점', 'Connected changes')} query={eventChanges}>{data => <ConnectedChanges rows={data.rows} spec={current} identity={eventKey} onChange={id => navigate({ tab: 'changes', event: null, review: null, drawer: canWrite ? 'retire' : null, change: id })} />}</QueryView>} />}
       {enabled && drawer === 'add' && canWrite && current && <ChangeDrawer key={`add:${discardEpoch}`} modelId={modelId} software={software} selectedSoftware={softwareId} mode="add" onClose={close} onDirtyChange={onDirtyChange} />}
       {enabled && (drawer === 'retire' || drawer === 'confirm') && canWrite && <QueryView widgetName={w('변경점 상세', 'Change detail')} query={allChanges}>{() => changeRow ? <ChangeDrawer key={`${drawer}:${change}:${discardEpoch}`} modelId={modelId} software={software} selectedSoftware={softwareId} row={changeRow} mode={drawer} onClose={close} onDirtyChange={onDirtyChange} /> : <p role="status">{w('변경점을 찾을 수 없습니다.', 'Change not found.')}</p>}</QueryView>}
       {leavePatch && <Dialog open onOpenChange={value => { if (!value) setLeavePatch(null); }}><DialogContent closeLabel={w('닫기', 'Close')}>

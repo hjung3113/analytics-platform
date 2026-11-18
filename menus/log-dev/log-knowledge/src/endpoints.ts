@@ -165,6 +165,7 @@ export const specCoverageEndpoint = defineEndpoint<ModelSpecParams, SpecCoverage
 export const SPEC_PUBLISH_PERMISSION: Permission = menuPermission('knowledge:spec-publish');
 export const SPEC_FIELD_TYPES = ['string', 'int', 'float', 'bool', 'enum', 'timestamp'] as const;
 export type SpecFieldType = (typeof SPEC_FIELD_TYPES)[number];
+export const SPEC_TSV_COLUMNS = ['kind', 'module', 'parent_module', 'event', 'trigger_rule', 'detail_doc_ref', 'fields_json', 'source_module', 'source_event', 'predicate', 'target_module', 'target_event', 'rule_ref'] as const;
 /** Call caps of `specDraftSave` (the server's `domain/spec-input.ts`): larger specs stream in several calls. */
 export const SPEC_SAVE_LIMITS = { rows: 2000, bodyBytes: 512 * 1024, rejectReason: 500 } as const;
 export type SpecSourceDocRef = { docLabel: string; docVersion: string; link?: string };

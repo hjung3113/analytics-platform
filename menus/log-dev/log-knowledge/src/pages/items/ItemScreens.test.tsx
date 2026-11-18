@@ -4,13 +4,15 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { encodeFilterParams, type ApiResponse, type ColumnFilter, type MenuQuery } from '@ap/contracts';
-import { CATALOG_MANAGE_PERMISSION, type ItemAssessment, type ItemDetail as ItemDetailData, type ItemRevision, type ItemRow } from '../../endpoints';
+import { CATALOG_MANAGE_PERMISSION, ITEM_PUBLISH_PERMISSION, type ItemAssessment, type ItemDetail as ItemDetailData, type ItemRevision, type ItemRow } from '../../endpoints';
 import ItemDetail from './ItemDetail';
 import ItemList from './ItemList';
 import { knowledgeRegistry, mountWith } from '../test-support';
 
 const registry = knowledgeRegistry(['knowledge:catalog-manage'], { description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-knowledge-catalog', permission: CATALOG_MANAGE_PERMISSION });
+const assessmentRegistry = knowledgeRegistry(['knowledge:catalog-manage', ITEM_PUBLISH_PERMISSION], { description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'log-knowledge-catalog', permission: CATALOG_MANAGE_PERMISSION });
 const session = testSession(['knowledge:catalog-manage', 'platform:view'], { user: { id: 'admin', name: 'admin', title: { ko: '관리자', en: 'Admin' } } });
+const assessmentSession = testSession(['knowledge:catalog-manage', ITEM_PUBLISH_PERMISSION, 'platform:view'], { user: { id: 'admin', name: 'admin', title: { ko: '관리자', en: 'Admin' } } });
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments: [], trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 
 // ---- fixtures: hand-written server answers (a menu screen test does not import the mock) ----
@@ -86,6 +88,19 @@ const adapter = testAdapter({
   },
   session: () => session,
 });
+const assessmentAdapter = testAdapter({
+  menuQuery: async (req: MenuQuery) => {
+    queries.push(req);
+    const p = req.params as { itemId?: string; revisionNo?: number; q?: string | null; filters?: ColumnFilter[] };
+    if (req.endpoint === 'logKnowledge.itemDetail') {
+      if (holdDetail) await holdDetail;
+      const found = ROWS.find(r => r.id === p.itemId);
+      return ok(found ? detailOf(found.itemNo, p.revisionNo) : null);
+    }
+    return ok(listOf(p));
+  },
+  session: () => assessmentSession,
+});
 
 let restoreGeometry: () => void;
 beforeEach(() => { queries = []; holdDetail = null; restoreGeometry = stubCompactTableGeometry(); });
@@ -96,9 +111,9 @@ function mountList(search = '') {
   window.history.replaceState(null, '', `/log/knowledge/items?v=1${search}`);
   mountWith({ registry, adapter, ui: <ItemList /> });
 }
-function mountDetail(itemId: string, search = '') {
+function mountDetail(itemId: string, search = '', canAssess = false, slot = false) {
   window.history.replaceState(null, '', `/log/knowledge/items/${itemId}?v=1${search}`);
-  mountWith({ registry, adapter, ui: <ItemDetail params={{ itemId }} /> });
+  mountWith({ registry: canAssess ? assessmentRegistry : registry, adapter: canAssess ? assessmentAdapter : adapter, ui: <ItemDetail params={{ itemId }} />, slot });
 }
 const url = () => new URLSearchParams(window.location.search);
 const hiddenFilters = () => ((window.history.state as { apHidden?: { pairs: [string, string][] } } | null)?.apHidden?.pairs ?? []).filter(([k]) => k === 'filter').map(([, v]) => v);
@@ -254,6 +269,22 @@ describe('기술 Item detail', () => {
     expect(detailReads().at(-1)?.params).toEqual({ itemId: idOf(1) });
   });
 
+  it('disables assessment while the selected previous revision is loading', async () => {
+    mountDetail(idOf(1), '', true);
+    await screen.findByRole('heading', { name: '챔버 압력 로그 지연' }, slow);
+    let release!: () => void;
+    holdDetail = new Promise<void>(resolve => { release = resolve; });
+    fireEvent.click(screen.getByRole('button', { name: /r2/ }));
+    await waitFor(() => expect(url().get('rev')).toBe('2'));
+    await waitFor(() => expect(detailReads()).toHaveLength(2));
+    const action = screen.getByRole('button', { name: '판단 변경' });
+    expect((action as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/선택한 리비전을 불러오는 중/)).toBeTruthy();
+    release();
+    expect(await screen.findByText(/이전 리비전 r2을 보고 있습니다/, {}, slow)).toBeTruthy();
+    expect((action as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('selecting a revision writes ?rev= and marks the current one', async () => {
     mountDetail(idOf(1));
     const list = await screen.findByRole('region', { name: '리비전' }, slow);
@@ -289,6 +320,27 @@ describe('기술 Item detail', () => {
     mountDetail(idOf(1));
     await screen.findByRole('heading', { name: '챔버 압력 로그 지연' }, slow);
     expect(screen.queryByRole('button', { name: /수정|판단 변경|보관|신규 작성|근거 추가/ })).toBeNull();
+  });
+
+  it('puts assessment beside the state badges for publishers and returns focus after closing', async () => {
+    mountDetail(idOf(1), '', true, true);
+    await screen.findByRole('heading', { name: '챔버 압력 로그 지연' }, slow);
+    const action = screen.getByRole('button', { name: '판단 변경' });
+    const badgeRow = action.parentElement!;
+    expect(badgeRow.className).toContain('flex-wrap');
+    expect(badgeRow.lastElementChild).toBe(action);
+    expect(within(badgeRow).getByText('기술 검증')).toBeTruthy();
+    expect(within(badgeRow).getByText('처리')).toBeTruthy();
+    fireEvent.click(action);
+    const drawer = await screen.findByRole('dialog', { name: '판단 변경' });
+    fireEvent.click(within(drawer).getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '판단 변경' })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(action));
+
+    cleanup();
+    mountDetail(idOf(3), '', true);
+    await screen.findByRole('heading', { name: '보관된 사례' }, slow);
+    expect(screen.queryByRole('button', { name: '판단 변경' })).toBeNull();
   });
 });
 

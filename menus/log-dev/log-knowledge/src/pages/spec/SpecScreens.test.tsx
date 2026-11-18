@@ -124,12 +124,23 @@ describe('production model spec screen', () => {
     allowed = false; mount(); expect(await screen.findByText(/명세 관리 권한을 관리자에게 요청하세요/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '초안 편집' })).toBeNull();
   });
-  it('explains the hash seal and revalidation before publication, with an external footer', async () => {
-    mount('&drawer=draft&revision=' + rev); await screen.findByLabelText('명세 TSV');
+  it('opens the legacy drawer address as a page editor with a publication comparison', async () => {
+    mount('&drawer=draft&revision=' + rev);
+    const editor = await screen.findByRole('region', { name: '명세 초안 편집' });
+    await within(editor).findByLabelText('명세 TSV');
+    const summary = within(editor).getByRole('region', { name: '발행 전 변경 요약' });
+    expect(screen.queryByRole('dialog', { name: '명세 초안 편집' })).toBeNull();
+    expect(within(summary).getByRole('heading', { name: '발행 전 변경 요약' })).toBeTruthy();
+    expect(within(summary).getByText(/기준 Revision: r1/)).toBeTruthy();
+    expect(within(summary).getByText(/변경 없음 · 비교 확인/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Move' })).toBeNull();
+    expect(queries.some(q => q.endpoint === 'logKnowledge.modelSpec' && JSON.stringify(q.params) === JSON.stringify({ modelId }))).toBe(true);
     const publish = screen.getByRole('button', { name: '발행' });
-    expect(publish.closest('[role="region"]')).toBeNull();
+    expect(publish.closest('section[aria-labelledby]')).toBe(editor);
     fireEvent.click(publish); expect(await screen.findByText(/해시로 봉인/)).toBeTruthy();
     expect(screen.getByText(/열린 변경점/)).toBeTruthy();
+    const confirmation = screen.getByRole('dialog', { name: '명세 발행 확인' });
+    expect(within(confirmation).getByText(/기준 Revision/)).toBeTruthy();
   });
   it.each([
     ['add', '변경점 추가', '추가'], ['retire', '변경점 닫기·대체', '확인'], ['confirm', '변경점 재검토 확인', '확인'],
@@ -148,6 +159,30 @@ describe('production model spec screen', () => {
     expect((input as HTMLTextAreaElement).value).toContain('Kept');
     expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(true);
     expect(writes[0]?.expectedVersion).toBe('1');
+  });
+  it('keeps the loaded publication Revision visible before a draft is created', async () => {
+    mount('&drawer=draft');
+    const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });
+    await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r1'));
+    expect(summary.textContent).toContain('초안을 만든 뒤 비교합니다.');
+    expect(summary.textContent, 'no parse-failure reason before a draft exists').not.toContain('파싱하지 못해');
+  });
+  it('keeps the loaded publication Revision visible when TSV parsing is unavailable', async () => {
+    mount('&drawer=draft&revision=' + rev);
+    const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });
+    fireEvent.change(await screen.findByLabelText('명세 TSV'), { target: { value: 'kind\tmodule\nconstructor\tA' } });
+    await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r1'));
+  });
+  it('refetches the publication while recovering after a write conflict', async () => {
+    conflict = true; mount('&drawer=draft&revision=' + rev);
+    fireEvent.change(await screen.findByLabelText('명세 TSV'), { target: { value: 'kind\tmodule\nmodule\tKept' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    const recover = await screen.findByRole('button', { name: '최신 발행본 확인' });
+    result = ok(publishedB);
+    fireEvent.click(recover);
+    await screen.findByRole('group', { name: '열린 초안 r1 (다른 사람이 저장)' });
+    const summary = screen.getByRole('region', { name: '발행 전 변경 요약' });
+    await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r4'));
   });
   // #2073: recovery shows what it read and writes nothing before the user picks.
   const publishedB: ModelSpecData = { ...spec, revision: { ...spec.revision, revisionNo: 4 }, modules: [...spec.modules, { id: 'm3', moduleKey: 'BPUB', name: 'BPublished', parentModuleId: null }] };
