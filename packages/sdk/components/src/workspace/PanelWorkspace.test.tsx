@@ -718,8 +718,8 @@ describe('PanelWorkspace: height mode (#686)', () => {
     await ready();
     await choose('아래로 쌓기');
     await choose('집중');
-    // One row with nothing declared fills what the page shows (ADR-0130): jsdom's window (768) less the 80px drop strip.
-    await waitFor(() => { expect(rowHeights()).toEqual([688]); });
+    // One row with nothing declared fills jsdom's 768px window without reserving the drop strip.
+    await waitFor(() => { expect(rowHeights()).toEqual([768]); });
     await choose('세로');
     await waitFor(() => { expect(rowHeights()).toEqual([360, 360, 360]); });
   });
@@ -738,6 +738,44 @@ describe('PanelWorkspace: height mode (#686)', () => {
     // A panel in an earlier row still can move below.
     await userEvent.click(screen.getAllByRole('button', { name: '추세 동작' })[0]!);
     expect(await screen.findByRole('menuitem', { name: '아래 새 줄로 옮기기' })).toBeInTheDocument();
+  });
+
+  it('moves a panel to a new bottom row using the keyboard while the strip is absent', async () => {
+    storage.setItem(KEY(), stackStored([300, 400, 500]));
+    mountWorkspace(ROWS_PROPS);
+    await ready();
+    screen.getAllByRole('button', { name: '선택기 동작' })[0]!.focus();
+    await userEvent.keyboard('{Enter}');
+    const move = await screen.findByRole('menuitem', { name: '아래 새 줄로 옮기기' });
+    move.focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => { expect(rowHeights()).toEqual([300, 400, 500, 360]); });
+    expect(screen.queryByText('여기에 놓으면 아래에 새 줄')).not.toBeInTheDocument();
+  });
+
+  it('shows a sticky strip during a tab drag and creates a new bottom row on drop', async () => {
+    storage.setItem(KEY(), stackStored([300, 400, 500]));
+    mountWorkspace(ROWS_PROPS);
+    await ready();
+    const engine = document.querySelector<HTMLElement>('[data-dock-rows]')!;
+    const boxHeight = engine.style.getPropertyValue('--dock-rows-box');
+    // jsdom lacks PointerEvent, which Dockview checks when the synthetic dragstart reaches its tab.
+    vi.stubGlobal('PointerEvent', window.PointerEvent ?? MouseEvent);
+    const tab = screen.getByRole('tab', { name: '선택기' });
+    try {
+      fireEvent.dragStart(tab);
+      const strip = screen.getByText('여기에 놓으면 아래에 새 줄');
+      expect(engine.nextElementSibling).toBe(strip);
+      expect(engine.style.getPropertyValue('--dock-rows-box')).toBe(boxHeight);
+      expect(strip).toHaveClass('sticky', 'bottom-0', 'z-20');
+      fireEvent.dragOver(strip);
+      expect(strip).toHaveClass('border-accent-primary');
+      fireEvent.drop(strip);
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 400, 500, 360]); });
+      expect(strip).not.toBeInTheDocument();
+    } finally {
+      fireEvent.dragEnd(tab);
+    }
   });
 
   describe('the engine\'s own drag carries the moved panel (the layout alone cannot say which panel moved)', () => {

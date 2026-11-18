@@ -1484,6 +1484,21 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await expect(rowSeparators(page).first()).toBeVisible();
   }
+  async function startMouseDrag(page: Page, source: Locator) {
+    await source.scrollIntoViewIfNeeded();
+    await source.evaluate(element => {
+      element.ownerDocument.addEventListener('dragstart', () => {
+        element.setAttribute('data-test-drag-started', '');
+      }, { capture: true, once: true });
+    });
+    const from = (await source.boundingBox())!;
+    const x = from.x + from.width / 2;
+    const y = from.y + from.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 30, y + 30, { steps: 6 });
+    await expect(source).toHaveAttribute('data-test-drag-started', '');
+  }
   /** Drags like a person (press, stepped move, small moves over the target, release). */
   async function dragLike(page: Page, source: Locator, target: Locator, position: { x: number; y: number }) {
     await target.scrollIntoViewIfNeeded();
@@ -1523,9 +1538,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     // Natural flow: the main area scrolls by itself, with nothing injected to make room.
     expect(await mainScrolls(page)).toBe(true);
     expect(await heightOf(root(page))).toBeGreaterThan(fitHeight);
-    await dropStrip(page).scrollIntoViewIfNeeded();
-    await expect(dropStrip(page)).toBeVisible();
-    await expect(dropStrip(page)).toHaveText('여기에 놓으면 아래에 새 줄');
+    await expect(dropStrip(page)).toHaveCount(0);
     await evidence(page, testInfo, 'workspace-stack-scrolls');
 
     await chooseMode(page, '화면 맞춤');
@@ -1656,34 +1669,24 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     expect(near(await heightOf(root(page)), total - before[2]! - GAP, 3)).toBe(true);
   });
 
-  test('탭을 아래 띠에 끌어 놓으면 새 마지막 줄이 되고, 다른 곳의 탭·묶음 전체·바깥 데이터는 거절된다', async ({ page }, testInfo) => {
+  test('탭을 끌 때만 아래 띠가 나타나고, 놓으면 새 마지막 줄이 된다', async ({ page }, testInfo) => {
     await openStack(page);
     const before = await rowPx(page);
     // The 300 ms layout save has flushed: the snapshot holds the stack state, not the value before it.
     await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows: before }]);
     const storedBefore = JSON.stringify(await stored(page));
     const total = await heightOf(root(page));
-    await dropStrip(page).scrollIntoViewIfNeeded();
-    // Outside data and a payload that is not a panel are refused without changing anything.
-    await dropStrip(page).evaluate(strip => {
-      const data = new DataTransfer();
-      data.setData('text/plain', 'not a panel');
-      strip.dispatchEvent(new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true }));
-      strip.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }));
-    });
-    // Nothing happens: a refused drop changes no state, so there is nothing to poll for; give a wrongly accepted one time to show.
-    await page.waitForTimeout(400);
-    expect(await rowPx(page)).toEqual(before);
+    await expect(dropStrip(page)).toHaveCount(0);
 
     // A single tab of this workspace: a real drag.
     // The page is taller than the screen, so the strip comes to the pointer: it sticks to the bottom of the visible area while a tab is dragged.
     const tab = workspace(page).getByRole('tab', { name: TITLES.distribution });
-    await tab.scrollIntoViewIfNeeded();
-    const from = (await tab.boundingBox())!;
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(from.x + from.width / 2 + 30, from.y + from.height / 2 + 30, { steps: 6 });
+    await startMouseDrag(page, tab);
+    await expect(dropStrip(page)).toBeVisible();
+    await expect(dropStrip(page)).toHaveText('여기에 놓으면 아래에 새 줄');
     await expect(dropStrip(page)).toHaveClass(/sticky/);
+    // #2508 C2: the strip overlays the box bottom and adds no flow height.
+    expect(near(await heightOf(root(page)), total, ROUNDING)).toBe(true);
     const zone = (await dropStrip(page).boundingBox())!;
     await page.mouse.move(zone.x + 40, zone.y + 30, { steps: 8 });
     for (let i = 0; i < 6; i++) {
@@ -1691,6 +1694,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
       await page.mouse.move(zone.x + 40 + (i % 2 === 0 ? -2 : 2), zone.y + 30);
     }
     await page.mouse.up();
+    await expect(dropStrip(page)).toHaveCount(0);
     await expect(rowSeparators(page)).toHaveCount(4);
     const after = await rowPx(page);
     expect(after.slice(0, 3)).toEqual(before);
@@ -1723,7 +1727,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(after);
   });
 
-  test('묶음 전체를 끌어 띠에 놓아도 거절된다(여러 탭 묶음의 빈 머리 영역)', async ({ page }) => {
+  test('묶음 전체를 끌 때는 아래 띠가 나타나지 않는다(여러 탭 묶음의 빈 머리 영역)', async ({ page }) => {
     await openStack(page, '기본');
     const group = groupOf(page, TITLES.distribution);
     await expect(group.getByRole('tab')).toHaveCount(2);
@@ -1731,9 +1735,10 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     // Let the 300 ms layout save flush first, so the snapshot holds the stack state rather than the value before it.
     await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', rows }]);
     const snapshot = JSON.stringify(await stored(page));
-    await dragLike(page, group.locator('.dv-void-container'), dropStrip(page), { x: 40, y: 30 });
-    // Nothing happens (kept wait): a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
-    await page.waitForTimeout(600);
+    await startMouseDrag(page, group.locator('.dv-void-container'));
+    await expect(dropStrip(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
     expect(await rowPx(page)).toEqual(rows);
     await expect(group.getByRole('tab')).toHaveCount(2);
     expect(JSON.stringify(await stored(page))).toBe(snapshot);
@@ -1849,8 +1854,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     outerBefore.forEach(([, , max]) => { expect(Number(max)).toBeLessThanOrEqual(100); });
     await evidence(page, testInfo, 'board-pane-stack');
 
-    // A board tab dropped on the workspace's strip is refused, and the strip consumes the drag: the board's own dock never sees the drop, so
-    // neither layout changes.
+    // Dragging a board tab never reveals the inner workspace's strip.
     // Pressing a board tab selects its pane, and the board saves the selection (V2). Select it first, so the snapshot already holds what the
     // drag's own press writes and only a layout change can differ.
     const boardTab = page.locator('[role="tab"][data-tab-panel-id][aria-label^="칸 2 · "]');
@@ -1861,9 +1865,10 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     const storedOnStrip = JSON.stringify(await stored(page));
     const boardOnStrip = await boardKey();
     const outerOnStrip = await outerSeparators();
-    await dragLike(page, boardTab, dropStrip(page), { x: 40, y: 30 });
-    // Nothing happens (kept wait): a refused drop changes nothing, so there is no state to poll for; give a wrongly accepted one time to show.
-    await page.waitForTimeout(600);
+    await startMouseDrag(page, boardTab);
+    await expect(dropStrip(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
     await expect(workspace(page).locator('[role="tab"][data-tab-panel-id][aria-label^="칸 "]')).toHaveCount(0);
     expect(await rowPx(page)).toEqual(rowsOnStrip);
     expect(JSON.stringify(await stored(page))).toBe(storedOnStrip);
@@ -1981,7 +1986,7 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await evidence(page, testInfo, 'workspace-maximized-visible-area');
     await page.keyboard.press('Escape');
     await expect(restore).toHaveCount(0);
-    await expect(dropStrip(page)).toHaveCount(1);
+    await expect(dropStrip(page)).toHaveCount(0);
     // The restore retries for a few frames while the page grows back: wait for the final value.
     await expect.poll(async () => Math.abs((await scrollTop(page)) - before)).toBeLessThanOrEqual(ROUNDING);
   });
@@ -2087,24 +2092,31 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await expect.poll(async () => (await stored(page))[0]?.rows).toEqual(after);
   });
 
-  test('탭을 끄는 동안 아래 띠가 화면 아래에 붙고, 끝나면 제자리로 돌아간다', async ({ page }) => {
+  test('탭을 끄는 동안 아래 띠가 화면 아래에 붙고, 취소하면 사라진다', async ({ page }) => {
     await open(page);
     await main(page).evaluate(element => { element.scrollTop = 0; });
     const strip = dropStrip(page);
-    await expect(strip).not.toHaveClass(/sticky/);
+    await expect(strip).toHaveCount(0);
     const tab = page.getByRole('tab', { name: TITLES.summary });
     await tab.scrollIntoViewIfNeeded();
     const from = (await tab.boundingBox())!;
+    // #2508 C2: the strip overlays the box bottom, so the page height (and a classic scrollbar) does not change when it appears.
+    const pageHeight = () => main(page).evaluate(element => element.scrollHeight);
+    const box = () => workspace(page).boundingBox();
+    const [heightBefore, boxBefore] = [await pageHeight(), await box()];
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
     await page.mouse.down();
     await page.mouse.move(from.x + from.width / 2 + 30, from.y + from.height / 2 + 30, { steps: 6 });
     await expect(strip).toHaveClass(/sticky/);
+    expect(await pageHeight()).toBe(heightBefore);
+    expect(await box()).toEqual(boxBefore);
     const area = await main(page).evaluate(element => element.getBoundingClientRect().top + element.clientHeight);
     const stuck = (await strip.boundingBox())!;
     expect(Math.abs(stuck.y + stuck.height - area)).toBeLessThanOrEqual(ROUNDING + 2);
+    // #2508 C3: Escape alone ends the drag; the release afterwards is only cleanup.
     await page.keyboard.press('Escape');
+    await expect(strip).toHaveCount(0);
     await page.mouse.up();
-    await expect(strip).not.toHaveClass(/sticky/);
   });
 
   test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {

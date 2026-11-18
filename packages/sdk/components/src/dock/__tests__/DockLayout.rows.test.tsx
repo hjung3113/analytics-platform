@@ -48,6 +48,11 @@ const IDS = ['a', 'b', 'c'];
 const panels = IDS.map(id => ({ id, title: `패널 ${id}`, render: () => <div>content {id}</div> }));
 const label = ({ dir, before, after }: { dir: string; before: string[]; after: string[] }) => `${dir}:${before.join(',')}|${after.join(',')}`;
 const ready = async () => { await screen.findAllByRole('tab'); await waitFor(() => { expect(document.querySelectorAll('.dv-groupview').length).toBeGreaterThan(0); }); };
+const dropStrip = () => document.querySelector<HTMLElement>('[data-dock-drop-below]');
+const startTabDrag = () => {
+  panelData.current = { viewId: engineId.current, groupId: 'g', panelId: 'a' };
+  fireEvent.dragStart(screen.getByRole('tab', { name: '패널 a' }));
+};
 
 function mountRows(layout: DockNode, rows: Partial<DockRows> | null = {}) {
   const onHeightsChange = vi.fn();
@@ -147,13 +152,14 @@ describe('DockLayout rows (workspace stack mode)', () => {
     const onDropBelow = vi.fn();
     const without = mountRows(column([40, 60], group(['a']), group(['c'])));
     await ready();
-    expect(document.querySelector('[data-dock-drop-below]')).toBeNull();
+    startTabDrag();
+    expect(dropStrip()).toBeNull();
     without.unmount();
     mountRows(column([40, 60], group(['a']), group(['c'])), { onDropBelow, dropBelowLabel: '여기에 놓으면 아래에 새 줄' });
     await ready();
-    const strip = document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
-    expect(strip).toHaveTextContent('여기에 놓으면 아래에 새 줄');
-    for (const data of [null, { viewId: 'another-layout', groupId: 'g', panelId: 'a' }, { viewId: 'another-layout', groupId: 'g', panelId: null }]) {
+    for (const data of [null, { viewId: 'another-layout', groupId: 'g', panelId: 'a' }, { viewId: engineId.current, groupId: 'g', panelId: null }]) {
+      startTabDrag();
+      const strip = screen.getByText('여기에 놓으면 아래에 새 줄');
       panelData.current = data;
       act(() => { fireEvent.dragOver(strip); fireEvent.drop(strip); });
     }
@@ -188,12 +194,13 @@ describe('DockLayout rows (workspace stack mode)', () => {
     const onDropBelow = vi.fn();
     mountRows(column([40, 60], group(['a']), group(['c'])), { onDropBelow, dropBelowLabel: '여기에 놓으면 아래에 새 줄' });
     await ready();
-    const strip = document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
     // Native listeners on an ancestor, like the board's own dock: they see an event only if the strip let it bubble.
     const seen = vi.fn();
     for (const type of ['dragenter', 'dragover', 'drop']) document.body.addEventListener(type, seen);
     try {
       for (const data of [null, { viewId: 'another-layout', groupId: 'g', panelId: 'a' }]) {
+        startTabDrag();
+        const strip = dropStrip()!;
         panelData.current = data;
         const events = [new Event('dragenter', { bubbles: true, cancelable: true }), new Event('dragover', { bubbles: true, cancelable: true }), new Event('drop', { bubbles: true, cancelable: true })];
         act(() => { events.forEach(event => strip.dispatchEvent(event)); });
@@ -213,17 +220,31 @@ describe('DockLayout rows (workspace stack mode)', () => {
     render(<I18nProvider><DockLayoutBase panels={panels} layout={column([40, 60], group(['a']), group(['c']))} onLayoutChange={onLayoutChange} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }}
       rows={{ heights: [300, 400], minimums: [200, 200], maximum: 700, onHeightsChange: vi.fn(), onDropBelow, dropBelowLabel: '여기에 놓으면 아래에 새 줄' }} /></I18nProvider>);
     await ready();
-    const strip = document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
-    panelData.current = { viewId: engineId.current, groupId: 'g', panelId: 'a' };
+    startTabDrag();
+    const strip = dropStrip()!;
     act(() => { strip.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true })); });
     expect(strip.className).toContain('border-accent-primary');
     // Escape: `dragend` fires on the dragged tab, far from the strip, and no `drop` follows.
     act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragend', { bubbles: true })); });
-    expect(strip.className).not.toContain('border-accent-primary');
+    expect(strip).not.toBeInTheDocument();
+    startTabDrag();
+    expect(dropStrip()).not.toHaveClass('border-accent-primary');
     expect(onDropBelow).not.toHaveBeenCalled();
     expect(onLayoutChange).not.toHaveBeenCalled();
   });
 
+  it('lowers the strip when a rebuild replaces the dragged tab mid-drag, without any dragend or drop (#2508 C1)', async () => {
+    const rows: DockRows = { heights: [300, 400], minimums: [200, 200], maximum: 700, onHeightsChange: vi.fn(), onDropBelow: vi.fn(), dropBelowLabel: '여기에 놓으면 아래에 새 줄' };
+    const layout = column([40, 60], group(['a']), group(['c']));
+    const draw = (list: typeof panels) => <I18nProvider><DockLayoutBase panels={list} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rows} /></I18nProvider>;
+    const view = render(draw(panels));
+    await ready();
+    startTabDrag();
+    expect(dropStrip()).toBeInTheDocument();
+    // A title change rebuilds the engine (`fromJSON`), which disconnects the source tab: its dragend can no longer reach the window.
+    view.rerender(draw(panels.map(panel => panel.id === 'a' ? { ...panel, title: '패널 a (새 제목)' } : panel)));
+    await waitFor(() => { expect(dropStrip()).not.toBeInTheDocument(); });
+  });
   it('reports the dropped tab before the layout, null for a whole group, and nothing for a refused drag', async () => {
     const onPanelDrop = vi.fn();
     mountRows(column([40, 60], group(['a']), group(['c'])), { onPanelDrop });
@@ -277,16 +298,28 @@ describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)',
   it('the strip sticks to the bottom of the visible area only while a tab drag runs, from dragstart to dragend or drop', async () => {
     mountBase(rowsProps());
     await ready();
-    const strip = () => document.querySelector<HTMLElement>('[data-dock-drop-below]')!;
-    expect(strip().className).not.toContain('sticky');
-    act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragstart', { bubbles: true })); });
-    expect(strip().className).toContain('sticky bottom-0 z-20');
+    expect(dropStrip()).toBeNull();
+    startTabDrag();
+    expect(dropStrip()).toHaveClass('sticky', 'bottom-0', 'z-20');
     act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragend', { bubbles: true })); });
-    expect(strip().className).not.toContain('sticky');
-    act(() => { document.querySelector('[role="tab"]')!.dispatchEvent(new Event('dragstart', { bubbles: true })); });
-    expect(strip().className).toContain('sticky');
+    expect(dropStrip()).toBeNull();
+    startTabDrag();
+    expect(dropStrip()).toHaveClass('sticky');
     act(() => { window.dispatchEvent(new Event('drop')); });
-    expect(strip().className).not.toContain('sticky');
+    expect(dropStrip()).toBeNull();
+  });
+
+  it.each(['group', 'foreign tab', 'outside data'] as const)('does not show the strip for a drag from %s', async source => {
+    mountBase(rowsProps());
+    await ready();
+    const transfer = {
+      group: { viewId: engineId.current, groupId: 'g', panelId: null },
+      'foreign tab': { viewId: 'another-layout', groupId: 'g', panelId: 'a' },
+      'outside data': null,
+    };
+    panelData.current = transfer[source];
+    fireEvent.dragStart(document.querySelector('[data-dock-rows]')!);
+    expect(dropStrip()).toBeNull();
   });
 
   it('while a panel is maximized the strip is gone and the box takes maximizedHeight; rows keep their px', async () => {
@@ -294,12 +327,18 @@ describe('DockLayout rows: maximize, tab drag and edge scroll (#701, ADR-0130)',
     await ready();
     const wrapper = () => document.querySelector<HTMLElement>('[data-dock-rows]')!;
     expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('706px');
+    startTabDrag();
+    expect(dropStrip()).toBeInTheDocument();
     view.rerender(<I18nProvider><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rowsProps({ maximizedHeight: 520 })} maximizedPanelId="a" /></I18nProvider>);
     await waitFor(() => { expect(document.querySelector('[data-dock-drop-below]')).toBeNull(); });
     expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('520px');
     expect(wrapper().style.getPropertyValue('--dock-rows-height')).toBe('700px');
     view.rerender(<I18nProvider><DockLayoutBase panels={panels} layout={layout} onLayoutChange={vi.fn()} separatorLabel={label} label="행 배치" minPanelSize={{ width: 20, height: 20 }} rows={rowsProps({ maximizedHeight: 520 })} maximizedPanelId={null} /></I18nProvider>);
-    await waitFor(() => { expect(document.querySelector('[data-dock-drop-below]')).not.toBeNull(); });
+    await waitFor(() => { expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('706px'); });
+    fireEvent.dragEnd(window);
+    expect(dropStrip()).toBeNull();
+    startTabDrag();
+    expect(dropStrip()).toBeInTheDocument();
     expect(wrapper().style.getPropertyValue('--dock-rows-box')).toBe('706px');
   });
 

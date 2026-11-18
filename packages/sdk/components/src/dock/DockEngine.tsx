@@ -404,12 +404,18 @@ export default function DockEngine({
     };
   }, [api, check, containerRef, endDrag, freeze, report, scheduleMeasure]);
 
+  // A tab drag of this layout opens the row strip (#2508); `dropOver` is the strip's accept highlight.
+  const [dropOver, setDropOver] = useState(false);
+  const [tabDrag, setTabDrag] = useState(false);
   /** Puts the live engine on `live.current.canonicalDisplay` (shares at the engine's current size) and brings focus back to the tab it had. */
   const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
     const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum, rowsBox: total } = live.current;
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
     const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
     if (released.current) endDrag();
+    // `fromJSON` replaces the tab nodes; a drag whose source is gone never delivers its `dragend` to the window, so the strip would stay (#2508).
+    setTabDrag(false);
+    setDropOver(false);
     applying.current = true;
     try {
       // `fromJSON` ends with a forced relayout at the size the engine had when it started, which would scale every row of the new layout to the
@@ -584,27 +590,40 @@ export default function DockEngine({
   // element's parent (`getOverlayOutline`), making the dropzone a sibling the bubbling event never reaches. So the dropzone's host also gets a non-bubbling
   // `dragend` on each child other than the dropzone (a child owning no overlay ignores it). The pointer-backend content target uses the same element
   // and outline, so it is covered too. No drop is committed (only an anchored override target commits on `dragend`, and this theme has none), the layout
-  // is untouched, and only dropzones inside this container are reached, so a nested dock relays its own. The row strip's accept highlight is lowered too.
-  const [dropOver, setDropOver] = useState(false);
-  // A tab drag runs from `dragstart` inside this layout to the window's `dragend` or `drop`, whichever comes first; the strip sticks to the bottom of the visible area meanwhile.
-  const [tabDrag, setTabDrag] = useState(false);
+  // is untouched, and only dropzones inside this container are reached, so a nested dock relays its own.
+  const strip = useRef<HTMLDivElement>(null);
+  const endTabDrag = useCallback(() => {
+    setTabDrag(false);
+    setDropOver(false);
+  }, []);
+  // Dockview has populated its transfer by the time dragstart bubbles here. Only this dock's tab opens the strip.
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
-    const start = () => { setTabDrag(true); };
-    const end = () => { setTabDrag(false); };
+    if (!container || !api) return;
+    const start = (event: DragEvent) => {
+      const data = getPanelData();
+      if (!event.defaultPrevented && data?.panelId && data.viewId === api.id) setTabDrag(true);
+    };
+    const dropOutside = (event: DragEvent) => {
+      // Let the strip's native listener consume its own drop before hiding the target.
+      if (event.target instanceof Node && strip.current?.contains(event.target)) return;
+      endTabDrag();
+    };
     container.addEventListener('dragstart', start);
-    window.addEventListener('dragend', end, true);
-    window.addEventListener('drop', end, true);
-    return () => { container.removeEventListener('dragstart', start); window.removeEventListener('dragend', end, true); window.removeEventListener('drop', end, true); };
-  }, [containerRef]);
+    window.addEventListener('dragend', endTabDrag, true);
+    window.addEventListener('drop', dropOutside, true);
+    return () => {
+      container.removeEventListener('dragstart', start);
+      window.removeEventListener('dragend', endTabDrag, true);
+      window.removeEventListener('drop', dropOutside, true);
+    };
+  }, [api, containerRef, endTabDrag]);
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let relaying = false;
     const ended = () => {
       if (relaying) return;
-      setDropOver(false);
       relaying = true;
       try {
         container.querySelectorAll('.dv-drop-target-dropzone').forEach(zone => {
@@ -624,11 +643,9 @@ export default function DockEngine({
   // The strip under the last row accepts one tab of this layout: not a whole group, not another layout's tab, not outside data. Every drag over the strip
   // ends here, taken or refused: an ancestor dock (the board around a pane) must never act on a drop released over it. These are native listeners on the
   // strip itself, which see the event before any ancestor's: React's own handlers run at the root, after the ancestors' native ones.
-  const strip = useRef<HTMLDivElement>(null);
   const onDropBelow = rows?.onDropBelow;
-  // The strip is hidden while a panel is maximized (nothing to drop on); the listener effect re-binds with it.
-  const stripShown = onDropBelow !== undefined && interactive && maximizedPanelId === null;
-  useEffect(() => {
+  const stripShown = tabDrag && onDropBelow !== undefined && interactive && maximizedPanelId === null;
+  useLayoutEffect(() => {
     const element = strip.current;
     if (!element || !stripShown) return;
     const accepted = () => {
@@ -644,7 +661,7 @@ export default function DockEngine({
     const leave = () => { setDropOver(false); };
     const drop = (event: DragEvent) => {
       event.stopPropagation();
-      setDropOver(false);
+      endTabDrag();
       const panelId = accepted();
       if (!panelId) return;
       event.preventDefault();
@@ -655,7 +672,7 @@ export default function DockEngine({
     element.addEventListener('dragleave', leave);
     element.addEventListener('drop', drop);
     return () => { element.removeEventListener('dragenter', enter); element.removeEventListener('dragover', over); element.removeEventListener('dragleave', leave); element.removeEventListener('drop', drop); };
-  }, [stripShown, api, onDropBelow]);
+  }, [stripShown, api, onDropBelow, endTabDrag]);
 
   const context = useMemo<Context>(() => {
     const focusGroup = focusedPanel ? groupOf(canonicalDisplay, focusedPanel)?.panels ?? [] : [];
@@ -681,7 +698,7 @@ export default function DockEngine({
         disableFloatingGroups floatingGroupBounds="boundedWithinViewport" floatingGroupDragHandle={floating ? 'tabbar' : undefined} disableDnd={!interactive} announcements={false} />
     </div>
     {stripShown && <div ref={strip} data-dock-drop-below
-      className={`${tabDrag ? 'sticky bottom-0 z-20 ' : ''}mt-2 flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
+      className={`sticky bottom-0 z-20 -mt-[72px] flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong bg-surface-card text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
     {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} containerRef={containerRef} />}
   </EngineContext.Provider>;
 }
