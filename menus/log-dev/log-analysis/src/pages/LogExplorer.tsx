@@ -129,7 +129,6 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const active = tab === 'raw' ? records : periods;
   const contextInvalid = !!filters.draft.contextKey !== !!filters.draft.contextValue;
   const pending = JSON.stringify(filters.draft) !== JSON.stringify(filters.applied);
-  const filterBarCollapsedByDefault = frame !== undefined;
   const filterAddress = (values: InvestigationFilters) => Object.fromEntries(FILTER_KEYS.map(key => [pageKeys[key], typeof values[key] === 'string' && values[key] !== '' ? values[key] : null]));
   const applyFilters = () => {
     if (contextInvalid) return;
@@ -152,7 +151,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
         if (filterIme.isComposingEnter(event)) { event.preventDefault(); return; }
         if (event.key === 'Enter') { event.preventDefault(); applyFilters(); }
       }}>
-        <PageFilterBar collapsible defaultCollapsed={filterBarCollapsedByDefault} preferenceKey="log-explorer" label="조회 조건" summaryItems={summaryItems} hasPendingChanges={pending} fields={[
+        <PageFilterBar collapsible defaultCollapsed preferenceKey="log-explorer" label="조회 조건" summaryItems={summaryItems} hasPendingChanges={pending} fields={[
           ...fields, { key: 'period', label: '기간 시작·끝', kind: 'custom', content: <p className="text-xs text-text-secondary">Source 조회 계약에서 미지원</p> },
         ]} actions={<><Button size="toolbar" disabled={!pending || contextInvalid} onClick={applyFilters}>적용</Button><Button variant="ghost" size="toolbar" onClick={clearFilters}>초기화</Button>{!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending || contextInvalid} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: currentInvestigation.version }).then(r => { if (r.outcome === 'ok' && r.version) acceptVersion(r.version); setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 저장 여부를 다시 확인하세요.' : '조건을 저장하지 못했습니다.'); }).catch(() => undefined); }}>조건 저장</Button>}</>} />
       </div>

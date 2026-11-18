@@ -60,7 +60,7 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
       {issues.status === 'done' && issues.data?.rows.length ? <><p className="text-text-secondary">최근 활동 검증 항목{issues.data.nextCursor ? ` ${issues.data.rows.length}건만 표시` : ''}</p>{issues.data.rows.map(row => <p key={row.id}>{row.title}</p>)}</> : null}
     </section>
     <Disclosure label="근거 스냅샷"><pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(available.basis, null, 2)}</pre></Disclosure>
-    <form onKeyDown={event => { ime.onKeyDown(event); if (!event.defaultPrevented && event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.type === 'text') { event.preventDefault(); requestConfirmation(); } }} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-3" onSubmit={e => { e.preventDefault(); requestConfirmation(); }}>
+    <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-3" onSubmit={e => { e.preventDefault(); requestConfirmation(); }}>
       <fieldset disabled={locked}><legend className="mb-2 text-sm">결정</legend><RadioGroup aria-label="결정" value={selected?.allowed ? decision : ''} onValueChange={v => { update({ decision: v as typeof decision, result: null }); }} orientation="horizontal">
         {(['approved', 'rejected', 'exception'] as const).map(d => <label key={d} className="flex items-center gap-2 text-sm"><RadioGroupItem value={d} disabled={!available.decisions[d].allowed} />{GATE_LABEL[d]}</label>)}
       </RadioGroup></fieldset>

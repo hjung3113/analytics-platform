@@ -706,8 +706,12 @@ it('resets local Source filters when the host changes Round (#2056)', async () =
   expect((screen.getByLabelText('Module') as HTMLInputElement).value).toBe('');
 });
 
+// The bar starts collapsed; once opened, the stored preference keeps it open on remount.
+const openFilters = async () => { await screen.findByRole('button', { name: /조회 조건 (펼치기|접기)/ }); const expand = screen.queryByRole('button', { name: '조회 조건 펼치기' }); if (expand) fireEvent.click(expand); };
+
 it('applies a filter on Enter, stores it in the URL and restores it after remount', async () => {
   const mounted = mount();
+  await openFilters();
   const module = await screen.findByLabelText('Module');
   fireEvent.change(module, { target: { value: 'module-a' } });
   fireEvent.keyDown(module, { key: 'Enter' });
@@ -716,12 +720,14 @@ it('applies a filter on Enter, stores it in the URL and restores it after remoun
   expect(write).not.toHaveBeenCalled();
   mounted.unmount();
   mount();
+  await openFilters();
   expect((await screen.findByLabelText('Module') as HTMLInputElement).value).toBe('module-a');
   await waitFor(() => expect(read.mock.calls.filter(([r]) => r.endpoint === 'logExplorer.records').at(-1)?.[0].params).toMatchObject({ query: { module: 'module-a' } }));
 });
 
 it('does not apply a composing Enter in a filter field', async () => {
   mount();
+  await openFilters();
   const module = await screen.findByLabelText('Module');
   fireEvent.change(module, { target: { value: 'module-a' } });
   fireEvent.keyDown(module, { key: 'Enter', isComposing: true });
@@ -733,6 +739,7 @@ it('does not apply a composing Enter in a filter field', async () => {
 
 it('commits table search text alone and writes its text page key', async () => {
   mount();
+  await openFilters();
   fireEvent.change(await screen.findByLabelText('Module'), { target: { value: 'draft-module' } });
   const search = await screen.findByPlaceholderText('요약 검색');
   fireEvent.change(search, { target: { value: 'needle' } });
@@ -746,6 +753,7 @@ it('commits table search text alone and writes its text page key', async () => {
 it('restores a single Context URL key into draft only and keeps apply disabled', async () => {
   window.history.replaceState(null, '', '/log/explorer?v=1&contextKey=job');
   mount();
+  await openFilters();
   expect((await screen.findByLabelText('Context 키') as HTMLInputElement).value).toBe('job');
   expect((screen.getByLabelText('Context 값') as HTMLInputElement).value).toBe('');
   expect(screen.getByRole('alert').textContent).toContain('Context 키와 값을 함께 입력하세요.');
