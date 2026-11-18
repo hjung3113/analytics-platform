@@ -67,6 +67,12 @@ describe('editable column groups (#2481)', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: '중간' }));
     expect(stored()).not.toHaveProperty('groups');
   });
+  it('names the popover by its visible title, and by the group title while choosing members (#2517)', async () => {
+    await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    expect(screen.getByRole('dialog', { name: '컬럼 설정 (브라우저에 저장)' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '묶음 만들기' }));
+    expect(screen.getByRole('dialog', { name: '묶음 만들기' })).toBeInTheDocument();
+  });
   it('bounds the popover to the available height so the footer stays reachable in a short dialog', async () => {
     await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
     const box = screen.getByRole('button', { name: '묶음 만들기' }).closest<HTMLElement>('[role=dialog]')!;

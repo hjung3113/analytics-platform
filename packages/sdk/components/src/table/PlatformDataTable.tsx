@@ -821,14 +821,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
   const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => { if (!open) groupEditor.cancel(); setOverlayOpen(o => ({ ...o, columns: open })); }}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
-    <PopoverContent align="end" className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); closeGroupEditor(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+    <PopoverContent align="end" aria-labelledby={p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? `${columnPrefsId}-choose-title` : `${columnPrefsId}-title`} className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); closeGroupEditor(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
       event.preventDefault();
       if (!columnsOutside.current) moreButton.current?.focus();
       columnsOutside.current = false;
     } : undefined}>
       {p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? <ColumnGroupChooseView editor={groupEditor} idPrefix={columnPrefsId} onSave={saveGroupMembers} onCancel={() => closeGroupEditor()}
         columns={dataColumns.map(c => ({ id: c.id, label: nameOf(c), hidden: !c.getIsVisible(), group: paths.get(c.id)?.[0] ? columnGroupLabel(p.columnGroups, paths.get(c.id)![0]) : undefined }))} /> : <>
-      <p className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
+      <p id={`${columnPrefsId}-title`} className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
       <div className="space-y-3">
         {pinnedPrefs.length > 0 && <div>
           <p className="mb-1 text-xs text-text-secondary">{m('tableColumnPinned')}</p>
