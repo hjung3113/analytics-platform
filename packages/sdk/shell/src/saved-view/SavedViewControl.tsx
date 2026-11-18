@@ -282,6 +282,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
     <ViewSelector
       views={items} currentId={selected?.view.id ?? null} defaultId={views.defaultId} state={state} discardsChanges={discards}
+      selectionDisabled={host.queryPolicy.autoApplyingDefault === true}
       loading={views.status === 'loading'} error={views.status === 'unavailable'} onRetry={views.refresh}
       groups={groups.entries.map(entry => ({ id: entry.group.id, name: entry.group.name }))} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} userId={userId} ownerLabel={ownerName} staleIds={staleIds} panelCount={panelCount}
       onSelect={id => { void views.select(id).then(pickFailed); }}

@@ -84,6 +84,20 @@ describe('ViewSelector', () => {
     expect(screen.getByRole('menuitem', { name: '저장본으로 되돌리기' })).toBeVisible();
   });
 
+  it('keeps revert unavailable until selection is enabled again', async () => {
+    const user = userEvent.setup();
+    const onRevert = vi.fn();
+    const { rerender } = render(<Harness state="modified" selectionDisabled onRevert={onRevert} />);
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    const revert = screen.getByRole('menuitem', { name: '저장본으로 되돌리기' });
+    expect(revert).toHaveAttribute('aria-disabled', 'true');
+    await user.click(revert);
+    expect(onRevert).not.toHaveBeenCalled();
+    rerender(<Harness state="modified" onRevert={onRevert} />);
+    await user.click(revert);
+    expect(onRevert).toHaveBeenCalledTimes(1);
+  });
+
   it('for a view I cannot edit, only my-copy saving is offered and the reason is read', async () => {
     const user = userEvent.setup();
     render(<Harness currentId="b" state="modified" />);

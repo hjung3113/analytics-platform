@@ -22,6 +22,8 @@ export type ViewSelectorProps = {
   state: ViewSelectorState;
   /** Switching would lose changes. Defaults to `state !== 'clean'`; pass it when the shown state hides a draft or an edit. */
   discardsChanges?: boolean;
+  /** Temporarily disable choosing a view and restoring the saved copy. */
+  selectionDisabled?: boolean;
   loading?: boolean;
   error?: boolean;
   onRetry?: () => void;
@@ -66,7 +68,7 @@ const matches = (item: SavedViewListItem, query: string, filter: ViewFilter, use
 };
 
 export function ViewSelector(props: ViewSelectorProps) {
-  const { views, currentId, defaultId, state, loading, error, query, filter, userId, groups = [] } = props;
+  const { views, currentId, defaultId, state, selectionDisabled, loading, error, query, filter, userId, groups = [] } = props;
   const [open, setOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -158,7 +160,7 @@ export function ViewSelector(props: ViewSelectorProps) {
     <div className="inline-flex items-center gap-1">
       <Popover open={open} onOpenChange={next => { setOpen(next); if (!next) setDetailId(null); }}>
         <PopoverTrigger asChild>
-          <Button ref={trigger} type="button" variant="ghost" size="toolbar" aria-label={`${m('svTrigger')}: ${triggerLabel}`}>
+          <Button ref={trigger} type="button" variant="ghost" size="toolbar" disabled={selectionDisabled} aria-label={`${m('svTrigger')}: ${triggerLabel}`}>
             <span className="max-w-48 truncate">{triggerLabel}</span>
             {badge && <Badge variant="outline">{badge}</Badge>}
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
@@ -192,7 +194,7 @@ export function ViewSelector(props: ViewSelectorProps) {
                     <li key={item.id} className="p-2 text-xs text-text-secondary">{m('svDenied')} · {item.reason}</li>
                   ) : (
                     <li key={item.view.id} data-view-id={item.view.id} className="flex items-start gap-1">
-                      <button data-view-row type="button" className="flex min-w-0 flex-1 items-start gap-1.5 rounded-md p-2 text-left text-xs hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" aria-current={item.view.id === currentId ? 'true' : undefined} onClick={() => choose(item.view.id)}>
+                      <button data-view-row type="button" disabled={selectionDisabled} className="flex min-w-0 flex-1 items-start gap-1.5 rounded-md p-2 text-left text-xs hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" aria-current={item.view.id === currentId ? 'true' : undefined} onClick={() => choose(item.view.id)}>
                         <Check className={item.view.id === currentId ? 'h-3.5 w-3.5 shrink-0' : 'h-3.5 w-3.5 shrink-0 invisible'} aria-hidden />
                         <span className="min-w-0 flex-1">
                           <span className="block break-words">{item.view.name}</span>
@@ -222,7 +224,7 @@ export function ViewSelector(props: ViewSelectorProps) {
           {current && !canEdit && current.capabilities.reason && <DropdownMenuLabel><span className="block max-w-64 whitespace-normal break-words">{current.capabilities.reason}</span></DropdownMenuLabel>}
           {current && canEdit && <DropdownMenuItem disabled={state === 'clean'} onSelect={() => { void props.onSave?.(); }}>{m('svSaveCurrent')}</DropdownMenuItem>}
           {showNew && <DropdownMenuItem onSelect={() => props.onSaveAs?.()}>{newLabel}</DropdownMenuItem>}
-          {current && state === 'modified' && <DropdownMenuItem onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
+          {current && state === 'modified' && <DropdownMenuItem disabled={selectionDisabled} onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={deleteId !== null} onOpenChange={next => { if (!next) setDeleteId(null); }}>
@@ -256,8 +258,8 @@ export function ViewSelector(props: ViewSelectorProps) {
           </DialogHeader>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => { setPendingId(null); trigger.current?.focus(); }}>{t('cancel')}</Button>
-            <Button type="button" variant="secondary" onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
-            {pendingSave && <Button type="button" onClick={() => { void settlePending(true); }}>{m(pendingSave === 'current' ? 'svDiscardSave' : pendingSave === 'copy' ? 'svDiscardSaveCopy' : 'svDiscardSaveNew')}</Button>}
+            <Button type="button" variant="secondary" disabled={selectionDisabled} onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
+            {pendingSave && <Button type="button" disabled={selectionDisabled} onClick={() => { void settlePending(true); }}>{m(pendingSave === 'current' ? 'svDiscardSave' : pendingSave === 'copy' ? 'svDiscardSaveCopy' : 'svDiscardSaveNew')}</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
