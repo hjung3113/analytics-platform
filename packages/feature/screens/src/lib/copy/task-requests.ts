@@ -22,3 +22,7 @@ export const TASK_REQUEST_COPY = {
   peerApproved: '다른 검토자가 승인함',
   notApproved: '아직 승인되지 않음',
 };
+
+/** #2530: the open request is not a row of the shown list, so its decisions are not offered here. */
+export const TASK_REQUEST_OUTSIDE_LIST_MESSAGE = (statusLabel: string): string =>
+  `이 요청은 지금 목록에 없습니다. 결정하려면 「${statusLabel}」 목록에서 요청을 여세요.`;

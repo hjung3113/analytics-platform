@@ -1,7 +1,10 @@
 import { DETAIL_PANEL_KICKERS } from '../../../../lib/copy/detail-panel';
 import { TASK_REQUEST_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
-import { TASK_REQUEST_REVIEW_DECISION_LABEL } from '../../../../lib/copy/task-requests';
+import {
+  TASK_REQUEST_OUTSIDE_LIST_MESSAGE,
+  TASK_REQUEST_REVIEW_DECISION_LABEL,
+} from '../../../../lib/copy/task-requests';
 import type { WorkspaceActor } from '../../../../lib/cross-system/useWorkspaceActors';
 import { formatShortDateTime } from '../../../../lib/format/datetime';
 import type { ClosableDetailParts, DetailPartsOptions } from '../../../../lib/host/detail-parts';
@@ -54,6 +57,12 @@ export interface TaskRequestPanelProps extends DetailPartsOptions {
   getCompletedFocusTarget?: (result: TaskRequestDto) => HTMLElement | null;
   onDecisionCloseComplete?: () => void;
   decisionRecovery?: React.ReactNode;
+  /**
+   * #2530: the open request is not a row of the shown list (another status tab, a reviewer filter, a page not loaded
+   * yet). The panel stays readable, but its decision actions are replaced by this notice, so no decision acts on a row
+   * outside the list.
+   */
+  outsideList?: boolean;
 }
 
 /** The Task Request panel as parts a host places in its own chrome (#763 q2); `displayId` is the header's id. */
@@ -88,6 +97,7 @@ export function TaskRequestPanelBody({
   onDecisionCloseComplete,
   decisionRecovery,
   titleInHeader,
+  outsideList = false,
 }: TaskRequestPanelProps) {
   const fullscreen = React.useContext(DetailPanelFullscreenContext);
   const decisionHeadingRef = React.useRef<HTMLHeadingElement>(null);
@@ -160,6 +170,19 @@ export function TaskRequestPanelBody({
             reviewerName={reviewer?.display_name}
             taskForOutcome={taskForOutcome}
           />
+        ) : outsideList ? (
+          <section
+            data-anchor="decision"
+            data-testid="task-request-outside-list"
+            className="border-t border-border-subtle px-4 py-4"
+          >
+            <PanelSectionTitle ref={decisionHeadingRef} tabIndex={-1}>
+              {TASK_REQUEST_REVIEW_DECISION_LABEL}
+            </PanelSectionTitle>
+            <p role="status" className="text-sm text-text-muted">
+              {TASK_REQUEST_OUTSIDE_LIST_MESSAGE(TASK_REQUEST_STATUS_LABELS[item.status])}
+            </p>
+          </section>
         ) : (
           <TaskRequestDecisionSection
             headingRef={decisionHeadingRef}

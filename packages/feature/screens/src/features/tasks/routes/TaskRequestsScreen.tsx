@@ -258,6 +258,9 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                 eligibleActors,
                 currentActorId: queue.currentActorId,
                 currentRole: queue.currentRole,
+                // #2530: decisions only for a row of the shown list. The post-decision handoff keeps its own item.
+                outsideList:
+                  retainedPanel === null && !queue.shown.some((row) => row.id === panelItem.id),
                 ...(titleInHeader ? { titleInHeader } : {}),
                 onClose: () => {
                   if (queue.selectedId !== null) returnFocus(queue.selectedId);

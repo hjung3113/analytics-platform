@@ -111,19 +111,23 @@ vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
     item,
     onClose,
     onDecisionComplete,
+    outsideList,
   }: {
     item: TaskRequestDto;
     onClose: () => void;
     onDecisionComplete?: (item: TaskRequestDto) => void;
+    outsideList?: boolean;
   }) => (
     <section data-testid="detail">
       {item.display_id}
       <button type="button" onClick={onClose}>
         Close
       </button>
-      <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
-        Approve
-      </button>
+      {!outsideList && (
+        <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
+          Approve
+        </button>
+      )}
     </section>
   );
   return {
@@ -712,4 +716,28 @@ it('shows the deep-linked reviewer Actor in the picker without a raw ID input', 
   const picker = screen.getByRole('combobox', { name: '검토자 필터' });
   expect(picker).toHaveTextContent('검토 운영자');
   expect(document.querySelector('#reviewer-filter-id')).toBeNull();
+});
+
+it('#2530: a deep-linked request off the loaded page is readable but offers no decision until its row loads', async () => {
+  const older = { ...first, id: 'older', display_id: 'REQ-OLDER' };
+  mockQueue([first, older], [older.id]);
+  const mounted = mount(`${initial}&param=${older.id}`);
+  expect(await screen.findByTestId('detail')).toHaveTextContent('REQ-OLDER');
+  await settledQueue(mounted);
+  expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+  mockQueue([first, older]);
+  await settledQueue(mounted);
+  expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument();
+});
+it('#2530: a reviewer-filtered URL never offers a decision for a request the filtered list does not hold', async () => {
+  const other = { ...first, id: 'other', display_id: 'REQ-OTHER' };
+  vi.mocked(fetchTaskRequests).mockImplementation(async (query) => ({
+    items: query?.reviewer === undefined ? [first, other] : [first],
+    page: { total: query?.reviewer === undefined ? 2 : 1, has_more: false },
+  }));
+  vi.mocked(getTaskRequest).mockResolvedValue(other);
+  const mounted = mount(`${initial}&reviewer=me&param=${other.id}`);
+  expect(await screen.findByTestId('detail')).toHaveTextContent('REQ-OTHER');
+  await settledQueue(mounted);
+  expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
 });
