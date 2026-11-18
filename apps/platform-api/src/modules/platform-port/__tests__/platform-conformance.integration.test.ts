@@ -170,6 +170,7 @@ const NOT_REGISTERED: readonly string[] = [
   'configuration.detail',
   'configuration.export',
   'configuration.history',
+  'configuration.pivot',
   'configuration.tree',
   'configuration.tree-navigation',
 ];

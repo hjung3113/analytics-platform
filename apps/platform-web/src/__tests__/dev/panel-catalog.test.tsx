@@ -14,6 +14,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); restoreGeometry(); });
 describe('dev panel catalog (#2433)', () => {
+  it('indexes the Configuration equipment axis in the comparison panel recipe', () => {
+    expect(registry.panelsReading('axis')).toContainEqual(expect.objectContaining({
+      menuId: 'configuration',
+      id: 'matrix',
+      endpoints: expect.arrayContaining([expect.objectContaining({ id: 'configuration.pivot' })]),
+      pieces: expect.arrayContaining(['PlatformDataTable']),
+    }));
+  });
+
   it('renders the real registry and filters rows by reading or writing key', async () => {
     const assembly = await createAssembly({ registry }) as Assembly;
     render(<I18nProvider><PlatformProvider equipmentAxes={EQUIPMENT_AXES} registry={registry} adapter={assembly.adapter}>{assembly.topBarTools}</PlatformProvider></I18nProvider>);

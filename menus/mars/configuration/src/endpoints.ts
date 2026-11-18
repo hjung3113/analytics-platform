@@ -1,5 +1,5 @@
 /** Synthetic Configuration comparison wire contract; domain semantics stay outside the SDK. */
-import { defineEndpoint, menuPermission, parseFilterParams, wallClockEpochMs, type GlobalContext, type ColumnFilterSpec, type MatrixNode, type MatrixWindow, type MatrixWindowQuery, type SavedViewSupport } from '@ap/contracts';
+import { defineEndpoint, menuPermission, parseFilterParams, wallClockEpochMs, type GlobalContext, type ColumnFilter, type ColumnFilterSpec, type MatrixNode, type MatrixWindow, type MatrixWindowQuery, type SavedViewSupport } from '@ap/contracts';
 
 export const EQUIPMENT = Array.from({ length: 20 }, (_, index) => `EQ${String(index + 1).padStart(2, '0')}`);
 export const DEFAULT_EQUIPMENT = EQUIPMENT.slice(0, 12);
@@ -17,7 +17,13 @@ export type ConfigRow = {
 };
 export type StatusCounts = Record<CompareStatus, number>;
 export type TreeRow = MatrixNode & { axis?: string; parentId?: string; differences: number; item?: ConfigRow };
-export type TreeParams = CompareParams & MatrixWindowQuery;
+export type PivotParams = CompareParams & { levels: string[]; filters?: ColumnFilter[] };
+export type TreeParams = PivotParams & MatrixWindowQuery;
+export type PivotColumn = Omit<ConfigRow, 'values'>;
+export type PivotRow = { id: string; values: Record<string, ConfigValue> };
+export type PivotResult = { over: true; count: number } | { over: false; count: number; columns: PivotColumn[]; rows: PivotRow[] };
+// Bound rendered columns for readability because the table does not virtualize them.
+export const COLUMN_LIMIT = 200;
 export type TreePage = MatrixWindow<TreeRow> & { counts: StatusCounts; totalItems: number; expanded: string[]; firstItem: string | null; sameColumns: string[] };
 export type TreeNavigationParams = TreeParams & { focus: string | null; direction: 'previous' | 'next' };
 export type TreeNavigation = { focus: string; expanded: string[]; offset: number; ordinal: number; total: number } | null;
@@ -51,11 +57,14 @@ export const filterSpecs = (equipment: readonly string[]): Record<string, Column
 export const readFilters = (values: readonly string[], equipment: readonly string[]) => parseFilterParams(values, filterSpecs(equipment), 'filter');
 
 export const TREND_ITEM_KEY = 'trendItem';
-export const PAGE_KEYS = ['equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY];
+export const AXIS_KEY = 'axis';
+export const EQUIPMENT_AXIS = 'equipment';
+export const PAGE_KEYS = [AXIS_KEY, 'equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY];
 export const SAVED_VIEW_SUPPORT: SavedViewSupport = { menuId: 'configuration', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: PAGE_KEYS };
 // The synthetic latest value represents the end-of-period snapshot.
 const base = { menuId: 'configuration', permission: menuPermission('analytics:view'), requiresScope: false, context: { time: 'apply' } as const, kinds: ['collection', 'coverage'] as const, mergeTimeDomain: false };
 const conditions = { eq: true, mode: true, ref: true, status: true, q: true, asOf: true, coreOnly: true, filters: true, levels: true } as const;
+export const configurationPivotEndpoint = defineEndpoint<PivotParams, PivotResult>({ ...base, id: 'configuration.pivot', paramKeys: conditions });
 export const configurationTreeEndpoint = defineEndpoint<TreeParams, TreePage>({ ...base, id: 'configuration.tree', paramKeys: { ...conditions, expanded: true, offset: true, limit: true } });
 export const configurationTreeNavigationEndpoint = defineEndpoint<TreeNavigationParams, TreeNavigation>({ ...base, id: 'configuration.tree-navigation', paramKeys: { ...configurationTreeEndpoint.paramKeys, focus: true, direction: true } });
 export const configurationDetailEndpoint = defineEndpoint<TreeParams & { focus: string }, ConfigRow>({ ...base, id: 'configuration.detail', paramKeys: { ...configurationTreeEndpoint.paramKeys, focus: true } });

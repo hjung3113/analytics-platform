@@ -49,12 +49,22 @@ export type TreeMatrixProps<N extends MatrixNode = MatrixNode> = Omit<MatrixWind
   emphasisActionLabel?: string;
   emphasisColumnLabel?: string;
   formatEmphasisCount?: (count: number, node: N) => string;
+  /**
+   * @deprecated Build the filter line outside the matrix (`useTableFilterDeclaration` + `FilterLine` in the consumer's toolbar) so it
+   * stays mounted through empty and error results; removed next SDK minor (#2514).
+   */
   filterFields?: readonly MatrixFilterField[];
+  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
   filters?: readonly ColumnFilter[];
+  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
   filterKey?: string;
+  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
   filterValues?: readonly string[];
+  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
   onFiltersChange?: (filters: ColumnFilter[]) => void;
+  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
   validateFilter?: FilterValueCheck;
+  /** @deprecated Render toolbar controls outside the matrix, beside the consumer's filter line; removed next SDK minor (#2514). */
   toolbar?: ReactNode;
 };
 

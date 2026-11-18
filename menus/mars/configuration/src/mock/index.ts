@@ -1,7 +1,7 @@
 /** Deterministic synthetic CFG fixture, promoted from the approved A′ prototype. */
 import { defineMockEndpoint, MockRequestError, type AnyMockEndpoint } from '@ap/mock-server';
 import { filterRows, validateFilters, type ColumnFilter } from '@ap/contracts';
-import { configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, historyPeriod, type ConfigHistory, type HistoryParams, DEFAULT_EQUIPMENT, EQUIPMENT, ROW_COUNT, TREE_WINDOW, EXPORT_LIMIT, STATUS, isRowId, validEquipment, validLevels, filterSpecs, type CompareParams, type ConfigRow, type ConfigValue, type StatusCounts, type TreeParams, type TreePage, type TreeRow, type TreeNavigationParams, type TreeNavigation } from '../endpoints';
+import { configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationPivotEndpoint, COLUMN_LIMIT, historyPeriod, type ConfigHistory, type HistoryParams, DEFAULT_EQUIPMENT, EQUIPMENT, ROW_COUNT, TREE_WINDOW, EXPORT_LIMIT, STATUS, isRowId, validEquipment, validLevels, filterSpecs, type CompareParams, type ConfigRow, type ConfigValue, type StatusCounts, type TreeParams, type PivotParams, type PivotResult, type TreePage, type TreeRow, type TreeNavigationParams, type TreeNavigation } from '../endpoints';
 const SEED = 2434;
 const ITEMS_PER_CATEGORY = 1000;
 const CATEGORIES_PER_MODULE = 15;
@@ -61,7 +61,10 @@ function identity(index: number) {
   const parameter = parameterFor(index);
   const item = ordinal === 29 ? 'Pressure Setpoint / Auxiliary Chamber Stabilization Sequence / Extended Hold Threshold' : parameter.name;
   const filename = parameter.file;
-  return { id: idOf(index), module, category, item, filename, group: `${module} › ${category}`, key: `${module} / ${category} / ${item} / ${filename}` };
+  const id = idOf(index);
+  // Later fixture ordinals repeat the same item/file in a category; the full key still identifies one leaf.
+  const instance = ordinal < PARAMETERS.length || ordinal === 29 ? '' : ` · ${id}`;
+  return { id, module, category, item, filename, group: `${module} › ${category}`, key: `${module} / ${category} / ${item} / ${filename}${instance}` };
 }
 
 function valuesFor(index: number, params: CompareParams): Record<string, ConfigValue> {
@@ -165,16 +168,19 @@ function filterValue(index: number, id: string, params: CompareParams) {
 }
 
 /** Count and filter before windowing; never infer equipment visibility from the loaded 80 rows. */
-function scan(params: TreeParams) {
+function scan(params: PivotParams, { includeColumnSummary = true } = {}) {
   const indices: number[] = [];
   const differences = new Set<number>();
   const affected = new Set<string>();
   const counts: StatusCounts = { all: 0, review: 0, diff: 0, violation: 0, missing: 0 };
   const search = params.q.trim().toLowerCase();
   const specs = filterSpecs(params.eq);
-  for (let index = 0; index < ROW_COUNT; index++) {
+  // Mock-only search token for repeatable boundary measurements. Other filters still apply.
+  const fixture = /^synthetic-item-count:(\d{1,3})$/.exec(search);
+  const end = fixture ? Math.min(Number(fixture[1]), ROW_COUNT) : ROW_COUNT;
+  for (let index = 0; index < end; index++) {
     if (params.coreOnly && index % 10 < 4) continue;
-    if (search && !Object.values(identity(index)).join(' ').toLowerCase().includes(search)) continue;
+    if (!fixture && search && !Object.values(identity(index)).join(' ').toLowerCase().includes(search)) continue;
     if (params.filters?.length && filterRows([index], params.filters, (row, id) => filterValue(row, id, params), { specs }).length === 0) continue;
     const f = flags(index, params);
     counts.all++;
@@ -185,7 +191,7 @@ function scan(params: TreeParams) {
     if (!matchesStatus(f, params.status)) continue;
     indices.push(index);
     if (f.diff) differences.add(index);
-    if (!needsReview(f)) continue;
+    if (!includeColumnSummary || !needsReview(f)) continue;
     const values = valuesFor(index, params);
     const distribution = new Map<number | string, number>();
     for (const { value } of Object.values(values)) if (value !== null) distribution.set(value, (distribution.get(value) ?? 0) + 1);
@@ -203,8 +209,7 @@ function scan(params: TreeParams) {
 
 type Branch = { id: string; label: string; axis: string; parentId?: string; level: number; count: number; differences: number; children: Map<string, Branch>; leaves: number[] };
 const groupId = (path: [string, string][]) => `group:${encodeURIComponent(JSON.stringify(path))}`;
-function treePlan(params: TreeParams) {
-  const scanned = scan(params);
+function treePlan(params: TreeParams, scanned = scan(params)) {
   const roots = new Map<string, Branch>();
   for (const index of scanned.indices) {
     const row = identity(index);
@@ -252,6 +257,21 @@ function treePlan(params: TreeParams) {
   return { ...scanned, visible, ordered, ancestors, expanded: [...expanded] };
 }
 
+function pivot(params: PivotParams): PivotResult {
+  const scanned = scan(params, { includeColumnSummary: false });
+  const count = scanned.indices.length;
+  if (count > COLUMN_LIMIT) return { over: true, count };
+  if (count === 0) return { over: false, count, rows: [], columns: [] };
+  const { ordered } = treePlan({ ...params, expanded: ['collapsed'], offset: 0, limit: TREE_WINDOW }, scanned);
+  const items = ordered.map(index => makeRow(index, params));
+  const equipment = params.mode === 'reference' ? [params.ref, ...params.eq.filter(id => id !== params.ref)] : params.eq;
+  return {
+    over: false, count,
+    columns: items.map(({ values: _values, ...column }) => column),
+    rows: equipment.map(id => ({ id, values: Object.fromEntries(items.map(item => [item.id, item.values[id]])) })),
+  };
+}
+
 export function compareTree(params: TreeParams): TreePage {
   const plan = treePlan(params);
   const offset = Math.min(params.offset, Math.max(0, plan.visible.length - 1));
@@ -287,15 +307,21 @@ function validExpansion(id: unknown, levels: string[]) {
     return Array.isArray(path) && path.length > 0 && path.length <= levels.length && path.every((part, index) => Array.isArray(part) && part.length === 2 && part[0] === levels[index] && typeof part[1] === 'string' && part[1].length <= 200);
   } catch { return false; } // Malformed ids are rejected, never substituted with a default expansion.
 }
-export function validateTree({ params }: { params: TreeParams }) {
+function validateComparison({ params }: { params: PivotParams }) {
   if (!Array.isArray(params.eq) || !validEquipment(params.eq)) return 'Choose 2–20 unique synthetic equipment';
   if (!['all', 'reference'].includes(params.mode) || !EQUIPMENT.includes(params.ref) || !STATUS.includes(params.status) || typeof params.q !== 'string' || params.asOf !== 'latest') return 'Invalid comparison parameters';
   if (params.mode === 'reference' && !params.eq.includes(params.ref)) return 'Reference must be selected';
   if (params.coreOnly !== undefined && typeof params.coreOnly !== 'boolean') return 'Invalid CORE condition';
   if (!Array.isArray(params.levels) || !validLevels(params.levels)) return 'Invalid levels';
+  if (params.filters !== undefined && (!Array.isArray(params.filters) || params.filters.some(filter => !filter || typeof filter !== 'object') || !validateFilters(params.filters, filterSpecs(params.eq)).ok)) return 'Invalid filters';
+  return null;
+}
+export function validateTree(input: { params: TreeParams }) {
+  const invalid = validateComparison(input);
+  if (invalid) return invalid;
+  const { params } = input;
   if (!Array.isArray(params.expanded) || params.expanded.length > ROW_COUNT || params.expanded.some(id => !validExpansion(id, params.levels))) return 'Invalid expansion';
   if (!Number.isInteger(params.offset) || params.offset < 0 || !Number.isInteger(params.limit) || params.limit < 1 || params.limit > TREE_WINDOW) return 'Invalid window';
-  if (params.filters !== undefined && (!Array.isArray(params.filters) || params.filters.some(filter => !filter || typeof filter !== 'object') || !validateFilters(params.filters, filterSpecs(params.eq)).ok)) return 'Invalid filters';
   return null;
 }
 const syntheticSource = { source: 'synthetic.configuration' };
@@ -310,6 +336,8 @@ export const configurationMock: readonly AnyMockEndpoint[] = [
     },
     provisional: ({ data }) => data.series.some(series => series.points.some(point => point.value === null)),
   }),
+  defineMockEndpoint(configurationPivotEndpoint, { ...syntheticSource, validate: validateComparison, handle: ({ params }) => pivot(params),
+    isEmpty: data => data.count === 0, provisional: ({ data }) => !data.over && data.columns.some(item => item.missing || item.notComparable) }),
   defineMockEndpoint(configurationTreeEndpoint, { ...syntheticSource, validate: validateTree, handle: ({ params }) => compareTree(params), isEmpty: data => data.totalItems === 0, provisional: ({ data }) => data.counts.missing > 0 }),
   defineMockEndpoint(configurationTreeNavigationEndpoint, { ...syntheticSource, validate: input => validateTree(input) ?? (['next', 'previous'].includes(input.params.direction) && (input.params.focus === null || typeof input.params.focus === 'string' && isRowId(input.params.focus)) ? null : 'Invalid navigation'), handle: ({ params }) => navigateTree(params) }),
   defineMockEndpoint(configurationDetailEndpoint, { ...syntheticSource, validate: input => validateTree(input) ?? (typeof input.params.focus === 'string' && isRowId(input.params.focus) ? null : 'Invalid focus'), handle: ({ params }) => {

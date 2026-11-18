@@ -1,4 +1,5 @@
 import { StatusBadge, StatusBadgeFrame } from '@ap/ui';
+import type { MatrixCellTone } from '@ap/components';
 import type { useMessages } from '@ap/kernel';
 import type { CompareParams, ConfigRow, ConfigValue } from '../endpoints';
 import type { MESSAGES } from '../messages';
@@ -32,6 +33,13 @@ export function valueMeaning(row: ConfigRow, eq: string, params: CompareParams):
   if (!second || largest.equipment.length === second.equipment.length) return 'equal';
   return cell.value === largest.value ? 'equal' : 'diff';
 }
+export function valueTone(meaning: ConfigValue['state'] | undefined): MatrixCellTone | undefined {
+  if (meaning === 'diff') return 'info';
+  if (meaning === 'violation') return 'danger';
+  if (meaning === 'missing' || meaning === 'not-comparable') return 'missing';
+  return undefined;
+}
+
 export function RowStatus({ row, m }: { row: ConfigRow; m: Message }) {
   if (row.violation) return <StatusBadgeFrame appearance="compact" tone="danger" className="whitespace-nowrap break-keep">{m(row.diff ? 'combinedStatus' : 'violationChip')}</StatusBadgeFrame>;
   if (row.missing) return <StatusBadgeFrame appearance="compact" tone="muted" className="whitespace-nowrap break-keep">{m('missing')}</StatusBadgeFrame>;
