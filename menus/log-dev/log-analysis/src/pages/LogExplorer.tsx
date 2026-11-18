@@ -170,7 +170,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
       }}>
         {FILTER_BAR_KEYS.map((key, index) => <div key={key} className="grid gap-1.5">
           <Label htmlFor={`log-explorer-${key}`}>{FILTER_LABELS[key]}</Label>
-          <Input id={`log-explorer-${key}`} ref={index === 0 ? firstFilterRef : undefined} data-testid={key} maxLength={FILTER_MAX_LENGTH[key]} value={String(filters.draft[key] ?? '')} onChange={event => setFilters(f => ({ ...f, draft: { ...f.draft, [key]: event.currentTarget.value.slice(0, FILTER_MAX_LENGTH[key]) } }))} />
+          <Input id={`log-explorer-${key}`} ref={index === 0 ? firstFilterRef : undefined} data-testid={key} maxLength={FILTER_MAX_LENGTH[key]} value={String(filters.draft[key] ?? '')} onChange={event => { const value = event.currentTarget.value.slice(0, FILTER_MAX_LENGTH[key]); setFilters(f => ({ ...f, draft: { ...f.draft, [key]: value } })); }} />
         </div>)}
         <p className="text-xs text-text-secondary">기간 시작·끝 조건은 Source 조회 계약에서 미지원</p>
         {contextInvalid && <p role="alert" className="text-xs text-text-danger-label">Context 키와 값을 함께 입력하세요.</p>}

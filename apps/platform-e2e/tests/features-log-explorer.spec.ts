@@ -171,6 +171,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   });
   test('내보내기 범위·한도와 현재 어댑터의 미지원 이유', async ({ page }, info) => {
     await page.goto(investigation(1));
+    await expect(page.getByRole('table', { name: '원본 이벤트 목록', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '더보기', exact: true }).click();
     await page.getByRole('button', { name: '현재 범위 내보내기…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '현재 범위 내보내기', exact: true });

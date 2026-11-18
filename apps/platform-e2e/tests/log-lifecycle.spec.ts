@@ -92,6 +92,10 @@ test.describe('log-lifecycle screens (06 §6·§12·§17·§22)', () => {
     await expect(page.getByTestId('round-source-slot').getByRole('button', { name: '이 Round로 조사 시작', exact: true })).toBeVisible();
     await expect(page.getByRole('dialog', { name: 'Gate 결정' })).toHaveCount(0);
     await expect(page.getByTestId('round-source-slot').getByLabel('스크롤 가능한 행 영역', { exact: true })).toBeVisible();
+    // Rows scroll inside the table, bounded by the remaining pane; the page itself does not scroll.
+    const rows = page.getByTestId('round-source-slot').getByLabel('스크롤 가능한 행 영역', { exact: true });
+    await expect.poll(() => rows.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
+    await expect.poll(() => page.getByRole('main').evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
     const conditions = page.getByTestId('round-source-slot').getByRole('button', { name: /^조회 조건/ });
     await expect(conditions).toHaveAttribute('aria-expanded', 'false');
     await conditions.click();
