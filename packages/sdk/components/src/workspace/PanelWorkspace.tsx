@@ -7,7 +7,7 @@ import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands'
 import { focusSoon, focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
-import { DOCK_DROP_STRIP_CHROME, dockTheme } from '../dock/dockPresentation';
+import { dockTheme } from '../dock/dockPresentation';
 import { dockLayoutMenu } from '../dock/layoutMenu';
 import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
@@ -285,7 +285,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   // Commands read the latest render at call time, so their identity depends on what they display only.
   const live = useRef({ compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below });
   useLayoutEffect(() => { live.current = { compact, narrow, derived, presets, primaryId, rowMinimum, rowPreferred, maxRow, stackActive, maximizedId, initialPreset, stackPreset, below }; });
-  /** px that make one row fill what the page shows: the scroll container less what sits above the rows (the workspace's offset, the toolbar and its gap), the drop strip and the page's bottom padding. */
+  /** px that make one row fill what the page shows: the scroll container less the workspace offset, toolbar and its gap, and page bottom padding. */
   const oneRowHeight = useCallback(() => {
     const element = root.current;
     const container = element ? scrollContainerOf(element) : null;
@@ -296,7 +296,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const above = toolbar ? toolbar.getBoundingClientRect().height + (parseFloat(getComputedStyle(element).rowGap) || 0) : 0;
     const page = element.closest('[data-platform-page-content]');
     const padding = page ? parseFloat(getComputedStyle(page).paddingBottom) || 0 : 0;
-    return Math.floor(area - offset - above - DOCK_DROP_STRIP_CHROME - padding);
+    return Math.floor(area - offset - above - padding);
   }, []);
   const rowEnv = useCallback((): RowEnv => ({ minimum: live.current.rowMinimum, maximum: live.current.maxRow, baseline: lastFit.current ?? Math.max(NEW_ROW_HEIGHT, live.current.maxRow - TOOLBAR_CHROME), oneRow: oneRowHeight(), preferred: live.current.rowPreferred }), [oneRowHeight]);
   /** `keep`: an edit; rows follow the panels (`created`: the panel the edit moved into a row of its own, which is then a new row). `enter`: preset or reset; rows come from the new shares and the fit baseline, so repeating it cannot add height. `raw`: the edit decided the rows itself. */
@@ -530,7 +530,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const wasMaximizing = useRef(false);
   const savedScroll = useRef<number | null>(null);
   const cancelRestore = useRef<(() => void) | null>(null);
-  /** Every maximize request goes through here: the scroll position is read before the render that drops the strip and shrinks the box can clamp it. */
+  /** Every maximize request goes through here: the scroll position is read before the shorter box can clamp it. */
   const requestMaximized = (panelId: string | null) => {
     if (panelId !== null && maximizedId === null && live.current.stackActive && root.current) {
       const container = scrollContainerOf(root.current);
