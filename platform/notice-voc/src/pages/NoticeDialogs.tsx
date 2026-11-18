@@ -1,10 +1,10 @@
-import { formatText, usePlatform } from '@ap/kernel';
+import { formatText, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { NOTICE_VOC_MESSAGES } from '../messages';
 import { cloneElement, useEffect, useRef, useState, type ReactElement } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { ActionResponse, Notice, ScopeOption } from '@ap/contracts';
 import { StateMessage } from '@ap/components';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@ap/ui';
+import { Button, Dialog, DirtyConfirmation, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@ap/ui';
 import { attemptFor, CONTENT_MAX, emptyForm, fieldOfPath, formOf, TITLE_MAX, toDraft, validateForm, type Attempt, type FormErrors, type FormField, type NoticeForm } from '../notice-model';
 
 /** What a write dialog tells the page when it ends. `reload`: the list must be read again (conflict or already gone). */
@@ -73,13 +73,20 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
 /** Create or edit dialog. Real sessions have no granted sites, so 전체 is the only target until `session.scopes` supplies some. */
 export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notice | null; ko: boolean; scopes: readonly ScopeOption[]; onDone: (done: WriteDone) => void }) {
   const { adapter, toast } = usePlatform();
-  const [form, setForm] = useState<NoticeForm>(notice ? formOf(notice) : emptyForm());
+  const [initial] = useState<NoticeForm>(() => notice ? formOf(notice) : emptyForm());
+  const [form, setForm] = useState<NoticeForm>(initial);
+  const [asking, setAsking] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [failure, setFailure] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
   const attempt = useRef<Attempt | null>(null);
   const alive = useAlive();
   const text = ERROR_TEXT(ko);
+  const lang = ko ? 'ko' : 'en';
+  // #2533: a typed draft is never dropped without asking — Escape, outside click, the close button and «취소» all ask first, and leaving the menu asks through the shell.
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  useUnsavedGuard(dirty && !busy, { message: formatText(NOTICE_VOC_MESSAGES.noticeDialogsDiscardMessage, lang) });
+  const cancel = () => { if (busy) return; if (dirty) setAsking(true); else onDone({ kind: 'cancel' }); };
   const set = (patch: Partial<NoticeForm>) => { setForm(prev => ({ ...prev, ...patch })); setFailure(null); };
   const sites = [...scopes, ...(notice?.scopeId && !scopes.some(s => s.id === notice.scopeId) ? [{ id: notice.scopeId, label: notice.scopeId, grantedRooms: 0, totalRooms: 0 }] : [])];
 
@@ -112,7 +119,7 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
     setFailure(next);
   }
 
-  return <Dialog open onOpenChange={open => { if (!open && !busy) onDone({ kind: 'cancel' }); }}>
+  return <Dialog open onOpenChange={open => { if (!open) cancel(); }}>
     <DialogContent className="max-w-xl" closeLabel={formatText(NOTICE_VOC_MESSAGES.noticeDialogsClose, (ko ? 'ko' : 'en'))}>
       <DialogHeader>
         <DialogTitle>{notice ? (formatText(NOTICE_VOC_MESSAGES.noticeDialogsEditNotice, (ko ? 'ko' : 'en'))) : (formatText(NOTICE_VOC_MESSAGES.noticeDialogsWriteNotice, (ko ? 'ko' : 'en')))}</DialogTitle>
@@ -148,10 +155,13 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
           : <p className="text-sm text-text-secondary">{formatText(NOTICE_VOC_MESSAGES.noticeDialogsTargetSiteAll, (ko ? 'ko' : 'en'))}</p>}
         {failure && <FailureMessage failure={failure} ko={ko} onReload={() => onDone({ kind: 'reload' })} onRetry={() => void submit()} />}
         <DialogFooter>
-          <Button type="button" variant="secondary" disabled={busy} onClick={() => onDone({ kind: 'cancel' })}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsCancel, (ko ? 'ko' : 'en'))}</Button>
+          <Button type="button" variant="secondary" disabled={busy} onClick={cancel}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsCancel, (ko ? 'ko' : 'en'))}</Button>
           <Button type="submit" disabled={busy}>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsSave, (ko ? 'ko' : 'en'))}</Button>
         </DialogFooter>
       </form>
+      <DirtyConfirmation open={asking} title={formatText(NOTICE_VOC_MESSAGES.noticeDialogsDiscardTitle, lang)} message={formatText(NOTICE_VOC_MESSAGES.noticeDialogsDiscardMessage, lang)}
+        confirmLabel={formatText(NOTICE_VOC_MESSAGES.noticeDialogsDiscardConfirm, lang)} cancelLabel={formatText(NOTICE_VOC_MESSAGES.noticeDialogsKeepWriting, lang)}
+        onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); onDone({ kind: 'cancel' }); }} />
     </DialogContent>
   </Dialog>;
 }

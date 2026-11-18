@@ -16,6 +16,7 @@ import { SurveyBuilderScreen } from '../SurveyBuilderScreen';
 const DRAFT_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const onBack = vi.fn();
 let titles: (string | null)[] = [];
+let guarded: boolean[] = [];
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -43,6 +44,9 @@ function mount(surveyId: string) {
     useTitle: (title) => {
       titles.push(title);
     },
+    useUnsavedGuard: (dirty) => {
+      guarded.push(dirty);
+    },
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -57,6 +61,7 @@ function mount(surveyId: string) {
 beforeEach(() => {
   onBack.mockReset();
   titles = [];
+  guarded = [];
   installFetch({ canManage: true });
 });
 afterEach(cleanup);
@@ -116,5 +121,17 @@ describe('SurveyBuilderScreen over the host seam', () => {
     fireEvent.click(screen.getByRole('button', { name: '이동' }));
     expect(onBack).toHaveBeenCalledTimes(1);
     add.mockRestore();
+  });
+
+  it('declares the dirty draft to the host guard, so leaving the menu asks first (#2533)', async () => {
+    mount(DRAFT_ID);
+    const title = await screen.findByLabelText('설문 제목');
+    expect(guarded.at(-1)).toBe(false);
+    fireEvent.change(title, { target: { value: '바뀐 제목' } });
+    await waitFor(() => expect(guarded.at(-1)).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
+    fireEvent.click(await screen.findByRole('button', { name: '이동' }));
+    expect(guarded.at(-1)).toBe(false);
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

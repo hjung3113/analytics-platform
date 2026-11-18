@@ -375,3 +375,27 @@ describe('empty list', () => {
     expect(screen.getAllByRole('button', { name: '공지 작성' }).length).toBeGreaterThan(0);
   });
 });
+
+describe('unsaved compose (#2533)', () => {
+  it('asks before Escape discards a typed draft, keeps it on «계속 작성» and closes on discard', async () => {
+    mount(ADMIN, '/notices');
+    const dialog = await fillCreate();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    const ask = await screen.findByRole('alertdialog');
+    expect(ask.textContent).toContain('작성 중인 공지가 사라집니다');
+    fireEvent.click(within(ask).getByRole('button', { name: '계속 작성' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect((within(screen.getByRole('dialog')).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('새 공지');
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '버리기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('closes an untouched dialog at once', async () => {
+    mount(ADMIN, '/notices');
+    fireEvent.click(await screen.findByRole('button', { name: /공지 작성/ }));
+    fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+});
