@@ -35,6 +35,7 @@ function FocusBody({ identityChanged }: { identityChanged: boolean }) {
     <FocusView trust={<TrustBadge trust={load.trust} assessments={load.assessments} />} input={load.input} notices={load.notices} entityType={props.entityType} anchor={props.anchor} resetKey={resetKey}
       initialCursor={identityChanged ? null : props.cursor} onCursorCommit={(cursor) => setPage({ cursor }, { replace: true })}
       range={{ value: identityChanged ? null : props.range, onChange: (range, cursor) => setPage({ rangeFrom: range.from, rangeTo: range.to, cursor }, { replace: true }) }}
+      noDataCopy={{ title: m('replayNoDataTitle'), lastData: m('replayNoDataLastData') }}
       tab={tab} onTabChange={setTab} renderDetail={renderDetail}
       links={{ actions: <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:topview', { page: { equipment } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowLeft className="size-3.5" aria-hidden />Top View로</Button> }} />
     </>

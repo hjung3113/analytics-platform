@@ -435,7 +435,8 @@ it('makes visible components buttons and keeps overlay layers from taking the hi
   ], [], ['level-main']);
   const found = new Map<string, SvgNode>();
   const walk = (node: SvgNode) => {
-    const id = node.attrs['data-component-id'];
+    // Interactive labels also carry data-component-id; only Component groups carry data-level-id.
+    const id = node.attrs['data-level-id'] != null ? node.attrs['data-component-id'] : undefined;
     if (id) found.set(id, node);
     for (const child of node.children) if (typeof child !== 'string') walk(child);
   };

@@ -1,4 +1,5 @@
 // @eqv/views — host-neutral screen compositions over core, renderer, replay and ui (EV#177, EV ADR-0012).
 export { FocusView, type FocusTab, type FocusViewProps } from './FocusView.js';
+export { REPLAY_NO_DATA_MESSAGES, type ReplayNoDataCopy } from './messages.js';
 export { NoticeList } from './NoticeList.js';
 export { GANTT_SPAN_LIMIT, TIMELINE_BUDGET, timelineCost } from './timeline-cost.js';

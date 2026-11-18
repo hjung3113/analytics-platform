@@ -565,7 +565,7 @@ it('keeps the same DOM node for a component that the selection did not touch', (
   expect(componentEl(svg, 'mod')).toBe(selected);
   expect(componentEl(svg, 'other')).toBe(other);
   expect(selected.getAttribute('aria-pressed')).toBe('true');
-  expect(svg.querySelectorAll('[data-component-id]')).toHaveLength(layout.components.length);
+  expect(svg.querySelectorAll('[data-component-id][role="button"]')).toHaveLength(layout.components.length);
 });
 
 it('paints the toolbar with documented tokens', () => {
@@ -677,6 +677,24 @@ it('reports a component drag as root-frame deltas, keeps the camera and swallows
   ]);
   expect(svg.getAttribute('viewBox')).toBe(before);
   expect(componentEl(svg, 'other').getAttribute('aria-pressed')).toBe('true');
+});
+
+it('selects and drags a Component when its interactive label is the pointer target', () => {
+  const onComponentDrag = vi.fn();
+  const onSelectedChange = vi.fn();
+  const { svg } = mount({ layout, onComponentDrag, onSelectedChange });
+  const label = svg.querySelector('[data-layer="labels"] text[data-component-id="mod"]');
+  expect(label).not.toBeNull();
+
+  pointer(label!, 'pointerdown', 100, 100);
+  pointer(svg, 'pointermove', 130, 90);
+  pointer(svg, 'pointerup', 130, 90);
+
+  expect(onSelectedChange).toHaveBeenCalledWith('mod');
+  expect(dragged(onComponentDrag)).toEqual([
+    { componentId: 'mod', phase: 'move', dx: 30, dy: -10 },
+    { componentId: 'mod', phase: 'end', dx: 30, dy: -10 },
+  ]);
 });
 
 it.each(['mod', 'other'])('reports the same root-frame delta for %s, scaled by the zoom', (id) => {

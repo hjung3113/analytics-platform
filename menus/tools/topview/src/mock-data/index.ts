@@ -39,6 +39,7 @@ export function eqvMockEvents(params: { equipmentId: string; from: string; to: s
   const { occurrences, issues, watermark, ...rest } = batch;
   const window = { ...rest, equipmentId, from, to };
   if (equipmentId !== EQV_MOCK_EQUIPMENT) return { ...window, watermark, occurrences: [], issues: [] };
+  if (from > watermark.at) return { ...window, watermark, occurrences: [], issues: [] };
   const kept = occurrences.filter((occurrence) => occurrenceOverlapsWindow(occurrence, from, to));
   if (kept.length <= PAGE_SIZE) return { ...window, watermark, occurrences: kept, issues };
   if (continuationToken === undefined) {

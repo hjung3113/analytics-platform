@@ -14,13 +14,18 @@ vi.mock('@ap/kernel', async () => {
 vi.mock('@eqv/renderer', async () => {
   const actual = await vi.importActual<typeof import('@eqv/renderer')>('@eqv/renderer');
   const React = await import('react');
-  const Viewer = ({ layout, onSelectedChange, onComponentDrag }: { layout: { components: { id: string; transform: { x: number } }[] }; onSelectedChange?: (id: string | null) => void; onComponentDrag?: (d: { componentId: string; phase: string; dx: number; dy: number }) => void }) =>
-    React.createElement('div', { 'data-testid': 'viewer', 'data-draggable': String(onComponentDrag !== undefined) },
+  const Viewer = ({ layout, onSelectedChange, onComponentDrag }: { layout: { components: { id: string; transform: { x: number } }[] }; onSelectedChange?: (id: string | null) => void; onComponentDrag?: (d: { componentId: string; phase: string; dx: number; dy: number }) => void }) => {
+    const labelDrag = React.useRef(false);
+    return React.createElement('div', { 'data-testid': 'viewer', 'data-draggable': String(onComponentDrag !== undefined) },
       ...layout.components.map(c => React.createElement('button', { key: c.id, 'data-testid': `select-${c.id}`, onClick: () => onSelectedChange?.(c.id) }, c.id)),
+      React.createElement('button', { key: 'label', 'data-testid': 'label-proc-a', onPointerDown: () => { labelDrag.current = true; },
+        onPointerMove: () => { if (labelDrag.current) { onSelectedChange?.('proc-a'); onComponentDrag?.({ componentId: 'proc-a', phase: 'move', dx: 5, dy: 0 }); } },
+        onPointerUp: () => { if (labelDrag.current) { labelDrag.current = false; onComponentDrag?.({ componentId: 'proc-a', phase: 'end', dx: 5, dy: 0 }); } } }, 'proc-a label'),
       React.createElement('button', { key: 'move', 'data-testid': 'drag-move', onClick: () => onComponentDrag?.({ componentId: 'proc-a', phase: 'move', dx: 5, dy: 0 }) }, 'move'),
       React.createElement('button', { key: 'cancel', 'data-testid': 'drag-cancel', onClick: () => onComponentDrag?.({ componentId: 'proc-a', phase: 'cancel', dx: 0, dy: 0 }) }, 'cancel'),
       React.createElement('button', { key: 'end', 'data-testid': 'drag-end', onClick: () => onComponentDrag?.({ componentId: 'proc-a', phase: 'end', dx: 5, dy: 0 }) }, 'end'),
       React.createElement('output', { key: 'x', 'data-testid': 'proc-x' }, String(layout.components.find(c => c.id === 'proc-a')?.transform.x)));
+  };
   return { ...actual, TopViewer: Viewer };
 });
 
@@ -55,6 +60,7 @@ describe('permission matrix', () => {
     for (const name of ['초안 저장', 'Revision 게시', 'EV Template으로 승격', '가져오기', '내보내기', 'Component 추가', '실행 취소 · Ctrl/Cmd+Z']) expect(maybe(name), name).toBeNull();
     select('proc-a');
     expect(screen.queryByLabelText('이름')).toBeNull();
+    expect(screen.queryByText('저장 상태')).toBeNull();
     expect(within(guidance()).getByText('조회 전용 · 선택과 속성 확인 가능')).toBeTruthy();
     expect(screen.getByTestId('viewer').getAttribute('data-draggable')).toBe('false');
   });
@@ -84,6 +90,7 @@ describe('permission matrix', () => {
 
   it('edit and publish: save is disabled while clean, publish is enabled, the shortcuts are listed', async () => {
     await mount('both');
+    expect(screen.getByText('저장 상태').parentElement?.textContent).toContain('저장됨');
     expect((button('초안 저장') as HTMLButtonElement).disabled).toBe(true);
     expect((button('Revision 게시') as HTMLButtonElement).disabled).toBe(false);
     expect(within(guidance()).getByText(/Alt\+화살표 이동/)).toBeTruthy();
@@ -240,7 +247,7 @@ describe('import', () => {
     await waitFor(() => expect(title().textContent).toContain('brand-new'), slow);
     expect(server.state.writes).toEqual([]);
     expect(server.state.queries.length).toBeGreaterThan(before);
-    expect(await screen.findByText('저장 안 됨', {}, slow)).toBeTruthy();
+    await waitFor(() => expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy(), slow);
     await waitFor(() => expect((button('초안 저장') as HTMLButtonElement).disabled).toBe(false), slow);
     fireEvent.click(button('초안 저장'));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
@@ -251,7 +258,7 @@ describe('import', () => {
   it('an import of the open Layout replaces the draft as an unsaved edit at its version', async () => {
     await mount('edit');
     fireEvent.change(screen.getByTestId('layout-import-input'), { target: { files: [file({ ...FIXTURE, name: 'Imported name' })] } });
-    expect(await screen.findByText('저장 안 됨', {}, slow)).toBeTruthy();
+    await waitFor(() => expect(within(title().parentElement!).getByText('저장 안 됨')).toBeTruthy(), slow);
     expect(server.state.writes).toEqual([]);
     fireEvent.click(button('초안 저장'));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('초안을 저장했습니다', 'info'), slow);
@@ -375,6 +382,7 @@ describe('promote', () => {
   it('on a published Revision: validates the id, shows the source and role counts, and promotes', async () => {
     seedRevision();
     await mount('both', `&revision=${REVISION}`);
+    expect(screen.queryByText('저장 상태')).toBeNull();
     await waitFor(() => expect((button('EV Template으로 승격') as HTMLButtonElement).disabled).toBe(false), slow);
     expect(maybe('초안 저장')).toBeNull();
     fireEvent.click(button('EV Template으로 승격'));
@@ -452,6 +460,20 @@ describe('drag', () => {
     fireEvent.click(button('실행 취소 · Ctrl/Cmd+Z'));
     expect(x()).toBe(start);
     expect((button('실행 취소 · Ctrl/Cmd+Z') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a label drag selects the Component and shows the unsaved draft state', async () => {
+    await mount('both');
+    const x = () => Number(screen.getByTestId('proc-x').textContent);
+    const start = x();
+    const label = screen.getByTestId('label-proc-a');
+    fireEvent.pointerDown(label, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(label, { pointerId: 1, clientX: 20, clientY: 10 });
+    fireEvent.pointerUp(label, { pointerId: 1, clientX: 20, clientY: 10 });
+
+    expect(x()).not.toBe(start);
+    expect(screen.getByText('ID').parentElement?.textContent).toContain('proc-a');
+    expect(screen.getByText('저장 상태').parentElement?.textContent).toContain('저장 안 됨');
   });
 
   it('a cancelled drag leaves nothing to undo', async () => {
