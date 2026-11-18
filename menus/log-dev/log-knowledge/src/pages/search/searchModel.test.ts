@@ -1,31 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { parseSearchAddress, plainQuery, SEARCH_KEY_RULES } from './searchModel';
+import { recentKnowledgeTargets } from './searchModel';
 
-describe('knowledge search address', () => {
-  it('restores the explicit relation, kind and opposite section from a shareable address', () => {
-    expect(parseSearchAddress({ q: 'STEP_PROCESS', relation: JSON.stringify({ source: 'STEP_PROCESS', predicate: 'after', target: 'PROCESS_START' }), kind: 'expected', opposite: 'true' })).toMatchObject({
-      params: { q: 'STEP_PROCESS', relation: { source: 'STEP_PROCESS', predicate: 'after', target: 'PROCESS_START' }, kind: 'expected', includeOpposite: true }, active: true,
-    });
+describe('recent knowledge targets', () => {
+  it('deduplicates Item IDs while keeping recency positions and counts model and spec visits', () => {
+    const id = '00000005-0000-4000-8000-000000000001', model = '00000003-0000-4000-8000-000000000001';
+    expect(recentKnowledgeTargets([
+      { menuId: 'log-knowledge-item', url: `/log/knowledge/items/${id}?v=1`, at: 5 },
+      { menuId: 'log-knowledge-spec', url: `/log/knowledge/models/${model}/spec?v=1`, at: 4 },
+      { menuId: 'log-knowledge-item', url: `/log/knowledge/items/${id}`, at: 3 },
+      { menuId: 'log-knowledge-model', url: `/log/knowledge/models/${model}`, at: 2 },
+    ])).toEqual({ items: [{ id, visitIndexes: [0, 2] }], models: [{ id: model, visitIndex: 1 }, { id: model, visitIndex: 3 }] });
   });
-  it('keeps a bare address idle and refuses malformed address values', () => {
-    expect(parseSearchAddress({})).toMatchObject({ active: false });
-    const bad = (page: Record<string, string>) => SEARCH_KEY_RULES.filter(rule => page[rule.key] !== undefined && !rule.valid(page[rule.key]!)).map(rule => rule.key);
-    expect(bad({ relation: '{broken', kind: 'bad', opposite: 'yes' })).toEqual(['relation', 'kind', 'opposite']);
-    expect(bad({ relation: JSON.stringify({ source: ' A', predicate: 'before', target: 'B' }) })).toEqual(['relation']);
-    expect(bad({ relation: '' }), 'an empty relation is an absent one').toEqual([]);
-    for (const predicate of [['after'], { toString: null }, 1, null]) expect(bad({ relation: JSON.stringify({ source: 'A', predicate, target: 'B' }) }), JSON.stringify(predicate)).toEqual(['relation']);
-    expect(bad({ q: 'a'.repeat(201) })).toEqual(['q']);
-    expect(bad({ q: 'a'.repeat(200), kind: 'observed', opposite: 'false', relation: JSON.stringify({ source: 'A', predicate: 'after', target: 'B' }) })).toEqual([]);
-  });
-  it('removing interpretation turns an operator query into plain terms', () => {
-    expect(plainQuery('STEP_PROCESS before PROCESS_START')).toBe('STEP_PROCESS PROCESS_START');
-    expect(plainQuery('B_EVENT 나중 A_EVENT')).toBe('B_EVENT A_EVENT');
-    expect(plainQuery('압력 로그')).toBe('압력 로그');
-  });
-  it.each(['STEP_PROCESS→PROCESS_START', 'STEP_PROCESS →PROCESS_START', 'STEP_PROCESS→ PROCESS_START', 'ＳＴＥＰ_PROCESS→PROCESS_START'])('removes the server-recognized arrow in %s', q => {
-    expect(plainQuery(q)).toBe('STEP_PROCESS PROCESS_START');
-  });
-  it.each(['step before process', 'step → process', 'BEFORE before PROCESS_START', 'STEP_PROCESS after AFTER', 'STEP_PROCESS before PROCESS_START extra', '  압력 before 로그  '])('preserves non-operator text: %s', q => {
-    expect(plainQuery(q)).toBe(q);
+
+  it('ignores malformed URLs, unrelated routes and invalid IDs', () => {
+    expect(recentKnowledgeTargets([
+      { menuId: 'log-knowledge-item', url: '/log/knowledge/items/not-an-id', at: 1 },
+      { menuId: 'log-knowledge-model', url: '::bad url', at: 2 },
+      { menuId: 'log-knowledge-items', url: '/log/knowledge/items/00000005-0000-4000-8000-000000000001', at: 3 },
+    ])).toEqual({ items: [], models: [] });
   });
 });

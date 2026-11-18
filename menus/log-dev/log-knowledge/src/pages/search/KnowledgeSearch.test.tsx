@@ -21,6 +21,7 @@ const initialData = (): KnowledgeSearchData => ({
   indexLag: { lagSeconds: null, backfill: { state: 'done', percent: 100 } },
 });
 let data = initialData(), fail = false, rejectedCursor: string | null = null, requests: MenuQuery[] = [], hold: Promise<void> | null = null;
+const storedPreferences = new Map<string, string>();
 const ok = (value: unknown): ApiResponse<never> => ({ outcome: 'ok', data: value, assessments: [], trust: null, correlationId: 'search-test' }) as ApiResponse<never>;
 const session = testSession(['platform:view']);
 const adapter = testAdapter({
@@ -41,30 +42,49 @@ const adapter = testAdapter({
   },
 });
 const query = 'q=STEP_PROCESS%20before%20PROCESS_START';
+const recentModelId = '00000003-0000-4000-8000-000000000009';
+const recentDetail = {
+  item: { id: item.itemId, itemNo: item.itemNo, owner: { kind: 'model', modelId: recentModelId, modelName: 'MX-200' }, publicationState: 'published', verificationState: 'verified', processingState: 'open' },
+  revision: { title: item.title, typeCode: item.typeCode },
+};
+const recentProfile = { model: { id: recentModelId, code: 'MX-200', name: 'MX-200', vendor: { name: 'Acme' } } };
 function mount(q = query) {
   window.history.replaceState(null, '', `/log/knowledge/search${q ? `?${q}` : ''}`);
   return render(treeWith({ registry, adapter, ui: <KnowledgeSearch /> }));
 }
 let restoreGeometry = () => {};
-beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); data = initialData(); fail = false; rejectedCursor = null; requests = []; hold = null; });
-afterEach(() => { cleanup(); restoreGeometry(); });
+beforeEach(() => {
+  Object.defineProperty(window, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => storedPreferences.get(key) ?? null,
+    setItem: (key: string, value: string) => { storedPreferences.set(key, value); },
+    removeItem: (key: string) => { storedPreferences.delete(key); },
+    clear: () => storedPreferences.clear(),
+  } });
+  storedPreferences.clear(); restoreGeometry = stubCompactTableGeometry(); data = initialData(); fail = false; rejectedCursor = null; requests = []; hold = null;
+});
+afterEach(() => { cleanup(); restoreGeometry(); storedPreferences.clear(); });
 
 describe('confirmed knowledge search', () => {
   it('starts idle with labelled selectors and no leftover result title', async () => {
     mount('');
-    expect(await screen.findByText('기술 Item을 통합 검색합니다')).toBeTruthy();
+    expect(await screen.findByRole('region', { name: '모델 탐색' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: /검색 결과/ })).toBeNull();
+    const order = screen.getByRole('button', { name: '순서 검색' });
+    expect(order.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('combobox', { name: 'Event A' })).toBeNull();
+    fireEvent.click(order);
     expect(screen.getByRole('combobox', { name: 'Event A' })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: 'Event B' })).toBeTruthy();
     expect(requests.some(r => r.endpoint === 'logKnowledge.search')).toBe(false);
   });
-  it('shows owner, states, match reasons and visible related links without exact totals', async () => {
+  it('shows owner, states, match reasons and related-count metadata without a second Item link or exact totals', async () => {
     data.hasMore = true; data.nextCursor = 'next'; data.capped = true;
     Object.assign(data, { total: 9854, counts: { observed: 9853 } });
     mount();
     expect(await screen.findByText(item.title)).toBeTruthy();
     expect(screen.getByText('같은 방향 · 관찰')).toBeTruthy();
-    expect(screen.getByText('관련 Item 2건').closest('a')?.getAttribute('href')).toContain(item.itemId);
+    expect(screen.getByText('관련 Item 2건').closest('a')).toBeNull();
+    expect(screen.getAllByRole('link').filter(link => link.getAttribute('href')?.includes(item.itemId))).toHaveLength(1);
     expect(screen.getByText('MX-100')).toBeTruthy();
     expect(screen.getByText('100건 이상')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/9854|9853|총\s*\d|\d+\s*\/\s*\d+/);
@@ -120,6 +140,7 @@ describe('confirmed knowledge search', () => {
   });
   it('submits an explicit order through the shareable relation key', async () => {
     mount('');
+    fireEvent.click(screen.getByRole('button', { name: '순서 검색' }));
     const selector = await screen.findByRole('region', { name: '순서 검색' });
     // No pre-filled Event pair (#1594 B-Q1): the button stays off until the user names both Events.
     const submit = within(selector).getByRole('button', { name: '순서 검색' }) as HTMLButtonElement;
@@ -139,6 +160,75 @@ describe('confirmed knowledge search', () => {
     await waitFor(() => expect(requests.some(r => r.endpoint === 'logKnowledge.search')).toBe(true));
     expect(JSON.parse(new URLSearchParams(window.location.search).get('relation')!)).toEqual({ source: 'CHAMBER/STEP_PROCESS', predicate: 'after', target: 'CHAMBER/PROCESS_START' });
   });
+  it('shows accessible recent Items and models, with only one Item destination link', async () => {
+    storedPreferences.set('platform:recent:u1', JSON.stringify([
+      { menuId: 'log-knowledge-item', url: `/log/knowledge/items/${item.itemId}?v=1`, at: 3 },
+      { menuId: 'log-knowledge-model', url: `/log/knowledge/models/${recentModelId}?v=1`, at: 2 },
+      { menuId: 'log-knowledge-spec', url: `/log/knowledge/models/${recentModelId}/spec?v=1`, at: 1 },
+    ]));
+    const recentAdapter = testAdapter({ session: () => session, menuQuery: async request => {
+      requests.push(request);
+      if (request.endpoint === 'logKnowledge.itemDetail') return ok(recentDetail);
+      if (request.endpoint === 'logKnowledge.modelProfile') return ok(recentProfile);
+      return ok({ rows: [], total: 0 });
+    } });
+    window.history.replaceState(null, '', '/log/knowledge/search?v=1');
+    render(treeWith({ registry, adapter: recentAdapter, ui: <KnowledgeSearch /> }));
+    const items = await screen.findByRole('region', { name: '최근 본 기술 Item' });
+    const title = within(items).getByRole('link', { name: item.title });
+    expect(title.getAttribute('href')).toContain(item.itemId);
+    expect(within(items).getByText('KI-1501').closest('a')).toBeNull();
+    expect(within(items).getAllByRole('link')).toHaveLength(1);
+    const models = await screen.findByRole('region', { name: '자주 보는 모델' });
+    expect(within(models).getByRole('link', { name: 'MX-200' })).toBeTruthy();
+    expect(requests.filter(request => request.endpoint === 'logKnowledge.modelProfile')).toHaveLength(1);
+  });
+  it('skips recent Items and models that are forbidden or gone', async () => {
+    const forbiddenItemId = '00000005-0000-4000-8000-000000000011', goneItemId = '00000005-0000-4000-8000-000000000012';
+    const forbiddenModelId = '00000003-0000-4000-8000-000000000013';
+    storedPreferences.set('platform:recent:u1', JSON.stringify([
+      { menuId: 'log-knowledge-item', url: `/log/knowledge/items/${forbiddenItemId}`, at: 5 },
+      { menuId: 'log-knowledge-item', url: `/log/knowledge/items/${goneItemId}`, at: 4 },
+      { menuId: 'log-knowledge-item', url: `/log/knowledge/items/${item.itemId}`, at: 3 },
+      { menuId: 'log-knowledge-model', url: `/log/knowledge/models/${forbiddenModelId}`, at: 2 },
+      { menuId: 'log-knowledge-model', url: `/log/knowledge/models/${recentModelId}`, at: 1 },
+    ]));
+    const recentAdapter = testAdapter({ session: () => session, menuQuery: async request => {
+      requests.push(request);
+      const params = request.params as { itemId?: string; modelId?: string };
+      if (request.endpoint === 'logKnowledge.itemDetail') {
+        if (params.itemId === forbiddenItemId) return { ...ok(null), outcome: 'forbidden' };
+        if (params.itemId === goneItemId) return ok(null);
+        return ok({ ...recentDetail, item: { ...recentDetail.item, id: params.itemId }, revision: { ...recentDetail.revision, title: '접근 가능한 최근 Item' } });
+      }
+      if (request.endpoint === 'logKnowledge.modelProfile') {
+        if (params.modelId === forbiddenModelId) return { ...ok(null), outcome: 'forbidden' };
+        return ok(recentProfile);
+      }
+      return ok({ rows: [], total: 0 });
+    } });
+    window.history.replaceState(null, '', '/log/knowledge/search?v=1');
+    render(treeWith({ registry, adapter: recentAdapter, ui: <KnowledgeSearch /> }));
+    const items = await screen.findByRole('region', { name: '최근 본 기술 Item' });
+    expect(within(items).getByRole('link', { name: '접근 가능한 최근 Item' })).toBeTruthy();
+    expect(items.textContent).not.toContain(forbiddenItemId);
+    expect(items.textContent).not.toContain(goneItemId);
+    expect(within(items).getAllByRole('link')).toHaveLength(1);
+    const models = await screen.findByRole('region', { name: '자주 보는 모델' });
+    expect(within(models).getByRole('link', { name: 'MX-200' })).toBeTruthy();
+    expect(within(models).queryByText(forbiddenModelId)).toBeNull();
+  });
+  it('keeps empty history useful and opens conditioned URLs directly into results', async () => {
+    mount('');
+    expect(await screen.findByRole('region', { name: '모델 탐색' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: '최근 본 기술 Item' })).toBeNull();
+    cleanup(); requests = [];
+    mount(query);
+    expect(await screen.findByText(item.title)).toBeTruthy();
+    expect(screen.getByRole('region', { name: '검색 결과' })).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'Event A' })).toBeNull();
+    expect(requests.some(request => request.endpoint === 'logKnowledge.search')).toBe(true);
+  });
   it('uses indexLag percentages and lag chips without N/N counters', async () => {
     data.indexLag = { lagSeconds: 11, backfill: { state: 'running', percent: 48 } };
     mount();
@@ -156,7 +246,7 @@ describe('confirmed knowledge search', () => {
     const section = await screen.findByRole('region', { name: '반대 방향' });
     expect(within(section).getByText('역방향 관찰')).toBeTruthy();
     expect(within(section).queryByText('일치 이유')).toBeNull();
-    expect(within(section).getByRole('link', { name: '관련 Item 2건' })).toBeTruthy();
+    expect(within(section).getByText('관련 Item 2건').closest('a')).toBeNull();
     expect(within(screen.getByRole('region', { name: '검색 결과' })).queryByText('역방향 관찰')).toBeNull();
     expect(new URLSearchParams(window.location.search).get('opposite')).toBe('true');
     fireEvent.click(toggle);

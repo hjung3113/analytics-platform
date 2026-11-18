@@ -19,12 +19,12 @@ export function SearchRows({ items, lag }: { items: KnowledgeSearchItem[]; lag: 
     const owner = { kind: item.owner.softwareId ? 'software' as const : 'model' as const, modelId: item.owner.modelId, modelName: item.owner.modelName, ...(item.owner.softwareId ? { softwareId: item.owner.softwareId, versionLabel: item.owner.softwareLabel ?? '' } : {}) };
     return <ObjectRow key={item.itemId} density="default" leadingCell="auto"
       title={<span className="inline-flex max-w-full items-center gap-2"><PlatformLink href={href} className="truncate hover:underline">{item.title}</PlatformLink><OwnerChip owner={owner} /></span>}
-      badges={<><PlatformLink href={href} className="t-mono text-accent-primary hover:underline">KI-{item.itemNo}</PlatformLink><TypeBadge code={item.typeCode} /><StateBadges item={item} /></>}>
+      badges={<><span className="t-mono text-text-secondary">KI-{item.itemNo}</span><TypeBadge code={item.typeCode} /><StateBadges item={item} /></>}>
       <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">{(item.reasons.length > 0 || item.expectedOnly) && <span>{w('일치 이유', 'Match reasons')}</span>}
         {item.reasons.map(reason => <StatusBadge key={reason} tone={reason === 'expected_same_direction' ? 'warning' : 'neutral'}>{w(REASON[reason].ko, REASON[reason].en)}</StatusBadge>)}
         {item.expectedOnly && !item.reasons.includes('expected_same_direction') && <StatusBadge tone="warning">{w('명세상 기대', 'Expected by specification')}</StatusBadge>}
         {lag && <StatusBadge tone="warning">{w('색인 지연', 'Index lag')}</StatusBadge>}
-        {item.relatedCount > 0 && <PlatformLink href={href} className="text-accent-primary hover:underline">{w(`관련 Item ${item.relatedCount}건`, `${item.relatedCount} related Items`)}</PlatformLink>}
+        {item.relatedCount > 0 && <span>{w(`관련 Item ${item.relatedCount}건`, `${item.relatedCount} related Items`)}</span>}
       </div>
       <p className="break-words text-sm text-text-secondary">{item.excerpt}</p>
     </ObjectRow>;

@@ -25,7 +25,8 @@ test.describe('모델 명세 계약 경로 (#1196 d, §13·§22)', () => {
     await expect(change).toHaveCount(0);
     await expect(page.getByText('E2E module timing note', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: '초안 편집', exact: true }).click();
-    const draft = page.getByRole('dialog', { name: '명세 초안 편집', exact: true });
+    const draft = page.getByRole('region', { name: '명세 초안 편집', exact: true });
+    await expect(draft.getByRole('heading', { name: '발행 전 변경 요약', exact: true })).toBeVisible();
     await draft.getByLabel('원본 문서').fill('E2E specification');
     await draft.getByLabel('문서 버전').fill('2');
     await draft.getByRole('button', { name: '초안 작성', exact: true }).click();
@@ -34,8 +35,7 @@ test.describe('모델 명세 계약 경로 (#1196 d, §13·§22)', () => {
     const publish = draft.getByRole('button', { name: '발행', exact: true });
     await expect(publish).toBeEnabled();
     const before = await publish.boundingBox();
-    const body = draft.getByRole('region', { name: '명세 초안 편집', exact: true });
-    await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    await draft.evaluate(el => el.scrollIntoView({ block: 'end' }));
     await expect(publish).toBeInViewport();
     const after = await publish.boundingBox();
     expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
@@ -61,14 +61,14 @@ test.describe('모델 명세 편집 이동 가드 (#1410, 06 §6.4)', () => {
   const localDialog = (page: Page) => page.getByRole('dialog', { name: '저장하지 않은 입력을 버릴까요?', exact: true });
   const stay = (page: Page) => dialog(page).getByRole('button', { name: '머무르기', exact: true });
   const leave = (page: Page) => dialog(page).getByRole('button', { name: '변경 버리고 이동', exact: true });
-  const draftDrawer = (page: Page) => page.getByRole('dialog', { name: '명세 초안 편집', exact: true });
-  const source = (page: Page) => draftDrawer(page).getByLabel('원본 문서');
+  const draftEditor = (page: Page) => page.getByRole('region', { name: '명세 초안 편집', exact: true });
+  const source = (page: Page) => draftEditor(page).getByLabel('원본 문서');
 
   async function openDraft(page: Page) {
     await signInAs(page, 'admin');
     await page.goto(SPEC);
     await page.getByRole('button', { name: '초안 편집', exact: true }).click();
-    await expect(draftDrawer(page)).toBeVisible();
+    await expect(draftEditor(page)).toBeVisible();
   }
   async function makeDirty(page: Page) {
     await source(page).fill('E2E specification');
@@ -129,17 +129,17 @@ test.describe('모델 명세 편집 이동 가드 (#1410, 06 §6.4)', () => {
     await expect(dialog(page)).toBeVisible();
     await expect(page).toHaveURL(here);
     await leave(page).click();
-    await expect(draftDrawer(page)).toHaveCount(0);
+    await expect(draftEditor(page)).toHaveCount(0);
     expect(page.url()).not.toContain('drawer=draft');
     await expect(dialog(page)).toHaveCount(0);
   });
 
   test('브라우저 Forward도 묻는다: 머무르면 서랍과 입력이 남고 버리면 앞 주소로 이동한다', async ({ page }) => {
     await openDraft(page);
-    await draftDrawer(page).getByRole('button', { name: /닫기/ }).first().click();
-    await expect(draftDrawer(page)).toHaveCount(0);
+    await draftEditor(page).getByRole('button', { name: '취소', exact: true }).click();
+    await expect(draftEditor(page)).toHaveCount(0);
     await page.goBack(); // clean: back to the open drawer, with the closed address ahead
-    await expect(draftDrawer(page)).toBeVisible();
+    await expect(draftEditor(page)).toBeVisible();
     await makeDirty(page);
     const here = page.url();
 
@@ -155,7 +155,7 @@ test.describe('모델 명세 편집 이동 가드 (#1410, 06 §6.4)', () => {
     await expect(dialog(page)).toBeVisible();
     await expect(page).toHaveURL(here);
     await leave(page).click();
-    await expect(draftDrawer(page)).toHaveCount(0);
+    await expect(draftEditor(page)).toHaveCount(0);
     expect(page.url()).not.toContain('drawer=draft');
   });
 

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform, useUnsavedGuard, type QueryState } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
@@ -112,14 +112,14 @@ function AssessForm({ detail, onReload, guard, rationale, setRationale, reloadQu
 }
 
 /** 판단 변경 (#1197 s3b): one axis, its new state (the current one disabled), a required rationale; the item's version guards the write. */
-export function AssessDrawer({ detail, onReload, onClose, reloadQuery }: { detail: ItemDetail; onReload: () => void; onClose: () => void; reloadQuery: ReloadQuery }) {
+export function AssessDrawer({ detail, onReload, onClose, reloadQuery, returnFocusRef }: { detail: ItemDetail; onReload: () => void; onClose: () => void; reloadQuery: ReloadQuery; returnFocusRef?: RefObject<HTMLElement | null> }) {
   const { synced, sync } = useSyncedVersion(detail.item.version);
   const [initialVersion] = useState(synced);
   const [rationale, setRationale] = useState('');
   const guard = useCloseGuard(onClose);
   useUnsavedGuard(guard.dirty && !guard.released, { leaves: 'address' });
   return <>
-    <DetailDrawer title="판단 변경" subtitle={`${itemNoLabel(detail.item.itemNo)} · ${ownerText(detail.item.owner)}`} onClose={guard.request}
+    <DetailDrawer title="판단 변경" subtitle={`${itemNoLabel(detail.item.itemNo)} · ${ownerText(detail.item.owner)}`} onClose={guard.request} returnFocusRef={returnFocusRef}
       tabs={[{ id: 'form', label: '내용', content: <AssessForm key={synced} detail={detail} guard={guard} rationale={rationale} setRationale={setRationale} reloadQuery={reloadQuery} reloaded={synced !== initialVersion} onReload={() => { sync(); onReload(); }} /> }]} />
     {guard.dialog}
   </>;

@@ -124,12 +124,23 @@ describe('production model spec screen', () => {
     allowed = false; mount(); expect(await screen.findByText(/명세 관리 권한을 관리자에게 요청하세요/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: '초안 편집' })).toBeNull();
   });
-  it('explains the hash seal and revalidation before publication, with an external footer', async () => {
-    mount('&drawer=draft&revision=' + rev); await screen.findByLabelText('명세 TSV');
+  it('opens the legacy drawer address as a page editor with a publication comparison', async () => {
+    mount('&drawer=draft&revision=' + rev);
+    const editor = await screen.findByRole('region', { name: '명세 초안 편집' });
+    await within(editor).findByLabelText('명세 TSV');
+    const summary = within(editor).getByRole('region', { name: '발행 전 변경 요약' });
+    expect(screen.queryByRole('dialog', { name: '명세 초안 편집' })).toBeNull();
+    expect(within(summary).getByRole('heading', { name: '발행 전 변경 요약' })).toBeTruthy();
+    expect(within(summary).getByText(/기준 Revision: r1/)).toBeTruthy();
+    expect(within(summary).getByText(/변경 없음 · 비교 확인/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Move' })).toBeNull();
+    expect(queries.some(q => q.endpoint === 'logKnowledge.modelSpec' && JSON.stringify(q.params) === JSON.stringify({ modelId }))).toBe(true);
     const publish = screen.getByRole('button', { name: '발행' });
-    expect(publish.closest('[role="region"]')).toBeNull();
+    expect(publish.closest('section[aria-labelledby]')).toBe(editor);
     fireEvent.click(publish); expect(await screen.findByText(/해시로 봉인/)).toBeTruthy();
     expect(screen.getByText(/열린 변경점/)).toBeTruthy();
+    const confirmation = screen.getByRole('dialog', { name: '명세 발행 확인' });
+    expect(within(confirmation).getByText(/기준 Revision/)).toBeTruthy();
   });
   it.each([
     ['add', '변경점 추가', '추가'], ['retire', '변경점 닫기·대체', '확인'], ['confirm', '변경점 재검토 확인', '확인'],

@@ -1,5 +1,7 @@
 import type { PageKeyRule } from '@ap/components';
+import type { Recent } from '@ap/kernel';
 import { isSearchEventToken, isSearchRelation, SEARCH_ORDER_OPERATORS, type KnowledgeSearchParams, type SearchKind, type SearchRelation } from '../../endpoints';
+import { isUuid } from '../../endpoints';
 
 export const SEARCH_KIND_LABEL: Record<SearchKind, { ko: string; en: string }> = {
   all: { ko: '모두', en: 'All' }, observed: { ko: '관찰', en: 'Observed' }, expected: { ko: '기대', en: 'Expected' },
@@ -31,4 +33,37 @@ export function parseSearchAddress(page: Record<string, string | null | undefine
 export function plainQuery(q: string): string {
   const words = q.replace(/→/gu, ' → ').normalize('NFKC').trim().split(/\s+/u);
   return words.length === 3 && (SEARCH_ORDER_OPERATORS as readonly string[]).includes(words[1]!.toLowerCase()) && isSearchEventToken(words[0]!) && isSearchEventToken(words[2]!) ? `${words[0]} ${words[2]}` : q;
+}
+
+export type RecentKnowledgeTargets = {
+  items: { id: string; visitIndexes: number[] }[];
+  models: { id: string; visitIndex: number }[];
+};
+
+/** Parses only the three known detail routes and refuses malformed IDs before they reach an endpoint. */
+export function recentKnowledgeTargets(visits: readonly Recent[]): RecentKnowledgeTargets {
+  const itemVisits = new Map<string, number[]>(), models: RecentKnowledgeTargets['models'] = [];
+  visits.forEach((visit, visitIndex) => {
+    let pathname: string;
+    try { pathname = new URL(visit.url, 'https://platform.invalid').pathname; } catch { return; }
+    const routeId = (pattern: RegExp) => {
+      const match = pattern.exec(pathname);
+      if (!match) return null;
+      try {
+        const decoded = decodeURIComponent(match[1] ?? '');
+        return isUuid(decoded) ? decoded : null;
+      } catch { return null; }
+    };
+    if (visit.menuId === 'log-knowledge-item') {
+      const id = routeId(/^\/log\/knowledge\/items\/([^/]+)$/u);
+      if (id) itemVisits.set(id, [...(itemVisits.get(id) ?? []), visitIndex]);
+    } else if (visit.menuId === 'log-knowledge-model') {
+      const id = routeId(/^\/log\/knowledge\/models\/([^/]+)$/u);
+      if (id) models.push({ id, visitIndex });
+    } else if (visit.menuId === 'log-knowledge-spec') {
+      const id = routeId(/^\/log\/knowledge\/models\/([^/]+)\/spec$/u);
+      if (id) models.push({ id, visitIndex });
+    }
+  });
+  return { items: [...itemVisits].map(([id, visitIndexes]) => ({ id, visitIndexes })), models };
 }

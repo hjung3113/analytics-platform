@@ -1,5 +1,5 @@
 import { SearchX } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button } from '@ap/ui';
@@ -11,6 +11,7 @@ import { itemWriteDraftKey, ItemWriteDrawer, useItemWriteDraft, type ItemWriteTa
 import { OwnerChip, StateBadges, TypeBadge } from './ItemBadges';
 import { AssessmentTimeline, EvidenceList, ItemBodyBlocks, LinkList, RevisionList, Section, stamp } from './ItemDetailParts';
 import { isRevisionParam, itemNoLabel, revisionOf, shortActor } from './itemModel';
+import { useSpecWords } from '../spec/SpecControls';
 
 const DRAWERS = ['revise', 'assess', 'derive'] as const;
 type DrawerKind = (typeof DRAWERS)[number];
@@ -26,12 +27,15 @@ function NotFound({ revision }: { revision: number | null }) {
     action={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('log-knowledge-items')}>전체 기술 Item으로</PlatformLink></Button>} />;
 }
 
-function Header({ detail, viewing }: { detail: ItemDetailData; viewing: number }) {
+function Header({ detail, viewing, onAssess, assessDisabled, waitingReason, assessActionRef }: { detail: ItemDetailData; viewing: number; onAssess?: () => void; assessDisabled: boolean; waitingReason?: string; assessActionRef: RefObject<HTMLButtonElement | null> }) {
+  const w = useSpecWords();
   const { item, revision } = detail;
   return <header className="grid gap-2">
     <div className="flex flex-wrap items-center gap-1.5">
       <OwnerChip owner={item.owner} /><TypeBadge code={revision.typeCode} /><StateBadges item={item} />
+      {onAssess && <Button ref={assessActionRef} type="button" variant="secondary" size="sm" disabled={assessDisabled} title={waitingReason} onClick={onAssess}>{w('판단 변경', 'Change assessment')}</Button>}
     </div>
+    {onAssess && waitingReason && <p role="status" className="text-xs text-text-secondary">{waitingReason}</p>}
     <p className="text-xs text-text-muted">
       <span className="t-mono">{itemNoLabel(item.itemNo)}</span> · r{viewing} · 작성 <span title={item.createdBy}>{shortActor(item.createdBy)}</span> {stamp(item.createdAt)} · 갱신 {stamp(item.updatedAt)}
       {viewing !== item.latestRevisionNo && <> · r{viewing} 발행 {stamp(revision.publishedAt)}</>}
@@ -39,13 +43,13 @@ function Header({ detail, viewing }: { detail: ItemDetailData; viewing: number }
   </header>;
 }
 
-function Body({ detail }: { detail: ItemDetailData }) {
+function Body({ detail, onAssess, assessDisabled, waitingReason, assessActionRef }: { detail: ItemDetailData; onAssess?: () => void; assessDisabled: boolean; waitingReason?: string; assessActionRef: RefObject<HTMLButtonElement | null> }) {
   const { setPage } = usePlatform();
   const { item, revision } = detail;
   const viewing = revision.revisionNo;
   const old = viewing !== item.latestRevisionNo;
   return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 *:min-w-0">
-    <Header detail={detail} viewing={viewing} />
+    <Header detail={detail} viewing={viewing} onAssess={onAssess} assessDisabled={assessDisabled} waitingReason={waitingReason} assessActionRef={assessActionRef} />
     {item.publicationState === 'archived' && <div role="status" className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-text-secondary">
       보관된 Item · 조회·이력 유지. 수정·판단 변경은 보관 해제 후 진행합니다.
     </div>}
@@ -142,7 +146,7 @@ export default function ItemDetail({ params }: PageProps) {
 }
 
 function ItemDetailScreen({ params }: PageProps) {
-  const { pageParam, setPage, can } = usePlatform();
+  const { pageParam, setPage, can } = usePlatform(), w = useSpecWords();
   const keys = usePageKeyRules(RULES);
   const itemId = params.itemId ?? '';
   const revisionNo = revisionOf(pageParam('rev'));
@@ -176,15 +180,15 @@ function ItemDetailScreen({ params }: PageProps) {
   const drawerDetail = (drawer === 'assess' && previous ? undefined : live) ?? (keepEditor ? kept.detail : undefined);
   // Only holders of the publish right see write controls; page header and actions come from the live result only.
   const canWrite = hasPublishRight && !!live;
-  const waitingReason = previous ? '선택한 리비전을 불러오는 중. 불러온 뒤 진행하세요.' : undefined;
+  const waitingReason = previous ? w('선택한 리비전을 불러오는 중. 불러온 뒤 진행하세요.', 'The selected revision is loading. Continue after it finishes.') : undefined;
   const archived = live?.item.publicationState === 'archived';
+  const assessActionRef = useRef<HTMLButtonElement>(null);
   // Revise/derive own a session draft (#2108): the owner mounts while the detail read is pending (the form stays withheld until it succeeds),
   // never for a missing or forbidden Item or an archived revise.
   const terminalMissing = query.response?.outcome === 'forbidden' || (query.response?.outcome === 'ok' && query.response.data === null);
   const writeDrawer = (drawer === 'revise' || drawer === 'derive') && known && !keys.invalid && !terminalMissing && !(drawer === 'revise' && archived) ? drawer : null;
   const secondary = <>
     <ReturnLink />
-    {canWrite && !archived && <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'assess' })}>판단 변경</Button>}
     {canWrite && <Button type="button" variant="ghost" size="sm" className="w-full justify-start" disabled={previous} title={waitingReason} onClick={() => setPage({ drawer: 'derive' })}>관련 Item으로 신규 작성</Button>}
     {canWrite && live && <ArchiveAction item={live.item} onChanged={query.refetch} disabledReason={waitingReason} />}
   </>;
@@ -193,9 +197,9 @@ function ItemDetailScreen({ params }: PageProps) {
     secondaryActions={secondary}>
     {!canWrite && live && <p role="status" className="text-sm text-text-secondary">수정하려면 Item 작성 권한을 관리자에게 요청하세요.</p>}
     {writeDrawer && <WriteDrawerOwner key={writeDrawer} kind={writeDrawer} itemId={itemId} revisionNo={revisionNo} detail={drawerDetail} onReload={() => { setRetain(true); query.refetch(); }} />}
-    {drawer === 'assess' && drawerDetail && drawerDetail.item.publicationState !== 'archived' && <AssessDrawer key={`assess:${revisionNo}`} detail={drawerDetail} reloadQuery={query} onReload={() => { setRetain(true); query.refetch(); }} onClose={() => setPage({ drawer: null })} />}
+    {drawer === 'assess' && drawerDetail && drawerDetail.item.publicationState !== 'archived' && <AssessDrawer key={`assess:${revisionNo}`} detail={drawerDetail} reloadQuery={query} onReload={() => { setRetain(true); query.refetch(); }} onClose={() => setPage({ drawer: null })} returnFocusRef={assessActionRef} />}
     {keys.invalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : !known ? <NotFound revision={null} />
-      : <QueryView widgetName="기술 Item 상세" query={query}>{data => data ? <Body detail={data} /> : <NotFound revision={revisionNo} />}</QueryView>}
+      : <QueryView widgetName="기술 Item 상세" query={query}>{data => data ? <Body detail={data} onAssess={canWrite && !archived ? () => setPage({ drawer: 'assess' }) : undefined} assessDisabled={previous} waitingReason={waitingReason} assessActionRef={assessActionRef} /> : <NotFound revision={revisionNo} />}</QueryView>}
   </PlatformPage>;
 }
