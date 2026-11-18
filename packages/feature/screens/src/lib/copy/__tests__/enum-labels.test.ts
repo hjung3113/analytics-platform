@@ -26,6 +26,7 @@ import {
   FINDING_SEVERITY_LABELS,
   FINDING_SOURCE_TYPE_LABELS,
   FINDING_STATUS_LABELS,
+  IMPROVEMENT_ITEM_STATUS_LABELS,
   RATING_BAND_LABELS,
   SURVEY_QUESTION_KIND_LABELS,
   SURVEY_RESULT_KIND_LABELS,
@@ -105,6 +106,16 @@ describe('enum display labels', () => {
 
   it('covers every Task Request status', () => {
     expectCompleteLabels(taskRequestStatusSchema.options, TASK_REQUEST_STATUS_LABELS);
+  });
+
+  it('matches the improvement-item screen status wording', () => {
+    expect(IMPROVEMENT_ITEM_STATUS_LABELS).toEqual({
+      open: '문제 기록',
+      in_progress: '조치 중',
+      done: '조치 완료',
+      verified: '효과 확인됨',
+      dropped: '취소',
+    });
   });
 
   it('covers every entity-link relation type', () => {

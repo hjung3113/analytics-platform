@@ -736,6 +736,8 @@ export function createTasksService(deps: TasksServiceDeps) {
                 task_id: task.id,
                 primary_managed_system_id: task.primary_managed_system_id,
                 source_task_request_id: taskRequest.id,
+                actor_id: args.actor.actor_id,
+                status: task.status,
               },
               params: {},
             });
@@ -1274,6 +1276,8 @@ export function createTasksService(deps: TasksServiceDeps) {
               detail: {
                 task_id: updated.id,
                 primary_managed_system_id: updated.primary_managed_system_id,
+                actor_id: args.actor.actor_id,
+                status: updated.status,
               },
               params: {},
             });

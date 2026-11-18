@@ -14,6 +14,7 @@ describe('@ap/feature-shared notifications API', () => {
     expect(notificationEventTypeSchema.parse('voc.public_update_posted')).toBe(
       'voc.public_update_posted',
     );
+    expect(notificationEventTypeSchema.parse('voc.submitted')).toBe('voc.submitted');
     expect(() => notificationEventTypeSchema.parse('survey.assigned_to_me')).toThrow();
 
     const response = {

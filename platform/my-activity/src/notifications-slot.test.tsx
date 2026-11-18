@@ -7,7 +7,7 @@ import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import Notifications from './pages/Notifications';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, json, listOf, notification, registry, stubFetch, switchableAdapter } from './feature/test-support';
+import { ID_A, ID_B, improvementRegistry, json, listOf, notification, notificationRegistry, registry, stubFetch, switchableAdapter } from './feature/test-support';
 
 const COUNT = '/api/features/notifications?unread=true&limit=1';
 const countOf = (n: number) => json({ items: [], page: { has_more: false }, unread_count: n });
@@ -16,8 +16,8 @@ function Probe() {
   return <notificationsSlot.UnreadCount>{n => <button type="button">{n === null ? 'none' : `count ${n}`}</button>}</notificationsSlot.UnreadCount>;
 }
 
-function mount(adapter: ReturnType<typeof testAdapter>, children: React.ReactNode) {
-  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{children}</PlatformProvider></I18nProvider>);
+function mount(adapter: ReturnType<typeof testAdapter>, children: React.ReactNode, withRegistry = registry) {
+  return render(<I18nProvider><PlatformProvider adapter={adapter} registry={withRegistry}>{children}</PlatformProvider></I18nProvider>);
 }
 
 const onSessionLost = vi.fn();
@@ -80,6 +80,32 @@ describe('notifications slot', () => {
       fireEvent.click(within(row).getByRole('button', { name: '읽음으로 표시' }));
       await waitFor(() => expect(calls.map(c => `${c.method} ${c.path}`)).toContain(`POST /api/features/notifications/${ID_A}/read`));
       await screen.findByRole('button', { name: 'count 2' });
+    });
+
+    it('links Task-request and permission rows in the recent bell body', async () => {
+      stubFetch(() => listOf(
+        notification(ID_A, { event_type: 'task_request.approved', subject_type: 'task_request', subject_id: ID_A, detail: { task_request_id: ID_A } }),
+        notification(ID_B, { event_type: 'permission_request.decided', subject_type: 'permission_request', subject_id: ID_B, detail: { permission_request_id: ID_B } }),
+      ));
+      mount(switchableAdapter().adapter, <notificationsSlot.Recent />, notificationRegistry);
+      const task = within(await screen.findByTestId(`home-inbox-row-${ID_A}`)).getByRole('link');
+      const permission = within(await screen.findByTestId(`home-inbox-row-${ID_B}`)).getByRole('link');
+      const taskHref = new URL(task.getAttribute('href')!, window.location.origin);
+      expect(taskHref.pathname).toBe('/tasks');
+      expect(taskHref.searchParams.get('focus')).toBe(ID_A);
+      expect(new URL(permission.getAttribute('href')!, window.location.origin).pathname).toBe('/permission-requests');
+    });
+
+    it('keeps read and archive actions when the mapped VOC inbox is absent from the registry', async () => {
+      stubFetch(() => listOf(
+        notification(ID_A, { event_type: 'voc.assigned_to_me', subject_id: ID_B, detail: { voc_id: ID_B } }),
+      ));
+      mount(switchableAdapter().adapter, <notificationsSlot.Recent />, improvementRegistry);
+      const row = within(await screen.findByTestId(`home-inbox-row-${ID_A}`));
+      expect(row.queryByRole('link')).toBeNull();
+      expect(row.getAllByRole('button')).toHaveLength(2);
+      expect(row.getByRole('button', { name: '읽음으로 표시' })).toBeTruthy();
+      expect(row.getByRole('button', { name: '보관' })).toBeTruthy();
     });
 
     it.each([

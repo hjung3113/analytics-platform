@@ -340,6 +340,7 @@ describe.skipIf(!runIntegration)('Admin permission revocation (FO ADR-0061)', ()
       subject_type: 'permission_grant',
       subject_id: id,
       summary: '권한이 취소되었습니다.',
+      detail: { permission_grant_id: id, actor_id: adminId, status: 'revoked' },
     });
 
     const otherActorCookie = await loginAs(app, 'mock-user-1', OTHER_USER_AGENT);

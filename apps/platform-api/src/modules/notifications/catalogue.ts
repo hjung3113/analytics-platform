@@ -2,6 +2,7 @@ type NoSummaryParams = Record<string, never>;
 
 export interface NotificationSummaryParamsByEvent {
   'voc.assigned_to_me': NoSummaryParams;
+  'voc.submitted': NoSummaryParams;
   'voc.reporter_replied': NoSummaryParams;
   'voc.public_update_posted': { status_changed: boolean };
   'voc.severity_set_high_or_critical': { severity: 'high' | 'critical' };
@@ -42,6 +43,13 @@ export const notificationCatalogue = {
     in_app: true,
     email: false,
     summary: () => 'VOC 담당자로 지정되었습니다.',
+  },
+  'voc.submitted': {
+    recipients: 'Every internal workspace actor with voc.triage scope on the VOC Managed System, excluding the submitter.',
+    subject_type: 'voc',
+    in_app: true,
+    email: false,
+    summary: () => '새 VOC가 접수되었습니다.',
   },
   'voc.reporter_replied': {
     recipients: 'Current VOC owner plus every workspace actor with role_level=admin.',

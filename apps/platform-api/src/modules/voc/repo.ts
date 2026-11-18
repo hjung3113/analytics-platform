@@ -3,7 +3,7 @@
 // other voc.* tables stay behind their own repos. Mirrors the AA module
 // shape so callers can be reviewed against the same template.
 
-import { sql } from 'drizzle-orm';
+import { and, count, eq, sql } from 'drizzle-orm';
 
 import {
   vocInternalComments,
@@ -155,6 +155,14 @@ export async function insertPublicUpdate(
   const row = rows[0];
   if (!row) throw new Error('insertPublicUpdate returned no row');
   return { id: row.id, created_at: row.createdAt };
+}
+
+export async function countPublicUpdatesForVoc(tx: Tx, vocId: string): Promise<number> {
+  const rows = await tx
+    .select({ value: count() })
+    .from(vocPublicUpdates)
+    .where(and(eq(vocPublicUpdates.vocId, vocId), eq(vocPublicUpdates.skipPublicUpdate, false)));
+  return rows[0]?.value ?? 0;
 }
 
 // ── insertReporterReply ────────────────────────────────────────────────────

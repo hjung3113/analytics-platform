@@ -95,6 +95,14 @@ export function useHostNavigate(): HostNavigate {
   return useNavigate();
 }
 
+const useNoNavigate = (): null => null;
+
+/** Navigation hook for optional destinations such as a toast action. */
+export function useOptionalHostNavigate(): HostNavigate | null {
+  const { useNavigate = useNoNavigate } = useHostSeam();
+  return useNavigate();
+}
+
 export function useHostSearch(): HostSearch {
   const { useSearch } = useHostSeam();
   if (useSearch === undefined) throw new Error('HostSeamProvider is missing');

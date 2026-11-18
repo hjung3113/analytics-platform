@@ -153,14 +153,14 @@ export function itemActions(deps: ItemActionDeps): MenuActionDeclaration[] {
 
   /** `improvement.assigned_to_me` to the new assignee, in the write transaction. None for self-assignment; the
    * dispatcher drops a recipient outside the workspace. Ids and the item number only: no problem/action text. */
-  const notifyAssigned = async (tx: Tx, actor: PlatformActor, item: { id: string; itemNo: number }, assigneeId: string | null) => {
+  const notifyAssigned = async (tx: Tx, actor: PlatformActor, item: { id: string; itemNo: number; status: string }, assigneeId: string | null) => {
     if (assigneeId === null || assigneeId === actor.actor_id) return;
     await deps.notify(tx, 'improvement.assigned_to_me', {
       workspace_id: actor.workspace_id,
       actor_ids: [assigneeId],
       subject_id: item.id,
       correlation_id: randomUUID(),
-      detail: { item_id: item.id, item_no: item.itemNo },
+      detail: { item_id: item.id, item_no: item.itemNo, actor_id: actor.actor_id, status: item.status },
       params: { item_no: item.itemNo },
     });
   };

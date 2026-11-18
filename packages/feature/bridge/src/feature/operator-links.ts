@@ -5,6 +5,7 @@ import { findingsRoute } from './finding-routes';
 import { integrationOperatorTargets } from './integration-routes';
 import { milestonesRoute, myTasksRoute, taskBoardRoute, taskListBareAlias, taskListInboxAlias, taskListRoute, taskRequestsRoute } from './task-routes';
 import { vocListTarget, vocTarget } from './voc-links';
+import { improvementItemTarget } from './improvement-links';
 import { clustersRoute, inboxRoute, triageRoute } from './voc-routes';
 
 /**
@@ -20,4 +21,11 @@ export const operatorHostLinks = hostLinksCarrying(
   permissionRequestsTarget,
   ...surveyOperatorTargets,
   ...adminOperatorTargets,
+);
+
+/** Shared destinations for the notification page and the rail bell's recent rows. */
+export const notificationHostLinks = hostLinksCarrying(
+  surveyCarry,
+  operatorHostLinks.targetOf,
+  improvementItemTarget,
 );

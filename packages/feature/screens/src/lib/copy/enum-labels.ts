@@ -128,6 +128,15 @@ export const TASK_REQUEST_STATUS_LABELS: Record<TaskRequestStatus, string> = {
   converted: 'Task 전환됨',
 };
 
+// Keep these Korean labels aligned with platform/improvement-items/src/copy.ts; the package boundary forbids importing menu copy here.
+export const IMPROVEMENT_ITEM_STATUS_LABELS: Record<'open' | 'in_progress' | 'done' | 'verified' | 'dropped', string> = {
+  open: '문제 기록',
+  in_progress: '조치 중',
+  done: '조치 완료',
+  verified: '효과 확인됨',
+  dropped: '취소',
+};
+
 export const ENTITY_LINK_RELATION_LABELS: Record<EntityLinkRelationType, string> = {
   related_to: '관련 항목',
   created_finding: '생성한 Finding',

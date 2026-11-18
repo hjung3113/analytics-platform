@@ -53,6 +53,7 @@ import {
   insertInternalComment,
   insertPublicUpdate,
   insertReporterReply,
+  countPublicUpdatesForVoc,
   updateVocReporterStatus,
 } from './repo.js';
 import { type ReporterFacingStatus, nextReporterStates } from './transitions.js';
@@ -279,7 +280,13 @@ export function createConversationService(deps: {
         actor_ids: [row.reporterId],
         subject_id: vocId,
         correlation_id: randomUUID(),
-        detail: { voc_id: vocId, public_update_id: inserted.id },
+        detail: {
+          voc_id: vocId,
+          public_update_id: inserted.id,
+          actor_id: actor.actor_id,
+          reporter_facing_status: nextStatus,
+          ...(input.skip_public_update ? {} : { public_update_number: await countPublicUpdatesForVoc(tx, vocId) }),
+        },
         params: { status_changed: statusWillChange },
       });
     }
@@ -411,6 +418,8 @@ export function createConversationService(deps: {
       detail: {
         voc_id: vocId,
         primary_managed_system_id: row.primaryManagedSystemId,
+        actor_id: actor.actor_id,
+        reporter_facing_status: row.reporterFacingStatus,
       },
       params: {},
     });

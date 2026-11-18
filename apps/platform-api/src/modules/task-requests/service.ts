@@ -870,6 +870,8 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
               detail: {
                 task_request_id: taskRequest.id,
                 primary_managed_system_id: taskRequest.primary_managed_system_id,
+                actor_id: args.actor.actor_id,
+                status: targetStatus,
               },
               params: {},
             });

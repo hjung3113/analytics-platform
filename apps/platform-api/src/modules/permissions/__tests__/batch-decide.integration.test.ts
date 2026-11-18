@@ -15,6 +15,7 @@ describe.skipIf(!runIntegration)('Atomic request batch decisions (#2408)', () =>
   let migrate: DbHandle;
   let app: FastifyInstance;
   let admin = '';
+  let adminActorId = '';
   let member = '';
   let actorId = '';
   let systemId = '';
@@ -45,6 +46,12 @@ describe.skipIf(!runIntegration)('Atomic request batch decisions (#2408)', () =>
     app = await buildServer({ config: loadConfig(), dbHandle: db, notificationDispatcher: notifications });
     await app.ready();
     admin = await login('mock-admin-1');
+    const adminRow = await db.pool.query<{ id: string }>(
+      "select id from core.actors where workspace_id = $1 and external_id = 'mock-admin-1'",
+      [workspace],
+    );
+    adminActorId = adminRow.rows[0]?.id ?? '';
+    if (!adminActorId) throw new Error('mock admin actor missing');
   });
   beforeEach(async () => {
     await migrate.pool.query('delete from core.rate_limits');
@@ -82,6 +89,19 @@ describe.skipIf(!runIntegration)('Atomic request batch decisions (#2408)', () =>
     expect(new Set(audit.rows.map((x) => x.event_type))).toEqual(new Set(['permission_approved', 'permission_rejected']));
     expect(audit.rows.every((x) => x.detail.previous_revision === 1 && x.detail.revision === 2 && x.detail.reason === payload.reason)).toBe(true);
     expect(new Set(notifications.jobs.map((x) => x.correlation_id)).size).toBe(1);
+    expect(notifications.jobs).toHaveLength(1);
+    const [notification] = notifications.jobs;
+    expect(notification).toMatchObject({
+      actor_id: actorId,
+      event_type: 'permission_request.decided',
+      subject_type: 'permission_request',
+      detail: {
+        batch_id: b.batch_id,
+        actor_id: adminActorId,
+        status: 'approved',
+      },
+    });
+    expect(notification?.detail.permission_request_id).toBe(notification?.subject_id);
   });
   it.each(['reject', 'need-more-info'])('%s applies to every row and requires one reason', async (action) => {
     const b = await batch();

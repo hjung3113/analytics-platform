@@ -324,6 +324,8 @@ export function createVocUpdateTriageCommands(deps: VocServiceDeps) {
           detail: {
             voc_id: vocId,
             primary_managed_system_id: updated.primaryManagedSystemId,
+            actor_id: actor.actor_id,
+            reporter_facing_status: updated.reporterFacingStatus,
           },
           params: { severity: newSev },
         });
@@ -354,6 +356,8 @@ export function createVocUpdateTriageCommands(deps: VocServiceDeps) {
           detail: {
             voc_id: vocId,
             primary_managed_system_id: updated.primaryManagedSystemId,
+            actor_id: actor.actor_id,
+            reporter_facing_status: updated.reporterFacingStatus,
           },
           params: {},
         });

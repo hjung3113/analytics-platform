@@ -41,10 +41,14 @@ function recordingBoss(): { boss: PgBoss; sent: SentJob[] } {
   return { boss, sent };
 }
 
+// Only the embedding send throws. Notification jobs are enqueued inside the
+// write's own transaction (a failure there rolls the write back by design), so
+// failing every send would test the notification outbox, not this boundary.
 function throwingBoss(): PgBoss {
   return {
-    async send() {
-      throw new Error('pg-boss is down');
+    async send(queue: string) {
+      if (queue === VOC_EMBED_QUEUE) throw new Error('pg-boss is down');
+      return 'job-id';
     },
   } as unknown as PgBoss;
 }

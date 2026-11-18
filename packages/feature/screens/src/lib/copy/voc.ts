@@ -25,6 +25,7 @@ export const VOC_CREATE_COPY = {
   contextLinkTooLong: '화면 링크가 너무 길어 첨부하지 못했습니다.',
   // #1358: a system the actor may not file in (ADR-0113); the same line serves the picker, a blocked default and a 403 at submit.
   createDenied: '등록 권한이 없습니다 · 관리자에게 문의',
+  open: '열기',
 } as const;
 
 export const VOC_REPLY_COPY = {

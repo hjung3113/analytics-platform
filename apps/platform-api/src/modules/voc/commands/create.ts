@@ -7,6 +7,7 @@ import type { CreateVocRequest } from '@ap/feature-shared';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
 import { sanitizeRichContentOrThrow } from '../../../lib/rich-content/sanitize-or-throw.js';
+import { listWorkspaceInternalActorContexts } from '../../auth/index.js';
 import { assertActiveAnalyticsAreaForManagedSystem } from '../../analytics-areas/index.js';
 import {
   LinkAttachmentsRejected,
@@ -184,6 +185,40 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
         source_context: row.sourceContext,
         attachment_ids: input.attachment_ids ?? [],
       },
+    });
+
+    const triageRecipients: string[] = [];
+    const workspaceActors = await listWorkspaceInternalActorContexts(tx, actor.workspace_id);
+    const triageActors = workspaceActors
+      .filter((candidate) => candidate.id !== actor.actor_id)
+      .map((candidate) => ({
+        actor_id: candidate.id,
+        workspace_id: actor.workspace_id,
+        role_level: candidate.role_level,
+      }));
+    const triageSnapshot = await deps.checkService.loadCapabilitySnapshot(
+      triageActors,
+      ['voc.triage'],
+      { tx },
+    );
+    for (const candidate of triageActors) {
+      const scope = await triageSnapshot.scope(candidate, 'voc.triage');
+      if (scope.kind === 'all' || scope.managed_system_ids.includes(row.primaryManagedSystemId)) {
+        triageRecipients.push(candidate.actor_id);
+      }
+    }
+    await deps.notify(tx, 'voc.submitted', {
+      workspace_id: actor.workspace_id,
+      actor_ids: triageRecipients,
+      subject_id: row.id,
+      correlation_id: randomUUID(),
+      detail: {
+        voc_id: row.id,
+        actor_id: actor.actor_id,
+        triage_state: 'untriaged',
+        reporter_facing_status: row.reporterFacingStatus,
+      },
+      params: {},
     });
 
     // 6b. #168 (FO ADR-0034 D6) — enqueue the embedding job. Deliberately the

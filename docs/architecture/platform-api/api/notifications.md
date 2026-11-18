@@ -12,14 +12,15 @@ workspace before enqueueing jobs.
 
 | Event | Producer | Recipients |
 | --- | --- | --- |
+| `voc.submitted` | `voc/commands/create.ts` `createVoc` | Internal workspace Actors with `voc.triage` on the VOC's Managed System, resolved with the triage scope rule; excludes the submitter. Subject is the VOC operation detail. |
 | `voc.assigned_to_me` | `voc/commands/update-triage.ts` `updateVoc` (exposed via `voc/service.ts`) | The newly assigned user owner; team-only ownership has no Actor recipient. |
 | `voc.reporter_replied` | `voc/conversation-service.ts` `postReporterReply` | The current user owner, if set, plus every workspace Actor with `role_level = admin`. |
-| `voc.public_update_posted` (#1182) | `voc/conversation-service.ts` `postPublicUpdate` | The VOC's Reporter, once per posted Public Update or Reporter-facing status change (body only, body + status, or skip + status); in-app only, summary `VOC 진행 상태가 변경되었습니다.` when the status changed, otherwise `VOC에 공개 업데이트가 등록되었습니다.`; detail carries ids only. |
+| `voc.public_update_posted` (#1182) | `voc/conversation-service.ts` `postPublicUpdate` | The VOC's Reporter, once per posted Public Update or Reporter-facing status change (body only, body + status, or skip + status); in-app only, summary `VOC 진행 상태가 변경되었습니다.` when the status changed, otherwise `VOC에 공개 업데이트가 등록되었습니다.`; detail carries the VOC/update/actor ids, the new Reporter-facing status, and the public update number when a public update was posted. |
 | `voc.severity_set_high_or_critical` | `voc/commands/update-triage.ts` `updateVoc` (exposed via `voc/service.ts`) | On a change to `high` or `critical`, the current user owner, if set, plus every workspace Actor with `role_level = admin`. |
 | `task_request.approved`, `task_request.rejected`, `task_request.needs_more_evidence` | `task-requests/service.ts` `decideTaskRequest` | The Task Request creator (`requester_actor_id`), including self-approval. |
 | `task.assigned_to_me` | `tasks/service.ts` `convertTaskRequest` | The new assignee, only when `assignee_actor_id` is set. |
 | `task.released` | `voc/public-update-review-candidates/service.ts` `createForReleasedTask` | The linked VOC's current user owner, once per newly inserted review candidate, unless that owner is the releasing actor, Task assignee, or Reporter. |
-| `improvement.assigned_to_me` (#1328 e1) | `improvement-items/item-actions.ts` `itemCreate`, `itemAssign` | The new assignee, in the write transaction; none for self-assignment, an unchanged assignee, a cleared assignee or an assignee outside the workspace. Subject `improvement_item`, in-app only, summary `개선 아이템 IM-<n>이 지정되었습니다.`; detail carries `item_id` and `item_no`, never problem or action text. |
+| `improvement.assigned_to_me` (#1328 e1) | `improvement-items/item-actions.ts` `itemCreate`, `itemAssign` | The new assignee, in the write transaction; none for self-assignment, an unchanged assignee, a cleared assignee or an assignee outside the workspace. Subject `improvement_item`, in-app only, summary `개선 아이템 IM-<n>이 지정되었습니다.`; detail carries `item_id`, `item_no`, the actor id and item status, never problem or action text. |
 | `permission_request.submitted` | `permissions/request-service.ts` `createRequest` | Every workspace Actor whose `role_level` is `admin`. `core.actors` has no active/deactivated flag. |
 | `permission_request.decided` | `permissions/decision-service.ts` `decide` | The requester, for `approve` (`approved`), and `reject` or the explicit `deny` (both `rejected`); `need_more_info` does not notify. |
 | `permission_grant.revoked` (FO ADR-0061) | `permissions/grant-admin-service.ts` `revokeGrant` | The grant's Actor; in-app and email, summary `권한이 취소되었습니다.` |
@@ -41,8 +42,11 @@ notified. The `task.released` policy excludes the releasing actor, Task
 assignee, Reporter, and worker actor when the owner matches; this producer can
 compare the first three ids, while the release payload and linked rows expose
 no worker Actor id. VOC create requests do not accept owner or severity fields.
-Notification details contain ids only; decision reasons, notes, reply bodies,
-titles, and other free text stay in their domain records and audit events.
+Notification details contain ids and allowlisted enum state or count fields only.
+Decision reasons, notes, reply bodies, titles, and other free text stay in their
+domain records and audit events. Producers include `actor_id` and the resulting
+state where available so clients can resolve the actor display name and render a
+state label without exposing raw ids or capability keys.
 
 ## Notifications Inbox
 
@@ -75,7 +79,7 @@ titles, and other free text stay in their domain records and audit events.
 - Notification rows continue to store subject ids and event summaries only.
   They do not store a historical subject title or display id, so later reads
   reflect current authorization and current subject text.
-- `event_type` is one of `voc.assigned_to_me`, `voc.reporter_replied`,
+- `event_type` is one of `voc.submitted`, `voc.assigned_to_me`, `voc.reporter_replied`,
   `voc.public_update_posted`, `voc.severity_set_high_or_critical`, `task_request.approved`,
   `task_request.rejected`, `task_request.needs_more_evidence`,
   `task.assigned_to_me`, `task.released`, `improvement.assigned_to_me`, `permission_request.submitted`,

@@ -25,6 +25,7 @@ const VOC_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const NOTIFICATION_ID = '11111111-1111-4111-8111-111111111111';
 const REFERENCED_NOTIFICATION_ID = '22222222-2222-4222-8222-222222222222';
 const UNAVAILABLE_NOTIFICATION_ID = '33333333-3333-4333-8333-333333333333';
+const ACTOR_ID = '44444444-4444-4444-8444-444444444444';
 const LONG_SUBJECT_TITLE =
   'A long VOC title that should remain available to people who need the complete subject text';
 
@@ -118,14 +119,14 @@ const TARGET_CASES: Array<{
   {
     eventType: 'permission_request.decided',
     subjectType: 'permission_request',
-    detail: {},
-    target: null,
+    detail: { permission_request_id: NOTIFICATION_ID },
+    target: '/permission-requests',
   },
   {
     eventType: 'permission_grant.revoked',
     subjectType: 'permission_grant',
     detail: { permission_grant_id: NOTIFICATION_ID },
-    target: null,
+    target: '/permission-requests',
   },
 ];
 
@@ -142,6 +143,7 @@ function installNotificationFetch(
     failFirstListRequest?: boolean;
     hasMore?: boolean;
     holdSecondListRequest?: boolean;
+    resolvedActors?: Array<{ id: string; display_name: string; email: string }>;
   } = {},
 ) {
   let items = [...initialItems];
@@ -153,6 +155,10 @@ function installNotificationFetch(
     const url = new URL(path, 'http://localhost');
     const method = init?.method ?? 'GET';
     calls.push({ path, method });
+
+    if (url.pathname.endsWith('/actors/resolve') && method === 'GET') {
+      return jsonResponse({ actors: options.resolvedActors ?? [], teams: [] });
+    }
 
     if (url.pathname === '/notifications' && method === 'GET') {
       listRequests += 1;
@@ -263,6 +269,30 @@ describe('notificationTarget', () => {
 });
 
 describe('InboxPanel', () => {
+  it('adds a resolved actor and event state without showing actor IDs', async () => {
+    const { calls } = installNotificationFetch(
+      [
+        makeNotification({
+          event_type: 'permission_request.decided',
+          subject_type: 'permission_request',
+          summary: '권한 요청이 승인되었습니다.',
+          detail: { permission_request_id: VOC_ID, actor_id: ACTOR_ID, status: 'approved' },
+        }),
+      ],
+      { resolvedActors: [{ id: ACTOR_ID, display_name: 'Mock User Two', email: 'private@example.test' }] },
+    );
+    renderInbox();
+
+    const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
+    await waitFor(() =>
+      expect(calls.some(({ path }) => path.includes('/actors/resolve'))).toBe(true),
+    );
+    expect(row).toHaveTextContent('Mock User Two');
+    expect(row).toHaveTextContent('승인됨');
+    expect(row).not.toHaveTextContent(ACTOR_ID);
+    expect(row).not.toHaveTextContent('private@example.test');
+  });
+
   it('shows allowed subject references and hides unavailable subject text', async () => {
     const allowed = makeNotification({
       id: REFERENCED_NOTIFICATION_ID,
@@ -376,9 +406,9 @@ describe('InboxPanel', () => {
       const user = userEvent.setup();
       const readPermissionDecision = makeNotification({
         id: REFERENCED_NOTIFICATION_ID,
-        event_type: 'permission_request.decided',
-        subject_type: 'permission_request',
-        summary: '권한 요청이 처리되었습니다.',
+        event_type: 'voc.public_update_posted',
+        subject_type: 'voc',
+        summary: 'VOC 진행 상태가 변경되었습니다.',
         detail: {},
         read_at: '2026-07-27T01:00:00.000Z',
         subject_ref:
@@ -487,7 +517,7 @@ describe('InboxPanel', () => {
     expect(push.mock.calls[0]?.[0]).toBe(`/vocs?view=inbox&selected=${VOC_ID}`);
   });
 
-  it('marks a permission decision as read without navigating', async () => {
+  it('marks a permission decision as read from its sibling action without navigating', async () => {
     const permissionDecision = makeNotification({
       event_type: 'permission_request.decided',
       subject_type: 'permission_request',
@@ -497,9 +527,8 @@ describe('InboxPanel', () => {
     const { calls } = installNotificationFetch([permissionDecision]);
     const { push } = renderInbox();
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: /권한 요청이 처리되었습니다.*읽음으로 표시/ }),
-    );
+    await screen.findByRole('link', { name: /권한 요청이 처리되었습니다/ });
+    fireEvent.click(await screen.findByRole('button', { name: '읽음으로 표시' }));
 
     await waitFor(() =>
       expect(
@@ -512,7 +541,7 @@ describe('InboxPanel', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it('keeps an already-read permission decision main area noninteractive while allowing Archive', async () => {
+  it('links an already-read permission decision while keeping Archive as a sibling action', async () => {
     const permissionDecision = makeNotification({
       event_type: 'permission_request.decided',
       subject_type: 'permission_request',
@@ -526,10 +555,7 @@ describe('InboxPanel', () => {
     fireEvent.click(await screen.findByRole('radio', { name: '전체' }));
     const row = await screen.findByTestId(`home-inbox-row-${NOTIFICATION_ID}`);
 
-    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
-    expect(
-      within(row).queryByRole('button', { name: /권한 요청이 처리되었습니다/ }),
-    ).not.toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: /권한 요청이 처리되었습니다/ })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: '보관' })).toBeInTheDocument();
     expect(within(row).getAllByRole('button')).toHaveLength(1);
   });

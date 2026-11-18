@@ -118,6 +118,8 @@ export const HOME_INBOX_COPY = {
     improvement_item: '개선 아이템',
     public_update_review_candidate: '담당자 답변',
   },
+  notificationActorSummary: (actorName: string, summary: string) => `${actorName} · ${summary}`,
+  answerNumber: (number: number) => `답변 ${number}`,
   emptyUnread: '읽지 않은 알림이 없습니다.',
   emptyAll: '받은 알림이 없습니다.',
   error: '알림을 불러오지 못했습니다.',
