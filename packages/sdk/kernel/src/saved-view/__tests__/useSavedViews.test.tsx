@@ -1,11 +1,12 @@
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useLayoutEffect, useState } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildQuery, emptyGlobal, groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, usePlatform, type MenuPlatform } from '../../index';
 import { PaneScreenProvider, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
-import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities, type FakeSavedViewStore as FakeStore } from '../../testing';
+import { ScreenSavedViews, type InitialSavedView } from '../useSavedViews';
+import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities, ToastProbe, type FakeSavedViewStore as FakeStore } from '../../testing';
 /** A promise the test resolves by hand, to finish a store call out of order. */
 function deferred(): { promise: Promise<void>; release: () => void } {
   let release = () => {};
@@ -32,11 +33,11 @@ function mount(store: FakeStore | undefined, url = '/') {
   return render(ui(store));
 }
 
-function mountAutoApply(store: FakeStore, Content = Probe, search = '') {
+function mountAutoApply(store: FakeStore, Content = Probe, search = '', adapterOverrides: Parameters<typeof testAdapter>[0] = {}) {
   const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu('home', '/', true, true), pageKeys: [...base.pageKeys, 'returnTo'], query: { mode: 'apply', autoApplyDefault: true } }] });
   window.history.replaceState(null, '', chosen.menus[0].path + search);
   const replace = vi.spyOn(window.history, 'replaceState');
-  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Content /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session, ...adapterOverrides })} savedViews={store}><Content /></PlatformProvider></I18nProvider>);
   return replace;
 }
 const KEY = 'platform:saved-view:selected:u1:home';
@@ -238,6 +239,181 @@ it.each(['list', 'get'] as const)('discards a personal default when the %s read 
     expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
     expect(host.queryPolicy.autoApplyingDefault).toBeFalsy();
     expect(replace).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('keeps the original auto Apply deadline when detail expansion changes', async () => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([L1], { 'u1:home': 'l1' });
+    store.getHold.set('l1', held.promise);
+    const replace = mountAutoApply(store);
+    await act(async () => {});
+    expect(store.reads).toContain('get');
+
+    await act(async () => vi.advanceTimersByTimeAsync(2900));
+    act(() => host.setDetailExpanded(true));
+    expect(host.queryPolicy.autoApplyingDefault).toBe(true);
+    expect(host.detailExpanded).toBe(true);
+    expect(host.global.from).toBeNull();
+
+    await act(async () => vi.advanceTimersByTimeAsync(100));
+    expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
+    expect(new URLSearchParams(window.location.search).get('expand')).toBe('1');
+    await act(async () => held.release());
+    expect(replace).toHaveBeenCalledTimes(2);
+    expect(host.global.lineNames).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('keeps both the personal default and current detail expansion on a single materialization before expiry', async () => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([L1], { 'u1:home': 'l1' });
+    store.getHold.set('l1', held.promise);
+    function WithToasts() { return <><Probe /><ToastProbe /></>; }
+    const replace = mountAutoApply(store, WithToasts);
+    await act(async () => {});
+    expect(store.reads).toContain('get');
+
+    await act(async () => vi.advanceTimersByTimeAsync(2900));
+    act(() => host.setDetailExpanded(true));
+    expect(host.detailExpanded).toBe(true);
+    expect(host.global.from).toBeNull();
+
+    await act(async () => held.release());
+    expect(host.global).toMatchObject({ ...period, lineNames: ['L1'] });
+    expect(host.detailExpanded).toBe(true);
+    expect(new URLSearchParams(window.location.search).get('expand')).toBe('1');
+    expect(views.selected?.view.id).toBe('l1');
+    expect(replace.mock.calls.filter(([, , url]) => String(url).includes('from='))).toHaveLength(1);
+    expect(replace).toHaveBeenCalledTimes(2);
+
+    await act(async () => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByRole('list', { name: 'toasts' })).toBeEmptyDOMElement();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('emits zero timeout notices when a held get writes its default just before expiry and the timer runs before the queued render', async () => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([L1], { 'u1:home': 'l1' });
+    store.getHold.set('l1', held.promise);
+    function WithToasts() { return <><Probe /><ToastProbe /></>; }
+    mountAutoApply(store, WithToasts);
+    await act(async () => {});
+    expect(store.reads).toContain('get');
+
+    await act(async () => vi.advanceTimersByTimeAsync(2999));
+    held.release();
+    for (let i = 0; i < 6 && window.location.search === ''; i += 1) await Promise.resolve();
+    expect(window.location.search).toBe(query(['L1']));
+
+    vi.advanceTimersByTime(1);
+    await act(async () => {});
+    expect(screen.getByRole('list', { name: 'toasts' })).toBeEmptyDOMElement();
+    expect(host.global).toMatchObject({ ...period, lineNames: ['L1'] });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('emits zero timeout notices when a no-write settlement lands just before expiry and the timer runs before the queued render', async () => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([]);
+    const getDefaultId = store.getDefaultId.bind(store);
+    vi.spyOn(store, 'getDefaultId').mockImplementation(async owner => {
+      await held.promise;
+      return getDefaultId(owner);
+    });
+    function WithToasts() { return <><Probe /><ToastProbe /></>; }
+    mountAutoApply(store, WithToasts);
+    await act(async () => {});
+
+    await act(async () => vi.advanceTimersByTimeAsync(2999));
+    held.release();
+    for (let i = 0; i < 6; i += 1) await Promise.resolve();
+
+    vi.advanceTimersByTime(1);
+    await act(async () => {});
+    expect(screen.getByRole('list', { name: 'toasts' })).toBeEmptyDOMElement();
+    expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('emits no notice when the owner tears down while the deadline timer is due', async () => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([L1], { 'u1:home': 'l1' });
+    store.getHold.set('l1', held.promise);
+    const chosen = createRegistry({
+      spaces: registry.spaces, groups: registry.groups,
+      menus: [{ ...menu('home', '/', true, true), query: { mode: 'apply', autoApplyDefault: true } }],
+    });
+    // Use an explicit query so the outer MainScreenProvider does not arm its own initial timer.
+    window.history.replaceState(null, '', `${chosen.menus[0].path}?lineNames=L2`);
+    const settle = vi.fn();
+    const initial: InitialSavedView = { settle, materialize: () => true };
+    let setMounted: (value: boolean) => void = () => {};
+    function AfterOwner() {
+      // Fires in the layout-cleanup phase while the owner is torn down and before passive useEffect cleanup runs.
+      useLayoutEffect(() => () => { vi.advanceTimersByTime(1); }, []);
+      return null;
+    }
+    function OwnerGate() {
+      const [mounted, update] = useState(true);
+      setMounted = update;
+      return mounted ? <><ScreenSavedViews initial={initial}><Probe /></ScreenSavedViews><AfterOwner /></> : null;
+    }
+    render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><OwnerGate /><ToastProbe /></PlatformProvider></I18nProvider>);
+    await act(async () => {});
+    expect(store.reads).toContain('get');
+
+    await act(async () => vi.advanceTimersByTimeAsync(2999));
+    await act(async () => setMounted(false));
+    expect(settle).not.toHaveBeenCalled();
+    expect(screen.getByRole('list', { name: 'toasts' })).toBeEmptyDOMElement();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it.each([
+  { clock: 'with a clock', overrides: {}, from: '2026-09-25T09:00:00', notice: '개인 기본 뷰를 불러오지 못해 기본 기간을 적용했습니다.' },
+  { clock: 'without a clock', overrides: { defaultRangeTo: () => null }, from: null, notice: '개인 기본 뷰를 불러오지 못했습니다. 조회 조건을 입력할 수 있습니다.' },
+])('shows exactly one timeout notice $clock when the default get is held', async ({ overrides, from, notice }) => {
+  vi.useFakeTimers();
+  try {
+    const held = deferred();
+    const store = createFakeStore([L1], { 'u1:home': 'l1' });
+    store.getHold.set('l1', held.promise);
+    function WithToasts() { return <><Probe /><ToastProbe /></>; }
+    mountAutoApply(store, WithToasts, '', overrides);
+    await act(async () => {});
+    expect(store.reads).toContain('get');
+    expect(screen.queryByText(notice)).toBeNull();
+
+    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    expect(host.queryPolicy.autoApplyingDefault).toBeFalsy();
+    expect(screen.getAllByText(notice)).toHaveLength(1);
+    await act(async () => held.release());
+    expect(screen.getAllByText(notice)).toHaveLength(1);
+    expect(views.selected).toBeNull();
+    expect(host.global.from).toBe(from);
   } finally {
     vi.useRealTimers();
   }

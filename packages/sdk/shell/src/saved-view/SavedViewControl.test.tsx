@@ -1,7 +1,7 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
@@ -46,6 +46,75 @@ beforeEach(() => { support = baseSupport; vi.stubGlobal('localStorage', memorySt
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('SavedViewControl in the query tool row', () => {
+  it('disables picking during the first-entry decision and applies a pick after the deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const manual = viewOf({ ...L1, id: 'manual', name: '수동 뷰', context: { ...L1.context, roomNames: ['ETCH'] } });
+      const store = createFakeViewStore([L1, manual], { 'u1:home': L1.id });
+      let release = () => {};
+      store.getHold.set(L1.id, new Promise<void>(resolve => { release = resolve; }));
+      const chosen = createRegistry({
+        spaces: registry.spaces, groups: registry.groups,
+        menus: [menu('home', '/', { requiresScope: false, savedViewSupport: baseSupport, query: { mode: 'apply', autoApplyDefault: true } })],
+      });
+      window.history.replaceState(null, '', '/');
+      render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
+      await act(async () => {});
+      expect(store.reads).toContain('get');
+      expect(screen.getByRole('status')).toHaveTextContent('조건을 적용하고 있습니다.');
+      expect(selector()).toBeDisabled();
+
+      await act(async () => vi.advanceTimersByTimeAsync(3000));
+      expect(selector()).toBeEnabled();
+      expect(platform.global.from).toBe('2026-09-25T09:00:00');
+      fireEvent.click(selector());
+      fireEvent.click(screen.getByRole('button', row(manual.name)));
+      const drop = screen.queryByRole('button', { name: '버리고 이동' });
+      await act(async () => { if (drop) fireEvent.click(drop); });
+      expect(platform.global.roomNames).toEqual(['ETCH']);
+
+      await act(async () => release());
+      expect(platform.global.roomNames).toEqual(['ETCH']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('mounts a persistent polite live region before publishing the pending query status', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = createFakeViewStore([L1], { 'u1:home': L1.id });
+      let release = () => {};
+      store.getHold.set(L1.id, new Promise<void>(resolve => { release = resolve; }));
+      const chosen = createRegistry({
+        spaces: registry.spaces, groups: registry.groups,
+        menus: [menu('home', '/', { requiresScope: false, savedViewSupport: baseSupport, query: { mode: 'apply', autoApplyDefault: true } })],
+      });
+      let regionAtMount: Element | null = null;
+      let textAtMount: string | null = null;
+      function MountProbe() {
+        useLayoutEffect(() => {
+          regionAtMount = document.querySelector('[aria-live="polite"]');
+          textAtMount = regionAtMount?.textContent ?? null;
+        }, []);
+        return null;
+      }
+      window.history.replaceState(null, '', '/');
+      render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Probe /><GlobalContextBar /><MountProbe /></PlatformProvider></I18nProvider>);
+      expect(regionAtMount).not.toBeNull();
+      expect(textAtMount).toBe('');
+      await act(async () => {});
+      const region = document.querySelector('[aria-live="polite"]');
+      expect(region).toBe(regionAtMount);
+      expect(region).toHaveTextContent('조건을 적용하고 있습니다.');
+      await act(async () => release());
+      expect(document.querySelector('[aria-live="polite"]')).toBe(regionAtMount);
+      expect(region).toHaveTextContent('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('puts the selector in the existing tool-row group, with the save menu, and no extra row', async () => {
     mount(createFakeViewStore([L1]), `/?scopeId=MEM&${period}`);
     const actions = await screen.findByRole('group', { name: '조회 조건 동작' });

@@ -1,7 +1,7 @@
 import { TargetPicker, TARGET_KEYS } from './TargetPicker';
 import { useCustomGroupOptions } from './customGroupOptions';
 import { createPortal } from 'react-dom';
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { CUSTOM_GROUP_AXIS, formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
@@ -9,6 +9,7 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
 import { Alert, AlertDescription, Button, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
+import { useSessionKey } from '../frame/sessionKey';
 import { SHELL_MESSAGES } from '../messages';
 import { ShareControl } from './ShareControl';
 
@@ -22,10 +23,28 @@ export type QueryBarProps = {
 
 /** Remount transient editor state on logical screen/session switches; Kernel owns retained drafts. */
 export function QueryBar(props: QueryBarProps) {
-  const { route, paneId, session } = useHostPlatform();
+  const { route, paneId, session, queryPolicy, queryDraft } = useHostPlatform();
+  const m = useMessages(SHELL_MESSAGES);
   const [identity, setIdentity] = useState({ session, generation: 0 });
   if (identity.session !== session) setIdentity({ session, generation: identity.generation + 1 });
-  return <QueryBarSession key={`${identity.generation}:${paneId ?? 'main'}:${route?.menu.id}:${JSON.stringify(route?.params)}`} {...props} />;
+  const pending = queryDraft.applying || queryPolicy.autoApplyingDefault === true;
+  const applyingText = m('queryApplying');
+  const sessionKey = useSessionKey();
+  const screenKey = `${sessionKey}:${paneId ?? 'main'}:${route?.menu.id}:${JSON.stringify(route?.params)}`;
+  const [saidFor, setSaidFor] = useState(screenKey);
+  const [announced, setAnnounced] = useState('');
+  if (saidFor !== screenKey) {
+    setSaidFor(screenKey);
+    setAnnounced('');
+  }
+  useEffect(() => {
+    setAnnounced(pending ? applyingText : '');
+  }, [pending, applyingText, screenKey]);
+  return <>
+    <QueryBarSession key={`${identity.generation}:${paneId ?? 'main'}:${route?.menu.id}:${JSON.stringify(route?.params)}`} {...props} />
+    {/* Persistent polite region: mounts empty before pending status arrives, stays mounted across remounts, and portals outside the root so modal hideOthers does not hide sibling test probes directly. */}
+    {typeof document !== 'undefined' && createPortal(<div aria-live="polite" aria-atomic="false" className="sr-only">{announced}</div>, document.body)}
+  </>;
 }
 /**
  * The view slot keeps one React position while the bar folds: the action group is drawn in the header row when folded and under the

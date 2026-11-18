@@ -336,7 +336,13 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
     commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const materializeDefault = useCallback((href: string) => commitState(href, 'replace', { materialize: true }), [commitState]);
-  const initialDecision = useMemo<InitialSavedView>(() => ({ settle: () => setSettledSavedView(savedViewEntry), materialize: materializeDefault }), [savedViewEntry, materializeDefault]);
+  const materializer = useRef(materializeDefault);
+  useLayoutEffect(() => { materializer.current = materializeDefault; }, [materializeDefault]);
+  // Presentation changes update the writer without starting a new default-read budget.
+  const initialDecision = useMemo<InitialSavedView>(() => ({
+    settle: () => setSettledSavedView(savedViewEntry),
+    materialize: href => materializer.current(href),
+  }), [savedViewEntry]);
   const waitingForSavedView = eligible && entryKind === 'bare' && savedViewEnabled && settledSavedView !== savedViewEntry;
   if (newEntry || entry.kind !== entryKind || entry.pendingDefault !== waitingForSavedView || entry.traversal !== traversal) {
     setEntry({ route: autoApplyRoute, paneId, kind: entryKind, pendingDefault: waitingForSavedView, traversal });

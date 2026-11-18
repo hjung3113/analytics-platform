@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { buildQuery, validateSavedView, type JsonValue, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport, type TableViewState } from '@ap/contracts';
+import { useI18n } from '../i18n';
 import { useHostPlatform } from '../platform/hooks';
 import { AppContext } from '../platform/contexts';
 import type { LeaveRequest } from '../platform/navigationGuard';
@@ -100,8 +101,10 @@ function arrivalHref(next: { global: ReturnType<typeof useHostPlatform>['global'
 /** A new object for each eligible first-address decision. Only the owning screen can release its fallback. */
 export type InitialSavedView = { settle: () => void; materialize: (href: string) => boolean };
 type InitialWork = { initial: InitialSavedView; gen: object; mine: number } & (
-  { phase: 'reading' | 'accepted' } | { phase: 'held'; request: LeaveRequest }
+  { phase: 'reading' | 'accepted' | 'settled' } | { phase: 'held'; request: LeaveRequest }
 );
+const isDecisionResolved = (work: InitialWork | null, target: InitialSavedView, at?: object) =>
+  work !== null && work.initial === target && (at === undefined || work.gen === at) && (work.phase === 'accepted' || work.phase === 'settled');
 const ScreenSavedViewsContext = createContext<{ views: SavedViews; requestLists: () => () => void } | null>(null);
 const ScreenLoadingContext = createContext<((loading: boolean) => void) | null>(null);
 
@@ -163,6 +166,7 @@ function useSavedViewController(
     readLists?: boolean; waitingForContent?: boolean; loadingNow?: { readonly current: boolean };
   } = {},
 ): SavedViews {
+  const { t } = useI18n();
   const app = useContext(AppContext);
   const registry = mode === 'inactive' ? undefined : app?.internal.savedViewSupports;
   const guard = app?.internal.guard;
@@ -209,14 +213,6 @@ function useSavedViewController(
   // The view the last restore or save was accepted with: it is the selected view's snapshot until the next list answer replaces it.
   const [fresh, setFresh] = useState<{ gen: object; entry: SavedViewEntry } | null>(null);
   const [data, setData] = useState<{ gen: object; tick: number; status: 'ready' | 'unavailable'; menuViews: readonly SavedViewListItem[]; conditionSets: readonly SavedViewListItem[]; defaultId: string | null } | null>(null);
-  useEffect(() => {
-    if (!enabled || !readLists) return;
-    let cancelled = false;
-    Promise.all([store.list({ userId, menuId }), store.list({ userId, menuId: null }), readDefault()])
-      .then(([menuViews, conditionSets, defaultId]) => { if (!cancelled) { setData({ gen, tick, status: 'ready', menuViews: menuViews.filter(item => item.denied || item.view.kind === 'menu-view'), conditionSets: conditionSets.filter(item => item.denied || item.view.kind === 'condition-set'), defaultId }); setFresh(null); } })
-      .catch(() => { if (!cancelled) setData({ gen, tick, status: 'unavailable', menuViews: NO_ITEMS, conditionSets: NO_ITEMS, defaultId: null }); });
-    return () => { cancelled = true; };
-  }, [enabled, readLists, store, userId, menuId, gen, tick, readDefault]);
   const loaded = enabled && data !== null && data.gen === gen ? data : null;
   const status = !enabled ? 'disabled' : loaded?.status ?? 'loading';
   const menuViews = loaded?.menuViews ?? NO_ITEMS;
@@ -245,29 +241,84 @@ function useSavedViewController(
   }, [selected, currentScope]);
 
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.
-  const live = useRef({ gen, host, initial, selectedId, selectedVersion: selected?.view.version ?? null });
+  const live = useRef({ gen, host, initial, t, selectedId, selectedVersion: selected?.view.version ?? null });
   const initialWork = useRef<InitialWork | null>(null);
   const expiredInitial = useRef<InitialSavedView | null>(null);
+  const deadlineTimer = useRef<{ initial: InitialSavedView; id: ReturnType<typeof setTimeout> } | null>(null);
+  const intent = useRef(0);
+  const clearDeadlineTimer = useCallback((target?: InitialSavedView) => {
+    const active = deadlineTimer.current;
+    if (!active || (target !== undefined && active.initial !== target)) return;
+    clearTimeout(active.id);
+    deadlineTimer.current = null;
+  }, []);
+  const acceptDecision = useCallback((decision: InitialSavedView, at: object, mine: number) => {
+    initialWork.current = { initial: decision, gen: at, mine, phase: 'accepted' };
+    clearDeadlineTimer(decision);
+  }, [clearDeadlineTimer]);
+  const settleDecision = useCallback((decision: InitialSavedView, at: object, mine: number) => {
+    initialWork.current = { initial: decision, gen: at, mine, phase: 'settled' };
+    clearDeadlineTimer(decision);
+    decision.settle();
+  }, [clearDeadlineTimer]);
+  const retireNoWrite = useCallback((resolvedDefaultId: string | null) => {
+    if (mode !== 'owner' || resolvedDefaultId !== null || !alive.current) return;
+    const currentInitial = live.current.initial;
+    if (!currentInitial || live.current.gen !== gen || expiredInitial.current === currentInitial) return;
+    if (initialWork.current?.initial === currentInitial && initialWork.current.gen === gen) return;
+    settleDecision(currentInitial, gen, intent.current);
+  }, [mode, gen, settleDecision]);
   useEffect(() => {
-    if (!initial || !enabled) return;
+    if (!enabled || !readLists) return;
+    let cancelled = false;
+    Promise.all([store.list({ userId, menuId }), store.list({ userId, menuId: null }), readDefault()])
+      .then(([menuViews, conditionSets, resolvedDefaultId]) => {
+        if (cancelled) return;
+        retireNoWrite(resolvedDefaultId);
+        setData({ gen, tick, status: 'ready', menuViews: menuViews.filter(item => item.denied || item.view.kind === 'menu-view'), conditionSets: conditionSets.filter(item => item.denied || item.view.kind === 'condition-set'), defaultId: resolvedDefaultId });
+        setFresh(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        retireNoWrite(null);
+        setData({ gen, tick, status: 'unavailable', menuViews: NO_ITEMS, conditionSets: NO_ITEMS, defaultId: null });
+      });
+    return () => { cancelled = true; };
+  }, [enabled, readLists, store, userId, menuId, gen, tick, readDefault, retireNoWrite]);
+  useEffect(() => {
+    if (!initial || !enabled || expiredInitial.current === initial || isDecisionResolved(initialWork.current, initial)) return;
     const timeout = setTimeout(() => {
-      if (live.current.initial !== initial) return;
+      if (deadlineTimer.current?.id === timeout) deadlineTimer.current = null;
+      const unresolved = () => {
+        if (!alive.current) return false;
+        const current = live.current;
+        return current.initial === initial && expiredInitial.current !== initial && !isDecisionResolved(initialWork.current, initial);
+      };
+      if (!unresolved()) return;
       expiredInitial.current = initial;
+      initialWork.current = { initial, gen: live.current.gen, mine: intent.current, phase: 'settled' };
       initial.settle();
+      if (!alive.current) return;
+      const latest = live.current;
+      if (latest.initial !== initial || initialWork.current?.initial !== initial || initialWork.current.phase !== 'settled') return;
+      latest.host.toast(latest.t(latest.host.defaultRangeTo === null ? 'defaultViewTimeoutWithoutPeriod' : 'defaultViewTimeoutWithPeriod'), 'warning');
     }, AUTO_APPLY_DEFAULT_WAIT_MS);
-    return () => clearTimeout(timeout);
+    deadlineTimer.current = { initial, id: timeout };
+    return () => {
+      clearTimeout(timeout);
+      if (deadlineTimer.current?.id === timeout) deadlineTimer.current = null;
+    };
   }, [initial, enabled]);
   useLayoutEffect(() => {
-    live.current = { gen, host, initial, selectedId, selectedVersion: selected?.view.version ?? null };
+    live.current = { gen, host, initial, t, selectedId, selectedVersion: selected?.view.version ?? null };
     const work = initialWork.current;
-    if (work && (work.initial !== initial || work.gen !== gen)) initialWork.current = null;
+    if (work && (work.initial !== initial || (work.gen !== gen && work.phase !== 'accepted' && work.phase !== 'settled'))) initialWork.current = null;
   });
   // A default whose read was overtaken by a newer generation or a moved address (scope check done, the Kernel completing the address) was never judged: the entry is armed again.
   // Capped per entry: every retry needs a new discard, and the cap ends a generation or address that keeps changing.
   const entered = useRef<object | null>(null);
   const [rearmed, setRearmed] = useState(0);
   const retries = useRef<{ entry: object; n: number }>({ entry: entryGen, n: 0 });
-  const intent = useRef(0);
   const heldRequest = useRef<ReturnType<NonNullable<typeof guard>['getRequest']>>(null);
   const pendingLeave = useSyncExternalStore(mode === 'owner' && guard ? guard.subscribe : NOOP_SUBSCRIBE, guard?.getRequest ?? NO_LEAVE_REQUEST);
   useEffect(() => {
@@ -279,7 +330,7 @@ function useSavedViewController(
   }, [initial, gen, pendingLeave]);
   const [arrivingSelection, setArrivingSelection] = useState<{ gen: object; mine: number; href: string; entry: SavedViewEntry } | null>(null);
   const alive = useRef(true);
-  useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; initialWork.current = null; }; }, []);
+  useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; initialWork.current = null; clearDeadlineTimer(); }; }, [clearDeadlineTimer]);
   const stale = (at: object) => !alive.current || live.current.gen !== at;
   const clearSelection = useCallback(() => { intent.current += 1; setSelected(null); }, [setSelected]);
   const differs = (view: SavedViewEntry['view'], support: SavedViewSupport) => viewState({ applied: comparableApplied(view, captureApplied(applied, support)), saved: savedStateOf(view, support, anchor, host.global.scopeId), draftDirty: [] }).modified;
@@ -302,7 +353,7 @@ function useSavedViewController(
     const mine = ++intent.current;
     const decision = live.current.initial;
     const work = initialWork.current;
-    const ownsDecision = decision !== null && (work?.initial !== decision || work.gen !== at || work.phase !== 'accepted');
+    const ownsDecision = decision !== null && expiredInitial.current !== decision && !isDecisionResolved(work, decision, at);
     if (ownsDecision) initialWork.current = { initial: decision, gen: at, mine, phase: 'reading' };
     if (heldRequest.current && guard?.getRequest() === heldRequest.current) guard.dropRequest();
     heldRequest.current = null;
@@ -312,7 +363,7 @@ function useSavedViewController(
     const stillCurrent = () => currentAddress() && (!ownsDecision || currentDecision()) && ((ownsDecision && source === 'default') || intent.current === mine);
     const unchanged = () => {
       if (!ownsDecision) return;
-      if (source === 'default') decision.settle();
+      if (source === 'default') settleDecision(decision, at, mine);
       else { initialWork.current = null; setRearmed(n => n + 1); }
     };
     // Always asks the store: a restore is judged on the view's current capabilities, never on an earlier list answer or the cached copy.
@@ -348,14 +399,14 @@ function useSavedViewController(
       if (!stillCurrent()) return { ok: false, reason: 'unavailable' };
       if (!decision.materialize(result.href)) return fail('unavailable');
       applyTables();
-      initialWork.current = { initial: decision, gen: at, mine, phase: 'accepted' };
+      acceptDecision(decision, at, mine);
     } else if (!sameAddress) {
       const before = guard?.getRequest();
       let held = false;
       const moved = current.navigate(result.href, { replace: source === 'default', run: () => {
         if (!stillCurrent()) return false;
         applyTables();
-        if (ownsDecision) initialWork.current = { initial: decision, gen: at, mine, phase: 'accepted' };
+        if (ownsDecision) acceptDecision(decision, at, mine);
         // The arrived address is rebuilt as the visible pairs, then the hidden ones (ADR-0105); the expected one must be in that order too.
         if (held) setArrivingSelection({ gen: at, mine, href: arrivalHref(result.next, current), entry: found });
         return true;
@@ -375,7 +426,7 @@ function useSavedViewController(
     setSelected(id);
     if (sameAddress) unchanged();
     return { ok: true, unsupported: result.unsupported, excludedByScope: result.excludedByScope };
-  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, mode, currentRevision, revision, slots]);
+  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, mode, currentRevision, revision, slots, acceptDecision, settleDecision]);
   useEffect(() => {
     if (!initial) return;
     const alreadyDeciding = () => initialWork.current?.initial === initial && initialWork.current.gen === gen;
@@ -383,12 +434,12 @@ function useSavedViewController(
     if (!enabled) {
       // Read the committed fallback and support: their layout effects may have run since this render.
       if (waitingForContent || loadingNow?.current || resolveSavedViewSupport(menu, registry) !== undefined) return;
-      initial.settle();
+      settleDecision(initial, gen, intent.current);
       return;
     }
     const finish = (id: string | null) => {
-      if (expiredInitial.current === initial || live.current.initial !== initial || live.current.gen !== gen || alreadyDeciding()) return;
-      if (id === null) initial.settle();
+      if (!alive.current || expiredInitial.current === initial || live.current.initial !== initial || live.current.gen !== gen || alreadyDeciding()) return;
+      if (id === null) settleDecision(initial, gen, intent.current);
       else void apply(id, 'default');
     };
     if (readLists) {
@@ -402,7 +453,7 @@ function useSavedViewController(
       () => { if (!cancelled) finish(null); },
     );
     return () => { cancelled = true; };
-  }, [initial, gen, enabled, waitingForContent, loadingNow, loaded, tick, registry, menu, apply, rearmed, readLists, readDefault]);
+  }, [initial, gen, enabled, waitingForContent, loadingNow, loaded, tick, registry, menu, apply, rearmed, readLists, readDefault, settleDecision]);
 
   // Entering a screen: a selection that no longer matches the address is dropped (the address wins), then the personal default fills a bare route once.
   useEffect(() => {
