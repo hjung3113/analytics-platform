@@ -27,7 +27,7 @@ vi.mock('@ap/components', async original => ({ ...await original<object>(),
   PanelWorkspace: ({ panels }: Pick<PanelWorkspaceProps, 'panels'>) => panels[0]?.render(),
   PageFilterBar: ({ fields, actions }: { fields: PageFilterField[]; actions: ReactNode }) => { state.fields = fields; return <div>{actions}</div>; },
   QueryView: ({ query, children }: { query: { response: { data: unknown } }; children: (data: unknown, response: unknown) => ReactNode }) => children(query.response.data, query.response),
-  TreeMatrix: (props: TreeMatrixProps<TreeRow>) => { state.matrix = props; return <div data-matrix>{props.toolbar}</div>; },
+  TreeMatrix: (props: TreeMatrixProps<TreeRow>) => { state.matrix = props; return <div data-matrix />; },
   usePageKeyRules: () => ({ invalid: false, sentences: [], recover: vi.fn() }),
   useWorkbookExport: () => ({ canExport: false, exporting: false, cancel: state.cancelExport }),
 }));

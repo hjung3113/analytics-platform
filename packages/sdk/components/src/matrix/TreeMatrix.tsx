@@ -6,7 +6,6 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useRegisterPageBound } from '../pageFlow';
 import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from '../table/tableSize';
 import type { FilterValueCheck } from '../table/tableFilterUrl';
-import { MatrixFilters, type MatrixFilterField } from './MatrixFilters';
 import { MatrixRowMenu } from './MatrixRowMenu';
 import type { MatrixValueOf } from './emphasis';
 import { MATRIX_MESSAGES } from './messages';
@@ -49,23 +48,6 @@ export type TreeMatrixProps<N extends MatrixNode = MatrixNode> = Omit<MatrixWind
   emphasisActionLabel?: string;
   emphasisColumnLabel?: string;
   formatEmphasisCount?: (count: number, node: N) => string;
-  /**
-   * @deprecated Build the filter line outside the matrix (`useTableFilterDeclaration` + `FilterLine` in the consumer's toolbar) so it
-   * stays mounted through empty and error results; removed next SDK minor (#2514).
-   */
-  filterFields?: readonly MatrixFilterField[];
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  filters?: readonly ColumnFilter[];
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  filterKey?: string;
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  filterValues?: readonly string[];
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  onFiltersChange?: (filters: ColumnFilter[]) => void;
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  validateFilter?: FilterValueCheck;
-  /** @deprecated Render toolbar controls outside the matrix, beside the consumer's filter line; removed next SDK minor (#2514). */
-  toolbar?: ReactNode;
 };
 
 const WIDTH: Record<NonNullable<MatrixColumn['width']>, number> = { identity: 320, compact: 96, value: 96, wide: 384 };
@@ -77,7 +59,7 @@ type PendingFocus = { index: number; column: string; generation: string | number
 /** Controlled server-windowed treegrid. Owns presentation and local focus only; fetching, counts and meaning remain consumer-owned. */
 export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColumn, label, offset, totalVisible, windowSize, renderCell, cellTone, onWindowChange, onToggle, selectedCell, onSelectCell,
   onActivate, activateOn = 'enter', reveal, hiddenColumns = EMPTY_IDS, fill = false, keepSelectionInView = false, busy = false, generation = 0, emphasis = EMPTY_RULES, onEmphasisChange, valueOf, onlyMatchingColumns = false,
-  emphasisActionLabel, emphasisColumnLabel, formatEmphasisCount, filterFields, filters, filterKey, filterValues, onFiltersChange, validateFilter, toolbar }: TreeMatrixProps<N>) {
+  emphasisActionLabel, emphasisColumnLabel, formatEmphasisCount }: TreeMatrixProps<N>) {
   const m = useMessages(MATRIX_MESSAGES);
   const ime = useImeEnterGuard();
   useRegisterPageBound(fill);
@@ -206,10 +188,6 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
     }
   };
   return <section aria-label={label} style={vars} className={cn('flex min-h-0 min-w-0 flex-col text-(length:--ap-table-font) break-keep', fill && 'h-full flex-1 overflow-hidden')}>
-    {(toolbar || (filterFields && onFiltersChange)) && <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle py-2">
-      {toolbar}
-      {filterFields && onFiltersChange && <MatrixFilters key={generation} fields={filterFields} filters={filters} filterKey={filterKey} filterValues={filterValues} onChange={onFiltersChange} validate={validateFilter} />}
-    </div>}
     <div ref={viewport} data-matrix-viewport role="treegrid" aria-label={label} aria-rowcount={totalVisible + 1} aria-colcount={visible.length + (emphasis.length > 0 ? 1 : 0)} aria-busy={busy}
       className={cn('scrollbar-panel min-h-0 min-w-0 scroll-pt-(--ap-table-row-h) scroll-pl-(--matrix-left-width) scroll-pr-(--matrix-right-width) overflow-auto overscroll-contain', fill ? 'flex-1' : 'max-h-96')}
       onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}

@@ -24,7 +24,7 @@ Platform Component layer (06 §13), chart contract (§16) and page archetype ske
 ### Matrix
 
 - `matrix/TreeMatrix.tsx` is an opt-in server-windowed treegrid; the consumer owns meaning, fetching, counts, expansion and selection. Public wire types live in contracts `adapter/matrix.ts`; the component contract is [Components §13](../../../docs/contract/components.md#treematrix--서버-윈도-트리-행렬-decided-adr-0169-1768).
-- Reuse the private table filter pieces, table size and page-bound registration. The built-in filter and `toolbar` props are deprecated (#2514): consumers build the filter line outside the matrix; do not extend them. Keep `table/*` unchanged when extending the matrix. `MatrixLevelOrder` uses the table column-list primitives; the consumer stores its page key and the server regroups.
+- Reuse table size and page-bound registration. `TreeMatrix` has no built-in filter or toolbar (#2523): consumers build the filter line outside the matrix with `FilterLine` ([Components §13](../../../docs/contract/components.md#treematrix--서버-윈도-트리-행렬-decided-adr-0169-1768) «필터»). Keep `table/*` unchanged when extending the matrix. `MatrixLevelOrder` uses the table column-list primitives; the consumer stores its page key and the server regroups.
 - `MatrixEmphasisBar`, the row editor and `sameValueRule` share transient typed rules. Only matching column ids survive window changes; change `generation` on session/Scope/query-order changes to clear these and pending focus. Never persist emphasis. Tests live in `matrix/__tests__/`.
 
 ## Table

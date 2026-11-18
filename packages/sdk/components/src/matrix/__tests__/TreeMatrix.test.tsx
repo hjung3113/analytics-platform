@@ -57,8 +57,9 @@ describe('TreeMatrix controlled window', () => {
   });
   it.each(['toolbar', 'outside', 'other cell', 'same cell'])('cancels delayed remote focus after selecting %s', destination => {
     const onSelectCell = vi.fn();
-    const toolbar = <input aria-label="Toolbar search" />;
-    const { rerender } = mount({ totalVisible: 100, windowSize: 8, toolbar, onSelectCell });
+    // The consumer's toolbar sits outside the matrix (#2523).
+    const view = (props: Omit<Partial<TreeMatrixProps<Node>>, 'valueOf'>) => <I18nProvider><input aria-label="Toolbar search" /><TreeMatrix {...base} {...props} /></I18nProvider>;
+    const { rerender } = render(view({ totalVisible: 100, windowSize: 8, onSelectCell }));
     Object.defineProperty(screen.getByRole('treegrid'), 'clientHeight', { configurable: true, value: 160 });
     const outside = document.createElement('input');
     document.body.append(outside);
@@ -75,7 +76,7 @@ describe('TreeMatrix controlled window', () => {
       const selectionBeforeArrival = [...onSelectCell.mock.calls];
       const outsideGrid = destination === 'toolbar' || destination === 'outside';
       const nodes = outsideGrid ? [leaf('remote')] : [...base.nodes, leaf('c'), leaf('d'), leaf('remote')];
-      rerender(<I18nProvider><TreeMatrix {...base} nodes={nodes} offset={outsideGrid ? 4 : 0} totalVisible={100} windowSize={8} toolbar={toolbar} onSelectCell={onSelectCell} /></I18nProvider>);
+      rerender(view({ nodes, offset: outsideGrid ? 4 : 0, totalVisible: 100, windowSize: 8, onSelectCell }));
       expect(target).toHaveFocus();
       expect(onSelectCell.mock.calls).toEqual(selectionBeforeArrival);
       expect(cell('remote', 'x')).not.toHaveFocus();

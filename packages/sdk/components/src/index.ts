@@ -3,7 +3,6 @@ export { TreeMatrix, type TreeMatrixProps } from './matrix/TreeMatrix';
 export { MatrixLevelOrder, type MatrixLevelOrderProps } from './matrix/MatrixLevelOrder';
 export { MatrixEmphasisBar, type MatrixEmphasisBarProps } from './matrix/MatrixEmphasisBar';
 export { MatrixToneLegend, type MatrixToneLegendProps } from './matrix/MatrixToneLegend';
-export type { MatrixFilterField } from './matrix/MatrixFilters';
 export type { MatrixCellTone } from './matrix/tones';
 export { sameValueRule, type MatrixValueOf } from './matrix/emphasis';
 export type { MatrixNode, MatrixColumn, MatrixWindowQuery, MatrixWindow, MatrixEmphasisRule, MatrixCell } from '@ap/contracts';
