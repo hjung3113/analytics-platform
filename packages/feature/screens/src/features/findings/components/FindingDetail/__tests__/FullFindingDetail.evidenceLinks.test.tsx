@@ -396,7 +396,7 @@ describe('FullFindingDetail linked evidence VOCs (#2531)', () => {
     },
   );
 
-  // #2531 review C1 (ADR-0023 §A): a hidden link is concealed — no placeholder, no count.
+  // #2531 review C1 (FO ADR-0023 §A): a hidden link is concealed — no placeholder, no count.
   it('conceals a hidden evidence link completely', async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input), 'http://localhost');

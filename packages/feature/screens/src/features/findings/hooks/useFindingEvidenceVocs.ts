@@ -47,7 +47,7 @@ export function evidenceVocLinksFromEntityLinks(
       link.source_type === 'voc' &&
       link.target_type === 'finding' &&
       link.relation_type === 'evidence_of' &&
-      // ADR-0023 §A: a hidden link's existence stays concealed (no placeholder, no count).
+      // FO ADR-0023 §A: a hidden link's existence stays concealed (no placeholder, no count).
       link.visibility_state !== 'hidden' &&
       (link.visibility_state !== 'allowed' || link.target_id === findingId),
   );
