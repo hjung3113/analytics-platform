@@ -47,7 +47,7 @@ export function ColumnGroupChooseView({ editor, columns, idPrefix, onSave, onCan
   return <div className="space-y-3 break-keep">
     <div className="flex min-w-0 items-center gap-2">
       <Button autoFocus type="button" variant="ghost" size="icon-xs" aria-label={m('tableGroupCancel')} onClick={onCancel}><ArrowLeft className="size-3.5" aria-hidden /></Button>
-      <p className="t-card-title min-w-0 truncate" title={draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : undefined}>{draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : m('tableGroupNew')}</p>
+      <p id={`${idPrefix}-choose-title`} className="t-card-title min-w-0 truncate" title={draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : undefined}>{draft.id ? m('tableGroupChangeTitle', { name: draft.name }) : m('tableGroupNew')}</p>
     </div>
     <ul className="max-h-80 space-y-2 overflow-y-auto">{columns.map(column => <li key={column.id} className="flex min-w-0 items-center gap-2">
       <Checkbox id={`${idPrefix}-${column.id}-choose`} aria-label={m('tableGroupSelect', { name: column.label })} aria-describedby={column.id.length > MAX_GROUP_ID_LENGTH ? `${idPrefix}-${column.id}-unavailable` : undefined} checked={draft.members.includes(column.id)} disabled={column.id.length > MAX_GROUP_ID_LENGTH || (!draft.members.includes(column.id) && draft.members.length >= MAX_GROUP_MEMBERS)} onCheckedChange={() => editor.toggle(column.id)} className="size-3.5 border-border-control" />

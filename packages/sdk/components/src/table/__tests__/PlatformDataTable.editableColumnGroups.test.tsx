@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace, ToastProbe } from '@ap/kernel/testing';
+import { memoryStorage, testAdapter, testMenu, testSession, testSpace, ToastProbe } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { stubCompactTableGeometry } from '../../testing';
 import { PlatformDataTable, type PlatformColumn } from '../PlatformDataTable';
@@ -13,7 +13,7 @@ import { columnGroupBasis } from '../columnGroups';
 type Row = { id: string };
 const registry = createRegistry({ spaces: [testSpace()],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'management', features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }],
+  menus: [testMenu()],
 });
 const session = testSession(['platform:view'], { user: { id: 'group-user' } });
 const adapter = testAdapter({ session: () => session });
@@ -66,6 +66,12 @@ describe('editable column groups (#2481)', () => {
     await mount(false); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
     await userEvent.click(screen.getByRole('checkbox', { name: '중간' }));
     expect(stored()).not.toHaveProperty('groups');
+  });
+  it('names the popover by its visible title, and by the group title while choosing members (#2517)', async () => {
+    await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));
+    expect(screen.getByRole('dialog', { name: '컬럼 설정 (브라우저에 저장)' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '묶음 만들기' }));
+    expect(screen.getByRole('dialog', { name: '묶음 만들기' })).toBeInTheDocument();
   });
   it('bounds the popover to the available height so the footer stays reachable in a short dialog', async () => {
     await mount(); await userEvent.click(screen.getByRole('button', { name: '컬럼' }));

@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download,
 import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useHostPlatform } from '@ap/kernel/host';
-import { formatNumber, isStoredColumnGroups } from '@ap/contracts';
+import { formatNumber, isStoredColumnGroups, MAX_COLUMN_GROUPS, MAX_GROUP_BASIS_LENGTH, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS } from '@ap/contracts';
 import { SavedTableState } from './SavedTableState';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -609,7 +609,10 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
     const displayed = [...table.getLeftLeafColumns(), ...table.getCenterLeafColumns(), ...table.getRightLeafColumns()].map(c => c.id).filter(id => id !== '_select' && id !== '_action');
     onColumnGroupsChange(previous => {
       const groups = edit(materializeColumnGroups(source.columns, props.columnGroups, previous.groups));
-      if (!isStoredColumnGroups(groups)) { accepted = false; groupEditor.setNote(m('tableGroupLimit')); toast(m('tableGroupLimit')); return null; }
+      if (!isStoredColumnGroups(groups)) {
+        const limit = m('tableGroupLimit', { groups: formatNumber(MAX_COLUMN_GROUPS, lang), members: formatNumber(MAX_GROUP_MEMBERS, lang), id: formatNumber(MAX_GROUP_ID_LENGTH, lang), basis: formatNumber(MAX_GROUP_BASIS_LENGTH, lang) });
+        accepted = false; groupEditor.setNote(limit); toast(limit); return null;
+      }
       if (!gather) return { groups };
       const merged = effectiveColumnGroups(source.columns, props.columnGroups, groups);
       return { groups, order: groupedOrder(merged.columns, displayed) };
@@ -821,14 +824,14 @@ export function PlatformDataTable<T>(props: PlatformDataTableProps<T>) {
   // With 「컬럼」 in `⋯`, the popover anchors to the `⋯` button and is rendered last, so `⋯` ends the row.
   const columnsPopover = <Popover open={overlayOpen.columns} onOpenChange={open => { if (!open) groupEditor.cancel(); setOverlayOpen(o => ({ ...o, columns: open })); }}>
     {columnsIn ? <PopoverAnchor asChild><span className="inline-flex">{moreMenu}</span></PopoverAnchor> : <PopoverTrigger asChild>{columnsButton}</PopoverTrigger>}
-    <PopoverContent align="end" className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); closeGroupEditor(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
+    <PopoverContent align="end" aria-labelledby={p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? `${columnPrefsId}-choose-title` : `${columnPrefsId}-title`} className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep" onEscapeKeyDown={event => { if (groupEditor.draft.kind !== 'idle') { event.preventDefault(); closeGroupEditor(); } }} onInteractOutside={() => { columnsOutside.current = true; }} onCloseAutoFocus={columnsIn ? event => {
       event.preventDefault();
       if (!columnsOutside.current) moreButton.current?.focus();
       columnsOutside.current = false;
     } : undefined}>
       {p.editableColumnGroups && groupEditor.draft.kind === 'choose' ? <ColumnGroupChooseView editor={groupEditor} idPrefix={columnPrefsId} onSave={saveGroupMembers} onCancel={() => closeGroupEditor()}
         columns={dataColumns.map(c => ({ id: c.id, label: nameOf(c), hidden: !c.getIsVisible(), group: paths.get(c.id)?.[0] ? columnGroupLabel(p.columnGroups, paths.get(c.id)![0]) : undefined }))} /> : <>
-      <p className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
+      <p id={`${columnPrefsId}-title`} className="t-card-title mb-2">{m('tableColumnPrefsTitle')}</p>
       <div className="space-y-3">
         {pinnedPrefs.length > 0 && <div>
           <p className="mb-1 text-xs text-text-secondary">{m('tableColumnPinned')}</p>
