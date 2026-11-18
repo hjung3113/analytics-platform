@@ -45,9 +45,10 @@ export function wallClockMs(value: unknown): number {
 }
 
 const isId = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
+const ASSERTION_KEYS = new Set(['site', 'timeDomainId', 'validFrom', 'validTo']);
 
 /**
- * Startup problems of Site-wide guarantees: blank ids, bounds that are not second-aligned calendar times (declared
+ * Startup problems of Site-wide guarantees (file and programmatic input alike): keys other than the four, blank ids, bounds that are not second-aligned calendar times (declared
  * config, so a finer bound is refused rather than rounded), non-increasing windows, a Site outside `knownSite`, and
  * two windows of one Site that overlap (a contradiction, or a duplicate that hides one). Abutting windows are fine,
  * also of different domains: a Site that changed its clock basis keeps both rows, and a request across the change
@@ -60,6 +61,9 @@ export function siteTimeDomainProblems(rows: readonly SiteTimeDomainAssertion[],
     const at = `timeDomainAssertions.${index}`;
     const start = wallClockMs(row.validFrom);
     const end = wallClockMs(row.validTo);
+    // A row naming more (an equipment, say) is not a Site-wide guarantee: refused, never widened to the Site.
+    const unknown = Object.keys(row).filter((key) => !ASSERTION_KEYS.has(key));
+    if (unknown.length > 0) problems.push(`${at}: unknown keys ${unknown.join(', ')} (a guarantee covers the whole Site)`);
     if (!isId(row.site) || !isId(row.timeDomainId)) problems.push(`${at}: site and timeDomainId must be non-blank`);
     if (Number.isNaN(start) || Number.isNaN(end)) problems.push(`${at}: validFrom and validTo must be YYYY-MM-DDTHH:mm:ss calendar times`);
     else if (!(start < end)) problems.push(`${at}: validFrom must be before validTo`);

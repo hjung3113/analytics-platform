@@ -118,6 +118,13 @@ describe('time-domain registration gate', () => {
     expect(problems).toMatch(/mergeTimeDomain is refused — step 7/);
   });
 
+  it('refuses a programmatic row that names an equipment instead of widening it to the Site', () => {
+    const row = { ...at('S1', 'D1'), equipmentId: 'E1' };
+    const problems = refuse(mergeSpec, { scopeResolver: resolver, timeDomainAssertions: [row] });
+    expect(problems).toMatch(/timeDomainAssertions\.0: unknown keys equipmentId/);
+    expect(problems).toMatch(/mergeTimeDomain is refused — step 7/);
+  });
+
   it('refuses mergeTimeDomain without a Scope resolver', () => {
     expect(refuse(mergeSpec, { timeDomainAssertions: guarantees })).toMatch(/mergeTimeDomain is refused .*#1087/);
   });
@@ -180,6 +187,39 @@ describe('step 7 in runQuery', () => {
     const spec = { ...mergeSpec, limits: {} };
     const { shapeOf } = setup(spec);
     expect(shapeOf(body({ ...over, selection: [] }))).toMatchObject({ ok: false, message: 'test.rows: time is not an increasing calendar period' });
+  });
+
+  /** A shape whose step-7 lookup runs `during` inside the synchronous judgment (the clock or a cancel landing there). */
+  function hooked(shape: Extract<ReturnType<typeof judgeQueryShape>, { ok: true }>, during: () => void) {
+    const timeDomains = shape.timeDomains;
+    if (!timeDomains) throw new Error('no guarantees');
+    return { ...shape, timeDomains: { get: (site: string) => { during(); return timeDomains.get(site); } } as unknown as typeof timeDomains };
+  }
+
+  it('does not start the handler when the arrival deadline passes during step 7', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(10000);
+    try {
+      const { declaration } = testEndpoint(mergeSpec);
+      const handle = vi.fn(declaration.handle);
+      const registry = createMenuDispatchRegistry([{ endpoints: [{ ...declaration, handle, upstreamTimeoutMs: 3000 }] }], { scopeResolver: resolver, timeDomainAssertions: guarantees });
+      const shape = judgeQueryShape(body(), registry);
+      if (!shape.ok) throw new Error(shape.message);
+      await expect(runQuery(hooked(shape, () => vi.setSystemTime(13000)), actor, 'cid', undefined, async () => 'sv', 10000))
+        .rejects.toMatchObject({ httpStatus: 504, code: 'upstream.timeout' });
+      expect(handle).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not start the handler when the request is cancelled after Scope resolution', async () => {
+    const { shapeOf, handle } = setup();
+    const shape = shapeOf(body());
+    if (!shape.ok) throw new Error(shape.message);
+    const controller = new AbortController();
+    expect(await runQuery(hooked(shape, () => controller.abort()), actor, 'cid', controller.signal))
+      .toMatchObject({ outcome: 'error', message: 'time_domain_unverified' });
+    expect(handle).not.toHaveBeenCalled();
   });
 
   it('skips step 7 entirely for mergeTimeDomain: false', async () => {

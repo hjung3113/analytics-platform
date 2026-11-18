@@ -273,6 +273,9 @@ async function runQuerySteps(
   let timeDomainId: string | undefined;
   if (declaration.spec.mergeTimeDomain) {
     const verdict = judgeRequestTimeDomain(shape);
+    // The deadline or a cancellation that landed after Scope resolution still stops the handler from starting.
+    checkActive();
+    if (signal?.aborted) return answer('error', { message: 'time_domain_unverified' });
     if (!verdict.ok) return answer('error', { message: verdict.message });
     timeDomainId = verdict.timeDomainId;
   }

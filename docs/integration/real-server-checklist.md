@@ -59,7 +59,7 @@
 4. **Scope** → `requiresScope`면 site 부여 → room 부여 → 조건 → Selection으로 설비 집합을 해석하고, 부여 밖이면 `forbidden`(Scope `null`도 `forbidden`).
 5. **한도** → `limits.maxHours`를 넘고 좁은 Selection이 없으면 `too_large`.
 6. **명시적 공집합** → 적용된 집합 키가 `[]`면 원천을 읽지 않고 `empty`, assessments 없음, trust `null`(06 §19).
-7. **시간 도메인** → `mergeTimeDomain`이면 2대 이상을 한 시간축에 합칠 수 있는지 §6.3 판정, 안 되면 `error`(`message`는 `time_domain_unverified` 또는 `time_domain_mismatch`), 핸들러는 부르지 않는다. 통과하면 증명된 `timeDomainId`를 핸들러에 넘긴다.
+7. **시간 도메인** → `mergeTimeDomain`이면 조회 설비 수와 관계없이 요청 Site의 시간 보증으로 §6.3 판정(보증 표기는 아래 «시간 도메인(§3 7단계)»), 안 되면 `error`(`message`는 `time_domain_unverified` 또는 `time_domain_mismatch`), 핸들러는 부르지 않는다. 통과하면 증명된 `timeDomainId`를 핸들러에 넘긴다.
 8. **핸들러** → 해석된 설비, 적용 Context만 남긴 값(비적용 키는 "제약 없음"), params, 세션 사용자를 받아 계산. 데이터로만 판정할 수 있는 잘못된 요청(예: 다른 사용자에게 발급한 커서)은 `error`.
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), 기능 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
@@ -114,7 +114,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 **쓰기 답 크기 상한:** 재생을 위해 `ok` 답(JSON)을 통째로 저장하며 상한은 128 KiB(UTF-8 바이트)다. 넘으면 트랜잭션(핸들러의 쓰기 포함)을 되돌리고 `error`, `message: 'response too large to record'`로 답한다 — 재생할 수 없는 `ok`는 내지 않는다. 핸들러의 `data`는 이 안에 들어와야 한다. 멱등 키는 소문자 UUID로 정규화해 잠금·조회·기록에 쓴다.
 
 - **시간 도메인(§3 7단계)** — 코어(`menu-dispatch/time-domain.ts`)가 판정하고, 증명은 배포가 선언 묶음에 적는 Site 전체 보증 `timeDomainAssertions: [{ site, timeDomainId, validFrom, validTo }]`이다([ADR-0172](../adr/0172-site-wide-time-domain-guarantee.md)). 한 행은 «이 Site의 모든 설비가 `[validFrom, validTo)` 동안 `timeDomainId` 한 시간 기준으로 기록된다»는 배포의 보증이다. 기동 때 한 번 검증해 데이터로 들고, 요청마다 원천을 읽지 않는다(`buildServer({ timeDomainAssertions })`).
-  - 기동 거부(묶음 적재와 등록 둘 다): 빈 `site`·`timeDomainId`, `YYYY-MM-DDTHH:mm:ss` 달력 시각이 아닌 경계(소수 초·오프셋 포함 — 선언 값이라 반올림하지 않고 거부), `validFrom >= validTo`, 같은 Site의 겹치는 창(모순이든 중복이든), 묶음에 `scopeCatalog`가 있을 때 그 밖의 Site, 모르는 키. 같은 Site의 맞닿은 창은 도메인이 달라도 된다(시간 기준을 바꾼 Site는 두 행을 남긴다).
+  - 기동 거부(묶음 적재와 등록 둘 다): 네 키 밖의 키(설비 id 등 — Site 전체 보증이 아니다), 빈 `site`·`timeDomainId`, `YYYY-MM-DDTHH:mm:ss` 달력 시각이 아닌 경계(소수 초·오프셋 포함 — 선언 값이라 반올림하지 않고 거부), `validFrom >= validTo`, 같은 Site의 겹치는 창(모순이든 중복이든), 묶음에 `scopeCatalog`가 있을 때 그 밖의 Site. 같은 Site의 맞닿은 창은 도메인이 달라도 된다(시간 기준을 바꾼 Site는 두 행을 남긴다).
   - 요청은 `scopeId` Site의 창만 쓴다. 다른 Site의 보증은 증명이 아니다. 그 창들이 `[from, to)`를 빈틈없이 덮어야 하고(반개구간, 같은 도메인의 맞닿은 창은 이어 붙인다), 1초라도 빈 곳이나 그 Site의 행 없음은 `time_domain_unverified`다.
   - 덮는 창의 `timeDomainId`가 모두 하나여야 한다. 선언된 전환을 가로지르는 요청은 `time_domain_mismatch`다. 빈 곳이 있으면 불일치보다 `time_domain_unverified`가 먼저다. Site마다 다른 `timeDomainId`는 문제가 아니다.
   - `mergeTimeDomain`이면 조회 설비 수와 관계없이 증명이 필요하다. 코어에는 mock의 «설비 1대면 통과» 예외가 없다(코어는 실제 조회 설비 수를 모른다).
