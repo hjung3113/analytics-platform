@@ -12,6 +12,7 @@ export interface FocusGanttProps {
   batch: OccurrenceBatch;
   cursor: SiteWallClock;
   onCursorChange: (at: SiteWallClock) => void;
+  onCursorCommit: (at: SiteWallClock) => void;
   selectedOccurrenceId: string | null;
   onSelectOccurrence: (id: string) => void;
   selectedComponentId: string | null;
@@ -50,13 +51,15 @@ function openAtRangeEnd(bar: Bar, batch: OccurrenceBatch, rangeTo: SiteWallClock
 }
 
 export function FocusGantt({
-  timeline, layout, batch, cursor, onCursorChange, selectedOccurrenceId, onSelectOccurrence, selectedComponentId, expanded, onToggleExpand,
+  timeline, layout, batch, cursor, onCursorChange, onCursorCommit, selectedOccurrenceId, onSelectOccurrence, selectedComponentId, expanded, onToggleExpand,
 }: FocusGanttProps) {
   const prefix = `eqv-rp-${useId().replace(/[^A-Za-z0-9]/g, '')}`;
   const { range } = timeline;
   const fromMs = wallClockToMillis(range.from);
-  const lastMs = wallClockToMillis(range.to) - 1;
-  const spanMs = lastMs + 1 - fromMs;
+  const rangeToMs = wallClockToMillis(range.to);
+  const cursorAtBatchEnd = range.to === batch.to && cursor === range.to;
+  const lastMs = rangeToMs - (cursorAtBatchEnd ? 0 : 1);
+  const spanMs = rangeToMs - fromMs;
   const x = (t: SiteWallClock) => LABEL_W + Math.min(1, Math.max(0, (wallClockToMillis(t) - fromMs) / spanMs)) * PLOT_W;
   const cursorMs = Math.min(lastMs, Math.max(fromMs, wallClockToMillis(cursor)));
 
@@ -73,18 +76,29 @@ export function FocusGantt({
   const plotBottom = layoutTops.length ? layoutTops[layoutTops.length - 1]!.top + layoutTops[layoutTops.length - 1]!.height : AXIS_H;
   const laneIndex = new Map(lanes.map((lane, i) => [lane.id, i]));
 
-  const drag = useRef<{ pointerId: number; x: number; captured: boolean } | null>(null);
-  const seekFromPointer = (event: PointerEvent<SVGRectElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    if (box.width <= 0) return;
+  const drag = useRef<{ pointerId: number; x: number; captured: boolean; at: SiteWallClock | null } | null>(null);
+  const seekFromPointer = (event: PointerEvent<SVGElement>): SiteWallClock | null => {
+    const axis = event.currentTarget.ownerSVGElement?.querySelector<SVGRectElement>('.eqv-rp-axis');
+    const box = axis?.getBoundingClientRect();
+    if (!box || box.width <= 0) return null;
     const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
-    onCursorChange(millisToWallClock(Math.min(lastMs, fromMs + Math.floor(fraction * spanMs))));
+    const at = millisToWallClock(Math.min(lastMs, fromMs + Math.floor(fraction * spanMs)));
+    onCursorChange(at);
+    return at;
   };
-  const onPointerDown = (event: PointerEvent<SVGRectElement>) => {
-    drag.current = { pointerId: event.pointerId, x: event.clientX, captured: false };
-    seekFromPointer(event);
+  const onAxisPointerDown = (event: PointerEvent<SVGElement>) => {
+    const at = seekFromPointer(event);
+    drag.current = { pointerId: event.pointerId, x: event.clientX, captured: false, at };
   };
-  const onPointerMove = (event: PointerEvent<SVGRectElement>) => {
+  const onLanePointerDown = (event: PointerEvent<SVGElement>) => {
+    const at = seekFromPointer(event);
+    if (at !== null) onCursorCommit(at);
+  };
+  const onBarPointerDown = (event: PointerEvent<SVGElement>) => {
+    const at = seekFromPointer(event);
+    if (at !== null) onCursorCommit(at);
+  };
+  const onPointerMove = (event: PointerEvent<SVGElement>) => {
     const current = drag.current;
     if (!current || current.pointerId !== event.pointerId) return;
     if (event.buttons === 0) { drag.current = null; return; }
@@ -93,12 +107,13 @@ export function FocusGantt({
       current.captured = true;
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* not supported (jsdom) */ }
     }
-    seekFromPointer(event);
+    current.at = seekFromPointer(event);
   };
-  const onPointerEnd = (event: PointerEvent<SVGRectElement>) => {
+  const onPointerEnd = (event: PointerEvent<SVGElement>) => {
     const current = drag.current;
     if (!current || current.pointerId !== event.pointerId) return;
     drag.current = null;
+    if (current.at !== null) onCursorCommit(current.at);
     if (current.captured) {
       try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* already released */ }
     }
@@ -112,7 +127,10 @@ export function FocusGantt({
     else if (event.key === 'End') next = millisToWallClock(lastMs);
     else return;
     event.preventDefault();
-    if (next !== undefined) onCursorChange(next);
+    if (next !== undefined) {
+      onCursorChange(next);
+      onCursorCommit(next);
+    }
   };
 
   const barName = (bar: Bar, lane: (typeof lanes)[number], componentLabel: string) => {
@@ -208,6 +226,8 @@ export function FocusGantt({
             <g key={lane.id} role="group" aria-label={`레인 ${lane.holdingSiteId === undefined ? lane.label : `${componentLabel} ${lane.label}`}`}
               aria-current={current ? 'true' : undefined} data-lane-id={lane.id} className={current ? 'eqv-rp-lane-current' : undefined}>
               <rect className="eqv-rp-lane-bg" x={0} y={top} width={LABEL_W + PLOT_W} height={height} />
+              <rect data-lane-seek="true" x={LABEL_W} y={top} width={PLOT_W} height={height} fill="transparent"
+                pointerEvents="all" onPointerDown={onLanePointerDown} />
               {canExpand ? (
                 <g role="button" tabIndex={0} aria-expanded={isOpen} aria-label={`${lane.label} Holding Site ${isOpen ? '접기' : '펼치기'}`}
                   className="eqv-rp-disclosure" onClick={() => onToggleExpand(lane.componentId!)}
@@ -230,7 +250,7 @@ export function FocusGantt({
                 return (
                   <g key={bar.id} role="button" tabIndex={0} aria-label={name} aria-pressed={selected} data-bar={bar.kind}
                     data-evidence={bar.evidence} data-occurrence-id={bar.occurrenceIds.join(' ')} className={selected ? 'eqv-rp-bar eqv-rp-bar-selected' : 'eqv-rp-bar'}
-                    onClick={select} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } }}>
+                    onPointerDown={onBarPointerDown} onClick={select} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } }}>
                     <title>{name}</title>
                     <rect x={left} y={y} width={right - left} height={ROW_H - 3} rx={2} fill={base.fill} stroke={base.stroke} strokeWidth={1} />
                     <rect x={left} y={y} width={right - left} height={ROW_H - 3} rx={2} fill={`url(#${prefix}-${bar.evidence})`} data-pattern={bar.evidence} />
@@ -281,7 +301,7 @@ export function FocusGantt({
         <rect className="eqv-rp-axis" role="slider" tabIndex={0} aria-label="커서 시각" aria-orientation="horizontal"
           aria-valuemin={fromMs} aria-valuemax={lastMs} aria-valuenow={cursorMs} aria-valuetext={wallClockText(millisToWallClock(cursorMs))}
           x={LABEL_W} y={0} width={PLOT_W} height={AXIS_H - 14} onKeyDown={onSliderKey}
-          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
+          onPointerDown={onAxisPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
       </svg>
       </div>
       <Legend label="범례" items={legend} />

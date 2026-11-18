@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useState, type ReactNode } from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   bindingsFileSchema, layoutDocumentSchema, mappingVersionSchema, occurrenceBatchSchema, type ReplayInput,
@@ -27,6 +27,7 @@ const input: ReplayInput = {
   mappings: readdirSync(resolve(root, directory)).sort().map((file) => mappingVersionSchema.parse(read(directory + file))),
 };
 const OCCURRENCE = 'occ-pm1-process';
+const time = (value: string) => `2026-01-01T${value.includes('.') ? value : `${value}.000`}`;
 const row = () => document.querySelector(`tr[data-occurrence-id="${OCCURRENCE}"]`)!;
 const shownAt = () => within(screen.getByRole('region', { name: '커서 시점 상태' })).getByText(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{3})?$/).textContent;
 
@@ -113,6 +114,20 @@ it('resets the cursor and selection when resetKey changes', () => {
   expect(document.querySelector('tr[aria-selected="true"]')).toBeNull();
 });
 
+it('does not carry a cursor-move notice across resetKey changes', () => {
+  const view = render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={time('10:06:00')} />);
+  fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+  expect(shownAt()).toBe('2026-01-01 10:07:00');
+  view.rerender(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="b" initialCursor={time('10:06:00')} />);
+  expect(document.querySelector('[aria-live="polite"]')).toBeNull();
+});
+
+it('seeds the Focus cursor from the URL, including the exclusive batch end instant', () => {
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={input.batch.to} />);
+  expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe('2026-01-01 10:30:00');
+  expect(shownAt()).toBe('2026-01-01 10:30:00');
+});
+
 it('Escape on a focused list row closes the host detail slot', () => {
   render(<DetailHost />);
   fireEvent.click(row());
@@ -147,6 +162,17 @@ it('selects the anchored Occurrence on entry and on an entry change, and nothing
 it('selects the Occurrence whose RecordSequence is a job anchor (AP ADR-0094)', () => {
   render(<FocusView input={input} notices={[]} entityType="job" anchor="18" resetKey="a" />);
   expect(document.querySelector('tr[aria-selected="true"]')?.getAttribute('data-occurrence-id')).toBe('occ-pm1-process');
+});
+
+it('announces when a new entry range moves the cursor', () => {
+  const view = render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" />);
+  const before = shownAt();
+  expect(document.querySelector('[aria-live="polite"]')).toBeNull();
+  view.rerender(<FocusView input={input} notices={[]} entityType={null} anchor={OCCURRENCE} resetKey="a" />);
+  const after = shownAt();
+  const notices = document.querySelectorAll('[aria-live="polite"]');
+  expect(notices).toHaveLength(1);
+  expect(notices[0]?.textContent).toBe(`재생 커서를 ${before} → ${after}로 옮겼습니다`);
 });
 
 // #2236: the Enter Safari sends right after compositionend in the range form is cancelled, so it never applies the range.
@@ -199,8 +225,97 @@ it('applies the expanded range, calls the host, collapses and focuses the change
   fireEvent.submit(screen.getByRole('form', { name: '구간' }));
   expect(rangeChanged).toHaveBeenCalledExactlyOnceWith(UPDATED);
   expect(summary()).toBe('재생 구간 2026-01-01 10:05:00 → 2026-01-01 10:12:00 (7분)');
+  const cursorNotice = document.querySelector('[aria-live="polite"]');
+  expect(cursorNotice?.textContent).toBe('재생 커서를 2026-01-01 10:00:00 → 2026-01-01 10:05:00로 옮겼습니다');
   expect(changeRange().getAttribute('aria-expanded')).toBe('false');
   expect(document.activeElement).toBe(changeRange());
+});
+
+it('uses page-level Space and arrow shortcuts, committing discrete seeks and ignoring form fields and modifiers', () => {
+  const onCursorCommit = vi.fn();
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={time('10:06:00')} onCursorCommit={onCursorCommit} />);
+  fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+  expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe('2026-01-01 10:07:00');
+  expect(onCursorCommit).toHaveBeenLastCalledWith(time('10:07:00'));
+  fireEvent.keyDown(document.body, { key: 'ArrowLeft', ctrlKey: true });
+  expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe('2026-01-01 10:07:00');
+  fireEvent.keyDown(document.body, { key: ' ' });
+  onCursorCommit.mockClear();
+  fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:08:00'));
+  fireEvent.keyDown(document.body, { key: ' ' });
+  expect(screen.getByRole('button', { name: '일시정지' })).toBeTruthy();
+  fireEvent.keyDown(document.body, { key: ' ' });
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
+  fireEvent.click(changeRange());
+  const before = screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext');
+  fireEvent.keyDown(screen.getByLabelText('시작'), { key: 'ArrowLeft' });
+  fireEvent.keyDown(screen.getByLabelText('끝'), { key: ' ' });
+  expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe(before);
+});
+
+it('leaves Space activation on focused checkboxes and buttons instead of toggling playback', () => {
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" />);
+  const checkbox = screen.getByRole('checkbox', { name: '예시 이동 표시' });
+  checkbox.focus();
+  expect(document.activeElement).toBe(checkbox);
+  expect(fireEvent.keyDown(checkbox, { key: ' ' })).toBe(true);
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
+  // jsdom does not synthesize native Space activation; dispatch its click consequence after checking keydown was not cancelled.
+  fireEvent.click(checkbox);
+  expect(checkbox.getAttribute('aria-checked')).toBe('true');
+
+  const button = changeRange();
+  button.focus();
+  expect(fireEvent.keyDown(button, { key: ' ' })).toBe(true);
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
+  expect(screen.queryByRole('form', { name: '구간' })).toBeNull();
+  fireEvent.click(button);
+  expect(screen.getByRole('form', { name: '구간' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
+});
+
+it('does not commit playback frames to the page key but commits the latest cursor on pause', async () => {
+  let now = 0;
+  let nextHandle = 0;
+  const queued = new Map<number, () => void>();
+  const scheduler = {
+    now: () => now,
+    request: (callback: () => void) => { const handle = ++nextHandle; queued.set(handle, callback); return handle; },
+    cancel: (handle: number) => { queued.delete(handle); },
+  };
+  const onCursorCommit = vi.fn();
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={time('10:05:00')} onCursorCommit={onCursorCommit} scheduler={scheduler} />);
+  fireEvent.click(screen.getByRole('button', { name: '재생' }));
+  const frame = [...queued.values()][0]!;
+  queued.clear();
+  now = 100;
+  await act(async () => { frame(); });
+  expect(onCursorCommit).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '일시정지' }));
+  expect(onCursorCommit).toHaveBeenLastCalledWith(time('10:05:00.100'));
+});
+
+it('commits the cursor when playback stops at the end of its range', async () => {
+  let now = 0;
+  let nextHandle = 0;
+  const queued = new Map<number, () => void>();
+  const scheduler = {
+    now: () => now,
+    request: (callback: () => void) => { const handle = ++nextHandle; queued.set(handle, callback); return handle; },
+    cancel: (handle: number) => { queued.delete(handle); },
+  };
+  const range = { from: time('10:05:00.000'), to: time('10:05:00.200') };
+  const onCursorCommit = vi.fn();
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={range.from}
+    range={{ value: range, onChange: vi.fn() }} onCursorCommit={onCursorCommit} scheduler={scheduler} />);
+  fireEvent.click(screen.getByRole('button', { name: '재생' }));
+  const frame = [...queued.values()][0]!;
+  queued.clear();
+  now = 250;
+  await act(async () => { frame(); });
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:05:00.199'));
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
 });
 
 it('keeps an invalid range expanded with the original error and input associations', () => {

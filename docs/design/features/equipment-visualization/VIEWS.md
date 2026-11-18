@@ -25,7 +25,7 @@
 - Top View 재생 레이어의 Material 표시: 커서 시점에 위치가 있는 Material은 지름 12 px 디스크(wafer·reticle은 원, 그 외는 둥근 사각형)로 Component의 화면상 bounding box 안쪽 아래에 똑바로 세워 그린다(Component 회전 프레임이 아님). 화면상 bbox 높이가 48 px 미만인 작은 Component는 본체 라벨을 가리지 않도록 디스크 줄(과 id 라벨)을 bbox 바깥 아래, 활동·점유 충돌 테두리를 비켜 그린다(본체 라벨이 bbox 아래 `outside`면 그 라벨 상자 아래로 더 내린다). 안쪽 줄 자리에 설비 아이콘(primitive glyph)이나 본체 라벨이 있는 Component도 겹치지 않는 자리로 옮기고, 자리가 없으면 같은 바깥 줄에 그린다. 바깥 줄이 Layout viewBox 가장자리를 넘으면 그 줄은 안쪽 아래에 그린다. Holding Site별로 묶음(클러스터)을 나누어 layout의 Holding Site 순서대로 놓고(두 blade·두 slot이 별개 객체로 보임), Site가 없거나 layout에 없는 Site의 Material은 마지막 묶음에 둔다. Holding Site에 `position`(Component-local, EV ADR-0016)이 있으면 그 Site의 Material 디스크는 그 점 중심에 똑바로 세워 그리고(순서 줄·`+N` 상한 밖, 같은 Site의 둘은 겹쳐 둔다), 없으면 이 자리는 표시용 순서일 뿐 Holding Site 좌표가 아니다. Component당 4개 이하면 각 디스크에 Material id를 라벨로 붙이고(익명은 라벨 없음), 5개 이상이면 앞 3개와 "+N" 칩(title에 숨은 id)만 그린다. 활동이 기록된 Component는 본체에 옅은 틴트와 링을 얹고 강도는 activity Evidence를 따른다(observed 틴트+실선 링, derived 절반 틴트+파선(`6 4`) 링, unknown 틴트 없이 점선(`2 3`) 링).
 - Top View · Gantt · 목록이 **하나의 커서**를 공유한다. Gantt가 진단의 주 도구, Top View는 공간 맥락·선택.
 - Gantt 막대는 Occurrence 종류로 색, Evidence는 패턴(빗금 등)으로 구분 — 색만으로 구분하지 않는다. Time Anomaly·Watermark 이후·Binding 경계는 lane 전체에 걸친 마커.
-- 기본 구간 = 진입 Occurrence 구간 + 앞뒤 여유, 사용자 조정 가능. 재생 커서 `at`은 page-local 상태.
+- 기본 구간 = 진입 Occurrence 구간 + 앞뒤 여유, 사용자 조정 가능. 재생 커서 `at`은 page-local 상태이며 호스트 Focus는 page key `cursor`에 미러링한다. 일시정지·정지·개별 이동·구간 적용 때 주소를 `replace`로 갱신하고, 재생 프레임마다 쓰지 않는다. URL 커서가 진입 구간 밖이면 배치 안에서 구간을 넓혀 그 시각을 유지한다.
 - 재생(play/pause/speed/step, sequence 단위 디버그 step)은 [`REPLAY-CONTRACT.md`](REPLAY-CONTRACT.md) 규칙을 따른다.
 - 목록의 원본 참조는 `recordRef`(segment, 파일, Record Sequence)까지. 원본 줄 열람은 플랫폼 Debug/RawSource 권한이 채우는 링크 슬롯.
 

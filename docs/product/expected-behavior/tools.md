@@ -13,7 +13,7 @@
 | 기본 기간의 한도 | 처음 진입 | 기본 구간이 선언한 8시간 한도를 넘지 않아 오류 없이 열린다 | #1644 완료 기준, 모듈 manifest `defaultPeriodHours` | 화면 점검(mock) |
 | 기간 Context | 전역 기간 변경 | 기간을 바꾸면 그에 맞게 다시 그리고, 한도를 넘는 기간은 결과처럼 보이지 않고 사유가 나온다 | [§6](../../contract/kernel.md), [§19](../../contract/components.md) | 화면 점검(mock) |
 | 주소 복원 | 설비를 고른 뒤 새로고침, 뒤로 | 고른 설비가 복원된다 | manifest `pageKeys`, [§6.4](../../contract/kernel.md) | 화면 점검(mock) |
-| 숨은 화면 | Top View에서 Focus로 이동, 새로고침, 복귀 | 구간(`rangeFrom`, `rangeTo`)과 설비가 복원되고 Top View로 돌아간다 | manifest `pageKeys`, §6.4 | 화면 점검(mock) |
+| 숨은 화면 | Top View에서 Focus로 이동, 새로고침, 복귀 | 구간(`rangeFrom`, `rangeTo`), 재생 커서(`cursor`), 설비가 복원되고 Top View로 돌아간다 | manifest `pageKeys`, §6.4 | 화면 점검(mock) |
 | 조회 상태 | 개발 도구의 응답 시나리오 | 로딩, 결과 없음, 오류가 서로 다른 모습이고 빈 결과를 오류로 보이지 않는다 | §19 | 화면 점검(mock) |
 
 ## 레이아웃(Top View 작성)

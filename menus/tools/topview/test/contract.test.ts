@@ -26,7 +26,7 @@ describe('manifests vs the Kernel registry', () => {
       expect(menu.pageKeys).toContain('equipment');
       expect(menu.pageKeys.every((key) => !GLOBAL_KEYS.has(key))).toBe(true);
     }
-    expect(manifests.find((menu) => menu.id === 'eqv:focus')?.pageKeys).toEqual(['equipment', 'entityType', 'anchor', 'rangeFrom', 'rangeTo']);
+    expect(manifests.find((menu) => menu.id === 'eqv:focus')?.pageKeys).toEqual(['equipment', 'entityType', 'anchor', 'rangeFrom', 'rangeTo', 'cursor']);
   });
 });
 

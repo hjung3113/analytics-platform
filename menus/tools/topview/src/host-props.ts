@@ -22,6 +22,8 @@ export type HostProps = {
   equipment: string | null;
   entityType: string | null;
   anchor: string | null;
+  /** The shared Focus cursor (page key `cursor`), null unless it is a Site Wall-clock. */
+  cursor: SiteWallClock | null;
   /** The applied Focus 재생 구간 (page keys `rangeFrom`/`rangeTo`); null unless both are a real, ordered Site Wall-clock pair. */
   range: { from: SiteWallClock; to: SiteWallClock } | null;
   time: HostTime;
@@ -48,7 +50,9 @@ function readRange(source: ScreenSource): HostProps['range'] {
 /** Equipment, entry keys, applied Focus range and applied time of a screen, read from the platform. No default is ever filled in. */
 export function readHostProps(source: ScreenSource): HostProps {
   const { from, to } = source.global;
-  const base = { equipment: source.pageParam('equipment'), entityType: source.pageParam('entityType'), anchor: source.pageParam('anchor'), range: readRange(source) };
+  const cursorValue = source.pageParam('cursor');
+  const cursor = cursorValue === null ? null : hostWallClock(cursorValue);
+  const base = { equipment: source.pageParam('equipment'), entityType: source.pageParam('entityType'), anchor: source.pageParam('anchor'), cursor, range: readRange(source) };
   if (!from || !to) return { ...base, time: { kind: 'missing' } };
   const range = hostRange(from, to);
   if (!range.ok) {

@@ -34,9 +34,8 @@ export const manifests: PlatformMenuEntry[] = [
     requiresScope: false,
     context: contextCapabilities({ time: 'apply' }), defaultPeriodHours: EQV_MAX_WINDOW_HOURS,
     pageType: 'analysis', query: { mode: 'live' }, features: NO_FEATURES,
-    // `equipment` selects the equipment; the entityType/anchor pair survives navigation on this route; rangeFrom/rangeTo hold the
-    // applied 재생 구간 so a refresh or a copied link reopens it.
-    pageKeys: ['equipment', 'entityType', 'anchor', 'rangeFrom', 'rangeTo'],
+    // `equipment` and the entry pair survive navigation; rangeFrom/rangeTo hold the applied span and cursor the shared instant.
+    pageKeys: ['equipment', 'entityType', 'anchor', 'rangeFrom', 'rangeTo', 'cursor'],
     component: lazy(() => import('./screens/FocusScreen.js').then(m => ({ default: m.FocusScreen }))),
   },
 ];

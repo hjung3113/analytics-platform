@@ -355,7 +355,7 @@ describe('Focus detail', () => {
 });
 
 describe('Top View', () => {
-  const opened = () => ({ path: window.location.pathname, equipment: new URLSearchParams(window.location.search).get('equipment'), entityType: new URLSearchParams(window.location.search).get('entityType'), anchor: new URLSearchParams(window.location.search).get('anchor') });
+  const opened = () => ({ path: window.location.pathname, equipment: new URLSearchParams(window.location.search).get('equipment'), entityType: new URLSearchParams(window.location.search).get('entityType'), anchor: new URLSearchParams(window.location.search).get('anchor'), cursor: new URLSearchParams(window.location.search).get('cursor') });
 
   it('shows the layout with the scene state as of the padded end of the window, and opens Focus', async () => {
     const fake = fakeFor('topview');
@@ -363,7 +363,7 @@ describe('Top View', () => {
     await screen.findAllByText('2026-01-01 10:30:00');
     expect(document.querySelector('[data-layer="replay"]')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Focus 열기' }));
-    await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor: '58' }));
+    await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor: '58', cursor: '2026-01-01T10:30:00.000' }));
   });
 
   it.each([
@@ -376,7 +376,7 @@ describe('Top View', () => {
     await screen.findAllByText('2026-01-01 10:08:30');
     if (id !== null) fireEvent.click(document.querySelector(`[data-component-id="${id}"]`)!);
     fireEvent.click(screen.getByRole('button', { name: 'Focus 열기' }));
-    await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor }));
+    await waitFor(() => expect(opened()).toEqual({ path: '/tools/eqv-focus', equipment: EQUIPMENT, entityType: 'job', anchor, cursor: '2026-01-01T10:08:30.000' }));
   });
 
   const openComponent = async (id: string) => {
@@ -453,7 +453,7 @@ describe('Top View Component detail words', () => {
 
 describe('Focus 재생 구간 in the page keys', () => {
   const rangeInputs = () => [screen.getByLabelText('시작'), screen.getByLabelText('끝')] as HTMLInputElement[];
-  const SAVED = { equipment: EQUIPMENT, rangeFrom: '2026-01-01T10:05:00.000', rangeTo: '2026-01-01T10:12:00.000' };
+  const SAVED = { equipment: EQUIPMENT, rangeFrom: '2026-01-01T10:05:00.000', rangeTo: '2026-01-01T10:12:00.000', cursor: '2026-01-01T10:10:00.000' };
 
   it('applying a range writes rangeFrom/rangeTo to the address, and a remount reads the range back', async () => {
     const fake = fakeFor('focus');
@@ -464,7 +464,7 @@ describe('Focus 재생 구간 in the page keys', () => {
     fireEvent.change(from!, { target: { value: '2026-01-01T10:05:00.000' } });
     fireEvent.change(to!, { target: { value: '2026-01-01T10:12:00.000' } });
     fireEvent.submit(screen.getByRole('form', { name: '구간' }));
-    await waitFor(() => expect([fake.page('rangeFrom'), fake.page('rangeTo')]).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000']));
+    await waitFor(() => expect([fake.page('rangeFrom'), fake.page('rangeTo'), fake.page('cursor')]).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000', '2026-01-01T10:05:00.000']));
     first.unmount();
     fake.render(FocusScreen);
     fireEvent.click(await screen.findByRole('button', { name: '변경' }));
@@ -499,6 +499,7 @@ describe('Focus 재생 구간 in the page keys', () => {
     fake.render(FocusScreen);
     fireEvent.click(await screen.findByRole('button', { name: '변경' }));
     await screen.findByRole('form', { name: '구간' });
+    expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe('2026-01-01 10:10:00');
     fake.setPage({ entityType: null });
     expect(rangeInputs().map((input) => input.value)).toEqual(['2026-01-01T10:05:00.000', '2026-01-01T10:12:00.000']);
     expect(fake.page('rangeFrom')).toBe('2026-01-01T10:05:00.000');
@@ -516,6 +517,56 @@ describe('Focus 재생 구간 in the page keys', () => {
     change(fake);
     await waitFor(() => expect(fake.page('rangeFrom')).toBeNull());
     expect(fake.page('rangeTo')).toBeNull();
+    expect(fake.page('cursor')).toBeNull();
+  });
+
+  it('clears a cursor-only page key on applied time change before page-key validation', async () => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor: '2026-01-01T10:30:00.000' } });
+    fake.render(FocusScreen);
+    await screen.findByRole('button', { name: '변경' });
+    fake.setTime({ from: '2026-01-02T10:00:00', to: '2026-01-02T11:00:00' });
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+    await waitFor(() => expect(fake.page('cursor')).toBeNull());
+  });
+
+  it('accepts a cursor page key in host wall-clock precision', async () => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor: '2026-01-01T10:30:00' } });
+    fake.render(FocusScreen);
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+    const slider = await screen.findByRole('slider', { name: '커서 시각' });
+    expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:30:00');
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+  });
+
+  it('does not blame cursor for an invalid effective page range', async () => {
+    const fake = fakeFor('focus', { page: {
+      equipment: EQUIPMENT, rangeFrom: 'not-a-time', rangeTo: '2026-01-01T10:12:00.000', cursor: '2026-01-01T10:10:00.000',
+    } });
+    fake.render(FocusScreen);
+    await waitFor(() => expect(warning()).toBeTruthy());
+    expect(screen.queryByText(/재생 커서 시각/)).toBeNull();
+  });
+
+  it.each([
+    ['malformed', 'not-a-time'],
+    ['outside the applied window', '2026-01-01T10:30:00.001'],
+  ] as const)('rejects a %s cursor page key before replay and recovers by clearing it', async (_name, cursor) => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor } });
+    fake.render(FocusScreen);
+    await waitFor(() => expect(warning()).toBeTruthy());
+    expect(replayQueries(fake)).toEqual([]);
+    fireEvent.click(warning());
+    await waitFor(() => expect(fake.page('cursor')).toBeNull());
+    await waitFor(() => expect(replayQueries(fake).length).toBeGreaterThan(0));
+  });
+
+  it('restores the Top View end instant exactly in Focus and writes a discrete seek to the page key', async () => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor: '2026-01-01T10:30:00.000' } });
+    fake.render(FocusScreen);
+    const slider = await screen.findByRole('slider', { name: '커서 시각' });
+    expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:30:00');
+    fireEvent.keyDown(slider, { key: 'Home' });
+    await waitFor(() => expect(fake.page('cursor')).toBe('2026-01-01T10:00:00.000'));
   });
 });
 
