@@ -17,7 +17,10 @@ export function permissionCheckQueryKey(args: UsePermissionCheckArgs) {
   return ['permission-check', args.capability, args.managedSystemId ?? null] as const;
 }
 
-export function usePermissionCheckBridge(args: UsePermissionCheckArgs) {
+export function usePermissionCheckBridge(
+  args: UsePermissionCheckArgs,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   return useQuery<PermissionCheckResponse>({
     queryKey: permissionCheckQueryKey(args),
     queryFn: ({ signal }) =>
@@ -25,6 +28,7 @@ export function usePermissionCheckBridge(args: UsePermissionCheckArgs) {
         ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
         signal,
       }),
+    enabled,
     retry: false,
     staleTime: 30_000,
   });

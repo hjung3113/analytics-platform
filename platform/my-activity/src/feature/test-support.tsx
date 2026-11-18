@@ -22,14 +22,31 @@ const improvementItems = { ...filler, primary: true, id: 'improvement-items', gr
 const improvementItem = { ...filler, primary: false, id: 'improvement-item', parent: 'improvement-items', navHidden: true, group: groupId('improvementItems'), path: '/improvement-items/:itemId', pageKeys: ['returnTo'] } as MenuEntry;
 
 const SPACES = [{ id: spaceId('mars'), label: { ko: '분석', en: 'Analytics' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'filler' }];
+const HOME_TODO_SPACES = [
+  ...SPACES,
+  { id: spaceId('flow'), label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'triage' },
+  { id: spaceId('operations'), label: { ko: '운영 콘솔', en: 'Operations console' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: 'permission-request-review' },
+];
 const GROUPS = [
   { id: groupId('myActivity'), label: { ko: '내 활동', en: 'My activity' }, icon: UserRound, space: null },
   { id: groupId('noticeVoc'), label: { ko: '소통', en: 'Communication' }, icon: UserRound, space: null },
   { id: groupId('filler'), label: { ko: '채움', en: 'Filler' }, icon: UserRound, space: spaceId('mars') },
 ];
+const homeTodoGroups = [
+  ...GROUPS,
+  { id: groupId('voc'), label: { ko: 'VOC', en: 'VOC' }, icon: UserRound, space: spaceId('flow') },
+  { id: groupId('access'), label: { ko: '권한', en: 'Access' }, icon: UserRound, space: spaceId('operations') },
+];
 const MENUS = [...manifests, filler, notices, inbox];
+const homeTodoMenus = [
+  ...MENUS,
+  { ...filler, primary: true, id: 'triage', group: groupId('voc'), path: '/flow/triage', permission: 'features:access', pageKeys: ['tab'] } as MenuEntry,
+  { ...filler, primary: true, id: 'permission-request-review', group: groupId('access'), path: '/operations/permission-request-review', permission: 'console:access', additionalPermissions: ['features:access'], pageKeys: ['tab', 'focus'] } as MenuEntry,
+];
 
 export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS });
+/** The HomeTodo page's two queue destinations, registered so bridge links resolve to PlatformLink. */
+export const homeTodoRegistry = createRegistry({ spaces: HOME_TODO_SPACES, groups: homeTodoGroups, menus: homeTodoMenus });
 
 /** Improvement target is present, while the VOC inbox destination is absent for unreachable-link coverage. */
 export const improvementRegistry = createRegistry({
