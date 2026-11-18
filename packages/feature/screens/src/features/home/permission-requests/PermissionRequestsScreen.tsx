@@ -14,6 +14,7 @@ import {
 } from '../../../components/PermissionScopeTargetFields';
 import { mapUnknownError } from '../../../lib/api/errorMapper';
 import { mintIdempotencyKey } from '../../../lib/api/idempotency';
+import { useMeBridge } from '../../../lib/api/me';
 import {
   createPermissionRequest,
   createPermissionRequestBatch,
@@ -48,6 +49,7 @@ import {
   type MinePermissionRequestRow,
   OPEN_PERMISSION_REQUEST_STATUSES,
   PERMISSION_BATCH_MAX_ITEMS,
+  grantOpensScreensFor,
   isDeclaredCapabilityId,
 } from '@ap/feature-shared';
 import {
@@ -128,6 +130,7 @@ function useManagedSystemsQuery() {
 
 function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: string; groupLink?: (id: string) => string }): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
+  const roleLevel = useMeBridge().data?.actor.role_level;
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
   const [targetKind, setTargetKind] = React.useState<TargetKind>('capability');
@@ -142,6 +145,9 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
   const scopeKind: PermissionScopeTargetKind | null = targetKind === 'capability' ? null : targetKind;
   const isScope = scopeKind !== null;
   const [capabilities, setCapabilities] = React.useState<string[]>([]);
+  const requiresScreenRole = (capability: string) =>
+    roleLevel === 'user' && !grantOpensScreensFor(capability, roleLevel);
+  const showFindingRoleNote = !isScope && capabilities.some(requiresScreenRole);
   const [origin, setOrigin] = React.useState<{ id: string; capabilities: string[] } | null>(null);
   const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [batchError, setBatchError] = React.useState<{ capability: string; message: string } | null>(null);
@@ -372,7 +378,12 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
                 aria-label={COPY.listLabel} searchPlaceholder={COPY.search}
                 value={capabilities} onChange={next => { if (!mutation.isPending) { setSelectionVersion(version => version + 1); setOrigin(null); onCapabilityChange(next); } }}
                 groups={groupPermissionItems([
-                  ...REQUESTABLE_CAPABILITIES.map(capability => ({ ...permissionSelectionItem(capability), capability })),
+                  ...REQUESTABLE_CAPABILITIES.map(capability => {
+                    const item = permissionSelectionItem(capability);
+                    return requiresScreenRole(capability)
+                      ? { ...item, capability, description: `${item.description} ${COPY.findingRoleRequired}` }
+                      : { ...item, capability };
+                  }),
                   ...requestableDeclared.map(item => ({ ...declaredSelectionItem(item.id, declared), capability: item.id as `ext.${string}` })),
                 ].map(item => ({ ...item,
                   ...(batchError?.capability === item.id ? { badge: { label: COPY.rejected, tone: 'danger' as const } } : {}),
@@ -481,7 +492,18 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
         </div>
 
         <div>
-          <Button type="submit" variant="primary" size="sm" disabled={mutation.isPending || overLimit}>
+          {showFindingRoleNote ? (
+            <p id="permission-request-finding-role-note" className="mb-2 text-sm text-text-secondary">
+              {COPY.findingRoleRequired}
+            </p>
+          ) : null}
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            aria-describedby={showFindingRoleNote ? 'permission-request-finding-role-note' : undefined}
+            disabled={mutation.isPending || overLimit}
+          >
             {COPY.submit}
           </Button>
         </div>

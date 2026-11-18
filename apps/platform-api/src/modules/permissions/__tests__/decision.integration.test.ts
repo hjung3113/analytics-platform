@@ -270,6 +270,54 @@ describe.skipIf(!runIntegration)('permission request decisions', () => {
     return result.rows[0]?.status ?? '';
   }
 
+  it.each(['user', 'developer'] as const)(
+    'preserves the Finding list role gate after approving finding.read for a %s',
+    async (roleLevel) => {
+      const externalId = `perm-self-finding-${roleLevel}-${randomUUID()}`;
+      const requester = await insertActorRow(db, {
+        workspaceId: WORKSPACE_ID,
+        externalId,
+        roleLevel,
+      });
+      const headers = {
+        cookie: `${SESSION_COOKIE_NAME}=${await loginAs(app, externalId)}`,
+      };
+      const created = await app.inject({
+        method: 'POST',
+        url: '/permission-requests',
+        headers: { ...headers, 'idempotency-key': randomUUID() },
+        payload: {
+          requested_capability: 'finding.read',
+          requested_managed_system_id: defaultSystemId,
+          reason: 'Review Findings in this system',
+        },
+      });
+      expect(created.statusCode, created.body).toBe(201);
+      const { id } = created.json<{ id: string }>();
+      const approved = await decide(id, 'approve', {});
+      expect(approved.statusCode, approved.body).toBe(200);
+      expect(await requestStatus(id)).toBe('approved');
+      const grants = await db.pool.query(
+        `select capability, managed_system_id from permission.permission_grants
+           where workspace_id = $1 and actor_id = $2 and capability = 'finding.read'`,
+        [WORKSPACE_ID, requester.id],
+      );
+      expect(grants.rows).toEqual([{ capability: 'finding.read', managed_system_id: defaultSystemId }]);
+
+      const list = await app.inject({ method: 'GET', url: '/findings', headers });
+      if (roleLevel === 'developer') {
+        expect(list.statusCode, list.body).toBe(200);
+      } else {
+        expect(list.statusCode, list.body).toBe(403);
+        expect(list.json()).toEqual({
+          code: 'permission.denied',
+          message: 'Developer role or higher is required to open the Finding list',
+          detail: { reason: 'role_required', minimum_role: 'developer' },
+        });
+      }
+    },
+  );
+
   async function isPendingInMine(id: string, cookie: string): Promise<boolean> {
     const response = await app.inject({
       method: 'GET',

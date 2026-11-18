@@ -22,6 +22,14 @@ const REQUEST: AdminPermissionRequestRow = {
 };
 
 describe('PermissionRequestDetail identity', () => {
+  it('shows the Finding role requirement before deciding a User request', () => {
+    render(
+      <PermissionRequestDetail request={adminDetailFixture(REQUEST)} onClose={() => undefined} />,
+    );
+
+    expect(screen.getByText('승인해도 요청자는 Finding 목록·상세를 열 수 없습니다. Developer 이상 역할이 필요합니다.')).toBeInTheDocument();
+  });
+
   it('leads with requester and readable capability in a two-line header', () => {
     render(
       <PermissionRequestDetail

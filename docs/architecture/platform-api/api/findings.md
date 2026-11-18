@@ -86,7 +86,7 @@ The insertion, counter, audit and idempotency response commit together.
 Query: optional `q` (trimmed string, max 100 characters), `managed_system_id` (UUID), `execution=none`, `owner_actor_id` / `owner_team_id`
 (UUID), `assignment=assigned|unassigned`, optional opaque `cursor`,
 and optional integer `limit` (1..100, default 50, the shared list limit; other
-values return `422 validation.failed`). The response is always
+values return `422 validation.failed`). The successful response is
 `{ items: FindingDto[], page: { has_more, cursor?, total? } }`. A consumer that
 needs every Finding (a picker) follows `page.cursor` with `limit=100` until
 `has_more` is false.
@@ -110,6 +110,11 @@ rows under the same filters. An invalid cursor returns `422 validation.failed`,
 `detail.fields: [{ path: ['cursor'], code: 'invalid_cursor' }]`. Invalid limits
 also return `422 validation.failed` using the query validation envelope. Owner and assignment predicates apply before both
 counts and pagination; assigned means either owner present, unassigned means both null.
+
+The list requires the Developer role or higher. A User receives
+`403 permission.denied` with
+`detail: { reason: 'role_required', minimum_role: 'developer' }` even with a
+`finding.read` grant. The response omits `requestable_permission`.
 
 Admin sees the workspace population. Developer visibility uses the existing
 point `finding.read` checks once per distinct Primary Managed System, including

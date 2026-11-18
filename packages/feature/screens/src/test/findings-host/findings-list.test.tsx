@@ -572,6 +572,26 @@ describe('FindingsListPage', () => {
     expect(screen.queryByTestId('finding-detail-empty-state')).not.toBeInTheDocument();
   });
 
+  it('explains the role required to open the Finding list and offers no permission request', async () => {
+    useFindingsListMock.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      isSuccess: false,
+      error: new ApiError(403, {
+        code: 'permission.denied',
+        message: 'Developer role or higher is required to open the Finding list',
+        detail: { reason: 'role_required', minimum_role: 'developer' },
+      }),
+    });
+    await renderFindingsPage();
+
+    const panel = screen.getByTestId('permission-blocked');
+    expect(panel).toHaveAttribute('data-state', 'blocked_not_requestable');
+    expect(panel).toHaveTextContent('Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.');
+    expect(screen.queryByRole('button', { name: /권한 요청/ })).not.toBeInTheDocument();
+  });
+
   it('keeps a non-permission failure as the existing failed-load state', async () => {
     useFindingsListMock.mockReturnValue({
       data: undefined,

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { CAPABILITY_META } from '@ap/feature-shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -443,6 +444,24 @@ describe.skipIf(!runIntegration)('Finding authorization consumer contract (#169)
     expect(replay.body).toEqual({ id: finding.id, updated_at: expect.any(String) });
     await migrateHandle.pool.query("delete from permission.permission_grants where actor_id = $1 and capability = 'finding.manage'", [createdActor.id]);
     await expect(findingsService.patchFinding(args)).rejects.toMatchObject({ code: 'permission.denied' });
+  });
+
+  it('keeps the Finding list gate aligned with the advertised screen role floor', async () => {
+    const { screenRoleFloor } = CAPABILITY_META['finding.read'];
+    expect(screenRoleFloor).toBe('developer');
+    expect(CAPABILITY_META['finding.manage'].screenRoleFloor).toBe(screenRoleFloor);
+
+    await expect(
+      findingsService.listFindings({ actor: actor('userWithGrant', 'user') }),
+    ).rejects.toMatchObject({
+      code: 'permission.denied',
+      detail: { reason: 'role_required', minimum_role: screenRoleFloor },
+    });
+    await expect(
+      findingsService.listFindings({ actor: actor('scopedDeveloper', 'developer') }),
+    ).resolves.toMatchObject({
+      items: expect.arrayContaining([expect.objectContaining({ id: ids.activeFinding })]),
+    });
   });
 
   it('uses the real Finding single-read consumer and its injected application clock', async () => {

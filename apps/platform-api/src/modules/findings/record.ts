@@ -14,7 +14,7 @@ import { decodeListCursor, encodeListCursor } from '../../lib/list-cursor.js';
 import { createEntityLink as insertActiveEntityLink } from '../entity-links/index.js';
 import { lockTaskById } from '../tasks/index.js';
 import { activeFindingTaskLinks } from './execution-projection.js';
-import { actorFindingListScope } from './list-scope.js';
+import { actorFindingListScope, findingListRoleRequired } from './list-scope.js';
 import {
   countListRows,
   findCreatedFindingSourceLink,
@@ -113,7 +113,7 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
   }): Promise<ListFindingsResponse> {
     const limit = args.limit ?? LIST_DEFAULT_LIMIT;
     if (args.actor.role_level !== 'admin' && args.actor.role_level !== 'developer') {
-      throw new HttpError('permission.denied', 'finding.read capability required');
+      throw findingListRoleRequired();
     }
 
     const cursor = args.cursor === undefined ? undefined : decodeListCursor(args.cursor);

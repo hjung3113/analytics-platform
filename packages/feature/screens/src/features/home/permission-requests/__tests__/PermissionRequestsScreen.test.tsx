@@ -1,6 +1,7 @@
 // F1–F5, X1–X6 — the platform 권한 요청 page. fetch is mocked directly (house style), with the bridge's `/api/features` base path.
 
 import { configureApiClient } from '../../../../lib/api/client';
+import { ME_QUERY_KEY } from '../../../../lib/api/me';
 import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -108,7 +109,7 @@ function installFetch() {
   }) as typeof fetch;
 }
 
-function mount() {
+function mount(role?: 'user' | 'developer') {
   const seam = {
     canLink: () => false,
     Link: () => null,
@@ -118,6 +119,12 @@ function mount() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  if (role) {
+    client.setQueryData(ME_QUERY_KEY, {
+      actor: { id: 'actor-1', external_id: 'actor-1', email: '', display_name: 'Requester', role_level: role },
+      workspace_id: 'ws-1',
+    });
+  }
   render(
     <QueryClientProvider client={client}>
       <HostSeamProvider value={seam}>
@@ -168,6 +175,31 @@ afterEach(() => {
 });
 
 describe('새 권한 요청', () => {
+  it.each(['user', 'developer'] as const)('shows the Finding role requirement for a %s session only', async (role) => {
+    const { user } = mount(role);
+    const note = /Developer 이상 역할 필요 — 이 권한만으로는 Finding 목록·상세가 열리지 않습니다$/;
+    const read = await screen.findByRole('checkbox', { name: /^Finding 조회/ });
+    const manage = screen.getByRole('checkbox', { name: /^Finding 관리/ });
+    expect(read).toBeEnabled();
+    expect(manage).toBeEnabled();
+    for (const checkbox of [read, manage]) {
+      if (role === 'user') {
+        expect(checkbox).toHaveAccessibleDescription(note);
+      } else {
+        expect(checkbox).not.toHaveAccessibleDescription(note);
+      }
+    }
+    expect(submitButton()).not.toHaveAccessibleDescription(note);
+
+    await user.click(read);
+    expect(read).toBeChecked();
+    if (role === 'user') {
+      expect(submitButton()).toHaveAccessibleDescription(note);
+    } else {
+      expect(submitButton()).not.toHaveAccessibleDescription(note);
+    }
+  });
+
   it('blocks 51 requests visibly, including declared capabilities, then permits 50', async () => {
     declaredItems = Array.from({ length: 51 }, (_, index) => ({ id: `ext.example.cap${index}`, display_name: `Declared ${index}`, sensitive: false, requestable: true }));
     const { user } = mount();
