@@ -31,7 +31,7 @@ export function useGateController({ api, round, actorId }: Pick<GateProps, 'api'
 type GateController = ReturnType<typeof useGateController>;
 const GATE_DIGEST_PREVIEW_LENGTH = 12;
 const GATE_VALUE_UNAVAILABLE = '확인 불가';
-type GateBasisAttempt = { attemptId: string; requestId?: string; attemptNo?: number; verdict?: string | null; ruleSetRevision?: string | null; endedAt?: string | null };
+type GateBasisAttempt = { attemptId: string; requestId?: string | undefined; attemptNo?: number | undefined; verdict?: string | null | undefined; ruleSetRevision?: string | null | undefined; endedAt?: string | null | undefined };
 type GateBasisSummary = { attempts: GateBasisAttempt[]; decisiveAttemptId: string | null | undefined; decisiveAttempt: GateBasisAttempt | null; specPinRevision: string | null | undefined; sampleManifestDigest: string | undefined; evidenceLinkCount: number | undefined };
 function recordOf(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -39,19 +39,23 @@ function recordOf(value: unknown): Record<string, unknown> | null {
 function readBasisAttempt(value: unknown): GateBasisAttempt | null {
   const attempt = recordOf(value);
   if (!attempt || typeof attempt.attemptId !== 'string' || !attempt.attemptId.trim()) return null;
+  const requestId = typeof attempt.requestId === 'string' && attempt.requestId.trim() ? attempt.requestId : undefined;
+  const attemptNo = typeof attempt.attemptNo === 'number' && Number.isSafeInteger(attempt.attemptNo) && attempt.attemptNo > 0 ? attempt.attemptNo : undefined;
+  const verdict = typeof attempt.verdict === 'string' || attempt.verdict === null ? attempt.verdict : undefined;
   let ruleSetRevision: string | null | undefined = undefined;
   if (typeof attempt.ruleSetRevision === 'string' && attempt.ruleSetRevision.trim()) ruleSetRevision = attempt.ruleSetRevision;
   else if (attempt.ruleSetRevision === null) ruleSetRevision = null;
+  const endedAt = typeof attempt.endedAt === 'string' || attempt.endedAt === null ? attempt.endedAt : undefined;
   return {
     attemptId: attempt.attemptId,
-    ...(typeof attempt.requestId === 'string' && attempt.requestId.trim() ? { requestId: attempt.requestId } : {}),
-    ...(typeof attempt.attemptNo === 'number' && Number.isSafeInteger(attempt.attemptNo) && attempt.attemptNo > 0 ? { attemptNo: attempt.attemptNo } : {}),
-    ...(typeof attempt.verdict === 'string' || attempt.verdict === null ? { verdict: attempt.verdict } : {}),
-    ...(ruleSetRevision === undefined ? {} : { ruleSetRevision }),
-    ...(typeof attempt.endedAt === 'string' || attempt.endedAt === null ? { endedAt: attempt.endedAt } : {}),
+    requestId,
+    attemptNo,
+    verdict,
+    ruleSetRevision,
+    endedAt,
   };
 }
-function readGateBasis(value: unknown): GateBasisSummary | null {
+function readGateBasis(value: unknown, reference: ReturnType<typeof decisiveReference>): GateBasisSummary | null {
   const basis = recordOf(value);
   if (!basis || !Array.isArray(basis.attempts)) return null;
   const attempts = basis.attempts.map(readBasisAttempt);
@@ -60,7 +64,9 @@ function readGateBasis(value: unknown): GateBasisSummary | null {
   let decisiveAttemptId: string | null | undefined = undefined;
   if (typeof basis.decisiveAttemptId === 'string') decisiveAttemptId = basis.decisiveAttemptId;
   else if (basis.decisiveAttemptId === null) decisiveAttemptId = null;
-  const decisiveAttempt = decisiveAttemptId ? parsedAttempts.find(attempt => attempt.attemptId === decisiveAttemptId) ?? null : null;
+  const decisiveAttempt = reference
+    ? parsedAttempts.find(attempt => attempt.attemptId === reference.attemptId && attempt.requestId === reference.requestId) ?? null
+    : null;
   let specPinRevision: string | null | undefined = undefined;
   if (Object.prototype.hasOwnProperty.call(basis, 'specPin')) {
     if (basis.specPin === null) specPinRevision = null;
@@ -88,6 +94,10 @@ function readGateBasis(value: unknown): GateBasisSummary | null {
 }
 function countValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+function sparseCountValue(counts: Record<string, unknown> | null, key: string): number | undefined {
+  if (!counts) return undefined;
+  return Object.prototype.hasOwnProperty.call(counts, key) ? countValue(counts[key]) : 0;
 }
 function countSummary(label: string, count: number | undefined): string {
   if (count === undefined) return `${label} ${GATE_VALUE_UNAVAILABLE}`;
@@ -137,9 +147,9 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
   const rawBasisId = useId();
   const available = round.gateAvailability;
   const { draft: { decision, reason, riskActor, scope, until, result }, update, pending, submit, retry } = controller;
-  const basis = readGateBasis(available.basis);
-  const basisAttempt = basis?.decisiveAttempt ?? null;
   const reference = decisiveReference(round);
+  const basis = readGateBasis(available.basis, reference);
+  const basisAttempt = basis?.decisiveAttempt ?? null;
   const hasReference = reference !== null;
   const request = api.useRead<RequestDetail>('requestDetail', { requestId: reference?.requestId ?? '' }, hasReference);
   let decisive: Attempt | undefined;
@@ -154,8 +164,8 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
   const exceptionIncomplete = decision === 'exception' && (!riskActor.trim() || !scope.trim());
   const requestConfirmation = () => { if (!locked && selected?.allowed && reason.trim() && !exceptionIncomplete) setConfirmOpen(true); };
   const counts = recordOf(decisive?.counts);
-  const failureCount = countValue(counts?.FAIL);
-  const uncheckedCount = countValue(counts?.NOT_CHECKED);
+  const failureCount = sparseCountValue(counts, 'FAIL');
+  const uncheckedCount = sparseCountValue(counts, 'NOT_CHECKED');
   const ruleCount = countValue(decisive?.ruleCount);
   const requiredCount = countValue(decisive?.requiredUnchecked);
   const resultSummary = gateResultSummary(decisive, failureCount, uncheckedCount, ruleCount);
@@ -179,7 +189,7 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
         if (detail.id === reference.requestId && detail.roundId === round.id && hasAttempt) return null;
         return <p>결정 근거 시도를 확인할 수 없습니다.</p>;
       }}</ReadView> : <p>{unavailableReferenceMessage}</p>}
-      {reference ? <ReadView query={failing}>{data => <><p>{data.rows.length ? data.rows.map(rule => rule.ruleId).join(' · ') : '실패 규칙 없음'}</p>{data.total > data.rows.length ? <p>실패 규칙 {data.total}건 중 {data.rows.length}건 표시</p> : null}</>}</ReadView> : null}
+      {decisive ? <ReadView query={failing}>{data => <><p>{data.rows.length ? data.rows.map(rule => rule.ruleId).join(' · ') : failureCount === 0 ? '실패 규칙 없음' : GATE_VALUE_UNAVAILABLE}</p>{data.total > data.rows.length ? <p>실패 규칙 {data.total}건 중 {data.rows.length}건 표시</p> : null}</>}</ReadView> : null}
       <p>{ISSUE_TOTAL_UNAVAILABLE} · 이 Round 전체 · 사람 기록이며 판정에 쓰이지 않음</p>
       {issues.status === 'done' && issues.data?.rows.length ? <><p className="text-text-secondary">최근 활동 검증 항목{issues.data.nextCursor ? ` ${issues.data.rows.length}건만 표시` : ''}</p>{issues.data.rows.map(row => <p key={row.id}>{row.title}</p>)}</> : null}
       <Button type="button" variant="secondary" size="toolbar" className="min-w-0 max-w-full justify-between" aria-expanded={rawBasisOpen} aria-controls={rawBasisId} onClick={() => setRawBasisOpen(open => !open)}>

@@ -129,6 +129,48 @@ describe('log lifecycle screens', () => {
     expect(screen.getByText('시도 수').parentElement).toHaveTextContent('2개');
   });
   it.each([
+    ['empty counts record', {}, '실패 0건 · 미검증 0건 / 전체 규칙 3건'],
+    ['failure-only counts record', { FAIL: 2 }, '실패 2건 · 미검증 0건 / 전체 규칙 3건'],
+    ['unchecked-only counts record', { NOT_CHECKED: 1 }, '실패 0건 · 미검증 1건 / 전체 규칙 3건'],
+  ])('treats omitted keys as known zero in a %s', (_kind, counts, expected) => {
+    const requestDetail = { ...gateRequestDetail, attempts: [{ ...decisiveRequestAttempt, counts: counts as Record<string, number> }] };
+    render(<GatePanel {...props({ requestDetail, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    expect(screen.getByText(expected)).toBeVisible();
+  });
+  it.each([
+    ['missing', undefined, '실패 확인 불가 · 미검증 확인 불가 / 전체 규칙 3건'],
+    ['non-record', null, '실패 확인 불가 · 미검증 확인 불가 / 전체 규칙 3건'],
+    ['negative value', { FAIL: -1, NOT_CHECKED: 0 }, '실패 확인 불가 · 미검증 0건 / 전체 규칙 3건'],
+    ['unsafe integer', { FAIL: Number.MAX_SAFE_INTEGER + 1, NOT_CHECKED: 0 }, '실패 확인 불가 · 미검증 0건 / 전체 규칙 3건'],
+  ])('keeps %s counts unavailable', (_kind, counts, expected) => {
+    const requestDetail = { ...gateRequestDetail, attempts: [{ ...decisiveRequestAttempt, counts: counts as Record<string, number> }] };
+    render(<GatePanel {...props({ requestDetail, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    expect(screen.getByText(expected)).toBeVisible();
+  });
+  it.each([
+    ['without a known decisive attempt', null, false],
+    ['with a positive failure count', 2, false],
+    ['with a known zero failure count', 0, true],
+  ] as const)('shows “실패 규칙 없음” only %s', (_case, failureCount, showNoFailures) => {
+    const requestDetail = failureCount === null ? undefined : {
+      ...gateRequestDetail,
+      attempts: [{ ...decisiveRequestAttempt, counts: { FAIL: failureCount, NOT_CHECKED: 0 } }],
+    };
+    const data = { ruleResults: { rows: [], total: 0 }, ...(requestDetail ? { requestDetail } : {}) };
+    render(<GatePanel {...props(data)} round={roundWithGateBasis(sampleGateBasis)} />);
+    if (showNoFailures) expect(screen.getByText('실패 규칙 없음')).toBeVisible();
+    else expect(screen.queryByText('실패 규칙 없음')).toBeNull();
+  });
+  it('uses the same resolvable decisive attempt as Round execution', () => {
+    const basis = {
+      decisiveAttemptId: 'decisive',
+      attempts: [{ attemptId: 'decisive', attemptNo: 4, verdict: 'incomplete', endedAt: '2026-11-08T11:42:00Z' }],
+    };
+    render(<GatePanel {...props()} round={roundWithGateBasis(basis)} />);
+    expect(screen.getByText('기준 시도').parentElement).toHaveTextContent('확인 불가');
+    expect(screen.queryByText(/완료 시도 #4/)).toBeNull();
+  });
+  it.each([
     ['missing', undefined],
     ['malformed', { decisiveAttemptId: 'decisive', attempts: 'not-an-array' }],
     ['missing summary fields', { decisiveAttemptId: 'decisive', attempts: [{ attemptId: 'decisive', requestId: 'request' }], evidenceLinks: null }],
