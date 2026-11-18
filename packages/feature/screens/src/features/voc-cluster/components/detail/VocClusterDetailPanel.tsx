@@ -556,7 +556,7 @@ export function useClusterDetailParts({
         {canMutate && (
           <CreateFindingFromClusterModal
             open={createFindingOpen}
-            clusterId={clusterId}
+            cluster={data}
             onClose={() => setCreateFindingOpen(false)}
           />
         )}

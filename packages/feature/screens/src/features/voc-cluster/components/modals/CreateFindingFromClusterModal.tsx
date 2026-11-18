@@ -5,10 +5,11 @@
 // cannot open Findings (the platform until #763), closes with a success notice.
 
 import { FINDING_SEVERITY_LABELS } from '../../../../lib/copy/enum-labels';
-import type { CreateFindingRequest } from '@ap/feature-shared';
+import type { CreateFindingRequest, VocClusterDto } from '@ap/feature-shared';
 import { createFindingRequestSchema, findingSeveritySchema } from '@ap/feature-shared';
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -26,6 +27,7 @@ import {
 } from '@ap/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useCreateFindingFromCluster } from '../../hooks/useCreateFindingFromCluster';
@@ -38,14 +40,15 @@ import { useHostNavigate, useHostSeam } from '../../../../lib/host/host-seam';
 // Built inside the component: FINDING_SEVERITY_LABELS re-exports src/ui, and
 // evaluating it at module init breaks when this file loads early in the route
 // tree import chain (RouteFallback.test hit it via voc-clusters).
+const EMPTY_CLUSTER_MEMBERS: NonNullable<VocClusterDto['members']> = [];
 
 export function CreateFindingFromClusterModal({
   open,
-  clusterId,
+  cluster,
   onClose,
 }: {
   open: boolean;
-  clusterId: string;
+  cluster: Pick<VocClusterDto, 'id' | 'title' | 'summary' | 'members'>;
   onClose: () => void;
 }): React.ReactElement {
   const ime = useImeEnterGuard();
@@ -53,6 +56,8 @@ export function CreateFindingFromClusterModal({
   const { canLink, notifyError, notifySuccess } = useHostSeam();
   const { key: idempotencyKey, markConsumed } = useIdempotencyKey();
   const mutation = useCreateFindingFromCluster({ idempotencyKey });
+  const members = cluster.members ?? EMPTY_CLUSTER_MEMBERS;
+  const [selectedEvidenceVocIds, setSelectedEvidenceVocIds] = useState<string[]>([]);
 
   const severityOptions = findingSeveritySchema.options.map((value) => ({
     value,
@@ -68,24 +73,51 @@ export function CreateFindingFromClusterModal({
     mode: 'onBlur',
   });
 
+  useEffect(() => {
+    if (!open) return;
+    form.reset({
+      title: cluster.title,
+      summary: cluster.summary ?? '',
+      severity: 'medium',
+    });
+    setSelectedEvidenceVocIds(members.map((member) => member.voc_id));
+  }, [open, cluster.id, cluster.title, cluster.summary, members, form]);
+
   function closeAndReset() {
-    form.reset();
+    form.reset({
+      title: cluster.title,
+      summary: cluster.summary ?? '',
+      severity: 'medium',
+    });
+    setSelectedEvidenceVocIds([]);
     mutation.reset();
     onClose();
   }
 
   function handleSubmit(values: CreateFindingRequest) {
+    const selectedIds = new Set(selectedEvidenceVocIds);
+    const evidenceVocIds = members
+      .filter((member) => selectedIds.has(member.voc_id))
+      .map((member) => member.voc_id);
     mutation.mutate(
-      { clusterId, body: values },
+      {
+        clusterId: cluster.id,
+        body: { ...values, evidence_voc_ids: evidenceVocIds },
+      },
       {
         onSuccess: (finding) => {
           markConsumed();
-          form.reset();
+          form.reset({
+            title: cluster.title,
+            summary: cluster.summary ?? '',
+            severity: 'medium',
+          });
+          setSelectedEvidenceVocIds([]);
           mutation.reset();
           onClose();
           const findingPath = `/findings/${finding.id}`;
           if (canLink(findingPath)) navigate(findingPath);
-          else notifySuccess('Finding이 생성되었습니다.');
+          else notifySuccess(`Finding이 생성되었습니다. 근거 VOC ${evidenceVocIds.length}건을 연결했습니다.`);
         },
         onError: (err: ApiError) => {
           notifyError(errorMapper(err.envelope).message);
@@ -108,7 +140,10 @@ export function CreateFindingFromClusterModal({
           <DialogTitle>Finding 생성</DialogTitle>
         </DialogHeader>
 
-        <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
+        <form
+          onKeyDown={ime.onKeyDown}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
           id="create-finding-from-cluster-form"
           data-testid="create-finding-from-cluster-form"
           onSubmit={form.handleSubmit(handleSubmit)}
@@ -153,6 +188,41 @@ export function CreateFindingFromClusterModal({
               </p>
             )}
           </div>
+
+          {members.length > 0 && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-medium">
+                근거로 가져올 VOC {selectedEvidenceVocIds.length}건
+              </legend>
+              {members.map((member) => {
+                const isSelected = selectedEvidenceVocIds.includes(member.voc_id);
+                const checkboxId = `cluster-evidence-${member.voc_id}`;
+                return (
+                  <div key={member.voc_id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={checkboxId}
+                      checked={isSelected}
+                      disabled={isSubmitting}
+                      onCheckedChange={(checked) => {
+                        setSelectedEvidenceVocIds((current) => {
+                          if (checked === true) {
+                            return current.includes(member.voc_id)
+                              ? current
+                              : [...current, member.voc_id];
+                          }
+                          return current.filter((vocId) => vocId !== member.voc_id);
+                        });
+                      }}
+                    />
+                    <label htmlFor={checkboxId} className="text-sm">
+                      {member.display_id ? `${member.display_id} · ` : ''}
+                      {member.title ?? member.voc_id}
+                    </label>
+                  </div>
+                );
+              })}
+            </fieldset>
+          )}
 
           {/* Severity */}
           <div className="flex flex-col gap-1.5">

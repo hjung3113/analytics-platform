@@ -6,12 +6,12 @@ import { apiClient } from '../../../lib/api/client';
 import type { ApiError } from '../../../lib/api/types';
 import { invalidateNavCounts } from '../../../lib/query/navCounts';
 import { invalidateRecovery } from '../../../lib/query/recovery';
-import type { CreateFindingRequest, FindingDto } from '@ap/feature-shared';
+import type { CreateFindingFromVocClusterRequest, FindingDto } from '@ap/feature-shared';
 import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface CreateFindingFromClusterVariables {
   clusterId: string;
-  body: CreateFindingRequest;
+  body: CreateFindingFromVocClusterRequest;
 }
 
 export function useCreateFindingFromCluster(args?: {

@@ -182,6 +182,7 @@ Link creation endpoints map to registered pairs:
 ```text
 POST /vocs/:id/create-finding          -> (voc, finding, created_finding)            [#122]
 POST /voc-clusters/:id/create-finding  -> (voc_cluster, finding, created_finding)    [#126]
+POST /voc-clusters/:id/create-finding with evidence_voc_ids -> (voc, finding, evidence_of) [#2531]
 POST /voc-clusters/:id/link-finding    -> (voc_cluster, finding, evidence_of)        [#127]
 POST /findings/:id/request-task        -> (finding, task_request, requested_task)    [#132]
 POST /vocs/:id/request-task            -> (voc, task_request, requested_task)        [#136]

@@ -23,7 +23,11 @@ function renderModal(canLink: boolean) {
   const onClose = vi.fn();
   render(
     <HostSeamProvider value={seam}>
-      <CreateFindingFromClusterModal open clusterId="c-1" onClose={onClose} />
+      <CreateFindingFromClusterModal
+        open
+        cluster={{ id: 'c-1', title: 'Cluster title', summary: 'Cluster summary', members: [] }}
+        onClose={onClose}
+      />
     </HostSeamProvider>,
   );
   return { navigate, notifySuccess, onClose };
@@ -55,6 +59,8 @@ describe('CreateFindingFromClusterModal success', () => {
     await submit();
     expect(onClose).toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
-    expect(notifySuccess).toHaveBeenCalledWith('Finding이 생성되었습니다.');
+    expect(notifySuccess).toHaveBeenCalledWith(
+      'Finding이 생성되었습니다. 근거 VOC 0건을 연결했습니다.',
+    );
   });
 });

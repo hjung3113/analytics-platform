@@ -13,6 +13,8 @@
 - A cluster, its Finding, and any link between them must share a Managed System: `assertLinkManagedSystemCompatibility` guards create-finding and link-finding (`conversion.ts`).
 - Create, link, and unlink Finding each run in one transaction with the FO ADR-0015 idempotency frame.
   - They write the Finding through `../findings/commands.ts` and the link through `../entity-links/commands.ts` (`created_finding` and `evidence_of`, both `internal_only`), plus audit events, and never write those tables directly.
+  - `createFindingFromCluster` may also link selected current, readable cluster members as `(voc, finding, evidence_of)`; it reuses `isAuthorizedMember` and `canReadVocAsSource`, captures Finding/VOC recovery subjects before evidence links, and fails the whole command with `not_found.record` for any invalid selection.
+  - These evidence links are entity links only: they do not increment `finding.evidence_count` or create evidence highlights.
   - A Finding outside the actor's read scope is reported as `not_found.record`.
 - `POST /voc-clusters/:id/request-task` is hosted here, but the Task Request write is `taskRequestsService.createFromVocCluster` (FO ADR-0028); a cluster cannot create a Task directly.
 

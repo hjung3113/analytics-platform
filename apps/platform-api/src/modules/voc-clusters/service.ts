@@ -772,7 +772,7 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
     removeMember,
     createPublicUpdateCandidate,
     applyPublicUpdateCandidate,
-    ...createVocClusterConversion(deps, canManageCluster),
+    ...createVocClusterConversion(deps, canManageCluster, isAuthorizedMember),
   };
 }
 
