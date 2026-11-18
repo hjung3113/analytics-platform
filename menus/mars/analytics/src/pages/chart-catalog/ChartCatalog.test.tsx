@@ -7,7 +7,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../../index';
 import { type CatalogData } from '../../endpoints';
 import ChartCatalog from './ChartCatalog';
-import { groupId, menuPermission, spaceId } from '@ap/contracts';
+import { formatInstant, formatWallClock, groupId, menuPermission, spaceId } from '@ap/contracts';
 import { TEST_AXES } from '../../test-axes';
 import { supportFor } from './support';
 import * as sequenceData from './sequenceSampleData';
@@ -44,6 +44,7 @@ const scrollIntoView = vi.fn();
 const click = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
 async function table() { click('표로 보기'); return screen.findByRole('table', { name: /차트/ }); }
 const summary = () => screen.getByRole('region', { name: '선택 요약' });
+const chartFooter = () => [...document.querySelectorAll('footer')].find(node => node.textContent?.includes('합성 데이터'));
 beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView }); scrollIntoView.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); query.mockClear(); canvas.init.mockClear(); canvas.dispose.mockClear(); canvas.options.length = 0; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -221,6 +222,28 @@ describe('chart catalog route and lifetime', () => {
     fireEvent.keyDown(control, { key: 'Escape' }); expect(control.getAttribute('aria-pressed')).toBe('true');
     fireEvent.keyDown(control, { key: 'Escape' }); expect(control.getAttribute('aria-pressed')).toBe('false');
     expect(document.activeElement).toBe(control);
+  });
+
+  it('formats the chart footer update from the response trust in the viewer zone', async () => {
+    const updatedAt = '2026-11-08T09:00:00+09:00';
+    query.mockResolvedValueOnce({ outcome: 'ok', data: fixture, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: { updatedAt, dataThrough: null, coverage: 1, provisional: false, source: 'Synthetic' }, correlationId: 'footer' } as never);
+    mount('line');
+    await screen.findByRole('img');
+    const footer = chartFooter();
+    expect(footer?.textContent).toContain(formatInstant(updatedAt, 'ko', undefined, 'monthDayMinute'));
+    expect(footer?.textContent).not.toContain(formatWallClock('2026-09-26T09:00:00'));
+  });
+
+  it('uses an em dash for an invalid or absent response trust instant', async () => {
+    query.mockResolvedValueOnce({ outcome: 'ok', data: fixture, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: { updatedAt: 'not-an-instant', dataThrough: null, coverage: null, provisional: false, source: 'Synthetic' }, correlationId: 'invalid-footer' } as never);
+    mount('line');
+    await screen.findByRole('img');
+    expect(chartFooter()?.textContent).toContain('—');
+    cleanup();
+    query.mockResolvedValueOnce({ outcome: 'ok', data: fixture, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: null, correlationId: 'empty-footer' });
+    mount('line');
+    await screen.findByRole('img');
+    expect(chartFooter()?.textContent).toContain('—');
   });
 });
 

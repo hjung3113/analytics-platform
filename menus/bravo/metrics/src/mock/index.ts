@@ -26,12 +26,14 @@ export const metricsMock: readonly AnyMockEndpoint[] = [
   }),
   defineMockEndpoint(catalogListEndpoint, {
     // The metric count reads the full catalog: conditions do not narrow it (UXA-4).
-    handle: ({ params: { lang } }) => ({ rows: catalogRows(lang) }),
+    handle: ({ params: { lang } }) => ({ rows: catalogRows(lang).map(({ aliases: _aliases, ...row }) => row) }),
   }),
   defineMockEndpoint(catalogPageEndpoint, {
     validate: rejectUndeclaredCondition,
-    handle: ({ params: { q, lang, page, pageSize, sorting, filters } }) =>
-      sortAndPage(filterRows(filterCatalog(catalogRows(lang), q), filters, undefined, { specs: catalogFilterSpecs }), { page, pageSize, sorting }),
+    handle: ({ params: { q, lang, page, pageSize, sorting, filters } }) => {
+      const result = sortAndPage(filterRows(filterCatalog(catalogRows(lang), q), filters, undefined, { specs: catalogFilterSpecs }), { page, pageSize, sorting });
+      return { ...result, rows: result.rows.map(({ aliases: _aliases, ...row }) => row) };
+    },
     isEmpty: data => data.total === 0,
   }),
   defineMockEndpoint(catalogExportEndpoint, {
@@ -41,7 +43,7 @@ export const metricsMock: readonly AnyMockEndpoint[] = [
     handle: ({ params: { q, lang, ids, sorting = [], filters } }) => {
       const rows = filterRows(filterCatalog(catalogRows(lang), q), filters, undefined, { specs: catalogFilterSpecs });
       const selected = ids == null ? rows : rows.filter(r => ids.includes(r.metricId));
-      return sortRows(selected, sorting);
+      return sortRows(selected, sorting).map(({ aliases: _aliases, ...row }) => row);
     },
   }),
   defineMockEndpoint(definitionEndpoint, {

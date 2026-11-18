@@ -1,5 +1,16 @@
 import type { Text } from '@ap/kernel';
 
+/** Local copy of the host mock-server definitions; mock tests keep both languages aligned. */
+export const CYCLE_VERSION_TEXT = {
+  '3': { ko: 'PRC 구간만, 큐 대기 제외', en: 'Process interval only, queue wait excluded' },
+  '4': { ko: 'PRC 구간과 큐 대기 포함', en: 'Process interval plus queue wait included' },
+} as const;
+
+const cycleVersionNote = {
+  ko: `완료 Job 건수는 버전과 무관하고, 적용된 조건(Context)이 같을 때 두 화면에서 같습니다. Lot은 사이클타임 상세에만 적용되므로 Lot이 걸려 있으면 건수가 다를 수 있습니다. 생산성 개요는 cycle_time v4 (${CYCLE_VERSION_TEXT['4'].ko}), 사이클타임 상세 기본값은 v3 (${CYCLE_VERSION_TEXT['3'].ko})입니다. 그래서 P50·P95는 다를 수 있습니다.`,
+  en: `Completed-job counts ignore version and match across the two screens only when the applied Context is the same; Lot applies on cycle-time detail only, so a Lot filter makes the counts differ. Productivity uses cycle_time v4 (${CYCLE_VERSION_TEXT['4'].en}); cycle-time detail defaults to v3 (${CYCLE_VERSION_TEXT['3'].en}), so P50/P95 can differ.`,
+};
+
 export const ANALYTICS_MESSAGES = {
 
   // CycleTimeDrilldown
@@ -194,6 +205,9 @@ export const ANALYTICS_MESSAGES = {
   productivityOverviewMainTrend: { ko: "주요 추세", en: "Main trend" },
   productivityOverviewTotal: { ko: "합계", en: "total" },
   productivityOverviewSameSumAsTheKpiCard: { ko: "KPI 카드와 동일 합산", en: "same sum as the KPI card" },
+  productivityOverviewObservedBucketTotal: { ko: "관측 {observed}/{total} 구간 합계 {value} Job", en: "Observed {observed}/{total} buckets total {value} Job" },
+  productivityOverviewObservedBucketCoverage: { ko: "관측 {observed}/{total} 구간", en: "Observed {observed}/{total} buckets" },
+  productivityOverviewUnconfirmedTrendTotal: { ko: "합계 미확인", en: "Total unconfirmed" },
   productivityOverviewOccupancyComposition: { ko: "점유 구성", en: "Occupancy composition" },
   productivityOverviewOccupancyComposition2: { ko: "점유 구성", en: "Occupancy composition" },
   productivityOverviewOccupancyCompositionByProcess: { ko: "공정별 점유 구성", en: "Occupancy composition by process" },
@@ -411,7 +425,7 @@ export const ANALYTICS_MESSAGES = {
   sequenceMarkerFileB: { ko: "{label}", en: "File B starts" },
   sequenceMarkerFileC: { ko: "{label}", en: "File C starts" },
   // Endpoint display copy
-  endpointCycleVersionNote: { ko: "완료 Job 건수는 버전과 무관하고, 적용된 조건(Context)이 같을 때 두 화면에서 같습니다. Lot은 사이클타임 상세에만 적용되므로 Lot이 걸려 있으면 건수가 다를 수 있습니다. 생산성 개요의 사이클타임 분은 cycle_time v4(큐 대기 포함)이고, 사이클타임 상세의 기본 v3는 같은 Job에서 큐 대기만 뺍니다. 그래서 P50·P95는 다를 수 있습니다.", en: "Completed-job counts ignore version and match across the two screens only when the applied Context is the same; Lot applies on cycle-time detail only, so a Lot filter makes the counts differ. Productivity cycle-time minutes are cycle_time v4 (queue wait included); cycle-time detail’s default v3 drops only that queue wait on the same jobs, so P50/P95 can differ." },
+  endpointCycleVersionNote: cycleVersionNote,
   // Cycle time sentence values
   cycleTimeGrainHour: { ko: "시간", en: "hour" },
   cycleTimeGrainDay: { ko: "일", en: "day" },

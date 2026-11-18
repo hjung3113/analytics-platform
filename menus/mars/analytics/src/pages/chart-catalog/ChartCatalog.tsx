@@ -32,11 +32,11 @@ export default function ChartCatalog() {
   // keepPrevious OFF (#1365, ADR-0114): `kind` selects a different chart, so the previous result would be another subject under the new label.
   const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
   return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={kind === 'sequence' && sequenceLoad === 'error' ? [...query.response.assessments.filter(item => item.kind !== 'collection'), { kind: 'collection', state: 'confirmed', reason: 'check_failed', detail: m('chartCatalogSyntheticRangeRequestFailed') }] : query.response.assessments} /> : undefined}>
-    <CatalogWorkspace query={query} rejectedNode={rejectedNode} onSequenceLoad={setSequenceLoad} />
+    <CatalogWorkspace query={query} updatedAt={query.response?.trust?.updatedAt ?? null} rejectedNode={rejectedNode} onSequenceLoad={setSequenceLoad} />
   </PlatformPage>;
 }
 
-function CatalogWorkspace({ query, rejectedNode, onSequenceLoad }: { query: QueryState<CatalogData>; rejectedNode: string | null; onSequenceLoad: (state: OrderedTrackLoadState) => void }) {
+function CatalogWorkspace({ query, updatedAt, rejectedNode, onSequenceLoad }: { query: QueryState<CatalogData>; updatedAt: string | null; rejectedNode: string | null; onSequenceLoad: (state: OrderedTrackLoadState) => void }) {
   const m = useMessages(ANALYTICS_MESSAGES);
   const { tx } = useI18n();
   const { pageParam, setPage, route } = usePlatform();
@@ -110,7 +110,7 @@ function CatalogWorkspace({ query, rejectedNode, onSequenceLoad }: { query: Quer
             {/* One stable panel/QueryView path: layout never changes chart identity. */}
             <TabsContent value={kind} className="m-0">
               {rejectedNode !== null ? <BreakdownNodeRejection node={rejectedNode} /> : <QueryView query={query} widgetName={m('chartCatalogChartData')}>
-                {data => kind === 'sequence' ? <SequenceSample height={plotHeight} onLoadStateChange={onSequenceLoad} /> : <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} />}
+                {data => kind === 'sequence' ? <SequenceSample height={plotHeight} onLoadStateChange={onSequenceLoad} /> : <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} updatedAt={updatedAt} />}
               </QueryView>}
             </TabsContent>
             <HistogramSample height={plotHeight} />
