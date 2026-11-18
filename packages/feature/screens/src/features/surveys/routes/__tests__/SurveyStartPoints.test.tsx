@@ -97,6 +97,26 @@ it('starts from a built-in with visible questions and explicit privacy, using th
   ]);
 });
 
+it('browses starting points with arrow keys without changing the chosen one (#2552)', async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(JSON.stringify(surveyTemplateVisualFixture))),
+  );
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <CreateSurveyDialog open onClose={vi.fn()} onCreated={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  await choose(user, '시작 방법', '기본 템플릿');
+  await choose(user, '시스템', 'Revenue Analytics');
+  const first = await screen.findByRole('radio', { name: /Discovery 기본 템플릿/ });
+  await user.click(first);
+  await user.keyboard('{ArrowDown}');
+  expect(first).not.toHaveFocus();
+  expect(first).toHaveAttribute('aria-checked', 'true');
+});
+
 async function choose(user: ReturnType<typeof userEvent.setup>, name: string, option: string) {
   screen.getByRole('combobox', { name }).focus();
   await user.keyboard('{Enter}');

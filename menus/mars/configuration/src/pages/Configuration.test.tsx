@@ -83,6 +83,15 @@ describe('Configuration page', () => {
     draw(); expect(host.textContent).toContain('일치 포함 전체'); expect(host.textContent).toContain('일치 90건 숨김');
     state.page.status = 'all'; draw(); expect(host.textContent).not.toContain('일치 90건 숨김');
   });
+  it('browses statuses with arrow keys without re-keying the comparison (#2552)', async () => {
+    draw();
+    const group = host.querySelector('[aria-label="status"]')!;
+    const checked = group.querySelector<HTMLElement>('[aria-checked="true"]')!;
+    act(() => { checked.focus(); checked.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); });
+    await act(() => new Promise(resolve => setTimeout(resolve, 10)));
+    expect(state.setPage).not.toHaveBeenCalled();
+    expect(checked.getAttribute('aria-checked')).toBe('true');
+  });
   it('passes whole-result unchanged columns only when the page toggle is enabled', () => {
     draw(); expect(state.matrix.hiddenColumns).toEqual([]);
     const toggle = [...host.querySelectorAll('button')].find(button => button.textContent === '차이 없는 설비 숨기기')!;

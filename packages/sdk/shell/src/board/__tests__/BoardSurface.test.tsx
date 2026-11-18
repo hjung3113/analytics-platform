@@ -211,6 +211,23 @@ describe('BoardSurface (893b)', () => {
     expect(onSheetChange).toHaveBeenCalledWith(two.sheets[0].id);
     expect(window.location.pathname).toBe('/nowhere');
   });
+
+  it('browses layouts with arrow keys without choosing one (#2552)', async () => {
+    const board = freshBoard('시트');
+    localStorage.setItem(`platform:board:v2:${testSession(['platform:view']).user.id}`, JSON.stringify(board));
+    render(provide(<BoardSurface sheetId={board.sheets[0].id} onSheetChange={vi.fn()} arrivalKey="x" Outlet={Outlet} />));
+    await settle();
+    const layouts = screen.getAllByRole('radio', { name: /^\d×\d 레이아웃$/ });
+    const current = layouts.find(radio => radio.getAttribute('aria-checked') === 'true')!;
+    const next = layouts[(layouts.indexOf(current) + 1) % layouts.length]!;
+    current.focus();
+    fireEvent.keyDown(current, { key: 'ArrowRight' });
+    await settle();
+    expect(next).toHaveFocus();
+    expect(current).toHaveAttribute('aria-checked', 'true');
+    expect(next).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
 });
 
 describe('BoardSurface under an expanded detail (#1459)', () => {

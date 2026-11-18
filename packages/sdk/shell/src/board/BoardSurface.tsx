@@ -459,7 +459,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
         <Button type="button" variant="ghost" size="sm" onClick={() => update(b => resetTree(b, sheetId))}>{text.defaultLayout}</Button>
       </div> : <div className="flex shrink-0 items-center gap-2">
       <Button type="button" variant="ghost" size="sm" onClick={() => saved(defaultArrangement(layout))}>{text.resetSize}</Button>
-      <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={layout} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
+      {/* Focus-only arrows: choosing a layout can drop panes behind a confirmation, so browsing must not choose (#2552). */}
+      <ToggleGroup type="single" appearance="filter" aria-label={text.layout} value={layout} arrowSelects={false} onValueChange={value => { if (value) requestLayout(value as BoardLayout); }}>
         {BOARD_LAYOUTS.map(option => <ToggleGroupItem key={option} value={option} size="sm" appearance="selected-filter" aria-label={text.layoutOption(option)}>{option.replace('x', '×')}</ToggleGroupItem>)}
       </ToggleGroup>
       </div>}

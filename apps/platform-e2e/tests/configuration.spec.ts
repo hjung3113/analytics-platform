@@ -351,6 +351,21 @@ test.describe('Configuration equipment axis', () => {
     await expect(grid(page)).toBeVisible();
   });
 
+  test('arrow keys move the axis selection with the focus, both ways (#2552)', async ({ page }, testInfo) => {
+    await open(page, '&status=all&q=cfg-0000');
+    await axis(page, '항목 기준').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(axis(page, '설비 기준')).toBeFocused();
+    await expect(axis(page, '설비 기준')).toBeChecked();
+    await expect.poll(() => query(page).get('axis')).not.toBeNull();
+    await expect(equipmentGrid(page)).toBeVisible();
+    await evidence(page, testInfo, 'configuration-axis-arrow-selects');
+    await page.keyboard.press('ArrowLeft');
+    await expect(axis(page, '항목 기준')).toBeChecked();
+    await expect.poll(() => query(page).has('axis')).toBe(false);
+    await expect(grid(page)).toBeVisible();
+  });
+
   test('restores a saved equipment axis and filter with the limit notice', async ({ page }) => {
     await open(page, '&status=all');
     await filter(page, 'Module', 'PM1');
