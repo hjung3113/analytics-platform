@@ -22,6 +22,25 @@ function props(data: Record<string, unknown> = {}, state: Partial<ReadState<unkn
 }
 const project = { id: ID, modelId: ID, model: { code: 'ETCH-300', name: '식각', vendorName: '설비사' }, stage: 'alpha', softwareId: null, owner: { id: ID, displayName: '김개발' }, targetDate: null, nextStages: ['beta', 'cancelled'], reopenTo: null, openRound: null, version: '7', gateTarget: 'beta', gate: { latest: null } } as Project;
 const gate = (reasons: string[] = []): RoundDetail => ({ id: ID, projectId: ID, seq: 3, stage: 'alpha', status: 'open', version: '1', createdAt: '', specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'team', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '7', reasons: [], decisions: { approved: { allowed: reasons.length === 0, reasons }, rejected: { allowed: true, reasons: [] }, exception: { allowed: true, reasons: [] } }, basis: {} } });
+const sampleGateBasis = {
+  version: 1,
+  attempts: [
+    { attemptId: 'earlier', attemptNo: 3, requestId: 'earlier-request', verdict: 'pass', ruleSetRevision: 'rules-10', inputManifestDigest: 'd'.repeat(64), endedAt: '2026-11-08T10:00:00Z' },
+    { attemptId: 'decisive', attemptNo: 4, requestId: 'request', verdict: 'incomplete', ruleSetRevision: 'rules-11', inputManifestDigest: 'e'.repeat(64), endedAt: '2026-11-08T11:42:00Z' },
+  ],
+  decisiveAttemptId: 'decisive',
+  decisiveVerdict: 'incomplete',
+  specPin: { revisionId: 'spec-12', changeSetDigest: 'f'.repeat(64) },
+  sampleManifestDigest: 'a'.repeat(64),
+  requestDigest: 'b'.repeat(64),
+  evidenceLinks: [{ attachmentId: 'one', linkedAt: '2026-11-08T11:43:00Z' }],
+};
+const decisiveRequestAttempt = { id: 'decisive', attemptNo: 4, outcome: 'succeeded', workerActorId: ID, verdict: 'incomplete', manifestMatches: true, counts: { FAIL: 2, NOT_CHECKED: 0 }, requiredUnchecked: 1, ruleCount: 3, startedAt: '2026-11-08T11:40:00Z', endedAt: '2026-11-08T11:42:00Z', ruleSetRevision: 'rules-11', inputManifestDigest: 'e'.repeat(64) };
+const gateRequestDetail: RequestDetail = { id: 'request', roundId: ID, roundSeq: 3, projectId: ID, modelId: ID, modelCode: 'ETCH-300', softwareLabel: null, priority: 1, immediate: false, state: 'failed', attemptCount: 1, maxAttempts: 3, leaseExpiresAt: null, lastHeartbeatAt: null, requestedBy: { id: ID, displayName: 'Worker' }, createdAt: '', endedAt: '', latestVerdict: 'incomplete', version: '1', attempts: [decisiveRequestAttempt], cancelReason: null };
+function roundWithGateBasis(basis: unknown): RoundDetail {
+  const source = gate();
+  return { ...source, gateAvailability: { ...source.gateAvailability, basis } };
+}
 afterEach(() => { cleanup(); run.mockClear(); });
 describe('log lifecycle screens', () => {
   it.each(['registered', 'kickoff', 'alpha', 'beta', 'completed', 'cancelled'])('renders %s with five stages and a separate cancellation badge', stage => {
@@ -97,6 +116,94 @@ describe('log lifecycle screens', () => {
     expect(screen.queryByText(/선택한 시도 #/)).toBeNull();
     view.rerender(<GatePanel {...p} round={round} selectedAttempt={{ id: 'selected', attemptNo: 2 }} />);
     expect(screen.getByText(/완료 시도 #1 \(선택한 시도 #2와 다름\)/)).toBeVisible();
+  });
+  it('shows the three Gate evidence groups from the decisive basis and request attempt', () => {
+    render(<GatePanel {...props({ requestDetail: gateRequestDetail, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    expect(screen.getByText(/완료 시도 #4 · 불완전/)).toBeVisible();
+    expect(screen.getByText(/실패 2건 · 미검증 0건 \/ 전체 규칙 3건/)).toBeVisible();
+    expect(screen.getByText('필수 오류·미검증·건너뜀 1건')).toBeVisible();
+    expect(screen.getByText('rules-11')).toBeVisible();
+    expect(screen.getByText('spec-12')).toBeVisible();
+    expect(screen.getByText(`${'a'.repeat(12)}…`)).toBeVisible();
+    expect(screen.getByText('근거 링크').parentElement).toHaveTextContent('1개');
+    expect(screen.getByText('시도 수').parentElement).toHaveTextContent('2개');
+  });
+  it.each([
+    ['empty counts record', {}, '실패 0건 · 미검증 0건 / 전체 규칙 3건'],
+    ['failure-only counts record', { FAIL: 2 }, '실패 2건 · 미검증 0건 / 전체 규칙 3건'],
+    ['unchecked-only counts record', { NOT_CHECKED: 1 }, '실패 0건 · 미검증 1건 / 전체 규칙 3건'],
+  ])('treats omitted keys as known zero in a %s', (_kind, counts, expected) => {
+    const requestDetail = { ...gateRequestDetail, attempts: [{ ...decisiveRequestAttempt, counts: counts as Record<string, number> }] };
+    render(<GatePanel {...props({ requestDetail, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    expect(screen.getByText(expected)).toBeVisible();
+  });
+  it.each([
+    ['missing', undefined, '실패 확인 불가 · 미검증 확인 불가 / 전체 규칙 3건'],
+    ['non-record', null, '실패 확인 불가 · 미검증 확인 불가 / 전체 규칙 3건'],
+    ['negative value', { FAIL: -1, NOT_CHECKED: 0 }, '실패 확인 불가 · 미검증 0건 / 전체 규칙 3건'],
+    ['unsafe integer', { FAIL: Number.MAX_SAFE_INTEGER + 1, NOT_CHECKED: 0 }, '실패 확인 불가 · 미검증 0건 / 전체 규칙 3건'],
+  ])('keeps %s counts unavailable', (_kind, counts, expected) => {
+    const requestDetail = { ...gateRequestDetail, attempts: [{ ...decisiveRequestAttempt, counts: counts as Record<string, number> }] };
+    render(<GatePanel {...props({ requestDetail, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    expect(screen.getByText(expected)).toBeVisible();
+  });
+  it.each([
+    ['without a known decisive attempt', null, false],
+    ['with a positive failure count', 2, false],
+    ['with a known zero failure count', 0, true],
+  ] as const)('shows “실패 규칙 없음” only %s', (_case, failureCount, showNoFailures) => {
+    const requestDetail = failureCount === null ? undefined : {
+      ...gateRequestDetail,
+      attempts: [{ ...decisiveRequestAttempt, counts: { FAIL: failureCount, NOT_CHECKED: 0 } }],
+    };
+    const data = { ruleResults: { rows: [], total: 0 }, ...(requestDetail ? { requestDetail } : {}) };
+    render(<GatePanel {...props(data)} round={roundWithGateBasis(sampleGateBasis)} />);
+    if (showNoFailures) expect(screen.getByText('실패 규칙 없음')).toBeVisible();
+    else expect(screen.queryByText('실패 규칙 없음')).toBeNull();
+  });
+  it('uses the same resolvable decisive attempt as Round execution', () => {
+    const basis = {
+      decisiveAttemptId: 'decisive',
+      attempts: [{ attemptId: 'decisive', attemptNo: 4, verdict: 'incomplete', endedAt: '2026-11-08T11:42:00Z' }],
+    };
+    render(<GatePanel {...props()} round={roundWithGateBasis(basis)} />);
+    expect(screen.getByText('기준 시도').parentElement).toHaveTextContent('확인 불가');
+    expect(screen.queryByText(/완료 시도 #4/)).toBeNull();
+  });
+  it.each([
+    ['missing', undefined],
+    ['malformed', { decisiveAttemptId: 'decisive', attempts: 'not-an-array' }],
+    ['missing summary fields', { decisiveAttemptId: 'decisive', attempts: [{ attemptId: 'decisive', requestId: 'request' }], evidenceLinks: null }],
+  ])('shows unavailable values without inventing zero for a %s basis', (_kind, basis) => {
+    render(<GatePanel {...props()} round={roundWithGateBasis(basis)} />);
+    expect(screen.getAllByText('확인 불가').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/0건|증거 0개|시도 0개/)).toBeNull();
+  });
+  it('does not use request counts when the request detail lacks the basis attempt', () => {
+    const otherAttempt = { ...decisiveRequestAttempt, id: 'different-attempt', counts: { FAIL: 0, NOT_CHECKED: 0 }, requiredUnchecked: 0 };
+    const mismatchedRequest = { ...gateRequestDetail, attempts: [otherAttempt] };
+    render(<GatePanel {...props({ requestDetail: mismatchedRequest, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    expect(screen.getAllByText('확인 불가').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/실패 0건|미검증 0건|필수 오류·미검증·건너뜀 0건/)).toBeNull();
+  });
+  it('keeps raw basis JSON folded in flow and toggles it with the keyboard', async () => {
+    const user = userEvent.setup();
+    render(<GatePanel {...props({ requestDetail: gateRequestDetail, ruleResults: { rows: [], total: 0 } })} round={roundWithGateBasis(sampleGateBasis)} />);
+    const toggle = screen.getByRole('button', { name: '원시 근거 JSON' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    const rawPanel = document.getElementById(toggle.getAttribute('aria-controls') ?? '');
+    expect(rawPanel).toHaveAttribute('hidden');
+    const form = screen.getByLabelText('결정 사유 (필수)').closest('form');
+    expect(form).not.toBeNull();
+    expect(toggle.compareDocumentPosition(form as HTMLFormElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    toggle.focus();
+    await user.keyboard('{Enter}');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(rawPanel).not.toHaveAttribute('hidden');
+    expect(screen.getByText((content, element) => element?.tagName === 'PRE' && content.includes('b'.repeat(64)))).toBeVisible();
+    await user.keyboard(' ');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
   it('fixes the Round when request registration starts there', async () => {
     render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} fixedRound={{ id: ID, seq: 3 }} register />);
