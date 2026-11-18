@@ -114,6 +114,14 @@ it('resets the cursor and selection when resetKey changes', () => {
   expect(document.querySelector('tr[aria-selected="true"]')).toBeNull();
 });
 
+it('does not carry a cursor-move notice across resetKey changes', () => {
+  const view = render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={time('10:06:00')} />);
+  fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+  expect(shownAt()).toBe('2026-01-01 10:07:00');
+  view.rerender(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="b" initialCursor={time('10:06:00')} />);
+  expect(document.querySelector('[aria-live="polite"]')).toBeNull();
+});
+
 it('seeds the Focus cursor from the URL, including the exclusive batch end instant', () => {
   render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" initialCursor={input.batch.to} />);
   expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe('2026-01-01 10:30:00');
@@ -244,6 +252,27 @@ it('uses page-level Space and arrow shortcuts, committing discrete seeks and ign
   fireEvent.keyDown(screen.getByLabelText('시작'), { key: 'ArrowLeft' });
   fireEvent.keyDown(screen.getByLabelText('끝'), { key: ' ' });
   expect(screen.getByRole('slider', { name: '커서 시각' }).getAttribute('aria-valuetext')).toBe(before);
+});
+
+it('leaves Space activation on focused checkboxes and buttons instead of toggling playback', () => {
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a" />);
+  const checkbox = screen.getByRole('checkbox', { name: '예시 이동 표시' });
+  checkbox.focus();
+  expect(document.activeElement).toBe(checkbox);
+  expect(fireEvent.keyDown(checkbox, { key: ' ' })).toBe(true);
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
+  // jsdom does not synthesize native Space activation; dispatch its click consequence after checking keydown was not cancelled.
+  fireEvent.click(checkbox);
+  expect(checkbox.getAttribute('aria-checked')).toBe('true');
+
+  const button = changeRange();
+  button.focus();
+  expect(fireEvent.keyDown(button, { key: ' ' })).toBe(true);
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
+  expect(screen.queryByRole('form', { name: '구간' })).toBeNull();
+  fireEvent.click(button);
+  expect(screen.getByRole('form', { name: '구간' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '재생' })).toBeTruthy();
 });
 
 it('does not commit playback frames to the page key but commits the latest cursor on pause', async () => {

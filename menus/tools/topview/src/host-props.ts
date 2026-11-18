@@ -51,8 +51,7 @@ function readRange(source: ScreenSource): HostProps['range'] {
 export function readHostProps(source: ScreenSource): HostProps {
   const { from, to } = source.global;
   const cursorValue = source.pageParam('cursor');
-  const parsedCursor = cursorValue === null ? null : siteWallClockSchema.safeParse(cursorValue);
-  const cursor = parsedCursor && parsedCursor.success ? parsedCursor.data : null;
+  const cursor = cursorValue === null ? null : hostWallClock(cursorValue);
   const base = { equipment: source.pageParam('equipment'), entityType: source.pageParam('entityType'), anchor: source.pageParam('anchor'), cursor, range: readRange(source) };
   if (!from || !to) return { ...base, time: { kind: 'missing' } };
   const range = hostRange(from, to);

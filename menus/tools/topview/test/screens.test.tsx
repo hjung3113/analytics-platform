@@ -520,6 +520,33 @@ describe('Focus 재생 구간 in the page keys', () => {
     expect(fake.page('cursor')).toBeNull();
   });
 
+  it('clears a cursor-only page key on applied time change before page-key validation', async () => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor: '2026-01-01T10:30:00.000' } });
+    fake.render(FocusScreen);
+    await screen.findByRole('button', { name: '변경' });
+    fake.setTime({ from: '2026-01-02T10:00:00', to: '2026-01-02T11:00:00' });
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+    await waitFor(() => expect(fake.page('cursor')).toBeNull());
+  });
+
+  it('accepts a cursor page key in host wall-clock precision', async () => {
+    const fake = fakeFor('focus', { page: { equipment: EQUIPMENT, cursor: '2026-01-01T10:30:00' } });
+    fake.render(FocusScreen);
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+    const slider = await screen.findByRole('slider', { name: '커서 시각' });
+    expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:30:00');
+    expect(screen.queryByRole('button', { name: '초기화' })).toBeNull();
+  });
+
+  it('does not blame cursor for an invalid effective page range', async () => {
+    const fake = fakeFor('focus', { page: {
+      equipment: EQUIPMENT, rangeFrom: 'not-a-time', rangeTo: '2026-01-01T10:12:00.000', cursor: '2026-01-01T10:10:00.000',
+    } });
+    fake.render(FocusScreen);
+    await waitFor(() => expect(warning()).toBeTruthy());
+    expect(screen.queryByText(/재생 커서 시각/)).toBeNull();
+  });
+
   it.each([
     ['malformed', 'not-a-time'],
     ['outside the applied window', '2026-01-01T10:30:00.001'],

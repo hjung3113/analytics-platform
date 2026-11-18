@@ -131,8 +131,8 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const rangeErrorId = `${rangeId}-error`;
   // Everything below belongs to the reset key and the entry key: a change clears it during render. The cursor, range and
   // selection belong to one batch.
-  const cursorMoveNotice = view.cursor !== null && view.cursor !== entry.cursor ? { from: view.cursor, to: entry.cursor } : null;
-  if (view.resetKey !== resetKey) setView({ ...fresh(), cursorMoveNotice });
+  const cursorMoveNotice = initialCursor === null && view.cursor !== null && view.cursor !== entry.cursor ? { from: view.cursor, to: entry.cursor } : null;
+  if (view.resetKey !== resetKey) setView(fresh());
   else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice, cursor: entry.cursor, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
 
   const range = (hostRange ? hostRange.value : view.applied) ?? entry.range ?? null;
@@ -233,8 +233,10 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
     const onPageKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const target = event.target;
-      const element = target instanceof HTMLElement ? target : null;
-      if (element && (element.isContentEditable || element.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
+      const element = target instanceof Element ? target : null;
+      const htmlElement = target instanceof HTMLElement ? target : null;
+      if (htmlElement?.isContentEditable || element?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+      if (event.key === ' ' && element?.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"], [role="slider"]')) return;
       const inView = target instanceof Node && focusRoot.current?.contains(target);
       if (!inView && target !== document.body && target !== document.documentElement) return;
       if (event.key === ' ') {
