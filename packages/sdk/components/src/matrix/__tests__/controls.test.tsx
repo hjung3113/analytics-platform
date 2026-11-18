@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
-import type { ColumnFilter, MatrixEmphasisRule } from '@ap/contracts';
+import type { MatrixEmphasisRule } from '@ap/contracts';
 import { MatrixLevelOrder } from '../MatrixLevelOrder';
 import { MatrixEmphasisBar } from '../MatrixEmphasisBar';
-import { MatrixFilters, type MatrixFilterField } from '../MatrixFilters';
 import { MatrixToneLegend } from '../MatrixToneLegend';
 
 beforeEach(() => { vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }); });
@@ -46,27 +45,6 @@ describe('MatrixEmphasisBar', () => {
     expect(toggle).toHaveBeenCalledWith(true);
     fireEvent.click(screen.getByRole('button', { name: '모두 지우기' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
-  });
-});
-describe('MatrixFilters', () => {
-  const filterFields: MatrixFilterField[] = [{ id: 'path', label: 'Path', spec: { kind: 'text', ops: ['equals'] } }, { id: 'value', label: 'Value', spec: { kind: 'number' } }];
-  it('reuses the declaration, URL read, chip and editor to emit ColumnFilter[]', async () => {
-    const onChange = vi.fn();
-    const filters: ColumnFilter[] = [{ id: 'path', op: 'equals', value: 'a' }];
-    render(<I18nProvider><MatrixFilters fields={filterFields} filterKey="conditions" filterValues={['path:equals:a']} onChange={onChange} /></I18nProvider>);
-    expect(document.querySelector('[data-column-filter-chip="path"]')).toHaveTextContent('Path');
-    fireEvent.click(screen.getByRole('button', { name: 'Path 같음 "a"' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Path' });
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'b' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
-    expect(onChange).toHaveBeenLastCalledWith([{ ...filters[0], value: 'b' }]);
-  });
-  it('offers the shared + filter picker and refuses invalid URL values explicitly', () => {
-    const { rerender } = render(<I18nProvider><MatrixFilters fields={filterFields} filters={[]} onChange={vi.fn()} /></I18nProvider>);
-    expect(screen.getByRole('button', { name: '필터 추가' })).toBeInTheDocument();
-    rerender(<I18nProvider><MatrixFilters fields={filterFields} filterValues={['value:eq:bad']} onChange={vi.fn()} /></I18nProvider>);
-    expect(screen.getByRole('alert')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '필터 추가' })).toBeNull();
   });
 });
 it('renders only consumer-labelled tone samples including the missing hatch', () => {

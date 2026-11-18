@@ -8,7 +8,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { useHostPlatform } from '@ap/kernel/host';
 import { formatNumber, isStoredColumnGroups, MAX_COLUMN_GROUPS, MAX_GROUP_BASIS_LENGTH, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS } from '@ap/contracts';
 import { SavedTableState } from './SavedTableState';
-import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
+import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, GroupedPageResult, MatrixCell, PageQuery, PageResult, PageSort, TableQuery } from '@ap/contracts';
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef, toGroupedColumnDefs } from './columnDef';
@@ -53,7 +53,8 @@ type SelectionMeta = { headerState: 'all' | 'partial' | null; clear: () => void 
 export { exportScopeIds, tableExportParams } from './useTableSelection';
 type ColumnMeta = { align?: 'right'; label?: string };
 
-export type TableCell = { row: string; column: string };
+/** A data cell of the table's cell selection: the same coordinate as TreeMatrix's `MatrixCell` (#2549). */
+export type TableCell = MatrixCell;
 
 export type PlatformColumnGroup = {
   label: string;
@@ -590,6 +591,12 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     viewport, rows: cellRowIds, columns: cellColumnIds, onSelect: p.onSelectCell, onActivate: p.onActivateCell,
     pinnedWidths: () => ({ left: displayedSize(table.getLeftVisibleLeafColumns()), right: displayedSize(table.getRightVisibleLeafColumns()) }),
     scrollRow: id => { const index = items.findIndex(item => item.kind === 'row' && item.row.id === id); if (index >= 0) virtual.scrollToIndex(index, { align: 'center' }); },
+    // Rows that scroll under the sticky block (header bands and a pinned row); its rendered height, one row before it mounts.
+    pageRows: () => {
+      const port = viewport.current;
+      const sticky = port?.querySelector('[data-table-sticky-rows]')?.getBoundingClientRect().height ?? rowHeight;
+      return Math.max(1, Math.floor(((port?.clientHeight ?? 0) - sticky) / rowHeight));
+    },
   });
   const hiddenSelected = groupedItems ? rows.filter(r => r.getIsSelected()).length - groupedItems.filter(it => it.kind === 'row' && it.row.getIsSelected()).length : 0;
   const changeGroup = (id: string) => {

@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
-import type { ColumnFilter, MatrixCell, MatrixColumn, MatrixEmphasisRule, MatrixNode, MatrixWindow } from '@ap/contracts';
+import type { MatrixCell, MatrixColumn, MatrixEmphasisRule, MatrixNode, MatrixWindow } from '@ap/contracts';
 import { useMessages } from '@ap/kernel';
 import { Button, cn, useImeEnterGuard } from '@ap/ui';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useRegisterPageBound } from '../pageFlow';
 import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from '../table/tableSize';
-import type { FilterValueCheck } from '../table/tableFilterUrl';
-import { MatrixFilters, type MatrixFilterField } from './MatrixFilters';
 import { MatrixRowMenu } from './MatrixRowMenu';
 import type { MatrixValueOf } from './emphasis';
 import { MATRIX_MESSAGES } from './messages';
 import { MATRIX_TONE_CLASS, type MatrixCellTone } from './tones';
+import { gridKeyTarget } from '../grid/gridKeyTarget';
 import { useMatrixMatches } from './useMatrixMatches';
 
 export type TreeMatrixProps<N extends MatrixNode = MatrixNode> = Omit<MatrixWindow<N>, 'nodes'> & {
@@ -49,23 +48,6 @@ export type TreeMatrixProps<N extends MatrixNode = MatrixNode> = Omit<MatrixWind
   emphasisActionLabel?: string;
   emphasisColumnLabel?: string;
   formatEmphasisCount?: (count: number, node: N) => string;
-  /**
-   * @deprecated Build the filter line outside the matrix (`useTableFilterDeclaration` + `FilterLine` in the consumer's toolbar) so it
-   * stays mounted through empty and error results; removed next SDK minor (#2514).
-   */
-  filterFields?: readonly MatrixFilterField[];
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  filters?: readonly ColumnFilter[];
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  filterKey?: string;
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  filterValues?: readonly string[];
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  onFiltersChange?: (filters: ColumnFilter[]) => void;
-  /** @deprecated See `filterFields`; removed next SDK minor (#2514). */
-  validateFilter?: FilterValueCheck;
-  /** @deprecated Render toolbar controls outside the matrix, beside the consumer's filter line; removed next SDK minor (#2514). */
-  toolbar?: ReactNode;
 };
 
 const WIDTH: Record<NonNullable<MatrixColumn['width']>, number> = { identity: 320, compact: 96, value: 96, wide: 384 };
@@ -75,9 +57,13 @@ const CELL = 'relative flex h-(--ap-table-row-h) w-(--matrix-width) shrink-0 ite
 type PendingFocus = { index: number; column: string; generation: string | number } | null;
 
 /** Controlled server-windowed treegrid. Owns presentation and local focus only; fetching, counts and meaning remain consumer-owned. */
+const unmodified = (event: KeyboardEvent) => !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+const togglesExpansion = (event: KeyboardEvent, node: { expanded: boolean }) => unmodified(event)
+  && ((event.key === 'ArrowRight' && !node.expanded) || (event.key === 'ArrowLeft' && node.expanded));
+
 export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColumn, label, offset, totalVisible, windowSize, renderCell, cellTone, onWindowChange, onToggle, selectedCell, onSelectCell,
   onActivate, activateOn = 'enter', reveal, hiddenColumns = EMPTY_IDS, fill = false, keepSelectionInView = false, busy = false, generation = 0, emphasis = EMPTY_RULES, onEmphasisChange, valueOf, onlyMatchingColumns = false,
-  emphasisActionLabel, emphasisColumnLabel, formatEmphasisCount, filterFields, filters, filterKey, filterValues, onFiltersChange, validateFilter, toolbar }: TreeMatrixProps<N>) {
+  emphasisActionLabel, emphasisColumnLabel, formatEmphasisCount }: TreeMatrixProps<N>) {
   const m = useMessages(MATRIX_MESSAGES);
   const ime = useImeEnterGuard();
   useRegisterPageBound(fill);
@@ -185,31 +171,20 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
     if (event.target !== event.currentTarget || ime.isComposingEnter(event)) return;
     const pageRows = viewportRows();
     const row = pending?.generation === generation ? pending.index : offset + rowIndex;
-    switch (event.key) {
-      case 'Enter': event.preventDefault(); onActivate?.(node, column); return;
-      case 'ArrowRight':
-        event.preventDefault();
-        if (column.id === identityColumn && node.hasChildren && !node.expanded) onToggle(node.id);
-        else move(row, visible[Math.min(visible.length - 1, columnIndex + 1)]);
-        return;
-      case 'ArrowLeft':
-        event.preventDefault();
-        if (column.id === identityColumn && node.hasChildren && node.expanded) onToggle(node.id);
-        else move(row, visible[Math.max(0, columnIndex - 1)]);
-        return;
-      case 'ArrowUp': event.preventDefault(); move(row - 1, column); return;
-      case 'ArrowDown': event.preventDefault(); move(row + 1, column); return;
-      case 'Home': event.preventDefault(); move(event.ctrlKey ? 0 : row, visible[0]); return;
-      case 'End': event.preventDefault(); move(event.ctrlKey ? totalVisible - 1 : row, visible[visible.length - 1]); return;
-      case 'PageUp': event.preventDefault(); move(row - pageRows, column); return;
-      case 'PageDown': event.preventDefault(); move(row + pageRows, column); return;
+    // Enter and expansion act on unmodified keys only, as in PlatformDataTable (#2549).
+    if (event.key === 'Enter') { if (unmodified(event)) { event.preventDefault(); onActivate?.(node, column); } return; }
+    // Expansion first on the identity column; every other move is the grid key map shared with PlatformDataTable (#2549).
+    if (column.id === identityColumn && node.hasChildren && togglesExpansion(event, node)) {
+      event.preventDefault();
+      onToggle(node.id);
+      return;
     }
+    const next = gridKeyTarget(event, { row, column: columnIndex }, { rows: totalVisible, columns: visible.length }, pageRows);
+    if (next === null) return;
+    event.preventDefault();
+    if (next !== 'stay') move(next.row, visible[next.column]);
   };
   return <section aria-label={label} style={vars} className={cn('flex min-h-0 min-w-0 flex-col text-(length:--ap-table-font) break-keep', fill && 'h-full flex-1 overflow-hidden')}>
-    {(toolbar || (filterFields && onFiltersChange)) && <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle py-2">
-      {toolbar}
-      {filterFields && onFiltersChange && <MatrixFilters key={generation} fields={filterFields} filters={filters} filterKey={filterKey} filterValues={filterValues} onChange={onFiltersChange} validate={validateFilter} />}
-    </div>}
     <div ref={viewport} data-matrix-viewport role="treegrid" aria-label={label} aria-rowcount={totalVisible + 1} aria-colcount={visible.length + (emphasis.length > 0 ? 1 : 0)} aria-busy={busy}
       className={cn('scrollbar-panel min-h-0 min-w-0 scroll-pt-(--ap-table-row-h) scroll-pl-(--matrix-left-width) scroll-pr-(--matrix-right-width) overflow-auto overscroll-contain', fill ? 'flex-1' : 'max-h-96')}
       onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
@@ -255,7 +230,7 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
               {column.id === identityColumn ? <div className="flex min-w-0 flex-1 items-center gap-1 pl-(--matrix-indent)" style={{ '--matrix-indent': `calc(var(--spacing) * ${node.level * 4})` } as CSSProperties}>
                 {node.hasChildren && <Button type="button" variant="ghost" size="icon-xs" aria-label={m(node.expanded ? 'collapse' : 'expand', { name: node.label })} aria-expanded={node.expanded}
                   onClick={() => onToggle(node.id)} onKeyDown={event => {
-                    if ((event.key === 'ArrowRight' && !node.expanded) || (event.key === 'ArrowLeft' && node.expanded)) { event.preventDefault(); event.stopPropagation(); onToggle(node.id); }
+                    if (togglesExpansion(event, node)) { event.preventDefault(); event.stopPropagation(); onToggle(node.id); }
                   }}>{node.expanded ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}</Button>}
                 <span className="flex min-w-0 flex-1 items-center gap-1">{renderCell(node, column)}</span>
                 {onEmphasisChange && <MatrixRowMenu key={generation} node={node} columns={valueColumns} valueOf={valueOf} emphasis={emphasis} onChange={onEmphasisChange} label={emphasisActionLabel} />}

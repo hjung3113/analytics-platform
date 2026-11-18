@@ -53,7 +53,8 @@ function complianceLabel(row: ConfigRow, eq: string, params: CompareParams): key
 function Summary({ data, status, select, m }: { data: TreePage | null | undefined; status: CompareStatus; select: (status: CompareStatus) => void; m: Message }) {
   const equal = data ? data.counts.all - data.counts.review : 0;
   return <div className="flex shrink-0 flex-wrap items-center gap-2 py-1" data-configuration-summary>
-    <ToggleGroup type="single" appearance="filter" size="sm" aria-label={m('status')} value={status} onValueChange={value => { if (value) select(value as CompareStatus); }}>
+    {/* Focus-only arrows: a status change re-keys the comparison toolbar and unmounts the focused radio (#2552). */}
+    <ToggleGroup type="single" appearance="filter" size="sm" aria-label={m('status')} value={status} arrowSelects={false} onValueChange={value => { if (value) select(value as CompareStatus); }}>
       {STATUS.map(key => <ToggleGroupItem key={key} value={key} appearance="selected-filter">{m(statusLabel(key))}{data ? ` ${data.counts[key].toLocaleString()}` : ''}</ToggleGroupItem>)}
     </ToggleGroup>
     {status !== 'all' && equal > 0 && <span className="text-xs text-text-muted">{m('hiddenEqual', { count: equal.toLocaleString() })}</span>}

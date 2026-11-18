@@ -57,8 +57,9 @@ describe('TreeMatrix controlled window', () => {
   });
   it.each(['toolbar', 'outside', 'other cell', 'same cell'])('cancels delayed remote focus after selecting %s', destination => {
     const onSelectCell = vi.fn();
-    const toolbar = <input aria-label="Toolbar search" />;
-    const { rerender } = mount({ totalVisible: 100, windowSize: 8, toolbar, onSelectCell });
+    // The consumer's toolbar sits outside the matrix (#2523).
+    const view = (props: Omit<Partial<TreeMatrixProps<Node>>, 'valueOf'>) => <I18nProvider><input aria-label="Toolbar search" /><TreeMatrix {...base} {...props} /></I18nProvider>;
+    const { rerender } = render(view({ totalVisible: 100, windowSize: 8, onSelectCell }));
     Object.defineProperty(screen.getByRole('treegrid'), 'clientHeight', { configurable: true, value: 160 });
     const outside = document.createElement('input');
     document.body.append(outside);
@@ -75,7 +76,7 @@ describe('TreeMatrix controlled window', () => {
       const selectionBeforeArrival = [...onSelectCell.mock.calls];
       const outsideGrid = destination === 'toolbar' || destination === 'outside';
       const nodes = outsideGrid ? [leaf('remote')] : [...base.nodes, leaf('c'), leaf('d'), leaf('remote')];
-      rerender(<I18nProvider><TreeMatrix {...base} nodes={nodes} offset={outsideGrid ? 4 : 0} totalVisible={100} windowSize={8} toolbar={toolbar} onSelectCell={onSelectCell} /></I18nProvider>);
+      rerender(view({ nodes, offset: outsideGrid ? 4 : 0, totalVisible: 100, windowSize: 8, onSelectCell }));
       expect(target).toHaveFocus();
       expect(onSelectCell.mock.calls).toEqual(selectionBeforeArrival);
       expect(cell('remote', 'x')).not.toHaveFocus();
@@ -113,9 +114,24 @@ describe('TreeMatrix controlled window', () => {
     expect(onToggle).toHaveBeenNthCalledWith(2, 'g');
     rerender(<I18nProvider><TreeMatrix {...base} nodes={[{ ...group, expanded: true }]} onToggle={onToggle} /></I18nProvider>);
     fireEvent.keyDown(cell('g', 'name'), { key: 'ArrowLeft' });
+    expect(onToggle).toHaveBeenCalledTimes(3);
     expect(onToggle).toHaveBeenLastCalledWith('g');
     expect(cell('g', 'x').parentElement).toHaveAttribute('aria-expanded', 'true');
     expect(onActivate).not.toHaveBeenCalled();
+  });
+  it('ignores modified Enter and modified expansion keys on the cell and its disclosure (#2549)', () => {
+    const onToggle = vi.fn(); const onActivate = vi.fn();
+    const group: Node = { ...leaf('g'), kind: 'group', level: 0, hasChildren: true, count: 900, expanded: false };
+    mount({ nodes: [group], onToggle, onActivate });
+    for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey'] as const) {
+      fireEvent.keyDown(cell('g', 'x'), { key: 'Enter', [modifier]: true });
+      fireEvent.keyDown(cell('g', 'name'), { key: 'ArrowRight', [modifier]: true });
+      fireEvent.keyDown(screen.getByRole('button', { name: 'G 펼치기' }), { key: 'ArrowRight', [modifier]: true });
+    }
+    expect(onActivate).not.toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+    fireEvent.keyDown(cell('g', 'x'), { key: 'Enter' });
+    expect(onActivate).toHaveBeenCalledTimes(1);
   });
   it('moves focus and selection in two dimensions, including row ends and global ends', () => {
     const onSelectCell = vi.fn();

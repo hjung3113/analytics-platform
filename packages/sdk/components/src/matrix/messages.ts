@@ -21,5 +21,4 @@ export const MATRIX_MESSAGES = {
   apply: { ko: '적용', en: 'Apply' },
   clear: { ko: '지우기', en: 'Clear' },
   invalidRange: { ko: '최솟값은 최댓값 이하여야 합니다.', en: 'Minimum must be no greater than maximum.' },
-  invalidFilters: { ko: '필터 값을 확인하세요.', en: 'Check the filter values.' },
 } satisfies Record<string, Text>;

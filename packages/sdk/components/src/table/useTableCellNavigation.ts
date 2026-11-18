@@ -1,9 +1,6 @@
 import { useLayoutEffect, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
+import { gridKeyTarget } from '../grid/gridKeyTarget';
 import type { TableCell } from './PlatformDataTable';
-
-const arrows = {
-  ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0],
-} as const;
 
 type Options = {
   viewport: RefObject<HTMLDivElement | null>;
@@ -12,10 +9,12 @@ type Options = {
   onSelect?: (cell: TableCell) => void;
   onActivate?: (cell: TableCell) => void;
   scrollRow: (id: string) => void;
+  /** Rows one PageUp/PageDown moves: the rows that fit the viewport. */
+  pageRows: () => number;
   pinnedWidths: () => { left: number; right: number };
 };
 
-export function useTableCellNavigation({ viewport, rows, columns, onSelect, onActivate, scrollRow, pinnedWidths }: Options) {
+export function useTableCellNavigation({ viewport, rows, columns, onSelect, onActivate, scrollRow, pageRows, pinnedWidths }: Options) {
   const pending = useRef<TableCell | null>(null);
   const focusedCell = useRef<{ coordinate: TableCell; element: HTMLElement } | null>(null);
   const rowIndices = new Map(rows.map((id, index) => [id, index]));
@@ -111,26 +110,26 @@ export function useTableCellNavigation({ viewport, rows, columns, onSelect, onAc
   }
 
   function keyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.target !== event.currentTarget) return;
     const current = position(event.currentTarget);
     if (!current) return;
-    if (event.key === 'Enter' && onActivate) {
+    if (event.key === 'Enter' && onActivate && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
       event.preventDefault();
       onSelect?.(current);
       onActivate(current);
       return;
     }
-    if (!Object.hasOwn(arrows, event.key)) return;
+    // The one grid key map shared with TreeMatrix (#2549).
+    const at = { row: rowIndices.get(current.row) ?? 0, column: columnIndices.get(current.column) ?? 0 };
+    const next = gridKeyTarget(event, at, { rows: rows.length, columns: columns.length }, pageRows());
+    if (next === null) return;
     event.preventDefault();
-    const [down, right] = arrows[event.key as keyof typeof arrows];
-    const row = rows[(rowIndices.get(current.row) ?? 0) + down];
-    const column = columns[(columnIndices.get(current.column) ?? 0) + right];
-    if (row === undefined || column === undefined) return;
-    const target = { row, column };
+    if (next === 'stay') return;
+    const target = { row: rows[next.row], column: columns[next.column] };
     onSelect?.(target);
     if (!focus(target)) {
       pending.current = target;
-      scrollRow(row);
+      scrollRow(target.row);
     }
   }
 

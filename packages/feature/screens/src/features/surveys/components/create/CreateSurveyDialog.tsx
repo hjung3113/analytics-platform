@@ -412,6 +412,8 @@ export function CreateSurveyDialog({
                           variant="outline"
                           size="sm"
                           orientation="vertical"
+                          // Focus-only arrows: changing the start clears an uncertain create attempt and its retry key (#2552).
+                          arrowSelects={false}
                           className="max-h-48 flex-col items-stretch overflow-y-auto"
                           aria-label={mode === 'builtin' ? COPY.builtin : COPY.existing}
                           value={mode === 'builtin' ? templateId : sourceId}
