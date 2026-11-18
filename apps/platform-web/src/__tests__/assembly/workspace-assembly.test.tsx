@@ -26,13 +26,19 @@ describe('workspace assembly (#260)', () => {
     ['rcc', 'RCC', '프로세스 시간 분석 (예정)', 'Process time (planned)'],
     ['mcc', 'MCC', '설비 사이클 분석 (예정)', 'Equipment cycle (planned)'],
     ['wpt', 'WPT', '웨이퍼 사이클 분석 (예정)', 'Wafer cycle (planned)'],
-    ['configuration', 'Configuration', '파라미터 분석 (예정)', 'Parameter analysis (planned)'],
   ])('registers %s as a planned MARS menu', (id, label, ko, en) => {
     const entry = registry.menuById(id);
     expect(entry).toMatchObject({ group: id, path: `/mars/${id}`, aliases: [`/${id}`], label: { ko: label, en: label }, description: { ko, en }, permission: 'analytics:view', requiresScope: false, pageKeys: [] });
     expect(entry.component).toBeUndefined();
     expect(entry.moduleScreen).toBeUndefined();
     expect(entry.features).toEqual(NO_FEATURES);
+    expect(registry.spaceOf(entry)?.id).toBe('mars');
+  });
+  it('registers configuration as a live MARS screen with Apply and saved views (#2434)', () => {
+    const entry = registry.menuById('configuration');
+    expect(entry).toMatchObject({ group: 'configuration', path: '/mars/configuration', permission: 'analytics:view', query: { mode: 'apply' } });
+    expect(entry.component).toBeDefined();
+    expect(entry.features.savedView).toBe(true);
     expect(registry.spaceOf(entry)?.id).toBe('mars');
   });
   it('enters productivity analysis at equipment-master for a partial-permission session (#264)', async () => {

@@ -1,19 +1,25 @@
 {
   "name": "@ap/menu-configuration",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.3",
   "ap": { "sdk": ">=0.41.0 <0.42.0" },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mock": "./src/mock/index.ts",
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@ap/components": "workspace:*",
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
+    "@ap/mock-server": "workspace:*",
+    "@ap/ui": "workspace:*",
     "lucide-react": "^1.72.0"
   },
   "peerDependencies": {
@@ -28,6 +34,8 @@
     "eslint": "^10.14.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "jsdom": "26.1.0"
   }
 }

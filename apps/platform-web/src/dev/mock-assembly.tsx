@@ -14,6 +14,7 @@ import { logRulesMock } from '@ap/menu-log-rules/mock';
 import { logModelsMock } from '@ap/menu-log-models/mock';
 import { topviewMock } from '@ap/menu-topview/mock';
 import { topviewStudioMock } from '@ap/menu-topview-studio/mock';
+import { configurationMock } from '@ap/menu-configuration/mock';
 // </gen:menu-mock-imports>
 // Mock actions and write samples of generated menus (ADR-0054) — written by `pnpm gen:menu`.
 // <gen:menu-mock-action-imports>
@@ -58,6 +59,7 @@ export const MOCK_ENDPOINTS: readonly AnyMockEndpoint[] = [
   ...logModelsMock,
   ...topviewMock,
   ...topviewStudioMock,
+  ...configurationMock,
   // </gen:menu-mock-spreads>
 ];
 

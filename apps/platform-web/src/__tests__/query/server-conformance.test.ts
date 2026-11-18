@@ -39,6 +39,11 @@ const ONBOARDING_MAPPING = 'sha256:0abf3e9ff0b22cb0e7993bfe143461f44ef1b8828df2c
 const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null };
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
+  // New Configuration reads: bounded synthetic requests, including an export below its declared cap.
+  'configuration.tree': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: 'Auxiliary Chamber', asOf: 'latest', levels: ['module', 'category', 'item', 'filename'], expanded: [], offset: 0, limit: 80, filters: [] },
+  'configuration.tree-navigation': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: '', asOf: 'latest', levels: ['module'], expanded: [], offset: 0, limit: 80, filters: [], focus: null, direction: 'next' },
+  'configuration.detail': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: '', asOf: 'latest', levels: ['module'], expanded: [], offset: 0, limit: 80, filters: [], focus: 'cfg-000000' },
+  'configuration.export': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: 'Auxiliary Chamber', asOf: 'latest', levels: ['module'], expanded: [], offset: 0, limit: 80, filters: [] },
   'logExplorer.investigations': { status: 'open', page: 0, pageSize: 50 },
   'logExplorer.investigationDetail': { investigationId: '14730000-0000-4000-8000-000000000001' },
   'logExplorer.records': { sampleSet: EXPLORER_SET, query: {}, cursor: null, limit: 50 },
@@ -168,12 +173,12 @@ const PARAMS: Record<string, Record<string, unknown>> = {
 /** The EV specs declare `limits.maxHours: 8`, so their cases run in the fixture's 30-minute window, not the harness's 24 h (naive seconds, as the URL carries them). */
 const EQV_CONTEXT = { from: '2026-01-01T10:00:00', to: '2026-01-01T10:30:00' };
 
-// No oversizeParams samples (#175): mock data sits far below the declared maxRows, so no case can exceed a cap.
+const OVERSIZE_PARAMS: Record<string, Record<string, unknown>> = { 'configuration.export': { ...PARAMS['configuration.export'], q: '' } };
 // Left out, as the real-server run does (platform-conformance.integration.test.ts MENU_LEFT_OUT): the Revision picker is judged by
 // `knowledge.catalog.manage` on top of `platform:view`, and the kit's granted account holds `platform:view` only, so it is answered
 // `forbidden` where the kit wants `ok` or `empty`. `menus/log-dev/log-knowledge/src/mock/topview.test.ts` covers the refusal and the manager answer.
 const LEFT_OUT = new Set(['logKnowledge.topViewRevisionOptions']);
-const cases: ConformanceCase[] = endpoints.filter(({ spec }) => !LEFT_OUT.has(spec.id)).map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
+const cases: ConformanceCase[] = endpoints.filter(({ spec }) => !LEFT_OUT.has(spec.id)).map(({ spec }) => ({ spec, params: PARAMS[spec.id] ?? {}, oversizeParams: OVERSIZE_PARAMS[spec.id], ...(spec.id.startsWith('eqv.topview-') ? { context: EQV_CONTEXT } : {}) }));
 // One fixed action checks the mock write engine independently of the registered menu actions (ADR-0054).
 // existing analytics menu; the version counter is the stored row the handler bumps and `currentVersion` reads.
 const trendSpec = endpoints.find(({ spec }) => spec.id === 'analytics.productivity.trend')!.spec;

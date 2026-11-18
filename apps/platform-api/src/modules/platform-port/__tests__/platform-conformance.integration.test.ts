@@ -166,6 +166,11 @@ const NOT_REGISTERED: readonly string[] = [
   // The Top View viewer's replay reads (`@ap/menu-topview`, #1659) are mock-only until #1607 step 9's server endpoints (blocked on #1087).
   'eqv.topview-context',
   'eqv.topview-events',
+  // MARS Configuration (`@ap/menu-configuration`, #2434) is mock-only: the CFG comparison has no core-server endpoints yet.
+  'configuration.detail',
+  'configuration.export',
+  'configuration.tree',
+  'configuration.tree-navigation',
 ];
 
 /** An id no row has; the detail reads answer `empty` for it. */

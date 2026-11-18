@@ -365,6 +365,124 @@
     "mergeTimeDomain": true
   },
   {
+    "id": "configuration.detail",
+    "menuId": "configuration",
+    "paramKeys": [
+      "eq",
+      "mode",
+      "ref",
+      "status",
+      "q",
+      "asOf",
+      "coreOnly",
+      "filters",
+      "levels",
+      "expanded",
+      "offset",
+      "limit",
+      "focus"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "configuration.export",
+    "menuId": "configuration",
+    "paramKeys": [
+      "eq",
+      "mode",
+      "ref",
+      "status",
+      "q",
+      "asOf",
+      "coreOnly",
+      "filters",
+      "levels",
+      "expanded",
+      "offset",
+      "limit"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "limits": {
+      "maxRows": 10000
+    },
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "configuration.tree",
+    "menuId": "configuration",
+    "paramKeys": [
+      "eq",
+      "mode",
+      "ref",
+      "status",
+      "q",
+      "asOf",
+      "coreOnly",
+      "filters",
+      "levels",
+      "expanded",
+      "offset",
+      "limit"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
+    "id": "configuration.tree-navigation",
+    "menuId": "configuration",
+    "paramKeys": [
+      "eq",
+      "mode",
+      "ref",
+      "status",
+      "q",
+      "asOf",
+      "coreOnly",
+      "filters",
+      "levels",
+      "expanded",
+      "offset",
+      "limit",
+      "focus",
+      "direction"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "equipment.master.export",
     "menuId": "equipment-master",
     "paramKeys": [
