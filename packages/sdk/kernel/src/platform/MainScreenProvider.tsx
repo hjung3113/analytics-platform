@@ -7,6 +7,7 @@ import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, ty
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
+import { ScreenSavedViews } from '../saved-view/useSavedViews';
 import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuard';
 
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
@@ -127,7 +128,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean; run?: () => boolean }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run }), [commit]);
 
   const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
-  const { screen, sidebarSpace, resolveEntryLink } = useScreenState(app, source);
+  const { screen, sidebarSpace, resolveEntryLink, initialSavedView } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
 
   useLayoutEffect(() => {
@@ -269,5 +270,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
 
   // Stable while the five members are: an unrelated main Scope update must not re-render every pane consumer.
   const mainBound = useMemo<MainBound>(() => ({ visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace }), [visibleMenus, sidebarSpace, spaceResume, spaceEntry, switchSpace]);
-  return <MainBoundContext.Provider value={mainBound}><ScreenContext.Provider value={screen}>{children}</ScreenContext.Provider></MainBoundContext.Provider>;
+  return <MainBoundContext.Provider value={mainBound}><ScreenContext.Provider value={screen}>
+    <ScreenSavedViews initial={initialSavedView}>{children}</ScreenSavedViews>
+  </ScreenContext.Provider></MainBoundContext.Provider>;
 });

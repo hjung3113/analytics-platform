@@ -21,14 +21,11 @@ async function filter(page: Page, field: string, value: string) {
 test.describe('Configuration', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 
-  test('bare route keeps the SDK idle state until the single kernel Apply', async ({ page }, testInfo) => {
+  test('bare route shows the matrix with default conditions and a folded query bar', async ({ page }, testInfo) => {
     await page.goto('/mars/configuration');
-    await expect(grid(page)).toHaveCount(0);
-    await expect(page.getByText('아직 조회하지 않았습니다', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: '비교 실행', exact: true })).toHaveCount(0);
-    await expect(queryBar(page).getByRole('button', { name: '적용', exact: true })).toHaveCount(1);
-    await queryBar(page).getByRole('button', { name: '적용', exact: true }).click();
     await expect(grid(page)).toBeVisible();
+    await expect(queryBar(page).getByRole('button', { name: '조회 조건 펼치기', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: '비교 실행', exact: true })).toHaveCount(0);
     await expect(page.getByText('아직 조회하지 않았습니다', { exact: true })).toHaveCount(0);
     await expect(grid(page).locator('[data-matrix-row="cfg-000000"]')).toHaveAttribute('aria-level', '3');
     await expect(grid(page).locator('[data-matrix-row="cfg-000000"]')).toContainText('config.cfg');

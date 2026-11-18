@@ -12,6 +12,8 @@ import { dropResetKeys } from '../context/paneContext';
 import { drillGap, dropDrillResetKeys } from '../context/drillReset';
 import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
+import { hasExplicitContext } from '../saved-view/restore';
+import type { InitialSavedView } from '../saved-view/useSavedViews';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
@@ -24,7 +26,7 @@ function paneTrailFor(ref: { current: { paneId: string | null; trail: PaneUsageT
   return ref.current.trail;
 }
 function sameQueryPolicy(a: HostPlatform['queryPolicy'], b: HostPlatform['queryPolicy']): boolean {
-  return a.ready === b.ready && a.idle === b.idle && a.drillGap === b.drillGap && JSON.stringify(a.missing) === JSON.stringify(b.missing);
+  return a.ready === b.ready && a.idle === b.idle && a.drillGap === b.drillGap && a.autoApplyingDefault === b.autoApplyingDefault && JSON.stringify(a.missing) === JSON.stringify(b.missing);
 }
 function sameScopeState(a: ScopeState, b: ScopeState): boolean {
   return a.scopeId === b.scopeId && a.status === b.status && a.validatedFor === b.validatedFor && sameItems(a.grantedRooms, b.grantedRooms);
@@ -56,7 +58,7 @@ function registered(link: LinkResolution, menuId: string): RegisteredLink {
   throw new RegistryError(`Unknown menu ${menuId}`);
 }
 
-export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => RegisteredLink } {
+export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => RegisteredLink; initialSavedView: InitialSavedView | null } {
   const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
@@ -298,6 +300,38 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       : { scopeId: global.scopeId, status: 'validating', validatedFor: session, grantedRooms: [] }
     : scope;
   const scopeView = useStable(maskedScope, sameScopeState);
+  const scopeReady = !routeMenu?.requiresScope || scopeView.status === 'valid';
+
+  // Closing first entry on an explicit or invalid address also keeps a later Reset or Back exact.
+  const autoApplyRoute = route?.menu.query?.autoApplyDefault === true ? route : null;
+  const bare = autoApplyRoute !== null && routeContractError === null && !hasExplicitContext({ global, page }, { includeReturnTo: true });
+  const [entry, setEntry] = useState({ route: autoApplyRoute, paneId, bare });
+  const newEntry = entry.route !== autoApplyRoute || entry.paneId !== paneId;
+  const bareEntry = bare && (newEntry || entry.bare);
+  if (newEntry || entry.bare !== bareEntry) setEntry({ route: autoApplyRoute, paneId, bare: bareEntry });
+  const canApplyBareDefault = autoApplyRoute !== null && bareEntry && canOpen(autoApplyRoute.menu.id);
+  const arrival = useMemo(() => ({ autoApplyRoute, appliedUrl, session }), [autoApplyRoute, appliedUrl, session]);
+  const [failedArrival, setFailedArrival] = useState<typeof arrival | null>(null);
+  const scopeFailed = scopeView.status !== 'valid' && scopeView.status !== 'validating' && scopeView.status !== 'none';
+  // A retry can recover Scope access, but edits made after a failure own this arrival.
+  if (mode === 'main' && canApplyBareDefault && scopeFailed && failedArrival !== arrival) setFailedArrival(arrival);
+  const eligible = mode === 'main' && canApplyBareDefault && !scopeFailed && failedArrival !== arrival;
+  const scopeReadyForDefault = scopeReady && scopeView.status !== 'validating';
+  const savedViewStore = app.pub.savedViewStore;
+  const revision = app.pub.revision;
+  const savedViewEnabled = routeMenu?.features.savedView === true && savedViewStore !== undefined;
+  // A decision belongs to one applied address and one store/session/Scope generation.
+  const savedViewEntry = useMemo(() => ({ arrival, revision, scopeView, savedViewStore }), [arrival, revision, scopeView, savedViewStore]);
+  const [settledSavedView, setSettledSavedView] = useState<typeof savedViewEntry | null>(null);
+  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : appliedUrl,
+    global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
+    commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
+  const materializeDefault = useCallback((href: string) => commitState(href, 'replace', { materialize: true }), [commitState]);
+  const initialDecision = useMemo<InitialSavedView>(() => ({ settle: () => setSettledSavedView(savedViewEntry), materialize: materializeDefault }), [savedViewEntry, materializeDefault]);
+  const waitingForSavedView = eligible && savedViewEnabled && settledSavedView !== savedViewEntry;
+  const autoApplyingDefault = eligible && (defaultRangeTo !== null || waitingForSavedView);
+  const canAutoApply = mode === 'pane' ? canApplyBareDefault : eligible && scopeReadyForDefault && !waitingForSavedView;
+  const initialSavedView = waitingForSavedView && scopeReadyForDefault && !route?.viaAlias ? initialDecision : null;
 
   // Materialize the default period for time-applying menus (§6.3/§6.4: absolute from/to written into the address)
   // and the server-confirmed metric version in ONE replace computed from the same parsed snapshot. The initial Δ
@@ -312,15 +346,15 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true, redirectPage: route.aliasPage }); return; }
     if (!route || routeContractError) return;
     let next = global;
-    if (route.menu.query?.mode !== 'apply' && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -(route.menu.defaultPeriodHours ?? 24)), to: defaultRangeTo };
+    if ((route.menu.query?.mode !== 'apply' || canAutoApply) && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -(route.menu.defaultPeriodHours ?? 24)), to: defaultRangeTo };
     if (metricInit.phase === 'confirm') next = { ...next, metricVersion: metricInit.metricVersion };
     if (next === global) { proposed.current = null; return; }
     const target = pathname + buildQuery(next, page, extras);
-    const key = `${url}\0${target}`;
+    const key = `${paneId}\0${url}\0${target}`;
     if (proposed.current === key) return;
     proposed.current = key;
-    commitState(target, 'replace', { materialize: true });
-  }, [mode, search, route, routeContractError, global, metricInit, page, extras, pathname, url, commit, commitState, defaultRangeTo]);
+    materializeDefault(target);
+  }, [mode, paneId, search, route, routeContractError, global, metricInit, page, extras, pathname, url, commit, defaultRangeTo, canAutoApply, materializeDefault]);
 
   useLayoutEffect(() => {
     // A platform screen owns its arrival; an alias keeps the same request until its canonical screen mounts (ADR-0093).
@@ -456,13 +490,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const queryPolicy = useStable({ ...appliedQueryPolicy(route?.menu ?? null, global, page, routeContractError !== null || metricInit.phase !== 'skip'),
     // The Kernel refuses a drill URL with a gap once (06 §6.4 «조회하지 않는다»), so no menu repeats the gate.
     drillGap: drillGap(route?.menu.drill?.levels ?? [], page) !== null,
-    ready: route?.menu.query?.mode !== 'apply' || !route.menu.requiresScope || (scopeView.status === 'valid' && scopeView.scopeId === global.scopeId && scopeView.validatedFor === session) }, sameQueryPolicy);
-  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : appliedUrl,
-    global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null,
-    commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
+    ready: routeMenu?.query?.mode !== 'apply' || scopeReady, ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
   }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
-  return { screen, sidebarSpace, resolveEntryLink };
+  return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

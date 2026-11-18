@@ -150,6 +150,40 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); listeners.clear(); window.history.replaceState(null, '', '/'); });
 
 describe('dock renderer: tabs, selection and the Context bar', () => {
+  it('keeps the non-opt-in Scope and Context controls available through engine loading and retry', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    let releaseFirst = () => {};
+    let releaseRetry = () => {};
+    const first = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const retry = new Promise<void>(resolve => { releaseRetry = resolve; });
+    let renderEngine: () => void = () => { throw first; };
+    const beforeRender = vi.fn(() => renderEngine());
+    engine.beforeRender = beforeRender;
+    onTestFinished(() => { delete engine.beforeRender; });
+    const expectControls = () => {
+      const row = document.querySelector<HTMLElement>('[data-board-context-row]')!;
+      expect(within(row).getByRole('button', { name: /^Scope/ })).toBeEnabled();
+      expect(within(row).getByRole('button', { name: /기간/ })).toBeEnabled();
+    };
+    mount('/board?sheet=a');
+    await waitFor(() => expect(beforeRender).toHaveBeenCalled());
+    await waitFor(() => expect(document.querySelector('[data-dock-layout] [role="status"][aria-busy]')).not.toBeNull());
+    expectControls();
+    renderEngine = () => { throw new TypeError('Failed to fetch dynamically imported module: dock engine'); };
+    await act(async () => releaseFirst());
+    const retryButton = await screen.findByRole('button', { name: '다시 시도' });
+    expectControls();
+    renderEngine = () => { throw retry; };
+    fireEvent.click(retryButton);
+    await waitFor(() => expect(document.querySelector('[data-dock-layout] [role="status"][aria-busy]')).not.toBeNull());
+    expect(paneTabs()).toHaveLength(0);
+    expectControls();
+    renderEngine = () => {};
+    await act(async () => releaseRetry());
+    await ready();
+    expectControls();
+  });
+
   it('names every tab `칸 n · 메뉴명` (`빈 칸` when empty) and the header has 칸 추가 and 기본 배치 but no layout toggle or 크기 초기화', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), null] })]));
     mount('/board?sheet=a');
@@ -529,6 +563,17 @@ describe('dock renderer: permission revoke', () => {
 });
 
 describe('dock renderer: maximize, Escape and the narrow display', () => {
+  it('keeps the dock maximized when Escape is pressed in the board Context bar', async () => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
+    mount('/board?sheet=a');
+    await ready();
+    await chooseGroupItem(2, '칸 2 최대화');
+    await waitFor(() => expect(paneRoot(1).closest('[inert]')).not.toBeNull());
+    const contextBar = screen.getByRole('region', { name: '칸 2 · 분석 Context' });
+    fireEvent.keyDown(contextBar, { key: 'Escape' });
+    expect(paneRoot(1).closest('[inert]')).not.toBeNull();
+  });
+
   it('maximize from the pane menu hides the other panes; Escape restores and focuses the maximize toggle', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     mount('/board?sheet=a');

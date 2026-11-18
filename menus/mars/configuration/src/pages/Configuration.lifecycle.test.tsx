@@ -40,12 +40,12 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 const ok = <T,>(data: T): ApiResponse<T> => ({ outcome: 'ok', data, assessments: [{ kind: 'collection', state: 'unknown', reason: 'source_unavailable' }, { kind: 'coverage', state: 'unknown', reason: 'source_unavailable' }], trust: null, correlationId: 'configuration-test' });
-async function mount(menuQuery = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => ok(windowPage(query as TreeParams))), expectData = true) {
+async function mount(menuQuery = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => ok(windowPage(query as TreeParams)))) {
   const session = testSession(['analytics:view']);
   const adapter = testAdapter({ session: () => session, menuQuery });
   await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Configuration /><Toasts /><DraftProbe /></PlatformProvider></I18nProvider>));
   await settleQueries();
-  if (expectData) await vi.waitFor(() => expect(host.querySelector('[data-matrix-viewport]'), host.textContent ?? '').not.toBeNull());
+  await vi.waitFor(() => expect(host.querySelector('[data-matrix-viewport]'), host.textContent ?? '').not.toBeNull());
   return menuQuery;
 }
 function picker() {
@@ -116,13 +116,11 @@ describe('Configuration lifecycle regressions', () => {
     expect(picker().props.values).toEqual(DEFAULT_EQUIPMENT);
     expect(() => createRegistry({ ...assembly, menus: manifests })).not.toThrow();
   });
-  it('K1 records the SDK bare-route idle gap instead of auto-applying the draft', async () => {
+  it('loads the matrix on a bare route with the default conditions', async () => {
     window.history.replaceState(null, '', '/mars/configuration');
-    const requests = await mount(undefined, false);
-    expect(requests).not.toHaveBeenCalled();
-    expect(host.textContent).toContain('아직 조회하지 않았습니다');
-    expect(draft.draft.global.from).not.toBeNull();
-    expect(new URLSearchParams(window.location.search).has('from')).toBe(false);
+    const requests = await mount();
+    expect(requests.mock.calls[0]?.[0].params).toMatchObject({ eq: DEFAULT_EQUIPMENT });
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
   });
   it('C4 retains explicit zero in the kernel draft, then commits two only on Apply', async () => {
     const requests = await mount();

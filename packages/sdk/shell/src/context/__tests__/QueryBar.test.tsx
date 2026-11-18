@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuery, defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, QueryBarExtensionContext, QueryView, useFocusContextEditor, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery, useSavedViewSupport } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
@@ -241,6 +241,85 @@ it('allows an optional-Scope apply menu to commit without a Scope', async () => 
   await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
   expect(window.location.search).toContain('from=');
   expect(window.location.search).not.toContain('scopeId');
+});
+function mountFirstEntry(autoApplyDefault: boolean) {
+  const menu = registry.menus[0];
+  if (menu.module !== undefined) throw new Error('Expected a platform menu');
+  const support = { menuId: menu.id, menuSchemaVersion: 1, contextKeys: ['time'] as const, pageKeys: [] };
+  const chosen = createRegistry({
+    spaces: registry.spaces, groups: registry.groups,
+    menus: [{ ...menu, requiresScope: false, savedViewSupport: support, features: { ...menu.features, savedView: true }, query: { mode: 'apply', autoApplyDefault } }],
+  });
+  const session = testSession(['platform:view']);
+  const period = { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
+  const store = createFakeSavedViewStore([testSavedView({ id: 'default', menuId: menu.id, context: period })], { [session.user.id + ':' + menu.id]: 'default' });
+  let release = () => {};
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const lookup = vi.spyOn(store, 'getDefaultId').mockImplementationOnce(async () => { await held; return 'default'; });
+  function Page() {
+    useSavedViewSupport(support);
+    draft = useQueryDraft();
+    return <GlobalContextBar />;
+  }
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Page /></PlatformProvider></I18nProvider>);
+  return { release, lookup, period };
+}
+it('disables period inputs, target, membership and Apply while the first-entry lookup is held', async () => {
+  const { lookup } = mountFirstEntry(true);
+  await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+  expect(window.location.search).toBe('');
+  expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
+  expect(screen.getByLabelText('시작 시각')).toBeDisabled();
+  expect(screen.getByLabelText('종료 시각 (제외)')).toBeDisabled();
+  expect(screen.getByRole('button', { name: '최근 7일' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ })).toBeDisabled();
+  expect(screen.getAllByRole('radio')[0]).toBeDisabled();
+  expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+});
+it('applies the personal default, folds the bar and enables the controls after release', async () => {
+  const { release, lookup, period } = mountFirstEntry(true);
+  await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+  await act(async () => release());
+  const params = new URLSearchParams(window.location.search);
+  expect(params.get('from')).toBe(period.from);
+  expect(params.get('to')).toBe(period.to);
+  expect(draft.dirty).toEqual([]);
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+  expect(screen.getByLabelText('종료 시각 (제외)')).toBeEnabled();
+  expect(screen.getByRole('button', { name: '최근 7일' })).toBeEnabled();
+});
+it('unlocks at the three-second default-read deadline and discards the late default', async () => {
+  vi.useFakeTimers();
+  try {
+    const { release, lookup } = mountFirstEntry(true);
+    const replace = vi.spyOn(window.history, 'replaceState');
+    await act(async () => {});
+    expect(lookup).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(2999));
+    expect(window.location.search).toBe('');
+    expect(screen.getByLabelText('시작 시각')).toBeDisabled();
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+    expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+    const applied = window.location.search;
+    await act(async () => release());
+    expect(window.location.search).toBe(applied);
+    expect(replace).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it('leaves period and Apply enabled with a held Saved View lookup on a non-opt-in menu', async () => {
+  const { lookup } = mountFirstEntry(false);
+  await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+  expect(window.location.search).toBe('');
+  expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
 });
 it('keeps a blank reference date invalid across unrelated edits and collapse until a valid preset replaces it', async () => {
   const push = mount();

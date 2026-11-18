@@ -1,12 +1,13 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
+import { lazy } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, useSavedViewSupport } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { DetailPanelFullscreenContext } from '@ap/ui';
-import { groupId, spaceId } from '@ap/contracts';
+import { buildQuery, emptyGlobal, groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { BoardSurface } from '../BoardSurface';
 import { addSheet, freshBoard, setLayout, setPane, closePane, type Board } from '../boardModel';
 
@@ -45,6 +46,159 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('BoardSurface (893b)', () => {
+  it('waits for mount-time Saved View support on a lazy main screen', async () => {
+    const [home, alpha] = registry.menus;
+    if (alpha.module !== undefined) throw new Error('Expected a platform menu');
+    let release = () => {};
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const loading = vi.fn(async () => { await held; return { default: SupportedPage }; });
+    const period = { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
+    const query = buildQuery({ ...emptyGlobal, ...period }, []);
+    const support: SavedViewSupport = { menuId: alpha.id, menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: [] };
+    function SupportedPage() {
+      useSavedViewSupport(support);
+      const { global } = usePlatform();
+      return <p>{global.from ?? 'idle'}</p>;
+    }
+    const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      home, { ...alpha, component: lazy(loading), query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true } },
+    ] });
+    const session = testSession(['platform:view']);
+    const store = createFakeSavedViewStore([testSavedView({ id: 'view', menuId: alpha.id, context: period })], { [`${session.user.id}:${alpha.id}`]: 'view' });
+    const path = chosen.canonicalHref(alpha.path);
+    window.history.replaceState(null, '', path);
+    const replace = vi.spyOn(window.history, 'replaceState');
+    try {
+      render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
+        <RouteOutlet />
+      </PlatformProvider></I18nProvider>);
+      await waitFor(() => expect(loading).toHaveBeenCalledTimes(1));
+      expect(replace).not.toHaveBeenCalled();
+      await act(async () => release());
+      await screen.findByText(period.from);
+      expect(replace.mock.calls.map(call => call[2])).toEqual([path + query]);
+    } finally {
+      replace.mockRestore();
+    }
+  });
+
+  it('focuses the page title after a personal default replaces a held lazy arrival', async () => {
+    const [home, alpha] = registry.menus;
+    if (alpha.module !== undefined) throw new Error('Expected a platform menu');
+    let release = () => {};
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const loading = vi.fn(async () => { await held; return { default: Page }; });
+    const period = { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
+    const query = buildQuery({ ...emptyGlobal, ...period }, []);
+    const support: SavedViewSupport = { menuId: alpha.id, menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: [] };
+    const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      home, { ...alpha, component: lazy(loading), query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support, features: { ...alpha.features, savedView: true } },
+    ] });
+    const session = testSession(['platform:view']);
+    const store = createFakeSavedViewStore([testSavedView({ id: 'view', menuId: alpha.id, context: period })], { [`${session.user.id}:${alpha.id}`]: 'view' });
+    const path = chosen.canonicalHref(alpha.path);
+    function Open() {
+      const { navigate } = useHostPlatform();
+      return <button onClick={() => navigate(path, { focus: 'page' })}>Open Alpha</button>;
+    }
+    window.history.replaceState(null, '', chosen.canonicalHref(home.path));
+    const replace = vi.spyOn(window.history, 'replaceState');
+    try {
+      render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
+        <Open /><RouteOutlet />
+      </PlatformProvider></I18nProvider>);
+      const open = screen.getByRole('button', { name: 'Open Alpha' });
+      open.focus();
+      fireEvent.click(open);
+      await waitFor(() => expect(window.location.search).toBe(query));
+      expect(loading).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('heading', { name: '알파' })).toBeNull();
+      expect(replace.mock.calls.map(call => call[2]).filter(url => String(url).startsWith(path))).toEqual([path + query]);
+      await act(async () => release());
+      expect(await screen.findByRole('heading', { name: '알파' })).toHaveFocus();
+    } finally {
+      replace.mockRestore();
+    }
+  });
+
+  it('closes the live period editor when switching between editable panes', async () => {
+    const start = freshBoard('시트');
+    const id = start.sheets[0].id;
+    const pane = { menuId: 'alpha', params: {}, query: '' };
+    const seeded = setPane(setPane(setLayout(start, id, '1x2'), id, 0, pane), id, 1, pane);
+    localStorage.setItem(`platform:board:v2:${testSession(['platform:view']).user.id}`, JSON.stringify(seeded));
+    render(provide(<BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={Outlet} />));
+    fireEvent.click(await screen.findByRole('button', { name: /^기간:/ }));
+    expect(await screen.findByRole('dialog', { name: '기간' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '칸 2 선택' }));
+    expect(screen.getByRole('group', { name: '칸 2' })).toHaveAttribute('data-selected', 'true');
+    expect(screen.queryByRole('dialog', { name: '기간' })).toBeNull();
+  });
+
+  it('applies the bare pane period immediately and leaves the controls enabled without Saved View reads', async () => {
+    const [home, alpha] = registry.menus;
+    if (alpha.module !== undefined) throw new Error('Expected a platform menu');
+    const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      home, { ...alpha, query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true },
+        savedViewSupport: { menuId: alpha.id, menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: [] } },
+    ] });
+    const session = testSession(['platform:view']);
+    const start = freshBoard('시트');
+    const id = start.sheets[0].id;
+    const seeded = setPane(start, id, 0, { menuId: alpha.id, params: {}, query: '' });
+    localStorage.setItem(`platform:board:v2:${session.user.id}`, JSON.stringify(seeded));
+    window.history.replaceState(null, '', '/board');
+    const store = createFakeSavedViewStore();
+    const lookup = vi.spyOn(store, 'getDefaultId').mockReturnValue(new Promise(() => {}));
+    const get = vi.spyOn(store, 'get');
+    const list = vi.spyOn(store, 'list');
+    function AppliedOutlet() {
+      const { global } = usePlatform();
+      return <p>{global.from ?? 'idle'}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
+      <BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={AppliedOutlet} />
+    </PlatformProvider></I18nProvider>);
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+    expect(screen.getByText('2026-09-25T09:00:00')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+    expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+    await act(async () => {});
+    expect(lookup).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it('settles both bare pane entries without selecting the second pane or restoring a default view', async () => {
+    const [home, alpha] = registry.menus;
+    const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+      home, { ...alpha, query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true } },
+    ] });
+    const session = testSession(['platform:view']);
+    const start = freshBoard('시트');
+    const id = start.sheets[0].id;
+    const bare = { menuId: 'alpha', params: {}, query: '' };
+    const seeded = setPane(setPane(setLayout(start, id, '1x2'), id, 0, bare), id, 1, bare);
+    localStorage.setItem(`platform:board:v2:${session.user.id}`, JSON.stringify(seeded));
+    window.history.replaceState(null, '', '/board');
+    const store = createFakeSavedViewStore();
+    const getDefaultId = vi.spyOn(store, 'getDefaultId');
+    const support: SavedViewSupport = { menuId: 'alpha', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: [] };
+    function AppliedOutlet() {
+      useSavedViewSupport(support);
+      const { global } = usePlatform();
+      return <p>{global.from ?? 'idle'}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
+      <BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={AppliedOutlet} />
+    </PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(screen.getAllByText('2026-09-25T09:00:00')).toHaveLength(2));
+    expect(screen.getByRole('group', { name: '칸 2' })).toHaveAttribute('data-selected', 'false');
+    expect(within(screen.getByRole('group', { name: '칸 2' })).queryByText('idle')).toBeNull();
+    expect(getDefaultId).not.toHaveBeenCalled();
+  });
+
   it('draws the sheet it is given without an address, and reports a tab press as a sheet change', async () => {
     const two = addSheet(freshBoard('시트'), '시트');
     localStorage.setItem(`platform:board:v2:${testSession(['platform:view']).user.id}`, JSON.stringify(two));

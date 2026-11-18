@@ -2,7 +2,7 @@ import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { defineEndpoint, type ApiResponse, groupId, spaceId } from '@ap/contracts';
+import { defineEndpoint, type ApiResponse, type ScopeCheck, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../../platform/platform';
 import { useConditionPreset } from '../condition-preset';
@@ -589,6 +589,66 @@ it.each([
   expect(platform.global.from).toBe('2026-09-25T09:00:00');
 });
 
+const autoApplyDefault = { mode: 'apply' as const, autoApplyDefault: true };
+
+it('applies the declared default period on a bare Apply entry with one replace', async () => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, query: autoApplyDefault, defaultPeriodHours: 8 }] });
+  const length = window.history.length;
+  const { send } = mount('/', chosen);
+  await waitFor(() => expect(query.status).toBe('done'));
+  expect(platform.global).toMatchObject({ from: '2026-09-26T01:00:00', to: '2026-09-26T09:00:00' });
+  expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-26T01:00:00');
+  expect(window.history.length).toBe(length);
+  expect(send).toHaveBeenCalledTimes(1);
+  act(() => platform.setGlobal({ from: null, to: null }));
+  expect(query.status).toBe('idle');
+  expect(new URLSearchParams(window.location.search).has('from')).toBe(false);
+});
+
+it.each([
+  ['an explicit period', period],
+  ['an explicit page key', '?filter=one'],
+  ['an explicit return address', '?returnTo=%2Fhome'],
+  ['an invalid period', '?from=invalid'],
+])('leaves %s unchanged with autoApplyDefault', async (_label, search) => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, pageKeys: [...menu.pageKeys, 'returnTo'], query: autoApplyDefault }] });
+  mount('/' + search, chosen);
+  await act(async () => {});
+  expect(window.location.search).toBe(search);
+});
+
+it('waits for the required Scope before applying the default period', async () => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, query: autoApplyDefault, requiresScope: true }] });
+  let validate!: (scope: ScopeCheck) => void;
+  const validation = new Promise<ScopeCheck>(resolve => { validate = resolve; });
+  const validateScope = vi.fn(() => validation);
+  mount('/?scopeId=MEM', chosen, { validateScope });
+  expect(validateScope).toHaveBeenCalled();
+  expect(window.location.search).toBe('?scopeId=MEM');
+  expect(query.status).toBe('idle');
+  await act(async () => validate({ status: 'valid', grantedRooms: [] }));
+  await waitFor(() => expect(query.status).toBe('done'));
+  expect(platform.global).toMatchObject({ scopeId: 'MEM', from: '2026-09-25T09:00:00' });
+});
+
+it('ends automatic Apply on Scope error and preserves a draft through retry of the same Scope', async () => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, query: autoApplyDefault, requiresScope: true }] });
+  const validateScope = vi.fn<() => Promise<ScopeCheck>>()
+    .mockRejectedValueOnce(new Error('Scope unavailable'))
+    .mockResolvedValue({ status: 'valid', grantedRooms: [] });
+  mount('/?scopeId=MEM', chosen, { validateScope });
+  expect(platform.queryPolicy.autoApplyingDefault).toBe(true);
+  await waitFor(() => expect(platform.scope.status).toBe('error'));
+  expect(platform.queryPolicy.autoApplyingDefault).toBeFalsy();
+  const edit = { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' };
+  act(() => draft.setDraftGlobal(edit));
+  act(() => platform.retryScope());
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(validateScope).toHaveBeenCalledTimes(2);
+  expect(window.location.search).toBe('?scopeId=MEM');
+  expect(platform.queryPolicy.autoApplyingDefault).toBeFalsy();
+  expect(draft.draft.global).toMatchObject(edit);
+});
 
 it('acknowledges Apply with hidden page keys once and preserves edits made after the click (#2047 KER-20)', async () => {
   const hiddenMenu = { ...menu, hiddenPageKeys: ['filter'] };

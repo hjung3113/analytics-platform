@@ -4,7 +4,7 @@ import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SavedViewSupport, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
 import { isIdShape, isPermissionShape } from './shapes';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
@@ -13,6 +13,8 @@ export type PageProps = { params: Record<string, string> };
 export type PlatformMenuEntry = MenuMeta & {
   icon: LucideIcon;
   component?: LazyExoticComponent<ComponentType<PageProps>>;
+  /** Stable support for an auto-Apply Saved View menu, available before its screen mounts. */
+  savedViewSupport?: SavedViewSupport;
   /** A stable module-level Source builds the menu-owned, Context-independent hierarchy source. */
   navTree?: {
     label: Text;
@@ -36,6 +38,7 @@ export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
   permission: ModuleScopedId;
   icon: LucideIcon;
   component?: undefined;
+  savedViewSupport?: undefined;
   moduleScreen: ComponentType<ModuleScreenProps>;
   /** Host features the module declared (`requires` ∪ `optional`) that this host provides; `mountModule` fills it. */
   moduleFeatures?: readonly HostFeature[];

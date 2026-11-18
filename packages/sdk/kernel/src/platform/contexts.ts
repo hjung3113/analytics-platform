@@ -81,7 +81,7 @@ export type ScreenSource = {
   sidebarSpace?: SpaceDef | null;
   /** Main only: remember a Scope the server confirmed. */
   onScopeValid?: (scopeId: string) => void;
-  /** False for a second reader of a pane that another provider already counts (the board's Context bar): it sends no usage events. */
+  /** False for a pane whose stay is already counted by its host. */
   countsUsage?: boolean;
 };
 

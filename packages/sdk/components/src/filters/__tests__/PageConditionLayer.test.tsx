@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contextCapabilities, groupId, spaceId, type PageConditions } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
-import { testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { createSyntheticHierarchySource } from '../../hierarchy/syntheticHierarchy';
 import type { PageConditionLayerOptions } from '../DeclaredPageConditions';
@@ -30,15 +30,15 @@ function Page({ layout = 'flow', legacyHead = false }: { layout?: 'flow' | 'fill
   const draft = useQueryDraft();
   return <PlatformPage layout={layout} pageConditionOptions={pageOptions} contextExtension={legacyHead ? <span>legacy editor</span> : undefined} queryBarExtension={legacyHead ? { pageSummary: [{ key: 'legacy', label: '기존 조건', value: 'kept' }], appliedPageSummary: [{ key: 'legacy', label: '기존 조건', value: 'kept' }], issues: [] } : undefined}><button onClick={() => draft.setDraftGlobal({ roomNames: ['PHOTO'] })}>outside</button><p>results</p></PlatformPage>;
 }
-function mount({ mode = 'apply', query = '', required = false, pane = false, layout = 'flow', bar = false, legacyHead = false, tree = false }: { tree?: boolean; mode?: 'apply' | 'live'; query?: string; required?: boolean; pane?: boolean; layout?: 'flow' | 'fill'; bar?: boolean; legacyHead?: boolean } = {}) {
-  window.history.replaceState(null, '', '/' + period + query);
+function mount({ mode = 'apply', query = '', required = false, pane = false, layout = 'flow', bar = false, legacyHead = false, tree = false, pendingDefault }: { pendingDefault?: ReturnType<typeof createFakeSavedViewStore>; tree?: boolean; mode?: 'apply' | 'live'; query?: string; required?: boolean; pane?: boolean; layout?: 'flow' | 'fill'; bar?: boolean; legacyHead?: boolean } = {}) {
+  window.history.replaceState(null, '', '/' + (pendingDefault ? '' : period + query));
   const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: label('개요'), icon: House, space: spaceId('mars') }], menus: [{
     id: 'home', primary: true, group: groupId('overview'), label: label('홈'), description: label(''), path: '/', icon: House, permission: 'platform:view', requiresScope: false,
-    pageType: 'analysis', context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), features: { export: false, savedView: false, annotate: false, compare: false, board: true },
-    query: mode === 'apply' ? { mode } : undefined, pageKeys: ['choice', 'q', 'many', 'start', 'end', 'legacy', ...(tree ? ['tree'] : [])], repeatedPageKeys: ['many', ...(tree ? ['tree'] : [])], pageConditions: { ...declaration, categories: [...declaration.categories, ...(tree ? [{ id: 'tree', label: label('계층'), kind: { type: 'tree' as const, key: 'tree', source: 'tree', value: 'nodes' as const } }] : [])].map(category => required && category.id === 'query' ? { ...category, required: true } : category) },
+    pageType: 'analysis', context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), savedViewSupport: pendingDefault ? { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: ['q'] } : undefined, features: { export: false, savedView: pendingDefault !== undefined, annotate: false, compare: false, board: true },
+    query: mode === 'apply' ? { mode, autoApplyDefault: pendingDefault ? true : undefined } : undefined, pageKeys: ['choice', 'q', 'many', 'start', 'end', 'legacy', ...(tree ? ['tree'] : [])], repeatedPageKeys: ['many', ...(tree ? ['tree'] : [])], pageConditions: { ...declaration, categories: [...declaration.categories, ...(tree ? [{ id: 'tree', label: label('계층'), kind: { type: 'tree' as const, key: 'tree', source: 'tree', value: 'nodes' as const } }] : [])].map(category => required && category.id === 'query' ? { ...category, required: true } : category) },
   }], endpoints: tree ? [{ id: 'tree', menuId: 'home' }] : [] });
   const session = testSession(['platform:view']);
-  return render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} slots={bar ? { contextBar: <TestBar /> } : undefined}>
+  return render(<I18nProvider><PlatformProvider registry={registry} savedViews={pendingDefault} adapter={testAdapter({ session: () => session })} slots={bar ? { contextBar: <TestBar /> } : undefined}>
     {pane ? <PaneScreenProvider paneId="pane-one" screen={{ menuId: 'home', params: {}, query: period + query }} onChange={vi.fn()} onLeave={vi.fn()}><Page layout={layout} legacyHead={legacyHead} /></PaneScreenProvider> : <Page layout={layout} legacyHead={legacyHead} />}
   </PlatformProvider></I18nProvider>);
 }
@@ -62,6 +62,34 @@ const trigger = () => screen.getByRole('button', { name: '페이지 조건' });
 const dialog = () => screen.getByRole('dialog', { name: '페이지 조건' });
 
 describe('Page condition layer (#2339)', () => {
+  it('blocks the trigger and required-condition layer until the first-entry default is decided', async () => {
+    const store = createFakeSavedViewStore();
+    let release = () => {};
+    const held = new Promise<null>(resolve => { release = () => resolve(null); });
+    const lookup = vi.spyOn(store, 'getDefaultId').mockReturnValueOnce(held);
+    mount({ required: true, pendingDefault: store });
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+    expect(trigger()).toBeDisabled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await act(async () => release());
+    expect(trigger()).toBeEnabled();
+    expect(within(dialog()).getByRole('searchbox', { name: '검색' })).toBeEnabled();
+  });
+  it('keeps the layer closed when the first-entry default supplies the required condition', async () => {
+    const store = createFakeSavedViewStore([testSavedView({
+      id: 'default', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [['q', 'saved']],
+      context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' },
+    })]);
+    let release = () => {};
+    const held = new Promise<string>(resolve => { release = () => resolve('default'); });
+    const lookup = vi.spyOn(store, 'getDefaultId').mockReturnValueOnce(held);
+    mount({ required: true, pendingDefault: store });
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
+    await act(async () => release());
+    expect(host.pageParam('q')).toBe('saved');
+    expect(trigger()).toBeEnabled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
   it('starts closed, exposes a labelled non-modal dialog, ignores outside clicks and returns focus on Escape', async () => {
     mount();
     expect(trigger()).toHaveAttribute('aria-expanded', 'false');

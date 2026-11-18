@@ -35,8 +35,9 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
   /** Board only: drawn where the bar would collapse to nothing, so the row keeps its height. */
   whenEmpty?: ReactNode;
 } = {}) {
-  const { route } = useHostPlatform();
-  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} viewSlot={<SavedViewControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
+  const { route, screenMode } = useHostPlatform();
+  const hideViewSlot = screenMode === 'pane' && route?.menu.query?.autoApplyDefault === true;
+  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} viewSlot={hideViewSlot ? null : <SavedViewControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
 }
 
 function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {

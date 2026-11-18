@@ -116,7 +116,12 @@ export type MenuMeta = {
   /** Initial period in whole hours for time-applying menus; positive integer so boundaries stay on whole seconds. Absent = 24 (§6.3). */
   defaultPeriodHours?: number;
   /** Opt-in deferred analysis execution. The address remains the applied query. */
-  query?: { mode: 'apply'; required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] } };
+  query?: {
+    mode: 'apply';
+    /** Apply the default period on a bare first entry. The main screen tries the personal default Saved View first. */
+    autoApplyDefault?: boolean;
+    required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] };
+  };
   pageType: PageType;
   /** Candidate: declarative page-owned conditions; absent preserves legacy behavior (§5/§6.4). */
   pageConditions?: PageConditions;

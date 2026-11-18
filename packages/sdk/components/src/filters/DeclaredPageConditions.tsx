@@ -43,11 +43,12 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   const id = useId();
   const missingCategory = declaration.categories.find(category => category.required && pageConditionKeys(category).some(key => !query.draft.page.some(([name, value]) => name === key && value !== '')));
   const decoded = decodePageConditions(menu, query.draft.page);
-  const attention = declaration.categories.find(category => category.id === missingCategory?.id || decoded.issues.some(issue => issue.categoryId === category.id));
+  const pendingDefault = host.queryPolicy.autoApplyingDefault;
+  const attention = pendingDefault ? undefined : declaration.categories.find(category => category.id === missingCategory?.id || decoded.issues.some(issue => issue.categoryId === category.id));
   const attentionKey = attention ? JSON.stringify([missingCategory?.id, decoded.issues, query.draft.page.filter(([key]) => pageConditionKeys(attention).includes(key))]) : '';
   const [state, setState] = useState<LayerState>(() => attention ? { status: 'open', focusCategoryId: attention.id, attentionKey } : { status: 'closed', attentionKey });
   if (state.attentionKey !== attentionKey) setState(attention ? { status: 'open', focusCategoryId: attention.id, attentionKey } : { ...state, attentionKey });
-  const open = state.status === 'open';
+  const open = state.status === 'open' && !pendingDefault;
   const opener = useRef<HTMLButtonElement | null>(null);
   const fallback = useRef<HTMLButtonElement>(null);
   const wroteInSession = useRef(false);
@@ -109,7 +110,7 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
   // Option reads are projected from the applied Context (useMenuFetch), so unapplied Context edits must not restart them.
   const inputsKey = JSON.stringify([host.session, host.revision, host.global, options?.inputsKey, options?.ready]);
   const trigger = <div data-page-condition-triggers className="flex min-w-0 flex-wrap items-center gap-2 py-2 text-xs">
-    <Button ref={fallback} type="button" size="toolbar" variant="secondary" aria-expanded={open} aria-controls={id} onClick={event => show(event.currentTarget)}>{m('title')}</Button>
+    <Button ref={fallback} type="button" size="toolbar" variant="secondary" disabled={pendingDefault} aria-expanded={open} aria-controls={id} onClick={event => show(event.currentTarget)}>{m('title')}</Button>
     {declaration.categories.map(category => {
       const keys = pageConditionKeys(category);
       const items = summary.filter(item => keys.includes(item.key));
@@ -117,11 +118,11 @@ function ConditionSession({ declaration, options, extension: legacy, children }:
       const values = items.map(item => `${category.kind.type === 'groupedChecks' ? `${item.label} ` : ''}${item.value || m('explicitEmpty')}`);
       const value = category.kind.type === 'date' ? keys.map(key => items.find(item => item.key === key)?.value ?? '—').join(' → ') : values.join(', ');
       return <span key={category.id} data-page-condition-chip className="inline-flex min-w-0 max-w-full items-center rounded-md border border-border-subtle bg-accent-primary-soft">
-        <Button type="button" variant="ghost" size="toolbar" wrapText className="min-w-0 text-left [overflow-wrap:anywhere]" aria-expanded={open} aria-controls={id} onClick={event => show(event.currentTarget)}>{category.label[lang]}: {value}</Button>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={m('clearOne', { label: category.label[lang] })} onClick={() => clear(category.id)}><X className="size-3" aria-hidden /></Button>
+        <Button type="button" variant="ghost" size="toolbar" wrapText className="min-w-0 text-left [overflow-wrap:anywhere]" disabled={pendingDefault} aria-expanded={open} aria-controls={id} onClick={event => show(event.currentTarget)}>{category.label[lang]}: {value}</Button>
+        <Button type="button" variant="ghost" size="icon-sm" disabled={pendingDefault} aria-label={m('clearOne', { label: category.label[lang] })} onClick={() => clear(category.id)}><X className="size-3" aria-hidden /></Button>
       </span>;
     })}
-    {query.draft.page.some(([key]) => declaration.categories.some(category => pageConditionKeys(category).includes(key))) && <Button type="button" variant="ghost" size="toolbar" onClick={() => clear()}>{m('clearAll')}</Button>}
+    {query.draft.page.some(([key]) => declaration.categories.some(category => pageConditionKeys(category).includes(key))) && <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={() => clear()}>{m('clearAll')}</Button>}
     {query.dirty.some(key => declaration.categories.some(category => pageConditionKeys(category).includes(key))) && <span>{t('pageFilterPendingChanges')}</span>}
   </div>;
   const layer = <>
