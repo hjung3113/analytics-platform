@@ -7,10 +7,11 @@ import { contextCapabilities, groupId, menuPermission, spaceId, type ApiResponse
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
 import { settleQueries, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type ConfigHistory, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
 
+await vi.hoisted(async () => (await import('@ap/components/testing/engines')).mockEchartsCanvas());
 const controls = vi.hoisted(() => ({ fields: [] as readonly PageFilterField[] }));
 vi.mock('@ap/components', async original => ({ ...await original<object>(),
   PageFilterBar: ({ fields, actions }: { fields: readonly PageFilterField[]; actions: ReactNode }) => { controls.fields = fields; return <div>{actions}</div>; },
@@ -101,7 +102,7 @@ describe('Configuration lifecycle regressions', () => {
     expect(document.activeElement).toBe(input);
     expect(host.querySelector('[role="group"][aria-label="강조"]')).toBeNull();
     expect([...host.querySelectorAll('button')].find(button => button.textContent === '같은 값 묶기')!.getAttribute('aria-pressed')).toBe('false');
-    expect(host.querySelector('[aria-selected="true"]')).toBeNull();
+    expect(host.querySelector('[data-matrix-column][aria-selected="true"]')).toBeNull();
     expect(requests.mock.calls.at(-1)?.[0].params).toMatchObject({ q: 'Pressure', offset: 0, expanded: [] });
   });
   it('K1 registers the real Apply manifest and loads an applied period', async () => {
@@ -209,7 +210,8 @@ describe('Configuration lifecycle regressions', () => {
       act(() => { cell.focus(); cell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
       await settleQueries();
       expect(requests.mock.calls.map(([request]) => request.endpoint)).not.toContain(configurationDetailEndpoint.id);
-      expect(host.querySelector('[aria-selected="true"]')).toBeNull();
+      expect(new URLSearchParams(window.location.search).has('trendItem')).toBe(false);
+      expect(host.querySelector('[data-matrix-column][aria-selected="true"]')).toBeNull();
     }
     const params = requests.mock.calls.find(([request]) => (request.params as TreeParams).q === 'Pressure')![0].params as TreeParams;
     await act(async () => complete!(ok(windowPage(params))));
@@ -264,5 +266,103 @@ describe('Configuration lifecycle regressions', () => {
     const summary = host.querySelector('[data-configuration-summary]')!;
     expect(summary.classList.contains('px-2')).toBe(false);
     expect(summary.closest('[data-configuration-toolbar]')!.classList.contains('px-2')).toBe(true);
+  });
+});
+
+describe('Configuration trend workspace', () => {
+  beforeEach(() => {
+    const context = {
+      setTransform: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn(),
+      beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), save: vi.fn(), restore: vi.fn(),
+      rect: vi.fn(), clip: vi.fn(), setLineDash: vi.fn(), measureText: vi.fn(() => ({ width: 40 })),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D);
+  });
+  afterEach(() => vi.restoreAllMocks());
+  const trend = () => host.querySelector('[data-configuration-trend]');
+  const currentTrend = () => new URLSearchParams(window.location.search).get('trendItem');
+  const leaf = () => host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="identity"]')!;
+  function mountTrend() {
+    return mount(vi.fn(async ({ endpoint, params: query }) => {
+      if (endpoint !== 'configuration.history') return ok(windowPage(query as TreeParams));
+      const { itemId, equipment } = query as { itemId: string; equipment: string[] };
+      const string = itemId === 'cfg-000001';
+      return ok({ item: string ? 'Valve Mode' : 'Pressure', valueType: string ? 'string' : 'number', series: equipment.map(eq => ({
+        equipment: eq, points: [{ at: '2026-11-16T00:00:00Z', value: string ? 'AUTO' : 120 }],
+      })) });
+    }));
+  }
+  it.each(['dblclick', 'Enter'])('opens the numeric panel below the matrix with %s and closes it', async gesture => {
+    await mountTrend();
+    await act(async () => {
+      leaf().focus();
+      if (gesture === 'Enter') leaf().dispatchEvent(new KeyboardEvent('keydown', { key: gesture, bubbles: true }));
+      else leaf().dispatchEvent(new MouseEvent(gesture, { bubbles: true }));
+    });
+    await settleQueries();
+    await vi.waitFor(() => expect(trend()?.textContent).toContain('Pressure'));
+    expect(leaf().compareDocumentPosition(trend()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(currentTrend()).toBe('cfg-000000');
+    await vi.waitFor(() => expect(trend()?.querySelector('[data-configuration-numeric] [role="img"]')).toBeTruthy());
+    expect(trend()?.textContent).toContain('나머지 12대 · 동일');
+    await act(async () => trend()?.querySelector<HTMLButtonElement>('[aria-label="추세 닫기"]')!.click());
+    expect(trend()).toBeNull();
+    expect(currentTrend()).toBeNull();
+    expect(leaf()).not.toBeNull();
+  });
+  it('restores a string trend from a saved-view page key and reads all applied equipment', async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('trendItem', 'cfg-000001');
+    url.searchParams.set('equipment', 'EQ01,EQ03');
+    url.searchParams.set('hideSameCols', '1');
+    window.history.replaceState(null, '', url);
+    const calls = await mountTrend();
+    await vi.waitFor(() => expect(trend()?.querySelector('[data-lane-scroll]')).toBeTruthy());
+    expect(trend()?.textContent).toContain('AUTO');
+    expect(SAVED_VIEW_SUPPORT.pageKeys).toContain('trendItem');
+    expect(calls).toHaveBeenCalledWith(expect.objectContaining({
+      endpoint: 'configuration.history', params: { itemId: 'cfg-000001', equipment: ['EQ01', 'EQ03'] },
+      context: expect.objectContaining({ from: '2026-11-16T00:00:00', to: '2026-11-18T00:00:00' }),
+    }), expect.anything());
+  });
+
+  it('clears the chart on equipment Apply and ignores a late history reply', async () => {
+    window.history.replaceState(null, '', `${window.location.href}&trendItem=cfg-000000&equipment=EQ01,EQ02`);
+    const reply = (item: string, equipment: string[]): ApiResponse<ConfigHistory> => ok({
+      item, valueType: 'string', series: equipment.map(eq => ({
+        equipment: eq, points: [{ at: '2026-11-16T00:00:00Z', value: item }],
+      })),
+    });
+    let finishEarlier!: (response: ApiResponse<ConfigHistory>) => void;
+    let finishCurrent!: (response: ApiResponse<ConfigHistory>) => void;
+    const requests = await mount(vi.fn(async ({ endpoint, params: query }) => {
+      if (endpoint !== 'configuration.history') return ok(windowPage(query as TreeParams));
+      const { equipment } = query as HistoryParams;
+      if (equipment.includes('EQ04')) return new Promise<ApiResponse<ConfigHistory>>(resolve => { finishCurrent = resolve; });
+      if (equipment.includes('EQ03')) return new Promise<ApiResponse<ConfigHistory>>(resolve => { finishEarlier = resolve; });
+      return reply('Original', equipment);
+    }));
+    await vi.waitFor(() => expect(trend()?.querySelector('[data-lane-scroll]')).toBeTruthy());
+    expect(trend()?.querySelector('h2')?.textContent).toBe('Original');
+    const historyRequested = (equipment: string[]) => expect(requests).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: 'configuration.history', params: { itemId: 'cfg-000000', equipment } }), expect.anything(),
+    );
+    const applyEquipment = (equipment: string[]) => {
+      act(() => picker().props.onValuesChange(equipment));
+      act(() => draft.apply());
+    };
+    applyEquipment(['EQ01', 'EQ03']);
+    expect(trend()?.querySelector('[data-lane-scroll]')).toBeNull();
+    await vi.waitFor(() => historyRequested(['EQ01', 'EQ03']));
+    applyEquipment(['EQ01', 'EQ04']);
+    await vi.waitFor(() => historyRequested(['EQ01', 'EQ04']));
+    expect(trend()?.querySelector('[data-lane-scroll]')).toBeNull();
+    await act(async () => finishCurrent(reply('Applied', ['EQ01', 'EQ04'])));
+    await vi.waitFor(() => expect(trend()?.querySelector('[data-lane-scroll]')).toBeTruthy());
+    await act(async () => finishEarlier(reply('Late', ['EQ01', 'EQ03'])));
+    await settleQueries();
+    expect(trend()?.querySelector('[data-lane-scroll]')).toBeTruthy();
+    expect(trend()?.querySelector('h2')?.textContent).toBe('Applied');
+    expect(trend()?.textContent).not.toContain('Late');
   });
 });

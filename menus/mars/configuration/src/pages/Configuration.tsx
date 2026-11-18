@@ -5,8 +5,9 @@ import { encodeFilterParams, formatInstant, type ColumnFilter, type GlobalContex
 import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, useSavedViewSupport } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, SAVED_VIEW_SUPPORT, STATUS, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, SAVED_VIEW_SUPPORT, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { MESSAGES } from '../messages';
+import { ConfigurationWorkspace } from './ConfigurationWorkspace';
 import { distribution, distributionText, PrimaryChip, RowStatus, valueMeaning, type Message } from './comparison';
 
 const SEGMENTS = ['bg-chart-series-1', 'bg-chart-series-2', 'bg-chart-series-3', 'bg-chart-series-4'];
@@ -24,7 +25,7 @@ function summaryFor(page: readonly Pair[], m: Message) {
   if (params.mode === 'reference' || page.some(([key]) => key === 'ref')) {
     summary.push({ key: 'ref', label: m(params.mode === 'reference' ? 'referenceEquipment' : 'inactiveReferenceEquipment'), value: params.ref });
   }
-  const labels = { core: 'coreOnly', levels: 'levelOrder', filter: 'filter', hideSameCols: 'hideSame', q: 'search', status: 'status' } as const;
+  const labels = { [TREND_ITEM_KEY]: 'trendItem', core: 'coreOnly', levels: 'levelOrder', filter: 'filter', hideSameCols: 'hideSame', q: 'search', status: 'status' } as const;
   for (const [key, label] of Object.entries(labels)) {
     const values = page.filter(([name]) => name === key).map(([, value]) => value);
     if (!values.length) continue;
@@ -80,7 +81,7 @@ function Conditions({ m }: { m: Message }) {
 }
 
 
-function ItemDetail({ row, eq, params, m, close }: { row: ConfigRow; eq: string; params: CompareParams; m: Message; close: () => void }) {
+function ItemDetail({ row, eq, params, m, close, openTrend }: { row: ConfigRow; eq: string; params: CompareParams; m: Message; close: () => void; openTrend: () => void }) {
   const { lang } = useI18n();
   const [tab, setTab] = useState('compare');
   const groups = distribution(row, params.eq);
@@ -115,13 +116,13 @@ function ItemDetail({ row, eq, params, m, close }: { row: ConfigRow; eq: string;
   return <DetailDrawer title={row.item} subtitle={<span className="break-keep">{row.module} › {row.category} › {row.item}</span>} headerActions={row.coreKnown ? <PrimaryChip>CORE</PrimaryChip> : undefined} identity={row.id} onClose={close} tab={tab} onTabChange={setTab} tabs={[
     { id: 'compare', label: m('compareDetail'), content: compare },
     { id: 'distribution', label: m('distributionTab'), content: <div className="space-y-3 break-keep">{groups.map(group => <div key={String(group.value)} className="border-b border-border-subtle pb-2"><p className="text-sm tabular">{m('valueCount', { value: group.value ?? '—', count: group.equipment.length, percent: (group.equipment.length / params.eq.length * 100).toFixed(1) })}</p><p className="t-mono text-text-secondary">{group.equipment.join(', ')}</p></div>)}</div> },
-    { id: 'history', label: m('history'), content: <EmptyState title={m('noHistory')} /> },
+    { id: 'history', label: m('history'), content: <Button variant="secondary" onClick={openTrend}>{m('openTrend')}</Button> },
   ]} />;
 }
 
 
 const valueOf = (node: TreeRow, column: MatrixColumn) => node.item?.values[column.id]?.value ?? null;
-function Comparison({ params, hideSame, m }: { params: TreeParams; hideSame: boolean; m: Message }) {
+function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hideSame: boolean; m: Message; openTrend: (id: string) => void }) {
   const { lang } = useI18n();
   const { setPage } = usePlatform();
   const [window, setWindow] = useState({ expanded: [] as string[], offset: 0, reveal: null as MatrixCell | null });
@@ -196,7 +197,7 @@ function Comparison({ params, hideSame, m }: { params: TreeParams; hideSame: boo
   const result = response?.data;
   const same = hideSame ? result?.sameColumns ?? [] : [];
   const hiddenColumns = [...new Set([...hidden, ...same, ...(grouped ? params.eq : [])])].filter(id => !(params.mode === 'reference' && id === params.ref));
-  return <div className="flex min-h-0 min-w-0 flex-1 flex-col break-keep">
+  return <div className="flex h-full min-h-0 min-w-0 flex-col break-keep">
     <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle px-2 py-1" data-configuration-toolbar>
       {result && <Summary data={result} status={params.status} select={selectStatus} m={m} />}
       {response && <DataTrustIndicator trust={response.trust} assessments={response.assessments} compact />}
@@ -225,7 +226,7 @@ function Comparison({ params, hideSame, m }: { params: TreeParams; hideSame: boo
       return <>
         <div className="px-2"><MatrixEmphasisBar emphasis={emphasis} onEmphasisChange={setEmphasis} onlyMatchingColumns={onlyMatching} onOnlyMatchingColumnsChange={setOnlyMatching} rowLabel={id => result.nodes.find(row => row.id === id)?.label ?? id} label={count => m('emphasisCount', { count })} onlyMatchingLabel={m('onlyMatching')} /></div>
         <TreeMatrix fill nodes={result.nodes} columns={columns} identityColumn="identity" label={m('title')} offset={result.offset} totalVisible={result.totalVisible} windowSize={TREE_WINDOW}
-          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); }} onActivate={staleSearch ? undefined : node => { if (node.item) setDrawer(true); }} activateOn="enter"
+          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
           onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(false); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
           onWindowChange={offset => { if (!staleSearch) setWindow(current => ({ ...current, offset, reveal: null })); }} reveal={window.reveal} hiddenColumns={hiddenColumns} busy={query.status === 'loading' || query.status === 'refreshing'} generation={generation}
           emphasis={emphasis} onEmphasisChange={staleSearch ? undefined : setEmphasis} onlyMatchingColumns={onlyMatching} emphasisActionLabel={m('emphasisAction')} emphasisColumnLabel={m('emphasis')} formatEmphasisCount={count => m('matchCount', { count })}
@@ -241,7 +242,7 @@ function Comparison({ params, hideSame, m }: { params: TreeParams; hideSame: boo
       </>;
     }}</QueryView>
     {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: EXPORT_LIMIT.toLocaleString() })}</span>}
-    {drawer && <QueryView query={detail}>{row => <ItemDetail row={row} eq={eq} params={params} m={m} close={() => setDrawer(false)} />}</QueryView>}
+    {drawer && <QueryView query={detail}>{row => <ItemDetail row={row} eq={eq} params={params} m={m} close={() => setDrawer(false)} openTrend={() => { setDrawer(false); openTrend(row.id); }} />}</QueryView>}
   </div>;
 }
 
@@ -258,6 +259,7 @@ export default function Configuration() {
   const eq = equipmentFromKey(pageParam('equipment'));
   const levels = pageParam('levels')?.split(',') ?? DEFAULT_LEVELS;
   const rawFilters = pageParams('filter');
+  const trendItem = pageParam(TREND_ITEM_KEY);
   const parsedFilters = readFilters(rawFilters, eq);
   const params: TreeParams = { eq, mode: (pageParam('mode') ?? 'all') as CompareParams['mode'], ref: pageParam('ref') ?? 'EQ01', asOf: 'latest', status: (pageParam('status') ?? 'review') as CompareStatus, q: pageParam('q') ?? '', coreOnly: pageParam('core') === '1', levels, filters: parsedFilters.ok ? parsedFilters.filters : [], expanded: [], offset: 0, limit: TREE_WINDOW };
   const validation = usePageKeyRules([
@@ -268,6 +270,7 @@ export default function Configuration() {
     { key: 'core', label: MESSAGES.coreOnly, valid: raw => raw === '1' },
     { key: 'status', label: MESSAGES.status, valid: raw => STATUS.includes(raw as CompareStatus) },
     { key: 'levels', label: MESSAGES.levelOrder, valid: raw => validLevels(raw.split(',')) },
+    { key: TREND_ITEM_KEY, label: MESSAGES.trendItem, valid: isRowId },
     { key: 'hideSameCols', label: MESSAGES.hideSame, valid: raw => raw === '1' },
     { key: 'filter', label: MESSAGES.filter, repeated: true, valid: () => parsedFilters.ok },
   ]);
@@ -276,11 +279,11 @@ export default function Configuration() {
   if (validation.invalid) content = <PageKeyWarning sentences={validation.sentences} onRecover={validation.recover} />;
   else if (!validEquipment(eq)) content = <EmptyState title={m('chooseEquipment')} />;
   else if (params.mode === 'reference' && !eq.includes(params.ref)) content = <EmptyState title={m('referenceRequired')} />;
-  else content = <Comparison key={`matrix:${identity}`} params={params} hideSame={pageParam('hideSameCols') === '1'} m={m} />;
+  else content = <ConfigurationWorkspace itemId={trendItem} params={params}>
+    {openTrend => <Comparison key={`matrix:${identity}`} params={params} hideSame={pageParam('hideSameCols') === '1'} m={m} openTrend={openTrend} />}
+  </ConfigurationWorkspace>;
   return <PlatformPage layout="fill" contextExtension={<Conditions m={m} />}
-    queryBarExtension={{ pageSummary: summaryFor(query.draft.page, m), appliedPageSummary: summaryFor(page, m), historyPageSummary, issues }}><div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 break-keep">
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-border-subtle bg-surface-card break-keep">
-      {content}
-    </div>
-  </div></PlatformPage>;
+    queryBarExtension={{ pageSummary: summaryFor(query.draft.page, m), appliedPageSummary: summaryFor(page, m), historyPageSummary, issues }}>
+    {content}
+  </PlatformPage>;
 }

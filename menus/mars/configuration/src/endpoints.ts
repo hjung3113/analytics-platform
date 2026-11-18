@@ -1,5 +1,5 @@
 /** Synthetic Configuration comparison wire contract; domain semantics stay outside the SDK. */
-import { defineEndpoint, menuPermission, parseFilterParams, type ColumnFilterSpec, type MatrixNode, type MatrixWindow, type MatrixWindowQuery, type SavedViewSupport } from '@ap/contracts';
+import { defineEndpoint, menuPermission, parseFilterParams, wallClockEpochMs, type GlobalContext, type ColumnFilterSpec, type MatrixNode, type MatrixWindow, type MatrixWindowQuery, type SavedViewSupport } from '@ap/contracts';
 
 export const EQUIPMENT = Array.from({ length: 20 }, (_, index) => `EQ${String(index + 1).padStart(2, '0')}`);
 export const DEFAULT_EQUIPMENT = EQUIPMENT.slice(0, 12);
@@ -50,12 +50,28 @@ export function filterDeclarations(equipment: readonly string[]) {
 export const filterSpecs = (equipment: readonly string[]): Record<string, ColumnFilterSpec> => Object.fromEntries(filterDeclarations(equipment).map(field => [field.id, field.spec]));
 export const readFilters = (values: readonly string[], equipment: readonly string[]) => parseFilterParams(values, filterSpecs(equipment), 'filter');
 
-export const PAGE_KEYS = ['equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols'];
+export const TREND_ITEM_KEY = 'trendItem';
+export const PAGE_KEYS = ['equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY];
 export const SAVED_VIEW_SUPPORT: SavedViewSupport = { menuId: 'configuration', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: PAGE_KEYS };
-// The synthetic latest value represents the end-of-period snapshot; no history/trend is synthesized.
+// The synthetic latest value represents the end-of-period snapshot.
 const base = { menuId: 'configuration', permission: menuPermission('analytics:view'), requiresScope: false, context: { time: 'apply' } as const, kinds: ['collection', 'coverage'] as const, mergeTimeDomain: false };
 const conditions = { eq: true, mode: true, ref: true, status: true, q: true, asOf: true, coreOnly: true, filters: true, levels: true } as const;
 export const configurationTreeEndpoint = defineEndpoint<TreeParams, TreePage>({ ...base, id: 'configuration.tree', paramKeys: { ...conditions, expanded: true, offset: true, limit: true } });
 export const configurationTreeNavigationEndpoint = defineEndpoint<TreeNavigationParams, TreeNavigation>({ ...base, id: 'configuration.tree-navigation', paramKeys: { ...configurationTreeEndpoint.paramKeys, focus: true, direction: true } });
 export const configurationDetailEndpoint = defineEndpoint<TreeParams & { focus: string }, ConfigRow>({ ...base, id: 'configuration.detail', paramKeys: { ...configurationTreeEndpoint.paramKeys, focus: true } });
 export const configurationExportEndpoint = defineEndpoint<TreeParams, ConfigRow[]>({ ...base, id: 'configuration.export', paramKeys: configurationTreeEndpoint.paramKeys, limits: { maxRows: EXPORT_LIMIT } });
+
+export type HistoryParams = { itemId: string; equipment: string[] };
+export type HistoryPoint = { at: string; value: number | string | null };
+export type ConfigHistory = { item: string; valueType: 'number' | 'string'; series: { equipment: string; points: HistoryPoint[] }[] };
+
+export function historyPeriod({ from, to }: Pick<GlobalContext, 'from' | 'to'>) {
+  if (typeof from !== 'string' || typeof to !== 'string') return null;
+  const start = wallClockEpochMs(from);
+  const end = wallClockEpochMs(to);
+  return start !== null && end !== null && start < end ? { from, to, start, end } : null;
+}
+
+export const configurationHistoryEndpoint = defineEndpoint<HistoryParams, ConfigHistory>({
+  ...base, id: 'configuration.history', paramKeys: { itemId: true, equipment: true },
+});

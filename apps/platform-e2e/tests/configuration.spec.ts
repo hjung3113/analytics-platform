@@ -67,12 +67,18 @@ test.describe('Configuration', () => {
     await open(page);
     await page.getByRole('button', { name: '다음 차이', exact: true }).click();
     const bottom = page.locator('[data-configuration-bottom]');
-    await expect(bottom).toContainText(/1\/[\d,]+/);
-    await expect(grid(page).locator('[role="gridcell"][aria-selected="true"]')).toHaveCount(1);
+    const selectedCell = page.locator('[role="gridcell"][aria-selected="true"]');
+    const selectedRow = grid(page).getByRole('row').filter({ has: selectedCell });
+    await expect(bottom.getByText(/^1\/[\d,]+$/)).toBeVisible();
+    await expect(selectedRow).toHaveCount(1);
+    const firstRowId = await selectedRow.getAttribute('data-matrix-row');
     await page.getByRole('button', { name: '다음 차이', exact: true }).click();
-    await expect(bottom).toContainText(/2\/[\d,]+/);
+    await expect(bottom.getByText(/^2\/[\d,]+$/)).toBeVisible();
+    await expect(grid(page)).toHaveAttribute('aria-busy', 'false');
+    await expect(selectedRow).not.toHaveAttribute('data-matrix-row', firstRowId!);
     await page.getByRole('button', { name: '이전 차이', exact: true }).click();
-    await expect(bottom).toContainText(/1\/[\d,]+/);
+    await expect(bottom.getByText(/^1\/[\d,]+$/)).toBeVisible();
+    await expect(selectedRow).toHaveAttribute('data-matrix-row', firstRowId!);
     await evidence(page, testInfo, 'configuration-navigation');
   });
 
@@ -119,5 +125,61 @@ test.describe('Configuration', () => {
     await page.getByRole('group', { name: '강조', exact: true }).getByRole('button', { name: '모두 지우기', exact: true }).click();
     await expect(outlined).toHaveCount(0);
     await expect(grid(page).getByRole('columnheader', { name: '강조', exact: true })).toHaveCount(0);
+  });
+
+  test('opens numeric trend below the matrix, then shows string lanes and closes', async ({ page }, testInfo) => {
+    await open(page, '&status=all');
+    const trend = page.locator('[data-configuration-trend]');
+    await grid(page).locator('[data-matrix-row="cfg-000000"] [data-matrix-column="identity"]').dblclick();
+    await expect(trend.locator('[data-configuration-numeric]')).toBeVisible();
+    await expect(trend.getByRole('img', { name: /^설비별 값/ })).toBeVisible();
+    await expect.poll(() => query(page).get('trendItem')).toBe('cfg-000000');
+    const workspace = page.locator('[data-panel-workspace]');
+    const matrixPanel = workspace.locator('[data-dock-panel="matrix"]');
+    const matrixBounds = await grid(page).boundingBox();
+    const panelBounds = await matrixPanel.boundingBox();
+    const trendBounds = await trend.boundingBox();
+    expect(matrixBounds!.height).toBeLessThanOrEqual(panelBounds!.height);
+    expect(trendBounds!.y).toBeGreaterThanOrEqual(matrixBounds!.y + matrixBounds!.height);
+    await expect(workspace.locator('[data-dock-row-separator="0"]')).toBeVisible();
+
+    await workspace.getByRole('button', { name: '설정값 추세 동작', exact: true }).click();
+    await page.getByRole('menuitem', { name: '숨기기', exact: true }).click();
+    await expect(trend).toHaveCount(0);
+    await grid(page).locator('[data-matrix-row="cfg-000001"] [data-matrix-column="identity"]').dblclick();
+    await expect(trend.locator('[data-lane-scroll]')).toBeVisible();
+    const reopenedBounds = await trend.boundingBox();
+    const currentPanelBounds = await matrixPanel.boundingBox();
+    expect(reopenedBounds!.y).toBeGreaterThanOrEqual(currentPanelBounds!.y + currentPanelBounds!.height);
+    await evidence(page, testInfo, 'configuration-trend-reopened');
+    await expect(trend.getByText('EQ01', { exact: true })).toBeVisible();
+    await expect(trend.getByText('AUTO', { exact: true })).toBeVisible();
+    await trend.getByRole('button', { name: '추세 닫기' }).click();
+    await expect(trend).toHaveCount(0);
+    await expect.poll(() => query(page).has('trendItem')).toBe(false);
+    await expect(grid(page)).toBeVisible();
+  });
+
+  test('captures and restores the trend item in a saved menu view', async ({ page }, testInfo) => {
+    await open(page, '&status=all');
+    await expandPageHead(page);
+    const trend = page.locator('[data-configuration-trend]');
+    await grid(page).locator('[data-matrix-row="cfg-000001"] [data-matrix-column="identity"]').dblclick();
+    await expect(trend.locator('[data-lane-scroll]')).toBeVisible();
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await page.getByRole('menuitem', { name: '새 뷰로 저장', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '뷰 저장' });
+    await dialog.getByRole('radio', { name: /^메뉴 뷰/ }).click();
+    await dialog.getByLabel('뷰 이름').fill('Configuration 추세');
+    await dialog.getByRole('button', { name: '저장', exact: true }).click();
+    await expect(page.getByRole('button', { name: '저장된 뷰: Configuration 추세' })).toBeVisible();
+
+    await trend.getByRole('button', { name: '추세 닫기' }).click();
+    await expect.poll(() => query(page).has('trendItem')).toBe(false);
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+    await expect.poll(() => query(page).get('trendItem')).toBe('cfg-000001');
+    await expect(trend.locator('[data-lane-scroll]')).toBeVisible();
+    await evidence(page, testInfo, 'configuration-saved-trend');
   });
 });

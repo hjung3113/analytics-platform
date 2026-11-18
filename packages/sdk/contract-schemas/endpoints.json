@@ -425,6 +425,24 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "configuration.history",
+    "menuId": "configuration",
+    "paramKeys": [
+      "itemId",
+      "equipment"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "configuration.tree",
     "menuId": "configuration",
     "paramKeys": [

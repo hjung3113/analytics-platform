@@ -106,3 +106,11 @@ it('keeps ticks present and labels distinct from one minute to years at widths 2
     expect(new Set(labels).size, `span=${span}`).toBe(labels.length);
   }
 });
+
+it('picks denser ticks when requested and falls back for invalid pixel spacing', () => {
+  const view: [number, number] = [Date.UTC(2026, 9, 21), Date.UTC(2026, 9, 22)];
+  const defaults = niceTicks(view, 600);
+  expect(niceTicks(view, 600, 72).length).toBeGreaterThan(defaults.length);
+  expect(niceTicks(view, 600, 0)).toEqual(defaults);
+  expect(niceTicks(view, 600, Number.NaN)).toEqual(defaults);
+});

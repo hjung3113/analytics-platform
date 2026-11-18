@@ -1,12 +1,13 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
-import { Button, InfoTip, cn } from '@ap/ui';
+import { RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { Button, InfoTip } from '@ap/ui';
 import { useI18n, useMessages } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { prepareLanes, segmentText, utcTick } from './laneTimelineGeometry';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
-import { ChartTrustFooter } from './analysisChartFrameParts';
+import { ChartCardHeader, ChartTrustFooter, ChartZoomButton } from './analysisChartFrameParts';
 import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
 import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
 import type { TimelineOverlay } from './laneTimelineTypes';
@@ -49,6 +50,12 @@ export type LaneTimelineProps = {
    * uncontrolled brush, or `value`/`onChange` to own the range. Omitted: no toggle, and drag, keys and summary are unchanged.
    */
   rangeBrush?: RangeBrushOptions;
+  /** Icon zoom controls and screen-reader-only guide and readouts. */
+  quiet?: boolean;
+  /** Insets the painted bands to leave one spacing-4 token between rows; row labels keep their original pitch. */
+  separateRows?: boolean;
+  /** Target tick spacing in pixels. The default is 160. */
+  tickSpacing?: number;
 };
 const noInstants: number[] = [];
 const noOverlays: TimelineOverlay[] = [];
@@ -77,6 +84,9 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const brush = useRangeBrush(props.rangeBrush);
   const brushOn = props.rangeBrush !== undefined;
   const brushRange = brushOn ? brush.range : null;
+  const zoomControl = (label: string, Icon: typeof ZoomIn, onClick: () => void) => props.quiet
+    ? <ChartZoomButton label={label} icon={Icon} onClick={onClick} />
+    : <Button size="toolbar" variant="ghost" onClick={onClick}>{label}</Button>;
   useImperativeHandle(props.ref, () => ({
     resetZoom: () => engine.current?.resetZoom(),
     reveal: index => engine.current?.reveal(index),
@@ -125,20 +135,17 @@ export function LaneTimeline(props: LaneTimelineProps) {
       } else if (event.key === '+' || event.key === '=') { event.preventDefault(); engine.current?.zoom(0.8); }
       else if (event.key === '-') { event.preventDefault(); engine.current?.zoom(1.25); }
     }}>
-    <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', section && 'pr-12')}>
-      <div className="min-w-0">
-        <h3 className="t-card-title">{props.ariaLabel}</h3>
-        {props.description && <p className="text-xs text-text-muted">{props.description}</p>}
-      </div>
-      <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
+    <ChartCardHeader reserveCorner={section !== null} title={<h3 className="t-card-title">{props.ariaLabel}</h3>}
+      subtitle={props.description && <p className="text-xs text-text-muted">{props.description}</p>} actions={<>
         <InfoTip label={m('laneHowToInteract')}>{m(brushOn ? 'laneInteractionHelpBrush' : 'laneInteractionHelp')}</InfoTip>
-        <Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(0.8)}>{m('laneZoomIn')}</Button><Button size="toolbar" variant="ghost" onClick={() => engine.current?.zoom(1.25)}>{m('laneZoomOut')}</Button>{brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
-        <Button size="toolbar" variant="ghost" onClick={() => { engine.current?.resetZoom(); if (brushOn) brush.clear(); }}>{m('laneZoomReset')}</Button>
+        {zoomControl(m('laneZoomIn'), ZoomIn, () => engine.current?.zoom(0.8))}
+        {zoomControl(m('laneZoomOut'), ZoomOut, () => engine.current?.zoom(1.25))}
+        {brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
+        {zoomControl(m('laneZoomReset'), RotateCcw, () => { engine.current?.resetZoom(); if (brushOn) brush.clear(); })}
         {props.imageCopy && <ChartImageCopyButton standalone={props.exportActions} fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
         {props.imagePrint && <ChartImagePrintButton standalone={props.exportActions} title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
-      </div>
-    </header>
-    <p className="px-4 py-2 text-text-secondary">{m('laneBoundaryHelp')}</p>
+      </>} />
+    <p className={props.quiet ? 'sr-only' : 'px-4 py-2 text-text-secondary'}>{m('laneBoundaryHelp')}</p>
     <p id={helpId} className="sr-only">{m(brushOn ? 'laneAccessibleHelpBrush' : 'laneAccessibleHelp')}</p>
     {unavailable ? <ChartUnavailable /> : (
     <div className="scrollbar-panel overflow-x-auto">
@@ -154,11 +161,11 @@ export function LaneTimeline(props: LaneTimelineProps) {
     </div>
     )}
     {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{m('chartNoData')}</p>}
-    <section aria-label={m('chartSelectionSummaryRegion')} className="bg-surface-sunken px-4 py-2 text-text-secondary">{brushRange
-      ? <>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}{' '}<Button type="button" size="toolbar" variant="ghost" onClick={() => engine.current?.showRange(brushRange)}>{m('intervalZoomToSelection')}</Button></>
+    <section aria-label={m('chartSelectionSummaryRegion')} className={props.quiet && !brushRange ? 'sr-only' : 'bg-surface-sunken px-4 py-2 text-text-secondary'}>{brushRange
+      ? <><span className={props.quiet ? 'sr-only' : undefined}>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}</span>{' '}<Button type="button" size="toolbar" variant="ghost" onClick={() => engine.current?.showRange(brushRange)}>{m('intervalZoomToSelection')}</Button></>
       : selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
     {overlayLines.length > 0 && <ul aria-label={m('laneMarkedTimes')} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
-    <p id={summaryId} role="status" aria-live="polite" className="px-4 py-2 text-text-secondary">{summary(focused)}</p>
+    <p id={summaryId} role="status" aria-live="polite" className={props.quiet ? 'sr-only' : 'px-4 py-2 text-text-secondary'}>{summary(focused)}</p>
     <ChartTrustFooter trust={props.trust} />
     <BodyTooltipPortal domRef={tooltip} hidden={!hover} className="pointer-events-none fixed z-50 max-w-xs break-words rounded border border-border-subtle bg-surface-card px-3 py-2 text-xs text-text-primary shadow-lg">{hover}</BodyTooltipPortal>
   </section>;

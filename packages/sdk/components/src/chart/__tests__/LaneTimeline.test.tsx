@@ -255,3 +255,19 @@ it('describes the ⓘ button with the interaction help, without opening the tool
   expect(screen.getByRole('button', { name: '조작 방법' }).getAttribute('aria-describedby')).toBeTruthy();
   expect(screen.getByRole('button', { name: '조작 방법' })).toHaveAccessibleDescription(/끌기: 이동/);
 });
+
+it('offers named icon controls in quiet mode and keeps the guide and summaries available to screen readers', () => {
+  mountLane(<LaneTimeline lanes={lanes} ariaLabel="Timeline" quiet />);
+  const zoom = screen.getByRole('button', { name: '확대' });
+  expect(zoom.textContent).toBe('');
+  expect(zoom.querySelector('svg')).not.toBeNull();
+  for (const name of ['축소', '확대 초기화']) {
+    expect(screen.getByRole('button', { name }).querySelector('svg')).not.toBeNull();
+  }
+  expect(screen.getByText('시작 미확인 · 종료 미확인')).toHaveClass('sr-only');
+  const region = screen.getByRole('region', { name: 'Timeline' });
+  fireEvent.keyDown(region, { key: 'ArrowRight' });
+  fireEvent.keyDown(region, { key: 'Enter' });
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveClass('sr-only');
+  expect(screen.getByRole('status')).toHaveClass('sr-only');
+});

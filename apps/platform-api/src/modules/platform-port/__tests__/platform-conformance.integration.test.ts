@@ -169,6 +169,7 @@ const NOT_REGISTERED: readonly string[] = [
   // MARS Configuration (`@ap/menu-configuration`, #2434) is mock-only: the CFG comparison has no core-server endpoints yet.
   'configuration.detail',
   'configuration.export',
+  'configuration.history',
   'configuration.tree',
   'configuration.tree-navigation',
 ];

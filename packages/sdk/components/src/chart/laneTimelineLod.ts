@@ -1,5 +1,5 @@
 import type { ThemeColorToken } from '@ap/ui/theme';
-import { fillVisibleRects, FLAG_NEUTRAL, FLAG_OPEN, FLAG_ORPHAN, GUTTER, laneGeometry, laneWindow, MIN_WIDTH, ROW_HEIGHT, visibleLanes, type LaneModel, type RectBuffer } from './laneTimelineModel';
+import { fillVisibleRects, FLAG_NEUTRAL, FLAG_OPEN, FLAG_ORPHAN, GUTTER, laneGeometry, laneRowInset, laneWindow, MIN_WIDTH, ROW_HEIGHT, visibleLanes, type LaneModel, type RectBuffer } from './laneTimelineModel';
 import { outlineStyle } from './laneTimelineGeometry';
 
 /**
@@ -117,7 +117,7 @@ export function paintFrame(ctx: CanvasRenderingContext2D, style: LaneStyle, fram
     const { deco, clips } = pass;
     for (let k = 0; k < deco.length; k += 4) {
       const lane = deco[k]; const o = deco[k + 1]; const from = deco[k + 2]; const to = deco[k + 3];
-      const g = laneGeometry(style.model.cols[lane], o, lane, frame.view, frame.width, plot, frame.scroll);
+      const g = laneGeometry(model, o, lane, frame.view, frame.width, plot, frame.scroll);
       if (from < 0) { decorate(ctx, style, lane, o, g.x, g.y, g.width, g.height, true); continue; }
       ctx.save(); ctx.beginPath();
       for (let r = from; r < to; r += 2) ctx.rect(clips[r], 0, clips[r + 1] - clips[r], height);
@@ -161,6 +161,7 @@ function bucketLane(style: LaneStyle, lane: number, window: number[], frame: { v
   const cols = style.model.cols[lane]; const { view, width, scroll } = frame;
   // Constants of the lane (module imports are hoisted into locals: a property load per segment otherwise), in the arithmetic of `laneGeometry` (division kept so every column edge is bit-identical).
   const { start, end, depth: depthCol, color: colorCol, flags, rank: rankCol } = cols;
+  const rowInset = style.model.rowInset ?? 0;
   const v0 = view[0]; const span = view[1] - view[0]; const minWidth = MIN_WIDTH; const gutter = GUTTER; const maxX = width - minWidth; const rowTop = lane * ROW_HEIGHT - scroll;
   const { cover, off, ivOffset, ivFrom, ivTo, found } = sc;
   const { codeId, neutralId, rankOutlineId, outlineCount, rankOutline } = style; const fallback = style.paletteIds[lane % style.paletteIds.length];
@@ -168,7 +169,7 @@ function bucketLane(style: LaneStyle, lane: number, window: number[], frame: { v
   for (let from = 0; from < n;) {
     const depth = depthCol[offsets[from]]; let to = from + 1;
     while (to < n && depthCol[offsets[to]] === depth) to++;
-    const inset = Math.min(depth * 2, 11); const y = rowTop + inset; const h = ROW_HEIGHT - inset * 2;
+    const inset = laneRowInset(depth, rowInset); const y = rowTop + inset; const h = ROW_HEIGHT - inset * 2;
     let lo = columns; let hi = -1;
     for (let k = from; k < to; k++) {
       const o = offsets[k];
@@ -209,7 +210,7 @@ function bucketLane(style: LaneStyle, lane: number, window: number[], frame: { v
     const list = found.subarray(0, wanted).sort(); const { deco, clips } = pass;
     for (let k = 0; k < wanted; k++) {
       const o = list[k]; if (k > 0 && o === list[k - 1]) continue;
-      const g = laneGeometry(cols, o, lane, view, width, plot, scroll);
+      const g = laneGeometry(style.model, o, lane, view, width, plot, scroll);
       const lo2 = g.x - DECO_REACH; const hi2 = g.x + Math.max(g.width, 6) + DECO_REACH;
       let a = 0; let b = intervals; // first interval ending after lo2
       while (a < b) { const m = (a + b) >> 1; if (ivTo[m] > lo2) b = m; else a = m + 1; }

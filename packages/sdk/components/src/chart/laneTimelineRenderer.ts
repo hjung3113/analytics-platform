@@ -4,6 +4,7 @@ import { drawOverlays, resolveOverlays, type ResolvedOverlays, type ValidOverlay
 import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic, laneTickLabel, niceTicks, RectBuffer, ROW_HEIGHT, segmentRect, segmentText, type LaneModel } from './laneTimelineGeometry';
 import { createLaneStyle, paintFrame, type LaneStyle } from './laneTimelineLod';
 import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
+import { laneRowInset } from './laneTimelineModel';
 
 /** Everything the renderer reads from React. `update()` takes the same fields (without the elements) on every render. */
 export type RendererState = {
@@ -28,7 +29,8 @@ const styleKeyOf = (props: LaneTimelineProps) => JSON.stringify([
 export function createLaneRenderer(input: RendererInput) {
   const { root, canvas, overlay, axis, scroll, spacer, tooltip } = input;
   // Latest React values. Callbacks and `formatTick`/`formatTooltip` are read at use, so a new identity never triggers a draw.
-  let model = input.model; let props = input.props; let selectedId = input.selectedId; let lang = input.lang; let overlays = input.overlays;
+  let sourceModel = input.model; let model = sourceModel;
+  let props = input.props; let selectedId = input.selectedId; let lang = input.lang; let overlays = input.overlays;
   let onSelect = input.onSelect; let onHover = input.onHover; let brush = input.brush ?? null;
   // The range under an unfinished brush drag (time, in drag order); drawn instead of the committed range until the pointer lifts.
   let brushDraft: [number, number] | null = null;
@@ -99,15 +101,22 @@ export function createLaneRenderer(input: RendererInput) {
   }
   function drawData() {
     const header = setup(axis, HEADER_HEIGHT); const ctx = setup(canvas, height);
+    const computed = getComputedStyle(root);
+    // Resolve the pixel spacing token once per draw. Leave the scroll and label pitch at 24px.
+    const gap = props.separateRows ? Number.parseFloat(computed.getPropertyValue('--spacing-4')) : 0;
+    const rowInset = Number.isFinite(gap) && gap > 0 ? laneRowInset(0, gap / 2) : 0;
+    if (rowInset !== (model.rowInset ?? 0)) {
+      model = { ...sourceModel, rowInset };
+      styleCache = null;
+    }
     const plotWidth = width - GUTTER;
     const x = (time: number) => GUTTER + (time - view[0]) / (view[1] - view[0]) * plotWidth;
     if (header) {
-      const computed = getComputedStyle(root);
       header.font = `${computed.fontSize || '12px'} ${computed.fontFamily || 'sans-serif'}`;
       // eslint-disable-next-line shadcn/no-raw-colors -- canvas reads a theme token by name (color()), not a class string
       header.fillStyle = color('text-secondary'); header.textBaseline = 'middle';
       let previousEnd = GUTTER;
-      for (const [index, tick] of niceTicks(view, plotWidth).entries()) {
+      for (const [index, tick] of niceTicks(view, plotWidth, props.tickSpacing).entries()) {
         const text = props.formatTick?.(tick) ?? laneTickLabel(tick, index === 0); const textWidth = Math.min(plotWidth, header.measureText(text).width);
         const left = Math.max(GUTTER, Math.min(width - textWidth, x(tick) - textWidth / 2));
         if (left < previousEnd) continue;
@@ -239,15 +248,17 @@ export function createLaneRenderer(input: RendererInput) {
     const prevBrush = brush; brush = next.brush ?? null;
     if (!brush?.mode) brushDraft = null;
     if (prevBrush?.mode !== brush?.mode || prevBrush?.range?.[0] !== brush?.range?.[0] || prevBrush?.range?.[1] !== brush?.range?.[1]) schedule(false);
-    const modelChanged = next.model !== model; const prevProps = props; props = next.props;
+    const modelChanged = next.model !== sourceModel; const prevProps = props; props = next.props;
     if (modelChanged) {
-      model = next.model; view = [...model.domain]; drag = null; brushDraft = null; lastHover = null; invalidateHover(); onHover(null);
+      sourceModel = next.model; model = sourceModel; view = [...model.domain]; drag = null; brushDraft = null; lastHover = null; invalidateHover(); onHover(null);
       // The new model has not been painted: close the hit gate until drawData() runs, so hits never mix it with the old view.
       hasDrawn = false; overlayCache = null;
       sizeKey = ''; resize(); styleCache = null; schedule();
     }
     if (styleKeyOf(props) !== styleKey) { readStyleProps(); styleCache = null; schedule(); }
     if (!modelChanged && props.height !== prevProps.height) resize();
+    if (!Object.is(props.tickSpacing, prevProps.tickSpacing)) schedule();
+    if (props.separateRows !== prevProps.separateRows) schedule();
     if (next.selectedId !== selectedId) { selectedId = next.selectedId; schedule(false); }
     if (next.overlays !== overlays) { overlays = next.overlays; overlayCache = null; schedule(false); }
   }

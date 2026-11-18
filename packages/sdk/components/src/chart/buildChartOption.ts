@@ -145,6 +145,7 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
 }
 
 export type ChartOptionInput = {
+  yFit?: boolean;
   bounds?: ChartBounds;
   boundLabels?: ChartBoundLabels;
   rowGroups?: ChartRowGroups;
@@ -291,8 +292,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     });
     return rows.join('<br/>');
   }
-  const valueAxis = { type: 'value', min: 0, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
-    ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
+  const fitY = i.yFit && !horizontal && i.displayed.every(series => (series.kind ?? 'line') === 'line');
+  const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: 0 }), name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
+    ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
   };
   return {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
@@ -345,6 +347,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
           showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
+          ...(kind === 'line' && s.step ? { step: s.step } : {}),
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
           emphasis: { focus: i.emphasisFocus ?? 'none' },
           // The tooltip's own formatter is the left axis'; a right series reads its unit and format.

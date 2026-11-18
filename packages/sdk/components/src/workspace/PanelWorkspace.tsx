@@ -107,9 +107,12 @@ export type PanelWorkspaceProps = {
   /**
    * Brings `panelId` to the front of its tab group when `seq` changes (a menu counts up: `{ panelId: 'trend', seq: n + 1 }`). Only the active tab
    * changes: a hidden panel stays hidden (hiding is the user's decision), another panel's maximize is kept (it is a no-op, not queued) and focus
-   * never moves. An unknown `panelId`, a repeated `seq` and `null` do nothing. A request present on mount is not applied.
+   * never moves. An explicit user action can opt into `restoreHidden` to show a hidden panel, ending another panel's maximize
+   * so the restored panel is visible. It uses its declared placement when it has no preset sibling to rejoin. Collapsed and
+   * floating panels keep their placement. An unknown `panelId`, a repeated `seq` and `null` do nothing. A request present on
+   * mount is not applied.
    */
-  revealRequest?: { panelId: string; seq: number } | null;
+  revealRequest?: { panelId: string; seq: number; restoreHidden?: boolean } | null;
   /**
    * Local preference of a standalone workspace (no `PlatformProvider`, #1953). Without it a standalone workspace keeps its layout in memory.
    * Inside a `PlatformProvider` it is ignored: the platform key names the session user and the routed menu, so one person's layout never
@@ -305,11 +308,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       setStored(previous => { const next = change(previous); return settle === 'raw' || env === null ? next : settleRows(previous, next, settle, env, created); });
     }
   }, [rowEnv]);
-  // Reveal request (#690): the active tab only, persisted like a user activation. The seq present at mount counts as handled.
+  // A reveal persists like a user activation. The seq present at mount counts as handled.
   const knownIds = panels.map(panel => panel.id).join('|');
   const handledSeq = useRef(revealRequest?.seq);
   const revealSeq = revealRequest?.seq;
   const revealId = revealRequest?.panelId;
+  const restoreHidden = revealRequest?.restoreHidden;
   const [dockReveal, setDockReveal] = useState<{ panelId: string; seq: number } | null>(null);
   useEffect(() => {
     if (revealSeq === undefined || revealId === undefined || revealSeq === handledSeq.current) return;
@@ -318,13 +322,23 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
       return;
     }
-    // The user chose another panel's focus: not ended, not queued. A hidden panel is not in the layout, so the change below leaves it hidden.
-    const other = live.current.maximizedId;
-    if (other !== null && other !== revealId) return;
-    update(current => { const home = groupOf(current.layout, revealId); return home && home.active !== revealId ? { ...current, layout: activatePanel(current.layout, revealId) } : current; });
-    // The one-group narrow display has its own selection; a hidden panel is not in the layout, so it is not forwarded.
-    if (panelOrder(live.current.derived.layout).includes(revealId)) setDockReveal({ panelId: revealId, seq: revealSeq });
-  }, [revealSeq, revealId, knownIds, update]);
+    const { maximizedId: other, primaryId, presets, derived, below } = live.current;
+    const restoring = restoreHidden === true && derived.hidden.includes(revealId)
+      && !derived.collapsed?.[revealId] && !derived.floating?.some(panel => panel.panelId === revealId);
+    if (other !== null && other !== revealId) {
+      if (!restoring) return;
+      setMaximized(null);
+    }
+    update(current => {
+      const next = restoring
+        ? showPanel(current, revealId, primaryId, presets.find(candidate => candidate.id === current.preset) ?? presets[0]!, below)
+        : current;
+      const home = groupOf(next.layout, revealId);
+      return home && home.active !== revealId ? { ...next, layout: activatePanel(next.layout, revealId) } : next;
+    });
+    // The one-group narrow display has its own selection.
+    if (restoring || panelOrder(derived.layout).includes(revealId)) setDockReveal({ panelId: revealId, seq: revealSeq });
+  }, [revealSeq, revealId, restoreHidden, knownIds, update]);
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }

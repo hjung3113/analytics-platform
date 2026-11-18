@@ -52,3 +52,18 @@ it('draws the selection outline on the overlay canvas only, and a selection chan
   expect(outline(x.overlay)).not.toEqual(outline(y.overlay));
   expect(x.overlay.findIndex(op => op.startsWith('=lineWidth|2'))).toBeGreaterThan(-1);
 });
+
+it('opens a token-sized gap between painted rows while retaining the label pitch', () => {
+  const lanes = [lane, { id: 'b', label: 'B', segments: [{ id: 'z', start: 0, end: 90 }] }];
+  render(<I18nProvider>
+    <LaneTimeline lanes={lanes} ariaLabel="Timeline" separateRows selectedId="z" />
+  </I18nProvider>);
+  screen.getByRole('region', { name: 'Timeline' }).style.setProperty('--spacing-4', '4px');
+  flush();
+  const bands = logs.get(dataCanvas())!.filter(op => op[0] === 'fillRect');
+  expect(bands).toContainEqual(['fillRect', 112, 2, expect.any(Number), 20]);
+  expect(bands).toContainEqual(['fillRect', 112, 26, expect.any(Number), 20]);
+  expect(logs.get(overlayCanvas())).toContainEqual(['strokeRect', 113, 27, expect.any(Number), 18]);
+  expect(screen.getByText('A')).toHaveClass('h-6');
+  expect(screen.getByText('B')).toHaveClass('h-6');
+});
