@@ -309,7 +309,7 @@ test.describe('Configuration lent HW Time trend', () => {
     await page.addInitScript(() => localStorage.setItem('platform:test:configuration-lending-denial', '1'));
     await open(page, `${scopeComparison}&trendItem=cfg-000000`);
     await expect(page.locator('[data-configuration-trend]')).toBeVisible();
-    await expect(page.locator('[data-configuration-bottom]')).toContainText('패널을 볼 권한이 없습니다.');
+    await expect(page.locator('[data-configuration-bottom]')).toContainText('HW Time의 HTM 추세 패널을 볼 권한이 없습니다.');
     await expect(lent(page)).toHaveCount(0);
     expect(await requests(page)).toBe(0);
     await evidence(page, testInfo, 'configuration-lending-denial');

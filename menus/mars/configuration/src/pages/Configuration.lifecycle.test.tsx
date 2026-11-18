@@ -694,7 +694,8 @@ it('keeps the settings trend and shows a reason without querying a separately de
   const cell = host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!;
   await act(async () => { cell.focus(); cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
   await vi.waitFor(() => expect(host.querySelector('[data-configuration-trend]')).not.toBeNull());
-  expect(host.textContent).toContain('패널을 볼 권한이 없습니다.');
+  // The reason names the lending menu and its declared panel title (Kernel), not a Configuration string.
+  expect(host.textContent).toContain(`${sourceMenu.label.ko}의 ${sourceTitle.ko} 패널을 볼 권한이 없습니다.`);
   expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
   expect(requests.mock.calls.some(([request]) => request.endpoint === 'hwTime.runs')).toBe(false);
 });
