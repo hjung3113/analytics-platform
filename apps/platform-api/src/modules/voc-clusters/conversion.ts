@@ -25,8 +25,13 @@ import {
 import { createFindingFromVocCluster, lockFindingForUpdate } from '../findings/commands.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
 import { isRequestableDenial } from '../permissions/index.js';
-import { lockVocClusterById } from './repo.js';
-import type { VocClustersActor, VocClustersServiceDeps } from './service.js';
+import { actorReadScope, canReadVocAsSource } from '../voc/authorization.js';
+import { selectVocForUpdate } from '../voc/index.js';
+import { listVocClusterMembers, lockVocClusterById } from './repo.js';
+import type { isAuthorizedMember as IsAuthorizedMemberFn, VocClustersActor, VocClustersServiceDeps } from './service.js';
+
+type IsAuthorizedMember = typeof IsAuthorizedMemberFn;
+
 
 export function createVocClusterConversion(
   deps: VocClustersServiceDeps,
@@ -36,7 +41,68 @@ export function createVocClusterConversion(
     managedSystemId: string,
     options?: Parameters<VocClustersServiceDeps['checkService']['checkCapability']>[3],
   ) => Promise<boolean>,
+  isAuthorizedMember: IsAuthorizedMember,
 ) {
+  async function getReadableEvidenceMembers(args: {
+    tx: Tx;
+    actor: VocClustersActor;
+    clusterId: string;
+    clusterManagedSystemId: string;
+    vocIds: string[];
+    /** A replay returns only the Finding, so it re-checks that each VOC is still readable, not that it is still a
+     * member: a member removed after the first call must not turn the replay of a created Finding into a 404. */
+    requireMembership: boolean;
+  }): Promise<string[]> {
+    if (args.vocIds.length === 0) return [];
+
+    const readScope = await actorReadScope(args.tx, args.actor);
+    const memberIds = args.requireMembership
+      ? new Set(
+          (await listVocClusterMembers(args.tx, { clusterId: args.clusterId })).map(
+            (member) => member.voc_id,
+          ),
+        )
+      : null;
+    const readableVocIds: string[] = [];
+
+    for (const vocId of [...args.vocIds].sort()) {
+      if (memberIds && !memberIds.has(vocId)) throw new HttpError('not_found.record', 'record not found');
+
+      const voc = await selectVocForUpdate(args.tx, args.actor.workspace_id, vocId);
+      if (
+        !voc ||
+        !isAuthorizedMember(
+          readScope,
+          args.actor.actor_id,
+          {
+            archived_at: voc.archivedAt,
+            primary_managed_system_id: voc.primaryManagedSystemId,
+            reporter_id: voc.reporterId,
+          },
+          args.clusterManagedSystemId,
+        ) ||
+        !(await canReadVocAsSource(
+          deps.checkService,
+          args.actor,
+          {
+            managedSystemId: voc.primaryManagedSystemId,
+            reporterId: voc.reporterId,
+          },
+          { tx: args.tx },
+        ))
+      ) {
+        throw new HttpError('not_found.record', 'record not found');
+      }
+      // 06 §create-time gate: every direct-insert path calls the one compatibility seam.
+      assertLinkManagedSystemCompatibility(voc.primaryManagedSystemId, args.clusterManagedSystemId, {
+        path: ['evidence_voc_ids'],
+      });
+      readableVocIds.push(vocId);
+    }
+
+    return readableVocIds;
+  }
+
   async function assertTargetAnalyticsArea(args: {
     tx: Tx;
     workspaceId: string;
@@ -61,6 +127,7 @@ export function createVocClusterConversion(
   }) {
     return deps.db.transaction(async (tx) => {
       await lockRecoveryCommand(tx, args.actor.workspace_id);
+      const evidenceVocIds = args.input.evidence_voc_ids ?? [];
       return deps.idempotencyService.runIdempotent(
         tx,
         args.actor.actor_id,
@@ -118,6 +185,15 @@ export function createVocClusterConversion(
             },
           );
 
+          const evidenceMemberIds = await getReadableEvidenceMembers({
+            tx,
+            actor: args.actor,
+            clusterId: cluster.id,
+            clusterManagedSystemId: cluster.primary_managed_system_id,
+            vocIds: evidenceVocIds,
+            requireMembership: true,
+          });
+
           await assertTargetAnalyticsArea({
             tx,
             workspaceId: args.actor.workspace_id,
@@ -146,6 +222,14 @@ export function createVocClusterConversion(
             },
             deps,
           );
+
+          const evidenceRecovery =
+            evidenceVocIds.length > 0
+              ? await deps.recoveryRecorder?.capture(tx, args.actor.workspace_id, [
+                  { type: 'finding', id: finding.id },
+                  ...evidenceVocIds.map((vocId) => ({ type: 'voc' as const, id: vocId })),
+                ])
+              : undefined;
 
           const createdFindingTuple = registeredEntityLinkPairSchema.parse({
             source_type: 'voc_cluster',
@@ -203,10 +287,53 @@ export function createVocClusterConversion(
             });
           }
 
+          const evidenceTuple = registeredEntityLinkPairSchema.parse({
+            source_type: 'voc',
+            target_type: 'finding',
+            relation_type: 'evidence_of',
+          });
+          for (const vocId of evidenceMemberIds) {
+            const evidenceLink = await createEntityLink(tx, {
+              workspaceId: args.actor.workspace_id,
+              sourceType: evidenceTuple.source_type,
+              sourceId: vocId,
+              targetType: evidenceTuple.target_type,
+              targetId: finding.id,
+              relationType: evidenceTuple.relation_type,
+              managedSystemId: cluster.primary_managed_system_id,
+              createdBy: args.actor.actor_id,
+              visibility: 'internal_only',
+            });
+            if (evidenceLink.inserted) {
+              await deps.auditService.record(tx, {
+                workspace_id: args.actor.workspace_id,
+                actor_id: args.actor.actor_id,
+                event_type: 'entity_link.created',
+                subject_type: 'entity_link',
+                subject_id: evidenceLink.row.id,
+                summary: 'Entity link created',
+                detail: {
+                  link_id: evidenceLink.row.id,
+                  source: { type: 'voc', id: vocId },
+                  target: { type: 'finding', id: finding.id },
+                  relation_type: 'evidence_of',
+                  visibility: 'internal_only',
+                },
+              });
+            }
+          }
+
           if (recovery)
             await deps.recoveryRecorder?.finish(
               tx,
               recovery,
+              args.actor.actor_id,
+              'createFindingFromCluster',
+            );
+          if (evidenceRecovery)
+            await deps.recoveryRecorder?.finish(
+              tx,
+              evidenceRecovery,
               args.actor.actor_id,
               'createFindingFromCluster',
             );
@@ -249,6 +376,21 @@ export function createVocClusterConversion(
           beforeReplay: async ({ body }) => {
             const decision = await checkFindingRead(deps.checkService, args.actor, body.primary_managed_system_id, { requireElevatedRole: true }, { tx });
             if (!decision.allow) throw new HttpError('not_found.record', 'record not found');
+            if (evidenceVocIds.length > 0) {
+              const replayCluster = await lockVocClusterById(tx, {
+                workspaceId: args.actor.workspace_id,
+                clusterId: args.clusterId,
+              });
+              if (!replayCluster) throw new HttpError('not_found.record', 'record not found');
+              await getReadableEvidenceMembers({
+                tx,
+                actor: args.actor,
+                clusterId: replayCluster.id,
+                clusterManagedSystemId: replayCluster.primary_managed_system_id,
+                vocIds: evidenceVocIds,
+                requireMembership: false,
+              });
+            }
           },
         },
       );

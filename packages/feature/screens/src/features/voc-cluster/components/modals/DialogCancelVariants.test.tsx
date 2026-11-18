@@ -64,7 +64,12 @@ const dialogs = [
     render: () => (
       <CreateFindingFromClusterModal
         open
-        clusterId="10000000-0000-0000-0000-000000000001"
+        cluster={{
+          id: '10000000-0000-0000-0000-000000000001',
+          title: 'Cluster title',
+          summary: 'Cluster summary',
+          members: [],
+        }}
         onClose={vi.fn()}
       />
     ),

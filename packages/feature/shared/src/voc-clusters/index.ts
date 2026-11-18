@@ -161,7 +161,19 @@ export const listVocClustersResponseSchema = z
   .strict();
 export type ListVocClustersResponse = z.infer<typeof listVocClustersResponseSchema>;
 
-export const createFindingFromVocClusterRequestSchema = createFindingRequestSchema;
+const MAX_CLUSTER_FINDING_EVIDENCE_VOC_IDS = 1000;
+
+export const createFindingFromVocClusterRequestSchema = createFindingRequestSchema
+  .extend({
+    evidence_voc_ids: z
+      .array(z.string().uuid())
+      .max(MAX_CLUSTER_FINDING_EVIDENCE_VOC_IDS)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: 'evidence_voc_ids must be unique',
+      })
+      .optional(),
+  })
+  .strict();
 export type CreateFindingFromVocClusterRequest = z.infer<
   typeof createFindingFromVocClusterRequestSchema
 >;

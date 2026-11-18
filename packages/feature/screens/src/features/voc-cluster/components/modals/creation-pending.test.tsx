@@ -20,7 +20,7 @@ describe('creation pending dismissal', () => {
     const seam: HostSeam = { canLink: () => true, Link: ({ children }) => <a href="#host">{children}</a>, useNavigate: () => navigate, notifyError: vi.fn(), notifySuccess: vi.fn() };
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><HostSeamProvider value={seam}>
-      {kind === 'cluster' ? <CreateClusterModal open onClose={onClose} onCreated={onCreated} /> : <CreateFindingFromClusterModal open clusterId="00000000-0000-4000-8000-000000000002" onClose={onClose} />}
+      {kind === 'cluster' ? <CreateClusterModal open onClose={onClose} onCreated={onCreated} /> : <CreateFindingFromClusterModal open cluster={{ id: '00000000-0000-4000-8000-000000000002', title: 'Cluster title', summary: 'Cluster summary', members: [] }} onClose={onClose} />}
     </HostSeamProvider></QueryClientProvider>);
     const prefix = kind === 'cluster' ? 'create-cluster' : 'create-finding-from-cluster';
     fireEvent.change(screen.getByLabelText(/제목/), { target: { value: 'Synthetic title' } });
