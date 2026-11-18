@@ -10,7 +10,7 @@ export const pageCopy = {
   opinionGrade: '의견 등급', opinionGradePrefix: '의견 등급:', all: '전체', problems: '문제만', noOpinion: '의견 없음',
   resultsLoading: '규칙 결과 불러오는 중…', resultsUnavailable: '규칙 결과 집계 불가',
   scaleLoading: '의견 척도 불러오는 중…', scaleUndeclared: '의견 척도 미선언', showAll: '전체 보기',
-  requiredUnchecked: (count: number) => `필수 미검증 ${count}건`, resultCount: (count: number, total: number) => `${count}건 · 전체 규칙 ${total}건`,
+  requiredUnchecked: (count: number) => `필수 오류·미검증·건너뜀 ${count}건`, resultCount: (count: number, total: number) => `${count}건 · 전체 규칙 ${total}건`,
   noCompletedAttempt: '완료된 검증 시도 없음', noRequests: '요청 없음 · 이 Round의 검증을 요청하면 작업자가 실행 시간대에 가져갑니다.', unknownState: '상태 확인 불가',
   completedResult: (number: number) => `완료된 시도 #${number}의 결과를 보여 줍니다.`,
   register: '요청 등록', outside: '시간대 밖', queueInfo: '실행 시간대 안내',

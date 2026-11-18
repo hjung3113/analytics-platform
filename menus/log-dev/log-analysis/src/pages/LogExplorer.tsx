@@ -3,7 +3,7 @@ import { Info, PanelRight } from 'lucide-react';
 import type { ApiResponse, PageResult } from '@ap/contracts';
 import { useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
 import { HeaderOverflowItem, OrderedIntervalTrack, PageFilterBar, PageKeyWarning, PlatformDataTable, PlatformPage, RowAction, StateMessage, useHeaderOverflowDialog, usePageKeyRules, type PageFilterField, type PlatformColumn } from '@ap/components';
-import { Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SearchInput, Skeleton, StatusBadge, Tabs, TabsList, TabsTrigger } from '@ap/ui';
+import { Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SearchInput, Skeleton, StatusBadge, Tabs, TabsList, TabsTrigger, useImeEnterGuard } from '@ap/ui';
 import { investigationsEndpoint, investigationDetailEndpoint, investigationUpdate, isUuid, periodsEndpoint, recordsEndpoint, type Investigation, type InvestigationFilters, type SampleSet, type SourceRow } from '../endpoints';
 import { BasketDrawer, ExportDialog, RecordDrawer, SampleDialog, SourceNotice } from './ExplorerPanels';
 import { periodSelectionOf, queryFrom, selectionOf, sequenceData, sourceReadable } from './explorerModel';
@@ -11,10 +11,16 @@ import { DEFAULT_PAGE_KEYS, PageKeysContext, type PageKeys } from './pageKeys';
 import { useSourceRead } from './useSourceRead';
 import { isAnswered } from '@ap/contracts';
 
+const FILTER_KEYS = ['logType', 'module', 'event', 'contextKey', 'contextValue', 'text'] as const;
+type FilterKey = typeof FILTER_KEYS[number];
+const FILTER_LABELS: Record<FilterKey, string> = { logType: '로그 타입', module: 'Module', event: 'Event', contextKey: 'Context 키', contextValue: 'Context 값', text: '검색' };
+const FILTER_BAR_KEYS = ['logType', 'module', 'event', 'contextKey', 'contextValue'] as const;
+const FILTER_MAX_LENGTH: Record<FilterKey, number> = { logType: 100, module: 100, event: 100, contextKey: 100, contextValue: 200, text: 200 };
 const rulesFor = (keys: PageKeys) => [
   { key: keys.tab, label: { ko: '탭', en: 'Tab' }, valid: (s: string) => s === 'raw' || s === 'sequence' },
   { key: keys.focus, label: { ko: '근거 위치', en: 'Evidence location' }, valid: (s: string) => /^[1-9]\d*:[1-9]\d*$/.test(s) },
   { key: keys.drawer, label: { ko: '서랍', en: 'Drawer' }, valid: (s: string) => s === 'record' || s === 'basket' },
+  ...FILTER_KEYS.map(key => ({ key: keys[key], label: { ko: FILTER_LABELS[key], en: FILTER_LABELS[key] }, valid: (value: string) => value.length <= FILTER_MAX_LENGTH[key] })),
 ];
 const STATES = { period: { label: '기간 행', colorToken: 'chart-blue' as const }, incomplete: { label: 'incomplete · 불완전', colorToken: 'chart-purple' as const } };
 const media = () => window.matchMedia('(max-width: 1280px)');
@@ -64,13 +70,30 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const tab = pageParam(pageKeys.tab) ?? 'raw';
   const focus = pageParam(pageKeys.focus);
   const drawer = pageParam(pageKeys.drawer);
+  const urlFilterValues = Object.fromEntries(FILTER_KEYS.map(key => [key, pageParam(pageKeys[key])])) as Record<FilterKey, string | null>;
   const [writeVersion, setWriteVersion] = useState({ source: investigation.version, current: investigation.version });
   if (writeVersion.source !== investigation.version) setWriteVersion({ source: investigation.version, current: investigation.version });
   const currentInvestigation = { ...investigation, version: writeVersion.source === investigation.version ? writeVersion.current : investigation.version };
   const acceptVersion = (version: string) => setWriteVersion(v => ({ ...v, current: version }));
   const savedKey = JSON.stringify(investigation.filters);
-  const [filters, setFilters] = useState({ savedKey, draft: investigation.filters, applied: investigation.filters });
-  if (filters.savedKey !== savedKey) setFilters({ savedKey, draft: investigation.filters, applied: investigation.filters });
+  const seedFilters = () => {
+    const draft = { ...investigation.filters };
+    const applied = { ...investigation.filters };
+    const partialContext = (urlFilterValues.contextKey !== null) !== (urlFilterValues.contextValue !== null);
+    for (const key of FILTER_KEYS) {
+      if (urlFilterValues[key] === null) continue;
+      if (partialContext && (key === 'contextKey' || key === 'contextValue')) continue;
+      draft[key] = urlFilterValues[key]!;
+      applied[key] = urlFilterValues[key]!;
+    }
+    if (partialContext) {
+      draft.contextKey = urlFilterValues.contextKey ?? '';
+      draft.contextValue = urlFilterValues.contextValue ?? '';
+    }
+    return { draft, applied };
+  };
+  const [filters, setFilters] = useState(() => ({ savedKey, ...seedFilters() }));
+  if (filters.savedKey !== savedKey) setFilters({ savedKey, ...seedFilters() });
   const query = queryFrom(filters.applied);
   const filterKey = JSON.stringify(query);
   const [paging, setPaging] = useState<{ key: string; cursors: (string | null)[]; index: number }>({ key: filterKey, cursors: [null], index: 0 });
@@ -84,6 +107,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const update = useMenuAction(investigationUpdate);
   const [writeNotice, setWriteNotice] = useState('');
   const narrow = useSyncExternalStore(subscribeNarrow, narrowSnapshot, () => false);
+  const filterIme = useImeEnterGuard();
   const selection = set ? selectionOf(focus, set) : null;
   const drawerOpen = drawer === 'basket' || !!selection;
   const compactColumns = narrow && drawerOpen;
@@ -105,15 +129,32 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
   const active = tab === 'raw' ? records : periods;
   const contextInvalid = !!filters.draft.contextKey !== !!filters.draft.contextValue;
   const pending = JSON.stringify(filters.draft) !== JSON.stringify(filters.applied);
-  const fields: PageFilterField[] = ['logType', 'module', 'event', 'contextKey', 'contextValue'].map((key, index) => ({ key, label: ['로그 타입', 'Module', 'Event', 'Context 키', 'Context 값'][index], kind: 'text', value: String(filters.draft[key] ?? ''), onValueChange: value => setFilters(f => ({ ...f, draft: { ...f.draft, [key]: value.slice(0, key === 'logType' || key === 'contextKey' || key === 'module' || key === 'event' ? 100 : 200) } })) }));
+  const filterAddress = (values: InvestigationFilters) => Object.fromEntries(FILTER_KEYS.map(key => [pageKeys[key], typeof values[key] === 'string' && values[key] !== '' ? values[key] : null]));
+  const applyFilters = () => {
+    if (contextInvalid) return;
+    setFilters(f => ({ ...f, applied: f.draft }));
+    setPage(filterAddress(filters.draft));
+  };
+  const clearFilters = () => {
+    setFilters(f => ({ ...f, draft: {}, applied: {} }));
+    setPage(Object.fromEntries(FILTER_KEYS.map(key => [pageKeys[key], null])));
+  };
+  const fields: PageFilterField[] = FILTER_BAR_KEYS.map(key => ({ key, testId: key, label: FILTER_LABELS[key], kind: 'text', value: String(filters.draft[key] ?? ''), onValueChange: value => setFilters(f => ({ ...f, draft: { ...f.draft, [key]: value.slice(0, FILTER_MAX_LENGTH[key]) } })) }));
   const summaryItems = [...fields.map(f => ({ key: f.key, label: f.label, value: String(filters.applied[f.key] || '전체') })), { key: 'text', label: '검색', value: String(filters.applied.text || '없음') }];
   const summary = summaryItems.map(i => `${i.label} ${i.value}`).join(' · ');
   const track = set ? sequenceData(set, periodData?.rows ?? []) : null;
   const closeDrawer = () => setPage({ [pageKeys.focus]: null, [pageKeys.drawer]: null });
   const contextExtension = <div className="flex flex-col gap-3 break-keep">
-      <PageFilterBar collapsible defaultCollapsed preferenceKey="log-explorer" label="조회 조건" summaryItems={summaryItems} hasPendingChanges={pending} fields={[
-        ...fields, { key: 'period', label: '기간 시작·끝', kind: 'custom', content: <p className="text-xs text-text-secondary">Source 조회 계약에서 미지원</p> },
-      ]} actions={<><Button size="toolbar" disabled={!pending || contextInvalid} onClick={() => setFilters(f => ({ ...f, applied: f.draft }))}>적용</Button><Button variant="ghost" size="toolbar" onClick={() => setFilters(f => ({ ...f, draft: {}, applied: {} }))}>초기화</Button>{!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending || contextInvalid} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: currentInvestigation.version }).then(r => { if (r.outcome === 'ok' && r.version) acceptVersion(r.version); setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 저장 여부를 다시 확인하세요.' : '조건을 저장하지 못했습니다.'); }).catch(() => undefined); }}>조건 저장</Button>}</>} />
+      <div onCompositionStart={filterIme.onCompositionStart} onCompositionEnd={filterIme.onCompositionEnd} onKeyDownCapture={event => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement) || !FILTER_BAR_KEYS.includes(target.dataset.testid as typeof FILTER_BAR_KEYS[number])) return;
+        if (filterIme.isComposingEnter(event)) { event.preventDefault(); return; }
+        if (event.key === 'Enter') { event.preventDefault(); applyFilters(); }
+      }}>
+        <PageFilterBar collapsible defaultCollapsed preferenceKey="log-explorer" label="조회 조건" summaryItems={summaryItems} hasPendingChanges={pending} fields={[
+          ...fields, { key: 'period', label: '기간 시작·끝', kind: 'custom', content: <p className="text-xs text-text-secondary">Source 조회 계약에서 미지원</p> },
+        ]} actions={<><Button size="toolbar" disabled={!pending || contextInvalid} onClick={applyFilters}>적용</Button><Button variant="ghost" size="toolbar" onClick={clearFilters}>초기화</Button>{!embedded && <Button variant="secondary" size="toolbar" disabled={update.pending || !investigation.canInvestigate || investigation.status !== 'open' || pending || contextInvalid} onClick={() => { void update.run({ id: investigation.id, filters: filters.applied }, { expectedVersion: currentInvestigation.version }).then(r => { if (r.outcome === 'ok' && r.version) acceptVersion(r.version); setWriteNotice(r.outcome === 'ok' ? '조회 조건을 저장했습니다.' : r.outcome === 'conflict' ? '조사가 변경되었습니다. 새 버전을 확인하고 다시 시도하세요.' : r.outcome === 'unknown' ? '응답을 받지 못했습니다. 저장 여부를 다시 확인하세요.' : '조건을 저장하지 못했습니다.'); }).catch(() => undefined); }}>조건 저장</Button>}</>} />
+      </div>
       {contextInvalid && <p role="alert" className="text-xs text-text-danger-label">Context 키와 값을 함께 입력하세요.</p>}
     </div>;
   const inner = (
@@ -127,7 +168,7 @@ export function InvestigationScreen({ investigation, picker, embedded = false, p
           {accessDenied && <Button variant="secondary" size="toolbar" onClick={() => { closeDrawer(); setAccessDenied(false); records.retry(); periods.retry(); }}>접근 권한 다시 확인</Button>}
           {tab === 'raw' && !accessDenied && data && sourceReadable(data.state) && <>
             {/* The read range is the table's result line and the keyset cursor buttons its footer (#2305). */}
-            <div className="flex min-h-0 flex-1 flex-col"><PlatformDataTable<SourceRow> fill externalPagination={{ summary: <span className="whitespace-normal">현재 읽은 범위 · {data.rows.length}행 · 요청당 최대 200행</span>, controls: <><Button variant="secondary" size="toolbar" disabled={paging.index === 0} onClick={() => setPaging(p => ({ ...p, index: p.index - 1 }))}>이전 범위</Button><Button variant="secondary" size="toolbar" disabled={!data.nextCursor} onClick={() => { if (data.nextCursor) setPaging(p => ({ ...p, cursors: [...p.cursors.slice(0, p.index + 1), data.nextCursor], index: p.index + 1 })); }}>다음 범위</Button></> }} search={<SearchInput placeholder="요약 검색" value={String(filters.draft.text ?? '')} onValueChange={text => setFilters(f => ({ ...f, draft: { ...f.draft, text: text.slice(0, 200) } }))} onCommit={() => setFilters(f => ({ ...f, applied: { ...f.applied, text: f.draft.text ?? '' } }))} />} title="원본 이벤트 목록" ariaLabel="원본 이벤트 목록" columns={columns} getRowId={r => `${r.fileOrder}:${r.line}`} preferenceKey="log-explorer-records:v1" pageSize={200} filterKey={JSON.stringify([filterKey, cursor, records.response?.correlationId])} activeRowId={focus} loadPage={async (): Promise<ApiResponse<PageResult<SourceRow>>> => ({ outcome: 'ok', data: { rows: data.rows, total: data.rows.length }, assessments: [], trust: null, correlationId: records.response?.correlationId ?? 'source' })} rowAction={row => <RowAction compact icon={PanelRight} label={`${row.fileRef}:${row.line} 상세`} text="상세" onClick={() => setPage({ [pageKeys.focus]: `${row.fileOrder}:${row.line}`, [pageKeys.drawer]: 'record' })} />} /></div>
+            <div className="flex min-h-0 flex-1 flex-col"><PlatformDataTable<SourceRow> fill externalPagination={{ summary: <span className="whitespace-normal">현재 읽은 범위 · {data.rows.length}행 · 요청당 최대 200행</span>, controls: <><Button variant="secondary" size="toolbar" disabled={paging.index === 0} onClick={() => setPaging(p => ({ ...p, index: p.index - 1 }))}>이전 범위</Button><Button variant="secondary" size="toolbar" disabled={!data.nextCursor} onClick={() => { if (data.nextCursor) setPaging(p => ({ ...p, cursors: [...p.cursors.slice(0, p.index + 1), data.nextCursor], index: p.index + 1 })); }}>다음 범위</Button></> }} search={<SearchInput placeholder="요약 검색" value={String(filters.draft.text ?? '')} onValueChange={text => setFilters(f => ({ ...f, draft: { ...f.draft, text: text.slice(0, FILTER_MAX_LENGTH.text) } }))} onCommit={() => { const text = String(filters.draft.text ?? ''); setFilters(f => ({ ...f, applied: { ...f.applied, text } })); setPage({ [pageKeys.text]: text || null }); }} />} title="원본 이벤트 목록" ariaLabel="원본 이벤트 목록" columns={columns} getRowId={r => `${r.fileOrder}:${r.line}`} preferenceKey="log-explorer-records:v1" pageSize={200} filterKey={JSON.stringify([filterKey, cursor, records.response?.correlationId])} activeRowId={focus} loadPage={async (): Promise<ApiResponse<PageResult<SourceRow>>> => ({ outcome: 'ok', data: { rows: data.rows, total: data.rows.length }, assessments: [], trust: null, correlationId: records.response?.correlationId ?? 'source' })} rowAction={row => <RowAction compact icon={PanelRight} label={`${row.fileRef}:${row.line} 상세`} text="상세" onClick={() => setPage({ [pageKeys.focus]: `${row.fileOrder}:${row.line}`, [pageKeys.drawer]: 'record' })} />} /></div>
           </>}
           {tab === 'sequence' && !accessDenied && track && periodData && <><div className="flex shrink-0 items-center justify-between gap-2 text-xs text-text-secondary"><span>현재 읽은 기간 범위 · {periodData.rows.length}개</span><div className="flex gap-2"><Button variant="ghost" size="toolbar" disabled={periodPaging.index === 0} onClick={() => setPeriodPaging(p => ({ ...p, index: p.index - 1 }))}>이전 기간 범위</Button><Button variant="ghost" size="toolbar" disabled={!periodData.nextCursor} onClick={() => { if (periodData.nextCursor) setPeriodPaging(p => ({ ...p, cursors: [...p.cursors.slice(0, p.index + 1), periodData.nextCursor], index: p.index + 1 })); }}>다음 기간 범위</Button></div></div><OrderedIntervalTrack ariaLabel="시퀀스" description="파일 순서 → 줄 번호 · 시간순 재정렬 없음" {...track} height={Math.min(288, track.lanes.length * 28 + 56)} states={STATES} axisLabel="파일 순서:줄" selectedId={set ? periodSelectionOf(set, periodData.rows, focus) : null} onSelect={item => setPage({ [pageKeys.focus]: item?.id ?? null, [pageKeys.drawer]: item ? 'record' : null })} state={!sourceReadable(periodData.state) ? { kind: periodData.state === 'permission_denied' ? 'forbidden' : 'unsupported', title: '시퀀스 미지원', body: '기간 행 미지원' } : periodData.nextCursor || periodData.state === 'partial' ? { kind: 'partial', title: '일부 결과 · 현재 기간 범위만 표시' } : undefined} /></>}
         </>}

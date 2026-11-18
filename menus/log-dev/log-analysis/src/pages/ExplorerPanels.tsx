@@ -3,13 +3,19 @@ import { Info } from 'lucide-react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, usePlatform } from '@ap/kernel';
 import { DetailDrawer, StateMessage } from '@ap/components';
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, StatusBadge, Textarea } from '@ap/ui';
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, Textarea } from '@ap/ui';
 import { usePageKeys } from './pageKeys';
 import { evidenceAdd, evidenceHandoff, evidenceRemove, investigationCreate, parsedEndpoint, windowEndpoint, type HandoffResult, type Investigation, type SampleSet, type SourceAnswer } from '../endpoints';
 import { evidenceFor, exportRange, sourceReadable } from './explorerModel';
 import { KnowledgeHandoffDialog, knowledgeHandoffBlock } from './KnowledgeHandoffDialog';
 import { useSourceRead } from './useSourceRead';
 
+const SAMPLE_SET_MAX_FILES = 1000;
+const SAMPLE_TEXT_MAX_LENGTH = 200;
+const SAMPLE_OWNER_MAX_LENGTH = SAMPLE_TEXT_MAX_LENGTH;
+const SAMPLE_FILE_REF_MAX_LENGTH = 1024;
+const SAMPLE_LINE_OFFSET = 1;
+const SHA256_HEX = /^[0-9a-f]{64}$/;
 const SOURCE_REASON: Record<string, string> = { source_not_connected: 'Source가 연결되지 않았습니다.', source_missing: '파일을 찾을 수 없습니다.', capability_not_held: '원본 조회 권한이 없습니다.', source_owner_not_granted: '이 Source의 접근 권한이 없습니다.', source_denied: 'Source 접근 권한이 철회되었습니다.', parser_not_connected: 'Parser가 연결되지 않았습니다.', periods_not_supported: '기간 행 미지원', capability_missing: '이 조회 미지원' };
 export function SourceNotice({ answer }: { answer: SourceAnswer | null | undefined }) {
   if (!answer || answer.state === 'ok') return null;
@@ -105,7 +111,6 @@ export function RecordDrawer({ investigation, set, selection, blocked, embedded 
       {windowRead.failed && <Button variant="secondary" size="toolbar" onClick={windowRead.retry}>원문 다시 시도</Button>}
       {row && <><section><h3 className="text-xs font-semibold text-text-secondary">원문 줄</h3><pre className="mt-2 whitespace-pre-wrap break-all t-mono">{row.text}</pre>{row.timeReversal && <p>시간 역전 · 파일 순서 유지</p>}</section>
         <details><summary>앞뒤 줄</summary>{windowData?.rows.map(r => <pre key={`${r.fileRef}:${r.line}`} className="mt-2 whitespace-pre-wrap break-all t-mono">{r.line} {r.text}</pre>)}</details></>}
-      <section><h3 className="text-xs font-semibold text-text-secondary">판정 축</h3><div className="mt-2 grid grid-cols-2 gap-3"><div>스크립트 판정 <StatusBadge tone="neutral">미검증</StatusBadge><p className="mt-1 text-text-secondary">규칙 결과 연결 준비 중</p></div><div>LLM 가설 <StatusBadge tone="neutral">없음 · 미저장</StatusBadge></div></div></section>
       {!parsedRead.loading && parsedRead.failed && <Button variant="secondary" size="toolbar" onClick={parsedRead.retry}>Parser 다시 시도</Button>}
       {parsed && sourceReadable(parsed.state) && <><section><h3 className="text-xs font-semibold text-text-secondary">추출 필드</h3><dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">{Object.entries(parsed.extractedFields ?? {}).map(([k, v]) => <div key={k} className="contents"><dt className="text-text-secondary">{k}</dt><dd className="min-w-0 break-all">{v}</dd></div>)}</dl></section>
         <section><h3 className="text-xs font-semibold text-text-secondary">Parser 입력·출력</h3><p className="mt-2 text-text-secondary">입력</p><pre className="whitespace-pre-wrap break-all t-mono">{parsed.parserIn}</pre><p className="mt-3 text-text-secondary">출력</p><pre className="whitespace-pre-wrap break-all t-mono">{parsed.parserOut}</pre></section></>}
@@ -129,6 +134,37 @@ export function ExportDialog({ open, onOpenChange, set, querySummary, onCloseAut
   </DialogContent></Dialog>;
 }
 
+function hasSampleControl(value: string) {
+  return /[\u0000-\u001f\u007f-\u009f]/u.test(value) || /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/u.test(value);
+}
+
+function sampleFieldMessage(code: string, field: string) {
+  const messages: Record<string, Record<string, string>> = {
+    title: { required: '조사 이름을 입력하세요.', too_long: `조사 이름은 ${SAMPLE_TEXT_MAX_LENGTH}자 이내로 입력하세요.` },
+    sourceOwner: { required: 'Source 소유자를 입력하세요.', malformed: '형식을 확인해 주세요.', too_long: `${SAMPLE_OWNER_MAX_LENGTH}자 이하로 입력하세요.` },
+    files: { required: '파일을 하나 이상 입력하세요.', too_many: `파일 참조는 ${SAMPLE_SET_MAX_FILES.toLocaleString('ko-KR')}개까지 입력할 수 있습니다.`, malformed: '파일 목록 형식을 확인해 주세요.', order_invalid: '파일 순서를 확인하세요.' },
+    fileRef: { required: '파일 참조를 입력하세요.', malformed: '제어 문자를 포함할 수 없습니다.', too_long: `${SAMPLE_FILE_REF_MAX_LENGTH.toLocaleString('ko-KR')}자 이하로 입력하세요.`, duplicate: '중복된 파일 참조입니다.' },
+    sha256: { malformed: '소문자 16진수 64자리로 입력하세요.' },
+  };
+  return messages[field]?.[code] ?? '입력 형식을 확인해 주세요.';
+}
+
+function sampleFieldErrors(errors: readonly { path: readonly string[]; code: string }[]) {
+  const mapped: Record<string, string> = {};
+  for (const error of errors) {
+    const [root, section, index, field] = error.path;
+    if (root === 'title') { mapped.title = sampleFieldMessage(error.code, 'title'); continue; }
+    if (root !== 'sampleSet') continue;
+    if (section === 'sourceOwner') { mapped.sourceOwner = sampleFieldMessage(error.code, 'sourceOwner'); continue; }
+    if (section !== 'files') continue;
+    if (index === undefined) { mapped.files = sampleFieldMessage(error.code, 'files'); continue; }
+    const line = Number(index) + SAMPLE_LINE_OFFSET;
+    if (Number.isInteger(line) && line > 0 && (field === 'fileRef' || field === 'sha256')) mapped[`file:${line}:${field}`] = sampleFieldMessage(error.code, field);
+    else mapped.files = sampleFieldMessage(error.code, 'files');
+  }
+  return mapped;
+}
+
 export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const create = useMenuAction(investigationCreate);
   const { can, navigate, linkTo } = usePlatform();
@@ -136,24 +172,59 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [sourceOwner, setOwner] = useState('');
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // An unknown answer is uncertain: the next click resends the same request (same idempotency key), never a new create.
   const [again, setAgain] = useState<null | (() => Promise<ActionResult<{ id: string }>>)>(null);
-  const edit = (set: (value: string) => void) => (value: string) => { set(value); setAgain(null); setError(''); };
+  const edit = (set: (value: string) => void) => (value: string) => { set(value); setAgain(null); setError(''); setFieldErrors({}); };
   function settle(r: ActionResult<{ id: string }>) {
-    if (r.outcome === 'ok' && r.data) { setAgain(null); setTitle(''); setOwner(''); setText(''); setError(''); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
+    if (r.outcome === 'ok' && r.data) { setAgain(null); setTitle(''); setOwner(''); setText(''); setError(''); setFieldErrors({}); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
     if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 만들어졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '조사를 만들지 못했습니다. 같은 요청으로 다시 시도하세요.'); return; }
-    setAgain(null); setError('조사를 만들지 못했습니다. 입력과 권한을 확인하세요.');
+    setAgain(null);
+    const mapped = sampleFieldErrors(r.fieldErrors);
+    setFieldErrors(mapped);
+    setError(Object.keys(mapped).length ? '' : '조사를 만들지 못했습니다. 입력과 권한을 확인하세요.');
   }
   function submit() {
     if (again) { void again().then(settle).catch(() => undefined); return; }
-    const files = text.trim().split('\n').map((line, i) => { const at = line.lastIndexOf('\t'); return { fileRef: at < 0 ? '' : line.slice(0, at).trim(), sha256: at < 0 ? '' : line.slice(at + 1).trim(), order: i + 1 }; });
-    if (!title.trim() || title.trim().length > 200 || !sourceOwner.trim() || !files.length || files.length > 1000 || files.some(f => !f.fileRef || !/^[0-9a-f]{64}$/.test(f.sha256)) || new Set(files.map(f => f.fileRef)).size !== files.length) { setError('조사 이름·Source 소유자·중복 없는 파일 참조와 SHA-256을 확인하세요.'); return; }
+    const lines = text.trim() ? text.trim().split('\n') : [];
+    const files = lines.map((line, i) => { const at = line.lastIndexOf('\t'); return { fileRef: at < 0 ? '' : line.slice(0, at).trim(), sha256: at < 0 ? '' : line.slice(at + 1).trim(), order: i + 1 }; });
+    const localErrors: Record<string, string> = {};
+    const titleValue = title.trim();
+    const owner = sourceOwner.trim();
+    if (!titleValue) localErrors.title = '조사 이름을 입력하세요.';
+    else if ([...titleValue].length > SAMPLE_TEXT_MAX_LENGTH) localErrors.title = sampleFieldMessage('too_long', 'title');
+    if (!owner) localErrors.sourceOwner = sampleFieldMessage('required', 'sourceOwner');
+    else if (hasSampleControl(owner)) localErrors.sourceOwner = '제어 문자를 포함할 수 없습니다.';
+    else if ([...owner].length > SAMPLE_OWNER_MAX_LENGTH) localErrors.sourceOwner = sampleFieldMessage('too_long', 'sourceOwner');
+    if (!files.length) localErrors.files = sampleFieldMessage('required', 'files');
+    else if (files.length > SAMPLE_SET_MAX_FILES) localErrors.files = sampleFieldMessage('too_many', 'files');
+    else {
+      const seen = new Set<string>();
+      files.forEach((file, index) => {
+        const lineNumber = index + SAMPLE_LINE_OFFSET;
+        const fileRef = file.fileRef;
+        if (!fileRef) localErrors[`file:${lineNumber}:fileRef`] = sampleFieldMessage('required', 'fileRef');
+        else if (hasSampleControl(fileRef)) localErrors[`file:${lineNumber}:fileRef`] = '제어 문자를 포함할 수 없습니다.';
+        else if ([...fileRef].length > SAMPLE_FILE_REF_MAX_LENGTH) localErrors[`file:${lineNumber}:fileRef`] = sampleFieldMessage('too_long', 'fileRef');
+        else if (seen.has(fileRef)) localErrors[`file:${lineNumber}:fileRef`] = sampleFieldMessage('duplicate', 'fileRef');
+        else seen.add(fileRef);
+        if (!SHA256_HEX.test(file.sha256)) localErrors[`file:${lineNumber}:sha256`] = sampleFieldMessage('malformed', 'sha256');
+      });
+    }
+    if (Object.keys(localErrors).length) { setFieldErrors(localErrors); setError(''); return; }
+    setFieldErrors({});
     void create.run({ title: title.trim(), origin: 'standalone', sampleSet: { sourceOwner: sourceOwner.trim(), files } }).then(settle).catch(() => undefined);
   }
+  const fileErrorKeys = Object.keys(fieldErrors).filter(key => key.startsWith('file:'));
+  const filesDescribedBy = [fieldErrors.files ? 'explorer-files-error' : '', ...fileErrorKeys.map(key => `explorer-files-line-${key.split(':')[1]}-${key.split(':')[2]}-error`)].filter(Boolean).join(' ') || undefined;
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>조사 만들기</DialogTitle><DialogDescription>Source 소유자가 제공한 파일 참조와 SHA-256을 읽을 순서대로 입력하세요. 참조만 저장합니다.</DialogDescription></DialogHeader>
-    <Label htmlFor="explorer-title">조사 이름</Label><Input id="explorer-title" value={title} onChange={e => edit(setTitle)(e.target.value)} maxLength={200} />
-    <Label htmlFor="explorer-owner">Source 소유자</Label><Input id="explorer-owner" value={sourceOwner} onChange={e => edit(setOwner)(e.target.value)} maxLength={200} />
-    <Label htmlFor="explorer-files">파일 참조 · 탭 · SHA-256 · 한 줄에 한 파일</Label><Textarea id="explorer-files" value={text} onChange={e => edit(setText)(e.target.value)} />
+    <Label htmlFor="explorer-title">조사 이름</Label><Input id="explorer-title" aria-invalid={!!fieldErrors.title || undefined} aria-describedby={fieldErrors.title ? 'explorer-title-error' : undefined} value={title} onChange={e => edit(setTitle)(e.target.value)} maxLength={SAMPLE_OWNER_MAX_LENGTH} />
+    {fieldErrors.title && <p id="explorer-title-error" className="text-xs text-text-danger-label">{fieldErrors.title}</p>}
+    <Label htmlFor="explorer-owner">Source 소유자</Label><Input id="explorer-owner" aria-invalid={!!fieldErrors.sourceOwner || undefined} aria-describedby={fieldErrors.sourceOwner ? 'explorer-owner-error' : undefined} value={sourceOwner} onChange={e => edit(setOwner)(e.target.value)} maxLength={SAMPLE_OWNER_MAX_LENGTH} />
+    {fieldErrors.sourceOwner && <p id="explorer-owner-error" className="text-xs text-text-danger-label">{fieldErrors.sourceOwner}</p>}
+    <Label htmlFor="explorer-files">파일 참조 · 탭 · SHA-256 · 한 줄에 한 파일</Label><Textarea id="explorer-files" aria-invalid={!!filesDescribedBy || undefined} aria-describedby={filesDescribedBy} value={text} onChange={e => edit(setText)(e.target.value)} />
+    {fieldErrors.files && <p id="explorer-files-error" className="text-xs text-text-danger-label">{fieldErrors.files}</p>}
+    {fileErrorKeys.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(key => { const [, line, field] = key.split(':'); return <p key={key} id={`explorer-files-line-${line}-${field}-error`} className="text-xs text-text-danger-label">{line}행 {field === 'fileRef' ? '파일 참조' : 'SHA-256'}: {fieldErrors[key]}</p>; })}
     {error && <p role="alert" className="text-sm">{error}</p>}{!can(investigationCreate.permission) && <p className="text-xs text-text-secondary">조사 쓰기 권한이 없습니다.</p>}
     <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>취소</Button><Button disabled={create.pending || !can(investigationCreate.permission)} onClick={submit}>{again ? '같은 요청 다시 시도' : '조사 만들기'}</Button></DialogFooter>
   </DialogContent></Dialog>;
