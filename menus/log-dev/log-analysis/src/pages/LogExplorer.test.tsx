@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScrollText } from 'lucide-react';
-import { groupId, menuPermission, spaceId, type ApiResponse, type PlatformAdapter } from '@ap/contracts';
+import { groupId, menuPermission, spaceId, type ApiResponse, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -12,7 +12,7 @@ import { manifests } from '../index';
 import type { Investigation, SourceRow, SourceState } from '../endpoints';
 import LogExplorer, { InvestigationScreen } from './LogExplorer';
 import { RoundSourceView } from '../view';
-import { SampleDialog } from './ExplorerPanels';
+import { recentSourcesReducer, SampleDialog } from './ExplorerPanels';
 const id = '14730000-0000-4000-8000-000000000001';
 const set = { sourceOwner: 'synthetic-ok', files: [{ fileRef: 'source-b', order: 1, sha256: 'b'.repeat(64) }] };
 const row: SourceRow = { fileRef: 'source-b', fileOrder: 1, line: 1, text: '<script>private-source</script>', timestamp: '2026-11-08T09:00:01', truncated: false, timeReversal: true, synthetic: true };
@@ -46,6 +46,18 @@ function mount(body?: React.ReactNode, hostKeys: string[] = []) {
   const session = testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')]);
   const adapter = testAdapter({ session: () => session, menuQuery: read, menuAction: write });
   return render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{body ?? <LogExplorer params={{}} />}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+}
+function mountWithSession(body: React.ReactNode, hostKeys: string[] = []) {
+  const registry = createRegistry({ permissions: [menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], spaces: [{ id: spaceId('log-dev'), label: { ko: '로그', en: 'Logs' }, description: { ko: '조사', en: 'Investigations' }, homeMenuId: 'log-explorer' }], groups: [{ id: groupId('logAnalysis'), label: { ko: '로그 분석', en: 'Log analysis' }, icon: ScrollText, space: spaceId('log-dev') }], menus: hostKeys.length ? manifests.map(m => ({ ...m, pageKeys: [...(m.pageKeys ?? []), ...hostKeys] })) : manifests });
+  let session: Session = testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')]);
+  const listeners = new Set<() => void>();
+  const adapter = testAdapter({ session: () => session, menuQuery: read, menuAction: write, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } });
+  const rendered = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><DetailPanelSlotProvider>{body}<Slot /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+  return { ...rendered, changeSession(next: Session) { session = next; act(() => listeners.forEach(listener => listener())); } };
+}
+function ScopeSwitch() {
+  const { setGlobal } = usePlatform();
+  return <button onClick={() => setGlobal({ scopeId: 'SITE-B' })}>다른 Scope</button>;
 }
 function mountWithoutInvestigationPermission(body: React.ReactNode, hostKeys: string[] = []) {
   const menus = hostKeys.length ? manifests.map(manifest => ({ ...manifest, pageKeys: [...(manifest.pageKeys ?? []), ...hostKeys] })) : manifests;
@@ -323,6 +335,32 @@ describe('start a Round investigation from its Source (#2543b)', () => {
     expect(write.mock.calls[1]![0].input).toEqual(write.mock.calls[0]![0].input);
     await waitFor(() => expect(window.location.pathname).toBe(`/log-dev/log-explorer-view/${createdId}`));
   });
+
+  it('reports a create permission refusal as a permission error', async () => {
+    write.mockResolvedValueOnce({ outcome: 'forbidden', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'round-forbidden' });
+    view();
+    fireEvent.click(await screen.findByRole('button', { name: '이 Round로 조사 시작' }));
+    expect(await screen.findByText('조사 쓰기 권한이 없습니다.')).toBeTruthy();
+    expect(screen.queryByText('Round를 찾을 수 없거나 열 수 없습니다.')).toBeNull();
+  });
+
+  it('drops an unknown retry and its notice when the session generation changes', async () => {
+    write.mockResolvedValueOnce({ outcome: 'unknown', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'round-timeout', message: 'timeout' });
+    write.mockResolvedValueOnce({ outcome: 'ok', data: { id: createdId, version: '1' }, version: '1', fieldErrors: [], replayed: false, correlationId: 'new-round' });
+    const mounted = mountWithSession(<RoundSourceView roundId={roundId} sampleSet={set} />, ['sourceTab', 'sourceFocus', 'sourceDrawer']);
+    fireEvent.click(await screen.findByRole('button', { name: '이 Round로 조사 시작' }));
+    expect(await screen.findByRole('button', { name: '같은 요청 다시 시도' })).toBeTruthy();
+    expect(screen.getByText('응답을 받지 못했습니다. 생성 여부를 확인할 수 없어 같은 요청으로 다시 시도합니다.')).toBeTruthy();
+    // A user change advances the adapter's session generation while preserving this mounted view.
+    const session = testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], { user: { id: 'u2' } });
+    mounted.changeSession(session);
+    expect(await screen.findByRole('button', { name: '이 Round로 조사 시작' })).toBeTruthy();
+    expect(screen.queryByText('응답을 받지 못했습니다. 생성 여부를 확인할 수 없어 같은 요청으로 다시 시도합니다.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '이 Round로 조사 시작' }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(2));
+    expect(write.mock.calls[1]![0].idempotencyKey).not.toBe(write.mock.calls[0]![0].idempotencyKey);
+    await waitFor(() => expect(window.location.pathname).toBe(`/log-dev/log-explorer-view/${createdId}`));
+  });
 });
 
 describe('recent Sources in the create dialog (#2543b)', () => {
@@ -397,6 +435,135 @@ describe('recent Sources in the create dialog (#2543b)', () => {
       expect(owner.value).toBe('edited-owner');
       expect(read.mock.calls.some(([request]) => request.endpoint === 'logExplorer.investigationDetail' && (request.params as { investigationId: string }).investigationId === 'recent-1')).toBe(true);
     });
+  });
+
+  it('clears the selected Source and its copied form fields when the dialog closes', async () => {
+    const rows = [summary('recent-1', 'Recent source', 'standalone', 'open', '2026-11-18T00:00:00Z')];
+    const detail: Investigation = { ...investigation, id: 'recent-1', sampleSet: { sourceOwner: 'source-owner', files: [{ fileRef: 'source.log', order: 1, sha256: 'a'.repeat(64) }] } };
+    function ReopenableDialog() {
+      const [open, setOpen] = useState(true);
+      return <><button onClick={() => setOpen(true)}>다시 열기</button><SampleDialog open={open} onOpenChange={setOpen} /></>;
+    }
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.investigations') return ok({ rows, total: rows.length });
+      if (request.endpoint === 'logExplorer.investigationDetail') return ok(detail);
+      return ok(null);
+    }, async () => {
+      mount(<ReopenableDialog />);
+      let dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Recent source' }));
+      expect((await screen.findByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner');
+      fireEvent.change(within(dialog).getByLabelText('조사 이름'), { target: { value: '작성 중' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: '조사 만들기' })).toBeNull());
+      fireEvent.click(screen.getByRole('button', { name: '다시 열기' }));
+      dialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+      expect((within(dialog).getByLabelText('조사 이름') as HTMLInputElement).value).toBe('');
+      expect((within(dialog).getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('');
+      expect((within(dialog).getByLabelText(/파일 참조/) as HTMLTextAreaElement).value).toBe('');
+      expect((within(dialog).getByText('직접 입력').parentElement as HTMLDetailsElement).open).toBe(false);
+    });
+  });
+
+  it('applies a Source prefill after a cached detail error is retried', async () => {
+    const rows = [
+      summary('recent-a', 'Source A', 'standalone', 'open', '2026-11-18T00:00:00Z'),
+      summary('recent-b', 'Source B', 'standalone', 'open', '2026-11-17T00:00:00Z'),
+    ];
+    const detailA: Investigation = { ...investigation, id: 'recent-a', sampleSet: { sourceOwner: 'owner-a', files: [{ fileRef: 'a.log', order: 1, sha256: 'a'.repeat(64) }] } };
+    const detailB: Investigation = { ...investigation, id: 'recent-b', sampleSet: { sourceOwner: 'owner-b', files: [{ fileRef: 'b.log', order: 1, sha256: 'b'.repeat(64) }] } };
+    let detailACalls = 0;
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.investigations') return ok({ rows, total: rows.length });
+      if (request.endpoint === 'logExplorer.investigationDetail') {
+        const selected = (request.params as { investigationId: string }).investigationId;
+        if (selected === 'recent-a' && detailACalls++ === 0) return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'cached-a-error', message: 'offline' };
+        return ok(selected === 'recent-a' ? detailA : detailB);
+      }
+      return ok(null);
+    }, async () => {
+      dialog();
+      const createDialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+      fireEvent.click(await within(createDialog).findByRole('button', { name: 'Source A' }));
+      expect(await within(createDialog).findByRole('alert')).toBeTruthy();
+      fireEvent.click(await within(createDialog).findByRole('button', { name: 'Source B' }));
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('owner-b'));
+      fireEvent.click(await within(createDialog).findByRole('button', { name: 'Source A' }));
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('owner-a'));
+    });
+  });
+
+  it('does not overwrite a user edit while the selected Source detail is loading', async () => {
+    const rows = [summary('recent-1', 'Recent source', 'standalone', 'open', '2026-11-18T00:00:00Z')];
+    const detail: Investigation = { ...investigation, id: 'recent-1', sampleSet: { sourceOwner: 'source-owner', files: [{ fileRef: 'source.log', order: 1, sha256: 'a'.repeat(64) }] } };
+    let resolveDetail: (value: ApiResponse<unknown>) => void = () => undefined;
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.investigations') return ok({ rows, total: rows.length });
+      if (request.endpoint === 'logExplorer.investigationDetail') return new Promise<ApiResponse<unknown>>(resolve => { resolveDetail = resolve; });
+      return ok(null);
+    }, async () => {
+      dialog();
+      const createDialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+      fireEvent.click(await within(createDialog).findByRole('button', { name: 'Recent source' }));
+      const owner = await screen.findByLabelText('Source 소유자') as HTMLInputElement;
+      fireEvent.change(owner, { target: { value: 'manual-owner' } });
+      await act(async () => { resolveDetail(ok(detail)); });
+      await waitFor(() => expect(owner.value).toBe('manual-owner'));
+    });
+  });
+
+  it('clears selected Source details on a session identity change', async () => {
+    const rows = [summary('recent-1', 'Recent source', 'standalone', 'open', '2026-11-18T00:00:00Z')];
+    const detail: Investigation = { ...investigation, id: 'recent-1', sampleSet: { sourceOwner: 'source-owner', files: [{ fileRef: 'source.log', order: 1, sha256: 'a'.repeat(64) }] } };
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.investigations') return ok({ rows, total: rows.length });
+      if (request.endpoint === 'logExplorer.investigationDetail') return ok(detail);
+      return ok(null);
+    }, async () => {
+      const mounted = mountWithSession(<SampleDialog open onOpenChange={() => undefined} />);
+      const createDialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+      fireEvent.click(await within(createDialog).findByRole('button', { name: 'Recent source' }));
+      expect((await screen.findByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner');
+      mounted.changeSession(testSession(['platform:view', menuPermission('explorer:investigate'), menuPermission('explorer:handoff')], { user: { id: 'u2' } }));
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe(''));
+      expect((screen.getByLabelText(/파일 참조/) as HTMLTextAreaElement).value).toBe('');
+    });
+  });
+
+  it('clears prefilled Source fields when the current Scope changes', async () => {
+    const rows = [summary('recent-1', 'Recent source', 'standalone', 'open', '2026-11-18T00:00:00Z')];
+    const detail: Investigation = { ...investigation, id: 'recent-1', sampleSet: { sourceOwner: 'source-owner', files: [{ fileRef: 'source.log', order: 1, sha256: 'a'.repeat(64) }] } };
+    await read.withImplementation(async request => {
+      if (request.endpoint === 'logExplorer.investigations') return ok({ rows, total: rows.length });
+      if (request.endpoint === 'logExplorer.investigationDetail') return ok(detail);
+      return ok(null);
+    }, async () => {
+      mount(<><SampleDialog open onOpenChange={() => undefined} /><ScopeSwitch /></>);
+      const createDialog = await screen.findByRole('dialog', { name: '조사 만들기' });
+      fireEvent.click(await within(createDialog).findByRole('button', { name: 'Recent source' }));
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe('source-owner'));
+      fireEvent.click(screen.getByText('다른 Scope'));
+      await waitFor(() => expect((screen.getByLabelText('Source 소유자') as HTMLInputElement).value).toBe(''));
+      expect((screen.getByLabelText(/파일 참조/) as HTMLTextAreaElement).value).toBe('');
+    });
+  });
+
+  it('replaces page 0, accepts only the next page, and ends on a short page', () => {
+    const identity = 'user-1:revision-1:SITE-A';
+    const initial = { identity, page: 0, rows: [], loaded: 0, status: 'idle' as const, processedPage: null, responseKey: null };
+    const cachedSource = summary('cached-source', 'Cached source', 'standalone', 'open', '2026-11-18T00:00:00Z');
+    const page0Rows = Array.from({ length: 200 }, (_, index) => summary(`round-${index}`, `Round ${index}`, 'round', 'open', '2026-11-19T00:00:00Z'));
+    const cachedPage = recentSourcesReducer(initial, { type: 'page', identity, page: 0, responseKey: 'page-0-cached', rows: [cachedSource, ...page0Rows.slice(1)], total: 200 });
+    expect(cachedPage).toMatchObject({ page: 0, loaded: 200, status: 'done' });
+
+    const refreshedPage = recentSourcesReducer(cachedPage, { type: 'page', identity, page: 0, responseKey: 'page-0-refetched', rows: page0Rows, total: 201 });
+    expect(refreshedPage).toMatchObject({ page: 1, loaded: 200, status: 'loading' });
+    expect(refreshedPage.rows.some(row => row.id === 'cached-source')).toBe(false);
+    expect(recentSourcesReducer(refreshedPage, { type: 'page', identity, page: 2, responseKey: 'out-of-order', rows: [], total: 201 })).toBe(refreshedPage);
+
+    const shortPage = recentSourcesReducer(refreshedPage, { type: 'page', identity, page: 1, responseKey: 'page-1-short', rows: [summary('round-short', 'Short round page', 'round', 'open', '2026-11-17T00:00:00Z')], total: 1000 });
+    expect(shortPage).toMatchObject({ page: 1, loaded: 201, status: 'done' });
+    expect(recentSourcesReducer(shortPage, { type: 'page', identity, page: 2, responseKey: 'after-done', rows: [], total: 1000 })).toBe(shortPage);
   });
 
   it('opens direct entry when there are no recent Sources', async () => {

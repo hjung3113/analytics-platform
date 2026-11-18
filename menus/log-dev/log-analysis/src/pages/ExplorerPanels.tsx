@@ -91,6 +91,7 @@ export function BasketDrawer({ investigation, onClose, onVersion }: { investigat
 }
 export type RoundStartLocation = 'toolbar' | 'drawer';
 type RoundStartRetry = { run: () => Promise<ActionResult<{ id: string; version: string }>>; focus?: string };
+type RoundStartState = { identity: string; again: RoundStartRetry | null; notice: string; noticeLocation: RoundStartLocation | null };
 export type RoundStartController = {
   pending: boolean;
   retrying: boolean;
@@ -102,11 +103,22 @@ export type RoundStartController = {
 
 export function useRoundInvestigationStart(investigation: Investigation): RoundStartController {
   const create = useMenuAction(investigationCreate);
-  const { can, navigate, linkTo } = usePlatform();
+  const { can, navigate, linkTo, user, revision, scope } = usePlatform();
   const t = useMessages(EXPLORER_MESSAGES);
-  const [again, setAgain] = useState<RoundStartRetry | null>(null);
-  const [notice, setNotice] = useState('');
-  const [noticeLocation, setNoticeLocation] = useState<RoundStartLocation | null>(null);
+  const identity = JSON.stringify([user.id, revision, scope.scopeId]);
+  const [attempt, setAttempt] = useState<RoundStartState>(() => ({ identity, again: null, notice: '', noticeLocation: null }));
+  const currentAttempt = attempt.identity === identity ? attempt : { identity, again: null, notice: '', noticeLocation: null };
+  if (attempt.identity !== identity) setAttempt(currentAttempt);
+  const { again, notice, noticeLocation } = currentAttempt;
+  function updateAttempt(patch: Partial<Omit<RoundStartState, 'identity'>>) {
+    setAttempt(previous => ({
+      identity,
+      again: previous.identity === identity ? previous.again : null,
+      notice: previous.identity === identity ? previous.notice : '',
+      noticeLocation: previous.identity === identity ? previous.noticeLocation : null,
+      ...patch,
+    }));
+  }
   const allowed = can(investigationCreate.permission);
   let reason: string | null = null;
   if (!allowed) reason = t('roundInvestigationPermission');
@@ -115,38 +127,32 @@ export function useRoundInvestigationStart(investigation: Investigation): RoundS
 
   function settle(answer: ActionResult<{ id: string; version: string }>, focus: string | undefined, location: RoundStartLocation) {
     if (answer.outcome === 'ok' && answer.data?.id) {
-      setAgain(null);
-      setNotice('');
-      setNoticeLocation(null);
+      updateAttempt({ again: null, notice: '', noticeLocation: null });
       const page = focus ? { focus } : undefined;
       navigate(linkTo('log-explorer-view', { params: { investigationId: answer.data.id }, ...(page ? { page } : {}) }));
       return;
     }
     if ((answer.outcome === 'unknown' || answer.outcome === 'error') && answer.retry) {
-      setAgain(() => ({ run: answer.retry!, focus }));
+      const retry = { run: answer.retry!, focus };
       const retryMessage = answer.outcome === 'unknown' ? 'roundInvestigationUnknown' : 'roundInvestigationError';
-      setNotice(t(retryMessage));
-      setNoticeLocation(location);
+      updateAttempt({ again: retry, notice: t(retryMessage), noticeLocation: location });
       return;
     }
-    setAgain(null);
+    updateAttempt({ again: null });
     const roundMissing = answer.fieldErrors.some(field => field.path[0] === 'roundId' && field.code === 'not_found');
     let message = t('roundInvestigationFailed');
-    if (answer.outcome === 'forbidden' || roundMissing) message = t('roundInvestigationMissing');
-    setNotice(message);
-    setNoticeLocation(location);
+    if (answer.outcome === 'forbidden') message = t('roundInvestigationPermission');
+    else if (roundMissing) message = t('roundInvestigationMissing');
+    updateAttempt({ notice: message, noticeLocation: location });
   }
 
   function fail(location: RoundStartLocation) {
-    setAgain(null);
-    setNotice(t('roundInvestigationFailed'));
-    setNoticeLocation(location);
+    updateAttempt({ again: null, notice: t('roundInvestigationFailed'), noticeLocation: location });
   }
 
   function start(focus: string | undefined, location: RoundStartLocation) {
     if (pending || reason) return;
-    setNotice('');
-    setNoticeLocation(null);
+    updateAttempt({ notice: '', noticeLocation: null });
     if (again) {
       const retry = again;
       void retry.run().then(answer => settle(answer, retry.focus, location)).catch(() => fail(location));
@@ -279,24 +285,37 @@ type RecentSourcesAction =
   | { type: 'page'; identity: string; page: number; responseKey: string; rows: InvestigationSummary[]; total: number }
   | { type: 'error'; identity: string; page: number; responseKey: string };
 
-function recentSourcesReducer(state: RecentSourcesState, action: RecentSourcesAction): RecentSourcesState {
+export function recentSourcesReducer(state: RecentSourcesState, action: RecentSourcesAction): RecentSourcesState {
   if (action.type === 'reset') return { identity: action.identity, page: 0, rows: [], loaded: 0, status: 'idle', processedPage: null, responseKey: null };
   const current = state.identity === action.identity ? state : { identity: action.identity, page: 0, rows: [], loaded: 0, status: 'idle' as const, processedPage: null, responseKey: null };
-  if (current.page !== action.page || (current.processedPage === action.page && current.responseKey === action.responseKey)) return current;
-  if (action.type === 'error') return { ...current, status: 'error', processedPage: action.page, responseKey: action.responseKey };
-  const rowsById = new Map([...current.rows, ...action.rows].map(row => [row.id, row]));
+  const firstPage = action.page === 0;
+  if (!firstPage && (current.status === 'done' || current.processedPage !== action.page - 1)) return current;
+  if (current.processedPage === action.page && current.responseKey === action.responseKey) return current;
+  if (action.type === 'error') {
+    if (current.status === 'done') return current;
+    return { ...current, status: 'error', responseKey: action.responseKey };
+  }
+  const baseRows = firstPage ? [] : current.rows;
+  const baseLoaded = firstPage ? 0 : current.loaded;
+  const rowsById = new Map([...baseRows, ...action.rows].map(row => [row.id, row]));
   const rows = [...rowsById.values()];
   const standaloneCount = rows.filter(row => row.origin === 'standalone' && row.status === 'open').length;
-  const loaded = current.loaded + action.rows.length;
-  const complete = standaloneCount >= RECENT_SOURCE_LIMIT || loaded >= action.total || action.rows.length === 0;
+  const loaded = baseLoaded + action.rows.length;
+  const complete = standaloneCount >= RECENT_SOURCE_LIMIT || loaded >= action.total || action.rows.length < INVESTIGATION_LIST_PAGE_SIZE;
   return { ...current, page: complete ? action.page : action.page + 1, rows, loaded, status: complete ? 'done' : 'loading', processedPage: action.page, responseKey: action.responseKey };
 }
 
 export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { user, revision, scope } = usePlatform();
+  const identity = JSON.stringify([user.id, revision, scope.scopeId]);
+  return <SampleDialogContent key={identity} identity={identity} open={open} onOpenChange={onOpenChange} />;
+}
+
+function SampleDialogContent({ open, onOpenChange, identity }: { open: boolean; onOpenChange: (open: boolean) => void; identity: string }) {
   const create = useMenuAction(investigationCreate);
-  const { can, navigate, linkTo, user, revision, scope } = usePlatform();
+  const { can, navigate, linkTo } = usePlatform();
   const t = useMessages(EXPLORER_MESSAGES);
-  const recentIdentity = JSON.stringify([user.id, revision, scope.scopeId]);
+  const recentIdentity = identity;
   const [recentState, dispatchRecent] = useReducer(recentSourcesReducer, { identity: recentIdentity, page: 0, rows: [], loaded: 0, status: 'idle', processedPage: null, responseKey: null });
   const recentPage = recentState.identity === recentIdentity ? recentState.page : 0;
   const recent = useMenuQuery(investigationsEndpoint, { status: 'open', page: recentPage, pageSize: INVESTIGATION_LIST_PAGE_SIZE }, { enabled: open });
@@ -322,6 +341,16 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   useEffect(() => {
     if (!open) {
       dispatchRecent({ type: 'reset', identity: recentIdentity });
+      setSelectedSourceId(null);
+      prefilledSourceId.current = null;
+      setSourceError('');
+      setManualOpen(false);
+      setTitle('');
+      setOwner('');
+      setText('');
+      setError('');
+      setFieldErrors({});
+      setAgain(null);
       return;
     }
     if (recent.status !== 'done' || !recent.response) return;
@@ -336,24 +365,24 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   }, [open, recentIdentity, recent.status, recent.response, recentPage]);
 
   useEffect(() => {
-    if (recentStatus === 'done' && recentSources.length === 0) setManualOpen(true);
-  }, [recentStatus, recentSources.length]);
+    if (open && recentStatus === 'done' && recentSources.length === 0) setManualOpen(true);
+  }, [open, recentStatus, recentSources.length]);
 
   useEffect(() => {
-    if (!selectedSourceId || selectedSource.status !== 'done' || prefilledSourceId.current === selectedSourceId) return;
-    prefilledSourceId.current = selectedSourceId;
+    if (!open || !selectedSourceId || selectedSource.status !== 'done' || prefilledSourceId.current === selectedSourceId) return;
     const source = selectedSource.response?.outcome === 'ok' ? selectedSource.response.data : null;
     if (!source || source.id !== selectedSourceId || source.origin !== 'standalone' || source.status !== 'open' || !source.sampleSet) {
       setSourceError(t('recentSourceError'));
       return;
     }
+    prefilledSourceId.current = selectedSourceId;
     setOwner(source.sampleSet.sourceOwner);
     setText(source.sampleSet.files.slice().sort((a, b) => a.order - b.order).map(file => file.fileRef + '\t' + file.sha256).join('\n'));
     setSourceError('');
     setError('');
     setFieldErrors({});
     setAgain(null);
-  }, [selectedSourceId, selectedSource.status, selectedSource.response, t]);
+  }, [open, selectedSourceId, selectedSource.status, selectedSource.response, t]);
 
   function chooseRecentSource(id: string) {
     if (id === selectedSourceId) selectedSource.refetch();
@@ -364,6 +393,7 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   }
 
   const edit = (set: (value: string) => void) => (value: string) => { set(value); setAgain(null); setError(''); setFieldErrors({}); };
+  const editSource = (set: (value: string) => void) => (value: string) => { if (selectedSourceId) prefilledSourceId.current = selectedSourceId; edit(set)(value); };
   function settle(r: ActionResult<{ id: string }>) {
     if (r.outcome === 'ok' && r.data) { setAgain(null); setTitle(''); setOwner(''); setText(''); setError(''); setFieldErrors({}); setSelectedSourceId(null); setManualOpen(false); onOpenChange(false); navigate(linkTo('log-explorer-view', { params: { investigationId: r.data.id } })); return; }
     if ((r.outcome === 'unknown' || r.outcome === 'error') && r.retry) { setAgain(() => r.retry!); setError(r.outcome === 'unknown' ? '응답을 받지 못했습니다. 만들어졌는지 확인할 수 없어 같은 요청으로 다시 시도합니다.' : '조사를 만들지 못했습니다. 같은 요청으로 다시 시도하세요.'); return; }
@@ -423,9 +453,9 @@ export function SampleDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     {fieldErrors.title && <p id="explorer-title-error" className="text-xs text-text-danger-label">{fieldErrors.title}</p>}
     <details open={manualOpen} onToggle={event => setManualOpen(event.currentTarget.open)} className="grid gap-2">
       <summary className="cursor-pointer text-sm font-medium">{t('directInput')}</summary>
-    <Label htmlFor="explorer-owner">Source 소유자</Label><Input id="explorer-owner" aria-invalid={!!fieldErrors.sourceOwner || undefined} aria-describedby={fieldErrors.sourceOwner ? 'explorer-owner-error' : undefined} value={sourceOwner} onChange={e => edit(setOwner)(e.target.value)} maxLength={SAMPLE_OWNER_MAX_LENGTH} />
+    <Label htmlFor="explorer-owner">Source 소유자</Label><Input id="explorer-owner" aria-invalid={!!fieldErrors.sourceOwner || undefined} aria-describedby={fieldErrors.sourceOwner ? 'explorer-owner-error' : undefined} value={sourceOwner} onChange={e => editSource(setOwner)(e.target.value)} maxLength={SAMPLE_OWNER_MAX_LENGTH} />
     {fieldErrors.sourceOwner && <p id="explorer-owner-error" className="text-xs text-text-danger-label">{fieldErrors.sourceOwner}</p>}
-    <Label htmlFor="explorer-files">파일 참조 · 탭 · SHA-256 · 한 줄에 한 파일</Label><Textarea id="explorer-files" aria-invalid={!!filesDescribedBy || undefined} aria-describedby={filesDescribedBy} value={text} onChange={e => edit(setText)(e.target.value)} />
+    <Label htmlFor="explorer-files">파일 참조 · 탭 · SHA-256 · 한 줄에 한 파일</Label><Textarea id="explorer-files" aria-invalid={!!filesDescribedBy || undefined} aria-describedby={filesDescribedBy} value={text} onChange={e => editSource(setText)(e.target.value)} />
     </details>
     {fieldErrors.files && <p id="explorer-files-error" className="text-xs text-text-danger-label">{fieldErrors.files}</p>}
     {fileErrorKeys.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(key => { const [, line, field] = key.split(':'); return <p key={key} id={`explorer-files-line-${line}-${field}-error`} className="text-xs text-text-danger-label">{line}행 {field === 'fileRef' ? '파일 참조' : 'SHA-256'}: {fieldErrors[key]}</p>; })}
