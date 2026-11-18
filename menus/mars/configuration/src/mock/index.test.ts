@@ -92,3 +92,19 @@ describe('Configuration synthetic matrix', () => {
     expect(compareTree({ ...request, ...previous }).nodes.some(node => node.id === first.focus)).toBe(true);
   });
 });
+
+describe('Equipment-axis endpoint', () => {
+  it.each([199, 200, 201])('counts all %i filtered items before materializing a result', count => {
+    const endpoint = configurationMock.find(endpoint => endpoint.spec.id === 'configuration.pivot')!;
+    const query = { ...params, eq: EQUIPMENT, mode: 'reference', ref: 'EQ03', q: `synthetic-item-count:${count}` };
+    const answer = endpoint.handle({ params: query, context: emptyGlobal, equipment: [], actor: 'engineer' });
+    if (count === 201) {
+      expect(answer).toEqual({ over: true, count });
+    } else {
+      expect(answer).toMatchObject({ over: false, count });
+      expect(answer).toHaveProperty('columns.length', count);
+      expect(answer).toHaveProperty('rows.length', 20);
+      expect(answer).toHaveProperty('rows.0.id', 'EQ03');
+    }
+  });
+});

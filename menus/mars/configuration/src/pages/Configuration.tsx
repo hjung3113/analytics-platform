@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Columns3, Download } from 'lucide-react';
 import { encodeFilterParams, formatInstant, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
-import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryState } from '@ap/kernel';
+import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryDraft, type QueryState } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { AXIS_KEY, COLUMN_LIMIT, EQUIPMENT_AXIS, configurationPivotEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type PivotParams, type PivotResult, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { MESSAGES } from '../messages';
 import { ConfigurationWorkspace } from './ConfigurationWorkspace';
-import { distribution, distributionText, PrimaryChip, RowStatus, valueMeaning, type Message } from './comparison';
+import { EquipmentAxisTable, itemFromEquipment, validEquipmentResult } from './EquipmentAxisTable';
+import { distribution, distributionText, PrimaryChip, RowStatus, valueMeaning, valueTone, type Message } from './comparison';
 
 const SEGMENTS = ['bg-chart-series-1', 'bg-chart-series-2', 'bg-chart-series-3', 'bg-chart-series-4'];
 function conditionParams(page: readonly Pair[]): CompareParams {
@@ -36,6 +37,7 @@ function summaryFor(page: readonly Pair[], m: Message) {
     if (key === 'filter') value = m('filterCount', { count: values.length });
     summary.push({ key, label: m(label), value });
   }
+  summary.push({ key: AXIS_KEY, label: m('axis'), value: m(page.some(([key, value]) => key === AXIS_KEY && value === EQUIPMENT_AXIS) ? 'equipmentAxis' : 'itemAxis') });
   return summary;
 }
 function statusLabel(status: CompareStatus) {
@@ -48,11 +50,11 @@ function complianceLabel(row: ConfigRow, eq: string, params: CompareParams): key
   if (valueMeaning(row, eq, params) === 'violation') return 'violationChip';
   return row.spec ? 'equal' : 'specUnknown';
 }
-function Summary({ data, status, select, m }: { data: TreePage; status: CompareStatus; select: (status: CompareStatus) => void; m: Message }) {
-  const equal = data.counts.all - data.counts.review;
+function Summary({ data, status, select, m }: { data: TreePage | null | undefined; status: CompareStatus; select: (status: CompareStatus) => void; m: Message }) {
+  const equal = data ? data.counts.all - data.counts.review : 0;
   return <div className="flex shrink-0 flex-wrap items-center gap-2 py-1" data-configuration-summary>
     <ToggleGroup type="single" appearance="filter" size="sm" aria-label={m('status')} value={status} onValueChange={value => { if (value) select(value as CompareStatus); }}>
-      {STATUS.map(key => <ToggleGroupItem key={key} value={key} appearance="selected-filter">{m(statusLabel(key))} {data.counts[key].toLocaleString()}</ToggleGroupItem>)}
+      {STATUS.map(key => <ToggleGroupItem key={key} value={key} appearance="selected-filter">{m(statusLabel(key))}{data ? ` ${data.counts[key].toLocaleString()}` : ''}</ToggleGroupItem>)}
     </ToggleGroup>
     {status !== 'all' && equal > 0 && <span className="text-xs text-text-muted">{m('hiddenEqual', { count: equal.toLocaleString() })}</span>}
   </div>;
@@ -134,39 +136,95 @@ function ItemDrawer({ row, detail, eq, params, m, close, openTrend }: { row: Con
 }
 
 
+// Kernel starts a new draft on address changes. An axis-only change has the same query basis,
+// so carry the previous edits onto the new address while the axis key follows applied state.
+function useAxisDraft(query: QueryDraft, basis: string, swapped: boolean) {
+  const previous = useRef<{ basis: string; swapped: boolean; query: QueryDraft } | null>(null);
+  useLayoutEffect(() => {
+    const last = previous.current;
+    previous.current = { basis, swapped, query };
+    if (!last || last.basis !== basis || last.swapped === swapped || !last.query.dirty.length || last.query.applying) return;
+    const { draft, dirty } = last.query;
+    const globalPatch = Object.fromEntries(Object.entries(draft.global).filter(([key]) => dirty.includes(key)));
+    if (Object.keys(globalPatch).length) query.setDraftGlobal(globalPatch);
+    const patch: Record<string, string[] | null> = Object.create(null);
+    for (const [key] of query.draft.page) if (key !== AXIS_KEY && (dirty.includes(key) || dirty.includes('page'))) patch[key] = null;
+    for (const [key, value] of draft.page) {
+      if (key !== AXIS_KEY && (dirty.includes(key) || dirty.includes('page'))) patch[key] = [...(patch[key] ?? []), value];
+    }
+    if (Object.keys(patch).length) query.setDraftPage(patch);
+  }, [basis, swapped, query]);
+}
+
+function checkedPivot(response: QueryState<PivotResult>['response'], params: PivotParams): typeof response {
+  if (response?.outcome !== 'ok') return response;
+  if (!response.data || !validEquipmentResult(response.data, params)) {
+    return { ...response, outcome: 'error', data: null };
+  }
+  return response.data.count === 0 ? { ...response, outcome: 'empty' } : response;
+}
+
+function useItemAxisTools(owner: string, conditions: string, swapped: boolean) {
+  const [previous, setPrevious] = useState({ owner, conditions, swapped });
+  const [grouped, setGrouped] = useState(false);
+  const [hidden, setHidden] = useState<string[]>([]);
+  if (previous.owner !== owner || previous.conditions !== conditions || previous.swapped !== swapped) {
+    setPrevious({ owner, conditions, swapped });
+    // The item axis resets on its own query edits. Equipment-axis edits leave its tools alone.
+    if (previous.owner !== owner || (!previous.swapped && !swapped && previous.conditions !== conditions)) {
+      setGrouped(false);
+      setHidden([]);
+    }
+  }
+  return { grouped, setGrouped, hidden, setHidden };
+}
+
 const valueOf = (node: TreeRow, column: MatrixColumn) => node.item?.values[column.id]?.value ?? null;
-function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hideSame: boolean; m: Message; openTrend: (id: string) => void }) {
+function Comparison({ params, swapped, hideSame, itemTools, m, openTrend }: { params: PivotParams; swapped: boolean; hideSame: boolean; itemTools: ReturnType<typeof useItemAxisTools>; m: Message; openTrend: (id: string) => void }) {
   const { lang } = useI18n();
   const { setPage } = usePlatform();
+  const { grouped, setGrouped, hidden, setHidden } = itemTools;
   const [window, setWindow] = useState({ expanded: [] as string[], offset: 0, reveal: null as MatrixCell | null });
   const [selection, setSelection] = useState<MatrixCell | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<ConfigRow | null>(null);
-  const [grouped, setGrouped] = useState(false);
-  const [hidden, setHidden] = useState<string[]>([]);
+  const selectEquipmentCell = useCallback((cell: MatrixCell, item: ConfigRow) => {
+    setSelection(cell);
+    setDrawer(current => current && item);
+  }, []);
   const [emphasis, setEmphasis] = useState<MatrixEmphasisRule[]>([]);
   const [onlyMatching, setOnlyMatching] = useState(false);
   const [nav, setNav] = useState<{ kind: 'idle' | 'loading' | 'error'; ordinal: number | null }>({ kind: 'idle', ordinal: null });
   const [exportError, setExportError] = useState(false);
   const request = useRef<AbortController | null>(null);
-  useEffect(() => () => request.current?.abort(), [params.q]);
+  useLayoutEffect(() => () => request.current?.abort(), [params.q, swapped]);
   // Search keeps the toolbar mounted, while clearing the same transient state as a remount.
   const [searchGeneration, setSearchGeneration] = useState(params.q);
   if (searchGeneration !== params.q) {
     setSearchGeneration(params.q);
     setWindow({ expanded: [], offset: 0, reveal: null });
     setSelection(null); setSelectedPath(null); setDrawer(null);
-    setGrouped(false); setHidden([]); setEmphasis([]); setOnlyMatching(false);
+    setEmphasis([]); setOnlyMatching(false);
     setNav({ kind: 'idle', ordinal: null }); setExportError(false);
   }
-  const treeParams: TreeParams = { ...params, expanded: window.expanded, offset: window.offset };
+  const [previousAxis, setPreviousAxis] = useState(swapped);
+  if (previousAxis !== swapped) {
+    setPreviousAxis(swapped);
+    setSelection(null); setSelectedPath(null); setDrawer(null);
+    setNav({ kind: 'idle', ordinal: null }); setExportError(false);
+  }
+  const treeParams: TreeParams = { ...params, expanded: window.expanded, offset: window.offset, limit: TREE_WINDOW };
   const query = useMenuQuery(configurationTreeEndpoint, treeParams, { keepPrevious: true });
+  const pivotQuery = useMenuQuery(configurationPivotEndpoint, params, { enabled: swapped });
+  const checkedResponse = useMemo(() => checkedPivot(pivotQuery.response, params), [pivotQuery.response, params]);
+  const equipmentView = { ...pivotQuery, response: checkedResponse };
+  const equipmentResult = equipmentView.response?.outcome === 'ok' && equipmentView.response.data?.over === false ? equipmentView.response.data : null;
   const staleSearch = query.showingPrevious && query.resultParams?.q !== params.q;
   const navigation = useMenuFetch(configurationTreeNavigationEndpoint);
   const exports = useMenuFetch(configurationExportEndpoint);
   const workbook = useWorkbookExport();
   const { cancel: cancelExport } = workbook;
-  useLayoutEffect(() => { cancelExport(); }, [cancelExport, params.q]);
+  useLayoutEffect(() => { cancelExport(); }, [cancelExport, params.q, swapped]);
   const selectedId = selection?.row ?? null;
   useEffect(() => {
     const node = query.response?.data?.nodes.find(row => row.id === selectedId);
@@ -177,7 +235,11 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
   // One row drives the drawer header and «이력»: the loaded detail, else the selected tree item, else the row it opened on
   // (only while navigation moves the selection outside the current window). Group selections close the drawer (#2525).
   const loadedDetail = detail.response?.outcome === 'ok' && detail.response.data?.id === selectedId ? detail.response.data : null;
-  const selectedItem = query.response?.data?.nodes.find(row => row.id === selectedId)?.item ?? null;
+  const pivotItem = useMemo(() => {
+    const found = equipmentResult?.columns.find(item => item.id === selectedId);
+    return found && equipmentResult ? itemFromEquipment(found, equipmentResult.rows) : null;
+  }, [equipmentResult, selectedId]);
+  const selectedItem = swapped ? pivotItem : query.response?.data?.nodes.find(row => row.id === selectedId)?.item ?? null;
   const shown = drawer && (loadedDetail ?? selectedItem ?? drawer);
   const equipment = params.mode === 'reference' ? [params.ref, ...params.eq.filter(id => id !== params.ref)] : params.eq;
   const columns: MatrixColumn[] = [
@@ -217,14 +279,20 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
   const hiddenColumns = [...new Set([...hidden, ...same, ...(grouped ? params.eq : [])])].filter(id => !(params.mode === 'reference' && id === params.ref));
   return <div className="flex h-full min-h-0 min-w-0 flex-col break-keep">
     <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-border-subtle px-2 py-1" data-configuration-toolbar>
-      {result && <Summary data={result} status={params.status} select={selectStatus} m={m} />}
+      {(result || swapped) && <Summary data={result} status={params.status} select={selectStatus} m={m} />}
       {response && <DataTrustIndicator trust={response.trust} assessments={response.assessments} compact />}
+      <ToggleGroup type="single" appearance="filter" size="sm" aria-label={m('axis')} value={swapped ? EQUIPMENT_AXIS : 'item'}
+        onValueChange={value => { if (value) setPage({ [AXIS_KEY]: value === EQUIPMENT_AXIS ? EQUIPMENT_AXIS : null }); }}>
+        <ToggleGroupItem value="item" appearance="selected-filter">{m('itemAxis')}</ToggleGroupItem>
+        <ToggleGroupItem value={EQUIPMENT_AXIS} appearance="selected-filter">{m('equipmentAxis')}</ToggleGroupItem>
+      </ToggleGroup>
+      <span className="sr-only" role="status">{m(swapped ? 'equipmentAxis' : 'itemAxis')}</span>
       <Input inputSize="toolbar" className="ml-auto w-44" type="search" aria-label={m('search')} placeholder={m('search')} value={params.q} onChange={event => setPage({ q: event.target.value || null })} />
       <FilterLine fields={filterDeclaration.filterFields} filters={params.filters ?? []} onChange={filters} />
-      <Button variant={grouped ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={grouped} onClick={() => setGrouped(value => !value)}>{m('groupValues')}</Button>
-      <Button variant={hideSame ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={hideSame} onClick={() => setPage({ hideSameCols: hideSame ? null : '1' })}>{m('hideSame')}</Button>
+      {!swapped && <><Button variant={grouped ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={grouped} onClick={() => setGrouped(value => !value)}>{m('groupValues')}</Button>
+      <Button variant={hideSame ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={hideSame} onClick={() => setPage({ hideSameCols: hideSame ? null : '1' })}>{m('hideSame')}</Button></>}
       <MatrixLevelOrder levels={LEVELS} value={params.levels} defaultValue={DEFAULT_LEVELS} label={m('levelOrder')} onChange={levels => setPage({ levels: levels.join(',') })} />
-      <Popover><PopoverTrigger asChild><Button variant="secondary" size="icon-sm" aria-label={m('columns')}><Columns3 className="size-4" /></Button></PopoverTrigger><PopoverContent align="end" aria-label={m('columns')} className="max-h-80 overflow-auto"><div className="space-y-2">{equipment.map(id => <label key={id} className="flex items-center gap-2 text-sm"><Checkbox checked={!hiddenColumns.includes(id)} disabled={params.mode === 'reference' && id === params.ref || same.includes(id) || grouped} onCheckedChange={checked => setHidden(current => checked ? current.filter(value => value !== id) : [...current, id])} />{id}</label>)}</div></PopoverContent></Popover>
+      {!swapped && <><Popover><PopoverTrigger asChild><Button variant="secondary" size="icon-sm" aria-label={m('columns')}><Columns3 className="size-4" /></Button></PopoverTrigger><PopoverContent align="end" aria-label={m('columns')} className="max-h-80 overflow-auto"><div className="space-y-2">{equipment.map(id => <label key={id} className="flex items-center gap-2 text-sm"><Checkbox checked={!hiddenColumns.includes(id)} disabled={params.mode === 'reference' && id === params.ref || same.includes(id) || grouped} onCheckedChange={checked => setHidden(current => checked ? current.filter(value => value !== id) : [...current, id])} />{id}</label>)}</div></PopoverContent></Popover>
       <Button variant="secondary" size="icon-sm" aria-label={m('export')} disabled={staleSearch || !result || !workbook.canExport || workbook.exporting} onClick={async () => {
         setExportError(false);
         const outcome = await workbook.exportWorkbook(async signal => {
@@ -235,10 +303,15 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
           return [{ name: m('title'), header: shown.map(column => column.label), rows: exported.data.map(row => shown.map(column => { if (column.id === 'identity') return row.key; if (column.id === 'status') return [row.diff && m('diff'), row.violation && m('violation'), row.missing && m('missing'), row.notComparable && m('not-comparable')].filter(Boolean).join(' · ') || m('equal'); if (column.id === 'distribution') return distributionText(row, m); return row.values[column.id].value; })) }];
         }, { fileName: 'configuration', trust: response?.trust ?? null });
         if (outcome === 'failed' || outcome === 'too-large' || outcome === 'refused') setExportError(true);
-      }}><Download className="size-4" /></Button>
+      }}><Download className="size-4" /></Button></>}
 
     </div>
-    <QueryView query={query} fill emptyAction={<div className="space-y-2"><Button variant="secondary" onClick={() => filters([])}>{m('clear')}</Button></div>}>{result => {
+    {swapped && <QueryView query={equipmentView} fill emptyAction={<Button variant="secondary" onClick={() => filters([])}>{m('clear')}</Button>}>{data => data.over
+      ? <p role="status" className="break-keep px-4 py-12 text-center text-sm">{m('axisLimit', { count: data.count.toLocaleString(lang), limit: COLUMN_LIMIT })}</p>
+      : <EquipmentAxisTable data={data} params={params} selection={selection} selectedItem={pivotItem} m={m} openTrend={openTrend}
+          onSelect={selectEquipmentCell} openDetail={() => setDrawer(pivotItem)} />}
+    </QueryView>}
+    {!swapped && <QueryView query={query} fill emptyAction={<div className="space-y-2"><Button variant="secondary" onClick={() => filters([])}>{m('clear')}</Button></div>}>{result => {
       const selected = result.nodes.find(row => row.id === selectedId);
       const generation = JSON.stringify([params, result.expanded]);
       return <>
@@ -248,7 +321,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
           onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(null); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
           onWindowChange={offset => { if (!staleSearch) setWindow(current => ({ ...current, offset, reveal: null })); }} reveal={window.reveal} hiddenColumns={hiddenColumns} busy={query.status === 'loading' || query.status === 'refreshing'} generation={generation}
           emphasis={emphasis} onEmphasisChange={staleSearch ? undefined : setEmphasis} onlyMatchingColumns={onlyMatching} emphasisActionLabel={m('emphasisAction')} emphasisColumnLabel={m('emphasis')} formatEmphasisCount={count => m('matchCount', { count })}
-          cellTone={(node, column) => { if (!node.item || !(column.id in node.item.values)) return undefined; const meaning = valueMeaning(node.item, column.id, params); if (meaning === 'diff') return 'info'; if (meaning === 'violation') return 'danger'; if (meaning === 'missing' || meaning === 'not-comparable') return 'missing'; return undefined; }}
+          cellTone={(node, column) => { if (!node.item || !(column.id in node.item.values)) return undefined; return valueTone(valueMeaning(node.item, column.id, params)); }}
           />
         <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-1 text-xs tabular" data-configuration-bottom>
           <span>{m('navigate')}</span><Button variant="secondary" size="icon-xs" aria-label={m('previous')} disabled={staleSearch || nav.kind === 'loading' || nav.ordinal === 1 || !result.counts.diff} onClick={() => navigate('previous')}><ChevronLeft className="size-3" /></Button><Button variant="secondary" size="icon-xs" aria-label={m('next')} disabled={staleSearch || nav.kind === 'loading' || nav.ordinal === result.counts.diff || !result.counts.diff} onClick={() => navigate('next')}><ChevronRight className="size-3" /></Button>
@@ -258,7 +331,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
           <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item} onClick={() => { if (selected?.item) setDrawer(selected.item); }}>{m('openSelected')}<ChevronRight className="size-3" /></Button>
         </div>
       </>;
-    }}</QueryView>
+    }}</QueryView>}
     {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: EXPORT_LIMIT.toLocaleString() })}</span>}
     {shown && <ItemDrawer row={shown} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { setDrawer(null); openTrend(shown.id); }} />}
   </div>;
@@ -273,13 +346,22 @@ export default function Configuration() {
   if (!validEquipment(draft.eq)) issues.push({ key: 'equipment', label: m('equipment'), reason: m('chooseEquipment') });
   if (draft.mode === 'reference' && !draft.eq.includes(draft.ref)) issues.push({ key: 'ref', label: m('referenceEquipment'), reason: m('referenceRequired') });
   const historyPageSummary = useCallback((_global: GlobalContext, candidate: readonly Pair[]) => summaryFor(candidate, m), [m]);
-  const eq = equipmentFromKey(pageParam('equipment'));
-  const levels = pageParam('levels')?.split(',') ?? DEFAULT_LEVELS;
+  const equipmentKey = pageParam('equipment');
+  const eq = useMemo(() => equipmentFromKey(equipmentKey), [equipmentKey]);
+  const levelsKey = pageParam('levels');
+  const levels = useMemo(() => levelsKey?.split(',') ?? DEFAULT_LEVELS, [levelsKey]);
+  const axis = pageParam(AXIS_KEY);
+  const swapped = axis === EQUIPMENT_AXIS;
+  useAxisDraft(query, JSON.stringify([session.user.id, revision, global, page.filter(([key]) => key !== AXIS_KEY)]), swapped);
   const rawFilters = pageParams('filter');
   const trendItem = pageParam(TREND_ITEM_KEY);
-  const parsedFilters = readFilters(rawFilters, eq);
-  const params: TreeParams = { eq, mode: (pageParam('mode') ?? 'all') as CompareParams['mode'], ref: pageParam('ref') ?? 'EQ01', asOf: 'latest', status: (pageParam('status') ?? 'review') as CompareStatus, q: pageParam('q') ?? '', coreOnly: pageParam('core') === '1', levels, filters: parsedFilters.ok ? parsedFilters.filters : [], expanded: [], offset: 0, limit: TREE_WINDOW };
+  const parsedFilters = useMemo(() => readFilters(rawFilters, eq), [rawFilters, eq]);
+  const params = useMemo<PivotParams>(() => {
+    const conditions = conditionParams(page);
+    return { ...conditions, levels, filters: parsedFilters.ok ? parsedFilters.filters : [] };
+  }, [page, levels, parsedFilters]);
   const validation = usePageKeyRules([
+    { key: AXIS_KEY, label: MESSAGES.axis, valid: raw => raw === EQUIPMENT_AXIS },
     { key: 'equipment', label: MESSAGES.equipment, valid: validEquipmentKey },
     { key: 'mode', label: MESSAGES.compareMode, valid: raw => raw === 'all' || raw === 'reference' },
     { key: 'ref', label: MESSAGES.reference, valid: raw => EQUIPMENT.includes(raw) && (params.mode !== 'reference' || eq.includes(raw)) },
@@ -292,12 +374,13 @@ export default function Configuration() {
     { key: 'filter', label: MESSAGES.filter, repeated: true, valid: () => parsedFilters.ok },
   ]);
   const identity = JSON.stringify([{ ...params, q: undefined }, session.user.id, revision, global]);
+  const tools = useItemAxisTools(JSON.stringify([session.user.id, revision, global.scopeId]), JSON.stringify([identity, params.q]), swapped);
   let content;
   if (validation.invalid) content = <PageKeyWarning sentences={validation.sentences} onRecover={validation.recover} />;
   else if (!validEquipment(eq)) content = <EmptyState title={m('chooseEquipment')} />;
   else if (params.mode === 'reference' && !eq.includes(params.ref)) content = <EmptyState title={m('referenceRequired')} />;
   else content = <ConfigurationWorkspace itemId={trendItem} params={params}>
-    {openTrend => <Comparison key={`matrix:${identity}`} params={params} hideSame={pageParam('hideSameCols') === '1'} m={m} openTrend={openTrend} />}
+    {openTrend => <Comparison key={`matrix:${identity}`} params={params} swapped={swapped} hideSame={pageParam('hideSameCols') === '1'} itemTools={tools} m={m} openTrend={openTrend} />}
   </ConfigurationWorkspace>;
   return <PlatformPage layout="fill" contextExtension={<Conditions m={m} />}
     queryBarExtension={{ pageSummary: summaryFor(query.draft.page, m), appliedPageSummary: summaryFor(page, m), historyPageSummary, issues }}>

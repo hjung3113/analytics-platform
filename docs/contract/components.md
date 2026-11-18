@@ -192,7 +192,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - **강조 표시·수명:** 일치 셀은 **채움 없이 안쪽 1px 점선**만 추가하며 톤과 2px 선택 ring을 유지한다. 규칙이 하나라도 있을 때만 오른쪽 고정 개수 열이 생기며 강조된 행의 일치 열 수를 표시한다. 소비자가 행동·칩·열·개수 문구를 바꿀 수 있고 기본은 중립적인 «N개 해당»이다. `MatrixEmphasisBar`는 강조 개수, 행별 삭제, 모두 지우기, «이 열만 보기» 토글을 제공한다. `onlyMatchingColumns`는 규칙이 일치한 열들의 합집합과 고정/alwaysVisible 열만 남기고 `hiddenColumns`를 함께 적용한다. 윈도 이동 때 데이터 행은 보관하지 않고 강조한 행별 일치 열 id만 기억한다. 소비자는 세션·Scope·필터·정렬/펼침 등 평탄화 순서가 바뀌는 조회 세대마다 `generation`을 바꾸거나 컴포넌트를 remount하고 선택·강조 상태도 해당 조회에 맞춘다. 기억한 id·대기 포커스·열린 필터/행 편집기의 draft는 세대 경계를 넘지 않는다. 강조는 chart zoom처럼 **일시적**이며 URL·사용자 설정·Saved View에 저장하지 않는다(§21.1).
 - **접근성:** `role="treegrid"`, 전체 `aria-rowcount/colcount`, 절대 `aria-rowindex`, 행 `aria-level/expanded`, 셀 `aria-colindex/selected`, `aria-busy`를 둔다. 값은 셀의 접근 가능한 내용으로 유지한다. 그룹 단추, 행 메뉴, 단계 위/아래 단추는 이름과 키보드 경로를 갖는다. 개수 열은 읽기 전용으로 선택/활성화 대상에서 제외한다.
 
-평면 행 × 계층 잎 열로 뒤집는 보기는 **미구현, #2498**이다. 같은 축 중립 타입을 재사용하되 소비자가 선언한 열 한도 아래에서만 표 column-group 헤더로 조립한다. 표에 열 가상화가 없어 DOM 크기·머리 가독성·스크린리더 열 수를 제한해야 한다. 해당 이슈에서 보기 구현·한도 선언과 확인으로 다시 연다.
+설비 기준 보기는 소비자가 설비를 행에, 계층의 잎을 열에 두고 [§15의 열 그룹 표](#15-platform-data-table-contract)로 조립한다(#2498). 표에 열 가상화가 없으므로 소비자가 DOM 크기·머리 가독성·스크린리더 탐색을 고려해 열 한도를 선언한다. Configuration은 잠정 한도를 200개로 정하고, 초과 시 열과 값 대신 초과 여부와 전체 잎 개수를 반환한다.
 
 ### GroupedSelectionList — 분류된 선택 목록 (Decided, ADR-0155)
 
@@ -325,6 +325,10 @@ Static `Table` is for small, fully given, read-only tables (summaries, previews,
 The static header uses the same tokens as `PlatformDataTable`: `t-table-header`, `bg-surface-sunken`, `text-text-secondary`, `h-8` / `px-4`. The piece carries no copy; captions, labels and sort handlers belong to the consumer. Numeric headers and cells use `align="end"`. Optional `density="compact"` matches PlatformDataTable table size 작게 (28px rows, 12px font); 12px side padding instead of 16px lets six-column summaries fit a side panel. There is no third size. `TableRow current` marks the row the screen is on (accent surface and `aria-current`); the row's own text shape and weight stay with the consumer. Borders belong to header/body cells, with separate border layout, so a sticky header keeps its bottom line; final body-row cell bottom borders are omitted.
 
 ### PlatformDataTable features
+
+- **페이지 소유 도구행 (#2498):** `pageOwnedToolbar?: { columnVisibility?: Record<string, boolean> }`을 주면 표 내부 도구행과 결과 줄을 생략한다. 페이지가 조회 조작, 결과 요약, 열 보이기를 제공한다. 빠진 열 id는 보인다. 기본 도구행·열 환경설정은 이 옵션을 생략하면 그대로 쓴다. 페이지가 창 전체를 공급해 `externalPagination.controls`도 비우면 빈 페이지 이동 줄을 그리지 않는다.
+- **셀 톤·선택 (#2498):** `PlatformColumn.cellTone`은 TreeMatrix와 같은 토큰을 셀 전체에 적용한다. `cellLabel`로 업무 의미를 접근 이름에도 전달하고 `headerLabel`로 짧은 표시 제목에 전체 열 이름을 연결할 수 있다. `selectedCell: { row, column } | null`과 `onSelectCell`을 쓰면 방향키로 현재 창의 보이는 데이터 셀을 탐색한다. `selectableCell: false`인 열과 내부 제어 열은 건너뛴다. 다른 페이지의 행은 위치를 알 수 없어 넘겨 탐색하지 않는다. `onActivateCell`은 더블클릭과 Enter를 함께 지원한다. 중첩 조작은 그 조작에 남기고 기본 표에는 셀 포커스를 넣지 않는다.
+- **선언 고정 (#2498):** `PlatformColumn.initialPin: 'left'`는 사용자 설정이 없을 때 적용되며, 저장된 빈 목록도 사용자 결정으로 우선한다. `pinnedRowId`는 읽은 행 한 개를 머리글 바로 아래에 고정하고 스크롤 목록에서 제외한다. 현재 창에 없거나 행 그룹이 있는 경우에는 적용하지 않는다. 추가 조회나 그룹 순서 변경을 일으키지 않기 위해서다.
 
 기본 기능:
 

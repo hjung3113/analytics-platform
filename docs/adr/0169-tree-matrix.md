@@ -24,4 +24,4 @@
 
 - 기존 표·화면의 기본 동작을 바꾸지 않는 새 export다. MARS Configuration이 메뉴별 CFG 비교·조회·URL·항목 탐색을 연결한다(#2434, PR #2504).
 - `fill`은 공통 page-bound 등록을 사용하므로 프로토타입의 페이지 높이 측정 우회를 가져오지 않는다. 빗금은 기존 색 변수만 쓰는 유틸리티다.
-- 뒤집기·열 한도에 따른 조립은 **미구현, #2498**이며 이 이슈가 열 한도·표 헤더·접근성 검증을 구현할 때 다시 연다. Kernel·Saved View 계약 변경은 없다.
+- #2498에서 Configuration이 설비 기준 보기를 [§15의 열 그룹 표](../contract/components.md#15-platform-data-table-contract)로 조립한다. Configuration이 열 한도를 잠정 200개로 선언하고, 초과 응답으로 초과 여부와 전체 잎 개수를 제공한다.

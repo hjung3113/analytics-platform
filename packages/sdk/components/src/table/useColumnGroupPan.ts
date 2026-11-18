@@ -47,7 +47,7 @@ export function useColumnGroupPan(input: PanGroup[]) {
     const groupAt = (target: EventTarget | null) => {
       if (!(target instanceof Element)) return undefined;
       const box = target.closest<HTMLElement>(CLIP);
-      if (!box || box.closest('[role=table]') !== node) return undefined;
+      if (!box || box.closest('[role=table], [role=grid]') !== node) return undefined;
       const group = groups.get(box.dataset.groupId!);
       return group ? { group, box } : undefined;
     };
@@ -131,7 +131,7 @@ export function useColumnGroupPan(input: PanGroup[]) {
     const focus = (event: FocusEvent) => {
       const hit = groupAt(event.target);
       if (!hit || !(event.target instanceof Element)) return;
-      const cell = event.target.closest<HTMLElement>('[role=cell], [role=columnheader]');
+      const cell = event.target.closest<HTMLElement>('[role=cell], [role=gridcell], [role=columnheader]');
       if (!cell || cell.dataset.column === hit.group.id) return;
       const current = live.current[hit.group.id] ?? 0;
       // A cell wider than the group cannot be shown whole: reveal the focused control inside it instead, or End then Tab hides it again.

@@ -9,34 +9,37 @@ import { sanitizeColumnGroups, type StoredColumnGroups } from './columnGroups';
 
 export type Preferences = { sizing: ColumnSizingState; visibility: VisibilityState; pinning: ColumnPinningState; /** Column ids in display order; `[]` = declaration order (#556a). */ order: string[]; groups?: StoredColumnGroups };
 const defaults: Preferences = { sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] };
-function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: unknown }; order?: unknown; groups?: unknown } | null): Preferences {
-  if (!p || typeof p !== 'object') return defaults;
+function sanitize(p: { sizing?: object; visibility?: object; pinning?: { left?: unknown }; order?: unknown; groups?: unknown } | null, fallback = defaults): Preferences {
+  if (!p || typeof p !== 'object') return fallback;
   const groups = sanitizeColumnGroups(p.groups);
   return {
     sizing: Object.fromEntries(Object.entries(p.sizing || {}).filter(([, v]) => typeof v === 'number' && v >= 60 && v <= 600)) as ColumnSizingState,
     visibility: Object.fromEntries(Object.entries(p.visibility || {}).filter(([, v]) => typeof v === 'boolean')) as VisibilityState,
-    pinning: { left: Array.isArray(p.pinning?.left) ? p.pinning.left.filter((v: unknown) => typeof v === 'string') : [], right: [] },
+    pinning: Array.isArray(p.pinning?.left)
+      ? { left: p.pinning.left.filter((v: unknown) => typeof v === 'string'), right: [] }
+      : fallback.pinning,
     order: Array.isArray(p.order) ? p.order.filter((v: unknown): v is string => typeof v === 'string') : [],
     ...(groups !== undefined && { groups }),
   };
 }
-function readPreferences(key: string, legacyKey: string): Preferences {
+function readPreferences(key: string, legacyKey: string, fallback: Preferences): Preferences {
   return readBrowserPreference(key, { legacyKey, decode: raw => {
     const value: unknown = JSON.parse(raw);
-    return value !== null && typeof value === 'object' && !Array.isArray(value) ? sanitize(value) : null;
-  }, fallback: defaults });
+    return value !== null && typeof value === 'object' && !Array.isArray(value) ? sanitize(value, fallback) : null;
+  }, fallback });
 }
 
 /**
  * Column visibility, width and left-pin preferences per `preferenceKey` (§15, ADR-0024): in the browser, or — when the Kernel
  * carries the server preference seam (ADR-0098) — on the server under a hashed table key, shown from the server only.
  */
-export function useColumnPreferences(preferenceKey: string) {
+export function useColumnPreferences(preferenceKey: string, initialLeft: string[] = []) {
+  const fallback = initialLeft.length ? { ...defaults, pinning: { left: initialLeft, right: [] } } : defaults;
   const localKey = browserPreferenceKey('columns', usePlatformOptional()?.session.user.id, preferenceKey);
   const identity = localKey;
   const controller = usePreferenceController();
   const controllerState = usePreferenceState(controller);
-  const [preferences, setPreferences] = useState(() => controller ? defaults : readPreferences(localKey, preferenceKey));
+  const [preferences, setPreferences] = useState(() => controller ? fallback : readPreferences(localKey, preferenceKey, fallback));
   // Server mode: `synced` is the (controller, key) and the controller value last shown from it; `touched` is the (controller, key) the person changed first.
   const [seen, setSeen] = useState<PreferenceController | null>(controller);
   const [seenRaw, setSeenRaw] = useState(identity);
@@ -47,7 +50,7 @@ export function useColumnPreferences(preferenceKey: string) {
     setSeen(controller);
     setSynced(null);
     setTouched(null);
-    setPreferences(controller ? defaults : readPreferences(localKey, preferenceKey));
+    setPreferences(controller ? fallback : readPreferences(localKey, preferenceKey, fallback));
   }
   // A raw key change is an ownership boundary on the server: the other table's values and edits do not carry over (a pending width was flushed to its own key by the write effect).
   if (seenRaw !== identity) {
@@ -55,8 +58,8 @@ export function useColumnPreferences(preferenceKey: string) {
     if (controller) {
       setSynced(null);
       setTouched(null);
-      setPreferences(defaults);
-    } else setPreferences(readPreferences(localKey, preferenceKey));
+      setPreferences(fallback);
+    } else setPreferences(readPreferences(localKey, preferenceKey, fallback));
   }
   // The hash is computed outside render; WebCrypto answers asynchronously.
   useEffect(() => {
@@ -71,7 +74,7 @@ export function useColumnPreferences(preferenceKey: string) {
     // Every new controller value (a late server answer, an intent adopted from an older generation) is shown, unless the person already changed this table here.
     if (!(synced?.controller === controller && synced.raw === preferenceKey && synced.json === json)) {
       setSynced({ controller, raw: preferenceKey, json });
-      if (!(touched?.controller === controller && touched.raw === preferenceKey)) setPreferences(sanitize(value as Parameters<typeof sanitize>[0] ?? null));
+      if (!(touched?.controller === controller && touched.raw === preferenceKey)) setPreferences(sanitize(value as Parameters<typeof sanitize>[0] ?? null, fallback));
     }
   }
   // Writes follow user changes only (#823): nothing on mount; a width drag (`columnResizeMode: 'onChange'` reports every move) is written
@@ -132,7 +135,7 @@ export function useColumnPreferences(preferenceKey: string) {
     return groups === undefined ? rest : { ...rest, groups };
   }, 'now');
   /** Visibility, width, pin and order back to the column defaults; sort, page and selection stay. */
-  const resetPreferences = () => updatePreferences(() => ({ sizing: {}, visibility: {}, pinning: { left: [], right: [] }, order: [] }), 'now');
+  const resetPreferences = () => updatePreferences(() => ({ ...fallback }), 'now');
   // A saved-view intent stays in the slot until both the controller read and this table's hash/baseline are ready.
   const groupsReady = !controller || (controllerState.status === 'ready' && derived?.controller === controller && derived.raw === preferenceKey && derived.key !== null && synced?.controller === controller && synced.raw === preferenceKey);
   return { preferences, groupsReady, onColumnSizingChange, onColumnVisibilityChange, onColumnPinningChange, onColumnOrderChange, onColumnGroupsChange, applyColumnGroups, resetPreferences };

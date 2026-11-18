@@ -443,6 +443,31 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "configuration.pivot",
+    "menuId": "configuration",
+    "paramKeys": [
+      "eq",
+      "mode",
+      "ref",
+      "status",
+      "q",
+      "asOf",
+      "coreOnly",
+      "filters",
+      "levels"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": false,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "configuration.tree",
     "menuId": "configuration",
     "paramKeys": [

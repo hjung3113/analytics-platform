@@ -244,3 +244,76 @@ test.describe('Configuration', () => {
     await evidence(page, testInfo, 'configuration-saved-trend');
   });
 });
+
+const equipmentGrid = (page: Page) => page.getByRole('grid', { name: 'Configuration', exact: true });
+const axis = (page: Page, name: '설비 기준' | '항목 기준') => page.getByRole('radio', { name, exact: true });
+
+async function saveConfigurationView(page: Page, name: string) {
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await page.getByRole('menuitem', { name: '새 뷰로 저장', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '뷰 저장' });
+  await dialog.getByRole('radio', { name: /^메뉴 뷰/ }).click();
+  await dialog.getByLabel('뷰 이름').fill(name);
+  await dialog.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.getByRole('button', { name: `저장된 뷰: ${name}` })).toBeVisible();
+}
+
+async function revertConfigurationView(page: Page) {
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+}
+
+test.describe('Configuration equipment axis', () => {
+  test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
+
+  test('switches axes, opens the same item detail and trend, and supports Back', async ({ page }) => {
+    await open(page, '&status=all&q=cfg-0000');
+    await axis(page, '설비 기준').click();
+    await expect(axis(page, '설비 기준')).toBeChecked();
+    const cell = equipmentGrid(page).getByRole('gridcell', { name: /^EQ01 · PM1 › Gas Line 01 · Pressure Setpoint \(config\.cfg\) ·/ }).first();
+    await cell.click();
+    await expect(cell).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('button', { name: '선택 상세 열기', exact: true }).click();
+    await expect(page.getByRole('tab', { name: '비교 상세', exact: true })).toBeVisible();
+    await expect(page.getByText('PM1 / Gas Line 01 / Pressure Setpoint / config.cfg', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '상세 닫기', exact: true }).click();
+    await cell.press('Enter');
+    await expect.poll(() => query(page).get('trendItem')).toBe('cfg-000000');
+    await page.goBack();
+    await expect.poll(() => query(page).has('trendItem')).toBe(false);
+    await page.goBack();
+    await expect(axis(page, '항목 기준')).toBeChecked();
+    await expect(grid(page)).toBeVisible();
+  });
+
+  test('restores a saved equipment axis and filter with the limit notice', async ({ page }) => {
+    await open(page, '&status=all');
+    await filter(page, 'Module', 'PM1');
+    await expandPageHead(page);
+    await axis(page, '설비 기준').click();
+    const limit = page.getByRole('status').filter({ hasText: '항목 15,000개 · 최대 200개까지 표시할 수 있습니다.' });
+    await expect(limit).toBeVisible();
+    await expect(equipmentGrid(page)).toHaveCount(0);
+    await saveConfigurationView(page, 'Configuration 설비 기준 제한');
+    await axis(page, '항목 기준').click();
+    await expect(grid(page)).toBeVisible();
+    await page.getByRole('button', { name: /Module.*지우기/ }).click();
+    await expect(summary(page)).toContainText('일치 포함 전체 90,000');
+    await revertConfigurationView(page);
+    await expect(axis(page, '설비 기준')).toBeChecked();
+    await expect(limit).toBeVisible();
+    await expect(page.getByRole('searchbox')).toBeVisible();
+  });
+
+  test('restores a saved view created without an axis key to item axis', async ({ page }) => {
+    await open(page, '&status=all&q=cfg-0000');
+    await expandPageHead(page);
+    await saveConfigurationView(page, 'Configuration 항목 기준');
+    await axis(page, '설비 기준').click();
+    await expect(equipmentGrid(page)).toBeVisible();
+    await revertConfigurationView(page);
+    await expect(axis(page, '항목 기준')).toBeChecked();
+    await expect(grid(page)).toBeVisible();
+    await expect.poll(() => query(page).has('axis')).toBe(false);
+  });
+});

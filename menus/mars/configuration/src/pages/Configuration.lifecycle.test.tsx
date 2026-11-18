@@ -8,7 +8,8 @@ import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { settleQueries, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type ConfigHistory, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { stubCompactTableGeometry } from '@ap/components/testing';
+import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type ConfigHistory, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
 
@@ -421,5 +422,182 @@ describe('Configuration trend workspace', () => {
     expect(trend()?.querySelector('[data-lane-scroll]')).toBeTruthy();
     expect(trend()?.querySelector('h2')?.textContent).toBe('Applied');
     expect(trend()?.textContent).not.toContain('Late');
+  });
+});
+
+describe('Configuration equipment axis', () => {
+  let restoreGeometry: () => void;
+  beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); });
+  afterEach(() => { restoreGeometry(); });
+  const switchAxis = async (label: string) => {
+    await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === label)!.click());
+    await settleQueries();
+  };
+  const button = (label: string) => [...host.querySelectorAll('button')].find(node => node.textContent?.trim() === label || node.getAttribute('aria-label') === label);
+  const swapped = () => host.querySelector('[role="grid"][aria-label="Configuration"]');
+  const axisStatus = () => [...host.querySelectorAll('[role="status"]')].find(node => node.textContent?.includes('설비 기준'));
+  const requestParams = (requests: ReturnType<typeof vi.fn>) => requests.mock.calls.filter(([input]) => input.endpoint === 'configuration.pivot').at(-1)?.[0].params;
+  const pivot = (params: TreeParams, count = 2) => {
+    const items = windowPage({ ...params, offset: 0 }).nodes.slice(0, count).map(node => node.item!);
+    const columns = items.map(({ values: _values, ...metadata }, index) => {
+      const item = index === 0 ? 'Pressure' : 'Vacuum';
+      return { ...metadata, item, key: `PM1 / Gas / ${item} / ${metadata.filename}` };
+    });
+    const rows = params.eq.map(id => ({ id, values: Object.fromEntries(items.map(item => [item.id, item.values[id]])) }));
+    return { over: false, count, columns, rows };
+  };
+
+  it('preserves the query draft and uses the applied equipment and filters on axis switch and Back', async () => {
+    const requests = await mount(vi.fn(async ({ endpoint, params: query }) => {
+      const params = query as TreeParams;
+      return ok(endpoint === 'configuration.pivot' ? pivot(params) : windowPage(params));
+    }));
+    await act(async () => picker().props.onValuesChange(['EQ02', 'EQ03']));
+    const pending = draft.draft.page.find(([key]) => key === 'equipment');
+    await switchAxis('설비 기준');
+    expect(draft.draft.page.find(([key]) => key === 'equipment')).toEqual(pending);
+    expect(draft.dirty).toContain('equipment');
+    expect(requestParams(requests)?.eq).toEqual(DEFAULT_EQUIPMENT);
+    expect(new URLSearchParams(window.location.search).get('axis')).toBe('equipment');
+    await act(async () => window.history.back());
+    await vi.waitFor(() => expect(new URLSearchParams(window.location.search).get('axis')).toBeNull());
+    expect(host.querySelector('[data-matrix-viewport]')).not.toBeNull();
+    expect(picker().props.values).toEqual(['EQ02', 'EQ03']);
+  });
+
+  it('restores a shared axis and filter, and announces the refused item count and axis', async () => {
+    const requests = await mount(vi.fn(async ({ endpoint, params: query }) => {
+      const params = query as TreeParams;
+      return ok(endpoint === 'configuration.pivot' ? { over: true, count: 201 } : windowPage(params));
+    }));
+    await act(async () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('axis', 'equipment');
+      url.searchParams.append('filter', 'module:equals:PM1');
+      window.history.pushState(null, '', url);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await settleQueries();
+    await vi.waitFor(() => expect(axisStatus()?.textContent).toBe('설비 기준'));
+    expect([...host.querySelectorAll('[role="status"]')].some(node => node.textContent?.includes('항목 201개 · 최대 200개'))).toBe(true);
+    expect(requestParams(requests)?.filters).toEqual([{ id: 'module', op: 'equals', value: 'PM1' }]);
+    expect(swapped()).toBeNull();
+  });
+
+  it('rejects an unknown axis and leaves its URL intact for recovery', async () => {
+    await mount();
+    await act(async () => {
+      window.history.pushState(null, '', window.location.href + '&axis=bogus');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(host.textContent).toContain('보기 축');
+    expect(host.querySelector('[data-matrix-viewport]')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('axis')).toBe('bogus');
+  });
+
+  it.each(['loading', 'error', 'empty'] as const)('shows the %s state for the pivot while retaining the toolbar', async state => {
+    await mount(vi.fn(async ({ endpoint, params: query }) => {
+      if (endpoint !== 'configuration.pivot') return ok(windowPage(query as TreeParams));
+      if (state === 'loading') return new Promise(() => {});
+      const result = state === 'empty' ? { over: false, count: 0, rows: [], columns: [] } : null;
+      return { ...ok(result), outcome: state };
+    }));
+    await switchAxis('설비 기준');
+    const text = { loading: '불러오는 중', error: '데이터를 불러오지 못했습니다', empty: '조건에 맞는 결과가 없습니다' };
+    await vi.waitFor(() => expect(host.textContent).toContain(text[state]));
+    expect(button('단계 순서')).toBeDefined();
+    expect(swapped()).toBeNull();
+  });
+
+  it('labels the last item cell in full and keeps hidden item-axis settings out of the pivot', async () => {
+    const requests = await mount(vi.fn(async ({ endpoint, params: query }) => {
+      const params = query as TreeParams;
+      return ok(endpoint === 'configuration.pivot' ? pivot(params) : { ...windowPage(params), sameColumns: ['EQ02'] });
+    }));
+    await act(async () => button('차이 없는 설비 숨기기')!.click());
+    await act(async () => button('열 선택')!.click());
+    const hidden = [...document.querySelectorAll('label')].find(label => label.textContent === 'EQ03')?.querySelector('button');
+    await act(async () => hidden!.click());
+    await act(async () => hidden!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    await act(async () => button('같은 값 묶기')!.click());
+    await switchAxis('설비 기준');
+    await vi.waitFor(() => expect(swapped()?.querySelector('[aria-label="EQ01 · PM1 › Gas · Vacuum (config.cfg) · 120 · 일치"]')).toBeTruthy());
+    const last = swapped()?.querySelector('[data-row-id="EQ01"]')?.lastElementChild;
+    expect(last?.getAttribute('aria-label')).toBe('EQ01 · PM1 › Gas · Vacuum (config.cfg) · 120 · 일치');
+    expect(last?.hasAttribute('title')).toBe(false);
+    expect(swapped()?.querySelector('[data-row-id="EQ02"]')).not.toBeNull();
+    expect(swapped()?.querySelector('[data-row-id="EQ03"]')).not.toBeNull();
+    expect(requestParams(requests)).toEqual({
+      eq: DEFAULT_EQUIPMENT, mode: 'all', ref: 'EQ01', asOf: 'latest', status: 'all', q: '', coreOnly: false, levels: DEFAULT_LEVELS, filters: [],
+    });
+    for (const label of ['같은 값 묶기', '차이 없는 설비 숨기기', '열 선택', '내보내기']) expect(button(label)).toBeUndefined();
+    await act(async () => typeSearch(host.querySelector<HTMLInputElement>('input[type="search"]')!, 'Pressure'));
+    await settleQueries();
+    expect(requestParams(requests)).toMatchObject({ q: 'Pressure' });
+    await switchAxis('항목 기준');
+    expect(button('같은 값 묶기')?.getAttribute('aria-pressed')).toBe('true');
+    expect(button('차이 없는 설비 숨기기')?.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => button('같은 값 묶기')!.click());
+    expect(host.querySelector('[data-matrix-column="EQ02"]')).toBeNull();
+    expect(host.querySelector('[data-matrix-column="EQ03"]')).toBeNull();
+  });
+
+  it('keeps same-named categories under distinct module paths in the equipment headers', async () => {
+    await mount(vi.fn(async ({ endpoint, params: query }) => {
+      const params = query as TreeParams;
+      if (endpoint !== 'configuration.pivot') return ok(windowPage(params));
+      const result = pivot(params);
+      const last = result.columns[1];
+      return ok({ ...result, columns: [result.columns[0], { ...last, module: 'PM2', key: last.key.replace('PM1', 'PM2') }] });
+    }));
+    await switchAxis('설비 기준');
+    await vi.waitFor(() => expect(swapped()).not.toBeNull());
+    const headers = [...swapped()!.querySelectorAll('[role="columnheader"][aria-colspan]')];
+    const categories = headers.filter(header => header.textContent === 'Gas');
+    expect(categories).toHaveLength(2);
+    expect(categories.map(header => header.getAttribute('data-column'))).toEqual(['group:["PM1","Gas"]', 'group:["PM2","Gas"]']);
+  });
+
+  it('opens detail and trend for the same item and equipment in both axes, clearing selection on switch', async () => {
+    const menuQuery = vi.fn(async ({ endpoint, params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
+      const params = query as TreeParams;
+      if (endpoint === 'configuration.pivot') return ok(pivot(params));
+      if (endpoint === 'configuration.detail') return ok(windowPage(params).nodes[0]?.item);
+      if (endpoint === 'configuration.history') return { ...ok(null), outcome: 'empty' };
+      return ok(windowPage(params));
+    });
+    const session = testSession(['analytics:view']);
+    const adapter = testAdapter({ session: () => session, menuQuery });
+    await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><Configuration /><SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>));
+    await settleQueries();
+
+    async function checkDrawerAndTrend(cell: HTMLElement, gesture: 'dblclick' | 'Enter') {
+      await act(async () => { cell.focus(); cell.click(); });
+      await act(async () => button('선택 상세 열기')!.click());
+      await settleQueries();
+      const slot = host.querySelector('[data-test-slot]')!;
+      await vi.waitFor(() => expect(slot.textContent).toContain('선택 설비 (EQ03)'));
+      expect(slot.querySelector('h2')?.textContent).toBe('Pressure');
+      expect(menuQuery).toHaveBeenLastCalledWith(expect.objectContaining({
+        endpoint: 'configuration.detail', params: expect.objectContaining({ focus: 'cfg-000000', eq: DEFAULT_EQUIPMENT }),
+      }), expect.anything());
+      const close = slot.querySelector<HTMLButtonElement>('[aria-label="상세 닫기"]')!;
+      await act(async () => close.click());
+      await act(async () => cell.dispatchEvent(gesture === 'Enter' ? new KeyboardEvent('keydown', { key: gesture, bubbles: true }) : new MouseEvent(gesture, { bubbles: true })));
+      await settleQueries();
+      await vi.waitFor(() => expect(host.querySelector('[data-configuration-trend]')).not.toBeNull());
+      expect(menuQuery).toHaveBeenLastCalledWith(expect.objectContaining({
+        endpoint: 'configuration.history', params: { itemId: 'cfg-000000', equipment: DEFAULT_EQUIPMENT },
+      }), expect.anything());
+      await act(async () => button('추세 닫기')!.click());
+    }
+
+    await vi.waitFor(() => expect(host.querySelector('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')).not.toBeNull());
+    await checkDrawerAndTrend(host.querySelector('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!, 'dblclick');
+    await switchAxis('설비 기준');
+    await vi.waitFor(() => expect(button('선택 상세 열기')?.disabled).toBe(true));
+    await checkDrawerAndTrend(swapped()!.querySelector('[data-row-id="EQ03"] [data-table-focus-column]')!, 'Enter');
+    await switchAxis('항목 기준');
+    expect(button('선택 상세 열기')?.disabled).toBe(true);
   });
 });

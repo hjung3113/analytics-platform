@@ -1,5 +1,5 @@
 import type { PanelDeclaration } from '@ap/contracts';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, TREND_ITEM_KEY } from './endpoints';
+import { AXIS_KEY, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationPivotEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, TREND_ITEM_KEY } from './endpoints';
 import { MESSAGES } from './messages';
 
 const context = ['time'] as const;
@@ -10,10 +10,10 @@ export const configurationPanels = {
   matrix: {
     id: 'matrix', title: MESSAGES.title, grain: 'configItemEquipment',
     queryInputs: { context, page: [equipment, ...comparison, { key: 'asOf' }, { key: 'core' }, { key: 'status' }, { key: 'q' }, { key: 'levels' }, { key: 'filter' }] },
-    displayInputs: { page: [{ key: 'hideSameCols' }] },
+    displayInputs: { page: [{ key: 'hideSameCols' }, { key: AXIS_KEY }] },
     outputs: [{ key: TREND_ITEM_KEY, action: 'drill' }],
-    endpoints: [configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint],
-    pieces: ['TreeMatrix', 'QueryView', 'DetailDrawer'],
+    endpoints: [configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationPivotEndpoint],
+    pieces: ['TreeMatrix', 'QueryView', 'DetailDrawer', 'PlatformDataTable'],
   },
   trend: {
     id: 'trend', title: MESSAGES.trend, grain: 'configItemEquipmentChange',
