@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.14",
   "ap": {
-    "sdk": ">=0.41.0 <0.42.0"
+    "sdk": ">=0.42.0 <0.43.0"
   },
   "type": "module",
   "exports": {
