@@ -59,7 +59,7 @@
 4. **Scope** → `requiresScope`면 site 부여 → room 부여 → 조건 → Selection으로 설비 집합을 해석하고, 부여 밖이면 `forbidden`(Scope `null`도 `forbidden`).
 5. **한도** → `limits.maxHours`를 넘고 좁은 Selection이 없으면 `too_large`.
 6. **명시적 공집합** → 적용된 집합 키가 `[]`면 원천을 읽지 않고 `empty`, assessments 없음, trust `null`(06 §19).
-7. **시간 도메인** → `mergeTimeDomain`이면 2대 이상을 한 시간축에 합칠 수 있는지 §6.3 판정, 안 되면 `error`.
+7. **시간 도메인** → `mergeTimeDomain`이면 2대 이상을 한 시간축에 합칠 수 있는지 §6.3 판정, 안 되면 `error`(`message`는 `time_domain_unverified` 또는 `time_domain_mismatch`), 핸들러는 부르지 않는다. 통과하면 증명된 `timeDomainId`를 핸들러에 넘긴다.
 8. **핸들러** → 해석된 설비, 적용 Context만 남긴 값(비적용 키는 "제약 없음"), params, 세션 사용자를 받아 계산. 데이터로만 판정할 수 있는 잘못된 요청(예: 다른 사용자에게 발급한 커서)은 `error`.
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), 기능 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
@@ -113,7 +113,11 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 
 **쓰기 답 크기 상한:** 재생을 위해 `ok` 답(JSON)을 통째로 저장하며 상한은 128 KiB(UTF-8 바이트)다. 넘으면 트랜잭션(핸들러의 쓰기 포함)을 되돌리고 `error`, `message: 'response too large to record'`로 답한다 — 재생할 수 없는 `ok`는 내지 않는다. 핸들러의 `data`는 이 안에 들어와야 한다. 멱등 키는 소문자 UUID로 정규화해 잠금·조회·기록에 쓴다.
 
-- **시간 도메인(§3 7단계)** — 선언의 `mergeTimeDomain` 플래그로 정해지지만 서버는 아직 이 판정을 하지 못한다. 합칠 설비 집합이 Scope에서 나오기 때문이다.
+- **시간 도메인(§3 7단계)** — 코어(`menu-dispatch/time-domain.ts`)가 판정하고, 증명의 원천은 배포가 주입하는 `TimeDomainProofSource`(`buildServer({ timeDomainProof })`)다. 공급원은 요청마다 `scopeId`·`[from, to)`·적용 Context·부여를 받아 증명할 대상(subject)과 그 서버 소유 창 `(timeDomainId, validFrom, validTo)` 목록을 돌려준다. 코어는 이 답을 믿지 않고 다시 검사한다.
+  - 모든 대상이 `[from, to)`를 빈틈없이 덮어야 한다(반개구간, 같은 도메인의 인접·겹치는 창은 이어 붙인다). 1초라도 빈 곳, 대상 없음, 잘못된 달력 시각·역전·빈 창·빈 id가 한 줄이라도 있음, 공급원 실패는 `time_domain_unverified`.
+  - 덮는 창의 `timeDomainId`가 모두 하나여야 한다. 요청 중간의 도메인 전환도 `time_domain_mismatch`다. 빈 곳이 있으면 불일치보다 `time_domain_unverified`가 먼저다.
+  - Site마다 다른 `timeDomainId`는 문제가 아니다. 한 요청은 한 Site만 증명하며, 다른 Site의 증명은 쓰지 않는다.
+  - 공급원이 내야 할 대상의 모양(실제 조회 설비마다 하나인 §6.3 최소 증명, 또는 Site 전체 보증)과 배포 선언 묶음에서의 표기는 아직 Open이다(#2544, 사내 원천의 보증 범위 확인 대기). 그래서 선언 파일 기동 경로는 공급원을 만들지 않고, `mergeTimeDomain` 선언은 그 경로에서 계속 기동 거부다.
 - **라우팅된 묶음이 더하는 기동 거부** — 선언 묶음에 `targets`·라우팅 객체가 있으면 위에 더해 아래도 기동을 거부한다(코드의 메시지 그대로, 한 번에 모아서 낸다). 문자열 행만 있는 묶음은 영향이 없다.
   - 규칙 7(`maxRows`)의 확장: 코어가 응답을 만드는 비페이지 엔드포인트는 `limits.maxRows`가 없으면 `non-paged core-answered endpoint needs limits.maxRows`, 페이지 엔드포인트가 `maxRows`를 선언하면 `limits.maxRows is refused on a paged core-answered endpoint`, envelope 목적지·문자열 행에 선언하면 `limits.maxRows is refused on an envelope destination` / 문자열 행의 `maxRows` 거부 사유. 페이지 엔드포인트는 `merge.maxWindow`가 필수다(`paged core-answered endpoint needs merge.maxWindow`, `page`·`pageSize` 필수·`cursor` 불가, `filters` 불가, `merge.partial`·`drop-rows` 불가).
   - 코어 페이지의 유일 정렬 키: `paged core-answered endpoint needs merge.sort with a unique final field`, 모든 `merge.sort`는 `merge.sort last field must declare unique: true`.
@@ -123,7 +127,7 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
   - `unroutedRooms: "error"`(기본)와 Scope 카탈로그: 카탈로그가 주어지면 room으로 나눈 site의 모든 카탈로그 room을 경로가 덮어야 하고 빠지면 `endpoint <id>: site <site>: room <room> is not covered by a route`로 거부한다(카탈로그가 없으면 이 검사만 생략).
   - 연결기: factory 없는 종류는 `connector kind <kind> is not available`(코어에는 `http`·`sql`이 있다). `postgres`의 프로시저 호출(`call` 또는 `resolve-keys`의 `lookup`)은 `sql procedure calls are not available for dialect postgres`로 거부한다. `mssql`은 목록 값(`scope.rooms`, `string[]` params, 상수 배열, Context ID 집합 필드)을 받는 프로시저 인자에 `listJoin`이 없으면 기동을 거부한다. SQL 문장은 `statement must start with SELECT or WITH after whitespace/comments`이고 `SQL placeholders must match params exactly`다. 프로시저의 `listJoin`은 선언된 `args` 이름만 가질 수 있다(`listJoin must name declared args`).
   - `resolve-keys`의 leg 수: 어떤 site가 경로·대상 조합으로 leg 둘 이상으로 풀릴 수 있으면 `resolve-keys can select N legs for site <site>: a key lives in one room and one target, so a multi-leg lookup is always forbidden (ADR-0153)`로 거부한다(#2039). 키는 한 room·한 대상에만 있어 키 없는 쪽 leg의 조회가 항상 `forbidden`을 내고 요청 전체를 막기 때문이다.
-- **Scope 선언 등록 조건:** 주입된 resolver가 있을 때만 엔드포인트·동작의 `requiresScope`를 등록한다. 요청마다 권한 다음에 site·room 부여를 판정하며, 부여 없음·실패·타임아웃·부여 밖 요청은 `forbidden`이다. `mergeTimeDomain`은 시간 도메인 판정이 없어 계속 등록을 거부한다.
+- **Scope 선언 등록 조건:** 주입된 resolver가 있을 때만 엔드포인트·동작의 `requiresScope`를 등록한다. 요청마다 권한 다음에 site·room 부여를 판정하며, 부여 없음·실패·타임아웃·부여 밖 요청은 `forbidden`이다. `mergeTimeDomain`은 resolver에 더해 시간 도메인 증명 공급원, `requiresScope: true`, `context.time: 'apply'`가 모두 있을 때만 등록하고, 하나라도 없으면 기동을 거부한다.
 - 서버가 하는 등록 검증: 동작·엔드포인트 id 중복 없음, `invalidates`가 같은 `menuId`의 등록된 엔드포인트, `concurrency: 'version'`에 `currentVersion`, `limits.maxRows` 양의 정수이고 페이지·커서 엔드포인트 아님, `limits.maxHours` 양수이고 `context.time` 적용, `requiredContext`는 적용된 키, Scope 없는 엔드포인트는 site 종속 키(`roomNames`·`line`·`prcGroup`·`condition`·`selection`·`lot`·`recipe`·`ppid`)를 `apply`하지 않음(규칙 6). 메뉴 Registry와 대조하는 항목(`menuId`·권한 이름·Scope·`apply` 키 일치)은 등록부가 하지 않는다. 서버는 앱의 메뉴 Registry를 갖지 않는다. 배포 선언 묶음으로 들어오는 엔드포인트·동작은 기동 때 메뉴 선언 스냅샷과 대조해 그 항목을 판정한다(아래 «서버 선언 레지스트리», [ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)). 모듈이 코드로 기여하는 선언은 대조하지 않는다.
 - **한계 — 선언 묶음의 쓰기 동작 미구현:** 실서버에서 선언 묶음의 쓰기 동작(`actions`)은 아직 안 된다(미구현, [ADR-0148](../adr/0148-minimal-forwarder-and-identity-token.md) 미룸). 스키마는 `actions`를 받지만 묶음에 동작이 한 줄이라도 있으면 코어 서버가 기동을 거부한다(`declared actions are refused … ADR-0148`). 쓰기는 mock에서만 동작하므로, 저장소 밖 메뉴의 쓰기는 실서버 통과로 세지 않는다. 다시 여는 조건과 추적은 `.planning/backlog.md`.
 

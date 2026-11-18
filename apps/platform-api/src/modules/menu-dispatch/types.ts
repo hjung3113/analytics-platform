@@ -41,7 +41,10 @@ export interface EndpointDeclarationSpec {
   /** Applied Context keys that must be non-null (empty sets stay present). */
   requiredContext?: readonly ContextKey[];
   limits?: { maxHours?: number; maxRows?: number };
-  /** Refused at startup until the server implements the §6.3 time-domain judgment. */
+  /**
+   * Merges several equipment on one wall-clock axis (kernel §6.3): step 7 needs a server-owned proof before the handler.
+   * Registered only with `requiresScope`, an applied time and an injected `TimeDomainProofSource`.
+   */
   mergeTimeDomain: boolean;
 }
 
@@ -75,6 +78,8 @@ export interface EndpointHandlerArgs {
   context: Record<string, unknown>;
   params: Record<string, unknown>;
   correlationId: string;
+  /** The `timeDomainId` step 7 proved for `[from, to)`; present only on a `mergeTimeDomain` endpoint. */
+  timeDomainId?: string;
   /** Fires when the client abandons the request (connection closed before the answer was sent). Absent for a caller that cannot cancel. */
   signal?: AbortSignal;
 }

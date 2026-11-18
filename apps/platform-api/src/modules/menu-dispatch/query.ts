@@ -1,6 +1,6 @@
 // `menuQuery` judgment (real-server-checklist §3 steps 1–10) against the server's own declarations.
 // Order is contract: shape → params → permission → scope → limits →
-// explicit empty set → [time domain: refused at registration] → handler → row cap → response.
+// explicit empty set → time domain (`mergeTimeDomain`, time-domain.ts) → handler → row cap → response.
 // The module that contributes an endpoint owns the data and its assessments/trust; this file owns
 // only the order and the generic checks. It never reads a table.
 
@@ -12,6 +12,7 @@ import { tokenDenial } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { hasRequestScope, type ScopeGrant, type ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
+import { judgeTimeDomain, wallClockMs, type TimeDomainProofSource } from './time-domain.js';
 import type { ContextKey, EndpointOutcome, MenuEndpointDeclaration } from './types.js';
 
 export interface QueryAnswer {
@@ -25,21 +26,7 @@ export interface QueryAnswer {
 const isPlain = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
-
-/** Wall-clock epoch ms of `YYYY-MM-DDTHH:mm:ss` read as UTC digits, or NaN when it is not a real calendar time (kernel §6.3). */
-function wallMs(value: unknown): number {
-  const m = typeof value === 'string' ? DATETIME.exec(value) : null;
-  if (!m) return Number.NaN;
-  const [y, mo, d, h, mi, s] = m.slice(1).map(Number) as [number, number, number, number, number, number];
-  const date = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
-  const real =
-    date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d &&
-    h <= 23 && mi <= 59 && s <= 59;
-  return real ? date.getTime() : Number.NaN;
-}
-
-const isCalendarTime = (value: unknown): boolean => !Number.isNaN(wallMs(value));
+const isCalendarTime = (value: unknown): boolean => !Number.isNaN(wallClockMs(value));
 
 /** The wire fields each applied Context key puts into `context` (`projectContext`, menu-query.ts). */
 const WIRE_FIELDS: Readonly<Record<ContextKey, readonly string[]>> = {
@@ -76,6 +63,7 @@ export type QueryShape =
       context: Record<string, unknown>;
       params: Record<string, unknown>;
       scopeResolver?: ScopeResolver;
+      timeDomainProof?: TimeDomainProofSource;
     }
   | { ok: false; message: string };
 
@@ -134,7 +122,7 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
     if (WIRE_FIELDS[key].some((field) => context[field] == null || context[field] === '')) {
       return fail(`${spec.id}: required context ${key} is missing`);
     }
-    if (key === 'time' && !(wallMs(context.from) < wallMs(context.to))) {
+    if (key === 'time' && !(wallClockMs(context.from) < wallClockMs(context.to))) {
       return fail(`${spec.id}: required context time is not an increasing period`);
     }
   }
@@ -146,7 +134,11 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
   }
   const judged = declaration.validate(params);
   if (!judged.ok) return fail(judged.message);
-  return { ok: true, declaration, context, params, ...(registry.scopeResolver ? { scopeResolver: registry.scopeResolver } : {}) };
+  return {
+    ok: true, declaration, context, params,
+    ...(registry.scopeResolver ? { scopeResolver: registry.scopeResolver } : {}),
+    ...(registry.timeDomainProof ? { timeDomainProof: registry.timeDomainProof } : {}),
+  };
 }
 
 const answer = (
@@ -162,7 +154,7 @@ function overHourLimit(declaration: MenuEndpointDeclaration, context: Record<str
   if (maxHours === undefined || typeof context.from !== 'string' || typeof context.to !== 'string') {
     return false;
   }
-  const hours = (wallMs(context.to) - wallMs(context.from)) / WALL_CLOCK_HOUR_MS;
+  const hours = (wallClockMs(context.to) - wallClockMs(context.from)) / WALL_CLOCK_HOUR_MS;
   const narrowed = Array.isArray(context.selection) && context.selection.length > 0;
   return hours > maxHours && !narrowed;
 }
@@ -191,6 +183,37 @@ export async function resolveRequestScopes(
   } catch {
     if (signal?.aborted && signal.reason instanceof CoreDeadlineExpired) throw signal.reason;
     return null;
+  }
+}
+
+/**
+ * Step 7 (kernel §6.3): a `mergeTimeDomain` endpoint reaches its handler only with a server-owned proof that
+ * covers `[from, to)` in one time domain. Registration guarantees `requiresScope`, an applied time and a proof
+ * source; the checks are repeated so an unvalidated registry still fails closed. A source failure is
+ * `time_domain_unverified`.
+ */
+async function judgeRequestTimeDomain(
+  shape: Extract<QueryShape, { ok: true }>,
+  actor: PlatformActor,
+  scopes: readonly ScopeGrant[],
+  signal?: AbortSignal,
+): Promise<string> {
+  const { declaration, context, timeDomainProof } = shape;
+  const { scopeId, from, to } = context;
+  if (!timeDomainProof || typeof scopeId !== 'string' || typeof from !== 'string' || typeof to !== 'string') {
+    return 'time_domain_unverified';
+  }
+  try {
+    const subjects = await timeDomainProof.prove({
+      endpointId: declaration.spec.id, actor, scopeId, from, to, context: structuredClone(context), scopes,
+      ...(signal ? { signal } : {}),
+    });
+    if (signal?.aborted) return 'time_domain_unverified';
+    const verdict = judgeTimeDomain(subjects, from, to);
+    return verdict.ok ? verdict.timeDomainId : verdict.message;
+  } catch {
+    // The core deadline still wins: `checkActive()` right after this step throws it.
+    return 'time_domain_unverified';
   }
 }
 
@@ -261,7 +284,14 @@ async function runQuerySteps(
   if (SET_FIELDS.some((field) => Array.isArray(context[field]) && context[field].length === 0)) {
     return answer('empty');
   }
-  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(arrivedAtMs === undefined ? {} : { arrivedAtMs }), ...(deadlineAtMs === undefined ? {} : { deadlineAtMs }), ...(signal ? { signal } : {}) });
+  let timeDomainId: string | undefined;
+  if (declaration.spec.mergeTimeDomain) {
+    const judged = await judgeRequestTimeDomain(shape, actor, scopes, signal);
+    checkActive();
+    if (judged === 'time_domain_unverified' || judged === 'time_domain_mismatch') return answer('error', { message: judged });
+    timeDomainId = judged;
+  }
+  const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(timeDomainId === undefined ? {} : { timeDomainId }), ...(arrivedAtMs === undefined ? {} : { arrivedAtMs }), ...(deadlineAtMs === undefined ? {} : { deadlineAtMs }), ...(signal ? { signal } : {}) });
   const { maxRows } = declaration.spec.limits ?? {};
   if (maxRows !== undefined && (result.outcome === 'ok' || (result.outcome === 'empty' && result.rowsRead !== undefined))) {
     if (!Array.isArray(result.data)) {
