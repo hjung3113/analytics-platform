@@ -34,6 +34,11 @@ export type TreeMatrixProps<N extends MatrixNode = MatrixNode> = Omit<MatrixWind
   reveal?: { row: string; column?: string } | null;
   hiddenColumns?: readonly string[];
   fill?: boolean;
+  /**
+   * When the viewport is resized (for example a panel opens below and the matrix shrinks), scroll the selected row back inside it, vertically
+   * and within the matrix only. A row already in view stays where it is. Default: off.
+   */
+  keepSelectionInView?: boolean;
   busy?: boolean;
   /** Change for a new session/Scope/query generation; clears pending focus, editor drafts and remembered matching column ids. */
   generation?: string | number;
@@ -61,7 +66,7 @@ type PendingFocus = { index: number; column: string; generation: string | number
 
 /** Controlled server-windowed treegrid. Owns presentation and local focus only; fetching, counts and meaning remain consumer-owned. */
 export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColumn, label, offset, totalVisible, windowSize, renderCell, cellTone, onWindowChange, onToggle, selectedCell, onSelectCell,
-  onActivate, activateOn = 'enter', reveal, hiddenColumns = EMPTY_IDS, fill = false, busy = false, generation = 0, emphasis = EMPTY_RULES, onEmphasisChange, valueOf, onlyMatchingColumns = false,
+  onActivate, activateOn = 'enter', reveal, hiddenColumns = EMPTY_IDS, fill = false, keepSelectionInView = false, busy = false, generation = 0, emphasis = EMPTY_RULES, onEmphasisChange, valueOf, onlyMatchingColumns = false,
   emphasisActionLabel, emphasisColumnLabel, formatEmphasisCount, filterFields, filters, filterKey, filterValues, onFiltersChange, validateFilter, toolbar }: TreeMatrixProps<N>) {
   const m = useMessages(MATRIX_MESSAGES);
   const ime = useImeEnterGuard();
@@ -119,6 +124,25 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
     focusCell(node.id, column.id);
     setPending(null);
   }, [pending, busy, generation, nodes, offset, visible, focusCell]);
+  const selectedRow = selectedCell?.row;
+  useEffect(() => {
+    const root = viewport.current;
+    if (!keepSelectionInView || !root || selectedRow === undefined || typeof ResizeObserver === 'undefined') return;
+    const keep = () => {
+      const row = [...root.querySelectorAll<HTMLElement>('[data-matrix-row]')].find(element => element.dataset.matrixRow === selectedRow);
+      if (!row) return;
+      const box = root.getBoundingClientRect();
+      const target = row.getBoundingClientRect();
+      // The header row is sticky at the top; a horizontal scrollbar takes the bottom, so the content box ends at clientHeight.
+      const top = box.top + root.clientTop + rowHeight;
+      const bottom = box.top + root.clientTop + root.clientHeight;
+      if (target.top < top) root.scrollTop -= top - target.top;
+      else if (target.bottom > bottom) root.scrollTop += target.bottom - bottom;
+    };
+    const observer = new ResizeObserver(keep);
+    observer.observe(root);
+    return () => { observer.disconnect(); };
+  }, [keepSelectionInView, selectedRow, rowHeight]);
   const revealRow = reveal?.row;
   const revealColumn = reveal?.column;
   useEffect(() => {

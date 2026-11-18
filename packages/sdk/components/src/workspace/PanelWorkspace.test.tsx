@@ -1299,6 +1299,117 @@ describe('PanelWorkspace: placement below and pin (#2398)', () => {
   });
 });
 
+describe('PanelWorkspace: automatic fill row (#2518)', () => {
+  const primary = PANELS[0]!;
+  const extra = { ...PANELS[1]!, placement: 'below' as const, preferredHeight: 420 };
+  const preset = { ...PRESETS[0]!, layout: group([primary.id]) };
+  const separator = (index: number) => document.querySelector<HTMLElement>(`[data-dock-row-separator="${index}"]`)!;
+  const heights = () => Array.from(document.querySelectorAll('[data-dock-row-separator]'), row => Number(row.getAttribute('aria-valuenow')));
+
+  function mountFill(initialTop: number, initialPanels: PanelWorkspaceProps['panels'] = [primary]) {
+    let top = initialTop;
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-panel-workspace') ? new DOMRect(0, top, 1200, 600) : real.call(this);
+    });
+    const realHeight = Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight')!.get!;
+    const clientHeight = vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-workspace-scrollport') ? 900 : realHeight.call(this);
+    });
+    const contents = (panels: PanelWorkspaceProps['panels']) => shell(
+      <div data-workspace-scrollport style={{ overflowY: 'auto' }}>
+        <div data-before-workspace />
+        <PanelWorkspace {...BASE} initialMode="stack" presets={[preset]} panels={panels} />
+      </div>,
+    );
+    const view = render(contents(initialPanels));
+    return {
+      moveTo: (nextTop: number) => { top = nextTop; observer.touch(target => target.hasAttribute('data-before-workspace'), 1200); },
+      panels: (panels: PanelWorkspaceProps['panels']) => view.rerender(contents(panels)),
+      restore: () => { rect.mockRestore(); clientHeight.mockRestore(); },
+    };
+  }
+
+  it('fills the visible area after a preceding sibling moves the workspace up', async () => {
+    const view = mountFill(380);
+    try {
+      await ready();
+      expect(heights()[0]).toBeGreaterThan(0);
+      view.moveTo(160);
+      await waitFor(() => { expect(heights()).toEqual([740]); });
+      await advance(400);
+      expect(JSON.parse(storage.getItem(KEY())!)).not.toHaveProperty('rows');
+    } finally { view.restore(); }
+  });
+
+  it('omits automatically measured px from the saved stack state after 기본 배치', async () => {
+    storage.setItem(KEY(), JSON.stringify({ v: 1, preset: preset.id, layout: preset.layout, hidden: [], mode: 'stack', rows: [320] }));
+    const view = mountFill(160);
+    try {
+      await ready();
+      fireEvent.click(screen.getByRole('button', { name: '기본 배치' }));
+      await advance(400);
+      const saved = JSON.parse(storage.getItem(KEY())!);
+      expect(saved).toMatchObject({ mode: 'stack' });
+      expect(saved).not.toHaveProperty('rows');
+    } finally { view.restore(); }
+  });
+
+  it('keeps a resized row when the offset changes and a below panel opens and closes', async () => {
+    const view = mountFill(300);
+    try {
+      await ready();
+      fireEvent.keyDown(separator(0), { key: 'Home' });
+      const resized = Number(separator(0).getAttribute('aria-valuemin'));
+      expect(heights()).toEqual([resized]);
+      view.moveTo(160);
+      view.panels([primary, extra]);
+      await screen.findByRole('tab', { name: '선택기' });
+      expect(heights()[0]).toBe(resized);
+      view.panels([primary]);
+      await waitFor(() => { expect(heights()).toEqual([resized]); });
+    } finally { view.restore(); }
+  });
+
+  it('keeps the automatic pair after a reload with the below panel open, then refills when it closes', async () => {
+    const layout = { type: 'branch', dir: 'column', sizes: [50, 50], children: [group([primary.id]), group([extra.id])] };
+    storage.setItem(KEY(), JSON.stringify({ v: 1, preset: preset.id, layout, hidden: [], mode: 'stack' }));
+    const view = mountFill(160, [primary, extra]);
+    try {
+      await ready();
+      expect(heights()).toEqual([367, 367]);
+      await advance(400);
+      expect(JSON.parse(storage.getItem(KEY())!)).not.toHaveProperty('rows');
+      view.panels([primary]);
+      await waitFor(() => { expect(heights()).toEqual([740]); });
+    } finally { view.restore(); }
+  });
+
+  it('shares the visible area evenly with a below panel and refills when it closes', async () => {
+    const view = mountFill(160);
+    try {
+      await ready();
+      view.panels([primary, extra]);
+      await screen.findByRole('tab', { name: '선택기' });
+      expect(heights()).toEqual([367, 367]);
+      view.moveTo(280);
+      await waitFor(() => { expect(heights()).toEqual([307, 307]); });
+      // Half of what is left would fall under the 200px row minimum: each row keeps its own height and the page grows.
+      view.moveTo(500);
+      await waitFor(() => { expect(heights()).toEqual([400, 460]); });
+      view.moveTo(160);
+      await waitFor(() => { expect(heights()).toEqual([367, 367]); });
+      view.panels([primary]);
+      await waitFor(() => { expect(heights()).toEqual([740]); });
+      view.panels([primary, extra]);
+      await screen.findByRole('tab', { name: '선택기' });
+      expect(heights()).toEqual([367, 367]);
+      await chooseFromMenu('선택기 동작', '숨기기');
+      await waitFor(() => { expect(heights()).toEqual([740]); });
+    } finally { view.restore(); }
+  });
+});
+
 describe('PanelWorkspace: standalone, no PlatformProvider (#1953)', () => {
   const standalone = (props: Partial<PanelWorkspaceProps> = {}) => render(<I18nProvider><PanelWorkspace {...BASE} {...props} /></I18nProvider>);
   const appStorage = () => {

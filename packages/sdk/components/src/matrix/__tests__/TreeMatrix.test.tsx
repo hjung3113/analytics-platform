@@ -166,6 +166,20 @@ describe('TreeMatrix controlled window', () => {
     fireEvent.keyDown(cell('a', 'x'), { key: 'Enter' });
     expect(onActivate).toHaveBeenCalledWith(base.nodes[0], columns[1]);
   });
+  it.each([true, false])('keepSelectionInView=%s: a viewport resize brings the selected row back inside the matrix only', keep => {
+    let resized: (() => void) | undefined;
+    vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} unobserve() {} });
+    mount({ keepSelectionInView: keep, selectedCell: { row: 'b', column: 'x' } });
+    const viewport = document.querySelector<HTMLElement>('[data-matrix-viewport]')!;
+    const row = document.querySelector<HTMLElement>('[data-matrix-row="b"]')!;
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 800, 120));
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 400, 800, 32));
+    vi.spyOn(viewport, 'clientHeight', 'get').mockReturnValue(110);
+    viewport.scrollTop = 0;
+    act(() => { resized?.(); });
+    expect(viewport.scrollTop).toBe(keep ? 222 : 0);
+    expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+  });
   it('reveals a remote row/cell after its window arrives', () => {
     const { rerender } = mount({ reveal: { row: 'remote', column: 'y' } });
     expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();

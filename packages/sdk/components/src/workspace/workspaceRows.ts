@@ -51,6 +51,10 @@ export const rowPreferredOf = (declared: ReadonlyMap<string, number>, panels: Pa
 /** What `enterRows` also needs: the one-row height and the preferred heights. */
 export type EnterEnv = { oneRow: number; preferred?: PreferredHeight };
 
+export function isFillRow(rows: readonly DockNode[], preferred?: PreferredHeight): boolean {
+  return rows.length === 1 && preferred?.(rows[0]!) === undefined;
+}
+
 /**
  * Entering stack mode: a row whose panels declare a preferred height gets it; one row with nothing declared gets `env.oneRow`; each other row gets `round(share × max(baseline, rows × 360))` px, within its bounds. `baseline` is the height fit mode gives
  * the layout (measured by the caller the same way in both modes).
@@ -58,7 +62,7 @@ export type EnterEnv = { oneRow: number; preferred?: PreferredHeight };
 export function enterRows(layout: DockNode, baseline: number, minimum: RowMinimum, maximum: number, env?: EnterEnv): number[] {
   const rows = topLevelRows(layout);
   // One row with nothing declared: it fills what the page shows (no page scrollbar on first load), whatever the 360 floor would say.
-  if (env && rows.length === 1 && env.preferred?.(rows[0]!) === undefined) return [clampRow(env.oneRow, minimum(rows[0]!), maximum)];
+  if (env && isFillRow(rows, env.preferred)) return [clampRow(env.oneRow, minimum(rows[0]!), maximum)];
   const shares = layout.type === 'branch' && layout.dir === 'column' ? layout.sizes : [100];
   const total = Math.max(baseline, rows.length * NEW_ROW_HEIGHT);
   return rows.map((row, index) => clampRow(env?.preferred?.(row) ?? Math.round((shares[index]! / 100) * total), minimum(row), maximum));

@@ -84,6 +84,8 @@ export function createLaneRenderer(input: RendererInput) {
     if (key === sizeKey) return;
     sizeKey = key; width = nextWidth; height = nextHeight;
     scroll.style.height = `${height}px`; spacer.style.height = `${model.lanes.length * ROW_HEIGHT}px`;
+    // Lanes that fit leave nothing to scroll here: the wheel goes on to the panel or page instead of stopping at this box.
+    scroll.style.overscrollBehavior = model.lanes.length * ROW_HEIGHT > height ? '' : 'auto';
     resolved = new Map(); styleCache = null; schedule();
   }
   function setup(target: HTMLCanvasElement, h: number) {
