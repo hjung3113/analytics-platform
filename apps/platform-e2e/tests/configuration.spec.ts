@@ -63,6 +63,18 @@ test.describe('Configuration', () => {
     await evidence(page, testInfo, 'configuration-tree');
   });
 
+  test('keeps the matrix rows visible while the item drawer is open', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await open(page);
+    await page.locator('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ01"]').click();
+    await page.getByRole('button', { name: '선택 상세 열기', exact: true }).click();
+    await expect(page.getByRole('tab', { name: '비교 상세', exact: true })).toBeVisible();
+    const viewport = page.locator('[data-matrix-viewport]');
+    await expect.poll(async () => (await viewport.boundingBox())?.height ?? 0).toBeGreaterThan(200);
+    await expect(grid(page).locator('[data-matrix-row="cfg-000000"]')).toBeInViewport();
+    await evidence(page, testInfo, 'configuration-drawer-matrix');
+  });
+
   test('reveals the next difference using its server offset', async ({ page }, testInfo) => {
     await open(page);
     await page.getByRole('button', { name: '다음 차이', exact: true }).click();

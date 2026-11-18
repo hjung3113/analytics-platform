@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Columns3, Download } from 'lucide-react';
 import { encodeFilterParams, formatInstant, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
-import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft } from '@ap/kernel';
+import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryState } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
 import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
@@ -81,9 +81,8 @@ function Conditions({ m }: { m: Message }) {
 }
 
 
-function ItemDetail({ row, eq, params, m, close, openTrend }: { row: ConfigRow; eq: string; params: CompareParams; m: Message; close: () => void; openTrend: () => void }) {
+function CompareDetail({ row, eq, params, m }: { row: ConfigRow; eq: string; params: CompareParams; m: Message }) {
   const { lang } = useI18n();
-  const [tab, setTab] = useState('compare');
   const groups = distribution(row, params.eq);
   const reference = row.values[params.ref]?.value;
   const selected = row.values[eq]?.value;
@@ -113,9 +112,23 @@ function ItemDetail({ row, eq, params, m, close, openTrend }: { row: ConfigRow; 
       {!row.coreKnown && <FieldRow layout="property" label="CORE">{m('unknownCore')}</FieldRow>}
     </FieldList></section>
   </div>;
+  return compare;
+}
+
+function DistributionDetail({ row, params, m }: { row: ConfigRow; params: CompareParams; m: Message }) {
+  const groups = distribution(row, params.eq);
+  return <div className="space-y-3 break-keep">{groups.map(group => <div key={String(group.value)} className="border-b border-border-subtle pb-2"><p className="text-sm tabular">{m('valueCount', { value: group.value ?? '—', count: group.equipment.length, percent: (group.equipment.length / params.eq.length * 100).toFixed(1) })}</p><p className="t-mono text-text-secondary">{group.equipment.join(', ')}</p></div>)}</div>;
+}
+
+/**
+ * The drawer renders through the shell slot, so it stays outside the panel's flex column: a QueryView there takes the panel
+ * height and collapses the matrix to zero rows (#2525). The detail query loads inside each tab instead.
+ */
+function ItemDrawer({ row, detail, eq, params, m, close, openTrend }: { row: ConfigRow; detail: QueryState<ConfigRow>; eq: string; params: CompareParams; m: Message; close: () => void; openTrend: () => void }) {
+  const [tab, setTab] = useState('compare');
   return <DetailDrawer title={row.item} subtitle={<span className="break-keep">{row.module} › {row.category} › {row.item}</span>} headerActions={row.coreKnown ? <PrimaryChip>CORE</PrimaryChip> : undefined} identity={row.id} onClose={close} tab={tab} onTabChange={setTab} tabs={[
-    { id: 'compare', label: m('compareDetail'), content: compare },
-    { id: 'distribution', label: m('distributionTab'), content: <div className="space-y-3 break-keep">{groups.map(group => <div key={String(group.value)} className="border-b border-border-subtle pb-2"><p className="text-sm tabular">{m('valueCount', { value: group.value ?? '—', count: group.equipment.length, percent: (group.equipment.length / params.eq.length * 100).toFixed(1) })}</p><p className="t-mono text-text-secondary">{group.equipment.join(', ')}</p></div>)}</div> },
+    { id: 'compare', label: m('compareDetail'), content: <QueryView query={detail}>{loaded => <CompareDetail row={loaded} eq={eq} params={params} m={m} />}</QueryView> },
+    { id: 'distribution', label: m('distributionTab'), content: <QueryView query={detail}>{loaded => <DistributionDetail row={loaded} params={params} m={m} />}</QueryView> },
     { id: 'history', label: m('history'), content: <Button variant="secondary" onClick={openTrend}>{m('openTrend')}</Button> },
   ]} />;
 }
@@ -128,7 +141,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
   const [window, setWindow] = useState({ expanded: [] as string[], offset: 0, reveal: null as MatrixCell | null });
   const [selection, setSelection] = useState<MatrixCell | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [drawer, setDrawer] = useState(false);
+  const [drawer, setDrawer] = useState<ConfigRow | null>(null);
   const [grouped, setGrouped] = useState(false);
   const [hidden, setHidden] = useState<string[]>([]);
   const [emphasis, setEmphasis] = useState<MatrixEmphasisRule[]>([]);
@@ -142,7 +155,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
   if (searchGeneration !== params.q) {
     setSearchGeneration(params.q);
     setWindow({ expanded: [], offset: 0, reveal: null });
-    setSelection(null); setSelectedPath(null); setDrawer(false);
+    setSelection(null); setSelectedPath(null); setDrawer(null);
     setGrouped(false); setHidden([]); setEmphasis([]); setOnlyMatching(false);
     setNav({ kind: 'idle', ordinal: null }); setExportError(false);
   }
@@ -159,7 +172,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
     const node = query.response?.data?.nodes.find(row => row.id === selectedId);
     if (node) setSelectedPath(node.item?.key ?? node.label);
   }, [query.response, selectedId]);
-  const detail = useMenuQuery(configurationDetailEndpoint, { ...treeParams, focus: selectedId ?? '' }, drawer && selectedId !== null);
+  const detail = useMenuQuery(configurationDetailEndpoint, { ...treeParams, focus: selectedId ?? '' }, drawer !== null && selectedId !== null);
   const eq = selection && params.eq.includes(selection.column) ? selection.column : params.eq[0];
   const equipment = params.mode === 'reference' ? [params.ref, ...params.eq.filter(id => id !== params.ref)] : params.eq;
   const columns: MatrixColumn[] = [
@@ -227,7 +240,7 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
         <div className="px-2"><MatrixEmphasisBar emphasis={emphasis} onEmphasisChange={setEmphasis} onlyMatchingColumns={onlyMatching} onOnlyMatchingColumnsChange={setOnlyMatching} rowLabel={id => result.nodes.find(row => row.id === id)?.label ?? id} label={count => m('emphasisCount', { count })} onlyMatchingLabel={m('onlyMatching')} /></div>
         <TreeMatrix fill keepSelectionInView nodes={result.nodes} columns={columns} identityColumn="identity" label={m('title')} offset={result.offset} totalVisible={result.totalVisible} windowSize={TREE_WINDOW}
           renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
-          onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(false); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
+          onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(null); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
           onWindowChange={offset => { if (!staleSearch) setWindow(current => ({ ...current, offset, reveal: null })); }} reveal={window.reveal} hiddenColumns={hiddenColumns} busy={query.status === 'loading' || query.status === 'refreshing'} generation={generation}
           emphasis={emphasis} onEmphasisChange={staleSearch ? undefined : setEmphasis} onlyMatchingColumns={onlyMatching} emphasisActionLabel={m('emphasisAction')} emphasisColumnLabel={m('emphasis')} formatEmphasisCount={count => m('matchCount', { count })}
           cellTone={(node, column) => { if (!node.item || !(column.id in node.item.values)) return undefined; const meaning = valueMeaning(node.item, column.id, params); if (meaning === 'diff') return 'info'; if (meaning === 'violation') return 'danger'; if (meaning === 'missing' || meaning === 'not-comparable') return 'missing'; return undefined; }}
@@ -237,12 +250,12 @@ function Comparison({ params, hideSame, m, openTrend }: { params: TreeParams; hi
           <span>{nav.ordinal ?? '—'}/{result.counts.diff.toLocaleString()}</span><span className="min-w-0 flex-1 truncate" title={selected?.item?.key ?? selectedPath ?? undefined}>{m('selection')} {selected?.item?.key ?? selectedPath ?? m('noSelection')}</span>
           <MatrixToneLegend labels={{ info: m('valueDifference'), danger: m('violation'), missing: m('missingLegend') }} />
           <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item || valueOf(selected, { id: eq, label: eq }) === null} onClick={() => { if (!selected) return; const rule = sameValueRule(selected, { id: eq, label: eq }, valueOf); if (rule) setEmphasis(current => [...current.filter(value => value.row !== rule.row), rule]); }}>{m('sameValue')}</Button>
-          <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item} onClick={() => setDrawer(true)}>{m('openSelected')}<ChevronRight className="size-3" /></Button>
+          <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item} onClick={() => { if (selected?.item) setDrawer(selected.item); }}>{m('openSelected')}<ChevronRight className="size-3" /></Button>
         </div>
       </>;
     }}</QueryView>
     {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: EXPORT_LIMIT.toLocaleString() })}</span>}
-    {drawer && <QueryView query={detail}>{row => <ItemDetail row={row} eq={eq} params={params} m={m} close={() => setDrawer(false)} openTrend={() => { setDrawer(false); openTrend(row.id); }} />}</QueryView>}
+    {drawer && <ItemDrawer row={detail.response?.outcome === 'ok' && detail.response.data ? detail.response.data : drawer} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { const id = selectedId ?? drawer.id; setDrawer(null); openTrend(id); }} />}
   </div>;
 }
 
