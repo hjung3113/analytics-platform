@@ -387,6 +387,27 @@ it('does not focus a list row when the selected request is absent from the shown
   });
   expect(document.activeElement?.getAttribute('role')).not.toBe('button');
 });
+it('#2530: the open request offers decisions only while it is a row of the shown tab', async () => {
+  const mounted = mount('requests');
+  await screen.findByRole('heading', { name: request.requested_outcome });
+  await settleQueries(mounted.client);
+  expect(await screen.findByRole('button', { name: '승인' })).toBeInTheDocument();
+  // Two incompatible tabs in a row: the pending request stays readable but never actionable.
+  for (const tab of [/^승인됨/, /^반려됨/]) {
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: tab }));
+    await settleQueries(mounted.client);
+    await screen.findByRole('heading', { name: request.requested_outcome });
+    expect(screen.queryByRole('button', { name: '승인' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '반려' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('task-request-outside-list')).toHaveTextContent(
+      '이 요청은 지금 목록에 없습니다. 결정하려면 「검토 대기」 목록에서 요청을 여세요.',
+    );
+  }
+  fireEvent.mouseDown(await screen.findByRole('tab', { name: /^검토 대기/ }));
+  await settleQueries(mounted.client);
+  expect(await screen.findByRole('button', { name: '승인' })).toBeInTheDocument();
+  expect(screen.queryByTestId('task-request-outside-list')).not.toBeInTheDocument();
+});
 it('returns focus to the row after closing a fullscreen panel in the real AppFrame host', async () => {
   const mounted = mountWithFrame('backlog');
   await screen.findByRole('heading', { name: task.title });
