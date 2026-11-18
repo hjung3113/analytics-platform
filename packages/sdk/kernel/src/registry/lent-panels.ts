@@ -18,10 +18,11 @@ export type LentPanelReason = {
 };
 export type LentPanelVerdict = { allowed: true; reason: null } | { allowed: false; reason: LentPanelReason };
 
-export const LENT_PANEL_PERMISSION_DENIED = {
-  allowed: false,
-  reason: { kind: 'permission', text: messageText('lentPanelPermission') },
-} as const satisfies LentPanelVerdict;
+/** Names the lending menu and its declared panel title, so the receiver's reason says which panel is withheld. */
+function permissionDenied(menu: Text, panel: Text): Extract<LentPanelVerdict, { allowed: false }> {
+  const text = { ko: messageText('lentPanelPermission', { menu: menu.ko, panel: panel.ko }).ko, en: messageText('lentPanelPermission', { menu: menu.en, panel: panel.en }).en };
+  return Object.freeze({ allowed: false, reason: Object.freeze({ kind: 'permission', text: Object.freeze(text) }) });
+}
 
 const UNSUPPORTED_CONTEXT = {
   allowed: false,
@@ -42,6 +43,8 @@ export type RegisteredLentPanel = {
   readonly binding: PanelBinding;
   readonly source: RegisteredPanel;
   readonly permissions: RegisteredPanel['permissions'];
+  /** The permission verdict, naming the lending menu and panel. */
+  readonly denied: Extract<LentPanelVerdict, { allowed: false }>;
   readonly verdict: (session: Session, values: LentPanelBindingValues) => LentPanelVerdict;
   /** Resolves only after the same checks as verdict. */
   readonly resolve: (session: Session, values: LentPanelBindingValues) => ResolvedLending;
@@ -119,7 +122,7 @@ function copyContextField<K extends keyof GlobalContext>(target: GlobalContext, 
   target[key] = structuredClone(source[key]);
 }
 
-function registerBinding(menu: MenuEntry, binding: PanelBinding, source: RegisteredPanel, fail: (message: string) => never): RegisteredLentPanel {
+function registerBinding(menu: MenuEntry, binding: PanelBinding, source: RegisteredPanel, sourceLabel: Text, fail: (message: string) => never): RegisteredLentPanel {
   const requiredContext = new Set<ContextKey>();
   const requiredMappings = new Set<PanelContextKey>();
   const receiverOnlyKeys = new Set<ContextKey>();
@@ -185,8 +188,9 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
     if (!pageBindings.has(key)) fail(`missing binding for required query input "${key}"`);
   }
   const permissions = [...new Set([...menuPermissions(menu), ...source.permissions])];
+  const denied = permissionDenied(sourceLabel, source.title);
   const resolve = (session: Session, values: LentPanelBindingValues): ResolvedLending => {
-    if (!permissions.every(permission => session.user.permissions.includes(permission))) return LENT_PANEL_PERMISSION_DENIED;
+    if (!permissions.every(permission => session.user.permissions.includes(permission))) return denied;
     for (const key of receiverOnlyKeys) {
       // An explicit empty set still constrains the request to zero rows.
       if (CONTEXT_FIELDS[key].some(field => values.context[field] !== null)) return UNSUPPORTED_CONTEXT;
@@ -226,7 +230,7 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
     return { allowed: true, reason: null, inputs };
   };
   return {
-    binding, source, permissions, resolve,
+    binding, source, permissions, denied, resolve,
     verdict(session, values) {
       const resolved = resolve(session, values);
       return resolved.allowed ? { allowed: true, reason: null } : resolved;
@@ -236,6 +240,7 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
 
 export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly RegisteredPanel[], fail: (message: string) => never) {
   const sources = new Map(panels.map(panel => [`${panel.menuId}/${panel.id}`, panel]));
+  const labels = new Map(menus.map(menu => [menu.id, menu.label]));
   const bindings = new Map<string, readonly RegisteredLentPanel[]>();
   for (const menu of menus) {
     if (menu.lentPanels === undefined) continue;
@@ -250,7 +255,7 @@ export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly
       for (const map of [binding.context, binding.page, binding.display]) {
         if (map !== undefined && (!map || typeof map !== 'object' || Array.isArray(map))) invalid('input bindings must be maps');
       }
-      return registerBinding(menu, binding, source, invalid);
+      return registerBinding(menu, binding, source, labels.get(source.menuId) ?? invalid(`has a source menu without a label`), invalid);
     }));
   }
   const none: readonly RegisteredLentPanel[] = [];

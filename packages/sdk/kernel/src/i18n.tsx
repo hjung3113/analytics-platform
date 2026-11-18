@@ -131,7 +131,7 @@ const dict = {
   stateIdle: { ko: '아직 조회하지 않았습니다', en: 'No query has run yet' },
   stateIdleSeeQueryBar: { ko: '위 조회 조건의 안내를 확인하세요.', en: 'See the notes in the query conditions above.' },
   queryMissing: { ko: '{label}{particle} 선택하세요', en: 'Select {label}' },
-  lentPanelPermission: { ko: '패널을 볼 권한이 없습니다.', en: 'You don’t have permission to view this panel.' },
+  lentPanelPermission: { ko: '{menu}의 {panel} 패널을 볼 권한이 없습니다.', en: 'You don’t have permission to view the {panel} panel of {menu}.' },
   lentPanelMissingInput: { ko: '패널에 필요한 입력을 확인하세요 ({key}).', en: 'Check the panel’s required input ({key}).' },
   lentPanelUnsupportedContext: { ko: '이 패널이 현재 적용 조건을 지원하지 않습니다.', en: 'This panel does not support the current applied filters.' },
   lentPanelUnavailable: { ko: '이 화면에서 패널을 사용할 수 없습니다.', en: 'This panel is unavailable on this screen.' },

@@ -8,7 +8,7 @@ import { useHostPlatform } from '../platform/platform';
 import { useQueryContext } from '../query/condition-preset';
 import { LentPanelQueryContext } from '../query/lent-panel-context';
 import { shallowEqual, useStable } from '../stable';
-import { LENT_PANEL_PERMISSION_DENIED, missingLentPanelInput, type LentPanelVerdict } from './lent-panels';
+import { missingLentPanelInput, type LentPanelVerdict } from './lent-panels';
 
 type Source = PanelBinding['source'];
 type Values = Readonly<Record<string, unknown>>;
@@ -93,7 +93,7 @@ function useResolvedLending(source: Source, values: Values | undefined) {
   if (receiver === undefined) return NOT_REGISTERED;
   const binding = registry.lentPanels(receiver).find(entry => entry.binding.source === source);
   if (binding === undefined) return NOT_REGISTERED;
-  if (!canOpen(binding.source.menuId) || !canOpen(receiver)) return LENT_PANEL_PERMISSION_DENIED;
+  if (!canOpen(binding.source.menuId) || !canOpen(receiver)) return binding.denied;
 
   const resolved = binding.resolve(session, { context, page, values });
   if (!resolved.allowed) return resolved;

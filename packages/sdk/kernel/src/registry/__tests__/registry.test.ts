@@ -999,7 +999,7 @@ describe('lent panel registration (#2490)', () => {
     spaces, groups, permissions: [receiving, owner, endpointPermission, shared],
     menus: [
       { ...catalog, permission: receiving, additionalPermissions: [shared], requiresScope, pageKeys: ['chosen'], lentPanels } as PlatformMenuEntry,
-      menu('source', '/metrics/source', { permission: owner, additionalPermissions: [shared], pageKeys: ['level'], panels: [declaration] }),
+      menu('source', '/metrics/source', { label: { ko: '원본 메뉴', en: 'Source menu' }, permission: owner, additionalPermissions: [shared], pageKeys: ['level'], panels: [declaration] }),
     ],
   });
   const inputs = {
@@ -1020,6 +1020,15 @@ describe('lent panel registration (#2490)', () => {
     const [lent] = build().lentPanels('catalog');
     const session = testSession([receiving, owner, endpointPermission, shared].filter(permission => permission !== absent));
     expect(lent.verdict(session, inputs)).toMatchObject({ allowed: false, reason: { kind: 'permission', text: { ko: expect.any(String), en: expect.any(String) } } });
+  });
+
+  it('names the lending menu and its declared panel title in the permission reason', () => {
+    const registry = build();
+    const [lent] = registry.lentPanels('catalog');
+    expect(lent.verdict(testSession([receiving]), inputs)).toEqual({ allowed: false, reason: { kind: 'permission', text: {
+      ko: `원본 메뉴의 ${panel.title.ko} 패널을 볼 권한이 없습니다.`,
+      en: `You don’t have permission to view the ${panel.title.en} panel of Source menu.`,
+    } } });
   });
 
   it('reports a missing required value separately from permission', () => {
