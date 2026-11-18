@@ -6,7 +6,7 @@ import { QueryRefreshNotice } from './state/QueryRefreshNotice';
 import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
 import { Ban, Clock, HelpCircle, Inbox, Maximize2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
 import { useContext, useId, useState, type ReactNode } from 'react';
-import { errorGuidance, errorGuidanceLabel, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
+import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 
@@ -85,7 +85,7 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
   // Refused before sending by the query's own conditions (#2440): a notice to fix the conditions, not a failure to retry.
   const blocked = response.outcome === 'error' && guide.blocked;
   // The same Kernel label the compact banner shows for this error (#2509): a time-domain refusal reads 「집계 불가」, not 「서버 오류」.
-  const statusLabel = blocked ? t('sharedOutcomeBlocked') : response.outcome === 'error' ? t(errorGuidanceLabel(guide.code))
+  const statusLabel = blocked ? t('sharedOutcomeBlocked') : response.outcome === 'error' ? t(guide.label)
     : response.outcome === 'timeout' ? t('sharedOutcomeTimeout')
     : response.outcome === 'forbidden' ? t('sharedOutcomeForbidden')
     : response.outcome === 'empty' ? t('sharedOutcomeEmpty')

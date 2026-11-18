@@ -344,28 +344,24 @@ const ERROR_GUIDANCE = {
   'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction', label: 'sharedOutcomeError', blocked: false },
 } as const satisfies Record<string, { cause: Key; action: Key; label: Key; blocked: boolean }>;
 
-function guidanceByCode(code: string | null) {
-  return code !== null && Object.hasOwn(ERROR_GUIDANCE, code)
-    ? ERROR_GUIDANCE[code as keyof typeof ERROR_GUIDANCE]
-    : undefined;
+function guidanceByCode(code: string) {
+  return Object.hasOwn(ERROR_GUIDANCE, code) ? ERROR_GUIDANCE[code as keyof typeof ERROR_GUIDANCE] : undefined;
 }
 
-/** Short outcome label for an error guidance code, with the server error label as fallback. */
-export function errorGuidanceLabel(code: ErrorGuidance['code']): Key {
-  return guidanceByCode(code)?.label ?? 'sharedOutcomeError';
-}
-
-/** `blocked`: refused before sending by the query's own conditions — a notice the user fixes in the conditions, not a failure to retry. */
-export type ErrorGuidance = { code: string | null; cause: Key; action: Key; blocked: boolean };
+/**
+ * `blocked`: refused before sending by the query's own conditions — a notice the user fixes in the conditions, not a failure to retry.
+ * `label`: the short outcome name a shared banner and its widgets show (#2509), `sharedOutcomeError` when the code is unmapped.
+ */
+export type ErrorGuidance = { code: string | null; cause: Key; action: Key; label: Key; blocked: boolean };
 
 /** Classify a server `message` by the prefix before the first colon. Unmapped text uses the general error copy. */
 export function errorGuidance(message: string | undefined): ErrorGuidance {
   const code = message?.split(':', 1)[0]?.trim() ?? '';
   const guide = guidanceByCode(code);
   if (guide) {
-    return { code, cause: guide.cause, action: guide.action, blocked: guide.blocked };
+    return { code, cause: guide.cause, action: guide.action, label: guide.label, blocked: guide.blocked };
   }
-  return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction', blocked: false };
+  return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction', label: 'sharedOutcomeError', blocked: false };
 }
 
 export function userFacingEntries(): readonly { key: string; ko: string; en: string }[] {

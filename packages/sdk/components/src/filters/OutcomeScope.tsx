@@ -1,7 +1,7 @@
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Ban, Clock, Inbox, Loader2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
 import type { ApiResponse } from '@ap/contracts';
-import { errorGuidance, errorGuidanceLabel, useI18n, type QueryState } from '@ap/kernel';
+import { errorGuidance, useI18n, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { emptyCauses, emptyOutcomeText } from '../state/emptyCause';
 
@@ -160,7 +160,7 @@ function OutcomeBanner({ group, multiple, onRetry, compact = false }: { group: G
     {group.busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}{t('retry')}
   </Button>;
   if (compact) {
-    const label = warning ? t('sharedOutcomeForbidden') : outcome === 'error' ? t(errorGuidanceLabel(guide.code)) : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
+    const label = warning ? t('sharedOutcomeForbidden') : outcome === 'error' ? t(guide.label) : outcome === 'timeout' ? t('sharedOutcomeTimeout') : t('sharedOutcomeEmpty');
     const inlineText = outcome === 'error' && guide.code !== null && !blocked ? body : summary;
     return <section id={group.bannerId} ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={t('sharedOutcomeRegion')}
       className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken')}>
