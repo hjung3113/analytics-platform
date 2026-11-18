@@ -33,5 +33,11 @@ export function useCreateFindingFromCluster(args?: {
       invalidateRecovery(queryClient);
       invalidateNavCounts(queryClient);
     },
+    // A rejected evidence selection means the member list the dialog showed is stale (#2531 review C7).
+    onError: (err, { clusterId, body }) => {
+      if (err.code === 'not_found.record' && (body.evidence_voc_ids?.length ?? 0) > 0) {
+        void queryClient.invalidateQueries({ queryKey: ['voc-cluster', clusterId] });
+      }
+    },
   });
 }

@@ -161,7 +161,7 @@ function isReporterArmRow(
   );
 }
 
-function isAuthorizedMember(
+export function isAuthorizedMember(
   readScope: Scope,
   actorId: string,
   member: Pick<VocClusterMemberRow, 'archived_at' | 'primary_managed_system_id' | 'reporter_id'>,

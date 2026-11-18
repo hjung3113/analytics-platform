@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { VocClusterDto } from '@ap/feature-shared';
+import { ApiError } from '../../../../lib/api/types';
 import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 
 const mutate = vi.fn();
@@ -41,12 +42,16 @@ function renderModal(clusterValue = cluster) {
     notifySuccess: vi.fn(),
     useNavigate: () => vi.fn(),
   };
-  render(
+  const view = (value: typeof cluster) => (
     <HostSeamProvider value={seam}>
-      <CreateFindingFromClusterModal open cluster={clusterValue} onClose={vi.fn()} />
-    </HostSeamProvider>,
+      <CreateFindingFromClusterModal open cluster={value} onClose={vi.fn()} />
+    </HostSeamProvider>
   );
+  const { rerender } = render(view(clusterValue));
+  return { seam, rerender: (value: typeof cluster) => rerender(view(value)) };
 }
+
+beforeEach(() => mutate.mockReset());
 
 describe('CreateFindingFromClusterModal evidence selection', () => {
   it('prefills from the cluster, starts with all members selected, and submits the checked ids', async () => {
@@ -85,5 +90,34 @@ describe('CreateFindingFromClusterModal evidence selection', () => {
 
     expect(screen.queryByText(/근거로 가져올 VOC/)).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  // #2531 review C6: a background refetch hands a new cluster object while the dialog is open.
+  it('keeps typed text and cleared boxes when the cluster refetches while open', () => {
+    const { rerender } = renderModal();
+    fireEvent.change(screen.getByLabelText(/제목/), { target: { value: '직접 고친 제목' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /VOC-12/ }));
+
+    rerender({ ...cluster, members: [...(cluster.members ?? [])] });
+
+    expect(screen.getByLabelText(/제목/)).toHaveValue('직접 고친 제목');
+    expect(screen.getByRole('checkbox', { name: /VOC-12/ })).not.toBeChecked();
+    expect(screen.getByText('근거로 가져올 VOC 1건')).toBeInTheDocument();
+  });
+
+  // #2531 review C7: a stale selection is rejected as not_found; the message names the selection.
+  it('says the selection is stale when the server rejects a selected VOC', async () => {
+    mutate.mockImplementation((...args: unknown[]) => {
+      const opts = args[1] as { onError?: (err: ApiError) => void } | undefined;
+      opts?.onError?.(new ApiError(404, { code: 'not_found.record', message: 'record not found' } as never));
+    });
+    const { seam } = renderModal();
+    fireEvent.click(screen.getByTestId('create-finding-from-cluster-submit'));
+
+    await waitFor(() =>
+      expect(seam.notifyError).toHaveBeenCalledWith(
+        '고른 VOC 중 묶음에서 빠졌거나 볼 수 없게 된 것이 있습니다. 목록을 새로 불러왔으니 다시 확인해 주세요.',
+      ),
+    );
   });
 });

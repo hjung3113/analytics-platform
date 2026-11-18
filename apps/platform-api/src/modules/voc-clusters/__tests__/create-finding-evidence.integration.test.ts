@@ -321,4 +321,28 @@ describe.skipIf(!runIntegration)('POST /voc-clusters/:id/create-finding evidence
     );
     expect(findings.rows[0]?.count).toBe(1);
   });
+  // #2531 review C3: a replay returns only the Finding, so a member removed after the first call must not 404 it.
+  it('replays the created Finding after a selected VOC left the cluster', async () => {
+    const { clusterId, memberIds } = await seedClusterWithMembers();
+    const body = {
+      title: 'Repeated connection failures',
+      summary: 'Several reports describe the same connection failure.',
+      severity: 'medium',
+      evidence_voc_ids: [memberIds[0]],
+    };
+    const idempotencyKey = randomUUID();
+    const created = await createFinding(clusterId, body, idempotencyKey);
+    expect(created.statusCode).toBe(201);
+    const findingId = created.json<{ id: string }>().id;
+    findingIds.push(findingId);
+
+    await migrateHandle.pool.query(
+      `delete from voc_cluster.voc_cluster_members where cluster_id = $1 and voc_id = $2`,
+      [clusterId, memberIds[0]],
+    );
+    const replay = await createFinding(clusterId, body, idempotencyKey);
+
+    expect(replay.statusCode).toBe(201);
+    expect(replay.json<{ id: string }>().id).toBe(findingId);
+  });
 });

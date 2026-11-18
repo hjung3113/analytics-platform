@@ -27,7 +27,7 @@ import {
 } from '@ap/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useCreateFindingFromCluster } from '../../hooks/useCreateFindingFromCluster';
@@ -41,6 +41,9 @@ import { useHostNavigate, useHostSeam } from '../../../../lib/host/host-seam';
 // evaluating it at module init breaks when this file loads early in the route
 // tree import chain (RouteFallback.test hit it via voc-clusters).
 const EMPTY_CLUSTER_MEMBERS: NonNullable<VocClusterDto['members']> = [];
+const EVIDENCE_SELECTION_STALE =
+  '고른 VOC 중 묶음에서 빠졌거나 볼 수 없게 된 것이 있습니다. 목록을 새로 불러왔으니 다시 확인해 주세요.';
+const UNTITLED_VOC = '제목 없음';
 
 export function CreateFindingFromClusterModal({
   open,
@@ -73,15 +76,23 @@ export function CreateFindingFromClusterModal({
     mode: 'onBlur',
   });
 
+  // Prefill once per opening: a background refetch of the cluster must not wipe typed text or re-check
+  // boxes the user cleared (#2531 review C6). Members that left the cluster drop out at submit.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      wasOpen.current = false;
+      return;
+    }
+    if (wasOpen.current) return;
+    wasOpen.current = true;
     form.reset({
       title: cluster.title,
       summary: cluster.summary ?? '',
       severity: 'medium',
     });
     setSelectedEvidenceVocIds(members.map((member) => member.voc_id));
-  }, [open, cluster.id, cluster.title, cluster.summary, members, form]);
+  }, [open, cluster.title, cluster.summary, members, form]);
 
   function closeAndReset() {
     form.reset({
@@ -117,9 +128,20 @@ export function CreateFindingFromClusterModal({
           onClose();
           const findingPath = `/findings/${finding.id}`;
           if (canLink(findingPath)) navigate(findingPath);
-          else notifySuccess(`Finding이 생성되었습니다. 근거 VOC ${evidenceVocIds.length}건을 연결했습니다.`);
+          else
+            notifySuccess(
+              evidenceVocIds.length > 0
+                ? `Finding이 생성되었습니다. 근거 VOC ${evidenceVocIds.length}건을 연결했습니다.`
+                : 'Finding이 생성되었습니다.',
+            );
         },
         onError: (err: ApiError) => {
+          // A selected VOC that left the cluster or became unreadable rejects the whole command as not_found;
+          // the hook refetches the members, so say which part to recheck (#2531 review C7).
+          if (err.code === 'not_found.record' && evidenceVocIds.length > 0) {
+            notifyError(EVIDENCE_SELECTION_STALE);
+            return;
+          }
           notifyError(errorMapper(err.envelope).message);
         },
       },
@@ -194,6 +216,7 @@ export function CreateFindingFromClusterModal({
               <legend className="text-sm font-medium">
                 근거로 가져올 VOC {selectedEvidenceVocIds.length}건
               </legend>
+              <div className="flex max-h-52 flex-col gap-2 overflow-y-auto">
               {members.map((member) => {
                 const isSelected = selectedEvidenceVocIds.includes(member.voc_id);
                 const checkboxId = `cluster-evidence-${member.voc_id}`;
@@ -216,11 +239,12 @@ export function CreateFindingFromClusterModal({
                     />
                     <label htmlFor={checkboxId} className="text-sm">
                       {member.display_id ? `${member.display_id} · ` : ''}
-                      {member.title ?? member.voc_id}
+                      {member.title ?? UNTITLED_VOC}
                     </label>
                   </div>
                 );
               })}
+              </div>
             </fieldset>
           )}
 

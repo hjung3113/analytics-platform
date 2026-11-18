@@ -25,17 +25,13 @@ import {
 import { createFindingFromVocCluster, lockFindingForUpdate } from '../findings/commands.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
 import { isRequestableDenial } from '../permissions/index.js';
-import { actorReadScope, canReadVocAsSource, type Scope } from '../voc/authorization.js';
+import { actorReadScope, canReadVocAsSource } from '../voc/authorization.js';
 import { selectVocForUpdate } from '../voc/index.js';
-import { listVocClusterMembers, lockVocClusterById, type VocClusterMemberRow } from './repo.js';
-import type { VocClustersActor, VocClustersServiceDeps } from './service.js';
+import { listVocClusterMembers, lockVocClusterById } from './repo.js';
+import type { isAuthorizedMember as IsAuthorizedMemberFn, VocClustersActor, VocClustersServiceDeps } from './service.js';
 
-type IsAuthorizedMember = (
-  readScope: Scope,
-  actorId: string,
-  member: Pick<VocClusterMemberRow, 'archived_at' | 'primary_managed_system_id' | 'reporter_id'>,
-  clusterManagedSystemId: string,
-) => boolean;
+type IsAuthorizedMember = typeof IsAuthorizedMemberFn;
+
 
 export function createVocClusterConversion(
   deps: VocClustersServiceDeps,
@@ -53,23 +49,28 @@ export function createVocClusterConversion(
     clusterId: string;
     clusterManagedSystemId: string;
     vocIds: string[];
-  }): Promise<VocClusterMemberRow[]> {
+    /** A replay returns only the Finding, so it re-checks that each VOC is still readable, not that it is still a
+     * member: a member removed after the first call must not turn the replay of a created Finding into a 404. */
+    requireMembership: boolean;
+  }): Promise<string[]> {
     if (args.vocIds.length === 0) return [];
 
     const readScope = await actorReadScope(args.tx, args.actor);
-    const members = await listVocClusterMembers(args.tx, { clusterId: args.clusterId });
-    const membersByVocId = new Map(members.map((member) => [member.voc_id, member]));
-    const readableMembers: VocClusterMemberRow[] = [];
+    const memberIds = args.requireMembership
+      ? new Set(
+          (await listVocClusterMembers(args.tx, { clusterId: args.clusterId })).map(
+            (member) => member.voc_id,
+          ),
+        )
+      : null;
+    const readableVocIds: string[] = [];
 
     for (const vocId of [...args.vocIds].sort()) {
-      const member = membersByVocId.get(vocId);
-      if (!member) throw new HttpError('not_found.record', 'record not found');
+      if (memberIds && !memberIds.has(vocId)) throw new HttpError('not_found.record', 'record not found');
 
       const voc = await selectVocForUpdate(args.tx, args.actor.workspace_id, vocId);
       if (
         !voc ||
-        voc.archivedAt !== null ||
-        voc.primaryManagedSystemId !== args.clusterManagedSystemId ||
         !isAuthorizedMember(
           readScope,
           args.actor.actor_id,
@@ -92,10 +93,14 @@ export function createVocClusterConversion(
       ) {
         throw new HttpError('not_found.record', 'record not found');
       }
-      readableMembers.push(member);
+      // 06 §create-time gate: every direct-insert path calls the one compatibility seam.
+      assertLinkManagedSystemCompatibility(voc.primaryManagedSystemId, args.clusterManagedSystemId, {
+        path: ['evidence_voc_ids'],
+      });
+      readableVocIds.push(vocId);
     }
 
-    return readableMembers;
+    return readableVocIds;
   }
 
   async function assertTargetAnalyticsArea(args: {
@@ -180,12 +185,13 @@ export function createVocClusterConversion(
             },
           );
 
-          const evidenceMembers = await getReadableEvidenceMembers({
+          const evidenceMemberIds = await getReadableEvidenceMembers({
             tx,
             actor: args.actor,
             clusterId: cluster.id,
             clusterManagedSystemId: cluster.primary_managed_system_id,
             vocIds: evidenceVocIds,
+            requireMembership: true,
           });
 
           await assertTargetAnalyticsArea({
@@ -286,11 +292,11 @@ export function createVocClusterConversion(
             target_type: 'finding',
             relation_type: 'evidence_of',
           });
-          for (const member of evidenceMembers) {
+          for (const vocId of evidenceMemberIds) {
             const evidenceLink = await createEntityLink(tx, {
               workspaceId: args.actor.workspace_id,
               sourceType: evidenceTuple.source_type,
-              sourceId: member.voc_id,
+              sourceId: vocId,
               targetType: evidenceTuple.target_type,
               targetId: finding.id,
               relationType: evidenceTuple.relation_type,
@@ -308,7 +314,7 @@ export function createVocClusterConversion(
                 summary: 'Entity link created',
                 detail: {
                   link_id: evidenceLink.row.id,
-                  source: { type: 'voc', id: member.voc_id },
+                  source: { type: 'voc', id: vocId },
                   target: { type: 'finding', id: finding.id },
                   relation_type: 'evidence_of',
                   visibility: 'internal_only',
@@ -382,6 +388,7 @@ export function createVocClusterConversion(
                 clusterId: replayCluster.id,
                 clusterManagedSystemId: replayCluster.primary_managed_system_id,
                 vocIds: evidenceVocIds,
+                requireMembership: false,
               });
             }
           },

@@ -60,7 +60,7 @@ describe('CreateFindingFromClusterModal success', () => {
     expect(onClose).toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(notifySuccess).toHaveBeenCalledWith(
-      'Finding이 생성되었습니다. 근거 VOC 0건을 연결했습니다.',
+      'Finding이 생성되었습니다.',
     );
   });
 });
