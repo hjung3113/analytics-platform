@@ -98,7 +98,9 @@ export function drawOverlays(ctx: CanvasRenderingContext2D, resolved: ResolvedOv
       }
       ctx.restore(); continue;
     }
-    const top = lane >= 0 ? lane * ROW_HEIGHT - scroll : 0; const bottom = lane >= 0 ? top + ROW_HEIGHT : height;
+    const rowInset = model.rowInset ?? 0;
+    const top = lane >= 0 ? lane * ROW_HEIGHT - scroll + rowInset : 0;
+    const bottom = lane >= 0 ? top + ROW_HEIGHT - rowInset * 2 : height;
     if (bottom < 0 || top > height) continue;
     const y0 = Math.max(0, top); const y1 = Math.min(height, bottom);
     if (overlay.kind === 'instant') {

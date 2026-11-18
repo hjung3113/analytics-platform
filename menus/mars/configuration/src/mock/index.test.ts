@@ -81,4 +81,14 @@ describe('Configuration synthetic matrix', () => {
     expect(navigateTree({ ...request, focus: next!.focus, direction: 'previous' })?.focus).toBe(target!.focus);
     expect(navigateTree({ ...request, focus: target!.focus, direction: 'previous' })).toBeNull();
   });
+
+  it('steps back to the original difference in the default hierarchy and expansion', () => {
+    const request = { ...params, status: 'review' as const, expanded: [] };
+    const first = navigateTree({ ...request, focus: null, direction: 'next' })!;
+    const second = navigateTree({ ...request, ...first, direction: 'next' })!;
+    const previous = navigateTree({ ...request, ...second, direction: 'previous' })!;
+    expect(second.ordinal).toBe(2);
+    expect(previous).toMatchObject({ focus: first.focus, ordinal: 1 });
+    expect(compareTree({ ...request, ...previous }).nodes.some(node => node.id === first.focus)).toBe(true);
+  });
 });

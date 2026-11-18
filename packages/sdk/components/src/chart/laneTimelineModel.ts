@@ -29,6 +29,8 @@ export type LaneItem = { segment: TimelineSegment; laneIndex: number; index: num
 export type LaneRect = LaneItem & { x: number; y: number; width: number; height: number; offset: number };
 export type LaneModel = {
   lanes: TimelineLane[]; cols: LaneColumns[];
+  /** Vertical inset on each side of the painted band, without changing row pitch. */
+  rowInset?: number;
   /** Per-lane prefix sums of segment counts; `offsets[lanes.length]` is the total. */
   offsets: number[];
   tokens: ThemeColorToken[]; ranks: string[]; maxDepth: number;
@@ -185,9 +187,11 @@ export function laneWindow(cols: LaneColumns, a: number, b: number, out: number[
 }
 
 const G = { x: 0, y: 0, width: 0, height: 0 };
+export const laneRowInset = (depth: number, rowInset: number) => Math.min(rowInset + depth * 2, 11);
 /** Painted geometry of one segment (same arithmetic as the old per-rect code). Writes into the shared scratch `G`. */
-function geometry(cols: LaneColumns, o: number, laneIndexValue: number, view: [number, number], width: number, plotWidth: number, scroll: number): typeof G {
-  const inset = Math.min(cols.depth[o] * 2, 11);
+function geometry(model: LaneModel, o: number, laneIndexValue: number, view: [number, number], width: number, plotWidth: number, scroll: number): typeof G {
+  const cols = model.cols[laneIndexValue];
+  const inset = laneRowInset(cols.depth[o], model.rowInset ?? 0);
   const x = GUTTER + Math.max(0, (cols.start[o] - view[0]) / (view[1] - view[0]) * plotWidth);
   const endX = GUTTER + Math.min(plotWidth, (cols.end[o] - view[0]) / (view[1] - view[0]) * plotWidth);
   G.x = Math.min(x, width - MIN_WIDTH); G.y = laneIndexValue * ROW_HEIGHT - scroll + inset; G.width = Math.max(MIN_WIDTH, endX - x); G.height = ROW_HEIGHT - inset * 2;
@@ -241,7 +245,7 @@ export function fillVisibleRects(model: LaneModel, view: [number, number], width
   buf.ensure(m); buf.count = m;
   for (let i = 0; i < m; i++) {
     const flat = ordered[i]; const l = laneOfFlat(model.offsets, flat); const o = flat - model.offsets[l];
-    geometry(model.cols[l], o, l, view, width, plotWidth, scroll);
+    geometry(model, o, l, view, width, plotWidth, scroll);
     buf.flat[i] = flat; buf.laneIndex[i] = l; buf.offset[i] = o; buf.x[i] = G.x; buf.y[i] = G.y; buf.width[i] = G.width; buf.height[i] = G.height;
   }
   return m;
@@ -253,7 +257,7 @@ export function segmentRect(model: LaneModel, flat: number, view: [number, numbe
   const [first, last] = visibleLanes(model, height, scroll);
   const cols = model.cols[laneIndexValue];
   if (laneIndexValue < first || laneIndexValue >= last || cols.end[o] < view[0] || cols.start[o] > view[1]) return undefined;
-  geometry(cols, o, laneIndexValue, view, width, Math.max(1, width - GUTTER), scroll);
+  geometry(model, o, laneIndexValue, view, width, Math.max(1, width - GUTTER), scroll);
   return { segment: cols.segments[o], laneIndex: laneIndexValue, index: flat, offset: o, x: G.x, y: G.y, width: G.width, height: G.height };
 }
 export function visibleRects(model: LaneModel, view: [number, number], width: number, height: number, scroll: number): LaneRect[] {
@@ -282,7 +286,7 @@ export function hitTest(model: LaneModel, view: [number, number], width: number,
     local.length = 0; laneWindow(cols, Math.max(time - delta, view[0]), Math.min(time + delta, view[1]), local, stats);
     for (let i = 0; i < local.length; i++) {
       const o = local[i];
-      geometry(cols, o, laneIndexValue, view, width, plotWidth, scroll);
+      geometry(model, o, laneIndexValue, view, width, plotWidth, scroll);
       const lod = lodLanes?.has(laneIndexValue);
       const column = Math.floor(x);
       const covered = lod ? Math.min(G.x + G.width, column + 1) - Math.max(G.x, column) : 0;

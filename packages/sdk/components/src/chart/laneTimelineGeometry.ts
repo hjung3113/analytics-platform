@@ -31,8 +31,10 @@ export function segmentText(
 const MINUTE = 60_000; const HOUR = 3_600_000; const DAY = 86_400_000;
 // Calendar steps only: epoch ms aligns with UTC minute/hour/midnight boundaries, so every tick lands on a wall-clock unit.
 const UNIT_STEPS: Record<number, number[]> = { [MINUTE]: [1, 2, 5, 10, 15, 30], [HOUR]: [1, 2, 3, 6, 12], [DAY]: [1, 2, 5, 10] };
-export function niceTicks(view: [number, number], width: number): number[] {
-  const desired = (view[1] - view[0]) / Math.max(1, Math.floor(width / 160));
+const DEFAULT_TICK_SPACING = 160;
+export function niceTicks(view: [number, number], width: number, tickSpacing = DEFAULT_TICK_SPACING): number[] {
+  const spacing = Number.isFinite(tickSpacing) && tickSpacing > 0 ? tickSpacing : DEFAULT_TICK_SPACING;
+  const desired = (view[1] - view[0]) / Math.max(1, Math.floor(width / Math.max(1, spacing)));
   // Each unit's threshold is its largest step, so `desired` always fits a step of its unit; beyond 10 days the day unit
   // continues with 1·2·5×10ⁿ days (SHE-39/#2063: the old 1h/1d thresholds left gaps that fell to a 10× fallback —
   // 5h between 30min and 1h, 5 days between 12h and 1d, 100 days beyond 10 days — and a whole span drew one tick).

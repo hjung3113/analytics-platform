@@ -4,6 +4,7 @@ import { Settings } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId, menuPermission } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 import { PAGE_KEYS, SAVED_VIEW_SUPPORT } from './endpoints';
+import { configurationPanels } from './panels';
 
 export const manifests: MenuEntry[] = [
   {
@@ -14,6 +15,7 @@ export const manifests: MenuEntry[] = [
     features: { ...NO_FEATURES, export: true, savedView: true },
     savedViewSupport: SAVED_VIEW_SUPPORT,
     pageKeys: PAGE_KEYS, repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'],
+    panels: Object.values(configurationPanels),
     component: lazy(() => import('./pages/Configuration')),
   },
 ];

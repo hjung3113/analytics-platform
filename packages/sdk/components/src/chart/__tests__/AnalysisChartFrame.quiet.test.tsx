@@ -86,3 +86,27 @@ it('ignores quiet in full chrome', async () => {
   expect(summary()).not.toHaveClass('sr-only');
   expect(within(summary()).getByText('활성 행: A')).not.toHaveClass('sr-only');
 });
+
+it('shows a titled zoom-only header with the legend below the title and working zoom controls', async () => {
+  await mount({ zoomOnly: true, summary: 'quiet', legendCaption: 'Trend legend' });
+  const title = screen.getByRole('heading', { name: 'Quiet' });
+  const header = title.closest('header')!;
+  expect(title).not.toHaveClass('sr-only');
+  expect(title.nextElementSibling).toHaveTextContent('Trend legend');
+  const buttons = within(within(header).getByRole('toolbar')).getAllByRole('button');
+  expect(buttons).toHaveLength(4);
+  ['조작 방법', '확대', '축소', '확대 초기화'].forEach((name, index) => {
+    expect(buttons[index]).toHaveAccessibleName(name);
+  });
+  expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
+  expect(summary()).toHaveClass('sr-only');
+
+  const zoom = () => (plot.option as { dataZoom: { start: number; end: number }[] }).dataZoom[0];
+  fireEvent.click(buttons[1]);
+  expect(zoom()).toMatchObject({ start: 25, end: 75 });
+  fireEvent.click(buttons[2]);
+  expect(zoom()).toMatchObject({ start: 0, end: 100 });
+  fireEvent.click(buttons[1]);
+  fireEvent.click(buttons[3]);
+  expect(zoom()).toMatchObject({ start: 0, end: 100 });
+});

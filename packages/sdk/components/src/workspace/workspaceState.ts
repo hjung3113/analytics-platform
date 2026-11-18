@@ -231,18 +231,20 @@ export function hidePanel(state: WorkspaceState, panelId: string, primaryId: str
 /**
  * Brings `panelId` back without covering the primary: into the group of a panel that shares its group in `preset` and is still shown
  * (the active tab there, unless that group holds the primary, which then stays active); else into the first group in reading order that
- * does not hold the primary; else to the right of the primary.
+ * does not hold the primary; else to the right of the primary. For a panel listed in `below`, the fallback is a new last row.
  */
-export function showPanel(state: WorkspaceState, panelId: string, primaryId: string, preset: WorkspacePreset): WorkspaceState {
+export function showPanel(state: WorkspaceState, panelId: string, primaryId: string, preset: WorkspacePreset, below: readonly string[] = []): WorkspaceState {
   if (!state.hidden.includes(panelId)) return state;
   const shown = panelOrder(state.layout);
-  const home = groupOf(presetTree(preset.layout, [...shown, ...state.hidden]), panelId);
+  const home = groupOf(presetTree(preset.layout, [...shown, ...state.hidden], below), panelId);
   const sibling = home?.panels.find(id => id !== panelId && shown.includes(id));
+  const appendBelow = sibling === undefined && below.includes(panelId);
   const other = dockGroupsInReadingOrder(state.layout).find(group => !group.panels.includes(primaryId));
-  const into = sibling ?? other?.active;
+  const into = appendBelow ? primaryId : sibling ?? other?.active;
   const primaryActive = groupActive(state.layout, primaryId);
   let layout = addPanel(state.layout, panelId, into !== undefined ? { panelId: into, position: 'center' } : { panelId: primaryId, position: 'right' });
   if (into !== undefined && groupOf(layout, panelId)?.panels.includes(primaryId) && primaryActive) layout = activatePanel(layout, primaryActive);
+  if (appendBelow) layout = moveToNewRow(layout, panelId);
   return { ...state, layout, hidden: state.hidden.filter(id => id !== panelId), ...(state.floating ? { floating: state.floating.filter(panel => panel.panelId !== panelId) } : {}) };
 }
 

@@ -7,7 +7,7 @@ import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, us
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
 import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
@@ -35,7 +35,7 @@ import { groupedRowText, rowGroup, rowLabel, type ChartRowGroups } from './chart
 export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
 
-import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
+import { AnalysisChartPart, ChartCardHeader, ChartHeading, ChartTrustFooter, ChartZoomButton, PanelChartChrome, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
 
 export type ChartSeries = {
   id: string;
@@ -45,6 +45,8 @@ export type ChartSeries = {
   /** [x, y]: x is a naive wall-clock datetime (time axis) or a category label. null = unknown, never 0. */
   points: [string, number | null][];
   kind?: 'line' | 'bar';
+  /** Native step geometry for line series. Omit for a straight line. */
+  step?: 'start' | 'middle' | 'end';
   dashed?: boolean;
   /** Absent = left. `'right'` draws on the Frame's `rightAxis` (a vertical, unstacked chart with `rightAxis` given; otherwise drawn on the left, with a dev warning). */
   axis?: 'left' | 'right';
@@ -128,6 +130,8 @@ export type ChartPointAction = { id: string; label: string; onSelect: (point: Ch
 type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void } } };
 
 export type AnalysisChartFrameProps = ChartChromeOptions & {
+  /** Use standard plot sizing with a visible card title, optional legend caption below it, and only info and zoom tools. */
+  zoomOnly?: boolean;
   /** Selection summary presentation in standard/minimal chrome. Quiet hides resting text visually; full ignores it. Default: standard. */
   summary?: 'standard' | 'quiet';
   /** Horizontal category charts only; ignored elsewhere with one dev warning. Read-only group spans, no hierarchy or group values. */
@@ -141,6 +145,8 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   description?: ReactNode;
   metricVersion?: string;
   series: ChartSeries[];
+  /** Fit the left value axis for vertical line-only charts. Omit to keep the zero baseline. */
+  yFit?: boolean;
   /** Shown only while Compare is on (e.g. previous period, other group). */
   compareSeries?: ChartSeries[];
   xType?: 'time' | 'category';
@@ -266,10 +272,11 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform: MenuPlatform }) {
   const { setGlobal, toast, global, route, url } = platform;
   const features = route?.menu.features;
-  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate: !!features?.annotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
+  const canAnnotate = !p.zoomOnly && !!features?.annotate;
+  const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
   const host: FrameHost = {
     inPlatform: true, global, contextKey: JSON.stringify(global), url, status: '', notify: toast,
-    features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
+    features: { compare: !!features?.compare, annotate: canAnnotate, export: !!features?.export },
     applyPeriod: range => setGlobal({ from: range.from, to: range.to }),
   };
   return <FrameBody {...p} host={host} editor={editor} />;
@@ -303,7 +310,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const m = useMessages(COMPONENTS_MESSAGES);
   const compactEmbedded = useEmbeddedChrome();
   const panel = useInWorkspacePanel();
-  const chrome = p.chrome ?? (panel ? 'standard' : 'full');
+  const zoomOnly = p.zoomOnly === true;
+  const chrome = (zoomOnly ? 'standard' : p.chrome) ?? (panel ? 'standard' : 'full');
   const compactChrome = chrome !== 'full';
   const [panelToolsOpen, setPanelToolsOpen] = useState(false);
   const focusPanelAnnotate = useRef(false);
@@ -316,9 +324,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const fillFloor = chrome === 'standard' ? 0 : fillMin;
   const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillFloor, fill.height ?? fillMin) : analysisChartHeight(size, 260));
   const { global, features, notify, url, applyPeriod } = host;
-  const canCompare = features.compare && !!p.compareSeries?.length;
+  const canCompare = !zoomOnly && features.compare && !!p.compareSeries?.length;
   const canAnnotate = features.annotate;
-  const canExport = features.export;
+  const canExport = !zoomOnly && features.export;
   const titleId = useId();
   const currentPeriodId = useId();
   const previousPeriodId = useId();
@@ -625,10 +633,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption,
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit,
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -844,10 +852,27 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   let fillPlotClass = loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS;
   if (rowPitch !== undefined) fillPlotClass = loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS;
   if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden';
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && 'rounded-none border-0 shadow-none')}>
+  const chartNotes = (totalNote || partialNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
+    {totalNote && <p>{totalNote}</p>}
+    {partialNote && <p>{partialNote}</p>}
+    {mismatchedLines.map(line => <p key={line.label}>{m('chartRefLineHiddenUnit', { label: line.label })}</p>)}
+  </div>;
+  const plotLegendCaption = zoomOnly ? undefined : p.legendCaption;
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && !zoomOnly && 'rounded-none border-0 shadow-none')}>
     {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
     <AnalysisChartPart enabled={analysisSection !== null}>
-    <PanelChartChrome enabled={compactChrome} start={p.toolbarStart} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} open={panelToolsOpen} onOpenChange={setPanelToolsOpen} onOpenAutoFocus={event => {
+    {zoomOnly ? <>
+      <ChartCardHeader reserveCorner={analysisSection !== null} title={<h3 id={titleId} className="t-card-title">{p.title}</h3>}
+        subtitle={p.legendCaption != null && <div className="text-xs text-text-muted">{p.legendCaption}</div>} actions={<>
+          <InfoTip label={m('laneHowToInteract')}>{p.description ?? (rowPitch === undefined ? m('chartZoomTitle') : m('chartLocalStateNote'))}</InfoTip>
+          {rowPitch === undefined && <>
+            <ChartZoomButton label={m('laneZoomIn')} icon={ZoomIn} onClick={rangeActions.zoomIn} />
+            <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
+          </>}
+          <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
+        </>} />
+      {chartNotes}
+    </> : <PanelChartChrome enabled={compactChrome} start={p.toolbarStart} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} open={panelToolsOpen} onOpenChange={setPanelToolsOpen} onOpenAutoFocus={event => {
       if (!focusPanelAnnotate.current) return;
       focusPanelAnnotate.current = false;
       event.preventDefault();
@@ -924,13 +949,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
     {chrome !== 'standard' && frameLegend}
 
-    {(totalNote || partialNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
-      {totalNote && <p>{totalNote}</p>}
-      {partialNote && <p>{partialNote}</p>}
-      {mismatchedLines.map(line => <p key={line.label}>{m('chartRefLineHiddenUnit', { label: line.label })}</p>)}
-    </div>}
+    {chartNotes}
 
-    </PanelChartChrome>
+    </PanelChartChrome>}
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body bounded={chrome === 'standard' && size === 'fill'}>
     {allSeries.length > 0 && visible.length === 0 && <>
@@ -939,7 +960,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
-    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || brushMode || (!!p.onPointClick && !!p.pointClickHint) || p.legendCaption != null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
+    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || brushMode || (!!p.onPointClick && !!p.pointClickHint) || plotLegendCaption != null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
       style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill && chrome !== 'standard' ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? m('chartPointsGroup') : undefined} tabIndex={pointControls ? 0 : -1}

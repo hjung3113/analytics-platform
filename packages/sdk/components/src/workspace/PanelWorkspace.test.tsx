@@ -958,6 +958,24 @@ describe('PanelWorkspace: revealRequest (#690)', () => {
     expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
   });
 
+  it.each(['stacked', 'maximized'])('restores a hidden panel to its declared row on an explicit reveal from a %s workspace', async mode => {
+    const extra: Partial<PanelWorkspaceProps> = {
+      panels: [PANELS[0]!, { ...PANELS[1]!, placement: 'below' }],
+      presets: [{ id: 'focus', label: { ko: '집중', en: 'Focus' }, layout: group(['trend']) }],
+      initialMode: 'stack', compactBelow: 0,
+    };
+    const view = render(withRequest(null, extra));
+    await ready();
+    await chooseFromMenu('선택기 동작', '숨기기');
+    await waitFor(() => expect(tab('selector')).toBeNull());
+    if (mode === 'maximized') await userEvent.click(screen.getByRole('button', { name: '추세 최대화' }));
+    view.rerender(withRequest({ panelId: 'selector', seq: 1, restoreHidden: true }, extra));
+    await waitFor(() => expect(tab('selector')).toHaveAttribute('aria-selected', 'true'));
+    expect(document.querySelector('[data-dock-panel="selector"]')).toHaveAttribute('data-dock-visible', 'true');
+    expect(document.querySelector('[data-dock-row-separator="1"]')).toBeInTheDocument();
+    expect(tab('trend').compareDocumentPosition(tab('selector')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('while another panel is maximized it is a no-op: the maximize is kept and the request is not queued', async () => {
     const view = render(withRequest(null));
     await ready();

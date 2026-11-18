@@ -2,10 +2,10 @@
 import { act, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PageFilterField, QueryBarExtension, TreeMatrixProps } from '@ap/components';
+import type { PageFilterField, PanelWorkspaceProps, QueryBarExtension, TreeMatrixProps } from '@ap/components';
 import { encodeFilterParams, parseQuery, buildQuery, emptyGlobal, type MatrixColumn } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
-import { DEFAULT_LEVELS, PAGE_KEYS, SAVED_VIEW_SUPPORT, equipmentFromKey, equipmentToKey, validEquipmentKey, type TreeRow } from '../endpoints';
+import { DEFAULT_LEVELS, PAGE_KEYS, SAVED_VIEW_SUPPORT, TREND_ITEM_KEY, equipmentFromKey, equipmentToKey, validEquipmentKey, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
 
@@ -22,6 +22,7 @@ vi.mock('@ap/kernel', async original => ({ ...await original<object>(),
 }));
 vi.mock('@ap/components', async original => ({ ...await original<object>(),
   PlatformPage: ({ children, contextExtension, queryBarExtension }: { children: ReactNode; contextExtension: ReactNode; queryBarExtension: QueryBarExtension }) => { extension = queryBarExtension; return <main>{contextExtension}{children}</main>; },
+  PanelWorkspace: ({ panels }: Pick<PanelWorkspaceProps, 'panels'>) => panels[0]?.render(),
   PageFilterBar: ({ fields, actions }: { fields: PageFilterField[]; actions: ReactNode }) => { state.fields = fields; return <div>{actions}</div>; },
   QueryView: ({ query, children }: { query: { response: { data: unknown } }; children: (data: unknown, response: unknown) => ReactNode }) => children(query.response.data, query.response),
   TreeMatrix: (props: TreeMatrixProps<TreeRow>) => { state.matrix = props; return <div data-matrix>{props.toolbar}</div>; },
@@ -37,7 +38,7 @@ describe('Configuration page', () => {
   it('labels toolbar keys and formats arbitrary history candidates without capturing current values', () => {
     state.page = { equipment: 'EQ01,EQ02', mode: 'reference', ref: 'EQ01', core: '1', levels: 'category,module', hideSameCols: '1', q: 'Pressure', status: 'all', filter: ['module:eq:PM1'] };
     draw();
-    expect(extension.appliedPageSummary?.map(item => item.key)).toEqual(expect.arrayContaining(PAGE_KEYS));
+    expect(extension.appliedPageSummary?.map(item => item.key)).toEqual(expect.arrayContaining(PAGE_KEYS.filter(key => key !== TREND_ITEM_KEY)));
     expect(extension.appliedPageSummary?.find(item => item.key === 'levels')?.value).toBe('Category › Module');
     expect(extension.appliedPageSummary?.find(item => item.key === 'mode')?.value).toBe('referenceMode');
     expect(extension.appliedPageSummary?.find(item => item.key === 'hideSameCols')).toEqual({ key: 'hideSameCols', label: '차이 없는 설비 숨기기', value: 'enabled' });
@@ -108,7 +109,7 @@ describe('Configuration page', () => {
     act(() => state.matrix.onEmphasisChange!([])); expect(state.matrix.emphasis).toEqual([]);
     expect(state.setPage).not.toHaveBeenCalled(); expect(state.matrix.generation).toBeDefined();
     expect(state.matrix.columns.slice(0, 2).map(column => column.pin)).toEqual(['left', 'left']);
-    expect(state.matrix.activateOn).not.toBe('doubleClick'); expect(DEFAULT_LEVELS).toEqual(['module', 'category']);
+    expect(state.matrix.activateOn).toBe('doubleClick'); expect(DEFAULT_LEVELS).toEqual(['module', 'category']);
     act(() => state.matrix.onEmphasisChange!([{ row: leaf.id, match: { kind: 'values', values: [120] } }]));
     state.page.levels = 'filename,module'; draw();
     expect(state.matrix.emphasis).toEqual([]); expect(state.matrix.selectedCell).toBeNull();

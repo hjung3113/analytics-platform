@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { Button, cn, InfoTip, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { formatMetricVersion } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -13,6 +13,21 @@ export function AnalysisChartPart({ enabled, body, bounded, children }: { enable
   if (!enabled) return <>{children}</>;
   return body ? <div data-analysis-chart-body className={cn('flex flex-1 flex-col', bounded && 'min-h-0')}>{children}</div>
     : <div data-analysis-chart-head>{children}</div>;
+}
+
+export function ChartCardHeader({ title, subtitle, actions, reserveCorner }: { title: ReactNode; subtitle?: ReactNode; actions: ReactNode; reserveCorner: boolean }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  return <header className={cn('flex flex-wrap items-start justify-between gap-2 px-4 pt-3', reserveCorner && 'pr-12')}>
+    <div className="min-w-0">
+      {title}
+      {subtitle}
+    </div>
+    <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">{actions}</div>
+  </header>;
+}
+
+export function ChartZoomButton({ label, icon: Icon, onClick }: { label: string; icon: LucideIcon; onClick: () => void }) {
+  return <Button size="icon-xs" variant="ghost" aria-label={label} title={label} onClick={onClick}><Icon className="size-3.5" aria-hidden /></Button>;
 }
 
 /** Panel tabs own the title. Keep the plot's primary tools on one row; disclose the existing secondary controls unchanged. */

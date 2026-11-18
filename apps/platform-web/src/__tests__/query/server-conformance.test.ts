@@ -40,6 +40,7 @@ const slowFilter = { tail: 'p95', granularity: 'hour', bucket: null, bin: null }
 /** One request per endpoint that the granted actor (engineer at MEM) runs successfully. Endpoints with no params default to `{}`. */
 const PARAMS: Record<string, Record<string, unknown>> = {
   // New Configuration reads: bounded synthetic requests, including an export below its declared cap.
+  'configuration.history': { itemId: 'cfg-000000', equipment: ['EQ01', 'EQ02'] },
   'configuration.tree': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: 'Auxiliary Chamber', asOf: 'latest', levels: ['module', 'category', 'item', 'filename'], expanded: [], offset: 0, limit: 80, filters: [] },
   'configuration.tree-navigation': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: '', asOf: 'latest', levels: ['module'], expanded: [], offset: 0, limit: 80, filters: [], focus: null, direction: 'next' },
   'configuration.detail': { eq: ['EQ01', 'EQ02'], mode: 'all', ref: 'EQ01', status: 'all', q: '', asOf: 'latest', levels: ['module'], expanded: [], offset: 0, limit: 80, filters: [], focus: 'cfg-000000' },

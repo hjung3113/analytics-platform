@@ -1,7 +1,7 @@
 /** Deterministic synthetic CFG fixture, promoted from the approved A′ prototype. */
 import { defineMockEndpoint, MockRequestError, type AnyMockEndpoint } from '@ap/mock-server';
 import { filterRows, validateFilters, type ColumnFilter } from '@ap/contracts';
-import { configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, DEFAULT_EQUIPMENT, EQUIPMENT, ROW_COUNT, TREE_WINDOW, EXPORT_LIMIT, STATUS, isRowId, validEquipment, validLevels, filterSpecs, type CompareParams, type ConfigRow, type ConfigValue, type StatusCounts, type TreeParams, type TreePage, type TreeRow, type TreeNavigationParams, type TreeNavigation } from '../endpoints';
+import { configurationTreeEndpoint, configurationTreeNavigationEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, historyPeriod, type ConfigHistory, type HistoryParams, DEFAULT_EQUIPMENT, EQUIPMENT, ROW_COUNT, TREE_WINDOW, EXPORT_LIMIT, STATUS, isRowId, validEquipment, validLevels, filterSpecs, type CompareParams, type ConfigRow, type ConfigValue, type StatusCounts, type TreeParams, type TreePage, type TreeRow, type TreeNavigationParams, type TreeNavigation } from '../endpoints';
 const SEED = 2434;
 const ITEMS_PER_CATEGORY = 1000;
 const CATEGORIES_PER_MODULE = 15;
@@ -119,6 +119,29 @@ function flags(index: number, params: CompareParams) {
 export function makeRow(index: number, params: CompareParams): ConfigRow {
   const spec = numericSetup(index)?.spec;
   return { ...identity(index), ...flags(index, params), coreKnown: index % 10 >= 4, values: valuesFor(index, params), source: 'CFG', collectedAt: '2026-11-17T00:00:00Z', spec };
+}
+
+/** Shared interior transitions give the synthetic majority identical trajectories. The final value is the matrix snapshot. */
+function history({ itemId, equipment }: HistoryParams, period: NonNullable<ReturnType<typeof historyPeriod>>): ConfigHistory {
+  const index = Number(itemId.slice('cfg-'.length));
+  const numeric = numericSetup(index);
+  const parameter = parameterFor(index);
+  const values = valuesFor(index, { eq: equipment, mode: 'all', ref: equipment[0], asOf: 'latest', status: 'all', q: '' });
+  const duration = period.end - period.start;
+  const seconds = 1000;
+  const changes = [0, 1 / 4, 3 / 4].map(fraction => period.start + Math.floor(duration * fraction / seconds) * seconds);
+  const earlier = numeric ? rounded(numeric.base - numeric.delta) : parameter.alternate!;
+  const baseline = numeric?.base ?? parameter.base;
+
+  return { item: identity(index).item, valueType: numeric ? 'number' : 'string', series: equipment.map(eq => {
+    const points = new Map([
+      [changes[0], earlier],
+      [changes[1], baseline],
+      [changes[2], values[eq].value],
+    ]);
+    return { equipment: eq, points: [...points].filter(([, value], position, entries) => position === 0 || value !== entries[position - 1][1])
+      .map(([at, value]) => ({ at: new Date(at).toISOString(), value })) };
+  }) };
 }
 
 const needsReview = (row: ReturnType<typeof flags>) => row.diff || row.violation || row.missing || row.notComparable;
@@ -277,6 +300,16 @@ export function validateTree({ params }: { params: TreeParams }) {
 }
 const syntheticSource = { source: 'synthetic.configuration' };
 export const configurationMock: readonly AnyMockEndpoint[] = [
+  defineMockEndpoint(configurationHistoryEndpoint, { ...syntheticSource,
+    validate: ({ params, context }) => typeof params?.itemId === 'string' && isRowId(params.itemId)
+      && Array.isArray(params.equipment) && validEquipment(params.equipment) && historyPeriod(context) ? null : 'Invalid history request',
+    handle: ({ params, context }) => {
+      const period = historyPeriod(context);
+      if (!period) throw new MockRequestError('Invalid history period');
+      return history(params, period);
+    },
+    provisional: ({ data }) => data.series.some(series => series.points.some(point => point.value === null)),
+  }),
   defineMockEndpoint(configurationTreeEndpoint, { ...syntheticSource, validate: validateTree, handle: ({ params }) => compareTree(params), isEmpty: data => data.totalItems === 0, provisional: ({ data }) => data.counts.missing > 0 }),
   defineMockEndpoint(configurationTreeNavigationEndpoint, { ...syntheticSource, validate: input => validateTree(input) ?? (['next', 'previous'].includes(input.params.direction) && (input.params.focus === null || typeof input.params.focus === 'string' && isRowId(input.params.focus)) ? null : 'Invalid navigation'), handle: ({ params }) => navigateTree(params) }),
   defineMockEndpoint(configurationDetailEndpoint, { ...syntheticSource, validate: input => validateTree(input) ?? (typeof input.params.focus === 'string' && isRowId(input.params.focus) ? null : 'Invalid focus'), handle: ({ params }) => {
