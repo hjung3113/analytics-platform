@@ -27,6 +27,5 @@ export const operatorHostLinks = hostLinksCarrying(
 export const notificationHostLinks = hostLinksCarrying(
   surveyCarry,
   operatorHostLinks.targetOf,
-  vocTarget,
   improvementItemTarget,
 );

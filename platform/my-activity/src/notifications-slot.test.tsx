@@ -7,7 +7,7 @@ import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import Notifications from './pages/Notifications';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { featureQueryClient } from '@ap/feature-bridge';
-import { ID_A, ID_B, json, listOf, notification, notificationRegistry, registry, stubFetch, switchableAdapter } from './feature/test-support';
+import { ID_A, ID_B, improvementRegistry, json, listOf, notification, notificationRegistry, registry, stubFetch, switchableAdapter } from './feature/test-support';
 
 const COUNT = '/api/features/notifications?unread=true&limit=1';
 const countOf = (n: number) => json({ items: [], page: { has_more: false }, unread_count: n });
@@ -94,6 +94,18 @@ describe('notifications slot', () => {
       expect(taskHref.pathname).toBe('/tasks');
       expect(taskHref.searchParams.get('focus')).toBe(ID_A);
       expect(new URL(permission.getAttribute('href')!, window.location.origin).pathname).toBe('/permission-requests');
+    });
+
+    it('keeps read and archive actions when the mapped VOC inbox is absent from the registry', async () => {
+      stubFetch(() => listOf(
+        notification(ID_A, { event_type: 'voc.assigned_to_me', subject_id: ID_B, detail: { voc_id: ID_B } }),
+      ));
+      mount(switchableAdapter().adapter, <notificationsSlot.Recent />, improvementRegistry);
+      const row = within(await screen.findByTestId(`home-inbox-row-${ID_A}`));
+      expect(row.queryByRole('link')).toBeNull();
+      expect(row.getAllByRole('button')).toHaveLength(2);
+      expect(row.getByRole('button', { name: '읽음으로 표시' })).toBeTruthy();
+      expect(row.getByRole('button', { name: '보관' })).toBeTruthy();
     });
 
     it.each([

@@ -131,12 +131,15 @@ export function useVocComposeController({
       submittedRef.current = true;
       discardDraft();
       const target = `/vocs?view=my&selected=${encodeURIComponent(data.id)}`;
-      if (navigate !== null && host.canLink(target)) {
-        notifySuccess(`접수 완료: ${data.display_id}`, {
+      const message = `접수 완료: ${data.display_id}`;
+      if (host.notify && navigate !== null && host.canLink(target)) {
+        host.notify({
+          tone: 'success',
+          message,
           action: { label: VOC_CREATE_COPY.open, onAction: () => navigate(target) },
         });
       } else {
-        notifySuccess(`접수 완료: ${data.display_id}`);
+        notifySuccess(message);
       }
       onDirtyChange(false);
       onSubmitted({ vocId: data.id, displayId: data.display_id });

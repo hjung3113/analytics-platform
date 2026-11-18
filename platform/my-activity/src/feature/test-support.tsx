@@ -31,11 +31,11 @@ const MENUS = [...manifests, filler, notices, inbox];
 
 export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS });
 
-/** `registry` plus the 개선 아이템 menus, for tests that link into the improvement detail. */
+/** Improvement target is present, while the VOC inbox destination is absent for unreachable-link coverage. */
 export const improvementRegistry = createRegistry({
   spaces: SPACES,
   groups: [...GROUPS, improvementGroup],
-  menus: [...MENUS, improvementItems, improvementItem],
+  menus: [...MENUS.filter(menu => menu.id !== 'inbox'), improvementItems, improvementItem],
 });
 
 const taskGroup = { id: groupId('task'), label: { ko: 'Task', en: 'Task' }, icon: UserRound, space: null };

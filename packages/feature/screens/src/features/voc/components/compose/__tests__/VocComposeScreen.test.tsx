@@ -2,7 +2,7 @@
 // because ProseMirror refuses text in jsdom (same as VocCreateScreen.integration.test.tsx).
 
 import { configureApiClient } from '../../../../../lib/api/client';
-import { type HostSeam, HostSeamProvider } from '../../../../../lib/host/host-seam';
+import { type HostNotice, type HostSeam, HostSeamProvider } from '../../../../../lib/host/host-seam';
 import { SHARED_ALLOWLISTS } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -209,13 +209,15 @@ afterEach(() => {
 describe('<VocComposeScreen> submit (F1)', () => {
   it('posts to /api/features/vocs with the typed text first and the Context block after it, then reports success once', async () => {
     installFetch();
-    const { seam, props } = mount();
+    const notify = vi.fn((_notice: HostNotice) => 'toast-id');
+    const { seam, props } = mount({}, { notify });
     await fillAndPick();
     await submit();
 
     await waitFor(() => expect(props.onSubmitted).toHaveBeenCalledTimes(1));
     expect(props.onSubmitted).toHaveBeenCalledWith({ vocId: VOC_ID, displayId: 'VOC-7' });
     expect(seam.notifySuccess).toHaveBeenCalledWith('접수 완료: VOC-7');
+    expect(notify).not.toHaveBeenCalled();
     expect(seam.notifyError).not.toHaveBeenCalled();
 
     const post = calls.find((c) => c.method === 'POST');
@@ -241,16 +243,19 @@ describe('<VocComposeScreen> submit (F1)', () => {
     installFetch();
     const navigate = vi.fn();
     const target = `/vocs?view=my&selected=${VOC_ID}`;
-    const { seam } = mount({}, { canLink: (to) => to === target, useNavigate: () => navigate });
+    const notify = vi.fn((_notice: HostNotice) => 'toast-id');
+    const { seam } = mount({}, { canLink: (to) => to === target, useNavigate: () => navigate, notify });
     await fillAndPick();
     await submit();
 
-    await waitFor(() => expect(seam.notifySuccess).toHaveBeenCalledTimes(1));
-    expect(seam.notifySuccess).toHaveBeenCalledWith('접수 완료: VOC-7', {
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
+    expect(notify).toHaveBeenCalledWith({
+      tone: 'success',
+      message: '접수 완료: VOC-7',
       action: { label: '열기', onAction: expect.any(Function) },
     });
-    const options = vi.mocked(seam.notifySuccess).mock.calls[0]?.[1];
-    options?.action?.onAction();
+    expect(seam.notifySuccess).not.toHaveBeenCalled();
+    notify.mock.calls[0]?.[0].action?.onAction();
     expect(navigate).toHaveBeenCalledWith(target);
   });
 

@@ -36,7 +36,7 @@ export type HostSeam = {
   canLink(to: string): boolean;
   Link: ComponentType<HostLinkProps>;
   notifyError(message: string): void;
-  notifySuccess(message: string, options?: { action?: { label: string; onAction: () => void } }): void;
+  notifySuccess(message: string): void;
   /**
    * Hooks, optional so a seam that only links and notifies stays valid. A seam's hooks are stable functions (hook
    * order never changes). `to` is the complete feature path+query: a key absent from it is cleared.

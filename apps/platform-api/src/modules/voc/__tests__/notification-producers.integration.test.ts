@@ -3,7 +3,7 @@ import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fix
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { grantCapability } from '../../../test-support/permissions-fixtures.js';
+import { denyCapability, grantCapability } from '../../../test-support/permissions-fixtures.js';
 
 import { loadConfig } from '../../../config.js';
 import { type DbHandle, createDb } from '../../../db/client.js';
@@ -460,6 +460,38 @@ describe.skipIf(!runIntegration)('VOC notification producers (#509 part 2a)', ()
       ).toHaveLength(submittedJobs.length);
     } finally {
       await migrateHandle.pool.query('delete from permission.permission_grants where id = $1', [reporterGrantId]);
+    }
+  });
+
+  it('excludes a triage actor explicitly denied on the VOC Managed System', async () => {
+    const broadGrantId = await grantCapability(
+      migrateHandle,
+      workspaceId,
+      developer.id,
+      'voc.triage',
+      null,
+      admin.id,
+    );
+    const denyId = await denyCapability(
+      migrateHandle,
+      workspaceId,
+      developer.id,
+      'voc.triage',
+      managedSystemId,
+      admin.id,
+    );
+    try {
+      const created = await createVoc(app, reporter);
+      expect(created.statusCode).toBe(201);
+      const body = created.json<{ id: string }>();
+      fixtureVocIds.push(body.id);
+      const submittedJobs = notifications.jobs.filter(
+        (job) => String(job.event_type) === 'voc.submitted' && job.subject_id === body.id,
+      );
+      expect(submittedJobs.map((job) => job.actor_id)).not.toContain(developer.id);
+    } finally {
+      await migrateHandle.pool.query('delete from permission.permission_denies where id = $1', [denyId]);
+      await migrateHandle.pool.query('delete from permission.permission_grants where id = $1', [broadGrantId]);
     }
   });
 

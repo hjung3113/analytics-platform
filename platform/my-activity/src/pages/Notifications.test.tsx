@@ -68,10 +68,10 @@ describe('Notifications through the feature bridge', () => {
     expect(new URL(link.getAttribute('href')!, window.location.origin).pathname).toBe('/permission-requests');
   });
 
-  it('improvement.assigned_to_me links to the 개선 아이템 상세 and an unmapped VOC event stays unlinked', async () => {
+  it('links improvement items and leaves a mapped VOC target unlinked when its menu is unavailable', async () => {
     stubFetch(() => listOf(
       notification(ID_A, { event_type: 'improvement.assigned_to_me', subject_type: 'improvement_item', subject_id: ID_B, summary: '개선 아이템 IM-7이 지정되었습니다.', detail: { item_id: ID_B, item_no: 7 } }),
-      notification(ID_B, { event_type: 'voc.public_update_posted', detail: {} }),
+      notification(ID_B, { event_type: 'voc.assigned_to_me', subject_id: ID_B, detail: { voc_id: ID_B } }),
     ));
     mount(switchableAdapter().adapter, improvementRegistry);
     const linked = await screen.findByTestId(`home-inbox-row-${ID_A}`);
@@ -79,7 +79,11 @@ describe('Notifications through the feature bridge', () => {
     const href = new URL(link.getAttribute('href')!, window.location.origin);
     expect(href.pathname).toBe(`/improvement-items/${ID_B}`);
     expect(new URL(href.searchParams.get('returnTo')!, window.location.origin).pathname).toBe('/notifications');
-    expect(within(screen.getByTestId(`home-inbox-row-${ID_B}`)).queryByRole('link')).toBeNull();
+    const unreachable = within(screen.getByTestId(`home-inbox-row-${ID_B}`));
+    expect(unreachable.queryByRole('link')).toBeNull();
+    expect(unreachable.getAllByRole('button')).toHaveLength(2);
+    expect(unreachable.getByRole('button', { name: '읽음으로 표시' })).toBeTruthy();
+    expect(unreachable.getByRole('button', { name: '보관' })).toBeTruthy();
   });
 
   it('a 401 calls onSessionLost and shows the session-expired state without any login UI or /me request', async () => {

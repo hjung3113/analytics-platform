@@ -57,7 +57,6 @@ function notificationStatusLabel(notification: NotificationDto): string | null {
     case 'permission_grant.revoked':
       return labelFrom(permissionRequestStatusLabel, notification.detail['status']);
     case 'voc.public_update_posted':
-      return labelFrom(REPORTER_STATUS_LABELS, notification.detail['reporter_facing_status']);
     case 'voc.assigned_to_me':
     case 'voc.reporter_replied':
     case 'voc.severity_set_high_or_critical':

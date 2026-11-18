@@ -16,14 +16,13 @@ import {
 } from '../../attachments/index.js';
 import { lockManagedSystem } from '../../managed-systems/index.js';
 import { canCreateVoc, listVocCreateTargets } from '../../permissions/voc-create-policy.js';
-import { scopeIncludes } from '../../permissions/scope-service.js';
 import { insertVoc } from '../repo.js';
 import { operatorOnlyVocFields } from '../reporter-projection.js';
 import { resolveOwner } from '../responsibility.js';
 import type { CreateVocActor, VocEnvelope, VocServiceDeps } from '../service.js';
 import { type ReporterFacingStatus, nextReporterStates } from '../transitions.js';
 
-import { actorEffectiveScope, actorTriageScope, inReporterArm } from '../authorization.js';
+import { actorEffectiveScope, inReporterArm } from '../authorization.js';
 
 export function createVocCreateCommands(deps: VocServiceDeps) {
   async function assertOwnerOverride(
@@ -190,14 +189,23 @@ export function createVocCreateCommands(deps: VocServiceDeps) {
 
     const triageRecipients: string[] = [];
     const workspaceActors = await listWorkspaceInternalActorContexts(tx, actor.workspace_id);
-    for (const candidate of workspaceActors) {
-      if (candidate.id === actor.actor_id) continue;
-      const scope = await actorTriageScope(tx, {
+    const triageActors = workspaceActors
+      .filter((candidate) => candidate.id !== actor.actor_id)
+      .map((candidate) => ({
         actor_id: candidate.id,
         workspace_id: actor.workspace_id,
         role_level: candidate.role_level,
-      });
-      if (scopeIncludes(scope, row.primaryManagedSystemId)) triageRecipients.push(candidate.id);
+      }));
+    const triageSnapshot = await deps.checkService.loadCapabilitySnapshot(
+      triageActors,
+      ['voc.triage'],
+      { tx },
+    );
+    for (const candidate of triageActors) {
+      const scope = await triageSnapshot.scope(candidate, 'voc.triage');
+      if (scope.kind === 'all' || scope.managed_system_ids.includes(row.primaryManagedSystemId)) {
+        triageRecipients.push(candidate.actor_id);
+      }
     }
     await deps.notify(tx, 'voc.submitted', {
       workspace_id: actor.workspace_id,
