@@ -136,7 +136,7 @@ export type Registry = {
   /** The menu that opens in place of a retired id (`createRegistry({ retiredMenus })`, #2330), or null when the id is not retired. Never throws. */
   successorOf: (menuId: string) => MenuSuccessor | null;
   /**
-   * Declared `linkTargets` this assembly does not register, in menu then declaration order (06 §22, ADR-0158). With the default check only
+   * Declared missing `linkTargets` (06 §22, ADR-0158), followed by any additional missing lending sources. With the default check only
    * `optional` entries appear (an unregistered `required` one is rejected); with `linkTargetCheck: 'report'` both do.
    */
   missingLinkTargets: readonly MissingLinkTarget[];
@@ -568,7 +568,11 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const objectDestinations = (kind: string): readonly MenuEntry[] => objectsByKind.get(kind) ?? noDestinations;
 
   const registeredPanels = menus.flatMap(menu => registerPanels(menu, fail));
-  const lentPanels = registerLentPanels(menus, registeredPanels, fail);
+  const lentPanels = registerLentPanels(menus, registeredPanels, (menuId, target) => {
+    if (!missingLinkTargets.some(entry => entry.menuId === menuId && entry.target === target)) {
+      missingLinkTargets.push({ menuId, target, level: 'optional' });
+    }
+  }, fail);
   const panels = (menuId: string) => registeredPanels.filter(panel => panel.menuId === menuId);
   const panelsReading = (key: string) => registeredPanels.filter(panel => [panel.queryInputs, panel.displayInputs].some(inputs => inputs.context?.some(input => input === key) || inputs.page?.some(input => input.key === key)));
   const panelsWriting = (key: string) => registeredPanels.filter(panel => panel.outputs.some(output => output.key === key));

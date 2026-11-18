@@ -6,7 +6,7 @@ export type PanelContextKey = ContextKey | 'scopeId';
 
 export type PanelInputs<K extends string = string> = {
   readonly context?: readonly PanelContextKey[];
-  readonly page?: readonly { readonly key: K; readonly required?: boolean }[];
+  readonly page?: readonly { readonly key: K; readonly required?: boolean; readonly label?: Text }[];
 };
 /** #911: 조회 입력 / 표시 입력 / 출력 / 데이터 단위 / 쓸 수 있는 조건.
  * Page outputs never write global Context; permissions stay Kernel-owned.

@@ -73,10 +73,10 @@ it('uses the bound props for the run query and plots both server HTM bounds with
 });
 
 it.each([
-  ['no equipment', '', 'Pump', 'selection'],
-  ['more equipment than fit in a comparison', Array.from({ length: HW_TIME_LENT_EQUIPMENT_LIMIT + 1 }, (_, index) => `&selectedEquipmentIds=MEM-PHOTO-${index}`).join(''), 'Pump', 'selection'],
-  ['a Motion outside the Module type', '&selectedEquipmentIds=EQ01', 'Purge', 'drillMotion'],
-])('denies lending for %s before mounting or querying the source', async (_case, equipment, motion, key) => {
+  ['no equipment', '', 'Pump', 'No equipment is selected for this panel.'],
+  ['more equipment than fit in a comparison', Array.from({ length: HW_TIME_LENT_EQUIPMENT_LIMIT + 1 }, (_, index) => `&selectedEquipmentIds=MEM-PHOTO-${index}`).join(''), 'Pump', 'No equipment is selected for this panel.'],
+  ['a Motion outside the Module type', '&selectedEquipmentIds=EQ01', 'Purge', 'Check the panel’s required input (Motion).'],
+])('denies lending for %s before mounting or querying the source', async (_case, equipment, motion, reason) => {
   const source = 'hw-time/trend';
   const component = vi.fn((props: LentPanelProps) => <LentTrendPanel {...props} />);
   registerLentPanel(source, { ...lentTrendPanel, component });
@@ -113,7 +113,7 @@ it.each([
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={testRegistry}><Receiver /></PlatformProvider></I18nProvider>);
   await settleQueries();
   expect(screen.getByText('missing-input')).toBeTruthy();
-  expect(screen.getByText(`Check the panel’s required input (${key}).`)).toBeTruthy();
+  expect(screen.getByText(reason)).toBeTruthy();
   expect(component).not.toHaveBeenCalled();
   expect(menuQuery).not.toHaveBeenCalled();
 });
