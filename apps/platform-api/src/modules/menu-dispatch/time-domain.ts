@@ -1,50 +1,30 @@
-// Step 7 of the `menuQuery` judgment (real-server-checklist §3, kernel §6.3): may this request put several
-// equipment on one wall-clock axis? The core owns the judgment; the deployment owns where the proof comes from.
+// Step 7 of the `menuQuery` judgment (real-server-checklist §3, kernel §6.3, ADR-0172): may this request put several
+// equipment on one wall-clock axis? The core owns the judgment; the deployment owns the proof.
 //
-// The proof source is injected (`TimeDomainProofSource`) and returns, for one request, the *subjects* whose
-// time domain must be proven over `[from, to)` together with their server-owned windows. A subject is what the
-// deployment can vouch for: each equipment the request actually reads (the §6.3 minimum), or a stronger
-// proof that covers every equipment of the requested Site. Which shapes a deployment may supply is decided
-// outside this file; this file only judges coverage and agreement, and fails closed on anything else.
+// The proof is the deployment's Site-wide guarantee (bundle `timeDomainAssertions`): every equipment of a Site
+// records in one wall-clock domain over `[validFrom, validTo)`. The rows are validated once at startup and held as
+// data, so step 7 reads no source and awaits nothing. Only the requested Site's own rows can prove a request.
+// Clock drift of a single tool is source data quality, not judged here.
 //
-// Verdict over the windows returned (half-open `[validFrom, validTo)`, naive wall-clock seconds):
-// - every subject must cover `[from, to)` without a gap; abutting windows of the same domain stitch;
-// - all covering windows of all subjects must name one `timeDomainId` (a mid-request change is a mismatch);
-// - no subject, a malformed window, or a source failure is `time_domain_unverified` — never a pass.
+// Verdict over the requested Site's windows (half-open, naive wall-clock seconds):
+// - the windows must cover `[from, to)` without a gap; abutting windows of the same domain stitch;
+// - every covering window must name one `timeDomainId` (a Site that changed its basis mid-request is a mismatch);
+// - no window, or a gap anywhere, is `time_domain_unverified` and outranks a mismatch.
 
-import type { PlatformActor } from '../platform-port/permissions.js';
-import type { ScopeGrant } from './scope-resolver.js';
-
-/** One server-owned window: the subject's records are in `timeDomainId` over `[validFrom, validTo)`. */
+/** One window of a Site's guarantee: its records are in `timeDomainId` over `[validFrom, validTo)`. */
 export interface TimeDomainWindow {
   timeDomainId: string;
   validFrom: string;
   validTo: string;
 }
 
-/** What the source vouches for in this request, with its windows. `subjectId` is for messages only. */
-export interface TimeDomainSubject {
-  subjectId: string;
-  windows: readonly TimeDomainWindow[];
+/** A deployment-owned Site-wide guarantee (bundle `timeDomainAssertions`). */
+export interface SiteTimeDomainAssertion extends TimeDomainWindow {
+  site: string;
 }
 
-export interface TimeDomainProofRequest {
-  endpointId: string;
-  actor: PlatformActor;
-  /** The requested Site. Step 4 has already proven the actor may read it. */
-  scopeId: string;
-  from: string;
-  to: string;
-  /** Only the applied Context keys, by wire name: the source resolves the equipment the request reads from them. */
-  context: Readonly<Record<string, unknown>>;
-  scopes: readonly ScopeGrant[];
-  signal?: AbortSignal;
-}
-
-/** Deployment-owned. Called only for `mergeTimeDomain: true` endpoints, after steps 1–6. */
-export interface TimeDomainProofSource {
-  prove(request: TimeDomainProofRequest): Promise<readonly TimeDomainSubject[]>;
-}
+/** Validated guarantees by Site, built once at startup. */
+export type SiteTimeDomains = ReadonlyMap<string, readonly TimeDomainWindow[]>;
 
 export type TimeDomainVerdict =
   | { ok: true; timeDomainId: string }
@@ -66,44 +46,68 @@ export function wallClockMs(value: unknown): number {
 
 const isId = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
 
-const UNVERIFIED = { ok: false, message: 'time_domain_unverified' } as const;
-const MISMATCH = { ok: false, message: 'time_domain_mismatch' } as const;
-
 /**
- * Pure verdict. Untrusted input: the source's answer is re-checked here, so a malformed row cannot widen the
- * proof. A gap anywhere outranks a domain disagreement (the mock's order: unverified before mismatch).
+ * Startup problems of Site-wide guarantees: blank ids, bounds that are not second-aligned calendar times (declared
+ * config, so a finer bound is refused rather than rounded), non-increasing windows, a Site outside `knownSite`, and
+ * two windows of one Site that overlap (a contradiction, or a duplicate that hides one). Abutting windows are fine,
+ * also of different domains: a Site that changed its clock basis keeps both rows, and a request across the change
+ * is a mismatch.
  */
-export function judgeTimeDomain(subjects: unknown, from: string, to: string): TimeDomainVerdict {
+export function siteTimeDomainProblems(rows: readonly SiteTimeDomainAssertion[], knownSite?: (site: string) => boolean): string[] {
+  const problems: string[] = [];
+  const bySite = new Map<string, { start: number; end: number }[]>();
+  rows.forEach((row, index) => {
+    const at = `timeDomainAssertions.${index}`;
+    const start = wallClockMs(row.validFrom);
+    const end = wallClockMs(row.validTo);
+    if (!isId(row.site) || !isId(row.timeDomainId)) problems.push(`${at}: site and timeDomainId must be non-blank`);
+    if (Number.isNaN(start) || Number.isNaN(end)) problems.push(`${at}: validFrom and validTo must be YYYY-MM-DDTHH:mm:ss calendar times`);
+    else if (!(start < end)) problems.push(`${at}: validFrom must be before validTo`);
+    else if (isId(row.site)) bySite.set(row.site, [...(bySite.get(row.site) ?? []), { start, end }]);
+    if (isId(row.site) && knownSite && !knownSite(row.site)) problems.push(`${at}: site ${row.site} is not in the scopeCatalog`);
+  });
+  for (const [site, windows] of bySite) {
+    windows.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < windows.length; i += 1) {
+      const previous = windows[i - 1];
+      const current = windows[i];
+      if (previous && current && current.start < previous.end) problems.push(`timeDomainAssertions: site ${site} has overlapping windows`);
+    }
+  }
+  return problems;
+}
+
+/** Groups validated rows by Site (copies; the caller's array is not kept). Call after `siteTimeDomainProblems` is empty. */
+export function siteTimeDomainsOf(rows: readonly SiteTimeDomainAssertion[]): SiteTimeDomains {
+  const bySite = new Map<string, TimeDomainWindow[]>();
+  for (const { site, timeDomainId, validFrom, validTo } of rows) {
+    bySite.set(site, [...(bySite.get(site) ?? []), { timeDomainId, validFrom, validTo }]);
+  }
+  return bySite;
+}
+
+/** Pure verdict for one Site's windows over the request period. A non-increasing or non-calendar period is unverified. */
+export function judgeTimeDomain(windows: readonly TimeDomainWindow[], from: string, to: string): TimeDomainVerdict {
   const fromMs = wallClockMs(from);
   const toMs = wallClockMs(to);
-  if (!(fromMs < toMs) || !Array.isArray(subjects) || subjects.length === 0) return UNVERIFIED;
+  if (!(fromMs < toMs)) return { ok: false, message: 'time_domain_unverified' };
+  const slices = windows
+    .map((window) => ({
+      domain: window.timeDomainId,
+      start: Math.max(wallClockMs(window.validFrom), fromMs),
+      end: Math.min(wallClockMs(window.validTo), toMs),
+    }))
+    .filter((slice) => slice.start < slice.end)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
   const domains = new Set<string>();
-  let gap = false;
-  for (const subject of subjects as unknown[]) {
-    if (subject === null || typeof subject !== 'object') return UNVERIFIED;
-    const { subjectId, windows } = subject as Partial<TimeDomainSubject>;
-    if (!isId(subjectId) || !Array.isArray(windows)) return UNVERIFIED;
-    const slices: { domain: string; start: number; end: number }[] = [];
-    for (const window of windows as unknown[]) {
-      if (window === null || typeof window !== 'object') return UNVERIFIED;
-      const { timeDomainId, validFrom, validTo } = window as Partial<TimeDomainWindow>;
-      const start = wallClockMs(validFrom);
-      const end = wallClockMs(validTo);
-      if (!isId(timeDomainId) || !(start < end)) return UNVERIFIED;
-      const clipped = { domain: timeDomainId, start: Math.max(start, fromMs), end: Math.min(end, toMs) };
-      if (clipped.start < clipped.end) slices.push(clipped);
-    }
-    slices.sort((a, b) => a.start - b.start || a.end - b.end);
-    let cursor = fromMs;
-    for (const slice of slices) {
-      if (slice.start > cursor) break;
-      domains.add(slice.domain);
-      if (slice.end > cursor) cursor = slice.end;
-    }
-    if (cursor < toMs) gap = true;
+  let cursor = fromMs;
+  for (const slice of slices) {
+    if (slice.start > cursor) break;
+    domains.add(slice.domain);
+    if (slice.end > cursor) cursor = slice.end;
   }
-  if (gap) return UNVERIFIED;
-  if (domains.size !== 1) return MISMATCH;
-  const [timeDomainId = ''] = domains;
+  if (cursor < toMs) return { ok: false, message: 'time_domain_unverified' };
+  const [timeDomainId] = domains;
+  if (domains.size !== 1 || timeDomainId === undefined) return { ok: false, message: 'time_domain_mismatch' };
   return { ok: true, timeDomainId };
 }

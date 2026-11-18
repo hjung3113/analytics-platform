@@ -23,6 +23,7 @@ import { paramTypeSchema } from './bundle/bindings.js';
 import { ASSESSMENT_KINDS, routeCall, routingSchema } from './bundle/routing.js';
 import { targetsSchema } from './bundle/targets.js';
 import { routingProblems } from './bundle/validation.js';
+import { siteTimeDomainProblems } from './time-domain.js';
 
 const limitsSchema = z.strictObject({
   maxHours: z.number().positive().optional(),
@@ -89,6 +90,14 @@ const capabilitySchema = z.strictObject({
   roleLevels: z.array(z.enum(ROLE_LEVEL_VALUES)).optional(),
 });
 
+/** A Site-wide time-domain guarantee (kernel §6.3, step 7): deployment-owned, never compared with the menu snapshot. */
+const timeDomainAssertionSchema = z.strictObject({
+  site: z.string().min(1),
+  timeDomainId: z.string().min(1),
+  validFrom: z.string(),
+  validTo: z.string(),
+});
+
 const ownerPathSchema = z.string().regex(/^\/.*/, 'an upstream path must start with /');
 
 const bundleSchema = z.strictObject({
@@ -100,6 +109,7 @@ const bundleSchema = z.strictObject({
   endpointOwners: z.record(z.string().min(1), z.union([ownerPathSchema, routingSchema])),
   targets: targetsSchema.optional(),
   scopeCatalog: z.unknown().optional(),
+  timeDomainAssertions: z.array(timeDomainAssertionSchema).optional(),
 });
 
 /** The bundle before the snapshot fill: endpoint rows may be partial. */
@@ -121,6 +131,8 @@ export type DeclarationBundle = {
   readonly permissions: readonly DeclaredPermission[];
   readonly endpointOwners: Readonly<z.infer<typeof bundleSchema>['endpointOwners']>;
   readonly targets?: z.infer<typeof targetsSchema> | undefined;
+  /** Site-wide time-domain guarantees (step 7); absent or `[]` = none, and `mergeTimeDomain` endpoints are refused. */
+  readonly timeDomainAssertions?: readonly z.infer<typeof timeDomainAssertionSchema>[] | undefined;
 };
 /** A programmatic bundle before the snapshot fill (`declaredContribution`): endpoint rows may be partial. */
 export type DeclarationBundleInput = Omit<DeclarationBundle, 'endpoints'> & { readonly endpoints: readonly DeclaredEndpointRow[] };
@@ -229,7 +241,7 @@ export async function loadDeclarationBundle(path: string, snapshotCheck?: Bundle
   } catch {
     throw new DeclarationBundleError([`declaration bundle at ${path} is not valid JSON`]);
   }
-  const { endpoints, actions, permissions, capabilities, endpointOwners, targets, scopeCatalog } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, snapshotCheck);
+  const { endpoints, actions, permissions, capabilities, endpointOwners, targets, scopeCatalog, timeDomainAssertions } = validateDeclarationBundle(json, `declaration bundle at ${path} failed its schema`, snapshotCheck);
   return {
     endpoints: endpoints.map(({ limits, ...row }) => {
       const owner = endpointOwners[row.id];
@@ -246,6 +258,7 @@ export async function loadDeclarationBundle(path: string, snapshotCheck?: Bundle
     ...(capabilities === undefined ? {} : { capabilities }),
     endpointOwners,
     ...(targets === undefined ? {} : { targets }),
+    ...(timeDomainAssertions === undefined ? {} : { timeDomainAssertions }),
   };
 }
 
@@ -276,6 +289,9 @@ export function validateDeclarationBundle(input: unknown, schemaMessage = 'decla
     try { scopeCatalog = parseScopeCatalog(parsed.data.scopeCatalog); } catch (error) {
       problems.push(`scopeCatalog: ${error instanceof Error ? error.message : 'invalid catalog'}`);
     }
+  }
+  if (parsed.data.timeDomainAssertions !== undefined) {
+    problems.push(...siteTimeDomainProblems(parsed.data.timeDomainAssertions, scopeCatalog ? (site) => scopeCatalog.hasSite(site) : undefined));
   }
   if (problems.length > 0) throw new DeclarationBundleError(problems);
   const { scopeCatalog: _raw, ...data } = parsed.data;

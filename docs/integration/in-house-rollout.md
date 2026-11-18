@@ -144,6 +144,7 @@
 | PostgreSQL 읽기 전용 연결기 | 지금 가능 — 사내 입력은 시스템별 대상 종류, 읽기 전용 계정, 주소·네트워크 |
 | mssql 문장·프로시저, HTTP `mapped`·라우팅된 envelope | 지금 가능 — 사내 입력은 시스템별 대상 종류, DB 계정·HTTP 자격 증명, 코어 서버에서 대상으로 가는 네트워크 |
 | 카탈로그 기반 Scope 부여 | 지금 가능 — 사내 입력은 `scopeCatalog`의 site·room 목록 |
+| 시간 도메인 병합(`mergeTimeDomain`, [ADR-0172](../adr/0172-site-wide-time-domain-guarantee.md)) | 지금 가능 — 사내 입력은 Site별 시간 기준 보증 `timeDomainAssertions`(site·시간 기준 id·유효 구간) |
 
 사내 입력은 모두 계정·주소·선언 묶음 파일이며 사내 서버를 새로 두는 일은 없다.
 

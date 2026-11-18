@@ -43,7 +43,7 @@ export interface EndpointDeclarationSpec {
   limits?: { maxHours?: number; maxRows?: number };
   /**
    * Merges several equipment on one wall-clock axis (kernel §6.3): step 7 needs a server-owned proof before the handler.
-   * Registered only with `requiresScope`, an applied time and an injected `TimeDomainProofSource`.
+   * Registered only with `requiresScope`, an applied time and the deployment's Site guarantees (ADR-0172).
    */
   mergeTimeDomain: boolean;
 }

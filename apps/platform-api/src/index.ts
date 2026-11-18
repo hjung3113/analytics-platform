@@ -184,6 +184,7 @@ const app = await buildServer({
   ...(menuDeclarations ? { menuDispatch: menuDeclarations.menuDispatch, menuRequirements: menuDeclarations.menuRequirements } : {}),
   ...(menuDeclarations?.scopeCatalog ? { scopeCatalog: menuDeclarations.scopeCatalog } : {}),
   ...(menuDeclarations?.scopeResolver ? { scopeResolver: menuDeclarations.scopeResolver } : {}),
+  ...(menuDeclarations?.timeDomainAssertions ? { timeDomainAssertions: menuDeclarations.timeDomainAssertions } : {}),
    dbHandle,
   boss,
   logger,

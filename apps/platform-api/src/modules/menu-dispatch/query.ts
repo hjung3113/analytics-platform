@@ -12,7 +12,7 @@ import { tokenDenial } from '../permissions/check-service.js';
 import type { PlatformActor } from '../platform-port/permissions.js';
 import { hasRequestScope, type ScopeGrant, type ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
-import { judgeTimeDomain, wallClockMs, type TimeDomainProofSource } from './time-domain.js';
+import { judgeTimeDomain, wallClockMs, type SiteTimeDomains, type TimeDomainVerdict } from './time-domain.js';
 import type { ContextKey, EndpointOutcome, MenuEndpointDeclaration } from './types.js';
 
 export interface QueryAnswer {
@@ -63,7 +63,7 @@ export type QueryShape =
       context: Record<string, unknown>;
       params: Record<string, unknown>;
       scopeResolver?: ScopeResolver;
-      timeDomainProof?: TimeDomainProofSource;
+      timeDomains?: SiteTimeDomains;
     }
   | { ok: false; message: string };
 
@@ -127,6 +127,11 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
     }
   }
 
+  // Step 7 judges this period; a merging read never reaches the explicit-empty answer with a period it would refuse.
+  if (spec.mergeTimeDomain && !(wallClockMs(context.from) < wallClockMs(context.to))) {
+    return fail(`${spec.id}: time is not an increasing calendar period`);
+  }
+
   if (!isPlain(params)) return fail(`${spec.id}: params must be an object`);
   // Absent optional params are allowed; required values are the declaration's own `validate`.
   for (const key of Object.keys(params)) {
@@ -137,7 +142,7 @@ export function judgeQueryShape(body: unknown, registry: MenuDispatchRegistry): 
   return {
     ok: true, declaration, context, params,
     ...(registry.scopeResolver ? { scopeResolver: registry.scopeResolver } : {}),
-    ...(registry.timeDomainProof ? { timeDomainProof: registry.timeDomainProof } : {}),
+    ...(registry.timeDomains ? { timeDomains: registry.timeDomains } : {}),
   };
 }
 
@@ -187,34 +192,15 @@ export async function resolveRequestScopes(
 }
 
 /**
- * Step 7 (kernel §6.3): a `mergeTimeDomain` endpoint reaches its handler only with a server-owned proof that
- * covers `[from, to)` in one time domain. Registration guarantees `requiresScope`, an applied time and a proof
- * source; the checks are repeated so an unvalidated registry still fails closed. A source failure is
- * `time_domain_unverified`.
+ * Step 7 (kernel §6.3, ADR-0172): a `mergeTimeDomain` endpoint reaches its handler only when the requested Site's own
+ * guarantee covers `[from, to)` in one time domain. Registration guarantees `requiresScope`, an applied time and the
+ * guarantees; the reads are repeated so an unvalidated registry still fails closed.
  */
-async function judgeRequestTimeDomain(
-  shape: Extract<QueryShape, { ok: true }>,
-  actor: PlatformActor,
-  scopes: readonly ScopeGrant[],
-  signal?: AbortSignal,
-): Promise<string> {
-  const { declaration, context, timeDomainProof } = shape;
-  const { scopeId, from, to } = context;
-  if (!timeDomainProof || typeof scopeId !== 'string' || typeof from !== 'string' || typeof to !== 'string') {
-    return 'time_domain_unverified';
-  }
-  try {
-    const subjects = await timeDomainProof.prove({
-      endpointId: declaration.spec.id, actor, scopeId, from, to, context: structuredClone(context), scopes,
-      ...(signal ? { signal } : {}),
-    });
-    if (signal?.aborted) return 'time_domain_unverified';
-    const verdict = judgeTimeDomain(subjects, from, to);
-    return verdict.ok ? verdict.timeDomainId : verdict.message;
-  } catch {
-    // The core deadline still wins: `checkActive()` right after this step throws it.
-    return 'time_domain_unverified';
-  }
+function judgeRequestTimeDomain(shape: Extract<QueryShape, { ok: true }>): TimeDomainVerdict {
+  const { scopeId, from, to } = shape.context;
+  const windows = typeof scopeId === 'string' ? shape.timeDomains?.get(scopeId) : undefined;
+  if (!windows || typeof from !== 'string' || typeof to !== 'string') return { ok: false, message: 'time_domain_unverified' };
+  return judgeTimeDomain(windows, from, to);
 }
 
 export const unavailableSessionVersion = async (): Promise<string> => {
@@ -286,10 +272,9 @@ async function runQuerySteps(
   }
   let timeDomainId: string | undefined;
   if (declaration.spec.mergeTimeDomain) {
-    const judged = await judgeRequestTimeDomain(shape, actor, scopes, signal);
-    checkActive();
-    if (judged === 'time_domain_unverified' || judged === 'time_domain_mismatch') return answer('error', { message: judged });
-    timeDomainId = judged;
+    const verdict = judgeRequestTimeDomain(shape);
+    if (!verdict.ok) return answer('error', { message: verdict.message });
+    timeDomainId = verdict.timeDomainId;
   }
   const result = await declaration.handle({ actor, context, params, correlationId, scopes, sessionVersion, ...(timeDomainId === undefined ? {} : { timeDomainId }), ...(arrivedAtMs === undefined ? {} : { arrivedAtMs }), ...(deadlineAtMs === undefined ? {} : { deadlineAtMs }), ...(signal ? { signal } : {}) });
   const { maxRows } = declaration.spec.limits ?? {};

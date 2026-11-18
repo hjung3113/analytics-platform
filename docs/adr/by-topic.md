@@ -40,6 +40,7 @@ Context 계약, URL·딥링크, 권한, Scope, 조회·쓰기 수명주기, 저�
 - [0164](0164-target-picker-dialog-and-custom-groups.md) — 조회 대상 고르기 대화창, 설비 기본 정보 전량 포트, 커스텀 조회 그룹 저장·공유·조회 직전 펼치기
 - [0170](0170-analysis-apply-and-saved-view-defaults.md) — Analysis 메뉴의 기본 조회는 Apply이며 저장된 뷰를 켠다
 - [0171](0171-registered-panel-lending.md) — 등록된 패널을 다른 메뉴에 빌려준다
+- [0172](0172-site-wide-time-domain-guarantee.md) — 시간 도메인 병합은 배포 소유 Site 전체 보증으로 증명한다
 
 ## 표·페이지 필터
 

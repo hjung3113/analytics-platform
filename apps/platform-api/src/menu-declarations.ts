@@ -25,6 +25,7 @@ import { createMenuForwarder, normalizeMenuUpstreamBaseUrl, validateMenuOwnerPat
 import { createHttpScopeResolver } from './modules/menu-dispatch/http-scope-resolver.js';
 import { createIdentityTokenSigner } from './modules/menu-dispatch/identity-token.js';
 import type { ScopeResolver } from './modules/menu-dispatch/scope-resolver.js';
+import type { SiteTimeDomainAssertion } from './modules/menu-dispatch/time-domain.js';
 import type { MenuDispatchContribution } from './modules/menu-dispatch/types.js';
 
 export type MenuDeclarationConfig = Pick<
@@ -47,6 +48,8 @@ export interface MenuDeclarationSetup {
   /** The sole Scope source: grant table with a catalog, or optional HTTP service (ADR-0154). */
   scopeResolver?: ScopeResolver;
   scopeCatalog?: ScopeCatalog;
+  /** The bundle's validated Site-wide time-domain guarantees (step 7, ADR-0172); absent when it has none (`mergeTimeDomain` refused). */
+  timeDomainAssertions?: readonly SiteTimeDomainAssertion[];
   /** Validated snapshot requirements, compared with all contributions by server assembly (#1846). */
   menuRequirements: readonly { id: string; permission: string }[];
 }
@@ -96,11 +99,13 @@ export async function loadMenuDeclarationSetup(
       timeoutMs: config.MENU_RESOLVER_TIMEOUT_MS,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
     });
+  const timeDomainAssertions = bundle.timeDomainAssertions?.length ? bundle.timeDomainAssertions : undefined;
   if (!envelope) return {
     menuDispatch: [declaredContribution({ bundle, snapshot, checkService: deps.checkService, ...routedDeps })],
     menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
+    ...(timeDomainAssertions ? { timeDomainAssertions } : {}),
     ...(targetSecrets === undefined ? {} : { targetSecrets }),
   };
   const keyId = config.MENU_IDENTITY_KEY_ID;
@@ -139,5 +144,6 @@ export async function loadMenuDeclarationSetup(
     menuRequirements: snapshot.menus.map(({ id, permission }) => ({ id, permission })),
     ...(scopeResolver ? { scopeResolver } : {}),
     ...(scopeCatalog ? { scopeCatalog } : {}),
+    ...(timeDomainAssertions ? { timeDomainAssertions } : {}),
   };
 }
