@@ -164,6 +164,8 @@ describe('production model spec screen', () => {
     mount('&drawer=draft');
     const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });
     await waitFor(() => expect(summary.textContent).toContain('기준 Revision: r1'));
+    expect(summary.textContent).toContain('초안을 만든 뒤 비교합니다.');
+    expect(summary.textContent, 'no parse-failure reason before a draft exists').not.toContain('파싱하지 못해');
   });
   it('keeps the loaded publication Revision visible when TSV parsing is unavailable', async () => {
     mount('&drawer=draft&revision=' + rev);

@@ -42,7 +42,7 @@ function SpecChangeSummary({ summary, revisionId, baseRevisionText }: { summary:
   return <section aria-labelledby="draft-summary-heading" className="min-w-0 rounded-md border border-border-subtle bg-surface-card p-3">
     <h3 id="draft-summary-heading" className="text-sm font-semibold">{w('발행 전 변경 요약', 'Before-publish change summary')}</h3>
     <p className="mt-1 text-sm">{stateText} · {w('기준 Revision', 'Base revision')}: {baseRevisionText}</p>
-    <div className="mt-3"><SummaryCounts summary={summary} /></div>
+    {revisionId && <div className="mt-3"><SummaryCounts summary={summary} /></div>}
     {summary.state !== 'unavailable' && summary.rows.length > 0 && <ul className="mt-3 grid max-h-[min(65vh,42rem)] gap-2 overflow-auto border-t border-border-subtle pt-3">
       {summary.rows.map((row, index) => <li key={`${row.kind}:${row.change}:${row.label}:${index}`} className="min-w-0 rounded border border-border-subtle p-2 text-xs">
         <div className="flex flex-wrap gap-x-2"><span className="font-medium">{w(KIND_LABEL[row.kind].ko, KIND_LABEL[row.kind].en)}</span><span>{w(CHANGE_LABEL[row.change].ko, CHANGE_LABEL[row.change].en)}</span><code className="break-all">{row.label}</code></div>

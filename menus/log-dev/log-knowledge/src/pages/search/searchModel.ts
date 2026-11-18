@@ -40,14 +40,14 @@ export type RecentKnowledgeTargets = {
   models: { id: string; visitIndex: number }[];
 };
 
-/** Parses only the three known detail routes and refuses malformed IDs before they reach an endpoint. */
+/** Parses only the three known detail routes and refuses malformed IDs before they reach an endpoint. A recent visit stores the canonical address (`/<space>/<menuId>/<id>`); the manifest path form is accepted too. */
 export function recentKnowledgeTargets(visits: readonly Recent[]): RecentKnowledgeTargets {
   const itemVisits = new Map<string, number[]>(), models: RecentKnowledgeTargets['models'] = [];
   visits.forEach((visit, visitIndex) => {
     let pathname: string;
     try { pathname = new URL(visit.url, 'https://platform.invalid').pathname; } catch { return; }
     const routeId = (pattern: RegExp) => {
-      const match = pattern.exec(pathname);
+      const match = pattern.exec(pathname) ?? new RegExp(`^/[^/]+/${visit.menuId}/([^/]+)$`, 'u').exec(pathname);
       if (!match) return null;
       try {
         const decoded = decodeURIComponent(match[1] ?? '');

@@ -41,6 +41,16 @@ describe('recent knowledge targets', () => {
     ])).toEqual({ items: [{ id, visitIndexes: [0, 2] }], models: [{ id: model, visitIndex: 1 }, { id: model, visitIndex: 3 }] });
   });
 
+  it('reads the canonical addresses recent visits store', () => {
+    const id = '00000005-0000-4000-8000-000000000001', model = '00000003-0000-4000-8000-000000000008';
+    expect(recentKnowledgeTargets([
+      { menuId: 'log-knowledge-item', url: `/log-dev/log-knowledge-item/${id}?v=1`, at: 3 },
+      { menuId: 'log-knowledge-spec', url: `/log-dev/log-knowledge-spec/${model}?v=1&drawer=draft`, at: 2 },
+      { menuId: 'log-knowledge-model', url: `/log-dev/log-knowledge-model/${model}?v=1`, at: 1 },
+      { menuId: 'log-knowledge-item', url: `/log-dev/log-knowledge-items/${id}?v=1`, at: 0 },
+    ])).toEqual({ items: [{ id, visitIndexes: [0] }], models: [{ id: model, visitIndex: 1 }, { id: model, visitIndex: 2 }] });
+  });
+
   it('ignores malformed URLs, unrelated routes and invalid IDs', () => {
     expect(recentKnowledgeTargets([
       { menuId: 'log-knowledge-item', url: '/log/knowledge/items/not-an-id', at: 1 },
