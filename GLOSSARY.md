@@ -260,6 +260,9 @@ CLAS의 세 단계 지표. 웨이퍼 하나의 로딩부터 언로딩까지를 �
 **CFG** (설비 설정):
 설비 단위의 설정 기록. 원천은 이벤트 로그·별도 파일·외부 시스템에 걸쳐 있다. 개별 값 안에 특정 Module을 대상으로 하는 속성이 들어갈 수 있지만, 설정 기록의 귀속 단위는 설비다. Job 분석에서 유효 설정은 **Job 시작 시점의 값**이며, Job 중간이나 개별 구간마다 바뀌는 값을 구분할 필요는 없다.
 
+**CORE** (Configuration):
+CFG 항목에 수동으로 등록하는 중요도 표식. 미등록 항목의 중요도는 미확인이며, 규격 충족 여부는 따로 판단한다([#2434](https://github.com/hjung3113/analytics-platform/issues/2434)).
+
 ### 생산 실행
 
 **Carrier**:
@@ -345,6 +348,9 @@ _Avoid_: 그룹(단독), 행 그룹(열 헤더를 말할 때).
 
 **묶음 넘김** (in-group pan):
 폭을 선언한 최상위 열 묶음 안에서 넘치는 구성 열의 헤더·본문·소계를 함께 가로로 넘겨 보는 동작. 끌기·Shift+휠·헤더의 ←/→·Home/End로 조작한다. 열 순서·저장 폭·내보내기는 바뀌지 않으며 넘김 위치는 저장하지 않는다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+
+**트리 행렬** (`TreeMatrix`):
+계층형 행과 평면 열이 만나는 셀 단위 비교 표면. 행과 열의 업무 의미 및 비교 판정은 사용하는 메뉴가 정한다([ADR-0169](docs/adr/0169-tree-matrix.md)).
 
 **메뉴** (manifest, `MenuEntry`):
 Registry에 등록된 진입점 하나. manifest에서 경로·권한·Context 지원 방식·페이지 유형을 선언하고 메뉴 화면 하나를 연다. 공간 메뉴의 manifest 경로는 별칭이 될 수 있고 Registry의 `path`는 정규 경로다([06 §6.4](docs/contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). 화면이 아직 없는 메뉴는 **예정 메뉴**로, 사이드바에 `예정`으로 보이고 열리지 않는다.
@@ -609,6 +615,9 @@ _Avoid_: 범주(단독)·분류 — 차트 범주축·분류 큐와 섞인다.
 **패널**:
 작업 영역을 이루는 조각 하나. 제목(탭 이름)을 가지며 차트·표·요약 같은 내용 하나를 담는다. 예: 사이클타임 상세의 추세·요약·분포·느린 실행.
 _Avoid_: 칸, 패인 — 칸은 분석 보드 시트의 자리다. 상세 패널(DetailDrawer)과 구분해 필요하면 "작업 영역 패널"이라 쓴다.
+
+**패널 레시피** (`panelRecipe`):
+패널의 메뉴 선언, 사용한 SDK 부품과 호스트가 제공한 기능을 보여 주는 설명([Components §13](docs/contract/components.md#panel-recipe)).
 
 **패널 최소화** (`PanelWorkspacePanel.minimize`):
 호환용 이름(deprecated). 작업 영역의 «위로 접기»로 통합했으며 `minimize.summary`는 접힌 탭의 요약으로 쓰인다. 새 선언은 `collapse.summary`를 쓴다. 분석 보드의 최소화(칸이 마운트된 채 남는다)와 다르다.

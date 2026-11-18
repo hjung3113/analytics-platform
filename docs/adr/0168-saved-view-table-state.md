@@ -1,7 +1,7 @@
 # 메뉴 뷰에 표 열 묶음을 저장한다
 
 상태: **Decided (2026-11-18)**
-- 결정자: 사용자(#2492, 2026-11-17). 선택 필드·슬롯 등록·상한은 구현 계획과 검토 P1–P12에 따른다.
+- 결정자: 사용자(#2492, 2026-11-17).
 - 관련: [ADR-0092](0092-saved-view-units-tiers-and-groups.md), [ADR-0099](0099-server-saved-view-persistence.md), [ADR-0167](0167-editable-column-groups.md). 계약: [kernel §21](../contract/kernel.md#21-saved-view-contract), [components 열 묶음](../contract/components.md#사용자가-편집하는-열-묶음).
 
 ## 결정
