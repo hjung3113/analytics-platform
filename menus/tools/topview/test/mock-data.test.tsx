@@ -21,7 +21,7 @@ const mockServer = async ({ id, params }: QueryCall) => {
 const PATHS = { topview: '/tools/eqv-topview', focus: '/tools/eqv-focus' } as const;
 const hostFor = (name: keyof typeof PATHS, equipment: string) => createFake({ path: PATHS[name], page: { equipment }, context: EQV_MOCK_WINDOW, query: mockServer });
 const SCREENS = [['topview', TopViewScreen], ['focus', FocusScreen]] as const;
-const NO_BINDING = '이 시점에 적용된 Binding이 없어 Top View를 표시할 수 없습니다';
+const NO_DATA = '이 구간에는 관측 자료가 없습니다';
 
 it('discovers the synthetic sample window and a second equipment without data', () => {
   expect(eqvMockEquipmentOptions()).toEqual({ options: [
@@ -75,6 +75,14 @@ describe('eqvMockEvents', () => {
   it('answers another equipment with one empty page under its own id', () => {
     expect(eqvMockEvents({ ...window, equipmentId: 'eq-other' })).toMatchObject({ equipmentId: 'eq-other', occurrences: [], issues: [], from: batch.from });
   });
+
+  it('returns no occurrences after the fixture watermark and keeps that watermark', () => {
+    const afterWatermark = eqvMockEvents({ ...window, from: '2026-09-01T00:00:00', to: '2026-10-01T00:00:00' });
+
+    expect(afterWatermark.occurrences).toEqual([]);
+    expect(afterWatermark.issues).toEqual([]);
+    expect(afterWatermark.watermark).toEqual(batch.watermark);
+  });
 });
 
 describe('through the adapter', () => {
@@ -86,14 +94,41 @@ describe('through the adapter', () => {
     expect(screen.queryByText(/데이터 오류/)).toBeNull();
   });
 
-  // The second listed equipment has no data: a page key naming an equipment that is not listed is rejected (#2055), so the no-Binding state is reached through a listed one.
-  it.each(SCREENS)('%s: an equipment without data is ready with the no-Binding state, not outcome empty', async (name, Screen) => {
+  // The second listed equipment has no Occurrences, so both replay views show the shared no-data state.
+  it.each(SCREENS)('%s: an equipment without data shows the no-data state', async (name, Screen) => {
     const fake = hostFor(name, 'eq-synth-02');
     fake.render(Screen);
-    await screen.findByText(NO_BINDING);
+    await screen.findByText(NO_DATA);
+    expect(screen.getAllByText(NO_DATA)).toHaveLength(1);
+    expect(screen.getByText(/마지막 자료 2026-01-01 10:25:00/)).toBeTruthy();
     expect(screen.queryByText(/데이터 오류/)).toBeNull();
     expect(screen.queryByText('이 구간에 표시할 Occurrence가 없습니다')).toBeNull();
-    if (name === 'focus') screen.getByText('이 구간에 겹치는 Occurrence가 없습니다');
+    expect(document.querySelector('[data-layer="replay"]')).toBeNull();
+    if (name === 'focus') {
+      expect(screen.getByRole('button', { name: '변경' })).toBeTruthy();
+      expect(screen.queryByRole('heading', { name: 'Gantt' })).toBeNull();
+    }
+  });
+
+  it('Top View shows no data for a September window with the January fixture', async () => {
+    const window = { from: '2026-09-01T00:00:00', to: '2026-10-01T00:00:00' };
+    const fake = createFake({
+      path: PATHS.topview,
+      page: { equipment: EQV_MOCK_EQUIPMENT },
+      context: window,
+      query: async ({ id, params, context }) => {
+        if (id === 'eqv.equipment-options') return response('ok', eqvMockEquipmentOptions(), { assessments: [] });
+        const { equipmentId, continuationToken } = params as { equipmentId: string; continuationToken?: string };
+        if (id === 'eqv.topview-context') return ok(eqvMockContext(equipmentId));
+        const applied = context as { from: string; to: string };
+        return ok(eqvMockEvents({ equipmentId, ...applied, continuationToken }));
+      },
+    });
+    fake.render(TopViewScreen);
+
+    expect(await screen.findByText('이 구간에는 관측 자료가 없습니다')).toBeTruthy();
+    expect(screen.getByText(/마지막 자료 2026-01-01 10:25:00/)).toBeTruthy();
+    expect(document.querySelector('[data-layer="replay"]')).toBeNull();
   });
 });
 

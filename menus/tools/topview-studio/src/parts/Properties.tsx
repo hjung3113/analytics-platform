@@ -1,17 +1,24 @@
 import { Trash2 } from 'lucide-react';
 import type { Component } from '@eqv/core';
+import { useMessages } from '@ap/kernel';
 import { Button, EmptyState, FieldLabel, FieldList, FieldRow, Input, PanelSectionTitle } from '@ap/ui';
+import { STUDIO_MESSAGES } from '../messages';
 
 const KEYS = ['x', 'y', 'rotation'] as const;
 const keyLabel = (key: typeof KEYS[number]) => (key === 'rotation' ? '회전 (°)' : key.toUpperCase());
 
 /** The `속성` tab: read-only key-values, or inputs when the open document is an editable draft. */
-export function Properties({ selected, writable, canDelete, deleteBlocked, readOnlyNote, onLabel, onTransform, onDelete }: {
+export function Properties({ selected, writable, canDelete, deleteBlocked, readOnlyNote, draftSaveStatus, onLabel, onTransform, onDelete }: {
   selected: Component | undefined; writable: boolean; canDelete: boolean; deleteBlocked: boolean; readOnlyNote: string;
+  draftSaveStatus?: 'saved' | 'unsaved';
   onLabel(label: string): void; onTransform(key: typeof KEYS[number], value: number): void; onDelete(): void;
 }) {
+  const m = useMessages(STUDIO_MESSAGES);
   return <div className="space-y-3">
     <PanelSectionTitle>선택 항목</PanelSectionTitle>
+    {draftSaveStatus && <FieldList><FieldRow layout="property" label={m('propertiesSaveStatus')}>
+      {draftSaveStatus === 'unsaved' ? m('propertiesUnsaved') : m('propertiesSaved')}
+    </FieldRow></FieldList>}
     {selected ? <>
       <FieldList>
         <FieldRow layout="property" label="ID" mono>{selected.id}</FieldRow>

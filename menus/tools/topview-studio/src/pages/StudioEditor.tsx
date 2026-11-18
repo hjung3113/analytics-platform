@@ -190,6 +190,8 @@ export default function StudioEditor({ layoutId, layouts, templatesQuery, import
   const status: StatusLabel | null = mode === 'draft'
     ? (draftData === null && !session.imported ? null : draftStatus({ dirty, savedDraft, revisions, latest: latestData as RevisionRead | null }))
     : mode === 'template' ? '읽기 전용' : '게시됨';
+  const draftSaveStatus: 'saved' | 'unsaved' | undefined = mode === 'draft' && canEdit && edit !== null
+    ? status === '저장 안 됨' ? 'unsaved' : savedDraft !== null ? 'saved' : undefined : undefined;
   const blockedReason = canEdit && !canPublish ? 'Revision 게시·승격 권한이 없습니다.' : null;
   const draftReadReason = !draftSettled ? (draftQ.response === null ? '초안을 불러오는 중입니다.' : '초안을 불러오지 못했습니다.') : null;
   const publishReason = mode === 'revision' ? '이미 게시된 Revision입니다.' : blockedReason ?? draftReadReason ?? (dirty ? '저장 후 게시 가능' : session.version === null ? '저장한 초안이 없습니다.' : null);
@@ -398,7 +400,7 @@ export default function StudioEditor({ layoutId, layouts, templatesQuery, import
           <Tabs defaultValue="properties" className={PANEL}>
             <TabsList aria-label="검사 패널" className="h-11 shrink-0"><TabsTrigger value="properties">속성</TabsTrigger><TabsTrigger value="connections">연결</TabsTrigger></TabsList>
             <TabsContent value="properties" className={CONTENT}>
-              <Properties selected={selected} writable={writable} canDelete={canEdit && mode === 'draft' && edit !== null} deleteBlocked={impact?.blockedBy !== null} readOnlyNote={readOnlyNote ?? ''}
+              <Properties selected={selected} writable={writable} canDelete={canEdit && mode === 'draft' && edit !== null} deleteBlocked={impact?.blockedBy !== null} readOnlyNote={readOnlyNote ?? ''} draftSaveStatus={draftSaveStatus}
                 onLabel={label => selected && update(s => setLabel(s, selected.id, label))} onTransform={(key, value) => selected && update(s => setTransform(s, selected.id, { [key]: value }))} onDelete={() => setDialog('delete')} />
             </TabsContent>
             <TabsContent value="connections" className={CONTENT}>{layout ? <Connections layout={layout} selected={selected} actions={connectionActions} /> : null}</TabsContent>

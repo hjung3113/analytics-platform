@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, ChartGantt, MapPinOff, ServerCrash } from 'lucide-react';
+import { ArrowRight, ChartGantt, Inbox, MapPinOff, ServerCrash } from 'lucide-react';
 import {
-  bindingLayout, replayTimeline, replayTimelineFrame, parseWallClockRange, wallClockToMillis, seekSceneState, stepSceneState,
+  bindingLayout, hasKnownOccurrenceInWindow, replayTimeline, replayTimelineFrame, parseWallClockRange, wallClockToMillis, seekSceneState, stepSceneState,
   type ReplayInput, type ReplayTimeline, type ReplayTimelineFrame, type SceneState, type SiteWallClock,
 } from '@eqv/core';
 import { TopViewer } from '@eqv/renderer';
@@ -13,6 +13,7 @@ import {
 import { Button, Checkbox, EmptyState, Input, Label, useImeEnterGuard } from '@ap/ui';
 import { EvidenceBadge, Panel, StateMessage, Tabs, TabsContent, TabsList, TabsTrigger, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from './NoticeList.js';
+import { REPLAY_NO_DATA_MESSAGES, type ReplayNoDataCopy } from './messages.js';
 import { GANTT_SPAN_LIMIT, TIMELINE_BUDGET, timelineCost } from './timeline-cost.js';
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : '알 수 없는 오류';
@@ -86,6 +87,8 @@ type FocusViewBaseProps = {
   initialCursor?: SiteWallClock | null;
   /** Called for discrete seeks and when playback pauses or stops, never on each playback frame. */
   onCursorCommit?: (at: SiteWallClock) => void;
+  /** Localized no-data copy supplied by the host; the shared Korean copy is used by standalone consumers. */
+  noDataCopy?: ReplayNoDataCopy;
   /** When given, selecting an Occurrence hands its `EvidenceDetail` to the host (null clears the slot: reset, no valid state, no selection, removal, unmount) and the inline "근거 상세" tab is omitted. The callback must be stable (memoised or a state setter): a new identity re-publishes. */
   renderDetail?: (detail: { node: ReactNode; label: string } | null) => void;
   links?: {
@@ -109,7 +112,7 @@ export type FocusViewProps = FocusViewBaseProps & (
 );
 
 /** Top View, Gantt and Occurrence list on one cursor, from props only (no page chrome, router or loader). */
-export function FocusView({ input, notices, trust, entityType, anchor, resetKey, range: hostRange, initialCursor = null, onCursorCommit, renderDetail, tab: controlledTab, onTabChange, links, timelineBudget = TIMELINE_BUDGET, ganttSpanLimit = GANTT_SPAN_LIMIT, scheduler }: FocusViewProps) {
+export function FocusView({ input, notices, trust, entityType, anchor, resetKey, range: hostRange, initialCursor = null, onCursorCommit, noDataCopy, renderDetail, tab: controlledTab, onTabChange, links, timelineBudget = TIMELINE_BUDGET, ganttSpanLimit = GANTT_SPAN_LIMIT, scheduler }: FocusViewProps) {
   const entryKey = JSON.stringify([entityType, anchor]);
   // An anchor naming an Occurrence of the batch is the entry: it starts selected (view state only; the cursor is the entry's own).
   const entryId = entryOccurrence(input.batch, { entityType, anchor })?.id ?? null;
@@ -136,31 +139,32 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice, cursor: entry.cursor, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
 
   const range = (hostRange ? hostRange.value : view.applied) ?? entry.range ?? null;
+  const noData = range !== null && !hasKnownOccurrenceInWindow(input.batch, range);
   const rawCursor = view.cursor ?? entry.cursor ?? null;
   const cursorIsInRange = (at: SiteWallClock, candidate: Range) => at >= candidate.from && (at < candidate.to || (at === candidate.to && candidate.to === input.batch.to));
   const cursor = range && rawCursor && cursorIsInRange(rawCursor, range) ? rawCursor : range?.from ?? null;
   const currentCursorMoveNotice = view.cursorMoveNotice ?? (rawCursor !== null && cursor !== null && rawCursor !== cursor ? { from: rawCursor, to: cursor } : null);
 
   const framed = useMemo((): { frame: ReplayTimelineFrame } | { error: string } | null => {
-    if (!range) return null;
+    if (!range || noData) return null;
     try {
       return { frame: replayTimelineFrame(input, range) };
     } catch (error) {
       return { error: errorMessage(error) };
     }
-  }, [input, range]);
+  }, [input, range, noData]);
   const frame = framed && 'frame' in framed ? framed.frame : null;
   const cost = useMemo(() => frame ? timelineCost(input, frame) : null, [input, frame]);
   const tooLarge = cost !== null && cost.cost > timelineBudget;
   // The Gantt is the only view that needs the full timeline; above the budget everything else still runs on `input` and `frame`.
   const computed = useMemo((): { timeline: ReplayTimeline } | { error: string } | null => {
-    if (!range || cost === null || tooLarge) return null;
+    if (!range || noData || cost === null || tooLarge) return null;
     try {
       return { timeline: replayTimeline(input, range) };
     } catch (error) {
       return { error: errorMessage(error) };
     }
-  }, [input, range, cost, tooLarge]);
+  }, [input, range, cost, tooLarge, noData]);
   const computedTimeline = computed && 'timeline' in computed ? computed.timeline : null;
   const spans = computedTimeline ? computedTimeline.materials.length + computedTimeline.activities.length + computedTimeline.markers.length : 0;
   const tooManySpans = spans > ganttSpanLimit;
@@ -169,13 +173,13 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const { mode } = view;
   const sequenceSeq = mode.kind === 'sequence' && steps.some((s) => s.seq === mode.seq) ? mode.seq : null;
   const sceneState = useMemo((): SceneState | { error: string } | null => {
-    if (!frame || !cursor) return null;
+    if (!frame || !cursor || noData) return null;
     try {
       return sequenceSeq !== null ? stepSceneState(input, sequenceSeq) : seekSceneState(input, cursor);
     } catch (error) {
       return { error: errorMessage(error) };
     }
-  }, [input, frame, cursor, sequenceSeq]);
+  }, [input, frame, cursor, sequenceSeq, noData]);
   const state = sceneState && !('error' in sceneState) ? sceneState : null;
   const layout = bindingLayout(input, state?.binding);
   const selectedId = view.selectedOccurrenceId;
@@ -197,8 +201,8 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   // The host's detail slot shows the evidence of the selected Occurrence at the shown state; it is cleared (null) through the
   // same callback when that stops holding, the callback is replaced or removed, and on unmount.
   const detail = useMemo(
-    () => selectedId === null || !state ? null : { node: <EvidenceDetail batch={input.batch} state={state} selectedOccurrenceId={selectedId} />, label: `근거 상세 · ${selectedId}` },
-    [input.batch, state, selectedId]);
+    () => selectedId === null || !state || noData ? null : { node: <EvidenceDetail batch={input.batch} state={state} selectedOccurrenceId={selectedId} />, label: `근거 상세 · ${selectedId}` },
+    [input.batch, state, selectedId, noData]);
   useEffect(() => {
     if (!renderDetail) return;
     renderDetail(detail);
@@ -280,7 +284,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const tab = renderDetail && (controlledTab ?? ownTab) === 'detail' ? 'list' : controlledTab ?? ownTab;
   const tabs = renderDetail ? TABS.filter((item) => item.id !== 'detail') : TABS;
 
-  const showTopView = !!(frame && state && cursor);
+  const showTopView = !noData && !!(frame && state && cursor);
   const noticeLine = <NoticeList notices={[...notices, ...(entry.notice ? [entry.notice] : [])]} className="mb-2" />;
 
   return (
@@ -318,6 +322,8 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
           </div>
         </>
       )}
+      {noData ? <StateMessage icon={Inbox} title={noDataCopy?.title ?? REPLAY_NO_DATA_MESSAGES.replayNoDataTitle.ko}
+        body={`${noDataCopy?.lastData ?? REPLAY_NO_DATA_MESSAGES.replayNoDataLastData.ko} ${wallClockText(input.batch.watermark.at)}`} /> : <>
       {framed && 'error' in framed && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${framed.error}`} />}
       {computed && 'error' in computed && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${computed.error}`} />}
       {sceneState && 'error' in sceneState && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${sceneState.error}`} />}
@@ -389,6 +395,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
           </div>
         </>
       )}
+      </>}
     </div>
   );
 }

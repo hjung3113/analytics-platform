@@ -42,6 +42,18 @@ it('renders the Top View, the Gantt and the Occurrence list from props', () => {
   screen.getByRole('tab', { name: '근거 상세' });
 });
 
+it('shows a no-data state after the watermark and keeps the range controls available', () => {
+  const range = { from: '2026-09-01T00:00:00.000', to: '2026-10-01T00:00:00.000' } as const;
+  render(<FocusView input={input} notices={[]} entityType={null} anchor={null} resetKey="a"
+    range={{ value: range, onChange: vi.fn() }} />);
+
+  expect(screen.getByText('이 구간에는 관측 자료가 없습니다')).toBeTruthy();
+  expect(screen.getByText('마지막 자료 2026-01-01 10:25:00')).toBeTruthy();
+  expect(screen.getByRole('button', { name: '변경' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Gantt' })).toBeNull();
+  expect(document.querySelector('[data-layer="replay"]')).toBeNull();
+});
+
 type Detail = { node: ReactNode; label: string } | null;
 /** A host that renders the detail slot it is handed; `attached` false removes the callback. */
 function DetailHost({ resetKey = 'a', attached = true, actions }: { resetKey?: string; attached?: boolean; actions?: ReactNode }) {

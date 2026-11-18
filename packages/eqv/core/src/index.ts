@@ -38,6 +38,7 @@ export { sceneStateSchema } from './scene/schema.js';
 export type { SceneState, SceneMaterial, SceneComponent, SceneMarker } from './scene/schema.js';
 export { RULESET_VERSION, assertReplayInput, bindingLayout, seekSceneState, stepSceneState } from './replay/reduce.js';
 export type { ReplayInput } from './replay/reduce.js';
+export { hasKnownOccurrenceInWindow } from './replay/window-data.js';
 export { materialKey } from './replay/keys.js';
 export { materialJourney } from './replay/journey.js';
 export type { JourneyBoundary, JourneyEvidence, JourneyLocation, JourneyHop, JourneyExecution, MaterialJourney } from './replay/journey.js';

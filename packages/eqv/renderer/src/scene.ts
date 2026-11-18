@@ -675,6 +675,9 @@ export function buildScene(layout: LayoutDocument, options: SceneOptions): Scene
 
   const labelNodes: SvgNode[] = [];
   const labelBoxes: LabelBox[] = [];
+  const componentLabelNode = (row: Placed, node: SvgNode): SvgNode => interactive
+    ? { ...node, attrs: { ...node.attrs, 'data-component-id': row.id, 'pointer-events': 'auto' } }
+    : node;
   const rows = layout.components.map((component) => placed.get(component.id)).filter((row): row is Placed => row != null);
   if (showLabel) {
     for (const row of rows) {
@@ -703,7 +706,7 @@ export function buildScene(layout: LayoutDocument, options: SceneOptions): Scene
           x = row.bbox.x0 + 12 * k;
           y = row.bbox.y0 + 18 * k;
         }
-        labelNodes.push(textNode(text, x, y, anchor, px, k, PAINT.secondary, weight, false));
+        labelNodes.push(componentLabelNode(row, textNode(text, x, y, anchor, px, k, PAINT.secondary, weight, false)));
         const x0 = anchor === 'middle' ? x - worldTw / 2 : anchor === 'end' ? x - worldTw : x;
         labelBoxes.push({ x0, x1: x0 + worldTw, y0: y - px * 0.78 * k, y1: y + px * 0.22 * k, owner: row.id, inside: false });
       } else {
@@ -720,7 +723,7 @@ export function buildScene(layout: LayoutDocument, options: SceneOptions): Scene
           halo = true;
         }
         const by = y + px * 0.36 * k;
-        labelNodes.push(textNode(text, x, by, 'middle', px, k, PAINT.ink, weight, halo));
+        labelNodes.push(componentLabelNode(row, textNode(text, x, by, 'middle', px, k, PAINT.ink, weight, halo)));
         labelBoxes.push({
           x0: x - worldTw / 2, x1: x + worldTw / 2, y0: by - px * 0.78 * k, y1: by + px * 0.22 * k,
           owner: row.id, inside: !halo,
@@ -764,7 +767,7 @@ export function buildScene(layout: LayoutDocument, options: SceneOptions): Scene
         if (!best || score < best.score) best = { ...candidate, score, box };
       }
       if (!best) continue;
-      labelNodes.push(textNode(text, best.x, best.y, best.anchor, px, k, PAINT.ink, idMode ? '500' : '600', true));
+      labelNodes.push(componentLabelNode(row, textNode(text, best.x, best.y, best.anchor, px, k, PAINT.ink, idMode ? '500' : '600', true)));
       labelBoxes.push({ ...best.box, owner: row.id, inside: false });
     }
   }

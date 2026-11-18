@@ -105,6 +105,22 @@ it('renders Generic Layout generic-box assets without unknown markers', () => {
   }
 });
 
+it('makes only interactive Component labels pointer targets and leaves static labels unchanged', () => {
+  const layout = templates['cluster-single'];
+  const componentId = layout.components[0]!.id;
+  const interactive = render(layout, { interactive: true }).scene.node;
+  const staticScene = render(layout).scene.node;
+  const interactiveLabels = layer(interactive, 'labels').children;
+  const staticLabels = layer(staticScene, 'labels').children;
+  const interactiveLabel = interactiveLabels.find((child): child is SvgNode => typeof child !== 'string'
+    && child.tag === 'text' && child.attrs['data-component-id'] === componentId);
+  const staticLabel = staticLabels.find((child): child is SvgNode => typeof child !== 'string' && child.tag === 'text');
+
+  expect(interactiveLabel?.attrs['pointer-events']).toBe('auto');
+  expect(staticLabel?.attrs['data-component-id']).toBeUndefined();
+  expect(staticLabel?.attrs['pointer-events']).toBeUndefined();
+});
+
 it.each([
   { role: 'constructor', assetRef: 'synthetic-unlisted', cls: 'process' },
   { role: 'toString', assetRef: 'synthetic-unlisted', cls: 'process' },
@@ -168,7 +184,8 @@ it.each([
 function componentsOf(node: SvgNode): Map<string, { node: SvgNode; parentId: string | null }> {
   const out = new Map<string, { node: SvgNode; parentId: string | null }>();
   const walk = (current: SvgNode, parentId: string | null) => {
-    const id = current.attrs['data-component-id'];
+    // Interactive labels also carry data-component-id (they act as handles); only Component groups carry data-level-id.
+    const id = current.attrs['data-level-id'] != null ? current.attrs['data-component-id'] : undefined;
     if (id) out.set(id, { node: current, parentId });
     for (const child of current.children) {
       if (typeof child !== 'string') walk(child, id ?? parentId);

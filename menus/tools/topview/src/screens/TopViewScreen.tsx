@@ -4,12 +4,12 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage, StateMessage } from '@ap/components';
-import { ArrowRight, MapPinOff, MousePointerClick, ServerCrash } from 'lucide-react';
+import { ArrowRight, Inbox, MapPinOff, MousePointerClick, ServerCrash } from 'lucide-react';
 import { Button, EmptyState, FieldRow } from '@ap/ui';
-import { bindingLayout, seekSceneState, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayInput, type SceneState, type SiteWallClock } from '@eqv/core';
+import { bindingLayout, hasKnownOccurrenceInWindow, seekSceneState, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayInput, type SceneState, type SiteWallClock } from '@eqv/core';
 import { TopViewer, type ReplayOverlay } from '@eqv/renderer';
 import { ACTIVITY_KO, CursorStateList, Evidence, wallClockText } from '@eqv/replay';
-import { Panel, ViewerZoomControls } from '@eqv/ui';
+import { Panel, StateMessage as ReplayStateMessage, ViewerZoomControls } from '@eqv/ui';
 import { NoticeList } from '@eqv/views';
 import { useReplayScreen } from '../use-replay-input.js';
 import { TrustBadge, TrustLine, stateFor } from './states.js';
@@ -71,7 +71,9 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
   const [zoomHost, setZoomHost] = useState<HTMLElement | null>(null);
   const input = load?.kind === 'ready' ? load.input : null;
   const to = props.time.kind === 'applied' ? props.time.to : null;
-  const scene = useMemo(() => input && to ? sceneAt(input, to) : null, [input, to]);
+  const range = props.time.kind === 'applied' ? { from: props.time.from, to: props.time.to } : null;
+  const noData = input !== null && range !== null && !hasKnownOccurrenceInWindow(input.batch, range);
+  const scene = useMemo(() => input && to && !noData ? sceneAt(input, to) : null, [input, to, noData]);
   const ready = scene && !('error' in scene) ? scene : null;
   const replay = useMemo((): ReplayOverlay | null => ready ? { state: ready.state } : null, [ready]);
   // The selection belongs to the load: another equipment, window or server generation clears it.
@@ -85,6 +87,18 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
     : stateFor(props, load, 'topview', retryLoad);
   if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <>{bar}<div>{state}</div></>;
   const { equipment } = props;
+  if (noData) return <>
+    {bar}
+    <div className="flex flex-wrap items-start gap-4">
+      <Panel title="Top View" actions={<>
+        <TrustBadge trust={load.trust} assessments={load.assessments} />
+        <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
+      </>}>
+        <NoticeList notices={load.notices} className="mb-2" />
+        <ReplayStateMessage icon={Inbox} title={m('replayNoDataTitle')} body={`${m('replayNoDataLastData')} ${wallClockText(load.input.batch.watermark.at)}`} />
+      </Panel>
+    </div>
+  </>;
   // The read itself succeeded: its trust and notices stay visible above the replay error.
   if (scene === null || 'error' in scene) return <>{bar}<TrustLine trust={load.trust} assessments={load.assessments} /><NoticeList notices={load.notices} className="mb-2" /><StateMessage tone="danger" icon={<ServerCrash className="size-4" aria-hidden />} title={`Replay 오류: ${scene?.error ?? ''}`} /></>;
   return (

@@ -1,4 +1,5 @@
 import type { Text } from '@ap/kernel';
+import { REPLAY_NO_DATA_MESSAGES } from '@eqv/views';
 
 export const TOPVIEW_MESSAGES = {
 
@@ -13,4 +14,5 @@ export const TOPVIEW_MESSAGES = {
 
   // TopViewScreen
   topViewScreenDetail: { ko: "상세", en: "Detail" },
+  ...REPLAY_NO_DATA_MESSAGES,
 } satisfies Record<string, Text>;
