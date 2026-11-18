@@ -4,8 +4,9 @@
  */
 import { isRecord } from '@ap/contracts';
 import { activatePanel, addPanel, groupOf, moveToNewRow, panelOrder, removePanel } from '../dock/commands';
+import { dockTheme } from '../dock/dockPresentation';
 import { dockGroupsInReadingOrder, normalizeDockTree, parseFloatingPanels, type DockNode, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
-import { enterRows, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
+import { clampRow, enterRows, isFillRow, NEW_ROW_HEIGHT, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
 export type PanelWorkspaceLayout =
@@ -16,7 +17,11 @@ export type PanelWorkspaceLayout =
  * `mode` absent = fit (the workspace fills its container); `'stack'` = the top-level rows keep their own px in `rows` (the single source; the
  * layout's top-level shares are their projection). Both are optional so a state written before them still loads and an older reader ignores them.
  */
-export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[] };
+const AUTO_FILL = Symbol('workspace auto fill');
+type AutoFill = { kind: 'single' } | { kind: 'below'; panelId: string };
+const SINGLE_FILL: AutoFill = { kind: 'single' };
+
+export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; [AUTO_FILL]?: AutoFill };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
 /** Static identifiers only: nothing from data can reach a storage key. */
@@ -66,7 +71,7 @@ const MAX_STORED_ROW_PX = 20000;
 
 /** The height mode of `state`: fit (no `mode`, no `rows`), or stack with `rows` (absent while they are still to be measured). */
 export function withRows(state: WorkspaceState, mode: 'fit' | 'stack', rows?: readonly number[]): WorkspaceState {
-  const { mode: _mode, rows: _rows, ...base } = state;
+  const { mode: _mode, rows: _rows, [AUTO_FILL]: _autoFill, ...base } = state;
   if (mode === 'fit') return base;
   return rows ? { ...base, layout: withRowShares(base.layout, rows), mode: 'stack', rows: [...rows] } : { ...base, mode: 'stack' };
 }
@@ -77,15 +82,96 @@ export function withRows(state: WorkspaceState, mode: 'fit' | 'stack', rows?: re
  */
 export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number; oneRow: number; preferred?: PreferredHeight };
 
+export const hasAutomaticRows = (state: WorkspaceState): boolean => state[AUTO_FILL] !== undefined;
+
+/** Auto-fill provenance is local to this mount, and its measured heights are omitted from the saved state. */
+export function workspacePreference(state: WorkspaceState): WorkspaceState {
+  return hasAutomaticRows(state) ? withRows(state, 'stack') : state;
+}
+
+/**
+ * A rowless stack state is automatic when its rows are a fill row alone, or a fill row over one lone declared below panel: rows are omitted
+ * from the saved preference only while they are automatic, so a reload with the below panel open keeps that provenance.
+ */
+function automaticFill(state: WorkspaceState, rows: readonly DockNode[], env: RowEnv, below: readonly string[]): AutoFill | undefined {
+  if (state[AUTO_FILL]) return state[AUTO_FILL];
+  if (isFillRow(rows, env.preferred)) return SINGLE_FILL;
+  if (state.rows !== undefined || rows.length !== 2 || !isFillRow(rows.slice(0, 1), env.preferred)) return undefined;
+  const lone = panelOrder(rows[1]!);
+  return lone.length === 1 && below.includes(lone[0]!) ? { kind: 'below', panelId: lone[0]! } : undefined;
+}
+
+export function measureWorkspaceRows(state: WorkspaceState, env: RowEnv, below: readonly string[] = []): WorkspaceState {
+  const rows = topLevelRows(state.layout);
+  const fill = automaticFill(state, rows, env, below);
+  if (!fill) return withRows(state, 'stack', enterRows(state.layout, env.baseline, env.minimum, env.maximum, env));
+
+  const first = rows[0]!;
+  if (env.preferred?.(first) !== undefined) {
+    const heights = state.rows?.length === rows.length ? state.rows : enterRows(state.layout, env.baseline, env.minimum, env.maximum, env);
+    return withRows(state, 'stack', heights);
+  }
+  const minimum = env.minimum(first);
+  // The fill row takes the whole visible height: the drop strip shows only during a tab drag and overlays the box (#2508).
+  const available = clampRow(env.oneRow, minimum, env.maximum);
+  const heights = [available];
+  if (fill.kind === 'below') {
+    // The two rows share the visible height evenly. When either would fall under its minimum, each keeps its own height and the page grows.
+    const last = rows[1]!;
+    const lastMinimum = env.minimum(last);
+    const shared = available - dockTheme(true).gap;
+    const top = Math.ceil(shared / 2);
+    const bottom = shared - top;
+    if (top >= minimum && bottom >= lastMinimum) { heights[0] = top; heights.push(bottom); }
+    else heights.push(clampRow(env.preferred?.(last) ?? NEW_ROW_HEIGHT, lastMinimum, env.maximum));
+  }
+  if (state[AUTO_FILL] === fill && state.rows?.length === heights.length && heights.every((height, index) => height === state.rows![index])) return state;
+  return { ...withRows(state, 'stack', heights), [AUTO_FILL]: fill };
+}
+
+/** The added row must be a new lone panel below the same first row. A move of an existing tab is a layout edit. */
+function appendedPanel(before: readonly DockNode[], after: readonly DockNode[]): string | undefined {
+  if (before.length !== 1 || after.length !== 2 || !sameArrangement(before[0]!, after[0]!)) return undefined;
+  const ids = panelOrder(after[1]!);
+  return ids.length === 1 ? ids[0] : undefined;
+}
+
+function followBelowPanel(previous: WorkspaceState, next: WorkspaceState, below: readonly string[]): WorkspaceState {
+  const fill = previous[AUTO_FILL];
+  if (!fill) return next;
+  const before = topLevelRows(previous.layout);
+  const after = topLevelRows(next.layout);
+  const added = appendedPanel(before, after);
+  if (fill.kind === 'single' && added !== undefined && below.includes(added)) return { ...next, [AUTO_FILL]: { kind: 'below', panelId: added } };
+  if (fill.kind === 'below' && appendedPanel(after, before) === fill.panelId) return { ...next, [AUTO_FILL]: SINGLE_FILL };
+  return next;
+}
+
+/** Repair the live panel set while keeping the height of a survivor when its declared below panel leaves. */
+export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceSpec, previousBelow: readonly string[]): WorkspaceState {
+  const next = normalizeWorkspaceState(previous, spec);
+  if (next.mode !== 'stack') return next;
+  if (hasAutomaticRows(previous) && sameArrangement(previous.layout, next.layout)) return { ...next, [AUTO_FILL]: previous[AUTO_FILL] };
+  const followed = followBelowPanel(previous, next, spec.below ?? []);
+  if (hasAutomaticRows(followed)) return followed;
+  const removed = appendedPanel(topLevelRows(next.layout), topLevelRows(previous.layout));
+  if (removed !== undefined && previousBelow.includes(removed) && previous.rows?.length === 2) {
+    return withRows(next, 'stack', previous.rows.slice(0, 1));
+  }
+  return next;
+}
+
 /**
  * `next` is `previous` after an edit; the rows follow it. Fit: no rows. Stack, `keep`: rows that keep their panels keep their px, a new row
  * gets 360, a gone row is dropped (rows still to be measured stay so). Stack, `enter` (preset, `기본 배치`): rows are derived again from the new
  * shares and the baseline, never from the current stack height. `created`: the panel the edit moved into a row of its own (see `reconcileRows`).
  */
-export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 'keep' | 'enter', env: RowEnv, created?: string): WorkspaceState {
+export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 'keep' | 'enter', env: RowEnv, created?: string, below: readonly string[] = []): WorkspaceState {
   if (next === previous) return previous;
   if (next.mode !== 'stack') return next.mode !== undefined || next.rows !== undefined ? withRows(next, 'fit') : next;
-  if (how === 'enter') return withRows(next, 'stack', enterRows(next.layout, env.baseline, env.minimum, env.maximum, env));
+  if (how === 'enter') return measureWorkspaceRows(withRows(next, 'stack'), env, below);
+  const followed = followBelowPanel(previous, next, below);
+  if (followed !== next) return measureWorkspaceRows(followed, env, below);
   if (previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return withRows(next, 'stack');
   return withRows(next, 'stack', reconcileRows(previous.layout, previous.rows, next.layout, env.minimum, env.maximum, created, env.preferred));
 }
@@ -113,7 +199,7 @@ const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset =
 /** The menu's `stackPreset`, only when it names a preset (an exact lookup: `presetOf` would fall back to the first preset). */
 const stackPresetOf = (spec: Pick<WorkspaceSpec, 'presets' | 'stackPreset'>) => (spec.stackPreset === undefined ? undefined : spec.presets.find(preset => preset.id === spec.stackPreset));
 
-/** The state of a workspace nobody has touched: nothing hidden, the menu's `initialMode` (default stack, without rows: they are measured once); a stack start uses the `stackPreset`, else the initial preset. */
+/** The state of a workspace nobody has touched: nothing hidden, the menu's `initialMode` (default stack, with rows measured after mount); a stack start uses the `stackPreset`, else the initial preset. */
 export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
   const stack = spec.initialMode !== 'fit';
   const preset = (stack ? stackPresetOf(spec) : undefined) ?? presetOf(spec, spec.initialPreset);

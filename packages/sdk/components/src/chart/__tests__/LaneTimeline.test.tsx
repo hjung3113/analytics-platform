@@ -271,3 +271,11 @@ it('offers named icon controls in quiet mode and keeps the guide and summaries a
   expect(screen.getByRole('region', { name: '선택 요약' })).toHaveClass('sr-only');
   expect(screen.getByRole('status')).toHaveClass('sr-only');
 });
+it('passes the wheel on when the lanes fit, and contains it only when they overflow (#2518)', () => {
+  const view = mountLane(<LaneTimeline lanes={lanes.slice(0, 5)} ariaLabel="Timeline" />); flush();
+  const scroll = () => screen.getByRole('img', { name: 'Timeline' }).closest<HTMLElement>('[data-lane-scroll]')!;
+  expect(scroll().style.overscrollBehavior).toBe('auto');
+  view.rerender(<I18nProvider><LaneTimeline lanes={lanes} ariaLabel="Timeline" /></I18nProvider>); flush();
+  act(() => { resize([], {} as ResizeObserver); });
+  expect(scroll().style.overscrollBehavior).toBe('');
+});

@@ -18,8 +18,8 @@ import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } f
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, collapsePanel, floatPanel, hidePanel, initialWorkspaceState, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, withRows, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
-import { canMoveBelow, clampRow, enterRows, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
 
@@ -222,13 +222,26 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const summaryOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); const summary = panel?.collapse && panel.collapse.summary !== undefined ? panel.collapse.summary : panel?.minimize?.summary; return summary ? tx(summary) : ''; };
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
-  const [stored, setStored] = useState<WorkspaceState>(() => (storageKey ? readWorkspaceState(storageKey, spec, storage) : null) ?? initialWorkspaceState(spec));
+  const [initial] = useState(() => {
+    const saved = storageKey ? readWorkspaceState(storageKey, spec, storage) : null;
+    return { saved, state: saved ?? initialWorkspaceState(spec) };
+  });
+  const [storedState, setStored] = useState(initial.state);
   const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort()]);
-  const [seenPanels, setSeenPanels] = useState(panelIdentity);
-  if (seenPanels !== panelIdentity) {
-    setSeenPanels(panelIdentity);
-    setStored(previous => normalizeWorkspaceState(previous, spec));
-  }
+  const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below });
+  const panelsChanged = seenPanels.identity !== panelIdentity;
+  // A changed panel set renders its repaired state at once and commits it before paint. Not a render-phase setState: an observer
+  // update queued right after one is computed eagerly against the state before it and would put the old panel set back (#2518).
+  const stored = useMemo(() => (panelsChanged ? updateWorkspacePanels(storedState, spec, seenPanels.below) : storedState),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is a new object each render; `panelIdentity` is its identity here.
+    [panelsChanged, storedState, seenPanels.below, panelIdentity]);
+  useLayoutEffect(() => {
+    if (!panelsChanged) return;
+    setSeenPanels({ identity: panelIdentity, below });
+    const previousBelow = seenPanels.below;
+    setStored(previous => (previous === storedState ? stored : updateWorkspacePanels(previous, spec, previousBelow)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is rebuilt each render; the effect acts only while `panelsChanged`, whose inputs are listed.
+  }, [panelsChanged, panelIdentity, below, seenPanels.below, storedState, stored]);
 
   // Width of the workspace: under `compactBelow` with a compact preset the arrangement is the preset's, in memory.
   const root = useRef<HTMLDivElement>(null);
@@ -250,7 +263,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
   const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
-  if (seenPanels !== panelIdentity && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec) : null);
+  if (panelsChanged && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec) : null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
   const state = compact ? (compactState ?? derived) : stored;
@@ -265,6 +278,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const stackActive = stored.mode === 'stack' && !narrow;
   const count = topLevelRows(stored.layout).length;
   const storedRows = stored.rows !== undefined && stored.rows.length === count ? stored.rows : undefined;
+  const automaticRows = hasAutomaticRows(stored);
+  const rowDeclarations = JSON.stringify(panels.map(panel => [panel.id, panel.minHeight, panel.preferredHeight]));
   const fitSlot = useRef<HTMLDivElement>(null);
   const lastFit = useRef<number | null>(null);
   const visible = useVisibleAreaHeight(root, true);
@@ -291,8 +306,9 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const container = element ? scrollContainerOf(element) : null;
     if (!element) return NEW_ROW_HEIGHT;
     const area = container ? container.clientHeight : window.innerHeight;
-    const offset = container ? element.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop : 0;
-    const toolbar = element.querySelector<HTMLElement>('[data-workspace-toolbar]');
+    const top = element.getBoundingClientRect().top;
+    const offset = container ? top - container.getBoundingClientRect().top + container.scrollTop : top + window.scrollY;
+    const toolbar = element.querySelector<HTMLElement>('[data-workspace-toolbar], [data-workspace-actions]');
     const above = toolbar ? toolbar.getBoundingClientRect().height + (parseFloat(getComputedStyle(element).rowGap) || 0) : 0;
     const page = element.closest('[data-platform-page-content]');
     const padding = page ? parseFloat(getComputedStyle(page).paddingBottom) || 0 : 0;
@@ -305,7 +321,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     else {
       // One snapshot at the command boundary: the updater stays pure (React may replay it) and never reads the DOM.
       const env = settle === 'raw' ? null : rowEnv();
-      setStored(previous => { const next = change(previous); return settle === 'raw' || env === null ? next : settleRows(previous, next, settle, env, created); });
+      const declaredBelow = live.current.below;
+      setStored(previous => { const next = change(previous); return settle === 'raw' || env === null ? next : settleRows(previous, next, settle, env, created, declaredBelow); });
     }
   }, [rowEnv]);
   // A reveal persists like a user activation. The seq present at mount counts as handled.
@@ -335,7 +352,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         : current;
       const home = groupOf(next.layout, revealId);
       return home && home.active !== revealId ? { ...next, layout: activatePanel(next.layout, revealId) } : next;
-    });
+    }, restoring ? 'keep' : 'raw');
     // The one-group narrow display has its own selection.
     if (restoring || panelOrder(derived.layout).includes(revealId)) setDockReveal({ panelId: revealId, seq: revealSeq });
   }, [revealSeq, revealId, restoreHidden, knownIds, update]);
@@ -345,28 +362,64 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     const env = rowEnv();
     update(current => changeMode(current, mode, { presets: live.current.presets, initialPreset: live.current.initialPreset, stackPreset: live.current.stackPreset, below: live.current.below }, env), 'raw');
   }, [update, rowEnv]);
-  // Stack mode whose rows are not known (a stored mode without usable rows): measured once, before paint.
+  // Measure missing rows before paint. An automatic fill row stays tied to the scrollport while its provenance is intact.
+  const needsRows = storedRows === undefined;
   useLayoutEffect(() => {
-    if (!stackActive || narrowNow.current || storedRows !== undefined || visible === null) return;
+    if (!stackActive || narrowNow.current || !needsRows || visible === null) return;
     const env = rowEnv();
+    const declaredBelow = live.current.below;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows?.length === topLevelRows(previous.layout).length) return previous;
-      return withRows(previous, 'stack', enterRows(previous.layout, env.baseline, env.minimum, env.maximum, env));
+      return measureWorkspaceRows(previous, env, declaredBelow);
     });
-  }, [stackActive, storedRows, visible, rowEnv]);
+  }, [stackActive, needsRows, visible, rowEnv]);
+
+  useLayoutEffect(() => {
+    const element = root.current;
+    if (!element || !stackActive || narrowNow.current || !automaticRows || visible === null) return;
+    const measure = () => {
+      const env = rowEnv();
+      const declaredBelow = live.current.below;
+      setStored(previous => hasAutomaticRows(previous) ? measureWorkspaceRows(previous, env, declaredBelow) : previous);
+    };
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    const container = scrollContainerOf(element);
+    let observed = new Set<Element>();
+    const bind = () => {
+      const targets = new Set<Element>([element]);
+      const toolbar = element.querySelector('[data-workspace-toolbar], [data-workspace-actions]');
+      if (toolbar) targets.add(toolbar);
+      mutations?.observe(element, { childList: true });
+      // Upstream chrome can move this root even when the scrollport and the root keep their sizes.
+      for (let node: HTMLElement = element; node !== container && node.parentElement; node = node.parentElement) {
+        for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) targets.add(sibling);
+        targets.add(node.parentElement);
+        mutations?.observe(node.parentElement, { childList: true });
+      }
+      observed.forEach(target => { if (!targets.has(target)) resize?.unobserve(target); });
+      targets.forEach(target => { if (!observed.has(target)) resize?.observe(target); });
+      observed = targets;
+    };
+    const mutations = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { bind(); measure(); });
+    bind();
+    measure();
+    window.addEventListener('resize', measure);
+    return () => { resize?.disconnect(); mutations?.disconnect(); window.removeEventListener('resize', measure); };
+  }, [automaticRows, count, rowDeclarations, rowEnv, stackActive, visible]);
 
   // Restored rows obey the visible-height cap once, when a scrollport measurement first exists. Not again: a later window resize never rewrites the preference.
   const restoreClamped = useRef(false);
   useLayoutEffect(() => {
     if (restoreClamped.current || !stackActive || narrowNow.current || storedRows === undefined || visible === null) return;
     restoreClamped.current = true;
+    if (automaticRows) return;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
       const minimums = topLevelRows(previous.layout).map(live.current.rowMinimum);
       const clamped = previous.rows.map((px, index) => clampRow(px, minimums[index]!, live.current.maxRow));
       return clamped.every((px, index) => px === previous.rows![index]) ? previous : withRows(previous, 'stack', clamped);
     });
-  }, [stackActive, storedRows, visible]);
+  }, [automaticRows, stackActive, storedRows, visible]);
 
   const isFloating = (id: string) => panels.find(panel => panel.id === id)?.float !== false && state.floating?.some(panel => panel.panelId === id);
   const edgeOf = (id: string) => {
@@ -394,7 +447,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       })),
       ...parsed.hidden.map(([id, text, description, warning, chip]): WorkspaceCommand => ({
         id: `${SHOW_PREFIX}${id}`, label: m('workspaceShowPanel', { title: text }), kind: 'action', description: description ?? undefined, warning: warning || undefined, chip: chip ?? undefined,
-        run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!)); },
+        run: () => { update(current => showPanel(current, id, live.current.primaryId, preset(current.preset) ?? live.current.presets[0]!, hasAutomaticRows(current) ? live.current.below : [])); },
       })),
       {
         id: RESET_ID, label: m('workspaceResetLayout'), kind: 'action',
@@ -405,7 +458,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const hosted = useRegisterWorkspaceCommands(commands, depth);
 
   // Local preference: only the stored state, never the compact overlay.
-  const persisted = useRef(stored);
+  const persisted = useRef(initial.saved);
   // The latest storage without re-arming the write timer when an app passes a new object each render.
   const storageRef = useRef(storage);
   useEffect(() => { storageRef.current = storage; });
@@ -422,10 +475,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (!storageKey) return;
     clearTimeout(timer.current);
     // Back to what is already stored (a change undone within the delay): nothing to write.
-    if (sameWorkspaceState(stored, persisted.current)) { pending.current = null; return; }
-    pending.current = stored;
+    const preference = workspacePreference(stored);
+    const baseline = persisted.current ?? (automaticRows ? null : initial.state);
+    if (baseline && sameWorkspaceState(preference, baseline)) { pending.current = null; return; }
+    pending.current = preference;
     timer.current = setTimeout(flush, WORKSPACE_WRITE_DELAY_MS);
-  }, [stored, storageKey, flush]);
+  }, [automaticRows, initial.state, stored, storageKey, flush]);
   useEffect(() => {
     window.addEventListener('pagehide', flush);
     return () => { window.removeEventListener('pagehide', flush); flush(); };
@@ -651,7 +706,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
             return { ...current, floating: next, hidden: [...new Set([...current.hidden.filter(id => !returned.includes(id)), ...next.map(panel => panel.panelId)])], layout: tree };
           }); } }}
           onLayoutChange={next => { const moved = dropped.current ?? undefined; dropped.current = null; layoutChange(current => ({ ...current, layout: next }), moved); }}
-          onActivate={id => { layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current)); }}
+          onActivate={id => { update(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current), 'raw'); }}
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions}
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}

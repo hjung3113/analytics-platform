@@ -128,14 +128,24 @@ test.describe('Configuration', () => {
   });
 
   test('opens numeric trend below the matrix, then shows string lanes and closes', async ({ page }, testInfo) => {
+    const viewport = { width: 1600, height: 900 };
+    await page.setViewportSize(viewport);
     await open(page, '&status=all');
+    const workspace = page.locator('[data-panel-workspace]');
+    const matrixPanel = workspace.locator('[data-dock-panel="matrix"]');
+    const trendPanel = workspace.locator('[data-dock-panel="trend"]');
     const trend = page.locator('[data-configuration-trend]');
+    await expect.poll(async () => {
+      const bounds = await matrixPanel.boundingBox();
+      return bounds ? Math.abs(viewport.height - (bounds.y + bounds.height)) : Infinity;
+    }).toBeLessThanOrEqual(24);
     await grid(page).locator('[data-matrix-row="cfg-000000"] [data-matrix-column="identity"]').dblclick();
     await expect(trend.locator('[data-configuration-numeric]')).toBeVisible();
     await expect(trend.getByRole('img', { name: /^설비별 값/ })).toBeVisible();
     await expect.poll(() => query(page).get('trendItem')).toBe('cfg-000000');
-    const workspace = page.locator('[data-panel-workspace]');
-    const matrixPanel = workspace.locator('[data-dock-panel="matrix"]');
+    // #2518: the untouched matrix and the newly opened trend share the visible area.
+    await expect(matrixPanel).toBeInViewport({ ratio: 1 });
+    await expect(trendPanel).toBeInViewport({ ratio: 1 });
     const matrixBounds = await grid(page).boundingBox();
     const panelBounds = await matrixPanel.boundingBox();
     const trendBounds = await trend.boundingBox();
@@ -158,6 +168,45 @@ test.describe('Configuration', () => {
     await expect(trend).toHaveCount(0);
     await expect.poll(() => query(page).has('trendItem')).toBe(false);
     await expect(grid(page)).toBeVisible();
+  });
+
+  test('opening the trend splits the area evenly and keeps the double-clicked row inside the matrix (#2518)', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await open(page, '&status=all');
+    const workspace = page.locator('[data-panel-workspace]');
+    const matrixPanel = workspace.locator('[data-dock-panel="matrix"]');
+    const trendPanel = workspace.locator('[data-dock-panel="trend"]');
+    const row = grid(page).locator('[data-matrix-row^="cfg-"]').nth(10);
+    const id = await row.getAttribute('data-matrix-row');
+    await row.locator('[data-matrix-column="identity"]').dblclick();
+    await expect.poll(() => query(page).get('trendItem')).toBe(id);
+    await expect(trendPanel).toBeInViewport({ ratio: 1 });
+    await expect.poll(async () => {
+      const [matrix, trend] = await Promise.all([matrixPanel.boundingBox(), trendPanel.boundingBox()]);
+      return matrix && trend ? Math.abs(matrix.height - trend.height) : Infinity;
+    }).toBeLessThanOrEqual(2);
+    // Vertically inside the matrix viewport, below its sticky header (the row is wider than the viewport, so not a whole-element ratio).
+    await expect.poll(() => page.evaluate(rowId => {
+      const viewport = document.querySelector('[data-matrix-viewport]')!;
+      const head = document.querySelector('[data-matrix-viewport] [role="row"]')!.getBoundingClientRect();
+      const box = viewport.getBoundingClientRect();
+      const target = document.querySelector(`[data-matrix-row="${rowId}"]`)!.getBoundingClientRect();
+      return target.top >= head.bottom - 1 && target.bottom <= box.top + viewport.clientTop + viewport.clientHeight + 1;
+    }, id)).toBe(true);
+  });
+
+  test('the wheel over string lanes that fit scrolls the trend panel (#2518)', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await open(page, '&status=all');
+    await grid(page).locator('[data-matrix-row="cfg-000001"] [data-matrix-column="identity"]').dblclick();
+    const trend = page.locator('[data-configuration-trend]');
+    const lanes = trend.locator('[data-lane-scroll]');
+    await expect(lanes).toBeVisible();
+    await expect.poll(() => trend.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const box = (await lanes.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, Math.min(box.y + 40, 880));
+    await page.mouse.wheel(0, 300);
+    await expect.poll(() => trend.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   });
 
   test('captures and restores the trend item in a saved menu view', async ({ page }, testInfo) => {
