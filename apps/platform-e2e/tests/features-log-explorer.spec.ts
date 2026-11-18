@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { evidence, expandPageHead, signInAs } from './support';
+import { evidence, signInAs } from './support';
 
 const investigation = (n: number) => `/log/explorer/14730000-0000-4000-8000-00000000000${n}?v=1`;
 test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', () => {
@@ -7,7 +7,7 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   test('목록 → 근거 위치 → 바구니, text-only 원문과 standalone 조사는 Round 넘기기 비활성', async ({ page }, info) => {
     await page.goto('/log/explorer?v=1');
     await expect(page.getByRole('heading', { name: '로그 탐색', exact: true })).toBeVisible();
-    await expandPageHead(page);
+    await expect(page.getByRole('button', { name: /페이지 머리/ })).toHaveCount(0);
     await expect(page.getByText('합성 데이터', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /^조회 조건/ })).toHaveAttribute('aria-expanded', 'false');
     await page.getByRole('button', { name: 'source-b:1 상세', exact: true }).click();
@@ -27,7 +27,6 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   test('조회 조건 popover keeps the pager visible, restores focus and fits the desktop viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(investigation(1));
-    await expandPageHead(page);
     const main = page.getByRole('main');
     const table = page.getByRole('table', { name: '원본 이벤트 목록', exact: true });
     const trigger = page.getByRole('button', { name: /^조회 조건/ });
@@ -53,7 +52,6 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
     await expect(trigger).toContainText('Module module-a');
     await expect(trigger).not.toContainText('미적용 변경');
     await page.reload();
-    await expandPageHead(page);
     const restoredTrigger = page.getByRole('button', { name: /^조회 조건/ });
     await expect(restoredTrigger).toContainText('Module module-a');
     await restoredTrigger.click();
@@ -67,7 +65,6 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   });
   test('Round에서 시작한 조사: 근거 위치를 Round로 넘기는 확인 대화상자(#1474)', async ({ page }, info) => {
     await page.goto(investigation(7));
-    await expandPageHead(page);
     await page.getByRole('button', { name: 'source-b:1 상세', exact: true }).click();
     await page.getByRole('button', { name: '근거 위치 담기', exact: true }).click();
     await page.getByRole('button', { name: '근거 위치 바구니 · 1', exact: true }).click();
@@ -141,7 +138,6 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   test('원본 ↔ 시퀀스 조건·선택 유지와 1280 서랍의 파일·타입 기본 숨김', async ({ page }, info) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(investigation(1));
-    await expandPageHead(page);
     await page.getByRole('button', { name: 'source-b:1 상세', exact: true }).click();
     const table = page.getByRole('table', { name: '원본 이벤트 목록' });
     await expect(table.getByRole('columnheader', { name: '파일', exact: true })).toHaveCount(0);
@@ -162,7 +158,6 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   for (const [n, label] of [[2, '일부 결과'], [3, '원본 없음'], [4, '권한 철회'], [5, '원문 잘림']] as const) {
     test(`합성 응답 상태: ${label}`, async ({ page }, info) => {
       await page.goto(investigation(n));
-      await expandPageHead(page);
       await expect(page.getByText(new RegExp(label)).first()).toBeVisible();
       if (n === 3 || n === 4) await expect(page.getByRole('table', { name: '원본 이벤트 목록' })).toHaveCount(0);
       await evidence(page, info, `log-explorer-synthetic-state-${n}`);
@@ -170,14 +165,12 @@ test.describe('로그 탐색 합성 Consumer (§13·§15·§16·§22, #1473)', (
   }
   test('시퀀스 미지원은 원본과 구분해 표시', async ({ page }, info) => {
     await page.goto(investigation(6));
-    await expandPageHead(page);
     await page.getByRole('tab', { name: '시퀀스', exact: true }).click();
     await expect(page.getByText('시퀀스 미지원', { exact: true })).toBeVisible();
     await evidence(page, info, 'log-explorer-synthetic-sequence-unsupported');
   });
   test('내보내기 범위·한도와 현재 어댑터의 미지원 이유', async ({ page }, info) => {
     await page.goto(investigation(1));
-    await expandPageHead(page);
     await page.getByRole('button', { name: '더보기', exact: true }).click();
     await page.getByRole('button', { name: '현재 범위 내보내기…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: '현재 범위 내보내기', exact: true });

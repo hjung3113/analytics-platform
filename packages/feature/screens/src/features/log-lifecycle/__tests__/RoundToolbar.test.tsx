@@ -100,6 +100,11 @@ it('places the Round sample ordering and Top View note in page info on the sourc
   const received = page.mock.calls.at(-1)?.[0];
   expect(received ? Reflect.get(received, 'description') : undefined).toBe('0파일 · 파일 순서 → 줄 번호 · Top View 미연결');
 });
+it.each(['verify', 'source'] as const)('uses a stable fill page layout for the Round %s view', view => {
+  setup({ view }, view === 'source');
+  const received = page.mock.calls.at(-1)?.[0];
+  expect(received ? Reflect.get(received, 'layout') : undefined).toBe('fill');
+});
 
 it.each([
   [{ status: 'error', denied: true } as const, /읽기 권한이 없습니다/],
