@@ -30,10 +30,13 @@ function FocusBody() {
   // cannot override the new window or entry. The first run keeps it (refresh / link restoration of the same context).
   const identity = JSON.stringify([resetKey, props.entityType, props.anchor]);
   const seen = useRef(identity);
+  const identityChanged = seen.current !== identity;
   useEffect(() => {
     if (seen.current === identity) return;
     seen.current = identity;
-    if (pageParam('rangeFrom') !== null || pageParam('rangeTo') !== null) setPage({ rangeFrom: null, rangeTo: null }, { replace: true });
+    if (pageParam('rangeFrom') !== null || pageParam('rangeTo') !== null || pageParam('cursor') !== null) {
+      setPage({ rangeFrom: null, rangeTo: null, cursor: null }, { replace: true });
+    }
   }, [pageParam, setPage, identity]);
   if (state !== null || load?.kind !== 'ready' || props.equipment === null) return <div>{state}</div>;
   const { equipment } = props;
@@ -42,7 +45,8 @@ function FocusBody() {
     {detail && <DetailDrawer title={detail.label} onClose={() => setDetail(null)}
       tabs={[{ id: 'detail', label: m('focusScreenDetail'), content: detail.node }]} />}
     <FocusView trust={<TrustBadge trust={load.trust} assessments={load.assessments} />} input={load.input} notices={load.notices} entityType={props.entityType} anchor={props.anchor} resetKey={resetKey}
-      range={{ value: props.range, onChange: (range) => setPage({ rangeFrom: range.from, rangeTo: range.to }, { replace: true }) }}
+      initialCursor={identityChanged ? null : props.cursor} onCursorCommit={(cursor) => setPage({ cursor }, { replace: true })}
+      range={{ value: props.range, onChange: (range, cursor) => setPage({ rangeFrom: range.from, rangeTo: range.to, cursor }, { replace: true }) }}
       tab={tab} onTabChange={setTab} renderDetail={renderDetail}
       links={{ actions: <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:topview', { page: { equipment } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowLeft className="size-3.5" aria-hidden />Top View로</Button> }} />
     </>
@@ -51,7 +55,7 @@ function FocusBody() {
 
 /** The platform page frame (page title, Context bar) around the Focus view. */
 export function FocusScreen() {
-  const rules = usePageKeyRulesFor(useEquipmentOptions().state);
+  const rules = usePageKeyRulesFor(useEquipmentOptions().state, true);
   // A rejected key sends no replay query: the load lives in `FocusBody`, which is not mounted while a key is invalid.
   return <PlatformPage title="Focus">{rules.invalid ? <PageKeyWarning sentences={rules.sentences} onRecover={rules.recover} /> : <FocusBody />}</PlatformPage>;
 }

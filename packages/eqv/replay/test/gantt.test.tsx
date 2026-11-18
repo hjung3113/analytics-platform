@@ -18,7 +18,7 @@ if (typeof window.PointerEvent !== 'function') {
 }
 
 function setup(cursor: SiteWallClock = time('10:06:00'), expanded: string[] = []) {
-  const handlers = { onCursorChange: vi.fn(), onSelectOccurrence: vi.fn(), onToggleExpand: vi.fn() };
+  const handlers = { onCursorChange: vi.fn(), onCursorCommit: vi.fn(), onSelectOccurrence: vi.fn(), onToggleExpand: vi.fn() };
   const view = render(<FocusGantt timeline={timeline} layout={equipmentLayout} batch={batch} cursor={cursor} selectedOccurrenceId={null}
     selectedComponentId={null} expanded={new Set(expanded)} {...handlers} />);
   return { ...handlers, view, svg: view.container.querySelector('svg')! };
@@ -46,7 +46,7 @@ it('draws the Binding boundary, Watermark line and shade, Time Anomaly band and 
 });
 
 it('moves the cursor with ←/→ to the previous/next breakpoint and Home/End to the range ends', () => {
-  const { onCursorChange } = setup();
+  const { onCursorChange, onCursorCommit } = setup();
   const slider = screen.getByRole('slider', { name: '커서 시각' });
   expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:06:00');
   expect(slider.getAttribute('aria-valuemax')).toBe(String(Number(slider.getAttribute('aria-valuemin')) + 30 * 60_000 - 1));
@@ -54,6 +54,7 @@ it('moves the cursor with ←/→ to the previous/next breakpoint and Home/End t
     ['Home', time('10:00:00')], ['End', '2026-01-01T10:29:59.999']] as const) {
     fireEvent.keyDown(slider, { key });
     expect(onCursorChange).toHaveBeenLastCalledWith(expected);
+    expect(onCursorCommit).toHaveBeenLastCalledWith(expected);
   }
 });
 
@@ -76,17 +77,30 @@ it('ignores moves after a press released elsewhere, and keeps the Gantt at its d
   expect(svg.closest('[role="region"]')?.getAttribute('aria-label')).toBe('Gantt 차트');
 });
 
-it('selects an Occurrence on a bar click without moving the cursor, and marks open Occurrences with an open end', () => {
-  const { onCursorChange, onSelectOccurrence, svg } = setup(time('10:26:00'));
+it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurrences with an open end', () => {
+  const { onCursorChange, onCursorCommit, onSelectOccurrence, svg } = setup(time('10:26:00'));
   const bar = Array.from(svg.querySelectorAll('[data-bar="material"][data-occurrence-id="occ-open"]')).at(-1)!;
+  const axis = svg.querySelector('.eqv-rp-axis')!;
+  axis.getBoundingClientRect = () => ({ left: 100, width: 800, top: 0, height: 20, right: 900, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
   expect(bar.getAttribute('aria-label')).toMatch(/열림 · 위치 미확인$/);
   expect(bar.querySelector('[data-mark="open-end"]')).not.toBeNull();
-  fireEvent.pointerDown(bar);
+  fireEvent.pointerDown(bar, { clientX: 500, pointerId: 1 });
   fireEvent.pointerUp(bar);
   fireEvent.click(bar);
   expect(onSelectOccurrence).toHaveBeenCalledWith('occ-open');
-  expect(onCursorChange).not.toHaveBeenCalled();
+  expect(onCursorChange).toHaveBeenCalledWith(time('10:15:00'));
+  expect(onCursorCommit).toHaveBeenCalledWith(time('10:15:00'));
   expect(svg.querySelector('[data-bar][data-occurrence-id="occ-pm1-process"] [data-mark="open-end"]')).toBeNull();
+});
+
+it('seeks on a lane-row click using the same horizontal scale as the axis', () => {
+  const { onCursorChange, onCursorCommit, svg } = setup();
+  const lane = svg.querySelector('[data-lane-seek="true"]')!;
+  const axis = svg.querySelector('.eqv-rp-axis')!;
+  axis.getBoundingClientRect = () => ({ left: 100, width: 800, top: 0, height: 20, right: 900, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
+  fireEvent.pointerDown(lane, { clientX: 300, pointerId: 1 });
+  expect(onCursorChange).toHaveBeenCalledWith(time('10:07:30'));
+  expect(onCursorCommit).toHaveBeenCalledWith(time('10:07:30'));
 });
 
 it('expands a Component into Holding Site sublanes through its disclosure button', () => {
@@ -102,7 +116,7 @@ it('expands a Component into Holding Site sublanes through its disclosure button
 it('labels sub-minute ticks without a .000 fraction', () => {
   const short = replayTimeline(input, { from: time('10:05:00'), to: time('10:05:10') });
   const { container } = render(<FocusGantt timeline={short} layout={equipmentLayout} batch={batch} cursor={time('10:05:00')} selectedOccurrenceId={null}
-    selectedComponentId={null} expanded={new Set()} onCursorChange={vi.fn()} onSelectOccurrence={vi.fn()} onToggleExpand={vi.fn()} />);
+    selectedComponentId={null} expanded={new Set()} onCursorChange={vi.fn()} onCursorCommit={vi.fn()} onSelectOccurrence={vi.fn()} onToggleExpand={vi.fn()} />);
   const labels = [...container.querySelectorAll('.eqv-rp-tick text')].map((node) => node.textContent);
   expect(labels[0]).toBe('10:05:00');
   expect(labels.join(' ')).not.toContain('.000');

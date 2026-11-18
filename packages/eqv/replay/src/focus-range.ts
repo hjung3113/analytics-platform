@@ -16,10 +16,15 @@ const MIN_MARGIN_MS = 60_000;
  * Default Focus range for an entry key (`entityType` `job`: `anchor` is the RecordSequence string, AP ADR-0094; otherwise `anchor` is an Occurrence id, the Studio reading).
  * The entry's span widened by max(25 %, 60 s) each side and clamped to the batch; the batch window when no entry applies.
  */
-export function focusRange(batch: OccurrenceBatch, key: FocusEntry): FocusRange {
+export function focusRange(batch: OccurrenceBatch, key: FocusEntry, requestedCursor: SiteWallClock | null = null): FocusRange {
   const { anchor } = key;
   const whole = { from: batch.from, to: batch.to };
-  const fallback = (notice: string, entry: Occurrence | null = null): FocusRange => ({ range: whole, cursor: batch.from, entry, notice });
+  const batchFrom = wallClockToMillis(batch.from);
+  const batchTo = wallClockToMillis(batch.to);
+  const requestedMs = requestedCursor === null ? null : wallClockToMillis(requestedCursor);
+  const validRequestedCursor = requestedMs !== null && requestedMs >= batchFrom && requestedMs <= batchTo ? requestedCursor : null;
+  const validRequestedMs = validRequestedCursor === null ? null : requestedMs;
+  const fallback = (notice: string, entry: Occurrence | null = null): FocusRange => ({ range: whole, cursor: validRequestedCursor ?? batch.from, entry, notice });
   if (anchor === null) return fallback('진입 키가 없어 전체 구간을 표시합니다');
   const entry = entryOccurrence(batch, key);
   if (!entry) return fallback(`진입 Occurrence를 찾지 못해 전체 구간을 표시합니다 (${anchor})`);
@@ -31,12 +36,15 @@ export function focusRange(batch: OccurrenceBatch, key: FocusEntry): FocusRange 
   const low = Math.min(first, second);
   const high = Math.max(first, second);
   const margin = Math.max((high - low) / 4, MIN_MARGIN_MS);
-  const floor = wallClockToMillis(batch.from);
-  const ceiling = wallClockToMillis(batch.to);
+  const floor = batchFrom;
+  const ceiling = batchTo;
   let from = Math.min(Math.max(low - margin, floor), ceiling - 1);
   const to = Math.max(Math.min(high + margin, ceiling), from + 1);
-  from = Math.min(from, to - 1);
-  const range = { from: millisToWallClock(Math.round(from)), to: millisToWallClock(Math.round(to)) };
-  const cursor = startAt < range.from || startAt >= range.to ? range.from : startAt;
+  let widenedFrom = Math.min(from, validRequestedMs ?? from);
+  let widenedTo = Math.max(to, Math.min(ceiling, (validRequestedMs ?? (to - 1)) + 1));
+  widenedFrom = Math.min(Math.max(widenedFrom, floor), ceiling - 1);
+  widenedTo = Math.max(Math.min(widenedTo, ceiling), widenedFrom + 1);
+  const range = { from: millisToWallClock(Math.round(widenedFrom)), to: millisToWallClock(Math.round(widenedTo)) };
+  const cursor = validRequestedCursor ?? (startAt < range.from || startAt >= range.to ? range.from : startAt);
   return { range, cursor, entry, notice: null };
 }

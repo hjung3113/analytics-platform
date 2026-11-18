@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, ChartGantt, MapPinOff, ServerCrash } from 'lucide-react';
 import {
@@ -27,6 +27,7 @@ type View = {
   draft: { from: string; to: string } | null;
   rangeError: string | null;
   rangeExpanded: boolean;
+  cursorMoveNotice: { from: SiteWallClock; to: SiteWallClock } | null;
   /** null means the entry's default cursor. */
   cursor: SiteWallClock | null;
   selectedOccurrenceId: string | null;
@@ -80,7 +81,11 @@ type FocusViewBaseProps = {
   /** The host's load identity: a change resets every piece of view state (range, cursor, selections, mode). */
   resetKey: string;
   /** The applied 재생 구간 held by the host (page keys), so it survives a refresh and a copied link: `value` is shown as the applied range and "적용" reports the new one through `onChange`. Absent: the view keeps the range itself (Studio). The host owns clearing it when the entry changes. */
-  range?: { value: Range | null; onChange: (range: Range) => void };
+  range?: { value: Range | null; onChange: (range: Range, cursor: SiteWallClock) => void };
+  /** Optional page-key cursor restored by the host on mount. */
+  initialCursor?: SiteWallClock | null;
+  /** Called for discrete seeks and when playback pauses or stops, never on each playback frame. */
+  onCursorCommit?: (at: SiteWallClock) => void;
   /** When given, selecting an Occurrence hands its `EvidenceDetail` to the host (null clears the slot: reset, no valid state, no selection, removal, unmount) and the inline "근거 상세" tab is omitted. The callback must be stable (memoised or a state setter): a new identity re-publishes. */
   renderDetail?: (detail: { node: ReactNode; label: string } | null) => void;
   links?: {
@@ -104,11 +109,12 @@ export type FocusViewProps = FocusViewBaseProps & (
 );
 
 /** Top View, Gantt and Occurrence list on one cursor, from props only (no page chrome, router or loader). */
-export function FocusView({ input, notices, trust, entityType, anchor, resetKey, range: hostRange, renderDetail, tab: controlledTab, onTabChange, links, timelineBudget = TIMELINE_BUDGET, ganttSpanLimit = GANTT_SPAN_LIMIT, scheduler }: FocusViewProps) {
+export function FocusView({ input, notices, trust, entityType, anchor, resetKey, range: hostRange, initialCursor = null, onCursorCommit, renderDetail, tab: controlledTab, onTabChange, links, timelineBudget = TIMELINE_BUDGET, ganttSpanLimit = GANTT_SPAN_LIMIT, scheduler }: FocusViewProps) {
   const entryKey = JSON.stringify([entityType, anchor]);
   // An anchor naming an Occurrence of the batch is the entry: it starts selected (view state only; the cursor is the entry's own).
   const entryId = entryOccurrence(input.batch, { entityType, anchor })?.id ?? null;
-  const fresh = (): View => ({ resetKey, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursor: null,
+  const entry = useMemo(() => focusRange(input.batch, { entityType, anchor }, initialCursor), [input.batch, entityType, anchor, initialCursor]);
+  const fresh = (): View => ({ resetKey, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice: null, cursor: entry.cursor,
     selectedOccurrenceId: entryId, selectedComponentId: null, expanded: new Set(), mode: { kind: 'time' }, illustrative: false });
   const [view, setView] = useState<View>(fresh);
   const [ownTab, setOwnTab] = useState<FocusTab>('list');
@@ -117,18 +123,23 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const rangeId = useId();
   const rangeRegionId = `${rangeId}-region`;
   const changeButton = useRef<HTMLButtonElement>(null);
+  const focusRoot = useRef<HTMLDivElement>(null);
+  const cursorSnapshot = useRef<SiteWallClock | null>(null);
+  const playbackWasActive = useRef(false);
   // The Enter that confirms a Korean composition (Safari: right after compositionend) does not apply the range (#2236).
   const ime = useImeEnterGuard();
   const rangeErrorId = `${rangeId}-error`;
   // Everything below belongs to the reset key and the entry key: a change clears it during render. The cursor, range and
   // selection belong to one batch.
-  if (view.resetKey !== resetKey) setView(fresh());
-  else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursor: null, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
+  const cursorMoveNotice = view.cursor !== null && view.cursor !== entry.cursor ? { from: view.cursor, to: entry.cursor } : null;
+  if (view.resetKey !== resetKey) setView({ ...fresh(), cursorMoveNotice });
+  else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice, cursor: entry.cursor, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
 
-  const entry = useMemo(() => focusRange(input.batch, { entityType, anchor }), [input.batch, entityType, anchor]);
   const range = (hostRange ? hostRange.value : view.applied) ?? entry.range ?? null;
   const rawCursor = view.cursor ?? entry.cursor ?? null;
-  const cursor = range && rawCursor && rawCursor >= range.from && rawCursor < range.to ? rawCursor : range?.from ?? null;
+  const cursorIsInRange = (at: SiteWallClock, candidate: Range) => at >= candidate.from && (at < candidate.to || (at === candidate.to && candidate.to === input.batch.to));
+  const cursor = range && rawCursor && cursorIsInRange(rawCursor, range) ? rawCursor : range?.from ?? null;
+  const currentCursorMoveNotice = view.cursorMoveNotice ?? (rawCursor !== null && cursor !== null && rawCursor !== cursor ? { from: rawCursor, to: cursor } : null);
 
   const framed = useMemo((): { frame: ReplayTimelineFrame } | { error: string } | null => {
     if (!range) return null;
@@ -194,14 +205,50 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
     return () => renderDetail(null);
   }, [renderDetail, detail]);
 
-  const patch = (changes: Partial<View>) => setView((previous) => ({ ...previous, ...changes }));
-  const playback = usePlayback({ cursor, range, onCursorChange: (at) => patch({ cursor: at }), resetKey: JSON.stringify([resetKey, entryKey]), scheduler });
+  const patch = useCallback((changes: Partial<View>) => setView((previous) => ({ ...previous, ...changes })), []);
+  const updateCursor = useCallback((at: SiteWallClock) => patch({ cursor: at, mode: { kind: 'time' }, cursorMoveNotice: null }), [patch]);
+  const playback = usePlayback({ cursor, range, onCursorChange: updateCursor, resetKey: JSON.stringify([resetKey, entryKey]), scheduler });
+  const { pause: pausePlayback, play: playPlayback, playing } = playback;
+  useEffect(() => { cursorSnapshot.current = cursor; }, [cursor]);
+  useEffect(() => {
+    if (playbackWasActive.current && !playing && cursorSnapshot.current !== null) onCursorCommit?.(cursorSnapshot.current);
+    playbackWasActive.current = playing;
+  }, [playing, onCursorCommit]);
   const shownAt = state?.at ?? null;
   const breakpoints = frame?.breakpoints ?? [];
   const previousBreakpoint = shownAt === null ? undefined : [...breakpoints].reverse().find((t) => t < shownAt);
   const nextBreakpoint = shownAt === null ? undefined : breakpoints.find((t) => t > shownAt);
-  const toTime = (at: SiteWallClock) => patch({ cursor: at, mode: { kind: 'time' } });
-  const stepBreakpoint = (at: SiteWallClock) => { playback.pause(); toTime(at); };
+  const stepBreakpoint = useCallback((at: SiteWallClock) => {
+    const wasPlaying = playing;
+    pausePlayback();
+    updateCursor(at);
+    if (!wasPlaying) onCursorCommit?.(at);
+  }, [onCursorCommit, pausePlayback, playing, updateCursor]);
+  const commitCursor = useCallback((at: SiteWallClock) => onCursorCommit?.(at), [onCursorCommit]);
+  const togglePlayback = useCallback(() => {
+    if (playing) pausePlayback();
+    else { patch({ mode: { kind: 'time' }, cursorMoveNotice: null }); playPlayback(); }
+  }, [patch, playPlayback, pausePlayback, playing]);
+  useEffect(() => {
+    const onPageKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target;
+      const element = target instanceof HTMLElement ? target : null;
+      if (element && (element.isContentEditable || element.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
+      const inView = target instanceof Node && focusRoot.current?.contains(target);
+      if (!inView && target !== document.body && target !== document.documentElement) return;
+      if (event.key === ' ') {
+        event.preventDefault();
+        togglePlayback();
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        const next = event.key === 'ArrowLeft' ? previousBreakpoint : nextBreakpoint;
+        if (next !== undefined) stepBreakpoint(next);
+      }
+    };
+    document.addEventListener('keydown', onPageKeyDown);
+    return () => document.removeEventListener('keydown', onPageKeyDown);
+  }, [nextBreakpoint, previousBreakpoint, stepBreakpoint, togglePlayback]);
   const stepIndex = sequenceSeq === null ? -1 : steps.findIndex((s) => s.seq === sequenceSeq);
   const entryStep = !state ? undefined : state.appliedSeq === null ? steps[0] : steps.filter((s) => s.seq <= state.appliedSeq!).at(-1);
   const enterSequence = () => {
@@ -214,15 +261,18 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const apply = () => {
     const parsed = parseRange(draft.from, draft.to);
     if ('error' in parsed) { patch({ rangeError: parsed.error }); return; }
-    const outside = cursor === null || cursor < parsed.range.from || cursor >= parsed.range.to;
-    hostRange?.onChange(parsed.range);
-    patch({ applied: parsed.range, draft: null, rangeError: null, rangeExpanded: false, mode: { kind: 'time' }, ...(outside ? { cursor: parsed.range.from } : {}) });
+    const outside = cursor === null || !cursorIsInRange(cursor, parsed.range);
+    const nextCursor = outside ? parsed.range.from : cursor;
+    const cursorMove = cursor !== null && nextCursor !== cursor ? { from: cursor, to: nextCursor } : null;
+    hostRange?.onChange(parsed.range, nextCursor);
+    patch({ applied: parsed.range, draft: null, rangeError: null, rangeExpanded: false, mode: { kind: 'time' }, cursor: nextCursor, cursorMoveNotice: cursorMove });
     changeButton.current?.focus();
   };
   const select = (id: string, moveCursor: boolean) => {
     const start = input.batch.occurrences.find((o) => o.id === id)?.start.at ?? null;
-    const move = moveCursor && start !== null && range !== null && start >= range.from && start < range.to;
-    patch({ selectedOccurrenceId: id, ...(move ? { cursor: start, mode: { kind: 'time' } } : {}) });
+    const move = moveCursor && start !== null && range !== null && cursorIsInRange(start, range);
+    patch({ selectedOccurrenceId: id, ...(move ? { cursor: start, mode: { kind: 'time' }, cursorMoveNotice: null } : {}) });
+    if (move && start !== null) onCursorCommit?.(start);
   };
   // With the host's detail slot there is no inline "detail" tab: a tab value of 'detail' shows the list.
   const tab = renderDetail && (controlledTab ?? ownTab) === 'detail' ? 'list' : controlledTab ?? ownTab;
@@ -232,7 +282,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   const noticeLine = <NoticeList notices={[...notices, ...(entry.notice ? [entry.notice] : [])]} className="mb-2" />;
 
   return (
-    <>
+    <div ref={focusRoot} className="contents">
       {!showTopView && <>{trust}{noticeLine}</>}
       {range && (
         <>
@@ -241,6 +291,9 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
             <Button ref={changeButton} type="button" variant="secondary" size="toolbar" aria-expanded={view.rangeExpanded} aria-controls={rangeRegionId}
               onClick={() => patch({ rangeExpanded: !view.rangeExpanded })}>변경</Button>
           </div>
+          {currentCursorMoveNotice && <p aria-live="polite" className="m-0 mb-2 text-sm text-text-secondary">
+            {`재생 커서를 ${wallClockText(currentCursorMoveNotice.from)} → ${wallClockText(currentCursorMoveNotice.to)}로 옮겼습니다`}
+          </p>}
           <div id={rangeRegionId} role="region" aria-label="재생 구간 변경" hidden={!view.rangeExpanded} className="mb-3">
           <form aria-label="구간" className="grid gap-3" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={(event) => { event.preventDefault(); apply(); }}>
             <div className="flex flex-wrap items-end gap-3">
@@ -268,7 +321,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
       {sceneState && 'error' in sceneState && <StateMessage compact tone="danger" icon={ServerCrash} title={`Replay 오류: ${sceneState.error}`} />}
       {showTopView && (
         <>
-          <PlaybackControls playing={playback.playing} onPlay={() => { patch({ mode: { kind: 'time' } }); playback.play(); }} onPause={playback.pause}
+          <PlaybackControls playing={playing} onPlay={togglePlayback} onPause={pausePlayback}
             speed={playback.speed} onSpeedChange={playback.setSpeed}
             onPreviousBreakpoint={previousBreakpoint === undefined ? null : () => stepBreakpoint(previousBreakpoint)}
             onNextBreakpoint={nextBreakpoint === undefined ? null : () => stepBreakpoint(nextBreakpoint)}
@@ -303,7 +356,7 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
           <Panel title="Gantt">
             {timeline ? (
               <FocusGantt timeline={timeline} layout={layout} batch={input.batch} cursor={state.at}
-                onCursorChange={toTime} selectedOccurrenceId={selectedId}
+                onCursorChange={updateCursor} onCursorCommit={commitCursor} selectedOccurrenceId={selectedId}
                 onSelectOccurrence={(id) => select(id, false)} selectedComponentId={view.selectedComponentId}
                 expanded={view.expanded} onToggleExpand={(id) => setView((previous) => {
                   const expanded = new Set(previous.expanded);
@@ -334,6 +387,6 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }

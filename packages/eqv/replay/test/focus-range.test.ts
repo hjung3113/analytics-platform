@@ -15,6 +15,16 @@ it.each([
 });
 
 it.each([
+  ['inside the entry range', time('10:06:00'), time('10:06:00'), time('10:05:00'), time('10:11:00')],
+  ['outside the entry range', '2026-01-01T10:20:00.001', '2026-01-01T10:20:00.001', time('10:05:00'), '2026-01-01T10:20:00.002'],
+  ['at the exclusive batch end', batch.to, batch.to, time('10:05:00'), batch.to],
+])('keeps a requested cursor %s and widens the entry range around it', (_name, requested, expectedCursor, expectedFrom, expectedTo) => {
+  const result = focusRange(batch, { entityType: 'occurrence', anchor: 'occ-pm1-process' }, requested);
+  expect(result.cursor).toBe(expectedCursor);
+  expect(result.range).toEqual({ from: expectedFrom, to: expectedTo });
+});
+
+it.each([
   [{ entityType: null, anchor: null }, '진입 키가 없어 전체 구간을 표시합니다'],
   [{ entityType: 'occurrence', anchor: 'nope' }, '진입 Occurrence를 찾지 못해 전체 구간을 표시합니다 (nope)'],
   [{ entityType: 'occurrence', anchor: 'occ-null-time' }, '진입 Occurrence의 시작 시각이 없어 전체 구간을 표시합니다'],

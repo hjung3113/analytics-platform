@@ -99,7 +99,7 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
           actions={<>
             <TrustBadge trust={load.trust} assessments={load.assessments} />
             <span ref={setZoomHost} className="contents" />
-            <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId) } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
+            <Button variant="secondary" size="toolbar" onClick={() => { const link = resolveLink('eqv:focus', { page: { equipment, ...focusEntry(scene.state, load.input.batch, selectedId), cursor: scene.state.at } }); if (link.allowed) navigate(link.href, { focus: 'page', via: 'link' }); }}><ArrowRight className="size-3.5" aria-hidden />Focus 열기</Button>
           </>}>
           <NoticeList notices={load.notices} className="mb-2" />
           {scene.layout ? (
