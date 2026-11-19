@@ -295,16 +295,23 @@ function FollowUpTrail({
   'onOpenTask' | 'onOpenFinding' | 'onOpenCluster' | 'onOpenRequest' | 'canOpen'
 >): React.ReactElement {
   function node(summary: EntityLinkTargetSummary): EntityNodeRef {
-    const kind: TrailOpenKind = summary.type === 'voc_cluster' ? 'cluster' : summary.type;
+    const kind: TrailOpenKind | null =
+      summary.type === 'survey'
+        ? null
+        : summary.type === 'voc_cluster'
+          ? 'cluster'
+          : summary.type;
     const handler =
-      summary.type === 'finding'
-        ? onOpenFinding
-        : summary.type === 'task'
-          ? onOpenTask
-          : summary.type === 'voc_cluster'
-            ? onOpenCluster
-            : onOpenRequest;
-    const open = (canOpen?.(kind, summary.id) ?? true) ? handler : undefined;
+      summary.type === 'survey'
+        ? undefined
+        : summary.type === 'finding'
+          ? onOpenFinding
+          : summary.type === 'task'
+            ? onOpenTask
+            : summary.type === 'voc_cluster'
+              ? onOpenCluster
+              : onOpenRequest;
+    const open = kind && handler && (canOpen?.(kind, summary.id) ?? true) ? handler : undefined;
     const title = summary.type === 'task_request' ? summary.requested_outcome : summary.title;
     return {
       type: summary.type === 'voc_cluster' ? 'cluster' : summary.type,

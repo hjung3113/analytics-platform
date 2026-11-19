@@ -353,6 +353,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
       msA,
       endpoints: {
         voc: sourceVoc,
+        survey: { id: sourceVoc.id },
         // Survey-response pairs are command-only, so generic routes reject this
         // opaque fixture ID before attempting a source lookup.
         survey_response: { id: sourceVoc.id },
@@ -673,6 +674,7 @@ describe.skipIf(!runIntegration)('POST/GET /entity-links (#112)', () => {
           tuple.relation_type === 'requested_task') ||
         (tuple.source_type === 'finding' && tuple.target_type === 'task' && tuple.relation_type === 'requested_task') ||
         (tuple.source_type === 'task_request' && tuple.target_type === 'task' && tuple.relation_type === 'converted_to') ||
+        (tuple.source_type === 'survey' && tuple.target_type === 'task' && tuple.relation_type === 'measures_outcome_of') ||
         tuple.source_type === 'survey_response'
       ) {
         expect(created.statusCode, JSON.stringify(tuple)).toBe(422);

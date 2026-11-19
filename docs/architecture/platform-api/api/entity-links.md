@@ -52,6 +52,15 @@ link. Only Finding-domain commands may write these tuples; the shipped
 `generated_finding`. `created_finding` is not a Survey Response lineage
 relation.
 
+The `(survey, task, measures_outcome_of)` tuple is command-only for writes.
+Only Survey create and draft-update commands may set, replace, or clear it;
+generic POST rejects it and generic PATCH/detach returns the non-disclosing
+`404 not_found.record` response. Endpoint and workspace listings include it
+under ordinary both-end visibility. It is `internal_only` and only valid for an
+Outcome Survey with a same-Managed-System Task. See
+[Survey API](surveys.md) and
+[ADR-0173](../../../adr/0173-survey-outcome-task-entity-link.md).
+
 Successful generic creation responses (both new `201` and duplicate `200`)
 use the same provider read checks and visibility projection as generic listings.
 Write eligibility does not grant endpoint summaries: hidden/denied responses

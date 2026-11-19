@@ -80,6 +80,13 @@ export function SurveyBuilder({
     isSaving,
     saveFailed,
     saveError,
+    outcomeTaskId,
+    outcomeTask,
+    hasOutcomeTask,
+    outcomeTaskLoading,
+    outcomeTaskLoadError,
+    setOutcomeTask,
+    clearOutcomeTask,
     preview,
     setPreview,
     launchOpen,
@@ -283,6 +290,14 @@ export function SurveyBuilder({
           survey={survey}
           managedSystemName={managedSystemNamesById?.get(survey.primary_managed_system_id)}
           managedSystemResolved={managedSystemNamesById !== undefined}
+          editable={editable}
+          outcomeTaskId={outcomeTaskId}
+          outcomeTask={outcomeTask}
+          hasOutcomeTask={hasOutcomeTask}
+          outcomeTaskLoading={outcomeTaskLoading}
+          outcomeTaskLoadError={outcomeTaskLoadError}
+          onOutcomeTaskChange={setOutcomeTask}
+          onOutcomeTaskClear={clearOutcomeTask}
         />
       </div>
       <SurveyStatusConfirmationDialog

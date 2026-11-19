@@ -543,7 +543,7 @@ Rules:
 
 ```text
 - relation_type=generated_voc is forbidden.
-- source_type and target_type are each one of voc, survey_response, finding, voc_cluster, task_request, task; only the registered (source_type, target_type, relation_type) pairs are valid.
+- source_type and target_type are each one of voc, survey, survey_response, finding, voc_cluster, task_request, task; only the registered (source_type, target_type, relation_type) pairs are valid.
 - At most one active link exists per (workspace_id, source_type, source_id, target_type, target_id, relation_type).
 - Detach sets status=detached with detached_by, detach_reason, and detached_at; stale and revoked are reserved and not written.
 - source and target must belong to the same workspace for MVP.
@@ -558,6 +558,8 @@ Rules:
 - Survey response provenance tuples (written only by Finding-domain commands):
   - (survey_response, finding, generated_finding)
   - (survey_response, finding, evidence_of)
+- Outcome Survey context tuple (written only by Survey create and draft-update commands):
+  - (survey, task, measures_outcome_of) — optional, same Managed System, internal-only, and not follow-up evidence.
 ```
 
 ## Reporter-Facing VOC Status

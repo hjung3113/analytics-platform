@@ -18,11 +18,19 @@ export async function saveSurveyDraft(deps: {
   savedTitleRef: { current: string };
   descriptionRef: { current: string };
   savedDescriptionRef: { current: string };
+  outcomeTaskId: string | null;
+  outcomeTaskTouched: boolean;
+  savedOutcomeTaskIdRef: { current: string | null };
+  onOutcomeTaskSaved: () => void;
   savedQuestionsRef: { current: SurveyQuestion[] };
   replaceLocalId: (localId: string, serverId: string) => void;
   updateQuestions: (update: (current: SurveyQuestion[]) => SurveyQuestion[]) => void;
   mutations: {
-    updateSurvey: (body: { title?: string; description?: string }) => Promise<unknown>;
+    updateSurvey: (body: {
+      title?: string;
+      description?: string;
+      outcome_task_id?: string | null;
+    }) => Promise<unknown>;
     remove: (id: string) => Promise<unknown>;
     create: (body: QuestionInput, idempotencyKey: string) => Promise<{ id: string }>;
     update: (args: { id: string; body: QuestionInput }) => Promise<unknown>;
@@ -35,6 +43,10 @@ export async function saveSurveyDraft(deps: {
     savedTitleRef,
     descriptionRef,
     savedDescriptionRef,
+    outcomeTaskId,
+    outcomeTaskTouched,
+    savedOutcomeTaskIdRef,
+    onOutcomeTaskSaved,
     savedQuestionsRef,
     replaceLocalId,
     updateQuestions,
@@ -43,13 +55,22 @@ export async function saveSurveyDraft(deps: {
 
   const sentTitle = titleRef.current;
   const sentDescription = descriptionRef.current;
-  const surveyPatch: { title?: string; description?: string } = {};
+  const surveyPatch: { title?: string; description?: string; outcome_task_id?: string | null } = {};
   if (sentTitle !== savedTitleRef.current) surveyPatch.title = sentTitle;
   if (sentDescription !== savedDescriptionRef.current) surveyPatch.description = sentDescription;
-  if (surveyPatch.title !== undefined || surveyPatch.description !== undefined) {
+  if (outcomeTaskTouched) surveyPatch.outcome_task_id = outcomeTaskId;
+  if (
+    surveyPatch.title !== undefined ||
+    surveyPatch.description !== undefined ||
+    outcomeTaskTouched
+  ) {
     await mutations.updateSurvey(surveyPatch);
     if (surveyPatch.title !== undefined) savedTitleRef.current = sentTitle;
     if (surveyPatch.description !== undefined) savedDescriptionRef.current = sentDescription;
+    if (outcomeTaskTouched) {
+      savedOutcomeTaskIdRef.current = outcomeTaskId;
+      onOutcomeTaskSaved();
+    }
   }
 
   const persisted = savedQuestionsRef.current;

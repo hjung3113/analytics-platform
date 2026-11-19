@@ -6,6 +6,7 @@ import { findingEntityLinkProvider } from './modules/findings/entity-link-provid
 import { validationRoundEntityLinkProvider } from './modules/log-lifecycle/entity-link-provider.js';
 import { taskRequestEntityLinkProvider } from './modules/task-requests/entity-link-provider.js';
 import { taskEntityLinkProvider } from './modules/tasks/entity-link-provider.js';
+import { surveyEntityLinkProvider } from './modules/surveys/entity-link-provider.js';
 import { vocClusterEntityLinkProvider } from './modules/voc-clusters/entity-link-provider.js';
 import { vocEntityLinkProvider } from './modules/voc/entity-link-provider.js';
 
@@ -18,6 +19,7 @@ export function buildEntityLinkProviders(
 ): EntityLinkProviderRegistry {
   return {
     voc: vocEntityLinkProvider,
+    survey: surveyEntityLinkProvider,
     survey_response: opaqueSurveyResponseProvider,
     finding: findingEntityLinkProvider,
     voc_cluster: vocClusterEntityLinkProvider,

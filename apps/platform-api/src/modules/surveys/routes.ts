@@ -34,6 +34,7 @@ const create = z
     operator_actor_id: uuid.optional(),
     responses_identity_protected: z.boolean(),
     starting_point: surveyStartingPointSchema.optional(),
+    outcome_task_id: uuid.optional(),
   })
   .strict();
 const update = z
@@ -45,6 +46,7 @@ const update = z
     analytics_area_id: uuid.optional(),
     operator_actor_id: uuid.optional(),
     responses_identity_protected: z.boolean().optional(),
+    outcome_task_id: uuid.nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, { message: 'at least one field is required' });

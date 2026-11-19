@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { entityLinkDtoSchema, entityLinkTargetSummarySchema } from '../entity-links.js';
+import { entityLinkDtoSchema, entityLinkVocClusterSummarySchema } from '../entity-links.js';
 import { LinkedAttachmentSchema } from './attachment.js';
 import { conversationEntrySchema } from './conversation.js';
 import { vocFollowUpStateSchema } from './follow-up-state.js';
@@ -69,7 +69,7 @@ export const vocDetailEnvelopeSchema = vocDetailBaseSchema.extend({
       .array(
         z.object({
           origin: z.enum(['direct', 'cluster']),
-          cluster: entityLinkTargetSummarySchema.options[3].optional(),
+          cluster: entityLinkVocClusterSummarySchema.optional(),
           links: z.array(entityLinkDtoSchema),
         }),
       )

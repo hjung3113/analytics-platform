@@ -28,9 +28,14 @@ export interface CreateSurveyInput {
   analytics_area_id?: string;
   operator_actor_id?: string;
   responses_identity_protected: boolean;
+  outcome_task_id?: string;
 }
 
-export type SurveyPatchInput = Partial<Omit<CreateSurveyInput, 'starting_point'>>;
+export type SurveyPatchInput = Partial<
+  Omit<CreateSurveyInput, 'starting_point' | 'outcome_task_id'>
+> & {
+  outcome_task_id?: string | null;
+};
 
 /**
  * Strict question-route input: absent optional fields must be omitted, never

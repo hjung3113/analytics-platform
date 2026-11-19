@@ -124,6 +124,7 @@ Page Archetype, 셸 영역, 상세 패널, 분석 보드와 작업 영역, 페�
 - [0128](0128-app-joins-menus-for-embedded-bodies.md) — 한 메뉴 화면이 다른 메뉴의 본문을 품을 때는 앱이 둘을 잇는다(main.tsx 슬롯 주입, 메뉴 간 import 금지 유지)
 - [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) — 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`)
 - [0162](0162-inbound-links-destination-declares-object-kinds.md) — 들어오는 연결의 목적지 객체 종류 선언과 출발 목록 opt-in
+- [0173](0173-survey-outcome-task-entity-link.md) — Outcome Survey가 측정할 Task를 Entity Link로 기록한다
 
 ## 서버·어댑터·연결
 

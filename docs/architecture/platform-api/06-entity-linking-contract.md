@@ -91,7 +91,7 @@ extends Entity Linking to ends that have no Managed System (log-lifecycle 개발
   (noManagedSystemEntityLinkPairs in packages/feature/shared/src/entity-links.ts; today only
    manual_validation_attachment -> validation_round, evidence_of).
 - DB: entity_links_managed_system_check = (tuple is a no-Managed-System tuple) = (managed_system_id is null),
-  so every other tuple still requires it; entity_links_tuple_check lists the new pair (14 tuples).
+  so every other tuple still requires it; entity_links_tuple_check lists the new pair (15 tuples).
 - A tuple with exactly one such end is never registered; "VOC <-> Round" is refused as an unsupported tuple.
 - Write: only the owning module's command, through EntityLinksService.createNoManagedSystemLink inside its own
   transaction (roundEvidenceAttach: attach + link + both audits commit or roll back together; attaching the same
@@ -188,6 +188,7 @@ POST /findings/:id/request-task        -> (finding, task_request, requested_task
 POST /vocs/:id/request-task            -> (voc, task_request, requested_task)        [#136]
 POST /voc-clusters/:id/request-task    -> (voc_cluster, task_request, requested_task) [#136]
 POST /survey-responses/:id/create-finding -> (survey_response, finding, generated_finding)
+POST /surveys (when outcome_task_id is present) -> (survey, task, measures_outcome_of) [#2540]
 ```
 
 Direct `POST /entity-links` creation is narrower than the registered/DB tuple
@@ -245,6 +246,16 @@ response/Finding pair). FO ADR-0064 also accepts the
 `evidence_of` only, never `generated_finding`. Generic
 `POST /entity-links` and generic link listings exclude every `survey_response`
 source (`genericEntityLinkPairs` in the backend entity-links service).
+
+The `(survey, task, measures_outcome_of)` tuple is command-only for writes.
+`POST /surveys` and draft `PATCH /surveys/:id` own creation, replacement, and
+detachment. Generic `POST /entity-links` rejects it, and generic
+`PATCH /entity-links/:id` detach returns the same non-disclosing `404` envelope
+as an absent link. Endpoint and workspace inventory listings include it under
+ordinary both-end visibility. Only an Outcome Survey may carry one active link;
+the Task and Survey must share a Managed System, and the link is frozen after
+the Survey opens. Its `internal_only` visibility never grants a Task reader
+access to Survey metadata without `survey.read`.
 
 Independent value CHECKs are forbidden because they would admit invalid tuples.
 Creatable visibility stays `internal_only`.

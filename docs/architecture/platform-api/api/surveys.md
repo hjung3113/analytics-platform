@@ -40,7 +40,16 @@ Current reachable Finding task paths are in the `/findings/:id` family.
 `POST /surveys` requires `survey.manage`, an `Idempotency-Key`, and mutation
 rate limiting. Its strict request body is `{ type: 'discovery' | 'validation' |
 'outcome', title, description?, primary_managed_system_id, analytics_area_id?,
-operator_actor_id?, responses_identity_protected, starting_point? }`. It returns `201` with the
+operator_actor_id?, responses_identity_protected, starting_point?, outcome_task_id? }`.
+`outcome_task_id` is optional and accepted only for an Outcome Survey. The Task
+must be readable with `finding.read` and belong to the Survey's Managed System.
+Missing, foreign-workspace, or unreadable Tasks return `422 validation.failed`
+with `detail.fields: [{ path: ['outcome_task_id'], code: 'invalid' }]`; a
+readable Task in another Managed System uses code `managed_system_mismatch` at
+the same path. The command creates an `internal_only` `(survey, task,
+measures_outcome_of)` Entity Link through the Entity Links service in the same
+transaction. Idempotent replay creates no second link. It returns `201` with
+the
 Survey DTO: `{ id, workspace_id, display_id, type, status, title, description,
 primary_managed_system_id, analytics_area_id, operator_actor_id,
 responses_identity_protected, created_by, opened_at, closed_at, created_at,
@@ -250,8 +259,20 @@ same Survey DTO (without `questions`).
 `PATCH /surveys/:id` requires `survey.manage`, an `Idempotency-Key`, and
 mutation rate limiting. Its strict, non-empty partial body permits only
 `type`, `title`, `description`, `primary_managed_system_id`,
-`analytics_area_id`, `operator_actor_id`, and
-`responses_identity_protected`; omitted fields retain their stored values.
+`analytics_area_id`, `operator_actor_id`, `responses_identity_protected`, and
+`outcome_task_id`; omitted fields retain their stored values. For the
+`(survey, task, measures_outcome_of)` link, omission means unchanged, `null`
+clears it, and a UUID sets or replaces it. Only an Outcome Survey may carry the
+link; a replacement Task must be readable with `finding.read` and share the
+Survey's Managed System. Missing, foreign-workspace, or unreadable Tasks return
+`422 validation.failed` with `detail.fields: [{ path: ['outcome_task_id'],
+code: 'invalid' }]`; a readable Task in another Managed System uses code
+`managed_system_mismatch` at that path. Changing the Survey's Managed System or
+type while a link is active requires the same request to clear or replace the
+link; no implicit detach occurs. The link is frozen after the Survey opens.
+The Survey update, Entity Link changes, and `entity_link.created` or
+`entity_link.detached` audit details commit in the same transaction as
+`survey_updated`; the existing Survey audit detail remains `{ survey_id }`.
 It is draft-only; an open or closed Survey returns `422 validation.failed` with
 `fields: [{ path: ['status'], code: 'not_draft' }]`. Missing or cross-workspace
 Surveys return `404 not_found.record`. Changing `primary_managed_system_id`

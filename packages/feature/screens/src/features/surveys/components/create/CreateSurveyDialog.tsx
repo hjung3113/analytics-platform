@@ -2,7 +2,10 @@ import { fetchCapabilityScopeViaClient } from '../../../../lib/api/permission-re
 import { fetchManagedSystems } from '../../../../lib/api/registry-reads';
 import { ApiError } from '../../../../lib/api/types';
 import { SURVEY_STATUS_LABELS, SURVEY_TYPE_LABELS } from '../../../../lib/copy/enum-labels';
-import { SURVEY_START_COPY as COPY } from '../../../../lib/copy/survey-builder';
+import {
+  SURVEY_OUTCOME_LINK_COPY as OUTCOME_LINK_COPY,
+  SURVEY_START_COPY as COPY,
+} from '../../../../lib/copy/survey-builder';
 import {
   activeAnalyticsAreas,
   analyticsAreasCatalogQuery,
@@ -15,6 +18,7 @@ import {
 } from '@ap/feature-shared';
 import {
   Button,
+  Combobox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,6 +39,7 @@ import {
   useValidatedSubmit,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
+import { listTasks } from '../../../../lib/api/tasks';
 import * as React from 'react';
 import {
   useCreateSurvey,
@@ -43,11 +48,13 @@ import {
   useSurveyTemplates,
 } from '../../hooks/useSurveys';
 import type { SurveyType } from '../../types';
+import type { TaskDto } from '@ap/feature-shared';
 
 interface SurveyCreateValues {
   title: string;
   type: SurveyType | '';
   system: string;
+  outcomeTaskId: string | null;
   identityProtected: 'true' | 'false' | '';
   mode: 'blank' | 'builtin' | 'existing';
   startingPoint: string;
@@ -72,6 +79,8 @@ export function CreateSurveyDialog({
   const [title, setTitle] = React.useState('');
   const [type, setType] = React.useState<SurveyType | ''>('');
   const [system, setSystem] = React.useState('');
+  const [outcomeTask, setOutcomeTask] = React.useState<TaskDto | null>(null);
+  const [taskSearch, setTaskSearch] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [analyticsArea, setAnalyticsArea] = React.useState('');
   const [identityProtected, setIdentityProtected] = React.useState<'true' | 'false' | ''>('');
@@ -124,6 +133,18 @@ export function CreateSurveyDialog({
     enabled: open && Boolean(system),
     retry: false,
   });
+  const tasks = useQuery({
+    queryKey: ['tasks', 'survey-outcome-picker', system, taskSearch],
+    queryFn: ({ signal }) =>
+      listTasks({
+        managed_system_id: system,
+        ...(taskSearch.trim() ? { q: taskSearch.trim() } : {}),
+        limit: 20,
+        signal,
+      }),
+    enabled: open && type === 'outcome' && Boolean(system),
+    retry: false,
+  });
   const allowedSystems = (systems.data?.items ?? []).filter(
     (candidate) =>
       candidate.archived_at === null &&
@@ -156,6 +177,8 @@ export function CreateSurveyDialog({
     // for an unchanged pending/uncertain attempt).
     if (definition && !pinnedStart.current) {
       setType(definition.type);
+      setOutcomeTask(null);
+      setTaskSearch('');
       if (!titleEdited) setTitle(definition.title);
     }
   }, [definition, titleEdited]);
@@ -208,6 +231,9 @@ export function CreateSurveyDialog({
       const next: Partial<Record<keyof SurveyCreateValues, string>> = {};
       if (values.title.trim() === '') next.title = COPY.titleRequired;
       if (values.type === '') next.type = COPY.typeRequired;
+      if (values.type !== 'outcome' && values.outcomeTaskId !== null) {
+        next.outcomeTaskId = '결과 유형에서만 Task를 연결할 수 있습니다.';
+      }
       if (values.system === '') next.system = COPY.systemRequired;
       else if (!values.systemInScope) next.system = COPY.systemUnavailable;
       if (values.mode !== 'blank') {
@@ -250,6 +276,8 @@ export function CreateSurveyDialog({
     setTitle('');
     setType('');
     setSystem('');
+    setOutcomeTask(null);
+    setTaskSearch('');
     setDescription('');
     setAnalyticsArea('');
     setIdentityProtected('');
@@ -292,6 +320,9 @@ export function CreateSurveyDialog({
         title: values.title.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
         primary_managed_system_id: values.system,
+        ...(values.type === 'outcome' && values.outcomeTaskId
+          ? { outcome_task_id: values.outcomeTaskId }
+          : {}),
         ...(analyticsArea ? { analytics_area_id: analyticsArea } : {}),
         responses_identity_protected: values.identityProtected === 'true',
         ...(startingPoint ? { starting_point: startingPoint } : {}),
@@ -354,6 +385,7 @@ export function CreateSurveyDialog({
             title,
             type,
             system,
+            outcomeTaskId: outcomeTask?.id ?? null,
             identityProtected,
             mode,
             startingPoint: mode === 'builtin' ? templateId : mode === 'existing' ? sourceId : '',
@@ -417,6 +449,8 @@ export function CreateSurveyDialog({
                     disabled={startingPointChosen}
                     onValueChange={(value) => {
                       setType(value as SurveyType);
+                      setOutcomeTask(null);
+                      setTaskSearch('');
                       clearError('type');
                     }}
                   >
@@ -433,6 +467,9 @@ export function CreateSurveyDialog({
                   </Select>
                 )}
               </FormField>
+              <p className="-mt-3 text-xs text-text-muted">
+                {type ? OUTCOME_LINK_COPY.typeExplanation[type] : OUTCOME_LINK_COPY.chooseTypeExplanation}
+              </p>
               <div>
                 {startingPointChosen ? (
                   <p className="text-sm text-text-muted">{COPY.sourceSetsType}</p>
@@ -444,6 +481,8 @@ export function CreateSurveyDialog({
                     value={system}
                     onValueChange={(value) => {
                       setSystem(value);
+                      setOutcomeTask(null);
+                      setTaskSearch('');
                       setAnalyticsArea('');
                       clearSelection();
                       clearError('system');
@@ -465,6 +504,46 @@ export function CreateSurveyDialog({
                   </Select>
                 )}
               </FormField>
+              {type === 'outcome' ? (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="survey-outcome-task" className="text-sm font-medium">
+                    {OUTCOME_LINK_COPY.taskPickerLabel}
+                  </label>
+                  <Combobox
+                    id="survey-outcome-task"
+                    aria-describedby="survey-outcome-task-help"
+                    value={outcomeTask?.id ?? null}
+                    onChange={(id) => {
+                      const selected = tasks.data?.items.find((task) => task.id === id);
+                      if (selected) setOutcomeTask(selected);
+                    }}
+                    onSearchChange={setTaskSearch}
+                    filterOptions={false}
+                    options={[
+                      ...(outcomeTask && !tasks.data?.items.some((task) => task.id === outcomeTask.id)
+                        ? [{ value: outcomeTask.id, label: `${outcomeTask.display_id} · ${outcomeTask.title}` }]
+                        : []),
+                      ...(tasks.data?.items ?? [])
+                        .filter((task) => task.primary_managed_system_id === system)
+                        .map((task) => ({ value: task.id, label: `${task.display_id} · ${task.title}` })),
+                    ]}
+                    disabled={!system}
+                    loading={tasks.isLoading || tasks.isFetching}
+                    placeholder={OUTCOME_LINK_COPY.taskPickerPlaceholder}
+                    searchPlaceholder={OUTCOME_LINK_COPY.taskSearchPlaceholder}
+                    listboxLabel={OUTCOME_LINK_COPY.taskPickerLabel}
+                    emptyText={tasks.isError ? OUTCOME_LINK_COPY.taskLoadError : OUTCOME_LINK_COPY.taskUnlinked}
+                  />
+                  <p id="survey-outcome-task-help" className="text-xs text-text-muted">
+                    {system ? OUTCOME_LINK_COPY.taskHelp : OUTCOME_LINK_COPY.systemRequired}
+                  </p>
+                  {outcomeTask ? (
+                    <Button type="button" variant="subtle" size="sm" className="self-start" onClick={() => setOutcomeTask(null)}>
+                      {OUTCOME_LINK_COPY.clearTask}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
               {mode !== 'blank' && (
                 <section aria-label={COPY.preview} className="flex flex-col gap-2">
                   {!system ? (
