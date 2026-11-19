@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const apiRequest = vi.hoisted(() => vi.fn());
 vi.mock('../../../lib/api/client', () => ({ apiRequest }));
 
 import { ManagedSystemScopeControl } from '../ManagedSystemScopeControl';
+import { managedSystemsCatalogBridgeQuery } from '../../../lib/cross-system/managedSystemCatalog';
 
 const ME = (roleLevel: string) => ({
   actor: {
@@ -97,5 +98,49 @@ describe('ManagedSystemScopeControl', () => {
       ),
     );
     expect(screen.getByTestId('scope-selector')).not.toHaveTextContent('내 담당:');
+  });
+
+  it('names an archived selection from the catalog without offering it as a switch target', async () => {
+    respond('admin', { kind: 'all' });
+    const defaultResponse = apiRequest.getMockImplementation();
+    if (!defaultResponse) throw new Error('Expected the default API fixture');
+    const archived = { ...system(MS_B, 'Beta'), archived_at: '2026-01-02T00:00:00.000Z' };
+    apiRequest.mockImplementation(async (method, url, parser) => {
+      if (url === '/managed-systems') return { data: { items: [SYSTEMS.items[0]], total: 1 } };
+      if (url.startsWith('/managed-systems?include_archived=true')) {
+        return { data: { items: [SYSTEMS.items[0], archived], total: 2 } };
+      }
+      return defaultResponse(method, url, parser);
+    });
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ManagedSystemScopeControl value={MS_B} onChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const trigger = await screen.findByRole('button', { name: '시스템, Beta, 보관됨' });
+    expect(trigger).toHaveTextContent('Beta');
+    expect(trigger).toHaveTextContent('보관됨');
+    fireEvent.click(trigger);
+    expect(screen.getByRole('option', { name: /Alpha/ })).toBeVisible();
+    expect(screen.queryByRole('option', { name: /Beta/ })).toBeNull();
+  });
+
+  it('keeps a partial catalog entry with no archive timestamp in the unknown state', async () => {
+    respond('admin', { kind: 'all' });
+    const partial = { id: '33333333-3333-4333-8333-333333333333', name: 'Gamma' };
+    apiRequest.mockImplementationOnce(async (_method, _url, parser) => ({
+      data: parser.parse({ items: [partial], total: 1 }),
+    }));
+    const client = new QueryClient();
+    await client.fetchQuery(managedSystemsCatalogBridgeQuery());
+    render(
+      <QueryClientProvider client={client}>
+        <ManagedSystemScopeControl value={partial.id} onChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const trigger = await screen.findByTestId('scope-selector');
+    expect(trigger).toHaveAccessibleName('시스템, 알 수 없는 시스템');
+    expect(trigger).not.toHaveTextContent('보관됨');
   });
 });

@@ -5,6 +5,7 @@ export const SCOPE_SELECTOR_COPY = {
   assignedCountPrefix: '내 담당',
   unionAccessibleQualifier: '내 담당 범위',
   outOfScope: '범위 밖',
+  archived: '보관됨',
   unknownLabel: '알 수 없는 시스템',
   listScopeLabel: '시스템',
   loading: '불러오는 중…',

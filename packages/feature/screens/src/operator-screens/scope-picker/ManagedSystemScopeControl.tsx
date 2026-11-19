@@ -10,6 +10,7 @@ import { useMeBridge } from '../../lib/api/me';
 import { fetchCapabilityScopeViaClient } from '../../lib/api/permission-reads';
 import { fetchManagedSystems } from '../../lib/api/registry-reads';
 import { SCOPE_SELECTOR_COPY } from '../../lib/copy/managed-system-scope';
+import { managedSystemsCatalogBridgeQuery } from '../../lib/cross-system/managedSystemCatalog';
 
 import { ManagedSystemScopePicker } from './ManagedSystemScopePicker';
 
@@ -40,6 +41,14 @@ export function ManagedSystemScopeControl({
     staleTime: 5 * 60_000,
     retry: false,
   });
+  const catalogQuery = useQuery({
+    ...managedSystemsCatalogBridgeQuery(),
+    enabled: !collapsed && !disabled && value !== undefined && systemsQuery.isSuccess &&
+      !systemsQuery.data.items.some(system => system.id === value),
+  });
+  const archivedSystemName = catalogQuery.data?.items.find(
+    system => system.id === value && typeof system.archived_at === 'string',
+  )?.name;
   const grantsQuery = useQuery({
     queryKey: ['managed-system-scope', actorId, 'voc.read'] as const,
     enabled: actorId !== undefined,
@@ -98,6 +107,7 @@ export function ManagedSystemScopeControl({
     <div ref={rootRef}>
       <ManagedSystemScopePicker
         managedSystems={managedSystems}
+        {...(archivedSystemName !== undefined ? { archivedSystemName } : {})}
         {...(value !== undefined ? { value } : {})}
         onChange={onChange}
         {...(disabled !== undefined ? { disabled } : {})}

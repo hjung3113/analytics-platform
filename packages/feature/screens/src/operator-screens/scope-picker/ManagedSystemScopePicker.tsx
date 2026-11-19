@@ -15,6 +15,8 @@ export interface ManagedSystemScopeOption {
 
 export interface ManagedSystemScopePickerProps {
   managedSystems: ManagedSystemScopeOption[];
+  /** Catalog name for the selected archived system, for display only. */
+  archivedSystemName?: string;
   /** Selected Managed System id; `undefined` is `전체`. Never stored here. */
   value?: string;
   onChange: (managedSystemId: string | undefined) => void;
@@ -30,6 +32,7 @@ export interface ManagedSystemScopePickerProps {
 
 export function ManagedSystemScopePicker({
   managedSystems,
+  archivedSystemName,
   value,
   onChange,
   disabled = false,
@@ -59,12 +62,14 @@ export function ManagedSystemScopePicker({
   if (collapsed) return null;
   const scopeControlEnabled = !disabled;
   const selectedSystem = managedSystems.find((system) => system.id === value);
+  const archived = value !== undefined && !selectedSystem && archivedSystemName !== undefined;
+  const selectedName = selectedSystem?.name ?? archivedSystemName;
   // An empty list (loading, error, no systems) keeps `전체`; only a loaded list can prove a uuid unknown.
-  const isUnknown = value !== undefined && managedSystems.length > 0 && !selectedSystem;
+  const isUnknown = value !== undefined && managedSystems.length > 0 && !selectedName;
   const grantedSystems = managedSystems.filter((system) => system.granted);
   const isUnion = !workspaceWideScope && value === undefined;
   const scopeName = scopeControlEnabled
-    ? (selectedSystem?.name ??
+    ? (selectedName ??
       (isUnknown ? SCOPE_SELECTOR_COPY.unknownLabel : SCOPE_SELECTOR_COPY.allLabel))
     : SCOPE_SELECTOR_COPY.workspaceAll;
   const scopeQualifier = scopeControlEnabled
@@ -74,7 +79,8 @@ export function ManagedSystemScopePicker({
         ? SCOPE_SELECTOR_COPY.unionAccessibleQualifier
         : null
     : null;
-  const scopeAccessibleName = [label, scopeName, scopeQualifier].filter(Boolean).join(', ');
+  const archiveLabel = scopeControlEnabled && archived ? SCOPE_SELECTOR_COPY.archived : undefined;
+  const scopeAccessibleName = [label, scopeName, archiveLabel, scopeQualifier].filter(Boolean).join(', ');
 
   const select = (managedSystemId: string | undefined) => {
     onChange(managedSystemId);
@@ -160,13 +166,14 @@ export function ManagedSystemScopePicker({
         data-testid="scope-selector"
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent-primary/15 text-xs font-semibold text-accent-primary">
-          {selectedSystem ? selectedSystem.name.slice(0, 1) : isUnknown ? '?' : '∗'}
+          {selectedName ? selectedName.slice(0, 1) : isUnknown ? '?' : '∗'}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1 font-medium">
-            <span className="min-w-0 flex-1 truncate" data-testid="scope-name" title={scopeName}>
+            <span className={cn('min-w-0 flex-1', archiveLabel ? '[overflow-wrap:anywhere]' : 'truncate')} data-testid="scope-name" title={scopeName}>
               {scopeName}
             </span>
+            {archiveLabel && <ScopeBadge testId="scope-archived-badge" label={archiveLabel} />}
             {scopeControlEnabled && selectedSystem && !selectedSystem.granted && (
               <ScopeBadge
                 testId="scope-out-of-scope-badge"
@@ -200,7 +207,7 @@ export function ManagedSystemScopePicker({
             <div
               role="option"
               tabIndex={-1}
-              aria-selected={value === undefined || (!selectedSystem && !isUnknown)}
+              aria-selected={value === undefined || (!selectedName && !isUnknown)}
               aria-labelledby={allNameId}
               aria-describedby={allHelpId}
               className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-row-hover"
