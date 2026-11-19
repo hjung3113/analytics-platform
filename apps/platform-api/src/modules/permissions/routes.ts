@@ -222,6 +222,10 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
         workspace_id: sess.workspace_id,
         role_level: sess.role_level,
       };
+      const scope = {
+        workspace_id: sess.workspace_id,
+        ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
+      };
 
       // The generic check answers for `roleSatisfies` only. Domain modules that
       // layer their own admin bypass (Finding, Task Request, Survey) would let
@@ -230,10 +234,7 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
       const decision: Decision = applyAdminModuleBypass(
         sess.role_level,
         capability,
-        await checkService.checkCapability(actor, capability, {
-          workspace_id: sess.workspace_id,
-          ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
-        }),
+        await checkService.checkCapability(actor, capability, scope),
         capabilities,
       );
 
@@ -244,13 +245,16 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
       // `permission_requests_active_uq` (workspace, requester, capability,
       // COALESCE(managed_system_id, sentinel)). A null query MS hits null
       // rows; a concrete MS UUID hits exactly its own rows.
-      const openRequestSummary = await requestService.findOpenRequestSummary(actor, capability, {
-        workspace_id: sess.workspace_id,
-        ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
-      });
+      const [openRequestSummary, requestScopeSupported] = await Promise.all([
+        requestService.findOpenRequestSummary(actor, capability, scope),
+        !decision.allow && decision.requestable?.length && scope.managed_system_id !== undefined
+          ? requestService.supportsManagedSystemRequest(scope.workspace_id, capability, scope.managed_system_id)
+          : true,
+      ]);
 
-      const state: FrontendState = toFrontendState(decision, openRequestSummary);
-      return { state, decision };
+      const pointDecision = !decision.allow && !requestScopeSupported ? { ...decision, requestable: null } : decision;
+      const state: FrontendState = toFrontendState(pointDecision, openRequestSummary);
+      return { state, decision: pointDecision };
     },
   });
 

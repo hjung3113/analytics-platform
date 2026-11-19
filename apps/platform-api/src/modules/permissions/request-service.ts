@@ -57,7 +57,7 @@ import type { IdempotencyService } from '../core/idempotency/idempotency-service
 import type { NotificationNotifier } from '../notifications/index.js';
 import { type ActorContext, type CheckScope, type CheckService, capabilitiesOf } from './check-service.js';
 import type { OpenRequestSummary } from './state-mapper.js';
-import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
+import { isSupportedScope, supportedScopeCandidates, validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
 import { permissionGroupOrigin, validateGroupBatch } from './group-service.js';
 import { assertBatchRevisions, lockRequestBatch } from './batch-requests.js';
 
@@ -953,6 +953,10 @@ export function createRequestService(deps: RequestServiceDeps) {
 
   return {
     scopeCandidates: (actor: ActorContext) => scopeCatalogCandidates(db, actor.workspace_id, actor.actor_id, deps.scopeCatalog),
+    supportsManagedSystemRequest: async (workspaceId: string, capability: CapabilityName, managedSystemId: string) => {
+      const candidates = await supportedScopeCandidates(db, workspaceId, capability, capabilitiesOf(checkService));
+      return isSupportedScope(candidates, managedSystemId, null, null);
+    },
     createRequest,
     createRequestBatch,
     submitMoreInfoBatch,
