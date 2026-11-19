@@ -114,11 +114,8 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, co
     ...(cap.roomNames === 'apply' ? [{ id: globalFacet('roomNames'), label: t('roomNames') }] : []),
     ...(cap.line === 'apply' ? [{ id: globalFacet('lineNames'), label: tx(CONTEXT_LABELS.line) }] : []),
     ...(cap.prcGroup === 'apply' ? [{ id: globalFacet('prcGroups'), label: tx(CONTEXT_LABELS.prcGroup) }] : []),
-    ...(cap.condition === 'apply' ? editableAxes.map(axis => ({
-      id: axisFacet(axis.id),
-      label: tx(axis.label),
-      parentId: axis.dependsOn === 'roomNames' ? globalFacet('roomNames') : axis.dependsOn && axisFacet(axis.dependsOn),
-    })) : []),
+    // Categories stay flat in one row; a declared dependsOn never nests them (#2600).
+    ...(cap.condition === 'apply' ? editableAxes.map(axis => ({ id: axisFacet(axis.id), label: tx(axis.label) })) : []),
   ];
   const picks: Record<string, readonly string[]> = Object.create(null);
   for (const [id, values] of Object.entries(g.condition ?? {})) picks[id === CUSTOM_GROUP_AXIS ? groupFacet : axisFacet(id)] = values;

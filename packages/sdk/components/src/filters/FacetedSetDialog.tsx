@@ -202,22 +202,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   const awaitingCount = direct && (!ready || stale);
   const settings = settingsSlot?.({ value: current, ready });
   const applyDisabled = !ready || pending || invalidRule || settings?.applyDisabled;
-  const byId = new Map(facets.map(facet => [facet.id, facet]));
-  const childrenByParent = new Map<string | undefined, { facet: FacetedSetFacet; position: number }[]>();
-  facets.forEach((facet, position) => {
-    // Missing parents (e.g. hidden by a preset) and cycles leave facets reachable at the root.
-    let parent = facet.parentId;
-    const seen = new Set([facet.id]);
-    while (parent && !seen.has(parent)) {
-      seen.add(parent);
-      parent = byId.get(parent)?.parentId;
-    }
-    const parentId = parent || !facet.parentId || !byId.has(facet.parentId) ? undefined : facet.parentId;
-    const siblings = childrenByParent.get(parentId) ?? [];
-    siblings.push({ facet, position });
-    childrenByParent.set(parentId, siblings);
-  });
-  const renderFacets = (parentId: string | undefined): ReactNode => childrenByParent.get(parentId)?.map(({ facet, position }) => {
+  const facetButtons = facets.map((facet, position) => {
     const open = expanded.has(facet.id);
     const picks = rulePicks(rule, facet.id);
     const first = picks.length ? valueLabel(facet.id, picks[0]) : null;
@@ -230,7 +215,6 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
         if (next.has(facet.id)) next.delete(facet.id); else next.add(facet.id);
         return next;
       })}><span aria-hidden>{open ? '−' : '+'}</span>{facet.label}<span className="truncate text-text-secondary" title={caption}>{caption}</span></Button>
-      {childrenByParent.has(facet.id) && <ul className="ml-2 grid min-w-0 list-none gap-1 border-l border-border-subtle pl-2">{renderFacets(facet.id)}</ul>}
     </li>;
   });
   return <DialogContent closeLabel={direct ? t('close') : m('fsCancel')} aria-describedby={`${id}-description`}
@@ -262,7 +246,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
         {suggestions.length > searchLimit && <Button variant="secondary" onClick={() => setSearchLimit(previous => previous + SEARCH_PAGE_SIZE)}>{m('fsMoreSuggestions', { count: (suggestions.length - searchLimit).toLocaleString() })}</Button>}
       </div>}
       <ul className="flex max-h-36 shrink-0 list-none flex-wrap items-start gap-2 overflow-auto" aria-label={m('fsFacets')}>
-        {renderFacets(undefined)}
+        {facetButtons}
       </ul>
       {ready && <div className="flex shrink-0 gap-3 overflow-x-auto">
         {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-80 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
