@@ -159,7 +159,7 @@ describe('Task Request cursor screens', () => {
     expect(await screen.findByTestId('selected-request')).toHaveTextContent('REQ-1');
     fireEvent.click(screen.getByRole('button', { name: 'Approve selected' }));
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+      expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
         'aria-selected',
         'true',
       ),
@@ -262,7 +262,7 @@ describe('Task Request cursor screens', () => {
       }),
     );
     mount(second.id);
-    expect(await screen.findByRole('tab', { name: '검토 대기 , 51' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: '검토 중 , 51' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '승인됨 , 18' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '전체 , 69' })).toBeInTheDocument();
     expect(await screen.findByTestId('selected-request')).toHaveTextContent('REQ-2');
@@ -273,13 +273,13 @@ describe('Task Request cursor screens', () => {
     expect(screen.getByRole('tab', { name: '전체 , 69' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Approve selected' }));
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+      expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
         'aria-selected',
         'true',
       ),
     );
     expect(screen.getByTestId('selected-request')).toHaveTextContent('REQ-2');
-    expect(screen.getByRole('tab', { name: '검토 대기 , 51' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: '검토 중 , 51' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -306,8 +306,8 @@ describe('Task Request cursor screens', () => {
       }),
     );
     mount();
-    expect(await screen.findByText('검토 대기 중인 Task 요청이 없습니다')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '검토 대기 , 0' })).toBeInTheDocument();
+    expect(await screen.findByText('검토 중인 Task 요청이 없습니다')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '검토 중 , 0' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '승인됨 , 18' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '전체 , 18' })).toBeInTheDocument();
     expect(screen.queryByText('Task 요청이 없습니다.')).not.toBeInTheDocument();

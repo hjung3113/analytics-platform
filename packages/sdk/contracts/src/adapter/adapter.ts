@@ -193,6 +193,8 @@ export type AuditSortField = 'at' | 'actor' | 'action' | 'source' | 'targetType'
  * operator typed, not an identity stamp; a read does not append an audit row.
  */
 export type AuditTrailQuery = {
+  /** Include available authorized actor and target display labels. Exact filter values remain IDs. */
+  includeLabels?: true;
   type?: string; // opaque case-sensitive token [A-Za-z][A-Za-z0-9_.:-]{0,79}; well-formed unknown = empty, malformed = error. Absent = all. Owner: real-server-checklist §2 auditTrail (ADR-0101).
   actor?: string; // exact, case-sensitive.
   action?: AuditAction;

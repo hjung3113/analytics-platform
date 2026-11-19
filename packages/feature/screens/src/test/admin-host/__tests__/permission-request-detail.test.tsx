@@ -127,6 +127,6 @@ describe('Permission Requests public page', () => {
     installFetch([]);
     renderPage();
     // #589: Korean-first fallback copy; not prototype copy.
-    await screen.findByText('알 수 없는 사용자', { exact: true });
+    await screen.findByText('이름 미확인', { exact: true });
   });
 });

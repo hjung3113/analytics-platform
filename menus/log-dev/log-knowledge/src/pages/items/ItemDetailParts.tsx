@@ -5,9 +5,6 @@ import type { ItemAssessment, ItemDetail, ItemEvidence, ItemLinkRow } from '../.
 import { OwnerChip, StateBadge } from './ItemBadges';
 import { AXIS_LABEL, AXIS_OF_DIMENSION, evidenceKindLabel, instantText, itemNoLabel, shortActor, stateLabel } from './itemModel';
 
-/** A server instant, rendered through the kernel `formatInstant` in the viewer's zone (`instantText`). */
-export const stamp = instantText;
-
 export function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return <section aria-label={title} className="grid min-w-0 gap-2 rounded-md border border-border-subtle bg-surface-card p-3">
     <h3 className="flex items-center gap-2 text-xs font-semibold text-text-secondary">{title}{count !== undefined && <span className="tabular font-normal text-text-muted">{count}</span>}</h3>
@@ -82,7 +79,7 @@ export function RevisionList({ revisions, latest, viewing, onSelect }: {
         <span className={cn('t-mono', shown ? 'font-semibold text-text-primary' : 'text-text-secondary')}>r{r.revisionNo}</span>
         <span className="grid min-w-0">
           <span className={cn('truncate', shown ? 'text-text-primary' : 'text-text-secondary')}>{r.changeNote ?? r.title}{current && <span className="ml-1.5 text-xs text-text-muted">현재</span>}</span>
-          <span className="tabular text-xs text-text-muted">{stamp(r.publishedAt)} · <span title={r.publishedBy}>{shortActor(r.publishedBy)}</span></span>
+          <span className="tabular text-xs text-text-muted">{instantText(r.publishedAt)} · <span title={r.publishedBy}>{shortActor(r.publishedBy)}</span></span>
         </span>
       </button>
     </li>;
@@ -95,7 +92,7 @@ export function AssessmentTimeline({ assessments }: { assessments: readonly Item
   return <ol className="grid gap-0" aria-label="판단 변경 이력 (최신 먼저)">{assessments.map((a, i) => {
     const axis = AXIS_OF_DIMENSION[a.dimension];
     return <li key={a.id} className="grid grid-cols-[9.5rem_minmax(0,1fr)] gap-3 pb-3 last:pb-0">
-      <div className="tabular pt-0.5 text-xs text-text-muted">{stamp(a.observedAt)}<br /><span className="text-text-secondary" title={a.actorId}>{shortActor(a.actorId)}</span></div>
+      <div className="tabular pt-0.5 text-xs text-text-muted">{instantText(a.observedAt)}<br /><span className="text-text-secondary" title={a.actorId}>{shortActor(a.actorId)}</span></div>
       <div className={cn('grid gap-1 border-l-2 pl-3', i === 0 ? 'border-accent-primary' : 'border-border-subtle')}>
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className="text-xs font-semibold text-text-secondary">{axis ? AXIS_LABEL[axis] : a.dimension}</span>

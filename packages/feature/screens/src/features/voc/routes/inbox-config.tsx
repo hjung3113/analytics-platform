@@ -62,7 +62,7 @@ export const FILTER_CATEGORIES: FilterCategory[] = [
     label: '상태',
     options: [
       { value: 'received', label: '접수됨' },
-      { value: 'reviewing', label: '검토중' },
+      { value: 'reviewing', label: '검토 중' },
       { value: 'assigned', label: '배정됨' },
       { value: 'progress', label: '진행중' },
       { value: 'prep', label: '준비중' },

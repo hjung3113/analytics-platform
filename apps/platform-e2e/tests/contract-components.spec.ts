@@ -52,7 +52,7 @@ test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-
     await page.goto('/operations/admin-audit?v=1');
     await page.locator('[data-filter-body="actor"]').click();
     const editor = page.getByRole('dialog', { name: '행위자' });
-    await editor.getByRole('textbox', { name: '값' }).fill('kim');
+    await editor.getByRole('textbox', { name: '정확한 ID' }).fill('kim');
     await editor.getByRole('button', { name: '적용' }).click();
     await expect(page.locator('[data-column-filter-chip="actor"]')).toContainText('kim');
     expect(query(page).has('actor')).toBe(false);
@@ -82,14 +82,16 @@ test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-
     await expect(table.getByRole('row').filter({ has: page.getByRole('link', { name: /상세$/ }) }).first()).toBeVisible();
     await expect(empty).toHaveCount(0);
     await page.goto('/operations/admin-audit?filter=targetType:equals:Future.Type%3Av2');
-    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('알 수 없는 유형');
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
     // The hidden filter key is read from the link, moved into history state and survives a reload.
     await expect.poll(() => query(page).has('filter')).toBe(false);
     await page.reload();
-    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('알 수 없는 유형');
+    const persisted = await page.evaluate(() => window.history.state?.apHidden?.pairs);
+    expect(persisted).toContainEqual(['filter', 'targetType:equals:Future.Type:v2']);
     await expect(empty).toBeVisible();
     await expect(table).toHaveCount(0);
     await page.goto('/operations/admin-audit?filter=targetType:equals:9bad');

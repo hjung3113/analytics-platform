@@ -172,7 +172,7 @@ describe('내 권한 요청 — Site·공정 rows', () => {
     const roomRow = (await screen.findByText('Site SITE-A · 공정 RA2')).closest('li');
     const siteRow = screen.getByText('Site SITE-B 전체').closest('li');
     if (!roomRow || !siteRow) throw new Error('rows missing');
-    expect(within(roomRow).getByText('대기 중')).toBeInTheDocument();
+    expect(within(roomRow).getByText('검토 중')).toBeInTheDocument();
     expect(within(siteRow).getByText('승인됨')).toBeInTheDocument();
     expect(within(siteRow).queryByRole('button', { name: /철회/ })).not.toBeInTheDocument();
 

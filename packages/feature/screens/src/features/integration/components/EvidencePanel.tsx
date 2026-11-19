@@ -1,7 +1,6 @@
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { ApiError } from '../../../lib/api/types';
 import { EVIDENCE_COPY as COPY } from '../../../lib/copy/evidence';
-import { formatDate } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
 import { searchHref } from '../../../lib/host/search';
@@ -75,8 +74,7 @@ function EvidencePanelBody({ item, loading, error, mismatch, onRetry }: Evidence
             <h3 className="text-sm font-semibold">
               {item.finding.display_id} · {item.finding.title}
             </h3>
-            <EvidenceContent item={item} />
-            <p className="text-xs text-text-muted">{formatDate(item.created_at)}</p>
+            <EvidenceContent key={item.id} item={item} />
           </div>
         ) : null}
       </div>

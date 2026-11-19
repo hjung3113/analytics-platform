@@ -72,10 +72,14 @@ test.describe('운영 콘솔 실서버 (06 §4·§9.1·§17)', () => {
     expect(((await (await search).json()) as { outcome?: unknown }).outcome).toBe('empty');
     await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
     // The condition travels in the hidden `filter` key (ADR-0105): the chip carries it, the address does not show it.
-    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('알 수 없는 유형');
     await expect.poll(() => new URL(page.url()).searchParams.has('filter')).toBe(false);
+    const reloadedSearch = waitForAuditSearch(page, { type: 'Future.Type:v2' });
     await page.reload();
-    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('Future.Type:v2');
+    const response = await reloadedSearch;
+    expect(response.status()).toBe(200);
+    expect(((await response.json()) as { outcome?: unknown }).outcome).toBe('empty');
+    await expect(page.locator('[data-column-filter-chip="targetType"]')).toContainText('알 수 없는 유형');
     await expect(page.getByRole('main').getByText('조건에 맞는 결과가 없습니다')).toBeVisible();
   });
 

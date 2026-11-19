@@ -30,7 +30,7 @@ import { useColumnPreferences } from './useColumnPreferences';
 import { usePagedRows } from './usePagedRows';
 import { useRowsSource } from './useRowsSource';
 import { useColumnFilters } from './columnFilters';
-import { resolveFilterFields, type InstantEntry, type TableFilterField } from './filterFields';
+import { resolveFilterFields, type ExactTextFilterChoices, type InstantEntry, type TableFilterField } from './filterFields';
 import type { FilterValueCheck } from './tableFilterUrl';
 import { FilterLine, HeaderFunnel, fieldCheck, useDroppedNote } from './filterLine';
 import { useTableTransfer } from './useTableTransfer';
@@ -108,6 +108,8 @@ export type PlatformColumn<T> = {
   filterPinned?: boolean | number;
   /** Display only: the field name in the filter line, editor and XLSX 조회 정보; default = `header`. */
   filterLabel?: string;
+  /** Labeled choices for an exact text condition. Receives only the current table page. The URL continues to store the exact text value. */
+  filterChoices?: (rows: readonly T[]) => ExactTextFilterChoices;
   /** Display/entry only, `instant` filters: the time zone and precision of the editor's date-time inputs (`InstantEntry`). Default: browser zone, minutes. */
   filterEntry?: InstantEntry;
   /**
@@ -408,11 +410,11 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const focusedRetry = useRef(false);
   // urlState (§6.1): controlled sort/page. The page writes the URL via onChange; the table never touches keys.
   const activeSorting = p.urlState ? p.urlState.sorting : sorting;
-  const filterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
-  const columnFilters = useColumnFilters(p.urlState, filterFields);
+  const declaredFilterFields = useMemo(() => resolveFilterFields(p.columns, p.filterFields, lang), [p.columns, p.filterFields, lang]);
+  const columnFilters = useColumnFilters(p.urlState, declaredFilterFields);
   // `rows` + `externalPagination` ignores filters: one effective state feeds identity, loading, export and descriptions.
   const effectiveFilters = source.filtersIgnored ? NO_FILTERS : columnFilters.filters;
-  const droppedNote = useDroppedNote(filterFields, columnFilters.filters, columnFilters.apply);
+  const droppedNote = useDroppedNote(declaredFilterFields, columnFilters.filters, columnFilters.apply);
   // Merged fit must not depend on the shown summary's intrinsic width: measure the whole band and the controls separately.
   // Reserve the existing 320px filter basis when count + description fit beside it; otherwise the right-hand group wraps.
   const descriptionWidth = p.subtitle && alwaysMerge ? 24 + STATUS_GAP : 0;
@@ -441,6 +443,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     onPageReadyChange(pageReady);
     return () => onPageReadyChange(false);
   }, [onPageReadyChange, pageReady]);
+  const filterFields = useMemo(() => declaredFilterFields.map(field => {
+    const choices = p.columns.find(column => column.id === field.id)?.filterChoices;
+    return choices ? { ...field, choices: choices(data.rows) } : field;
+  }), [declaredFilterFields, p.columns, data.rows]);
   const filterBasis = hasLead ? FILTER_BASIS_LEAD : FILTER_BASIS;
   const mergedShared = mergedWidth === null ? null : mergedWidth - filterBasis - STATUS_GAP;
   // Only widths that hold while rows load or pages turn decide the band (toolbar, controls, lead, page controls); the count and trust get fixed room.
@@ -1108,7 +1114,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
                 className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', lineClass(h.column.id), h.column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(h.column.id) ? false : h.column.getIsPinned(), false), align(h.column))}>
                 {h.column.getCanSort()
-                  ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary">
+                  ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 hover:text-text-primary">
                       <span className="min-w-0 truncate">{path && <span className="sr-only">{path}, </span>}{flexRender(h.column.columnDef.header, h.getContext())}</span>
                       {sorted === 'asc' ? <ArrowUp className="size-3 shrink-0" aria-hidden /> : sorted === 'desc' ? <ArrowDown className="size-3 shrink-0" aria-hidden /> : <ArrowUpDown className="size-3 shrink-0 opacity-40" aria-hidden />}
                     </button>

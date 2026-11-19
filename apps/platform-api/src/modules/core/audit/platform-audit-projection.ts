@@ -9,6 +9,7 @@ import type { Tx } from '../../../db/tx.js';
 
 export interface PlatformAuditFilter {
   workspaceId: string;
+  includeLabels?: true;
   subjectType?: string;
   subjectId?: string;
   actor?: string;
@@ -31,6 +32,7 @@ export interface PlatformAuditRow {
   id: string;
   at: string;
   actor: string;
+  actorLabel?: string;
   actorType: string;
   eventType: string;
   subjectType: string;
@@ -43,6 +45,7 @@ const rowSchema = z.object({
   total: z.coerce.number().int().nonnegative(),
   audit_id: z.string().uuid().nullable(),
   occurred_at: z.union([z.date(), z.string()]).nullable(),
+  actor_label: z.string().nullable().optional(),
   actor_external_id: z.string().nullable(),
   actor_kind: z.string().nullable(),
   event_type: z.string().nullable(),
@@ -56,13 +59,16 @@ export async function platformAuditEvents(
   f: PlatformAuditFilter,
 ): Promise<{ rows: PlatformAuditRow[]; total: number }> {
   const result = await tx.execute(sql`
-    SELECT * FROM core.platform_audit_events(
+    SELECT p.*, a.display_name AS actor_label FROM core.platform_audit_events(
       ${f.workspaceId}::uuid, ${f.subjectType ?? null}::text, ${f.subjectId ?? null}::uuid,
       ${f.actor ?? null}::text, ${f.action ?? null}::text, ${f.source ?? null}::text,
       ${f.from ? f.from.toISOString() : null}::timestamptz,
       ${f.to ? f.to.toISOString() : null}::timestamptz,
       ${JSON.stringify(f.actionByEventType)}::jsonb, ${f.sort.field}::text, ${f.sort.desc}::boolean,
-      ${f.limit}::integer, ${f.offset.toString()}::bigint)
+      ${f.limit}::integer, ${f.offset.toString()}::bigint) WITH ORDINALITY AS p
+    LEFT JOIN core.actors AS a ON ${f.includeLabels === true}
+      AND a.workspace_id = ${f.workspaceId}::uuid AND a.external_id = p.actor_external_id
+    ORDER BY p.ordinality
   `);
   const parsed = result.rows.map((row) => rowSchema.parse(row));
   const rows: PlatformAuditRow[] = [];
@@ -72,6 +78,7 @@ export async function platformAuditEvents(
       id: r.audit_id,
       at: new Date(r.occurred_at as Date | string).toISOString(),
       actor: r.actor_external_id as string,
+      ...(r.actor_label && { actorLabel: r.actor_label }),
       actorType: r.actor_kind as string,
       eventType: r.event_type as string,
       subjectType: r.subject_type as string,

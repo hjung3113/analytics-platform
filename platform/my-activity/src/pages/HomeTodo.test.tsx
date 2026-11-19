@@ -41,7 +41,7 @@ describe('HomeTodo page', () => {
     const pathOf = (name: string) => within(region).getByRole('link', { name: new RegExp(name) }).getAttribute('href')!.split('?')[0];
     expect(pathOf('만족도 설문')).toBe(`/survey/${SURVEY_ID}/respond`);
     expect(pathOf('내 VOC 제목')).toBe(`/voc/${ID_B}`);
-    expect(pathOf('대기 중')).toBe('/permission-requests');
+    expect(pathOf('검토 중')).toBe('/permission-requests');
     expect(screen.queryByText('실서버 필요')).toBeNull();
   });
 

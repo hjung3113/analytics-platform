@@ -853,10 +853,10 @@ describe('InboxScreen', () => {
       // Open the filter popover.
       fireEvent.click(await screen.findByRole('button', { name: /필터/ }));
 
-      // The 검토중 option must be checked because the URL key matches the
+      // The 검토 중 option must be checked because the URL key matches the
       // category key. A mismatch would leave it unchecked.
       await waitFor(() => {
-        const checkbox = screen.getByRole('checkbox', { name: '검토중' });
+        const checkbox = screen.getByRole('checkbox', { name: '검토 중' });
         expect(checkbox).toHaveAttribute('data-state', 'checked');
       });
     });

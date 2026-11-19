@@ -161,3 +161,28 @@ export const ADMIN_PERMISSIONS_COPY = {
     sessionLoading: '세션 정보를 확인하는 중입니다.',
   },
 } as const;
+
+export const PERMISSION_REVIEW_TEXT = {
+  title: { ko: '권한 요청 검토', en: 'Permission request review' },
+  subtitle: { ko: '권한 요청을 검토하고 결정합니다.', en: 'Review and decide permission requests.' },
+  statuses: { ko: '권한 요청 상태', en: 'Permission request status' },
+  loading: { ko: '권한 요청을 불러오는 중입니다.', en: 'Loading permission requests.' },
+  error: { ko: '권한 요청을 불러오지 못했습니다.', en: 'Could not load permission requests.' },
+  empty: { ko: '표시할 요청이 없습니다.', en: 'There are no requests to show.' },
+  all: { ko: '전체', en: 'All' },
+  system: { ko: '시스템', en: 'System' },
+  request: { ko: '권한 요청', en: 'Permission request' },
+  requestInfo: { ko: '요청 정보', en: 'Request information' },
+  requester: { ko: '요청자', en: 'Requester' },
+  unknownName: { ko: '이름 미확인', en: 'Name unavailable' },
+  capability: { ko: '요청 권한', en: 'Requested permission' },
+  unknownCapability: { ko: '권한 이름 미확인', en: 'Permission name unavailable' },
+  scope: { ko: '요청 범위', en: 'Requested scope' },
+  expiration: { ko: '요청 만료일', en: 'Requested expiration' },
+  noExpiration: { ko: '만료 없음', en: 'No expiration' },
+  expires: { ko: '만료', en: 'Expires' },
+  submittedAt: { ko: '요청 일시', en: 'Submitted at' },
+  reason: { ko: '요청 사유', en: 'Request reason' },
+  close: { ko: '닫기', en: 'Close' },
+  closePanel: { ko: '패널 닫기', en: 'Close panel' },
+} as const;

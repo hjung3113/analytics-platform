@@ -34,7 +34,7 @@ import { type AvatarUser, RowSelectionBar, UserAvatar, cn } from '@ap/ui';
 import { Paperclip } from 'lucide-react';
 import type * as React from 'react';
 
-import { formatRelativeTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,7 +95,6 @@ export function VocRow({
   className,
 }: VocRowProps) {
   const ownerMissing = voc.owner_user_id === null && voc.owner_team_id === null;
-  const relTime = formatRelativeTime(voc.created_at);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === ' ' || e.key === 'Enter') {
@@ -177,7 +176,7 @@ export function VocRow({
                 </>
               ) : null}
               <RowDot />
-              <span>{relTime}</span>
+              <span><FeatureTimestamp at={voc.created_at} notation="list" /></span>
             </div>
           </>
         )}

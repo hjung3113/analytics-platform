@@ -13,7 +13,7 @@ import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
 import { useSignedInActor } from '../../../../lib/cross-system/useSignedInActor';
 import { useVocDetail } from '../../../../lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '../../../../lib/cross-system/useWorkspaceActors';
-import { formatDateTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import { isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { ReporterStatusBadge } from '../../../../ui/index';
 import {
@@ -107,11 +107,11 @@ export function ReporterVocDetail({
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
           <div className="flex gap-1">
             <dt>접수</dt>
-            <dd>{formatDateTime(voc.created_at)}</dd>
+            <dd><FeatureTimestamp at={voc.created_at} notation="summary" /></dd>
           </div>
           <div className="flex gap-1">
             <dt>최근 변경</dt>
-            <dd>{formatDateTime(voc.updated_at)}</dd>
+            <dd><FeatureTimestamp at={voc.updated_at} notation="summary" /></dd>
           </div>
         </dl>
       </div>

@@ -37,9 +37,11 @@ describe('static Table', () => {
 
   it.each(['ascending', 'descending', 'none'] as const)('exposes %s sorting and a native button that invokes onSort', direction => {
     const onSort = vi.fn();
-    render(<Table><TableHeader><TableRow><TableHead sort={{ direction, onSort }}>Count</TableHead></TableRow></TableHeader></Table>);
+    render(<Table><TableHeader><TableRow><TableHead sort={{ direction, onSort }}>Wafer ID</TableHead></TableRow></TableHeader></Table>);
     expect(screen.getByRole('columnheader')).toHaveAttribute('aria-sort', direction);
-    fireEvent.click(screen.getByRole('button', { name: 'Count' }));
+    const button = screen.getByRole('button', { name: 'Wafer ID' });
+    expect(button).not.toHaveClass('uppercase');
+    fireEvent.click(button);
     expect(onSort).toHaveBeenCalledOnce();
   });
 

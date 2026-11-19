@@ -21,7 +21,7 @@ vi.mock('@ap/feature-screens/operator-screens/permission-requests', () => ({
   PermissionRequestsScreen: (props: DetailProps) => {
     screenMock.requests.push(props);
     const seam = useHostSeam();
-    return <div data-testid="requests" data-here={seam.useHere!()}>{detail(props)}</div>;
+    return <div data-testid="requests" data-here={seam.useHere!()} data-time={seam.time?.list("2026-11-19T02:42:00.000Z")}>{detail(props)}</div>;
   },
 }));
 vi.mock('@ap/feature-screens/operator-screens/permission-grants', () => ({
@@ -72,6 +72,12 @@ describe('a user with features:access but without console:access', () => {
 
 describe('권한 through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
+
+  it('supplies the kernel list notation through the normal review route', async () => {
+    mountAt(REQUESTS);
+    const time = (await screen.findByTestId('requests')).getAttribute('data-time');
+    expect(time).toMatch(/^2026-11-\d{2} \d{2}:42$/);
+  });
 
   it.each([
     [REQUESTS, 'requests', '/admin/permissions/requests', 'approved', () => screenMock.requests],

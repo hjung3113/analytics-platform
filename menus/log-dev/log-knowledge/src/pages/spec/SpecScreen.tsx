@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Inbox, Loader2, LockKeyhole, ServerCrash } from 'lucide-react';
-import { PlatformLink, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, useUnsavedGuard, type PageProps } from '@ap/kernel';
+import { formatListTime, formatSummaryTime, PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, useUnsavedGuard, type PageProps } from '@ap/kernel';
 import { PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldList, FieldRow, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from '@ap/ui';
 import { isUuid, conceptMappingsEndpoint, conceptSuggestionsEndpoint, modelProfileEndpoint, modelSpecEndpoint, modelSpecRevisionsEndpoint, softwareVersionsEndpoint, specChangesEndpoint, SPEC_PUBLISH_PERMISSION, type SoftwareRow, type SpecChangeRow } from '../../endpoints';
-import { Pager, SpecSelect, useSpecInstant, useSpecWords } from './SpecControls';
+import { Pager, SpecSelect, useSpecWords } from './SpecControls';
 import { ChangeMark, ConnectedChanges, EventDrawer, SpecBody } from './SpecViews';
 import { ConceptReview } from './ConceptReview';
 import { useConceptMappings, useConceptSuggestions } from './useConceptData';
@@ -39,14 +39,14 @@ function useChanges(modelId: string, softwareId: string | null, review: boolean,
   return usePlatformQuery(run, [modelId, softwareId, review, epoch], enabled);
 }
 function ChangeList({ rows, software, canWrite, navigate }: { rows: SpecChangeRow[]; software: SoftwareRow[]; canWrite: boolean; navigate: (patch: Record<string, string | string[] | null>) => void }) {
-  const w = useSpecWords(), instant = useSpecInstant();
+  const w = useSpecWords();
   const order = (id: string) => software.find(s => s.id === id)?.releaseOrder ?? Infinity;
   const sorted = [...rows].sort((a, b) => order(a.softwareId) - order(b.softwareId) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
   return <section aria-label={w('SW 순서별 변경점', 'Changes by software order')} className="grid gap-3">
     {sorted.length === 0 && <p role="status" className="text-sm text-text-muted">{w('해당 변경점이 없습니다.', 'No matching changes.')}</p>}
     {sorted.map(c => <article key={c.id} className="grid gap-2 rounded-md border border-border-subtle bg-surface-card p-3">
       <div className="flex min-h-8 flex-wrap items-center gap-2 text-sm"><span>{c.softwareLabel}{w('부터', ' onward')}{c.endsBeforeLabel && ` · ${c.endsBeforeLabel}${w(' 전까지 (미포함)', ' excluded')}`} [{c.softwareLabel}, {c.endsBeforeLabel ?? '∞'})</span><ChangeMark kind={c.changeKind} />{c.needsRevalidation && <StatusBadge tone="warning">{w('재검토 필요', 'Needs revalidation')}</StatusBadge>}{c.retiredAt && <StatusBadge tone="neutral">{w('닫힘', 'Retired')}</StatusBadge>}</div>
-      <ChangeComparison row={c} /><p className="text-xs text-text-muted">{instant(c.createdAt)} · {c.createdBy}</p>
+      <ChangeComparison row={c} /><p className="text-xs text-text-muted">{formatListTime(c.createdAt)} · {c.createdBy}</p>
       {c.retiredByChangeId && (canWrite
         ? <Button size="sm" variant="link" onClick={() => navigate({ change: c.retiredByChangeId, drawer: 'retire' })}>{w('대체 기록', 'Replacement record')}: {c.retiredByChangeId}</Button>
         : <p className="text-sm">{w('대체 기록', 'Replacement record')}: {c.retiredByChangeId}</p>)}
@@ -56,7 +56,7 @@ function ChangeList({ rows, software, canWrite, navigate }: { rows: SpecChangeRo
 }
 /** Owner-confirmed variant A: one hidden detail route, with the timeline in a tab. */
 export default function SpecScreen({ params }: PageProps) {
-  const w = useSpecWords(), instant = useSpecInstant(), { can, pageParam, setPage, linkTo } = usePlatform();
+  const w = useSpecWords(), { lang } = useI18n(), { can, pageParam, setPage, linkTo } = usePlatform();
   const modelId = params.modelId ?? '', softwareId = pageParam('software'), tab = pageParam('tab') ?? 'spec', drawer = pageParam('drawer'), change = pageParam('change'), revision = pageParam('revision');
   const keys = usePageKeyRules(RULES), enabled = isUuid(modelId) && !keys.invalid;
   const [epoch, setEpoch] = useState(0), [conceptEpoch, setConceptEpoch] = useState(0), [revisionPage, setRevisionPage] = useState(0);
@@ -155,7 +155,7 @@ export default function SpecScreen({ params }: PageProps) {
     <TabsContent value="spec">{current ? <SpecBody spec={current} modelId={modelId} freshness={freshness} onOpenEvent={id => navigate({ drawer: 'event', event: id, change: null })} conceptCounts={conceptReady ? conceptCounts : undefined} /> : <StateMessage icon={<Inbox aria-hidden />} title={w('발행된 모델 명세가 없습니다', 'No published model specification')} body={w('초안을 작성하고 발행하면 모델의 기준 명세가 됩니다.', 'Create and publish a draft to establish the model specification.')} action={canWrite && <Button onClick={openDraft}>{w('첫 명세 작성', 'Create first specification')}</Button>} />}</TabsContent>
     <TabsContent value="concept"><ConceptReview modelId={modelId} current={current} mappings={mappings} suggestions={suggestions} reload={reloadConcepts} historyQueries={[confirmed, rejected]} page={conceptPage} onPage={setConceptPage} historyPage={conceptHistoryPage} onHistoryPage={setConceptHistoryPage} /></TabsContent>
     <TabsContent value="changes"><div className="grid gap-3"><div className="flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm"><Checkbox checked={pageParam('review') === 'needed'} onCheckedChange={value => setPage({ review: value === true ? 'needed' : null })} />{w('재검토 필요만', 'Needs revalidation only')}</label>{canWrite && current && <Button size="sm" onClick={() => navigate({ drawer: 'add', change: null })}>{w('변경점 추가', 'Add change')}</Button>}</div><QueryView widgetName={w('변경점', 'Changes')} query={changes}>{data => <ChangeList rows={data.rows} software={software} canWrite={canWrite} navigate={navigate} />}</QueryView></div></TabsContent>
-    <TabsContent value="history"><QueryView widgetName={w('Revision 이력', 'Revision history')} query={history}>{data => <div className="grid gap-3"><ul className="grid gap-2">{data.rows.map(r => <li key={r.id} className="grid min-h-8 gap-1 border-b border-border-subtle py-2 text-sm"><div className="flex items-center gap-2">r{r.revisionNo} · {w(r.state === 'published' ? '발행됨' : r.state === 'draft' ? '초안' : '반려됨', r.state)} · {r.eventCount} Event {canWrite && r.state === 'draft' && <Button size="sm" variant="secondary" onClick={() => navigate({ drawer: 'draft', revision: r.id })}>{w('초안 편집', 'Edit draft')}</Button>}</div><p>{r.publishedBy ?? '—'} · {r.publishedAt ? instant(r.publishedAt) : '—'}</p><p className="t-mono break-all">{r.contentSha256 ?? w('봉인 전', 'Not sealed')}</p></li>)}</ul><Pager page={revisionPage} size={50} total={data.total} onChange={setRevisionPage} /></div>}</QueryView></TabsContent>
+    <TabsContent value="history"><QueryView widgetName={w('Revision 이력', 'Revision history')} query={history}>{data => <div className="grid gap-3"><ul className="grid gap-2">{data.rows.map(r => <li key={r.id} className="grid min-h-8 gap-1 border-b border-border-subtle py-2 text-sm"><div className="flex items-center gap-2">r{r.revisionNo} · {w(r.state === 'published' ? '발행됨' : r.state === 'draft' ? '초안' : '반려됨', r.state)} · {r.eventCount} Event {canWrite && r.state === 'draft' && <Button size="sm" variant="secondary" onClick={() => navigate({ drawer: 'draft', revision: r.id })}>{w('초안 편집', 'Edit draft')}</Button>}</div><p>{r.publishedBy ?? '—'} · {r.publishedAt ? formatListTime(r.publishedAt) : '—'}</p><p className="t-mono break-all">{r.contentSha256 ?? w('봉인 전', 'Not sealed')}</p></li>)}</ul><Pager page={revisionPage} size={50} total={data.total} onChange={setRevisionPage} /></div>}</QueryView></TabsContent>
   </Tabs>;
   return <PlatformPage title={w('모델 명세', 'Model specification')} crumbs={model ? [{ label: modelLabel, href: linkTo('log-knowledge-model', { params: { modelId } }) }] : []} secondaryActions={<ReturnLink />} primaryAction={enabled && canWrite && !editingDraft && history.response?.outcome === 'ok' ? <Button onClick={openDraft}>{w('초안 편집', 'Edit draft')}</Button> : undefined}>
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
@@ -166,7 +166,7 @@ export default function SpecScreen({ params }: PageProps) {
           <FieldRow label={w('Revision', 'Revision')}>r{current.revision.revisionNo}</FieldRow>
           <FieldRow label={w('원본 문서', 'Source document')}>{current.revision.sourceDocRef.docLabel}</FieldRow>
           <FieldRow label={w('문서 버전', 'Document version')}>{current.revision.sourceDocRef.docVersion}</FieldRow>
-          <FieldRow label={w('발행 시각', 'Released at')}>{current.revision.publishedAt ? instant(current.revision.publishedAt) : '—'}</FieldRow>
+          <FieldRow label={w('발행 시각', 'Released at')}>{formatSummaryTime(current.revision.publishedAt, lang)}</FieldRow>
           <FieldRow label={w('발행자', 'Released by')}>{current.revision.publishedBy ?? '—'}</FieldRow>
           {softwareId && <FieldRow label={w('명세', 'Specification')}>{'effective' in current && current.effective ? w('실효 명세', 'Effective specification') : w('모델 명세 그대로', 'Same as model specification')}</FieldRow>}
         </FieldList>}

@@ -1,8 +1,8 @@
-import { formatInstant, formatWallClock } from '@ap/contracts';
+import { formatWallClock } from '@ap/contracts';
 import { useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
-import { useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
+import { formatSummaryTime, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
 import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, ReturnLink, StateMessage, StatCard, type TimelineLane } from '@ap/components';
 import { operationTimeEndpoint, type OperationKind, type OperationTimeData } from '../endpoints';
 
@@ -53,11 +53,7 @@ function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: Opera
   else if (leaders.length === 1) leaderCaption = tx({ ko: `최장 ${leaders[0]}`, en: `Longest ${leaders[0]}` });
   const minutes = tx({ ko: '분', en: 'min' });
   const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
-  let updated = '—';
-  if (updatedAt) {
-    try { updated = formatInstant(updatedAt, lang, undefined, 'monthDayMinute'); }
-    catch { updated = '—'; }
-  }
+  const updated = formatSummaryTime(updatedAt, lang);
   const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated, coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
   const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`.trim();
   return <AnalysisLayout

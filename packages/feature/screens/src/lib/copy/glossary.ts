@@ -64,3 +64,5 @@ export function createLabel(name: string): string {
 }
 
 export const CREATE_OR_LINK_FINDING_LABEL = 'Finding 생성';
+
+export const ORIGINAL_LABEL = { ko: '원본', en: 'Original' } as const;

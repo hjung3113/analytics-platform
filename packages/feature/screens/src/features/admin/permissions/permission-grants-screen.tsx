@@ -11,7 +11,8 @@ import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '../../..
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
 import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '../../../lib/copy/permission-scope';
-import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
+import { formatDateOnly } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
@@ -310,7 +311,7 @@ function ActivePermissionRow({
                 : SCOPE_SELECTOR_COPY.workspaceAll)}
           </span>
           <span>·</span>
-          <span>{formatDateTime(when)}</span>
+          <FeatureTimestamp at={when} notation="list" />
           {expiration ? (
             <>
               <span>·</span>

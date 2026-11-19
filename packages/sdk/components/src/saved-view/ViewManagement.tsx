@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { formatInstant } from '@ap/contracts';
 import type { SavedView, SavedViewEntry, SavedViewListItem } from '@ap/contracts';
-import { useI18n, useMessages } from '@ap/kernel';
+import { formatListTime, useI18n, useMessages } from '@ap/kernel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, Input } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { SegmentedRadio } from '../RadioGroup';
@@ -50,9 +49,9 @@ export function ViewManagement(props: ViewManagementProps) {
 }
 
 function Body({ entries, requests, diagnoses, currentUserId, initialFilter = 'all', onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: ViewManagementProps) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const formatTime = suppliedFormatTime ?? ((ms: number) => formatInstant(ms, lang));
+  const formatTime = suppliedFormatTime ?? formatListTime;
   const [filter, setFilter] = useState<ViewManagementFilter>(initialFilter);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);

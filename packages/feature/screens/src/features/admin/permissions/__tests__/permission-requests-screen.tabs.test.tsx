@@ -68,12 +68,12 @@ describe('PermissionRequestsScreen tabs', () => {
     render(<PermissionRequestsScreen />);
 
     expect(screen.getByRole('tablist', { name: '권한 요청 상태' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /^대기 중\s*,\s*1$/ })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^검토 중\s*,\s*1$/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
     expect(screen.getByRole('tab', { name: /^승인됨\s*,\s*0$/ })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: '대기 중 (1)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '검토 중 (1)' })).not.toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^승인됨\s*,\s*0$/ }));
 
@@ -82,7 +82,7 @@ describe('PermissionRequestsScreen tabs', () => {
 
   it('associates the selected tab with the real list panel after a tab change', () => {
     const { rerender } = render(<PermissionRequestsScreen />);
-    const pendingTab = screen.getByRole('tab', { name: /^대기 중\s*,\s*1$/ });
+    const pendingTab = screen.getByRole('tab', { name: /^검토 중\s*,\s*1$/ });
     let panel = screen.getByRole('tabpanel');
     expect(pendingTab).toHaveAttribute('aria-controls', panel.id);
     expect(document.getElementById(pendingTab.getAttribute('aria-controls') ?? '')).toBe(panel);
@@ -126,15 +126,15 @@ describe('PermissionRequestsScreen tab counts (#706)', () => {
 
       expect(screen.getByRole('tablist', { name: '권한 요청 상태' })).toBeInTheDocument();
       if (state === 'pending' || state === 'failed') {
-        expect(screen.getByRole('tab', { name: '대기 중' })).toBeInTheDocument();
-        expect(screen.queryByRole('tab', { name: /^대기 중\s*,\s*\d+$/ })).not.toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: '검토 중' })).toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: /^검토 중\s*,\s*\d+$/ })).not.toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: /^승인됨\s*,\s*\d+$/ })).not.toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: /^전체\s*,\s*\d+$/ })).not.toBeInTheDocument();
         return;
       }
       const pending = state === 'loaded-empty' ? 0 : 1;
       expect(
-        screen.getByRole('tab', { name: new RegExp(`^대기 중\\s*,\\s*${pending}$`) }),
+        screen.getByRole('tab', { name: new RegExp(`^검토 중\\s*,\\s*${pending}$`) }),
       ).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /^승인됨\s*,\s*0$/ })).toBeInTheDocument();
       expect(
@@ -151,22 +151,22 @@ describe('PermissionRequestsScreen tab counts (#706)', () => {
     consoleState.visibleRequests = [];
     const { rerender } = render(<PermissionRequestsScreen />);
     expect(screen.getByRole('tablist', { name: '권한 요청 상태' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '대기 중' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /^대기 중\s*,\s*\d+$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '검토 중' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^검토 중\s*,\s*\d+$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /^전체\s*,\s*\d+$/ })).not.toBeInTheDocument();
 
     // Post-error refetch resets to pending with no data: counts stay absent.
     consoleState.isError = false;
     consoleState.isPending = true;
     rerender(<PermissionRequestsScreen />);
-    expect(screen.getByRole('tab', { name: '대기 중' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: /^대기 중\s*,\s*\d+$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '검토 중' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^검토 중\s*,\s*\d+$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /^승인됨\s*,\s*\d+$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /^전체\s*,\s*\d+$/ })).not.toBeInTheDocument();
 
     consoleState.isPending = false;
     rerender(<PermissionRequestsScreen />);
-    expect(screen.getByRole('tab', { name: /^대기 중\s*,\s*0$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^검토 중\s*,\s*0$/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /^승인됨\s*,\s*0$/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
   });

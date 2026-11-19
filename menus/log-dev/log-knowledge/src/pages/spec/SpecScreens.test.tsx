@@ -19,7 +19,7 @@ let coverage: unknown;
 let revisions: unknown[] | null, drafts: Record<string, unknown>;
 let restoreGeometry: () => void;
 beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); queries = []; writes = []; result = ok(spec); allowed = true; conflict = false; saveInvalid = false; createInvalid = false; extraChanges = []; coverage = null; revisions = null; drafts = {}; });
-afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks();
+afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); vi.unstubAllEnvs();
   // eslint-disable-next-line no-restricted-syntax -- the kernel owns web storage; the test resets the faked seam it reads
   window.localStorage?.removeItem?.('platform:lang');
 });
@@ -389,19 +389,13 @@ describe('production model spec screen', () => {
     expect(screen.getAllByText(/00000007-0000-4000-8000-000000000002/).length).toBeGreaterThan(0);
   });
 
-  // UX C2: the spec screen formats its timestamps in the active language, not a fixed ko.
-  it.each(['ko', 'en'] as const)('formats spec timestamps in the active language (%s)', async lang => {
+  it.each(['ko', 'en'] as const)('uses shared list notation in revision history (%s)', async lang => {
     memoryLang(lang);
-    const view = mount();
-    await screen.findByText('Move');
-    const text = view.container.textContent ?? '';
-    if (lang === 'ko') {
-      expect(text).toMatch(/\d{2}\. \d{1,2}\. \d{1,2}\./);
-      expect(text).not.toMatch(/\d+\/\d+\/\d+/);
-    } else {
-      expect(text).toMatch(/\d+\/\d+\/\d+/);
-      expect(text).not.toContain('오전');
-    }
+    vi.stubEnv('TZ', 'Asia/Seoul');
+    revisions = [{ ...spec.revision, eventCount: spec.events.length }];
+    mount('&tab=history');
+    const history = await screen.findByRole('tabpanel', { name: lang === 'ko' ? 'Revision 이력' : 'Revision history' });
+    expect(await within(history).findByText('admin · 2026-11-01 09:00')).toBeTruthy();
   });
 
   // UX C3: every dialog names its close button in the active language.

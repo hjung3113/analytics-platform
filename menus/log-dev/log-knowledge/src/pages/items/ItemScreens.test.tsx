@@ -349,12 +349,17 @@ describe('기술 Item instants follow the viewer zone', () => {
   afterEach(() => { if (realTz === undefined) delete process.env.TZ; else process.env.TZ = realTz; });
   it('shows the list 갱신일 and the detail stamps on the viewer calendar day (Auckland: Oct 2 20:30Z is Oct 3)', async () => {
     process.env.TZ = 'Pacific/Auckland';
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-04T00:00:00Z'));
     const saved = ROWS.splice(0, ROWS.length, row(1, { updatedAt: '2026-10-02T20:30:00.000Z' }));
     try {
       mountList();
       await screen.findByText('KI-1', {}, slow);
-      expect(screen.getByText(/10\. 3\./)).toBeTruthy();
-      expect(screen.queryByText('2026-10-02')).toBeNull();
+      expect(screen.getByRole('cell', { name: '2026-10-03 09:30' })).toBeTruthy();
+
+      cleanup();
+      mountDetail(idOf(1));
+      await screen.findByRole('heading', { name: '제목 1' }, slow);
+      expect(screen.getByText(/갱신 10월 3일 09:30$/)).toBeTruthy();
     } finally { ROWS.splice(0, ROWS.length, ...saved); }
   });
 });

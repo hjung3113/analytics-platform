@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { formatInstant } from '@ap/contracts';
 import type { SavedView, SavedViewListItem, SavedViewEntry, ViewApproval } from '@ap/contracts';
-import { useI18n, useMessages } from '@ap/kernel';
+import { formatListTime, useI18n, useMessages } from '@ap/kernel';
 import { Input } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { SegmentedRadio } from '../RadioGroup';
@@ -55,7 +54,7 @@ export function ApprovalQueue(props: ApprovalQueueProps) {
 export function QueuePanel({ items, requests, diagnoses, currentUserId, defaultStatus = 'pending', selectedId: controlledId, onSelectedChange, reasonsId: controlledReasons, onReasonsChange, elements, onDecide, onRevoke, onMigrate, personName = id => id, groupName = id => id, describeView, formatTime: suppliedFormatTime, onDone }: QueuePanelProps) {
   const { tx, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const formatTime = suppliedFormatTime ?? ((ms: number) => formatInstant(ms, lang));
+  const formatTime = suppliedFormatTime ?? formatListTime;
   const [status, setStatus] = useState<ApprovalQueueStatus>(defaultStatus);
   const [query, setQuery] = useState('');
   const [ownId, setOwnId] = useState<string | null>(null);

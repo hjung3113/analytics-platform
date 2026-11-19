@@ -3,7 +3,7 @@
 import { useMentionLabelResolver } from '../../../../lib/cross-system/useMentionLabelResolver';
 import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
-import { formatRelativeTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import type { ConversationEntry } from '@ap/feature-shared';
 import { OutlineBadge, type ReporterFacingStatusEnum, ReporterStatusBadge } from '../../../../ui/index';
 import {
@@ -74,8 +74,11 @@ export function TimelineEntry({
     <div className="flex flex-col gap-1 py-2 border-b border-border-subtle last:border-b-0">
       {/* Top row: actor chip + kind badge */}
       <div className="flex items-center justify-between gap-2">
-        <UserChip user={actorUser} size="sm" sub={formatRelativeTime(entry.created_at)} />
-        <OutlineBadge>{KIND_LABELS[entry.kind]}</OutlineBadge>
+        <UserChip user={actorUser} size="sm" />
+        <div className="flex items-center gap-2">
+          <FeatureTimestamp at={entry.created_at} notation="feed" className="text-xs text-text-muted" />
+          <OutlineBadge>{KIND_LABELS[entry.kind]}</OutlineBadge>
+        </div>
       </div>
 
       {/* Rich body */}

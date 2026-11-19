@@ -159,12 +159,16 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
   const issue = draftIssue(spec, draft, field.entry, filter, check);
   const ops = allowedOps(spec);
   const hasValue = !NO_VALUE.has(draft.op);
-  const single = spec.kind === 'enum' && spec.multiple === false;
+  const choices = draft.op === 'equals' ? field.choices : undefined;
+  const single = !!choices || (spec.kind === 'enum' && spec.multiple === false);
+  const choiceOptions = choices?.options ?? (spec.kind === 'enum' ? spec.options : []);
+  const unlisted = choices?.fallbackLabel && draft.a && !choiceOptions.some(option => option.value === draft.a);
+  const available = unlisted ? [...choiceOptions, { value: draft.a, label: choices.fallbackLabel! }] : choiceOptions;
   const word = (op: ColumnFilterOp) => FILTER_OP_LABELS[op][lang];
 
   let value: ReactNode = null;
   if (hasValue) {
-    if (spec.kind === 'text') value = <Input data-editor-focus aria-label={m('tableFilterValue')} value={draft.a} onChange={e => patch({ a: e.target.value })} />;
+    if (spec.kind === 'text' && !choices) value = <Input data-editor-focus aria-label={m('tableFilterValue')} value={draft.a} onChange={e => patch({ a: e.target.value })} />;
     else if (spec.kind === 'number') {
       const between = draft.op === 'between';
       value = <div className="flex items-center gap-1">
@@ -189,17 +193,19 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
       </div>;
     } else {
       const needle = query.trim().toLowerCase();
-      const options = spec.options.filter(o => o.label.toLowerCase().includes(needle) || o.value.toLowerCase().includes(needle));
+      const options = available.filter(o => o.label.toLowerCase().includes(needle) || (!choices && o.value.toLowerCase().includes(needle)));
+      const searchLabel = choices?.exactId ? m('tableFilterSearchNames') : m('tableFilterSearchValues');
       value = <div role="group" aria-label={m('tableFilterValues')} className="space-y-2">
-        {spec.options.length >= SEARCH_FROM && <Input data-editor-focus type="search" aria-label={m('tableFilterSearchValues')} placeholder={m('tableFilterSearchValues')} value={query}
+        {choices?.exactId && <p className="text-xs text-text-muted">{m('tableFilterPageNames')}</p>}
+        {(choices?.exactId || available.length >= SEARCH_FROM) && <Input data-editor-focus type="search" aria-label={searchLabel} placeholder={searchLabel} value={query}
           onChange={e => setQuery(e.target.value)} />}
         <ul className="max-h-48 space-y-1 overflow-auto">
           {options.map(o => {
-            const checked = draft.picked.includes(o.value);
+            const checked = choices ? draft.a === o.value : draft.picked.includes(o.value);
             const id = `${baseId}-v-${o.value}`;
             return <li key={o.value} className="flex min-h-7 items-center gap-2">
               {single
-                ? <input id={id} type="radio" name={`${baseId}-one`} className="size-3.5 accent-accent-primary" checked={checked} onChange={() => patch({ picked: [o.value] })} />
+                ? <input id={id} type="radio" name={`${baseId}-one`} className="size-3.5 accent-accent-primary" checked={checked} onChange={() => patch(choices ? { a: o.value } : { picked: [o.value] })} />
                 : <Checkbox id={id} className="size-3.5 border-border-control" checked={checked}
                     onCheckedChange={v => patch({ picked: v === true ? [...draft.picked, o.value] : draft.picked.filter(x => x !== o.value) })} />}
               <Label htmlFor={id}>{o.label}</Label>
@@ -207,6 +213,10 @@ export function FilterEditorForm({ field, active, lang, onApply, titleId, limit,
           })}
           {options.length === 0 && <li className="text-xs text-text-muted">{m('tableFilterNoMatchingValues')}</li>}
         </ul>
+        {choices?.exactId && <div className="space-y-1">
+          <Label htmlFor={`${baseId}-exact`}>{m('tableFilterExactId')}</Label>
+          <Input id={`${baseId}-exact`} value={draft.a} onChange={e => patch({ a: e.target.value })} />
+        </div>}
       </div>;
     }
   }

@@ -20,12 +20,11 @@ import { EQUIPMENT, activeWorld, type RoleId } from '../world';
 /** `seeds`: audit events the app's mock assembly hands in (menu-owned destinations such as metrics, ADR-0048); they join the store as-is. */
 export type AuditOptions = { role?: RoleId; latency?: number; seeds?: readonly AuditEvent[] };
 
-export const AUDIT_TYPES = ['equipment', 'metric', 'annotation'];
 const AUDIT_ACTIONS = ['create', 'update', 'retire', 'sync', 'delete'] as const satisfies readonly AuditAction[];
 const AUDIT_SOURCES = ['user', 'system'] as const satisfies readonly AuditSource[];
 const AUDIT_SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'] as const satisfies readonly AuditSortField[];
 /** Declared wire keys (issue #50) — anything else a client sends is an unknown key, not a silent no-op. */
-const AUDIT_QUERY_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'page', 'pageSize', 'sort'] as const;
+const AUDIT_QUERY_KEYS = ['type', 'includeLabels', 'actor', 'action', 'source', 'fromAt', 'toAt', 'targetId', 'page', 'pageSize', 'sort'] as const;
 
 
 /**
@@ -35,6 +34,7 @@ const AUDIT_QUERY_KEYS = ['type', 'actor', 'action', 'source', 'fromAt', 'toAt',
  */
 function invalidAuditQuery(query: AuditTrailQuery): boolean {
   if (Object.keys(query).some(key => !(AUDIT_QUERY_KEYS as readonly string[]).includes(key))) return true;
+  if (query.includeLabels !== undefined && query.includeLabels !== true) return true;
   if (query.type !== undefined && (typeof query.type !== 'string' || !AUDIT_TYPE_TOKEN.test(query.type))) return true;
   if (query.action !== undefined && !AUDIT_ACTIONS.includes(query.action)) return true;
   if (query.source !== undefined && !AUDIT_SOURCES.includes(query.source)) return true;
@@ -83,6 +83,13 @@ function decodeAuditCursor(ref: EntityAuditRequest, cursor: string): { ms: numbe
   }
 }
 
+function withoutLabels(event: AuditEvent): AuditEvent {
+  const copy = { ...event, target: { ...event.target } };
+  delete copy.actorLabel;
+  delete copy.target.label;
+  return copy;
+}
+
 /** The shared cut for both destination branches: sort, drop up to the cursor, take a page, null cursor on the last. */
 function cutAuditPage(ref: EntityAuditRequest, events: readonly AuditEvent[], after: { ms: number; id: string } | null): EntityAuditPage {
   const sorted = [...events].sort(compareAuditEvents);
@@ -91,7 +98,7 @@ function cutAuditPage(ref: EntityAuditRequest, events: readonly AuditEvent[], af
     return byAt !== 0 ? byAt > 0 : event.id > after.id;
   });
   const page = rest.slice(0, ENTITY_AUDIT_PAGE_MAX);
-  return { events: page, nextCursor: rest.length > page.length ? encodeAuditCursor(ref, page[page.length - 1]) : null };
+  return { events: page.map(withoutLabels), nextCursor: rest.length > page.length ? encodeAuditCursor(ref, page[page.length - 1]) : null };
 }
 
 function sortValue(event: AuditEvent, field: AuditSortField): string {
@@ -145,7 +152,8 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 25;
   const start = (page - 1) * pageSize;
-  return { ...base, outcome: 'ok', data: { items: filtered.slice(start, start + pageSize), total: filtered.length } };
+  const items = filtered.slice(start, start + pageSize);
+  return { ...base, outcome: 'ok', data: { items: query.includeLabels ? items : items.map(withoutLabels), total: filtered.length } };
 }
 
 /**

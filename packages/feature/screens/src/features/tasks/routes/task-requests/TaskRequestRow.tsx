@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 
 import { TASK_REQUEST_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
-import { formatShortDateTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import { shortId } from '../../../../lib/identity';
 
 const STATUS_CLASS: Record<TaskRequestStatus, string> = {
@@ -114,7 +114,7 @@ export function TaskRequestRow({ item, selected, names, onSelect, rowRef }: Task
   if (item.created_at) {
     metaParts.push({
       key: 'created-at',
-      node: <span className="text-text-muted">{formatShortDateTime(item.created_at)}</span>,
+      node: <span className="text-text-muted"><FeatureTimestamp at={item.created_at} notation="list" /></span>,
     });
   }
   const sourceTitle = item.source?.title?.trim() ? item.source.title : null;

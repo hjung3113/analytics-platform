@@ -33,7 +33,7 @@ const QUEUE_COPY: Record<QueueId, { title: string; detail: string }> = {
     detail: '부정 성과 설문 결과에 대한 후속 Finding/Task가 구성되어 있지 않습니다.',
   },
   'permission-requests-pending': {
-    title: '검토 대기 중인 권한 요청',
+    title: '검토 중인 권한 요청',
     detail: '관리자 검토를 기다리는 상위 권한 요청.',
   },
 };

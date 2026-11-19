@@ -17,7 +17,7 @@
  *   Semantic row color is limited to SeverityIndicator and ReporterStatusBadge.
  */
 
-import { formatRelativeTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import type { VocListItem } from '@ap/feature-shared';
 import { ReporterStatusBadge, UnassignedBadge } from '../../../../ui/index';
 import { RowSelectionBar, SeverityIndicator, cn } from '@ap/ui';
@@ -59,7 +59,6 @@ export function TriageRow({
   const metaId = useId();
   const ownerMissing = voc.owner_user_id === null && voc.owner_team_id === null;
   const areaMissing = voc.analytics_area_id === null;
-  const relTime = formatRelativeTime(voc.created_at);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === ' ' || e.key === 'Enter') {
@@ -148,7 +147,7 @@ export function TriageRow({
 
       {/* TRAILING: created-at — .row-trailing */}
       <div className="flex items-center shrink-0">
-        <span className="row-meta text-xs">{relTime}</span>
+        <span className="row-meta text-xs"><FeatureTimestamp at={voc.created_at} notation="list" /></span>
       </div>
     </button>
   );

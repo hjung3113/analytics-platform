@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PlatformDataTable, type PlatformColumn } from '@ap/components';
+import { formatSummaryTime, useI18n } from '@ap/kernel';
 import { StatusBadge } from '@ap/ui';
 import type { ModelProfileData } from '../../endpoints';
 import { instantText, statusText } from './modelPresentation';
@@ -34,13 +35,14 @@ export function ModelMeta({ model }: { model: ModelProfileData['model'] }) {
 }
 
 export function ModelSummary({ model }: { model: ModelProfileData['model'] }) {
+  const { lang } = useI18n();
   return <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
     <dt className="text-text-muted">모델 코드</dt><dd className="t-mono">{model.code}</dd>
     <dt className="text-text-muted">설비사</dt><dd>{model.vendor.name}{!model.vendor.active && <StatusBadge tone="neutral" className="ml-2">비활성</StatusBadge>}</dd>
     <dt className="text-text-muted">공정</dt><dd><ProcessBadgeList processes={model.processes} /></dd>
     <dt className="text-text-muted">상태</dt><dd><StatusBadge tone={model.active ? 'success' : 'neutral'}>{statusText(model.active)}</StatusBadge></dd>
-    <dt className="text-text-muted">등록 시각</dt><dd className="tabular">{instantText(model.createdAt)}</dd>
-    <dt className="text-text-muted">변경 시각</dt><dd className="tabular">{instantText(model.updatedAt)}</dd>
+    <dt className="text-text-muted">등록 시각</dt><dd className="tabular">{formatSummaryTime(model.createdAt, lang)}</dd>
+    <dt className="text-text-muted">변경 시각</dt><dd className="tabular">{formatSummaryTime(model.updatedAt, lang)}</dd>
   </dl>;
 }
 

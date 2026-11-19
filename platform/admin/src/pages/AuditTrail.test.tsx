@@ -70,7 +70,7 @@ function renderAudit(path: string, items: AuditEvent[] = [], options?: { filterW
 
 const EVENT: AuditEvent = {
   id: 'a1', at: '2026-09-26T02:10:00.000Z', actor: 'admin-a', action: 'update', source: 'user',
-  target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM' }, changes: { status: ['idle', 'maintenance'] },
+  target: { type: 'equipment', id: 'MEM-ETCH-0101', scopeId: 'MEM', label: 'MEM-ETCH-0101' }, changes: { status: ['idle', 'maintenance'] },
 };
 
 const ACTION_KO = { create: '생성', update: '변경', retire: '사용중지', sync: '동기화', delete: '삭제' } as const;
@@ -86,7 +86,7 @@ const openField = async (id: string) => {
 const apply = (dialog: HTMLElement) => fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
 const applyText = async (id: string, value: string) => {
   const dialog = await openField(id);
-  fireEvent.change(within(dialog).getByRole('textbox', { name: '값' }), { target: { value } });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: '정확한 ID' }), { target: { value } });
   apply(dialog);
 };
 const applyOne = async (id: string, label: string) => {
@@ -131,7 +131,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(screen.queryByRole('region', { name: '필터' })).toBeNull();
     expect([...line().querySelectorAll('[data-filter-body]')].map(b => b.getAttribute('data-filter-body'))).toEqual(['action', 'actor']);
     expect(line().querySelector('[data-filter-add]')).toBeTruthy();
-    expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
+    expect(f.calls[0]).toEqual({ page: 1, pageSize: 25, includeLabels: true });
   });
 
   it('maps 행위자 (exact, case-sensitive) and 작업 (one value) onto the port query and keeps the address clean', async () => {
@@ -146,6 +146,61 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(url().has('filter')).toBe(false);
     expect(url().get('sort')).toBe('actor:desc');
     expect(chip('actor')!.textContent).toContain('Park.Seo');
+  });
+
+  it('chooses labeled types while accepting saved exact-token conditions', async () => {
+    const f = renderAudit('/admin/audit?filter=targetType:equals:permission_request');
+    await waitFor(() => expect(f.calls[0]).toMatchObject({ type: 'permission_request' }));
+    const dialog = await openField('targetType');
+    expect(within(dialog).getByRole('radio', { name: '권한 요청' })).toHaveProperty('checked', true);
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Finding' }));
+    apply(dialog);
+    await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ type: 'finding' }));
+  });
+
+  it('offers the actor type released by the real audit projection', async () => {
+    const f = renderAudit('/admin/audit');
+    fireEvent.click(line().querySelector('[data-filter-add]')!);
+    fireEvent.click(await pick('targetType'));
+    const dialog = await screen.findByRole('dialog', { name: '대상 유형' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: '행위자' }));
+    apply(dialog);
+    await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ type: 'actor' }));
+  });
+
+  it('looks up a visible actor by name and sends their case-sensitive ID', async () => {
+    const f = renderAudit('/admin/audit', [{ ...EVENT, actor: 'Park.Seo', actorLabel: '박서' }]);
+    const dialog = await openField('actor');
+    await within(dialog).findByRole('radio', { name: '박서' });
+    fireEvent.change(within(dialog).getByRole('searchbox', { name: '이름 찾기' }), { target: { value: '박서' } });
+    fireEvent.click(within(dialog).getByRole('radio', { name: '박서' }));
+    apply(dialog);
+    await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ actor: 'Park.Seo' }));
+  });
+
+  it('looks up a visible target by name after a type has been selected', async () => {
+    const f = renderAudit('/admin/audit?filter=targetType:equals:permission_request', [{
+      ...EVENT, target: { type: 'permission_request', id: 'request-a', scopeId: null, label: 'Finding 조회' },
+    }]);
+    await waitFor(() => expect(f.calls[0]).toMatchObject({ type: 'permission_request' }));
+    fireEvent.click(screen.getByRole('button', { name: '대상 ID 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '대상 ID' });
+    fireEvent.click(await within(dialog).findByRole('radio', { name: 'Finding 조회' }));
+    apply(dialog);
+    await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ type: 'permission_request', targetId: 'request-a' }));
+  });
+
+  it('distinguishes equal target names by their exact IDs and submits the selected target', async () => {
+    const f = renderAudit('/admin/audit?filter=targetType:equals:permission_request', ['request-a', 'request-b'].map(id => ({
+      ...EVENT, id, target: { type: 'permission_request', id, scopeId: null, label: 'Finding 조회' },
+    })));
+    await waitFor(() => expect(f.calls[0]).toMatchObject({ type: 'permission_request' }));
+    fireEvent.click(screen.getByRole('button', { name: '대상 ID 필터' }));
+    const dialog = await screen.findByRole('dialog', { name: '대상 ID' });
+    expect(await within(dialog).findByRole('radio', { name: 'Finding 조회 · request-a' })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Finding 조회 · request-b' }));
+    apply(dialog);
+    await waitFor(() => expect(f.calls.at(-1)).toMatchObject({ type: 'permission_request', targetId: 'request-b' }));
   });
 
   it('offers 작업 and 출처 as single-choice (radio) lists', async () => {
@@ -183,19 +238,19 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     fireEvent.click(line().querySelector('[data-filter-add]')!);
     fireEvent.click(await pick('targetType'));
     const typeDialog = await screen.findByRole('dialog');
-    fireEvent.change(within(typeDialog).getByRole('textbox', { name: '값' }), { target: { value: 'equipment' } });
+    fireEvent.click(within(typeDialog).getByRole('radio', { name: '설비' }));
     apply(typeDialog);
     await waitFor(() => expect(f.calls).toHaveLength(2));
     fireEvent.click(line().querySelector('[data-filter-add]')!);
     fireEvent.click(await pick('targetId'));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '값' }), { target: { value: 'MEM-ETCH-0101' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '정확한 ID' }), { target: { value: 'MEM-ETCH-0101' } });
     apply(dialog);
     await waitFor(() => expect(f.calls).toHaveLength(3));
     expect(f.calls[2]).toMatchObject({ type: 'equipment', targetId: 'MEM-ETCH-0101' });
     fireEvent.click(within(chip('targetType')!).getByRole('button', { name: /지우기/ }));
     await waitFor(() => expect(f.calls).toHaveLength(4));
-    expect(f.calls[3]).toEqual({ page: 1, pageSize: 25 });
+    expect(f.calls[3]).toEqual({ page: 1, pageSize: 25, includeLabels: true });
   });
 
   it('an old seconds window shows both ends to the second on the chip, under a Seoul viewer and a New York process zone', async () => {
@@ -210,10 +265,10 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     await waitFor(() => expect(f.calls).toHaveLength(1));
     fireEvent.click(screen.getByRole('button', { name: '대상 ID 필터' }));
     const dialog = await screen.findByRole('dialog', { name: '대상 ID' });
-    fireEvent.change(within(dialog).getByRole('textbox', { name: '값' }), { target: { value: 'cycle_time' } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '정확한 ID' }), { target: { value: 'cycle_time' } });
     expect((await within(dialog).findByRole('alert')).textContent).toBe('대상 ID는 대상 유형과 함께 있어야 합니다.');
     expect((within(dialog).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((within(dialog).getByRole('textbox', { name: '값' }) as HTMLInputElement).value).toBe('cycle_time');
+    expect((within(dialog).getByRole('textbox', { name: '정확한 ID' }) as HTMLInputElement).value).toBe('cycle_time');
     expect(f.calls).toHaveLength(1);
   });
 
@@ -225,7 +280,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     ['never-registered key', 'zz', '1'],
   ])('%s is ignored like any unknown key', async (_name, key, value) => {
     const f = renderAudit(`/admin/audit?${key}=${value}`);
-    await waitFor(() => expect(f.calls).toEqual([{ page: 1, pageSize: 25 }]));
+    await waitFor(() => expect(f.calls).toEqual([{ page: 1, pageSize: 25, includeLabels: true }]));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(url().get(key)).toBe(value);
   });
@@ -273,7 +328,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     expect(f.calls).toHaveLength(0);
     fireEvent.click(within(alert).getByRole('button', { name: '초기화' }));
     await waitFor(() => expect(f.calls).toHaveLength(1));
-    expect(f.calls[0]).toEqual({ page: 1, pageSize: 25 });
+    expect(f.calls[0]).toEqual({ page: 1, pageSize: 25, includeLabels: true });
   });
 
   it('a seconds bound is entered and kept to the second in the viewer zone', async () => {
@@ -350,7 +405,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     const f = renderAudit('/admin/audit');
     await waitFor(() => expect(f.calls).toHaveLength(1));
     const actor = await openField('actor');
-    fireEvent.change(within(actor).getByRole('textbox', { name: '값' }), { target: { value: 'a b' } });
+    fireEvent.change(within(actor).getByRole('textbox', { name: '정확한 ID' }), { target: { value: 'a b' } });
     expect(within(actor).getByRole('alert').textContent).toContain('80자');
     expect((within(actor).getByRole('button', { name: '적용' }) as HTMLButtonElement).disabled).toBe(true);
     expect(f.calls).toHaveLength(1);
@@ -434,11 +489,34 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
   }
 
   // #399 UX-1: 삭제한 주석 문구가 reason에 남으므로 감사 표에서 읽을 수 있어야 한다(길면 말줄임, 전문은 title).
+  it('shows display labels and contextual verbs with source values folded', async () => {
+    const restore = withRowLayout();
+    try {
+      renderAudit('/admin/audit', [{
+        ...EVENT, action: 'create', actorLabel: '김민서',
+        target: { type: 'permission_request', id: 'request-a', scopeId: null, label: 'Finding 조회' },
+        changes: { capability: [null, 'finding.read'] },
+      }]);
+      const table = await screen.findByRole('table', { name: '변경 감사 목록' });
+      expect(await within(table).findByText('김민서')).toBeTruthy();
+      expect(within(table).getByText('Finding 조회')).toBeTruthy();
+      expect(within(table).getByText('제출')).toBeTruthy();
+      expect(within(table).getByText('2026-09-26 11:10')).toBeTruthy();
+      const disclosure = within(table).getByRole('button', { name: '원본' });
+      expect(disclosure.getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByText(/finding\.read/)).toBeNull();
+      fireEvent.click(disclosure);
+      const original = await screen.findByRole('dialog', { name: '원본' });
+      expect(original.textContent).toContain('finding.read');
+      expect(original.textContent).toContain('request-a');
+    } finally { restore(); }
+  });
+
   it('shows the recorded reason in its own column, with the full text in the title and a dash when empty', async () => {
     const restore = withRowLayout();
     try {
       const reason = '삭제된 주석 문구가 아주 길어서 셀 폭을 넘는 경우에도 전문을 title로 읽을 수 있어야 한다';
-      renderAudit('/admin/audit', [{ ...EVENT, reason }, { ...EVENT, id: 'a2', changes: undefined, target: { ...EVENT.target, id: 'MEM-ETCH-0102' } }]);
+      renderAudit('/admin/audit', [{ ...EVENT, reason }, { ...EVENT, id: 'a2', changes: undefined, target: { ...EVENT.target, id: 'MEM-ETCH-0102', label: 'MEM-ETCH-0102' } }]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
       await within(table).findByText('MEM-ETCH-0101');
@@ -454,32 +532,36 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     } finally { restore(); }
   });
 
-  // #1690: an API token issue/revoke row names its scopes; every other row keeps the changed field names.
-  it('shows 권한 묶음 for an api_token row and the field names for other rows', async () => {
+  // #1690: scopes remain available when the source values are opened.
+  it('folds token scopes and summarizes the number of changed fields', async () => {
     const restore = withRowLayout();
     try {
-      const token = (id: string, changes: AuditEvent['changes']): AuditEvent => ({ ...EVENT, id, target: { type: 'api_token', id: `tok-${id}`, scopeId: null }, changes });
+      const token = (id: string, changes: AuditEvent['changes']): AuditEvent => ({ ...EVENT, id, target: { type: 'api_token', id: `tok-${id}`, scopeId: null, label: `Token ${id}` }, changes });
       renderAudit('/admin/audit', [
         token('t1', { scopes: [null, 'workspace.read, voc.read'] }),
         token('t2', { scopes: ['workspace.read', null] }),
         token('t3', undefined),
-        { ...EVENT, id: 'e1', target: { ...EVENT.target, id: 'MEM-ETCH-0103' }, changes: { scopes: [null, 'x'], status: ['a', 'b'] } },
+        { ...EVENT, id: 'e1', target: { ...EVENT.target, id: 'MEM-ETCH-0103', label: 'MEM-ETCH-0103' }, changes: { scopes: [null, 'x'], status: ['a', 'b'] } },
       ]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
-      await within(table).findByText('tok-t1');
+      await within(table).findByText('Token t1');
       const index = within(table).getAllByRole('columnheader').findIndex(h => h.textContent?.includes('변경 필드'));
       expect(index).toBeGreaterThan(-1);
       const cellOf = (id: string) => within(within(table).getByText(id).closest('[role="row"]') as HTMLElement).getAllByRole('cell')[index]!.textContent;
-      expect(cellOf('tok-t1')).toBe('권한 묶음: workspace.read, voc.read');
-      expect(cellOf('tok-t2')).toBe('권한 묶음: workspace.read');
-      expect(cellOf('tok-t3')).toBe('—');
-      expect(cellOf('MEM-ETCH-0103')).toBe('scopes, status');
+      expect(cellOf('Token t1')).toBe('1개 필드');
+      expect(cellOf('Token t2')).toBe('1개 필드');
+      expect(cellOf('Token t3')).toBe('—');
+      expect(cellOf('MEM-ETCH-0103')).toBe('2개 필드');
+      expect(screen.queryByText(/voc\.read/)).toBeNull();
+      const row = within(table).getByText('Token t1').closest('[role="row"]') as HTMLElement;
+      fireEvent.click(within(row).getByRole('button', { name: '원본' }));
+      expect((await screen.findByRole('dialog', { name: '원본' })).textContent).toContain('workspace.read, voc.read');
     } finally { restore(); }
   });
 
-  // W-302 FIX1: 알 수 없는 대상 유형은 원문으로 보인다. `constructor`·`toString`·`__proto__` 같은 상속 키도
+  // W-302 FIX1: 알 수 없는 대상 유형은 공통 라벨로 보인다. `constructor`·`toString`·`__proto__` 같은 상속 키도
   // 빈 셀이 되지 않는다(원래 Object.prototype의 속성을 찾아 label이 undefined였다).
-  it('shows unknown target types as raw wire values, including inherited-key names', async () => {
+  it('labels an unknown target type even if it matches an inherited key', async () => {
     const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
     const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
@@ -488,17 +570,16 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
       renderAudit('/admin/audit', [{ ...EVENT, id: 'a2', target: { type: 'constructor', id: 'X-1', scopeId: null } }]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
-      await within(table).findByText('constructor');
-      expect(within(table).getByText('constructor')).toBeTruthy();
+      expect(await within(table).findAllByText('알 수 없는 유형')).toHaveLength(2);
     } finally {
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
       if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);
     }
   });
 
-  // W-302 FIX1: 알 수 없는 대상 유형은 원문으로 보인다. `constructor`·`toString`·`__proto__` 같은 상속 키도
+  // W-302 FIX1: 알 수 없는 대상 유형은 공통 라벨로 보인다. `constructor`·`toString`·`__proto__` 같은 상속 키도
   // 빈 셀이 되지 않는다(원래 Object.prototype의 속성을 찾아 label이 undefined였다).
-  it('shows unknown target types as raw wire values, including inherited-key names', async () => {
+  it('labels an unknown target type even if it matches an inherited key', async () => {
     const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
     const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as Element).getAttribute('role') === 'row' ? 32 : 420; } });
@@ -507,8 +588,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
       renderAudit('/admin/audit', [{ ...EVENT, id: 'a2', target: { type: 'constructor', id: 'X-1', scopeId: null } }]);
       const table = await screen.findByRole('table', { name: '변경 감사 목록' });
       // Rows arrive after the table mounts (loading state); wait for them before reading cells synchronously.
-      await within(table).findByText('constructor');
-      expect(within(table).getByText('constructor')).toBeTruthy();
+      expect(await within(table).findAllByText('알 수 없는 유형')).toHaveLength(2);
     } finally {
       if (originalOffsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', originalOffsetHeight);
       if (originalOffsetWidth) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalOffsetWidth);

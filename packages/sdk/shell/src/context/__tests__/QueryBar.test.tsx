@@ -130,7 +130,7 @@ it('retains child axes and IDs outside candidates with nonblocking explanations'
   expect(screen.getByRole('button', { name: /대상 고정 1대.*빈 선택/ })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /^대상 고정/ }));
   expect(await screen.findByRole('checkbox', { name: /EQ-X/ })).toBeChecked();
-  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '대상' })).getByText('취소', { selector: 'button' }));
   expect(draft.canApply).toBe(true);
 });
 it('derives bar visibility from menu capabilities only, not from carried values', () => {
@@ -145,7 +145,7 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   act(() => draft.setDraftGlobal({ roomNames: [], selection: [], condition: { vendor: ['V1'] } }));
   expect(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ })).toHaveTextContent('빈 선택');
   fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
-  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '대상' })).getByText('취소', { selector: 'button' }));
   expect(draft.draft.global.roomNames).toEqual([]);
   expect(draft.draft.global.selection).toEqual([]);
   fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
@@ -171,7 +171,7 @@ it('shows metadata transport failures without dropping selections or blocking va
   await waitFor(() => expect(facts).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
   await waitFor(() => expect(facts).toHaveBeenCalledTimes(2));
-  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '대상' })).getByText('취소', { selector: 'button' }));
   expect(draft.draft.global.selection).toEqual(['EQ-X']);
   expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
 });
@@ -201,7 +201,7 @@ it('keeps pane drafts independent and closes the anchored editor with focus rest
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
   fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
-  fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '대상' })).getByText('취소', { selector: 'button' }));
   expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
   fireEvent.keyDown(screen.getByRole('button', { name: '최근 7일' }), { key: 'Escape' });
   await waitFor(() => expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus());

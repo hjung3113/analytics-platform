@@ -21,6 +21,7 @@ export type AuditSortField = (typeof AUDIT_SORT_FIELDS)[number];
 
 const QUERY_KEYS = [
   'type',
+  'includeLabels',
   'actor',
   'action',
   'source',
@@ -33,6 +34,7 @@ const QUERY_KEYS = [
 ] as const;
 
 export interface ParsedAuditQuery {
+  includeLabels?: true;
   type?: string;
   actor?: string;
   action?: PlatformAuditAction;
@@ -91,7 +93,8 @@ export function parseAuditQuery(body: unknown): ParsedAuditQuery | null {
   if (Object.keys(body).some((key) => !(QUERY_KEYS as readonly string[]).includes(key))) {
     return null;
   }
-  const { type, actor, action, source, fromAt, toAt, targetId, page, pageSize, sort } = body;
+  const { type, actor, action, source, fromAt, toAt, targetId, page, pageSize, sort, includeLabels } = body;
+  if (includeLabels !== undefined && includeLabels !== true) return null;
   if (type !== undefined && (typeof type !== 'string' || !AUDIT_TYPE_TOKEN.test(type))) {
     return null;
   }
@@ -127,6 +130,7 @@ export function parseAuditQuery(body: unknown): ParsedAuditQuery | null {
     return null;
   }
   return {
+    ...(includeLabels === true && { includeLabels }),
     ...(type !== undefined ? { type: type as string } : {}),
     ...(actor !== undefined ? { actor: actor as string } : {}),
     ...(action !== undefined ? { action: action as PlatformAuditAction } : {}),

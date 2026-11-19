@@ -341,3 +341,17 @@ it('path values are validated', async () => {
   await expect(fetchEvidenceDetail('invalid-id', new AbortController().signal)).rejects.toBeInstanceOf(ApiPathError);
   expect(fetchMock).not.toHaveBeenCalled();
 });
+
+it('summarizes the evidence snapshot and folds the available JSON', async () => {
+  installFetch();
+  mount({ selected: ID });
+  const drawer = await screen.findByTestId('drawer');
+  await waitFor(() => expect(drawer).toHaveTextContent('기록 일시'));
+  expect(drawer).toHaveTextContent('의견 방향');
+  expect(drawer.querySelector('dl')).toHaveTextContent('FIN-42 · 다운로드 실패');
+  expect(drawer).toHaveTextContent(item.quote_or_summary ?? '');
+  const original = drawer.querySelector('details');
+  expect(original).not.toHaveAttribute('open');
+  expect(original).toHaveTextContent('원본');
+  expect(original).toHaveTextContent('"source_type": "note"');
+});

@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-admin",
   "private": true,
-  "version": "0.2.8",
+  "version": "0.2.9",
   "ap": { "sdk": ">=0.43.0 <0.44.0" },
   "type": "module",
   "exports": {

@@ -177,7 +177,7 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     expect(typeof body.id).toBe('string');
 
     const requestRows = await dbHandle.pool.query(
-      'select id, status, requested_capability from permission.permission_requests where workspace_id = $1',
+      'select id, status, requested_capability, created_at from permission.permission_requests where workspace_id = $1',
       [WORKSPACE_ID],
     );
     expect(requestRows.rowCount).toBe(1);
@@ -185,13 +185,14 @@ describe.skipIf(!runIntegration)('POST /permission-requests', () => {
     expect(requestRows.rows[0]?.requested_capability).toBe('survey.export');
 
     const auditRows = await migrateHandle.pool.query(
-      `select event_type, subject_type, subject_id from core.audit_log
+      `select event_type, subject_type, subject_id, created_at from core.audit_log
         where workspace_id = $1 and event_type = 'permission_requested'`,
       [WORKSPACE_ID],
     );
     expect(auditRows.rowCount).toBe(1);
     expect(auditRows.rows[0]?.subject_type).toBe('permission_request');
     expect(auditRows.rows[0]?.subject_id).toBe(requestRows.rows[0]?.id);
+    expect(auditRows.rows[0]?.created_at).toEqual(requestRows.rows[0]?.created_at);
   });
 
   it('notifies every workspace admin and excludes developers on submit', async () => {

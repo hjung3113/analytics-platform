@@ -352,7 +352,7 @@ it('reconciles a decision-cleared selection to fresh current-tab data', async ()
     public_update: 'missing',
     param: first.id,
   });
-  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute('aria-selected', 'true');
 });
 
 it('lets a newer explicit off-page selection own the queue after decision completion', async () => {
@@ -490,9 +490,9 @@ it.each([
     expect(screen.getByTestId('detail')).toHaveTextContent('REQ-RESTORED');
     expect(mounted.router.state.location.search.param).toBe('restored');
     expect(mounted.history.length).toBe(1);
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 대기/ }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 중/ }));
     await settledQueue(mounted);
-    expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -522,16 +522,16 @@ it('consumes a decided param while all is active without switching tabs', async 
   expect(screen.getByRole('tab', { name: /^전체/ })).toHaveAttribute('aria-selected', 'true');
   expect(mounted.router.state.location.search.param).toBe(decided.id);
   expect(mounted.history.length).toBe(2);
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 대기/ }));
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 중/ }));
   await settledQueue(mounted);
-  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute('aria-selected', 'true');
 });
 it('consumes a pending param even when its status already matches the active tab', async () => {
   mockQueue();
   const mounted = mount(`${initial}&param=a1`);
   expect(await screen.findByTestId('detail')).toHaveTextContent('REQ-A');
   await settledQueue(mounted);
-  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute('aria-selected', 'true');
   fireEvent.mouseDown(screen.getByRole('tab', { name: /^전체/ }));
   await settledQueue(mounted);
   expect(screen.getByRole('tab', { name: /^전체/ })).toHaveAttribute('aria-selected', 'true');
@@ -558,9 +558,9 @@ it('follows each param occurrence again through Back and Forward', async () => {
   await settledQueue(mounted);
   expect(screen.getByTestId('detail')).toHaveTextContent('REQ-B');
   expect(mounted.history.length).toBe(2);
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 대기/ }));
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 중/ }));
   await settledQueue(mounted);
-  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute('aria-selected', 'true');
   await act(async () => {
     mounted.history.back();
   });

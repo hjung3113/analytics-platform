@@ -1,8 +1,8 @@
 import { useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../../messages';
-import { formatInstant, formatWallClock } from '@ap/contracts';
+import { formatWallClock } from '@ap/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useI18n, usePlatform } from '@ap/kernel';
+import { formatSummaryTime, useI18n, usePlatform } from '@ap/kernel';
 import { AnalysisChart, AnalysisChartFrame, LaneTimeline, type ChartSeries, type ChartSpec } from '@ap/components';
 import type { CatalogData, CatalogKind } from '../../endpoints';
 import { BreakdownBars } from './BreakdownBars';
@@ -23,11 +23,7 @@ export function CatalogChart({ kind, data, height, updatedAt }: { kind: CatalogK
   }, [detail, identity]);
   const title = `${tx(kindLabels[kind])} ${m('catalogChartChart')}`;
   const description = m('catalogChartSyntheticData') + ` · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
-  let updated = '—';
-  if (updatedAt) {
-    try { updated = formatInstant(updatedAt, lang, undefined, 'monthDayMinute'); }
-    catch { updated = '—'; }
-  }
+  const updated = formatSummaryTime(updatedAt, lang);
   const previousLabel = m('catalogChartPreviousEqualPeriod') + ` · ${formatWallClock(data.previousFrom)} – ${formatWallClock(data.previousTo)}`;
   const currentLabel = m('catalogChartCurrentPeriod');
   const spec = useMemo<ChartSpec | null>(() => {

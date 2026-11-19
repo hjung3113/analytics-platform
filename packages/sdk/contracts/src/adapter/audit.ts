@@ -9,6 +9,8 @@ export type AuditSource = 'user' | 'system';
 /** Destination of the change (06 §22). Not an analysis Context. */
 export type AuditTarget = {
   type: string; // EntityRef.type vocabulary. Not a contracts union.
+  /** Authorized human-readable name, when the producer can resolve it. */
+  label?: string;
   id: string; // opaque destination id. Callers must not parse it.
   scopeId: string | null; // site when the destination is site-partitioned; null when it has no site. Never inferred from id (ADR-0004).
 };
@@ -19,6 +21,8 @@ export type AuditEvent = {
   at: string;
   /** Stable principal id. Not a translated title. Not the session user of a read. */
   actor: string;
+  /** Authorized human-readable name of the event principal, when available. */
+  actorLabel?: string;
   action: AuditAction;
   source: AuditSource;
   /** Required. No persisted events exist, so there is no optional shim. */

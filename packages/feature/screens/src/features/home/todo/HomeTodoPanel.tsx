@@ -14,7 +14,7 @@ import { permissionRequestsReviewKey } from '../../admin/permissions/useDecidePe
 import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { permissionRequestStatusLabel } from '../../../lib/copy/enum-labels';
 import { HOME_TODO_COPY as COPY } from '../../../lib/copy/home-todo';
-import { formatRelativeTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
 import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { NAV_COUNTS_QUERY_KEY } from '../../../lib/query/navCounts';
@@ -44,7 +44,7 @@ const TRIAGE_QUEUE_TO = '/vocs?view=triage&tab=unassigned';
 const PERMISSION_REVIEW_QUEUE_TO = '/admin/permissions/requests';
 const PERMISSION_REVIEW_CAPABILITY = 'workspace.admin';
 
-type Row = { key: string; to: string; title: string; meta: string };
+type Row = { key: string; to: string; title: string; meta: React.ReactNode };
 type QueueCount = { id: string; label: string; to: string; count: number };
 type Group = {
   id: string;
@@ -86,11 +86,10 @@ function vocRows(items: readonly NotificationDto[]): Row[] {
     seen.add(vocId);
     const title =
       item.subject_ref?.visibility_state === 'allowed' ? item.subject_ref.title : item.summary;
-    const time = formatRelativeTime(item.created_at);
-    const meta =
-      item.subject_ref?.visibility_state === 'allowed'
-        ? `${item.subject_ref.display_id} · ${time}`
-        : time;
+    const meta = <>
+      {item.subject_ref?.visibility_state === 'allowed' && `${item.subject_ref.display_id} · `}
+      <FeatureTimestamp at={item.created_at} notation="feed" />
+    </>;
     rows.push({ key: vocId, to, title, meta });
     if (rows.length === MAX_ROWS) break;
   }

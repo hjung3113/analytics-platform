@@ -3,13 +3,13 @@
  * stays visible, zero-filled when the server summary has no entry yet. Screen-independent and pure so the
  * join contract is unit-testable; the page only sorts and pages the result.
  */
-import { formatInstant, type SpaceId, type Text, type UsageMenuSummary } from '@ap/contracts';
-import type { Registry } from '@ap/kernel';
+import { type SpaceId, type Text, type UsageMenuSummary } from '@ap/contracts';
+import { formatListTime, type Registry } from '@ap/kernel';
 import { spaceFields } from './space-fields';
 
 /** lastUsedAt is an epoch-ms instant (#88): format in the viewer's time zone, not the stored UTC digits. */
-export function formatLastUsed(ms: number | null, lang: keyof Text, timeZone?: string): string {
-  return ms === null ? '—' : formatInstant(ms, lang, timeZone);
+export function formatLastUsed(ms: number | null, _lang: keyof Text, timeZone?: string): string {
+  return formatListTime(ms, { timeZone });
 }
 
 export type UsageRow = {

@@ -51,7 +51,7 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
     const SortIcon = sort?.direction === 'ascending' ? ArrowUp : ArrowUpDown;
     const Icon = sort?.direction === 'descending' ? ArrowDown : SortIcon;
     return <th ref={ref} className={cn('border-b border-border-subtle h-8 whitespace-nowrap bg-surface-sunken px-4 py-1 text-left align-middle t-table-header text-text-secondary', align === 'end' && 'text-right tabular', className)} {...props} aria-sort={sort?.direction ?? props['aria-sort']}>
-      {sort ? <button type="button" onClick={sort.onSort} className="-mx-1 inline-flex min-h-6 min-w-0 items-center gap-1 rounded-xs px-1 uppercase hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
+      {sort ? <button type="button" onClick={sort.onSort} className="-mx-1 inline-flex min-h-6 min-w-0 items-center gap-1 rounded-xs px-1 hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring">
         <span className="min-w-0 truncate">{children}</span><Icon className={cn('size-3 shrink-0', sort.direction === 'none' && 'opacity-40')} aria-hidden />
       </button> : children}
     </th>;

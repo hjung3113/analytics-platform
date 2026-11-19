@@ -22,14 +22,14 @@ import {
   Textarea,
 } from '@ap/ui';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 import { scopeRoomsFor } from '../../../components/PermissionScopeTargetFields';
 import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import { useMeBridge } from '../../../lib/api/me';
 import type { PermissionRequestDecisionAction } from '../../../lib/api/permission-admin';
-import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
+import { ADMIN_PERMISSIONS_COPY, PERMISSION_REVIEW_TEXT } from '../../../lib/copy/admin-permissions';
 import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
-import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { usePermissionScopeCandidates } from '../../../lib/api/permission-scope-candidates';
 import {
@@ -38,9 +38,11 @@ import {
   requestedScopeTargetLabel,
 } from '../../../lib/copy/permission-scope';
 import { formatDateOnly } from '../../../lib/format/datetime';
-import { shortId } from '../../../lib/identity';
+import { useHostSeam } from '../../../lib/host/host-seam';
 
 import { useWorkspaceSettings } from '../settings/use-workspace-settings.js';
+import { ReviewCapabilityName } from './declared-capability-name.js';
+import { hasPermissionDecisionActions } from './permission-decision-actions';
 import { useDecidePermissionRequest } from './useDecidePermissionRequest.js';
 
 const ACTIONS: Array<{
@@ -110,9 +112,11 @@ function hasExpirationFieldError(error: unknown): boolean {
 
 export function PermissionRequestDecisionForm({
   request,
+  footerTarget,
   batch,
   actorName,
-  managedSystemName,
+  managedSystemNames,
+  managedSystemSlugs,
   staleNoticeShown,
   discardedReason,
   onDraftChanged,
@@ -122,9 +126,12 @@ export function PermissionRequestDecisionForm({
   onReviewCompleted,
 }: {
   request: PermissionRequestAdminDetail;
+  /** Undefined keeps the submit action inline. Null waits for the hosted footer to mount. */
+  footerTarget?: HTMLElement | null;
   batch?: { id: string; items: PermissionRequestAdminDetail[] };
   actorName?: string | undefined;
-  managedSystemName?: string | undefined;
+  managedSystemNames?: Readonly<Record<string, string>>;
+  managedSystemSlugs?: Readonly<Record<string, string>> | undefined;
   staleNoticeShown?: boolean;
   discardedReason?: string;
   onDraftChanged?: (draft: { revision: number; nonEmpty: boolean; reason: string }) => void;
@@ -133,6 +140,7 @@ export function PermissionRequestDecisionForm({
   onActionPicked?: () => void;
   onReviewCompleted?: () => void;
 }) {
+  const { lang = 'ko' } = useHostSeam();
   const [reviewBlocked, setReviewBlocked] = React.useState(false);
   const batchDecidable = batch?.items.filter(item => item.status === 'pending' || item.status === 'needs_more_info') ?? [];
   const grantable = batchDecidable.filter(item => item.allowed_actions.includes('approve') && !item.effective_access.decision.allow);
@@ -158,6 +166,27 @@ export function PermissionRequestDecisionForm({
   const submitting = React.useRef(false);
   const [scope, setScope] = React.useState(request.requested_managed_system_id ?? 'workspace');
   const scopeTargetLabel = requestedScopeTargetLabel(request);
+  const approvalTargetDescriptionId = React.useId();
+  const selectedSystemId =
+    action === 'approve' && scopeTargetLabel === null && scope !== 'workspace' ? scope : null;
+  const scopeName = (id: string | null) => id === null
+    ? PERMISSION_REVIEW_TEXT.all[lang]
+    : managedSystemNames?.[id] ?? PERMISSION_REVIEW_TEXT.system[lang];
+  const scopeOptions = new Map<string, string>();
+  const unresolvedScopeIds: string[] = [];
+  const unresolvedScopeLabel = lang === 'ko' ? '이름 미확인 시스템 선택' : 'Choose a system by ID';
+  if (action === 'approve' && scopeTargetLabel === null) {
+    for (const { managed_system_id: id } of approvalScopeCandidates) {
+      if (id === null) {
+        scopeOptions.set('workspace', scopeName(null));
+        continue;
+      }
+      const name = managedSystemNames?.[id];
+      const slug = managedSystemSlugs?.[id];
+      if (name && slug) scopeOptions.set(id, `${name} · ${slug}`);
+      else unresolvedScopeIds.push(id);
+    }
+  }
   const siteRequest =
     request.requested_scope_kind === 'site' && request.requested_scope_site
       ? request.requested_scope_site
@@ -235,7 +264,7 @@ export function PermissionRequestDecisionForm({
       ((isCapability(request.requested_capability) &&
         isSensitiveCapability(request.requested_capability)) ||
         declaredSensitive));
-  const decidable = request.status === 'pending' || request.status === 'needs_more_info';
+  const hasDecisionActions = hasPermissionDecisionActions(request);
   const isSelfApproval = request.administrative_authority.is_requester;
   const selfApprovalBlockedByPolicy =
     isSelfApproval &&
@@ -268,7 +297,7 @@ export function PermissionRequestDecisionForm({
         ? APPROVAL_EXPIRATION_ERROR
         : null;
   const submitDisabled =
-    !decidable ||
+    !hasDecisionActions ||
     reviewBlocked ||
     action === null ||
     !selfApprovalReady ||
@@ -368,10 +397,33 @@ export function PermissionRequestDecisionForm({
         ) : null}
       </output>
     ) : null;
-  if (!decidable || request.allowed_actions.length === 0)
+  if (!hasDecisionActions)
     return resetNotice ? (
       <section data-testid="permission-decision-section">{resetNotice}</section>
     ) : null;
+
+  const submitAction = (
+    <div className="flex flex-col gap-3">
+      <Button
+        type="button"
+        onClick={submit}
+        loading={mutation.isPending}
+        disabled={submitDisabled}
+        aria-describedby={selectedSystemId !== null ? approvalTargetDescriptionId : undefined}
+        data-testid="permission-decision-submit"
+      >
+        {batch && action === 'approve' ? PERMISSION_GROUP_COPY.approve(selectedBatchItems.length) : showSelfApprovalCapture
+          ? '직접 승인 확정 · 감사 캡처'
+          : selectedAction
+            ? `${selectedAction.label} 처리`
+            : '결정을 선택하세요'}
+      </Button>
+      <p className="text-xs text-text-muted">
+        승인은 차단된 액션을 자동으로 실행하지 않습니다. 요청자는 다시 동일 액션을 명시적으로
+        실행해야 합니다.
+      </p>
+    </div>
+  );
 
   return (
     <section
@@ -414,7 +466,7 @@ export function PermissionRequestDecisionForm({
           </Button>
         ))}
       </fieldset>
-      {batch && action === 'approve' ? <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">{PERMISSION_GROUP_COPY.checklist}</legend>{batch.items.map(item => <div key={item.id} className="flex items-center gap-2"><Checkbox id={`batch-approve-${item.id}`} checked={approveIds.includes(item.id) && grantable.some(candidate => candidate.id === item.id)} disabled={mutation.isPending || !grantable.some(candidate => candidate.id === item.id)} onCheckedChange={checked => setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} /><label htmlFor={`batch-approve-${item.id}`}>{getCapabilityDisplayLabel(item.requested_capability)}{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
+      {batch && action === 'approve' ? <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">{PERMISSION_GROUP_COPY.checklist}</legend>{batch.items.map(item => <div key={item.id} className="flex items-center gap-2"><Checkbox id={`batch-approve-${item.id}`} checked={approveIds.includes(item.id) && grantable.some(candidate => candidate.id === item.id)} disabled={mutation.isPending || !grantable.some(candidate => candidate.id === item.id)} onCheckedChange={checked => setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} /><label htmlFor={`batch-approve-${item.id}`}><ReviewCapabilityName id={item.requested_capability} />{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
       {selfApprovalBlockedByPolicy ? (
         <p className="text-xs text-accent-danger">
           운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
@@ -463,40 +515,48 @@ export function PermissionRequestDecisionForm({
           disabled={mutation.isPending}
         />
       ) : null}
-      {action === 'approve' &&
-      scopeTargetLabel === null &&
-      approvalScopeCandidates.length > 0 ? (
+      {scopeOptions.size > 0 ? (
         <label
           htmlFor="permission-approval-scope"
           className="flex flex-col gap-2 text-sm text-text-secondary"
         >
           {ADMIN_PERMISSIONS_COPY.approvalScope}
-          <Select value={scope} onValueChange={setScope} disabled={mutation.isPending}>
+          <Select value={scopeOptions.has(scope) ? scope : ''} onValueChange={setScope} disabled={mutation.isPending}>
             <SelectTrigger
               id="permission-approval-scope"
               aria-label={ADMIN_PERMISSIONS_COPY.approvalScope}
             >
-              <SelectValue />
+              <SelectValue placeholder={PERMISSION_REVIEW_TEXT.system[lang]} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {approvalScopeCandidates.map((candidate) => (
-                  <SelectItem
-                    key={candidate.managed_system_id ?? 'workspace'}
-                    value={candidate.managed_system_id ?? 'workspace'}
-                  >
-                    {candidate.managed_system_id
-                      ? // A known system shows its name only; the short id tells unnamed systems apart.
-                        candidate.managed_system_id === request.requested_managed_system_id && managedSystemName
-                        ? managedSystemName
-                        : `시스템 · ${shortId(candidate.managed_system_id)}`
-                      : '전체'}
+                {Array.from(scopeOptions, ([id, label]) => (
+                  <SelectItem key={id} value={id}>
+                    {label}
                   </SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
         </label>
+      ) : null}
+      {unresolvedScopeIds.length > 0 ? (
+        <details className="break-keep text-sm">
+          <summary className="cursor-pointer py-1.5 text-text-secondary">{unresolvedScopeLabel}</summary>
+          <RadioGroup
+            aria-label={unresolvedScopeLabel}
+            value={scope}
+            onValueChange={setScope}
+            disabled={mutation.isPending || reviewBlocked}
+          >
+            {unresolvedScopeIds.map((id) => (
+              <label key={id} className="flex cursor-pointer items-center gap-2 text-text-secondary">
+                <RadioGroupItem value={id} />
+                <code className="break-all">{id}</code>
+              </label>
+            ))}
+          </RadioGroup>
+        </details>
       ) : null}
       {action === 'approve' ? (
         <fieldset className="flex flex-col gap-2" data-testid="permission-approval-expiration">
@@ -621,20 +681,12 @@ export function PermissionRequestDecisionForm({
               {captureCopy.requester}: {actorName ?? GLOSSARY.unknownUser}
             </span>
             <span>
-              {captureCopy.permission}: {getCapabilityDisplayLabel(request.requested_capability)}
+              {captureCopy.permission}: <ReviewCapabilityName id={request.requested_capability} />
             </span>
             <span>
               {captureCopy.scope}:{' '}
-              {scopeTargetLabel ??
-                (request.requested_managed_system_id
-                  ? (managedSystemName ?? '시스템')
-                  : ADMIN_PERMISSIONS_COPY.riskReview.allScope)}
+              {scopeTargetLabel ?? scopeName(request.requested_managed_system_id)}
             </span>
-            {request.requested_managed_system_id && !managedSystemName && (
-              <span className="font-mono text-text-muted">
-                {shortId(request.requested_managed_system_id)}
-              </span>
-            )}
             <span>
               {captureCopy.policyCitation}: {policyCitation || captureCopy.required}
             </span>
@@ -656,23 +708,14 @@ export function PermissionRequestDecisionForm({
           </p>
         </section>
       ) : null}
-      <Button
-        type="button"
-        onClick={submit}
-        loading={mutation.isPending}
-        disabled={submitDisabled}
-        data-testid="permission-decision-submit"
-      >
-        {batch && action === 'approve' ? PERMISSION_GROUP_COPY.approve(selectedBatchItems.length) : showSelfApprovalCapture
-          ? '직접 승인 확정 · 감사 캡처'
-          : selectedAction
-            ? `${selectedAction.label} 처리`
-            : '결정을 선택하세요'}
-      </Button>
-      <p className="text-xs text-text-muted">
-        승인은 차단된 액션을 자동으로 실행하지 않습니다. 요청자는 다시 동일 액션을 명시적으로
-        실행해야 합니다.
-      </p>
+      {selectedSystemId !== null ? (
+        <p id={approvalTargetDescriptionId} className="wrap-anywhere text-sm text-text-secondary">
+          {lang === 'ko' ? ADMIN_PERMISSIONS_COPY.approvalScope : 'Approval scope'}:{' '}
+          {scopeOptions.get(selectedSystemId) ?? scopeName(selectedSystemId)}{' '}
+          <code>{selectedSystemId}</code>
+        </p>
+      ) : null}
+      {footerTarget === undefined ? submitAction : footerTarget && createPortal(submitAction, footerTarget)}
     </section>
   );
 }

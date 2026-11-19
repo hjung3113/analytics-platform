@@ -8,7 +8,8 @@ import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '../../..
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { SCOPE_SELECTOR_COPY } from '../../../lib/copy/managed-system-scope';
 import { PERMISSION_SCOPE_COPY, scopeTargetLabelOf } from '../../../lib/copy/permission-scope';
-import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
+import { formatDateOnly } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { shortId } from '../../../lib/identity';
 import { type PermissionDenyAdminItem, type PermissionGrantAdminItem, isDeclaredCapabilityId } from '@ap/feature-shared';
@@ -176,7 +177,7 @@ function GrantFields({
         <ActorValue id={item.granted_by_actor_id} actorNames={actorNames} />
       </FieldRow>
       <FieldRow label={ADMIN_PERMISSIONS_COPY.grantedAt} inset="none">
-        <span>{formatDateTime(item.granted_at)}</span>
+        <FeatureTimestamp at={item.granted_at} notation="summary" />
       </FieldRow>
       <FieldRow label={ADMIN_PERMISSIONS_COPY.expiration} inset="none">
         <span>
@@ -202,7 +203,7 @@ function DenyFields({
         <ActorValue id={item.created_by_actor_id} actorNames={actorNames} />
       </FieldRow>
       <FieldRow label={ADMIN_PERMISSIONS_COPY.deniedAt} inset="none">
-        <span>{formatDateTime(item.created_at)}</span>
+        <FeatureTimestamp at={item.created_at} notation="summary" />
       </FieldRow>
       <FieldRow label={ADMIN_PERMISSIONS_COPY.denyReason} inset="none">
         <span className="whitespace-pre-wrap">{item.reason}</span>

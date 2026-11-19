@@ -18,7 +18,7 @@ export const AUDIT_EVENTS: readonly AuditEvent[] = (() => {
     const at = (kind: keyof typeof KIND_OFFSET) => new Date(ORIGIN + index * DAY + KIND_OFFSET[kind]).toISOString();
     // `row.site`, never `id.split('-')[0]` (ADR-0004). The `-V1` chamber value is a synthetic prior
     // snapshot so the diff has something to show — not a validity segment; the validity tab is unchanged.
-    const target = { type: 'equipment', id: row.equipmentId, scopeId: row.site };
+    const target = { type: 'equipment', id: row.equipmentId, scopeId: row.site, label: row.equipmentId };
     events.push(
       { id: `equipment:${row.equipmentId}:create`, at: at('create'), actor: 'master-sync', action: 'create', source: 'system', target, changes: { equipmentId: [null, row.equipmentId], chamberType: [null, row.chamberType] } },
       { id: `equipment:${row.equipmentId}:update`, at: at('update'), actor: 'master-sync', action: 'update', source: 'system', target, changes: { chamberType: [`${row.chamberType}-V1`, row.chamberType] } },

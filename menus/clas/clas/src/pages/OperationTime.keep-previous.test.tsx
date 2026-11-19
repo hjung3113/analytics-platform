@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatInstant, formatWallClock, type ApiResponse, type Trust } from '@ap/contracts';
-import { useMenuQuery } from '@ap/kernel';
+import { formatWallClock, type ApiResponse, type Trust } from '@ap/contracts';
+import { formatSummaryTime, useMenuQuery } from '@ap/kernel';
 import { operationTimeEndpoint } from '../endpoints';
 import type { OperationRankRow, OperationTimeData } from '../endpoints';
 import OperationTimeScreen, { PreviousEquipmentLine, acceptedEquipment } from './OperationTime';
@@ -13,7 +13,8 @@ const QUERY_TO = '2026-09-26T09:00:00';
 
 // This package has no DOM test environment, and the lifecycle itself (the kept result, the refreshing label, Context and period hiding) is the Kernel's,
 // tested in packages/sdk/kernel/src/query/__tests__/menu-query.test.tsx. This pins that the screen asks for it: the screen has no other state to test.
-vi.mock('@ap/kernel', () => ({
+vi.mock('@ap/kernel', async importOriginal => ({
+  ...(await importOriginal<typeof import('@ap/kernel')>()),
   useMenuQuery: vi.fn(() => ({ status: acceptedResponse ? 'success' : 'loading', response: acceptedResponse })),
   useI18n: () => ({ lang: 'ko', tx: (text: { ko: string }) => text.ko }),
   usePlatform: () => ({ pageParam: (key: string) => (key === 'eqp' ? 'EQ-07' : null), global: { from: null, to: QUERY_TO }, setPage: vi.fn() }),
@@ -85,7 +86,7 @@ describe('CLAS operation time summary and chart trust (#2532)', () => {
     const html = renderToStaticMarkup(<OperationTimeScreen />);
     const footer = /<footer>(.*?)<\/footer>/.exec(html)?.[1] ?? '';
     expect(html).toContain('최장 EQ-01');
-    expect(footer).toContain(formatInstant(UPDATED_AT, 'ko', undefined, 'monthDayMinute'));
+    expect(footer).toContain(formatSummaryTime(UPDATED_AT, 'ko'));
     expect(footer).not.toContain(formatWallClock(QUERY_TO));
   });
 

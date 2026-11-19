@@ -2,7 +2,7 @@ import { ListStateMessage } from '../../../components/ListStateMessage';
 import { isPermissionDenied } from '../../../lib/api/types';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { formatShortDateTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import { shortId } from '../../../lib/identity';
 import type { EntityLinkDto } from '@ap/feature-shared';
 import { ManagedSystemPill } from '../../../ui/index';
@@ -34,11 +34,6 @@ export interface EntityLinksInventoryTableProps {
   loadingMore?: boolean;
   loadMoreError?: Error | null;
   onLoadMore?: (() => void) | undefined;
-}
-
-function formatTimestamp(raw: string | null): string {
-  if (raw === null) return '-';
-  return formatShortDateTime(raw);
 }
 
 export function EntityLinksInventoryTable({
@@ -178,7 +173,7 @@ export function EntityLinksInventoryTable({
                     )}
                   </span>
                   <RowDot />
-                  <span>업데이트 {formatTimestamp(link.updated_at)}</span>
+                  <span>업데이트 <FeatureTimestamp at={link.updated_at} notation="list" /></span>
                 </div>
               </div>
             </li>

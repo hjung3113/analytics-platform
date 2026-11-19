@@ -402,7 +402,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
         const row = screen.getByRole('button', { name: last ? /REQ-1072/ : /REQ-1073/ });
         expect(row).toHaveFocus();
         expect(row.querySelector('[data-testid="object-row-selected-bar"]')).toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+        expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
           'aria-selected',
           'true',
         );
@@ -572,12 +572,12 @@ describe('TaskRequestsRoute decision dialogs', () => {
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
-      expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+      expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
         'aria-selected',
         'true',
       );
       expect(
-        screen.getByRole('heading', { name: '검토 대기 중인 Task 요청이 없습니다' }),
+        screen.getByRole('heading', { name: '검토 중인 Task 요청이 없습니다' }),
       ).toHaveFocus();
     },
   );
@@ -649,12 +649,12 @@ describe('TaskRequestsRoute decision dialogs', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
     await within(dialog).findByRole('alert', {}, { timeout: 5000 });
     expect(within(dialog).getByTestId('task-request-decision-cancel')).toBeDisabled();
-    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     failNext = false;
     fireEvent.click(within(dialog).getByRole('button', { name: '다시 시도' }));
     await waitFor(() => expect(resolvePage).toBeTypeOf('function'));
     expect(dialog.isConnected).toBe(true);
-    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     await act(async () => resolvePage({ items: [otherTaskRequest], page: { has_more: false } }));
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     await act(async () => {
@@ -698,7 +698,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
           .querySelector('[data-testid="object-row-selected-bar"]'),
       ).toBeInTheDocument(),
     );
-    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
   });
 
   it('AC-681-1 does not replay an old decision after a converted request is revisited', async () => {
@@ -721,7 +721,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Task 요청 승인' });
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+      expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
         'aria-selected',
         'true',
       );

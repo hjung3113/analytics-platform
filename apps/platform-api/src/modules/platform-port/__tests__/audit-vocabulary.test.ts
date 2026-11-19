@@ -126,6 +126,20 @@ describe('toAuditEvent field mapping', () => {
     });
   });
 
+  it('preserves optional display names without changing the exact actor and target IDs', () => {
+    expect(toAuditEvent({ ...row, actorLabel: 'Kim Minseo' }, 'Example VOC')).toMatchObject({
+      actor: 'sub-1',
+      actorLabel: 'Kim Minseo',
+      target: { id: row.subjectId, label: 'Example VOC' },
+    });
+  });
+
+  it('only accepts an explicit opt-in for display labels', () => {
+    expect(parseAuditQuery({ includeLabels: true })?.includeLabels).toBe(true);
+    expect(parseAuditQuery({ includeLabels: 'true' })).toBeNull();
+    expect(parseAuditQuery({})?.includeLabels).toBeUndefined();
+  });
+
   it('marks a system actor as source system', () => {
     expect(toAuditEvent({ ...row, actorType: 'system' }).source).toBe('system');
   });

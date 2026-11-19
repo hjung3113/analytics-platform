@@ -338,7 +338,13 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 
 `defaultRangeTo`와 자동 재집계 창의 원천 진행 경계 `R`(정의는 [01 지연 완료 허용 시간](../architecture/architecture-and-data-contract.md#late-arrival-policy) 참조)은 서로 다른 계약 필드이며 항상 같은 값은 아니다. **`R`이 존재할 때만** 같은 시간역·대상 조건에서 `defaultRangeTo ≤ R`인 경우에만 그 기본 구간을 자동 물질화하고, 만족하는 값이 없으면 마지막 점을 버리거나 `R`을 올리지 않고 기간 선택을 요구한다(L2). `R`이 아직 없는 경우(첫 mart 세대 생성 전, 워커 일시 중단 등)에는 이 비교를 적용하지 않는다 — `defaultRangeTo`가 독립적으로 유효하면 그대로 자동 물질화하고, 자동 재집계만 보류한다([01 정책](../architecture/architecture-and-data-contract.md#late-arrival-policy) 참조).
 
-**실제 시점은 wall-clock이 아니다 (Decided, 2026-09-28):** 설비 업무 시각이 아닌 실제 시점(epoch·timestamptz — 예: 메뉴 활용률 마지막 사용, 기능 VOC 접수 시각)은 이 절의 wall-clock 계약 대상이 아니다. 화면에는 `@ap/contracts`의 `formatInstant`로 보는 사람의 시간대에 맞춰 표시하고, `formatDateTime`(naive wall-clock 전용)으로 표시하지 않는다. `formatInstant`는 offset 없는 문자열을 거부해 두 종류가 섞이지 않게 한다(#88).
+**실제 시점은 wall-clock이 아니다 (Decided, 2026-09-28):** 설비 업무 시각이 아닌 실제 시점(epoch·timestamptz — 예: 메뉴 활용률 마지막 사용, 기능 VOC 접수 시각)은 이 절의 wall-clock 계약 대상이 아니다. 화면의 기본 표기는 `@ap/kernel`의 다음 함수가 정한다(Decided, #2541). 사용자의 시간대를 기본으로 쓰며 원본 UTC 문자열은 화면에 표시하지 않는다. 누락·잘못된 시점과 시간대는 `—`로 표시한다.
+
+- `formatListTime`은 비교할 수 있는 표·목록 시각 `YYYY-MM-DD HH:mm`을 반환한다.
+- `formatSummaryTime`은 상세·요약에 쓸 `M월 D일 HH:mm`(영어 `Mon D HH:mm`)을 반환한다. 사용자의 시간대에서 현재와 해가 다르면 연도를 붙인다.
+- `formatFeedTime`은 알림과 활동 흐름에 쓸 `text`와 전체 로컬 시각 `title`을 반환한다. 상대 시각이나 `어제 HH:mm`, `M월 D일`을 표시하고 같은 요소에 `title`을 붙인다.
+
+`@ap/contracts`의 `formatInstant`는 오프셋 없는 문자열을 거부하는 저수준 포매터다(#88). 설비 wall-clock, 차트 축, 정밀 입력, URL과 CSV 형식은 각 계약을 따른다.
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)
 

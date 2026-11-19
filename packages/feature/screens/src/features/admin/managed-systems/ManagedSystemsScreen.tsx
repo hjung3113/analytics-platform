@@ -270,7 +270,7 @@ function ManagedSystemsBody({
               결정 대기 중인 요청 {requestsCount}건
             </div>
             <span className="text-xs text-text-muted">
-              검토 대기 · 추가 정보 필요 · 고위험 · 직접 승인까지 검토 콘솔에서 확인합니다.
+              검토 중 · 추가 정보 필요 · 고위험 · 직접 승인까지 검토 콘솔에서 확인합니다.
             </span>
           </div>
         </div>

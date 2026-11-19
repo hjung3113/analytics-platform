@@ -4,11 +4,11 @@
  * createMockAdapter to main.tsx through `#platform-assembly`; production builds never contain it. A real server adapter replaces this file, not the kernel.
  */
 import type { AuditEvent, EquipmentAxisDescriptor, ContextKey, MenuMeta, Permission, PlatformAdapter, Session } from '@ap/contracts';
-import { instantEpochMs, requiredContextError, SITE_BOUND_CONTEXT_KEYS } from '@ap/contracts';
+import { AUDIT_TYPE_TOKEN, instantEpochMs, requiredContextError, SITE_BOUND_CONTEXT_KEYS } from '@ap/contracts';
 import { createSelectionPorts } from './query/selection-ports';
 import { contextShapeError } from './access/context-validation';
 import { checkScope, sleep, defaultDelay, getEntity, getRole, matchesCondition, recordUsage, reportClientError, setAdapterLatency, subscribeServer, usageNextScreens, usageSummary, validateScope } from './server';
-import { AUDIT_TYPES, auditTrail, entityAudit } from './audit/audit';
+import { auditTrail, entityAudit } from './audit/audit';
 import { AUDIT_EVENTS } from './audit/audit-fixtures';
 import { accessDirectory } from './access/access';
 import { ANNOTATION_PERMISSION, deleteAnnotation, listAnnotations, saveAnnotation } from './audit/annotations';
@@ -48,7 +48,7 @@ function checkAuditSeeds(seeds: readonly AuditEvent[]): void {
   for (const event of seeds) {
     if (seen.has(event.id)) throw new MockRegistrationError(`audit seed ${event.id}: duplicate id`);
     seen.add(event.id);
-    if (!AUDIT_TYPES.includes(event.target.type) || event.target.type === 'equipment') {
+    if (!AUDIT_TYPE_TOKEN.test(event.target.type) || event.target.type === 'equipment') {
       throw new MockRegistrationError(`audit seed ${event.id}: target type ${event.target.type} is not a seedable audit type`);
     }
     if (event.target.type === 'metric' && event.target.scopeId !== null) throw new MockRegistrationError(`audit seed ${event.id}: a metric has no scope`);

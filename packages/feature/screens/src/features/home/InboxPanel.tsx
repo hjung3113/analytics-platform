@@ -28,7 +28,7 @@ import { getCapabilityDisplayLabel } from '../../lib/copy/capabilities';
 import { HOME_INBOX_COPY } from '../../lib/copy/home';
 import { IMPROVEMENT_ITEM_STATUS_LABELS, permissionRequestStatusLabel, TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS, TRIAGE_STATE_LABELS } from '../../lib/copy/enum-labels';
 import { REPORTER_STATUS_LABELS } from '../../lib/copy/reporter-status-labels';
-import { formatRelativeTime } from '../../lib/format/datetime';
+import { FeatureTimestamp } from '../../components/FeatureTimestamp';
 import { HostLink, useHostSeam } from '../../lib/host/host-seam';
 
 type InboxFilter = 'unread' | 'all';
@@ -417,9 +417,7 @@ function NotificationRow({
           </span>
         ) : null}
       </span>
-      <time className="shrink-0 text-xs text-text-muted" dateTime={notification.created_at}>
-        {formatRelativeTime(notification.created_at)}
-      </time>
+      <FeatureTimestamp at={notification.created_at} notation="feed" className="shrink-0 text-xs text-text-muted" />
       {linkTarget === null && !hostCannotLink && notification.read_at === null && (
         <span className="sr-only"> — {HOME_INBOX_COPY.markAsRead}</span>
       )}

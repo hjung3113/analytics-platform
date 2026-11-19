@@ -368,7 +368,7 @@ it('keeps the latest authorized queue or detail projection after a detached deni
   };
   expectRedactedProjection(redactedRow.requested_outcome);
 
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 대기/ }));
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 중/ }));
   expect(await screen.findByText(TITLE)).toBeTruthy(); // The older unfiltered row is still cached.
   expectRedactedProjection(redactedRow.requested_outcome);
   expect(detailRead).toHaveBeenCalledTimes(2);

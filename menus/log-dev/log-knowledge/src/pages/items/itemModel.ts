@@ -3,7 +3,8 @@ import { isUuid, type EvidenceSourceKind } from '../../endpoints';
  * Pure model of the item screens (#1197 s2): vocabulary labels (ADR-0109), the item number and owner wording, the
  * default list filter and the `rev` page-key rule. No React, so it is unit-tested without a DOM and node s3 reuses it.
  */
-import { encodeFilterParams, formatInstant, type ColumnFilter } from '@ap/contracts';
+import { encodeFilterParams, type ColumnFilter } from '@ap/contracts';
+import { formatListTime } from '@ap/kernel';
 import {
   ITEM_TYPE_LABEL, PROCESSING_LABEL, PUBLICATION_LABEL, VERIFICATION_LABEL,
   type ItemOwner, type ItemRow, type ItemTypeCode, type ProcessingState, type PublicationState, type VerificationState,
@@ -53,8 +54,8 @@ export const REVISION_NO_MAX = 1_000_000;
 export const isRevisionParam = (raw: string): boolean => /^[1-9]\d{0,6}$/.test(raw) && Number(raw) <= REVISION_NO_MAX;
 export const revisionOf = (raw: string | null): number | null => (raw !== null && isRevisionParam(raw) ? Number(raw) : null);
 
-/** A server instant for the viewer: kernel `formatInstant` (06 kernel §6.3) in the viewer's zone, never a slice of the ISO text. */
-export const instantText = (iso: string, timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone): string => formatInstant(iso, 'ko', timeZone);
+/** A server instant for the viewer: kernel list notation (06 kernel §6.3) in the viewer's zone, never a slice of the ISO text. */
+export const instantText = (iso: string, timeZone?: string): string => formatListTime(iso, { timeZone });
 
 /** Actors arrive as ids only (no cross-module name read exists yet): a short id is shown, the full id is the title. */
 export const shortActor = (id: string): string => id.slice(0, 8);

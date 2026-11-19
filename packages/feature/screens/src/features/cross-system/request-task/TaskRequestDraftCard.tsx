@@ -12,6 +12,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { fetchAllTaskRequests } from '../../../lib/api/list-all';
+import { TASK_REQUEST_COPY } from '../../../lib/copy/task-requests';
 import { koreanZodErrorMap } from '../../../lib/forms/zodIssueMessage';
 import { HostLink } from '../../../lib/host/host-seam';
 
@@ -127,7 +128,7 @@ export function TaskRequestDraftCard({
           className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-sm text-text-primary"
           data-testid="request-task-pending-notice"
         >
-          이 소스에 검토 대기 중인 Task 요청이 있습니다.{' '}
+          {TASK_REQUEST_COPY.pendingForSource}{' '}
           <HostLink
             className="text-accent-primary underline underline-offset-2"
             to={`/tasks?view=requests&param=${pendingRequest.id}`}

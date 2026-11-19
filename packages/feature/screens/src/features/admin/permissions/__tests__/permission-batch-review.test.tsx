@@ -1,7 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { declaredCapabilitiesKey } from '../../../../lib/api/declared-capabilities';
 import { adminDetailFixture } from '../../../../test/permission-details';
 import { PermissionRequestDecisionForm } from '../permission-request-decision-form';
+import { PermissionRequestDetail } from '../permission-request-detail';
 
 const state = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock('../useDecidePermissionRequest.js', () => ({ useDecidePermissionRequest: () => ({ mutate: state.mutate, reset: vi.fn(), isPending: false }) }));
@@ -17,6 +20,40 @@ beforeEach(() => state.mutate.mockReset());
 const first = items[0];
 const second = items[1];
 if (!first || !second) throw new Error('Expected two batch fixtures');
+
+it('renders the final decision in the hosted footer and submits the action chosen in the body', () => {
+  render(
+    <PermissionRequestDetail
+      request={first}
+      onClose={() => undefined}
+      renderDetail={({ body, footer }) => <><main>{body}</main><footer>{footer}</footer></>}
+    />,
+  );
+
+  const body = within(screen.getByRole('main'));
+  const footer = within(screen.getByRole('contentinfo'));
+  expect(body.queryByTestId('permission-decision-submit')).not.toBeInTheDocument();
+  expect(footer.getByRole('button', { name: '결정을 선택하세요' })).toBeDisabled();
+  fireEvent.click(body.getByRole('button', { name: '거절' }));
+  fireEvent.change(body.getByLabelText('사유 · 필수'), { target: { value: '요청 범위 검토' } });
+  fireEvent.click(footer.getByRole('button', { name: '거절 처리' }));
+  expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({ action: 'reject', reason: '요청 범위 검토' }));
+});
+
+it('shows the declared capability name in the approval checklist', () => {
+  const capability = 'ext.review.inspect';
+  const declared = { ...second, requested_capability: capability };
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(declaredCapabilitiesKey, [{ id: capability, display_name: '검사 결과 조회' }]);
+  render(
+    <QueryClientProvider client={queryClient}>
+      <PermissionRequestDecisionForm request={first} batch={{ id: batchId, items: [first, declared] }} />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  expect(screen.getByRole('checkbox', { name: '검사 결과 조회' })).toBeInTheDocument();
+  expect(screen.queryByText(capability)).not.toBeInTheDocument();
+});
 
 it('partial approval requires one reason and includes every revision with only checked approval ids', () => {
   render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items }} />);

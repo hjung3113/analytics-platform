@@ -47,12 +47,14 @@ export function SelectedPermissionRequestDetail({
   id,
   actorNames,
   managedSystemNames,
+  managedSystemSlugs,
   onClose,
   renderDetail,
 }: {
   id: string;
   actorNames: Record<string, string>;
   managedSystemNames: Record<string, string>;
+  managedSystemSlugs?: Readonly<Record<string, string>> | undefined;
   onClose: () => void;
   /** Absent = the standalone panel. Present = the host draws the parts in place (the screen stays mounted, so the draft survives). */
   renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
@@ -106,6 +108,7 @@ export function SelectedPermissionRequestDetail({
       request={detail}
       actorName={detail.requester.display_name || actorNames[detail.requester_actor_id]}
       managedSystemNames={managedSystemNames}
+      managedSystemSlugs={managedSystemSlugs}
       managedSystemName={
         detail.requested_managed_system_id
           ? managedSystemNames[detail.requested_managed_system_id]

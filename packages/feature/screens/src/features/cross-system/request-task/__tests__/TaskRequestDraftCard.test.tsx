@@ -116,7 +116,9 @@ describe('TaskRequestDraftCard', () => {
     renderCard();
 
     const card = screen.getByRole('region', { name: 'Task 요청 초안' });
-    expect(within(card).getByTestId('request-task-pending-notice')).toHaveTextContent('REQ-1000');
+    expect(within(card).getByTestId('request-task-pending-notice')).toHaveTextContent(
+      '이 소스에 검토 중인 Task 요청이 있습니다. REQ-1000',
+    );
     expect(within(card).getByRole('link', { name: 'REQ-1000' })).toHaveAttribute(
       'href',
       '/tasks?view=requests&param=11111111-1111-4111-8111-111111111111',

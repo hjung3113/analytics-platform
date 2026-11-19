@@ -48,7 +48,7 @@ beforeEach(() => {
     disconnect() {}
   });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('folded apply Analysis Workspace places status, parameters and the real toolbar in a fixed second query-bar line (#1941)', async () => {
   mount();
@@ -101,16 +101,16 @@ it('folded apply Analysis Workspace places status, parameters and the real toolb
 
 
 it.each([
-  ['loading', null, false, '불러오는 중'],
-  ['refreshing', 1_800_000_000_000, false, '갱신 중'],
-  ['done', 1_800_000_000_000, true, '데이터를 불러오지 못했습니다'],
-] as const)('folded summary status %s is visible in the query region', async (status, completedAt, failed, wording) => {
+  ['loading', null, false, '불러오는 중…'],
+  ['refreshing', new Date(2027, 0, 15, 17).getTime(), false, '같은 조건으로 갱신 중 1월 15일 17:00'],
+  ['done', new Date(2026, 11, 31, 17).getTime(), true, '데이터를 불러오지 못했습니다 2026년 12월 31일 17:00'],
+] as const)('folded summary status %s uses the local summary notation in the query region', async (status, completedAt, failed, expectedText) => {
+  vi.spyOn(Date, 'now').mockReturnValue(new Date(2027, 0, 16, 12).getTime());
   mount({ result: { status, completedAt, failed } });
   const bar = screen.getByRole('region', { name: '조회 조건' });
   await within(bar).findByRole('button', { name: /페이지 조건/ });
-  const result = within(bar).getAllByRole('status').find(node => node.textContent?.includes(wording));
-  expect(result).toBeTruthy();
-  if (completedAt !== null) expect(result!.textContent).toMatch(/27\. 1\. 15\./);
+  const row = bar.querySelector<HTMLElement>('[data-workspace-query-row]')!;
+  expect(within(row).getByRole('status').textContent).toBe(expectedText);
   expect(screen.queryByRole('region', { name: '적용된 조회 조건' })).toBeNull();
 });
 

@@ -5,7 +5,7 @@ import { apiHref } from '../../../../lib/api/client';
 // internal comments and operator fields are not in that object, so there is nothing here to hide.
 
 import { ATTACHMENT_FALLBACK_LABEL } from '../../../../lib/copy/attachments';
-import { formatDateTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import { type PublicVocView, isTipTapDocStructurallyEmpty } from '@ap/feature-shared';
 import { ManagedSystemPill, ReporterStatusBadge } from '../../../../ui/index';
 import { PanelSectionTitle, PanelTitleBlock, RichContentRenderer, type TipTapDoc } from '@ap/ui';
@@ -31,8 +31,8 @@ export function PublicVocDetail({ voc, variant = 'page' }: PublicVocDetailProps)
         </div>
         <VocStageLine status={voc.reporter_facing_status} />
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-          <div className="flex gap-1"><dt>접수</dt><dd>{formatDateTime(voc.created_at)}</dd></div>
-          <div className="flex gap-1"><dt>최근 변경</dt><dd>{formatDateTime(voc.updated_at)}</dd></div>
+          <div className="flex gap-1"><dt>접수</dt><dd><FeatureTimestamp at={voc.created_at} notation="summary" /></dd></div>
+          <div className="flex gap-1"><dt>최근 변경</dt><dd><FeatureTimestamp at={voc.updated_at} notation="summary" /></dd></div>
         </dl>
       </div>
       <div className="mt-4">
@@ -57,7 +57,7 @@ export function PublicVocDetail({ voc, variant = 'page' }: PublicVocDetailProps)
           <ul className="flex flex-col gap-3">
             {voc.entries.map((entry) => (
               <li key={entry.id} className="rounded-md bg-surface-card-elevated p-4 text-sm text-text-secondary">
-                <p className="mb-2 text-xs text-text-muted">{formatDateTime(entry.created_at)}</p>
+                <p className="mb-2 text-xs text-text-muted"><FeatureTimestamp at={entry.created_at} notation="feed" /></p>
                 <RichContentRenderer doc={entry.body_rich_content as TipTapDoc} mode="reporter_visible" surface="public-update"
                   attachments={entry.attachments} attachmentFallbackLabel={ATTACHMENT_FALLBACK_LABEL} />
                 <AttachmentChipList attachments={entry.attachments} />

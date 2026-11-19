@@ -221,7 +221,7 @@ describe('HomeTodoPanel', () => {
     expect(hrefs('응답할 설문')).toEqual([`/surveys/${uuid(1)}/respond`]);
     expect(hrefs('내 VOC')).toEqual([`/vocs?view=my&selected=${uuid(201)}`]);
     expect(hrefs('권한 요청')).toEqual(['/permission-requests', '/permission-requests']);
-    expect(group('권한 요청').getByText('대기 중')).toBeTruthy();
+    expect(group('권한 요청').getByText('검토 중')).toBeTruthy();
     expect(urls.map((u) => u.url).sort()).toEqual([
       '/api/features/me/answerable-surveys',
       '/api/features/notifications?unread=true&limit=100',
@@ -437,7 +437,7 @@ describe('HomeTodoPanel', () => {
       within(g).getAllByRole('listitem'),
     );
     expect(rows.map((r) => r.textContent)).toEqual([
-      expect.stringContaining('대기 중'),
+      expect.stringContaining('검토 중'),
       expect.stringContaining('추가 정보 필요'),
       expect.stringContaining('승인됨'),
       expect.stringContaining('거절됨'),

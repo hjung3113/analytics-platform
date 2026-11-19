@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { ChevronDown, FilePen, FilePlus2, FileX2, Loader2, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
-import { useI18n, useMessages, type AuditMore } from '@ap/kernel';
+import { formatFeedTime, useI18n, useMessages, type AuditMore } from '@ap/kernel';
 import { Button, StatusBadge } from '@ap/ui';
-import { compareAuditEvents, formatInstant, type AuditEvent, type Text } from '@ap/contracts';
+import { compareAuditEvents, type AuditEvent, type Text } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 
 const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw, delete: Trash2 };
@@ -28,9 +28,9 @@ export type AuditTimelineProps = {
 
 /** Platform AuditTimeline (§13): who/when/what changed with before→after, newest first. Domain supplies events.
  *  `at` is a real instant (§6.3): sorted by instantEpochMs desc (string compare is wrong once `Z` and `+09:00`
- *  both occur), id asc as tie-break, and printed with formatInstant so the viewer's zone applies. A bad `at`
+ *  both occur), id asc as tie-break, and shown in the viewer's zone by formatFeedTime. A bad `at`
  *  throws — producers are in this repo, so the error surfaces instead of hiding behind a fallback. `changes`
- *  values are text, not instants: a naive validTo prints digit-for-digit and never goes through formatInstant.
+ *  values are text, not instants: a naive validTo prints digit-for-digit and keeps its wall-clock digits.
  *  `more` (ADR-0085, from `useEntityAudit`) adds the older-pages control after the list; without it the markup is
  *  the plain list. The whole list, appended pages included, is sorted by the same comparison. */
 export function AuditTimeline({ events, more, fields, actorName }: AuditTimelineProps) {
@@ -54,7 +54,8 @@ export function AuditTimeline({ events, more, fields, actorName }: AuditTimeline
   const list = <ol aria-busy={more ? more.status === 'loading' : undefined} className="relative space-y-3 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-px before:bg-border-subtle">
     {sorted.map(e => {
       const Icon = ICONS[e.action];
-      const actor = actorName?.(e.actor) ?? e.actor;
+      const actor = actorName?.(e.actor) ?? e.actorLabel ?? e.actor;
+      const at = formatFeedTime(e.at, lang);
       return <li key={e.id} ref={node => { if (node) itemRefs.current.set(e.id, node); else itemRefs.current.delete(e.id); }} tabIndex={more ? -1 : undefined}
         className={more ? 'relative grid grid-cols-[24px_1fr] gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-focus-ring' : 'relative grid grid-cols-[24px_1fr] gap-3'}>
         <span className="z-[1] grid size-6 place-items-center rounded-pill border border-border-subtle bg-surface-card text-text-muted"><Icon className="size-3.5" aria-hidden /></span>
@@ -63,7 +64,7 @@ export function AuditTimeline({ events, more, fields, actorName }: AuditTimeline
             <span className="font-semibold text-text-primary">{m(ACTION_KEY[e.action])}</span>
             <StatusBadge tone={e.source === 'system' ? 'neutral' : 'info'}>{m(SOURCE_KEY[e.source])}</StatusBadge>
             <span className="t-mono text-text-secondary" title={actor !== e.actor ? e.actor : undefined}>{actor}</span>
-            <time className="ml-auto tabular text-text-muted" dateTime={e.at}>{formatInstant(e.at, lang)}</time>
+            <time className="ml-auto tabular text-text-muted" dateTime={e.at} title={at.title}>{at.text}</time>
           </div>
           {e.changes && <dl className="mt-1 space-y-0.5 rounded-md bg-surface-sunken px-2 py-1.5 text-xs">
             {Object.entries(e.changes).map(([field, [before, after]]) => {

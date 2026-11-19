@@ -133,10 +133,19 @@ describe('createMockAdapter auditEvents (ADR-0048: menu-owned audit seeds)', () 
     } finally { setRole(before); }
   });
 
+  it.each(['permission_request', 'finding'])('serves a seed for %s', async type => {
+    const before = getRole();
+    try {
+      setRole('admin');
+      const adapter = build([seed({ target: { type, id: 'x', scopeId: null } })])();
+      expect((await adapter.auditTrail({ type })).data?.items.map(event => event.target.type)).toEqual([type]);
+    } finally { setRole(before); }
+  });
+
   it.each([
     ['a duplicate id', [seed(), seed()]],
     ['an equipment target (the mock server owns equipment events)', [seed({ target: { type: 'equipment', id: 'MEM-PHOTO-0103', scopeId: 'MEM' } })]],
-    ['an undeclared target type', [seed({ target: { type: 'lot', id: 'L1', scopeId: null } })]],
+    ['a malformed target type', [seed({ target: { type: '9invalid', id: 'L1', scopeId: null } })]],
     ['a metric with a site', [seed({ target: { type: 'metric', id: 'x', scopeId: 'MEM' } })]],
     ['a zone-less time', [seed({ at: '2026-09-20T11:00:00' })]],
   ])('refuses %s at registration', (_name, events) => {

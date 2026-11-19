@@ -99,7 +99,7 @@ describe('<RequestAccessButton> Site·공정 target', () => {
     expect(await screen.findByText('권한 요청 완료')).toBeInTheDocument();
     expect(screen.getByTestId('permission-request-id')).toHaveTextContent(REQUEST_ID);
     expect(screen.getByText('Site SITE-B · 공정 RB4')).toBeInTheDocument();
-    expect(screen.getByText('대기 중')).toBeInTheDocument();
+    expect(screen.getByText('검토 중')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '확인' })).toBeInTheDocument();
   });
 

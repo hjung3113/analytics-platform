@@ -9,7 +9,7 @@ import { ListStateMessage } from '../../../../components/ListStateMessage';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../../lib/copy/list-search';
 import { VOC_LIST_LOAD_ERROR_LABELS, VOC_SEARCH_EMPTY_LABEL } from '../../../../lib/copy/voc';
 import { fetchManagedSystems } from '../../../../lib/api/registry-reads';
-import { formatRelativeTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import { useCommittedSearchDraft } from '../../../../lib/useCommittedSearchDraft';
 import { ManagedSystemPill, ReporterStatusBadge } from '../../../../ui/index';
 import {
@@ -114,7 +114,7 @@ export function PublicVocListScreen({
                 <ManagedSystemPill name={voc.managed_system.name} />
                 <ReporterStatusBadge status={voc.reporter_facing_status} />
                 {voc.mine && <span className="rounded-full bg-surface-card-elevated px-2 py-0.5 text-text-secondary">내가 등록</span>}
-                <span>{formatRelativeTime(voc.updated_at)}</span>
+                <span><FeatureTimestamp at={voc.updated_at} notation="list" /></span>
               </span>
             </button>
           </li>

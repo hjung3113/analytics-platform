@@ -22,8 +22,16 @@ const chipClass = 'inline-flex h-6 items-center rounded-md border text-xs';
 const slotFocus = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
 
 /** Chip text: a set reads 「필드: 값, 값」, everything else 「필드 연산자 값」 (R2 captions). */
+function filterValue(filter: ColumnFilter, field: ResolvedFilterField, lang: Lang): string {
+  const choices = field.choices;
+  if (choices && filter.op === 'equals') {
+    return choices.options.find(option => option.value === filter.value)?.label ?? choices.fallbackLabel ?? filter.value;
+  }
+  return describeFilter(filter, field.spec, lang, field.entry);
+}
+
 function ChipText({ field, filter, lang }: { field: ResolvedFilterField; filter: ColumnFilter; lang: Lang }) {
-  const value = describeFilter(filter, field.spec, lang, field.entry);
+  const value = filterValue(filter, field, lang);
   return <>
     <span className="text-text-secondary">{field.label}{filter.op === 'in' ? ':' : ''}</span>{' '}
     <span className="font-medium text-text-primary">{value}</span>
@@ -102,7 +110,7 @@ function AddFilter({ fields, filters, lang, onApply, limit, check }: { fields: r
                 onClick={() => { if (missing === null) setChosen(f.id); }}>
                 <span className="min-w-0 flex-1 truncate">{f.label}</span>
                 {missing !== null && <span className="text-text-muted">{m('tableFilterNeedsFirst', { missing })}</span>}
-                {current && <><Check className="size-3 shrink-0" aria-hidden /><span className="max-w-24 truncate text-text-secondary">{describeFilter(current, f.spec, lang, f.entry)}</span></>}
+                {current && <><Check className="size-3 shrink-0" aria-hidden /><span className="max-w-24 truncate text-text-secondary">{filterValue(current, f, lang)}</span></>}
               </button>;
             })}
           </div>)}

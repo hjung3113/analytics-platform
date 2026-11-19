@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { PlatformLink, useMenuAction, useMenuQuery, usePlatform } from '@ap/kernel';
+import { formatListTime, PlatformLink, useMenuAction, useMenuQuery, usePlatform } from '@ap/kernel';
 import { QueryView } from '@ap/components';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldLabel, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@ap/ui';
-import { formatInstant } from '@ap/contracts';
 import {
   linkTopView, modelTopViewEndpoint, topViewRevisionOptionsEndpoint, unlinkTopView,
   type ModelTopViewData, type TopViewLinkItem, type TopViewSoftwareOption,
@@ -64,7 +63,7 @@ function LinkDialog({ modelId, software, links, onClose, onDone }: { modelId: st
       <div className="grid gap-4 break-keep">
         <div className="grid gap-1.5"><FieldLabel htmlFor="topview-revision">Revision</FieldLabel>
           <Select value={pick} onValueChange={value => { setPick(value); setErrors(({ revision: _drop, ...rest }) => rest); }}><SelectTrigger id="topview-revision" appearance="field" aria-invalid={errors['revision'] !== undefined}><SelectValue placeholder="게시된 Revision을 골라 주세요" /></SelectTrigger>
-            <SelectContent>{rows.map(r => <SelectItem key={revisionKey(r)} value={revisionKey(r)}><span className="t-mono">{r.layoutId}</span>{' · '}<span className="t-mono">{shortRevision(r.revision)}</span>{` · ${formatInstant(r.publishedAt, 'ko')}`}</SelectItem>)}</SelectContent></Select>
+            <SelectContent>{rows.map(r => <SelectItem key={revisionKey(r)} value={revisionKey(r)}><span className="t-mono">{r.layoutId}</span>{' · '}<span className="t-mono">{shortRevision(r.revision)}</span>{` · ${formatListTime(r.publishedAt)}`}</SelectItem>)}</SelectContent></Select>
           {optionsState === 'loading' && <p role="status" className="text-xs text-text-muted">Revision 목록을 불러오는 중…</p>}
           {optionsState === 'ready' && rows.length === 0 && <p className="text-xs text-text-muted">게시된 Revision이 없습니다</p>}
           {optionsState === 'failed' && <p role="alert" className="flex items-center gap-2 text-xs text-text-danger-label">Revision 목록을 불러오지 못했습니다<Button type="button" size="toolbar" variant="secondary" onClick={() => options.refetch()}>다시 시도</Button></p>}

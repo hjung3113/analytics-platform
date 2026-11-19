@@ -7,7 +7,7 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { manifests } from '../../index';
 import { type CatalogData } from '../../endpoints';
 import ChartCatalog from './ChartCatalog';
-import { formatInstant, formatWallClock, groupId, menuPermission, spaceId } from '@ap/contracts';
+import { formatWallClock, groupId, menuPermission, spaceId } from '@ap/contracts';
 import { TEST_AXES } from '../../test-axes';
 import { supportFor } from './support';
 import * as sequenceData from './sequenceSampleData';
@@ -46,7 +46,7 @@ async function table() { click('표로 보기'); return screen.findByRole('table
 const summary = () => screen.getByRole('region', { name: '선택 요약' });
 const chartFooter = () => [...document.querySelectorAll('footer')].find(node => node.textContent?.includes('합성 데이터'));
 beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView }); scrollIntoView.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); query.mockClear(); canvas.init.mockClear(); canvas.dispose.mockClear(); canvas.options.length = 0; });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('chart catalog route and lifetime', () => {
   it('drops the visible 지원 N/8 tag but keeps the support counts in the tab name', async () => {
@@ -223,12 +223,14 @@ describe('chart catalog route and lifetime', () => {
   });
 
   it('formats the chart footer update from the response trust in the viewer zone', async () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-19T00:00:00Z'));
     const updatedAt = '2026-11-08T09:00:00+09:00';
     query.mockResolvedValueOnce({ outcome: 'ok', data: fixture, assessments: [{ kind: 'collection', state: 'confirmed' }, { kind: 'coverage', state: 'confirmed' }], trust: { updatedAt, dataThrough: null, coverage: 1, provisional: false, source: 'Synthetic' }, correlationId: 'footer' } as never);
     mount('line');
     await screen.findByRole('img');
     const footer = chartFooter();
-    expect(footer?.textContent).toContain(formatInstant(updatedAt, 'ko', undefined, 'monthDayMinute'));
+    expect(footer?.textContent).toContain('갱신: 11월 7일 16:00');
     expect(footer?.textContent).not.toContain(formatWallClock('2026-09-26T09:00:00'));
   });
 

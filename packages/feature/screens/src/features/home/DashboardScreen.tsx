@@ -29,7 +29,7 @@ import {
 } from '../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../lib/copy/glossary';
 import { HOME_COPY, HOME_KPI_COPY, HOME_QUEUE_COPY, homeSeverityLabel } from '../../lib/copy/home';
-import { formatRelativeTime } from '../../lib/format/datetime';
+import { FeatureTimestamp } from '../../components/FeatureTimestamp';
 import { HostLink, useHostSeam } from '../../lib/host/host-seam';
 import { AnswerableSurveysSection } from './AnswerableSurveysSection';
 import { OwnerPermissionRequestDialog } from './OwnerPermissionRequestDialog';
@@ -361,7 +361,7 @@ function OpenRequestsPanel({
                       <span>{permissionRequestStatusLabel[request.status]}</span>
                     )}
                     <span>·</span>
-                    <span className="truncate">{formatRelativeTime(request.created_at)}</span>
+                    <span className="truncate"><FeatureTimestamp at={request.created_at} notation="list" /></span>
                   </span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />

@@ -32,6 +32,7 @@ export function usePermissionRequestsConsole({
   selectedId: string | null;
   actorNames: Record<string, string>;
   managedSystemNames: Record<string, string>;
+  managedSystemSlugs: Record<string, string>;
   isPending: boolean;
   isError: boolean;
   handleTabChange: (next: ReviewTab) => void;
@@ -54,6 +55,9 @@ export function usePermissionRequestsConsole({
       managedSystem.id,
       managedSystem.name,
     ]),
+  );
+  const managedSystemSlugs = Object.fromEntries(
+    (managedSystemsQuery.data?.items ?? []).map((system) => [system.id, system.slug]),
   );
   // Tab + selection are URL state; `pending` is the default tab (omitted).
   const activeTab: ReviewTab = search.tab ?? 'pending';
@@ -144,6 +148,7 @@ export function usePermissionRequestsConsole({
     selectedId,
     actorNames,
     managedSystemNames,
+    managedSystemSlugs,
     isPending: query.isPending,
     isError: query.isError,
     handleTabChange,

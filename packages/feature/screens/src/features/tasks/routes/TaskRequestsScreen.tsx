@@ -2,7 +2,7 @@ import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { TASK_REQUEST_LINK_MISSING_MESSAGE } from '../../../lib/copy/task-requests';
+import { TASK_REQUEST_COPY, TASK_REQUEST_LINK_MISSING_MESSAGE } from '../../../lib/copy/task-requests';
 import { RESPONSIBILITY_COPY } from '../../../lib/copy/tasks';
 import { formatRecordDocumentTitle } from '../../../lib/host/document-title-format';
 import { useHostTitle } from '../../../lib/host/host-seam';
@@ -496,7 +496,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
                     ) : isPendingEmpty ? (
                       <ListStateMessage
                         variant="filtered"
-                        title="검토 대기 중인 Task 요청이 없습니다"
+                        title={TASK_REQUEST_COPY.pendingQueueEmpty}
                         body="다른 상태의 Task 요청이 있습니다."
                       />
                     ) : isStatusFilteredEmpty ? (

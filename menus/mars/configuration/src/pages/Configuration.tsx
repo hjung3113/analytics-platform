@@ -1,8 +1,8 @@
 /** A′ Configuration consumer: the server owns comparison, filtering and hierarchy. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Columns3, Download } from 'lucide-react';
-import { encodeFilterParams, formatInstant, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
-import { useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryDraft, type QueryState } from '@ap/kernel';
+import { encodeFilterParams, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
+import { formatSummaryTime, useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryDraft, type QueryState } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
 import { AXIS_KEY, COLUMN_LIMIT, EQUIPMENT_AXIS, configurationPivotEndpoint, configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, DEFAULT_LEVELS, EQUIPMENT, EXPORT_LIMIT, LEVELS, STATUS, HW_TREND_CLOSED, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, TREE_WINDOW, equipmentFromKey, equipmentToKey, filterDeclarations, isRowId, readFilters, validEquipment, validEquipmentKey, validLevels, type CompareParams, type CompareStatus, type ConfigRow, type PivotParams, type PivotResult, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
@@ -110,7 +110,7 @@ function CompareDetail({ row, eq, params, m }: { row: ConfigRow; eq: string; par
       <FieldRow layout="property" label={m('spec')}>{row.spec ? `${row.spec.min} ~ ${row.spec.max}` : m('specUnknown')}</FieldRow>
       <FieldRow layout="property" label={m('compliance')}><StatusBadgeFrame appearance="compact" tone={compliance === 'violation' ? 'danger' : 'muted'}>{m(complianceLabel(row, eq, params))}</StatusBadgeFrame></FieldRow>
       <FieldRow layout="property" label={m('dataSource')} mono>{row.source} / {row.filename}</FieldRow>
-      <FieldRow layout="property" label={m('collected')}>{formatInstant(row.collectedAt, lang)}</FieldRow>
+      <FieldRow layout="property" label={m('collected')}>{formatSummaryTime(row.collectedAt, lang)}</FieldRow>
       <FieldRow layout="property" label={m('rule')}>{m('tolerance')}</FieldRow>
       {!row.coreKnown && <FieldRow layout="property" label="CORE">{m('unknownCore')}</FieldRow>}
     </FieldList></section>

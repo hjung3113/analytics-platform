@@ -25,3 +25,16 @@ export const EVIDENCE_COPY = {
   clear: '조건 초기화',
   searchAll: '전체에서 검색',
 } as const;
+
+export const EVIDENCE_SNAPSHOT_TEXT = {
+  finding: { ko: 'Finding', en: 'Finding' },
+  source: { ko: '출처', en: 'Source' },
+  summary: { ko: '요약', en: 'Summary' },
+  sentiment: { ko: '의견 방향', en: 'Sentiment' },
+  importance: { ko: '중요도', en: 'Importance' },
+  recordedAt: { ko: '기록 일시', en: 'Recorded at' },
+  withheld: { ko: EVIDENCE_COPY.withheld, en: 'Access or approval for the source has changed. The content is unavailable.' },
+  sourceType: { voc: 'VOC', survey_response: 'Survey response', note: 'Manual note' },
+  sentimentValue: { negative: 'Negative', neutral: 'Neutral', positive: 'Positive' },
+  importanceValue: { low: 'Low', medium: 'Medium', high: 'High' },
+} as const;
