@@ -76,6 +76,14 @@ describe.skipIf(!runIntegration)('Outcome Survey measured Task link (#2540)', ()
       [WORKSPACE_ID, `${SLUG_PREFIX}%`],
     );
     await migrateHandle.pool.query(
+      `delete from survey.survey_response_answers where workspace_id = $1 and survey_id in (${surveys})`,
+      [WORKSPACE_ID, `${SLUG_PREFIX}%`],
+    );
+    await migrateHandle.pool.query(
+      `delete from survey.survey_responses where workspace_id = $1 and survey_id in (${surveys})`,
+      [WORKSPACE_ID, `${SLUG_PREFIX}%`],
+    );
+    await migrateHandle.pool.query(
       `delete from survey.survey_questions where workspace_id = $1 and survey_id in (${surveys})`,
       [WORKSPACE_ID, `${SLUG_PREFIX}%`],
     );
@@ -130,6 +138,50 @@ describe.skipIf(!runIntegration)('Outcome Survey measured Task link (#2540)', ()
       ...(status ? { status } : {}),
       createdBy: adminActorId,
     });
+  }
+
+  async function seedClosedOutcomeWithOneLowRating(managedSystemId: string): Promise<string> {
+    const survey = await migrateHandle.pool.query<{ id: string }>(
+      `insert into survey.surveys (
+         workspace_id, display_id, type, status, title, primary_managed_system_id,
+         operator_actor_id, created_by, responses_identity_protected, opened_at, closed_at
+       ) values ($1, $2, 'outcome', 'closed', 'Outcome classifier regression', $3, $4, $4, true, now(), now())
+       returning id`,
+      [WORKSPACE_ID, `SRV-outcome-link-${randomUUID()}`, managedSystemId, adminActorId],
+    );
+    const surveyId = survey.rows[0]?.id;
+    if (!surveyId) throw new Error('closed Outcome Survey seed failed');
+    const question = await migrateHandle.pool.query<{ id: string }>(
+      `insert into survey.survey_questions (
+         workspace_id, survey_id, kind, prompt, rating_min, rating_max, sort_order, branch_depth
+       ) values ($1, $2, 'rating', 'Did this work help?', 1, 5, 0, 0) returning id`,
+      [WORKSPACE_ID, surveyId],
+    );
+    const questionId = question.rows[0]?.id;
+    if (!questionId) throw new Error('classifier rating question seed failed');
+
+    for (let index = 0; index < 5; index += 1) {
+      const respondent = await insertDevActor(
+        migrateHandle,
+        WORKSPACE_ID,
+        uid(`${SLUG_PREFIX}-respondent-${index}`),
+      );
+      const response = await migrateHandle.pool.query<{ id: string }>(
+        `insert into survey.survey_responses (
+           workspace_id, survey_id, respondent_actor_id, identity_protected, submitted_at
+         ) values ($1, $2, $3, true, now()) returning id`,
+        [WORKSPACE_ID, surveyId, respondent.id],
+      );
+      const responseId = response.rows[0]?.id;
+      if (!responseId) throw new Error('classifier response seed failed');
+      await migrateHandle.pool.query(
+        `insert into survey.survey_response_answers (
+           workspace_id, survey_id, response_id, question_id, answer_kind, answer_value
+         ) values ($1, $2, $3, $4, 'rating', $5::jsonb)`,
+        [WORKSPACE_ID, surveyId, responseId, questionId, JSON.stringify(index === 0 ? 2 : 5)],
+      );
+    }
+    return surveyId;
   }
 
   async function developer(
@@ -587,6 +639,16 @@ describe.skipIf(!runIntegration)('Outcome Survey measured Task link (#2540)', ()
     expect(inventory.statusCode).toBe(200);
     expect(inventory.json<{ items: Array<{ id: string }> }>().items.map((item) => item.id)).toContain(linkId);
 
+    const classifierSurveyId = await seedClosedOutcomeWithOneLowRating(msId);
+    const priorDecision = await migrateHandle.pool.query<{ count: string }>(
+      `select count(*)::text as count from survey.outcome_follow_up_decisions
+        where workspace_id = $1 and response_id in (
+          select id from survey.survey_responses where workspace_id = $1 and survey_id = $2
+        )`,
+      [WORKSPACE_ID, classifierSurveyId],
+    );
+    expect(priorDecision.rows[0]?.count).toBe('0');
+
     const classifierBefore = await appHandle.pool.query<{ count: string }>(
       'select survey.count_negative_outcome_without_followup($1::uuid, array[$2]::uuid[])::text as count',
       [WORKSPACE_ID, msId],
@@ -597,6 +659,19 @@ describe.skipIf(!runIntegration)('Outcome Survey measured Task link (#2540)', ()
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(dashboardBefore.statusCode).toBe(200);
+    const classifierBeforeCount = Number(classifierBefore.rows[0]?.count ?? 0);
+    const dashboardBeforeTotal = dashboardBefore.json<{ total: number }>().total;
+    expect(classifierBeforeCount).toBeGreaterThan(0);
+    expect(dashboardBeforeTotal).toBeGreaterThan(0);
+
+    await migrateHandle.pool.query(
+      `insert into core.entity_links (
+         workspace_id, source_type, source_id, target_type, target_id,
+         relation_type, visibility, status, managed_system_id, created_by
+       ) values ($1, 'survey', $2, 'task', $3, 'measures_outcome_of', 'internal_only', 'active', $4, $5)`,
+      [WORKSPACE_ID, classifierSurveyId, task.id, msId, adminActorId],
+    );
+
     const classifierAfter = await appHandle.pool.query<{ count: string }>(
       'select survey.count_negative_outcome_without_followup($1::uuid, array[$2]::uuid[])::text as count',
       [WORKSPACE_ID, msId],
@@ -607,10 +682,12 @@ describe.skipIf(!runIntegration)('Outcome Survey measured Task link (#2540)', ()
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(dashboardAfter.statusCode).toBe(200);
-    expect(classifierAfter.rows[0]?.count).toBe(classifierBefore.rows[0]?.count);
-    expect(dashboardAfter.json<{ total: number }>().total).toBe(
-      dashboardBefore.json<{ total: number }>().total,
-    );
+    const classifierAfterCount = Number(classifierAfter.rows[0]?.count ?? 0);
+    const dashboardAfterTotal = dashboardAfter.json<{ total: number }>().total;
+    expect(classifierAfterCount).toBe(classifierBeforeCount);
+    expect(classifierAfterCount).toBeGreaterThan(0);
+    expect(dashboardAfterTotal).toBe(dashboardBeforeTotal);
+    expect(dashboardAfterTotal).toBeGreaterThan(0);
 
     await expect(
       migrateHandle.pool.query(

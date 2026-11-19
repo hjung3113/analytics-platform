@@ -188,7 +188,7 @@ POST /findings/:id/request-task        -> (finding, task_request, requested_task
 POST /vocs/:id/request-task            -> (voc, task_request, requested_task)        [#136]
 POST /voc-clusters/:id/request-task    -> (voc_cluster, task_request, requested_task) [#136]
 POST /survey-responses/:id/create-finding -> (survey_response, finding, generated_finding)
-POST /surveys (when outcome_task_id is present) -> (survey, task, measures_outcome_of) [#2540]
+POST /surveys, PATCH /surveys/:id (draft) -> (survey, task, measures_outcome_of) [#2540]
 ```
 
 Direct `POST /entity-links` creation is narrower than the registered/DB tuple

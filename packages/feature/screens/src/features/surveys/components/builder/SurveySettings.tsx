@@ -66,7 +66,13 @@ export function SurveySettings({
       <p className="mt-5 text-xs text-text-muted">설문 응답 → VOC 생성은 금지됩니다.</p>
       {survey.type === 'outcome' ? (
         <div className="mt-5 flex flex-col gap-2">
-          <p className="text-sm font-medium">{OUTCOME_LINK_COPY.taskHeading}</p>
+          {editable ? (
+            <label htmlFor="survey-builder-outcome-task" className="text-sm font-medium">
+              {OUTCOME_LINK_COPY.taskHeading}
+            </label>
+          ) : (
+            <p className="text-sm font-medium">{OUTCOME_LINK_COPY.taskHeading}</p>
+          )}
           {outcomeTaskLoadError ? (
             <p role="alert" className="text-xs text-text-danger">
               {OUTCOME_LINK_COPY.taskLoadError} 다시 열어 확인해 주세요.

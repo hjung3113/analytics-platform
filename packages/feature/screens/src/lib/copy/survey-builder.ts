@@ -81,6 +81,7 @@ export const SURVEY_OUTCOME_LINK_COPY = {
   taskPickerPlaceholder: 'Task 연결 선택 안 함',
   taskSearchPlaceholder: 'Task 검색…',
   taskHelp: '설문 결과와 연결할 Task를 선택합니다. 연결하지 않아도 됩니다.',
+  taskRejected: '선택한 Task를 연결할 수 없습니다. 권한 또는 시스템을 확인하세요.',
   systemRequired: '시스템을 먼저 선택하세요',
   clearTask: 'Task 연결 해제',
   taskHeading: '효과를 확인할 Task',

@@ -200,7 +200,6 @@ function recoverySubjectOf(ref: EntityLinkRef): RecoverySubject {
   if (ref.type === 'validation_round' || ref.type === 'manual_validation_attachment') {
     throw new Error('no-managed-system entity link end reached a recovery subject');
   }
-  if (ref.type === 'survey') return { type: 'survey', id: ref.id };
   return { type: ref.type, id: ref.id };
 }
 

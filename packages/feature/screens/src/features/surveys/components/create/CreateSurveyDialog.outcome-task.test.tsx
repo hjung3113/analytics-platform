@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../../../../lib/api/types';
+import { SURVEY_OUTCOME_LINK_COPY } from '../../../../lib/copy/survey-builder';
 import { CreateSurveyDialog } from './CreateSurveyDialog';
 
 const mocks = vi.hoisted(() => ({
@@ -137,6 +139,25 @@ describe('Outcome Survey Task picker', () => {
         outcome_task_id: mocks.taskId,
       }),
     ));
+  });
+
+  it('shows a field error on the Task picker when the server rejects the selected Task', async () => {
+    const user = userEvent.setup();
+    await prepareOutcomeSurvey(user);
+    mocks.createSurvey.mockRejectedValueOnce(
+      new ApiError(422, {
+        code: 'validation.failed',
+        message: 'Selected Task is not available',
+        detail: { fields: [{ path: ['outcome_task_id'], code: 'invalid' }] },
+      }),
+    );
+
+    await user.click(screen.getByTestId('survey-create-submit'));
+
+    expect(await screen.findByText(SURVEY_OUTCOME_LINK_COPY.taskRejected)).toBeVisible();
+    const picker = screen.getByRole('combobox', { name: '효과를 확인할 Task (선택)' });
+    expect(picker).toHaveAttribute('aria-invalid', 'true');
+    expect(picker.getAttribute('aria-describedby')).toContain('survey-outcome-task-error');
   });
 
   it('clears the selected Task when the Managed System changes', async () => {
