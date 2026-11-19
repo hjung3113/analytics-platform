@@ -234,6 +234,8 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
       toastOwners.current.delete(id);
     }
   }, [gen]);
+  const isCurrentGeneration = useCallback(() => revisions.state === 'active' && revisions.get() === revision
+    && !retiredGens.current.has(gen) && adapter.session() === session, [revisions, revision, gen, adapter, session]);
   const toast = useCallback((text: string, tone: Toast['tone'] = 'info', detail?: string, options?: ToastOptions) => {
     // A call from an older generation (a callback that resolved after a session change notice or an adapter swap) shows nothing: the
     // counter moves at the notice itself, before any re-render, so even a call in the same task as the notice is refused. The id is never live.
@@ -389,11 +391,11 @@ export function PlatformProvider({ adapter, registry, location = browserLocation
   const value = useMemo((): AppValue => ({
     pub: {
       registry, adapter, location, absoluteUrl, equipmentAxes, queryHistoryStore: queryHistory, savedViewStore: savedViews,
-      session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+      session, user, revision, isCurrentGeneration, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
       toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector,
     },
     internal: { sessionDrafts, currentRevision: revisions.get, selectionPortCache, queryEngine, enters, usageSessionId, savedViewSupports, savedViewSlots, userIdRef, usageNav, mainNavigation: pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations },
-  }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, savedViews, session, user, revision, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
+  }), [registry, adapter, location, absoluteUrl, equipmentAxes, queryHistory, savedViews, session, user, revision, isCurrentGeneration, refreshEpochs, can, canOpen, globalMenus, menusInSpace, accessibleSpaces, lastScope, favorites, toggleFavorite, readRecent,
     toast, dismissToast, holdToast, defaultRangeTo, slots, homeTodo, setPaletteOpen, setSwitcherOpen, scopeSelector, revisions, selectionPortCache, queryEngine, sessionDrafts, enters, usageSessionId, savedViewSupports, savedViewSlots, userIdRef, usageNav, pageNavigation, guard, initialUrl, recordVisit, rememberScope, spaceIdMigrations]);
   const overlay = useMemo((): OverlayState => ({ paletteOpen, paletteSession, switcherOpen, switcherSession }), [paletteOpen, paletteSession, switcherOpen, switcherSession]);
   return (

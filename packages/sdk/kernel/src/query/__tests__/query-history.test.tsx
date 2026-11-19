@@ -193,7 +193,7 @@ it.each(['acknowledge', 'supersede', 'throw'] as const)('records the captured cl
   } else expect(record).not.toHaveBeenCalled();
 });
 
-it('rechecks history room grants on revision without revalidating or masking the screen Scope', async () => {
+it.each([false, true])('rechecks history room grants on revision without revalidating or masking the screen Scope (serverPreferences=%s)', async serverPreferences => {
   const scoped = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
   const session = testSession(['platform:view']); const listeners = new Set<() => void>();
   let rooms = ['PHOTO'];
@@ -203,7 +203,7 @@ it('rechecks history room grants on revision without revalidating or masking the
   const store: QueryHistoryStore = { list: async () => [entry(buildQuery({ ...global, scopeId: 'MEM', roomNames: ['PHOTO'] }))], record: async () => {}, remove: async () => {}, clear: async () => {} };
   const adapter = testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, validateScope });
   window.history.replaceState(null, '', '/?scopeId=MEM');
-  const view = render(<I18nProvider><PlatformProvider registry={scoped} adapter={adapter} queryHistory={store}><ScopeProbe /></PlatformProvider></I18nProvider>);
+  const view = render(<I18nProvider><PlatformProvider registry={scoped} adapter={adapter} queryHistory={store} serverPreferences={serverPreferences}><ScopeProbe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
   // The screen and the history check each own one Scope request.
   expect(validateScope).toHaveBeenCalledTimes(2);

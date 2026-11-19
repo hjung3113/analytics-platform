@@ -245,6 +245,8 @@ export type HostPlatform = {
   user: SessionUser;
   /** Bumps whenever the adapter announces a change; part of every query identity. */
   revision: number;
+  /** Host-only write guard for the rendered adapter, session and revision. Reads the live generation when called. */
+  isCurrentGeneration: () => boolean;
   /** App-wide refresh counters per endpoint: a write bumps what it invalidates and mounted queries refetch (ADR-0054). */
   refreshEpochs: RefreshEpochs;
   can: (permission: Permission | ModuleScopedId) => boolean;
@@ -269,6 +271,8 @@ export type HostPlatform = {
   /** No-op when spaceId is the current space or has no entry; else push spaceEntry. */
   switchSpace: (spaceId: SpaceId) => void;
   scope: ScopeState;
+  /** Host-only copy proof tied to the generation that started the screen's Scope check. */
+  scopeGeneration: HostPlatform['isCurrentGeneration'];
   /** Re-runs Scope validation for the requested scope after an `error` (no automatic retry in the Kernel, #167). */
   retryScope: () => void;
   lastScope: string | null;

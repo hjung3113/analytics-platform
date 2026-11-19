@@ -1,5 +1,4 @@
 import { Ban } from 'lucide-react';
-import type { Session } from '@ap/contracts';
 import { Suspense, useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n, type MenuEntry } from '@ap/kernel';
@@ -8,6 +7,7 @@ import { EmbeddedPane, LoadingBlock, StateMessage } from '@ap/components';
 import { WorkspaceCommandsHost } from '@ap/components/dock';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, TransientOverlayScope } from '@ap/ui';
 import { admitPaneScreen } from './boardMenus';
+import { screenCopySource, type CopySource as CopyDecision } from './boardCopySource';
 import { PaneHeader, type DockStrip } from './PaneHeader';
 import type { PaneSignal } from './paneActions';
 import { PanePicker } from './PanePicker';
@@ -23,8 +23,6 @@ export type DockHead = {
   /** The layout group of the `⋯` menu. */
   menu: (afterMenuClose: RefObject<(() => void) | null>) => ReactNode;
 };
-
-export type PaneCopySource = { url: string; session: Session; revision: number };
 
 export type BoardPaneProps = {
   paneId: string;
@@ -59,7 +57,7 @@ export type BoardPaneProps = {
   onSelect: () => void;
   onChange: (next: PaneScreen, how: 'push' | 'replace') => void;
   onLeave: (href: string) => void;
-  registerCopySource: (paneId: string, source: PaneCopySource) => () => void;
+  registerCopySource: (paneId: string, source: CopyDecision) => () => void;
   onInsert: (menu: MenuEntry, source: 'default' | 'current') => void;
   onClear: () => void;
   onBack: () => void;
@@ -176,11 +174,11 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
 
 /** Report the decision from the pane's own Kernel provider, even while its menu body is suspended. */
 function CopySource({ paneId, register }: { paneId: string; register: BoardPaneProps['registerCopySource'] }) {
-  const { route, url, session, revision, scope, contractError } = useHostPlatform();
-  const readable = route !== null && contractError === null
-    && (scope.status === 'valid' || (scope.status === 'none' && !route.menu.requiresScope));
+  const decision = screenCopySource(useHostPlatform());
+  const url = decision?.url;
+  const isCurrentGeneration = decision?.isCurrentGeneration;
   useLayoutEffect(() => {
-    if (readable) return register(paneId, { url, session, revision });
-  }, [paneId, register, readable, url, session, revision]);
+    if (url !== undefined && isCurrentGeneration !== undefined) return register(paneId, { url, isCurrentGeneration });
+  }, [paneId, register, url, isCurrentGeneration]);
   return null;
 }

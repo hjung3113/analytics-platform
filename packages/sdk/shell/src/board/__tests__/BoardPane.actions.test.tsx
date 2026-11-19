@@ -3,14 +3,14 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseQuery, groupId, spaceId } from '@ap/contracts';
+import { parseQuery, groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { BOARD_LAYOUT_ENGINE_KEY } from '../layoutEngine';
 import { DetailDrawer, PlatformPage } from '@ap/components';
 import { AppShell } from '../../frame/AppShell';
 import { RouteOutlet } from '../../routing/RouteOutlet';
-import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from '../__fixtures__/legacyBoard';
+import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, v2Board, V1_KEY as KEY, V2_KEY } from '../__fixtures__/legacyBoard';
 // RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
 import '../BoardHost';
 
@@ -52,11 +52,15 @@ const w1 = 'from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';
 const w2 = 'from=2026-08-01T00:00:00&to=2026-08-02T00:00:00';
 const ctx = (query: string) => parseQuery(query, ['tab', 'page']);
 
-function mount(url = '/board?sheet=a', permissions: ('platform:view' | 'console:access')[] = ['platform:view']) {
+function mount(url = '/board?sheet=a', permissions: ('platform:view' | 'console:access')[] = ['platform:view'], adapterOver: Partial<PlatformAdapter> = {}) {
   window.history.replaceState(null, '', url);
   const session = testSession(permissions);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, ...adapterOver })} registry={registry}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
 }
+const deniedScope: PlatformAdapter['validateScope'] = async scopeId => ({
+  status: scopeId === 'DENIED' ? 'forbidden' : 'valid', grantedRooms: [],
+});
+const deniedPane = pane(`?scopeId=DENIED&lotIds=SECRET&${w1}`);
 const openMenu = (trigger: HTMLElement) => { act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); }); };
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 const paneGroup = (n: number) => screen.getByRole('group', { name: `칸 ${n}` });
@@ -348,6 +352,68 @@ describe('pane header signals (ADR-0051)', () => {
 });
 
 describe('⋯ pane menu (docs/16 §4)', () => {
+  it.each([
+    { action: /이 조건을 시트의 모든 칸에 적용/, target: pane(`?${w2}`) },
+    { action: /복제/, target: null },
+  ])('rejects a Scope-denied source for $action', async ({ action, target }) => {
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [deniedPane, target] })]));
+    mount(undefined, undefined, { validateScope: deniedScope });
+    await settle();
+    await openActions(1);
+    fireEvent.click(await item(action));
+    expect(stored().sheets[0].panes[1]).toEqual(target);
+  });
+
+  it('leaves the target unchanged when a same-snapshot adapter notice makes the source Scope proof stale', async () => {
+    const source = pane(`?scopeId=S1&${w1}&lotIds=SECRET`);
+    const target = pane(`?${w2}`);
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [source, target] })]));
+    const listeners = new Set<() => void>();
+    const validateScope = vi.fn<PlatformAdapter['validateScope']>().mockResolvedValue({ status: 'valid', grantedRooms: [] });
+    mount(undefined, undefined, {
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+      validateScope,
+    });
+    await settle();
+    const apply = /이 조건을 시트의 모든 칸에 적용/;
+    await openActions(1);
+    const initialChecks = validateScope.mock.calls.length;
+    act(() => { for (const listener of listeners) listener(); });
+    fireEvent.click(await item(apply));
+    expect(stored().sheets[0].panes).toEqual([source, target]);
+    expect(initialChecks).toBeGreaterThan(0);
+    expect(validateScope).toHaveBeenCalledTimes(initialChecks);
+  });
+
+  it('replaces a Scope-denied pane with fresh conditions after confirmation', async () => {
+    seed(boardOf([sheet('a', { panes: [deniedPane] })]));
+    mount(undefined, undefined, { validateScope: deniedScope });
+    await settle();
+    await openActions(1);
+    fireEvent.click(await item('바꾸기'));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: '칸 1에 넣을 분석 화면' })).getByRole('button', { name: '베타' }));
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '바꾸기' }));
+    await settle();
+    const replaced = stored().sheets[0].panes[0]!;
+    expect(replaced.menuId).toBe('beta');
+    const { global } = ctx(replaced.query);
+    expect(global.scopeId).toBeNull();
+    expect(global.lotIds).toBeNull();
+    expect(global.from).not.toBe('2026-09-01T00:00:00');
+  });
+
+  it('rejects the prior Scope decision when the source address changes in storage', async () => {
+    const original = v2Board(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?scopeId=VALID&${w1}`), null] })]));
+    localStorage.setItem(V2_KEY, JSON.stringify(original));
+    mount(undefined, undefined, { validateScope: deniedScope });
+    await settle();
+    await openActions(1);
+    original.sheets[0].panes[0].screen = deniedPane;
+    localStorage.setItem(V2_KEY, JSON.stringify(original));
+    fireEvent.click(await item('복제'));
+    expect(stored().sheets[0].panes).toEqual([deniedPane, null]);
+  });
+
   it('lists the actions in order under the name 칸 N 동작, and 비우기 is gone from the head', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [pane(`?${w1}`), null] })]));
     mount();
@@ -530,6 +596,15 @@ describe('이 시트 조건을 다른 시트에 복사 (docs/16 §4)', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: target }));
     await settle();
   };
+
+  it('skips a Scope-denied source when copying to another sheet', async () => {
+    const target = pane(`?${w2}`);
+    seed(boardOf([sheet('a', { panes: [deniedPane] }), sheet('b', { name: 'B', panes: [target] })]));
+    mount(undefined, undefined, { validateScope: deniedScope });
+    await settle();
+    await copy('B');
+    expect(stored().sheets[1].panes[0]).toEqual(target);
+  });
 
   it('copies same-numbered pane Contexts where both panes have content, keeps the target\'s page keys, names the panes in the toast and undoes only the target', async () => {
     seed(boardOf([

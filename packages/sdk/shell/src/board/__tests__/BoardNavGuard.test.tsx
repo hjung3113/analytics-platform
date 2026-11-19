@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useUnsavedGuard } from '@ap/kernel';
+import { useHostPlatform, type HostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
 import { groupId, spaceId } from '@ap/contracts';
@@ -173,6 +174,45 @@ describe('분석 보드에 열기… from a menu with unsaved edits saves only a
   const stored = () => JSON.stringify([localStorage.getItem(V1_KEY), localStorage.getItem(V2_KEY)]);
   const storedSheets = () => storedLegacy().sheets;
   const beta = { menuId: 'editor', params: {}, query: '' };
+
+  it('uses the current Scope decision when a previously valid source is denied during the leave confirmation', async () => {
+    const sourceQuery = '?scopeId=MEM&from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';
+    window.history.replaceState(null, '', `/editor${sourceQuery}`);
+    const session = testSession(['platform:view']);
+    let allowed = true;
+    let current!: HostPlatform;
+    function WatchSource() {
+      const platform = useHostPlatform();
+      useLayoutEffect(() => { current = platform; }, [platform]);
+      return null;
+    }
+    const adapter = testAdapter({
+      session: () => session,
+      validateScope: async () => ({ status: allowed ? 'valid' : 'forbidden', grantedRooms: [] }),
+    });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ boardEntry: <OpenInBoardAction /> }}>
+      <WatchSource /><AppShell><RouteOutlet /></AppShell>
+    </PlatformProvider></I18nProvider>);
+    await settle();
+    expect(current.scope.status).toBe('valid');
+    fireEvent.click(screen.getByRole('button', { name: 'start edit' }));
+    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: '분석 보드에 열기…' }));
+    const dialog = await screen.findByRole('dialog', { name: '분석 보드에 열기' });
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    expect(leaveDialog()).not.toBeNull();
+    allowed = false;
+    await act(async () => { current.retryScope(); });
+    expect(current.scope.status).toBe('forbidden');
+    fireEvent.click(screen.getByRole('button', { name: '변경 버리고 이동' }));
+    await settle();
+    const saved = storedSheets()[1].panes[0];
+    expect(saved?.menuId).toBe('editor');
+    const params = new URLSearchParams(saved?.query);
+    expect(params.get('scopeId')).toBeNull();
+    expect(params.get('from')).toBeNull();
+  });
+
   /** The dialog's destination steps, then 열기. */
   async function openFromEditor(pick: 'new' | 'replace') {
     mount('/editor');

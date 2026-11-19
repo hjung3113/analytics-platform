@@ -1,26 +1,17 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { buildQuery, emptyGlobal } from '@ap/contracts';
 import { useI18n } from '@ap/kernel';
-import { BOARD_PATH, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
+import { BOARD_PATH, useHostPlatform, useLeaveRequest, type HostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { useHeaderOverflowDialog, type HeaderOverflowDialogControl } from '@ap/components';
 import {
   Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, RadioGroup, RadioGroupItem,
 } from '@ap/ui';
 import { MAX_SHEETS, openScreenInNewSheet, samePane, setPane, type Board } from './boardModel';
+import { matchesCopySource, screenCopySource, type CopySource } from './boardCopySource';
 import { readBoardSession, reloadBoardSession, updateBoardSession } from './boardSession';
 import { boardText } from './text';
 
 type Destination = 'new' | 'empty' | 'replace';
-
-/**
- * The current screen as a pane screen: this menu, its route params and its Context and page keys. Read from `appliedUrl`, not the address:
- * a pane keeps hidden page keys in its own query (ADR-0105), and the detail expansion (`expand`) is main-screen presentation, not page state.
- */
-function useCurrentScreen(): PaneScreen | null {
-  const { route, appliedUrl } = useHostPlatform();
-  if (!route) return null;
-  const at = appliedUrl.indexOf('?');
-  return { menuId: route.menu.id, params: { ...route.params }, query: at === -1 ? '' : appliedUrl.slice(at) };
-}
 
 /**
  * `분석 보드에 열기…` (docs/16 §6): the item the app puts in a board menu's `⋯` page menu (`PlatformSlots.boardEntry`). It only hands
@@ -42,11 +33,33 @@ function OpenInBoardDialog({ control }: { control: HeaderOverflowDialogControl }
 
 const initialDestination = (board: Board): Destination => (board.sheets.length >= MAX_SHEETS ? (board.sheets.some(s => s.panes.some(p => p.screen === null)) ? 'empty' : 'replace') : 'new');
 
+/** The applied address includes hidden page keys (ADR-0105) and excludes main-screen presentation. */
+function currentScreen(platform: HostPlatform, expected: CopySource): PaneScreen | null {
+  const { route, appliedUrl, page, canOpen, isCurrentGeneration } = platform;
+  if (!route || !canOpen(route.menu.id)
+    || !matchesCopySource(expected, { url: appliedUrl, isCurrentGeneration })) return null;
+  const decision = screenCopySource(platform);
+  const at = appliedUrl.indexOf('?');
+  const appliedQuery = at === -1 ? '' : appliedUrl.slice(at);
+  const query = decision ? appliedQuery : buildQuery(emptyGlobal, page);
+  return { menuId: route.menu.id, params: { ...route.params }, query };
+}
+
 function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogControl }) {
-  const { user, navigate, registry } = useHostPlatform();
+  const platform = useHostPlatform();
+  const { user, navigate, registry, appliedUrl, isCurrentGeneration } = platform;
+  const latest = useRef<HostPlatform | null>(null);
+  useLayoutEffect(() => {
+    latest.current = platform;
+    return () => { latest.current = null; };
+  }, [platform]);
+  const leave = useLeaveRequest();
+  const [leaving, setLeaving] = useState(false);
+  useLayoutEffect(() => {
+    if (leaving && leave === null) control.close();
+  }, [control, leaving, leave]);
   const { lang, tx } = useI18n();
   const text = boardText(lang);
-  const screen = useCurrentScreen();
   const menuName = (menuId: string) => { const menu = registry.menus.find(m => m.id === menuId); return menu ? tx(menu.label) : menuId; };
   // Read when the dialog opens; the confirm re-reads and checks the chosen target again, so a board changed in another tab is never overwritten with stale data.
   const [board, setBoard] = useState<Board>(() => readBoardSession(user.id, text.sheetPrefix).board);
@@ -65,8 +78,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
    * The board this confirm would produce from `held`, or null when the chosen target is no longer there (`plannedSheetId`: for a new sheet, the
    * id the address already names; the sheet id is random, so the one planned is kept unless another tab took it meanwhile).
    */
-  const planFor = (held: Board, plannedSheetId: string | null): Board | null => {
-    if (!screen) return null;
+  const planFor = (held: Board, plannedSheetId: string | null, screen: PaneScreen): Board | null => {
     if (destination === 'new') {
       const added = openScreenInNewSheet(held, text.sheetPrefix, screen);
       if (!added || plannedSheetId === null || added.activeSheetId === plannedSheetId) return added;
@@ -83,7 +95,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
   };
   type Verdict = { board: Board; refusal: 'readOnly' | 'failed' | 'busy' | 'target' | null };
   /** Takes a change another tab made in first, then judges the session: nothing is written. */
-  const judge = (plannedSheetId: string | null): Verdict => {
+  const judge = (plannedSheetId: string | null, screen: PaneScreen): Verdict => {
     reloadBoardSession(user.id, text.sheetPrefix);
     const held = readBoardSession(user.id, text.sheetPrefix);
     // A board from a newer build is never written: say so before judging the destination, which that board cannot contain.
@@ -91,7 +103,7 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     // Moves still only in memory (a splitter drag) are never written over what another tab saved meanwhile: that is a conflict, not a retry-able pane change.
     if (held.notice === 'failed') return { board: held.board, refusal: 'failed' };
     if (held.unsaved) return { board: held.board, refusal: 'busy' };
-    return { board: held.board, refusal: planFor(held.board, plannedSheetId) ? null : 'target' };
+    return { board: held.board, refusal: planFor(held.board, plannedSheetId, screen) ? null : 'target' };
   };
   const refuse = ({ board, refusal }: Verdict) => {
     if (refusal === 'readOnly') setProblem(text.boardNotSaved);
@@ -104,17 +116,24 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     }
   };
   /** The one write: the check, the change and the save are one update on the reloaded session. */
-  const save = (plannedSheetId: string | null): Verdict => {
-    const verdict = judge(plannedSheetId);
+  const save = (plannedSheetId: string | null, screen: PaneScreen, expected: CopySource): Verdict | null => {
+    const verdict = judge(plannedSheetId, screen);
     if (verdict.refusal !== null) return verdict;
-    const after = updateBoardSession(user.id, text.sheetPrefix, held => planFor(held, plannedSheetId) ?? held);
+    let current = false;
+    const after = updateBoardSession(user.id, text.sheetPrefix, held => {
+      current = expected.isCurrentGeneration();
+      return current ? planFor(held, plannedSheetId, screen) ?? held : held;
+    });
+    if (!current) return null;
     return { board: after.board, refusal: after.readOnly ? 'readOnly' : after.notice === 'failed' ? 'failed' : null };
   };
 
   const confirm = () => {
+    const expected = { url: appliedUrl, isCurrentGeneration };
+    const screen = currentScreen(platform, expected);
     if (!screen || !ready) return;
     // Judged now so a stale target is told while this dialog is open; nothing is saved here.
-    const verdict = judge(null);
+    const verdict = judge(null, screen);
     if (verdict.refusal !== null) { refuse(verdict); return; }
     const plannedSheetId = destination === 'new' ? openScreenInNewSheet(verdict.board, text.sheetPrefix, screen)?.activeSheetId ?? null : null;
     const target = destination === 'new' ? plannedSheetId : sheet?.id ?? null;
@@ -123,22 +142,25 @@ function OpenInBoardDialogBody({ control }: { control: HeaderOverflowDialogContr
     // held like them by unsaved edits (`guard`, #2061). The board is written in `run`, which the Kernel calls only once the move is certain:
     // after a confirmed leave and just before the write, so staying (or a session change) saves nothing and an approval saves once.
     let refused = false;
-    navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(target)}`, {
+    const moved = navigate(`${BOARD_PATH}?sheet=${encodeURIComponent(target)}`, {
       replace: true, focus: 'page', via: 'board', guard: true,
       run: () => {
-        const done = save(plannedSheetId);
-        if (done.refusal === null) return true;
+        const source = latest.current && currentScreen(latest.current, expected);
+        if (source === null) { refused = true; return false; }
+        const done = save(plannedSheetId, source, expected);
+        if (done?.refusal === null) return true;
         refused = true;
-        refuse(done);
+        if (done) refuse(done);
         return false;
       },
     });
-    // Held for the leave confirmation, this dialog gives way to it; refused by the final check, it stays with the reason.
-    if (!refused) control.close();
+    // Hide the dialog while a leave is held, keeping its source decision current until the guard settles.
+    if (moved) control.close();
+    else if (!refused) setLeaving(true);
   };
   const pick = (value: string) => { setDestination(value as Destination); setSheetId(''); setPaneIndex(null); setProblem(null); };
 
-  return <Dialog open onOpenChange={open => { if (!open) control.close(); }}>
+  return <Dialog open={!leaving} onOpenChange={open => { if (!open) control.close(); }}>
     <DialogContent closeLabel={text.close} onCloseAutoFocus={control.onCloseAutoFocus} className="max-h-[80vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{text.openInBoardTitle}</DialogTitle>

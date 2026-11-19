@@ -1,10 +1,12 @@
-import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, formatPeriod, parseQuery, sameGlobal, serializeGlobal, type GlobalContext } from '@ap/contracts';
+import { buildQuery, type EquipmentAxisDescriptor, ContractError, emptyGlobal, formatMetricVersion, formatPeriod, parseQuery, sameGlobal, serializeGlobal, type GlobalContext, type PlatformAdapter } from '@ap/contracts';
 import { labelledCondition, type MenuEntry, type Registry, type ReturnContextKey } from '@ap/kernel';
-import { withPaneContext, type PaneScreen } from '@ap/kernel/host';
+import { hasDotSegment, withPaneContext, type PaneScreen } from '@ap/kernel/host';
+import { scopeAllowsCopy } from './boardCopySource';
 import { canMountPaneScreen } from './boardMenus';
 import { screens, type PaneEdit, type Sheet } from './boardModel';
 
 type CanOpen = (menuId: string) => boolean;
+export type ReadPaneCopySource = (sheet: Sheet, slot: Sheet['panes'][number]) => GlobalContext | null;
 
 /** The analysis-Context keys in the order a pane header and its popover list them (Scope counts as a key, docs/16 §4). */
 const KEY_ORDER: readonly ReturnContextKey[] = ['scope', 'time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
@@ -62,13 +64,34 @@ export function paneGlobal(registry: Registry, screen: PaneScreen): GlobalContex
   return menuOf(registry, screen) === null ? null : globalOfUrl(registry, screen.menuId, screen.query);
 }
 
-/** Only the Context of the latest main screen becomes a new pane's starting condition (docs/16 §5). */
-export function defaultQuery(registry: Registry, recent: readonly { menuId: string; url: string }[]): string {
-  const latest = recent[0];
-  const at = latest?.url.indexOf('?') ?? -1;
-  if (!latest || at === -1) return '';
-  const global = globalOfUrl(registry, latest.menuId, latest.url.slice(at));
-  return global === null ? '' : buildQuery(global);
+/** Use the newest currently readable visit, or leave the destination Context empty (docs/16 §5). */
+export async function defaultQuery(registry: Registry, recent: readonly { menuId: string; url: string }[],
+  { canOpen, validateScope, signal }: { canOpen: CanOpen; validateScope: PlatformAdapter['validateScope']; signal: AbortSignal }): Promise<string> {
+  type Verdict = Awaited<ReturnType<PlatformAdapter['validateScope']>>['status'];
+  const verdicts = new Map<string, Verdict | 'error'>();
+  for (const { menuId, url } of recent) {
+    if (signal.aborted) break;
+    if (!canOpen(menuId)) continue;
+    const at = url.indexOf('?');
+    const path = at === -1 ? url : url.slice(0, at);
+    if (hasDotSegment(path)) continue;
+    const global = globalOfUrl(registry, menuId, at === -1 ? '' : url.slice(at));
+    const route = registry.matchRoute(path);
+    if (global === null || route?.menu.id !== menuId) continue;
+    const { scopeId } = global;
+    let status = scopeId === null ? 'none' as const : verdicts.get(scopeId);
+    if (scopeId !== null && status === undefined) {
+      // A rejected check cannot authorize any visit on this Scope in this lookup.
+      try {
+        status = (await validateScope(scopeId, signal)).status;
+      } catch {
+        status = 'error';
+      }
+      verdicts.set(scopeId, status);
+    }
+    if (!signal.aborted && status !== undefined && scopeAllowsCopy(route.menu.requiresScope, status)) return at === -1 ? '' : buildQuery(global);
+  }
+  return '';
 }
 
 /** The panes that take part in comparison and in Context actions: content the user's role would actually mount, with a readable address. */
@@ -112,33 +135,32 @@ function withContext(menu: MenuEntry, query: string, global: GlobalContext): str
   }
 }
 
-/** `이 조건을 시트의 모든 칸에 적용`: `others` counts the other content panes it could reach; `edits` those whose Context actually changes. Null if the source cannot be read. */
-export function applyContextToSheet(registry: Registry, canOpen: CanOpen, sheet: Sheet, sourceIndex: number): { edits: PaneEdit[]; others: number } | null {
+/** `이 조건을 시트의 모든 칸에 적용`: edits for the other content panes whose Context changes. Null if the source cannot be copied. */
+export function applyContextToSheet(registry: Registry, canOpen: CanOpen, sheet: Sheet, sourceIndex: number, readSource: ReadPaneCopySource): PaneEdit[] | null {
+  const source = readSource(sheet, sheet.panes[sourceIndex]);
+  if (!source) return null;
   const panes = screens(sheet);
   const globals = participants(registry, canOpen, panes);
-  const source = globals[sourceIndex];
-  if (!source) return null;
   const edits: PaneEdit[] = [];
-  let others = 0;
   panes.forEach((pane, index) => {
     const global = globals[index];
     if (index === sourceIndex || pane === null || global === null) return;
-    others++;
     if (sameGlobal(global, source)) return;
     const query = withContext(menuOf(registry, pane)!, pane.query, source);
     if (query !== null) edits.push({ index, paneId: sheet.panes[index].id, before: pane, after: { ...pane, query } });
   });
-  return { edits, others };
+  return edits;
 }
 
 /** `이 시트 조건을 다른 시트에 복사`: pane i of `from` onto pane i of `to`, only where both hold content the role can mount. */
-export function copyContextToSheet(registry: Registry, canOpen: CanOpen, from: Sheet, to: Sheet): PaneEdit[] {
-  const source = participants(registry, canOpen, screens(from));
+export function copyContextToSheet(registry: Registry, canOpen: CanOpen, from: Sheet, to: Sheet, readSource: ReadPaneCopySource): PaneEdit[] {
   const target = participants(registry, canOpen, screens(to));
   const edits: PaneEdit[] = [];
   screens(to).forEach((pane, index) => {
-    const global = source[index];
-    if (index >= from.panes.length || pane === null || global == null || target[index] === null || sameGlobal(target[index]!, global)) return;
+    const source = from.panes[index];
+    if (!source || pane === null || target[index] === null) return;
+    const global = readSource(from, source);
+    if (global === null || sameGlobal(target[index]!, global)) return;
     const query = withContext(menuOf(registry, pane)!, pane.query, global);
     if (query !== null) edits.push({ index, paneId: to.panes[index].id, before: pane, after: { ...pane, query } });
   });
@@ -149,8 +171,7 @@ export function copyContextToSheet(registry: Registry, canOpen: CanOpen, from: S
  * The screen a pane gets when `menu` replaces what it held. It starts with the old pane's Context and nothing else, but only when the
  * role can mount the old screen; a denied or unavailable pane's saved Context is never read, and the new screen starts from `freshQuery`.
  */
-export function replacementScreen(registry: Registry, canOpen: CanOpen, old: PaneScreen, menu: MenuEntry, freshQuery: string): PaneScreen {
-  const global = canMountPaneScreen(registry, canOpen, old) ? paneGlobal(registry, old) : null;
+export function replacementScreen(menu: MenuEntry, global: GlobalContext | null, freshQuery: string): PaneScreen {
   return { menuId: menu.id, params: {}, query: global === null ? freshQuery : withContext(menu, '', global) ?? freshQuery };
 }
 
