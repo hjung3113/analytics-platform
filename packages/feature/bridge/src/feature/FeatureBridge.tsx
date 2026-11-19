@@ -29,6 +29,25 @@ const useNoHere = () => '';
 
 const TONE = { success: 'info', info: 'info', warning: 'warning', error: 'danger' } as const satisfies Record<HostNotice['tone'], 'info' | 'warning' | 'danger'>;
 
+const usePermissionLinks: NonNullable<HostSeam['usePermissionLinks']> = () => {
+  const { registry, resolveLink, location, route, accessibleSpaces } = usePlatform();
+  const home = registry.platformHome;
+  const homeLink = home ? resolveLink(home.id) : null;
+  const currentSpace = route ? registry.spaceOf(route.menu) : null;
+  const spaceHome = (accessibleSpaces.find(space => space.id === currentSpace?.id) ?? accessibleSpaces[0])?.homeMenuId;
+  const fallback = !homeLink?.allowed && spaceHome ? resolveLink(spaceHome) : null;
+  const allowedHome = homeLink?.allowed ? homeLink : fallback;
+  return {
+    permissionRequestHref: () => {
+      const menuId = 'permission-requests';
+      if (!isReachable(registry, { menuId })) return null;
+      const link = resolveLink(menuId);
+      return link.allowed ? location.href(link.href) : null;
+    },
+    permissionHomeHref: allowedHome?.allowed ? location.href(allowedHome.href) : null,
+  };
+};
+
 /** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so an unrelated render never rebuilds it (with `targetOf`, a navigation does: see `hrefLinkTo`). */
 export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
@@ -56,6 +75,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
       summary: at => formatSummaryTime(at, lang),
       feed: at => formatFeedTime(at, lang),
     },
+    usePermissionLinks,
     // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).
     hostOwnsTitle: true,
     // The platform carries the return path as its own `returnTo`, so a screen adds no feature one (Design 6).

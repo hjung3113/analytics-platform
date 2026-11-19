@@ -35,3 +35,30 @@ export const PERMISSION_REQUESTS_PAGE_COPY = {
   duplicateInReview: '이미 같은 대상의 요청이 검토 중입니다.',
   duplicateStatusLink: '요청 상태 보기',
 } as const;
+
+export const PERMISSION_REQUEST_FLOW_COPY = {
+  ko: {
+    request: '권한 요청',
+    remaining: '남은 권한 요청',
+    mine: '내 권한 요청',
+    home: '홈',
+    viewMine: '내 권한 요청 보기',
+    goHome: '홈으로',
+    pendingExplanation: '보낸 권한 요청을 검토하고 있습니다.',
+    retry: '다시 시도',
+    checkingRequest: '요청 상태를 확인하는 중입니다.',
+    requestCheckError: '요청 상태를 확인하지 못했습니다.',
+  },
+  en: {
+    request: 'Request access',
+    remaining: 'Request remaining access',
+    mine: 'My permission requests',
+    home: 'Home',
+    viewMine: 'View my access requests',
+    goHome: 'Go to Home',
+    pendingExplanation: 'Your access request is under review.',
+    retry: 'Try again',
+    checkingRequest: 'Checking request status.',
+    requestCheckError: 'Could not check request status.',
+  },
+} as const;

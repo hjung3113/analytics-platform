@@ -27,12 +27,19 @@ export type HostNotice = {
   variant?: 'undo';
 };
 
+type HostPermissionLinks = {
+  permissionRequestHref?: () => string | null;
+  permissionHomeHref?: string | null;
+};
+
 /**
  * What a screen that is mounted in more than one host (standalone app, platform
  * bridge) needs from its host. Screens exported through `src/global-screens`
  * use this instead of TanStack Router and `sonner`.
  */
-export type HostSeam = {
+export type HostSeam = HostPermissionLinks & {
+  /** Stable hook for links that depend on the current navigation. */
+  usePermissionLinks?: () => HostPermissionLinks;
   canLink(to: string): boolean;
   lang?: 'ko' | 'en';
   time?: {
@@ -93,6 +100,14 @@ export function useHostSeam(): HostSeam {
   const seam = useContext(HostSeamContext) ?? defaultHost;
   if (seam === null) throw new Error('HostSeamProvider is missing');
   return seam;
+}
+
+const useNoPermissionLinks = () => undefined;
+
+export function useHostPermissionLinks(): HostPermissionLinks {
+  const host = useHostSeam();
+  const { usePermissionLinks = useNoPermissionLinks } = host;
+  return usePermissionLinks() ?? host;
 }
 
 export function useHostNavigate(): HostNavigate {

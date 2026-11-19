@@ -99,7 +99,7 @@ vi.mock('../../../../lib/api/useIdempotencyKey', () => ({
     },
   }),
 }));
-vi.mock('../../../admin/permissions/request-access-button', () => ({
+vi.mock('../../../../components/request-access-button', () => ({
   RequestAccessButton: ({ capability }: { capability: string }) => (
     <button data-testid={`request-access-${capability}`} type="button">
       권한 요청

@@ -499,6 +499,9 @@ the URL selection and detail mounted; the existing stale-submit guard requires
 review of the latest revision. Explicit tab changes retain their keep/reselect rule.
 Identical retries reuse a key; a changed reviewed body/revision uses a new key.
 Completion invalidates the submitted ID even if selection changed during the call.
+Managed System choices and the approval preview show `Name (slug)` for concrete
+systems. The preview follows the selected approval scope. If a concrete target's
+name cannot be resolved, the reviewer can retry the catalog read before approving.
 No client-side risk computation and no source/privacy bypass. Risk presentation
 and direct-grant composition below remain separate FO ADR-0066 implementation items.
 Admin risk review presents supplied signals (or the successful zero-signals message)
@@ -677,8 +680,8 @@ load-more without discarding successful rows. A first-page `422` with cursor fie
 code `invalid_cursor` removes `cursor` with replace and reloads the first page,
 retaining filters and selection. Manual refresh keeps current rows visible while
 reads are pending, then reconciles the authorized responses; session/scope and
-permission invalidation still clears stale content. Blocked lists explain the
-workspace administrator request path and disable source tabs, search and refresh.
+permission invalidation still clears stale content. Blocked lists disable source
+tabs, search and refresh.
 Rows use the default compact Integration density: snippet title plus one truncated
 metadata line containing Finding identity, source and classification. Withheld
 row titles and panel text are muted and italic. A readable VOC's panel source label

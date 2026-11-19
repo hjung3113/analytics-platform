@@ -317,7 +317,7 @@ describe('Feature shared bridge pieces (ADR-0071)', () => {
     'lib/attachments/useAttachmentUploadQueue.ts',
     'lib/cross-system/analyticsAreasCatalog.ts',
     'features/findings/hooks/useFindingsList.ts',
-    'features/admin/permissions/request-access-button.tsx',
+    'components/request-access-button.tsx',
     'features/admin/permissions/permission-requests-schema.ts',
     'components/MyVocsRecoveryLink.tsx',
     'features/voc/components/create/AttachmentDropzone.tsx',

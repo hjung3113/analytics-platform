@@ -9,8 +9,10 @@ import {
   permissionCheckQueryKey,
   permissionRequestsMineKey,
 } from '../../../../lib/cross-system/usePermissionCheck';
+import { permissionRequestsMineAllKey } from '../../../../lib/api/permission-requests';
+import { HostSeamProvider } from '../../../../lib/host/host-seam';
 import { registerAnchorLinkHost } from '../../../../test/anchor-link-host';
-import { RequestAccessButton } from '../request-access-button.js';
+import { RequestAccessButton } from '../../../../components/request-access-button';
 
 beforeAll(registerAnchorLinkHost);
 
@@ -94,6 +96,200 @@ describe('<RequestAccessButton>', () => {
     vi.restoreAllMocks();
   });
 
+  test('a hosted non-card trigger submits the caller’s target and return intent through the local dialog', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(permissionRequestsMineKey, { requests: [] });
+    client.setQueryData(permissionRequestsMineAllKey, { requests: [] });
+    const fetchMock = vi.fn(async () => success());
+    globalThis.fetch = fetchMock;
+    render(
+      <QueryClientProvider client={client}>
+        <HostSeamProvider value={{
+          canLink: () => true,
+          Link: ({ to, children }) => <a href={to}>{children}</a>,
+          notifyError: vi.fn(),
+          notifySuccess: vi.fn(),
+          permissionRequestHref: () => '/permission-requests',
+        }}>
+          <RequestAccessButton
+            capability={CAPABILITY}
+            managedSystemId={MANAGED_SYSTEM_ID}
+            returnRouteIntent={RETURN_ROUTE}
+          />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.queryByRole('link', { name: '권한 요청' })).not.toBeInTheDocument();
+    openForm();
+    fillReasonAndSubmit();
+
+    await waitFor(() => expect(postCalls(fetchMock)).toHaveLength(1));
+    expect(requestBody(fetchMock)).toMatchObject({
+      requested_capability: CAPABILITY,
+      requested_managed_system_id: MANAGED_SYSTEM_ID,
+      return_route_intent: RETURN_ROUTE,
+    });
+  });
+
+  test('a local card checks cached empty status until the refetch finds the exact pending request', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(permissionRequestsMineKey, { requests: [] });
+    let resolveRead!: (response: Response) => void;
+    const read = new Promise<Response>((resolve) => { resolveRead = resolve; });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === '/permission-requests/mine' ? read : new Response('not mocked', { status: 500 }),
+    );
+    globalThis.fetch = fetchMock;
+    render(
+      <QueryClientProvider client={client}>
+        <HostSeamProvider value={{
+          canLink: (href) => href === '/permission-requests',
+          Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+          notifyError: vi.fn(),
+          notifySuccess: vi.fn(),
+        }}>
+          <RequestAccessButton
+            capability={CAPABILITY}
+            managedSystemId={MANAGED_SYSTEM_ID}
+            returnRouteIntent={RETURN_ROUTE}
+            layout="card"
+            renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
+          />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain('/permission-requests/mine'));
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+    expect(screen.getByText('요청 상태를 확인하는 중입니다.')).toHaveAttribute('role', 'status');
+
+    resolveRead(Response.json({ requests: [{
+      id: '22222222-2222-4222-8222-222222222222', requested_capability: CAPABILITY,
+      requested_managed_system_id: MANAGED_SYSTEM_ID, requested_object_type: null, requested_object_id: null,
+      source_object_type: null, source_object_id: null, source_action_id: null,
+      requested_expiration: null, return_route_intent: null, revision: 1, status: 'pending',
+      reason: REASON, created_at: CREATED_AT, updated_at: CREATED_AT,
+    }] }));
+
+    expect(await screen.findByRole('link', { name: '내 권한 요청 보기' })).toHaveAttribute('href', '/permission-requests');
+    expect(screen.queryByText('요청 상태를 확인하는 중입니다.')).not.toBeInTheDocument();
+  });
+
+  test('an approval for another system offers the plain request form as remaining access', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const priorSystem = '22222222-2222-4222-8222-222222222222';
+    client.setQueryData(permissionRequestsMineKey, { requests: [] });
+    client.setQueryData(permissionRequestsMineAllKey, { requests: [{
+      requested_capability: CAPABILITY,
+      requested_managed_system_id: priorSystem,
+      requested_object_id: null,
+      status: 'approved',
+    }] });
+    render(
+      <QueryClientProvider client={client}>
+        <HostSeamProvider value={{
+          canLink: () => true,
+          Link: ({ to, children }) => <a href={to}>{children}</a>,
+          notifyError: vi.fn(),
+          notifySuccess: vi.fn(),
+          permissionRequestHref: () => '/permission-requests',
+        }}>
+          <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
+            layout="card"
+            renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
+          />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(/승인됨/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '남은 권한 요청' })).toHaveAttribute(
+      'href', '/permission-requests',
+    );
+  });
+
+  test.each([
+    { pending: false, href: '/company/permission-requests', label: '권한 요청', variant: 'bg-accent-primary' },
+    { pending: true, href: '/company/permission-requests', label: '내 권한 요청 보기', variant: 'bg-surface-raised' },
+    { pending: false, href: null, label: null, variant: null },
+  ])('renders the card action for pending=$pending, href=$href', ({ pending, href, label, variant }) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(permissionRequestsMineAllKey, { requests: [] });
+    render(<QueryClientProvider client={client}><HostSeamProvider value={{
+      canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      permissionRequestHref: () => href, permissionHomeHref: '/company/',
+    }}>
+      <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={pending} layout="card"
+        renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
+      />
+    </HostSeamProvider></QueryClientProvider>);
+    const home = screen.getByRole('link', { name: '홈으로' });
+    expect(home).toHaveClass('bg-surface-raised');
+    expect(home).toHaveAttribute('href', '/company/');
+    if (label && variant) {
+      const action = screen.getByRole('link', { name: label });
+      expect(action).toHaveAttribute('href', href);
+      expect(action).toHaveClass(variant);
+      expect(Array.from(home.parentElement?.children ?? [])).toEqual([action, home]);
+    } else {
+      expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
+    }
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
+  });
+
+  test.each(['open', 'unavailable'])('keeps the request CTA hidden when open status is %s outside history', async (status) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const pending = {
+      id: '22222222-2222-4222-8222-222222222222', requested_capability: CAPABILITY,
+      requested_managed_system_id: MANAGED_SYSTEM_ID, requested_object_id: null, status: 'pending',
+      reason: 'Older pending request', created_at: CREATED_AT, revision: 1,
+    };
+    const recent = Array.from({ length: 50 }, (_, index) => ({
+      ...pending, id: `recent-${index}`, reason: `Recent request ${index}`,
+      status: index === 0 ? 'pending' : 'rejected', created_at: '2026-08-04T09:30:00.000Z',
+    }));
+    client.setQueryData(permissionRequestsMineAllKey, { requests: recent });
+    if (status === 'open') client.setQueryData(permissionRequestsMineKey, { requests: [pending, recent[0]] });
+    render(<QueryClientProvider client={client}><HostSeamProvider value={{
+      canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      permissionRequestHref: () => '/permission-requests',
+    }}>
+      <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
+        layout="card"
+        renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />} />
+    </HostSeamProvider></QueryClientProvider>);
+    if (status === 'unavailable') {
+      expect(await screen.findByRole('alert')).toHaveTextContent('확인하지 못했습니다');
+      expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+      return;
+    }
+    const link = await screen.findByRole('link', { name: '내 권한 요청 보기' });
+    expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(link).toHaveAttribute('href', '/permission-requests');
+  });
+
+  test('hands the pending explanation to a rendered blocked panel instead of the request sentence', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const pending = {
+      id: '33333333-3333-4333-8333-333333333333', requested_capability: CAPABILITY,
+      requested_managed_system_id: MANAGED_SYSTEM_ID, requested_object_id: null, status: 'pending',
+      reason: 'Pending request', created_at: CREATED_AT, revision: 1,
+    };
+    client.setQueryData(permissionRequestsMineAllKey, { requests: [pending] });
+    client.setQueryData(permissionRequestsMineKey, { requests: [pending] });
+    render(<QueryClientProvider client={client}><HostSeamProvider value={{
+      canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      permissionRequestHref: () => '/permission-requests',
+    }}>
+      <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
+        layout="card"
+        renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="VOC" {...panel} />} />
+    </HostSeamProvider></QueryClientProvider>);
+    expect(await screen.findByText('보낸 권한 요청을 검토하고 있습니다.')).toBeInTheDocument();
+    expect(screen.queryByText('이 항목에 접근하려면 권한 요청이 필요합니다.')).toBeNull();
+  });
+
   test('AC-D8a clicking Request access renders confirmation before exactly zero POSTs', async () => {
     const fetchMock = vi.fn(async () => success());
     globalThis.fetch = fetchMock as typeof globalThis.fetch;
@@ -105,6 +301,47 @@ describe('<RequestAccessButton>', () => {
     });
 
     expect(postCalls(fetchMock)).toHaveLength(0);
+  });
+
+  test('replaces the dialog trigger with the pending link after a successful request', async () => {
+    let pending = false;
+    globalThis.fetch = vi.fn(async (input, init) => {
+      if (init?.method === 'POST') {
+        pending = true;
+        return success();
+      }
+      if (String(input) === '/permission-requests/mine') return Response.json({ requests: pending ? [{
+        id: '22222222-2222-4222-8222-222222222222', requested_capability: CAPABILITY,
+        requested_managed_system_id: null, requested_object_type: null, requested_object_id: null,
+        source_object_type: null, source_object_id: null, source_action_id: null,
+        requested_expiration: null, return_route_intent: null, revision: 1, status: 'pending',
+        reason: REASON, created_at: CREATED_AT, updated_at: CREATED_AT,
+      }] : [] });
+      return new Response('not mocked', { status: 500 });
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><HostSeamProvider value={{
+      canLink: (href) => href === '/permission-requests',
+      Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+      notifyError: vi.fn(), notifySuccess: vi.fn(), permissionHomeHref: '/company/',
+    }}>
+      <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} layout="card"
+        renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
+      />
+    </HostSeamProvider></QueryClientProvider>);
+    const request = await screen.findByRole('button', { name: '권한 요청' });
+    const home = screen.getByRole('link', { name: '홈으로' });
+    expect(request).toHaveClass('bg-accent-primary');
+    expect(Array.from(home.parentElement?.children ?? [])).toEqual([request, home]);
+    fireEvent.click(request);
+    fillReasonAndSubmit();
+    fireEvent.click(await screen.findByRole('button', { name: '확인' }));
+    const status = screen.getByRole('link', { name: '내 권한 요청 보기' });
+    expect(status).toHaveAttribute('href', '/permission-requests');
+    expect(status).toHaveClass('bg-surface-raised');
+    expect(Array.from(home.parentElement?.children ?? [])).toEqual([status, home]);
+    expect(screen.getByRole('status')).toHaveTextContent('보낸 권한 요청을 검토하고 있습니다.');
+    expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
   });
 
   test('renders a workspace-wide request scope in Korean', () => {

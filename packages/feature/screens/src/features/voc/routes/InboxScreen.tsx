@@ -5,13 +5,14 @@
 
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
+import { permissionCardExitAction } from '../../../components/permission-card-actions';
 import { RequestAccessButton } from '../../admin/public';
 import { isPermissionDenied } from '../../../lib/api/types';
 import { GLOSSARY, createLabel } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { VOC_INBOX_LABEL } from '../../../lib/copy/voc-views';
-import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
+import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
 import { SEVERITY_LABELS } from '../../../ui/index';
 import {
@@ -44,7 +45,9 @@ export interface InboxScreenProps {
 }
 
 export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.ReactElement {
-  const canCreate = useHostSeam().canLink(CREATE_HREF);
+  const { canLink, lang = 'ko' } = useHostSeam();
+  const canCreate = canLink(CREATE_HREF);
+  const { permissionHomeHref } = useHostPermissionLinks();
   const {
     search,
     area,
@@ -179,6 +182,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
         <div className="m-4 space-y-3">
           {listError.envelope.requestable_permission ? (
             <RequestAccessButton
+              layout="card"
               capability={listError.envelope.requestable_permission.permission}
               returnRouteIntent={`/vocs?view=${view}`}
               {...(typeof listError.envelope.requestable_permission.managed_system_id === 'string'
@@ -186,9 +190,11 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
                     managedSystemId: listError.envelope.requestable_permission.managed_system_id,
                   }
                 : {})}
-              renderTrigger={(onRequestAccess) => (
+              renderTrigger={(_onRequestAccess, panel) => (
                 <PermissionBlockedPanel
-                  // The server marks the capability requestable, so its panel state owns the CTA.
+                  layout="card"
+                  headingLevel={3}
+                  announceBody
                   state="request_access"
                   category={VOC_INBOX_LABEL}
                   // #562 copy: a named Managed System means this selected scope is out of reach.
@@ -197,7 +203,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
                       ? PERMISSION_BLOCKED_REASONS.vocInboxManagedSystem
                       : PERMISSION_BLOCKED_REASONS.vocInbox
                   }
-                  onRequestAccess={onRequestAccess}
+                  {...panel}
                 />
               )}
             />
@@ -206,8 +212,14 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               // packages/feature/screens/docs/specs/voc.md R-VOC-INBOX: no read scope and nothing requestable
               // -> blocked_not_requestable (#562).
               state="blocked_not_requestable"
+              layout="card"
+              headingLevel={3}
+              announceBody
+              lang={lang}
               category={VOC_INBOX_LABEL}
-              reason={PERMISSION_BLOCKED_REASONS.vocInbox}
+              description={PERMISSION_BLOCKED_REASONS.vocInbox}
+              requestStatus="not-requestable"
+              exitAction={permissionCardExitAction(permissionHomeHref, lang)}
             />
           )}
           {view === 'inbox' && listError.envelope.requestable_permission === undefined ? (

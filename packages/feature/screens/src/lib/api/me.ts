@@ -1,3 +1,4 @@
+import { grantOpensScreensFor, ROLE_LEVEL_VALUES, type RoleLevel } from '@ap/feature-shared';
 // The caller's session read (`GET /me`) on `apiRequest`, so the platform bridge reaches it through `client.ts`
 // (`/api/features` base path, 401 hook — platform ADR-0071). This module imports neither `auth.ts`, the `.` barrel nor
 // `lib/auth/`: `auth.ts` re-exports `MeResponse` and `MeRequestError` from here, and `lib/auth/useMe.ts` shares the
@@ -110,4 +111,8 @@ export function meBridgeQueryOptions() {
 
 export function useMeBridge(): UseQueryResult<MeResponse> {
   return useQuery<MeResponse>(meBridgeQueryOptions());
+}
+
+export function meCanOpenGrantedScreen(capability: string, role: string): boolean {
+  return (ROLE_LEVEL_VALUES as readonly string[]).includes(role) && grantOpensScreensFor(capability, role as RoleLevel);
 }

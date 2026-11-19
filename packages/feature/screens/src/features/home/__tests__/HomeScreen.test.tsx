@@ -26,7 +26,7 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
 
 import { COVERAGE_METRIC_IDS, COVERAGE_METRIC_LABELS } from '../../../lib/copy/coverage';
-import { registerDefaultHost } from '../../../lib/host/host-seam';
+import { HostSeamProvider, registerDefaultHost, useHostSeam } from '../../../lib/host/host-seam';
 import { HomeScreen } from '../../../test/host-adapters/features/home/HomeScreen';
 import { HomeRoute } from '../../../test/screen-host/routes/_authed/home';
 
@@ -937,14 +937,23 @@ describe('HomeScreen route content', () => {
       return base(input, init);
     }) as typeof fetch;
     const { queryClient } = renderHome();
-    render(
-      <QueryClientProvider client={queryClient}>
+    function Gate() {
+      const host = useHostSeam();
+      return <HostSeamProvider value={{
+        ...host,
+        Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+      }}>
         <PermissionGate capability="finding.manage">
           <span>protected</span>
         </PermissionGate>
+      </HostSeamProvider>;
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Gate />
       </QueryClientProvider>,
     );
-    await screen.findByText('권한 요청 검토 중');
+    expect(await screen.findByRole('link', { name: '내 권한 요청 보기' })).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: /Finding 관리/ }));
     await screen.findByDisplayValue('original reason');
     fireEvent.click(screen.getByRole('button', { name: '요청 철회' }));
@@ -954,7 +963,7 @@ describe('HomeScreen route content', () => {
       }),
     );
     await screen.findByRole('button', { name: '권한 요청' });
-    expect(screen.queryByText('권한 요청 검토 중')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '내 권한 요청 보기' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Finding 관리/ })).not.toBeInTheDocument();
   });
 

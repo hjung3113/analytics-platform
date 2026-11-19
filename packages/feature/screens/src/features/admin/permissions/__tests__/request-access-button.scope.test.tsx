@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { scopeCandidatesBody, scopeCreateResultBody } from '../../../../test/fixtures/permission-scope';
-import { RequestAccessButton, type RequestAccessButtonProps } from '../request-access-button.js';
+import { RequestAccessButton, type RequestAccessButtonProps } from '../../../../components/request-access-button';
 
 const RETURN_ROUTE = '/menus/production?scopeId=SITE-A';
 const REQUEST_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1';

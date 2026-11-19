@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { beginSessionDraftOwner, resetSessionDraftsForTests, snapshotSessionDrafts } from '../../../../lib/session-draft/registry';
-import { RequestAccessButton } from '../request-access-button.js';
+import { RequestAccessButton } from '../../../../components/request-access-button';
 
 const REASON = '검증용 범위 권한이 필요합니다';
 const draftKeys = () => Object.keys(sessionStorage).filter((key) => key.startsWith('draft:'));

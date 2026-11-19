@@ -28,6 +28,6 @@ export { PermissionRequestsScreen } from '../features/home/permission-requests/P
 export {
   RequestAccessButton,
   type RequestAccessScopeTarget,
-} from '../features/admin/permissions/request-access-button';
+} from '../components/request-access-button';
 export { HomeTodoPanel } from '../features/home/todo/HomeTodoPanel';
 export { ApiTokensScreen, type ApiTokenDrawerParts, type ApiTokenTableParts } from '../features/api-tokens/ApiTokensScreen';

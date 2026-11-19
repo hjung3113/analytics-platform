@@ -6,7 +6,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../admin/permissions/request-access-button', () => ({
+vi.mock('../../../../../components/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
     returnRouteIntent,

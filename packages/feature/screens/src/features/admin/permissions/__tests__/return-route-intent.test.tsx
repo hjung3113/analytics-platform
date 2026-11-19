@@ -10,7 +10,7 @@ const requestProps = vi.hoisted(
 const useVocListMock = vi.hoisted(() => vi.fn());
 const usePermissionCheckMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../request-access-button', () => ({
+vi.mock('../../../../components/request-access-button', () => ({
   RequestAccessButton: (props: { capability: string; returnRouteIntent: string }) => {
     requestProps.push(props);
     return <div data-testid={`request-access-${props.capability}`}>{props.returnRouteIntent}</div>;

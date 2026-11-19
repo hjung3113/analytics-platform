@@ -183,7 +183,7 @@ const findings = [
 const useFindingsListMock = vi.hoisted(() => vi.fn());
 const requestAccessFlowMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../features/admin/permissions/request-access-button', () => ({
+vi.mock('../../components/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
     managedSystemId,
