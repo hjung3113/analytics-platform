@@ -14,6 +14,7 @@ import type React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { type AdminPermissionRequestRow, errorMapper } from '../../../lib/api';
+import type { ManagedSystemDto } from '../../../lib/api/registry-reads';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import type { PermissionRiskIndicator } from '@ap/feature-shared';
 
@@ -140,6 +141,7 @@ function buildHarness() {
 function installFetch(
   options: {
     decision?: { status: number; body: unknown };
+    managedSystems?: ManagedSystemDto[];
     onList?: () => void;
     requests?: readonly AdminPermissionRequestRow[];
     actorId?: string;
@@ -175,6 +177,9 @@ function installFetch(
     if (url === '/permissions/requests?status=all' && (!init?.method || init.method === 'GET')) {
       options.onList?.();
       return response({ requests, count: requests.length });
+    }
+    if (url.startsWith('/managed-systems?') && options.managedSystems) {
+      return response({ items: options.managedSystems, total: options.managedSystems.length });
     }
     if (/^\/permissions\/requests\/[^/]+$/.test(url)) {
       const row = requests.find((candidate) => url.endsWith(candidate.id));
@@ -843,36 +848,78 @@ describe('/admin/permissions/requests', () => {
     expect(decisionPosts()).toHaveLength(1);
   });
 
-  test('uses server allowed actions and approval scope candidates with exact narrowing body', async () => {
-    installFetch({
-      detail: (row) => ({
-        ...adminDetailFixture(row),
-        allowed_actions: ['approve'],
-        approval_scope_candidates: [
-          { managed_system_id: null },
-          { managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' },
-        ],
-      }),
-    });
-    renderRoute();
-    await screen.findByTestId('permission-decision-section');
-    expect(screen.queryByRole('button', { name: '거절' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '추가 정보 요청' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
-    const scope = screen.getByRole('combobox', { name: '승인 범위' });
-    fireEvent.keyDown(scope, { key: 'ArrowDown' });
-    const option = await screen.findByRole('option', { name: '시스템 · cccccccc' });
-    fireEvent.click(option);
-    fireEvent.click(screen.getByTestId('permission-decision-submit'));
-    await waitFor(() => expect(decisionPosts()).toHaveLength(1));
-    expect(JSON.parse(present(decisionPosts()[0])[1].body as string)).toEqual({
-      expected_revision: 7,
-      granted_managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-    });
-    expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
-      '전체',
-    );
-  });
+  test.each(['same-name system', 'unresolved system'] as const)(
+    'shows and posts the exact approval target (%s) with the picker closed',
+    async (target) => {
+      const firstSystemId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+      const secondSystemId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const managedSystems = [
+        { id: firstSystemId, slug: 'tableau-ops' },
+        { id: secondSystemId, slug: 'tableau-finance' },
+      ].map((system) => ({
+        ...system,
+        workspace_id: 'workspace-1',
+        name: 'Tableau',
+        external_key: null,
+        default_owner_actor_id: null,
+        default_owner_team_id: null,
+        default_reviewer_actor_id: null,
+        default_reviewer_team_id: null,
+        archived_at: null,
+        archived_by_actor_id: null,
+        created_at: '2026-07-17T00:00:00.000Z',
+        updated_at: '2026-07-17T00:00:00.000Z',
+      }));
+      installFetch({
+        managedSystems: target === 'same-name system' ? managedSystems : [],
+        detail: (row) => ({
+          ...adminDetailFixture(row),
+          allowed_actions: ['approve'],
+          approval_scope_candidates: [
+            { managed_system_id: null },
+            { managed_system_id: firstSystemId },
+            { managed_system_id: secondSystemId },
+          ],
+        }),
+      });
+      renderRoute();
+      await screen.findByTestId('permission-decision-section');
+      expect(screen.queryByRole('button', { name: '거절' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '추가 정보 요청' })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '승인' }));
+      const decision = within(screen.getByTestId('permission-decision-section'));
+      if (target === 'same-name system') {
+        fireEvent.keyDown(decision.getByRole('combobox', { name: '승인 범위' }), { key: 'ArrowDown' });
+        const option = await screen.findByRole('option', { name: 'Tableau · tableau-finance' });
+        expect(screen.getByRole('option', { name: 'Tableau · tableau-ops' })).toBeInTheDocument();
+        fireEvent.click(option);
+      } else {
+        const summary = decision.getByText('이름 미확인 시스템 선택');
+        expect(summary.parentElement).not.toHaveAttribute('open');
+        fireEvent.click(summary);
+        const group = decision.getByRole('radiogroup', { name: '이름 미확인 시스템 선택' });
+        const option = within(group).getByRole('radio', { name: secondSystemId });
+        expect(within(group).getByRole('radio', { name: firstSystemId })).toBeInTheDocument();
+        fireEvent.click(option);
+        expect(option).toBeChecked();
+        fireEvent.click(summary);
+        expect(summary.parentElement).not.toHaveAttribute('open');
+      }
+      const submit = decision.getByTestId('permission-decision-submit');
+      const targetLabel = target === 'same-name system' ? 'Tableau · tableau-finance' : '시스템';
+      expect(submit).toHaveAccessibleDescription(`승인 범위: ${targetLabel} ${secondSystemId}`);
+      expect(document.getElementById(submit.getAttribute('aria-describedby') ?? '')).toBeVisible();
+      fireEvent.click(submit);
+      await waitFor(() => expect(decisionPosts()).toHaveLength(1));
+      expect(JSON.parse(present(decisionPosts()[0])[1].body as string)).toEqual({
+        expected_revision: 7,
+        granted_managed_system_id: secondSystemId,
+      });
+      expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
+        '전체',
+      );
+    },
+  );
 
   test('two submits in the same event turn send one decision intent', async () => {
     installFetch();
@@ -925,7 +972,7 @@ describe('/admin/permissions/requests', () => {
     installFetch();
     renderRoute();
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /^대기 중\s*,\s*1$/ })).toBeInTheDocument(),
+      expect(screen.getByRole('tab', { name: /^검토 중\s*,\s*1$/ })).toBeInTheDocument(),
     );
     expect(screen.getAllByRole('tab')).toHaveLength(5);
     expect(

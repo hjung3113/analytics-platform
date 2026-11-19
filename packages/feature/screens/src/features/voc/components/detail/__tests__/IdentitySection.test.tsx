@@ -8,10 +8,6 @@ vi.mock('../../../../../lib/api/me', async (importOriginal) => ({
   useMeBridge: vi.fn(),
 }));
 vi.mock('../../../../../lib/cross-system/useManagedSystem', () => ({ useManagedSystem: vi.fn() }));
-vi.mock('../../../../../lib/format/datetime', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../../lib/format/datetime')>()),
-  formatRelativeTime: (_iso: string) => '방금 전',
-}));
 
 import { useMeBridge } from '../../../../../lib/api/me';
 import { useManagedSystem } from '../../../../../lib/cross-system/useManagedSystem';
@@ -59,16 +55,12 @@ describe('<IdentitySection>', () => {
     expect(screen.queryByText('Analytics Area')).not.toBeInTheDocument();
   });
 
-  it('renders the reporter+time meta line as "<reporter> · <relative>" (no FieldRow labels)', () => {
+  it('renders the reporter and compact local time in the metadata row', () => {
     render(<IdentitySection voc={DETAIL_ENVELOPE} />);
-    // Reference: ".review/title-reference.png" — single horizontal meta row
-    // below the title: status pill + reporter name + middle-dot + relative time.
-    // The verbose '제출자' / '제출 시각' FieldRow labels must be gone.
     expect(screen.queryByText('제출자')).not.toBeInTheDocument();
     expect(screen.queryByText('제출 시각')).not.toBeInTheDocument();
-    // Reporter + relative coexist on the page.
     expect(screen.getByText('김개발')).toBeInTheDocument();
-    expect(screen.getByText('방금 전')).toBeInTheDocument();
+    expect(screen.getByText('5월 1일 오전 9:00')).toHaveAttribute('datetime', DETAIL_ENVELOPE.created_at);
   });
 
   it('shows resolved reporter display_name when reporter_id does not match me', () => {
@@ -116,7 +108,7 @@ describe('<IdentitySection> slot title (#1168 C-1)', () => {
 
     expect(screen.getByRole('heading', { name: DETAIL_ENVELOPE.title })).toBeInTheDocument();
     expect(screen.getByText('접수됨')).toBeInTheDocument();
-    expect(screen.getByText('방금 전')).toBeInTheDocument();
+    expect(screen.getByText('5월 1일 오전 9:00')).toBeInTheDocument();
   });
 
   it('omits the title when the host header shows it and keeps the status · reporter · time row', () => {
@@ -126,6 +118,6 @@ describe('<IdentitySection> slot title (#1168 C-1)', () => {
     expect(screen.queryByText(DETAIL_ENVELOPE.title)).toBeNull();
     expect(screen.getByText('접수됨')).toBeInTheDocument();
     expect(screen.getByText('김개발')).toBeInTheDocument();
-    expect(screen.getByText('방금 전')).toBeInTheDocument();
+    expect(screen.getByText('5월 1일 오전 9:00')).toBeInTheDocument();
   });
 });

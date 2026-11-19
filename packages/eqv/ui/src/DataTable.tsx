@@ -88,7 +88,7 @@ export interface DataTableCellProps extends TdHTMLAttributes<HTMLTableCellElemen
 }
 
 /**
- * Dense table in the AP `PlatformDataTable` frame: 32px rows, sticky uppercase header, optional title bar, count line,
+ * Dense table in the AP `PlatformDataTable` frame: 32px rows, sticky header, optional title bar, count line,
  * state block and controlled two-state sort. The data model stays with the consumer.
  */
 export function DataTable({
@@ -186,7 +186,7 @@ export function DataTable({
                     scope="col"
                     {...(sortable ? { 'aria-sort': sorted ?? 'none' } : {})}
                     className={cn(
-                      'sticky top-0 z-[1] border-b border-border-subtle bg-surface-card-elevated px-3 py-1 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary first:border-l-2 first:border-l-transparent',
+                      'sticky top-0 z-[1] border-b border-border-subtle bg-surface-card-elevated px-3 py-1 text-left text-xs font-semibold tracking-wide text-text-secondary first:border-l-2 first:border-l-transparent',
                       col.align === 'end' && 'text-right',
                       col.className,
                     )}
@@ -195,7 +195,7 @@ export function DataTable({
                       <button
                         type="button"
                         onClick={() => onSortChange({ columnId: col.id, direction: sorted === 'ascending' ? 'descending' : 'ascending' })}
-                        className="-mx-1 inline-flex items-center gap-1 rounded-sm px-1 uppercase hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="-mx-1 inline-flex items-center gap-1 rounded-sm px-1 hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                       >
                         {col.header}
                         <SortIcon className={cn('size-3', sorted === undefined && 'opacity-40')} aria-hidden />

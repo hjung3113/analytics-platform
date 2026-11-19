@@ -1,3 +1,4 @@
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 // Slice 1 #5: functional Request access button.
 //
 // Generates a stable `Idempotency-Key` per logical intent — the key is
@@ -318,7 +319,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                   {permissionRequestStatusLabel[submitted.status]}
                 </dd>
                 <dt className="text-text-muted">요청일</dt>
-                <dd className="text-text-primary">{submitted.createdAt}</dd>
+                <dd className="text-text-primary"><FeatureTimestamp at={submitted.createdAt} notation="summary" /></dd>
                 {submitted.expiration ? (
                   <>
                     <dt className="text-text-muted">만료일</dt>

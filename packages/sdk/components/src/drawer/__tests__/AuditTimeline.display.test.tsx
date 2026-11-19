@@ -4,10 +4,11 @@ import { I18nProvider } from '@ap/kernel';
 import type { AuditEvent } from '@ap/contracts';
 import { AuditTimeline } from '../AuditTimeline';
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 const events: readonly AuditEvent[] = [{ id: 'e1', at: '2026-11-17T00:00:00Z', actor: 'actor-1', action: 'update', source: 'user', target: { type: 'item', id: 'one', scopeId: null }, changes: { upper: ['10', '20'], lower: [null, '5'], raw: ['before', 'after'] } }];
 
-it('default audit display preserves original markup, actor, keys and values', () => {
+it('uses the feed notation and preserves the original actor, keys and values', () => {
+  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-19T00:00:00Z'));
   const { container } = render(<I18nProvider><AuditTimeline events={events} /></I18nProvider>);
   expect(screen.getByText('actor-1')).not.toHaveAttribute('title');
   expect(screen.getByText('upper')).toHaveRole('term');

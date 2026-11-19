@@ -305,7 +305,7 @@ describe('/admin/permissions/requests URL state', () => {
     await waitFor(() => {
       expect(router.state.location.search).toEqual({ selected: PENDING_ID });
     });
-    expect(screen.getByRole('tab', { name: /^대기 중\s*,\s*1$/ })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^검토 중\s*,\s*1$/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );

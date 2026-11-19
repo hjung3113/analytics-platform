@@ -145,9 +145,24 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('PermissionRequestsScreen over the host seam', () => {
+  it('labels the pending queue and puts request identifiers under Original', async () => {
+    mount({ selected: R1 }, () => (
+      <PermissionRequestsScreen autoSelect={false} renderDetail={parts => (
+        <div data-testid="notation-drawer">{parts.body}</div>
+      )} />
+    ));
+    expect(await screen.findByRole('tab', { name: /검토 중/ })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('notation-drawer')).toHaveTextContent('요청 범위'));
+    const original = screen.getByTestId('notation-drawer').querySelector('details');
+    expect(original).not.toHaveAttribute('open');
+    expect(original).toHaveTextContent('finding.manage');
+    expect(original).toHaveTextContent(R1);
+    expect(original).toHaveTextContent(ACTOR);
+  });
+
   it('autoSelect=false: opening writes nothing', async () => {
     mount({}, () => <PermissionRequestsScreen autoSelect={false} renderDetail={() => null} />);
-    await screen.findByText('알 수 없는 사용자 · Finding 관리');
+    await screen.findByText('이름 미확인 · Finding 관리');
     expect(calls).toEqual([]);
   });
 

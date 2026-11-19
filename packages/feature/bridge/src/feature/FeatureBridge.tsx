@@ -1,6 +1,6 @@
 import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
-import { UNDO_WINDOW_MS, useI18n, usePlatform, useUnsavedGuard } from '@ap/kernel';
+import { UNDO_WINDOW_MS, formatFeedTime, formatListTime, formatSummaryTime, useI18n, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { StateMessage } from '@ap/components';
 import { FeatureScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import type { TargetOf } from './links';
@@ -50,6 +50,12 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
       },
     } : {}),
     Link,
+    lang,
+    time: {
+      list: at => formatListTime(at),
+      summary: at => formatSummaryTime(at, lang),
+      feed: at => formatFeedTime(at, lang),
+    },
     // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).
     hostOwnsTitle: true,
     // The platform carries the return path as its own `returnTo`, so a screen adds no feature one (Design 6).
@@ -69,7 +75,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     // The head element `FeatureScreenPage` offers for a screen's one primary action (null outside it); a module-level hook, so the seam stays stable.
     usePrimaryActionTarget,
     useUnsavedGuard,
-  }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
+  }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, lang, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
 
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}

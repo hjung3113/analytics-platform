@@ -213,7 +213,7 @@ it.each([
         expect(
           screen.getByText(
             switchBy === 'scope'
-              ? '검토 대기 중인 Task 요청이 없습니다'
+              ? '검토 중인 Task 요청이 없습니다'
               : '현재 조건에 맞는 Task 요청이 없습니다',
           ),
         ).toBeInTheDocument();
@@ -238,8 +238,8 @@ it.each([
       else if (switchBy === 'decision') {
         fireEvent.mouseDown(screen.getByRole('tab', { name: /^전체/ }));
         await settled();
-        fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 대기/ }));
-      } else fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 대기/ }));
+        fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 중/ }));
+      } else fireEvent.mouseDown(screen.getByRole('tab', { name: /^검토 중/ }));
       await settled();
       // Restore the decided row for a second independent decision into the visited context.
       await act(async () => {

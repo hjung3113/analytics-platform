@@ -18,7 +18,13 @@ export type TableFilterField = { id: string; label: Text; spec: ColumnFilterSpec
 export type InstantEntry = { timeZone?: string; precision?: 'minute' | 'second' };
 
 /** One filterable field as the filter line and the editor see it, whether it came from a column or from `filterFields`. */
-export type ResolvedFilterField = { id: string; label: string; spec: ColumnFilterSpec; pinned: boolean; /** Pinned position (lower first); `Infinity` for an unnumbered pin. */ pinRank: number; origin: 'column' | 'field'; entry?: InstantEntry };
+export type ExactTextFilterChoices = {
+  options: readonly { value: string; label: string }[];
+  exactId?: boolean;
+  fallbackLabel?: string;
+};
+
+export type ResolvedFilterField = { choices?: ExactTextFilterChoices; id: string; label: string; spec: ColumnFilterSpec; pinned: boolean; /** Pinned position (lower first); `Infinity` for an unnumbered pin. */ pinRank: number; origin: 'column' | 'field'; entry?: InstantEntry };
 
 const pinRankOf = (pinned: boolean | number | undefined): number => (typeof pinned === 'number' ? pinned : Number.POSITIVE_INFINITY);
 /** The pinned fields in display order: numbered ones by position, then the rest in their given (column, then field) order. */

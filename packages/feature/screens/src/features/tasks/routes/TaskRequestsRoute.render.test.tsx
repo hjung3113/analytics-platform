@@ -210,7 +210,7 @@ describe('TaskRequestsRoute display ids', () => {
     renderWithClient(<TaskRequestsRoute />);
 
     await screen.findByRole('button', { name: /REQ-42/ });
-    for (const label of ['검토 대기', '근거 추가 필요', '승인됨', '반려됨']) {
+    for (const label of ['검토 중', '근거 추가 필요', '승인됨', '반려됨']) {
       expect(screen.getByRole('tab', { name: new RegExp(label) })).toBeInTheDocument();
     }
     expect(
@@ -290,7 +290,7 @@ describe('TaskRequestsRoute display ids', () => {
     );
     renderWithClient(<TaskRequestsRoute />);
 
-    expect(await screen.findByText('검토 대기 중인 Task 요청이 없습니다')).toBeInTheDocument();
+    expect(await screen.findByText('검토 중인 Task 요청이 없습니다')).toBeInTheDocument();
     expect(screen.getByText('다른 상태의 Task 요청이 있습니다.')).toBeInTheDocument();
     expect(screen.queryByText('Task 요청이 없습니다.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
@@ -307,7 +307,7 @@ describe('TaskRequestsRoute display ids', () => {
     expect(screen.getByText('선택한 상태: 승인됨')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
 
-    expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -376,7 +376,7 @@ describe('TaskRequestsRoute display ids', () => {
     fireEvent.click(screen.getByRole('combobox', { name: '검토자 필터' }));
     fireEvent.click(await screen.findByRole('option', { name: '내 검토 요청' }));
     expect(await screen.findByText('현재 조건에 맞는 Task 요청이 없습니다')).toBeInTheDocument();
-    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
     expect(await screen.findByRole('button', { name: /REQ-42/ })).toBeInTheDocument();
     expect(screen.queryByText('현재 조건에 맞는 Task 요청이 없습니다')).not.toBeInTheDocument();
@@ -410,7 +410,7 @@ it('filters assigned reviewers for the list and every status badge', async () =>
   );
   expect(await screen.findByRole('button', { name: /REQ-99/ })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: /^전체/ })).toHaveTextContent('1');
-  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveTextContent('1');
+  expect(screen.getByRole('tab', { name: /^검토 중/ })).toHaveTextContent('1');
   expect(screen.getByRole('tab', { name: /^승인됨/ })).toHaveTextContent('0');
   expect(screen.getByRole('tab', { name: /^반려됨/ })).toHaveTextContent('0');
   expect(screen.getByRole('tab', { name: /^근거 추가 필요/ })).toHaveTextContent('0');

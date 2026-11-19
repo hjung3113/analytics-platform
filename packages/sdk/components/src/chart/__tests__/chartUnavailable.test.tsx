@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
@@ -31,6 +31,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('AnalysisChart renders the unavailable state and keeps its frame', async () => {
   wrap(<AnalysisChart chartId="a" title="Chart A" unit="ea" spec={{ kind: 'heatmap', xLabels: ['09'], yLabels: ['A'], cells: [{ x: '09', y: 'A', value: 1 }] }} />);
+  // Let the real ECharts import settle before polling for the canvas failure.
+  await act(() => vi.dynamicImportSettled());
   expect(await screen.findByText(UNAVAILABLE)).toBeInTheDocument();
   expect(screen.getByText('Chart A')).toBeInTheDocument();
 });

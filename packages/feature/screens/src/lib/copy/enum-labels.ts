@@ -121,7 +121,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 export const TASK_REQUEST_STATUS_LABELS: Record<TaskRequestStatus, string> = {
-  pending_review: '검토 대기',
+  pending_review: '검토 중',
   needs_more_evidence: '근거 추가 필요',
   approved: '승인됨',
   rejected: '반려됨',
@@ -155,12 +155,16 @@ export const SURVEY_RESULT_KIND_LABELS: Record<SurveyResultKind, string> = {
   text: '서술형',
 } as const;
 
-export const permissionRequestStatusLabel: Record<PermissionRequestStatus, string> = {
-  pending: '대기 중',
-  needs_more_info: '추가 정보 필요',
-  approved: '승인됨',
-  rejected: '거절됨',
-  cancelled: '철회',
-  expired: '만료됨',
-  revoked: '취소됨',
-};
+export const permissionRequestStatusText = {
+  pending: { ko: '검토 중', en: 'In review' },
+  needs_more_info: { ko: '추가 정보 필요', en: 'More information needed' },
+  approved: { ko: '승인됨', en: 'Approved' },
+  rejected: { ko: '거절됨', en: 'Rejected' },
+  cancelled: { ko: '철회', en: 'Withdrawn' },
+  expired: { ko: '만료됨', en: 'Expired' },
+  revoked: { ko: '취소됨', en: 'Revoked' },
+} satisfies Record<PermissionRequestStatus, { ko: string; en: string }>;
+
+export const permissionRequestStatusLabel = Object.fromEntries(
+  Object.entries(permissionRequestStatusText).map(([status, label]) => [status, label.ko]),
+) as Record<PermissionRequestStatus, string>;

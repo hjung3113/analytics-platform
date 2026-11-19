@@ -9,8 +9,9 @@ import {
   platformEntityAuditPage,
 } from '../core/audit/index.js';
 import type { CheckService } from '../permissions/check-service.js';
+import { createSelectedReadService } from '../permissions/index.js';
 import { AUDIT_ACTION_BY_EVENT_TYPE, type PlatformAuditAction } from './audit-actions.js';
-import { isUuid, parseAuditQuery } from './audit-query.js';
+import { ENTITY_READABLE_TYPES, isUuid, parseAuditQuery } from './audit-query.js';
 import {
   ENTITY_AUDIT_PAGE_MAX,
   decodeEntityAuditCursor,
@@ -29,9 +30,10 @@ export interface PlatformAuditEvent {
   id: string;
   at: string;
   actor: string;
+  actorLabel?: string;
   action: PlatformAuditAction;
   source: 'user' | 'system';
-  target: { type: string; id: string; scopeId: null };
+  target: { type: string; id: string; scopeId: null; label?: string };
   changes?: Record<string, [string | null, string | null]>;
 }
 
@@ -56,20 +58,23 @@ function tokenScopeChanges(row: PlatformAuditRow): PlatformAuditEvent['changes']
   return undefined;
 }
 
-export function toAuditEvent(row: PlatformAuditRow): PlatformAuditEvent {
+export function toAuditEvent(row: PlatformAuditRow, targetLabel?: string): PlatformAuditEvent {
   const changes = tokenScopeChanges(row);
   return {
     id: row.id,
     at: row.at,
     actor: row.actor,
+    ...(row.actorLabel && { actorLabel: row.actorLabel }),
     action: AUDIT_ACTION_BY_EVENT_TYPE[row.eventType as keyof typeof AUDIT_ACTION_BY_EVENT_TYPE],
     source: row.actorType === 'system' ? 'system' : 'user',
-    target: { type: row.subjectType, id: row.subjectId, scopeId: null },
+    target: { type: row.subjectType, id: row.subjectId, scopeId: null, ...(targetLabel && { label: targetLabel }) },
     ...(changes ? { changes } : {}),
   };
 }
 
 export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
+  const { adminTargetLabel } = createSelectedReadService(deps);
+
   async function auditTrail(
     actor: PlatformActor,
     body: unknown,
@@ -84,6 +89,7 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
     if (query.targetId !== undefined && !isUuid(query.targetId)) return { outcome: 'empty' };
     const { rows, total } = await platformAuditEvents(deps.db, {
       workspaceId: actor.workspace_id,
+      ...(query.includeLabels && { includeLabels: query.includeLabels }),
       ...(query.type !== undefined ? { subjectType: query.type } : {}),
       ...(query.targetId !== undefined ? { subjectId: query.targetId } : {}),
       ...(query.actor !== undefined ? { actor: query.actor } : {}),
@@ -97,7 +103,24 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
       offset: BigInt(query.page - 1) * BigInt(query.pageSize),
     });
     if (total === 0) return { outcome: 'empty' };
-    return { outcome: 'ok', data: { items: rows.map(toAuditEvent), total } };
+    const labels = new Map<string, Promise<string | undefined>>();
+    const items = await Promise.all(rows.map(async row => {
+      const permissionRequest = row.subjectType === 'permission_request';
+      if (!query.includeLabels || (!permissionRequest && !(ENTITY_READABLE_TYPES as readonly string[]).includes(row.subjectType))) {
+        return toAuditEvent(row);
+      }
+      const key = `${row.subjectType}:${row.subjectId}`;
+      let label = labels.get(key);
+      if (!label) {
+        label = permissionRequest
+          ? adminTargetLabel(actor, row.subjectId)
+          : deps.entityReader.gateEntity(actor, { type: row.subjectType, id: row.subjectId, scopeId: null })
+            .then(gate => gate.ok ? gate.entity.title : undefined);
+        labels.set(key, label);
+      }
+      return toAuditEvent(row, await label);
+    }));
+    return { outcome: 'ok', data: { items, total } };
   }
 
   async function entityAudit(
@@ -126,7 +149,7 @@ export function createPlatformAuditService(deps: PlatformAuditServiceDeps) {
       rows.length > ENTITY_AUDIT_PAGE_MAX && last
         ? encodeEntityAuditCursor(gate.ref, { at: last.at, id: last.id })
         : null;
-    return { outcome: 'ok', data: { events: page.map(toAuditEvent), nextCursor } };
+    return { outcome: 'ok', data: { events: page.map(row => toAuditEvent(row)), nextCursor } };
   }
 
   return { auditTrail, entityAudit };

@@ -1,6 +1,6 @@
 import { SearchX } from 'lucide-react';
 import { useRef, useState, type RefObject } from 'react';
-import { PlatformLink, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
+import { formatSummaryTime, PlatformLink, useI18n, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
 import { DetailDrawer, PageKeyWarning, PlatformPage, QueryView, ReturnLink, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button } from '@ap/ui';
 import { isUuid, ITEM_PUBLISH_PERMISSION, itemDetailEndpoint, type ItemDetail as ItemDetailData, type ItemDetailParams } from '../../endpoints';
@@ -9,7 +9,7 @@ import { ArchiveAction } from './ArchiveAction';
 import { AssessDrawer } from './AssessDrawer';
 import { itemWriteDraftKey, ItemWriteDrawer, useItemWriteDraft, type ItemWriteTarget } from './ItemWriteDrawer';
 import { OwnerChip, StateBadges, TypeBadge } from './ItemBadges';
-import { AssessmentTimeline, EvidenceList, ItemBodyBlocks, LinkList, RevisionList, Section, stamp } from './ItemDetailParts';
+import { AssessmentTimeline, EvidenceList, ItemBodyBlocks, LinkList, RevisionList, Section } from './ItemDetailParts';
 import { isRevisionParam, itemNoLabel, revisionOf, shortActor } from './itemModel';
 import { useSpecWords } from '../spec/SpecControls';
 
@@ -28,17 +28,17 @@ function NotFound({ revision }: { revision: number | null }) {
 }
 
 function Header({ detail, viewing, onAssess, assessDisabled, waitingReason, assessActionRef }: { detail: ItemDetailData; viewing: number; onAssess?: () => void; assessDisabled: boolean; waitingReason?: string; assessActionRef: RefObject<HTMLButtonElement | null> }) {
-  const w = useSpecWords();
+  const { lang, tx } = useI18n();
   const { item, revision } = detail;
   return <header className="grid gap-2">
     <div className="flex flex-wrap items-center gap-1.5">
       <OwnerChip owner={item.owner} /><TypeBadge code={revision.typeCode} /><StateBadges item={item} />
-      {onAssess && <Button ref={assessActionRef} type="button" variant="secondary" size="sm" disabled={assessDisabled} title={waitingReason} onClick={onAssess}>{w('판단 변경', 'Change assessment')}</Button>}
+      {onAssess && <Button ref={assessActionRef} type="button" variant="secondary" size="sm" disabled={assessDisabled} title={waitingReason} onClick={onAssess}>{tx({ ko: '판단 변경', en: 'Change assessment' })}</Button>}
     </div>
     {onAssess && waitingReason && <p role="status" className="text-xs text-text-secondary">{waitingReason}</p>}
     <p className="text-xs text-text-muted">
-      <span className="t-mono">{itemNoLabel(item.itemNo)}</span> · r{viewing} · 작성 <span title={item.createdBy}>{shortActor(item.createdBy)}</span> {stamp(item.createdAt)} · 갱신 {stamp(item.updatedAt)}
-      {viewing !== item.latestRevisionNo && <> · r{viewing} 발행 {stamp(revision.publishedAt)}</>}
+      <span className="t-mono">{itemNoLabel(item.itemNo)}</span> · r{viewing} · 작성 <span title={item.createdBy}>{shortActor(item.createdBy)}</span> {formatSummaryTime(item.createdAt, lang)} · 갱신 {formatSummaryTime(item.updatedAt, lang)}
+      {viewing !== item.latestRevisionNo && <> · r{viewing} 발행 {formatSummaryTime(revision.publishedAt, lang)}</>}
     </p>
   </header>;
 }

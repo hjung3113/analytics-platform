@@ -31,8 +31,8 @@ describe('item model', () => {
 
   it('renders a server instant in the viewer zone, not as sliced ISO text', () => {
     const iso = '2026-10-02T20:30:00.000Z';
-    expect(instantText(iso, 'Pacific/Auckland')).toContain('10. 3.');
-    expect(instantText(iso, 'UTC')).toContain('10. 2.');
+    expect(instantText(iso, 'Pacific/Auckland')).toContain('2026-10-03');
+    expect(instantText(iso, 'UTC')).toContain('2026-10-02');
     expect(instantText(iso, 'Pacific/Auckland')).not.toContain('2026-10-02');
   });
 });

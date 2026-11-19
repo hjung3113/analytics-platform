@@ -1,8 +1,8 @@
-import { useMessages } from '@ap/kernel';
+import { formatSummaryTime, useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks } from '@ap/components';
 import { compareBreakdownCells } from './breakdownSort';
-import { formatInstant, formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
+import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
  * 생산성 분석 — 개요 (wireframe 11, Overview archetype §12.1).
  * Header → Global Context (kernel) → page-owned granularity → KPI row → main trend →
@@ -209,9 +209,7 @@ export default function ProductivityOverview(_: PageProps) {
   }
 
   function trustInstant(value: string | null | undefined): string {
-    if (!value) return '—';
-    try { return formatInstant(value, lang, undefined, 'monthDayMinute'); }
-    catch { return '—'; }
+    return formatSummaryTime(value, lang);
   }
 
   const stgroupData = stgroupQ.response?.outcome === 'ok' ? stgroupQ.response.data : null;

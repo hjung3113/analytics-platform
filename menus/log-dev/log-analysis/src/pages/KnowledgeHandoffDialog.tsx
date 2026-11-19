@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { formatInstant, type ActionResult } from '@ap/contracts';
-import { useMenuAction } from '@ap/kernel';
+import type { ActionResult } from '@ap/contracts';
+import { formatListTime, useMenuAction } from '@ap/kernel';
 import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DirtyConfirmation, FieldLabel, Input, Label, RadioGroup, RadioGroupItem, Skeleton, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@ap/ui';
 import { evidenceHandoff, handoffCheckEndpoint, handoffDraftsEndpoint, type HandoffResult, type Investigation } from '../endpoints';
 import { HANDOFF_CONFIRM } from './ExplorerPanels';
@@ -134,7 +134,7 @@ export function KnowledgeHandoffDialog({ investigation, onClose, onDone, onClose
           {drafts.loading && <Skeleton className="h-16" />}
           {drafts.failed && <div className="flex items-center gap-2 text-xs text-text-danger-label"><span role="alert">내 초안 목록을 불러오지 못했습니다.</span><Button type="button" variant="secondary" size="sm" onClick={drafts.retry}>목록 다시 확인</Button></div>}
           {!drafts.loading && !drafts.failed && !rows.length && <p>덧붙일 내 초안이 없습니다.</p>}
-          <RadioGroup aria-label="덧붙일 내 초안" disabled={locked} value={draftId} onValueChange={value => { setDraftId(value); setDirty(true); setError(''); setFieldErrors({}); }}>{rows.map(row => <div key={row.draftId} className="flex items-start gap-2 border-b border-border-subtle py-2"><RadioGroupItem id={`${uid}-${row.draftId}`} value={row.draftId} aria-invalid={!!fieldErrors.draft} aria-describedby={`${uid}-${row.draftId}-meta${fieldErrors.draft ? ` ${uid}-draft-error` : ''}`} /><Label htmlFor={`${uid}-${row.draftId}`} className="min-w-0 flex-1"><span className="block text-sm">{row.title}</span><span id={`${uid}-${row.draftId}-meta`} className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-secondary"><span>{row.ownerLabel}</span><StatusBadge tone={row.status === 'changes_requested' ? 'warning' : 'neutral'}>{STATUS[row.status] ?? row.status}</StatusBadge><span>근거 {row.evidenceCount}/20</span><span>마지막 수정 {formatInstant(row.updatedAt, 'ko')}</span></span></Label></div>)}</RadioGroup>
+          <RadioGroup aria-label="덧붙일 내 초안" disabled={locked} value={draftId} onValueChange={value => { setDraftId(value); setDirty(true); setError(''); setFieldErrors({}); }}>{rows.map(row => <div key={row.draftId} className="flex items-start gap-2 border-b border-border-subtle py-2"><RadioGroupItem id={`${uid}-${row.draftId}`} value={row.draftId} aria-invalid={!!fieldErrors.draft} aria-describedby={`${uid}-${row.draftId}-meta${fieldErrors.draft ? ` ${uid}-draft-error` : ''}`} /><Label htmlFor={`${uid}-${row.draftId}`} className="min-w-0 flex-1"><span className="block text-sm">{row.title}</span><span id={`${uid}-${row.draftId}-meta`} className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-secondary"><span>{row.ownerLabel}</span><StatusBadge tone={row.status === 'changes_requested' ? 'warning' : 'neutral'}>{STATUS[row.status] ?? row.status}</StatusBadge><span>근거 {row.evidenceCount}/20</span><span>마지막 수정 {formatListTime(row.updatedAt)}</span></span></Label></div>)}</RadioGroup>
           {fieldErrors.draft && <p id={`${uid}-draft-error`} className="text-xs text-text-danger-label">{fieldErrors.draft}</p>}
         </section></TabsContent>
       </Tabs>

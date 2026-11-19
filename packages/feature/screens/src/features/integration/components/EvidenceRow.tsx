@@ -1,6 +1,7 @@
 import { EVIDENCE_COPY as COPY } from '../../../lib/copy/evidence';
 import type { EvidenceInventoryItem } from '@ap/feature-shared';
 import { ObjectRow } from '@ap/ui';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import type { Ref } from 'react';
 import { EvidenceMetadata } from './EvidenceContent';
 
@@ -35,7 +36,7 @@ export function EvidenceRow({
           {!loading && (
             <>
               {' '}
-              · <EvidenceMetadata item={item} />
+              · <EvidenceMetadata item={item} /> · <FeatureTimestamp at={item.created_at} notation="list" className="tabular-nums break-keep" />
             </>
           )}
         </span>

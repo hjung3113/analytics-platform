@@ -1,7 +1,7 @@
 import { Button, Callout, Input, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { LockKeyhole, Plus, X } from 'lucide-react';
 import { useId, useState } from 'react';
-import { formatDateTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import type { SystemPermissionRow } from './VocPermissions';
 import { sameVocSetting, vocSettingLabel, type useVocPermissions, type VocMode } from './useVocPermissions';
 
@@ -46,7 +46,7 @@ export function VocPermissionEditor({ row, state }: { row: SystemPermissionRow; 
             return <tr key={actorId} className="border-t border-border-subtle">
               <td className="max-w-40 break-words py-1 pr-2">{name(actorId)}</td>
               <td>{actor ? actor.role_level === 'admin' ? 'Admin' : actor.role_level === 'developer' ? 'Developer' : 'User' : '확인 필요'}</td>
-              <td>{grant ? formatDateTime(grant.granted_at) : '미저장'}</td>
+              <td>{grant ? <FeatureTimestamp at={grant.granted_at} notation="list" /> : '미저장'}</td>
               <td className="text-right"><Button size="icon-sm" variant="subtle" aria-label={`${name(actorId)} 제거`} disabled={locked} onClick={() => state.change(row.id, { ...draft, people: draft.people.filter(p => p !== actorId) })}><X aria-hidden /></Button></td>
             </tr>;
           })}</tbody>

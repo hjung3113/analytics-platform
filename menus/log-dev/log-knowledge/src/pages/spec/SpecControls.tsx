@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react';
 import { useI18n } from '@ap/kernel';
-import { formatInstant, type FieldError } from '@ap/contracts';
+import type { FieldError } from '@ap/contracts';
 import { Button, FieldLabel, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@ap/ui';
 export function useSpecWords() {
   const { tx } = useI18n();
   return (ko: string, en: string) => tx({ ko, en });
-}
-/** ISO instants of this screen in the viewer's language; the kernel's time-zone contract stays in `formatInstant`. */
-export function useSpecInstant() {
-  const { lang } = useI18n();
-  return (iso: string) => formatInstant(iso, lang);
 }
 /** Localized text of the spec actions' closed error vocabulary (the catalog's `fieldErrorText` pattern). */
 const SPEC_CODE_TEXT: Record<string, { ko: string; en: string }> = {

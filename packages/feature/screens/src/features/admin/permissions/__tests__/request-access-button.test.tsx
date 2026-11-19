@@ -221,9 +221,10 @@ describe('<RequestAccessButton>', () => {
     expect(screen.getByText('상태')).toBeInTheDocument();
     expect(screen.getByText('요청일')).toBeInTheDocument();
     expect(screen.getByText('만료일')).toBeInTheDocument();
-    expect(screen.getByText('대기 중')).toBeInTheDocument();
+    expect(screen.getByText('검토 중')).toBeInTheDocument();
     expect(screen.queryByText('pending')).not.toBeInTheDocument();
-    expect(screen.getByText(CREATED_AT)).toBeInTheDocument();
+    expect(screen.getByText(/8월 3일/)).toHaveAttribute('datetime', CREATED_AT);
+    expect(screen.queryByText(CREATED_AT)).not.toBeInTheDocument();
   });
 
   test('AC-D8g capability-already-granted shows no error and invalidates queries', async () => {

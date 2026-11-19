@@ -1,6 +1,6 @@
 import { GLOSSARY } from '../../../../lib/copy/glossary';
 import { RESPONSIBILITY_COPY } from '../../../../lib/copy/tasks';
-import { formatShortDateTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { PanelSectionTitle } from '@ap/ui';
 import type * as React from 'react';
@@ -30,7 +30,7 @@ export function TaskRequestOutcomeSection({
           <span className="text-xs text-text-muted">
             {RESPONSIBILITY_COPY.decider}{' '}
             <strong className="text-text-secondary">{reviewerName ?? GLOSSARY.unknownUser}</strong>
-            {item.decided_at && <> · {formatShortDateTime(item.decided_at)}</>}
+            {item.decided_at && <> · <FeatureTimestamp at={item.decided_at} notation="summary" /></>}
           </span>
         </div>
         {item.decision_reason && (

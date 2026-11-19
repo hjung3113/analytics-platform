@@ -1,7 +1,8 @@
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import { TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS } from '../../../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
 import { VOC_FOLLOW_UP_COPY } from '../../../../lib/copy/voc';
-import { formatDateOnly, formatRelativeTime } from '../../../../lib/format/datetime';
+import { formatDateOnly } from '../../../../lib/format/datetime';
 import type {
   EntityLinkDto,
   EntityLinkTargetSummary,
@@ -79,7 +80,7 @@ function ReporterTaskSummary({
           {summary.last_public_update_at !== undefined && (
             <div className="flex gap-2">
               <dt>최근 담당자 답변</dt>
-              <dd>{formatRelativeTime(summary.last_public_update_at)}</dd>
+              <dd><FeatureTimestamp at={summary.last_public_update_at} notation="summary" /></dd>
             </div>
           )}
           {summary.public_update_excerpt !== undefined && <dd>{summary.public_update_excerpt}</dd>}

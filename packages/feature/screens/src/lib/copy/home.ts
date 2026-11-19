@@ -38,7 +38,7 @@ export const HOME_COPY = {
 export const HOME_KPI_COPY = {
   open_voc: '미해결 VOC',
   active_finding: '활성 Finding',
-  pending_request: '대기 중 Task 요청',
+  pending_request: '검토 중인 Task 요청',
   tasks_in_flight: GLOSSARY.tasksInFlight,
 } as const;
 
@@ -93,8 +93,8 @@ export const HOME_QUEUE_COPY: Record<
     secondaryAction: '설문 보기',
   },
   'permission-requests-pending': {
-    title: '검토 대기 중인 권한 요청',
-    sidebarLabel: '검토 대기 중인 권한 요청',
+    title: '검토 중인 권한 요청',
+    sidebarLabel: '검토 중인 권한 요청',
     detail: '관리자 검토를 기다리는 상위 권한 요청입니다.',
     primaryAction: '요청 열기',
   },

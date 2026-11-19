@@ -6,7 +6,7 @@ import {
   TASK_REQUEST_REVIEW_DECISION_LABEL,
 } from '../../../../lib/copy/task-requests';
 import type { WorkspaceActor } from '../../../../lib/cross-system/useWorkspaceActors';
-import { formatShortDateTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import type { ClosableDetailParts, DetailPartsOptions } from '../../../../lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '../../../../lib/host/document-title-format';
 import { useHostSeam } from '../../../../lib/host/host-seam';
@@ -152,7 +152,7 @@ export function TaskRequestPanelBody({
           {requester?.display_name ?? GLOSSARY.unknownUser}
         </strong>
       </span>
-      <span className="text-xs text-text-muted">· {formatShortDateTime(item.created_at)}</span>
+      <span className="text-xs text-text-muted">· <FeatureTimestamp at={item.created_at} notation="summary" /></span>
     </>
   );
 
@@ -222,7 +222,7 @@ export function TaskRequestPanelBody({
                 {requester?.display_name ?? GLOSSARY.unknownUser}
               </strong>
               {' · 요청 작성 · '}
-              {formatShortDateTime(item.created_at)}
+              <FeatureTimestamp at={item.created_at} notation="summary" />
             </div>
             {item.decided_at && (
               <div className="text-xs text-text-muted">
@@ -232,7 +232,7 @@ export function TaskRequestPanelBody({
                 {' · '}
                 {TASK_REQUEST_STATUS_LABELS[item.status]}
                 {' · '}
-                {formatShortDateTime(item.decided_at)}
+                <FeatureTimestamp at={item.decided_at} notation="summary" />
               </div>
             )}
           </div>

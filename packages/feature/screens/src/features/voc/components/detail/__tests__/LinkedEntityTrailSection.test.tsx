@@ -87,12 +87,13 @@ function allowedFindingLink(
 
 describe('<LinkedEntityTrailSection>', () => {
   it('renders the reporter status label and formats public dates', () => {
+    const lastPublicUpdateAt = '2026-07-31T06:42:00.000Z';
     const summaryWithDates: EntityLinkDto = {
       ...summaryVisibleTask,
       summary: {
         ...summaryVisibleTask.summary,
         expected_resolution_date: '2026-07-31',
-        last_public_update_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        last_public_update_at: lastPublicUpdateAt,
       },
     };
     render(<LinkedEntityTrailSection links={[summaryWithDates]} isReporterContext />);
@@ -100,7 +101,7 @@ describe('<LinkedEntityTrailSection>', () => {
     expect(screen.getByText('공개 가능한 개선 작업')).toBeInTheDocument();
     expect(screen.getByText('진행 중')).toBeInTheDocument();
     expect(screen.getByText('2026. 7. 31.')).toBeInTheDocument();
-    expect(screen.getByText('2시간 전')).toBeInTheDocument();
+    expect(screen.getByText('7월 31일 오후 3:42')).toHaveAttribute('datetime', lastPublicUpdateAt);
     expect(screen.queryByText('2026-07-31')).not.toBeInTheDocument();
     expect(screen.getByTestId('linked-task-summary')).toBeInTheDocument();
   });

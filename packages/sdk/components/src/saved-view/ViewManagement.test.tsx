@@ -2,9 +2,8 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatInstant } from '@ap/contracts';
 import type { SavedViewEntry, SavedViewListItem, ViewApproval, ViewCapabilities } from '@ap/contracts';
-import { I18nProvider, diagnoseSavedView } from '@ap/kernel';
+import { I18nProvider, diagnoseSavedView, formatListTime } from '@ap/kernel';
 import { ViewManagement, type ViewManagementProps } from './ViewManagement';
 import type { ViewDiagnosis } from './viewInfo';
 
@@ -268,10 +267,10 @@ describe('review round: the Kernel diagnosis feeds the surface directly', () => 
   });
 });
 
-it('formats the default saved-view time in the viewer locale (#2028 SHE-13)', () => {
+it('formats the default saved-view time with list notation (#2028 SHE-13)', () => {
   vi.stubGlobal('localStorage', { getItem: () => 'en' });
   const item = entry('time', 'none');
   render(<I18nProvider><ViewManagement open onOpenChange={() => {}} entries={[item]} currentUserId="approver" /></I18nProvider>);
-  expect(screen.getByRole('button', { name: /뷰 time/ })).toHaveTextContent(formatInstant(item.view.updatedAt, 'en'));
+  expect(screen.getByRole('button', { name: /뷰 time/ })).toHaveTextContent(formatListTime(item.view.updatedAt));
   vi.unstubAllGlobals();
 });

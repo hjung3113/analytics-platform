@@ -70,7 +70,7 @@ describe('PermissionRequestsScreen identity', () => {
 
     render(<PermissionRequestsScreen />);
 
-    expect(screen.getByText('알 수 없는 사용자 · Finding 관리')).toBeInTheDocument();
+    expect(screen.getByText('이름 미확인 · Finding 관리')).toBeInTheDocument();
     expect(screen.getByText('시스템')).toBeInTheDocument();
     expect(screen.queryByText('20000000')).not.toBeInTheDocument();
     expect(screen.queryByText('30000000')).not.toBeInTheDocument();

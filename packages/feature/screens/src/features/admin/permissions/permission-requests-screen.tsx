@@ -1,19 +1,22 @@
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
+import { PERMISSION_REVIEW_TEXT as COPY } from '../../../lib/copy/admin-permissions';
+import { permissionRequestStatusText } from '../../../lib/copy/enum-labels';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { OutlineBadge } from '../../../ui/index';
 import { ListShell, ListTabs, type ListToolbarTab, ObjectRow } from '@ap/ui';
 import type { ReactNode } from 'react';
 
 import type { AdminPermissionRequestRow } from '../../../lib/api/permission-reads';
-import { UNDECLARED_CAPABILITY_LABEL, getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
+import { UNDECLARED_CAPABILITY_LABEL } from '../../../lib/copy/capabilities';
 import { requestedScopeTargetLabel } from '../../../lib/copy/permission-scope';
-import { formatDateOnly, formatDateTime } from '../../../lib/format/datetime';
+import { formatDateOnly } from '../../../lib/format/datetime';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { useHostSeam } from '../../../lib/host/host-seam';
+import { ReviewCapabilityName } from './declared-capability-name';
 import { PermissionRequestBatchDetail } from './permission-request-batch-detail';
 import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 
 import {
-  permissionRequestStatusLabel,
   permissionRequestTabs,
 } from './permission-requests-search.js';
 import { SelectedPermissionRequestDetail } from './selected-permission-request-detail';
@@ -32,7 +35,7 @@ export function PermissionRequestsScreen({
   autoSelect = true,
   renderDetail,
 }: PermissionRequestsScreenProps = {}) {
-  const { hostOwnsTitle } = useHostSeam();
+  const { hostOwnsTitle, lang = 'ko' } = useHostSeam();
   const {
     allRequests,
     visibleRequests,
@@ -40,6 +43,7 @@ export function PermissionRequestsScreen({
     selected,
     actorNames,
     managedSystemNames,
+    managedSystemSlugs,
     isPending,
     isError,
     handleTabChange,
@@ -52,7 +56,7 @@ export function PermissionRequestsScreen({
   const countsKnown = !isPending && !isError;
   const tabs: ListToolbarTab[] = permissionRequestTabs.map((tab) => ({
     value: tab.value,
-    label: tab.label,
+    label: tab.label[lang],
     id: `permission-request-tab-${tab.value}`,
     controlsId: PERMISSION_REQUESTS_PANEL_ID,
     ...(countsKnown
@@ -65,12 +69,13 @@ export function PermissionRequestsScreen({
       : {}),
   }));
 
-  const detail = selected?.batch_id ? <PermissionRequestBatchDetail key={selected.batch_id} id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
+  const detail = selected?.batch_id ? <PermissionRequestBatchDetail key={selected.batch_id} id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} managedSystemSlugs={managedSystemSlugs} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
     <SelectedPermissionRequestDetail
       key={selected.id}
       id={selected.id}
       actorNames={actorNames}
       managedSystemNames={managedSystemNames}
+      managedSystemSlugs={managedSystemSlugs}
       onClose={handleClose}
       {...(renderDetail ? { renderDetail } : {})}
     />
@@ -82,8 +87,8 @@ export function PermissionRequestsScreen({
         ? {}
         : {
             toolbar: {
-              title: '권한 요청 검토',
-              subtitle: '권한 요청을 검토하고 결정합니다.',
+              title: COPY.title[lang],
+              subtitle: COPY.subtitle[lang],
             },
           })}
       tabs={
@@ -91,7 +96,7 @@ export function PermissionRequestsScreen({
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={(next) => handleTabChange(next as typeof activeTab)}
-          ariaLabel="권한 요청 상태"
+          ariaLabel={COPY.statuses[lang]}
         />
       }
       list={
@@ -102,13 +107,13 @@ export function PermissionRequestsScreen({
           data-testid="permission-requests-list"
         >
           {isPending ? (
-            <p className="p-6 text-sm text-text-muted">권한 요청을 불러오는 중입니다.</p>
+            <p className="p-6 text-sm text-text-muted">{COPY.loading[lang]}</p>
           ) : null}
           {isError ? (
-            <p className="p-6 text-sm text-accent-danger">권한 요청을 불러오지 못했습니다.</p>
+            <p className="p-6 text-sm text-accent-danger">{COPY.error[lang]}</p>
           ) : null}
           {!isPending && !isError && visibleRequests.length === 0 ? (
-            <ListStateMessage variant="empty" title="표시할 요청이 없습니다." />
+            <ListStateMessage variant="empty" title={COPY.empty[lang]} />
           ) : null}
           {visibleRequests.map((request) => (
             <PermissionRequestRow
@@ -153,18 +158,20 @@ function PermissionRequestRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { lang = 'ko' } = useHostSeam();
   const scopeTarget = requestedScopeTargetLabel(request);
-  let requestLabel = getCapabilityDisplayLabel(request.requested_capability);
-  if (request.batch_id) requestLabel = request.permission_group ? PERMISSION_GROUP_COPY.origin(request.permission_group.name) : PERMISSION_GROUP_COPY.count((request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.length);
+  const requestLabel = request.batch_id
+    ? (request.permission_group ? PERMISSION_GROUP_COPY.origin(request.permission_group.name) : PERMISSION_GROUP_COPY.count((request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.length))
+    : <ReviewCapabilityName id={request.requested_capability} />;
   return (
     <ObjectRow
-      id={PERMISSION_GROUP_COPY.requestTitle}
-      title={`${actorName ?? GLOSSARY.unknownUser} · ${requestLabel}`}
+      id={COPY.request[lang]}
+      title={<>{actorName || COPY.unknownName[lang]} · {requestLabel}</>}
       selected={selected}
       onClick={onSelect}
       badges={
         <>
-          <OutlineBadge>{permissionRequestStatusLabel[request.status]}</OutlineBadge>
+          <OutlineBadge>{permissionRequestStatusText[request.status][lang]}</OutlineBadge>
           {/* ADR-0157 decision 7: a request for a capability the bundle no longer declares stays listed for rejection. */}
           {request.in_declarations === false ? <OutlineBadge>{UNDECLARED_CAPABILITY_LABEL}</OutlineBadge> : null}
         </>
@@ -175,15 +182,15 @@ function PermissionRequestRow({
           {request.batch_id && (request.status === 'approved' || request.status === 'rejected') ? <><span>{PERMISSION_GROUP_COPY.outcome((request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.filter(item => item.status === 'approved').length, (request as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems.filter(item => item.status === 'rejected').length)}</span><span>·</span></> : null}
           <span>
             {scopeTarget ??
-              (request.requested_managed_system_id ? (managedSystemName ?? '시스템') : '전체')}
+              (request.requested_managed_system_id ? (managedSystemName ?? COPY.system[lang]) : COPY.all[lang])}
           </span>
           <span>·</span>
-          <span>{formatDateTime(request.created_at)}</span>
+          <FeatureTimestamp at={request.created_at} notation="list" className="tabular-nums break-keep" />
           {request.requested_expiration ? (
             <>
               <span>·</span>
               {/* #590 adds a compact row hint; the prototype shows the full date in detail. */}
-              <span>만료 {formatDateOnly(request.requested_expiration.slice(0, 10))}</span>
+              <span>{COPY.expires[lang]} {formatDateOnly(request.requested_expiration.slice(0, 10))}</span>
             </>
           ) : null}
         </>
@@ -191,4 +198,3 @@ function PermissionRequestRow({
     />
   );
 }
-import { GLOSSARY } from '../../../lib/copy/glossary';

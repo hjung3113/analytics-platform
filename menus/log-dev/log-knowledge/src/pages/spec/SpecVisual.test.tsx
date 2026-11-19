@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { formatInstant, type ApiResponse } from '@ap/contracts';
+import type { ApiResponse } from '@ap/contracts';
 import { type ModelSpecData, type SpecChangeRow, type SpecTargetKind } from '../../endpoints';
 import SpecScreen from './SpecScreen';
 import { knowledgeRegistry, mountWith } from '../test-support';
@@ -14,7 +14,7 @@ const change: SpecChangeRow = { id: '00000007-0000-4000-8000-000000000002', soft
 const registry = knowledgeRegistry(['knowledge:spec-publish', 'knowledge:catalog-manage'], { description: { ko: '로그 개발', en: 'Log development' }, homeMenuId: 'log-knowledge-models' });
 let restoreGeometry: () => void;
 beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); HTMLElement.prototype.scrollIntoView = vi.fn(); });
-afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); restoreGeometry(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 function mount(search = '', lang: 'ko' | 'en' = 'ko', spec: unknown = basis, rows = [change]) {
   let language = lang;
   Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: () => language, setItem: (_key: string, next: 'ko' | 'en') => { language = next; }, removeItem: () => { language = 'ko'; } } });
@@ -32,7 +32,12 @@ function mount(search = '', lang: 'ko' | 'en' = 'ko', spec: unknown = basis, row
   return mountWith({ registry, adapter, ui: <SpecScreen params={{ modelId }} />, slot: true });
 }
 describe('confirmed A visual content', () => {
-  it.each(['ko', 'en'] as const)('keeps complete revision metadata in semantic inline pairs (%s)', async lang => {
+  it.each([
+    ['ko', '발행 시각', '11월 1일 09:00'],
+    ['en', 'Released at', 'Nov 1 09:00'],
+  ] as const)('keeps complete revision metadata in semantic inline pairs (%s)', async (lang, releaseLabel, releaseTime) => {
+    vi.stubEnv('TZ', 'Asia/Seoul');
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-19T00:00:00Z'));
     const documentLabel = 'Alpha log specification with a long document reference';
     mount(`&software=${sw}`, lang, { ...basis, revision: { ...basis.revision, sourceDocRef: { docLabel: documentLabel, docVersion: '2.1' }, publishedAt: '2026-11-01T00:00:00Z', publishedBy: 'specification-owner' } });
     const documentValue = await screen.findByText(documentLabel, { exact: true });
@@ -43,7 +48,10 @@ describe('confirmed A visual content', () => {
     expect(within(meta!).getByText('r4', { exact: true }).tagName).toBe('DD');
     expect(within(meta!).getByText('2.1', { exact: true }).tagName).toBe('DD');
     expect(within(meta!).getByText('specification-owner', { exact: true }).tagName).toBe('DD');
-    expect(within(meta!).getByText(formatInstant('2026-11-01T00:00:00Z', lang), { exact: true }).tagName).toBe('DD');
+    const releaseTerm = within(meta!).getByText(releaseLabel, { exact: true });
+    expect(releaseTerm.tagName).toBe('DT');
+    expect(releaseTerm.nextElementSibling?.tagName).toBe('DD');
+    expect(releaseTerm.nextElementSibling?.textContent).toBe(releaseTime);
     expect(within(meta!).getByText(lang === 'ko' ? '모델 명세 그대로' : 'Same as model specification').tagName).toBe('DD');
   });
   it.each(['ko', 'en'] as const)('names the model, code and vendor even without a published spec (%s)', async lang => {

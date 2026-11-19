@@ -133,6 +133,13 @@ describe('PlatformDataTable controlled mode (urlState)', () => {
     expect(onChange).toHaveBeenCalledWith({ sorting: [{ id: 'status', desc: false }], page: null }, 'user');
   });
 
+  it('preserves the declared case on a sortable header', async () => {
+    render(<Harness page={null} sorting={[]} onChange={vi.fn()} loadPage={makeLoadPage(3)} />);
+    const header = await screen.findByRole('columnheader', { name: 'Status' });
+    const sortButton = within(header).getByRole('button', { name: 'Status' });
+    expect(sortButton.className).not.toMatch(/\b(?:uppercase|lowercase|capitalize)\b/);
+  });
+
   it('Next reports the same sorting with the 1-based page, Previous from page 2 reports null', async () => {
     const onChange = vi.fn();
     const loadPage = makeLoadPage(30);

@@ -421,7 +421,7 @@ describe('내 권한 요청', () => {
       HTMLElement,
       HTMLElement,
     ];
-    expect(within(pending).getByText('대기 중')).toBeInTheDocument();
+    expect(within(pending).getByText('검토 중')).toBeInTheDocument();
     expect(within(pending).getByText(/Alpha/)).toBeInTheDocument();
     expect(within(approved).getByText('승인됨')).toBeInTheDocument();
     expect(within(approved).getByText(/^전체 ·/)).toBeInTheDocument();

@@ -4,7 +4,7 @@ import { ADMIN_MESSAGES } from './messages';
  * `Invalid audit filter` list. Pure and node-runnable. The page's conditions travel as `filter` (see `audit-filters.ts`); this file keeps what
  * those fields are checked against.
  */
-import type { AuditAction, AuditSource } from '@ap/contracts';
+import type { AuditAction, AuditEvent, AuditSource, Text } from '@ap/contracts';
 
 /** Sortable columns only — `targetType` sorts `target.type`; the destination columns never sort. */
 export const SORT_FIELDS = ['at', 'actor', 'action', 'source', 'targetType'];
@@ -19,7 +19,7 @@ export const ACTION_LABEL: Record<AuditAction, { ko: string; en: string }> = {
 export const SOURCE_LABEL: Record<AuditSource, { ko: string; en: string }> = {
   user: ADMIN_MESSAGES.auditQueryUser, system: ADMIN_MESSAGES.auditQuerySystem,
 };
-/** Display words for the subject types the console knows: the 18 feature types the real projection releases plus the 3 mock samples. Consumer-owned; any other well-formed type is shown raw (#1091, ADR-0101). */
+/** Display words for the subject types released by core.platform_audit_events and the mock samples (ADR-0101). */
 export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
   equipment: ADMIN_MESSAGES.auditQueryEquipment, metric: ADMIN_MESSAGES.auditQueryMetric, annotation: ADMIN_MESSAGES.auditQueryChartAnnotation,
   voc: ADMIN_MESSAGES.auditQueryVOC, finding: ADMIN_MESSAGES.auditQueryFinding, task: ADMIN_MESSAGES.auditQueryTask,
@@ -32,7 +32,37 @@ export const TYPE_LABEL: Record<string, { ko: string; en: string }> = {
   public_update_review_candidate: ADMIN_MESSAGES.auditQueryPublicUpdateReviewCandidate,
   voc_cluster_suggestion: ADMIN_MESSAGES.auditQueryVOCClusterSuggestion, workspace: ADMIN_MESSAGES.auditQueryPlatformSettings,
   api_token: ADMIN_MESSAGES.auditQueryAPIToken,
+  actor: ADMIN_MESSAGES.auditQueryActor,
+  improvement_item: ADMIN_MESSAGES.auditQueryImprovementItem,
+  catalog_report: ADMIN_MESSAGES.auditQueryCatalogReport,
+  queue_settings: ADMIN_MESSAGES.auditQueryQueueSettings,
+  excerpt_reader: ADMIN_MESSAGES.auditQueryExcerptReader,
+  investigation: ADMIN_MESSAGES.auditQueryInvestigation,
 };
+
+const CREATE_LABEL: Record<string, Text> = {
+  equipment: ADMIN_MESSAGES.auditTrailRegistered,
+  metric: ADMIN_MESSAGES.auditTrailRegistered,
+  managed_system: ADMIN_MESSAGES.auditTrailRegistered,
+  analytics_area: ADMIN_MESSAGES.auditTrailRegistered,
+  voc: ADMIN_MESSAGES.auditTrailRegistered,
+  task_request: ADMIN_MESSAGES.auditTrailSubmitted,
+  permission_request: ADMIN_MESSAGES.auditTrailSubmitted,
+  api_token: ADMIN_MESSAGES.auditTrailIssued,
+  permission_grant: ADMIN_MESSAGES.auditTrailGranted,
+  attachment: ADMIN_MESSAGES.auditTrailAdded,
+  survey_question: ADMIN_MESSAGES.auditTrailAdded,
+  entity_link: ADMIN_MESSAGES.auditTrailLinked,
+};
+
+export function auditActionLabel(event: AuditEvent): Text {
+  const type = event.target.type;
+  return event.action === 'create' && Object.hasOwn(CREATE_LABEL, type) ? CREATE_LABEL[type] : ACTION_LABEL[event.action];
+}
+
+export function auditTypeLabel(type: string): Text {
+  return Object.hasOwn(TYPE_LABEL, type) ? TYPE_LABEL[type] : ADMIN_MESSAGES.auditTrailUnknownType;
+}
 
 export { AUDIT_TYPE_TOKEN } from '@ap/contracts';
 

@@ -75,10 +75,13 @@ describe('admin compact row actions', () => {
 
   it('AuditTrail: 상세 is an icon link with the right href; a target without a page gets a muted non-interactive mark', async () => {
     mount('/admin/audit', <AuditTrail />);
-    const link = await screen.findByRole('link', { name: 'EQ-a1 상세' });
+    const link = await screen.findByRole('link', { name: '설비 상세' });
     expect(link.getAttribute('href')).toContain('/operations/equipment-detail/EQ-a1');
+    expect(link.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(link.textContent).toBe('');
     const none = (await screen.findByText('상세 화면 없음')).closest('span[title]')!;
     expect(none.getAttribute('title')).toBe('이 대상의 상세 화면이 없습니다.');
+    expect(none.classList.contains('text-text-muted')).toBe(true);
     expect(none.querySelector('svg')).not.toBeNull();
     expect(none.closest('button, a')).toBeNull();
   });

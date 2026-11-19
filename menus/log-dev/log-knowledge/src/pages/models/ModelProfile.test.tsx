@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { instantText } from './modelPresentation';
 import ModelProfile from './ModelProfile';
@@ -53,6 +53,12 @@ describe('모델 프로파일 sections', () => {
   });
 
   it('stacks 모델 요약, SW 버전, 모델 공통 Item and Top View under a section nav', async () => {
+    vi.stubEnv('TZ', 'Asia/Seoul');
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-19T00:00:00Z'));
+    onTestFinished(() => {
+      clock.mockRestore();
+      vi.unstubAllEnvs();
+    });
     mount();
     await screen.findByRole('heading', { level: 1, name: 'Alpha 100' }, slow);
     const nav = screen.getByRole('navigation', { name: '섹션 이동' });
@@ -61,8 +67,8 @@ describe('모델 프로파일 sections', () => {
     expect(nav.getAttribute('data-canvas-band')).toBe('');
     const summary = section('모델 요약');
     for (const label of ['모델 코드', '설비사', '공정', '상태', '등록 시각', '변경 시각']) expect(within(summary).getByText(label)).toBeTruthy();
-    expect(within(summary).getByText(instantText('2026-10-01T00:00:00.000Z'))).toBeTruthy();
-    expect(within(summary).getByText(instantText('2026-10-02T09:30:00.000Z'))).toBeTruthy();
+    expect(within(summary).getByText('10월 1일 09:00')).toBeTruthy();
+    expect(within(summary).getByText('10월 2일 18:30')).toBeTruthy();
     expect(await within(section('모델 공통 Item')).findByText('이 모델이 소유한 Item이 없습니다', {}, slow)).toBeTruthy();
     expect(within(section('Top View')).getByText('연결된 Top View가 없습니다')).toBeTruthy();
   });

@@ -2,9 +2,11 @@ import { overlappingDenies } from './deny-overlap.js';
 import type { ScopeCatalog } from './scope-catalog.js';
 import { requestScope, requestedScopeFields, grantedScopeFields, scopeFields, findCoveringSiteGrant, inScopeCatalog } from './site-scope-policy.js';
 import {
+  CAPABILITY_LABELS,
   type PermissionRequestAdminDetail,
   type PermissionRequestOwnerDetail,
   type PermissionRiskIndicator,
+  isCapability,
   isDeclaredCapabilityId,
   permissionRequestAdminDetailSchema,
   permissionRequestOwnerDetailSchema,
@@ -32,7 +34,7 @@ export type SelectedReadService = ReturnType<typeof createSelectedReadService>;
 export function createSelectedReadService(deps: { db: Db; checkService: CheckService; scopeCatalog?: ScopeCatalog | undefined }) {
   const { db, checkService } = deps;
 
-  async function selected(tx: Tx, actor: ActorContext, id: string, owner: boolean) {
+  async function findSelected(tx: Tx, actor: ActorContext, id: string, { owner }: { owner: boolean }) {
     const [row] = await tx
       .select()
       .from(permissionRequests)
@@ -44,11 +46,36 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
         ),
       )
       .limit(1);
+    return row;
+  }
+
+  async function selected(tx: Tx, actor: ActorContext, id: string, options: { owner: boolean }) {
+    const row = await findSelected(tx, actor, id, options);
     if (!row) throw new HttpError('not_found.record', 'permission request not found');
     return row;
   }
 
   const capabilities = capabilitiesOf(checkService);
+
+  async function reviewAuthority(tx: Tx, actor: ActorContext) {
+    return checkService.checkCapability(actor, 'workspace.admin', { workspace_id: actor.workspace_id }, { tx });
+  }
+
+  async function adminTargetLabel(actor: ActorContext, id: string): Promise<string | undefined> {
+    return db.transaction(
+      async (tx) => {
+        const authority = await reviewAuthority(tx, actor);
+        if (!authority.allow) return undefined;
+        const row = await findSelected(tx, actor, id, { owner: false });
+        if (!row) return undefined;
+        const capability = row.requestedCapability;
+        if (isCapability(capability)) return CAPABILITY_LABELS[capability];
+        const name = capabilities.declared(capability)?.displayName;
+        return name && name !== capability ? name : undefined;
+      },
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
+  }
   /** ADR-0157 decision 7: a request for a declared-prefix name this server no longer declares (only withdraw/reject remain). */
   const isOrphan = (row: RequestRow) =>
     isDeclaredCapabilityId(row.requestedCapability) && !capabilities.has(row.requestedCapability);
@@ -102,7 +129,7 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
   ): Promise<PermissionRequestOwnerDetail> {
     return db.transaction(
       async (tx) => {
-        const row = await selected(tx, actor, id, true);
+        const row = await selected(tx, actor, id, { owner: true });
         const latest_admin_question = await latestPermissionRequestQuestion(
           tx,
           actor.workspace_id,
@@ -149,16 +176,9 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
     return db.transaction(
       async (tx) => {
         // Authorize before reading either request identity or requester context.
-        const authority = await checkService.checkCapability(
-          actor,
-          'workspace.admin',
-          {
-            workspace_id: actor.workspace_id,
-          },
-          { tx },
-        );
+        const authority = await reviewAuthority(tx, actor);
         if (!authority.allow) throw new HttpError('permission.denied', 'workspace.admin required');
-        const row = await selected(tx, actor, id, false);
+        const row = await selected(tx, actor, id, { owner: false });
         const requester = await findWorkspaceActorDisplay(tx, {
           workspaceId: actor.workspace_id,
           actorId: row.requesterActorId,
@@ -325,5 +345,5 @@ export function createSelectedReadService(deps: { db: Db; checkService: CheckSer
     );
   }
 
-  return { ownerDetail, adminDetail };
+  return { ownerDetail, adminDetail, adminTargetLabel };
 }

@@ -552,6 +552,7 @@ describe('HomeScreen route content', () => {
   });
 
   it('renders each open permission request capability', async () => {
+    const createdAt = '2026-10-12T06:42:00.000Z';
     installFetch().mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.startsWith('/me'))
@@ -591,7 +592,7 @@ describe('HomeScreen route content', () => {
                 source_object_id: null,
                 source_action_id: null,
                 status: 'pending',
-                created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+                created_at: createdAt,
               },
               {
                 id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
@@ -608,7 +609,7 @@ describe('HomeScreen route content', () => {
                 source_object_id: null,
                 source_action_id: null,
                 status: 'needs_more_info',
-                created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+                created_at: createdAt,
               },
             ],
           }),
@@ -625,9 +626,11 @@ describe('HomeScreen route content', () => {
     expect(requests.queryByText(/id:/i)).not.toBeInTheDocument();
     expect(requests.queryByText('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).not.toBeInTheDocument();
     expect(requests.queryByText('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')).not.toBeInTheDocument();
-    expect(requests.getByText('대기 중')).toBeInTheDocument();
+    expect(requests.getByText('검토 중')).toBeInTheDocument();
     expect(requests.getByText('추가 정보 필요')).toBeInTheDocument();
-    expect(requests.getAllByText('3시간 전')).toHaveLength(2);
+    const dates = requests.getAllByText('2026. 10. 12. 오후 3:42');
+    expect(dates).toHaveLength(2);
+    for (const date of dates) expect(date).toHaveAttribute('datetime', createdAt);
     expect(requests.queryByText(/pending ·/)).not.toBeInTheDocument();
     expect(requests.queryByText(/needs_more_info ·/)).not.toBeInTheDocument();
   });

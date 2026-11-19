@@ -3,6 +3,7 @@
 // in core.Workspace, core.Actor, core.RoleLevel, core.PermissionScope.
 export * from './enums/index.js';
 export * from './enums/capabilities.js';
+export { CAPABILITY_LABELS, CAPABILITY_LABELS_EN } from './enums/capability-labels.js';
 export * from './enums/audit-events.js';
 export * from './errors/codes.js';
 export * from './entity-links.js';

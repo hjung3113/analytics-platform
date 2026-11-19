@@ -5,7 +5,7 @@
 import { useMeBridge } from '../../../../lib/api/me';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
 import { useManagedSystem } from '../../../../lib/cross-system/useManagedSystem';
-import { formatRelativeTime } from '../../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../../components/FeatureTimestamp';
 import type { VocDetailEnvelope } from '@ap/feature-shared';
 import { ManagedSystemPill, OutlineBadge, ReporterStatusBadge } from '../../../../ui/index';
 import { PanelTitleBlock } from '@ap/ui';
@@ -40,7 +40,6 @@ export function IdentitySection({
   const resolvedReporterDisplayName =
     reporterDisplayName ??
     (me?.actor.id === voc.reporter_id ? me.actor.display_name : GLOSSARY.unknownUser);
-  const relativeTime = formatRelativeTime(voc.created_at);
 
   // Title block: prototype .panel-title typography via PanelTitleBlock.
   // Rhythm:
@@ -58,7 +57,7 @@ export function IdentitySection({
         <span aria-hidden="true">·</span>
         <span>{resolvedReporterDisplayName}</span>
         <span aria-hidden="true">·</span>
-        <span>{relativeTime}</span>
+        <span><FeatureTimestamp at={voc.created_at} notation="summary" /></span>
       </div>
     </div>
   );

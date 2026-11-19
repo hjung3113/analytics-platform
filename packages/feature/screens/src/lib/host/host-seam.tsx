@@ -34,6 +34,12 @@ export type HostNotice = {
  */
 export type HostSeam = {
   canLink(to: string): boolean;
+  lang?: 'ko' | 'en';
+  time?: {
+    list(at: string): string;
+    summary(at: string): string;
+    feed(at: string): { text: string; title?: string };
+  };
   Link: ComponentType<HostLinkProps>;
   notifyError(message: string): void;
   notifySuccess(message: string): void;

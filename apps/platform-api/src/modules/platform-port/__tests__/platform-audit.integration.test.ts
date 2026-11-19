@@ -16,6 +16,7 @@ import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
+import { denyCapability, insertPermissionRequestRow } from '../../../test-support/permissions-fixtures.js';
 import { insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -48,6 +49,8 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
   let app: FastifyInstance;
   const actorIds: string[] = [];
   const vocIds: string[] = [];
+  const requestIds: string[] = [];
+  const denyIds: string[] = [];
   let msId = '';
   let n = 0;
 
@@ -302,6 +305,12 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
     if (vocIds.length > 0) {
       await migrateHandle.pool.query('delete from voc.vocs where id = any($1)', [vocIds]);
     }
+    if (denyIds.length > 0) {
+      await migrateHandle.pool.query('delete from permission.permission_denies where id = any($1)', [denyIds]);
+    }
+    if (requestIds.length > 0) {
+      await migrateHandle.pool.query('delete from permission.permission_requests where id = any($1)', [requestIds]);
+    }
     if (actorIds.length > 0) {
       await migrateHandle.pool.query('delete from core.sessions where actor_id = any($1)', [
         actorIds,
@@ -336,6 +345,68 @@ describe.skipIf(!runIntegration)('platform port audit reads (#621)', () => {
         });
       },
     );
+
+    it('includes a workspace actor display name when labels are requested', async () => {
+      const res = await post('/audit-trail/search', { actor: systemExternal, includeLabels: true }, adminCookie);
+      expect(res.statusCode).toBe(200);
+      expect(res.json<Envelope>().data).toMatchObject({ items: [{ id: seeded.S, actorLabel: 'Audit system' }] });
+    });
+
+    it('resolves a permission request label only for an authorized review read', async () => {
+      const requester = await newActor('user');
+      const { id } = await insertPermissionRequestRow(dbHandle, {
+        workspaceId: WORKSPACE_ID,
+        requesterActorId: requester.id,
+        requestedCapability: 'finding.read',
+        requestedManagedSystemId: msId,
+        reason: 'private request explanation',
+      });
+      requestIds.push(id);
+      const auditId = await seedAudit('labeled-request', {
+        actorId: requester.id,
+        eventType: 'permission_requested',
+        subjectType: 'permission_request',
+        subjectId: id,
+        detail: { capability: 'finding.read' },
+        hours: 6,
+      });
+      const query = { type: 'permission_request', includeLabels: true, targetId: id };
+      const allowed = await search(query);
+      expect(allowed.data).toMatchObject({
+        total: 1,
+        items: [{ id: auditId, target: { type: 'permission_request', id, label: 'Finding 조회' } }],
+      });
+      expect(JSON.stringify(allowed)).not.toContain('private request explanation');
+      const denied = await search(query, requester.cookie);
+      expect(denied).toMatchObject({ outcome: 'forbidden', data: null });
+      expect(JSON.stringify(denied)).not.toContain('Finding 조회');
+
+      const missingId = randomUUID();
+      await seedAudit('unreadable-request', {
+        actorId: requester.id,
+        eventType: 'permission_requested',
+        subjectType: 'permission_request',
+        subjectId: missingId,
+        detail: { capability: 'finding.read' },
+        hours: 6,
+      });
+      const missing = await search({ ...query, targetId: missingId });
+      expect(missing).toMatchObject({ outcome: 'ok', data: { total: 1 } });
+      expect(missing.data?.items?.[0]?.target).toEqual({ type: 'permission_request', id: missingId, scopeId: null });
+    });
+
+    it('only includes a destination title when the audit viewer can read the entity', async () => {
+      const deniedAdmin = await newActor('admin');
+      denyIds.push(await denyCapability(dbHandle, WORKSPACE_ID, deniedAdmin.id, 'voc.read', msId, deniedAdmin.id));
+      const query = { actor: seedExternal, type: 'voc', targetId: vocWithEvents, includeLabels: true };
+      const target = { type: 'voc', id: vocWithEvents, scopeId: null };
+      const allowed = await search(query);
+      expect(allowed.data?.items?.map(item => item.target)).toEqual([
+        { ...target, label: 'audit voc' }, { ...target, label: 'audit voc' },
+      ]);
+      const denied = await search(query, deniedAdmin.cookie);
+      expect(denied.data?.items?.map(item => item.target)).toEqual([target, target]);
+    });
 
     it('admin → ok with exact AuditEvent objects, no-store, correlationId = response header', async () => {
       const res = await post('/audit-trail/search', { actor: systemExternal }, adminCookie);

@@ -74,7 +74,7 @@ typography:
   t-stat-2: { fontSize: 22px, lineHeight: 1.2, fontWeight: 600, letterSpacing: -0.3px, fontVariantNumeric: "tabular-nums lining-nums" }
   t-delta: { fontSize: 12px, lineHeight: 1.4, fontWeight: 600, fontVariantNumeric: "tabular-nums lining-nums" }
   t-caption: { fontSize: 12px, lineHeight: 16px }
-  t-table-header: { fontSize: 12px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.3px, textTransform: uppercase }
+  t-table-header: { fontSize: 12px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.3px }
   t-badge: { fontSize: 11px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.2px }
   t-nav-group: { fontSize: 11px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.5px, textTransform: uppercase }
   t-mono: { fontFamily: "var(--font-mono)", fontSize: 12px, lineHeight: 1.4 }
@@ -171,7 +171,7 @@ components:
 | `t-stat-2` | 22px / 1.2 / 600 | tracking -0.3px, tabular lining numbers | secondary KPI·donut 값 |
 | `t-delta` | 12px / 1.4 / 600 | tabular lining numbers | 기준이 있는 delta |
 | `t-caption` | 12px / 16px / 상속 | — | 보조 설명·단위·출처; opacity 없이 허용 pairing 사용 |
-| `t-table-header` | 12px / 1.3 / 600 | tracking 0.3px, uppercase | 기술 열 머리 역할 |
+| `t-table-header` | 12px / 1.3 / 600 | tracking 0.3px, 선언한 대소문자 | 기술 열 머리 역할 |
 | `t-badge` | 11px / 1.3 / 600 | tracking 0.2px | 짧은 상태 label |
 | `t-nav-group` | 11px / 1.3 / 600 | tracking 0.5px, uppercase | 비인터랙티브 그룹 section label |
 | `t-mono` | 12px / 1.4 / 상속 | 공유 `--font-mono` | ID·기술 값·correlation ID |
@@ -179,7 +179,9 @@ components:
 
 크기 전용 `text-caption`도 `--text-caption`의 12px을 쓰며 line-height는 상속한다. 사이드바 그룹 제목은 `t-nav-group`, 「예정」·개수 표시는 `t-badge`를 쓴다. 그룹 제목의 여백만 각 자리에서 정한다.
 
-표 header row는 승인된 프로토타입과 front matter binding대로 `t-table-header`를 사용한다(uppercase; 한국어 label은 대소문자 변환의 영향을 받지 않는다). PlatformDataTable의 sort button도 같은 uppercase 규칙을 따른다. 그룹 제목은 heading/disclosure가 아닌 section label이며 CSS uppercase가 navigation 동작을 뜻하지 않는다.
+표 헤더와 PlatformDataTable의 정렬 버튼은 `t-table-header`를 사용하며 선언한 대소문자를 그대로 표시한다(Decided, #2541). 그룹 제목은 탐색 영역의 section label로 기존 대문자 표기를 쓴다.
+
+실제 시점은 목록에서는 로컬 절대 시각, 요약에서는 짧은 로컬 시각, 알림과 활동 피드에서는 상대 시각과 전체 시각 `title`로 표시한다. [Kernel §6.3](docs/contract/kernel.md)의 표기 함수를 쓴다.
 
 ### Radius and layout extensions
 

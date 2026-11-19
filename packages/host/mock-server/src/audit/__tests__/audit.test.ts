@@ -83,6 +83,20 @@ describe('auditTrail (issue #50: the console audit log)', () => {
     for (const event of events(detail)) expect(event.target.scopeId).toBe(row.site);
   });
 
+  it('releases seeded display labels only for an opted-in search', async () => {
+    const seed: AuditEvent = {
+      ...METRIC_SEEDS[0], actorLabel: 'Park Seo', target: { ...METRIC_SEEDS[0].target, label: 'Cycle time' },
+    };
+    const opts = { role: 'admin', latency: 0, seeds: [seed] } as const;
+    const query = { type: seed.target.type, targetId: seed.target.id };
+    const plain = await auditTrail(query, undefined, opts);
+    const labeled = await auditTrail({ ...query, includeLabels: true }, undefined, opts);
+    const detail = await entityAudit({ type: query.type, id: query.targetId, scopeId: null }, undefined, opts);
+    expect(page(labeled).items).toEqual([seed]);
+    expect(page(plain).items).toEqual([METRIC_SEEDS[0]]);
+    expect(events(detail)).toEqual([METRIC_SEEDS[0]]);
+  });
+
   it('gives a retired row a retire event and a live row none', async () => {
     const retired = EQUIPMENT.find(e => e.validTo !== null)!;
     const live = EQUIPMENT.find(e => e.validTo === null)!;

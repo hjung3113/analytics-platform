@@ -1,8 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, type AuditMore } from '@ap/kernel';
+import { formatFeedTime, I18nProvider, type AuditMore } from '@ap/kernel';
 import type { AuditEvent } from '@ap/contracts';
-import { formatInstant } from '@ap/contracts';
 import { AuditTimeline } from '../AuditTimeline';
 
 afterEach(cleanup);
@@ -32,17 +31,15 @@ describe('AuditTimeline (§6.3: at is a real instant)', () => {
     expect(screen.getAllByText(/^actor-tie-/).map(actor => actor.textContent)).toEqual(['actor-tie-a', 'actor-tie-z']);
   });
 
-  it('prints formatInstant(at, lang) with the viewer zone applied, never the 16-char slice', () => {
+  it('uses a feed label and an absolute local title', () => {
     render(<Timeline />);
     const times = screen.getAllByRole('time');
-    // formatInstant applies the viewer zone; equality with the same call pins the component to §6.3
-    // rendering (Intl in the viewer's zone) and rules out the old digit slice in every host zone.
     const orderedAts = EVENTS.map(event => event.at).sort((a, b) => {
       const ae = new Date(a).getTime(); const be = new Date(b).getTime();
       return be - ae;
     });
-    expect(times.map(time => time.textContent)).toEqual(orderedAts.map(at => formatInstant(at, 'ko')));
-    expect(times.map(time => time.textContent)).not.toEqual(orderedAts.map(at => at.slice(0, 16).replace('T', ' ')));
+    expect(times.map(time => ({ text: time.textContent, title: time.title }))).toEqual(orderedAts.map(at => formatFeedTime(at, 'ko')));
+    expect(times.map(time => time.title)).not.toEqual(orderedAts.map(at => at.slice(0, 16).replace('T', ' ')));
   });
 
   it('shows changes values digit-for-digit: a naive validTo is text, not an instant', () => {

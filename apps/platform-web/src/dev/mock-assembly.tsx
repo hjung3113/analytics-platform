@@ -101,7 +101,28 @@ export const MOCK_WRITE_SAMPLES: readonly Readonly<Record<string, () => Record<s
  * Audit events of menu-owned destinations (ADR-0048). The mock server joins them with its own equipment events,
  * so the console audit log and each destination's history tab read one store. The conformance test reads this list too.
  */
-export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [...metricsAuditEvents];
+export const MOCK_AUDIT_EVENTS: readonly AuditEvent[] = [
+  ...metricsAuditEvents,
+  {
+    id: 'access-review:request:1',
+    at: '2026-11-19T02:42:00.000Z',
+    actor: 'mock-review-requester',
+    actorLabel: '김민서',
+    action: 'create',
+    source: 'user',
+    target: { type: 'permission_request', id: 'request-1', scopeId: null, label: 'Finding 조회' },
+    changes: { capability: [null, 'finding.read'] },
+  },
+  {
+    id: 'finding:evidence:1',
+    at: '2026-11-19T01:36:00.000Z',
+    actor: 'mock-finding-developer',
+    actorLabel: '박지호',
+    action: 'create',
+    source: 'user',
+    target: { type: 'finding', id: 'finding-1', scopeId: null, label: 'FIN-001' },
+  },
+];
 
 /**
  * Mock assembly (#153, ADR-0009): what `#platform-assembly` resolves to in `vite` dev and `--mode mock` builds.

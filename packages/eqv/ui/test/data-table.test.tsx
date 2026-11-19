@@ -32,6 +32,25 @@ it('renders an accessible table with column headers and rows', () => {
   expect(within(table).getByRole('cell', { name: 'EQ-2' })).toBeTruthy();
 });
 
+it('preserves mixed case in plain and sortable column headers', () => {
+  render(
+    <DataTable
+      label="Occurrence"
+      columns={['Record Sequence', { id: 'mapping', header: 'Mapping Version', sortable: true }]}
+      onSortChange={() => {}}
+    >
+      {null}
+    </DataTable>,
+  );
+  const plain = screen.getByRole('columnheader', { name: 'Record Sequence' });
+  const sortable = screen.getByRole('columnheader', { name: 'Mapping Version' });
+  const button = within(sortable).getByRole('button', { name: 'Mapping Version' });
+  // In jsdom, the class is the observable seam for the CSS text transform.
+  for (const element of [plain, sortable, button]) {
+    expect.soft(element.className).not.toMatch(/\b(?:uppercase|lowercase|capitalize)\b/);
+  }
+});
+
 function ActivationHarness() {
   const [activeId, setActiveId] = useState('a');
   return (

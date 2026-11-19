@@ -14,7 +14,7 @@ import {
 } from '../../../lib/copy/tasks';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 import { formatCount } from '../../../lib/format/count';
-import { formatShortDateTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import { useHostSearchWriter } from '../../../lib/host/useHostSearchWriter';
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
 import { useAnalyticsAreaFilterLabel } from '../../../lib/useAnalyticsAreaFilterLabel';
@@ -387,7 +387,7 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
                             '시스템'}
                         </span>
                         {dot()}
-                        <span>{formatShortDateTime(task.updated_at)}</span>
+                        <span><FeatureTimestamp at={task.updated_at} notation="list" /></span>
                       </>
                     }
                   />
