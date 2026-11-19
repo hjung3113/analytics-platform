@@ -294,11 +294,12 @@ export default function ProductivityOverview(_: PageProps) {
 
       {/* Main Trend */}
       <section aria-label={m('productivityOverviewMainTrend')}>
-        {shownKpi === 'throughput' && trendQ.response?.outcome === 'empty' && trendQ.response.data !== null
+        {/* The unconfirmed-total note belongs to the trend widget, so it sits inside the same frame as its state. */}
+        {framed(meta.title, trendQ, <>{shownKpi === 'throughput' && trendQ.response?.outcome === 'empty' && trendQ.response.data !== null
           && trendQ.response.data.equipmentCount > 0 && trendQ.response.data.current.length > 0
           && trendQ.response.data.current.every(bucket => !bucket.known)
           && <p role="status" className="t-caption text-text-secondary">{m('productivityOverviewUnconfirmedTrendTotal')}</p>}
-        {framed(meta.title, trendQ, <QueryView widgetName={meta.title} hideWidgetName={!unframed(trendQ)} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
+        <QueryView widgetName={meta.title} hideWidgetName={!unframed(trendQ)} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
             const { series, compareSeries, total, knownBucketCount, bucketCount } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
@@ -328,7 +329,7 @@ export default function ProductivityOverview(_: PageProps) {
               trust={trendTrust}
             />;
           }}
-        </QueryView>)}
+        </QueryView></>)}
       </section>
 
       <div className="grid grid-cols-1 gap-4 @xl:grid-cols-2">
