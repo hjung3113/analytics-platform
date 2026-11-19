@@ -19,9 +19,10 @@ describe('Tasks manifests', () => {
     expect(menu('my-tasks').additionalPermissions).toBeUndefined();
   });
 
-  it.each(Object.entries(ROUTES))('%s declares its route table page keys plus returnTo, and the space permission', (id, route) => {
+  it.each(Object.entries(ROUTES))('%s declares its route and platform navigation keys, and the space permission', (id, route) => {
     // `returnTo` is navigation state the screen space carries (#760), not a route-table filter key.
-    expect([...menu(id).pageKeys!].sort()).toEqual([...route.pageKeys, 'returnTo'].sort());
+    const navigationKeys = id === 'task-requests' ? ['returnTo', 'detailPage'] : ['returnTo'];
+    expect([...menu(id).pageKeys!].sort()).toEqual([...route.pageKeys, ...navigationKeys].sort());
     expect(menu(id)).toMatchObject({ permission: 'features:access', requiresScope: false, pageType: 'management' });
     expect(menu(id).navViews).toBeUndefined();
   });

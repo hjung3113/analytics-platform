@@ -129,7 +129,7 @@ function DistributionDetail({ row, params, m }: { row: ConfigRow; params: Compar
  */
 function ItemDrawer({ row, detail, eq, params, m, close, openTrend }: { row: ConfigRow; detail: QueryState<ConfigRow>; eq: string; params: CompareParams; m: Message; close: () => void; openTrend: () => void }) {
   const [tab, setTab] = useState('compare');
-  return <DetailDrawer title={row.item} subtitle={<span className="break-keep">{row.module} › {row.category} › {row.item}</span>} headerActions={row.coreKnown ? <PrimaryChip>CORE</PrimaryChip> : undefined} identity={row.id} onClose={close} tab={tab} onTabChange={setTab} tabs={[
+  return <DetailDrawer id={row.id} title={row.item} subtitle={<span className="break-keep">{row.module} › {row.category}</span>} headerActions={row.coreKnown ? <PrimaryChip>CORE</PrimaryChip> : undefined} identity={row.id} onClose={close} tab={tab} onTabChange={setTab} tabs={[
     { id: 'compare', label: m('compareDetail'), content: <QueryView query={detail}>{loaded => <CompareDetail row={loaded} eq={eq} params={params} m={m} />}</QueryView> },
     { id: 'distribution', label: m('distributionTab'), content: <QueryView query={detail}>{loaded => <DistributionDetail row={loaded} params={params} m={m} />}</QueryView> },
     { id: 'history', label: m('history'), content: <Button variant="secondary" onClick={openTrend}>{m('openTrend')}</Button> },

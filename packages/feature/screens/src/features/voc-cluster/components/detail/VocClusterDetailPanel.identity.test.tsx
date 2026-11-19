@@ -150,7 +150,7 @@ describe('VocClusterDetailPanel identity', () => {
     const findingCard = screen.getByTestId(`cluster-linked-finding-${findingId}`);
     expect(within(findingCard).getAllByText('FIN-1240')).toHaveLength(1);
     const overview = screen
-      .getByTestId('cluster-detail-title')
+      .getByTestId('cluster-detail-summary-empty')
       .closest<HTMLElement>('[data-anchor="overview"]');
     if (!overview) throw new Error('Expected the Cluster overview section');
     expect(within(overview).queryByText('VOC Cluster', { exact: true })).not.toBeInTheDocument();

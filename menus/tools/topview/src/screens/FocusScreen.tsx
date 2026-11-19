@@ -30,7 +30,7 @@ function FocusBody({ identityChanged }: { identityChanged: boolean }) {
   const { equipment } = props;
   return (
     <>
-    {detail && <DetailDrawer title={detail.label} onClose={() => setDetail(null)}
+    {detail && <DetailDrawer title={detail.label} copyPage={null} onClose={() => setDetail(null)}
       tabs={[{ id: 'detail', label: m('focusScreenDetail'), content: detail.node }]} />}
     <FocusView trust={<TrustBadge trust={load.trust} assessments={load.assessments} />} input={load.input} notices={load.notices} entityType={props.entityType} anchor={props.anchor} resetKey={resetKey}
       initialCursor={identityChanged ? null : props.cursor} onCursorCommit={(cursor) => setPage({ cursor }, { replace: true })}

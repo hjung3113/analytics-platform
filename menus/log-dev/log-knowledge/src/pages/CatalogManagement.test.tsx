@@ -83,7 +83,7 @@ describe('catalog management URL state', () => {
   it('round-trips tab, filter and the open row from the address', async () => {
     mount(`&tab=vendor${activeOnly()}&focus=${vendorRow.id}`);
     expect((await screen.findByRole('tab', { name: /설비사/ }, slow)).getAttribute('aria-selected')).toBe('true');
-    expect(await screen.findByRole('heading', { name: 'ALPHA' }, slow)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Alpha Semicap' }, slow)).toBeTruthy();
     expect((screen.getByLabelText(/^코드/) as HTMLInputElement).value).toBe('ALPHA');
     expect(lastRead('logKnowledge.vendors')?.filters).toEqual([{ id: 'active', op: 'in', value: ['true'] }]);
   });
@@ -249,7 +249,7 @@ describe('the default filter and the shared state (F1, U3)', () => {
 describe('the open row is looked up by id, scoped to its kind and focus (F2, F4)', () => {
   it('reads one row with `id in [focus]` instead of scanning pages', async () => {
     mount(`&tab=vendor${activeOnly()}&focus=${zeta.id}`);
-    expect(await screen.findByRole('heading', { name: 'ZETA' }, slow)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Zeta Corp' }, slow)).toBeTruthy();
     const lookups = queries.filter(q => (q.params as Params).filters?.some(f => f.id === 'id'));
     expect(lookups).toHaveLength(1);
     expect(lookups[0]!.params).toMatchObject({ page: 0, pageSize: 1, filters: [{ id: 'id', op: 'in', value: [zeta.id] }] });

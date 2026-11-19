@@ -99,7 +99,7 @@ const ui: Presentation = {
     return View ? (parts: Parameters<NonNullable<Presentation['sourceView']>>[0]) => <div className="flex min-h-0 flex-1 flex-col gap-2" data-testid="round-source-slot"><p className="shrink-0 break-keep text-xs text-text-secondary">이 Round의 샘플 목록을 읽기 전용으로 보여 줍니다. 근거 위치 담기와 조사 저장은 로그 탐색에서 합니다.</p><div className="min-h-0 flex-1"><View {...parts} /></div></div> : undefined;
   },
   table: parts => <MetadataTable {...parts} />,
-  drawer: parts => <DetailDrawer title={parts.title} subtitle={parts.subtitle} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
+  drawer: parts => <DetailDrawer id={parts.id} title={parts.title} copyPage={null} subtitle={parts.subtitle} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
   timeline,
   trust: (reasons, completedAt) => completedAt ? <DataTrustIndicator summary wrap showWithoutTrust trust={null} assessments={reasons.length ? [{ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail: reasons.join(', ') }] : []} /> : null,
 };

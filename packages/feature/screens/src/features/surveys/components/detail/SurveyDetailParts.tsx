@@ -354,6 +354,8 @@ export function useSurveyDetailParts({
     actorNamesById,
   });
   return {
+    id: data.display_id,
+    objectTitle: data.title,
     title:
       formatRecordDocumentTitle({ displayId: data.display_id, title: data.title }) ??
       data.display_id,

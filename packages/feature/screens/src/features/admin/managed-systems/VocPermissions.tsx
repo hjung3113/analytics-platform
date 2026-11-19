@@ -88,7 +88,7 @@ function VocPermissionsBody({ rows, renderDetail }: Props) {
       })}</tbody>
     </table>
     {visible.length === 0 && <p role="status" className="text-sm text-text-secondary">조건에 맞는 시스템이 없습니다.</p>}
-    {selected && renderDetail({ title: selected.name, subtitle: 'VOC 등록 권한', body: <VocPermissionEditor key={selected.id} row={selected} state={state} />, requestClose: () => setSelectedId(null) })}
+    {selected && renderDetail({ id: selected.id, title: selected.name, subtitle: 'VOC 등록 권한', body: <VocPermissionEditor key={selected.id} row={selected} state={state} />, requestClose: () => setSelectedId(null) })}
   </div>;
 }
 

@@ -36,7 +36,9 @@ export function VocDetailDrawer({
     sections?: PanelSection[];
   }) => (
     <DetailDrawer
-      title={parts.title}
+      id={parts.id}
+      title={parts.id === undefined ? parts.title : parts.objectTitle}
+      copyPage={null}
       subtitle={parts.subtitle}
       headerActions={parts.headerActions}
       onClose={parts.requestClose}

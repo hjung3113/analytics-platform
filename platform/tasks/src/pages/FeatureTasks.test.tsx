@@ -41,7 +41,7 @@ vi.mock('@ap/feature-screens/operator-screens/task-requests', () => ({
     const seam = useHostSeam();
     const param = seam.useSearch!().param;
     return <div data-testid="requests" data-param={param ?? ''} data-here={seam.useHere!()}>
-      {param !== undefined && props.renderDetail({ title: `요청 ${param}`, body: <p>요청 본문 {param}</p>, requestClose: screenMock.requestClose, displayId: 'TR-1' })}
+      {param !== undefined && props.renderDetail({ requestId: param, title: `요청 ${param}`, body: <p>요청 본문 {param}</p>, requestClose: screenMock.requestClose, displayId: 'TR-1' })}
     </div>;
   },
 }));

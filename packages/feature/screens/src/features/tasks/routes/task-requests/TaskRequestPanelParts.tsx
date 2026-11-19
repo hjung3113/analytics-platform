@@ -69,7 +69,7 @@ export interface TaskRequestPanelProps extends DetailPartsOptions {
 }
 
 /** The Task Request panel as parts a host places in its own chrome (#763 q2); `displayId` is the header's id. */
-export type TaskRequestPanelParts = ClosableDetailParts & { displayId: string };
+export type TaskRequestPanelParts = ClosableDetailParts & { requestId: string; displayId: string; objectTitle: string };
 
 /** The copy-link action; the copy URL is the host's address of the request, so a host without one shows no actions. */
 function TaskRequestHeaderActions({ requestId }: { requestId: string }): React.ReactElement | null {
@@ -269,7 +269,9 @@ export function TaskRequestPanelBody({
 export function buildTaskRequestPanelParts(props: TaskRequestPanelProps): TaskRequestPanelParts {
   const { item } = props;
   return {
+    requestId: item.id,
     displayId: item.display_id,
+    objectTitle: item.requested_outcome,
     title:
       formatRecordDocumentTitle({ displayId: item.display_id, title: item.requested_outcome }) ??
       item.display_id,

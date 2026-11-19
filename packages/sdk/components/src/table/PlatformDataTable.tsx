@@ -278,6 +278,8 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
      * again needs a per-mount part in the key too, or a reopened screen gets the pages it read before its last write.
      */
     cacheKey?: string;
+    /** Reports whether the current page has answered successfully, including an empty result. Retained rows, failures and pending reads report false. */
+    onPageReadyChange?: (ready: boolean) => void;
     rows?: never; rowsLoading?: never;
   }
   | {
@@ -285,7 +287,7 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
     rows: readonly T[];
     /** The read behind `rows` is in flight: the table shows its loading state (previous rows stay visible) until it turns false. */
     rowsLoading?: boolean;
-    loadPage?: never; refreshOn?: never; selectAllResults?: never; cacheKey?: never;
+    loadPage?: never; refreshOn?: never; selectAllResults?: never; cacheKey?: never; onPageReadyChange?: never;
   }
 );
 
@@ -436,6 +438,13 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
     onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
   });
+  const { onPageReadyChange } = p;
+  const pageReady = !loading && success && !outOfRange;
+  useLayoutEffect(() => {
+    if (!onPageReadyChange) return;
+    onPageReadyChange(pageReady);
+    return () => onPageReadyChange(false);
+  }, [onPageReadyChange, pageReady]);
   const filterBasis = hasLead ? FILTER_BASIS_LEAD : FILTER_BASIS;
   const mergedShared = mergedWidth === null ? null : mergedWidth - filterBasis - STATUS_GAP;
   // Only widths that hold while rows load or pages turn decide the band (toolbar, controls, lead, page controls); the count and trust get fixed room.

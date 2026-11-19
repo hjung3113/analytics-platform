@@ -267,8 +267,8 @@ export function CatalogDrawer({ kind, focus, rowsRef, options, onWritten, leaveR
   const tabs = kind === 'model' && row
     ? [{ id: 'info', label: '정보', content: body }, { id: 'software', label: 'SW 버전', content: <ModelSoftware modelId={row.id} /> }]
     : [{ id: 'info', label: '정보', content: body }];
-  return <><DetailDrawer key={focus} title={focus === NO_ROW ? `${TAB_LABEL[kind]} 추가` : row ? <span className="t-mono">{row.code}</span> : TAB_LABEL[kind]}
-    subtitle={`${TAB_LABEL[kind]} · 카탈로그 관리`} onClose={guard.request} tab={tabs.some(t => t.id === tab) ? tab : 'info'} onTabChange={changeTab} tabs={tabs} />
+  return <><DetailDrawer key={focus} id={row?.code} title={focus === NO_ROW ? `${TAB_LABEL[kind]} 추가` : row?.name ?? TAB_LABEL[kind]}
+    subtitle="카탈로그 관리" copyPage={focus === NO_ROW ? null : undefined} onClose={guard.request} tab={tabs.some(t => t.id === tab) ? tab : 'info'} onTabChange={changeTab} tabs={tabs} />
     {guard.dialog}
   </>;
 }

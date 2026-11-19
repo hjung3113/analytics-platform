@@ -2,10 +2,13 @@ import { X } from 'lucide-react';
 import { useContext } from 'react';
 import type * as React from 'react';
 import { StatusBadgeFrame } from '../badges/StatusBadgeFrame.js';
+import { Button } from '../components/Button.js';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/shadcn/tooltip.js';
 import { cn } from '../utils/cn.js';
 import {
   DetailPanelFullscreenContext,
   DetailPanelFullscreenToggle,
+  rememberDetailCloseTooltipEscape,
 } from './DetailPanelFullscreenContext.js';
 
 // Labels and accents follow DETAIL_PANEL_KINDS in docs/design-prototype/panel.jsx.
@@ -32,8 +35,17 @@ export interface DetailPanelHeaderProps {
    * header chrome (and its close action) still mounts without showing any
    * unavailable record data.
    */
-  id?: string;
+  id?: string | undefined;
+  title?: React.ReactNode;
+  /** ID of the visible title heading, or the record ID heading when there is no title. */
+  headingId?: string;
+  metadata?: React.ReactNode;
   onClose?: () => void;
+  closeRef?: React.Ref<HTMLButtonElement>;
+  closeLabel?: string;
+  expandLabel?: string;
+  collapseLabel?: string;
+  showExpand?: boolean;
   extras?: React.ReactNode;
   className?: string;
 }
@@ -84,7 +96,15 @@ export function DetailPanelHeader({
   appearance,
   accent: suppliedAccent,
   id,
+  title,
+  headingId,
+  metadata,
   onClose,
+  closeRef,
+  closeLabel = '패널 닫기',
+  expandLabel,
+  collapseLabel,
+  showExpand = true,
   extras,
   className,
 }: DetailPanelHeaderProps) {
@@ -93,10 +113,11 @@ export function DetailPanelHeader({
   const accent = suppliedAccent ? KIND_ACCENT[accentKind[suppliedAccent]] : KIND_ACCENT[kind ?? 'voc'];
   const kicker = label ?? (kind ? KIND_LABELS[kind] : undefined);
   const hasFullscreenToggle = useContext(DetailPanelFullscreenContext) !== null;
-  const showActions = hasFullscreenToggle || onClose !== undefined;
+  const showActions = (showExpand && hasFullscreenToggle) || onClose !== undefined;
+  const hasKind = kicker !== undefined || dataKind !== undefined;
 
   return (
-    <div
+    <header
       data-kind={dataKind ?? kind}
       style={
         {
@@ -106,19 +127,24 @@ export function DetailPanelHeader({
       }
       className={cn(
         'sticky top-0 z-10 bg-surface-card border-b border-border-subtle',
-        'flex items-stretch h-toolbar',
+        'flex shrink-0 items-stretch h-toolbar',
         className,
       )}
     >
-      {!isMilestone && <div aria-hidden="true" className={cn('w-1 shrink-0', accent.bgClass)} />}
+      {hasKind && !isMilestone && <div aria-hidden="true" className={cn('w-1 shrink-0', accent.bgClass)} />}
 
       {/* Content row */}
       <div
         data-testid="detail-panel-header-content"
-        className={cn('flex flex-1 items-center gap-3 pr-3 min-w-0', isMilestone ? 'pl-5' : 'pl-4')}
+        className={cn('flex flex-1 items-center gap-3 pr-3 min-w-0', isMilestone || !hasKind ? 'pl-5' : 'pl-4')}
       >
-        {/* Kind chip + id (id only when the caller has it) */}
-        <div className={cn('flex gap-2 min-w-0', isMilestone ? 'items-center' : 'items-baseline')}>
+        <div className="flex min-w-0 items-baseline gap-2 break-keep">
+          <div className="flex min-w-0 items-baseline gap-2">
+            {id !== undefined && (title == null
+              ? <h2 id={headingId} className="t-mono truncate font-mono text-xs text-text-muted leading-none">{id}</h2>
+              : <span className="t-mono max-w-1/2 shrink-0 truncate font-mono text-xs text-text-muted leading-none">{id}</span>)}
+            {title != null && <h2 id={headingId} className="t-section-title min-w-0 truncate">{title}</h2>}
+          </div>
           {kicker !== undefined && <StatusBadgeFrame
             appearance="compact"
             textClassName={accent.textClass}
@@ -133,34 +159,28 @@ export function DetailPanelHeader({
           >
             {kicker}
           </StatusBadgeFrame>}
-          {id !== undefined && (
-            <span className="font-mono text-xs text-text-muted leading-none">{id}</span>
-          )}
+          {metadata}
         </div>
 
         {/* Extras slot */}
-        {extras !== undefined && <div className="ml-auto flex items-center">{extras}</div>}
-
-        {showActions && (
-          <div className={cn('flex items-center gap-1', extras === undefined && 'ml-auto')}>
-            <DetailPanelFullscreenToggle />
+        {(showActions || extras != null) && (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {extras}
+            {showExpand && <DetailPanelFullscreenToggle
+              {...(expandLabel !== undefined ? { expandLabel } : {})}
+              {...(collapseLabel !== undefined ? { collapseLabel } : {})} />}
             {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="패널 닫기"
-                className={cn(
-                  'flex items-center justify-center rounded p-1',
-                  'text-text-muted hover:text-text-primary hover:bg-surface-canvas',
-                  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
-                )}
-              >
-                <X size={16} />
-              </button>
+              <TooltipProvider><Tooltip><TooltipTrigger asChild>
+                <Button ref={closeRef} type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={closeLabel}
+                  data-detail-panel-close
+                  onFocus={event => { if (event.currentTarget.hasAttribute('data-detail-initial-focus')) event.preventDefault(); }}>
+                  <X className="size-4" aria-hidden />
+                </Button>
+              </TooltipTrigger><TooltipContent onEscapeKeyDown={rememberDetailCloseTooltipEscape}>{closeLabel}</TooltipContent></Tooltip></TooltipProvider>
             )}
           </div>
         )}
       </div>
-    </div>
+    </header>
   );
 }

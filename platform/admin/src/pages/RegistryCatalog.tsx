@@ -44,7 +44,7 @@ export default function RegistryCatalog() {
   const menu = focus ? registry.menus.find(m => m.id === focus) : undefined;
   // Computed outside JSX children: a multi-line JSX ternary in children is a parser trap.
   const drawer = focus ? (menu
-    ? <DetailDrawer key={menu.id} title={<span className="t-mono">{menu.id}</span>} subtitle={menu.label[lang]}
+    ? <DetailDrawer key={menu.id} id={menu.id} title={menu.label[lang]}
         onClose={() => setPage({ focus: null })}
         tabs={[{ id: 'declaration', label: m('registryCatalogDeclaration'), content: <div className="grid gap-3">
           <dl className="grid grid-cols-[9rem_1fr] gap-y-1.5 text-sm">

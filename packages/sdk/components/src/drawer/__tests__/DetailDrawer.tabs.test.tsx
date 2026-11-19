@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,6 +30,31 @@ function SlotHost() {
 const tree = (ui: ReactNode) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{ui}<SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
 
 describe('DetailDrawer tab row (06 §13, #886 UX-8)', () => {
+  it('puts the record ID, linked title, copy, expand and close in one toolbar', async () => {
+    render(tree(<DetailDrawer id="EQ-1" title="Lithius-Pro" fullPageHref="/equipment/EQ-1" copyPage={{}}
+      onClose={() => {}} tabs={[{ id: 'a', label: '속성', content: '본문' }]} />));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveAccessibleName('Lithius-Pro');
+    expect(within(dialog).getByRole('region', { name: 'Lithius-Pro' })).toHaveTextContent('본문');
+    const header = dialog.querySelector('header')!;
+    expect(header).toHaveClass('h-toolbar');
+    const title = within(header).getByRole('link', { name: 'Lithius-Pro' });
+    expect(title).toHaveAttribute('href', '/equipment/EQ-1');
+    const recordId = within(header).getByText('EQ-1');
+    expect(recordId).toHaveClass('t-mono');
+    expect(recordId.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(header).getAllByRole('button').map(button => button.getAttribute('aria-label'))).toEqual([
+      '링크 복사', '크게 보기', '상세 닫기',
+    ]);
+    expect(within(header).queryByRole('button', { name: '더 보기' })).toBeNull();
+  });
+
+  it('uses the requested ID as the drawer name when the record is missing', async () => {
+    render(tree(<DetailDrawer missing id="EQ-1" onClose={() => {}} />));
+    const dialog = await screen.findByRole('dialog', { name: 'EQ-1' });
+    expect(within(dialog).getByRole('heading', { name: 'EQ-1' })).toBeVisible();
+  });
+
   it('keeps arrival focus when an alternate detail identity opts out of claiming focus', async () => {
     const arrival = document.createElement('button'); document.body.append(arrival); arrival.focus();
     const view = render(tree(<DetailDrawer focusOnOpen={false} title="상세" onClose={() => {}} tabs={[{ id: 'a', label: '속성', content: <p>속성 내용</p> }]} />));

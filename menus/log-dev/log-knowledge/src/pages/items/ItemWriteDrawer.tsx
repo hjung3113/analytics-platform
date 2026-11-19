@@ -199,10 +199,11 @@ function ItemWriteDrawerView({ target, onClose, draftState }: { target: ItemWrit
   const guard = useCloseGuard(() => { discard(); onClose(); });
   useUnsavedGuard(guard.dirty && !guard.released, { leaves: 'address', onDiscard: discard });
   const title = target.mode === 'create' ? '새 기술 Item' : target.mode === 'revise' ? '기술 Item 수정' : '관련 Item으로 신규 작성';
-  const subtitle = target.mode === 'create' ? '전체 기술 Item' : `${itemNoLabel(target.detail.item.itemNo)} · ${ownerText(target.detail.item.owner)}`;
+  const id = target.mode === 'revise' ? itemNoLabel(target.detail.item.itemNo) : undefined;
+  const subtitle = target.mode === 'create' ? '전체 기술 Item' : ownerText(target.detail.item.owner);
   const key = target.mode === 'revise' ? `revise:${target.detail.item.id}` : target.mode === 'derive' ? `derive:${target.detail.item.id}:${target.detail.revision.revisionNo}` : 'create';
   return <>
-    <DetailDrawer key={target.mode} title={title} subtitle={subtitle} onClose={guard.request} tabs={[{ id: 'form', label: '내용', content: <WriteFormBody key={key} target={target} draftState={draftState} guard={guard} onReload={() => { if (target.mode === 'revise') target.onReload(); }} /> }]} />
+    <DetailDrawer key={target.mode} id={id} title={title} subtitle={subtitle} copyPage={null} onClose={guard.request} tabs={[{ id: 'form', label: '내용', content: <WriteFormBody key={key} target={target} draftState={draftState} guard={guard} onReload={() => { if (target.mode === 'revise') target.onReload(); }} /> }]} />
     {guard.dialog}
   </>;
 }

@@ -9,6 +9,7 @@ import type * as React from 'react';
 export interface DetailHeaderProps {
   vocId: string;
   displayId: string;
+  title?: string;
   onClose: () => void;
 }
 
@@ -32,11 +33,12 @@ export function VocHeaderActions({
   );
 }
 
-export function DetailHeader({ vocId, displayId, onClose }: DetailHeaderProps): React.ReactElement {
+export function DetailHeader({ vocId, displayId, title, onClose }: DetailHeaderProps): React.ReactElement {
   return (
     <DetailPanelHeader
       {...DETAIL_PANEL_KICKERS.voc}
       id={displayId}
+      title={title}
       onClose={onClose}
       extras={<VocHeaderActions vocId={vocId} displayId={displayId} />}
     />

@@ -112,7 +112,8 @@ export function SequenceSample({
       />
       {detail && (
         <DetailDrawer
-          title={m('sequenceSampleItemDetails')}
+          id={detail.id}
+          title={detail.label}
           onClose={() => setDetail(null)}
           tabs={[
             {
@@ -123,7 +124,6 @@ export function SequenceSample({
                   <StatusBadge tone="neutral">
                     {m('sequenceSampleSyntheticData')}
                   </StatusBadge>
-                  <h3 className="t-card-title">{detail.label}</h3>
                   <p>
                     {sequenceLanes.find((lane) => lane.laneKey === detail.laneKey)?.label} ·{' '}
                     {states[detail.state]?.label} · {detail.orderStart}–

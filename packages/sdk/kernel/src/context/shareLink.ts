@@ -1,0 +1,41 @@
+import { buildQuery, withoutReturnTo, type GlobalContext, type Pair } from '@ap/contracts';
+import { pathFor, routeParamNames, type RouteMatch } from '../registry/registry';
+
+export type ShareLinkKind = 'menu' | 'conditions';
+export type ShareLinkFailure = 'no-route' | 'missing-param' | 'serialize' | 'too-long';
+export type ShareLinkResult = { ok: true; href: string } | { ok: false; reason: ShareLinkFailure };
+
+/** Default bound on the copied address; longer addresses are refused, never truncated (06 §6.4 / kernel.md §11). */
+export const SHARE_LINK_MAX_LENGTH = 4000;
+
+/**
+ * The one serializer behind "share current conditions", "copy menu address" and the VOC repro link (cross-menu-links.md).
+ * `menu` = the deployment-aware canonical path with its route params, no query. `conditions` = that path + the v1 query of the
+ * APPLIED `global`/`page` pairs (hidden page keys included: the address omits them, the copied link carries them, and the bound counts them): `returnTo` and unregistered extras are never written, and a query-bar draft is not an input here.
+ * A failure never degrades to a shorter link: no truncation, no bare-path fallback.
+ */
+export function buildShareLink({ kind, route, global, page, pageOverride, absoluteUrl, maxLength = SHARE_LINK_MAX_LENGTH }: {
+  kind: ShareLinkKind;
+  route: Pick<RouteMatch, 'menu' | 'params'> | null;
+  global: GlobalContext;
+  page: readonly Pair[];
+  /** Record-specific page keys replace the current values while other applied conditions are kept. */
+  pageOverride?: Readonly<Record<string, string | null>> | undefined;
+  absoluteUrl: (url: string) => string;
+  maxLength?: number;
+}): ShareLinkResult {
+  if (route === null) return { ok: false, reason: 'no-route' };
+  if (routeParamNames(route.menu.path).some(name => !route.params[name])) return { ok: false, reason: 'missing-param' };
+  let href: string;
+  try {
+    const applied = pageOverride === undefined ? [...page] : [
+      ...page.filter(([key]) => !Object.hasOwn(pageOverride, key)),
+      ...Object.entries(pageOverride).flatMap(([key, value]): Pair[] =>
+        value && route.menu.pageKeys?.includes(key) ? [[key, value]] : []),
+    ];
+    href = absoluteUrl(pathFor(route.menu, route.params) + (kind === 'conditions' ? buildQuery(global, withoutReturnTo(applied)) : ''));
+  } catch {
+    return { ok: false, reason: 'serialize' };
+  }
+  return href.length > maxLength ? { ok: false, reason: 'too-long' } : { ok: true, href };
+}

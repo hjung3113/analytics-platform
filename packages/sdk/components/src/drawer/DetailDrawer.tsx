@@ -1,14 +1,15 @@
 import { detailFocusFallback, paneRootById } from '../state/pageFocus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
-import { X } from 'lucide-react';
+import { SearchX } from 'lucide-react';
 import { Fragment, useContext, useEffect, useId, useState, useInsertionEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { buildQuery } from '@ap/contracts';
-import { invalidValueSentence, useI18n, useMessages } from '@ap/kernel';
+import { invalidValueSentence, PlatformLink, useI18n, useMessages } from '@ap/kernel';
 import { RecoverButton } from '../state/RecoverButton';
-import { useHostPlatformOptional } from '@ap/kernel/host';
-import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused, cn } from '@ap/ui';
+import { buildShareLink, useHostPlatformOptional } from '@ap/kernel/host';
+import { Button, DetailPanelFullscreenContext, DetailPanelHeader, DetailPanelHeaderActions, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { StateMessage } from '../StateView';
 
 /** Menus declare content; the SDK owns its width-dependent placement. */
 export interface DetailDrawerRegions {
@@ -27,21 +28,35 @@ export type DetailDrawerTab = { id: string; label: ReactNode } & (
   | { regions: DetailDrawerRegions; content?: never }
 );
 
-/** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
-export function DetailDrawer({ title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, onTabRecover, focusOnOpen, returnFocusRef, identity }: {
+type DetailDrawerProps = {
   /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
   focusOnOpen?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Settled membership in the applied list. While unknown, omit it. False closes the drawer. */
+  isInList?: boolean;
+  /** The focusable list destination for automatic closure, separate from the manual opener. */
+  listFocusRef?: RefObject<HTMLElement | null>;
+  /** Optional list-driven close action. Manual close and Escape still use onClose. */
+  onListLeave?: () => void;
   /**
    * Which target the drawer shows (a row id, a record key). When it changes while the drawer stays open, the tab content restarts:
    * scroll returns to the top, an uncontrolled tab returns to the first one and the tab content mounts afresh. The drawer itself
    * (header, expansion, focus claim, footer) is not remounted. Omit it and a changed target keeps scroll and tab as before.
    */
   identity?: string | number;
-  title: ReactNode; subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
-  tabs: DetailDrawerTab[];
+  /** Copy the applied page with these registered page keys replaced. An empty patch opts in without focus=; null hides copy. */
+  copyPage?: Readonly<Record<string, string | null>> | null | undefined;
+  fullPageHref?: string;
+  subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void; onTabRecover?: () => void;
-}) {
+} & (
+  | { missing?: false; id?: string; title?: ReactNode; tabs: DetailDrawerTab[] }
+  | { missing: true; id: string; title?: never; tabs?: never }
+);
+
+/** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
+export function DetailDrawer(props: DetailDrawerProps) {
+  const { onClose } = props;
   const paneId = useHostPlatformOptional()?.paneId;
   const closeLatest = useRef(onClose);
   useInsertionEffect(() => { closeLatest.current = onClose; });
@@ -54,7 +69,7 @@ export function DetailDrawer({ title, subtitle, headerActions, context, footer, 
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent identity={identity} focusOnOpen={focusOnOpen} superseded={superseded} title={title} subtitle={subtitle} headerActions={headerActions} context={context} footer={footer} tabs={tabs} onClose={onClose} tab={tab} onTabChange={onTabChange} onTabRecover={onTabRecover} returnFocusRef={returnFocusRef} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent {...props} superseded={superseded} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -76,7 +91,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, headerActions, context, footer, tabs, onClose, tab, onTabChange, onTabRecover, returnFocusRef }: Parameters<typeof DetailDrawer>[0] & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, isInList, listFocusRef, onListLeave = onClose }: DetailDrawerProps & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const onKeyDown = useDetailPanelEscape(onClose);
@@ -87,6 +102,8 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
   const focusInside = useRef(false);
   const id = useId();
   const platform = useHostPlatformOptional();
+  const autoClosed = useRef(false);
+  const listClosedMessage = m('drawerListClosed');
   const pageNavigation = platform?.pageNavigation;
   // Read live by the mount claim and the close cleanup: a covered surface's drawer must not move or restore focus on the screen in front.
   const pausedNow = useSurfacePaused();
@@ -98,16 +115,38 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
   useInsertionEffect(() => { expandedNow.current = expandedValue; });
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;
+  useEffect(() => {
+    if (isInList !== false || missing || pausedNow || superseded.current || autoClosed.current) return;
+    autoClosed.current = true;
+    const previousFocus = document.activeElement;
+    onListLeave();
+    platform?.toast(listClosedMessage);
+    // An expanded drawer's list is inert until the closing commit.
+    setTimeout(() => {
+      if (document.activeElement !== previousFocus && document.activeElement !== document.body) return;
+      const target = listFocusRef?.current;
+      if (target?.isConnected && !target.closest('[hidden], [inert], [aria-hidden="true"]')) {
+        target.focus({ preventScroll: true });
+      }
+    }, 0);
+  }, [isInList, listClosedMessage, listFocusRef, missing, onListLeave, pausedNow, platform, superseded]);
   useLayoutEffect(() => {
     const opener = returnFocusRef?.current ?? document.activeElement as HTMLElement | null;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
     // No provider means a locally mounted drawer, which still claims the close button.
     const claim = (focusOnOpen ?? pageNavigation?.claimsDetailFocus() ?? true) && !paused.current;
-    if (claim) close.current?.focus({ preventScroll: true });
+    const closeButton = close.current;
+    if (claim && closeButton) {
+      // An automatically focused icon must not open a tooltip that takes the first Escape.
+      closeButton.setAttribute('data-detail-initial-focus', '');
+      closeButton.focus({ preventScroll: true });
+      closeButton.removeAttribute('data-detail-initial-focus');
+    }
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup must read the latest flag; a copy taken at mount would never see the supersession
       if (superseded.current) return;
       if (paused.current) return;
+      if (autoClosed.current && listFocusRef) return;
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the cleanup asks the live panel node whether focus is inside, not a mount-time copy
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
@@ -131,7 +170,7 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
         setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
       } else restoreFocus();
     };
-  }, [pageNavigation, paneId, superseded, paused, focusOnOpen, returnFocusRef]);
+  }, [pageNavigation, paneId, superseded, paused, focusOnOpen, returnFocusRef, listFocusRef]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };
@@ -152,29 +191,39 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
     if (panel.current) observer.observe(panel.current, { childList: true, subtree: true });
     return () => { observer.disconnect(); };
   }, []);
+  const heading = fullPageHref && title != null
+    ? <PlatformLink href={fullPageHref} className="block truncate rounded-sm hover:underline focus-visible:-outline-offset-2">{title}</PlatformLink>
+    : title;
+  const shared = platform && !missing && copyPage !== null && (copyPage !== undefined || platform.pageParam('focus'))
+    ? buildShareLink({ kind: 'conditions', route: platform.route, global: platform.global, page: platform.page, pageOverride: copyPage, absoluteUrl: platform.absoluteUrl })
+    : null;
+  const copyError = shared && !shared.ok
+    ? m(shared.reason === 'too-long' ? 'drawerShareTooLong' : 'drawerShareInvalid')
+    : m('copyLinkFailed');
+  const copyAction = shared && platform && <DetailPanelHeaderActions copyUrl={shared.ok ? shared.href : null}
+    notify={{ success: message => platform.toast(message), error: message => platform.toast(message, 'warning') }}
+    messages={{ copy: m('drawerCopyLink'), success: m('drawerLinkCopied'), error: copyError }} />;
   return <div ref={panel} role="dialog" tabIndex={-1} aria-modal="false" aria-labelledby={`${id}-t`}
     onFocus={() => { focusInside.current = true; }}
     onPointerDownCapture={() => { focusInside.current = true; }}
     onBlur={e => { const to = e.relatedTarget as Node | null; if (to && !panel.current?.contains(to)) focusInside.current = false; }}
     onKeyDown={onKeyDown}
     className={cn('flex h-full min-h-0 w-full flex-col bg-surface-detail', tabs.some(tb => tb.regions !== undefined) && '@container/detail-panel')}>
-    <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
-      <div className="min-w-0">
-        {paneLabel && <p data-detail-pane-label className="truncate text-xs text-text-muted">{paneLabel}</p>}
-        <h2 id={`${id}-t`} className="t-section-title truncate">{title}</h2>
-        {subtitle && <p className="text-xs text-text-muted">{subtitle}</p>}
-      </div>
-      <div className="flex items-center gap-1">
-        {headerActions}
-        <DetailPanelFullscreenToggle expandLabel={t('detailExpand')} collapseLabel={t('detailCollapse')} />
-        <button ref={close} type="button" onClick={onClose} aria-label={m('drawerCloseDetails')} className="grid size-8 place-items-center rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text-primary"><X className="size-4" aria-hidden /></button>
-      </div>
-    </header>
+    {!missing && paneLabel && <p data-detail-pane-label className="truncate px-5 pt-2 text-xs text-text-muted">{paneLabel}</p>}
+    <DetailPanelHeader id={recordId} title={missing ? undefined : heading} headingId={`${id}-t`}
+      onClose={onClose} closeRef={close} closeLabel={m('drawerCloseDetails')} showExpand={!missing}
+      expandLabel={t('detailExpand')} collapseLabel={t('detailCollapse')}
+      extras={!missing && <>{copyAction}{headerActions}</>}
+      metadata={!missing && subtitle && <div className="truncate text-xs text-text-muted">{subtitle}</div>} />
+    {missing ? <div className="px-5 py-3 break-keep">
+      <StateMessage compact icon={<SearchX className="size-4" aria-hidden />} title={m('drawerMissingItem')}
+        action={<Button type="button" size="sm" variant="secondary" onClick={onClose}>{m('drawerClearSelection')}</Button>} />
+    </div> : <>
     {context && <div className="border-b border-border-subtle bg-surface-sunken px-5 py-2 text-xs text-text-secondary">{context}</div>}
     <OutcomeBanners />
     {/* One tab draws no tab row (06 §13, #886 UX-8); the content stays a focusable, named scroll region like a tabpanel. */}
     <Fragment key={identity}>
-    {tab !== undefined && !tabs.some(candidate => candidate.id === tab)
+    {tabs.length > 0 && (tab !== undefined && !tabs.some(candidate => candidate.id === tab)
       ? <div role="alert" className="grid gap-2 px-5 py-3"><p>{invalidValueSentence(lang, 'value', COMPONENTS_MESSAGES.drawerDetailTabField, tab)}</p><RecoverButton onRecover={onTabRecover ?? (() => onTabChange?.(tabs[0].id))} label={m('drawerClearTabValue')} /></div>
       : tabs.length === 1
       ? tabs[0].regions !== undefined ? <DeclaredRegions regions={tabs[0].regions} /> : <div role="region" tabIndex={0} aria-labelledby={`${id}-t`} className="min-h-0 flex-1 scrollbar-panel overflow-auto px-5 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring focus-visible:ring-offset-0"><DetailPanelReadingColumn>{tabs[0].content}</DetailPanelReadingColumn></div>
@@ -186,9 +235,10 @@ function DetailContent({ identity, focusOnOpen, superseded, title, subtitle, hea
           // eslint-disable-next-line shadcn/no-restyle -- the aside clips overflow, so the focus ring must sit inside the panel (#914 A1)
           <TabsContent key={tb.id} value={tb.id} className={tb.regions !== undefined ? 'flex min-h-0 flex-1 flex-col overflow-hidden focus-visible:ring-inset focus-visible:ring-offset-0' : 'min-h-0 flex-1 scrollbar-panel overflow-auto px-5 py-3 focus-visible:ring-inset focus-visible:ring-offset-0'}>{tb.regions !== undefined ? <DeclaredRegions regions={tb.regions} /> : <DetailPanelReadingColumn>{tb.content}</DetailPanelReadingColumn>}</TabsContent>
         ))}
-      </Tabs>}
+      </Tabs>)}
     </Fragment>
     {footer !== undefined && <DetailPanelReadingColumn asChild><div className="shrink-0 border-t border-border-subtle px-5 py-3">{footer}</div></DetailPanelReadingColumn>}
+    </>}
     </div>;
 }
 

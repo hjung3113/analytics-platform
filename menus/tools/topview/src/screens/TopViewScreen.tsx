@@ -106,7 +106,7 @@ function TopViewBody({ optionsState, refreshing, listFailed, retry }: { optionsS
     <>
       {bar}
       {scene.layout && selectedId !== null && (
-        <DetailDrawer title={`Component · ${selectedId}`} onClose={() => setSelection({ key: selectionKey, id: null })}
+        <DetailDrawer id={selectedId} title="Component" onClose={() => setSelection({ key: selectionKey, id: null })}
           tabs={[{ id: 'detail', label: m('topViewScreenDetail'), content: <ComponentDetail layout={scene.layout} state={scene.state} componentId={selectedId} /> }]} />
       )}
       <div className="flex flex-wrap items-start gap-4">

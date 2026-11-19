@@ -78,7 +78,8 @@ function mount(mapped: (to: string) => boolean, embedded = false) {
 describe('cluster detail Finding links through the host seam', () => {
   it('leaves embedded drawer insets to the host and keeps member content flat and readable', () => {
     mount(() => true, true);
-    const body = screen.getByTestId('cluster-detail-title')
+    expect(screen.queryByRole('heading', { name: 'Cluster title' })).not.toBeInTheDocument();
+    const body = screen.getByTestId('cluster-detail-summary-empty')
       .closest('[data-anchor]')?.parentElement?.parentElement;
     expect(body).toHaveClass('overflow-y-auto', 'py-6');
     expect(body).not.toHaveClass('px-6');

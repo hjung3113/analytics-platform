@@ -288,7 +288,7 @@ test.describe('셸 고정 상세 슬롯 (06 §13, ADR-0013)', () => {
       await checkbox.click();
       await expect(checkbox).toBeChecked();
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole('link', { name: '전체 화면' })).toBeVisible();
+      await expect(dialog.getByRole('heading', { level: 2 }).getByRole('link')).toBeVisible();
       await evidence(page, testInfo, `docked-detail-${width}`);
 
       await dialog.getByRole('button', { name: '상세 닫기' }).click();

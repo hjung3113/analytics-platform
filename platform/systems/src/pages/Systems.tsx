@@ -64,7 +64,7 @@ function SystemsTable() {
       business: <SpaceCell row={row} lang={lang} tx={tx} />, link: <LinkState row={row} lang={lang} />,
     };
   });
-  return <SystemVocPermissions rows={permissionRows} fallback={baseline} renderDetail={parts => <DetailDrawer title={parts.title} subtitle={parts.subtitle} onClose={parts.requestClose} tabs={[{ id: 'voc', label: 'VOC 등록 권한', content: parts.body }]} />} />;
+  return <SystemVocPermissions rows={permissionRows} fallback={baseline} renderDetail={parts => <DetailDrawer id={parts.id} title={parts.title} copyPage={null} subtitle={parts.subtitle} onClose={parts.requestClose} tabs={[{ id: 'voc', label: 'VOC 등록 권한', content: parts.body }]} />} />;
 }
 
 /** 시스템 (#1289 node j): business systems, tracked systems and link state, with admin VOC creation settings through the feature bridge. */

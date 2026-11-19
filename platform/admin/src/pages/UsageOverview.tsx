@@ -75,7 +75,7 @@ export default function UsageOverview() {
         />;
       }}</QueryView>}
     {!tableInvalid && focus && (active
-      ? <DetailDrawer key={active.id} title={active.label[lang]} subtitle={m('usageOverviewNextScreensMainScreenEntries')} onClose={() => setPage({ focus: null })}
+      ? <DetailDrawer key={active.id} id={active.id} title={active.label[lang]} subtitle={m('usageOverviewNextScreensMainScreenEntries')} onClose={() => setPage({ focus: null })}
           tabs={[{ id: 'next', label: m('usageOverviewNextScreens'), content: <UsageNextScreens menuId={active.id} /> }]} />
       : <StateMessage tone="danger" icon={<AlertTriangle aria-hidden />} title={m('usageOverviewThisMenuIsNotRegistered')}
           action={<Button size="sm" variant="secondary" onClick={() => setPage({ focus: null })}>{m('usageOverviewClose')}</Button>} />)}

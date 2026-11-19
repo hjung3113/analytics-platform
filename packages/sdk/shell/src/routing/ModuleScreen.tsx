@@ -53,7 +53,7 @@ function ReadyInstance({ entry, params, setStatus, registerTarget }: Props & { s
 
   return <>
     <Screen params={params} host={host} />
-    {detail && <DetailDrawer title={detail.label} onClose={() => setDetail(null)}
+    {detail && <DetailDrawer title={detail.label} copyPage={null} onClose={() => setDetail(null)}
       tabs={[{ id: 'detail', label: m('moduleDetailTab'), content: detail.node }]} />}
   </>;
 }

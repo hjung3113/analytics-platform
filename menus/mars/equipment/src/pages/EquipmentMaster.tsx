@@ -1,9 +1,9 @@
 import { useMessages } from '@ap/kernel';
 import { EQUIPMENT_MESSAGES } from '../messages';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ColumnFilter } from '@ap/contracts';
-import { PlatformLink, useI18n, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
-import { equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
+import { PlatformLink, useEntityQuery, useI18n, useMenuFetch, useMenuQuery, usePlatform, useQueryContext } from '@ap/kernel';
+import { EQUIPMENT_ENTITY_TYPE, equipmentExportEndpoint, equipmentMakersEndpoint, equipmentPageEndpoint, type Equipment } from '../endpoints';
 import { PanelRight } from 'lucide-react';
 import { useClearFiltersAction, useTableFilterDeclaration, type TableFilterDeclaration, DetailDrawer, RowAction, ManagementLayout, type PlatformColumn, PlatformDataTable, PlatformPage, TableQuickSearch, TableUrlWarning, useTableUrlState } from '@ap/components';
 import { Button } from '@ap/ui';
@@ -16,7 +16,8 @@ const NO_FILTERS: ColumnFilter[] = [];
 export default function EquipmentMaster() {
   const m = useMessages(EQUIPMENT_MESSAGES);
   const { lang } = useI18n();
-  const { pageParam, setPage, linkTo } = usePlatform();
+  const { pageParam, setPage, linkTo, global, scope, user, revision } = usePlatform();
+  const queryContext = useQueryContext();
   const q = pageParam('q') ?? '', focus = pageParam('focus');
   // §6.1 page keys: sort/page/tab are URL-owned; invalid wire values alert instead of substituting.
   const drawerTab = pageParam('tab') ?? 'attributes';
@@ -32,7 +33,27 @@ export default function EquipmentMaster() {
   const { urlFilters, filterColumnProps } = useTableFilterDeclaration('filter', filterDeclarations, { lang });
   const { urlState: tableUrlState, invalid: tableInvalid, sentences: invalidTableSentences, recoverKeys, cause } = useTableUrlState(sortFields, { filters: urlFilters });
   const conditions = tableUrlState?.filters ?? NO_FILTERS;
+  // A settlement belongs to the applied query that received it, even when the table still shows the previous page.
+  const listQuery = JSON.stringify([user.id, revision, queryContext, q, conditions, tableUrlState?.sorting, tableUrlState?.page]);
+  const [readyListQuery, setReadyListQuery] = useState<string | null>(null);
+  const onPageReadyChange = useCallback((ready: boolean) => setReadyListQuery(ready ? listQuery : null), [listQuery]);
   const filterKey = q;
+  const list = useRef<HTMLDivElement>(null);
+  const detailEnabled = !!focus && scope.status === 'valid';
+  const detail = useEntityQuery<Equipment>({ type: EQUIPMENT_ENTITY_TYPE, id: focus ?? '', scopeId: global.scopeId }, null, detailEnabled);
+  const equipment = detail.response?.outcome === 'ok' && detail.response.data?.equipmentId === focus ? detail.response.data : null;
+  const missing = detail.response?.outcome === 'empty' || detail.response?.outcome === 'forbidden';
+  // Reuse the list's scoped filter contract and constrain the read to one ID across all pages.
+  const membership = useMenuQuery(equipmentExportEndpoint, {
+    q, ids: focus ? [focus] : [], sorting: [], ...(conditions.length ? { filters: conditions } : {}),
+  }, { enabled: detailEnabled && !tableInvalid && equipment !== null });
+  let isInList: boolean | undefined;
+  if (!tableInvalid && readyListQuery === listQuery && membership.status === 'done') {
+    if (membership.response?.outcome === 'empty') isInList = false;
+    if (membership.response?.outcome === 'ok') isInList = membership.response.data?.some(row => row.equipmentId === focus);
+  }
+  const clearFocus = () => setPage({ focus: null, tab: null });
+  const clearExcludedFocus = () => setPage({ focus: null, tab: null }, { replace: true });
   // #173 review P2-4: the full list is no longer the render gate. Maker options come from a small distinct-values
   // endpoint; the table renders its own outcomes.
   const makers = useMenuQuery(equipmentMakersEndpoint, NO_PARAMS, !tableInvalid);
@@ -62,18 +83,22 @@ export default function EquipmentMaster() {
   const search = <TableQuickSearch pageKey="q" label={m('equipmentMasterSearchEquipmentId')} />;
   return <PlatformPage description={m('equipmentMasterEquipmentAttributesValidityChangeHistoryReadOnly')}>
     <ManagementLayout
-      drawer={focus && <DetailDrawer key={focus} title={<span className="t-mono">{focus}</span>} subtitle={m('equipmentMasterEquipmentDetailsSyntheticData')}
-      onClose={() => setPage({ focus: null, tab: null })} tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
-      context={m('equipmentMasterListFiltersAndTheEquipmentSelectionStay')}
-      headerActions={<Button asChild size="sm" variant="secondary"><PlatformLink href={linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true })}>{m('equipmentMasterFullPage')}</PlatformLink></Button>}
-      tabs={[{ id: 'attributes', label: m('equipmentMasterAttributes'), content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: m('equipmentMasterValidityHistory'), content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: m('equipmentMasterChangeHistory'), content: <EquipmentPanel id={focus} kind="audit" /> }]} />}
+      drawer={focus && (missing
+        ? <DetailDrawer key={focus} id={focus} missing onClose={clearFocus} />
+        : <DetailDrawer key={focus} id={focus} title={equipment?.model}
+          fullPageHref={equipment ? linkTo('equipment-detail', { params: { equipmentId: focus }, page: detailPage, returnTo: true }) : undefined}
+          isInList={isInList} listFocusRef={list} onClose={clearFocus} onListLeave={clearExcludedFocus}
+          tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'attributes' ? null : tab })}
+          tabs={[{ id: 'attributes', label: m('equipmentMasterAttributes'), content: <EquipmentPanel id={focus} kind="attributes" /> }, { id: 'validity', label: m('equipmentMasterValidityHistory'), content: <EquipmentPanel id={focus} kind="validity" /> }, { id: 'audit', label: m('equipmentMasterChangeHistory'), content: <EquipmentPanel id={focus} kind="audit" /> }]} />)}
       table={tableInvalid ? <TableUrlWarning search={search} sentences={invalidTableSentences} recoverKeys={recoverKeys} cause={cause} /> :
+    <div ref={list} role="group" aria-label={m('equipmentMasterEquipmentList')} tabIndex={-1} className="rounded-lg focus:outline-2 focus:outline-focus-ring focus:-outline-offset-2">
     <PlatformDataTable<Equipment>
       title={m('equipmentMasterEquipmentList')} ariaLabel={m('equipmentMasterEquipmentMasterList')}
       subtitle={m('equipmentMasterCheckRowsToExportOrOpenThem')}
       columns={columns} getRowId={e => e.equipmentId} filterKey={filterKey} preferenceKey="equipment-master:columns:v1" activeRowId={focus} pageSize={25}
       urlState={tableUrlState}
       loadPage={(page, signal) => pages.fetch({ q, ...page }, signal)}
+      onPageReadyChange={onPageReadyChange}
       search={search}
       rowAction={(e, { compact }) => <RowAction compact={compact} icon={PanelRight} label={m('equipmentMasterView', { equipmentId: String(e.equipmentId) })} text={m('equipmentMasterView2')} onClick={() => setPage({ focus: e.equipmentId, tab: null })} />}
       selectAllResults
@@ -83,7 +108,7 @@ export default function EquipmentMaster() {
       exportRows={(request, signal) => exports.fetch(exportParams({ q }, request), signal)}
       exportFilterSummary={exportFilterSummary({ q }, lang)} exportContext={equipmentExportEndpoint.context}
       emptyAction={clearButton}
-    />} />
+    /></div>} />
 
   </PlatformPage>;
 }

@@ -7,7 +7,7 @@ import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/ta
 const isValid = (key: string, value: string) => key === 'param' ? isUuid(value) : isTasksSearchValueValid(key, value);
 
 /** The screen owns the close (the dirty-draft guard lives in `requestClose`), so the drawer's close is `requestClose`. Unkeyed: detail and create parts are different slot components, so each remounts anyway. */
-const renderDetail: ComponentProps<typeof MilestonesScreen>['renderDetail'] = parts => <FeatureDetailDrawer parts={parts} onClose={parts.requestClose} />;
+const renderDetail: ComponentProps<typeof MilestonesScreen>['renderDetail'] = parts => <FeatureDetailDrawer copyPage={null} parts={parts} onClose={parts.requestClose} />;
 
 /** Milestones (ADR-0081, #763): the feature screens' Milestone screen through the bridge; `focus` is the selected Milestone (a UUID; `managedSystem` a UUID or `all`), detail and create render in the shell detail slot. */
 export default function FeatureMilestones() {

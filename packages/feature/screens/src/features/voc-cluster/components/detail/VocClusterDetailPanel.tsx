@@ -207,6 +207,8 @@ export function useClusterDetailParts({
 
   return {
     state: 'ready',
+    id: clusterDisplayId(data),
+    objectTitle: <span data-testid="cluster-detail-title">{data.title}</span>,
     title: clusterDisplayId(data),
     body: (
       <>
@@ -239,12 +241,6 @@ export function useClusterDetailParts({
                     </OutlineBadge>
                   )}
                 </div>
-                <h1
-                  className="text-xl font-semibold text-text-primary"
-                  data-testid="cluster-detail-title"
-                >
-                  {data.title}
-                </h1>
               </div>
               {data.summary ? (
                 <div className="flex flex-col gap-1">
@@ -591,7 +587,8 @@ export function VocClusterDetailPanel({
     >
       <DetailPanelHeader
         {...DETAIL_PANEL_KICKERS.cluster}
-        id={String(parts.title)}
+        id={parts.id}
+        title={parts.objectTitle}
         onClose={onClose ?? (() => navigate('/voc-clusters'))}
       />
       {parts.body}
