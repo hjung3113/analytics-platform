@@ -33,7 +33,10 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     const banners = page.locator('[data-outcome-banner][data-outcome-compact]');
     const refusal = banners.filter({ hasText: '집계 불가' });
     await expect(refusal.getByText('집계 불가 ·', { exact: true })).toBeVisible();
-    await expect(refusal.getByText('시간 기준이 확인되지 않아 함께 집계할 수 없습니다.')).toBeVisible();
+    // #2535: the strip names the cause and affected equipment; the full sentence sits under «자세히».
+    await expect(refusal).toContainText('영향 설비');
+    await refusal.getByRole('button', { name: '자세히', exact: true }).click();
+    await expect(page.getByText('시간 기준이 확인되지 않아 함께 집계할 수 없습니다.').first()).toBeVisible();
     await expect(banners.filter({ hasText: '서버 오류' })).toHaveCount(0);
   });
 

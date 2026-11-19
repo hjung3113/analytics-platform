@@ -109,6 +109,46 @@ describe('evaluateTimeDomainMerge', () => {
 describe('serve time-domain guard', () => {
   const kinds = ['collection', 'time_domain'] as const;
 
+  it('returns recovery evidence from the authorized seven-day request', async () => {
+    const result = await serve({
+      role: 'engineer', permission: menuPermission('analytics:view'),
+      global: ctx({ from: WEEK_FROM, to: WEEK_TO }),
+      latency: 0, compute: () => null,
+    });
+    expect(result.recovery?.affectedEquipmentIds).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']);
+    expect(result.recovery?.authorizedEquipmentIds).toEqual(expect.arrayContaining(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']));
+    expect(result.recovery?.maxHours).toBe(24);
+    expect(result.message).toBe('time_domain_unverified');
+  });
+
+  it('reports only a declared period limit exceeded by the request', async () => {
+    const options = { role: 'admin' as const, permission: menuPermission('analytics:view'), maxHours: 96, latency: 0, compute: () => null };
+    const capped = await serve({ ...options, global: ctx({ from: WEEK_FROM }) });
+    expect(capped).toMatchObject({ outcome: 'too_large', recovery: { maxHours: 96 } });
+    setScenario('too_large');
+    try {
+      const forced = await serve({ ...options, global: ctx() });
+      expect(forced.outcome).toBe('too_large');
+      expect(forced.recovery).toBeUndefined();
+    } finally {
+      setScenario('normal');
+    }
+  });
+
+  it.each([
+    [{ scopeId: 'XIA' }, { kind: 'site', site: 'XIA' }],
+    [{ roomNames: ['CVD'] }, { kind: 'site_room', site: 'MEM', room: 'CVD' }],
+    [{ roomNames: ['CVD', 'ETCH'] }, undefined],
+  ] as const)('reports an exact, catalog-backed denied scope for %j', async (over, deniedScope) => {
+    const result = await serve({
+      role: 'viewer', permission: menuPermission('metrics:view'),
+      global: ctx('roomNames' in over ? { roomNames: [...over.roomNames] } : over),
+      latency: 0, compute: () => null,
+    });
+    expect(result.outcome).toBe('forbidden');
+    expect(result.recovery?.deniedScope).toEqual(deniedScope);
+  });
+
   it('errors a 7-day MEM merge and does not compute', async () => {
     const res = await serve({
       role: 'engineer', permission: menuPermission('analytics:view'),
@@ -118,7 +158,7 @@ describe('serve time-domain guard', () => {
       compute: () => { throw new Error('must not merge'); },
     });
     expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
+    expect(res.message).toBe('time_domain_unverified');
     expect(res.data).toBeNull();
     expect(res.assessments).toEqual([]);
     expect(res.trust).toBeNull();
@@ -201,7 +241,7 @@ describe('serve time-domain guard', () => {
       compute: () => { throw new Error('must not merge'); },
     });
     expect(res.outcome).toBe('error');
-    expect(res.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
+    expect(res.message).toBe('time_domain_unverified');
   });
 
   it('allows one equipment through a gap and does not claim clear', async () => {
@@ -303,7 +343,7 @@ describe('serve time-domain guard', () => {
         compute: () => { throw new Error('must not merge'); },
       });
       expect(bad.outcome).toBe('error');
-      expect(bad.message).toBe('time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105');
+      expect(bad.message).toBe('time_domain_unverified');
       const quiet = await serve({
         role: 'engineer', permission: menuPermission('analytics:view'),
         global: ctx(),
@@ -389,7 +429,7 @@ describe('serve time-domain guard', () => {
         compute: () => { throw new Error('must not merge'); },
       });
       expect(pair.outcome).toBe('error');
-      expect(pair.message).toBe('time_domain_mismatch: CN-XIA, KR-WALL');
+      expect(pair.message).toBe('time_domain_mismatch');
     } finally {
       TIME_DOMAIN_ASSERTIONS.pop();
     }

@@ -1,7 +1,7 @@
 import { CornerDownLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type MenuEntry, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
-import { useHostPlatform, useLeaveRequest, useOverlayState } from '@ap/kernel/host';
+import { isImplementedMenu, useHostPlatform, useLeaveRequest, useOverlayState } from '@ap/kernel/host';
 import type { Text } from '@ap/contracts';
 import { usePlatformMenu } from '../frame/platformMenu';
 import { SHELL_MESSAGES } from '../messages';
@@ -21,6 +21,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const [failedSelection, setFailedSelection] = useState(false);
   const platformLabel = text('palettePlatform');
+  const plannedLabel = SHELL_MESSAGES.palettePlanned;
   const platformMenus = usePlatformMenu().sections.flatMap(section => section.items);
   const paletteOwner = useRef(Symbol('CommandPalette'));
   const disposalTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -57,14 +58,17 @@ export function CommandPalette() {
     const searching = words.length > 0;
     const targetOf = (m: MenuEntry, names: readonly string[]): PaletteTarget => {
       const group = registry.groupById(m.group);
-      return { names: [m.label.ko, m.label.en], keywords: [...(m.keywords?.ko ?? []), ...(m.keywords?.en ?? []), ...(m.searchAliases ?? [])], context: [...names, group.label.ko, group.label.en] };
+      return {
+        names: [m.label.ko, m.label.en],
+        keywords: [...(m.keywords?.ko ?? []), ...(m.keywords?.en ?? []), ...(m.searchAliases ?? [])],
+        context: [...names, group.label.ko, group.label.en, ...(!isImplementedMenu(m) ? [plannedLabel.ko, plannedLabel.en] : [])],
+      };
     };
     const build = (pick: (m: MenuEntry, target: PaletteTarget) => number | null) => {
-      // Rank (name > keyword > group/system), then implemented above planned, then recent. Without a query only recency orders.
+      // Rank by match and recency within each section.
       const sort = (menus: readonly MenuEntry[], names: readonly string[]) => menus.filter(m => !m.navHidden)
         .flatMap(m => { const rank = pick(m, targetOf(m, names)); return rank === null ? [] : [{ m, rank }]; })
         .sort((a, b) => a.rank - b.rank
-          || (searching ? Number(!a.m.component && !a.m.moduleScreen) - Number(!b.m.component && !b.m.moduleScreen) : 0)
           || recentRank(a.m.id) - recentRank(b.m.id))
         .map(entry => entry.m);
       const bundles: { key: string; label: Text; items: MenuEntry[] }[] = [];
@@ -74,14 +78,17 @@ export function CommandPalette() {
       }
       const globals = sort(platformMenus, [platformLabel.ko, platformLabel.en]);
       if (globals.length) bundles.push({ key: 'platform', label: platformLabel, items: globals });
-      return bundles;
+      const planned = bundles.flatMap(bundle => bundle.items.filter(menu => !isImplementedMenu(menu)));
+      const implemented = bundles.map(bundle => ({ ...bundle, items: bundle.items.filter(isImplementedMenu) })).filter(bundle => bundle.items.length);
+      if (planned.length) implemented.push({ key: '@planned', label: plannedLabel, items: planned });
+      return implemented;
     };
     const found = build((_m, target) => searching ? matchRank(words, target) : MATCH_NAME);
     if (found.length || !searching) return { sections: found, suggested: false };
     // Nothing matched: offer menus one letter away from the query.
     const near = build((_m, target) => isNearMiss(q, target) ? MATCH_NAME : null);
     return { sections: near, suggested: near.length > 0 };
-  }, [accessibleSpaces, menusInSpace, platformMenus, recent, q, registry, platformLabel]);
+  }, [accessibleSpaces, menusInSpace, platformMenus, recent, q, registry, platformLabel, plannedLabel]);
 
   const items = sections.flatMap(section => section.items);
   const activeId = items[active]?.id;
@@ -146,14 +153,14 @@ export function CommandPalette() {
                   const i = index++;
                   const Icon = m.icon;
                   // <system> › <section> › <menu> (15 §3.2); a name repeated right after itself is written once.
-                  const base = [tx(section.label), tx(registry.groupById(m.group).label), tx(m.label)].filter((name, at, names) => at === 0 || name !== names[at - 1]).join(' › ');
+                  const base = [tx(registry.spaceOf(m)?.label ?? platformLabel), tx(registry.groupById(m.group).label), tx(m.label)].filter((name, at, names) => at === 0 || name !== names[at - 1]).join(' › ');
                   return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} data-list-row data-selected={i === active ? '' : undefined} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
                     className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
                     <Icon className="size-4 text-text-muted" aria-hidden />
                     <span className="min-w-0 flex-1 break-keep">
                       <span className="block text-sm font-medium">{tx(m.label)}</span>
                       {m.paletteDescription && <span className="block truncate text-tiny text-text-secondary" title={tx(m.paletteDescription)}>{tx(m.paletteDescription)}</span>}
-                      <span className={cn('block text-tiny row-meta', i === active && 'text-text-secondary')}>{!m.component && !m.moduleScreen ? `${base} · ${t('planned')}` : base}</span>
+                      <span className={cn('block text-tiny row-meta', i === active && 'text-text-secondary')}>{!isImplementedMenu(m) ? `${base} · ${t('planned')}` : base}</span>
                     </span>
                     {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
                   </li>;

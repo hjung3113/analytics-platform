@@ -104,6 +104,18 @@ describe('getEntity (destination single-row lookup, docs/06 §22)', () => {
     }
   });
 
+  it('marks the alternating partial-scenario failure as retryable', async () => {
+    setScenario('partial');
+    try {
+      const first = await getEntity(ref('MEM-PHOTO-0103'), undefined, { role: 'engineer', latency: 0 });
+      const second = await getEntity(ref('MEM-PHOTO-0103'), undefined, { role: 'engineer', latency: 0 });
+      expect([first, second].map(result => result.outcome).sort()).toEqual(['error', 'ok']);
+      expect([first, second].find(result => result.outcome === 'error')?.recovery).toEqual({ retryable: true });
+    } finally {
+      setScenario('normal');
+    }
+  });
+
   it('locks the fixture rows the cases above rely on', () => {
     const byId = (id: string) => EQUIPMENT.find(e => e.equipmentId === id);
     expect(byId('MEM-PHOTO-0103')).toMatchObject({ equipmentId: 'MEM-PHOTO-0103', site: 'MEM', room: 'PHOTO', model: 'Lithius-Pro', stgroup: 'STG-PHOTO-A' });

@@ -4,7 +4,7 @@ import { carriesReturnTo, formatInstant, pageConditionKeys } from '@ap/contracts
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
 import { QueryBarStatusContext, type ContextEditorFocus, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
-import { ForbiddenRequestMessage, OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
+import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
@@ -14,7 +14,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
-import { AccessRequestEntry, accessRequestBody, scopeRequestTarget, useScopeAccessRequest } from '../state/AccessRequestEntry';
+import { AccessRequestEntry, accessRequestBody, useScopeAccessRequest } from '../state/AccessRequestEntry';
 import { ReturnLink, ReturnRowShown, useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { drillDestinationOf, focusPageFallback } from '../state/pageFocus';
@@ -160,9 +160,12 @@ export function PlatformPage(props: PlatformPageProps) {
   </DeclaredPageConditions>;
 }
 
+/** Host wrapper for the mounted content body, leaving the page chrome outside its error boundary. */
+export const PlatformPageBodyBoundary = createContext<((body: ReactNode) => ReactNode) | null>(null);
+
 function PlatformPageFrame({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children, conditionTrigger, conditionLayer }: PlatformPageProps & { conditionTrigger?: ReactNode; conditionLayer?: ReactNode }) {
-  const { global, page, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, session, scopeSelector } = useHostPlatform();
-  const accessRequest = useScopeAccessRequest();
+  const wrapBody = useContext(PlatformPageBodyBoundary);
+  const { global, page, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, scopeSelector } = useHostPlatform();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
   const conditionPreset = useConditionPreset();
@@ -173,8 +176,8 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
   const [parameterTarget, setParameterTarget] = useState<HTMLDivElement | null>(null);
   const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null);
-  const editorFocus = useRef<ContextEditorFocus | null>(null);
-  const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus, editorFocus }), [barStatus]);
+  const [editorFocus, setEditorFocus] = useState<ContextEditorFocus | null>(null);
+  const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus, editorFocus, setEditorFocus }), [barStatus, editorFocus]);
   const paneBarStatus = useQueryBarStatus();
   const shownBarStatus = barStatus ?? paneBarStatus;
   const { t, tx, lang } = useI18n();
@@ -285,15 +288,6 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   // `Scope 선택` (#1938) only opens the shell's selector; it is drawn on the main screen while a selector is mounted to answer it (a pane has no selector that answers for it).
   const selectorAvailable = useSyncExternalStore(scopeSelector.subscribe, scopeSelector.available, scopeSelector.available) && screenMode === 'main';
   const gate: ReactNode = menu.requiresScope && scope.status !== 'valid' ? <ScopeGate root={root} selectorAvailable={selectorAvailable} /> : null;
-  // Place (e): one request banner for the page body when a widget answers `forbidden` on a partially granted Scope (ADR-0154 decision 6).
-  // A fully granted Scope has no request entry: forbidden grouping still applies to capability failures.
-  const scopeOption = scope.scopeId === null ? undefined : session.scopes.find(option => option.id === scope.scopeId);
-  const forbiddenRequest = accessRequest && menu.requiresScope && scope.status === 'valid' && scope.scopeId !== null && scopeOption !== undefined && scopeOption.grantedRooms < scopeOption.totalRooms
-    ? <AccessRequestEntry slot={accessRequest} target={scopeRequestTarget(scope.scopeId, global.roomNames, scope.grantedRooms)}>{(state, action) => <div data-access-request-banner className="mb-3">
-        <ForbiddenRequestMessage body={accessRequestBody(t, state, false)} action={action} />
-      </div>}</AccessRequestEntry>
-    : null;
-
   const notes = (contextNotes ?? []).filter(note => note != null && note !== false);
   const headVisible = (notes.length > 0 || Boolean(contextExtension)) && !gate;
   // Declared keys already have their own chips and polite region; legacy head metadata keeps only menu-published keys.
@@ -326,6 +320,12 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const navigation = useReturnNavigation({ announceReverted: !carriesOrigin });
   const showReturn = !gate && navigation.origin.accepted;
   const headerActions = showReturn && isValidElement(secondaryActions) && secondaryActions.type === ReturnLink ? undefined : secondaryActions;
+  const content = <OutcomeScope>
+    {bodyInset === 'none'
+      ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'has-[[data-outcome-banner]]:pt-3' : 'has-[[data-outcome-banner]]:pt-7')}><OutcomeBanners compact /></div>
+      : <OutcomeBanners compact />}
+    {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
+  </OutcomeScope>;
   return <WorkspaceQueryBarContext.Provider value={workspaceQueryBar ? { status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header data-canvas-band className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
@@ -396,17 +396,11 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     {!gate && conditionLayer}
     <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(conditionLayer && 'isolate', layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', fixedFill && bounding > 0 && 'min-h-0', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate
       ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
-      : <OutcomeScope>
-        {bodyInset === 'none'
-          ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'has-[[data-outcome-banner]]:pt-3' : 'has-[[data-outcome-banner]]:pt-7')}><OutcomeBanners compact={layout === 'fill'} forbidden={forbiddenRequest} /></div>
-          : <OutcomeBanners compact={layout === 'fill'} forbidden={forbiddenRequest} />}
-        {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
-      </OutcomeScope>}</div>
+      : wrapBody ? wrapBody(content) : content}</div>
     </div>
   </div></ReturnRowShown.Provider></PageBoundContext.Provider></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider></WorkspaceQueryBarContext.Provider>;
 }
 
-/** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
 /** The screen standing in for a page whose Scope is not usable: one branch per `scope.status` (everything but `valid`; `forbidden` is the default branch and carries the request entry, place (c)). */
 function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivElement | null>; selectorAvailable: boolean }) {
   const { scope, retryScope, setGlobal, lastScope, scopeSelector } = useHostPlatform();
@@ -436,6 +430,7 @@ function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivE
   }
 }
 
+/** The return row uses only an accepted origin (ADR-0081 UX-10). */
 function ReturnRow({ navigation: { origin, onNavigate } }: { navigation: ReturnType<typeof useReturnNavigation> }) {
   const { t, tx } = useI18n();
   const compact = useCompactPageDensity();

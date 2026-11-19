@@ -138,7 +138,9 @@ export type AccessRequestState = {
  */
 export type AccessRequestSlot = {
   Pending: ComponentType<{ target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }>;
-  Dialog: ComponentType<{ target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }>;
+  /** The dialog binds the submitted target exactly when `exactTarget` is set. */
+  supportsExactTarget?: true;
+  Dialog: ComponentType<{ target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void; exactTarget?: boolean }>;
 };
 /**
  * A menu whose permission no server declaration grants to anyone (#1846): hidden from every session list, so no actor's `visibleMenus` holds it.

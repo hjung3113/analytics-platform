@@ -232,10 +232,15 @@ describe('UsageOverview next screens (#605)', () => {
     expect(screen.queryByText('3명 미만 목적지 0개')).toBeNull();
     expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
   });
-  it('shows adapter failures through QueryView and retries', async () => {
-    const calls = setup('/admin/usage?focus=admin-audit', async () => ({ ...ok(nextData()), outcome: 'error', data: null, message: 'usage failed' }));
-    const retry = await screen.findByRole('button', { name: /다시/ });
+  it('shows transient adapter failures through QueryView and retries', async () => {
+    const calls = setup('/admin/usage?focus=admin-audit', async () => ({
+      outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'usage-test',
+      message: 'network_error', recovery: { retryable: true },
+    }));
+    const drawer = await screen.findByRole('dialog', { name: '변경 감사' });
+    await within(drawer).findByText('데이터를 불러오지 못했습니다');
+    const retry = within(drawer).getByRole('button', { name: '다시 시도' });
     fireEvent.click(retry);
-    await waitFor(() => expect(calls.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(calls).toHaveBeenCalledTimes(2));
   });
 });

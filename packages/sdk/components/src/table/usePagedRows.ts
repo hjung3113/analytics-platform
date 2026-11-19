@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { clientCorrelationId, serializeGlobal, type ApiResponse, type ColumnFilter, type GroupedPageResult, type PageGroup, type PageSort, type TableQuery, isAnswered } from '@ap/contracts';
 import { usePlatform, useQueryContext } from '@ap/kernel';
-import { useKeptAnswers } from '@ap/kernel/host';
+import { isTransientReadError, useKeptAnswers } from '@ap/kernel/host';
 import type { TableUrlState } from './PlatformDataTable';
 
 type PagedRowsInput<T> = {
@@ -91,6 +91,7 @@ export function usePagedRows<T>(input: PagedRowsInput<T>) {
           response: {
             outcome: 'error', data: null, assessments: [], trust: null,
             correlationId: clientCorrelationId(), message: String(error),
+            ...(isTransientReadError(error) ? { recovery: { retryable: true } } : {}),
           },
         });
       });

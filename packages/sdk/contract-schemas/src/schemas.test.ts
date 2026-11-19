@@ -39,6 +39,21 @@ describe('Assessment and ApiResponse', () => {
     expect(assessmentSchema.safeParse({ kind: 'nope', state: 'clear' }).success).toBe(false);
   });
 
+  it.each([
+    [{ affectedEquipmentIds: ['E1'], authorizedEquipmentIds: ['E1', 'E2'], maxHours: 24, retryable: false }, true],
+    [{ deniedScope: { kind: 'site_room', site: 'MEM', room: 'PHOTO' } }, true],
+    [{ affectedEquipmentIds: ['\u0085'] }, false],
+    [{ maxHours: 0 }, false],
+    [{ deniedScope: { kind: 'site_room', site: 'MEM' } }, false],
+    [{ deniedScope: { kind: 'site', site: 'MEM', room: 'PHOTO' } }, false],
+  ])('validates optional reply recovery %j', (recovery, valid) => {
+    const schema = apiResponseSchema(z.unknown());
+    const response = { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'c1', recovery };
+    const result = schema.safeParse(response);
+    expect(result.success).toBe(valid);
+    if (result.success) expect(result.data.recovery).toEqual(recovery);
+  });
+
   it('ApiResponse requires data (null allowed) and takes the data schema', () => {
     const schema = apiResponseSchema(z.array(z.number()));
     const base = { outcome: 'ok', assessments: [], trust: null, correlationId: 'c1' };

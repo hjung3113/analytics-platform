@@ -130,6 +130,7 @@ const dict = {
   sharedOutcomeBlocked: { ko: '조회 안 함', en: 'not queried' },
   sharedOutcomeTimeout: { ko: '시간 초과', en: 'timeout' },
   sharedOutcomeEmpty: { ko: '0건', en: 'zero rows' },
+  sharedOutcomeTooLarge: { ko: '조회 과대', en: 'query too large' },
   sharedOutcomeForbidden: { ko: '권한 없음', en: 'no access' },
   stateTimeoutBody: { ko: '조회가 제한 시간 안에 끝나지 않았습니다. 기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'The query did not finish in time. Shorten the period or coarsen the granularity and retry.' },
   stateIdle: { ko: '아직 조회하지 않았습니다', en: 'No query has run yet' },
@@ -182,7 +183,7 @@ const dict = {
   customGroupBlockedCause: { ko: '고른 커스텀 조회 그룹을 쓸 수 없어 조회하지 않았습니다.', en: 'A chosen custom query group cannot be used, so no query ran.' },
   customGroupBlockedAction: { ko: '대상에서 그 그룹을 빼거나 다른 그룹을 고르세요.', en: 'Remove that group from the target or pick another group.' },
   customGroupExpansionCause: { ko: '커스텀 조회 그룹을 적용하는 데 필요한 정보를 불러오지 못했습니다.', en: 'The information needed to apply the custom query group could not load.' },
-  customGroupExpansionAction: { ko: '잠시 뒤 다시 시도하세요.', en: 'Try again in a moment.' },
+  customGroupExpansionAction: { ko: '선택한 조회 그룹과 조건을 확인하세요.', en: 'Check the selected query group and conditions.' },
   stateUnknown: { ko: '상태를 확인할 수 없습니다', en: 'Status could not be confirmed' },
   stateUnknownBody: { ko: '왜 이런 상태인지 확인하지 못했습니다. 잠시 뒤 다시 시도하세요.', en: 'The cause could not be confirmed. Try again in a moment.' },
   selectScope: { ko: 'Scope를 선택하세요', en: 'Select a scope' },
@@ -357,7 +358,7 @@ const ERROR_GUIDANCE = {
   time_domain_mismatch: { cause: 'timeDomainMismatchCause', action: 'timeDomainMismatchAction', label: 'sharedOutcomeCannotAggregate', blocked: false },
   // The Kernel's own pre-send block (ADR-0164 decision 8): the ID and code stay in the technical detail.
   // `blocked`: the query was refused by its own conditions, so the screen says so as a notice and offers no retry (#2440).
-  // A failed expansion is a load that may succeed again, so it stays an error with a retry.
+  // A failed expansion stays an error. A transient reply may separately advertise retry.
   'customGroup blocked': { cause: 'customGroupBlockedCause', action: 'customGroupBlockedAction', label: 'sharedOutcomeBlocked', blocked: true },
   'customGroup expansion blocked': { cause: 'customGroupExpansionCause', action: 'customGroupExpansionAction', label: 'sharedOutcomeError', blocked: false },
 } as const satisfies Record<string, { cause: Key; action: Key; label: Key; blocked: boolean }>;

@@ -1,7 +1,7 @@
 // Minimal forwarder (ADR-0148, plan node 1729f): the `handle` implementation for an endpoint whose
 // owner-table row points at an upstream server. One path: POST the original request body shape
 // `{endpoint, context, params}` to `${baseUrl}${path}` with the identity token (ADR-0095 §2/§5)
-// and the correlation id, and return the upstream envelope field for field as `EndpointResult`.
+// and the correlation id, then validate the envelope and constrain equipment recovery before returning it.
 // The forwarder never makes up an outcome (ADR-0095 prohibition 7): a transport failure — network
 // error, timeout, non-2xx, non-JSON or malformed envelope — surfaces as `MenuUpstreamError`, which
 // the route answers with 502/504 and no upstream body text.
@@ -10,7 +10,7 @@ import { apiResponseSchema, assessmentSchema, trustSchema } from '@ap/contract-s
 import { z } from 'zod/v4';
 
 import type { IdentityTokenSigner } from './identity-token.js';
-import type { ScopeGrant } from './scope-resolver.js';
+import { hasRequestScope, type ScopeGrant } from './scope-resolver.js';
 import type { EndpointHandlerArgs, EndpointResult } from './types.js';
 
 /** Structural minimum of an upstream `fetch` response. */
@@ -103,16 +103,65 @@ export interface MenuForwarder {
   forward(input: { endpointId: string; path: string; args: EndpointHandlerArgs; routed?: RoutedEnvelopeDestination }): Promise<EndpointResult>;
 }
 
+/** Server-owned evidence for equipment matching this query, independent of the envelope provider's reply. */
+type ResolveEquipmentLocations = (input: {
+  endpointId: string;
+  args: EndpointHandlerArgs;
+  equipmentIds: readonly string[];
+  signal: AbortSignal;
+}) => Promise<ReadonlyMap<string, { site: string; room: string }>>;
+
+async function proveEquipmentRecovery(
+  affected: string[] | undefined,
+  authorized: string[] | undefined,
+  request: { endpointId: string; args: EndpointHandlerArgs; routed?: RoutedEnvelopeDestination; signal: AbortSignal },
+  resolve: ResolveEquipmentLocations | undefined,
+) {
+  const { endpointId, args, routed, signal } = request;
+  if (!affected || !authorized || !resolve || signal.aborted || !hasRequestScope(args.context, args.scopes)) return;
+  const { scopeId, roomNames, selection } = args.context;
+  if (routed && routed.site !== scopeId) return;
+
+  const equipmentIds = [...new Set([...affected, ...authorized])];
+  let locations: Awaited<ReturnType<ResolveEquipmentLocations>>;
+  try {
+    locations = await resolve({ endpointId, args, equipmentIds, signal });
+  } catch {
+    return;
+  }
+  if (signal.aborted) return;
+
+  const rooms = new Set(args.scopes.filter(grant => grant.site === scopeId).flatMap(grant => grant.rooms));
+  const requestedRooms = Array.isArray(roomNames) ? new Set(roomNames) : undefined;
+  const routedRooms = routed && new Set(routed.rooms);
+  const selected = Array.isArray(selection) ? new Set(selection) : undefined;
+  const proven = new Set(equipmentIds.filter(id => {
+    const location = locations.get(id);
+    return location !== undefined && location.site === scopeId && rooms.has(location.room)
+      && (!requestedRooms || requestedRooms.has(location.room))
+      && (!routedRooms || routedRooms.has(location.room))
+      && (!selected || selected.has(id));
+  }));
+  const authorizedEquipmentIds = [...new Set(authorized.filter(id => proven.has(id)))];
+  const affectedEquipmentIds = [...new Set(affected.filter(id => proven.has(id)))];
+  const authorizedSet = new Set(authorizedEquipmentIds);
+  if (affectedEquipmentIds.length === 0 || !affectedEquipmentIds.every(id => authorizedSet.has(id))
+    || authorizedSet.size <= affectedEquipmentIds.length) return;
+  return { affectedEquipmentIds, authorizedEquipmentIds };
+}
+
 export function createMenuForwarder({
   baseUrl,
   timeoutMs,
   signer,
   fetch: fetchImpl = fetch as MenuUpstreamFetch,
+  resolveEquipmentLocations,
 }: {
   baseUrl: string;
   timeoutMs: number;
   signer: IdentityTokenSigner;
   fetch?: MenuUpstreamFetch;
+  resolveEquipmentLocations?: ResolveEquipmentLocations;
 }): MenuForwarder {
   const normalizedBaseUrl = normalizeMenuUpstreamBaseUrl(baseUrl);
   return {
@@ -154,12 +203,27 @@ export function createMenuForwarder({
       const parsed = envelopeSchema.safeParse(body);
       if (!parsed.success || parsed.data.correlationId !== args.correlationId) throw new MenuUpstreamError('unavailable');
       const envelope = parsed.data;
+      const { affectedEquipmentIds, authorizedEquipmentIds, retryable, ...otherRecovery } = envelope.recovery ?? {};
+      const carriesEquipment = affectedEquipmentIds !== undefined || authorizedEquipmentIds !== undefined;
+      const reason = envelope.message?.split(':', 1)[0]?.trim();
+      const aggregationReason = reason === 'time_domain_unverified' || reason === 'time_domain_mismatch' ? reason : undefined;
+      const sanitizeDiagnostics = carriesEquipment || aggregationReason !== undefined;
+      const message = sanitizeDiagnostics ? aggregationReason : envelope.message;
+      let recovery = envelope.recovery;
+      if (sanitizeDiagnostics) {
+        const equipment = carriesEquipment ? await proveEquipmentRecovery(affectedEquipmentIds, authorizedEquipmentIds,
+          { endpointId, args, ...(routed && { routed }), signal }, resolveEquipmentLocations) : undefined;
+        // Once the refusal lists are hidden, a Retry flag could rerun the same blocked request.
+        const validatedRecovery = { ...otherRecovery, ...equipment, ...(equipment && retryable !== undefined && { retryable }) };
+        recovery = Object.keys(validatedRecovery).length > 0 ? validatedRecovery : undefined;
+      }
       return {
         outcome: envelope.outcome,
         data: envelope.data,
-        assessments: envelope.assessments,
+        assessments: sanitizeDiagnostics ? envelope.assessments.map(({ detail: _detail, ...assessment }) => assessment) : envelope.assessments,
         trust: envelope.trust,
-        ...(envelope.message !== undefined ? { message: envelope.message } : {}),
+        ...(message !== undefined ? { message } : {}),
+        ...(recovery !== undefined ? { recovery } : {}),
       };
     },
   };

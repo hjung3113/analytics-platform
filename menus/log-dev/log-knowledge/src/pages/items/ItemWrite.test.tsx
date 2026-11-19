@@ -539,7 +539,8 @@ describe('assessment conflict reload (#2109)', () => {
     reloadFails = true;
     nextError = { outcome: 'conflict' };
     submit('판단 변경');
-    await screen.findByRole('button', { name: '다시 시도' }, slow);
+    await screen.findByText('데이터를 불러오지 못했습니다', {}, slow);
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
     expect(within(drawer()).getByRole('heading', { name: '판단 변경' })).toBeTruthy();
     expect(within(drawer()).getByText('다른 사람이 먼저 고쳤습니다')).toBeTruthy();
     expect((field(/^사유/) as HTMLTextAreaElement).value).toBe(rationale);
@@ -589,7 +590,8 @@ describe('assessment conflict reload (#2109)', () => {
     reloadFails = true;
     reload();
     await within(drawer()).findByText('최신 상태를 불러오지 못했습니다', {}, slow);
-    await screen.findByRole('button', { name: '다시 시도' }, slow);
+    await screen.findByText('데이터를 불러오지 못했습니다', {}, slow);
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
     expect(screen.queryByRole('button', { name: '수정' })).toBeNull();
     rtlAct(() => {
       window.history.pushState(null, '', `${window.location.pathname}?v=1&drawer=revise`);

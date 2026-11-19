@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ContextType } from 'react';
 import { hashKey, useQuery, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import type { QueryMissing } from './query-draft';
+import { bindQueryRecovery } from './recovery-evidence';
 import { narrowedGlobal } from './condition-preset';
 import { LentPanelQueryContext } from './lent-panel-context';
 import { useHostPlatform, useQueryEngine } from '../platform/platform';
@@ -52,8 +53,14 @@ export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiRes
   return useQueryLifecycle(['platform', instance, identity === 'session' ? null : serializeGlobal(global), pageInputs], run, enabled, refreshEpoch, null);
 }
 
+/** A rejected read is transient only when the producer supplies an explicit platform error name. */
+export function isTransientReadError(error: unknown): boolean {
+  return error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'NetworkError');
+}
+
 function errorEnvelope(error: unknown): ApiResponse<never> {
-  return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: String(error) };
+  return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: String(error),
+    ...(isTransientReadError(error) ? { recovery: { retryable: true } } : {}) };
 }
 
 type Accepted = { key: string; scope: string; data: unknown; at: number; params: unknown };
@@ -116,7 +123,7 @@ function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (sign
         return await run(signal);
       } catch (error) {
         // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal AbortError
-        // timeout — is the normal error path (error outcome + retry), like validateScope since #167.
+        // timeout — is the normal error path, like validateScope since #167.
         if (signal.aborted) throw error;
         return errorEnvelope(error);
       }
@@ -320,9 +327,14 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   const periodReady = spec.context.time !== 'apply' || (global.from !== null && global.to !== null);
   const transport = async (context: MenuQueryContext, params: P, signal?: AbortSignal): Promise<ApiResponse<T>> => {
     if (aborted(signal) || (lent && !lent.current())) throw new DOMException('aborted', 'AbortError');
+    // Copy the request Context before transport so recovery cannot bind to adapter-mutated inputs.
+    const submitted = structuredClone(context);
+    const projectedKey = hashKey([projected]);
     const response = await adapter.menuQuery({ endpoint: spec.id, context, params }, signal);
-    if (lent && (aborted(signal) || !lent.current())) throw new DOMException('aborted', 'AbortError');
-    return checkMenuResponse(spec, context, response);
+    if (aborted(signal) || (lent && !lent.current())) throw new DOMException('aborted', 'AbortError');
+    const checked = checkMenuResponse(spec, submitted, response);
+    return lent ? checked : bindQueryRecovery(checked, submitted, inputs,
+      host => hashKey([projectMenuContext(spec, host, options)]) === projectedKey, signal);
   };
   // Without a chosen custom group the adapter is called in the same tick as before; only expansion adds awaits.
   const send = (params: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> => {

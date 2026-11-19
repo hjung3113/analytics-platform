@@ -18,12 +18,12 @@ export function scopeTargetOf(target: PermissionRequestTarget): RequestAccessSco
  * submit invalidates the mine list in `featureQueryClient` and the slot's `Pending` flips without a reload. Opened lazily by
  * `access-request-slot.tsx` only in a ready session.
  */
-export default function AccessRequest({ target, returnTo, open, onOpenChange }: { target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+export default function AccessRequest({ target, returnTo, open, onOpenChange, exactTarget }: { exactTarget?: boolean; target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const scopeTarget = scopeTargetOf(target);
   if (scopeTarget === null) return null;
   // Keyed by the target: the form keeps its draft and completion step only for the same site/room (review C1); a changed target is a new form.
   const key = scopeTarget.kind === 'site_room' ? `site_room\u0000${scopeTarget.site}\u0000${scopeTarget.room}` : `site\u0000${scopeTarget.site}`;
   return <FeatureBridge canLink={ACCESS_REQUEST_LINKS.canLink} Link={ACCESS_REQUEST_LINKS.Link}>
-    <RequestAccessButton key={key} scopeTarget={scopeTarget} returnRouteIntent={returnTo} open={open} onOpenChange={onOpenChange} />
+    <RequestAccessButton key={JSON.stringify([key, Boolean(exactTarget)])} exactScopeTarget={exactTarget} scopeTarget={scopeTarget} returnRouteIntent={returnTo} open={open} onOpenChange={onOpenChange} />
   </FeatureBridge>;
 }

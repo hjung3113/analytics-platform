@@ -189,7 +189,7 @@ describe('page-fit row area cap (ADR-0037)', () => {
     const loadPage = vi.fn(async (_q: PageQuery): Promise<ApiResponse<PageResult<Row>>> => {
       calls += 1;
       return calls === 1
-        ? { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'x' }
+        ? { outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'x', recovery: { retryable: true } }
         : { outcome: 'ok', data: { rows: [{ id: 'r1', status: 's0' }], total: 1 }, assessments: [], trust: null, correlationId: 'c' };
     });
     render(<Page loadPage={loadPage} />);

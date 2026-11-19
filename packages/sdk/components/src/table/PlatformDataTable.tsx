@@ -292,10 +292,6 @@ export type PlatformDataTableProps<T> = TableBaseProps<T> & (
 const NO_FILTERS: ColumnFilter[] = [];
 const ALL_COLUMNS_VISIBLE: Readonly<Record<string, boolean>> = {};
 
-/** The outcome container shows a retry button: a failed or timed-out read, and (only when `groupedEmpty`) an empty one that joined a shared-response group (#1175). */
-const isRetryable = (response: Pick<ApiResponse<unknown>, 'outcome'> | null, groupedEmpty = false): boolean =>
-  response?.outcome === 'error' || response?.outcome === 'timeout' || (groupedEmpty && response?.outcome === 'empty');
-
 const CellSelection = createContext<TableCell | null>(null);
 
 type CellTabStops = {
@@ -455,7 +451,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const statusNarrow = trustRoom !== null && trustRoom > 0 && probe.width !== null && probe.width > 0
     && probe.width + TRUST_BUTTON_PADDING + (countSpan.width ? countSpan.width + STATUS_GAP : 0) + (refreshSpan.width ? refreshSpan.width + STATUS_GAP : 0) > trustRoom;
   // The table's result joins the page's OutcomeScope like a QueryView does; the toolbar <h2> already names it, so the grouped state hides the name line (§306).
-  const { grouped: groupedOutcome, bannerId: outcomeBannerId, multiple: multipleOutcomeGroups } = useSharedOutcomeNotice(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
+  const { grouped: groupedOutcome, bannerId: outcomeBannerId } = useSharedOutcomeNotice(shown, retry, p.ariaLabel, loading ? (shown ? 'refreshing' : 'loading') : 'done');
   const selectionState = useTableSelection<T>({ enabled: selectable, selectAllResults: !!p.selectAllResults, rows: data.rows, getRowId: p.getRowId, total: data.total, resultOk: shown?.outcome === 'ok' });
   const { selectedIds, rowSelection: effectiveSelection } = selectionState;
   const selectedCount = selectionState.count;
@@ -622,8 +618,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     // so nothing is stolen from a focus that moved away.
     if (focusedRetry.current) {
       if (success && shown?.outcome === 'ok') { focusedRetry.current = false; viewport.current?.focus(); return; }
-      // A grouped empty keeps its own retry button (the scope's shared-response rule), so it is retryable too (#1175).
-      if (isRetryable(shown, groupedOutcome)) { outcome.current?.querySelector('button')?.focus(); return; }
+      const retry = groupedOutcome && outcomeBannerId
+        ? document.getElementById(outcomeBannerId)?.querySelector<HTMLButtonElement>('[data-outcome-retry]')
+        : outcome.current?.querySelector<HTMLButtonElement>('[data-outcome-retry]');
+      if (retry) { retry.focus(); return; }
       focusedRetry.current = false;
       section.current?.focus();
       return;
@@ -634,12 +632,11 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     if (!owned || !(owned === 'previous' ? previousDisabled : nextDisabled)) return;
     focusedPager.current = null;
     const opposite = owned === 'previous' ? nextButton.current : previousButton.current;
-    const retryButton = isRetryable(shown)
-      ? outcome.current?.querySelector('button') : null;
+    const retryButton = outcome.current?.querySelector<HTMLButtonElement>('[data-outcome-retry]');
     const target = opposite && !opposite.disabled ? opposite : retryButton ?? section.current;
     target?.focus();
     // groupedOutcome: joining or leaving a group swaps the state message (and its retry button) without any other change here (#1175).
-  }, [loading, previousDisabled, nextDisabled, shown, success, groupedOutcome]);
+  }, [loading, previousDisabled, nextDisabled, shown, success, groupedOutcome, outcomeBannerId]);
 
   const { pan, tableWidth, widthOf, displayedSize, lineClass, cellStyle, groupHeadStyle: groupSpanStyle, renderCells } = useColumnGroupLayout({ table, model: columnGroups, sizing: preferences.sizing, fitWidth: fit.width, columnDividers: p.columnDividers });
   // A resize drag is computed from the rendered width plus the pointer's travel, not from the engine's base size (which is narrower for a
@@ -1027,7 +1024,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   }
 
   const showOutcome = shown && shown.outcome !== 'ok';
-  const outcomeContent = showOutcome ? <div ref={outcome} onFocus={() => { focusedRetry.current = true; }} onBlur={() => { focusedRetry.current = false; }} className={cn('p-3', !grid && 'border-t border-border-subtle')}><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction ?? (effectiveFilters.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { columnFilters.clear(); droppedNote.reset(); }}>{t('clearConditions')}</Button> : undefined)} grouped={groupedOutcome} bannerId={outcomeBannerId} multipleGroups={multipleOutcomeGroups} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> : null;
+  const outcomeContent = showOutcome ? <div ref={outcome} onFocus={event => { focusedRetry.current = event.target.hasAttribute('data-outcome-retry'); }} onBlur={() => { focusedRetry.current = false; }} className={cn('p-3', !grid && 'border-t border-border-subtle')}><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction ?? (effectiveFilters.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { columnFilters.clear(); droppedNote.reset(); }}>{t('clearConditions')}</Button> : undefined)} grouped={groupedOutcome} bannerId={outcomeBannerId} busy={loading} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> : null;
 
   return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle && !p.pageOwnedToolbar ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
     {p.editableColumnGroups && <SavedTableState preferenceKey={props.preferenceKey} columns={source.columns} declared={props.columnGroups} groups={preferences.groups} apply={applyColumnGroups} ready={groupsReady} />}

@@ -1,11 +1,10 @@
 import { Ban, FileQuestion, Link2Off } from 'lucide-react';
 import { lazy, Suspense, useRef } from 'react';
-import { CONTEXT_LABELS, PAGE_TYPE_LABELS, PlatformLink, contractErrorSentence, useI18n, useMessages } from '@ap/kernel';
-import { ScreenContentLoading, useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
-import { LoadingBlock, Panel, PlatformPage, StateMessage, focusPageFallback } from '@ap/components';
-import { Button, StatusBadge, shortcutLabel } from '@ap/ui';
-import { menuPermissions, type Capability, type ContextKey, type Permission } from '@ap/contracts';
-import { contextBarVisible } from '../context/GlobalContextBar';
+import { PlatformLink, contractErrorSentence, routeParamNames, useI18n, useMessages } from '@ap/kernel';
+import { isImplementedMenu, ScreenContentLoading, useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
+import { LoadingBlock, Panel, PlatformPage, PlatformPageBodyBoundary, StateMessage, focusPageFallback } from '@ap/components';
+import { Button, shortcutLabel } from '@ap/ui';
+import { menuPermissions, type Permission } from '@ap/contracts';
 import { HomeLink } from '../frame/HomeLink';
 import { ShellBoundary } from '../frame/ShellBoundary';
 import { SHELL_MESSAGES } from '../messages';
@@ -78,12 +77,14 @@ export function ScreenOutlet() {
   // Every screen is a different instance per session generation (#2075): a session change notice (revision), another user or an adapter
   // swap (its revision count restarts at 0, even for the same user) remounts it and drops its local state; URL state survives because it comes from the URL.
   const instanceKey = `${route.menu.id}${JSON.stringify(route.params)}|${sessionKey}`;
-  if (route.menu.moduleScreen) return <RouteErrorBoundary onError={reportError} resetKey={instanceKey}>
-    <ModuleScreen key={instanceKey} entry={route.menu} params={route.params} />
-  </RouteErrorBoundary>;
-  if (!Page) return <PlannedPage />;
+  if (!isImplementedMenu(route.menu)) return <PlannedPage />;
+  const screen = route.menu.moduleScreen
+    ? <ModuleScreen key={instanceKey} entry={route.menu} params={route.params} />
+    : Page && <Page key={instanceKey} params={route.params} />;
   return <RouteErrorBoundary onError={reportError} resetKey={instanceKey}>
-    <Page key={instanceKey} params={route.params} />
+    <PlatformPageBodyBoundary.Provider value={body => <RouteErrorBoundary body onError={reportError} resetKey={instanceKey + url}>{body}</RouteErrorBoundary>}>
+      {screen}
+    </PlatformPageBodyBoundary.Provider>
   </RouteErrorBoundary>;
 }
 
@@ -135,35 +136,26 @@ function ContractErrorView() {
 }
 
 /** Registry-only menu: proves shell, permissions and Context transfer work before the screen exists. */
-function capabilityLabel(cap: Capability, t: (key: 'applied' | 'referenceOnly' | 'notUsed') => string) {
-  if (cap === 'apply') return t('applied');
-  if (cap === 'reference') return t('referenceOnly');
-  return t('notUsed');
-}
-
 function PlannedPage() {
-  const { route, registry } = useHostPlatform();
-  const { t, tx } = useI18n();
+  const { route, registry, canOpen, linkTo } = useHostPlatform();
+  const { tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const menu = route!.menu;
-  const keys = Object.keys(menu.context) as ContextKey[];
-  const tone = { apply: 'success', reference: 'info', unsupported: 'neutral' } as const;
-  const barVisible = contextBarVisible(menu.context);
+  const space = registry.spaceOf(menu);
+  const siblings = registry.menus.filter(candidate =>
+    (candidate.group === menu.group || (space !== null && registry.spaceOf(candidate) === space))
+    && isImplementedMenu(candidate) && !candidate.navHidden
+    && routeParamNames(candidate.path).length === 0 && canOpen(candidate.id));
   return <PlatformPage>
-    <div className="grid gap-3 wide:grid-cols-[1fr_1fr]">
-      <Panel title={t('plannedTitle')} subtitle={t('plannedBody')}>
-        <dl className="grid grid-cols-[10rem_1fr] gap-y-1.5 text-sm">
-          <dt className="text-text-muted">{m('plannedGroup')}</dt><dd>{tx(registry.groupById(menu.group).label)}</dd>
-          <dt className="text-text-muted">{t('pageType')}</dt><dd>{tx(PAGE_TYPE_LABELS[menu.pageType])}</dd>
-        </dl>
-      </Panel>
-      <Panel title={t('capability')} subtitle={barVisible ? m('plannedCapabilitySubtitle') : undefined}>
-        <ul className="grid grid-cols-2 gap-1.5 text-sm">
-          {keys.map(k => <li key={k} className="flex items-center justify-between rounded-sm bg-surface-sunken px-2 py-1">
-            <span>{tx(CONTEXT_LABELS[k])}</span><StatusBadge tone={tone[menu.context[k]]}>{capabilityLabel(menu.context[k], t)}</StatusBadge>
-          </li>)}
-        </ul>
-      </Panel>
-    </div>
+    <Panel title={m('plannedScreen', { menu: tx(menu.label) })} subtitle={tx(menu.description)} className="break-keep">
+      {siblings.length > 0 && <>
+        <h3 className="mb-2 text-xs font-medium text-text-secondary">{m('plannedLinks')}</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          {siblings.map(candidate => <Button key={candidate.id} size="sm" variant="secondary" asChild>
+            <PlatformLink className="break-keep" href={linkTo(candidate.id)}>{tx(candidate.label)}</PlatformLink>
+          </Button>)}
+        </div>
+      </>}
+    </Panel>
   </PlatformPage>;
 }

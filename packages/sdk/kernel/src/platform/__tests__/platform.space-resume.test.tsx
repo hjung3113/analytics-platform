@@ -248,7 +248,7 @@ describe('spaceResume (06 §9.1)', () => {
   });
 });
 
-// Deliberately interleaved menus: sidebar group order wins over global menu order.
+// Deliberately interleaved menus: an ineligible home falls back in Registry menu order.
 const entryRegistry = createRegistry({
   permissions: [menuPermission('analytics:view')],
   spaces,
@@ -277,10 +277,10 @@ function mountEntry(permissions: Session['user']['permissions']) {
 
 describe('spaceEntry and canOpen (#264)', () => {
   it.each([
-    ['partial permission', ANALYST, null, { menuId: 'first', href: '/mars/first?v=1&scopeId=MEM', resumed: false }],
+    ['partial permission', ANALYST, null, { menuId: 'later-group', href: '/mars/later-group?v=1&scopeId=MEM', resumed: false }],
     ['openable home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], null, { menuId: 'equipment', href: '/mars/equipment?v=1&scopeId=MEM', resumed: false }],
     ['last screen before home', [...ANALYST, 'analytics:view'] as Session['user']['permissions'], '/second?v=1&page=2', { menuId: 'second', href: '/mars/second?v=1&scopeId=MEM&page=2', resumed: true }],
-    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'first', href: '/mars/first?v=1&scopeId=MEM', resumed: false }],
+    ['rejected last screen', ANALYST, '/equipment?v=1', { menuId: 'later-group', href: '/mars/later-group?v=1&scopeId=MEM', resumed: false }],
     ['no openable menu', NOTICES_ONLY, null, null],
   ])('chooses %s', (_label, permissions, stored, expected) => {
     if (stored) sessionStorage.setItem('platform:space-last:u1', JSON.stringify({ mars: stored }));
@@ -292,7 +292,7 @@ describe('spaceEntry and canOpen (#264)', () => {
     mountEntry(ANALYST);
     const push = vi.spyOn(window.history, 'pushState');
     act(() => entryPlatform.switchSpace(spaceId('mars')));
-    expect(push).toHaveBeenCalledWith({ apIdx: 1, apSeg: expect.any(String) }, '', '/mars/first?v=1&scopeId=MEM');
+    expect(push).toHaveBeenCalledWith({ apIdx: 1, apSeg: expect.any(String) }, '', '/mars/later-group?v=1&scopeId=MEM');
     act(() => entryPlatform.switchSpace(spaceId('mars')));
     act(() => entryPlatform.switchSpace(spaceId('operations')));
     expect(push).toHaveBeenCalledTimes(1);

@@ -36,7 +36,7 @@ type Row = { id: string };
 const columns: PlatformDataTableProps<Row>['columns'] = [{ id: 'id', header: 'ID', cell: row => row.id }];
 
 const failure = (outcome: 'error' | 'empty', message = 'Same response'): ApiResponse<PageResult<Row>> =>
-  ({ outcome, message, data: outcome === 'empty' ? { rows: [], total: 0 } : null, assessments: [], trust: null, correlationId: 'corr-table' });
+  ({ outcome, message, data: outcome === 'empty' ? { rows: [], total: 0 } : null, assessments: [], trust: null, correlationId: 'corr-table', recovery: outcome === 'error' ? { retryable: true } : undefined });
 const query = (outcome: 'error' | 'empty', refetch = vi.fn(), message = 'Same response'): QueryState<unknown> =>
   ({ response: failure(outcome, message), refetch, missing: [], completedAt: null, status: 'done' });
 
@@ -46,7 +46,7 @@ function Page({ loadPage, sibling, scoped = true }: { loadPage: TableLoadPage<Ro
     {sibling && <QueryView query={sibling} widgetName="Sibling">{() => <p>Success</p>}</QueryView>}
     <PlatformDataTable title="T" ariaLabel="지표 표" columns={columns} getRowId={r => r.id} loadPage={loadPage} filterKey="f" preferenceKey="scope-table" pageSize={25} height={200} />
   </>;
-  return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>{scoped ? <OutcomeScope>{body}</OutcomeScope> : body}</PlatformProvider></I18nProvider>;
+  return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}>{scoped ? <div data-outcome-focus-target tabIndex={-1}><OutcomeScope>{body}</OutcomeScope></div> : body}</PlatformProvider></I18nProvider>;
 }
 
 describe('PlatformDataTable in an OutcomeScope (#1175)', () => {
@@ -117,23 +117,22 @@ describe('PlatformDataTable in an OutcomeScope (#1175)', () => {
     await waitFor(() => expect(wrapper()).toHaveAttribute('aria-busy', 'false'));
   });
 
-  // C2: only the sibling changes while the table's own retry has focus → focus stays on the (new) retry button.
   it.each([
     ['joins', 'ok', 'error'],
     ['leaves', 'error', 'ok'],
-  ] as const)('keeps the table retry focused when the sibling %s the group', async (_name, from, to) => {
+  ] as const)('preserves a focus destination when the sibling %s the group', async (change, from, to) => {
     const loadPage = vi.fn(async () => failure('error'));
     const make = (o: 'ok' | 'error') => o === 'ok' ? okQuery() : query('error');
     const { rerender } = render(<Page loadPage={loadPage} sibling={make(from)} />);
-    await screen.findByText(/지표 표|데이터를 불러오지 못했습니다/);
-    await waitFor(() => expect(document.querySelector('section [data-widget-state], section [role="alert"]')).not.toBeNull());
-    const retryIn = () => within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
-    const before = retryIn();
+    const before = from === 'error'
+      ? within(await screen.findByRole('group', { name: '위젯 상태 요약' })).getByRole('button', { name: '다시 시도' })
+      : within(await screen.findByRole('alert')).getByRole('button', { name: '다시 시도' });
     act(() => { before.focus(); });
     expect(before).toHaveFocus();
     rerender(<Page loadPage={loadPage} sibling={make(to)} />);
-    const after = retryIn();
-    expect(after).not.toBe(before);
+    const after = change === 'joins'
+      ? within(screen.getByRole('group', { name: '위젯 상태 요약' })).getByRole('button', { name: '다시 시도' })
+      : document.querySelector('[data-outcome-focus-target]');
     expect(after).toHaveFocus();
   });
 
@@ -152,16 +151,11 @@ describe('PlatformDataTable in an OutcomeScope (#1175)', () => {
     outside.remove();
   });
 
-  // C3: a grouped empty has its own retry; empty → empty keeps focus on it.
-  it('keeps focus on the grouped-empty retry when it settles on empty again', async () => {
+  it('keeps the grouped empty result free of retry actions', async () => {
     const loadPage = vi.fn(async () => failure('empty'));
     render(<Page loadPage={loadPage} sibling={query('empty')} />);
-    await screen.findByRole('group', { name: '지표 표' });
-    const retry = within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
-    act(() => { retry.focus(); });
-    await act(async () => { fireEvent.click(retry); });
-    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
-    const after = within(document.querySelector('section > div[aria-busy]') as HTMLElement).getByRole('button', { name: '다시 시도' });
-    await waitFor(() => expect(after).toHaveFocus());
+    await screen.findByRole('group', { name: '위젯 상태 요약' });
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    expect(loadPage).toHaveBeenCalledTimes(1);
   });
 });

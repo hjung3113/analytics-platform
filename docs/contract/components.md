@@ -132,6 +132,8 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - GroupedSelectionList (`@ap/ui`, 분류된 체크박스·radio 선택과 검색·다중 선택 프리셋, 아래 계약)
 - AuditTimeline
 - QueryView / OutcomeView / StateMessage (응답 상태, EmptyState 역할), PlatformPage-provided shared outcome scope / banner (§19)
+- `RecoverButton.primary?: boolean`은 공유 조회 복구에서 한 동작을 기본 버튼으로 강조한다. 생략하면 보조 버튼이다. `AccessRequestEntry.emphasis?: 'primary'`는 같은 강조를 신청 동작에 적용한다. `size="field"`는 필드 안의 기존 버튼을 쓴다.
+- `PlatformPageBodyBoundary`는 호스트가 마운트된 `PlatformPage`의 본문을 감싸는 Context다. 본문을 받아 렌더할 노드를 돌려준다. 셸은 여기서 오류를 받아 머리와 조회 조건을 유지한다([Kernel §4](kernel.md#4-platform-kernel-responsibilities)). 제공하지 않으면 페이지가 본문을 직접 렌더한다.
 - StatCard / Panel (icon chip 팔레트와 deprecated 값의 이전 규칙: [DESIGN — KPI tiles](../../DESIGN.md#kpi-tiles-and-supporting-copy))
 - DrillPath / DrillLayout (드릴다운 경로 바와 단계 본문, §12.7)
 - Inspector (분석 화면 보조 섹션을 한 번 선언해 `stack`·`rail` 두 형태로 보인다, [ADR-0080](../adr/0080-inspector-forms.md))
@@ -672,22 +674,23 @@ Unknown
 
 **사용자 문구 (Decided, 사용자 2026-10-15, #304, [ADR-0034](../adr/0034-user-facing-copy-no-contract-vocabulary.md)):** 사용자에게 보이는 문구에는 계약 상태어(Candidate·Open·Deferred), 상태 enum 원문(`unknown`·`source_unavailable`·`clear`·`unsupported`·`apply`), 수식 표기(`[from, to)`, 초 정렬), 계약 문장(세션값을 자동 적용하지 않는다, 다른 Scope로 조용히 대체하지 않는다)을 쓰지 않는다. 이미 있는 번역 라벨(참조만, 이 화면에서 미사용)을 쓴다. 서버 `message`는 본문에 넣지 않고 추적 번호(`추적 번호`, 영어 `Trace ID`; 표 내보내기 파일의 `Correlation ID` 열 이름은 파일 형식이라 그대로) 옆의 접힌 「기술 정보」 안(펴면 접근 가능한 이름 `서버 세부`)에만 보인다. 본문은 계약 오류 코드별 원인과 행동이며, 매핑되지 않는 코드는 일반 오류 문구다. 이 문단은 문구 원칙이고 §19 상태 분류와 `outcome` 분기는 바꾸지 않는다.
 
-### 공유 위젯 응답 (Decided, 사용자 2026-10-04, #55 B안)
+### 공유 위젯 응답 (Decided, #2535 A안)
 
-**Decided, 소유자 2026-11-14, #1994:** 같은 원인은 배너에서 한 번 안내하고 권한 거부도 같은 규칙으로 묶는다.
+- `error`·`timeout`·`empty`·`forbidden`·`too_large` 응답의 상태·메시지·확정된 빈 결과 근거·복구 값이 같은 위젯이 두 개 이상이면 묶는다. 근거와 설비 ID의 순서는 무관하다. 복구 값이나 설명·원천·관측 시점이 다르면 각각 표시한다. 하나뿐이면 이름 있는 인라인 상태 카드를 쓴다.
+- `PlatformPage`는 flow와 fill 본문 상단에 그룹별 띠를 하나씩 배치한다. 큰 그룹이 먼저다. 띠에 상태 접두·설명 또는 요약·동작을 두고, 전체 문구는 `title`과 「자세히」 Popover에서 읽을 수 있다. Popover 접근 이름은 상태 제목이다. 위젯 이름을 알고 있으면 띠의 접근 가능한 설명과 Popover에서 읽을 수 있다. `DetailDrawer`는 자체 scope와 상세 상단의 전체 배너를 쓴다.
+- 위젯은 이름과 상태를 붙인 「위 안내 참고(집계 불가)」와 같은 안내를 표시한다. `aria-describedby`로 해당 띠를 연결하며, 접힌 「기술 정보」에 위젯별 추적 번호와 서버 진단을 제공한다. 집계 거부와 설비 복구 응답의 진단에는 알려진 집계 사유 코드만 표시하고, 설비 근거는 요청과 권한을 대조한 구조화 값으로 표시한다. 위젯 이름이 없으면 추정하지 않으며, 이미 위에 보이는 이름은 접근 이름으로 유지할 수 있다. `PlatformDataTable`은 `ariaLabel`로 참여한다. `OutcomeView`는 독립 카드로 그린다.
+- 집계 불가·서버 오류·시간 초과는 danger, 조회 전 막힘(`customGroup blocked:`)·0건은 neutral/sunken, 권한 없음·조회 한도는 warning이다. scope의 assertive·polite 채널이 그룹별 요약과 갱신을 한 번 안내한다. 그룹의 개별 위젯은 이름 있는 일반 group으로 표시한다. [DESIGN](../../DESIGN.md#shared-outcome-banner-and-compact-widget-state).
+- 띠 또는 카드마다 원인을 해결하는 주 동작을 하나까지 둔다. 조건 열기·초기화·재시도는 보조 동작이다. 검증한 설비 제외와 기간 단축을 모두 제공할 때는 설비 제외를 강조한다. 기술 정보와 띠의 「자세히」는 계속 열 수 있다.
+- 응답이나 전송 계층이 일시 오류를 확인해 `retryable: true`를 보낸 경우에만 재시도를 제공한다. 응답이 영구 실패, 입력 오류, 권한 거부 또는 집계·조회 한도를 확인하면 원인에 맞는 동작을 제공한다. 그룹 재시도 버튼은 구성 위젯 전체를 재조회한다. 갱신 동안 버튼의 아이콘·busy·중복 실행 방지와 포커스를 유지한다. 띠가 사라지면 그 띠나 자체 Popover에 남은 포커스를 상세 패널 또는 페이지 본문으로 옮긴다. 이미 다른 곳으로 옮긴 포커스는 유지한다. 빈 결과에는 적용된 조건을 열 수 있는 동작을 두고, 명시적 설비 공집합에서는 필터 초기화도 제공한다.
 
-- 페이지에서 `outcome ∈ {error, timeout, empty, forbidden}`·`message`·확정된 empty 설명(`explainsEmpty && state === confirmed`)의 근거 전체가 같은 위젯이 두 개 이상이면 한 그룹으로 묶는다. 평가 순서는 무관하며 원천·관측시각·설명이 다르면 묶지 않는다. `too_large`, `ok`, 알 수 없는 상태는 묶지 않는다. 같은 응답에서 수집·상위 시스템 원인을 추론하지 않는다.
-- 각 그룹은 본문 상단에 Callout 배너 하나를 표시한다: 의미 아이콘·§19 상태 제목·“위젯 N개가 같은 이유로 열리지 않았습니다.” / “N widgets could not open for the same reason.” 요약·원인 본문과 조언·그룹의 모든 조회를 다시 실행하는 재시도 하나. `forbidden` 배너에는 재시도를 두지 않는다. 배너에는 추적 번호를 표시하지 않는다. 여러 그룹이 있으면 모두 표시하며 큰 그룹이 먼저다. 여러 그룹이 있을 때는 각 배너(얇은 띠는 `자세히` 안)에 제공된 소속 위젯 이름을 함께 표시한다(이름이 없는 위젯은 발명하지 않는다).
-- 앱이 막힌 자리 신청 슬롯([§8 `accessRequest`](layout.md#8-shell-slots))을 주고 세션에 `requestableScopes`가 있으며 지금 Scope가 부분 부여(`grantedRooms < totalRooms`)인 `requiresScope` 메뉴에서는, 본문 위젯이 하나라도 `forbidden`이면 `권한 요청` 배너 하나를 그린다(위젯마다 버튼을 두지 않는다). 이 배너가 forbidden 그룹 안내를 대신하며 같은 forbidden 그룹 배너를 중복 표시하지 않는다. 서로 다른 근거의 `forbidden` 그룹이 둘 이상이면 각 근거 그룹별로 위젯 수와 소속 이름을 나누어 요약하며 서로 다른 근거를 한 숫자로 합치지 않는다. 대상은 적용된 조건의 부여받지 않은 첫 room(`site_room`), 없으면 site다. 대기 중인 요청이 있으면 `요청 대기 중`과 `요청 상태` 링크를 그린다. 완전 부여 Scope의 `forbidden`은 capability 문제라 권한 요청 배너를 그리지 않는다([ADR-0154](../adr/0154-site-and-room-grants-are-platform-owned.md) 결정 6).
-- 그룹 위젯은 이름과 한 줄 안내, 개별 재시도만 표시하며 각 그룹 배너의 고유 ID를 `aria-describedby`로 가리킨다. 그룹이 하나이면 `위 안내 참고` / `See the notice above`, 둘 이상이면 상태 이름을 붙인다(예: `위 안내 참고(서버 오류)` / `See the notice above (server error)`). 오류의 상태 이름은 compact 배너 접두와 같은 Kernel `errorGuidance(message).label`을 따른다(예: 시간 기준 거부는 `위 안내 참고(집계 불가)`). 상태 제목·본문·시간 초과 조언은 배너에서 한 번만 안내한다. `forbidden` 위젯에는 재시도를 두지 않는다. 위젯별 추적 번호와 서버 원문은 접힌 「기술 정보」 안에 둔다. Consumer가 같은 제목을 바로 위에 보여주면 중복 visible 제목은 생략하고 등록·접근 이름은 유지한다.
-- **얇은 띠 (fill 페이지, Decided, 사용자 2026-10-23, #680, [ADR-0075](../adr/0075-page-head-one-line-fold-thin-outcome-strip.md)):** `layout="fill"` 페이지의 배너는 한 줄 띠다 — 아이콘, 짧은 상태 접두(`서버 오류 ·`), 요약 문장(줄이면 `title`로 전체), `자세히`(Popover만: 클릭·Enter·Space — 상태 제목과 전체 요약·본문·조언을 보이고, Popover의 접근 이름은 그 상태 제목이다), `다시 시도`(forbidden 제외). 같은 `data-outcome-banner`·`role=group`·이름·live 안내·danger/neutral/warning 톤·그룹당 하나(큰 그룹 먼저)·재시도 busy·중복 활성화 방지·포커스 복귀 규칙이다. 띠가 사라질 때 `자세히`가 열려 있으면 먼저 닫고 포커스가 그 띠 자신의 Popover 안에 있을 때만(다른 그룹의 Popover는 아니다) 아래 복귀 대상으로 간다. 요약 문장을 줄이고 `title`로 전체를 주는 것은 띠에서만 허용하고 전체 배너는 문장을 그대로 둔다. flow 페이지와 `DetailDrawer`는 전체 배너를 쓴다.
-- error/timeout 배너는 danger, empty 배너는 neutral, forbidden 배너는 warning이며 보이는 배너는 non-live `role=group`이다. scope는 처음부터 빈 assertive/polite live region을 유지하고, danger 요약은 assertive 채널, neutral/warning 요약은 polite 채널의 문구를 갱신해 한 번 안내한다. 보이는 배너와 위젯은 별도 live 채널을 만들지 않는다. 그룹 위젯은 live region 없는 이름 있는 group으로 두어 같은 응답을 반복 announce하지 않는다(§26). 한 위젯만 실패하면 배너 없이 전체 StateMessage를 유지한다(오류 카드의 색·테두리 recipe: [DESIGN](../../DESIGN.md#shared-outcome-banner-and-compact-widget-state--decided-b-2026-10-04)).
-- **얇은 띠의 오류 안내 (#2509)** — Kernel에 원인·조치가 등록된 `error`는 조회 전 막힘을 제외하고 두 문장을 띠에 표시한다. 말줄임할 때는 `title`에 두 문장 전체를 담는다. 시간 기준 미확인 또는 불일치의 접두는 「집계 불가」 / “cannot aggregate”, 커스텀 조회 그룹 펼치기 실패의 접두는 「서버 오류」 / “server error”다. `자세히`에는 전체 요약과 소속 위젯 이름을 기존 표시 조건에 따라 유지한다.
-- **조회 전 막힘 (#2440):** Kernel이 보내기 전에 조회 조건 때문에 막은 `error`(Kernel `errorGuidance(message).blocked`, 지금은 `customGroup blocked:` 코드)는 서버 오류가 아니다. 단일 위젯·그룹 배너·얇은 띠 모두 neutral 톤과 조건 아이콘, 제목 `조회 조건 때문에 조회하지 않았습니다`, 띠 접두 `조회 안 함 ·`, 원인·조치 본문으로 보이고, 배너와 위젯 어디에도 재시도를 두지 않으며 요약은 polite 채널로 안내한다. 추적 번호와 원문은 「기술 정보」에 그대로 둔다. `PlatformPage` `queryResult`에 실패 응답의 `message`를 넘기면 결과 줄도 `데이터를 불러오지 못했습니다` 대신 `조회 안 함`이다. 그룹 펼치기 실패(`customGroup expansion blocked:`)는 다시 불러오면 나을 수 있어 danger·재시도를 유지한다. `ApiResponse.outcome`은 바뀌지 않는다.
-- 그룹 재시도 중에는 배너 버튼이 busy 상태를 표시하며 중복 활성화를 막고 폭·포커스를 유지한다. 그룹별 갱신 문구는 기존 알림 채널 한 곳에서 안내한다. 각 위젯의 `aria-busy`는 유지하되 반복 `role=status` 갱신 label은 표시하지 않는다. 배너가 사라질 때 포커스가 그 안에 있으면 이름 있는 상세 패널(dialog) 또는 `main` 랜드마크(셸 밖에서는 페이지 본문 요소)로 이동하며 다른 곳으로 이동한 포커스는 빼앗지 않는다. 페이지 본문 주위에 랜드마크를 더하지 않는다.
-- 그룹에 속한 empty 위젯에는 개별 retry와 추적 번호를 추가한다(확정된 사용자 결정). 한 개뿐인 empty 위젯은 기존 표시·emptyAction을 그대로 유지하며 retry·ID를 추가하지 않는다.
-- DetailDrawer는 페이지와 독립된 scope 및 상세 상단 배너를 제공하며 두 표면의 위젯을 함께 묶지 않는다. 위젯 이름이 없으면 visible 이름·접근 이름을 발명하지 않는다. 보이는 이름은 non-heading label과 aria-labelledby로 연결하고 이름을 숨길 때만 aria-label을 사용한다.
-- `PlatformPage`가 페이지별 scope와 배너 위치를 제공하고 `QueryView`가 현재 응답·refetch·선택적 위젯 이름을 가장 가까운 scope에 등록한다. `PlatformDataTable`도 `ariaLabel`을 위젯 이름으로 같은 scope에 등록한다(그룹이면 이름 줄 없이 간결 상태, 재시도는 표 재조회, 혼자이거나 scope 밖이면 기존 전체 상태). scope 밖의 QueryView는 기존 동작을 유지한다. 등록 갱신·그룹 판정 방식과 결정 배경은 [ADR-0017](../adr/0017-shared-outcome-banner.md)을 따른다.
+**조회 응답 복구 값 (#2535)**
+
+`ApiResponse<T>.recovery?: QueryRecovery`는 그 요청에서 확인한 내용만 선택 필드로 보낸다. 설비 제외, 기간 단축, 권한 요청에는 유효한 복구 값이 필요하다. 현재 화면 또는 칸의 편집기가 열기 동작을 등록했을 때 「조건 열기」를 제공한다.
+
+- `affectedEquipmentIds`와 `authorizedEquipmentIds`는 설비 ID 집합이다. 두 번째 집합은 제출한 대상에 권한과 요청 조건을 적용한 뒤 제외하기 전의 설비다. 영향 설비가 그 집합에 속하고, 제외 후 조회 가능하다고 확인된 설비가 남아 있을 때만 두 집합을 보낸다. SDK는 현재 요청의 응답에 한해 제출한 Scope와 Selection 및 부여된 공정의 설비 목록을 대조한다. 설비 ID를 확인할 수 없거나 새 조회가 진행 중이면 그 응답의 설비를 표시하거나 주소에 쓰지 않는다.
+- `maxHours`는 이 거부 사유를 해소할 수 있다고 확인된 양의 정수 시간 한도다. 현재 응답이 제공한 한도는 설비 제외 가능 여부와 별도로 적용한다. 현재 범위가 한도보다 길다면 종료 시각을 유지하고 최대 하루로 줄인다. 한도 자체가 하루보다 짧으면 그 한도를 사용한다. 적용할 수 있는 복구 동작이 없으면 편집기가 등록된 경우 조건 열기를 제공한다.
+- `retryable: true`는 일시 오류를 표시한다. `false`이거나 값이 없으면 재시도 동작을 제공하지 않는다. 예를 들어 표의 로컬 필터 검증 실패는 `retryable: false`를 보내고 필터를 수정하거나 지워서 복구한다.
+- `deniedScope`는 권한을 거부한 `{kind: 'site', site}` 또는 `{kind: 'site_room', site, room}`이다. 제출한 Scope와 맞고 신청 슬롯이 대상 고정을 지원하며 실서버 세션에서 신청할 수 있을 때 대상 그대로를 [`accessRequest` 슬롯](layout.md#8-shell-slots)에 준다. 기능 권한 거부나 대상을 특정할 수 없는 복합 거부에서 site·room을 추정하지 않는다. 접수 안내와 대기 상태는 실제 서비스 응답을 반영한다.
 
 ### 가공 상태 원천과 트레이스 노출 수준 (Decided, 2026-09-26)
 

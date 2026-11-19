@@ -8,7 +8,7 @@ const wallClock = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
  * Unicode (no lone surrogate). IDs are never trimmed, case-folded or normalized. The pattern is the representable part; the
  * lone-surrogate check is runtime-only.
  */
-const id = z
+export const contextIdSchema = z
   .string()
   .regex(/[^\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/)
   .refine(
@@ -25,12 +25,12 @@ const id = z
 /** Distinct IDs. Canonical code-point order is a server boundary requirement: JSON Schema cannot express it. */
 const distinct = <T extends z.ZodType<string[]>>(list: T) =>
   list.refine((values) => new Set(values).size === values.length, { message: 'IDs must be distinct' }).meta({ uniqueItems: true });
-const distinctIds = distinct(z.array(id));
+const distinctIds = distinct(z.array(contextIdSchema));
 /** null = key absent (no explicit constraint); [] = explicit empty set; otherwise distinct non-blank IDs. */
 const idSet = distinctIds.nullable();
 /** App-owned axis IDs mapped to the selected values: at least one axis, each with at least one value (kernel 06 §6.1). */
 const condition = z
-  .record(id, distinct(z.array(id).min(1)))
+  .record(contextIdSchema, distinct(z.array(contextIdSchema).min(1)))
   .refine((axes) => Object.keys(axes).length > 0, { message: 'Condition needs at least one axis' })
   .meta({ minProperties: 1 });
 

@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Clock3, Star } from 'lucide-react';
 import { emptyGlobal, type NavView, type SpaceId } from '@ap/contracts';
 import { badgeCountText } from '@ap/components';
 import { type MenuEntry, PlatformLink, useI18n, useMessages, useRecentVisits } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { isImplementedMenu, useHostPlatform } from '@ap/kernel/host';
 import { navRowVariants, NavCurrentMarker, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { ScopeSelector } from '../context/ScopeSelector';
 import { SHELL_MESSAGES } from '../messages';
@@ -218,9 +218,9 @@ export function NavItem({ menu, active, collapsed, href, labelPrefix, label: lab
     {active && <NavCurrentMarker />}
     <Icon className="size-4 shrink-0" aria-hidden />
     {collapsed && count > 0 && <span aria-hidden className="absolute right-2 top-1.5 size-1.5 rounded-pill bg-accent-danger" />}
-    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!menu.component && !menu.moduleScreen && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 t-badge text-text-secondary">{t('planned')}</span>}{count > 0 && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 t-badge text-text-secondary">{badgeCountText(count)}</span>}{count === 0 && hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 t-badge text-text-secondary">{badgeCountText(navCount)}</span>}</>}
+    {!collapsed && <><span className="min-w-0 flex-1 truncate">{label}</span>{!isImplementedMenu(menu) && <span className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 t-badge text-text-secondary">{t('planned')}</span>}{count > 0 && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 t-badge text-text-secondary">{badgeCountText(count)}</span>}{count === 0 && hasCount && <span aria-hidden className="rounded-pill bg-surface-row-selected px-1.5 py-0.5 t-badge text-text-secondary">{badgeCountText(navCount)}</span>}</>}
   </PlatformLink>;
-  return collapsed ? <Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{label}{!menu.component && !menu.moduleScreen && ` · ${t('planned')}`}{count > 0 && ` · ${t('unreadCount', { count })}`}</TooltipContent></Tooltip> : link;
+  return collapsed ? <Tooltip><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{label}{!isImplementedMenu(menu) && ` · ${t('planned')}`}{count > 0 && ` · ${t('unreadCount', { count })}`}</TooltipContent></Tooltip> : link;
 }
 
 /** A `navViews` sub-item under its menu row (expanded sidebar only). Only the current view carries `aria-current`; its parent row then does not. */

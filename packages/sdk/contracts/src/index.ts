@@ -20,6 +20,7 @@ export * from './adapter/row-groups.js';
 export * from './values/period.js';
 export { formatWallClock } from './values/period.js';
 export * from './adapter/response.js';
+export { readQueryRecovery } from './adapter/query-recovery.js';
 export { RETURN_TO_KEY, carriesReturnTo, withoutReturnTo } from './links/return-to.js';
 export * from './links/url.js';
 export { CONTEXT_FIELDS, missingRequiredContext, requiredContextError } from './menu/required-context.js';

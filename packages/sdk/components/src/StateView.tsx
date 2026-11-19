@@ -2,15 +2,16 @@ import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
 import { useSharedOutcomeNotice } from './filters/OutcomeScope';
 import { useQueryBarStatus, useRequestContextEditor } from './filters/QueryBarStatus';
+import { useOutcomeRecovery } from './state/OutcomeActions';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
-import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
-import { Ban, Clock, HelpCircle, Inbox, Maximize2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
+import { outcomeDiagnostic, outcomeIsBlocked, outcomePresentation, outcomeTone } from './state/outcomePresentation';
+import { HelpCircle } from 'lucide-react';
 import { useContext, useId, useState, type ReactNode } from 'react';
-import { errorGuidance, queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
+import { queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 
-type WidgetStateProps = { grouped?: boolean; bannerId?: string; multipleGroups?: boolean; statusLabel?: string; widgetName?: string; hideWidgetName?: boolean };
+type WidgetStateProps = { grouped?: boolean; bannerId?: string; statusLabel?: string; widgetName?: string; hideWidgetName?: boolean };
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean; detail?: string };
 
@@ -19,7 +20,7 @@ function ServerDetail({ detail, correlationId }: { detail?: string; correlationI
   const [open, setOpen] = useState(false);
   const panel = useId();
   if (!detail && !correlationId) return null;
-  // The server's own sentence is for support, not the reader: folded until the user opens it (#1940).
+  // Support detail is folded until the user opens it (#1940).
   return <span className="max-w-full text-tiny">
     <button type="button" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(value => !value)} className="cursor-pointer underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-focus-ring">{t('technicalInfo')}</button>
     {open && <span id={panel} className="mt-1 block max-w-full break-all" role="note" aria-label={t('serverDetail')}>{correlationId && <span className="t-mono block">{t('correlationId')}: {correlationId}</span>}{detail}</span>}
@@ -41,10 +42,10 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
   </div>;
 }
 
-function GroupedStateMessage({ action, correlationId, detail, bannerId, multipleGroups, statusLabel, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
+function GroupedStateMessage({ action, correlationId, detail, bannerId, statusLabel, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
   const { t } = useI18n();
   const nameId = useId();
-  const notice = multipleGroups && statusLabel ? t('sharedOutcomeNoticeFor', { status: statusLabel }) : t('sharedOutcomeNotice');
+  const notice = statusLabel ? t('sharedOutcomeNoticeFor', { status: statusLabel }) : t('sharedOutcomeNotice');
   return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} aria-describedby={bannerId} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
     {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
     <p className="text-xs leading-4">{notice}</p>
@@ -55,14 +56,17 @@ function GroupedStateMessage({ action, correlationId, detail, bannerId, multiple
   </div>;
 }
 
-function OutcomeStateMessage({ grouped, bannerId, multipleGroups, statusLabel, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
+function OutcomeStateMessage({ grouped, bannerId, statusLabel, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
   const nameId = useId();
   // Non-grouped compact states otherwise look identical to every sibling's error box; draw the same
   // name line the grouped path draws (UXA-3). Grouping decision and alert/status roles stay untouched.
-  if (!grouped && props.compact && widgetName && !hideWidgetName) {
-    return <div role="group" aria-labelledby={nameId} className="min-w-0"><p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p><StateMessage {...props} /></div>;
+  if (!grouped && widgetName) {
+    return <div role="group" aria-labelledby={hideWidgetName ? undefined : nameId} aria-label={hideWidgetName ? widgetName : undefined} className="min-w-0">
+      {!hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
+      <StateMessage {...props} />
+    </div>;
   }
-  return grouped ? <GroupedStateMessage {...props} bannerId={bannerId} multipleGroups={multipleGroups} statusLabel={statusLabel} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
+  return grouped ? <GroupedStateMessage {...props} bannerId={bannerId} statusLabel={statusLabel} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
 }
 
 export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: number; height?: number; className?: string }) {
@@ -76,44 +80,24 @@ export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: numb
 }
 
 /** Maps the exclusive outcome to the §19 taxonomy. Only `ok` renders children. Package-internal (not re-exported by `index.ts`): QueryView and PlatformDataTable draw their outcome through it. */
-export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, bannerId, multipleGroups, widgetName, hideWidgetName, children }: {
-  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; bannerId?: string; multipleGroups?: boolean; widgetName?: string; hideWidgetName?: boolean;
+export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, grouped, bannerId, widgetName, hideWidgetName, busy, current, children }: {
+  response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; bannerId?: string; widgetName?: string; hideWidgetName?: boolean;
+  busy?: boolean; current?: boolean;
 }) {
   const { t } = useI18n();
   const icon = 'size-4';
-  const guide = errorGuidance(response.message);
-  // Refused before sending by the query's own conditions (#2440): a notice to fix the conditions, not a failure to retry.
-  const blocked = response.outcome === 'error' && guide.blocked;
-  // The same Kernel label the compact banner shows for this error (#2509): a time-domain refusal reads 「집계 불가」, not 「서버 오류」.
-  const statusLabel = blocked ? t('sharedOutcomeBlocked') : response.outcome === 'error' ? t(guide.label)
-    : response.outcome === 'timeout' ? t('sharedOutcomeTimeout')
-    : response.outcome === 'forbidden' ? t('sharedOutcomeForbidden')
-    : response.outcome === 'empty' ? t('sharedOutcomeEmpty')
-    : undefined;
-  const widget = { grouped, bannerId, multipleGroups, statusLabel, widgetName, hideWidgetName };
-  const detail = response.message || undefined;
-  switch (response.outcome) {
-    case 'ok': return <>{children(response.data as T)}</>;
-    case 'empty': {
-      const empty = emptyOutcomeText(emptyCauses(response), t);
-      return <OutcomeStateMessage {...widget} compact={compact} icon={<Inbox className={icon} aria-hidden />} title={empty.title}
-        body={empty.body} action={grouped ? <><Button size="sm" variant="secondary" onClick={onRetry}><RotateCw aria-hidden className="size-3.5" />{t('retry')}</Button></> : emptyAction} correlationId={grouped ? response.correlationId : undefined} detail={grouped ? detail : undefined} />;
-    }
-    case 'forbidden': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Ban className={icon} aria-hidden />} title={t('stateForbidden')}
-      body={t('stateForbiddenBody')} detail={detail} correlationId={response.correlationId} />;
-    case 'too_large': return <OutcomeStateMessage {...widget} compact={compact} tone="warning" icon={<Maximize2 className={icon} aria-hidden />} title={t('stateTooLarge')}
-      body={t('stateTooLargeBody')} detail={detail} correlationId={response.correlationId} />;
-    case 'timeout': return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<Clock className={icon} aria-hidden />} title={t('stateTimeout')}
-      body={t('stateTimeoutBody')} detail={detail}
-      action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
-    case 'error': {
-      if (blocked) return <OutcomeStateMessage {...widget} compact={compact} icon={<SlidersHorizontal className={icon} aria-hidden />} title={t('stateQueryBlocked')}
-        body={<>{t(guide.cause)} {t(guide.action)}</>} detail={detail} correlationId={response.correlationId} />;
-      return <OutcomeStateMessage {...widget} compact={compact} tone="danger" icon={<ServerCrash className={icon} aria-hidden />} title={t('stateError')}
-        body={<>{t(guide.cause)} {t(guide.action)}</>} detail={detail} action={<Button size="sm" variant="secondary" onClick={onRetry}><RotateCw className="size-3.5" />{t('retry')}</Button>} correlationId={response.correlationId} />;
-    }
-    default: return <OutcomeStateMessage {...widget} compact={compact} icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} detail={detail} correlationId={detail ? response.correlationId : undefined} />;
-  }
+  const recovery = useOutcomeRecovery(response, onRetry, { busy, current: !outcomeIsBlocked(response) && current !== false, emptyAction });
+  if (response.outcome === 'ok') return <>{children(response.data as T)}</>;
+  const detail = outcomeDiagnostic(response);
+  const state = outcomePresentation(response, t);
+  if (!state) return <OutcomeStateMessage compact={compact} widgetName={widgetName} hideWidgetName={hideWidgetName}
+    icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} detail={detail}
+    correlationId={detail ? response.correlationId : undefined} />;
+  return <OutcomeStateMessage grouped={grouped} bannerId={bannerId} statusLabel={state.label}
+    widgetName={widgetName} hideWidgetName={hideWidgetName} compact={compact}
+    icon={<state.Icon className={icon} aria-hidden />} title={state.title} tone={outcomeTone(response)}
+    body={<>{state.body}{recovery.evidence && <p className="mt-1 break-words">{recovery.evidence}</p>}</>}
+    action={grouped ? undefined : recovery.action} detail={detail} correlationId={response.correlationId} />;
 }
 
 /** Standalone outcome API: it never registers with an OutcomeScope. QueryView and PlatformDataTable register their results and draw the grouped state through `OutcomeContent`. */
@@ -136,7 +120,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const chart = analysisSection?.kind === 'chart';
   // In a workspace panel the wrapper takes the panel's height so a `size="fill"` chart inside has a bounded parent.
   const inPanel = useInWorkspacePanel();
-  const { grouped, bannerId, multiple } = useSharedOutcomeNotice(query.response, query.refetch, widgetName, query.status);
+  const { grouped, bannerId } = useSharedOutcomeNotice(query.showingPrevious ? null : query.response, query.refetch, widgetName, query.status);
   const barStatus = useQueryBarStatus();
   const requestEditor = useRequestContextEditor();
   const actionable = query.missing.some(item => barStatus?.conditionEditorKeys?.includes(item.key) || (item.key === 'time' && barStatus?.periodAwaitingApply));
@@ -155,7 +139,7 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const refreshingLabel = t(query.showingPrevious ? 'refreshingPrevious' : 'refreshing');
   const showingPrevious = query.status === 'refreshing' && query.showingPrevious === true;
   const noticeVisible = query.status === 'refreshing' && !grouped && refreshNotice === 'visible';
-  const content = <OutcomeContent grouped={grouped} bannerId={bannerId} multipleGroups={multiple} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>;
+  const content = <OutcomeContent grouped={grouped} bannerId={bannerId} busy={query.status === 'refreshing'} current={!showingPrevious} widgetName={widgetName} hideWidgetName={hideWidgetName} response={response} onRetry={query.refetch} emptyAction={emptyAction} compact={compact}>{data => children(data, response)}</OutcomeContent>;
   return <div aria-busy={query.status === 'refreshing'} className={cn('relative', query.showingPrevious !== undefined && 'isolate', inPanel && 'h-full min-h-0', (fill || (inPanel && query.showingPrevious !== undefined)) && 'flex min-h-0 flex-1 flex-col', chart && 'row-span-2', chart && response.outcome === 'ok' && 'grid grid-rows-subgrid gap-y-0', analysisSection && response.outcome !== 'ok' && 'pr-12')}>
     {/* One band over the result's bottom edge, only while refreshing (#2381): it takes no layout space, so nothing moves. */}
     {noticeVisible && <QueryRefreshNotice label={refreshingLabel} />}

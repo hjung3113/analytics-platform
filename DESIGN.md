@@ -346,17 +346,17 @@ primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [공유
 
 첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 공유 UI 계약이 소유하며, 플랫폼 호출부(PlatformDataTable·StateView·EChart lazy)는 크기만 지정하고 fill을 덮어쓰지 않는다(ADR-0023). 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
-Empty/error는 원인 설명·허용된 다음 행동·Retry·correlation ID를 읽을 수 있게 표시한다. [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
+Empty/error는 원인 설명·허용된 다음 행동·추적 번호를 읽을 수 있게 표시한다. [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
 
 `live-dot`은 기본 static이다. pulse는 **Candidate**로 실제 live freshness source가 확인될 때만 허용하며 label/layout을 움직이지 않는다. reduced-motion에서는 animation을 끄고 freshness가 사라지면 Updated/Data through/Unknown으로 전환한다. Live는 completeness의 증거가 아니다. optional breadcrumb는 nested page의 ancestor link와 current page를 구별하고 Context를 보존한다.
 
-### Shared outcome banner and compact widget state — Decided (B, 2026-10-04)
+### Shared outcome banner and compact widget state
 
-[06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 공유 응답 계약을 B안으로 표시한다([ADR-0017](docs/adr/0017-shared-outcome-banner.md)). 본문 상단 배너는 Callout 구조(아이콘·상태 제목·관측한 동일 응답 요약·그룹 재시도)이며 error/timeout은 danger-soft + danger-label border/title, empty는 sunken + control border + secondary, forbidden은 기존 warning 상태의 warn-soft + warning-label이다. 여러 그룹이 있으면 각 배너(얇은 띠는 `자세히`)가 소속 위젯 이름을 함께 표시한다. 본문·조언은 배너에서 한 번 안내하고 forbidden에는 재시도를 두지 않는다. 대표 Correlation ID나 추론한 수집 원인을 배너에 두지 않는다. 배너는 non-live group이며 처음부터 마운트된 scope의 assertive/polite 채널이 요약·갱신을 안내한다. 갱신 중 재시도는 같은 폭·포커스를 유지하고 spinner·busy를 표시하며 중복 활성화를 막는다. 배너 제거 때 내부 포커스는 이름 있는 본문/상세 영역으로 이동한다.
+[06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 A안(#2535). 원인과 복구 값이 같은 위젯이 두 개 이상이면 본문 상단에 띠 하나를 둔다. 집계 불가·오류·시간 초과는 danger-soft와 danger-label, 권한 없음·조회 한도는 warn-soft와 warning-label, 0건은 sunken과 control border를 쓴다. 원인과 허용된 복구 동작을 띠에 두며 원인을 해소하는 동작 하나까지 강조한다. 긴 문구는 한 줄로 줄일 수 있고 「자세히」에서 전체 문구와 소속 위젯 이름을 볼 수 있다. 그룹 상태는 scope의 기존 live 채널에서 한 번 안내한다.
 
-묶이지 않은 오류 카드(`StateMessage tone="danger"`)는 `bg-accent-danger-soft`와 1px `border border-text-danger-label`을 쓴다. 아이콘은 `text-text-danger`, 제목은 `text-text-danger-label`, 본문·추적 번호·서버 세부는 `text-text-secondary`다. warning 톤의 recipe는 바꾸지 않는다.
+그룹 위젯은 sunken 표면에 이름, 상태를 붙인 「위 안내 참고」, 접힌 「기술 정보」를 표시하며 `aria-describedby`로 띠와 연결한다. 기술 정보에서 위젯별 추적 번호와 서버 원문을 읽을 수 있다. 안내는 secondary 글자를 쓰고 opacity로 흐리게 하지 않는다. 위젯이 하나면 인라인 카드를 쓴다. 오류 카드(`StateMessage tone="danger"`)는 danger-soft 배경과 danger-label 경계선·제목, danger 아이콘, secondary 본문·추적 번호를 쓴다.
 
-그룹 위젯은 중립 sunken 표면에 이름·한 줄 안내·개별 재시도를 배치하고 `aria-describedby`로 자기 그룹 배너를 가리킨다(Decided, 소유자 2026-11-14, #1994). 그룹이 하나면 `위 안내 참고` / `See the notice above`, 둘 이상이면 상태 이름을 덧붙인다(`위 안내 참고(서버 오류)` 등). 상태 제목·본문·timeout 조언은 배너에만 둔다. forbidden도 같은 근거끼리 묶고 이름을 유지하며 재시도는 없다. 권한 요청 배너가 있으면 forbidden 그룹 배너를 대신하고 서로 다른 근거 그룹은 각각 따로 요약한다. 추적 번호·서버 세부는 위젯의 접힌 「기술 정보」 안에 둔다. 한 줄 안내는 secondary이며 opacity fade를 쓰지 않는다. 상위 heading과 같은 위젯 제목을 중복 표시하지 않되 접근 이름은 보존한다.
+마운트된 페이지의 렌더 오류는 머리와 기간·대상을 보존하고 본문과 같은 여백에 오류 카드를 둔다. 추적 번호·다시 시도·홈을 제공하며, 사용 가능한 VOC 목적지가 있을 때 「이 오류 신고」를 제공한다. 예정 메뉴는 공통 `Panel` 한 곳에서 준비 중인 메뉴 이름과 현재 열 수 있는 화면 링크를 보여 준다.
 
 ## Do's and Don'ts
 

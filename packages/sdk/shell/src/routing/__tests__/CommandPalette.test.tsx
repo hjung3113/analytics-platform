@@ -119,7 +119,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     expect(screen.queryByRole('option', { name: /내 설비/ })).toBeNull();
   });
 
-  it('groups accessible spaces in registry order, then 플랫폼, and drops page type from the subtitle', () => {
+  it('groups accessible spaces in registry order, then 준비 중, and drops page type from the subtitle', () => {
     mount();
     expect(screen.getByRole('combobox', { name: '메뉴 검색' })).toHaveAttribute('placeholder', '이동할 메뉴를 입력하세요…');
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual([
@@ -127,7 +127,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     ]);
     expect(screen.getByRole('group', { name: 'MARS' })).toHaveAttribute('aria-labelledby', 'palette-heading-mars');
     expect(screen.getByRole('group', { name: '운영 콘솔' })).toHaveAttribute('aria-labelledby', 'palette-heading-operations');
-    expect(screen.getByRole('group', { name: '플랫폼' })).toHaveAttribute('aria-labelledby', 'palette-heading-platform');
+    expect(screen.getByRole('group', { name: '준비 중' })).toHaveAttribute('aria-labelledby', 'palette-heading-@planned');
     expect(document.getElementById('palette-heading-mars')).toHaveTextContent('MARS');
     expect(subtitle('palette-home')).toBe('MARS › 분석 › 홈');
     expect(subtitle('palette-equipment')).toBe('MARS › 설비관리 › 설비');
@@ -173,7 +173,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     mount();
     fireEvent.change(screen.getByRole('combobox', { name: '메뉴 검색' }), { target: { value: '플랫폼' } });
     expect(screen.getAllByRole('group')).toHaveLength(1);
-    expect(screen.getByRole('group', { name: '플랫폼' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: '준비 중' })).toBeTruthy();
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-notices']);
   });
 
@@ -181,7 +181,7 @@ describe('CommandPalette space bundles (06 §9.1)', () => {
     storage.setItem('platform:lang', 'en');
     mount();
     expect(screen.getByRole('combobox', { name: 'Search menus' })).toBeTruthy();
-    expect(screen.getByRole('group', { name: 'Platform' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Coming soon' })).toBeTruthy();
     fireEvent.change(screen.getByRole('combobox', { name: 'Search menus' }), { target: { value: 'Platform' } });
     expect(screen.getAllByRole('option').map(option => option.id)).toEqual(['palette-notices']);
     expect(subtitle('palette-notices')).toBe('Platform › Notice & VOC › Notices · Planned');
@@ -612,7 +612,9 @@ describe('CommandPalette menu matching (#1943)', () => {
     ],
     menus: [
       // The planned menu is declared first so a rank bug cannot hide behind declaration order.
-      menu('process-master', groupId('equipment'), '/process-master', { ko: '공정 마스터', en: 'Process master' }),
+      menu('process-master', groupId('equipment'), '/process-master', { ko: '공정 마스터', en: 'Process master' }, {
+        searchAliases: ['MES'], paletteDescription: { ko: '공정 기준을 조회합니다', en: 'Look up process definitions' },
+      }),
       menu('equipment-master', groupId('equipment'), '/equipment-master', { ko: '설비 마스터', en: 'Equipment master' }, { primary: true, component: page, keywords: { ko: ['장비'], en: ['machine'] } }),
       menu('cycle-time', groupId('equipment'), '/cycle-time', { ko: '사이클타임 상세', en: 'Cycle time detail' }, { component: page, keywords: { ko: ['택트'] } }),
       menu('notices', groupId('noticeVoc'), '/notices', { ko: '공지', en: 'Notices' }, { primary: true, permission: 'notice:view', component: page, keywords: { ko: ['공지사항', '게시판'] } }),
@@ -648,6 +650,19 @@ describe('CommandPalette menu matching (#1943)', () => {
     // 설비 마스터 (name) · 공정 마스터 and 사이클타임 상세 only match through the group name 설비관리.
     expect(ids()[0]).toBe('equipment-master');
     expect(ids().slice(1).sort()).toEqual(['cycle-time', 'process-master']);
+  });
+
+  it('keeps planned entries last with searchable aliases and the menu description and path', () => {
+    search('');
+    expect(ids()).toEqual(['equipment-master', 'cycle-time', 'notices', 'process-master']);
+    expect(screen.getByRole('group', { name: '준비 중' })).toHaveTextContent('예정');
+    fireEvent.change(screen.getByRole('combobox', { name: '메뉴 검색' }), { target: { value: '준비' } });
+    expect(ids()).toEqual(['process-master']);
+    fireEvent.change(screen.getByRole('combobox', { name: '메뉴 검색' }), { target: { value: 'mes' } });
+    const group = screen.getByRole('group', { name: '준비 중' });
+    const option = within(group).getByRole('option', { name: /공정 마스터.*공정 기준을 조회합니다.*MARS › 설비관리 › 공정 마스터 · 예정/ });
+    expect(option).toHaveAttribute('data-selected');
+    expect(within(option).getByText(/MARS ›/)).toHaveClass('row-meta');
   });
 
   it('puts an implemented menu above a planned one at the same rank', () => {

@@ -66,7 +66,7 @@ type Props = {
   /** The chosen groups resolved by an owner that outlives this picker (the query bar); without it the picker resolves them itself. */
   groups?: CustomGroupOptions;
   /** Keep the dialog above relocating/measurement copies of the live bar button. */
-  children?(button: ReactNode, open: boolean): ReactNode;
+  children?(button: ReactNode, open: boolean, openEditor?: () => void): ReactNode;
 };
 
 export function TargetPicker(props: Props) {
@@ -168,6 +168,11 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, co
     }
     setOpenUrl(next ? url : null);
   };
+  const openEditor = () => {
+    requestedOpener.current = null;
+    setInitialFacet(undefined);
+    close(true);
+  };
   useEffect(() => {
     if (open || !restoreFocus.current) return;
     const timer = setTimeout(() => {
@@ -266,7 +271,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, co
   });
   const button = <span className="inline-flex min-w-0 items-center gap-1">
     {compact && <span className="shrink-0 text-xs text-text-secondary">{m('targetLabel')}</span>}
-    <TargetButton onMount={node => { opener.current = node; }} type="button" disabled={disabled} className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, disabled && 'disabled:pointer-events-none disabled:opacity-50', 'max-w-[22rem]')} aria-label={`${m('targetLabel')} ${text}`} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} title={text} onClick={event => { opener.current = event.currentTarget; requestedOpener.current = null; setInitialFacet(undefined); close(true); }}>
+    <TargetButton onMount={node => { opener.current = node; }} type="button" disabled={disabled} className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, disabled && 'disabled:pointer-events-none disabled:opacity-50', 'max-w-[22rem]')} aria-label={`${m('targetLabel')} ${text}`} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} title={text} onClick={event => { opener.current = event.currentTarget; openEditor(); }}>
       {!compact && <span className="text-text-muted">{m('targetLabel')}</span>}<span className="truncate font-medium tabular">{text}</span><ChevronDown className="size-3.5 shrink-0" aria-hidden />
     </TargetButton>
     {chosen && <Button type="button" variant="ghost" size="toolbar" disabled={disabled} aria-label={m('targetClear')} onClick={clear}><X className="size-3.5" aria-hidden /></Button>}
@@ -326,7 +331,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, co
     disabledReason={groupSaveDisabledReason(slot)}
     onSave={saveGroup}
   /> : undefined;
-  return <>{children ? children(button, open) : button}{opened && <Suspense fallback={null}><FacetedSetDialog open={open && !disabled} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} applyMode="direct" initialFacet={initialFacet} allowFixed={cap.selection === 'apply'} resultColumns={facets.map(facet => facet.id)} valueLabel={(facetId, value) => facetId === groupFacet ? optionsById.get(value)?.label ?? value : value} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={!canEditBasis && g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} saveSlot={saveSlot} settingsSlot={settingsSlot} /></Suspense>}</>;
+  return <>{children ? children(button, open, disabled ? undefined : openEditor) : button}{opened && <Suspense fallback={null}><FacetedSetDialog open={open && !disabled} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} applyMode="direct" initialFacet={initialFacet} allowFixed={cap.selection === 'apply'} resultColumns={facets.map(facet => facet.id)} valueLabel={(facetId, value) => facetId === groupFacet ? optionsById.get(value)?.label ?? value : value} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={!canEditBasis && g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} saveSlot={saveSlot} settingsSlot={settingsSlot} /></Suspense>}</>;
 }
 
 function TargetGroupSaveSlot({ value, ready, invalid, onSaved, disabledReason, shareOptions, onSave }: GroupSaveSlotProps) {

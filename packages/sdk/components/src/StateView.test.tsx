@@ -58,19 +58,23 @@ describe('non-grouped compact state names its widget (UXA-3)', () => {
   });
 
   it.each([
-    ['error', 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'alert', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요'], true],
+    ['error', 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'alert', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요'], false],
     ['forbidden', 'no grant', 'status', ['관리자에게 요청하세요'], false],
     ['too_large', 'row cap', 'status', ['조회 조건을 좁혀 다시 시도하세요'], false],
     ['timeout', 'Upstream mart query failed', 'alert', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요'], true],
-  ] as const)('standalone %s keeps the server message in the named detail', (outcome, message, role, phrases, retry) => {
-    const response: ApiResponse<unknown> = { outcome, message, data: null, assessments: [], trust: null, correlationId: 'c-stand' };
+  ] as const)('standalone %s keeps support information in the named detail', (outcome, message, role, phrases, retry) => {
+    const response: ApiResponse<unknown> = { outcome, message, data: null, assessments: [], trust: null, correlationId: 'c-stand', recovery: retry ? { retryable: true } : undefined };
     const q: QueryState<unknown> = { response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' };
     render(<I18nProvider><QueryView query={q}>{() => null}</QueryView></I18nProvider>);
     const region = screen.getByRole(role);
     for (const phrase of phrases) expect(textWithoutDetail(region)).toContain(phrase);
     expect(textWithoutDetail(region)).not.toContain(message);
     fireEvent.click(within(region).getByRole('button', { name: '기술 정보' }));
-    expect(within(region).getByRole('note', { name: '서버 세부' })).toHaveTextContent(message);
+    const detail = within(region).getByRole('note', { name: '서버 세부' });
+    if (outcome === 'error') {
+      expect(detail).toHaveTextContent('time_domain_unverified');
+      expect(detail).not.toHaveTextContent('MEM-PHOTO');
+    } else expect(detail).toHaveTextContent(message);
     expect(region).toHaveTextContent('c-stand');
     if (retry) expect(within(region).getByRole('button', { name: '다시 시도' })).toBeTruthy();
   });

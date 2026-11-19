@@ -1549,7 +1549,9 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expandPageHead(page);
     await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
-    await expect(page.getByRole('alert').first()).toBeVisible();
+    const strip = page.getByRole('main').getByRole('group', { name: '위젯 상태 요약' });
+    await expect(strip).toHaveAttribute('data-outcome-compact', 'true');
+    await expect(strip.getByText('서버 오류 ·', { exact: true })).toBeVisible();
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
   });
 

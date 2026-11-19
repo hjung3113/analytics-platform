@@ -10,7 +10,8 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
 
 const response = (outcome: ApiResponse<unknown>['outcome'] = 'error', message = 'Same response', assessments: Assessment[] = []): ApiResponse<unknown> =>
-  ({ outcome, message, assessments, data: null, trust: null, correlationId: 'corr-widget' });
+  ({ outcome, message, assessments, data: null, trust: null, correlationId: 'corr-widget',
+    recovery: outcome === 'timeout' || (outcome === 'error' && !message.startsWith('customGroup blocked:') && !message.startsWith('time_domain')) ? { retryable: true } : undefined });
 const query = (r = response(), retry = vi.fn()): QueryState<unknown> => ({ response: r, refetch: retry, missing: [], completedAt: null, status: 'done' });
 const Widget = ({ q, name = 'Widget A', hide = false }: { q: QueryState<unknown>; name?: string; hide?: boolean }) =>
   <QueryView query={q} widgetName={name} hideWidgetName={hide}>{() => <p>Success</p>}</QueryView>;
@@ -97,17 +98,16 @@ describe('shared outcome contract #55', () => {
     }
     fireEvent.click(within(banner).getByRole('button', { name: '다시 시도' }));
     expect(a.refetch).toHaveBeenCalledTimes(1); expect(b.refetch).toHaveBeenCalledTimes(1); expect(other.refetch).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole('group', { name: 'Widget A' })).getByRole('button', { name: '다시 시도' }));
-    expect(a.refetch).toHaveBeenCalledTimes(2); expect(b.refetch).toHaveBeenCalledTimes(1);
+    expect(within(screen.getByRole('group', { name: 'Widget A' })).queryByRole('button', { name: '다시 시도' })).toBeNull();
   });
-  it('uses a neutral empty banner and keeps confirmed explanations, individual retry and ID', () => {
+  it('uses a neutral empty banner and keeps confirmed explanations and trace without retry', () => {
     const assessments: Assessment[] = [{ kind: 'collection', state: 'confirmed', explainsEmpty: true, detail: 'Confirmed explanation', statusSource: 'worker', observedAt: '2026-10-04' }];
     render(<Page><Widget q={query(response('empty', '', assessments))} /><Widget q={query(response('empty', '', assessments))} name="Widget B" /></Page>);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('위젯 2개');
     const state = screen.getByRole('group', { name: 'Widget A' });
     expect(screen.getByRole('group', { name: '위젯 상태 요약' })).toHaveTextContent('Confirmed explanation'); expect(openDetail(state)).toHaveTextContent('corr-widget');
-    expect(within(state).getByRole('button', { name: '다시 시도' })).toBeVisible();
+    expect(within(state).queryByRole('button', { name: '다시 시도' })).toBeNull();
   });
   it('names the confirmed cause in the title, never the plain "no matching result", also for a finding without detail and in the shared banner (#1886, 06 §19)', () => {
     const noDetail: Assessment[] = [{ kind: 'collection', state: 'confirmed', explainsEmpty: true, statusSource: 'worker', observedAt: '2026-10-04' }];
@@ -137,12 +137,12 @@ describe('shared outcome contract #55', () => {
       <Widget q={query(response('empty', '', [a]))} /><Widget q={query(response('empty', '', [{ ...a, statusSource: 'other' }]))} /></Page>);
     expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
     expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
   });
-  it.each(['too_large', 'ok', 'unknown'] as const)('never groups %s', outcome => {
+  it.each(['ok', 'unknown'] as const)('never groups %s', outcome => {
     const r = response(outcome as ApiResponse<unknown>['outcome']);
     render(<Page><Widget q={query(r)} /><Widget q={query(r)} /></Page>);
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
     expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
     expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
   });
@@ -157,7 +157,7 @@ describe('shared outcome contract #55', () => {
   });
   it('keeps standalone QueryViews unchanged', () => {
     render(<I18nProvider><Widget q={query()} /><Widget q={query()} /></I18nProvider>);
-    expect(screen.getAllByRole('alert')).toHaveLength(2); expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.getAllByRole('alert')).toHaveLength(2); expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
   });
   it('shows timeout advice in the banner and omits duplicate widget headings', () => {
     render(<Page><h2>Widget A</h2><Widget q={query(response('timeout'))} hide /><Widget q={query(response('timeout'))} name="Widget B" /></Page>);
@@ -340,7 +340,7 @@ describe('Fix round 1 boundaries', () => {
     const outcome = <OutcomeView grouped widgetName="Bypass" response={response()} onRetry={() => {}}>{() => null}</OutcomeView>;
     render(<I18nProvider>{state}{outcome}</I18nProvider>);
     expect(screen.getAllByRole('alert')).toHaveLength(2);
-    expect(screen.queryByRole('group')).toBeNull();
+    expect(screen.queryByRole('group', { name: '위젯 상태 요약' })).toBeNull();
   });
   it('uses dictionary interpolation and translations for group summary and region labels', () => {
     function Language() {
@@ -350,7 +350,7 @@ describe('Fix round 1 boundaries', () => {
     const view = render(<Page><Language /><Widget q={query()} /><Widget q={query()} name="Widget B" /></Page>);
     fireEvent.click(screen.getByRole('button', { name: 'English' }));
     expect(screen.getByRole('group', { name: 'Widget state summary' })).toHaveTextContent('2 widgets could not open for the same reason.');
-    expect(screen.getAllByText('See the notice above')).toHaveLength(2);
+    expect(screen.getAllByText('See the notice above (server error)')).toHaveLength(2);
     expect(view.container.querySelector('[aria-live="assertive"]')).toHaveTextContent('2 widgets could not open for the same reason.');
     fireEvent.click(screen.getByRole('button', { name: 'Korean' }));
   });
@@ -396,7 +396,7 @@ describe('server message is detail, not the body (#304)', () => {
     ['error', 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요']],
     ['timeout', 'Upstream mart query failed', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요']],
     ['empty', 'same empty message', ['조건에 맞는 결과가 없습니다', '조회는 성공했고 결과가 0건입니다']],
-  ] as const)('groups two %s widgets and keeps the server message in each named detail', (outcome, message, phrases) => {
+  ] as const)('groups two %s widgets and keeps support information in each named detail', (outcome, message, phrases) => {
     const q = () => query(response(outcome, message));
     render(<Page><Widget q={q()} /><Widget q={q()} name="Widget B" /></Page>);
     const summary = screen.getByRole('group', { name: '위젯 상태 요약' });
@@ -411,9 +411,13 @@ describe('server message is detail, not the body (#304)', () => {
       for (const phrase of phrases) { expect(body).not.toContain(phrase); expect(summary).toHaveTextContent(phrase); }
       expect(body).toContain('위 안내 참고');
       expect(body).not.toContain(message);
-      expect(openDetail(state)).toHaveTextContent(message);
+      const detail = openDetail(state);
+      if (outcome === 'error') {
+        expect(detail).toHaveTextContent('time_domain_unverified');
+        expect(detail).not.toHaveTextContent('MEM-PHOTO');
+      } else expect(detail).toHaveTextContent(message);
       expect(state).toHaveTextContent('corr-widget');
-      expect(within(state).getByRole('button', { name: '다시 시도' })).toBeTruthy();
+      expect(within(state).queryByRole('button', { name: '다시 시도' })).toBeNull();
     }
   });
 
@@ -527,20 +531,18 @@ describe('compact outcome strip on fill pages (#680)', () => {
 });
 
 describe('say a shared cause once (#1994)', () => {
-  it('keeps only the name, notice line, retry and folded per-widget trace in grouped errors', () => {
+  it('keeps only the name, notice line and folded per-widget trace in grouped errors', () => {
     const a = query({ ...response(), correlationId: 'trace-a' });
     const b = query({ ...response(), correlationId: 'trace-b' });
     render(<Page><Widget q={a} /><Widget q={b} name="Widget B" /></Page>);
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
     expect(banner).toHaveTextContent('서버가 데이터를 보내지 못했습니다.');
-    for (const [name, q, trace] of [['Widget A', a, 'trace-a'], ['Widget B', b, 'trace-b']] as const) {
+    for (const [name, trace] of [['Widget A', 'trace-a'], ['Widget B', 'trace-b']] as const) {
       const state = screen.getByRole('group', { name });
       expect(state).toHaveTextContent('위 안내 참고');
       expect(state).not.toHaveTextContent('서버가 데이터를 보내지 못했습니다.');
       expect(state).not.toHaveTextContent(trace);
-      expect(within(state).getByRole('button', { name: '다시 시도' })).toBeVisible();
-      fireEvent.click(within(state).getByRole('button', { name: '다시 시도' }));
-      expect(q.refetch).toHaveBeenCalledTimes(1);
+      expect(within(state).queryByRole('button', { name: '다시 시도' })).toBeNull();
       expect(openDetail(state)).toHaveTextContent(trace);
     }
   });
@@ -721,8 +723,38 @@ describe('a query the Kernel refused before sending (#2440)', () => {
     expect(channel('assertive')).toHaveTextContent('위젯 2개가 같은 이유로 열리지 않았습니다.');
   });
   it('keeps a failed group expansion an error with a retry: loading again can help', () => {
-    render(<Page><Widget q={query(response('error', 'customGroup expansion blocked: equipment facts could not load (offline)'))} /></Page>);
+    render(<Page><Widget q={query({ ...response('error', 'customGroup expansion blocked: equipment facts could not load (offline)'), recovery: { retryable: true } })} /></Page>);
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+  });
+});
+
+describe('reply-specific recovery (#2535)', () => {
+  it('groups only matching recovery parameters and keeps each widget associated with its strip', () => {
+    const reply = response('too_large');
+    const first = query({ ...reply, recovery: { maxHours: 24 } });
+    const different = query({ ...reply, recovery: { maxHours: 12 } });
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      <Widget q={first} /><Widget q={first} name="Widget B" /><Widget q={different} name="Widget C" />
+    </OutcomeScope></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(screen.getByRole('group', { name: 'Widget A' })).toHaveAttribute('aria-describedby', banner.id);
+    expect(screen.getByRole('group', { name: 'Widget B' })).toHaveTextContent('위 안내 참고(조회 과대)');
+    expect(screen.getByRole('group', { name: 'Widget C' })).not.toHaveAttribute('aria-describedby');
+  });
+
+  it.each(['http_404', 'invalid_response'])('omits retry for inline and grouped permanent errors (%s)', message => {
+    const q = query({ ...response('error', message), recovery: undefined });
+    const view = render(<Page><Widget q={q} /></Page>);
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    view.rerender(<Page><Widget q={q} /><Widget q={q} name="Widget B" /></Page>);
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+  });
+
+  it.each([undefined, false, true])('offers one secondary retry only with an explicit transient reply (%s)', retryable => {
+    const q = query({ ...response(), recovery: retryable === undefined ? undefined : { retryable } });
+    render(<Page><Widget q={q} /><Widget q={q} name="Widget B" /></Page>);
+    const buttons = screen.queryAllByRole('button', { name: '다시 시도' });
+    expect(buttons).toHaveLength(retryable === true ? 1 : 0);
   });
 });

@@ -4,7 +4,9 @@
 // (check-boundaries rule 11, ADR-0073). A module contributes declarations; the dispatch engine
 // owns the judgment order (docs/integration/real-server-checklist.md §3) and never any business write.
 
+import type { apiResponseSchema } from '@ap/contract-schemas';
 import type { CapabilityName } from '@ap/feature-shared';
+import type { z } from 'zod/v4';
 import type { CapabilityRegistry } from '../permissions/check-service.js';
 import type { ScopeGrant } from './scope-resolver.js';
 import type { Tx } from '../../db/tx.js';
@@ -49,6 +51,7 @@ export interface EndpointDeclarationSpec {
 }
 
 export type EndpointOutcome = 'ok' | 'empty' | 'error' | 'forbidden' | 'too_large' | 'timeout';
+type QueryRecovery = NonNullable<z.output<ReturnType<typeof apiResponseSchema>>['recovery']>;
 
 export interface EndpointResult {
   /** Internal read count, including rows discarded by Scope enforcement; never serialized. */
@@ -60,6 +63,7 @@ export interface EndpointResult {
   /** Mart trust, or `null` for a non-mart source. Default `null`. */
   trust?: unknown;
   message?: string;
+  recovery?: QueryRecovery;
 }
 
 export type ParamsJudgment = { ok: true } | { ok: false; message: string };

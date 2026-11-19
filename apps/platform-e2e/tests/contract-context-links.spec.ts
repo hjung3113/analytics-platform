@@ -273,7 +273,9 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     await page.goto('/mars/equipment-detail/DOES-NOT-EXIST?v=1&scopeId=MEM');
     const emptyBanner = page.getByRole('main').getByRole('group', { name: '위젯 상태 요약' });
     await expect(page.getByRole('main').locator('[data-outcome-banner]')).toHaveCount(1);
-    await expect(emptyBanner).toContainText('위젯 2개');
+    // #2535: a compact empty strip names the widgets it covers.
+    await expect(emptyBanner.getByText('0건 ·', { exact: true })).toBeVisible();
+    await expect(emptyBanner).toContainText('설비 요약 · 설비 상세');
     await expect(page.getByRole('main').getByRole('group', { name: '설비 요약', exact: true })).toBeVisible();
     await expect(panel.getByRole('group', { name: '설비 상세', exact: true })).toBeVisible();
     await expect(header.getByText('위 안내 참고')).toBeVisible();

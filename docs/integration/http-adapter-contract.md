@@ -117,7 +117,7 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 
 | 상황 | `outcome` | `message` | `correlationId` |
 | --- | --- | --- | --- |
-| 200 + 올바른 envelope | 그대로 | 그대로 | 서버 값 |
+| 200 + 올바른 envelope | 그대로 | 진단 노출 규칙 적용(아래) | 서버 값 |
 | Kernel이 넘긴 `signal`로 중단 | (outcome 아님) — 결과를 쓰지 않는다. 어댑터는 `AbortError`로 reject해도 되고 Kernel은 그 identity의 결과를 버린다(superseded) | — | — |
 | 어댑터 내부 타임아웃(§5) | `timeout` | `client_timeout` | 요청 헤더로 보낸 id |
 | 네트워크 실패(`fetch` reject: DNS·연결 끊김·CORS) | `error` | `network_error` | 요청 헤더로 보낸 id |
@@ -128,6 +128,8 @@ envelope 메서드는 **reject하지 않는다**(체크리스트 §2). 실패는
 | 3xx·`opaqueredirect`(SSO 게이트웨이 리다이렉트 — §6) | `error` + 세션 재확인 시작(§4) — 401과 같이 처리 | `session_expired` | 요청 id |
 
 `message`는 짧은 코드 문자열이다(URL·응답 본문·스택을 싣지 않는다 — #101의 "자유 문장 금지"와 같은 이유). 선언 kind 검사(`contract_violation`)는 어댑터가 아니라 Kernel이 한다(체크리스트 §3 끝) — 어댑터는 envelope 모양만 본다. 어댑터가 만드는 코드(`http_503`·`network_error` 등)도 화면에 그대로 보이므로 같은 규칙을 지킨다. 서버가 구조상 올바른 envelope·ActionResponse·PortError 본문에 실어 보낸 `message`는 200자 이하이고 제어 문자·줄바꿈·`://`가 없을 때만 그대로 넘기고, 아니면 outcome과 나머지는 두고 `message`만 고정 코드 `server_message_redacted`로 바꾼다(`invalid_envelope`로 바꾸지 않는다).
+
+설비 복구 목록 필드가 있는 envelope의 `message`는 목록을 정규화하기 전에 확인해 알려진 집계 사유 코드만 남긴다. 어댑터는 자체 타임아웃, 네트워크 실패, HTTP 504, 지연 초 단위의 유효한 `Retry-After`가 있는 503에 `recovery.retryable: true`를 붙인다. 판정된 200 envelope는 제공자의 유효한 복구 값을 전달한다.
 
 ### 2.2 그 밖의 묶음
 

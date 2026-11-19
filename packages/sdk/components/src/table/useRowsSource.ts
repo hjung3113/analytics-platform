@@ -66,7 +66,7 @@ function localPage<T>(rows: readonly T[], query: TableQuery, columns: PlatformCo
   const specs = Object.fromEntries([...columns.flatMap(c => c.filter ? [[c.id, c.filter] as const] : []), ...(fields ?? []).map(f => [f.id, f.spec] as const)]);
   if (query.filters?.length) {
     const check = validateFilters(query.filters, specs);
-    if (!check.ok) return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `filter rejected: ${check.reason} (${check.filter.id})` };
+    if (!check.ok) return { outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `filter rejected: ${check.reason} (${check.filter.id})`, recovery: { retryable: false } };
   }
   const filtered = filterRows(rows, query.filters, accessor, { specs });
   if (query.groupBy) {

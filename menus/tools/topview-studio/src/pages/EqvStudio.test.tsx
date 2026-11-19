@@ -551,7 +551,10 @@ describe('FIX2 review regressions', () => {
     vi.spyOn(server, 'query').mockImplementation(async req => {
       if (req.endpoint === endpoint) {
         if (holding) await held;
-        if (failing) throw new Error('isolated list failure');
+        if (failing) return {
+          outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'fixture',
+          message: 'network_error', recovery: { retryable: true },
+        };
       }
       return query(req);
     });

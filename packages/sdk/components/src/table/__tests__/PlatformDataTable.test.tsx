@@ -349,11 +349,15 @@ describe('PlatformDataTable pager focus', () => {
     expect(screen.getByRole('button', { name: startPage === 1 ? '이전' : '다음' })).toHaveFocus();
   });
 
-  it.each(['error', 'timeout', 'forbidden', 'too_large', 'empty'] as const)('moves owned focus after %s', async outcome => {
+  it.each([
+    ['error', true], ['timeout', true], ['error', false],
+    ['forbidden', false], ['too_large', false], ['empty', false],
+  ] as const)('moves owned focus after %s with retryable = %s', async (outcome, retryable) => {
     const { finish } = await setup(outcome === 'empty' ? 2 : 1);
-    await finish({ outcome, data: null, assessments: [], trust: null, correlationId: 'failed' });
+    await finish({ outcome, data: null, assessments: [], trust: null, correlationId: 'failed',
+      ...(retryable ? { recovery: { retryable: true } } : {}) });
     const section = screen.getByRole('region', { name: 'table' });
-    if (outcome === 'error' || outcome === 'timeout') {
+    if (retryable) {
       expect(within(section).getByRole('button', { name: '다시 시도' })).toHaveFocus();
     } else {
       expect(section).toHaveFocus();
@@ -394,7 +398,7 @@ describe('PlatformDataTable pager focus', () => {
   // focus must follow to the row viewport, not drop to body.
   it('moves owned focus to the row viewport when a successful retry removes the button', async () => {
     const { finish } = await setup();
-    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' });
+    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed', recovery: { retryable: true } });
     const retry = screen.getByRole('button', { name: '다시 시도' });
     expect(retry).toHaveFocus();
     fireEvent.click(retry);
@@ -406,7 +410,7 @@ describe('PlatformDataTable pager focus', () => {
   // stays (no viewport), so the owned focus must land on the section, not drop to body.
   it('moves owned focus to the section when a retry settles on empty', async () => {
     const { finish } = await setup();
-    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' });
+    await finish({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed', recovery: { retryable: true } });
     const retry = screen.getByRole('button', { name: '다시 시도' });
     expect(retry).toHaveFocus();
     fireEvent.click(retry);
@@ -434,7 +438,7 @@ describe('PlatformDataTable pager focus', () => {
     await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
     expect(previous).not.toBeDisabled();
     expect(previous).toHaveAttribute('aria-disabled', 'true');
-    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
+    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed', recovery: { retryable: true } }));
     expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
     expect(previous).toBeDisabled();
   });
@@ -464,7 +468,7 @@ describe('PlatformDataTable pager focus', () => {
     expect(previous).not.toBeDisabled();
     expect(previous).toHaveAttribute('aria-disabled', 'true');
     expect(previous).toHaveFocus();
-    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed' }));
+    await act(async () => resolve({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: 'failed', recovery: { retryable: true } }));
     expect(screen.getByRole('button', { name: '다시 시도' })).toHaveFocus();
     expect(previous).toBeDisabled();
   });
@@ -1515,6 +1519,14 @@ describe('An AbortError the table did not cause is an error, not a cancellation 
     render(<UncontrolledHarness loadPage={loadPage} />);
     expect(await screen.findByText('데이터를 불러오지 못했습니다')).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull(); // the error state replaced the viewport, no eternal load
+  });
+
+  it('can retry a rejected loadPage after a network interruption', async () => {
+    const loadPage = vi.fn<TableLoadPage<Row>>().mockImplementation(makeLoadPage(3)).mockRejectedValueOnce(new DOMException('offline', 'NetworkError'));
+    render(<UncontrolledHarness loadPage={loadPage} />);
+    fireEvent.click(await screen.findByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText(/1\/1/)).toBeTruthy();
+    expect(loadPage).toHaveBeenCalledTimes(2);
   });
 
   it('exportRows rejecting with DOMException AbortError (the table did not abort) toasts the export failure advice', async () => {
