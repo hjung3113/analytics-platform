@@ -1,9 +1,13 @@
+import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { useMeBridge } from '../../../lib/api/me';
 import { ApiError } from '../../../lib/api/types';
 import { EVIDENCE_SOURCE_TYPE_LABELS } from '../../../lib/copy/enum-labels';
 import { EVIDENCE_COPY as COPY } from '../../../lib/copy/evidence';
 import { GLOSSARY } from '../../../lib/copy/glossary';
+import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
+import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { useHostSearchWriter } from '../../../lib/host/useHostSearchWriter';
 import type { EvidenceInventoryItem, ListEvidenceInventoryResponse } from '@ap/feature-shared';
@@ -11,13 +15,13 @@ import {
   Button,
   ListShell,
   ListToolbar,
-  PermissionBlockedPanel,
   SearchInput,
   Skeleton,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ListAccessRequestPanel } from '../../../components/ListAccessRequestPanel';
 import {
   type EvidenceFilters,
   evidenceInventoryQueryKey,
@@ -71,7 +75,7 @@ export function EvidenceScreen({ renderDetail }: EvidenceScreenProps) {
       <ListShell
         list={
           me.isError ? (
-            <PermissionBlockedPanel state="denied" category="근거" description={COPY.blocked} />
+            <PermissionDeniedCard layout="card" category="근거" description={COPY.blocked} />
           ) : (
             <Skeleton className="h-32" role="status" aria-label={COPY.loading} />
           )
@@ -226,7 +230,15 @@ function EvidenceSession({
     if (manualRefresh && !list.isPending && !list.isFetching && !detail.isFetching)
       setManualRefresh(false);
   }, [manualRefresh, list.isPending, list.isFetching, detail.isFetching]);
-  const blocked = denied(list.error) || denied(detail.error);
+  const readDenied = denied(list.error) || denied(detail.error);
+  const scopedPermission = useScopedEmptyListPermission({
+    capability: 'finding.read',
+    managedSystemId: search.managedSystem === 'all' ? undefined : search.managedSystem,
+    empty: !readDenied && list.isSuccess && list.data.items.length === 0,
+  });
+  const blocked = readDenied || scopedPermission.state === 'blocked';
+  const request = scopedPermission.state === 'blocked' ? scopedPermission.request : null;
+  const archived = useIsArchivedSystem(blocked && request === null && search.managedSystem !== 'all' ? search.managedSystem : undefined);
   useEffect(() => {
     if (!blocked) return;
     setDraft('');
@@ -350,14 +362,27 @@ function EvidenceSession({
                 </Button>
               </div>
             )}
-            {blocked ? (
-              <PermissionBlockedPanel
-                state="denied"
-                category="근거"
-                description={COPY.blocked}
+            {request ? (
+              <ListAccessRequestPanel
+                category={COPY.title}
+                reason={COPY.blocked}
+                request={request}
+                returnRouteIntent="/integration/evidence"
               />
-            ) : (list.isPending || list.isFetching) && items.length === 0 ? (
+            ) : blocked ? (
+              <PermissionDeniedCard
+                layout="card"
+                category="근거"
+                description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
+              />
+            ) : scopedPermission.state === 'checking' || ((list.isPending || list.isFetching) && items.length === 0) ? (
               <Skeleton className="h-32" role="status" aria-label={COPY.loading} />
+            ) : scopedPermission.state === 'error' ? (
+              <ListStateMessage
+                variant="error"
+                title={COPY.error}
+                action={{ label: COPY.retry, onClick: scopedPermission.retry }}
+              />
             ) : list.isError && items.length === 0 ? (
               <ListStateMessage
                 variant="error"
@@ -450,7 +475,8 @@ function EvidenceSession({
                 action={{ label: COPY.retry, onClick: () => void list.refetch() }}
               />
             )}
-            {!blocked && items.length > 0 && !list.isError && lastPage?.has_more && (
+            {!blocked && scopedPermission.state !== 'checking' && scopedPermission.state !== 'error'
+              && items.length > 0 && !list.isError && lastPage?.has_more && (
               <div className="p-4">
                 <Button
                   variant="subtle"
@@ -465,7 +491,7 @@ function EvidenceSession({
           </>
         }
       />
-      {search.selected
+      {search.selected && scopedPermission.state !== 'blocked'
         ? renderDetail(
             buildEvidencePanelParts({
               item: safeDetail,

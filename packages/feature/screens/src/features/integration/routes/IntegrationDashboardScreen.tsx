@@ -1,3 +1,4 @@
+import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
 import { fetchDashboardSummary } from '../../../lib/api/dashboard';
 import { mapUnknownError } from '../../../lib/api/errorMapper';
 import { useMeBridge } from '../../../lib/api/me';
@@ -8,7 +9,6 @@ import {
   Button,
   PageShell,
   PanelSectionTitle,
-  PermissionBlockedPanel,
   ProgressMeter,
   Skeleton,
 } from '@ap/ui';
@@ -159,7 +159,7 @@ export function IntegrationDashboardScreen({
           ) : summary.isError ? (
             isPermissionDenied(summary.error) ? (
               <div data-testid="integration-dashboard-blocked">
-                <PermissionBlockedPanel state="denied" category="연동 요약" />
+                <PermissionDeniedCard category="연동 요약" />
               </div>
             ) : (
               <div data-testid="integration-dashboard-summary-error">

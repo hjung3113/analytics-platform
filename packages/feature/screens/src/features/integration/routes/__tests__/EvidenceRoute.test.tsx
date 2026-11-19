@@ -1,3 +1,5 @@
+import { EvidenceScreen } from '../EvidenceScreen';
+import { HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
 import { EvidenceRoute } from '../../../../test/screen-host/features/integration/routes/EvidenceRoute';
 import { validateEvidenceSearch } from '../../../../test/screen-host/routes/_authed/integration/evidence';
 import {
@@ -100,6 +102,9 @@ function installFetch(
         );
       if (url.pathname === '/evidence-highlights') return Promise.resolve(list(url));
       if (url.pathname === `/evidence-highlights/${ID}`) return Promise.resolve(detail());
+      if (url.pathname === '/me/permissions/check') {
+        return Promise.resolve(response({ state: 'approved', decision: { allow: true } }));
+      }
       throw new Error(`Unexpected request ${url}`);
     }),
   );
@@ -891,11 +896,111 @@ it('explains list permission denial and disables the source tabs, search and ref
   installFetch(() => response({ code: 'permission.denied' }, 403));
   await mount();
   await screen.findByText(
-    '근거 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+    '근거 목록을 볼 권한이 없습니다.',
   );
   for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
   expect(screen.getByRole('searchbox')).toBeDisabled();
   expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled();
+});
+
+it('offers the permitted host Home when the Evidence list is denied', async () => {
+  installFetch(() => response({ code: 'permission.denied' }, 403));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Host() {
+    const seam = useHostSeam();
+    return <HostSeamProvider value={{
+      ...seam, useSearch: () => ({}), useNavigate: () => () => undefined,
+      usePermissionLinks: () => ({ permissionHomeHref: '/company/' }),
+    }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
+  }
+  render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
+  const home = await screen.findByRole('link', { name: '홈으로' });
+  expect(home).toHaveAttribute('href', '/company/');
+  expect(home).toHaveClass('bg-surface-raised');
+  expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
+});
+
+it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s permission for a scoped 200-empty Evidence list', async (state) => {
+  installFetch(() => response({ items: [], page: { has_more: false } }));
+  const originalFetch = fetch;
+  const fetchMock = vi.fn((input: string, init?: RequestInit) => {
+    const url = new URL(input, 'http://localhost');
+    if (url.pathname === '/me/permissions/check') {
+      return Promise.resolve(response({ state, decision: { allow: state === 'approved' } }));
+    }
+    if (url.pathname === '/permission-requests/mine') return Promise.resolve(response({ requests: [] }));
+    if (url.pathname === '/managed-systems') return Promise.resolve(response({ items: [] }));
+    return originalFetch(input, init);
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const permissionRequestHref = vi.fn(() => '/company/permission-requests');
+  function Host() {
+    const seam = useHostSeam();
+    return <HostSeamProvider value={{
+      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      usePermissionLinks: () => ({ permissionRequestHref, permissionHomeHref: '/company/' }),
+    }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
+  }
+  render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
+
+  if (state === 'approved') {
+    expect(await screen.findByText('표시할 근거가 없습니다.')).toBeInTheDocument();
+    expect(permissionRequestHref).not.toHaveBeenCalled();
+  } else if (state === 'pending_request') {
+    const status = await screen.findByRole('link', { name: '내 권한 요청 보기' });
+    const home = screen.getByRole('link', { name: '홈으로' });
+    expect(status).toHaveAttribute('href', '/company/permission-requests');
+    expect(status).toHaveClass('bg-surface-raised');
+    expect(home).toHaveClass('bg-surface-raised');
+    expect(Array.from(status.parentElement?.children ?? [])).toEqual([status, home]);
+    expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
+    expect(screen.getByText('보낸 권한 요청을 검토하고 있습니다.')).toBeInTheDocument();
+    expect(screen.getByText('근거 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByText(/권한 요청이 필요합니다/)).not.toBeInTheDocument();
+    expect(permissionRequestHref).toHaveBeenCalledWith();
+  } else {
+    const request = await screen.findByRole('link', { name: '권한 요청' });
+    const home = screen.getByRole('link', { name: '홈으로' });
+    expect(request).toHaveAttribute('href', '/company/permission-requests');
+    expect(request).toHaveClass('bg-accent-primary');
+    expect(home).toHaveClass('bg-surface-raised');
+    expect(Array.from(request.parentElement?.children ?? [])).toEqual([request, home]);
+    expect(permissionRequestHref).toHaveBeenCalledWith();
+    expect(screen.queryByText('표시할 근거가 없습니다.')).not.toBeInTheDocument();
+  }
+  expect(fetchMock.mock.calls.filter(([input]) => input.startsWith('/me/permissions/check'))).toEqual([
+    [`/me/permissions/check?capability=finding.read&managed_system_id=${MS}`, expect.any(Object)],
+  ]);
+});
+
+it('names an archived System instead of a missing permission on a scoped empty Evidence list', async () => {
+  installFetch(() => response({ items: [], page: { has_more: false } }));
+  const originalFetch = fetch;
+  vi.stubGlobal('fetch', vi.fn((input: string, init?: RequestInit) => {
+    const url = new URL(input, 'http://localhost');
+    if (url.pathname === '/me/permissions/check') {
+      return Promise.resolve(response({ state: 'blocked_non_requestable', decision: { allow: false } }));
+    }
+    if (url.pathname === '/managed-systems') {
+      return Promise.resolve(response({ items: [{ id: MS, name: '보관 시스템', archived_at: '2026-01-01T00:00:00Z' }] }));
+    }
+    return originalFetch(input, init);
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Host() {
+    const seam = useHostSeam();
+    return <HostSeamProvider value={{
+      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      usePermissionLinks: () => ({ permissionHomeHref: '/company/' }),
+    }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
+  }
+  render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
+  expect(await screen.findByText('보관된 시스템이라 볼 수 없습니다.')).toBeInTheDocument();
+  const home = screen.getByRole('link', { name: '홈으로' });
+  expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
+  expect(screen.queryByText('근거 목록을 볼 권한이 없습니다.')).not.toBeInTheDocument();
+  expect(screen.queryByText('필요한 권한')).not.toBeInTheDocument();
 });
 
 it.each(['voc', 'note', 'withheld'] as const)(
