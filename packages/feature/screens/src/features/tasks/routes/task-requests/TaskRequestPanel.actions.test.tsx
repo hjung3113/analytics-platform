@@ -239,22 +239,42 @@ describe('TaskRequestPanel next actions', () => {
     expect(linkExisting).toHaveClass('w-full');
   });
 
-  it('disables Next request with a visible reason when no other request is waiting', () => {
+  it('uses a unique visible reason for each disabled Next request action', () => {
     render(
-      <TaskRequestPanel
-        item={{ ...request, status: 'approved' }}
-        names={names}
-        currentActorId={request.requester_actor_id}
-        currentRole="developer"
-        onClose={vi.fn()}
-        recentlyApproved
-        hasNextRequest={false}
-        onNextRequest={vi.fn()}
-      />,
+      <>
+        <TaskRequestPanel
+          item={{ ...request, status: 'approved' }}
+          names={names}
+          currentActorId={request.requester_actor_id}
+          currentRole="developer"
+          onClose={vi.fn()}
+          recentlyApproved
+          hasNextRequest={false}
+          onNextRequest={vi.fn()}
+        />
+        <TaskRequestPanel
+          item={{ ...request, id: '10000000-0000-0000-0000-000000000002', status: 'approved' }}
+          names={names}
+          currentActorId={request.requester_actor_id}
+          currentRole="developer"
+          onClose={vi.fn()}
+          recentlyApproved
+          hasNextRequest={false}
+          onNextRequest={vi.fn()}
+        />
+      </>,
     );
 
-    expect(screen.getByRole('button', { name: TASK_REQUEST_NEXT_COPY.label })).toBeDisabled();
-    expect(screen.getByText(TASK_REQUEST_NEXT_COPY.noNext)).toBeVisible();
+    const buttons = screen.getAllByRole('button', { name: TASK_REQUEST_NEXT_COPY.label });
+    expect(buttons).toHaveLength(2);
+    expect(buttons.every((button) => button.hasAttribute('disabled'))).toBe(true);
+    const reasonIds = buttons.map((button) => button.getAttribute('aria-describedby'));
+    expect(new Set(reasonIds).size).toBe(2);
+    for (const id of reasonIds) {
+      expect(document.getElementById(id as string)).toHaveTextContent(
+        '이 목록에 다른 요청이 없습니다.',
+      );
+    }
   });
 
   it('keeps approval primary and opens the rejection reason dialog from the secondary action', async () => {

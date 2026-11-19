@@ -31,7 +31,7 @@ export const TASK_REQUEST_COPY = {
 
 export const TASK_REQUEST_NEXT_COPY = {
   label: '다음 요청',
-  noNext: '검토 대기 중인 다른 요청이 없습니다.',
+  noNext: '이 목록에 다른 요청이 없습니다.',
 } as const;
 
 /** #2530: the open request is not a row of the shown list, so its decisions are not offered here. */

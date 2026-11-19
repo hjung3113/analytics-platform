@@ -358,10 +358,11 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
       if (error instanceof ApiError && error.code === 'conflict.stale_write' && latest) {
         invalidateLists();
       }
-      notifyError(mapUnknownError(error).message);
+      if (caches.mode !== 'detail') notifyError(mapUnknownError(error).message);
     },
-    onSuccess: (_data, _variables, context) => {
+    onSuccess: (data, _variables, context) => {
       if (context) pendingDeltas.current.delete(context);
+      if (context?.detailKey) client.setQueryData(context.detailKey, data);
       void invalidateRecovery(client);
     },
     onSettled: (_data, _error, _variables, context) => {

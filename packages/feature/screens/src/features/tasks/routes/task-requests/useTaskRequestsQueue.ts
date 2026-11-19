@@ -102,8 +102,8 @@ export function useTaskRequestsQueue({
     queryKey: ['task-requests', managedSystem, 'summary'] as const,
     queryFn: ({ signal }) => fetchTaskRequests({ ...scope, signal, limit: 1 }),
   });
-  const filteredTotalQuery = useQuery({
-    queryKey: ['task-requests', managedSystem, 'filtered-total', ...reviewerKey] as const,
+  const filteredSummaryQuery = useQuery({
+    queryKey: ['task-requests', managedSystem, 'filtered-summary', ...reviewerKey] as const,
     queryFn: ({ signal }) =>
       fetchTaskRequests({
         ...scope,
@@ -303,14 +303,11 @@ export function useTaskRequestsQueue({
     };
   }, [actorsQuery.data?.actors, actorsQuery.data?.teams, managedSystemsQuery.data?.items]);
 
+  const badgeQuery = reviewerFiltersActive ? filteredSummaryQuery : summaryQuery;
+  const badgePage = badgeQuery.isSuccess ? badgeQuery.data.page : undefined;
   const tabs = React.useMemo<ListToolbarTab[]>(
-    () => {
-      const allCount = reviewerFiltersActive
-        ? filteredTotalQuery.isSuccess
-          ? filteredTotalQuery.data.page?.total
-          : undefined
-        : summaryQuery.data?.page?.total;
-      return TAB_ORDER.map((tab) => {
+    () =>
+      TAB_ORDER.map((tab) => {
         // #706 — counts are unknown until the read succeeds (covers pending,
         // error, and refetch-after-error without data); unknown must never
         // render as 0 (ListTabs renders badgeCount only when set).
@@ -319,24 +316,16 @@ export function useTaskRequestsQueue({
           label: tab.label,
           urgent: tab.value === 'pending_review',
         };
-        if (!summaryQuery.isSuccess || summaryQuery.data.page?.status_counts === undefined)
-          return base;
+        if (badgePage?.status_counts === undefined) return base;
         const badgeCount =
-          tab.value === 'all' ? allCount : summaryQuery.data.page.status_counts[tab.value];
+          tab.value === 'all' ? badgePage.total : badgePage.status_counts[tab.value];
         if (badgeCount === undefined) return base;
         return {
           ...base,
           badgeCount,
         };
-      });
-    },
-    [
-      summaryQuery.data,
-      summaryQuery.isSuccess,
-      filteredTotalQuery.data,
-      filteredTotalQuery.isSuccess,
-      reviewerFiltersActive,
-    ],
+      }),
+    [badgePage],
   );
 
   const shown = items;

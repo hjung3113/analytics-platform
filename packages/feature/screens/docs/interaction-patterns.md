@@ -175,9 +175,9 @@ UX rules:
 
 ```text
 - VOC, VOC Cluster, Finding, and Survey-derived Finding follow-up uses "Request Task", not "Create Task".
-- "Create Task" is reserved for standalone internal Tasks from the Tasks surface.
+- Standalone internal Tasks from the Tasks surface use "Create Task".
 - "Convert to Task" is the primary action on an approved Task Request and turns it into a Backlog Task.
-- After approval, keep the approved request selected across queue refresh, close the decision dialog, and move focus to the conversion action. The conversion form focuses its title field and labels its submit action "Create Task".
+- After approval, keep the approved request selected across queue refresh, close the decision dialog, and move focus to the conversion action. The conversion form focuses its title field and labels its submit action "Task 만들기".
 - "Next Request" selects another request in the current filtered queue; disable it with a visible reason when none is waiting.
 - Approval accepts the execution candidate; conversion creates the Task.
 - UI may offer "Approve and Convert" as a fast path while still showing source evidence and required Task fields.

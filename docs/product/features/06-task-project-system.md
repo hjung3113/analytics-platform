@@ -462,6 +462,7 @@ Converted Task has `assignee_team_id` paired with `assignee_actor_id`.
 Use the owner resolver on omission, explicit Actor/team/null when permitted, retain Backlog,
 links/audit/idempotency, and notify only a concrete Actor once. Defaults change no existing
 assignments. Source-owned display/edit/filter and Home assigned-reviewer filter shipped with
-fields; personal views do not invent team membership or narrow operational totals.
+fields; personal views do not invent team membership. Home and Dashboard summary counts stay
+scope-wide; Task Request queue badges count the list under active reviewer filters.
 The older conversion assignee validation/status text describes shipped behavior; FO ADR-0067
 supersedes it only for explicit responsibility validation and default/null routing.

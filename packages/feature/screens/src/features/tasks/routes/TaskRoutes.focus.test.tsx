@@ -3,6 +3,7 @@ import * as api from '../../../lib/api';
 import * as areasApi from '../../../lib/api/analytics-areas';
 import * as milestonesApi from '../../../lib/api/milestones';
 import * as taskRequestsApi from '../../../lib/api/task-requests';
+import { ApiError } from '../../../lib/api/types';
 import { useMe } from '../../../lib/auth/useMe';
 import { AppFrame } from '../../../test/detail-slot-host';
 import {
@@ -716,7 +717,9 @@ it('keeps the approved request selected through a delayed current-tab refetch', 
     await screen.findByRole('heading', { name: '검토 결정' });
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
+    fireEvent.change(within(dialog).getByRole('textbox'), {
+      target: { value: '검토 완료' },
+    });
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     const convert = await screen.findByRole('button', { name: 'Task로 전환' });
     await waitFor(() => expect(convert).toHaveFocus());
@@ -734,6 +737,81 @@ it('keeps the approved request selected through a delayed current-tab refetch', 
   } finally {
     cleanup();
     client.clear();
+    fetch.mockRestore();
+    mutation.mockRestore();
+  }
+});
+
+it('keeps approval open with retry through a failed current-tab refetch', async () => {
+  let decided = false;
+  let recovered = false;
+  let failPage!: (error: Error) => void;
+  const fetch = vi.spyOn(api, 'fetchTaskRequests').mockImplementation(async (query) => {
+    if (query?.limit === 1) return taskRequestPage(requests);
+    if (!decided) return taskRequestPage([request], query);
+    if (recovered) return taskRequestPage([request2], query);
+    return new Promise((_resolve, reject) => {
+      failPage = reject;
+    });
+  });
+  const mutation = vi.spyOn(api, 'approveTaskRequest').mockImplementation(async () => {
+    decided = true;
+    return { ...request, status: 'approved' };
+  });
+  const frames = new Map<number, FrameRequestCallback>();
+  let frameId = 0;
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    frames.set(++frameId, callback);
+    return frameId;
+  });
+  const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+    frames.delete(id);
+  });
+  const { client } = mount('requests');
+  try {
+    await screen.findByRole('heading', { name: '검토 결정' });
+    await settleQueries(client);
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
+    await waitFor(() => expect(failPage).toBeTypeOf('function'));
+    await act(async () =>
+      failPage(new ApiError(500, { code: 'internal.unexpected', message: 'temporary failure' })),
+    );
+    await waitFor(() =>
+      expect(
+        client
+          .getQueryCache()
+          .findAll({ queryKey: ['task-requests', scope, 'pages'] })
+          .some((query) => query.state.error !== null),
+      ).toBe(true),
+    );
+    const recoveryDialog = await screen.findByRole('dialog');
+    const retry = await within(recoveryDialog).findByRole('button', { name: '다시 시도' });
+    await settleQueries(client);
+    for (let frame = 0; frame < 50; frame++) {
+      await act(async () => {
+        const pending = [...frames.values()];
+        frames.clear();
+        for (const callback of pending) callback(frame * 16);
+      });
+    }
+    expect(frames.size).toBe(0);
+    expect(recoveryDialog.isConnected).toBe(true);
+    expect(within(recoveryDialog).getByRole('textbox')).toHaveValue('검토 완료');
+    expect(retry).toBeVisible();
+    recovered = true;
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Task로 전환' })).toHaveFocus(),
+    );
+    expect(recoveryDialog.isConnected).toBe(false);
+  } finally {
+    cleanup();
+    client.clear();
+    raf.mockRestore();
+    cancel.mockRestore();
     fetch.mockRestore();
     mutation.mockRestore();
   }

@@ -198,11 +198,12 @@ as the other surfaces.
 - Browser refresh on a selected URL restores AppShell, list context, and selected detail when data is accessible.
 - Finding, Task list, Task Request queue, VOC Inbox and 내 VOC screens load cursor pages of 50 rows
   using the shipped load-more control. Finding and Task counts use the first
-  page's exact total. Task Request per-status badges and global-empty state use
-  a separate unfiltered-by-reviewer `limit=1` summary. With reviewer filters
-  active, only the `전체` badge uses a `limit=1` total with those filters;
-  active-tab pages send the server status filter.
-  Badges stay unknown until that summary succeeds. The Task board is bounded (#1178):
+  page's exact total. With reviewer filters active, Task Request's five badges
+  (`전체` and the four status tabs) use one filtered `limit=1` summary with the
+  same scope and reviewer filters as the list. The global-empty state uses a
+  separate summary without reviewer filters; active-tab pages send the server
+  status filter. Badges stay unknown until the current-filter summary succeeds.
+  The Task board is bounded (#1178):
   grouped by status, each of the seven status columns runs its own paged read
   (`status`, `limit=50`, cursor) with the board's scope, `q`, `public_update` and
   personal filters, shows that read's exact first-page total in its header, and ends

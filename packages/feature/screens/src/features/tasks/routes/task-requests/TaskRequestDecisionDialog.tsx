@@ -31,6 +31,7 @@ export function TaskRequestDecisionDialog({
   getCompletedFocusTarget,
   onCompletedClose,
   recovery,
+  reopenForRecovery = false,
   dialog,
   request,
   isSelfApproval,
@@ -42,6 +43,7 @@ export function TaskRequestDecisionDialog({
   completedResult?: TaskRequestDto | null;
   onCompletedClose?: () => void;
   recovery?: React.ReactNode;
+  reopenForRecovery?: boolean;
   getCompletedFocusTarget?: (result: TaskRequestDto) => HTMLElement | null;
   dialog: DecisionDialogState | null;
   request: TaskRequestDto;
@@ -82,6 +84,10 @@ export function TaskRequestDecisionDialog({
   const content = liveDialog ?? retained;
   const activeOpening = React.useRef<typeof opening | null>(null);
   const mounted = React.useRef(false);
+  const recoveryWasOpen = React.useRef(false);
+  const recoveryOpen = reopenForRecovery && recovery !== null && recovery !== undefined;
+  const recoveryOpenRef = React.useRef(recoveryOpen);
+  recoveryOpenRef.current = recoveryOpen;
   React.useLayoutEffect(() => {
     mounted.current = true;
     return () => {
@@ -186,12 +192,19 @@ export function TaskRequestDecisionDialog({
   const submit = handleSubmit({ reason: content?.value ?? '' });
 
   return (
-    <Dialog open={liveDialog !== null} onOpenChange={(open) => !open && dismiss()}>
+    <Dialog
+      open={liveDialog !== null || recoveryOpen}
+      onOpenChange={(open) => !open && dismiss()}
+    >
       {content && (
         <DialogContent
           key={opening.key}
           {...(successfulClose && handedOff !== opening ? { forceMount: true } : {})}
           onOpenAutoFocus={() => {
+            if (recoveryOpen) {
+              recoveryWasOpen.current = true;
+              return;
+            }
             activeOpening.current = opening;
             opening.opener =
               document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -201,6 +214,14 @@ export function TaskRequestDecisionDialog({
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
+            if (recoveryWasOpen.current && opening.successTarget) {
+              const target = opening.successTarget;
+              window.setTimeout(() => {
+                if (!mounted.current || recoveryOpenRef.current || !target.isConnected) return;
+                target.focus();
+                if (document.activeElement === target) recoveryWasOpen.current = false;
+              }, 0);
+            }
             // A request-key unmount must not restore an old request's opener.
             if (
               mounted.current &&

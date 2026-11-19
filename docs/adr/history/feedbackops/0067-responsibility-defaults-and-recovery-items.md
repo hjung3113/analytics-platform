@@ -131,6 +131,8 @@ assignment display/edit/filter behavior with these fields. Home uses the actual 
 reviewer filter, not all pending requests; team responsibility does not invent personal
 membership. Operational totals remain scope-wide.
 
+> **Amended 2026-11-19 (#2554).** Task Request queue status badges follow active reviewer filters; Home and Dashboard summaries and an unfiltered Task Request queue remain scope-wide. See `docs/architecture/platform-api/api/tasks.md` §Task Request Review Contract.
+
 ### 3. All six D3 capabilities (56-5/O5)
 
 | Capability | Kept decision and product value |

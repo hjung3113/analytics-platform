@@ -634,7 +634,7 @@ it.each(['row', 'scope+param'] as const)(
   },
 );
 
-it('restores reviewer filters through URL navigation without changing scope or operational summary', async () => {
+it('restores reviewer filters through URL navigation without changing scope', async () => {
   mockQueue([first, second]);
   const mounted = mount(`${initial}&reviewer=me`);
   await settledQueue(mounted);

@@ -28,7 +28,7 @@
 
 - Task Request accepts assigned-reviewer Actor/team fields distinct from actual `reviewer_actor_id`, plus Task `assignee_team_id`. Default changes never reassign.
 - Task Request reviewer default precedes eligible owner/AA team/scoped queue; conversion uses owner defaults. Invalid explicit rejects, invalid automatic skips, authorized null opts out.
-- Preserve pending/Backlog, open authorized review and self-approval checks, links/audit/replay; notify only a concrete assignee once. Personal reviewer filters never narrow operational totals.
+- Preserve pending/Backlog, open authorized review and self-approval checks, links/audit/replay; notify only a concrete assignee once. Reviewer filters narrow the Task Request list, `total` and `status_counts` together; Dashboard summary counts ignore them.
 - Source mutations use the injected Dashboard recorder, not direct projection/source rewrites.
 
 ## Survey source defaults (FO ADR-0064)

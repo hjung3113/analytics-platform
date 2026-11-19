@@ -29,7 +29,10 @@ vi.mock('../../../lib/api/me', async (importOriginal) => ({
   useMeBridge: () => ({ data: { actor: { id: 'admin', role_level: api.roleLevel } } }),
 }));
 vi.mock('../../../lib/cross-system/usePermissionCheckBridge', () => ({
-  usePermissionCheckBridge: () => ({ data: { state: api.permissionState } }),
+  usePermissionCheckBridge: () =>
+    api.permissionState === 'pending'
+      ? { data: undefined, isPending: true, isSuccess: false }
+      : { data: { state: api.permissionState }, isPending: false, isSuccess: true },
 }));
 vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
@@ -350,6 +353,38 @@ describe('Task detail parts through the host seam', () => {
     );
   });
 
+  it('uses the successful PATCH version for a second status change before refetch settles', async () => {
+    const user = userEvent.setup();
+    const firstUpdate: TaskDetailDto = {
+      ...task,
+      status: 'todo',
+      updated_at: '2026-10-14T00:00:00.000Z',
+    };
+    const secondUpdate: TaskDetailDto = {
+      ...firstUpdate,
+      status: 'doing',
+      updated_at: '2026-10-15T00:00:00.000Z',
+    };
+    api.updateTaskStatus.mockResolvedValueOnce(firstUpdate).mockResolvedValueOnce(secondUpdate);
+    api.getTask
+      .mockResolvedValueOnce(task)
+      .mockImplementation(() => new Promise<TaskDetailDto>(() => undefined));
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    trigger.focus();
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(trigger).toHaveTextContent(TASK_STATUS_LABELS.todo));
+
+    trigger.focus();
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(2));
+    expect(api.updateTaskStatus.mock.calls[0]?.[2].ifMatch).toBe(task.updated_at);
+    expect(api.updateTaskStatus.mock.calls[1]?.[2].ifMatch).toBe(firstUpdate.updated_at);
+  });
+
   it('keeps the current status readable and links the disabled reason for actors without permission', async () => {
     api.roleLevel = 'user';
     const { seam } = makeSeam();
@@ -362,6 +397,52 @@ describe('Task detail parts through the host seam', () => {
     expect(describedBy).toBeTruthy();
     const reason = document.getElementById(describedBy as string);
     expect(reason).toHaveTextContent(TASK_STATUS_CONTROL_COPY.permissionRequired);
+  });
+
+  it('does not announce a permission denial while a Developer check is still pending', async () => {
+    api.roleLevel = 'developer';
+    api.permissionState = 'pending';
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    expect(trigger).toBeDisabled();
+    expect(trigger).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByText(TASK_STATUS_CONTROL_COPY.permissionRequired)).not.toBeInTheDocument();
+  });
+
+  it('uses a unique permission reason id for each Task detail', async () => {
+    api.roleLevel = 'user';
+    const { seam } = makeSeam();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <HostSeamProvider value={seam}>
+          <Harness
+            taskId={task.id}
+            onClose={() => {}}
+            actorNamesById={new Map()}
+            managedSystemNamesById={new Map()}
+          />
+          <Harness
+            taskId={task.id}
+            onClose={() => {}}
+            actorNamesById={new Map()}
+            managedSystemNamesById={new Map()}
+          />
+        </HostSeamProvider>
+      </QueryClientProvider>,
+    );
+
+    const triggers = await screen.findAllByRole('combobox', { name: '상태' });
+    const reasonIds = triggers.map((trigger) => trigger.getAttribute('aria-describedby'));
+    expect(reasonIds.every((id) => id !== null)).toBe(true);
+    expect(new Set(reasonIds).size).toBe(2);
+    for (const id of reasonIds) {
+      expect(document.getElementById(id as string)).toHaveTextContent(
+        TASK_STATUS_CONTROL_COPY.permissionRequired,
+      );
+    }
   });
 
   it('supports Tab, arrows, Enter, and Escape while showing pending and error feedback', async () => {
@@ -398,7 +479,7 @@ describe('Task detail parts through the host seam', () => {
     api.updateTaskStatus.mockRejectedValueOnce(new Error('write failed'));
     await user.keyboard('{Enter}{ArrowDown}{Enter}');
     expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
-    expect(calls.error).toHaveBeenCalled();
+    expect(calls.error).not.toHaveBeenCalled();
   });
 
   it('shows the status Select when a Task is opened from a Task Request link', async () => {

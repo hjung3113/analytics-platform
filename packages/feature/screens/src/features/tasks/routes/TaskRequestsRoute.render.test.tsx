@@ -253,6 +253,26 @@ describe('TaskRequestsRoute display ids', () => {
     expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
   });
 
+  it('keeps the global empty state when the reviewer-filtered scope is also empty', async () => {
+    vi.mocked(fetchTaskRequests).mockImplementation(async (options) =>
+      taskRequestPage([], options),
+    );
+    renderWithClient(<TaskRequestsRoute />);
+
+    await screen.findByText('Task 요청이 없습니다.');
+    fireEvent.click(screen.getByRole('combobox', { name: '검토자 필터' }));
+    fireEvent.click(await screen.findByRole('option', { name: '내 검토 요청' }));
+    await waitFor(() =>
+      expect(
+        vi.mocked(fetchTaskRequests).mock.calls.some(([options]) => options?.reviewer === 'me'),
+      ).toBe(true),
+    );
+
+    expect(screen.getByText('Task 요청이 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByText('현재 조건에 맞는 Task 요청이 없습니다')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '필터 초기화' })).not.toBeInTheDocument();
+  });
+
   it('shows pending-specific copy when only other statuses have requests', async () => {
     vi.mocked(fetchTaskRequests).mockImplementation(async (options) =>
       taskRequestPage(
@@ -363,7 +383,7 @@ describe('TaskRequestsRoute display ids', () => {
   });
 });
 
-it('filters assigned reviewers for the list and All count while preserving global status counts', async () => {
+it('filters assigned reviewers for the list and every status badge', async () => {
   const other = {
     ...taskRequest,
     id: '10000000-0000-0000-0000-000000000099',
@@ -373,7 +393,7 @@ it('filters assigned reviewers for the list and All count while preserving globa
   vi.mocked(fetchTaskRequests).mockImplementation(async (options) => {
     const page = taskRequestPage([taskRequest, other], options);
     return options?.reviewer === 'me'
-      ? { ...page, items: [other], page: { ...page.page, total: 1 } }
+      ? taskRequestPage([other], options)
       : page;
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -390,5 +410,11 @@ it('filters assigned reviewers for the list and All count while preserving globa
   );
   expect(await screen.findByRole('button', { name: /REQ-99/ })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: /^전체/ })).toHaveTextContent('1');
-  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveTextContent('2');
+  expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveTextContent('1');
+  expect(screen.getByRole('tab', { name: /^승인됨/ })).toHaveTextContent('0');
+  expect(screen.getByRole('tab', { name: /^반려됨/ })).toHaveTextContent('0');
+  expect(screen.getByRole('tab', { name: /^근거 추가 필요/ })).toHaveTextContent('0');
+  for (const tab of screen.getAllByRole('tab')) {
+    expect(Number(tab.textContent?.match(/\d+/)?.[0])).toBeLessThanOrEqual(1);
+  }
 });

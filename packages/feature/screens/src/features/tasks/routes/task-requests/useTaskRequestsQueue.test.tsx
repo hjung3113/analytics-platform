@@ -77,14 +77,20 @@ const taskRequest = {
   },
 } as TaskRequestDto;
 
-function renderQueue(filters: { reviewer?: string; reviewerTeam?: string } = {}) {
+type ReviewerFilters = { reviewer?: string; reviewerTeam?: string };
+
+function renderQueue(filters: ReviewerFilters = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  return renderHook(() => useTaskRequestsQueue(filters), { wrapper });
+  const hook = renderHook(
+    ({ activeFilters }: { activeFilters: ReviewerFilters }) => useTaskRequestsQueue(activeFilters),
+    { initialProps: { activeFilters: filters }, wrapper },
+  );
+  return { ...hook, queryClient };
 }
 
 const badgeFor = (tabs: ListToolbarTab[], value: string) =>
@@ -122,18 +128,35 @@ describe('useTaskRequestsQueue tab counts (#706)', () => {
     expect(result.current.selectedId).toBe(taskRequest.id);
   });
 
-  it('counts all requests under the same reviewer filters as the all list', async () => {
-    const secondRequest: TaskRequestDto = { ...taskRequest, id: '10000000-0000-0000-0000-000000000002' };
+  it('uses the filtered summary for every badge and refetches it after a decision', async () => {
+    const secondRequest: TaskRequestDto = {
+      ...taskRequest,
+      id: '10000000-0000-0000-0000-000000000002',
+      status: 'approved',
+    };
     fetchTaskRequestsMock.mockImplementation(async (options: ListTaskRequestsQuery) => ({
-      items: options.reviewer === 'me' ? [taskRequest] : [taskRequest, secondRequest],
+      items:
+        options.reviewer === undefined && options.reviewer_team_id === undefined
+          ? [taskRequest, secondRequest]
+          : [taskRequest],
     }));
 
-    const { result } = renderQueue({ reviewer: 'me', reviewerTeam: 'team-1' });
+    const { result, rerender } = renderQueue({ reviewer: 'me', reviewerTeam: 'team-1' });
     act(() => result.current.setActiveTab('all'));
 
     await waitFor(() => expect(result.current.queueSettled).toBe(true));
     await waitFor(() => expect(badgeFor(result.current.tabs, 'all')).toBe(1));
-    expect(badgeFor(result.current.tabs, 'pending_review')).toBe(2);
+    expect(
+      Object.fromEntries(result.current.tabs.map(({ value, badgeCount }) => [value, badgeCount])),
+    ).toEqual({
+      pending_review: 1,
+      needs_more_evidence: 0,
+      approved: 0,
+      rejected: 0,
+      all: 1,
+    });
+    expect(result.current.tabs.every((tab) => (tab.badgeCount ?? 0) <= 1)).toBe(true);
+    expect(result.current.hasItems).toBe(true);
     expect(result.current.shown).toHaveLength(1);
     expect(
       fetchTaskRequestsMock.mock.calls.some(
@@ -141,7 +164,85 @@ describe('useTaskRequestsQueue tab counts (#706)', () => {
           options.limit === 1 && options.reviewer === 'me' && options.reviewer_team_id === 'team-1',
       ),
     ).toBe(true);
+
+    const filteredSummaryCalls = () =>
+      fetchTaskRequestsMock.mock.calls.filter(
+        ([options]) =>
+          options.limit === 1 &&
+          options.reviewer === 'me' &&
+          options.reviewer_team_id === 'team-1',
+      ).length;
+    const readsBeforeDecision = filteredSummaryCalls();
+    act(() => result.current.onDecisionComplete({ ...taskRequest, status: 'approved' }));
+    await waitFor(() => expect(filteredSummaryCalls()).toBeGreaterThan(readsBeforeDecision));
+
+    rerender({ activeFilters: {} });
+    await waitFor(() => expect(badgeFor(result.current.tabs, 'all')).toBe(2));
+    expect(
+      Object.fromEntries(result.current.tabs.map(({ value, badgeCount }) => [value, badgeCount])),
+    ).toEqual({
+      pending_review: 1,
+      needs_more_evidence: 0,
+      approved: 1,
+      rejected: 0,
+      all: 2,
+    });
   });
+
+  it('keeps global hasItems separate from filtered zero badges', async () => {
+    fetchTaskRequestsMock.mockImplementation(async (options: ListTaskRequestsQuery) => ({
+      items:
+        options.reviewer === undefined && options.reviewer_team_id === undefined
+          ? [taskRequest]
+          : [],
+    }));
+
+    const { result } = renderQueue({ reviewer: 'me', reviewerTeam: 'team-1' });
+    act(() => result.current.setActiveTab('all'));
+
+    await waitFor(() => expect(result.current.queueSettled).toBe(true));
+    await waitFor(() => expect(badgeFor(result.current.tabs, 'all')).toBe(0));
+    expect(result.current.tabs.map((tab) => tab.badgeCount)).toEqual([0, 0, 0, 0, 0]);
+    expect(result.current.hasItems).toBe(true);
+  });
+
+  it.each(['pending', 'failed'] as const)(
+    'keeps reviewer-filtered badges unknown while its summary is %s',
+    async (state) => {
+      fetchTaskRequestsMock.mockImplementation((options: ListTaskRequestsQuery) => {
+        if (options.limit !== 1 || options.reviewer === undefined)
+          return Promise.resolve({ items: [taskRequest] });
+        return state === 'pending'
+          ? new Promise(() => undefined)
+          : Promise.reject(new Error('filtered summary failed'));
+      });
+
+      const { result, queryClient } = renderQueue({ reviewer: 'me' });
+      await waitFor(() => expect(result.current.hasItems).toBe(true));
+      await waitFor(() =>
+        expect(
+          fetchTaskRequestsMock.mock.calls.some(
+            ([options]) => options.limit === 1 && options.reviewer === 'me',
+          ),
+        ).toBe(true),
+      );
+      await waitFor(() =>
+        expect(
+          queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ['task-requests', undefined, 'filtered-summary'] })[0]?.state
+            .status,
+        ).toBe(state === 'pending' ? 'pending' : 'error'),
+      );
+      expect(result.current.tabs.map((tab) => tab.badgeCount)).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    },
+  );
 
   it.each(['pending', 'failed', 'loaded', 'loaded-empty'] as const)(
     'shows tab counts only after the read succeeds (%s)',

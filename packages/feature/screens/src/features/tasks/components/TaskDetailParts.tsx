@@ -224,6 +224,9 @@ export function useTaskDetailParts({
   // Task's Managed System — the same rule behind the responsibility editor.
   const canManageAssignment =
     me?.actor.role_level === 'admin' || (me?.actor.role_level === 'developer' && canManageNotes);
+  const statusPermissionReasonId = React.useId();
+  const showStatusPermissionReason =
+    me !== undefined && notesManageQuery.isSuccess && !canManageAssignment;
   const statusTransition = useTaskStatusTransition(
     { mode: 'detail', detailKey: ['task', taskId] },
     `task-detail:${taskId}`,
@@ -376,8 +379,8 @@ export function useTaskDetailParts({
                   <SelectTrigger
                     aria-label={TASK_STATUS_CONTROL_COPY.select}
                     data-testid="task-status-select"
-                    {...(!canManageAssignment
-                      ? { 'aria-describedby': 'task-status-permission-reason' }
+                    {...(showStatusPermissionReason
+                      ? { 'aria-describedby': statusPermissionReasonId }
                       : {})}
                   >
                     <SelectValue />
@@ -390,8 +393,8 @@ export function useTaskDetailParts({
                     ))}
                   </SelectContent>
                 </Select>
-                {!canManageAssignment && (
-                  <span id="task-status-permission-reason" className="text-xs text-text-muted">
+                {showStatusPermissionReason && (
+                  <span id={statusPermissionReasonId} className="text-xs text-text-muted">
                     {TASK_STATUS_CONTROL_COPY.permissionRequired}
                   </span>
                 )}

@@ -693,7 +693,7 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
                     needs_more_evidence: 0,
                     converted: 0,
                   }
-                : await countListStatuses(deps.db, input),
+                : await countListStatuses(deps.db, filteredInput),
             }
           : {}),
       },

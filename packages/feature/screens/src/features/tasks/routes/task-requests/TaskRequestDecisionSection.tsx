@@ -8,7 +8,7 @@ import type { TaskDto } from '@ap/feature-shared';
 import { InternalTaskBadge, UnassignedBadge } from '../../../../ui/index';
 import { Button, ObjectRow, PanelSectionTitle } from '@ap/ui';
 import { Check, FileSearch, Link2, XCircle } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 
 import { TaskRequestConversionForm } from './TaskRequestConversionForm';
 import { TaskRequestLinkedTask } from './TaskRequestLinkedTask';
@@ -43,7 +43,7 @@ export function TaskRequestDecisionSection({
   hasNextRequest?: boolean;
   onNextRequest?: () => void;
 }) {
-  const nextRequestReasonId = 'task-request-next-reason';
+  const nextRequestReasonId = React.useId();
   return (
     <section data-anchor="decision" className="border-t border-border-subtle px-4 py-4">
       <PanelSectionTitle ref={headingRef} tabIndex={-1}>
