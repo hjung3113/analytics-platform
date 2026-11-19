@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, Suspense, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { fireEvent, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Settings } from 'lucide-react';
 import { groupId, menuPermission, spaceId } from '@ap/contracts';
@@ -49,7 +50,9 @@ it('Configuration uses one real kernel Apply, labelled applied summaries and an 
   await settleQueries();
   await vi.waitFor(() => expect(controls.fields.map(field => field.key)).toEqual(['equipment', 'mode', 'ref', 'asOf']));
   const applies = () => [...host.querySelectorAll<HTMLButtonElement>('button')].filter(button => button.textContent === '적용');
-  expect(applies()).toHaveLength(1);
+  const expandQueryBar = () => within(host).getByRole('button', { name: '조회 조건 펼치기' });
+  // This address already has applied conditions, so the clean bar starts folded.
+  expect(applies()).toHaveLength(0);
   expect(host.textContent).not.toContain('비교 실행');
   expect(host.textContent).toContain('설비 12대');
   expect(host.textContent).toContain('기준 설비 비교');
@@ -58,14 +61,19 @@ it('Configuration uses one real kernel Apply, labelled applied summaries and an 
   expect(host.textContent).toContain('기간 종료 시점 · 합성');
   expect(host.textContent).not.toContain('mode reference');
   expect(host.textContent).not.toContain('hideSameCols 1');
+  fireEvent.click(expandQueryBar());
+  expect(applies()).toHaveLength(1);
   act(() => equipment().props.onValuesChange([]));
   expect(equipment().props.values).toEqual([]);
   expect(draft.draft.page).toContainEqual(['equipment', 'none']);
+  fireEvent.click(within(host).getByRole('button', { name: '조회 조건 접기' }));
   expect(host.textContent).toContain('설비 0대');
   expect(host.textContent).toContain('설비 12대');
+  expect(applies()).toHaveLength(1);
   expect(applies()[0].disabled).toBe(true);
   expect(host.textContent).toContain('설비를 2대 이상 선택하세요');
   expect(new URLSearchParams(window.location.search).has('equipment')).toBe(false);
+  fireEvent.click(expandQueryBar());
   act(() => equipment().props.onValuesChange(['EQ03', 'EQ04']));
   expect(applies()[0].disabled).toBe(true);
   expect(host.textContent).toContain('선택한 설비 중 기준을 고르세요');
@@ -79,5 +87,7 @@ it('Configuration uses one real kernel Apply, labelled applied summaries and an 
   await settleQueries();
   expect(new URLSearchParams(window.location.search).get('equipment')).toBe('EQ03,EQ04');
   expect(new URLSearchParams(window.location.search).get('to')).toBe('2026-11-18T12:00:00');
+  expect(expandQueryBar().getAttribute('aria-expanded')).toBe('false');
+  expect(applies()).toHaveLength(0);
   expect(host.textContent).toContain('설비 2대');
 });

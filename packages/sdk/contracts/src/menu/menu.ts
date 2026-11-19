@@ -95,6 +95,10 @@ export type ConditionPreset = { id: string; label: Text; axes: readonly string[]
 export type NavView = { id: string; label: Text; page: Readonly<Record<string, string>> };
 
 export type MenuMeta = {
+  /** Additional search terms for the command palette, including acronyms and alternate spellings. */
+  searchAliases?: readonly string[];
+  /** Optional one-line description between the result name and its Registry path. */
+  paletteDescription?: Text;
   /** Optional panel declarations; createRegistry validates and indexes them (#2433). */
   panels?: readonly PanelDeclaration[];
   /** Registered panels rendered within this menu, with read-only input bindings. */

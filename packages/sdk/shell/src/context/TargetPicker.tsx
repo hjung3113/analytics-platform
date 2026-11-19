@@ -50,6 +50,8 @@ function targetCounts(items: readonly FacetedSetItem[], { rule, fixed }: Faceted
   }
   return { count: matchedIds.size, outside: fixed?.filter(id => !matchedIds.has(id)).length ?? 0 };
 }
+export type TargetPickerRequest = { key: string; opener: HTMLButtonElement };
+
 type Props = {
   global: GlobalContext;
   cap: Record<ContextKey, Capability>;
@@ -58,6 +60,8 @@ type Props = {
   invalid?: boolean;
   disabled?: boolean;
   reasonId?: string;
+  openRequest?: TargetPickerRequest;
+  onRequestHandled?(): void;
   /** The chosen groups resolved by an owner that outlives this picker (the query bar); without it the picker resolves them itself. */
   groups?: CustomGroupOptions;
   /** Keep the dialog above relocating/measurement copies of the live bar button. */
@@ -70,7 +74,7 @@ export function TargetPicker(props: Props) {
   return <TargetPickerSession key={JSON.stringify([sessionKey, revision, paneId, route?.menu.id, props.global.scopeId, props.presetAxes])} {...props} />;
 }
 
-function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, disabled, reasonId, groups, children }: Props) {
+function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, disabled, reasonId, openRequest, onRequestHandled, groups, children }: Props) {
   const { adapter, route, savedViewStore, session, revision, scope } = useHostPlatform();
   const { t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -130,11 +134,30 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, di
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
   const opener = useRef<HTMLButtonElement | null>(null);
+  const requestedOpener = useRef<HTMLButtonElement | null>(null);
+  const [initialFacet, setInitialFacet] = useState<string>();
+  const requestedFacets: Record<string, string | undefined> = {
+    roomNames: globalFacet('roomNames'), line: globalFacet('lineNames'), prcGroup: globalFacet('prcGroups'),
+    condition: facets.find(facet => facet.id.startsWith('axis:'))?.id ?? groupFacet,
+  };
+  const requestedFacet = openRequest ? requestedFacets[openRequest.key] : undefined;
+  useEffect(() => {
+    if (!openRequest || disabled) return;
+    requestedOpener.current = openRequest.opener;
+    setInitialFacet(requestedFacet);
+    setOpened(true);
+    setOpen(true);
+    onRequestHandled?.();
+  }, [openRequest, disabled, requestedFacet, onRequestHandled]);
   const restoreFocus = useRef(false);
   const close = (next: boolean) => { restoreFocus.current = !next; if (next) setOpened(true); setOpen(next); };
   useEffect(() => {
     if (open || !restoreFocus.current) return;
-    const timer = setTimeout(() => { opener.current?.focus(); restoreFocus.current = false; }, 0);
+    const timer = setTimeout(() => {
+      (requestedOpener.current?.isConnected ? requestedOpener.current : opener.current)?.focus();
+      requestedOpener.current = null;
+      restoreFocus.current = false;
+    }, 0);
     return () => clearTimeout(timer);
   }, [open]);
   const clear = () => {
@@ -188,7 +211,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, di
     return field[key] !== null;
   });
   const button = <span className="inline-flex min-w-0 items-center gap-1">
-    <TargetButton onMount={node => { opener.current = node; }} type="button" disabled={disabled} className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, disabled && 'disabled:pointer-events-none disabled:opacity-50', 'max-w-[22rem]')} aria-label={`${m('targetLabel')} ${text}`} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} title={text} onClick={event => { opener.current = event.currentTarget; close(true); }}>
+    <TargetButton onMount={node => { opener.current = node; }} type="button" disabled={disabled} className={cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE, disabled && 'disabled:pointer-events-none disabled:opacity-50', 'max-w-[22rem]')} aria-label={`${m('targetLabel')} ${text}`} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} title={text} onClick={event => { opener.current = event.currentTarget; requestedOpener.current = null; setInitialFacet(undefined); close(true); }}>
       <span className="text-text-muted">{m('targetLabel')}</span><span className="truncate font-medium tabular">{text}</span><ChevronDown className="size-3.5 shrink-0" aria-hidden />
     </TargetButton>
     {chosen && <Button type="button" variant="ghost" size="toolbar" disabled={disabled} aria-label={m('targetClear')} onClick={clear}><X className="size-3.5" aria-hidden /></Button>}
@@ -248,7 +271,7 @@ function TargetPickerSession({ global: g, cap, onChange, presetAxes, invalid, di
     disabledReason={groupSaveDisabledReason(slot)}
     onSave={saveGroup}
   /> : undefined;
-  return <>{children ? children(button, open) : button}{opened && <Suspense fallback={null}><FacetedSetDialog open={open && !disabled} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} valueLabel={(facetId, value) => facetId === groupFacet ? optionsById.get(value)?.label ?? value : value} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} saveSlot={saveSlot} /></Suspense>}</>;
+  return <>{children ? children(button, open) : button}{opened && <Suspense fallback={null}><FacetedSetDialog open={open && !disabled} onOpenChange={close} title={m('targetLabel')} facets={facets} items={items} value={{ rule, fixed }} onApply={apply} applyMode="direct" initialFacet={initialFacet} allowFixed={cap.selection === 'apply'} resultColumns={facets.slice(0, RESULT_COLUMN_LIMIT).map(facet => facet.id)} valueLabel={(facetId, value) => facetId === groupFacet ? optionsById.get(value)?.label ?? value : value} itemKindLabel={m('targetEquipment')} formatCount={count => m('targetCount', { count })} status={facts.status === 'done' ? 'ready' : facts.status} onRetry={facts.retry} errorDetail={adapter.listEquipmentFacts ? m('targetFactsError') : m('targetFactsMissing')} note={g.membershipBasis === 'asOf' ? m('targetAsOfNote') : undefined} saveSlot={saveSlot} /></Suspense>}</>;
 }
 
 function TargetGroupSaveSlot({ value, ready, invalid, onSaved, disabledReason, shareOptions, onSave }: GroupSaveSlotProps) {

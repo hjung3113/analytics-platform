@@ -21,6 +21,8 @@ export const manifests: MenuEntry[] = [
   },
   {
     id: 'productivity-overview', primary: true, group: GROUP, label: { ko: '생산성 개요', en: 'Productivity overview' },
+    searchAliases: ['P95', 'P50', '처리량', 'throughput'],
+    paletteDescription: { ko: '점유율·체류·사이클타임·처리량을 요약합니다.', en: 'Summarize occupancy, dwell, cycle time, and throughput.' },
     description: { ko: '물리 점유율, 비Process 체류, 사이클타임 P50·P95, Job 처리량을 요약합니다.', en: 'Occupancy, non-process dwell, cycle time P50/P95 and job throughput.' },
     path: '/analytics/productivity', icon: Activity, permission: PERMISSION, requiresScope: true, pageType: 'overview',
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'apply', recipe: 'apply', metric: 'reference', lot: 'unsupported' }),
@@ -38,6 +40,8 @@ export const manifests: MenuEntry[] = [
   {
     panels: cycleTimePanels,
     id: 'cycle-time', group: GROUP, label: { ko: '사이클타임 상세', en: 'Cycle time detail' }, keywords: { ko: ['택트', '택트타임'] },
+    searchAliases: ['P95', 'P50', 'cycle time'],
+    paletteDescription: { ko: '사이클타임 분포에서 느린 실행을 찾습니다.', en: 'Find slow runs in the cycle-time distribution.' },
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' }),

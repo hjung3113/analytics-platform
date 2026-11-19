@@ -10,7 +10,7 @@ import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '..
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { drillGap, dropDrillResetKeys } from '../context/drillReset';
-import { appliedQueryPolicy, useScreenDraft } from '../query/draft-state';
+import { appliedQueryPolicy, queryMissingRequired, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
 import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
@@ -225,10 +225,13 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       }
     }
     if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, stripDetailExpansion(visibleUrl)]);
+    const allowed = canOpen(menuId);
+    const missingRequired = allowed ? queryMissingRequired(target, g, pagePairs) : [];
     return {
       kind: 'link',
       href: pathFor(target, options.params) + buildQuery(g, pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value])),
-      allowed: canOpen(menuId),
+      allowed,
+      ...(missingRequired.length > 0 && { missingRequired }),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
   }, [global, visibleUrl, menuById, canOpen, page, route, registry]);
@@ -468,7 +471,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
           const pick = (context: GlobalContext): GlobalContext => ({ ...emptyGlobal, ...Object.fromEntries(fields[key].map(field => [field, context[field]])) });
           return !sameGlobal(pick(global), pick(starting));
         });
-        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search), revertedContext, accepted: true, spaceLabel: registry.spaceOf(matched.menu)?.label ?? null };
+        const originSpace = registry.spaceOf(matched.menu);
+        const destinationSpace = route ? registry.spaceOf(route.menu) : null;
+        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search), revertedContext, accepted: true,
+          spaceLabel: originSpace?.label ?? null, sameSpace: originSpace?.id === destinationSpace?.id };
       }
     }
     if (route?.menu.parent && canOpen(route.menu.parent)) {

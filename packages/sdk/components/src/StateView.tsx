@@ -1,7 +1,7 @@
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
 import { useSharedOutcomeNotice } from './filters/OutcomeScope';
-import { useQueryBarStatus } from './filters/QueryBarStatus';
+import { useQueryBarStatus, useRequestContextEditor } from './filters/QueryBarStatus';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
 import { emptyCauses, emptyOutcomeText } from './state/emptyCause';
 import { Ban, Clock, HelpCircle, Inbox, Maximize2, RotateCw, ServerCrash, SlidersHorizontal } from 'lucide-react';
@@ -138,10 +138,17 @@ export function QueryView<T>({ query, children, skeletonRows, skeletonHeight, em
   const inPanel = useInWorkspacePanel();
   const { grouped, bannerId, multiple } = useSharedOutcomeNotice(query.response, query.refetch, widgetName, query.status);
   const barStatus = useQueryBarStatus();
-  // The page's query bar already draws these reasons (#1170): only when it covers every idle item is the list left to the bar.
-  const barCoversMissing = query.missing.length > 0 && barStatus !== null && query.missing.every(item => barStatus.reasonKeys.includes(item.key));
+  const requestEditor = useRequestContextEditor();
+  const actionable = query.missing.some(item => barStatus?.conditionEditorKeys?.includes(item.key) || (item.key === 'time' && barStatus?.periodAwaitingApply));
+  const idleReasons = (actionable || !barStatus || !query.missing.every(item => barStatus.reasonKeys.includes(item.key)))
+    ? <ul>{query.missing.map(item => {
+      const text = queryMissingSentence(lang, item.label);
+      if (item.key === 'time' && barStatus?.periodAwaitingApply) return <li key={item.key}>{t('statePeriodAwaitingApply')}</li>;
+      if (barStatus?.conditionEditorKeys?.includes(item.key)) return <li key={item.key}><Button type="button" variant="outline" size="toolbar" onClick={event => requestEditor({ key: item.key, opener: event.currentTarget })}>{text}</Button></li>;
+      return <li key={item.key}>{text}</li>;
+    })}</ul> : t('stateIdleSeeQueryBar');
   if (query.status === 'idle') return <StateMessage icon={<HelpCircle className="size-4" aria-hidden />} title={t('stateIdle')}
-    body={barCoversMissing ? t('stateIdleSeeQueryBar') : query.missing.length ? <ul>{query.missing.map(item => <li key={item.key}>{queryMissingSentence(lang, item.label)}</li>)}</ul> : undefined} compact={compact} />;
+    body={query.missing.length ? idleReasons : undefined} compact={compact} />;
   if (!query.response) return <LoadingBlock rows={skeletonRows} height={skeletonHeight} className={chart ? 'row-span-2 pr-12' : undefined} />;
   const response = query.response;
   // A kept result of other params is not "the same context": say so (ADR-0114).

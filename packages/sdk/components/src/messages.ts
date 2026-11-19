@@ -45,6 +45,7 @@ export const COMPONENTS_MESSAGES = {
   fsSaved: { ko: '저장했습니다. 적용하려면 적용 버튼을 누르세요.', en: 'Saved. Use Apply to apply this selection.' },
   fsSaveGroup: { ko: '그룹으로 저장', en: 'Save as group' },
   fsUnavailable: { ko: '데이터 확인 후 저장할 수 있습니다.', en: 'Saving is available once data is ready.' },
+  fsUpdating: { ko: '결과를 계산 중입니다.', en: 'Updating results.' },
   fsApply: { ko: '적용', en: 'Apply' },
   // Chart
   chartDescription: { ko: '차트 설명', en: 'Chart description' },

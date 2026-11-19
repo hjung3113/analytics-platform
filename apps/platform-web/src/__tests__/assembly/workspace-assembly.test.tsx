@@ -139,7 +139,7 @@ describe('workspace assembly (#260)', () => {
     expect(SPACES.map(space => space.id), PIN_HINT).toEqual(['mars', 'bravo', 'clas', 'tools', 'log-dev', 'flow', 'operations']);
     expect(SPACE_DEFS[0]).toMatchObject({
       label: { ko: 'MARS', en: 'MARS' },
-      subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
+      subtitle: { ko: '설비 생산성', en: 'Equipment productivity' },
       description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' },
       homeMenuId: 'productivity-overview',
     });
@@ -153,7 +153,7 @@ describe('workspace assembly (#260)', () => {
     expect(SPACE_DEFS[1].permission).toBeUndefined();
     expect(SPACE_DEFS[2]).toMatchObject({
       label: { ko: 'CLAS', en: 'CLAS' },
-      subtitle: { ko: '생산성 분석', en: 'Productivity analysis' },
+      subtitle: { ko: '설비 동작시간', en: 'Equipment operation time' },
       homeMenuId: 'operation-time',
     });
     expect(SPACE_DEFS[2].permission).toBeUndefined();

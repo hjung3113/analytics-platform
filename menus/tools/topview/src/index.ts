@@ -19,6 +19,8 @@ export const manifests: PlatformMenuEntry[] = [
   {
     id: 'eqv:topview', primary: true, group: GROUP,
     label: { ko: '설비 Top View', en: 'Equipment Top View' },
+    searchAliases: ['탑뷰', '탑 뷰', 'topview', 'layout'],
+    paletteDescription: { ko: '설비 배치와 재생 시점의 자재 위치를 봅니다.', en: 'See equipment layout and material positions during replay.' },
     description: { ko: '설비 구성요소 배치와 재생 시점의 자재 위치를 보여줍니다.', en: 'Shows the equipment layout and where material sits at the replay cursor.' },
     path: '/tools/eqv-topview', aliases: ['/tools/topview'], icon: MapIcon, permission: VIEW_PERMISSION,
     requiresScope: false,

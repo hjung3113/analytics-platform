@@ -85,6 +85,18 @@ describe('EquipmentDetail related analysis tab: Top View link', () => {
     expect(link.getAttribute('href')).toContain('equipment=EQ-1');
   });
 
+  it('only describes the cycle-time link with the destination name and its required conditions', async () => {
+    const cycleTime: MenuEntry = { ...cycleTimeMenu, label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
+      context: { ...cycleTimeMenu.context, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply', required: { context: ['roomNames'] } } };
+    renderAnalysis(registryFor([cycleTime, topViewMenu]), ['equipment:view', 'eqv:view', 'platform:view']);
+    const cycle = await screen.findByRole('link', { name: '이 설비로 사이클타임 상세' });
+    const description = cycle.getAttribute('aria-describedby');
+    expect(description).toBeTruthy();
+    expect(document.getElementById(description!)?.textContent).toMatch(/사이클타임 상세.*공정/);
+    expect(cycle.getAttribute('href')).toContain('selectedEquipmentIds=EQ-1');
+    expect(screen.getByRole('link', { name: '이 설비 Top View' }).hasAttribute('aria-describedby')).toBe(false);
+  });
+
   it('has no Top View link when the menu is not registered', async () => {
     renderAnalysis(withoutTopView, ['equipment:view', 'eqv:view', 'platform:view']);
     expect(await screen.findByRole('link', { name: '이 설비로 사이클타임 상세' })).toBeTruthy();

@@ -44,7 +44,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
       await expandQueryBar(page, context);
       await page.getByRole('button', { name: name === '1일' ? '최근 24시간' : '최근 7일', exact: true }).click();
       await page.getByRole('button', { name: '적용', exact: true }).click();
-      await page.getByRole('button', { name: '닫기', exact: true }).click();
+      await expect(context.getByRole('button', { name: '조회 조건 펼치기' })).toHaveAttribute('aria-expanded', 'false');
       return;
     }
     const inline = context.getByRole('radio', { name, exact: true });

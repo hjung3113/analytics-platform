@@ -65,7 +65,7 @@ it('switching only edits the draft; Apply sends one narrowed request and the app
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
   expect(sentConditions().at(-1)).toEqual({ team: ['T1'] });
   expect(platform.global.condition).toEqual(condition);
-  fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
   const [editing, applied] = Array.from(container.querySelectorAll('details p')).map(node => node.textContent ?? '');
   expect(editing).toContain('조건 묶음 조직 기준');
   expect(applied).toContain('팀 T1');

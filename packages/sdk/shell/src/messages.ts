@@ -65,6 +65,7 @@ export const SHELL_MESSAGES = {
   queryApplying: { ko: '조건을 적용하고 있습니다.', en: 'Applying conditions.' },
   queryInvalidPeriodInput: { ko: '유효한 시작·종료 시각을 입력하세요.', en: 'Enter valid start and end times.' },
   queryValidationError: { ko: '기간·지표 쌍·소속 기준을 확인하세요.', en: 'Check the period, metric pair and membership basis.' },
+  queryViewSelect: { ko: '뷰 선택', en: 'Choose view' },
   queryActionsLabel: { ko: '조회 조건 동작', en: 'Query actions' },
   queryUnappliedChanges: { ko: '미적용 변경 {count}개 · 공유에서 제외', en: '{count} unapplied changes · excluded from sharing' },
   queryNotApplied: { ko: '아직 조회 조건을 적용하지 않았습니다.', en: 'No query conditions have been applied yet.' },

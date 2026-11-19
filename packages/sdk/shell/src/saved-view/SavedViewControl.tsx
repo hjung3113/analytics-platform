@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 import { SHELL_MESSAGES } from '../messages';
+import { QueryBarTools } from '../context/queryBarTools';
 
 /**
  * The Saved View selector of the query tool row (06 §21): current view, `수정됨`, the save menu and the requested `뷰 관리` surface.
@@ -16,6 +17,12 @@ import { SHELL_MESSAGES } from '../messages';
 export function SavedViewControl() {
   const { screenMode, savedViewStore, session, revision, scope, user, route } = useHostPlatform();
   const views = useSavedViews();
+  const reportViewAvailable = useContext(QueryBarTools)?.reportViewAvailable;
+  const available = screenMode !== 'pane' && views.status !== 'disabled' && !!savedViewStore && !!views.support;
+  useLayoutEffect(() => {
+    reportViewAvailable?.(available);
+    return () => reportViewAvailable?.(false);
+  }, [available, reportViewAvailable]);
   // The inputs that start a new `useSavedViews` generation, except `scope.status`: validating → valid keeps the same user, menu and Scope, so an open surface stays.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only
   const generation = useMemo(() => ({}), [savedViewStore, session, revision, scope.scopeId, user.id, route?.menu.id, views.support]);
@@ -45,6 +52,8 @@ function shareApplied(view: SavedView, official: boolean, wanted: ViewVisibility
 
 function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
+  const tools = useContext(QueryBarTools);
+  const external = tools?.folded ? tools : null;
   const axes = useEquipmentAxes();
   const { lang, t, tx } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -94,9 +103,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const [returnFocus, setReturnFocus] = useState(0);
   useEffect(() => {
     if (returnFocus === 0) return;
-    const timer = setTimeout(() => wrapper.current?.querySelector<HTMLElement>('button')?.focus(), 0);
+    const timer = setTimeout(() => (external?.anchorRef.current ?? wrapper.current?.querySelector<HTMLElement>('button'))?.focus(), 0);
     return () => clearTimeout(timer);
-  }, [returnFocus]);
+  }, [returnFocus, external?.anchorRef]);
 
   // The save dialog hands over to the share step only after it closed, so focus returns to the save menu button first and the picker remembers it.
   useEffect(() => {
@@ -278,9 +287,12 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : '', scopeNote].filter(Boolean).join(' · ')
     : '';
   const noteTitle = [note, scopeFull].filter(Boolean).join('\n');
+  const noteText = note && <span role="status" className="break-words text-xs text-text-secondary" title={noteTitle}>{note}</span>;
+  const picker = external ? { open: external.active === 'view', onOpenChange: (open: boolean) => { if (!open) external.close(); }, anchorRef: external.anchorRef, note: noteText } : undefined;
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
     <ViewSelector
+      picker={picker}
       views={items} currentId={selected?.view.id ?? null} defaultId={views.defaultId} state={state} discardsChanges={discards}
       selectionDisabled={host.queryPolicy.autoApplyingDefault === true}
       loading={views.status === 'loading'} error={views.status === 'unavailable'} onRetry={views.refresh}
@@ -292,10 +304,10 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       onDelete={id => { void views.remove(id).then(result => report(result, m('savedViewDeleted'))); }}
       onManage={() => setManageOpen(true)}
     />
-    {note && <span role="status" className="max-w-56 truncate text-xs text-text-secondary" title={noteTitle}>{note}</span>}
+    {!external && note && <span role="status" className="max-w-56 truncate text-xs text-text-secondary" title={noteTitle}>{note}</span>}
     <SaveViewDialog
       key={saveMode} open={saveOpen} onOpenChange={closeSave} units={['menu-view', 'condition-set']} {...(updatable ? { updatable } : {})} initialMode={saveMode}
-      context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={saveTrigger}
+      context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={external?.anchorRef ?? saveTrigger}
       visibilityOptions={[{ value: 'private', label: m('savedViewVisibilityPrivate') }, { value: 'share', label: m('savedViewVisibilityShare') }]}
       onSubmit={submit}
     />

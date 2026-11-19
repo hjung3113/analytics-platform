@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useMessages } from '@ap/kernel';
 import { EQUIPMENT_MESSAGES } from '../messages';
 import { formatDateTime, parseDateTime } from '@ap/contracts';
@@ -9,6 +10,7 @@ import { EQUIPMENT_ENTITY_TYPE, type Equipment } from '../endpoints';
 import { equipmentDateText, fields, statusText, statusTone, validity } from './data';
 
 // EV host module menu (apps/platform-web mounts it); its page key `equipment` selects the equipment.
+const CYCLE_TIME_MENU_ID = 'cycle-time';
 const EV_TOP_VIEW_MENU_ID = 'eqv:topview';
 
 export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
@@ -18,8 +20,15 @@ export function EquipmentStatus({ equipment }: { equipment: Equipment }) {
 
 export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 'validity' | 'audit' | 'analysis' }) {
   const m = useMessages(EQUIPMENT_MESSAGES);
-  const { global, scope, linkTo, resolveLink } = usePlatform();
-  const { lang } = useI18n();
+  const { global, scope, registry, resolveLink } = usePlatform();
+  const { lang, tx } = useI18n();
+  const hintId = useId();
+  const cycleLink = kind === 'analysis' ? resolveLink(CYCLE_TIME_MENU_ID, { global: { selection: [id] } }) : null;
+  const cycle = cycleLink?.kind === 'link' && cycleLink.allowed ? cycleLink : null;
+  const cycleHint = cycle?.missingRequired?.length ? m('equipmentDetailQueryConditionsRequired', {
+    destination: tx(registry.menuById(CYCLE_TIME_MENU_ID).label),
+    conditions: cycle.missingRequired.map(item => tx(item.label)).join(', '),
+  }) : null;
   // An assembly without the EV module resolves to `none` (06 §22): no button. No permission ⇒ no link.
   const topViewLink = resolveLink(EV_TOP_VIEW_MENU_ID, { page: { equipment: id } });
   const topView = topViewLink.kind === 'link' && topViewLink.allowed ? topViewLink : null;
@@ -51,8 +60,11 @@ export function EquipmentPanel({ id, kind }: { id: string; kind: 'attributes' | 
     </>}
     {kind === 'analysis' && <>
       <p className="text-sm">{m('equipmentDetailTheCycleTimeLinkChangesTheEquipment')}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm"><PlatformLink href={linkTo('cycle-time', { global: { selection: [id] } })}>{m('equipmentDetailCycleTimeForThisEquipment')}</PlatformLink></Button>
+      <div className="flex flex-wrap items-start gap-2">
+        {cycle && <div className="grid justify-items-start gap-1">
+          <Button asChild size="sm"><PlatformLink href={cycle.href} aria-describedby={cycleHint ? hintId : undefined}>{m('equipmentDetailCycleTimeForThisEquipment')}</PlatformLink></Button>
+          {cycleHint && <p id={hintId} className="text-xs text-text-secondary break-keep">{cycleHint}</p>}
+        </div>}
         {topView && <Button asChild size="sm" variant="secondary"><PlatformLink href={topView.href}>{m('equipmentDetailTopViewForThisEquipment')}</PlatformLink></Button>}
       </div>
     </>}

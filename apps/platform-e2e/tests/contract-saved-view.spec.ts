@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { pickTargetRoom, contextBar, evidence, expandPageHead, mainHeading, query, queryBar, queryResultSurface, showSlowExecutions, signInAs } from './support';
+import { pickTargetRoom, contextBar, evidence, expandPageHead, expandQueryBar, mainHeading, query, queryBar, queryResultSurface, showSlowExecutions, signInAs } from './support';
 
 /**
  * Platform contract checks for Saved Views (docs/06 §21). Cycle Time and HW Time observe the same store and query bar.
@@ -23,6 +23,13 @@ async function openList(page: Page): Promise<Locator> {
   const list = page.getByRole('list', { name: '뷰 목록' });
   await expect(list).toBeVisible();
   return list;
+}
+async function openFoldedViewPicker(page: Page): Promise<Locator> {
+  await queryBar(page).getByRole('button', { name: '조회 조건 동작', exact: true }).click();
+  await page.getByRole('menuitem', { name: '뷰 선택', exact: true }).click();
+  const picker = page.getByRole('dialog').filter({ has: page.getByRole('searchbox', { name: '뷰 이름 검색' }) });
+  await expect(picker).toBeVisible();
+  return picker;
 }
 const rowOf = (list: Locator, name: string) => list.getByRole('listitem').filter({ hasText: name });
 async function pickView(page: Page, name: string) {
@@ -59,7 +66,6 @@ async function saveShared(page: Page, name: string, target: { groups: string[] }
   await expect(picker).toHaveCount(0);
 }
 async function openManagement(page: Page) {
-  await trigger(page).click();
   await page.getByRole('button', { name: '뷰 관리', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '뷰 관리' });
   await expect(dialog).toBeVisible();
@@ -187,11 +193,13 @@ test.describe('06 §21 저장된 뷰', () => {
     const bar = contextBar(page);
     await pickTargetRoom(page, bar, 'PHOTO');
     await bar.getByRole('button', { name: '적용', exact: true }).click();
-    await expect(modifiedBadge(page)).toBeVisible();
+    const picker = await openFoldedViewPicker(page);
+    await expect(picker.getByText('수정됨', { exact: true })).toBeVisible();
     await evidence(page, testInfo, 'modified');
 
-    await pickView(page, 'E2E 일 단위 PHOTO');
+    await rowOf(picker.getByRole('list', { name: '뷰 목록' }), 'E2E 일 단위 PHOTO').getByRole('button').first().click();
     await page.getByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' }).getByRole('button', { name: '버리고 이동' }).click();
+    await expandQueryBar(page, bar);
     await expect(trigger(page)).toHaveAccessibleName('저장된 뷰: E2E 일 단위 PHOTO');
     await expect(contextBar(page).getByRole('button', { name: PHOTO_CHIP })).toBeVisible();
     await expect(applied(page)).toContainText('집계 일');
@@ -216,7 +224,9 @@ test.describe('06 §21 저장된 뷰', () => {
     // Each role gets its own page of the same browser context (the stored views are shared, the role script is installed once per page).
     const adminPage = await context.newPage();
     await signInAs(adminPage, 'admin');
-    await openCycle(adminPage);
+    await adminPage.goto(CYCLE);
+    await expect(mainHeading(adminPage)).toHaveText('사이클타임 상세');
+    await openFoldedViewPicker(adminPage);
     const dialog = await openManagement(adminPage);
     await dialog.getByRole('radio', { name: '승인 대기' }).click();
     await dialog.getByRole('button', { name: /E2E 공식 신청/ }).click();
@@ -300,6 +310,7 @@ test.describe('06 §21 저장된 뷰', () => {
     await expect(contextBar(page).getByRole('button', { name: PHOTO_CHIP })).toBeVisible();
     await expect(trigger(page)).not.toHaveAccessibleName('저장된 뷰: LOT 추이 (이전 형식)');
 
+    await openList(page);
     const dialog = await openManagement(page);
     await expect(dialog.getByText('열 수 없음')).toBeVisible();
     await expect(dialog.getByText('낡음').first()).toBeVisible();

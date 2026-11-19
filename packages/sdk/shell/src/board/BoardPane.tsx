@@ -1,4 +1,5 @@
 import { Ban } from 'lucide-react';
+import type { Session } from '@ap/contracts';
 import { Suspense, useLayoutEffect, useRef, useState, type CSSProperties, type ComponentType, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n, type MenuEntry } from '@ap/kernel';
@@ -22,6 +23,8 @@ export type DockHead = {
   /** The layout group of the `⋯` menu. */
   menu: (afterMenuClose: RefObject<(() => void) | null>) => ReactNode;
 };
+
+export type PaneCopySource = { url: string; session: Session; revision: number };
 
 export type BoardPaneProps = {
   paneId: string;
@@ -56,7 +59,8 @@ export type BoardPaneProps = {
   onSelect: () => void;
   onChange: (next: PaneScreen, how: 'push' | 'replace') => void;
   onLeave: (href: string) => void;
-  onInsert: (menu: MenuEntry) => void;
+  registerCopySource: (paneId: string, source: PaneCopySource) => () => void;
+  onInsert: (menu: MenuEntry, source: 'default' | 'current') => void;
   onClear: () => void;
   onBack: () => void;
   onApplyAll: () => void;
@@ -71,7 +75,7 @@ export type BoardPaneProps = {
  * `tabIndex=-1`). Focus inside the pane, a press on it and any header control select it first. `바꾸기` chains the picker and a confirm
  * dialog off the `⋯` menu; focus ends on the `⋯` trigger (or the pane root when the trigger is gone).
  */
-export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
+export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidden = false, collapsed = false, maximized = false, sizing = false, canMaximize = false, collapseOff = null, onCollapse, onMaximize, paneId, number, screen, selected, Outlet, signal, hasPrevious, applyAllOff, duplicateOff, onSelect, onChange, onLeave, registerCopySource, onInsert, onClear, onBack, onApplyAll, onOpenFull, onReplace, onDuplicate, onEditContext }: BoardPaneProps) {
   const { registry } = useHostPlatform();
   const { tx, lang } = useI18n();
   const text = boardText(lang);
@@ -81,7 +85,7 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
   const picked = useRef(false);
   const pickMode = useRef<'insert' | 'replace'>('insert');
   const cancelReplace = useRef<HTMLButtonElement>(null);
-  const [picking, setPicking] = useState<'insert' | 'replace' | null>(null);
+  const [picking, setPicking] = useState<'insert' | 'current' | 'replace' | null>(null);
   const [replaceWith, setReplaceWith] = useState<MenuEntry | null>(null);
   const admitted = screen !== null && admitPaneScreen(registry, screen);
   const menu = screen === null ? null : registry.menus.find(m => m.id === screen.menuId) ?? null;
@@ -122,11 +126,15 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
         ? <div className="grid h-full place-items-center p-6">
           <div className="grid justify-items-center gap-3 text-center">
             <p className="text-sm text-text-secondary">{text.emptyPane}</p>
-            <Button type="button" variant="secondary" size="sm" onClick={() => { onSelect(); pickMode.current = 'insert'; setPicking('insert'); }}>{text.insertScreen}</Button>
+            <div className="flex flex-wrap justify-center gap-2 break-keep">
+              <Button type="button" variant="secondary" size="sm" onClick={() => { onSelect(); pickMode.current = 'insert'; setPicking('insert'); }}>{text.insertScreen}</Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => { onSelect(); pickMode.current = 'insert'; setPicking('current'); }}>{text.insertCurrentContext}</Button>
+            </div>
           </div>
         </div>
         : admitted
           ? <PaneScreenProvider paneId={paneId} paneLabel={text.paneCaption(number, menuName)} screen={screen} onChange={onChange} onLeave={onLeave}>
+            <CopySource paneId={paneId} register={registerCopySource} />
             {/* The pane's own boundary (#915): a pane whose menu screen is still loading shows its own skeleton, instead of suspending to the
                 dock's boundary and covering every pane and tab strip again. */}
             <Suspense fallback={<div className="p-4"><LoadingBlock rows={4} height={240} /></div>}><EmbeddedPane><Outlet /></EmbeddedPane></Suspense>
@@ -140,7 +148,7 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
       onPick={picked_ => {
         const mode = picking;
         setPicking(null);
-        if (mode === 'replace') { picked.current = true; setReplaceWith(picked_); } else onInsert(picked_);
+        if (mode === 'replace') { picked.current = true; setReplaceWith(picked_); } else if (mode !== null) onInsert(picked_, mode === 'current' ? 'current' : 'default');
       }}
       onCloseAutoFocus={event => {
         event.preventDefault();
@@ -164,4 +172,15 @@ export function BoardPane({ dock = false, dockHead, onClosePane, placement, hidd
       </AlertDialogContent>
     </AlertDialog>
   </div></WorkspaceCommandsHost></TransientOverlayScope>;
+}
+
+/** Report the decision from the pane's own Kernel provider, even while its menu body is suspended. */
+function CopySource({ paneId, register }: { paneId: string; register: BoardPaneProps['registerCopySource'] }) {
+  const { route, url, session, revision, scope, contractError } = useHostPlatform();
+  const readable = route !== null && contractError === null
+    && (scope.status === 'valid' || (scope.status === 'none' && !route.menu.requiresScope));
+  useLayoutEffect(() => {
+    if (readable) return register(paneId, { url, session, revision });
+  }, [paneId, register, readable, url, session, revision]);
+  return null;
 }

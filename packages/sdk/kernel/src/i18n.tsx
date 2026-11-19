@@ -133,6 +133,7 @@ const dict = {
   sharedOutcomeForbidden: { ko: '권한 없음', en: 'no access' },
   stateTimeoutBody: { ko: '조회가 제한 시간 안에 끝나지 않았습니다. 기간을 줄이거나 집계 단위를 키워 다시 시도하세요.', en: 'The query did not finish in time. Shorten the period or coarsen the granularity and retry.' },
   stateIdle: { ko: '아직 조회하지 않았습니다', en: 'No query has run yet' },
+  statePeriodAwaitingApply: { ko: '기간을 조회에 사용하려면 적용을 누르세요.', en: 'Select Apply to use the period for this query.' },
   stateIdleSeeQueryBar: { ko: '위 조회 조건의 안내를 확인하세요.', en: 'See the notes in the query conditions above.' },
   queryMissing: { ko: '{label}{particle} 선택하세요', en: 'Select {label}' },
   lentPanelPermission: { ko: '{menu}의 {panel} 패널을 볼 권한이 없습니다.', en: 'You don’t have permission to view the {panel} panel of {menu}.' },

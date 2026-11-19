@@ -375,6 +375,15 @@ test.describe('메뉴 간 링크 허용 여부 (06 §22 — 목적지 권한을 
 });
 
 test.describe('returnTo 복귀 (06 §22)', () => {
+  async function bodyReturnLink(page: Page, name: string) {
+    const main = page.getByRole('main');
+    const row = main.locator('[data-platform-page-body] > [data-return-row]:first-child');
+    await expect(main.locator('[data-return-row]')).toHaveCount(1);
+    const link = row.getByRole('link', { name, exact: true });
+    await expect(link).toBeVisible();
+    return link;
+  }
+
   test('상세로 갔다가 복귀 버튼을 누르면 떠난 URL로 정확히 돌아온다', async ({ page }, testInfo) => {
     await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}&filter=status:in:active`);
     await expect(page.getByRole('table')).toBeVisible();
@@ -385,9 +394,10 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await page.getByRole('link', { name: '전체 화면' }).click();
     await expect(page).toHaveURL(/\/mars\/equipment-detail\/[^?]+\?/);
     expect(query(page).get('returnTo')).toBe(origin);
+    const back = await bodyReturnLink(page, '← 설비 마스터로 돌아가기');
     await evidence(page, testInfo, 'detail');
 
-    await (await headerMore(page)).getByRole('link', { name: '← 설비 마스터' }).click();
+    await back.click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expect(page.getByRole('table')).toBeVisible();
     await evidence(page, testInfo, 'returned');
@@ -400,14 +410,14 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
     await page.getByRole('link', { name: '전체 화면' }).click();
     await expect(page).toHaveURL(/\/mars\/equipment-detail\/[^?]+\?/);
-    await (await headerMore(page)).getByRole('link', { name: '← 설비 마스터' }).click();
+    await (await bodyReturnLink(page, '← 설비 마스터로 돌아가기')).click();
 
     const heading = page.getByRole('heading', { level: 1, name: '설비 마스터' });
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expect(heading).toBeFocused();
     await expect(dialog.getByRole('button', { name: '상세 닫기' })).not.toBeFocused();
-    // The return click leaves the pointer on the title; Radix opens its tooltip after 700 ms.
+    // Hover the focused title to check tooltip suppression after return.
     // Every table row has tab stops before the panel, so the bound is generous.
     await heading.hover();
     // Nothing happens: the tooltip must NOT open for the returned title; wait past the 700 ms open delay so a wrongly opened one is there to be caught below.
@@ -514,8 +524,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect(page).toHaveURL(/\/mars\/execution-detail\/[^?]+\?/);
     expect(query(page).get('returnTo')).toBe(origin);
 
-    // execution-detail's back button follows returnOrigin() (same href as returnTarget()).
-    await (await headerMore(page)).getByRole('link', { name: '← 사이클타임 상세' }).click();
+    await (await bodyReturnLink(page, '← 사이클타임 상세로 돌아가기')).click();
     await expect.poll(() => page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(origin);
     await expandPageHead(page);
     await expect(page.getByRole('button', { name: '버킷 필터 해제' })).toBeVisible();
@@ -619,7 +628,7 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     await page.getByRole('link', { name: '설비 상세로' }).click();
     await expect(page).toHaveURL(/\/mars\/equipment-detail\/MEM-PHOTO-0103/);
-    const back = (await headerMore(page)).getByRole('link', { name: '← 생산성 개요 (PHOTO › STG-PHOTO-A › MEM-PHOTO-0103)' });
+    const back = page.getByRole('main').locator('[data-platform-page-body] > [data-return-row]:first-child').getByRole('link', { name: '← 생산성 개요로 돌아가기 (PHOTO › STG-PHOTO-A › MEM-PHOTO-0103)', exact: true });
     await expect(back).toBeVisible();
     await evidence(page, testInfo, 'drill-equipment-return');
     await back.click();
@@ -645,6 +654,14 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
 
 
 test.describe('지표 목록→상세 복귀 (06 §22)', () => {
+  async function metricBodyReturn(page: Page) {
+    const main = page.getByRole('main');
+    await expect(main.locator('[data-return-row]')).toHaveCount(1);
+    const link = main.locator('[data-platform-page-body] > [data-return-row]:first-child').getByRole('link', { name: '← 지표 카탈로그로 돌아가기', exact: true });
+    await expect(link).toBeVisible();
+    return link;
+  }
+
   test('검색·정렬 복원과 진입 방식별 상세 머리 복귀 링크', async ({ page }, testInfo) => {
     await page.goto('/bravo/metric-catalog?v=1&q=time&sort=nameSort:asc');
     await page.getByRole('table', { name: '지표 카탈로그', exact: true }).getByRole('link', { name: 'cycle_time', exact: true }).click();
@@ -653,10 +670,13 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     await header.getByRole('button', { name: '이 버전을 분석 Context로 사용', exact: true }).click();
     await expect.poll(() => query(page).get('metricId')).toBe('cycle_time');
     await evidence(page, testInfo, 'metric-detail-return');
+    // #2539: an accepted return shows once, as the row at the start of the page body; the header carries neither
+    // the old return link nor the direct-entry 카탈로그 link.
+    const back = await metricBodyReturn(page);
     const menu = await headerMore(page);
-    const back = menu.getByRole('link', { name: '← 지표 카탈로그', exact: true });
-    await expect(back).toHaveCount(1);
+    await expect(menu.getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveCount(0);
     await expect(menu.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await back.click();
     await expect.poll(() => query(page).get('q')).toBe('time');
     expect(query(page).get('sort')).toBe('nameSort:asc');
@@ -668,13 +688,14 @@ test.describe('지표 목록→상세 복귀 (06 §22)', () => {
     const direct = await headerMore(page);
     await expect(direct.getByRole('link', { name: '카탈로그', exact: true })).toHaveCount(1);
     await expect(direct.getByRole('link', { name: '← 지표 카탈로그', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('main').locator('[data-return-row]')).toHaveCount(0);
     await evidence(page, testInfo, 'metric-detail-direct');
   });
 
   test('Context 적용 없이 복귀하면 되돌림 알림이 없다', async ({ page }, testInfo) => {
     await page.goto('/bravo/metric-catalog?v=1&q=time&sort=nameSort:asc');
     await page.getByRole('table', { name: '지표 카탈로그', exact: true }).getByRole('link', { name: 'cycle_time', exact: true }).click();
-    await (await headerMore(page)).getByRole('link', { name: '← 지표 카탈로그', exact: true }).click();
+    await (await metricBodyReturn(page)).click();
     await expect(page.getByRole('heading', { level: 1, name: '지표 카탈로그', exact: true })).toBeVisible();
     expect(query(page).get('q')).toBe('time');
     expect(query(page).get('sort')).toBe('nameSort:asc');
@@ -767,7 +788,8 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
   test('bare URL은 조회 전이며 편집·Enter는 주소를 바꾸지 않고 적용 후 완료를 표시한다', async ({ page }, testInfo) => {
     await page.goto('/mars/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
-    const bar = await expandQuery(page);
+    const bar = contextBar(page);
+    await expect(bar.getByRole('button', { name: '조회 조건 접기' })).toHaveAttribute('aria-expanded', 'true');
     await expandPageHead(page);
     await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
     await expect(bar.getByRole('button', { name: '적용', exact: true })).toBeDisabled();
@@ -780,10 +802,12 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('granularity')).toBe('day');
     await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
+    await expect(bar.getByRole('button', { name: '조회 조건 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    await evidence(page, testInfo, 'query-bar-applied');
     const applied = page.url();
+    await expandQueryBar(page, bar);
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     expect(page.url()).toBe(applied);
-    await evidence(page, testInfo, 'query-bar-applied');
   });
   test('deep link와 Back/Forward는 적용값을 복원하고 초안 page 값은 적용까지 결과에 섞이지 않는다', async ({ page }) => {
     await page.goto(`/mars/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
@@ -841,22 +865,28 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
       .filter(entry => (entry as PerformanceMark).detail?.endpoint === 'analytics.cycle.kpi').length);
     await page.goto('/mars/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
-    let bar = await expandQuery(page);
+    const bar = contextBar(page);
+    await expect(bar.getByRole('button', { name: '조회 조건 접기' })).toHaveAttribute('aria-expanded', 'true');
     await expandPageHead(page);
     await pickTargetRoom(page, bar, 'PHOTO');
     await page.getByRole('button', { name: '일', exact: true }).click();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
+    await expect(bar.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
+    await expandPageHead(page);
     await page.getByRole('button', { name: '주', exact: true }).click();
     await bar.getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('granularity')).toBe('week');
     await expect(queryResultSurface(page)).toContainText('집계 주');
-    await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
+    const tools = bar.getByRole('button', { name: '조회 조건 동작', exact: true });
+    await tools.click();
+    await page.getByRole('menuitem', { name: '최근 조건', exact: true }).click();
     await expect(page.getByRole('option')).toHaveCount(2);
     await page.keyboard.press('Escape');
+    await expect(tools).toBeFocused();
     await page.goto('/mars/cycle-time?scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
-    bar = await expandQuery(page);
+    await expect(bar.getByRole('button', { name: '조회 조건 접기' })).toHaveAttribute('aria-expanded', 'true');
     await expandPageHead(page);
     await expect(page.getByRole('button', { name: '주', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const before = await requestCount();
@@ -929,6 +959,8 @@ test.describe('커스텀 조회 그룹 (06 §6.4, ADR-0164)', () => {
     const equipmentCount = (await applyTarget.innerText()).match(/(\d[\d,]*)대/)?.[1];
     expect(equipmentCount, 'the selected mock group has an equipment count').toBeDefined();
     await applyTarget.click();
+    await expect(dialog).toHaveCount(0);
+    expect(query(page).has('equipmentGroup')).toBe(false);
     await bar.getByRole('button', { name: '적용', exact: true }).click();
 
     await expect.poll(() => query(page).get('equipmentGroup')).not.toBeNull();
@@ -938,7 +970,9 @@ test.describe('커스텀 조회 그룹 (06 §6.4, ADR-0164)', () => {
     await expect.poll(() => kpiRequests(page)).toBe(baselineRequests + 1);
     await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     await expect.poll(() => executionCount(page)).toBeLessThan(baselineCount);
-    await expect(bar.getByRole('button', { name: new RegExp(`조건 · 지금 ${equipmentCount}대`) })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
+    await expandQueryBar(page, bar);
+    await expect(bar.getByRole('button', { name: new RegExp(`^대상 조건 · 지금 ${equipmentCount}대 ·`) })).toBeVisible();
 
     await showSlowExecutions(page);
     const rows = await rowMapsByColumn(page);
@@ -1018,6 +1052,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     // Nothing happens: applying must send exactly one query; give a second, wrongly sent one time to arrive.
     await page.waitForTimeout(1000);
     expect(await kpiRequests(page)).toBe(before + 1);
+    await bar.getByRole('button', { name: '조회 조건 펼치기', exact: true }).click();
     await expect(bar.getByText(/설비사 .* · 조직 기준에서 미적용/)).toBeVisible();
     // The global Condition is untouched: both axes stay in the URL.
     expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });

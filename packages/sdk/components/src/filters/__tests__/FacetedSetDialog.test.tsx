@@ -382,3 +382,34 @@ it('gives saveSlot precedence over the legacy save form', () => {
   expect(screen.queryByRole('button', { name: '그룹으로 저장' })).toBeNull();
   expect(save).not.toHaveBeenCalled();
 });
+
+it('keeps the results table visible and waits for the latest rule count before applying', async () => {
+  const apply = vi.fn();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items}
+    value={{ rule: {}, fixed: null }} onApply={apply} applyMode="direct" initialFacet="color" /></I18nProvider>);
+  expect(screen.queryByRole('button', { name: '조회' })).toBeNull();
+  expect(screen.getByRole('table')).toHaveAttribute('aria-rowcount', '3');
+  fireEvent.click(within(screen.getByRole('group', { name: 'Color' })).getByRole('button', { name: 'red만 선택' }));
+  const busy = screen.getByRole('button', { name: '적용' });
+  expect(busy).toBeDisabled();
+  expect(busy).toHaveAttribute('aria-busy', 'true');
+  expect(screen.getByRole('table')).toBeInTheDocument();
+  const ready = await screen.findByRole('button', { name: '조건 적용 · 1' });
+  expect(screen.getByRole('table')).toHaveAttribute('aria-rowcount', '2');
+  fireEvent.click(ready);
+  expect(apply).toHaveBeenCalledExactlyOnceWith({ rule: { color: ['red'] }, fixed: null });
+});
+
+it('in direct mode Escape closes an open facet before closing the dialog', async () => {
+  const onOpenChange = vi.fn();
+  const user = userEvent.setup();
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={onOpenChange} title="Choose" facets={facets} items={items}
+    value={{ rule: {}, fixed: null }} onApply={vi.fn()} applyMode="direct" initialFacet="color" /></I18nProvider>);
+  expect(screen.getAllByRole('button', { name: '취소' })).toHaveLength(1);
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('group', { name: 'Color' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Color 전체' })).toHaveFocus();
+  expect(onOpenChange).not.toHaveBeenCalled();
+  await user.keyboard('{Escape}');
+  expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+});

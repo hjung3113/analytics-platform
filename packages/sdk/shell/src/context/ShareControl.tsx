@@ -1,5 +1,5 @@
 import { ChevronDown, Link2 } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useCopyLink } from '@ap/components';
@@ -34,7 +34,12 @@ const TEXT = {
  * menu-only address. Both go through `buildShareLink`; a failed build never reaches the clipboard and never shows a link field.
  * `compact` only drops the icon — the conditions label stays visible (the live bar measures this width), and `align` anchors the menu to the group.
  */
-export function ShareControl({ compact = false, align = 'end' }: { compact?: boolean; align?: 'start' | 'end' }) {
+export function ShareControl({ compact = false, align = 'end', overflowRef, renderOverflow }: {
+  compact?: boolean;
+  align?: 'start' | 'end';
+  overflowRef?: RefObject<HTMLButtonElement | null>;
+  renderOverflow?: (share: { label: string; description: string; busy: boolean; copy(): void }) => ReactNode;
+}) {
   const { route, global, page, absoluteUrl, toast } = useHostPlatform();
   const { lang } = useI18n();
   const text = TEXT[lang];
@@ -75,7 +80,10 @@ export function ShareControl({ compact = false, align = 'end' }: { compact?: boo
   const menuHelpId = `${id}-menu-help`;
   return <TooltipProvider>
     <Popover open={fallback !== null && !stale} onOpenChange={open => { if (!open) setFallback(null); }}>
-      <PopoverAnchor asChild>
+      {renderOverflow && overflowRef ? <>
+        <PopoverAnchor virtualRef={overflowRef} />
+        {renderOverflow({ label: text.conditions, description: text.conditionsHelp, busy, copy: () => void share('conditions', 'main') })}
+      </> : <PopoverAnchor asChild>
         <span role="group" aria-label={text.group} className="flex items-center">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -100,9 +108,9 @@ export function ShareControl({ compact = false, align = 'end' }: { compact?: boo
             </DropdownMenuContent>
           </DropdownMenu>
         </span>
-      </PopoverAnchor>
+      </PopoverAnchor>}
       {/* The menu returns focus to the chevron as it closes; that must not dismiss the fallback it just opened. */}
-      <PopoverContent align={align} collisionPadding={8} className="w-80" onFocusOutside={event => event.preventDefault()} onCloseAutoFocus={event => { event.preventDefault(); (origin.current === 'main' ? mainRef : chevronRef).current?.focus(); }} role="dialog" aria-label={fallback?.kind === 'menu' ? text.menuFailed : text.conditionsFailed}>
+      <PopoverContent align={align} collisionPadding={8} className="w-80" onFocusOutside={event => event.preventDefault()} onCloseAutoFocus={event => { event.preventDefault(); (overflowRef ?? (origin.current === 'main' ? mainRef : chevronRef)).current?.focus(); }} role="dialog" aria-label={fallback?.kind === 'menu' ? text.menuFailed : text.conditionsFailed}>
         <div className="grid gap-2">
         <p className="text-sm">{fallback?.kind === 'menu' ? text.menuFailed : text.conditionsFailed}</p>
         <Input readOnly aria-label={text.field} value={fallback?.link ?? ''} onFocus={event => event.currentTarget.select()} />

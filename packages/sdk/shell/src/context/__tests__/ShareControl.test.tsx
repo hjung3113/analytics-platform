@@ -8,7 +8,7 @@ import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { GlobalContextBar } from '../GlobalContextBar';
 
-const menu = (id: string, over: { context: typeof noContext; query?: { mode: 'apply'; required: { context: ['time'] } } }) => ({
+const menu = (id: string, over: { context: typeof noContext; query?: { mode: 'live' } | { mode: 'apply'; required: { context: ['time'] } } }) => ({
   id, group: groupId('overview'), primary: id === 'live', label: { ko: id, en: id }, description: { ko: '', en: '' }, path: `/${id}`, icon: House, permission: 'platform:view' as const,
   requiresScope: false, pageType: 'analysis' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['grain'], ...over,
 });
@@ -16,7 +16,7 @@ const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'live' })],
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
-    menu('live', { context: { ...noContext, time: 'apply', roomNames: 'apply' } }),
+    menu('live', { context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'live' } }),
     menu('query', { context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply', required: { context: ['time'] } } }),
   ],
 });
@@ -256,4 +256,20 @@ describe('QueryBar sharing', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(new URL(String(writeText.mock.calls[0]?.[0])).searchParams.has('from')).toBe(false);
   });
+});
+
+
+it('copies applied conditions directly from the folded overflow without a second trigger', async () => {
+  const user = userEvent.setup();
+  const writeText = clipboard(async () => {});
+  mount('/mars/query?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  await user.click(screen.getByRole('button', { name: '조회 조건 접기' }));
+  expect(screen.queryByRole('button', { name: '현재 조건 공유' })).toBeNull();
+  const overflow = screen.getByRole('button', { name: '조회 조건 동작' });
+  await user.click(overflow);
+  await user.click(screen.getByRole('menuitem', { name: '현재 조건 공유' }));
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(new URL(String(writeText.mock.calls[0]?.[0])).searchParams.get('roomNames')).toBe('PHOTO');
+  await waitFor(() => expect(overflow).toHaveFocus());
 });

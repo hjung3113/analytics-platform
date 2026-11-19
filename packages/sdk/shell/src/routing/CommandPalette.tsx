@@ -57,7 +57,7 @@ export function CommandPalette() {
     const searching = words.length > 0;
     const targetOf = (m: MenuEntry, names: readonly string[]): PaletteTarget => {
       const group = registry.groupById(m.group);
-      return { names: [m.label.ko, m.label.en], keywords: [...(m.keywords?.ko ?? []), ...(m.keywords?.en ?? [])], context: [...names, group.label.ko, group.label.en] };
+      return { names: [m.label.ko, m.label.en], keywords: [...(m.keywords?.ko ?? []), ...(m.keywords?.en ?? []), ...(m.searchAliases ?? [])], context: [...names, group.label.ko, group.label.en] };
     };
     const build = (pick: (m: MenuEntry, target: PaletteTarget) => number | null) => {
       // Rank (name > keyword > group/system), then implemented above planned, then recent. Without a query only recency orders.
@@ -147,12 +147,13 @@ export function CommandPalette() {
                   const Icon = m.icon;
                   // <system> › <section> › <menu> (15 §3.2); a name repeated right after itself is written once.
                   const base = [tx(section.label), tx(registry.groupById(m.group).label), tx(m.label)].filter((name, at, names) => at === 0 || name !== names[at - 1]).join(' › ');
-                  return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
+                  return <li key={m.id} id={`palette-${m.id}`} role="option" aria-selected={i === active} data-list-row data-selected={i === active ? '' : undefined} onMouseEnter={() => setActive(i)} onClick={() => go(i)}
                     className={cn('flex cursor-pointer items-center gap-3 rounded-md px-3 py-2', i === active && 'bg-accent-primary-soft')}>
                     <Icon className="size-4 text-text-muted" aria-hidden />
-                    <span className="flex-1">
+                    <span className="min-w-0 flex-1 break-keep">
                       <span className="block text-sm font-medium">{tx(m.label)}</span>
-                      <span className="block text-tiny text-text-secondary">{!m.component && !m.moduleScreen ? `${base} · ${t('planned')}` : base}</span>
+                      {m.paletteDescription && <span className="block truncate text-tiny text-text-secondary" title={tx(m.paletteDescription)}>{tx(m.paletteDescription)}</span>}
+                      <span className={cn('block text-tiny row-meta', i === active && 'text-text-secondary')}>{!m.component && !m.moduleScreen ? `${base} · ${t('planned')}` : base}</span>
                     </span>
                     {i === active && <CornerDownLeft className="size-3.5 text-text-muted" aria-hidden />}
                   </li>;

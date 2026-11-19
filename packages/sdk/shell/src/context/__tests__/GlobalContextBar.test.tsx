@@ -386,14 +386,15 @@ describe('Target dialog replaces the single-axis editor (#301, #552)', () => {
     await screen.findByRole('button', { name: '고정 1대 적용' });
     fireEvent.click(screen.getByRole('button', { name: /StGroup 전체/ }));
     fireEvent.click(screen.getByRole('button', { name: 'st-02만 선택' }));
+    expect(screen.getByRole('button', { name: '적용', busy: true })).toBeDisabled();
     expect(new URLSearchParams(window.location.search).has('equipmentGroup')).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '고정 1대 적용' }));
+    fireEvent.click(await screen.findByRole('button', { name: '고정 1대 적용' }));
     expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"stgroup":["st-02"]}');
     expect(new URLSearchParams(window.location.search).get('selectedEquipmentIds')).toBe('E1');
     fireEvent.click(within(bar()).getByRole('button', { name: /대상 고정 1대/ }));
     expect(screen.getByRole('checkbox', { name: 'st-02' })).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'st-01만 선택' }));
-    fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '취소' }));
     expect(new URLSearchParams(window.location.search).get('equipmentGroup')).toBe('{"stgroup":["st-02"]}');
   });
   it('edits multiple axes together and clears the entire target without opening', async () => {

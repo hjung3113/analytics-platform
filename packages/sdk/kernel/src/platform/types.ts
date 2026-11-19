@@ -165,6 +165,8 @@ export type LinkResolution = {
   allowed: boolean;
   /** Requested page keys the target menu does not register; they are not in `href`. */
   droppedPageKeys: string[];
+  /** Required destination conditions absent from this link's carried address. Reported only for an allowed destination. */
+  missingRequired?: readonly QueryMissing[];
 } | { kind: 'none'; href: null; allowed: false; droppedPageKeys: [] };
 
 export type ObjectLinkOptions = Pick<LinkOptions, 'returnTo' | 'page' | 'global'>;
@@ -321,4 +323,6 @@ export type ReturnOrigin = {
   accepted: boolean;
   /** Space label of the accepted origin menu; null for a fallback or a global-menu origin. */
   spaceLabel: Text | null;
+  /** Whether the accepted origin and destination are in the same Registry space. */
+  sameSpace?: boolean;
 };

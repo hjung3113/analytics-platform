@@ -13,7 +13,7 @@ import { shallowEqual, useStable } from '../stable';
 export type DraftValues = QueryDraft['draft'];
 type Values = DraftValues;
 type RecordEvent = { port: QueryHistoryStore; key: QueryHistoryKey; entry: QueryHistoryEntry };
-type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; lastRestoreRevision?: number; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
+type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; appliedRevision?: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; lastRestoreRevision?: number; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
 export function createDraftStore() {
   let snapshot: Snapshot | null = null;
   const listeners = new Set<() => void>();
@@ -46,16 +46,21 @@ function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
   if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
   if (state.pending && state.pending.target === input.url) {
     const restoredAfterClick = (state.lastRestoreRevision ?? -1) > state.pending.editRevision;
-    return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global, pending: null };
+    return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, appliedRevision: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global, pending: null };
   }
   if (state.pending?.source === input.url || state.address === input.url) return state;
   return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
 }
-export function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
+export function queryMissingRequired(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   const required = menu?.query?.mode === 'apply' ? menu.query.required : undefined;
   return [
     ...missingRequiredContext(required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
     ...(required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
+  ];
+}
+function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
+  return [
+    ...queryMissingRequired(menu, global, page),
     ...(global.membershipBasis === 'asOf' && global.condition?.[CUSTOM_GROUP_AXIS]?.length
       ? [{ key: 'customGroupMembershipBasis', label: CUSTOM_GROUP_LABELS.many }]
       : []),
@@ -164,7 +169,7 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
     store.put({ ...previous, draft: next, editRevision: previous.editRevision + 1 });
   };
   return {
-    mode, draft: state.draft, dirty: dirtyFields(initial(input), state.draft), missing, canApply, applying: state.pending?.dispatching === true,
+    mode, draft: state.draft, appliedRevision: state.appliedRevision, dirty: dirtyFields(initial(input), state.draft), missing, canApply, applying: state.pending?.dispatching === true,
     setDraftGlobal(patch) {
       if ('scopeId' in patch && patch.scopeId !== input.global.scopeId) { input.setGlobal({ scopeId: patch.scopeId }); return; }
       edit({ ...current().draft, global: { ...current().draft.global, ...patch } });

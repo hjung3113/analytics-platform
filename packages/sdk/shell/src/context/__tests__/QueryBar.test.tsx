@@ -35,12 +35,12 @@ it('edits a page/global draft without URL writes, counts raw keys, applies once 
   const room = screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ });
   expect(room).toHaveAttribute('aria-invalid', 'true');
   expect(document.getElementById(room.getAttribute('aria-describedby')!)).toHaveTextContent('공정');
-  expect(screen.getAllByText('공정을 선택하세요').length).toBeGreaterThan(0);
+  expect(screen.getByRole('button', { name: '공정을 선택하세요' })).toBeVisible();
   fireEvent.click(room);
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
   fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
   fireEvent.click(screen.getByRole('button', { name: 'PHOTO만 선택' }));
-  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
+  fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 1대' }));
   expect(draft.draft.global.roomNames).toEqual(['PHOTO']);
   expect(platform.global.roomNames).toBeNull();
   act(() => draft.setDraftPage({ grain: 'day' }));
@@ -49,7 +49,8 @@ it('edits a page/global draft without URL writes, counts raw keys, applies once 
   expect(screen.getByText(`미적용 변경 ${draft.dirty.length}개 · 공유에서 제외`)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '적용' }));
   await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  expect(bar()).toHaveAttribute('data-query-bar-collapsed');
+  expect(within(bar()).queryByRole('button', { name: '적용' })).toBeNull();
   expect(push).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(evaluate).not.toHaveBeenCalled();
@@ -105,7 +106,8 @@ it('does not count the seeded default period as a change, before or after Revert
   fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
   // Not counted, yet not applied: the collapsed summary still says the period is being edited until Apply.
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
-  expect(screen.getByRole('region', { name: '조회 조건' }).querySelector('summary')?.textContent).toMatch(/^편집 중 · /);
+  expect(bar().querySelector('summary')?.textContent).toMatch(/^편집 중 · /);
+  expect(within(bar()).getByRole('button', { name: '적용' })).toBeVisible();
 });
 it('marks the preset equal to the draft range as pressed and the mode pair follows the editor mode (#913)', async () => {
   mount();
@@ -149,7 +151,7 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   expect(draft.draft.global.selection).toEqual([]);
   fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
   fireEvent.click(within(screen.getByRole('group', { name: '공급사' })).getByRole('checkbox', { name: '전체' }));
-  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 2대' }));
+  fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 2대' }));
   expect(draft.draft.global.condition).toBeNull();
   expect(draft.draft.global.selection).toBeNull();
   // The menu requires the room: applying "all" writes every authorized room instead of clearing the required key.
@@ -285,8 +287,9 @@ it('applies the personal default, folds the bar and enables the controls after r
   expect(params.get('from')).toBe(period.from);
   expect(params.get('to')).toBe(period.to);
   expect(draft.dirty).toEqual([]);
-  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
   expect(screen.getByLabelText('시작 시각')).toBeEnabled();
   expect(screen.getByLabelText('종료 시각 (제외)')).toBeEnabled();
   expect(screen.getByRole('button', { name: '최근 7일' })).toBeEnabled();
@@ -303,8 +306,9 @@ it('unlocks at the three-second default-read deadline and discards the late defa
     expect(screen.getByLabelText('시작 시각')).toBeDisabled();
     await act(async () => vi.advanceTimersByTimeAsync(1));
     expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
-    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
     expect(screen.getByLabelText('시작 시각')).toBeEnabled();
     const applied = window.location.search;
     await act(async () => release());
@@ -351,7 +355,7 @@ it.each([false, true])('clears the last editable asOf owner atomically (another 
   fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
   await screen.findByRole('button', { name: /조건 적용/ });
   fireEvent.click(within(screen.getByRole('group', { name: '공급사' })).getByRole('checkbox', { name: '전체' }));
-  fireEvent.click(screen.getByRole('button', { name: /조건 적용/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /조건 적용/ }));
   expect(draft.draft.global.condition).toBeNull();
   expect(draft.draft.global.membershipBasis).toBe(otherOwner ? 'asOf' : null);
   expect(push).not.toHaveBeenCalled();
@@ -477,7 +481,7 @@ it('keeps membership single-choice, explains the disabled history option and cha
   fireEvent.keyDown(current, { key: 'Escape' });
   expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus();
 });
-it('keeps Apply last after history and saved-view actions when expanded and collapsed', async () => {
+it('keeps expanded action order and puts revert and reset in the folded overflow', async () => {
   window.history.replaceState(null, '', '/?scopeId=MEM');
   const session = testSession(['platform:view']);
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}>
@@ -486,7 +490,10 @@ it('keeps Apply last after history and saved-view actions when expanded and coll
   const names = () => within(screen.getByRole('group', { name: '조회 조건 동작' })).getAllByRole('button').map(button => button.textContent);
   await waitFor(() => expect(names()).toEqual(['초안 되돌리기', '조건 초기화', 'History fixture', 'View fixture', '적용']));
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
-  expect(names()).toEqual(['초안 되돌리기', '조건 초기화', 'History fixture', 'View fixture', '적용']);
+  expect(names()).toEqual(['History fixture', 'View fixture', '적용', '']);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: '조회 조건 동작' }));
+  expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['초안 되돌리기', '조건 초기화', '현재 조건 공유']);
 });
 it('searches the facts locally without calling the removed equipment search port (#823)', async () => {
   const searchEquipment = vi.fn();
@@ -533,26 +540,38 @@ it('no server anchor: the custom range editor starts blank', async () => {
 });
 
 function Body() { const query = useMenuQuery(endpoint, null); return <QueryView query={query}>{() => <span>result</span>}</QueryView>; }
-function mountPage(query: string, collapsed: boolean, completed = false) {
+function mountPage(query: string, collapsed: boolean, completed = false, options?: { defaultRangeTo?: PlatformAdapter['defaultRangeTo'] }) {
   window.history.replaceState(null, '', `/?scopeId=MEM${query}`);
   if (collapsed) localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'true');
   const session = testSession(['platform:view']);
-  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send })}><Probe /><PlatformPage layout="fill" queryResult={completed ? { status: 'done', completedAt: 1_800_000_000_000 } : undefined}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={registry} slots={{ contextBar: <GlobalContextBar /> }} adapter={testAdapter({ session: () => session, defaultRangeTo: () => '2026-01-01T09:31:22', menuQuery: send, listEquipmentFacts: async () => ({ version: '1', items: [{ equipmentId: 'E1', room: 'PHOTO', axes: {} }] }), ...options })}><Probe /><PlatformPage layout="fill" queryResult={completed ? { status: 'done', completedAt: 1_800_000_000_000 } : undefined}><Body /></PlatformPage></PlatformProvider></I18nProvider>);
 }
 const STRIP = { name: '적용된 조회 조건' };
-it('idle: the bar draws every missing reason, so the page keeps the title and a pointer but not the list (#1170)', async () => {
-  mountPage('&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', false);
+const idleBody = () => screen.getAllByRole('status').find(node => node.textContent?.includes('아직 조회하지 않았습니다'))!;
+it.each([['bar', barRegion], ['body', idleBody]] as const)('opens the process facet from the %s missing-condition button', async (_place, region) => {
+  mountPage('&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', true);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  const idle = screen.getAllByRole('status').find(node => node.textContent?.includes('아직 조회하지 않았습니다'))!;
-  expect(idle).toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
-  expect(within(idle).queryByRole('listitem')).toBeNull();
-  expect(screen.getAllByText('공정을 선택하세요')).toHaveLength(1);
+  const opener = within(region()).getByRole('button', { name: '공정을 선택하세요' });
+  fireEvent.click(opener);
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  expect(await within(dialog).findByRole('button', { name: 'PHOTO만 선택' })).toBeVisible();
+  expect(within(dialog).getByRole('button', { name: /공정 전체/ })).toHaveAttribute('aria-expanded', 'true');
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  await waitFor(() => expect(within(region()).getByRole('button', { name: '공정을 선택하세요' })).toHaveFocus());
+});
+function barRegion() { return screen.getByRole('region', { name: '조회 조건' }); }
+it('moves focus to a genuinely missing period from the idle body', async () => {
+  mountPage('', true, false, { defaultRangeTo: () => null });
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  fireEvent.click(within(idleBody()).getByRole('button', { name: '기간을 선택하세요' }));
+  expect(screen.getByLabelText('시작 시각')).toHaveFocus();
 });
 it('idle: the seeded default period is missing from the applied values but not from the bar, so the list stays (#1170)', async () => {
   mountPage('', false);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   const idle = screen.getAllByRole('status').find(node => node.textContent?.includes('아직 조회하지 않았습니다'))!;
-  expect(idle).toHaveTextContent('기간을 선택하세요');
+  expect(idle).toHaveTextContent('기간을 조회에 사용하려면 적용을 누르세요.');
+  expect(idle).not.toHaveTextContent('기간을 선택하세요');
   expect(idle).not.toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
 });
 it('idle: a draft that fixed the missing item but is not applied no longer covers the applied list, so the list stays (#1170)', async () => {
@@ -720,4 +739,29 @@ it('shares the query bar list with one menu query on each Apply (#2470)', async 
   act(() => query.refetch());
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
   expect(list).toHaveBeenCalledTimes(2);
+});
+
+
+it('folds a pane editor after the controlled address acknowledges Apply', async () => {
+  const session = testSession(['platform:view']);
+  const adapter = testAdapter({ session: () => session });
+  const initial = { menuId: 'home', params: {}, query: `?${APPLIED.slice(1)}&scopeId=MEM` };
+  let acknowledge: (() => void) | undefined;
+  function Board() {
+    const [current, setCurrent] = useState(initial);
+    return <PaneQueryDraftProvider screens={{ p1: current }}><PaneScreenProvider paneId="p1" screen={current}
+      onChange={next => { acknowledge = () => setCurrent(next); }} onLeave={() => {}}><Probe /><GlobalContextBar /></PaneScreenProvider></PaneQueryDraftProvider>;
+  }
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Board /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+  act(() => draft.setDraftGlobal({ roomNames: ['ETCH'] }));
+  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(draft.applying).toBe(false));
+  expect(acknowledge).toBeDefined();
+  expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
+  act(() => acknowledge?.());
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
+  expect(platform.global.roomNames).toEqual(['ETCH']);
 });

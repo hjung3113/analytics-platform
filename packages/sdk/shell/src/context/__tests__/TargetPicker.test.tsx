@@ -27,7 +27,7 @@ it('applies one process rule from authorized facts, with columns restricted to e
   await waitFor(() => expect(within(dialog).getByRole('button', { name: /조건 적용 · 2대/ })).toBeEnabled());
   fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
-  fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
+  fireEvent.click(await within(dialog).findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'] });
 });
 
@@ -66,7 +66,7 @@ it('shows readable custom groups first, applies their IDs, and labels the closed
   fireEvent.click(within(dialog).getByRole('button', { name: /커스텀 조회 그룹/ }));
   await waitFor(() => expect(within(dialog).getByRole('checkbox', { name: 'Photo set' })).toBeInTheDocument());
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Photo set' }));
-  fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
+  fireEvent.click(await within(dialog).findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { customGroup: ['g1'] } });
   await screen.findByRole('button', { name: /커스텀 조회 그룹: Photo set/ });
 });
@@ -185,7 +185,7 @@ it('fixes an equipment ID and retains it outside a changed rule, without materia
   fireEvent.click(await screen.findByRole('checkbox', { name: 'E1 선택' }));
   fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
   fireEvent.click(screen.getByRole('button', { name: 'ETCH만 선택' }));
-  fireEvent.click(screen.getByRole('button', { name: '고정 1대 적용' }));
+  fireEvent.click(await screen.findByRole('button', { name: '고정 1대 적용' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['ETCH'], selection: ['E1'] });
 });
 
@@ -205,7 +205,7 @@ it('preserves carried Context and preset-excluded axes, excludes their facets an
   expect(within(dialog).queryByRole('checkbox', { name: /E[12] 선택/ })).toBeNull();
   expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 조회 그룹', '제조사']);
   fireEvent.click(within(dialog).getByRole('button', { name: 'B만 선택' }));
-  fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 1대' }));
+  fireEvent.click(await within(dialog).findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { maker: ['B'], team: ['T1'] } });
 });
 
@@ -255,7 +255,7 @@ it('renders an absent constructor axis and applies its selected Condition value'
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
   fireEvent.click(screen.getByRole('button', { name: /생성자 전체/ }));
   fireEvent.click(screen.getByRole('button', { name: 'A만 선택' }));
-  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
+  fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { constructor: ['A'] } });
 });
 
@@ -285,7 +285,7 @@ it('keeps global room and a roomNames Condition axis independent in facets, coun
   fireEvent.click(opener);
   expect(screen.getByRole('checkbox', { name: 'A' })).toBeChecked();
   fireEvent.click(screen.getByRole('button', { name: 'B만 선택' }));
-  fireEvent.click(screen.getByRole('button', { name: '조건 적용 · 1대' }));
+  fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'], condition: { roomNames: ['B'] } });
 });
 
@@ -304,7 +304,7 @@ it.each(['revision notification', 'adapter replacement'] as const)('discards an 
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
   fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
   fireEvent.click(screen.getByRole('button', { name: 'PHOTO만 선택' }));
-  expect(screen.getByRole('button', { name: '조건 적용 · 1대' })).toBeEnabled();
+  expect(await screen.findByRole('button', { name: '조건 적용 · 1대' })).toBeEnabled();
   if (change === 'revision notification') await act(async () => { listeners.forEach(listener => listener()); });
   else rerender(tree(makeAdapter()));
   expect(screen.queryByRole('dialog')).toBeNull();

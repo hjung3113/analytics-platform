@@ -29,6 +29,8 @@ export const manifests: MenuEntry[] = [
   {
     id: 'hw-time', primary: true, group: GROUP,
     label: { ko: 'HW Time', en: 'HW Time' },
+    searchAliases: ['동작시간', '동작 시간', 'operation time'],
+    paletteDescription: { ko: '연결된 패널로 설비 동작시간을 분석합니다.', en: 'Analyze equipment operation time with linked panels.' },
     description: { ko: '연결된 패널에서 설비 동작시간을 분석합니다.', en: 'Analyze operation time with linked panels.' },
     path: '/hw-time', icon: LayoutDashboard, permission: PERMISSION,
     requiresScope: true, context: contextCapabilities(HW_TIME_CONTEXT), pageType: 'analysis',

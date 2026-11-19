@@ -1,17 +1,20 @@
-import { TargetPicker, TARGET_KEYS } from './TargetPicker';
+import { TargetPicker, TARGET_KEYS, type TargetPickerRequest } from './TargetPicker';
 import { useCustomGroupOptions } from './customGroupOptions';
 import { createPortal } from 'react-dom';
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
 import { CUSTOM_GROUP_AXIS, formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
-import { Alert, AlertDescription, Button, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Alert, AlertDescription, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { isTrailingPeriod } from '../frame/trailingPeriod';
 import { useSessionKey } from '../frame/sessionKey';
 import { SHELL_MESSAGES } from '../messages';
 import { ShareControl } from './ShareControl';
+import { QueryHistoryControl } from './QueryHistoryControl';
+import { SavedViewControl } from '../saved-view/SavedViewControl';
+import { QueryBarTools, type QueryBarTool } from './queryBarTools';
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -23,7 +26,7 @@ export type QueryBarProps = {
 
 /** Remount transient editor state on logical screen/session switches; Kernel owns retained drafts. */
 export function QueryBar(props: QueryBarProps) {
-  const { route, paneId, session, queryPolicy, queryDraft } = useHostPlatform();
+  const { route, paneId, session, revision, global, queryPolicy, queryDraft } = useHostPlatform();
   const m = useMessages(SHELL_MESSAGES);
   const [identity, setIdentity] = useState({ session, generation: 0 });
   if (identity.session !== session) setIdentity({ session, generation: identity.generation + 1 });
@@ -41,7 +44,7 @@ export function QueryBar(props: QueryBarProps) {
     setAnnounced(pending ? applyingText : '');
   }, [pending, applyingText, screenKey]);
   return <>
-    <QueryBarSession key={`${identity.generation}:${paneId ?? 'main'}:${route?.menu.id}:${JSON.stringify(route?.params)}`} {...props} />
+    <QueryBarSession key={JSON.stringify([identity.generation, revision, global.scopeId, paneId, route?.menu.id, route?.params])} {...props} />
     {/* Persistent polite region: mounts empty before pending status arrives, stays mounted across remounts, and portals outside the root so modal hideOthers does not hide sibling test probes directly. */}
     {typeof document !== 'undefined' && createPortal(<div aria-live="polite" aria-atomic="false" className="sr-only">{announced}</div>, document.body)}
   </>;
@@ -59,27 +62,46 @@ function useStableSlot(slot: ReactNode) {
 
 function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const stableView = useStableSlot(viewSlot);
+  const stableHistory = useStableSlot(historySlot);
+  const builtInView = isValidElement(viewSlot) && viewSlot.type === SavedViewControl;
+  const builtInHistory = isValidElement(historySlot) && historySlot.type === QueryHistoryControl;
   const platform = useHostPlatform();
   const { route, global, page, scope, screenMode, equipmentAxes, session } = platform;
   const query = useQueryDraft();
   const { draft, dirty, missing, canApply, applying, setDraftGlobal, setDraftPage, apply, revert, reset } = query;
   const extension = useQueryBarExtension();
-  const inset = useCompactPageDensity() ? 'px-4' : 'px-3';
+  const compact = useCompactPageDensity();
+  const inset = compact ? 'px-4' : 'px-3';
   const { lang, t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const id = useId();
   const disclosure = useRef<HTMLButtonElement>(null);
   const editor = useRef<HTMLDivElement>(null);
-  const focusFirst = useRef(false);
+  const overflow = useRef<HTMLButtonElement>(null);
+  const nextTool = useRef<QueryBarTool | null>(null);
+  const [tool, setTool] = useState<QueryBarTool | null>(null);
+  const [viewAvailable, setViewAvailable] = useState(false);
+  const closeTool = useCallback(() => setTool(null), []);
+  const focusOnOpen = useRef<'first' | 'period' | null>(null);
+  const focusedApply = useRef<HTMLButtonElement | null>(null);
+  const [targetRequest, setTargetRequest] = useState<TargetPickerRequest>();
+  const clearTargetRequest = useCallback(() => setTargetRequest(undefined), []);
   const board = screenMode === 'pane';
   const preference = `platform:query-bar-collapsed:${route?.menu.id}`;
   // `null` = no stored choice yet. Without one, an arrival whose URL already carries an applied query starts collapsed (#1892);
   // a bar that cannot run yet (required conditions missing) starts expanded. A stored choice always wins.
   const collapsePreference = useCollapsePreference(preference, '', { defaultCollapsed: board ? true : null, persist: !board });
+  const [seenApply, setSeenApply] = useState(query.appliedRevision);
+  if (query.appliedRevision !== seenApply) {
+    setSeenApply(query.appliedRevision);
+    if (query.appliedRevision !== undefined) collapsePreference.choose(true);
+  }
   const choice = collapsePreference.choice === null ? null : !collapsePreference.choice;
   const setChoice = (open: boolean) => collapsePreference.choose(!open);
   // Until the decision is taken an address with an applied period is drawn collapsed already, so the common deep link has no open-then-fold flash.
   const expanded = choice ?? !(global.from !== null && global.to !== null);
+  if (expanded && tool !== null) setTool(null);
+  const tools = { folded: !expanded, active: tool, close: closeTool, anchorRef: overflow, reportViewAvailable: setViewAvailable };
   // Scope and metric validation settle after mount, so the arrival decision is taken once they have; an edit seals it as expanded.
   // A Scope that is absent or failed is a finished state that cannot run a query: it settles the decision as expanded, it does not wait.
   const scopeStatus = platform.scope.status;
@@ -99,12 +121,23 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const roomRequest = (roomNames: IdSet, name: string) => accessRequest && roomScope && roomScope.grantedRooms < roomScope.totalRooms
     ? <AccessRequestEntry slot={accessRequest} size="field" label={t('accessRequestField', { name })} target={scopeRequestTarget(roomScope.id, roomNames, scope.grantedRooms)} />
     : null;
+  const focusEditor = (to: 'first' | 'period') => {
+    const selector = to === 'period' ? 'input[type="date"]:enabled, input[type="datetime-local"]:enabled' : 'button:enabled, input:enabled';
+    editor.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+  };
   useLayoutEffect(() => {
-    if (expanded && focusFirst.current) editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus();
-    focusFirst.current = false;
+    if (expanded && focusOnOpen.current) focusEditor(focusOnOpen.current);
+    focusOnOpen.current = null;
   }, [expanded]);
+  useLayoutEffect(() => {
+    const previous = focusedApply.current;
+    if (!expanded && previous) {
+      if (document.activeElement === document.body || document.activeElement === previous) disclosure.current?.focus();
+      focusedApply.current = null;
+    }
+  }, [expanded, seenApply]);
   const toggle = (open: boolean) => {
-    focusFirst.current = open;
+    focusOnOpen.current = open ? 'first' : null;
     setChoice(open);
     if (!board) collapsePreference.toggle(!open);
     if (!open) disclosure.current?.focus();
@@ -146,34 +179,85 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   // The period is one change however many of its ends moved (`오늘` moves both, `최근 7일` only `from`).
   const changes = new Set(dirty.map(key => key === 'from' || key === 'to' ? 'time' : key)).size;
   const notApplied = global.from === null && g.from !== null;
-  const editing = dirty.length > 0 || (global.from === null && g.from !== null);
-  useReportQueryBarStatus({ folded: !expanded, editing, reasonKeys: reasons.map(r => r.key) });
+  const editing = dirty.length > 0 || notApplied;
+  const conditionEditorKeys = pendingDefault ? [] : [
+    ...TARGET_KEYS.filter(key => cap[key] === 'apply'),
+    ...(cap.time === 'apply' && (g.from === null || g.to === null) ? ['time'] : []),
+  ];
+  const periodAwaitingApply = (global.from === null || global.to === null) && g.from !== null && g.to !== null;
+  useReportQueryBarStatus({ folded: !expanded, editing, reasonKeys: reasons.map(r => r.key), conditionEditorKeys, periodAwaitingApply });
   // The page-condition layer's «조회 조건에서 바꾸기»: open the editor when folded, else move focus into it.
-  useRegisterContextEditorFocus(() => {
-    if (!expanded) { toggle(true); return; }
-    editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus({ preventScroll: true });
-  });
+  const requestEditor = (request?: TargetPickerRequest) => {
+    if (!request) {
+      if (expanded) focusEditor('first');
+      else toggle(true);
+      return;
+    }
+    if (request.key !== 'time') {
+      setTargetRequest(request);
+      if (!expanded) setChoice(true);
+      return;
+    }
+    if (expanded) focusEditor('period');
+    else { focusOnOpen.current = 'period'; setChoice(true); }
+  };
+  useRegisterContextEditorFocus(requestEditor);
   const summary = formatQuerySummary(g, draft.page, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
   const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
+  const foldedSummary = editing ? summary : applied;
   const invalid = (key: string) => missing.some(item => item.key === key);
   const issues = reasons.length
-    ? <Alert id={reasonId} role="status"><AlertDescription>{reasons.map(r => <p key={r.key}>{r.reason}</p>)}</AlertDescription></Alert>
+    ? <Alert id={reasonId} role="status"><AlertDescription><div className="flex flex-wrap items-center gap-1 break-keep">{reasons.map(r => conditionEditorKeys.includes(r.key)
+      ? <Button key={r.key} type="button" variant="outline" size="toolbar" onClick={event => requestEditor({ key: r.key, opener: event.currentTarget })}>{r.reason}</Button>
+      : <p key={r.key}>{r.reason}</p>)}</div></AlertDescription></Alert>
     : <span id={reasonId} className="sr-only" />;
-  const actions = <div role="group" aria-label={m('queryActionsLabel')} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
-    {changes > 0 ? <span className="text-xs text-text-secondary">{m('queryUnappliedChanges', { count: changes })}</span>
-      : notApplied && <span className="text-xs text-text-secondary">{m('queryNotApplied')}</span>}
-    <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={() => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); }}>{m('queryRevertDraft')}</Button>
-    <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={() => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); }}>{t('resetContext')}</Button>
-    {historySlot}
-    {stableView.present && <span ref={stableView.adopt} className="contents" />}
-    {/* A page-supplied hint keeps the button focusable (aria-disabled, click ignored) so keyboard, screen-reader and touch users reach the explanation too. */}
+  const revertDraft = () => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); };
+  const resetDraft = () => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); };
+  const draftStatus = changes > 0 ? <span className="text-xs text-text-secondary">{m('queryUnappliedChanges', { count: changes })}</span>
+    : notApplied && <span className="text-xs text-text-secondary">{m('queryNotApplied')}</span>;
+  const applyAction = <>
     <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild>
       <span className={extension?.applyHint !== undefined ? 'inline-flex cursor-not-allowed opacity-50' : 'inline-flex'}>
         <Button type="button" size="toolbar" disabled={pendingDefault || (extension?.applyHint === undefined && (!canApply || reasons.length > 0))} aria-disabled={extension?.applyHint !== undefined ? true : undefined}
-          aria-describedby={extension?.applyHint === undefined ? reasonId : `${reasonId} ${reasonId}-apply-hint`} onClick={() => { if (extension?.applyHint === undefined) apply(); }}>{t('apply')}</Button>
+          aria-describedby={extension?.applyHint === undefined ? reasonId : `${reasonId} ${reasonId}-apply-hint`} onClick={event => {
+            if (extension?.applyHint !== undefined) return;
+            focusedApply.current = document.activeElement === event.currentTarget ? event.currentTarget : null;
+            apply();
+          }}>{t('apply')}</Button>
       </span>
     </TooltipTrigger>{extension?.applyHint !== undefined && <TooltipContent>{extension.applyHint}</TooltipContent>}</Tooltip></TooltipProvider>
     {extension?.applyHint !== undefined && <span id={`${reasonId}-apply-hint`} className="sr-only">{extension.applyHint}</span>}
+  </>;
+  const actions = <div role="group" aria-label={m('queryActionsLabel')} className={board ? 'flex shrink-0 items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
+    {draftStatus}
+    <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={revertDraft}>{m('queryRevertDraft')}</Button>
+    <Button type="button" variant="ghost" size="toolbar" disabled={pendingDefault} onClick={resetDraft}>{t('resetContext')}</Button>
+    {stableHistory.present && <span ref={stableHistory.adopt} className="contents" />}
+    {stableView.present && <span ref={stableView.adopt} className="contents" />}
+    {applyAction}
+  </div>;
+  const foldedActions = <div role="group" aria-label={m('queryActionsLabel')} className="flex shrink-0 items-center gap-2">
+    {draftStatus}
+    {stableHistory.present && <span ref={stableHistory.adopt} className="contents" />}
+    {stableView.present && <span ref={stableView.adopt} className="contents" />}
+    {editing && applyAction}
+    <ShareControl overflowRef={overflow} align="end" renderOverflow={({ label: shareLabel, description: shareDescription, busy, copy }) => <DropdownMenu modal={false}>
+      <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild>
+        <DropdownMenuTrigger asChild><Button ref={overflow} type="button" variant="ghost" size="icon-sm" aria-label={m('queryActionsLabel')}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenuTrigger>
+      </TooltipTrigger><TooltipContent>{m('queryActionsLabel')}</TooltipContent></Tooltip></TooltipProvider>
+      <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+        if (nextTool.current === null) return;
+        event.preventDefault();
+        setTool(nextTool.current);
+        nextTool.current = null;
+      }}>
+        <DropdownMenuItem disabled={pendingDefault} onSelect={revertDraft}>{m('queryRevertDraft')}</DropdownMenuItem>
+        <DropdownMenuItem disabled={pendingDefault} onSelect={resetDraft}>{t('resetContext')}</DropdownMenuItem>
+        {builtInHistory && platform.queryHistoryStore && <DropdownMenuItem disabled={pendingDefault} onSelect={() => { nextTool.current = 'history'; }}>{m('historyButton')}</DropdownMenuItem>}
+        {builtInView && viewAvailable && <DropdownMenuItem disabled={pendingDefault} onSelect={() => { nextTool.current = 'view'; }}>{m('queryViewSelect')}</DropdownMenuItem>}
+        <DropdownMenuItem disabled={busy} aria-description={shareDescription} onSelect={copy}>{shareLabel}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>} />
   </div>;
   const remove = (key: string) => {
     const fields: Record<string, Partial<GlobalContext>> = { time: { from: null, to: null }, roomNames: { roomNames: null }, line: { lineNames: null }, prcGroup: { prcGroups: null }, selection: { selection: null }, lot: { lotIds: null }, ppid: { ppid: null }, recipe: { recipeIds: null }, metric: { metricId: null, metricVersion: null } };
@@ -200,12 +284,12 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   };
   const content = <div ref={editor} id={`${id}-editor`} className={`grid min-w-0 gap-3 ${inset} pb-2`} onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
-    if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); toggle(false); }
+    if (event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); toggle(false); }
   }}>
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
-        {cap.time === 'apply' && <PeriodFields disabled={pendingDefault} global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
+        {cap.time === 'apply' && <PeriodFields compact={compact || board} disabled={pendingDefault} global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
         {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
-          <TargetPicker disabled={pendingDefault} global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
+          <TargetPicker openRequest={targetRequest} onRequestHandled={clearTargetRequest} disabled={pendingDefault} global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
           {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
         </div>}
     </div>
@@ -243,23 +327,26 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const trigger = <Button ref={disclosure} type="button" variant="secondary" size="toolbar" aria-label={expanded ? m('queryCollapseConditions') : m('queryExpandConditions')} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{expanded ? <ChevronUp aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />}{label?.visible ?? m('queryConditionsTitle')}</Button>;
   return <><section role="region" aria-label={label?.region ?? m('queryConditionsTitle')} data-query-bar data-canvas-band data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-subtle bg-surface-canvas' : 'min-w-0 border-b border-border-subtle bg-surface-canvas'}>
     <div className={board ? `flex h-12 min-w-0 items-center gap-2 overflow-x-auto ${inset}` : `flex min-h-12 min-w-0 flex-wrap items-center gap-2 ${inset}`}>
-      {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); editor.current?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
-      {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1" aria-label={m('queryViewFullConditions')} onClick={() => toggle(true)}><span className="truncate">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {summary}</span></Button>}
-      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer truncate list-none [&::-webkit-details-marker]:hidden">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {summary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>}
-      {!expanded && actions}
-      {board && !expanded && <span id={reasonId} role="status" className="max-w-56 truncate text-xs text-text-secondary">{reasons.map(r => r.reason).join(' · ')}</span>}
-      <ShareControl compact={false} align="start" />
+      {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); focusEditor(focusOnOpen.current ?? 'first'); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
+      {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1 justify-start overflow-x-auto" aria-label={m('queryViewFullConditions')} onClick={() => toggle(true)}><span className="whitespace-nowrap">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {foldedSummary}</span></Button>}
+      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer list-none break-keep [overflow-wrap:anywhere] [&::-webkit-details-marker]:hidden">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {foldedSummary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>}
+      {!expanded && foldedActions}
+      {expanded && <ShareControl compact={false} align="start" />}
     </div>
     {!board && !expanded && <WorkspaceQueryBarRow />}
-    {!board && expanded && <>{content}<div className={`${inset} pb-2`}>{issues}</div><div className={`${inset} pb-3`}>{actions}</div></>}
-    {!board && !expanded && <div className={`${inset} pb-2`}>{issues}</div>}
-  </section>{stableView.portal}</>;
+    {!board && expanded && content}
+    {(!board || !expanded) && <div className={reasons.length ? `${inset} pb-2` : undefined}>{issues}</div>}
+    {!board && expanded && <div className={`${inset} pb-3`}>{actions}</div>}
+  </section>
+    <QueryBarTools.Provider value={builtInHistory ? tools : null}>{stableHistory.portal}</QueryBarTools.Provider>
+    <QueryBarTools.Provider value={builtInView ? tools : null}>{stableView.portal}</QueryBarTools.Provider>
+  </>;
 }
 
 const NO_GROUPS: readonly string[] = [];
 /** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
 const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
-function PeriodFields({ disabled, global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; disabled: boolean }) {
+function PeriodFields({ compact, disabled, global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { compact: boolean; periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; disabled: boolean }) {
   const { defaultRangeTo } = useHostPlatform();
   const { lang, t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -289,9 +376,9 @@ function PeriodFields({ disabled, global: g, range, setRange, write, invalid, re
       <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} disabled={disabled} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{m('queryReferenceDate')}</Button>
       <Button type="button" size="toolbar" variant={mode === 'range' ? 'secondary' : 'ghost'} disabled={disabled} aria-pressed={mode === 'range'} onClick={() => setMode('range')}>{m('queryCustomRange')}</Button>
     </div>
-    {mode === 'reference' ? <Input type="date" disabled={disabled} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={m('queryReferenceDate')} value={reference} onChange={event => date(event.target.value)} className="w-44 max-w-full" /> : <div className="flex flex-wrap gap-2">
-      <Input type="datetime-local" disabled={disabled} step="1" aria-label={m('queryRangeFrom')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className="w-64 max-w-full" />
-      <Input type="datetime-local" disabled={disabled} step="1" aria-label={m('queryRangeTo')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className="w-64 max-w-full" />
+    {mode === 'reference' ? <Input type="date" inputSize={compact ? 'toolbar' : undefined} disabled={disabled} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={m('queryReferenceDate')} value={reference} onChange={event => date(event.target.value)} className="w-44 max-w-full" /> : <div className="flex flex-wrap gap-2">
+      <Input type="datetime-local" inputSize={compact ? 'toolbar' : undefined} disabled={disabled} step="1" aria-label={m('queryRangeFrom')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className={compact ? 'w-60 max-w-full' : 'w-64 max-w-full'} />
+      <Input type="datetime-local" inputSize={compact ? 'toolbar' : undefined} disabled={disabled} step="1" aria-label={m('queryRangeTo')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className={compact ? 'w-60 max-w-full' : 'w-64 max-w-full'} />
     </div>}
   </div>;
 }

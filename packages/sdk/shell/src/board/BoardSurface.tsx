@@ -1,14 +1,15 @@
+import { buildQuery, type GlobalContext } from '@ap/contracts';
 import { QueryBarExtensionsProvider } from '@ap/components';
 import { useEquipmentAxes } from '@ap/kernel';
 import { PaneQueryDraftProvider } from '@ap/kernel/host';
-import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { AppWindow, HardDrive, Minus, X } from 'lucide-react';
 import { UNDO_WINDOW_MS, useI18n, type MenuEntry } from '@ap/kernel';
 import { paneHref, useArrivalFocus, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
-import { BoardPane } from './BoardPane';
+import { BoardPane, type PaneCopySource } from './BoardPane';
 import { groupHolding } from './boardDockTree';
 import { SheetTabs } from './SheetTabs';
 import {
@@ -18,7 +19,7 @@ import {
 import { MAX_PANES, MAX_TABS } from './boardTypes';
 import { readLayoutEngine } from './layoutEngine';
 import { boardWithSuccessors, canMountPaneScreen } from './boardMenus';
-import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneNumbers, paneSignals, replacementScreen } from './paneActions';
+import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneGlobal, paneNumbers, paneSignals, replacementScreen } from './paneActions';
 import { recallFocus, rememberFocus, rememberSheet } from './boardPresentation';
 import { useBoardSession } from './boardSession';
 import { GRID_GAP, PANE_HEADER_HEIGHT, PANE_BODY_MIN_HEIGHT, STACKED_PANE_MIN_HEIGHT, drawnColumns, effectiveTracks, useElementWidth, useGridHeight } from './layout';
@@ -48,7 +49,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   /** False while the host keeps the board minimized (hidden, inert): no arrival focus, no size taken from the hidden container. */
   visible?: boolean; windowed?: boolean; onMinimize?: () => void; onFloat?: () => void; onClose?: () => void;
 }) {
-  const { user, navigate, registry, readRecent, canOpen, toast, dismissToast } = useHostPlatform();
+  const { user, session, revision, navigate, registry, readRecent, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
   const text = useMemo(() => boardText(lang), [lang]);
   const { board: stored, update, storageNotice } = useBoardSession(user.id, text.sheetPrefix);
@@ -268,7 +269,48 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const axes = useEquipmentAxes();
   const signals = paneSignals(registry, canOpen, paneScreens, text.noneValue, axes, lang, t('membershipAsOf'));
   const emptyIndex = firstEmptyPane(sheet);
-  const insert = (index: number, menu: MenuEntry) => writePane(index, { menuId: menu.id, params: {}, query: defaultQuery(registry, readRecent()) });
+  const selectionHistory = useRef<{ session: typeof session; revision: number; slotsBySheet: Map<string, string[]> } | null>(null);
+  const copySources = useRef(new Map<string, PaneCopySource>());
+  const registerCopySource = useCallback((paneId: string, source: PaneCopySource) => {
+    const sources = copySources.current;
+    sources.set(paneId, source);
+    return () => { if (sources.get(paneId) === source) sources.delete(paneId); };
+  }, []);
+  const selectedSlot = sheet.panes[selectedIndex(sheet)];
+  const selectedSlotId = selectedSlot?.screen ? selectedSlot.id : undefined;
+  useLayoutEffect(() => {
+    if (selectionHistory.current?.session !== session || selectionHistory.current.revision !== revision) {
+      selectionHistory.current = { session, revision, slotsBySheet: new Map() };
+    }
+    if (!visible || selectedSlotId === undefined) return;
+    const history = selectionHistory.current.slotsBySheet;
+    history.set(sheetId, [selectedSlotId, ...(history.get(sheetId) ?? []).filter(id => id !== selectedSlotId)]);
+  }, [session, revision, visible, selectedSlotId, sheetId]);
+
+  const insert = (index: number, menu: MenuEntry, source: 'default' | 'current') => {
+    const latestSelection = selectionHistory.current;
+    const slotId = sheet.panes[index].id;
+    update(b => {
+      const destination = { menuId: menu.id, params: {}, query: '' };
+      const currentSheet = b.sheets.find(candidate => candidate.id === sheetId);
+      if (!currentSheet?.panes.some(slot => slot.id === slotId && slot.screen === null) || !canMountPaneScreen(registry, canOpen, destination)) return b;
+      let context: GlobalContext | null = null;
+      if (source === 'current') {
+        const remembered = latestSelection?.slotsBySheet.get(sheetId) ?? [];
+        const candidates = [...remembered.map(id => currentSheet.panes.find(slot => slot.id === id)), ...currentSheet.panes];
+        for (const slot of candidates) {
+          if (!slot?.screen || !canMountPaneScreen(registry, canOpen, slot.screen)) continue;
+          const decision = copySources.current.get(paneIdOf(sheetId, slot.id));
+          // update may have loaded a newer saved address, which needs its own current Scope decision.
+          if (!decision || decision.session !== session || decision.revision !== revision || decision.url !== paneHref(registry, slot.screen)) continue;
+          context = paneGlobal(registry, slot.screen);
+          if (context !== null) break;
+        }
+      }
+      const query = context === null ? defaultQuery(registry, readRecent()) : buildQuery(context);
+      return setPane(b, sheetId, slotId, { ...destination, query });
+    });
+  };
 
   const shrinkCount = confirmLayout ? droppedPaneCount(sheet, confirmLayout) : 0;
   const cancelShrink = useRef<HTMLButtonElement>(null);
@@ -425,8 +467,8 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     return ({
     paneId: paneKey(index), number: index + 1, screen: paneScreens[index], selected: index === selected, Outlet,
     signal: signals[index], hasPrevious: previousAt(sheet, index) !== null, applyAllOff: applyOff(index), duplicateOff: duplicateOff(index),
-    onSelect: () => select(index), onChange: (next, how) => update(b => editPane(b, sheetId, slotId, next, how)), onLeave,
-    onInsert: menu => insert(index, menu), onClear: () => clearPane(index), onBack: () => update(b => goBackPane(b, sheetId, index)),
+    onSelect: () => select(index), onChange: (next, how) => update(b => editPane(b, sheetId, slotId, next, how)), onLeave, registerCopySource,
+    onInsert: (menu, source) => insert(index, menu, source), onClear: () => clearPane(index), onBack: () => update(b => goBackPane(b, sheetId, index)),
     onApplyAll: () => applyToAll(index), onOpenFull: () => openFull(index), onReplace: menu => replaceScreen(index, menu),
     onDuplicate: () => duplicate(index), onEditContext: () => editContext(index),
     });

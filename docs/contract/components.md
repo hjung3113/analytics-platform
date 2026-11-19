@@ -161,7 +161,11 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 로드한 옵션에 없는 값은 `이 화면에서 쓸 수 없는 값: <원문>`으로 남겨 개별 제거할 수 있다. 로딩·실패 중에는 부재를 단정하지 않고 `현재 값: <원문>`으로 표시한다. S1 codec이 오류 범주를 반환하지 않으므로 호출자는 `issues`와 원래 `rawPairs`를 함께 전달해 입력 원문·사유를 보존한다. 상한은 S1 인코더로 검사해 사유와 함께 거부하며 자르지 않는다. 범주 선언 순서를 지키고 `sections`는 제목 있는 접기로만 묶는다(비연속 범주는 순서를 유지한 연속 구간별 접기). 컨트롤·그룹은 라벨과 사유 설명을 가지며 선택 토글은 라이브 알림을 만들지 않는다. 자체 overlay·portal·고정 폭·scroll layer·적용 수단은 없고 `PageFilterBar` 내용과 ADR-0160 팝오버의 폭을 따른다.
 
-저장된 뷰 선택 조각은 `ViewSelector`로 공개돼 있다(`@ap/components`, §21 Decided, #1011). 저장소 구현과 실서버 검증 범위는 §21 및 `.planning/README.md`를 따른다.
+저장된 뷰 선택 조각은 `ViewSelector`로 공개돼 있다(`@ap/components`, §21 Decided, #1011). 기존 버튼 대신 다른 도구 동작에서 선택기를 열려면 `picker?: { open, onOpenChange, anchorRef, note? }`를 넘긴다(#2539). 선택기와 저장 메뉴는 그 앵커에 열리고 닫힐 때 포커스를 돌려준다. `note`는 선택기에 뷰의 상태와 함께 표시하는 선택 설명이다. `picker`를 생략하면 선택·저장 버튼을 기존 위치에 그린다. 저장소 구현과 실서버 검증 범위는 §21 및 `.planning/README.md`를 따른다.
+
+`FacetedSetDialog`의 `applyMode?: 'manual' | 'direct'`는 기본 `manual`이다. `direct`는 편집 후 표의 규칙 결과가 준비될 때까지 기본 버튼을 진행 중으로 표시한다. 준비되면 적용 버튼 한 번으로 선택을 제출한다. 규칙 모드의 `조건 적용 · N대`는 현재 규칙에 맞는 결과 수를, 고정 모드의 `고정 N대 적용`은 체크한 ID 수를 표시한다. 고정 모드의 수에는 현재 규칙 밖에 남겨 둔 체크 ID도 포함된다. 별도 조회 단계 없이 결과 표를 계속 표시한다. Escape는 마지막으로 연 분류를 먼저 닫고 대화창은 다음 Escape에서 닫는다. `initialFacet?: string`으로 기존 facet id를 넘기면 열 때 그 분류를 펼친다. 생략하거나 알 수 없는 id면 기존 선택에 따라 펼친다(#2539).
+
+`useReportQueryBarStatus`의 선택적 `conditionEditorKeys`는 편집기를 직접 열 수 있는 Context 키이고 `periodAwaitingApply`는 초안의 기간을 아직 적용하지 않았음을 뜻한다. `useRegisterContextEditorFocus`의 콜백은 선택적으로 `{ key, opener }`를 받아 해당 조건을 열고, 생략된 요청에는 기존 일반 편집기 열기 동작을 제공한다. `QueryView`의 조회 전 상태는 같은 페이지의 조회 바가 제공한 키에 대해 조건 버튼을 그린다(#2539).
 
 `PageFilterBar`는 메뉴가 전달한 검색·정확 일치 텍스트·분류 선택·맞춤형 필드를 라벨과 함께 한 줄에 배치하고 공간이 부족하면 줄바꿈한다. 입력은 `@ap/ui` `Input`(40px), 분류 값은 `Select`를 사용하며 높이를 덮어쓰지 않는다. 막대는 초안(draft) 표시 전용이고 자체 적용 수단이 없다 — `onApply`와 submit `<form>`(#1218, [ADR-0112](../adr/0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md)에서 제거)은 없으며, 적용 경계는 소비 화면이 소유한다(표 조건은 §15의 조건마다 적용, 분석 조회는 초안 + 적용 한 번). `mode="draft"`는 조회 초안(ADR-0037) 제어 필드의 표식이고 동작을 바꾸지 않는다. 필드 의미·URL page key·값 변경·초기화·draft 적용은 소비 화면이 소유하며, 알 수 없는 현재 Select 값은 선택 가능한 표시값으로 남긴다(ADR-0016). 선택 `defaultCollapsed?: boolean`(기본 false)은 저장된 선호가 없을 때만 초기 접힘을 정한다. 저장된 사용자 선호가 항상 우선한다(#1473).
 

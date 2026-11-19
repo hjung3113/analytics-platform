@@ -1,11 +1,11 @@
-import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type Ref } from 'react';
+import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from 'react';
 import { Check, ChevronDown, MoreHorizontal, Star } from 'lucide-react';
 import type { SavedView, SavedViewListItem } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import {
   Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
-  Input, Popover, PopoverContent, PopoverTrigger,
+  Input, Popover, PopoverAnchor, PopoverContent, PopoverTrigger,
 } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { approvalText, kindText, panelBadgeText, summarizeContext, visibilityShort, visibilityText } from './text';
@@ -48,6 +48,8 @@ export type ViewSelectorProps = {
   onSaveAs?: () => void | boolean | Promise<void | boolean>;
   /** Ref to the `저장` menu button, e.g. as the focus return target of the save surface. */
   saveTriggerRef?: Ref<HTMLButtonElement>;
+  /** Control and anchor the selector when it opens from an existing toolbar action. */
+  picker?: { open: boolean; onOpenChange(open: boolean): void; anchorRef: RefObject<HTMLButtonElement | null>; note?: ReactNode };
   onRevert?: () => void;
   onMakeDefault?: (id: string | null) => void;
   onDelete?: (id: string) => void;
@@ -69,12 +71,15 @@ const matches = (item: SavedViewListItem, query: string, filter: ViewFilter, use
 
 export function ViewSelector(props: ViewSelectorProps) {
   const { views, currentId, defaultId, state, selectionDisabled, loading, error, query, filter, userId, groups = [] } = props;
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = props.picker?.open ?? internalOpen;
+  const setOpen = props.picker?.onOpenChange ?? setInternalOpen;
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const deleteReturn = useRef<{ id: string; index: number } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const localTrigger = useRef<HTMLButtonElement>(null);
+  const trigger = props.picker?.anchorRef ?? localTrigger;
   const search = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const back = useRef<HTMLButtonElement>(null);
@@ -156,16 +161,28 @@ export function ViewSelector(props: ViewSelectorProps) {
   const deleting = views.find((item): item is Entry => !item.denied && item.view.id === deleteId);
   const detail = detailId === null ? null : views.find((v): v is Entry => !v.denied && v.view.id === detailId) ?? null;
 
+  const saveMenu = (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button ref={props.saveTriggerRef} type="button" size="toolbar" variant="ghost">{m('svSave')}</Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {current && !canEdit && current.capabilities.reason && <DropdownMenuLabel><span className="block max-w-64 whitespace-normal break-words">{current.capabilities.reason}</span></DropdownMenuLabel>}
+          {current && canEdit && <DropdownMenuItem disabled={state === 'clean'} onSelect={() => { void props.onSave?.(); }}>{m('svSaveCurrent')}</DropdownMenuItem>}
+          {showNew && <DropdownMenuItem onSelect={() => props.onSaveAs?.()}>{newLabel}</DropdownMenuItem>}
+          {current && state === 'modified' && <DropdownMenuItem disabled={selectionDisabled} onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
+        </DropdownMenuContent>
+      </DropdownMenu>
+  );
+
   return (
     <div className="inline-flex items-center gap-1">
       <Popover open={open} onOpenChange={next => { setOpen(next); if (!next) setDetailId(null); }}>
-        <PopoverTrigger asChild>
+        {props.picker ? <PopoverAnchor virtualRef={props.picker.anchorRef} /> : <PopoverTrigger asChild>
           <Button ref={trigger} type="button" variant="ghost" size="toolbar" disabled={selectionDisabled} aria-label={`${m('svTrigger')}: ${triggerLabel}`}>
             <span className="max-w-48 truncate">{triggerLabel}</span>
             {badge && <Badge variant="outline">{badge}</Badge>}
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
           </Button>
-        </PopoverTrigger>
+        </PopoverTrigger>}
         <PopoverContent onInteractOutside={event => { if (deleteId !== null) event.preventDefault(); }} align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
           {detail ? (
             <section aria-label={m('svDetails')} className="space-y-2 text-xs">
@@ -174,6 +191,10 @@ export function ViewSelector(props: ViewSelectorProps) {
             </section>
           ) : (
             <div className="space-y-2">
+              {props.picker && <>
+                <p className="flex flex-wrap items-center gap-1 break-words text-xs font-medium">{triggerLabel}{badge && <Badge variant="outline">{badge}</Badge>}</p>
+                {props.picker.note}
+              </>}
               <Input ref={search} type="search" value={query} aria-label={m('svSearch')} placeholder={m('svSearch')} onChange={event => props.onQuery(event.target.value)} />
               <div role="group" aria-label={m('svFilterGroup')} className="flex flex-wrap gap-1">
                 {[...FILTER_KEYS.map(k => ({ key: k as ViewFilter, label: k === 'all' ? t('all') : m(k === 'mine' ? 'svFilterMine' : 'svFilterOfficial') })), ...groups.map(g => ({ key: `group:${g.id}` as ViewFilter, label: g.name }))].map(f => (
@@ -213,20 +234,13 @@ export function ViewSelector(props: ViewSelectorProps) {
                   ))}
                 </ul>
               )}
+              {props.picker && saveMenu}
               {props.onManage && <Button type="button" size="toolbar" variant="ghost" onClick={() => { close(); props.onManage?.(); }}>{m('svManage')}</Button>}
             </div>
           )}
         </PopoverContent>
       </Popover>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button ref={props.saveTriggerRef} type="button" size="toolbar" variant="ghost">{m('svSave')}</Button></DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {current && !canEdit && current.capabilities.reason && <DropdownMenuLabel><span className="block max-w-64 whitespace-normal break-words">{current.capabilities.reason}</span></DropdownMenuLabel>}
-          {current && canEdit && <DropdownMenuItem disabled={state === 'clean'} onSelect={() => { void props.onSave?.(); }}>{m('svSaveCurrent')}</DropdownMenuItem>}
-          {showNew && <DropdownMenuItem onSelect={() => props.onSaveAs?.()}>{newLabel}</DropdownMenuItem>}
-          {current && state === 'modified' && <DropdownMenuItem disabled={selectionDisabled} onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {!props.picker && saveMenu}
       <Dialog open={deleteId !== null} onOpenChange={next => { if (!next) setDeleteId(null); }}>
         <DialogContent closeLabel={t('close')} onCloseAutoFocus={event => {
           event.preventDefault();
