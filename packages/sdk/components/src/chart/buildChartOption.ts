@@ -32,7 +32,7 @@ const MIN_MAX_LABEL_ROOM = 44;
 const CHIP_SHIFT = 32;
 /** Gap between a bar end (or the lane column) and its total label; the partial marker adds its own width. */
 const TOTAL_GAP = 4;
-/** Value-axis tick spacing floor in px and ECharts' default tick count (`splitNumber`); only a plot narrower than the former times the latter gets fewer ticks. */
+/** Minimum spacing between time-axis and horizontal value-axis labels, in px. */
 const MIN_TICK_PITCH = 64;
 const DEFAULT_TICKS = 5;
 const PARTIAL_MARKER = 8;
@@ -197,6 +197,134 @@ export type ChartOptionInput = {
 /** What a label that does not fit lays out as: ECharts has no hide switch for a layout callback, so the label collapses to nothing. */
 const YIELDED = { fontSize: 0, width: 0, height: 0 };
 
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+const SHORTEST_MONTH_MS = 28 * DAY_MS;
+const HOUR_TICK_STEPS = [1, 2, 3, 4, 6, 8, 12, 24].map(hours => hours * HOUR_MS);
+const DAY_TICK_STEPS = [1, 2, 7, 14].map(days => days * DAY_MS);
+const MONTH_TICK_STEPS = [1, 2, 3, 6, 12];
+
+function minimumGap(values: readonly number[]) {
+  let step = Infinity;
+  for (let index = 1; index < values.length; index++) {
+    step = Math.min(step, values[index] - values[index - 1]);
+  }
+  return step;
+}
+
+type TimeBuckets = {
+  boundaries: number[];
+  step?: number;
+  calendar?: { boundaries: number[]; step: number; inferred: boolean };
+};
+
+export function timeBucketStep(series: readonly Pick<ChartSeries, 'points'>[]): TimeBuckets {
+  const values = new Set<string>();
+  for (const { points } of series) {
+    for (const [x] of points) values.add(x);
+  }
+  const boundaries = [...values].map(toMs).sort((a, b) => a - b);
+  const buckets: TimeBuckets = { boundaries };
+  if (boundaries.length > 1) {
+    const step = minimumGap(boundaries);
+    buckets.step = step;
+    if (step >= DAY_MS) {
+      const months = boundaries.map(monthIndex);
+      // Calendar-month buckets have unequal millisecond spans and at most one boundary per month.
+      const monthly = step >= SHORTEST_MONTH_MS && new Set(months).size === months.length;
+      if (monthly) {
+        buckets.calendar = { boundaries, step: minimumGap(months), inferred: true };
+      } else {
+        // For a coarse grid on shorter buckets, keep the first on-phase boundary of each month.
+        const first = boundaries[0];
+        const monthStarts = new Map<number, number>();
+        for (const [index, value] of boundaries.entries()) {
+          const month = months[index];
+          if ((value - first) % step === 0 && !monthStarts.has(month)) monthStarts.set(month, value);
+        }
+        buckets.calendar = { boundaries: [...monthStarts.values()], step: 1, inferred: false };
+      }
+    }
+  }
+  // Recomputed on every option build: a cache keyed by array identity would keep stale ticks when points change in place.
+  return buckets;
+}
+
+function monthIndex(value: number) {
+  const date = new Date(value);
+  return date.getUTCFullYear() * 12 + date.getUTCMonth();
+}
+
+function niceTickStep(ladder: readonly number[], bucketStep: number, minStep: number) {
+  if (minStep <= bucketStep) return bucketStep;
+  return ladder.find(candidate => candidate >= minStep && candidate % bucketStep === 0);
+}
+
+function lowerBound(values: readonly number[], target: number) {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (values[middle] < target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function timeAxisTicks(series: readonly ChartSeries[], zoom: readonly [number, number], width: number) {
+  const { step, boundaries, calendar } = timeBucketStep(series);
+  if (!boundaries.length) return { axisLabel: { hideOverlap: true } };
+  if (step === undefined) {
+    const customValues = [boundaries[0]];
+    return { axisTick: { customValues }, axisLabel: { hideOverlap: true, customValues } };
+  }
+
+  const first = boundaries[0];
+  const span = boundaries[boundaries.length - 1] - first;
+  const minStep = span * (zoom[1] - zoom[0]) / 100 * MIN_TICK_PITCH / Math.max(width, 1);
+  // Round the window as ECharts' dataZoom does (nearest millisecond, `toFixed(0)`), so the slice and the fallback test see exactly the
+  // ticks the engine keeps: no edge bucket is dropped, and no clipped candidate suppresses the fallback.
+  const from = Number((first + span * (zoom[0] / 100)).toFixed(0));
+  const to = Number((first + span * (zoom[1] / 100)).toFixed(0));
+  const visible = (values: readonly number[]) => values.slice(lowerBound(values, from), lowerBound(values, to + 1));
+  let customValues: number[];
+  let formatter = '{yyyy}-{MM}-{dd}';
+  if (calendar && (calendar.inferred || minStep > Math.max(step, DAY_TICK_STEPS[DAY_TICK_STEPS.length - 1]))) {
+    const minMonths = minStep / SHORTEST_MONTH_MS;
+    const tickMonths = niceTickStep(MONTH_TICK_STEPS, calendar.step, minMonths)
+      ?? Math.ceil(minMonths / calendar.step) * calendar.step;
+    const firstMonth = monthIndex(first);
+    customValues = visible(calendar.boundaries).filter(value => (monthIndex(value) - firstMonth) % tickMonths === 0);
+    if (!customValues.length) {
+      const observed = visible(boundaries);
+      if (observed.length) {
+        const anchorMonth = monthIndex(observed[0]);
+        const ticksByMonth = new Map<number, number>();
+        for (const value of observed) {
+          const month = monthIndex(value);
+          if ((month - anchorMonth) % tickMonths === 0 && !ticksByMonth.has(month)) ticksByMonth.set(month, value);
+        }
+        customValues = [...ticksByMonth.values()];
+      }
+    }
+    formatter = '{yyyy}-{MM}';
+  } else {
+    const ladder = step < DAY_MS ? HOUR_TICK_STEPS : DAY_TICK_STEPS;
+    const tickStep = niceTickStep(ladder, step, minStep) ?? Math.ceil(minStep / step) * step;
+    // The encoding uses UTC digits for wall-clock time. Use its midnight grid when the buckets share that phase.
+    const anchor = DAY_MS % tickStep === 0 && first % step === 0 ? 0 : first;
+    const observed = visible(boundaries);
+    customValues = observed.filter(value => (value - anchor) % tickStep === 0);
+    if (!customValues.length && observed.length) {
+      customValues = observed.filter(value => (value - observed[0]) % tickStep === 0);
+    }
+  }
+  return {
+    minInterval: step,
+    axisTick: { customValues },
+    axisLabel: { hideOverlap: true, customValues, ...(step >= DAY_MS ? { formatter } : {}) },
+  };
+}
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
@@ -310,7 +438,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
     xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
       : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
-      ? { type: 'time', axisLine: theme.axisLine, axisLabel: { hideOverlap: true }, splitLine: { show: false } }
+      ? { type: 'time', axisLine: theme.axisLine, splitLine: { show: false }, ...timeAxisTicks(i.displayed, i.zoom, plotWidth) }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
     yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: rowGutter - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${rowLabel(groups, v)}}` : rowLabel(groups, v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
     // Row-pitch mode: the inner scroller is the only viewport. A dataZoom window on top would make the selection summary, Brush and export ambiguous (ADR-0079).

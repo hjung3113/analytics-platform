@@ -979,15 +979,32 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await waitFor(() => expect(f.list).toHaveBeenCalledTimes(2));
   });
 
-  // #822: the plot width only feeds note labels and start-aligned lanes; a chart with neither keeps its option through a resize.
-  it('keeps the same option object when a plot without notes is resized', async () => {
+  // #822: a vertical category plot without notes has no width-dependent layout.
+  it('keeps the same option object when a vertical category plot without notes is resized', async () => {
     const f = fixture();
-    mount(f.adapter, on);
+    mount(f.adapter, on, '/?v=1&scopeId=MEM', { frame: { xType: 'category' } });
     await screen.findByRole('button', { name: '구간 선택' });
     act(() => plotProps?.onReady?.(plotInstance(640)));
     const before = plotProps?.option;
     act(() => plotProps?.onResize?.(320));
     act(() => plotProps?.onResize?.(480));
+    expect(plotProps?.option).toBe(before);
+  });
+
+  it('thins time-axis ticks as a plot without notes narrows', async () => {
+    const points: ChartSeries['points'] = Array.from({ length: 24 }, (_, hour) => [
+      `2026-09-01T${String(hour).padStart(2, '0')}:00:00`, 1,
+    ]);
+    mount(fixture().adapter, off, '/?v=1&scopeId=MEM', { series: [{ ...series[0], points }] });
+    await screen.findByRole('img');
+    const tickCount = () => (plotProps?.option?.xAxis as { axisTick: { customValues: number[] } }).axisTick.customValues.length;
+    act(() => plotProps?.onReady?.(plotInstance(1100)));
+    expect(tickCount()).toBe(12);
+    act(() => plotProps?.onResize?.(320));
+    expect(tickCount()).toBe(4);
+    // #822: a resize inside one 64px step keeps the option object.
+    const before = plotProps?.option;
+    act(() => plotProps?.onResize?.(330));
     expect(plotProps?.option).toBe(before);
   });
 
