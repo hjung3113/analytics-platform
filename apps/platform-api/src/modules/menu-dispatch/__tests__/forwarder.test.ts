@@ -98,7 +98,7 @@ const SCOPES = [{ site: 'mills', rooms: ['r1'] }, { site: 'labs', rooms: [] }];
 
 /** An app whose one endpoint `test.rows` forwards to the fake upstream. */
 async function forwarderApp(upstream: ReturnType<typeof fakeUpstream>, timeoutMs = 5000, scoped = false, client?: AbortSignal,
-  config: { baseUrl?: string; path?: string; fetch?: MenuUpstreamFetch; errors?: Error[]; limits?: EndpointDeclarationSpec['limits']; resolveEquipmentLocations?: Parameters<typeof createMenuForwarder>[0]['resolveEquipmentLocations'] } = {},
+  config: { baseUrl?: string; path?: string; fetch?: MenuUpstreamFetch; errors?: Error[]; limits?: EndpointDeclarationSpec['limits']; context?: EndpointDeclarationSpec['context']; resolveEquipmentLocations?: Parameters<typeof createMenuForwarder>[0]['resolveEquipmentLocations'] } = {},
 ) {
   const { resolveEquipmentLocations } = config;
   const forwarder = createMenuForwarder({ baseUrl: config.baseUrl ?? BASE_URL, timeoutMs, signer, fetch: config.fetch ?? upstream.fetch,
@@ -107,6 +107,7 @@ async function forwarderApp(upstream: ReturnType<typeof fakeUpstream>, timeoutMs
   const { declaration } = testEndpoint({
     requiresScope: scoped,
     ...(config.limits ? { context: { time: 'apply' }, limits: config.limits } : {}),
+    ...(config.context ? { context: config.context } : {}),
   });
   declaration.handle = (args) => forwarder.forward({ endpointId: 'test.rows', path: config.path ?? PATH, args });
   app = Fastify({ logger: false, genReqId: () => CORRELATION_ID });
@@ -143,12 +144,27 @@ describe('menu forwarder (1729f)', () => {
     { ...ENVELOPE, outcome: 'too_large', data: 0, recovery: { maxHours: 12 } },
     { ...ENVELOPE, outcome: 'timeout', data: '' },
     { ...ENVELOPE, outcome: 'empty' },
-    { ...ENVELOPE, outcome: 'forbidden', assessments: [ASSESSMENT], message: 'no scope', recovery: { deniedScope: { kind: 'site_room', site: 'mills', room: 'r1' } } },
+    { ...ENVELOPE, outcome: 'forbidden', assessments: [ASSESSMENT], message: 'no scope' },
   ])('passes the upstream $outcome envelope through unchanged', async (envelope) => {
     const upstream = fakeUpstream(() => ({ status: 200, body: envelope }));
     const response = await send(await forwarderApp(upstream));
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(envelope);
+  });
+
+  it.each([
+    { label: 'the requested Site', context: { scopeId: 'mills' }, deniedScope: { kind: 'site', site: 'mills' }, kept: true },
+    { label: 'a submitted room', context: { scopeId: 'mills', roomNames: ['r1'] }, deniedScope: { kind: 'site_room', site: 'mills', room: 'r1' }, kept: true },
+    { label: 'another Site', context: { scopeId: 'mills' }, deniedScope: { kind: 'site', site: 'forge' }, kept: false },
+    { label: 'a room not submitted', context: { scopeId: 'mills', roomNames: ['r1'] }, deniedScope: { kind: 'site_room', site: 'mills', room: 'r9' }, kept: false },
+    { label: 'a room with no rooms submitted', context: { scopeId: 'mills' }, deniedScope: { kind: 'site_room', site: 'mills', room: 'r1' }, kept: false },
+    { label: 'a Site on an unscoped endpoint', context: {}, deniedScope: { kind: 'site', site: 'mills' }, kept: false },
+  ])('forwards an upstream denied Scope only when it names $label (#2595)', async ({ context, deniedScope, kept }) => {
+    const envelope = { ...ENVELOPE, outcome: 'forbidden', message: 'no scope', recovery: { deniedScope, maxHours: 12 } };
+    const upstream = fakeUpstream(() => ({ status: 200, body: envelope }));
+    const response = await send(await forwarderApp(upstream, 5000, 'scopeId' in context, undefined, 'roomNames' in context ? { context: { roomNames: 'apply' } } : {}), context);
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ...envelope, recovery: kept ? { deniedScope, maxHours: 12 } : { maxHours: 12 } });
   });
 
   it.each([

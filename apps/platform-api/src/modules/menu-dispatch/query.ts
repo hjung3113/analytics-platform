@@ -4,7 +4,8 @@
 // The module that contributes an endpoint owns the data and its assessments/trust; this file owns
 // only the order and the generic checks. It never reads a table.
 
-import { menuQueryContextSchema } from '@ap/contract-schemas';
+import { apiResponseSchema, menuQueryContextSchema } from '@ap/contract-schemas';
+import { z } from 'zod/v4';
 
 import { MenuUpstreamError } from './forwarder.js';
 
@@ -211,7 +212,15 @@ async function judgeRequestScopes(
   return deniedScope ? { scopes: null, deniedScope } : { scopes: null };
 }
 
+// The wire schema the SDK reads (`readQueryRecovery`): an ID it would drop is never sent (#2595 review C2).
+const wireRecoverySchema = apiResponseSchema(z.unknown()).shape.recovery;
+
 function deniedRequestScope(context: Record<string, unknown>, scopes: readonly ScopeGrant[]): DeniedScope | undefined {
+  const target = deniedTarget(context, scopes);
+  return target && wireRecoverySchema.safeParse({ deniedScope: target }).success ? target : undefined;
+}
+
+function deniedTarget(context: Record<string, unknown>, scopes: readonly ScopeGrant[]): DeniedScope | undefined {
   const site = context.scopeId;
   if (typeof site !== 'string' || site === '') return undefined;
   const grants = scopes.filter(grant => grant.site === site);

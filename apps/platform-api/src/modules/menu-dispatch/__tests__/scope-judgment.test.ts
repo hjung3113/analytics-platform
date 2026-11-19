@@ -43,6 +43,8 @@ const cases = [
   // Several denied rooms are a compound denial: no single target to request (components §19).
   ['two rooms outside', async () => grants, body('MEM', ['R3', 'R4']), 'forbidden', undefined],
   ['null scope', async () => grants, body(null), 'forbidden', undefined],
+  // A target the wire contract would refuse never becomes a request target (#2595 review C2).
+  ['blank site', async () => grants, body(' '), 'forbidden', undefined],
 ] as const;
 
 for (const mode of ['engine', 'route'] as const) {
@@ -108,10 +110,29 @@ describe('Scope request lifetime and ordering', () => {
       const registry = createMenuDispatchRegistry([{ endpoints: [declaration] }], { scopeResolver: resolver });
       const shape = judgeQueryShape({ endpoint: 'test.rows', context: requiresScope ? { scopeId: 'MEM' } : {}, params: {} }, registry);
       if (!shape.ok) throw new Error(shape.message);
-      expect(await runQuery(shape, actor, 'cid')).toMatchObject({ outcome: allow ? 'ok' : 'forbidden' });
+      const answer = await runQuery(shape, actor, 'cid');
+      expect(answer).toMatchObject({ outcome: allow ? 'ok' : 'forbidden' });
+      expect(answer).not.toHaveProperty('recovery');
       if (allow) expect(handle).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
     }
     expect(resolver.resolve).not.toHaveBeenCalled();
+  });
+
+  it('names no denied Scope when grants arrive after the request was cancelled', async () => {
+    let finish: (value: typeof grants | []) => void = () => undefined;
+    const resolver = { resolve: vi.fn(() => new Promise<typeof grants | []>((resolve) => { finish = resolve; })) };
+    const { declaration, calls } = testEndpoint({ requiresScope: true, context: { roomNames: 'apply' } });
+    const registry = createMenuDispatchRegistry([{ endpoints: [declaration] }], { scopeResolver: resolver });
+    const shape = judgeQueryShape(body(), registry);
+    if (!shape.ok) throw new Error(shape.message);
+    const controller = new AbortController();
+    const pending = runQuery(shape, actor, 'cid', controller.signal).then((answer) => answer, (error: unknown) => error);
+    await vi.waitFor(() => expect(resolver.resolve).toHaveBeenCalledTimes(1));
+    controller.abort();
+    // No grants would otherwise name the whole Site as the denied target.
+    finish([]);
+    expect(await pending).not.toHaveProperty('recovery');
+    expect(calls.handled).toBe(0);
   });
 
   it('resolves each request so revoked grants deny the next read', async () => {
