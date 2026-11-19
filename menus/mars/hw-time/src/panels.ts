@@ -7,7 +7,7 @@ import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES as O, HW_TIM
  */
 export type HwTimePanelDeclaration = PanelDeclaration & { readonly kind?: string; readonly csvExport?: boolean };
 
-const common = ['scopeId', 'time', 'roomNames', 'condition', 'selection'] as const;
+const common = ['scopeId', 'time', 'roomNames', 'prcGroup', 'condition', 'selection'] as const;
 const checks = [{ key: 'module' }, { key: 'motion' }] as const;
 const verdictDisplay = [...checks, { key: 'verdict' }] as const;
 const runInputs = { context: common, page: [{ key: 'moduleType', label: O.moduleType }, { key: 'drillModule', label: O.modules }, { key: 'drillMotion', label: O.motions }, { key: 'trend' }] } as const;

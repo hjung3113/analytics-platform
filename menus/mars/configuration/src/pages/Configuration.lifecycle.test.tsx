@@ -40,7 +40,7 @@ const sourceTitle = { ko: 'HW Time', en: 'HW Time' };
 const sourceRuns = defineEndpoint<{ equipment: readonly string[] | null; moduleType: unknown; module: unknown; motion: unknown }, string>({
   id: 'hwTime.runs', menuId: 'hw-time', permission: analytics, requiresScope: true,
   paramKeys: { equipment: true, moduleType: true, module: true, motion: true }, kinds: [], mergeTimeDomain: false,
-  context: { time: 'apply', selection: 'apply', roomNames: 'apply', condition: 'apply' },
+  context: { time: 'apply', selection: 'apply', roomNames: 'apply', prcGroup: 'apply', condition: 'apply' },
 });
 const sourcePageKeys = ['moduleType', 'drillModule', 'drillMotion'];
 const sourceMenu = testMenu({
@@ -48,7 +48,7 @@ const sourceMenu = testMenu({
   context: contextCapabilities(sourceRuns.context), pageKeys: sourcePageKeys,
   panels: [{
     id: 'trend', title: sourceTitle, grain: 'dailyStat', endpoints: [sourceRuns], displayInputs: {}, outputs: [],
-    queryInputs: { context: ['scopeId', 'time', 'selection', 'roomNames', 'condition'], page: sourcePageKeys.map(key => ({ key, required: true })) },
+    queryInputs: { context: ['scopeId', 'time', 'selection', 'roomNames', 'prcGroup', 'condition'], page: sourcePageKeys.map(key => ({ key, required: true })) },
     display: [{ key: 'equipmentLabels' }],
   }],
 });
@@ -182,7 +182,7 @@ describe('Configuration lifecycle regressions', () => {
     window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM');
     const requests = await mount();
     expect(requests.mock.calls[0]?.[0].params).toMatchObject({ eq: DEFAULT_EQUIPMENT });
-    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T00:00:00');
   });
   it('C4 retains explicit zero in the kernel draft, then commits two only on Apply', async () => {
     const requests = await mount();

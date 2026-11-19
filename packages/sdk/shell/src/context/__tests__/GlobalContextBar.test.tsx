@@ -106,7 +106,7 @@ describe('Global Context priority overflow (#56)', () => {
     expect(observed).toBe(bar());
     expect(inlineKeys()).toEqual(['time', 'target', 'lot', 'ppid', 'recipe', 'metric']);
     expect(within(bar()).queryByRole('button', { name: /개 더/ })).toBeNull();
-    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: /^기간:/ })).toBeVisible();
     await screen.findByRole('button', { name: '대상 전체' });
     await vi.waitFor(() => expect(evaluation).not.toHaveBeenCalled()); // one owner; inert copies never query
   });
@@ -116,7 +116,7 @@ describe('Global Context priority overflow (#56)', () => {
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     expect(visibleContextLabel()).toBe(false);
     expect(screen.queryAllByText('전역 Context', { exact: true })).toHaveLength(0);
-    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: /^기간:/ })).toBeVisible();
     expect(inlineKeys()).toHaveLength(6);
     for (const [name, text] of [['현재 조건 공유', '현재 조건 공유'], ['조건 초기화', '초기화']]) {
       expect(within(bar()).getByRole('button', { name }).textContent).toContain(text);
@@ -130,12 +130,12 @@ describe('Global Context priority overflow (#56)', () => {
     expect(bar().textContent).not.toContain('전역 Context');
   });
 
-  it('compacts presets first and then removes trailing keys in fixed priority order', () => {
+  it('keeps presets in the period editor and removes trailing keys in fixed priority order', () => {
     mount('&lotIds=L1&ppid=P1&recipeIds=R1&metricId=M1&metricVersion=1');
     const initialReads = reads;
     const initialQueries = evaluation.mock.calls.length;
     width(1100);
-    expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
+    expect(within(bar()).queryByRole('button', { name: '오늘' })).toBeNull();
     expect(inlineKeys()).toEqual(['time', 'target', 'lot', 'ppid', 'recipe', 'metric']);
     width(760);
     expect(inlineKeys()).toEqual(['time', 'target', 'lot']);
@@ -163,10 +163,10 @@ describe('Global Context priority overflow (#56)', () => {
     expect(reset).toHaveAttribute('title', '조건 초기화');
     expect(reset.textContent).toBe('');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
-    expect(period).toHaveAttribute('title', '기간: 09-25 09:00 → 09-26 09:00 (24h)');
-    expect(period).toHaveAccessibleName('기간: 09-25 09:00 → 09-26 09:00 (24h), 참조만');
+    expect(period).toHaveAttribute('title', '기간: 09-25 → 09-27 (2일)');
+    expect(period).toHaveAccessibleName('기간: 09-25 → 09-27 (2일), 참조만');
     fireEvent.click(period);
-    expect(screen.getByRole('radio', { name: '7일' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '최근 7일' })).toBeVisible();
   });
 
   it('counts explicit empty as applied and edits the same Selection setter from the overflow', async () => {
@@ -189,12 +189,12 @@ describe('Global Context priority overflow (#56)', () => {
   });
 
   it('remeasures intrinsic widths when the probe resizes without a Context revision (P2-1)', () => {
-    barWidth = 1100; mount();
-    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-    act(() => { keyWidths.target = 500; probeResize?.(); });
-    expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
+    barWidth = 830; mount();
+    expect(inlineKeys()).toContain('target');
+    act(() => { keyWidths.target = 700; probeResize?.(); });
+    expect(inlineKeys()).not.toContain('target');
     act(() => { keyWidths = {}; probeResize?.(); });
-    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
+    expect(inlineKeys()).toContain('target');
   });
 
   for (const event of ['ready', 'loadingdone']) {
@@ -202,13 +202,13 @@ describe('Global Context priority overflow (#56)', () => {
       let ready!: () => void;
       const fonts = Object.assign(new EventTarget(), { ready: new Promise<void>(resolve => { ready = resolve; }) });
       Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
-      barWidth = 1100; const view = mount();
+      barWidth = 830; const view = mount();
       // Settle Scope validation and Selection evaluation before changing only font metrics.
       await act(async () => { await Promise.resolve(); });
-      expect(within(bar()).getByRole('radio', { name: '1일' })).toBeVisible();
-      keyWidths.target = 500;
+      expect(inlineKeys()).toContain('target');
+      keyWidths.target = 700;
       await act(async () => { if (event === 'ready') ready(); else fonts.dispatchEvent(new Event('loadingdone')); });
-      expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
+      expect(inlineKeys()).not.toContain('target');
       view.unmount();
       const previousReads = reads;
       await act(async () => { ready(); fonts.dispatchEvent(new Event('loadingdone')); });
@@ -222,16 +222,38 @@ describe('Global Context priority overflow (#56)', () => {
     expect(await screen.findByRole('button', { name: /Apply rule/ })).toBeVisible();
   });
 
-  it('reopens the custom range editor when the applied custom preset is pressed again (#228 review)', async () => {
+  it('reopens a legacy period with inclusive dates and writes midnight boundaries only after an edit and Apply', async () => {
     mount('&from=2026-09-22T09:00:00&to=2026-09-24T09:00:00', 'ko', false);
-    const custom = within(bar()).getByRole('radio', { name: '사용자 지정' });
-    expect(custom).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(custom);
-    expect(await screen.findByText('시작일')).toBeVisible();
-    fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
-    await vi.waitFor(() => expect(screen.queryByText('시작일')).toBeNull());
-    fireEvent.click(within(bar()).getByRole('radio', { name: '사용자 지정' }));
-    expect(await screen.findByText('시작일')).toBeVisible();
+    const original = window.location.search;
+    const open = () => fireEvent.click(within(bar()).getByRole('button', { name: /^기간:/ }));
+    open();
+    const dialog = await screen.findByRole('dialog', { name: '기간' });
+    expect(within(dialog).getByLabelText('시작일')).toHaveValue('2026-09-22');
+    expect(within(dialog).getByLabelText('종료일 (포함)')).toHaveValue('2026-09-24');
+    expect(within(dialog).getByRole('button', { name: '적용' })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+    expect(window.location.search).toBe(original);
+    open();
+    fireEvent.change(screen.getByLabelText('종료일 (포함)'), { target: { value: '2026-09-25' } });
+    expect(window.location.search).toBe(original);
+    fireEvent.click(screen.getByRole('button', { name: '적용' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('from')).toBe('2026-09-22T00:00:00');
+    expect(params.get('to')).toBe('2026-09-26T00:00:00');
+  });
+
+  it('discards an unapplied date edit when the adapter changes at the same address', async () => {
+    const timeOnly = registryWith({ ...caps, roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported' });
+    const { rerender } = mount('', 'ko', true, timeOnly);
+    fireEvent.click(within(bar()).getByRole('button', { name: /^기간:/ }));
+    fireEvent.change(screen.getByLabelText('종료일 (포함)'), { target: { value: '2026-09-30' } });
+    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
+
+    const replacement = testAdapter({ session: () => session });
+    await act(async () => rerender(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={replacement} registry={timeOnly}><GlobalContextBar /></PlatformProvider></I18nProvider>));
+    expect(screen.getByLabelText('종료일 (포함)')).toHaveValue('2026-09-26');
+    expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
+    expect(new URLSearchParams(window.location.search).get('to')).toBe('2026-09-26T09:00:00');
   });
 
   // Measurement parity: the inert copies must render exactly like the real trigger or the overflow math drifts.
@@ -253,7 +275,7 @@ describe('Global Context priority overflow (#56)', () => {
     mount();
     fireEvent.click(within(bar()).getByRole('button', { name: '대상 전체' }));
     await screen.findByRole('button', { name: '조건 적용 · 2대' });
-    fireEvent.click(screen.getByRole('button', { name: /StGroup 전체/ }));
+    fireEvent.click(screen.getByRole('button', { name: /StGroup 2개/ }));
     fireEvent.click(screen.getByRole('button', { name: 'st-01만 선택' }));
     for (const nextWidth of [350, 2000]) {
       width(nextWidth);
@@ -282,13 +304,13 @@ describe('Global Context priority overflow (#56)', () => {
 
   it('keeps the exception status in period names that replace the visible tag (#218 review)', () => {
     mount();
-    expect(within(bar()).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h), 참조만' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '기간: 09-25 → 09-27 (2일), 참조만' })).toBeVisible();
     cleanup();
     mount('', 'ko', true, registryWith({ ...caps, time: 'unsupported' }));
-    expect(within(bar()).getByRole('group', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h), 이 화면에서 미사용' })).toBeVisible();
+    expect(within(bar()).getByRole('group', { name: '기간: 09-25 → 09-27 (2일), 이 화면에서 미사용' })).toBeVisible();
     cleanup();
     mount('', 'ko', true, registryWith({ ...caps, time: 'apply' }));
-    expect(within(bar()).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: '기간: 09-25 → 09-27 (2일)' })).toBeVisible();
   });
 
   it('measures once and responds to window resize when ResizeObserver is unavailable (P3-3)', () => {
@@ -299,10 +321,6 @@ describe('Global Context priority overflow (#56)', () => {
     expect(within(bar()).getByRole('button', { name: '조건 1개 더' })).toBeVisible();
   });
 
-  it('uses fractional available width at an exact fit boundary (P3-4)', () => {
-    barWidth = 725.6; mount(); // Label-free full controls need 726px; rounded clientWidth would admit them.
-    expect(within(bar()).queryByRole('radio', { name: '1일' })).toBeNull();
-  });
 
 });
 describe('Context 막대 그리기 조건 (#1944 4번)', () => {
@@ -321,7 +339,7 @@ describe('Context 막대 그리기 조건 (#1944 4번)', () => {
     expect(screen.queryByRole('region', { name: '전역 Context' })).toBeNull();
     cleanup();
     mount('&roomNames=PHOTO');
-    expect(within(bar()).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
+    expect(within(bar()).getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
   });
 });
 
@@ -384,7 +402,7 @@ describe('Target dialog replaces the single-axis editor (#301, #552)', () => {
     mount('&selectedEquipmentIds=E1');
     fireEvent.click(within(bar()).getByRole('button', { name: /대상 고정 1대/ }));
     await screen.findByRole('button', { name: '고정 1대 적용' });
-    fireEvent.click(screen.getByRole('button', { name: /StGroup 전체/ }));
+    fireEvent.click(screen.getByRole('button', { name: /StGroup 2개/ }));
     fireEvent.click(screen.getByRole('button', { name: 'st-02만 선택' }));
     expect(screen.getByRole('button', { name: '적용', busy: true })).toBeDisabled();
     expect(new URLSearchParams(window.location.search).has('equipmentGroup')).toBe(false);
@@ -457,13 +475,15 @@ describe('no server anchor: defaultRangeTo is null (ADR-0098)', () => {
   it('turns the relative presets off but keeps an explicit period readable', () => {
     mount('', 'ko', true, registry, noAnchor);
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
-    expect(period).toHaveAttribute('title', '기간: 09-25 09:00 → 09-26 09:00 (24h)');
-    for (const name of ['1일', '7일']) expect(within(bar()).getByRole('radio', { name })).toBeDisabled();
+    expect(period).toHaveAttribute('title', '기간: 09-25 → 09-27 (2일)');
+    fireEvent.click(period);
+    for (const name of ['오늘', '어제', '최근 7일']) expect(screen.getByRole('button', { name })).toBeDisabled();
   });
 
   it('does not write a period when a disabled preset is pressed', () => {
     mount('', 'ko', false, registry, noAnchor);
-    fireEvent.click(within(bar()).getByRole('radio', { name: '1일' }));
+    fireEvent.click(within(bar()).getByRole('button', { name: /^기간:/ }));
+    fireEvent.click(screen.getByRole('button', { name: '오늘' }));
     expect(window.location.search).not.toMatch(/from=/);
   });
 
@@ -473,6 +493,6 @@ describe('no server anchor: defaultRangeTo is null (ADR-0098)', () => {
     const dialog = screen.getByRole('dialog');
     for (const input of Array.from(dialog.querySelectorAll('input[type="date"]'))) expect((input as HTMLInputElement).value).toBe('');
     expect(dialog.textContent ?? '').not.toContain(today);
-    expect(within(bar()).getByRole('radio', { name: '1일' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: '오늘' })).toBeDisabled();
   });
 });

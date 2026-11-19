@@ -1,7 +1,7 @@
 import { browserPreferenceKey } from './support';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, startWithQueryBarOpen } from './contract-helpers';
-import { expandQueryBar, evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
+import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, periodPreset, startWithQueryBarOpen } from './contract-helpers';
+import { evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -39,21 +39,12 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
   async function boardPeriodPreset(page: Page, number: number, name: string) {
     const context = boardContext(page, number);
-    await expect(context).toBeVisible();
+    const preset = await periodPreset(page, name, context);
+    await preset.locator.click();
+    await preset.apply();
     if (await context.getAttribute('data-query-bar') !== null) {
-      await expandQueryBar(page, context);
-      await page.getByRole('button', { name: name === '1일' ? '최근 24시간' : '최근 7일', exact: true }).click();
-      await page.getByRole('button', { name: '적용', exact: true }).click();
       await expect(context.getByRole('button', { name: '조회 조건 펼치기' })).toHaveAttribute('aria-expanded', 'false');
-      return;
     }
-    const inline = context.getByRole('radio', { name, exact: true });
-    if (await inline.isVisible()) {
-      await inline.click();
-      return;
-    }
-    await context.getByRole('button', { name: /^기간:/ }).click();
-    await page.getByRole('radio', { name, exact: true }).click();
   }
 
   const sizingSheet = (id: string, detail = false) => boardSheet(id, '크기', '2x2', [
@@ -189,19 +180,19 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     const firstRoomChip = first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true });
     await expect(firstHead).toContainText('생산성 개요');
     await expect(firstRoomChip).toBeVisible();
-    const originalPeriodChip = '기간 09-25 09:00 → 09-26 09:00 (24h)';
-    const originalPeriod = boardContext(page, 1).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' });
+    const originalPeriodChip = '기간 09-25 → 09-27 (2일)';
+    const originalPeriod = boardContext(page, 1).getByRole('button', { name: '기간: 09-25 → 09-27 (2일)' });
     await expect(originalPeriod).toBeVisible();
 
     await boardPane(page, 2).getByRole('button', { name: '칸 2 선택' }).click();
-    await boardPeriodPreset(page, 2, '7일');
-    await expect(boardContext(page, 2).getByRole('button', { name: '기간: 09-19 09:00 → 09-26 09:00 (7일)' })).toBeVisible();
-    await expect(boardPaneHead(page, 2).locator('[data-pane-chip="time"]')).toHaveText('기간 09-19 09:00 → 09-26 09:00 (7일)');
+    await boardPeriodPreset(page, 2, '최근 7일');
+    await expect(boardContext(page, 2).getByRole('button', { name: '기간: 09-20 → 09-27 (7일)' })).toBeVisible();
+    await expect(boardPaneHead(page, 2).locator('[data-pane-chip="time"]')).toHaveText('기간 09-20 → 09-27 (7일)');
     await expect(firstHead.locator('[data-pane-chip="time"]')).toHaveText(originalPeriodChip);
     await expect(firstRoomChip).toBeVisible();
 
     await first.getByRole('button', { name: '칸 1 선택' }).click();
-    await expect(boardContext(page, 1).getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: '기간: 09-25 → 09-27 (2일)' })).toBeVisible();
     // Opening the board from the rail replaces the main screen's entry (ADR-0087, #893): going back to it is `최소화`, which returns to the recorded address.
     await page.getByRole('button', { name: '최소화' }).click();
     await expect.poll(() => page.url()).toBe(originalMainUrl);
@@ -213,7 +204,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
   test('일괄 적용: 모든 칸이 같은 조건이 되고 실행 취소가 차이 칩을 복원한다', async ({ page }, testInfo) => {
     const paneQuery = `v=1&scopeId=MEM&${PERIOD}`;
-    const sourcePeriod = '기간: 09-25 09:00 → 09-26 09:00 (24h)';
+    const sourcePeriod = '기간: 09-25 → 09-27 (2일)';
     await signInWithBoard(page, 'engineer', boardOf(boardSheet('apply', '적용', '1x2', [
       boardScreen(`${paneQuery}&roomNames=PHOTO`), boardScreen(`${paneQuery}&roomNames=ETCH`),
     ])));
@@ -232,10 +223,10 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
 
     await first.getByRole('button', { name: '칸 1 선택' }).click();
     await expect(boardContext(page, 1).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
-    await expect(boardContext(page, 1).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
+    await expect(boardContext(page, 1).getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
     await second.getByRole('button', { name: '칸 2 선택' }).click();
     await expect(boardContext(page, 2).getByRole('button', { name: sourcePeriod, exact: true })).toBeVisible();
-    await expect(boardContext(page, 2).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
+    await expect(boardContext(page, 2).getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
 
     await page.getByRole('button', { name: '실행 취소' }).click();
     await expect(first.getByText('공정 PHOTO', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -246,7 +237,7 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
   test('새로고침 시트 유지: 선택한 시트 URL과 화면이 유지되고 Back은 이전 시트로 간다', async ({ page }, testInfo) => {
     await signInWithBoard(page, 'engineer', boardOf(
       boardSheet('sheet-one', '기준', '1x1', [boardScreen(`v=1&scopeId=MEM&${PERIOD}&roomNames=PHOTO`)]),
-      // A day earlier, so the 1일 preset is a real change that stays inside the mock's verified time domain (7일 over MEM is time_domain_unverified).
+      // A day earlier, so yesterday is a real change within the mock's verified time domain.
       boardSheet('sheet-two', '비교', '1x1', [boardScreen('v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-24T09:00:00&to=2026-09-25T09:00:00', 'cycle-time')]),
     ));
     await page.goto('/board?sheet=sheet-one');
@@ -254,8 +245,8 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     await expect.poll(() => query(page).get('sheet')).toBe('sheet-two');
     await expect(boardPaneHead(page, 1)).toContainText('사이클타임 상세');
     await expect(cycleTimeBody(page, 1)).toBeVisible();
-    await boardPeriodPreset(page, 1, '1일');
-    const changedPeriod = '09-25 09:00 → 09-26 09:00 (24h)';
+    await boardPeriodPreset(page, 1, '어제');
+    const changedPeriod = '09-25 → 09-26 (1일)';
     await expect(boardContext(page, 1)).toContainText(changedPeriod);
 
     await page.reload();

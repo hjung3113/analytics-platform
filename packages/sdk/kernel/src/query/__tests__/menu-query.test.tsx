@@ -352,10 +352,10 @@ describe('useMenuQuery identity and request shape', () => {
     const f = fixture();
     mount(f, { spec: endpoint }, periodRegistry);
 
-    expect(await screen.findByText('2026-09-25T09:00:00|2026-09-26T09:00:00')).toBeTruthy();
+    expect(await screen.findByText('2026-09-25T00:00:00|2026-09-26T00:00:00')).toBeTruthy();
     await act(async () => { await Promise.resolve(); });
     expect(f.requests).toHaveLength(1);
-    expect(f.requests[0].context).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' });
+    expect(f.requests[0].context).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
   });
 
   it('does not query while disabled', async () => {

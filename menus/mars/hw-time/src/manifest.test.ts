@@ -58,3 +58,10 @@ describe('manifest', () => {
     expect(menu.features).toEqual({ ...NO_FEATURES, board: true, export: true });
   });
 });
+
+it('applies PRC groups in HW Time and preserves them in Saved Views', () => {
+  const menu = manifests.find(entry => entry.id === 'hw-time')!;
+  expect(menu.context.prcGroup).toBe('apply');
+  expect(menu.savedViewSupport?.contextKeys).toContain('prcGroup');
+  for (const endpoint of Object.values(hwTime)) expect(endpoint.context.prcGroup).toBe('apply');
+});

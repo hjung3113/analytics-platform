@@ -159,12 +159,12 @@ describe('BoardSurface (893b)', () => {
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
       <BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={AppliedOutlet} />
     </PlatformProvider></I18nProvider>);
-    expect(screen.getByText('2026-09-25T09:00:00')).toBeVisible();
+    expect(screen.getByText('2026-09-25T00:00:00')).toBeVisible();
     const expand = screen.getByRole('button', { name: '조회 조건 펼치기' });
     expect(expand).toBeEnabled();
     expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
     fireEvent.click(expand);
-    expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+    expect(screen.getByLabelText('시작일')).toBeEnabled();
     expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
     await act(async () => {});
     expect(lookup).not.toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe('BoardSurface (893b)', () => {
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
       <BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={AppliedOutlet} />
     </PlatformProvider></I18nProvider>);
-    await waitFor(() => expect(screen.getAllByText('2026-09-25T09:00:00')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText('2026-09-25T00:00:00')).toHaveLength(2));
     expect(screen.getByRole('group', { name: '칸 2' })).toHaveAttribute('data-selected', 'false');
     expect(within(screen.getByRole('group', { name: '칸 2' })).queryByText('idle')).toBeNull();
     expect(getDefaultId).not.toHaveBeenCalled();

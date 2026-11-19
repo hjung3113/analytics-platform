@@ -7,7 +7,7 @@ import { hwTimeMock } from './index';
 
 const context = {
   scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
-  roomNames: ['PHOTO'], condition: null, membershipBasis: null, selection: null,
+  roomNames: ['PHOTO'], prcGroups: null, condition: null, membershipBasis: null, selection: null,
 };
 
 const menu: MenuMeta = {
@@ -18,7 +18,7 @@ const menu: MenuMeta = {
   path: '/hw-time',
   permission: menuPermission('analytics:view'),
   requiresScope: true,
-  context: contextCapabilities({ time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', ppid: 'unsupported', recipe: 'unsupported' }),
+  context: contextCapabilities({ time: 'apply', roomNames: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', ppid: 'unsupported', recipe: 'unsupported' }),
   pageType: 'analysis',
   features: { export: false, savedView: false, annotate: false, compare: false },
   pageKeys: [],
@@ -274,6 +274,18 @@ describe('HW Time population follows the applied Scope and Condition', () => {
   it('drops trend rows outside the narrowed population', async () => {
     const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1', 'EQ-020.H1'] }, narrowed);
     expect(result.rows.map(({ id }) => id)).toEqual(['EQ-001.H1']);
+  });
+
+  it('resolves PRC groups through the same population as fixed equipment IDs', async () => {
+    const photoEquipment = EQUIPMENT.filter(e => e.site === 'MEM' && e.room === 'PHOTO');
+    const prcGroup = photoEquipment[0].prcGroup;
+    const selection = photoEquipment.filter(e => e.prcGroup === prcGroup).map(e => e.equipmentId);
+    const full = await data<HwTimeLevelData>(hwTime.levelRows.id, {});
+    const grouped = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, { prcGroups: [prcGroup] });
+    const fixed = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, { selection });
+    expect(grouped.rows.length).toBeGreaterThan(0);
+    expect(grouped.rows.length).toBeLessThan(full.rows.length);
+    expect(grouped.rows).toEqual(fixed.rows);
   });
 
   it('answers empty for every endpoint when the Condition matches no equipment', async () => {

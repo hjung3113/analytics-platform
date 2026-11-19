@@ -42,7 +42,7 @@
 
 ### 5. `defaultRangeTo`는 `string | null`이다
 
-`null`은 서버에 기준점이 없다는 뜻이다. 브라우저 `Date.now()`, 시간대 변환, epoch, 지어낸 날짜로 채우지 않는다. 명시한 기간은 그대로 동작하고, 상대 기본 기간은 없는 채로 남아 필수 기간 게이트가 설명한다. 앵커 없는 상대 저장 뷰는 기존 `SelectOutcome` 이유 `unavailable`로 실패하고 절대 뷰는 복원된다. 전역 Context 바·조회 바의 상대 프리셋(최근 24시간·7일·오늘)은 기존 disabled 모양으로 꺼지고 직접 편집기는 빈 값으로 시작한다. `isTrailingPeriod(g, null, h)`는 false다. HTTP 부트스트랩의 `null`은 유효하고 새로고침 전까지 고정이다(키 누락·형식 오류는 계속 거부). 새 시각 디자인은 없다.
+`null`은 서버에 기준점이 없다는 뜻이다. 브라우저 `Date.now()`, 시간대 변환, epoch, 지어낸 날짜로 채우지 않는다. 명시한 기간은 그대로 동작하고, 상대 기본 기간은 없는 채로 남아 필수 기간 게이트가 설명한다. 앵커 없는 상대 저장 뷰는 기존 `SelectOutcome` 이유 `unavailable`로 실패하고 절대 뷰는 복원된다. 전역 Context 바·조회 바의 상대 프리셋(최근 24시간·7일·오늘)은 기존 disabled 모양으로 꺼지고 직접 편집기는 빈 값으로 시작한다. `isTrailingPeriod(g, null, h)`는 false다. (이 절의 시간 프리셋과 `isTrailingPeriod` 설명은 #2586에서 대체됐다. 현행 동작은 [Kernel §6.3](../contract/kernel.md#ctx-time)을 따른다.) HTTP 부트스트랩의 `null`은 유효하고 새로고침 전까지 고정이다(키 누락·형식 오류는 계속 거부). 새 시각 디자인은 없다.
 
 ### 6. 클라이언트 구현 상태 (#1104b, 2026-10-29)
 

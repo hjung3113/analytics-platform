@@ -8,8 +8,8 @@ let authorizationRevision = 0;
 subscribeServer(() => { authorizationRevision++; });
 
 const defaults: readonly EquipmentAxisDescriptor[] = [
-  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false },
-  { id: 'team', label: { ko: 'Team', en: 'Team' }, membershipHistory: false },
+  { id: 'stgroup', label: { ko: 'StGroup', en: 'StGroup' }, membershipHistory: false, dependsOn: 'roomNames' },
+  { id: 'team', label: { ko: 'Team', en: 'Team' }, membershipHistory: false, dependsOn: 'stgroup' },
   { id: 'maker', label: { ko: '설비사', en: 'Maker' }, membershipHistory: false },
   { id: 'model', label: { ko: 'Model', en: 'Model' }, membershipHistory: false, dependsOn: 'maker' },
 ];
@@ -57,10 +57,10 @@ function pageInput(x: Record<string, unknown>) {
 export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescriptor[] = defaults): Required<Pick<PlatformAdapter, 'listAxisOptions' | 'searchEquipment' | 'resolveSelection' | 'listEquipmentFacts'>> {
   const supported = new Map(equipmentAxes.map(a => [a.id, a]));
   for (const axis of equipmentAxes) {
-    if (!Object.hasOwn(fieldValues(EQUIPMENT[0]), axis.id) || (axis.dependsOn && !supported.has(axis.dependsOn))) throw new Error(`Unsupported mock descriptor: ${axis.id}`);
+    if (!Object.hasOwn(fieldValues(EQUIPMENT[0]), axis.id) || (axis.dependsOn && axis.dependsOn !== 'roomNames' && !supported.has(axis.dependsOn))) throw new Error(`Unsupported mock descriptor: ${axis.id}`);
     const visited = new Set<string>([axis.id]);
     let parent = axis.dependsOn;
-    while (parent) {
+    while (parent && parent !== 'roomNames') {
       if (visited.has(parent)) throw new Error('Cyclic mock descriptors');
       visited.add(parent); parent = supported.get(parent)?.dependsOn;
     }
@@ -119,16 +119,22 @@ export function createSelectionPorts(equipmentAxes: readonly EquipmentAxisDescri
       const parents = input.parents ?? {};
       const ancestors = new Set<string>();
       let parent = supported.get(input.axisId)?.dependsOn;
-      while (parent) { ancestors.add(parent); parent = supported.get(parent)?.dependsOn; }
+      while (parent) {
+        ancestors.add(parent);
+        parent = parent === 'roomNames' ? undefined : supported.get(parent)?.dependsOn;
+      }
       for (const [key, values] of Object.entries(parents)) {
         if (global) {
           if (!Object.hasOwn(globalFields, key)) { axis(key); invalid('parents'); }
           if (key === input.axisId || !ids(values)) invalid('parents');
-        } else { axis(key); if (!ancestors.has(key) || !ids(values)) invalid('parents'); }
+        } else {
+          if (key !== 'roomNames') axis(key);
+          if (!ancestors.has(key) || !ids(values)) invalid('parents');
+        }
       }
-      temporal(input, equipmentAxes, [input.axisId, ...Object.keys(parents)]);
+      temporal(input, equipmentAxes, [input.axisId, ...Object.keys(parents).filter(key => key !== 'roomNames')]);
       const rooms = granted(input.scopeId);
-      const values = new Set(EQUIPMENT.filter(e => e.site === input.scopeId && rooms.includes(e.room) && Object.entries(parents).every(([k, v]) => v.includes(global ? globalValue(e, k) : fieldValues(e)[k]))).map(e => global ? globalValue(e, input.axisId) : fieldValues(e)[input.axisId]));
+      const values = new Set(EQUIPMENT.filter(e => e.site === input.scopeId && rooms.includes(e.room) && Object.entries(parents).every(([k, v]) => v.includes(global || k === 'roomNames' ? globalValue(e, k) : fieldValues(e)[k]))).map(e => global ? globalValue(e, input.axisId) : fieldValues(e)[input.axisId]));
       return page('options', input, [...values].filter(v => v.toLowerCase().includes((input.query ?? '').toLowerCase())).map(v => ({ id: v, label: v })), v => v.id, rooms);
     },
     async searchEquipment(input, signal) {

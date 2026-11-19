@@ -3,15 +3,15 @@ import { QueryHistoryControl } from './QueryHistoryControl';
 import { SavedViewControl } from '../saved-view/SavedViewControl';
 import { QueryBar } from './QueryBar';
 import { CalendarDays, ChevronDown, RotateCcw, X } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { ContextBarLayout, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
 import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, useMessages, useConditionPreset } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { type Capability, type ContextKey, formatDateTime, formatPeriod, periodShort, periodHours, periodSpan, type GlobalContext, parseDateTime, shift } from '@ap/contracts';
+import { type Capability, type ContextKey, formatPeriod, periodDates, periodFromDates, type GlobalContext } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
-import { SegmentedRadio } from '@ap/components';
 import { ShareControl } from './ShareControl';
-import { isTrailingPeriod } from '../frame/trailingPeriod';
+import { PeriodFields, type PeriodDates } from './PeriodFields';
+import { useSessionKey } from '../frame/sessionKey';
 import { SHELL_MESSAGES } from '../messages';
 
 const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
@@ -115,103 +115,49 @@ function CarriedChip({ k, cap, value, onRemove }: { k: ContextKey; cap: Capabili
 }
 
 function PeriodControl({ cap, compact = false }: { cap: Capability; compact?: boolean }) {
-  const { global, setGlobal, defaultRangeTo } = useHostPlatform();
+  const { global } = useHostPlatform();
   const { t, lang } = useI18n();
   const [open, setOpen] = useContextEditorState('open', false);
   const preserveRelocationFocus = useContextEditorFocusRecovery();
-  const periodName = `${t('period')}: ${global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod')}`;
-  const h = periodHours(global);
-  const preset = isTrailingPeriod(global, defaultRangeTo, 24) ? '1d' : isTrailingPeriod(global, defaultRangeTo, 168) ? '7d' : global.from ? 'custom' : null;
-  const presets = [{ id: '1d', label: t('preset1d'), h: 24 }, { id: '7d', label: t('preset7d'), h: 168 }, { id: 'custom', label: t('presetCustom'), h: 0 }] as const;
-  const choose = (id: string) => {
-    const p = presets.find(x => x.id === id)!;
-    if (id === 'custom') { setOpen(true); return; }
-    if (defaultRangeTo === null) return;
-    setGlobal({ from: shift(defaultRangeTo, -p.h), to: defaultRangeTo });
-  };
-  const presetsControl = <SegmentedRadio
-      label={t('period')}
-      value={preset}
-      onChange={id => choose(id)}
-      // A custom period is already "selected" while it is applied; clicking it again reopens the editor.
-      onActivate={id => { if (id === 'custom') setOpen(true); }}
-      className="flex h-8 items-center"
-      // No server anchor: the relative presets have nothing to count back from, so the group is off; the period button still opens the custom editor.
-      disabled={defaultRangeTo === null}
-      options={presets.map(p => ({ value: p.id, label: p.label }))}
-    />;
+  const summary = global.from ? formatPeriod(global.from, global.to, lang) : t('selectPeriod');
+  const periodName = `${t('period')}: ${summary}`;
   return <div className="flex min-w-0 items-center gap-1">
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button type="button" className={cn('inline-flex h-8 items-center gap-2 rounded-md border border-border-control bg-surface-card on-canvas-band:bg-transparent px-2.5 whitespace-nowrap text-xs hover:border-border-control', compact ? 'w-full min-w-0' : 'min-w-[204px]')} title={periodName} aria-label={`${periodName}${capStatus(cap, t)}`}>
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden />
-          {global.from ? <span className="min-w-0 truncate font-medium tabular">{periodShort(global.from)} → {periodShort(global.to!)}</span> : <span className="min-w-0 truncate text-text-muted">{t('selectPeriod')}</span>}
-          {!compact && h !== null && <span className="text-text-muted tabular">({periodSpan(h, lang)})</span>}
+          <span className={cn('min-w-0 truncate tabular', global.from ? 'font-medium' : 'text-text-muted')}>{summary}</span>
           <CapTag cap={cap} />
           <ChevronDown className="size-3.5 shrink-0 text-text-muted" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" aria-label={t('period')} className="w-[22rem]">
-        {compact && <div className="mb-3">{presetsControl}</div>}
+      <PopoverContent onFocusOutside={preserveRelocationFocus} align="start" aria-label={t('period')} className="w-max max-w-[var(--radix-popover-content-available-width)]">
         <CustomRange onDone={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
-    {!compact && presetsControl}
   </div>;
 }
 
-/** Calendar dates are inclusive in the UI and become [D1T00:00:00, (D2+1)T00:00:00) in the URL (§6.3). */
-function CustomRange({ onDone }: { onDone: () => void }) {
-  const { global, setGlobal, defaultRangeTo } = useHostPlatform();
+function CustomRange({ onDone }: { onDone(): void }) {
+  const { global, setGlobal, paneId, url } = useHostPlatform();
+  const source = JSON.stringify([useSessionKey(), paneId, global.scopeId, url]);
   const { t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
-  const [mode, setMode] = useContextEditorState<'date' | 'time'>('mode', 'date');
-  const [start, setStart] = useContextEditorState('start', (global.from ?? (defaultRangeTo === null ? '' : shift(defaultRangeTo, -24))).slice(0, 10));
-  const [end, setEnd] = useContextEditorState('end', global.to ? shift(global.to, -24).slice(0, 10) : (defaultRangeTo ?? '').slice(0, 10));
-  const [fromT, setFromT] = useContextEditorState('fromT', global.from ?? (defaultRangeTo === null ? '' : shift(defaultRangeTo, -24)));
-  const [toT, setToT] = useContextEditorState('toT', global.to ?? defaultRangeTo ?? '');
-  let error: string | null = null;
-  let result: { from: string; to: string } | null = null;
-  try {
-    if (mode === 'date') {
-      const from = `${start}T00:00:00`;
-      const to = formatDateTime(new Date(parseDateTime(`${end}T00:00:00`, 'end').getTime() + 86_400_000));
-      if (from >= to) throw new Error(m('rangeStartAfterEndDate'));
-      result = { from, to };
-    } else {
-      const from = fromT.length === 16 ? `${fromT}:00` : fromT; const to = toT.length === 16 ? `${toT}:00` : toT;
-      parseDateTime(from, 'from'); parseDateTime(to, 'to');
-      if (from >= to) throw new Error(m('rangeStartBeforeEndTime'));
-      result = { from, to };
-    }
-  } catch (e) { error = e instanceof Error ? e.message : String(e); }
-  const input = 'h-8 w-full rounded-md border border-border-control bg-surface-card px-2 text-xs tabular';
-  return <form onSubmit={e => { e.preventDefault(); if (result) { setGlobal(result); onDone(); } }} onKeyDown={e => { if (e.key === 'Escape') onDone(); }} className="space-y-3 text-xs">
-    <SegmentedRadio
-      label={m('rangeInputMode')}
-      value={mode}
-      onChange={setMode}
-      className="flex"
-      options={[
-        { value: 'date', label: m('rangeModeDates') },
-        { value: 'time', label: m('rangeModeDateTime') },
-      ]}
-    />
-    {mode === 'date' ? <div className="grid grid-cols-2 gap-2">
-      <label className="space-y-1"><span className="text-text-secondary">{m('rangeStartDate')}</span><input type="date" className={input} value={start} onChange={e => setStart(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-secondary">{m('rangeEndDate')}</span><input type="date" className={input} value={end} onChange={e => setEnd(e.target.value)} /></label>
-    </div> : <div className="grid grid-cols-1 gap-2">
-      <label className="space-y-1"><span className="text-text-secondary">{m('rangeStartTime')}</span><input type="datetime-local" step={1} className={input} value={fromT} onChange={e => setFromT(e.target.value)} /></label>
-      <label className="space-y-1"><span className="text-text-secondary">{m('rangeEndTime')}</span><input type="datetime-local" step={1} className={input} value={toT} onChange={e => setToT(e.target.value)} /></label>
-    </div>}
-    <p aria-live="polite" className={cn('rounded-md px-2 py-1.5 tabular', error ? 'bg-accent-danger-soft text-text-danger-label' : 'bg-surface-sunken text-text-secondary')}>
-      {error ?? m('rangePreview', { from: result!.from, to: result!.to })}
-    </p>
-    <p className="text-tiny text-text-secondary">{m('rangeEquipmentClockNote')}</p>
+  const id = useId();
+  const [edit, setEdit] = useContextEditorState<{ source: string; dates: PeriodDates } | null>('periodDates', null);
+  const activeEdit = edit?.source === source ? edit : null;
+  useEffect(() => {
+    if (edit && !activeEdit) setEdit(null);
+  }, [edit, activeEdit, setEdit]);
+  const dates = activeEdit?.dates ?? periodDates(global);
+  const result = activeEdit === null ? null : periodFromDates(dates);
+  const invalid = activeEdit !== null && result === null;
+  return <form className="space-y-2" onSubmit={event => { event.preventDefault(); if (result) { setGlobal(result); onDone(); } }}>
+    <PeriodFields dates={dates} onChange={next => setEdit({ source, dates: next })} invalid={invalid} reasonId={id} />
+    {invalid && <p id={id} role="status" className="text-xs text-text-danger-label">{m('queryInvalidPeriodInput')}</p>}
     <div className="flex justify-end gap-2">
-      <Button type="button" size="sm" variant="secondary" onClick={onDone}>{t('cancel')}</Button>
-      <Button type="submit" size="sm" disabled={!result}>{t('apply')}</Button>
+      <Button type="button" size="toolbar" variant="secondary" onClick={onDone}>{t('cancel')}</Button>
+      <Button type="submit" size="toolbar" disabled={result === null}>{t('apply')}</Button>
     </div>
   </form>;
 }
-

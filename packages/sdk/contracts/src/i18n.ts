@@ -2,4 +2,4 @@
 export type Text = { ko: string; en: string };
 
 /** App-supplied classification metadata (ADR-0059). */
-export type EquipmentAxisDescriptor = { id: string; label: Text; membershipHistory: boolean; dependsOn?: string };
+export type EquipmentAxisDescriptor = { id: string; label: Text; membershipHistory: boolean; /** Parent injected axis ID or the reserved global key `roomNames`. */ dependsOn?: string };

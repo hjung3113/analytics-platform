@@ -25,7 +25,7 @@ it('applies one process rule from authorized facts, with columns restricted to e
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   await waitFor(() => expect(within(dialog).getByRole('button', { name: /조건 적용 · 2대/ })).toBeEnabled());
-  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 2개/ }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
   fireEvent.click(await within(dialog).findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'] });
@@ -101,8 +101,8 @@ it('saves a rule group with public roomNames and shared-group visibility, then s
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   await within(dialog).findByRole('table');
-  await waitFor(() => expect(within(dialog).getByRole('button', { name: /공정 전체/ })).toBeVisible());
-  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: /공정 2개/ })).toBeVisible());
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 2개/ }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '그룹으로 저장' }));
   fireEvent.change(within(dialog).getByRole('textbox', { name: '이름' }), { target: { value: 'Photo only' } });
@@ -153,7 +153,7 @@ it('blocks group saving when an editable facet has no selected values', async ()
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   await within(dialog).findByRole('table');
-  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 2개/ }));
   fireEvent.click(within(dialog).getByRole('checkbox', { name: '전체' }));
   expect(within(dialog).getByRole('button', { name: '그룹으로 저장' })).toBeDisabled();
   expect(within(dialog).getByRole('note')).toHaveTextContent('분류마다 값을 하나 이상 골라 주세요.');
@@ -183,7 +183,7 @@ it('fixes an equipment ID and retains it outside a changed rule, without materia
   </PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   fireEvent.click(await screen.findByRole('checkbox', { name: 'E1 선택' }));
-  fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: /공정 2개/ }));
   fireEvent.click(screen.getByRole('button', { name: 'ETCH만 선택' }));
   fireEvent.click(await screen.findByRole('button', { name: '고정 1대 적용' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['ETCH'], selection: ['E1'] });
@@ -234,7 +234,7 @@ it('writes a required room as its authorized values when the dialog applies "all
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   await waitFor(() => expect(within(dialog).getByRole('button', { name: /조건 적용 · 2대/ })).toBeEnabled());
-  fireEvent.click(within(dialog).getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: /공정 1개/ }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'PHOTO만 선택' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '조건 적용 · 2대' }));
   expect(apply).toHaveBeenCalledWith({ roomNames: ['PHOTO'] });
@@ -253,7 +253,7 @@ it('renders an absent constructor axis and applies its selected Condition value'
   </PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
-  fireEvent.click(screen.getByRole('button', { name: /생성자 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: /생성자 2개/ }));
   fireEvent.click(screen.getByRole('button', { name: 'A만 선택' }));
   fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 1대' }));
   expect(apply).toHaveBeenCalledWith({ condition: { constructor: ['A'] } });
@@ -271,7 +271,7 @@ it('keeps global room and a roomNames Condition axis independent in facets, coun
   ] }) })}>
     <TargetPicker global={{ ...baseGlobal, roomNames: ['PHOTO'], condition: { roomNames: ['A'] } }} cap={{ ...noContext, roomNames: 'apply', condition: 'apply' }} onChange={apply} />
   </PlatformProvider></I18nProvider>);
-  const opener = await screen.findByRole('button', { name: '대상 조건 · 지금 1대 · 공정: PHOTO · 주입 축: A' });
+  const opener = await screen.findByRole('button', { name: '대상 조건 · 1대 · 공정: PHOTO · 주입 축: A' });
   fireEvent.click(opener);
   expect(await screen.findByRole('checkbox', { name: 'PHOTO' })).toBeChecked();
   expect(screen.getByRole('checkbox', { name: 'A' })).toBeChecked();
@@ -302,7 +302,7 @@ it.each(['revision notification', 'adapter replacement'] as const)('discards an 
   const { rerender } = render(tree(makeAdapter()));
   fireEvent.click(screen.getByRole('button', { name: '대상 전체' }));
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
-  fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: /공정 2개/ }));
   fireEvent.click(screen.getByRole('button', { name: 'PHOTO만 선택' }));
   expect(await screen.findByRole('button', { name: '조건 적용 · 1대' })).toBeEnabled();
   if (change === 'revision notification') await act(async () => { listeners.forEach(listener => listener()); });
@@ -360,4 +360,24 @@ it.each([null, ['PHOTO']])('blocks rule saving for an injected roomNames axis wi
   fireEvent.change(within(dialog).getByRole('textbox', { name: '이름' }), { target: { value: 'Fixed injected' } });
   fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
   await waitFor(() => expect(store.rows.get('v1')).toMatchObject({ kind: 'custom-group', target: { fixed: ['E1'] } }));
+});
+
+it('orders and nests a declared chain with different axis IDs under the room facet and shows every result column', async () => {
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const session = testSession(['platform:view']);
+  const axes = [
+    { ...equipmentAxes[0], dependsOn: 'team' },
+    { ...equipmentAxes[1], dependsOn: 'roomNames' },
+  ];
+  render(<I18nProvider><PlatformProvider registry={registry} equipmentAxes={axes} adapter={testAdapter({ session: () => session, listEquipmentFacts: async () => facts })}>
+    <TargetPicker global={{ ...baseGlobal, prcGroups: ['P1'] }} cap={{ ...noContext, roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply' }} onChange={vi.fn()} />
+  </PlatformProvider></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: /^대상 조건/ }));
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  await within(dialog).findByRole('table');
+  const room = within(dialog).getByRole('button', { name: /공정/ });
+  const team = within(room.closest('li')!).getByRole('button', { name: /팀/ });
+  expect(within(team.closest('li')!).getByRole('button', { name: /제조사/ })).toBeVisible();
+  expect(within(dialog).getByRole('button', { name: /PRC 그룹 P1/ })).toBeVisible();
+  expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 조회 그룹', '공정', 'Line', 'PRC 그룹', '제조사', '팀']);
 });

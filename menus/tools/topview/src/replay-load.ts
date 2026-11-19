@@ -4,7 +4,8 @@ import {
   type OccurrenceBatch, type ReplayInput,
 } from '@eqv/core';
 import type { HostProps } from './host-props.js';
-import { topviewEvents, type TopviewContextParams, type TopviewEventsParams } from './endpoints.js';
+import type { TopviewContextParams, TopviewEventsParams } from './endpoints.js';
+import { REPLAY_TOO_LARGE_KO } from './messages.js';
 
 /** What the reads said about the data (EV#187): shown as the one Data Trust line, never as stacked notices. `unknown` stays `unknown`, never `clear`. */
 export type Trusted = { trust: Trust | null; assessments: Assessment[] };
@@ -27,8 +28,6 @@ type Acc = Trusted;
 
 type Step<T> = { ok: true; data: T } | { ok: false; settled: Settled };
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
-
-const TOO_LARGE_KO = `설비 재생은 한 번에 최대 ${topviewEvents.limits?.maxHours}시간까지 불러옵니다. 플랫폼의 기간을 ${topviewEvents.limits?.maxHours}시간 이하로 줄이세요.`;
 
 /** The visible `text` is ours; the server's raw (often English) message is never shown. */
 function failure(tone: LoadFailure['tone'], title: string, text: string, acc: Acc, correlationId?: string): LoadFailure {
@@ -56,7 +55,7 @@ function step<T>(response: ApiResponse<T>, acc: Acc): Step<T> {
     case 'empty': return { ok: false, settled: { kind: 'empty', trust: acc.trust, assessments: [...acc.assessments] } };
     case 'forbidden': return { ok: false, settled: { kind: 'forbidden' } };
     case 'timeout': return { ok: false, settled: failure('warning', '응답 시간 초과', '서버가 제때 응답하지 않았습니다', acc, response.correlationId) };
-    case 'too_large': return { ok: false, settled: failure('warning', '구간이 너무 큽니다', TOO_LARGE_KO, acc, response.correlationId) };
+    case 'too_large': return { ok: false, settled: failure('warning', '구간이 너무 큽니다', REPLAY_TOO_LARGE_KO, acc, response.correlationId) };
     case 'error': return { ok: false, settled: failure('danger', '불러오지 못했습니다', text || '서버 오류', acc, response.correlationId) };
   }
 }

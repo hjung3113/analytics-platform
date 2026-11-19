@@ -246,7 +246,9 @@ describe('panes', () => {
     await settle();
     const bar = screen.getByRole('region', { name: '칸 2 · 분석 Context' });
     fireEvent.click(within(bar).getByRole('button', { name: /기간/ }));
-    fireEvent.click(await screen.findByRole('radio', { name: '7일' }));
+    const periodEditor = within(await screen.findByRole('dialog', { name: '기간' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '최근 7일' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '적용' }));
     await settle();
     const [first, second] = stored().sheets[0].panes;
     expect(first).toEqual(alpha(w1));
@@ -579,7 +581,9 @@ describe('?sheet= (docs/16 §7)', () => {
     mount();
     await settle();
     fireEvent.click(within(screen.getByRole('region', { name: '칸 1 · 분석 Context' })).getByRole('button', { name: /기간/ }));
-    fireEvent.click(await screen.findByRole('radio', { name: '7일' }));
+    const periodEditor = within(await screen.findByRole('dialog', { name: '기간' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '최근 7일' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '적용' }));
     await settle();
     expect(window.location.search).toBe('?sheet=a');
   });

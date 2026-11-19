@@ -1,6 +1,6 @@
 import { decodePageConditions, PageConditionError } from './page-conditions';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { buildQuery, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, missingRequiredContext, pageConditionKeys, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
+import { buildQuery, calendarPeriod, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, missingRequiredContext, pageConditionKeys, parseQuery, sameGlobal, shift, type EquipmentAxisDescriptor, type GlobalContext, type Pair, type PlatformAdapter, type Session } from '@ap/contracts';
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
 import { classifyMetricInit } from '../registry/metric-init';
@@ -34,13 +34,17 @@ export type DraftInputs = {
   commit: (next: string, how: 'push') => boolean;
   setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
 };
+export function defaultQueryPeriod(menu: MenuEntry | null, anchor: string | null) {
+  if (menu?.context.time !== 'apply' || anchor === null) return null;
+  return menu.defaultPeriodHours === undefined ? calendarPeriod(anchor, 'yesterday') : { from: shift(anchor, -menu.defaultPeriodHours), to: anchor };
+}
+
 function defaults(input: DraftInputs): Values {
-  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...(input.menu?.context.time === 'apply' && input.defaultRangeTo !== null ? { from: shift(input.defaultRangeTo, -(input.menu?.defaultPeriodHours ?? 24)), to: input.defaultRangeTo } : {}) }, page: [] };
+  return { global: { ...emptyGlobal, scopeId: input.global.scopeId, ...defaultQueryPeriod(input.menu, input.defaultRangeTo) }, page: [] };
 }
 function initial(input: DraftInputs): Values {
-  return input.global.from === null && input.global.to === null && !input.invalid
-    ? { global: { ...input.global, from: defaults(input).global.from, to: defaults(input).global.to }, page: input.page }
-    : { global: input.global, page: input.page };
+  const period = input.global.from === null && input.global.to === null && !input.invalid ? defaultQueryPeriod(input.menu, input.defaultRangeTo) : null;
+  return { global: period ? { ...input.global, ...period } : input.global, page: input.page };
 }
 function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
   if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };

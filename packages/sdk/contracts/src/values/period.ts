@@ -26,7 +26,7 @@ export function bucketStart(instant: string, grain: Grain): string {
   return formatDateTime(new Date(midnight.getTime() - mondayOffset * 86_400_000));
 }
 
-/** `09-25 09:00`: month, day and minute of a wall-clock instant, the form every period display uses (#913). */
+/** `09-25 09:00`: month, day and minute of a wall-clock instant, for callers displaying time of day. */
 export const periodShort = (instant: string): string => instant.replace('T', ' ').slice(5, 16);
 
 /** Length of a period for display: `24h` below two days, `7d`/`7일` from two days on. */
@@ -34,13 +34,54 @@ export function periodSpan(hours: number, lang: 'ko' | 'en'): string {
   return hours >= 48 ? `${Math.round(hours / 24)}${lang === 'ko' ? '일' : 'd'}` : `${hours}h`;
 }
 
-/**
- * The one period display rule: `09-25 09:00 → 09-26 09:00 (24h)`. `to` stays exclusive in meaning (06 §6.3);
- * an open end prints `—` and a half-open period has no length.
- */
+const HOURS_PER_DAY = 24;
+const MIDNIGHT = 'T00:00:00';
+
+/** Project a stored period into inclusive calendar inputs without changing its wire values. */
+export function periodDates({ from, to }: { from: string | null; to: string | null }): { start: string; end: string } {
+  const lastDay = to?.endsWith(MIDNIGHT) ? shift(to, -HOURS_PER_DAY) : to;
+  return { start: from?.slice(0, 10) ?? '', end: lastDay?.slice(0, 10) ?? '' };
+}
+
+/** Convert inclusive calendar inputs to a half-open midnight range. Invalid inputs yield null. */
+export function periodFromDates({ start, end }: { start: string; end: string }): { from: string; to: string } | null {
+  const from = start + MIDNIGHT;
+  const lastDay = end + MIDNIGHT;
+  if (!isWallClock(from) || !isWallClock(lastDay) || from > lastDay) return null;
+  const to = shift(lastDay, HOURS_PER_DAY);
+  return isWallClock(to) ? { from, to } : null;
+}
+
+/** Calendar ranges come from the server anchor's date and use half-open midnight boundaries. */
+export function calendarPeriod(anchor: string | null, preset: 'today' | 'yesterday' | 'last7Days'): { from: string; to: string } | null {
+  if (anchor === null || !isWallClock(anchor)) return null;
+  const midnight = anchor.slice(0, 10) + MIDNIGHT;
+  const startOffset = { today: 0, yesterday: -1, last7Days: -6 }[preset];
+  const start = shift(midnight, startOffset * HOURS_PER_DAY);
+  const end = preset === 'yesterday' ? start : midnight;
+  if (!isWallClock(start)) return null;
+  return periodFromDates({ start: start.slice(0, 10), end: end.slice(0, 10) });
+}
+
+/** Calendar summary with the exclusive end, e.g. `09-19 → 09-26 (7일)` (06 §6.3). */
 export function formatPeriod(from: string | null, to: string | null, lang: 'ko' | 'en'): string {
-  const hours = periodHours({ from, to });
-  return `${from ? periodShort(from) : '—'} → ${to ? periodShort(to) : '—'}${hours === null ? '' : ` (${periodSpan(hours, lang)})`}`;
+  const start = from === null ? null : parseDateTime(from, 'from');
+  const end = to === null ? null : parseDateTime(to, 'to');
+  // The parser stores naive calendar digits on the UTC axis; keep display arithmetic on that axis.
+  start?.setUTCHours(0, 0, 0, 0);
+  if (end && !to?.endsWith(MIDNIGHT)) {
+    end.setUTCHours(0, 0, 0, 0);
+    end.setUTCDate(end.getUTCDate() + 1);
+  }
+  const days = start && end ? (end.getTime() - start.getTime()) / (HOURS_PER_DAY * 3_600_000) : 0;
+  const span = days > 0 ? ` (${days}${lang === 'ko' ? '일' : 'd'})` : '';
+  const dateLabel = (date: Date | null) => {
+    if (!date) return '—';
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${month}-${day}`;
+  };
+  return `${dateLabel(start)} → ${dateLabel(end)}${span}`;
 }
 
 /** Length of one side of a before/after comparison: whole `hours`, or whole `days` (1 day = 24 h of wall-clock digits). Exactly one unit. */

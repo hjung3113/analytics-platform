@@ -351,9 +351,9 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
     await expect(tree.getByRole('treeitem', { name: /그룹 B/ })).toHaveAttribute('aria-current', 'true');
     await evidence(page, testInfo, 'chart-catalog-breakdown-drill');
     // A global Context change drops the drill (node); Back restores it.
-    const preset = await periodPreset(page, '7일');
+    const preset = await periodPreset(page, '최근 7일');
     await preset.locator.click();
-    await preset.close();
+    await preset.apply();
     await expect(page).not.toHaveURL(/node=/);
     await expect(page).toHaveURL(/kind=breakdown/);
     await page.goBack();

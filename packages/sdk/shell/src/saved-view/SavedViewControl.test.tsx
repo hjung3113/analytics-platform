@@ -66,7 +66,7 @@ describe('SavedViewControl in the query tool row', () => {
 
       await act(async () => vi.advanceTimersByTimeAsync(3000));
       expect(selector()).toBeEnabled();
-      expect(platform.global.from).toBe('2026-09-25T09:00:00');
+      expect(platform.global.from).toBe('2026-09-25T00:00:00');
       fireEvent.click(selector());
       fireEvent.click(screen.getByRole('button', row(manual.name)));
       const drop = screen.queryByRole('button', { name: '버리고 이동' });
