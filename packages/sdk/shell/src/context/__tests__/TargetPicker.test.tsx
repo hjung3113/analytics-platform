@@ -362,7 +362,7 @@ it.each([null, ['PHOTO']])('blocks rule saving for an injected roomNames axis wi
   await waitFor(() => expect(store.rows.get('v1')).toMatchObject({ kind: 'custom-group', target: { fixed: ['E1'] } }));
 });
 
-it('orders and nests a declared chain with different axis IDs under the room facet and shows every result column', async () => {
+it('keeps every category flat even when an axis declares dependsOn, and shows every result column (#2600)', async () => {
   window.history.replaceState(null, '', '/?scopeId=MEM');
   const session = testSession(['platform:view']);
   const axes = [
@@ -375,9 +375,13 @@ it('orders and nests a declared chain with different axis IDs under the room fac
   fireEvent.click(screen.getByRole('button', { name: /^대상 조건/ }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   await within(dialog).findByRole('table');
-  const room = within(dialog).getByRole('button', { name: /공정/ });
-  const team = within(room.closest('li')!).getByRole('button', { name: /팀/ });
-  expect(within(team.closest('li')!).getByRole('button', { name: /제조사/ })).toBeVisible();
+  const categories = within(dialog).getByRole('list', { name: '분류' });
+  const rows = within(categories).getAllByRole('listitem');
+  expect(rows.map(row => within(row).getByRole('button').textContent)).toEqual([
+    expect.stringContaining('커스텀 조회 그룹'), expect.stringContaining('공정'), expect.stringContaining('Line'),
+    expect.stringContaining('PRC 그룹'), expect.stringContaining('제조사'), expect.stringContaining('팀'),
+  ]);
+  for (const row of rows) expect(within(row).queryByRole('list')).toBeNull();
   expect(within(dialog).getByRole('button', { name: /PRC 그룹 P1/ })).toBeVisible();
   expect(within(dialog).getAllByRole('columnheader').map(node => node.textContent)).toEqual(['ID', '커스텀 조회 그룹', '공정', 'Line', 'PRC 그룹', '제조사', '팀']);
 });

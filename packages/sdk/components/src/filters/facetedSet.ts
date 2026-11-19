@@ -1,4 +1,4 @@
-export interface FacetedSetFacet { id: string; label: string; /** Parent facet ID for visual grouping. */ parentId?: string; /** Values without current item membership remain visible at a zero count. */ values?: readonly string[]; /** Selected unresolved values survive all-values normalization. */ preservePicks?: readonly string[]; /** Starts with no values selected; absence still means no filter. */ defaultSelection?: 'all' | 'none' }
+export interface FacetedSetFacet { id: string; label: string; /** Values without current item membership remain visible at a zero count. */ values?: readonly string[]; /** Selected unresolved values survive all-values normalization. */ preservePicks?: readonly string[]; /** Starts with no values selected; absence still means no filter. */ defaultSelection?: 'all' | 'none' }
 export interface FacetedSetItem { id: string; facets: Readonly<Record<string, string | readonly string[]>> }
 export interface FacetedSetValue {
   rule: Readonly<Record<string, readonly string[]>>;
