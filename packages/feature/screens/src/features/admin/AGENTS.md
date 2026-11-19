@@ -8,7 +8,6 @@ The canonical term is "Analytics Area" (per `docs/product/features/03-core-platf
 
 ## Route Boundary
 
-- Owns `/admin/managed-systems`, `/admin/analytics-areas`, `/admin/permissions/requests`, `/admin/permissions/grants`, and `/admin/settings` (`WorkspaceSettingsScreen`, see `features/admin/settings/`).
 - Analytics Areas, Permission Requests, active permission grants and denies, Managed System Registry, and workspace settings are Admin routes, not top-level work routes.
 
 ## Invariants
@@ -25,27 +24,15 @@ The canonical term is "Analytics Area" (per `docs/product/features/03-core-platf
 - Managed System defaults prefill responsibility; they do not remove explicit owner/reviewer fields from records.
 - Do not expose complex permission matrix builders in MVP.
 
-## Key files
-
-Paths are relative to `packages/feature/screens/src/`. Screen components under `features/admin/` match their route one-to-one (`ManagedSystemsScreen`, `AnalyticsAreasScreen`/`AnalyticsAreasList`/`AnalyticsAreaDetail`, `permissions/permission-requests-screen`, `permission-grants-screen`, `permission-request-detail`, `permission-requests-search`, `settings/WorkspaceSettingsScreen`).
-
-- `operator-screens/analytics-areas/index.ts` — router-free bridge entry; the screen's optional `renderDetail` prop hands `ClosableDetailParts` to the host drawer, while the standalone route omits it and keeps the Sheet.
-- `operator-screens/admin-search/index.ts` — router-free bridge entry for the three admin search validators (`isAnalyticsAreasSearchValueValid`, `isPermissionGrantsSearchValueValid`, `isPermissionRequestsSearchValueValid`).
-  - The requests schema lives in `features/admin/permissions/permission-requests-schema.ts` (re-exported by `permission-requests-search.ts`) so the entry stays free of the enum-labels/`src/ui` barrel.
-- `operator-screens/permission-requests/index.ts` and `…/permission-grants/index.ts` — router-free bridge entries for the two permission consoles (#764 g). Both screens read and write the URL through `useHostSearchWriter`, need a `HostSeamProvider`, and take two props:
-  - `autoSelect` — default `true` = the standalone rule (first visible item selected on load/tab change); the bridge passes `false`: selection from the URL only, and a stale selection is still replace-dropped.
-  - `renderDetail` — absent = `ListShell.detailPanel` (DOM unchanged); present = the screen builds `ClosableDetailParts` and renders `renderDetail(parts)` beside the list, so decision/revoke drafts stay in the screen tree.
   - The bridge menu permission and backend enforce access; test-local hosts also pin the denied panel.
-- `operator-screens/managed-systems/index.ts` and `operator-screens/settings/index.ts` — router-free bridge entries; settings accepts the bridge `section` page key (`coverage`) and keeps the standalone `#coverage` hash fallback when the prop is `undefined`.
 
 ## Verification
 
-- Under the platform bridge (`useHostSeam().hostOwnsTitle`), the five admin screens draw no title/subtitle of their own — the platform page head is the title (#764 p2); header actions (filters, register and grant buttons) stay. Standalone keeps every title. `admin/__tests__/admin-host-title.test.tsx` and `permission-screens.host.test.tsx` pin both.
+- Under the platform bridge (`useHostSeam().hostOwnsTitle`), admin screens draw no title/subtitle of their own — the platform page head is the title (#764 p2); header actions (filters, register and grant buttons) stay. Standalone keeps every title.
 - When touched: Analytics Area tree restore, Managed System default editing, permission approval/rejection/revocation states, explicit deny display, blocked-state return paths.
 
 ## Permission close-out contract
 
-- FO ADR-0066 selected-detail revision-safe review uses `selected-permission-request-detail.tsx` and the shared-schema API adapter. Explained risk presentation (#1084) and direct-grant UI (#1086) remain separate implementation items.
 - Clear decision drafts on request ID/revision changes; stale errors require refetch and fresh review, never auto-submit. Preserve tab/selected and Back restoration; cancelled history has no decision controls.
 - Direct workspace.admin grants require explicit governance mode/confirmation; self grants follow permission_self_approval. Server scope candidates, required reason, open-ask review and explicit deny-lift guidance are authoritative. Capability grants never imply Role Level promotion.
 - No client scores, email or restricted source text. Zero risk signals are shown only after successful calculation.

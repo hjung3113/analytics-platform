@@ -8,7 +8,6 @@
 ## Invariants
 
 - VOC means customer or user-submitted voice.
-- Do not create VOC from Survey Response.
 - Reporter-facing VOC status is separate from Task status; Task Done or Released must not automatically mark a VOC as resolved.
 - Public updates are distinct from internal comments.
 - The FO ADR-0031 visibility rule (Managed System in the actor's `voc.read` scope, or the actor reported it) has one definition with three faces in `authorization.ts`:
@@ -19,7 +18,6 @@
 - The VOC public-read rule (ADR-0110 decision 3: reporter, or `voc.read_public ∪ voc.read ∪ voc.triage` scope, or the 「플랫폼」 system) is a separate rule in `public-read/` with its own SQL and object faces (`publicVocVisibilityPredicate`, `isVocPubliclyVisible`; `__tests__/public-read-predicate.integration.test.ts` pins them).
   - Do not merge it into the FO ADR-0031 faces above, and do not add `voc.read_public` to `actorEffectiveScope`: that would open every operator, peer, recommendation, cluster and dashboard path.
   - Public responses are built from the allowlist in `@ap/feature-shared` (`vocs/public-view.ts`), never by deleting fields from an operator object.
-- VOC Clusters delegates the base scope-or-reporter rule to `isVocVisibleToActor` and adds only cluster membership conditions.
 
 ## Cross-System Rules
 

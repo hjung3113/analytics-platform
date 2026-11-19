@@ -12,7 +12,3 @@
 - `status` is a plain text column defaulting to `planning`; Accepted FO ADR-0050 fixes the persisted set to `planning | in_progress | blocked | released`. Create accepts an optional value in that set, and PATCH may set any value in the set.
 - `finding.findings.linked_milestone_id` has no application writer in this module. The FK exists; the writer does not.
 - `milestones/repo.ts` writes only `task.milestones` and never reads `task.tasks` or `finding.findings` (module-seams guard).
-
-## Verification
-
-- `apps/platform-api/src/__tests__/module-seams.test.ts` covers the repo-import and foreign-table rules above.

@@ -6,10 +6,8 @@ Home owns the landing action queue surface for the current actor, workspace, and
 
 ## Route Boundary
 
-- Owns `/home`. The standalone `HomeScreen` is retired; its retained dashboard body is `DashboardScreen`, which the platform bridge mounts through `src/operator-screens/dashboard` (platform ADR-0071, ADR-0081).
-- Standalone `/` and login redirects are retired; the platform owns entry and identity.
 - May deep-link into VOC, Tasks, Surveys, Integration, or Admin routes with action intent.
-- Must preserve AppShell and permission-aware summaries for direct route access.
+- Preserve permission-aware summaries for direct route access.
 
 ## Rules
 
@@ -21,16 +19,8 @@ Home owns the landing action queue surface for the current actor, workspace, and
 
 Paths are relative to `packages/feature/screens/src/`.
 
-- `test/screen-host/routes/_authed/home.tsx` — Home route and URL state.
-- `features/home/DashboardScreen.tsx` — bridge-safe dashboard body (queues, assigned work, coverage, open permission requests, answerable surveys, reporter layout) and `refreshDashboard(client, managedSystemId)`.
   - Props: `managedSystemId` only — no title/tabs/head buttons/recovery queue (recovery queue targets belong to 연동, #763). Needs a `HostSeamProvider`; links via `HostLink`, toasts via the seam.
-  - Reads through `useMeBridge` and the direct `lib/api/*` modules, never the `@/lib/api` barrel; the import graph is pinned by `packages/feature/bridge/src/feature-entry-graph.test.ts`.
-  - `DashboardBody` (also takes the standalone `recoveryQueue`) is not exported through the entry. `href.ts` is the retained scope-preserving link helper; the legacy helper survives only in test support.
-- `features/home/AnswerableSurveysSection.tsx` — survey panel body over a link prop (default `HostLink`); its router-bound test adapter is under `test/host-adapters`.
-- `features/home/InboxPanel.tsx` — notification inbox list, filters, empty/error states; also mounted by the platform bridge (`src/global-screens`, platform ADR-0071) through the `lib/host` seam. `variant="recent"` is the platform bell popover body: latest 10, no filter, no load-more.
-- `features/home/permission-requests/PermissionRequestsScreen.tsx` — requester page (request form, own requests with status, withdraw), mounted only by the platform bridge (`src/global-screens`), no screen route; admin review stays in `features/admin/permissions`. Its calls live in `lib/api/permission-requests.ts` (bridge-safe; `permissions.ts` re-exports them).
 - `features/home/todo/HomeTodoPanel.tsx` — the platform home `내 할 일`: permission-gated review counts (`검토할 권한 요청` = pending batches; `분류할 VOC` = unassigned triage) above surveys to answer, my VOCs with an unread public update, and my permission requests. Queue counts link to their exact destinations and hide at zero or without access; bridge-only (`src/global-screens`), no feature route (platform ADR-0070 decision 8).
-- `lib/copy/home.ts` — Home, queue, coverage and notification inbox copy.
   - The platform bridge loads `InboxPanel` lazily through its own entry `global-screens/inbox-panel` (#820), not `global-screens/core`; the platform `check:lazy-chunks` marker (the value of `HOME_INBOX_COPY.filterLabel`) fails if the panel leaks back into the main chunk.
   - Anything `core` reaches lands in the main chunk, so copy for a lazily loaded bridge screen goes in its own module (`lib/copy/permission-requests.ts`, `lib/copy/home-todo.ts`; #657 hit this twice).
 

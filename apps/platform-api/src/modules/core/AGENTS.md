@@ -35,5 +35,5 @@ Core supplies the approved workspace/request-scoped latest Admin-question audit 
 - #740 revokes raw `core.audit_log` SELECT from `platform_app`, retaining INSERT and no UPDATE/DELETE. Preserve canonical Actor/subject/detail identifiers, append-only history and same-transaction accountability; controlled migrate/operator reads supply test observations.
 - Core exposes only the latest Permission Request question and responsibility configuration-change projections, plus the one allowlisted `core.platform_audit_events` projection for the platform audit screen (platform ADR-0069 decision 6, #621).
   - That projection exposes id/instant/actor/event_type/subject only — no summary or detail — with three SQL exclusions: survey-response subjects/events and entity links with a survey_response endpoint; permission rows whose `detail.capability` is not on the non-sensitive allowlist; rows with `detail.sensitive = true`.
-- No broad app-readable audit definer. Inventory consumers before cutover.
+- No broad app-readable audit definer.
 - FO ADR-0015 permits only targeted sanitization of confirmed legacy Survey-generated cached Finding responses, preserving Actor/key/hash/status and exactly-once side effects; no unrelated cache reset or authored-text rewrite.

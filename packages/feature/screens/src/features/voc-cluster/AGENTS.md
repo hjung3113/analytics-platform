@@ -4,7 +4,7 @@
 
 - Owns frontend route composition and mutations for VOC Cluster list, detail, membership management, cluster-to-existing-Finding association, and cluster-originated Create Finding / Request Task flows (hooks under `hooks/`).
 - Does not own VOC record lifecycle, reporter-facing VOC status, or Finding/Task persistence — those belong to VOC, Findings, and Tasks respectively.
-- The platform menu and bridge own URL wiring and after-create navigation; `src/test/clusters-host` preserves list/path-selection behavior in memory-router tests.
+- The platform menu and bridge own URL wiring and after-create navigation.
 - Cluster detail owns `components/detail/VocClusterMemberRow.tsx` for its VOC member presentation; `EntityRelationRow` in Integration is reserved for Entity Link DTOs. The Request Task draft form itself is shared from `features/cross-system/request-task/`; Cluster keeps its source-specific mutation here.
 
 ## Route Boundary
@@ -14,10 +14,6 @@
 
 ## Bridge safety (platform ADR-0071)
 
-The list screen and detail parts are bridge-safe (entry `src/operator-screens/voc-clusters`, pinned in `packages/feature/bridge/src/feature-entry-graph.test.ts`):
-
-- Reach navigation, links, and notices only through `lib/host`; import no router, `sonner`, `lib/auth`, or the `@/lib/api` barrel.
-- Read `selected`/`managedSystem` from the host search (`lib/cluster-search.ts` holds the schema).
 - Finding links render only when the host `canLink`s the path.
 
 ## Invariants

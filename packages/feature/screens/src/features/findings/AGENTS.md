@@ -2,26 +2,18 @@
 
 ## Ownership
 
-- Owns Finding screens and hooks: `FindingDetailPanel` and its panel tree (`FullFindingDetail`, `FindingExecutionSection`, the evidence/link modals, the Finding-owned Request Task draft host, `useFindingDetailController`), plus the Finding read/mutation hooks under `hooks/`. The neutral `TaskRequestDraftCard` form and read presentation live in `features/cross-system/request-task/`.
+- Owns Finding screens and hooks. The neutral `TaskRequestDraftCard` form and read presentation live in `features/cross-system/request-task/`.
 - Does not own source object lifecycles or backend authorization truth.
 - Does not own the entity-link inventory or `/integration/links` — `EntityRelationRow`, `EntityLinksInventoryTable`, `LinkStatusBadge`, and `useEntityLinkInventory` stay under `features/integration/`.
 
 ## Rules
 
-- Finding list/detail selection uses the platform menu and host `selected` state. The router-free `routes/findings-search.ts` schema is exported through `operator-screens/findings-search`; no standalone `/findings/:findingId` route or redirect table remains.
+- Finding list/detail selection uses the platform menu and host `selected` state.
 - Finding detail is evidence-first and keeps execution links visible.
-- Finding detail composes `FindingDetailPanel` → `FullFindingDetail` with separate detail and execution section controllers. Requested-link selection, retry/focus handling, and the draft host belong to `FindingExecutionSection`.
 - Cross-feature access to the Finding source-detail read and the Finding-owned Request Task draft host goes through `public.ts`. Exceptions:
   - The platform bridge (Task Request review; its Finding detail entry is `operator-screens/finding-detail`) reads through `hooks/useFindingDetail` directly.
-  - Survey retains selected-Finding load/ready/error orchestration.
   - Known boundary debt: the Cluster "link existing Finding" picker (`voc-cluster/components/modals/LinkExistingFindingModal.tsx`) still imports `useFindingsList` directly.
 - Backend permission checks remain authoritative; permission-limited content renders approved summaries or a request path.
-
-## Bridge-mounted surfaces
-
-- `routes/FindingsScreen.tsx` — the list, its URL state and list status labels (bridge-safe, entry `operator-screens/findings`); the host renders every detail-slot branch through `renderDetail`.
-- `components/FindingDetail/FindingDetailParts.tsx` — the detail as `DetailParts` (entry `operator-screens/finding-detail`); `FindingDetailPanel` frames them (standalone test frame under `src/test/host-adapters`).
-- `components/FindingDetail/FindingRequestTaskDraftHost.tsx` — Finding-owned Task Request form host used by Finding and Survey.
 
 ## Close-out contract (FO ADR-0067)
 

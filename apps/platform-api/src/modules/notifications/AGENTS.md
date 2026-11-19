@@ -13,7 +13,6 @@
 - The Korean summary is rendered by the catalogue and frozen at insertion.
 - In-app reads and read/archive mutations are scoped to the session Actor and workspace. A row outside either scope is indistinguishable from an absent row.
 - Application DML may update only `read_at`, `archived_at`, and `email_sent_at` on `core.notifications`; there is no hard-delete path.
-- The email channel defaults to Pino-backed `MockEmailChannel`; setting `NOTIFICATION_EMAIL_CHANNEL=smtp` selects `SmtpEmailChannel` after SMTP config validation. `nodemailer` is imported only by `smtp.ts`, which the channel factory loads lazily.
 - Dispatch handler:
   - Commits the inbox row in its own transaction first; the inbox never depends on SMTP.
   - Sends email outside any transaction (a send held inside one is killed by the idle-in-transaction budget): read the row, send when `email_sent_at` is null, then stamp it with an `IS NULL` guard. A send failure throws so pg-boss retries only the email.

@@ -28,7 +28,7 @@ The gate, env, reset contract, and teardown rules are in `apps/platform-api/AGEN
 ## Fixtures and teardown
 
 - Session rows are not per-test garbage: deleting `core.sessions` in `beforeEach` revokes cookies minted in `beforeAll`, and later requests return `401 auth.session_invalid`. Clean sessions in `afterAll` only.
-- Tear down children before parents: grant → managed system → session → actor, and vocs/managed systems/actors before workspaces. Audit-log and permission-request rows go first; see `apps/platform-api/AGENTS.md` → Verification.
+- Tear down children before parents: grant → managed system → session → actor, and vocs/managed systems/actors before workspaces. See `apps/platform-api/AGENTS.md` → Verification.
 - `db.execute` returns `timestamptz` as text, not `Date`. Normalize with `v instanceof Date ? v : new Date(v)`; an empty-result test never exercises the mapping.
 
 ## Authorization is two layers

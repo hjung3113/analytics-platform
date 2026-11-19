@@ -3,7 +3,7 @@
 ## Ownership
 
 - Owns frontend route composition for VOC submission, inbox, triage, reporter-facing status, public updates, and VOC detail panels. Does not own Task status, Survey Response conversion, Finding persistence, or Entity Link visibility rules.
-- Owns `/vocs` (single view-switching route covering inbox, triage, and create, mapped by the platform bridge). VOC Clusters are a separate feature (`features/voc-cluster/`, mounted at `/voc-clusters`) — see its AGENTS.md.
+- The platform bridge maps the view-switching VOC route. VOC Clusters are a separate feature; see `features/voc-cluster/AGENTS.md`.
 - May start Create Finding or Request Task flows without losing VOC list/detail context.
 
 ## Invariants
@@ -27,12 +27,9 @@
 
 ## Bridge-mounted surfaces
 
-- `routes/InboxScreen.tsx` — bridge-safe inbox/My VOC list (platform ADR-0071, entry `operator-screens/voc-inbox`): URL read/written through the host seam, detail via the host's `renderDetail`; `VocRouteShell` composes it with `VocDetailPanel`.
-- `components/compose/VocComposeScreen.tsx` — retained VOC creation form, mounted by `packages/feature/bridge/src/pages/VocCompose.tsx`; no standalone create route (#597).
 - `components/reporter/` — bridge-safe reporter perspective for the platform `내 VOC` (platform ADR-0071); the list is the public `PublicVocListScreen`, which the platform filters to the own VOCs. `ReporterVocDetail` draws a fixed read allowlist plus one write, the existing `ReporterReplyComposer` on the signed-in actor's own VOC (#1159); no public update, internal comment, triage, or Finding control.
 - `components/public/` — bridge-safe 소통 › VOC (ADR-0110, #1288): `PublicVocListScreen` (`GET /vocs/public`), `PublicVocDetail` (renders `PublicVocView` only), and `VocReadingPane`, which reads `GET /vocs/public/:id` first and mounts `ReporterVocDetail` only for the server's `mine: true`.
   - A VOC that is not the actor's own never causes a reporter or operator request.
-  - Responses are parsed with the shared strict schemas.
 
 ## Close-out contract (FO ADR-0067)
 

@@ -18,6 +18,6 @@ Workspace Settings owns workspace-level policy storage and its admin-only API. C
 ## Cluster suggestion policy (FO ADR-0068)
 
 - `voc_cluster_suggestions_enabled:boolean=false` is included in resolved settings and accepted by strict partial Admin PATCH with effective-change audit only. Preserve other settings; missing rows default off.
-- Toggles do not touch suggestion/counter/cursor state; generation and the Admin editor remain deferred.
-- Future VOC generation locks/rechecks the exported resolved-settings-for-update seam; disabling serializes through the singleton and never reverses VOC's admission lock order. Pending suggestions/history remain reviewable.
+- Toggles do not touch suggestion/counter/cursor state.
+- VOC generation locks/rechecks the exported resolved-settings-for-update seam; disabling serializes through the singleton and never reverses VOC's admission lock order. Pending suggestions/history remain reviewable.
 - Do not add model/cut/quota/per-MS switches or Core-owned AI behavior.
