@@ -173,7 +173,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
       ['approved', 'rejected', 'needs_more_evidence'].includes(result.status)
     ) {
       setHandoff({
-        item: queue.selected,
+        item: result.status === 'approved' ? result : queue.selected,
         names: queue.names,
         context,
         result,
@@ -186,6 +186,9 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
   const completedFocusTarget = (result: TaskRequestDto) => {
     if (!retainedPanel || retainedPanel.result !== result || queue.hasError || queue.isLoading)
       return null;
+    if (result.status === 'approved') {
+      return document.querySelector<HTMLElement>('[data-testid="task-request-convert-action"]');
+    }
     if (queue.selectedId !== null) {
       return (
         listRef.current?.querySelector<HTMLElement>(`[data-request-id="${queue.selectedId}"]`) ??
@@ -230,9 +233,9 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
 
   const activeTabLabel =
     queue.tabs.find((tab) => tab.value === queue.activeTab)?.label ?? queue.activeTab;
-  // A reviewer filter changes which branch a zero-page takes: the row exists in
-  // the scope-wide tab count but is not the viewer's — never call it empty.
-  const isReviewFilteredEmpty = reviewerFilterActive && queue.shown.length === 0 && queue.hasItems;
+  // The scoped queue counts honor reviewer filters; keep the empty branch explicit so the
+  // operator can clear a filter even when the filtered total is zero.
+  const isReviewFilteredEmpty = reviewerFilterActive && queue.shown.length === 0;
   const isPendingEmpty =
     !reviewerFilterActive &&
     queue.shown.length === 0 &&
@@ -260,8 +263,15 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                 currentRole: queue.currentRole,
                 // #2530: decisions only for a row of the shown list. The post-decision handoff keeps its own item.
                 outsideList:
-                  retainedPanel === null && !queue.shown.some((row) => row.id === panelItem.id),
+                  queue.recentlyApprovedRequestId !== panelItem.id &&
+                  retainedPanel === null &&
+                  !queue.shown.some((row) => row.id === panelItem.id),
                 ...(titleInHeader ? { titleInHeader } : {}),
+                recentlyApproved: queue.recentlyApprovedRequestId === panelItem.id,
+                hasNextRequest: queue.hasNextRequest,
+                onNextRequest: () => {
+                  void queue.goToNextRequest();
+                },
                 onClose: () => {
                   if (queue.selectedId !== null) returnFocus(queue.selectedId);
                   queue.setSelectedId(null);

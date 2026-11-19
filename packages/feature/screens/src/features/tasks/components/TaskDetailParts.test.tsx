@@ -1,10 +1,12 @@
 import { ApiError } from '../../../lib/api/types';
 import { TASK_STATUS_LABELS } from '../../../lib/copy/enum-labels';
+import { TASK_STATUS_CONTROL_COPY } from '../../../lib/copy/tasks';
 import type { HostSeam } from '../../../lib/host/host-seam';
 import { HostSeamProvider } from '../../../lib/host/host-seam';
 import type { TaskDetailDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type UseTaskDetailPartsArgs, useTaskDetailParts } from './TaskDetailParts';
@@ -12,18 +14,22 @@ import { type UseTaskDetailPartsArgs, useTaskDetailParts } from './TaskDetailPar
 const api = vi.hoisted(() => ({
   getTask: vi.fn(),
   assignTaskResponsibility: vi.fn(),
+  updateTaskStatus: vi.fn(),
+  roleLevel: 'admin',
+  permissionState: 'denied',
 }));
 vi.mock('../../../lib/api/tasks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../lib/api/tasks')>()),
   getTask: api.getTask,
   assignTaskResponsibility: api.assignTaskResponsibility,
+  updateTaskStatus: api.updateTaskStatus,
 }));
 vi.mock('../../../lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../lib/api/me')>()),
-  useMeBridge: () => ({ data: { actor: { id: 'admin', role_level: 'admin' } } }),
+  useMeBridge: () => ({ data: { actor: { id: 'admin', role_level: api.roleLevel } } }),
 }));
 vi.mock('../../../lib/cross-system/usePermissionCheckBridge', () => ({
-  usePermissionCheckBridge: () => ({ data: { state: 'denied' } }),
+  usePermissionCheckBridge: () => ({ data: { state: api.permissionState } }),
 }));
 vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
@@ -133,6 +139,8 @@ function renderParts(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  api.roleLevel = 'admin';
+  api.permissionState = 'denied';
   api.getTask.mockResolvedValue(task);
 });
 
@@ -314,6 +322,97 @@ describe('Task detail parts through the host seam', () => {
     expect(within(screen.getByTestId('body')).getAllByText('요약').length).toBeGreaterThan(0);
     expect(within(screen.getByTestId('body')).getAllByText(TASK_STATUS_LABELS[task.status]).length)
       .toBeGreaterThan(0);
+  });
+
+  it('uses the board statuses in the labelled Task status Select and updates through the shared mutation', async () => {
+    const user = userEvent.setup();
+    api.updateTaskStatus.mockResolvedValue({ ...task, status: 'todo' });
+    api.getTask.mockResolvedValueOnce(task).mockResolvedValue({ ...task, status: 'todo' });
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const listbox = await screen.findByRole('listbox');
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent?.trim())).toEqual(
+      ['backlog', 'todo', 'doing', 'review', 'done', 'released', 'reopened'].map(
+        (status) => TASK_STATUS_LABELS[status as keyof typeof TASK_STATUS_LABELS],
+      ),
+    );
+
+    await user.keyboard('{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledTimes(1));
+    expect(api.updateTaskStatus).toHaveBeenCalledWith(
+      task.id,
+      'todo',
+      expect.objectContaining({ ifMatch: task.updated_at, idempotencyKey: expect.any(String) }),
+    );
+  });
+
+  it('keeps the current status readable and links the disabled reason for actors without permission', async () => {
+    api.roleLevel = 'user';
+    const { seam } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent(TASK_STATUS_LABELS.backlog);
+    const describedBy = trigger.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    const reason = document.getElementById(describedBy as string);
+    expect(reason).toHaveTextContent(TASK_STATUS_CONTROL_COPY.permissionRequired);
+  });
+
+  it('supports Tab, arrows, Enter, and Escape while showing pending and error feedback', async () => {
+    const user = userEvent.setup();
+    api.getTask.mockResolvedValueOnce(task).mockResolvedValue({ ...task, status: 'todo' });
+    let resolveStatus: (value: TaskDetailDto) => void = () => undefined;
+    api.updateTaskStatus.mockImplementationOnce(
+      () => new Promise<TaskDetailDto>((resolve) => { resolveStatus = resolve; }),
+    );
+    const { seam, calls } = makeSeam();
+    renderParts(seam);
+
+    const trigger = await screen.findByRole('combobox', { name: '상태' });
+    screen.getByRole('button', { name: '요약' }).focus();
+    for (let attempt = 0; document.activeElement !== trigger && attempt < 12; attempt += 1) {
+      await user.tab();
+    }
+    expect(trigger).toHaveFocus();
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await waitFor(() => expect(api.updateTaskStatus).toHaveBeenCalledWith(
+      task.id,
+      'todo',
+      expect.any(Object),
+    ));
+    expect(screen.getByText(TASK_STATUS_CONTROL_COPY.updating)).toBeVisible();
+    expect(trigger).toBeDisabled();
+
+    await act(async () => resolveStatus({ ...task, status: 'todo' }));
+    await waitFor(() => expect(trigger).toHaveTextContent(TASK_STATUS_LABELS.todo));
+    trigger.focus();
+    await user.keyboard('{Enter}{Escape}');
+    expect(trigger).toHaveFocus();
+
+    api.updateTaskStatus.mockRejectedValueOnce(new Error('write failed'));
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
+    expect(calls.error).toHaveBeenCalled();
+  });
+
+  it('shows the status Select when a Task is opened from a Task Request link', async () => {
+    api.getTask.mockResolvedValue({
+      ...task,
+      source: {
+        task_request: { id: '70000000-0000-4000-8000-000000000007', display_id: 'REQ-42', status: 'converted' },
+        finding: null,
+        voc: null,
+      },
+    });
+    const { seam } = makeSeam();
+    renderParts(seam);
+    expect(await screen.findByRole('combobox', { name: '상태' })).toBeInTheDocument();
   });
 
   it('shows a not-found state without a retry action on 404 (#1888)', async () => {

@@ -52,6 +52,9 @@ export interface UseTaskRequestsQueueResult {
   hasError: boolean;
   refetch: () => void;
   onDecisionComplete: (item: TaskRequestDto) => void;
+  recentlyApprovedRequestId: string | null;
+  hasNextRequest: boolean;
+  goToNextRequest: () => Promise<void>;
   /** The decided request is opened again from outside the queue (the approve toast action). */
   reopenRequest: (id: string) => void;
   hasMore: boolean;
@@ -84,13 +87,32 @@ export function useTaskRequestsQueue({
     context: string;
     originParam: string | null;
     selectionId: string | null;
+    retained: boolean;
+    nextRequestId: string | null;
     overlayData: InfiniteData<ListTaskRequestsResponse> | undefined;
   } | null>(null);
   const decisionContext = JSON.stringify([activeTab, managedSystem, reviewer, reviewerTeam]);
   const scope = managedSystem === undefined ? {} : { managed_system_id: managedSystem };
+  const reviewerKey =
+    reviewer === undefined && reviewerTeam === undefined
+      ? []
+      : [reviewer, reviewerTeam, reviewer === 'me' ? meQuery.data?.actor.id : null];
+  const reviewerFiltersActive = reviewer !== undefined || reviewerTeam !== undefined;
   const summaryQuery = useQuery({
     queryKey: ['task-requests', managedSystem, 'summary'] as const,
     queryFn: ({ signal }) => fetchTaskRequests({ ...scope, signal, limit: 1 }),
+  });
+  const filteredTotalQuery = useQuery({
+    queryKey: ['task-requests', managedSystem, 'filtered-total', ...reviewerKey] as const,
+    queryFn: ({ signal }) =>
+      fetchTaskRequests({
+        ...scope,
+        ...(reviewer === undefined ? {} : { reviewer }),
+        ...(reviewerTeam === undefined ? {} : { reviewer_team_id: reviewerTeam }),
+        signal,
+        limit: 1,
+      }),
+    enabled: reviewerFiltersActive,
   });
   const taskRequestsQuery = useInfiniteQuery({
     queryKey: [
@@ -166,7 +188,8 @@ export function useTaskRequestsQueue({
       completedDecision.overlayData === taskRequestsQuery.data &&
       completedDecision.item.id === selectedId &&
       activeTab !== 'all' &&
-      completedDecision.item.status !== activeTab
+      completedDecision.item.status !== activeTab &&
+      !completedDecision.retained
     )
       ? (items.find((item) => item.id === selectedId) ?? selectedDetail.data ?? null)
       : null;
@@ -281,8 +304,13 @@ export function useTaskRequestsQueue({
   }, [actorsQuery.data?.actors, actorsQuery.data?.teams, managedSystemsQuery.data?.items]);
 
   const tabs = React.useMemo<ListToolbarTab[]>(
-    () =>
-      TAB_ORDER.map((tab) => {
+    () => {
+      const allCount = reviewerFiltersActive
+        ? filteredTotalQuery.isSuccess
+          ? filteredTotalQuery.data.page?.total
+          : undefined
+        : summaryQuery.data?.page?.total;
+      return TAB_ORDER.map((tab) => {
         // #706 — counts are unknown until the read succeeds (covers pending,
         // error, and refetch-after-error without data); unknown must never
         // render as 0 (ListTabs renders badgeCount only when set).
@@ -293,15 +321,22 @@ export function useTaskRequestsQueue({
         };
         if (!summaryQuery.isSuccess || summaryQuery.data.page?.status_counts === undefined)
           return base;
+        const badgeCount =
+          tab.value === 'all' ? allCount : summaryQuery.data.page.status_counts[tab.value];
+        if (badgeCount === undefined) return base;
         return {
           ...base,
-          badgeCount:
-            tab.value === 'all'
-              ? (summaryQuery.data.page.total ?? 0)
-              : summaryQuery.data.page.status_counts[tab.value],
+          badgeCount,
         };
-      }),
-    [summaryQuery.data, summaryQuery.isSuccess],
+      });
+    },
+    [
+      summaryQuery.data,
+      summaryQuery.isSuccess,
+      filteredTotalQuery.data,
+      filteredTotalQuery.isSuccess,
+      reviewerFiltersActive,
+    ],
   );
 
   const shown = items;
@@ -337,8 +372,14 @@ export function useTaskRequestsQueue({
       // A late result may update caches, but cannot take a newer selection's focus.
       if (selectedId === updatedItem.id) {
         const index = items.findIndex((item) => item.id === updatedItem.id);
+        const retained = updatedItem.status === 'approved';
+        const nextRequestId = retained
+          ? index >= 0
+            ? (items[index + 1]?.id ?? items[index - 1]?.id ?? null)
+            : (items[0]?.id ?? null)
+          : null;
         const nextId =
-          activeTab === 'all' || activeTab === updatedItem.status
+          retained || activeTab === 'all' || activeTab === updatedItem.status
             ? updatedItem.id
             : (items[index + 1]?.id ?? items[index - 1]?.id ?? null);
         setCompletedDecision({
@@ -346,6 +387,8 @@ export function useTaskRequestsQueue({
           context: decisionContext,
           originParam: selectedParam ?? null,
           selectionId: nextId,
+          retained,
+          nextRequestId,
           overlayData: queryClient.getQueryData<InfiniteData<ListTaskRequestsResponse>>([
             'task-requests',
             managedSystem,
@@ -356,8 +399,10 @@ export function useTaskRequestsQueue({
               : [reviewer, reviewerTeam, reviewer === 'me' ? meQuery.data?.actor.id : null]),
           ]),
         });
-        setLocalSelectedId(nextId);
-        onSelectionChange?.(nextId, true);
+        if (nextId !== selectedId) {
+          setLocalSelectedId(nextId);
+          onSelectionChange?.(nextId, true);
+        }
       }
       void queryClient.invalidateQueries({ queryKey: ['task-requests', managedSystem] });
     },
@@ -378,6 +423,37 @@ export function useTaskRequestsQueue({
   );
 
   const { fetchNextPage } = taskRequestsQuery;
+  const recentlyApprovedRequestId =
+    completedDecision?.context === decisionContext && completedDecision.retained
+      ? completedDecision.item.id
+      : null;
+  const hasNextRequest =
+    recentlyApprovedRequestId !== null &&
+    (items.some((item) => item.id !== recentlyApprovedRequestId) || taskRequestsQuery.hasNextPage);
+  const goToNextRequest = React.useCallback(async () => {
+    if (recentlyApprovedRequestId === null) return;
+    const preferred = completedDecision?.nextRequestId;
+    const next =
+      (preferred && items.some((item) => item.id === preferred) ? preferred : undefined) ??
+      items.find((item) => item.id !== recentlyApprovedRequestId)?.id;
+    if (next) {
+      setSelectedId(next);
+      return;
+    }
+    if (!taskRequestsQuery.hasNextPage) return;
+    const result = await fetchNextPage();
+    const nextItem = result.data?.pages
+      .flatMap((page) => page.items)
+      .find((item) => item.id !== recentlyApprovedRequestId);
+    if (nextItem) setSelectedId(nextItem.id);
+  }, [
+    recentlyApprovedRequestId,
+    completedDecision?.nextRequestId,
+    items,
+    taskRequestsQuery.hasNextPage,
+    fetchNextPage,
+    setSelectedId,
+  ]);
   React.useEffect(() => {
     if (!completedDecision || completedDecision.context !== decisionContext) return;
     if (
@@ -396,6 +472,7 @@ export function useTaskRequestsQueue({
       setCompletedDecision({ ...completedDecision, originParam: completedDecision.selectionId });
       return;
     }
+    if (completedDecision.retained) return;
     if (items.length === 0 && taskRequestsQuery.hasNextPage) {
       if (!taskRequestsQuery.isFetching && !taskRequestsQuery.isError)
         void fetchNextPage();
@@ -458,6 +535,9 @@ export function useTaskRequestsQueue({
       void summaryQuery.refetch();
     },
     onDecisionComplete,
+    recentlyApprovedRequestId,
+    hasNextRequest,
+    goToNextRequest,
     reopenRequest,
     hasMore: taskRequestsQuery.hasNextPage,
     loadingMore: taskRequestsQuery.isFetchingNextPage,

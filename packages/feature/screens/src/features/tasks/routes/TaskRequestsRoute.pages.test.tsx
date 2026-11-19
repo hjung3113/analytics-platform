@@ -278,7 +278,11 @@ describe('Task Request cursor screens', () => {
         'true',
       ),
     );
-    expect(screen.getByTestId('selected-request')).toHaveTextContent('REQ-1');
+    expect(screen.getByTestId('selected-request')).toHaveTextContent('REQ-2');
+    expect(screen.getByRole('tab', { name: '검토 대기 , 51' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   it('AC-981 zero pending with approved rows shows summary badges and the filtered-empty copy', async () => {

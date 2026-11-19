@@ -31,6 +31,7 @@ vi.mock('./useTaskRequestConvertedTaskLink', () => ({
 
 import { TASK_REQUEST_STATUS_LABELS as STATUS_LABELS } from '../../../../lib/copy/enum-labels';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { TASK_REQUEST_NEXT_COPY } from '../../../../lib/copy/task-requests';
 import { formatShortDateTime } from '../../../../lib/format/datetime';
 import { TaskRequestPanel } from '../../../../test/host-adapters/features/tasks/routes/task-requests/TaskRequestPanel';
 
@@ -236,6 +237,24 @@ describe('TaskRequestPanel next actions', () => {
     ]);
     expect(convert).toHaveClass('bg-accent-primary', 'w-full');
     expect(linkExisting).toHaveClass('w-full');
+  });
+
+  it('disables Next request with a visible reason when no other request is waiting', () => {
+    render(
+      <TaskRequestPanel
+        item={{ ...request, status: 'approved' }}
+        names={names}
+        currentActorId={request.requester_actor_id}
+        currentRole="developer"
+        onClose={vi.fn()}
+        recentlyApproved
+        hasNextRequest={false}
+        onNextRequest={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: TASK_REQUEST_NEXT_COPY.label })).toBeDisabled();
+    expect(screen.getByText(TASK_REQUEST_NEXT_COPY.noNext)).toBeVisible();
   });
 
   it('keeps approval primary and opens the rejection reason dialog from the secondary action', async () => {

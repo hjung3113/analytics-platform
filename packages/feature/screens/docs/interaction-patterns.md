@@ -176,7 +176,9 @@ UX rules:
 ```text
 - VOC, VOC Cluster, Finding, and Survey-derived Finding follow-up uses "Request Task", not "Create Task".
 - "Create Task" is reserved for standalone internal Tasks from the Tasks surface.
-- "Convert to Task" is the review action that turns an approved Task Request into a Backlog Task.
+- "Convert to Task" is the primary action on an approved Task Request and turns it into a Backlog Task.
+- After approval, keep the approved request selected across queue refresh, close the decision dialog, and move focus to the conversion action. The conversion form focuses its title field and labels its submit action "Create Task".
+- "Next Request" selects another request in the current filtered queue; disable it with a visible reason when none is waiting.
 - Approval accepts the execution candidate; conversion creates the Task.
 - UI may offer "Approve and Convert" as a fast path while still showing source evidence and required Task fields.
 - Approved-only Task Requests remain actionable until converted or linked to an existing Task.
@@ -255,6 +257,7 @@ MVP conversation constraints:
 - Task Board is for internal execution work only.
 - VOC owner assignment is not Task assignee or kanban assignment.
 - Board cards show minimal linked context indicators only; source VOC, Finding, Survey, Evidence, and reporter-facing update detail belongs in Task Detail or the source object's route.
+- Task Detail exposes the board's status destinations in a labelled Select and uses the board status mutation and optimistic recovery behavior. Without permission, keep the current value readable in the disabled control and connect the visible reason with `aria-describedby`; show pending and error feedback.
 - Assigned Backlog Tasks may appear in My Tasks (`/tasks?view=my`) or Home's assigned-to-you panel as planned work, but execution starts only when the Task moves to Todo or Doing.
 ```
 

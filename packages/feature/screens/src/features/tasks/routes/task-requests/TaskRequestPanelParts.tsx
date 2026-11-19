@@ -54,6 +54,9 @@ export interface TaskRequestPanelProps extends DetailPartsOptions {
   onClose: () => void;
   onDecisionComplete?: (item: TaskRequestDto) => void;
   onReopenRequest?: (id: string) => void;
+  recentlyApproved?: boolean;
+  hasNextRequest?: boolean;
+  onNextRequest?: () => void;
   getCompletedFocusTarget?: (result: TaskRequestDto) => HTMLElement | null;
   onDecisionCloseComplete?: () => void;
   decisionRecovery?: React.ReactNode;
@@ -93,6 +96,9 @@ export function TaskRequestPanelBody({
   currentRole,
   onDecisionComplete,
   onReopenRequest,
+  recentlyApproved = false,
+  hasNextRequest = false,
+  onNextRequest,
   getCompletedFocusTarget,
   onDecisionCloseComplete,
   decisionRecovery,
@@ -193,6 +199,9 @@ export function TaskRequestPanelBody({
             link={link}
             teamCandidates={conversionTeamCandidates}
             eligibleActors={eligibleActors}
+            recentlyApproved={recentlyApproved}
+            hasNextRequest={hasNextRequest}
+            {...(onNextRequest === undefined ? {} : { onNextRequest })}
           />
         )}
 

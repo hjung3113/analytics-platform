@@ -4,7 +4,7 @@ import { updateTaskStatus } from '../../../lib/api/tasks';
 import { ApiError } from '../../../lib/api/types';
 import { useHostSeam } from '../../../lib/host/host-seam';
 import { invalidateRecovery } from '../../../lib/query/recovery';
-import type { ListTasksResponse, TaskDto, TaskStatus } from '@ap/feature-shared';
+import type { ListTasksResponse, TaskDetailDto, TaskDto, TaskStatus } from '@ap/feature-shared';
 import {
   type InfiniteData,
   type QueryClient,
@@ -28,7 +28,8 @@ export type TaskBoardCaches =
       /** Loads a column's first page when no cache exists so the moved card can render there. */
       ensureColumn: (status: TaskStatus) => Promise<unknown>;
     }
-  | { mode: 'open'; openKey: QueryKey };
+  | { mode: 'open'; openKey: QueryKey }
+  | { mode: 'detail'; detailKey: QueryKey };
 
 // One invocation's own delta. Rollback undoes exactly this, never a whole-column snapshot.
 type Delta = {
@@ -44,6 +45,7 @@ type Delta = {
   targetTotalAdjusted: boolean;
   openKey: QueryKey | null;
   openPrevious: { item: TaskDto; index: number } | null;
+  detailKey: QueryKey | null;
 };
 
 const CLOSED: readonly TaskStatus[] = ['done', 'released'];
@@ -199,6 +201,13 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
               };
             });
           }
+          if (delta.detailKey && hashKey(delta.detailKey) === key) {
+            client.setQueryData<TaskDetailDto>(delta.detailKey, (old) => {
+              if (!old) return old;
+              delta.previous = stripDetail(old);
+              return { ...old, status: delta.target };
+            });
+          }
         }
       }),
     [client],
@@ -248,6 +257,11 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
         return { ...old, items };
       });
     }
+    if (delta.detailKey) {
+      client.setQueryData<TaskDetailDto>(delta.detailKey, (old) =>
+        old ? { ...old, status: delta.previous.status } : old,
+      );
+    }
   }
 
   const mutation = useMutation({
@@ -270,8 +284,10 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
         targetTotalAdjusted: false,
         openKey: null,
         openPrevious: null,
+        detailKey: null,
       };
       await client.cancelQueries({ queryKey: ['tasks'] });
+      await client.cancelQueries({ queryKey: ['task', task.id], exact: true });
       if (caches.mode === 'open') {
         const open = client.getQueryData<ListTasksResponse>(caches.openKey);
         const index = open?.items.findIndex((item) => item.id === task.id) ?? -1;
@@ -286,6 +302,19 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
               : open.items.map((candidate) =>
                   candidate.id === task.id ? { ...candidate, status } : candidate,
                 ),
+          });
+        }
+        pendingDeltas.current.add(delta);
+        return delta;
+      }
+      if (caches.mode === 'detail') {
+        const detail = client.getQueryData<TaskDetailDto>(caches.detailKey);
+        if (detail) {
+          delta.detailKey = caches.detailKey;
+          delta.previous = stripDetail(detail);
+          client.setQueryData<TaskDetailDto>(caches.detailKey, {
+            ...detail,
+            status,
           });
         }
         pendingDeltas.current.add(delta);

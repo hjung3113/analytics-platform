@@ -124,9 +124,14 @@ vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
         Close
       </button>
       {!outsideList && (
-        <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
-          Approve
-        </button>
+        <>
+          <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
+            Approve
+          </button>
+          <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'rejected' })}>
+            Reject
+          </button>
+        </>
       )}
     </section>
   );
@@ -333,10 +338,10 @@ it('keeps the new cross-scope param while the previous off-page detail is cached
   expect(mounted.router.state.location.search.param).toBe('b1');
 });
 
-it('reconciles cleared selection to fresh current-tab data after the decision overlay expires', async () => {
-  vi.mocked(getTaskRequest).mockResolvedValue({ ...first, status: 'approved' });
+it('reconciles a decision-cleared selection to fresh current-tab data', async () => {
+  vi.mocked(getTaskRequest).mockResolvedValue({ ...first, status: 'rejected' });
   const mounted = mount(initial);
-  fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
   await waitFor(() => expect(screen.queryByTestId('detail')).not.toBeInTheDocument());
   await settledQueue(mounted);
   expect(await screen.findByTestId('detail')).toHaveTextContent('REQ-A');
@@ -354,7 +359,7 @@ it('lets a newer explicit off-page selection own the queue after decision comple
   mockQueue([first, { ...second, primary_managed_system_id: A }], [second.id]);
   const mounted = mount(`${initial}&param=a1`);
   fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
-  await waitFor(() => expect(screen.queryByTestId('detail')).not.toBeInTheDocument());
+  expect(await screen.findByTestId('detail')).toHaveTextContent('REQ-A');
   await act(async () => {
     await mounted.router.navigate({
       to: '/tasks',

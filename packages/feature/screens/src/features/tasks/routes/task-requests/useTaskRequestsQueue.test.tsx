@@ -77,14 +77,14 @@ const taskRequest = {
   },
 } as TaskRequestDto;
 
-function renderQueue() {
+function renderQueue(filters: { reviewer?: string; reviewerTeam?: string } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  return renderHook(() => useTaskRequestsQueue({}), { wrapper });
+  return renderHook(() => useTaskRequestsQueue(filters), { wrapper });
 }
 
 const badgeFor = (tabs: ListToolbarTab[], value: string) =>
@@ -120,6 +120,27 @@ describe('useTaskRequestsQueue tab counts (#706)', () => {
       }),
     );
     expect(result.current.selectedId).toBe(taskRequest.id);
+  });
+
+  it('counts all requests under the same reviewer filters as the all list', async () => {
+    const secondRequest: TaskRequestDto = { ...taskRequest, id: '10000000-0000-0000-0000-000000000002' };
+    fetchTaskRequestsMock.mockImplementation(async (options: ListTaskRequestsQuery) => ({
+      items: options.reviewer === 'me' ? [taskRequest] : [taskRequest, secondRequest],
+    }));
+
+    const { result } = renderQueue({ reviewer: 'me', reviewerTeam: 'team-1' });
+    act(() => result.current.setActiveTab('all'));
+
+    await waitFor(() => expect(result.current.queueSettled).toBe(true));
+    await waitFor(() => expect(badgeFor(result.current.tabs, 'all')).toBe(1));
+    expect(badgeFor(result.current.tabs, 'pending_review')).toBe(2);
+    expect(result.current.shown).toHaveLength(1);
+    expect(
+      fetchTaskRequestsMock.mock.calls.some(
+        ([options]) =>
+          options.limit === 1 && options.reviewer === 'me' && options.reviewer_team_id === 'team-1',
+      ),
+    ).toBe(true);
   });
 
   it.each(['pending', 'failed', 'loaded', 'loaded-empty'] as const)(

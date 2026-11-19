@@ -1,5 +1,8 @@
 import { TASK_PRIORITY_LABELS } from '../../../../lib/copy/enum-labels';
-import { TASK_REQUEST_REVIEW_DECISION_LABEL } from '../../../../lib/copy/task-requests';
+import {
+  TASK_REQUEST_NEXT_COPY,
+  TASK_REQUEST_REVIEW_DECISION_LABEL,
+} from '../../../../lib/copy/task-requests';
 import type { WorkspaceActor } from '../../../../lib/cross-system/useWorkspaceActors';
 import type { TaskDto } from '@ap/feature-shared';
 import { InternalTaskBadge, UnassignedBadge } from '../../../../ui/index';
@@ -23,6 +26,9 @@ export function TaskRequestDecisionSection({
   link,
   teamCandidates,
   eligibleActors,
+  recentlyApproved,
+  hasNextRequest,
+  onNextRequest,
 }: {
   headingRef?: React.Ref<HTMLHeadingElement>;
   names: NameMaps;
@@ -33,7 +39,11 @@ export function TaskRequestDecisionSection({
   /** Team ids already known in context, for the conversion form's team picker. */
   teamCandidates: readonly string[];
   eligibleActors: readonly WorkspaceActor[];
+  recentlyApproved?: boolean;
+  hasNextRequest?: boolean;
+  onNextRequest?: () => void;
 }) {
+  const nextRequestReasonId = 'task-request-next-reason';
   return (
     <section data-anchor="decision" className="border-t border-border-subtle px-4 py-4">
       <PanelSectionTitle ref={headingRef} tabIndex={-1}>
@@ -67,6 +77,7 @@ export function TaskRequestDecisionSection({
                 variant={conversion.open ? 'secondary' : 'primary'}
                 size={conversion.open ? 'sm' : 'md'}
                 className="w-full"
+                data-testid="task-request-convert-action"
                 onClick={() => {
                   conversion.setOpen((open) => !open);
                   link.setOpen(false);
@@ -79,9 +90,29 @@ export function TaskRequestDecisionSection({
           </fieldset>
         )}
         {!resultingTask &&
-          (link.canLinkExisting || decision.canRequestEvidence || decision.canReject) && (
+          (recentlyApproved || link.canLinkExisting || decision.canRequestEvidence || decision.canReject) && (
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className="sr-only">보조 결정</legend>
+              {recentlyApproved && (
+                <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    disabled={!hasNextRequest}
+                    {...(!hasNextRequest ? { 'aria-describedby': nextRequestReasonId } : {})}
+                    onClick={onNextRequest}
+                  >
+                    {TASK_REQUEST_NEXT_COPY.label}
+                  </Button>
+                  {!hasNextRequest && (
+                    <p id={nextRequestReasonId} role="status" className="text-xs text-text-muted">
+                      {TASK_REQUEST_NEXT_COPY.noNext}
+                    </p>
+                  )}
+                </div>
+              )}
               {(link.canLinkExisting || decision.canRequestEvidence) && (
                 <div
                   className={

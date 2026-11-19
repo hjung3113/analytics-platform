@@ -33,10 +33,25 @@ vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
   const TaskRequestPanelBody = ({
     item,
     onDecisionComplete,
-  }: { item: TaskRequestDto; onDecisionComplete?: (item: TaskRequestDto) => void }) => (
-    <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
-      Approve selected
-    </button>
+    recentlyApproved,
+    onNextRequest,
+  }: {
+    item: TaskRequestDto;
+    onDecisionComplete?: (item: TaskRequestDto) => void;
+    recentlyApproved?: boolean;
+    onNextRequest?: () => void;
+  }) => (
+    <div>
+      <output data-testid="selected-request-status">{item.status}</output>
+      <button type="button" onClick={() => onDecisionComplete?.({ ...item, status: 'approved' })}>
+        Approve selected
+      </button>
+      {recentlyApproved && (
+        <button type="button" onClick={onNextRequest}>
+          다음 요청
+        </button>
+      )}
+    </div>
   );
   return {
     ...actual,
@@ -153,12 +168,19 @@ describe('TaskRequestsScreen over a bare host seam', () => {
     expect(navigated.at(-1)?.record).toEqual(BASE);
   });
 
-  it('replaces the URL with the next request after an approval', async () => {
+  it('keeps the approved request selected through refresh, then advances on the next-request action', async () => {
     render(<Harness search={{ ...BASE, param: 'a1' }} autoSelect={false} />);
+    const approved = { ...first, status: 'approved' as const };
+    api.fetchTaskRequests.mockImplementation(async (query) => taskRequestPage([approved, second], query));
     fireEvent.click(await screen.findByRole('button', { name: 'Approve selected' }));
+    await waitFor(() => expect(screen.getByTestId('selected-request-status')).toHaveTextContent('approved'));
+    expect(navigated).toEqual([]);
+    expect(api.fetchTaskRequests).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 요청' }));
     await waitFor(() => expect(navigated.length).toBeGreaterThan(0));
     expect(navigated.at(-1)?.record).toEqual({ ...BASE, param: 'b1' });
-    expect(navigated.at(-1)?.options).toEqual({ replace: true });
+    expect(navigated.at(-1)?.options).toBeUndefined();
   });
 
   it('selects the first row without a navigate only when autoSelect is on', async () => {

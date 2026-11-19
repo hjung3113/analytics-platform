@@ -363,7 +363,7 @@ describe('TaskRequestsRoute display ids', () => {
   });
 });
 
-it('filters assigned reviewers before loading rows while leaving operational tab counts unchanged', async () => {
+it('filters assigned reviewers for the list and All count while preserving global status counts', async () => {
   const other = {
     ...taskRequest,
     id: '10000000-0000-0000-0000-000000000099',
@@ -389,5 +389,6 @@ it('filters assigned reviewers before loading rows while leaving operational tab
     expect(screen.queryByRole('button', { name: /REQ-42/ })).not.toBeInTheDocument(),
   );
   expect(await screen.findByRole('button', { name: /REQ-99/ })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: /^전체/ })).toHaveTextContent('1');
   expect(screen.getByRole('tab', { name: /^검토 대기/ })).toHaveTextContent('2');
 });
