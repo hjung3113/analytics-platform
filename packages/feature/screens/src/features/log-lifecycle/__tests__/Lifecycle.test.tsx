@@ -89,20 +89,32 @@ describe('log lifecycle screens', () => {
     await user.click(screen.getByRole('radio', { name: '승인' }));
     await user.click(screen.getByRole('button', { name: 'Gate 결정 기록' }));
 
-    expect(screen.getByText('결정 사유를 입력해 주세요.')).toBeVisible();
-    expect(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' })).toHaveAttribute('aria-invalid', 'true');
+    const reason = screen.getByRole('textbox', { name: '결정 사유 (한 줄)' });
+    const error = screen.getByText('결정 사유를 입력해 주세요.');
+    expect(error).toBeVisible();
+    expect(reason).toHaveAttribute('aria-invalid', 'true');
+    expect(reason).toHaveFocus();
+    expect(reason).toHaveAttribute('aria-describedby', expect.stringContaining(error.id));
+    expect(reason).toHaveAttribute('maxLength', '2000');
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(run).not.toHaveBeenCalled();
   });
   it('orders decision history chronologically and marks a self-approval', () => {
     const first = gateDecision({ id: 'first', decision: 'approved', reason: '먼저 기록한 자기 승인', selfApproved: true, at: '2026-11-18T10:00:00.000Z' });
     const second = gateDecision({ id: 'second', decision: 'rejected', reason: '나중에 기록한 거절', selfApproved: false, at: '2026-11-18T11:00:00.000Z' });
-    render(<GatePanel {...props()} round={{ ...gate(), gateDecisions: [second, first] }} />);
+    render(<GatePanel {...props()} round={{ ...gate(), gateDecisions: [first, second] }} />);
 
     const firstReason = screen.getByText('먼저 기록한 자기 승인');
     const secondReason = screen.getByText('나중에 기록한 거절');
     expect(firstReason.compareDocumentPosition(secondReason) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(firstReason.closest('div.border-t')).toHaveTextContent('자기 승인');
+  });
+  it('uses the latest timestamp for the current Gate badge even when the server list is out of order', () => {
+    const first = gateDecision({ id: 'first', decision: 'approved', reason: '오래된 결정', selfApproved: false, at: '2026-11-18T10:00:00.000Z' });
+    const latest = gateDecision({ id: 'latest', decision: 'rejected', reason: '최신 결정', selfApproved: false, at: '2026-11-18T11:00:00.000Z' });
+    render(<GatePanel {...props()} round={{ ...gate(), gateDecisions: [latest, first] }} />);
+
+    expect(screen.getByRole('region', { name: 'Gate 결정' }).firstElementChild).toHaveTextContent('거절');
   });
   it('requires a confirm click before a Gate write and states exception details', async () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate(['verdict_not_pass'])} />);

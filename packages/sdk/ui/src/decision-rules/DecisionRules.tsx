@@ -30,8 +30,17 @@ export interface CreateDecisionUndoToastActionOptions {
 /** Supplies the standard action label and callback shape for a host toast with an undo action. */
 export function createDecisionUndoToastAction({ kind, onUndo, label = DECISION_RULES_COPY.undoLabel }: CreateDecisionUndoToastActionOptions): DecisionUndoToastAction {
   switch (kind) {
-    case 'reversible':
-      return { label, onAction: onUndo };
+    case 'reversible': {
+      let consumed = false;
+      return {
+        label,
+        onAction: () => {
+          if (consumed) return;
+          consumed = true;
+          onUndo();
+        },
+      };
+    }
     default: {
       const exhaustive: never = kind;
       throw new Error(`Unsupported decision rule: ${exhaustive}`);
@@ -58,8 +67,7 @@ export interface DecisionReasonFieldProps {
 }
 
 /** One-line, required reason input for an opt-in judgment record. */
-export function DecisionReasonField({ kind, value, onChange, id, disabled = false, maxLength = 200, error, messages }: DecisionReasonFieldProps) {
-  if (kind !== 'judgment') return null;
+export function DecisionReasonField({ value, onChange, id, disabled = false, maxLength, error, messages }: DecisionReasonFieldProps) {
   return (
     <FormField
       {...(id !== undefined ? { id } : {})}
@@ -86,18 +94,16 @@ export function DecisionReasonField({ kind, value, onChange, id, disabled = fals
 export interface DecisionImpactConfirmDialogProps {
   kind: 'irreversible';
   trigger: ReactElement;
-  /** The consumer supplies one sentence naming the affected target, system, permission and lost capability. */
+  /** The consumer supplies one sentence naming the affected target, scope and lost capability. */
   impactText: string;
   onConfirm: () => void;
-  pending?: boolean;
   title?: string;
   confirmLabel?: string;
   cancelLabel?: string;
 }
 
 /** Confirmation gate for opt-in irreversible actions. The AlertDialog trigger owns focus return. */
-export function DecisionImpactConfirmDialog({ kind, trigger, impactText, onConfirm, pending = false, title = DECISION_RULES_COPY.confirmTitle, confirmLabel = DECISION_RULES_COPY.confirm, cancelLabel = DECISION_RULES_COPY.cancel }: DecisionImpactConfirmDialogProps) {
-  if (kind !== 'irreversible') return trigger;
+export function DecisionImpactConfirmDialog({ trigger, impactText, onConfirm, title = DECISION_RULES_COPY.confirmTitle, confirmLabel = DECISION_RULES_COPY.confirm, cancelLabel = DECISION_RULES_COPY.cancel }: DecisionImpactConfirmDialogProps) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
@@ -107,8 +113,8 @@ export function DecisionImpactConfirmDialog({ kind, trigger, impactText, onConfi
           <AlertDialogDescription>{impactText}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction disabled={pending} onClick={onConfirm}>{confirmLabel}</AlertDialogAction>
+          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{confirmLabel}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

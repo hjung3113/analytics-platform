@@ -2,32 +2,22 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  Button,
   DECISION_RULE_KINDS,
   DecisionImpactConfirmDialog,
   DecisionReasonField,
-  Button,
   createDecisionUndoToastAction,
   requiredDecisionReasonError,
 } from '../../index';
 
 describe('opt-in decision rules', () => {
-  it('leaves an ordinary button unchanged when no decision rule is selected', async () => {
-    const user = userEvent.setup();
-    const onAction = vi.fn();
-    render(<Button onClick={onAction}>Run action</Button>);
-
-    await user.click(screen.getByRole('button', { name: 'Run action' }));
-
-    expect(onAction).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('alertdialog')).toBeNull();
-  });
-
   it('declares the three rule kinds and creates an undo toast action for reversible work', () => {
     const onUndo = vi.fn();
     const action = createDecisionUndoToastAction({ kind: 'reversible', onUndo });
 
     expect(DECISION_RULE_KINDS).toEqual(['reversible', 'judgment', 'irreversible']);
     expect(action.label).toBe('실행 취소');
+    action.onAction();
     action.onAction();
     expect(onUndo).toHaveBeenCalledOnce();
   });
@@ -49,11 +39,39 @@ describe('opt-in decision rules', () => {
     expect(input).toHaveAttribute('aria-required', 'true');
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(input).toHaveAttribute('type', 'text');
+    expect(input).not.toHaveAttribute('maxlength');
     expect(screen.getByText('· 필수')).toBeVisible();
     expect(screen.getByText('결정 사유를 입력해 주세요.')).toBeVisible();
     fireEvent.change(input, { target: { value: '검토 완료' } });
     expect(onChange).toHaveBeenCalledWith('검토 완료');
     expect(requiredDecisionReasonError('검토 완료')).toBeUndefined();
+  });
+
+  it('preserves the existing Button defaults and supplies Korean defaults for opt-in confirmation', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <>
+        <Button>저장</Button>
+        <DecisionImpactConfirmDialog
+          kind="irreversible"
+          impactText="대상: Actor A · Payments 시스템의 조회 권한이 취소됩니다."
+          onConfirm={onConfirm}
+          trigger={<button type="button">변경 실행</button>}
+        />
+      </>,
+    );
+
+    const save = screen.getByRole('button', { name: '저장' });
+    expect(save).toHaveClass('bg-accent-primary', 'h-10', 'px-4');
+    expect(save).not.toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: '변경 실행' }));
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveTextContent('변경 내용을 확인해 주세요.');
+    expect(within(dialog).getByRole('button', { name: '취소' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: '확인' })).toBeVisible();
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 
   it('waits for confirmation and restores focus to the trigger after cancel', async () => {

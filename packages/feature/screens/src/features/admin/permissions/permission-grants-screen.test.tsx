@@ -792,7 +792,7 @@ describe('/admin/permissions/grants screen', () => {
       await user.click(submit);
       if (kind === 'grants') {
         const confirmation = await screen.findByRole('alertdialog');
-        expect(confirmation).toHaveTextContent('Actor One는 Payments 시스템에서 VOC 분류 권한이 취소되어 VOC 분류 기능을 사용할 수 없게 됩니다.');
+        expect(confirmation).toHaveTextContent('대상: Actor One · Payments 시스템에서 VOC 분류 권한이 취소되어 이 기능을 사용할 수 없게 됩니다.');
         expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/${kind}/${id}/revoke`)).toBe(false);
         await user.click(within(confirmation).getByRole('button', { name: '권한 취소' }));
       }
@@ -839,7 +839,7 @@ describe('/admin/permissions/grants screen', () => {
     const trigger = within(detail).getByRole('button', { name: '권한 취소' });
     await user.click(trigger);
     const confirmation = await screen.findByRole('alertdialog');
-    expect(confirmation).toHaveTextContent('Actor One는 Payments 시스템에서 VOC 분류 권한이 취소되어 VOC 분류 기능을 사용할 수 없게 됩니다.');
+    expect(confirmation).toHaveTextContent('대상: Actor One · Payments 시스템에서 VOC 분류 권한이 취소되어 이 기능을 사용할 수 없게 됩니다.');
     expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/grants/${GRANT_ID}/revoke`)).toBe(false);
 
     await user.click(within(confirmation).getByRole('button', { name: '취소' }));

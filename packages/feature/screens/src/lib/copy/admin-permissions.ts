@@ -37,8 +37,8 @@ export const ADMIN_PERMISSIONS_COPY = {
   revokeConfirmTitle: '권한 취소 확인',
   revokeConfirm: '권한 취소',
   cancel: '취소',
-  revokeImpact: (target: string, system: string, permission: string, capability: string) =>
-    `${target}는 ${system}에서 ${permission} 권한이 취소되어 ${capability} 기능을 사용할 수 없게 됩니다.`,
+  revokeImpact: (target: string, system: string, permission: string) =>
+    `대상: ${target} · ${system} 시스템에서 ${permission} 권한이 취소되어 이 기능을 사용할 수 없게 됩니다.`,
   liftDeny: '차단 해제',
   reasonPlaceholder: '처리 사유를 입력하세요.',
   revokeSuccess: '권한을 취소했습니다.',

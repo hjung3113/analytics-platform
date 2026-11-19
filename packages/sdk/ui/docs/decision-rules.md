@@ -17,7 +17,7 @@ Use `createDecisionUndoToastAction({ kind: 'reversible', onUndo })` to create th
 
 ## Judgment
 
-`DecisionReasonField` requires `kind="judgment"` and renders one text input with an accessible required state and visible required mark. Pass an `error` only after submit or blur; `requiredDecisionReasonError(value)` supplies the Korean default message for whitespace-only input. The consumer records the returned value with its decision and owns the history ordering and self-approval meaning.
+`DecisionReasonField` requires `kind="judgment"` and renders one text input with an accessible required state and visible required mark. Pass an `error` only after submit or blur; `requiredDecisionReasonError(value)` supplies the Korean default message for whitespace-only input. The SDK does not set a length limit; pass `maxLength` only when the consumer contract declares one. The consumer records the returned value with its decision and owns the history ordering and self-approval meaning.
 
 ## Irreversible
 

@@ -127,7 +127,7 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
     ? (linkedClusterQuery.data?.display_id ?? null)
     : null;
   const { key: statusIdempotencyKey, markConsumed: markStatusKeyConsumed } = useIdempotencyKey();
-  const { notify, notifyError, notifySuccess } = useHostSeam();
+  const { notify, notifyError, notifySuccess, dismiss } = useHostSeam();
   const { data: me } = useMeBridge();
   const managePermissionQuery = usePermissionCheckBridge({
     capability: 'finding.manage',
@@ -146,6 +146,7 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
   });
 
   function handleMarkNotActionable(): void {
+    const previousStatus = finding.status;
     statusMutation.mutate(
       { status: 'not_actionable' },
       {
@@ -156,22 +157,30 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
             notifySuccess(FINDING_DECISION_RULES_COPY.markedSuccess);
             return;
           }
-          notify({
+          if (previousStatus !== 'active') {
+            notify({ tone: 'success', message: FINDING_DECISION_RULES_COPY.markedSuccess });
+            return;
+          }
+          let noticeId = '';
+          noticeId = notify({
             tone: 'success',
             variant: 'undo',
             message: FINDING_DECISION_RULES_COPY.markedSuccess,
             action: createDecisionUndoToastAction({
               kind: 'reversible',
-              onUndo: () => statusMutation.mutate(
-                { status: finding.status },
-                {
-                  onSuccess: () => {
-                    markStatusKeyConsumed();
-                    setNotActionableHistory(FINDING_DECISION_RULES_COPY.restoredHistory);
-                    notifySuccess(FINDING_DECISION_RULES_COPY.restoredSuccess);
+              onUndo: () => {
+                dismiss?.(noticeId);
+                statusMutation.mutate(
+                  { status: previousStatus },
+                  {
+                    onSuccess: () => {
+                      markStatusKeyConsumed();
+                      setNotActionableHistory(FINDING_DECISION_RULES_COPY.restoredHistory);
+                      notifySuccess(FINDING_DECISION_RULES_COPY.restoredSuccess);
+                    },
                   },
-                },
-              ),
+                );
+              },
             }),
           });
         },

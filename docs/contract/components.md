@@ -254,6 +254,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 - `FieldLabel`·`FormField`의 `requiredMark?: 'asterisk' | 'text'` 기본값은 `'asterisk'`다. `'text'`는 «· 필수»를 표시하고, `requiredText`로 소비자가 Kernel i18n의 `requiredMark` 번역을 넘길 수 있다. `FormField.showRequiredMark`는 입력의 `aria-required`를 유지하면서 외부 라벨에 이미 표시한 시각 표식을 숨길 때만 사용하며 기본값은 `true`다. `RequiredMark`는 두 표식 모양을 같은 방식으로 그린다. `FormField.errorRole="alert"`은 단일 서버 거절에만 사용하고 여러 필드의 입력 검증에는 사용하지 않는다. `@ap/kernel` 메시지 `requiredMark`는 ko/en을 제공한다.
 - `useValidatedSubmit({ validate, onValid })`는 제출 값을 검증하고 필드별 `errors`와 `handleSubmit(values)`를 돌려준다. 오류가 있으면 렌더 후 폼 안의 첫 `[aria-invalid="true"]` 컨트롤로 포커스를 옮긴다. 한 필드를 수정할 때는 `clearError(field)`로 그 오류만 지우고, `clearErrors()`는 닫기·초기화·모드 변경처럼 폼 전체가 리셋될 때 사용한다. `FormField`의 render-prop `control`을 실제 입력에 펼쳐야 한다.
+- 선택 적용 가능한 의사결정 규칙 조각(`DecisionRuleKind`, `createDecisionUndoToastAction`, `DecisionReasonField`, `requiredDecisionReasonError`, `DecisionImpactConfirmDialog`)의 공개 API와 사용법은 [`@ap/ui` 문서](../../packages/sdk/ui/docs/decision-rules.md)를 따른다.
 - `Button.disabledReason?: ReactNode`는 버튼이 `disabled` 또는 `loading`일 때만 보이는 설명을 그려 `aria-describedby`로 연결한다. 이 prop을 전달하면 설명이 숨겨져 있는 동안에도 같은 wrapper를 유지해 버튼 노드와 ref가 바뀌지 않는다. 입력 오류 때문에 제출을 막는 방식 대신 제출 시 필드 오류를 보인다.
 - `validateLines(text, rule, { maxLines, maxLinesMessage? })`는 CRLF·LF·CR 줄을 1부터 검사하고 상한 다음 줄을 오류로 보고한다. 마지막 줄바꿈 하나로 생긴 빈 줄은 세지 않으며, 상한 뒤 내용을 조용히 버리지 않는다. `LineErrorList`는 선택적 `id`를 받고 처음 5개 오류와 «외 n건»을 표시하며 `messages`로 Kernel `lineError`·`lineErrorMore` 번역을 연결할 수 있다. 상한 메시지는 Kernel `lineLimitExceeded`를 넘긴다.
 
@@ -709,13 +710,15 @@ Unknown
 
 ## 20. Detail Surface Contract
 
-### Decision rules (opt-in, ADR-0174)
+### 의사결정 규칙 (Decided, 2026-11-19, [ADR-0174](../adr/0174-decision-rules-opt-in.md))
 
-A consumer opts an action into one decision kind. Actions without an opt-in keep their existing behavior.
+소비자는 동작별로 의사결정 종류를 명시해 적용한다. 적용하지 않은 동작은 기존 행동을 유지한다.
 
-- **Reversible:** run immediately. Show a toast with «실행 취소» that restores the prior state through the domain's own command, and add one history line. Do not ask for confirmation.
-- **Judgment:** record a required one-line reason with the decision. Show «· 필수» and place a validation error below the field following the form contract in §13. Order decision history by time and mark self-approval.
-- **Irreversible:** before writing, show one sentence naming the affected target, system, permission and capability that will be lost. Run the command only after confirmation; cancel sends no command and returns focus to the trigger.
+- **되돌릴 수 있음:** 즉시 실행한다. 소비자의 기존 명령으로 이전 상태를 복구할 수 있을 때만 «실행 취소» 토스트를 제공하고, 상태 아래 이력 한 줄을 계속 표시한다. 확인 대화상자는 띄우지 않는다.
+- **판단 기록:** 결정과 함께 필수 한 줄 사유를 기록한다. «· 필수» 표식을 보이고 §13 폼 계약에 따라 오류를 입력 아래 표시하며, 제출이 막히면 잘못된 입력으로 포커스를 옮긴다. 결정 이력은 시간 순서로 보이고 본인 승인을 표시한다.
+- **되돌릴 수 없음:** 실행 전에 확인한다. 한 문장에 영향을 받는 대상·범위·잃게 되는 기능을 쓴다. 확인 뒤에만 명령을 보내며, 취소하면 명령을 보내지 않고 트리거로 포커스를 돌린다.
+
+#2540은 Finding «조치 불필요», Gate 결정, 권한 취소에 이 규칙을 적용한다.
 
 ### Drawer
 

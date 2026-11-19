@@ -153,7 +153,7 @@ export function FullFindingDetail({
             <FieldRow label="상태" inset="none">
               <FitBadge>{FINDING_STATUS_LABELS[finding.status]}</FitBadge>
             </FieldRow>
-            {notActionableHistory ? <p className="text-xs text-text-muted" role="status">{notActionableHistory}</p> : null}
+            {notActionableHistory ? <p className="text-xs text-text-muted">{notActionableHistory}</p> : null}
             <FindingOwnerField
               key={finding.id}
               finding={finding}

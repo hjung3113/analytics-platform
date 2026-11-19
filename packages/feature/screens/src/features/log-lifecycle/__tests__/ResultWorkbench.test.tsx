@@ -50,13 +50,13 @@ it('fills the read-only server Gate basis and preserves the reason through rule 
   expect(screen.getByLabelText('서버 결정 근거')).toHaveTextContent('실패 4');
   expect(screen.getByLabelText('서버 결정 근거')).toHaveTextContent('SYN-R001');
   expect(within(screen.getByRole('radiogroup', { name: '결정' })).getAllByRole('radio').every(r => r.getAttribute('aria-checked') === 'false')).toBe(true);
-  await user.type(screen.getByLabelText('결정 사유 (필수)'), '근거 검토 중');
+  await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '근거 검토 중');
   await user.click(screen.getByRole('button', { name: 'SYN-R001 상세 열기' }));
   expect(screen.getAllByRole('dialog')).toHaveLength(1);
   fireEvent.mouseDown(screen.getByRole('tab', { name: '원본' }), { button: 0 });
   fireEvent.mouseDown(screen.getByRole('tab', { name: '결과·결함' }), { button: 0 });
   await user.click(screen.getByRole('button', { name: 'Gate 결정' }));
-  expect(screen.getByLabelText('결정 사유 (필수)')).toHaveValue('근거 검토 중');
+  expect(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' })).toHaveValue('근거 검토 중');
   expect(screen.getByRole('button', { name: 'Gate 결정 기록' })).toBeDisabled();
 });
 it('omits the Gate action without lifecycle:gate-decide', () => {

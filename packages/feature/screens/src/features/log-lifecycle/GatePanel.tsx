@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, DecisionReasonField, FieldList, FieldRow, Input, Label, RadioGroup, RadioGroupItem, Textarea, requiredDecisionReasonError, useImeEnterGuard } from '@ap/ui';
 import { GATE_LABEL, REASON_COPY, STATE_LABEL, type Attempt, type CursorPage, type Page, type ValidationIssueRow, type RequestDetail, type RuleResult, type RoundDetail, type ScreenProps, type WriteResult } from './contracts';
@@ -147,6 +147,8 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
   const [rawBasisOpen, setRawBasisOpen] = useState(false);
   const rawBasisId = useId();
   const available = round.gateAvailability;
+  const orderedGateDecisions = [...round.gateDecisions].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const latestGateDecision = orderedGateDecisions.at(-1);
   const { draft: { decision, reason, riskActor, scope, until, result }, update, pending, submit, retry } = controller;
   const reference = decisiveReference(round);
   const basis = readGateBasis(available.basis, reference);
@@ -171,6 +173,9 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
     }
     if (!locked && selected?.allowed && !exceptionIncomplete) setConfirmOpen(true);
   };
+  useEffect(() => {
+    if (reasonError) document.getElementById(`gate-reason-${round.id}`)?.focus();
+  }, [reasonError, round.id]);
   const counts = recordOf(decisive?.counts);
   const failureCount = sparseCountValue(counts, 'FAIL');
   const uncheckedCount = sparseCountValue(counts, 'NOT_CHECKED');
@@ -183,7 +188,7 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
     ? 'Gate 기준 시도 없음 · 서버가 결정 근거로 삼은 완료 시도가 아직 없습니다.'
     : '결정 근거 시도를 확인할 수 없습니다.';
   return <section aria-label="Gate 결정" className="grid min-w-0 grid-cols-1 gap-4 break-keep">
-    <div className="flex items-center justify-between gap-2"><GateBadge decision={round.gateDecisions.at(-1)?.decision} /><span className="text-xs text-text-muted">사람의 업무 승인</span></div>
+    <div className="flex items-center justify-between gap-2"><GateBadge decision={latestGateDecision?.decision} /><span className="text-xs text-text-muted">사람의 업무 승인</span></div>
     {reasons.length > 0 ? <div className="grid gap-2">{ui.trust(reasons, completedAt)}{reasons.map(r => <p key={r} className="text-xs text-text-secondary">{REASON_COPY[r] ?? '결정 가능 여부를 확인하지 못했습니다.'}</p>)}</div> : null}
     <section aria-label="서버 결정 근거" className="grid gap-2 text-xs">
       <h3 className="font-semibold">서버 결정 근거</h3>
@@ -215,7 +220,7 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
         value={reason}
         error={reasonError}
         disabled={locked}
-        maxLength={200}
+        maxLength={2000}
         messages={{ reasonLabel: pageCopy.decisionReasonOneLine, requiredMark: pageCopy.decisionRequiredMark }}
         onChange={value => {
           update({ reason: value });
@@ -233,6 +238,6 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
       <span>기록하면 이력에 남고 지울 수 없습니다. 바꾸려면 새 결정을 기록합니다.</span>
     </AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={locked}>취소</AlertDialogCancel><Button disabled={locked || !selected?.allowed} onClick={() => { setConfirmOpen(false); void submit(); }}>기록</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <h3 className="text-sm font-semibold">Gate 결정 이력</h3>
-    {round.gateDecisions.length === 0 ? <p className="text-xs text-text-muted">아직 결정 없음</p> : [...round.gateDecisions].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).map(d => <div key={d.id} className="grid gap-2 border-t border-border-subtle pt-3 text-xs"><GateBadge decision={d.decision} /><p>{d.decidedBy.displayName || '이름 확인 불가'} · {time(d.at)} KST{d.selfApproved ? ' · 자기 승인' : ''}</p><p>{d.reason}</p>{d.exception ? <p>예외 범위: {d.exception.scope} · 위험 수용자 {d.exception.riskAcceptedBy}{d.exception.until ? ` · ${d.exception.until}까지` : ''}</p> : null}<Disclosure label="결정 시점 근거"><pre className="whitespace-pre-wrap break-all">{JSON.stringify(d.basis, null, 2)}</pre></Disclosure></div>)}
+    {orderedGateDecisions.length === 0 ? <p className="text-xs text-text-muted">아직 결정 없음</p> : orderedGateDecisions.map(d => <div key={d.id} className="grid gap-2 border-t border-border-subtle pt-3 text-xs"><GateBadge decision={d.decision} /><p>{d.decidedBy.displayName || '이름 확인 불가'} · {time(d.at)} KST{d.selfApproved ? ' · 자기 승인' : ''}</p><p>{d.reason}</p>{d.exception ? <p>예외 범위: {d.exception.scope} · 위험 수용자 {d.exception.riskAcceptedBy}{d.exception.until ? ` · ${d.exception.until}까지` : ''}</p> : null}<Disclosure label="결정 시점 근거"><pre className="whitespace-pre-wrap break-all">{JSON.stringify(d.basis, null, 2)}</pre></Disclosure></div>)}
   </section>;
 }

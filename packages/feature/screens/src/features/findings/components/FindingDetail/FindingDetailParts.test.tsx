@@ -1,7 +1,7 @@
 import { type HostLinkProps, type HostNotice, type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import { FindingDetailPanel } from '../../../../test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type UseFindingDetailPartsArgs, useFindingDetailParts } from './FindingDetailParts';
@@ -108,6 +108,7 @@ function makeSeam(linkable: boolean) {
   const calls = {
     notifyError: vi.fn(),
     notifySuccess: vi.fn(),
+    dismiss: vi.fn(),
     notices: [] as HostNotice[],
     navigate: vi.fn(),
     title: vi.fn(),
@@ -126,7 +127,7 @@ function makeSeam(linkable: boolean) {
     notifyError: calls.notifyError,
     notifySuccess: calls.notifySuccess,
     notify,
-    dismiss: vi.fn(),
+    dismiss: calls.dismiss,
     useNavigate: () => calls.navigate,
     useTitle: calls.title,
   };
@@ -171,6 +172,7 @@ beforeEach(() => {
     ...finding.value,
     source_type: 'manual',
     source_id: null,
+    status: 'active',
     linked_task_id: null,
   };
   clusterDetail.value = { isSuccess: false };
@@ -270,26 +272,54 @@ describe('useFindingDetailParts', () => {
       message: '조치 불필요로 표시했습니다.',
       action: { label: '실행 취소' },
     });
-    expect(screen.getByText('조치 불필요로 표시했습니다.')).toBeVisible();
+    const historyLine = screen.getByText('조치 불필요로 표시했습니다.');
+    expect(historyLine).toBeVisible();
+    expect(historyLine).not.toHaveAttribute('role', 'status');
 
     act(() => calls.notices[0]?.action?.onAction());
     expect(statusMutationMock.mock.calls.map(([input]) => input)).toEqual([
       { status: 'not_actionable' },
       { status: 'active' },
     ]);
+    expect(calls.dismiss).toHaveBeenCalledWith('notice');
+
+    act(() => calls.notices[0]?.action?.onAction());
+    expect(statusMutationMock).toHaveBeenCalledTimes(2);
+    expect(calls.dismiss).toHaveBeenCalledOnce();
+  });
+
+  it('marks a draft Finding immediately without offering an undo action', async () => {
+    finding.value = { ...finding.value, status: 'draft' };
+    loaded();
+    const { seam, calls } = makeSeam(true);
+    renderIn(seam, <Harness findingId={FINDING_ID} onClose={() => {}} />);
+
+    await userEvent.click(screen.getByTestId('mark-not-actionable-btn'));
+
+    expect(statusMutationMock.mock.calls.map(([input]) => input)).toEqual([{ status: 'not_actionable' }]);
+    expect(calls.notices[0]).toEqual({
+      tone: 'success',
+      message: '조치 불필요로 표시했습니다.',
+    });
+    expect(calls.notices[0]?.action).toBeUndefined();
+    expect(calls.notices[0]?.variant).toBeUndefined();
+    expect(screen.getByText('조치 불필요로 표시했습니다.')).toBeVisible();
   });
 
   it('shows a host error when undoing a Finding status fails', async () => {
-    statusMutationMock
-      .mockImplementationOnce((_input: unknown, options?: { onSuccess?: () => void }) => options?.onSuccess?.())
-      .mockImplementationOnce((_input: unknown, _options: unknown, onError: (error: unknown) => void) => onError({ envelope: {} }));
+    statusMutationMock.mockImplementation(
+      (input: { status?: string }, options: { onSuccess?: () => void } | undefined, onError: (error: unknown) => void) => {
+        if (input.status === 'not_actionable') options?.onSuccess?.();
+        else onError({ envelope: {} });
+      },
+    );
     const { seam, calls } = makeSeam(true);
     renderIn(seam, <Harness findingId={FINDING_ID} onClose={() => {}} />);
 
     await userEvent.click(screen.getByTestId('mark-not-actionable-btn'));
     act(() => calls.notices[0]?.action?.onAction());
 
-    expect(calls.notifyError).toHaveBeenCalledWith('mapped error');
+    await waitFor(() => expect(calls.notifyError).toHaveBeenCalledWith('mapped error'));
   });
 
   it.each([

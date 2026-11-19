@@ -84,7 +84,6 @@ export function PermissionGrantActionForm({
           trigger={submitButton}
           impactText={impactText}
           onConfirm={submit}
-          pending={mutation.isPending}
           title={ADMIN_PERMISSIONS_COPY.revokeConfirmTitle}
           confirmLabel={ADMIN_PERMISSIONS_COPY.revokeConfirm}
           cancelLabel={ADMIN_PERMISSIONS_COPY.cancel}
