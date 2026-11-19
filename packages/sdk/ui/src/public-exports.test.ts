@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
 import * as ui from './index';
-import type { GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps } from './index';
+import type { ButtonProps, GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, LineErrorListMessages, LineErrorListProps, LineValidationError, LineValidationRule, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps, ValidateLinesOptions, UseValidatedSubmitOptions, UseValidatedSubmitResult, ValidationErrors } from './index';
 
 // Types are erased at runtime, so `Object.keys(ui)` cannot see them: this alias fails `tsc` if one stops being exported.
-export type PublicTypes = [GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps];
+export type PublicTypes = [ButtonProps, GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, LineErrorListMessages, LineErrorListProps, LineValidationError, LineValidationRule, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps, ValidateLinesOptions, UseValidatedSubmitOptions<{ field: string }>, UseValidatedSubmitResult<{ field: string }>, ValidationErrors<{ field: string }>];
 
 // An accidental drop or addition changes the platform's public primitive API (06 §13); change this list on purpose.
 const PUBLIC_EXPORTS = [
@@ -34,7 +34,7 @@ const PUBLIC_EXPORTS = [
   'shortcutLabel',
   'useDetailPanelSlot', 'useDetailPanelSlotHost', 'useDetailPanelEscape',
   // Moved from FeedbackOps in #442 (ADR-0046/0047).
-  'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldList', 'FieldRow', 'FormField', 'GROUPED_SELECTION_MESSAGES', 'GroupedSelectionList', 'InfoTip', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'useImeEnterGuard', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
+  'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldList', 'FieldRow', 'FormField', 'GROUPED_SELECTION_MESSAGES', 'GroupedSelectionList', 'InfoTip', 'LineErrorList', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'useImeEnterGuard', 'useValidatedSubmit', 'validateLines', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
   // Re-exported sonner for the analysis board's single <Toaster> and toast.custom() undo (#497).
   'Toaster', 'toast', 'TransientOverlayScope',
   // The surface that owns detail-slot registrants is covered but mounted (ADR-0088, #893 893c2).

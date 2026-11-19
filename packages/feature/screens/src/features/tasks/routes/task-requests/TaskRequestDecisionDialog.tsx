@@ -1,4 +1,5 @@
 import type { TaskRequestDto } from '@ap/feature-shared';
+import { TASK_REQUEST_COPY } from '../../../../lib/copy/task-requests';
 import {
   Button,
   Dialog,
@@ -7,8 +8,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Label,
+  FormField,
   Textarea,
+  useValidatedSubmit,
 } from '@ap/ui';
 import { Loader2 } from 'lucide-react';
 import * as React from 'react';
@@ -146,6 +148,7 @@ export function TaskRequestDecisionDialog({
           label: isSelfApproval ? '본인 승인 사유' : '승인 사유',
           submitLabel: '승인',
           required: isSelfApproval,
+          reasonRequired: TASK_REQUEST_COPY.selfApprovalReasonRequired,
         }
       : content?.action === 'request-more-evidence'
         ? {
@@ -154,6 +157,7 @@ export function TaskRequestDecisionDialog({
             label: '근거 메모',
             submitLabel: '요청',
             required: true,
+            reasonRequired: TASK_REQUEST_COPY.evidenceNoteRequired,
           }
         : {
             title: 'Task 요청 반려',
@@ -161,10 +165,21 @@ export function TaskRequestDecisionDialog({
             label: '반려 사유',
             submitLabel: '반려',
             required: true,
+            reasonRequired: TASK_REQUEST_COPY.rejectReasonRequired,
           };
   const inputId = `task-request-${content?.action}-reason`;
-  const reasonErrorId = `task-request-${content?.action}-reason-error`;
-  const reasonRef = React.useRef<HTMLTextAreaElement>(null);
+  const { errors, handleSubmit, clearErrors } = useValidatedSubmit<{ reason: string }>({
+    validate: ({ reason }) =>
+      details.required && reason.trim() === '' ? { reason: details.reasonRequired } : {},
+    onValid: (_values, event) => onSubmit(event),
+  });
+  React.useEffect(() => clearErrors(), [opening.key, clearErrors]);
+  const fieldError =
+    errors.reason ??
+    (content && content.error !== null && content.reasonInvalid !== false
+      ? content.error
+      : undefined);
+  const submit = handleSubmit({ reason: content?.value ?? '' });
 
   return (
     <Dialog open={liveDialog !== null} onOpenChange={(open) => !open && dismiss()}>
@@ -213,33 +228,36 @@ export function TaskRequestDecisionDialog({
           {successfulClose && recovery}
           <form
             onSubmit={(event) => {
-              if (isSubmitting || successfulClose) event.preventDefault();
-              else {
-                onSubmit(event);
-                // Invalid empty submit keeps the dialog open; send focus to the field.
-                if (details.required && content.value.trim() === '') reasonRef.current?.focus();
+              if (isSubmitting || successfulClose) {
+                event.preventDefault();
+                return;
               }
+              submit(event);
             }}
             className="flex flex-col gap-4"
           >
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={inputId}>{details.label}</Label>
-              <Textarea
-                id={inputId}
-                ref={reasonRef}
-                rows={3}
-                value={content.value}
-                onChange={(event) => onChange(event.target.value)}
-                disabled={isSubmitting || successfulClose}
-                aria-invalid={content.error !== null && content.reasonInvalid !== false}
-                {...(content.error !== null ? { 'aria-describedby': reasonErrorId } : {})}
-              />
-              {details.required && (
-                <span className="text-xs text-text-muted">필수 입력 항목입니다.</span>
+            <FormField
+              id={inputId}
+              label={details.label}
+              required={details.required}
+              requiredMark="text"
+              error={fieldError}
+            >
+              {(control) => (
+                <Textarea
+                  {...control}
+                  rows={3}
+                  value={content.value}
+                  onChange={(event) => {
+                    onChange(event.target.value);
+                    clearErrors();
+                  }}
+                  disabled={isSubmitting || successfulClose}
+                />
               )}
-            </div>
-            {content.error && (
-              <p id={reasonErrorId} className="text-sm text-accent-danger" role="alert">
+            </FormField>
+            {content.error && content.reasonInvalid === false && (
+              <p className="text-sm text-accent-danger" role="alert">
                 {content.error}
               </p>
             )}
@@ -248,6 +266,13 @@ export function TaskRequestDecisionDialog({
                 type="button"
                 variant="secondary"
                 disabled={isSubmitting || successfulClose}
+                disabledReason={
+                  isSubmitting
+                    ? TASK_REQUEST_COPY.submittingDecision
+                    : successfulClose
+                      ? TASK_REQUEST_COPY.decisionComplete
+                      : undefined
+                }
                 onClick={dismiss}
                 data-testid="task-request-decision-cancel"
               >
@@ -255,8 +280,10 @@ export function TaskRequestDecisionDialog({
               </Button>
               <Button
                 type="submit"
+                disabled={successfulClose}
+                disabledReason={successfulClose ? TASK_REQUEST_COPY.decisionComplete : undefined}
                 aria-busy={isSubmitting}
-                aria-disabled={isSubmitting || successfulClose}
+                aria-disabled={isSubmitting || undefined}
               >
                 {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                 {details.submitLabel}

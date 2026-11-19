@@ -16,6 +16,9 @@ export interface FormFieldControl {
 export interface FormFieldProps {
   label: ReactNode;
   required?: boolean;
+  requiredMark?: 'asterisk' | 'text';
+  /** Localized text for `requiredMark="text"`; defaults to the Korean SDK copy. */
+  requiredText?: string;
   /** Tooltip help beside the label (`FieldLabel` `tip`). */
   tip?: string;
   /** Always shown while it exists; it keeps its place when an error appears. */
@@ -38,7 +41,7 @@ const present = (node: ReactNode) => node !== undefined && node !== null && node
  * owns its error border (`aria-invalid:border-accent-danger`). The error is plain text with no live role: several fields can
  * fail together, so the form announces once and moves focus to the first invalid input on submit.
  */
-export function FormField({ label, required, tip, hint, error, id, describedBy, className, children }: FormFieldProps) {
+export function FormField({ label, required, requiredMark, requiredText, tip, hint, error, id, describedBy, className, children }: FormFieldProps) {
   const generated = useId();
   const fieldId = id ?? generated;
   const hasHint = present(hint);
@@ -52,7 +55,15 @@ export function FormField({ label, required, tip, hint, error, id, describedBy, 
   };
   return (
     <div className={cn('grid gap-1.5', className)}>
-      <FieldLabel htmlFor={fieldId} {...(required === true ? { required: true } : {})} {...(tip !== undefined ? { tip } : {})}>{label}</FieldLabel>
+      <FieldLabel
+        htmlFor={fieldId}
+        {...(required === true ? { required: true } : {})}
+        {...(requiredMark !== undefined ? { requiredMark } : {})}
+        {...(requiredText !== undefined ? { requiredText } : {})}
+        {...(tip !== undefined ? { tip } : {})}
+      >
+        {label}
+      </FieldLabel>
       {children(control)}
       {hasHint && <p id={`${fieldId}-hint`} className="text-xs text-text-muted break-keep">{hint}</p>}
       {hasError && <p id={`${fieldId}-error`} className="text-xs text-text-danger-label break-keep">{error}</p>}

@@ -867,9 +867,13 @@ describe('MilestonesRoute create archived deep-link default (F4 followup)', () =
     // The 409-bound body is never sent; the user must pick an active system.
     expect(vi.mocked(createMilestone)).not.toHaveBeenCalled();
     expect(screen.getByTestId('milestone-create-panel')).toBeInTheDocument();
-    expect(
-      screen.getByText('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '생성' })).toBeEnabled();
+    const systemError = screen.getByText('선택한 시스템을 사용할 수 없습니다. 다시 선택해 주세요.');
+    expect(systemError).toBeVisible();
+    const systemSelect = screen.getByRole('combobox', { name: '시스템' });
+    await waitFor(() => expect(systemSelect).toHaveFocus());
+    expect(systemSelect).toHaveAttribute('aria-invalid', 'true');
+    expect(systemSelect).toHaveAttribute('aria-describedby', systemError.getAttribute('id'));
   });
 
   it('still submits an active scoped default the user left untouched', async () => {

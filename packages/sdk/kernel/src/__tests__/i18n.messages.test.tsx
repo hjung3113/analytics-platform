@@ -18,6 +18,15 @@ function Probe() {
   return <button type="button" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>{`${m('more', { count: 3 })}|${m('plain')}`}</button>;
 }
 
+function RequiredMarkProbe() {
+  const { lang, setLang, t } = useI18n();
+  return (
+    <button type="button" onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}>
+      {t('requiredMark')}
+    </button>
+  );
+}
+
 describe('useMessages / formatText (#2174)', () => {
   it('reads the table in the current language and follows a language change', () => {
     render(<I18nProvider><Probe /></I18nProvider>);
@@ -30,4 +39,11 @@ describe('useMessages / formatText (#2174)', () => {
     expect(formatText(MESSAGES.more, 'en', { count: 0 })).toBe('0 more');
     expect(formatText(MESSAGES.more, 'ko')).toBe('조건 {count}개 더');
   });
+});
+
+it('provides the required-field mark in Korean and English', () => {
+  render(<I18nProvider><RequiredMarkProbe /></I18nProvider>);
+  expect(screen.getByRole('button')).toHaveTextContent('· 필수');
+  fireEvent.click(screen.getByRole('button'));
+  expect(screen.getByRole('button')).toHaveTextContent('· Required');
 });

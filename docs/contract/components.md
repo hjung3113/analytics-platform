@@ -250,6 +250,13 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - 오류 테두리는 각 입력이 칠한다: `Input`·`Textarea`·`SelectTrigger`·`Combobox` 트리거는 `aria-invalid:border-accent-danger`, `MultiCombobox`는 바깥 div의 `has-[[aria-invalid=true]]:border-accent-danger`. 감싸개는 테두리를 칠하지 않는다.
 - 이전: 손으로 만든 사본(이슈의 4곳과 `log-knowledge` `SpecField`, `log-analysis` `KnowledgeHandoffDialog`·`HandoffOwnerFields`)은 이전하지 않았다(`.planning/backlog.md`). `notice-voc`가 이미 `type FormField`를 내보내므로 이전 때 별칭이 필요하다.
 
+폼 검증 조각은 모두 옵트인이고 기존 기본값은 바뀌지 않는다.
+
+- `FieldLabel`·`FormField`의 `requiredMark?: 'asterisk' | 'text'` 기본값은 `'asterisk'`다. `'text'`는 «· 필수»를 표시하고, `requiredText`로 소비자가 Kernel i18n의 `requiredMark` 번역을 넘길 수 있다. `@ap/kernel` 메시지 `requiredMark`는 ko/en을 제공한다.
+- `useValidatedSubmit({ validate, onValid })`는 제출 값을 검증하고 필드별 `errors`와 `handleSubmit(values)`를 돌려준다. 오류가 있으면 렌더 후 폼 안의 첫 `[aria-invalid="true"]` 컨트롤로 포커스를 옮긴다. `clearErrors()`는 닫기·초기화·입력 변경에서 오류를 지운다. `FormField`의 render-prop `control`을 실제 입력에 펼쳐야 한다.
+- `Button.disabledReason?: ReactNode`는 버튼이 `disabled` 또는 `loading`일 때만 보이는 설명을 그려 `aria-describedby`로 연결한다. 입력 오류 때문에 제출을 막는 방식 대신 제출 시 필드 오류를 보인다.
+- `validateLines(text, rule, { maxLines, maxLinesMessage? })`는 CRLF·LF·CR 줄을 1부터 검사하고 상한 다음 줄을 오류로 보고한다. 상한 뒤 내용을 조용히 버리지 않는다. `LineErrorList`는 처음 5개 오류와 «외 n건»을 표시하며 `messages`로 Kernel `lineError`·`lineErrorMore` 번역을 연결할 수 있다. 상한 메시지는 Kernel `lineLimitExceeded`를 넘긴다.
+
 ### Domain Component
 
 업무 의미가 있는 컴포넌트다.

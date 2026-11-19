@@ -38,6 +38,17 @@ it('adds no aria-invalid, aria-required or describedby when there is nothing to 
   expect(input).not.toHaveAttribute('aria-required');
 });
 
+it('passes the opt-in required mark and supplied localized text through to FieldLabel', () => {
+  render(
+    <FormField label="Name" required requiredMark="text" requiredText="· Required">
+      {(control) => <Input {...control} />}
+    </FormField>,
+  );
+
+  expect(screen.getByLabelText(/Name/)).toHaveAttribute('aria-required', 'true');
+  expect(screen.getByText('· Required')).toHaveAttribute('aria-hidden', 'true');
+});
+
 it('treats an empty-string error as no error and appends only the caller describedBy', () => {
   render(<FormField label="제목" error="" describedBy="extra">{control => <Input {...control} />}</FormField>);
   const input = screen.getByLabelText('제목');

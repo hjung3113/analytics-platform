@@ -66,6 +66,8 @@ export interface ButtonProps
   wrapText?: boolean;
   loading?: boolean;
   asChild?: boolean;
+  /** Visible explanation when the button is disabled (including while loading). */
+  disabledReason?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -81,11 +83,35 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       loading,
       asChild = false,
       disabled,
+      disabledReason,
+      'aria-describedby': describedBy,
       children,
       ...props
     },
     ref,
   ) => {
+    const reasonId = React.useId();
+    const hasDisabledReason =
+      (disabled === true || loading === true) &&
+      disabledReason !== undefined &&
+      disabledReason !== null &&
+      disabledReason !== false &&
+      disabledReason !== '';
+    const buttonDescribedBy = [describedBy, hasDisabledReason ? reasonId : undefined]
+      .filter((id): id is string => id !== undefined && id !== '')
+      .join(' ');
+    const withReason = (button: React.ReactElement) =>
+      hasDisabledReason ? (
+        <span className="inline-flex min-w-0 flex-col items-start gap-1">
+          {button}
+          <span id={reasonId} className="max-w-full break-words text-xs text-text-muted">
+            {disabledReason}
+          </span>
+        </span>
+      ) : (
+        button
+      );
+
     if (asChild && loading) {
       if (process.env.NODE_ENV !== 'production') {
         throw new Error(
@@ -96,7 +122,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         'Button: `loading` is incompatible with `asChild`; rendering child without loading affordance.',
       );
       const Comp = Slot;
-      return (
+      return withReason(
         <Comp
           ref={ref as never}
           className={cn(
@@ -106,15 +132,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             wrapText && 'h-auto min-h-8 py-1 whitespace-normal',
             className,
           )}
+          aria-describedby={buttonDescribedBy || undefined}
           {...props}
         >
           {children as React.ReactElement}
-        </Comp>
+        </Comp>,
       );
     }
 
     const Comp = asChild ? Slot : 'button';
-    return (
+    return withReason(
       <Comp
         ref={ref as never}
         className={cn(
@@ -126,6 +153,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         aria-busy={loading ? 'true' : undefined}
         disabled={disabled || loading}
+        aria-describedby={buttonDescribedBy || undefined}
         {...props}
       >
         {loading ? (
@@ -136,7 +164,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ) : (
           children
         )}
-      </Comp>
+      </Comp>,
     );
   },
 );

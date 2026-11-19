@@ -38,6 +38,8 @@ export { useDetailPanelContent } from './layout/useDetailPanelContent';
 
 export { FieldLabel, type FieldLabelProps } from './forms/FieldLabel';
 export { FormField, type FormFieldControl, type FormFieldProps } from './forms/FormField';
+export { useValidatedSubmit, type UseValidatedSubmitOptions, type UseValidatedSubmitResult, type ValidationErrors } from './forms/useValidatedSubmit';
+export { LineErrorList, validateLines, type LineErrorListMessages, type LineErrorListProps, type LineValidationError, type LineValidationRule, type ValidateLinesOptions } from './forms/LineErrors';
 export { DatePicker, type DatePickerProps } from './forms/DatePicker.js';
 export { SearchInput, type SearchInputProps } from './forms/SearchInput';
 export { useImeEnterGuard, type ImeEnterGuard } from './forms/useImeEnterGuard';

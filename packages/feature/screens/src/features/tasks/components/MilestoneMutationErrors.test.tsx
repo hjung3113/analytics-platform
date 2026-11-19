@@ -150,6 +150,24 @@ describe('Milestone mutation error copy', () => {
 });
 
 describe('Milestone create idempotency', () => {
+  it('keeps submit enabled for invalid input, shows field errors and focuses the first invalid field', async () => {
+    const user = userEvent.setup();
+    renderCreatePanel();
+
+    const submit = screen.getByRole('button', { name: '생성' });
+    const title = screen.getByRole('textbox', { name: '제목' });
+    expect(submit).toBeEnabled();
+    expect(title).not.toHaveAttribute('aria-invalid');
+
+    await user.click(submit);
+
+    expect(screen.getByText('제목을 입력해 주세요.')).toBeVisible();
+    expect(screen.queryByText('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.')).toBeNull();
+    expect(title).toHaveAttribute('aria-invalid', 'true');
+    expect(title).toHaveFocus();
+    expect(createMilestone).not.toHaveBeenCalled();
+  });
+
   it('reuses the original key when the payload is edited and reverted before retry', async () => {
     const user = userEvent.setup();
     vi.mocked(createMilestone).mockRejectedValue(new Error('temporary failure'));
