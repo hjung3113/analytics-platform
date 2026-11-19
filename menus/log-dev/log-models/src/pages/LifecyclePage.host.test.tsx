@@ -468,7 +468,7 @@ describe('result-first selection (#1809)', () => {
     const t = mount('&result=all'); await ready(); t.history.mockClear();
     const opener = element('button[aria-label="R-002 상세 열기"]');
     click(opener);
-    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-002\s*규칙 상세/));
     expect(element('button[aria-label="R-002 상세 열기"]')).toBe(opener);
     expect(query().get('request')).toBe(ID);
     expect(query().get('attempt')).toBe(ID);
@@ -484,7 +484,7 @@ describe('result-first selection (#1809)', () => {
   });
   it('restores the completed attempt and rule selection on page two from a refreshed URL', async () => {
     mount(`&result=all&request=${ID}&attempt=${ID}&rulesPage=2&rule=${rules[25]?.id}`);
-    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-026 · 규칙 상세'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-026\s*규칙 상세/));
     expect(text('26건 · 2페이지', rulesRegion())).toBe(true);
     expect(element(`[data-row-id="${rules[25]?.id}"]`).getAttribute('aria-current')).toBe('true');
   });
@@ -495,7 +495,7 @@ describe('result-first selection (#1809)', () => {
     click(element('button[aria-label="R-002 상세 열기"]'));
     await waitFor(() => expect(query().get('rule')).toBe(rules[1]?.id));
     await act(async () => { window.history.back(); await new Promise(resolve => setTimeout(resolve, 20)); });
-    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-001 · 규칙 상세'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-001\s*규칙 상세/));
     expect(query().get('rule')).toBe(rules[0]?.id);
   });
   it.each(['rule', 'issue'])('rejects an unstable %s selection before reading Round data', async key => {
@@ -528,7 +528,7 @@ describe('review-final regressions (#1809)', () => {
     expect(document.querySelector('input[id^="gate-reason"]')).toBeNull();
     activateRoundTab('결과·결함');
     click(element('button[aria-label="R-002 상세 열기"]'));
-    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-002\s*규칙 상세/));
     click(button('Gate 결정'));
     click(button('같은 요청 다시 확인'));
     await waitFor(() => expect(t.sent).toHaveLength(2));
@@ -554,19 +554,19 @@ describe('review-final regressions (#1809)', () => {
   it('keeps selected rule detail across next page, reload and Back independently from table membership', async () => {
     mount('&result=all'); await ready();
     click(element('button[aria-label="R-002 상세 열기"]'));
-    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-002\s*규칙 상세/));
     click(button('다음', rulesRegion()));
     await waitFor(() => expect(text('R-026')).toBe(true));
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-002\s*규칙 상세/);
     const saved = window.location.search.slice('?v=1'.length);
     act(() => root.unmount()); root = createRoot(container);
     mount(saved);
     await waitFor(() => expect(text('R-026')).toBe(true));
-    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-002\s*규칙 상세/));
     click(button('이전', rulesRegion())); await ready();
     await act(async () => { window.history.back(); await new Promise(resolve => setTimeout(resolve, 20)); });
     await waitFor(() => expect(query().get('rulesPage')).toBe('2'));
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toMatch(/R-002\s*규칙 상세/);
   });
   it('reports a truly missing rule UUID only after searching the independent unfiltered pages', async () => {
     const t = mount(`&request=${ID}&attempt=${ID}&rule=${B}`); await ready();

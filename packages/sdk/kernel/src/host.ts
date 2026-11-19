@@ -11,6 +11,7 @@ export { useArrivalFocus, type ArrivalFocusOptions } from './platform/useArrival
 export { useModuleHost, type ModuleShellPorts } from './registry/module-host';
 export { BOARD_PATH, isImplementedMenu } from './registry/registry';
 export { hasDotSegment } from './context/location';
+export { buildShareLink, SHARE_LINK_MAX_LENGTH, type ShareLinkFailure, type ShareLinkKind, type ShareLinkResult } from './context/shareLink';
 export { paneHref, withPaneContext } from './context/paneContext';
 export { useQueryHistory, type QueryHistory, type QueryHistoryRow } from './query/query-history';
 export { captureApplied } from './saved-view/capture';

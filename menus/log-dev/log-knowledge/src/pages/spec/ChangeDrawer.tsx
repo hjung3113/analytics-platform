@@ -93,7 +93,7 @@ export function ChangeDrawer({ modelId, software, row, mode, selectedSoftware, o
   const example = (side: 'target' | 'before' | 'after') => `${w('예', 'Example')}: ${JSON.stringify(JSON_EXAMPLES[input.targetKind][side])}`;
   const close = () => { if (dirty) setDiscard(true); else onClose(); };
   return <>
-    <DetailDrawer title={mode === 'add' ? w('변경점 추가', 'Add change') : mode === 'retire' ? w('변경점 닫기·대체', 'Retire or replace change') : w('변경점 재검토 확인', 'Confirm revalidation')} subtitle={shownRow?.targetKey} onClose={close}
+    <DetailDrawer title={mode === 'add' ? w('변경점 추가', 'Add change') : mode === 'retire' ? w('변경점 닫기·대체', 'Retire or replace change') : w('변경점 재검토 확인', 'Confirm revalidation')} copyPage={null} onClose={close}
       footer={<div className="flex justify-end gap-2"><Button variant="secondary" disabled={pending} onClick={close}>{w('취소', 'Cancel')}</Button><Button aria-busy={pending || undefined} disabled={disabled || mode === 'add' && !input.softwareId} onClick={submit}>{pending ? w('처리 중…', 'Working…') : mode === 'add' ? w('추가', 'Add') : w('확인', 'Confirm')}</Button></div>}
       tabs={[{ id: 'change', label: w('내용', 'Content'), content: <div className="grid gap-4" aria-busy={pending || undefined}>
         {problem && <Callout tone="amber" title={w('확인 필요', 'Review required')}><p role="alert" className="whitespace-pre-wrap text-sm">{problem}</p></Callout>}

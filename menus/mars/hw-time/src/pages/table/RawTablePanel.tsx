@@ -193,11 +193,11 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
         {table}
       </>}
     
-    {detailPending && <DetailDrawer key={focus} title={<span className="t-mono">{rowIdLabel(focus)}</span>} subtitle={m('tablePageRowDetailsSyntheticData')}
+    {detailPending && <DetailDrawer key={focus} id={rowIdLabel(focus)} subtitle={m('tablePageRowDetailsSyntheticData')}
       onClose={closeDrawer}
       tabs={[{ id: 'summary', label: m('tablePageBreakdown'), content: <QueryView query={levelQ} widgetName={m('tablePageRowDetails')} compact>{() => null}</QueryView> }]} />}
     {drawerBlock && focusRow && <DetailDrawer key={focusRow.id}
-      title={<span className="t-mono">{rowIdLabel(focusRow.id)}</span>} subtitle={m('tablePageRowDetailsSyntheticData2')}
+      id={rowIdLabel(focusRow.id)} subtitle={m('tablePageRowDetailsSyntheticData2')}
       onClose={closeDrawer}
       tabs={[{
         id: 'summary', label: m('tablePageBreakdown2'),

@@ -332,9 +332,9 @@ describe('기술 Item detail', () => {
     expect(within(badgeRow).getByText('기술 검증')).toBeTruthy();
     expect(within(badgeRow).getByText('처리')).toBeTruthy();
     fireEvent.click(action);
-    const drawer = await screen.findByRole('dialog', { name: '판단 변경' });
+    const drawer = await screen.findByRole('dialog', { name: /판단 변경$/ });
     fireEvent.click(within(drawer).getByRole('button', { name: '취소' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '판단 변경' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /판단 변경$/ })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(action));
 
     cleanup();

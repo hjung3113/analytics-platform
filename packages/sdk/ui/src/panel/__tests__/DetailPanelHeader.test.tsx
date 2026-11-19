@@ -1,7 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DetailPanelFullscreenContext } from '../DetailPanelFullscreenContext.js';
+import { DetailPanelFullscreenContext, useDetailPanelEscape } from '../DetailPanelFullscreenContext.js';
 import { DetailPanelHeader } from '../DetailPanelHeader.js';
 import type { DetailPanelKind } from '../DetailPanelHeader.js';
 
@@ -47,6 +47,14 @@ const KIND_LABELS: Record<DetailPanelKind, string> = {
 };
 
 const kinds = Object.keys(KIND_ACCENT) as DetailPanelKind[];
+
+function PanelWithHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <section onKeyDown={useDetailPanelEscape(onClose)}>
+      <DetailPanelHeader onClose={onClose} />
+    </section>
+  );
+}
 
 describe('DetailPanelHeader — kind accent stripe', () => {
   for (const kind of kinds) {
@@ -176,6 +184,19 @@ describe('DetailPanelHeader — onClose', () => {
     const user = userEvent.setup();
     render(<DetailPanelHeader kind="voc" id="V-1" onClose={onClose} />);
     await user.click(screen.getByRole('button', { name: '패널 닫기' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('closes the panel on the first Escape when its focused close button shows a tooltip', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<PanelWithHeader onClose={onClose} />);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: '패널 닫기' })).toHaveFocus();
+    expect(await screen.findByRole('tooltip', { name: '패널 닫기' })).toBeVisible();
+    await user.keyboard('{Escape}');
+
     expect(onClose).toHaveBeenCalledOnce();
   });
 

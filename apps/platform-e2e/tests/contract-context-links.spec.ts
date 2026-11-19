@@ -393,7 +393,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
     const origin = page.url().replace(/^https?:\/\/[^/]+/, '');
 
-    await page.getByRole('link', { name: '전체 화면' }).click();
+    await page.getByRole('dialog').getByRole('heading', { level: 2 }).getByRole('link').click();
     await expect(page).toHaveURL(/\/mars\/equipment-detail\/[^?]+\?/);
     expect(query(page).get('returnTo')).toBe(origin);
     const back = await bodyReturnLink(page, '← 설비 마스터로 돌아가기');
@@ -410,7 +410,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
-    await page.getByRole('link', { name: '전체 화면' }).click();
+    await page.getByRole('dialog').getByRole('heading', { level: 2 }).getByRole('link').click();
     await expect(page).toHaveURL(/\/mars\/equipment-detail\/[^?]+\?/);
     await (await bodyReturnLink(page, '← 설비 마스터로 돌아가기')).click();
 
@@ -439,7 +439,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     const dialog = page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog');
     // Same-screen open still claims the close button (06 §13).
     await expect(dialog.getByRole('button', { name: '상세 닫기' })).toBeFocused();
-    await page.getByRole('link', { name: '전체 화면' }).click();
+    await page.getByRole('dialog').getByRole('heading', { level: 2 }).getByRole('link').click();
     await expect(page).toHaveURL(/\/mars\/equipment-detail\/[^?]+\?/);
     await page.goBack();
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
@@ -449,7 +449,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await evidence(page, testInfo, 'history-back-panel-title-focus');
   });
 
-  test('전체 화면 링크는 보던 탭을 목적지 tab으로 넘긴다 (06 §13)', async ({ page }, testInfo) => {
+  test('장비 모델 제목 링크는 보던 탭을 목적지 tab으로 넘긴다 (06 §13)', async ({ page }, testInfo) => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expect(page.getByRole('table')).toBeVisible();
     await page.getByRole('table').getByRole('button', { name: '보기' }).first().click();
@@ -458,7 +458,7 @@ test.describe('returnTo 복귀 (06 §22)', () => {
     await drawerTab.click();
     await expect.poll(() => query(page).get('tab')).toBe('validity');
 
-    const link = page.getByRole('dialog').getByRole('link', { name: '전체 화면' });
+    const link = page.getByRole('dialog').getByRole('heading', { level: 2 }).getByRole('link');
     const href = await link.getAttribute('href');
     expect(new URL(href!, 'http://localhost').searchParams.get('tab')).toBe('validity');
     await link.click();

@@ -69,7 +69,7 @@ export default function AccessDirectory() {
   const active = ready && focus && rows ? rows.find(p => p.id === focus) : undefined;
   // Computed outside JSX children: a multi-line JSX ternary in children is a parser trap.
   const drawer = ready && focus && rows ? (active
-    ? <DetailDrawer key={active.id} title={active.name} subtitle={active.title[lang]}
+    ? <DetailDrawer key={active.id} id={active.id} title={active.name} subtitle={active.title[lang]}
         context={<span className="flex items-center gap-2"><span className="t-mono">{active.role}</span><StatusBadge tone="neutral">{m('accessDirectoryReadOnly')}</StatusBadge></span>}
         onClose={() => setPage({ focus: null, tab: null })}
         tab={drawerTab} onTabRecover={() => setPage({ tab: null })} onTabChange={tab => setPage({ tab: tab === 'permissions' ? null : tab })}

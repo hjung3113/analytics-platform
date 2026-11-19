@@ -103,14 +103,17 @@ vi.mock('@ap/ui', async (importOriginal) => {
     DetailPanelHeader: ({
       kind,
       id,
+      title,
       onClose,
     }: {
       kind: string;
       id: string;
+      title?: React.ReactNode;
       onClose: () => void;
     }) => (
       <header data-testid="detail-panel-header" data-kind={kind}>
         <span>{id}</span>
+        {title != null && <h2>{title}</h2>}
         <button type="button" onClick={onClose}>
           닫기
         </button>

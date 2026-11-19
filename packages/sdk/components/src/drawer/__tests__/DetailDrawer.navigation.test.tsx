@@ -6,7 +6,7 @@ import { DetailPanelSectionNav, DetailPanelSlotProvider, useDetailPanelSlotHost 
 import { DetailDrawer } from '../DetailDrawer';
 
 function Host() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
-function Fixture({ tabs }: { tabs: ComponentProps<typeof DetailDrawer>['tabs'] }) {
+function Fixture({ tabs }: { tabs: NonNullable<ComponentProps<typeof DetailDrawer>['tabs']> }) {
   return <I18nProvider><DetailPanelSlotProvider><Host /><DetailDrawer title="Record" onClose={() => {}} tabs={tabs} /></DetailPanelSlotProvider></I18nProvider>;
 }
 const SECTIONS = [{ id: 'overview', label: '요약' }, { id: 'compose', label: '작성' }];

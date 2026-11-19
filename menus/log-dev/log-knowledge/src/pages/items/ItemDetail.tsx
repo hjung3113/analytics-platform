@@ -119,7 +119,7 @@ function WriteDrawerOwner({
   if (!detail) return null;
   if (kind === 'revise' && archived) return null;
   if (kind === 'revise' && !latest) {
-    return <DetailDrawer title="기술 Item 수정" subtitle={itemNoLabel(detail.item.itemNo)} onClose={close}
+    return <DetailDrawer id={itemNoLabel(detail.item.itemNo)} title="기술 Item 수정" copyPage={null} onClose={close}
       tabs={[{ id: 'form', label: '내용', content: latestQuery.response === null || latestQuery.response === undefined
         ? <p role="status" className="text-sm text-text-muted">최신 리비전을 불러오는 중…</p>
         : <div className="grid gap-3"><p role="alert" className="text-sm text-text-danger-label">최신 리비전을 불러오지 못했습니다. 수정은 항상 최신 리비전을 바탕으로 합니다.</p>

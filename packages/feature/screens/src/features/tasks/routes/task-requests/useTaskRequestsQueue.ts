@@ -20,6 +20,15 @@ import { managedSystemsCatalogQuery } from '../../../../lib/cross-system/useMana
 import { useTaskPanelSelection } from '../../hooks/useTaskPanelSelection';
 import type { NameMaps } from './TaskRequestRow';
 import { isPermissionDenied } from './predicates';
+import {
+  applyTaskRequestVocSource,
+  recordTaskRequestDecision,
+  recordTaskRequestDenial,
+  recordTaskRequestReads,
+  startTaskRequestRead,
+  taskRequestReadStateKey,
+  useTaskRequestReadStates,
+} from './taskRequestReadState';
 
 const PAGE_SIZE = 50;
 
@@ -39,11 +48,14 @@ export interface UseTaskRequestsQueueResult {
   hasItems: boolean;
   selectedId: string | null;
   linkMissing: boolean;
+  detachedReadDenied: boolean;
   setSelectedId: (id: string | null) => void;
   tabs: ListToolbarTab[];
   shown: TaskRequestDto[];
   names: NameMaps;
   selected: TaskRequestDto | null;
+  settledSelectedDetail: TaskRequestDto | undefined;
+  retrySelectedDetail: (() => void) | null;
   currentActorId: string | null;
   currentRole: string | null;
   isLoading: boolean;
@@ -70,6 +82,8 @@ export function useTaskRequestsQueue({
   reviewerTeam,
   onSelectionChange,
   autoSelect = true,
+  keepMissingSelection = false,
+  detailOnly = false,
 }: {
   reviewer?: string | undefined;
   reviewerTeam?: string | undefined;
@@ -78,8 +92,13 @@ export function useTaskRequestsQueue({
   onSelectionChange?: ((id: string | null, replace: boolean) => void) | undefined;
   /** `false`: no first-row auto-select; the selection is `selectedParam` only (a host with its own detail). */
   autoSelect?: boolean;
+  /** The platform supplies its own missing-ID recovery and retains the URL until dismissal. */
+  keepMissingSelection?: boolean;
+  /** Full-page entry gets its own record read even when the queue already has the item. */
+  detailOnly?: boolean;
 }): UseTaskRequestsQueueResult {
   const queryClient = useQueryClient();
+  const entryId = React.useId();
   const meQuery = useMeBridge();
   const [activeTab, setActiveTab] = React.useState<TaskRequestTab>('pending_review');
   const [completedDecision, setCompletedDecision] = React.useState<{
@@ -126,8 +145,9 @@ export function useTaskRequestsQueue({
     ] as const,
     staleTime: 30_000,
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ signal, pageParam }) =>
-      fetchTaskRequests({
+    queryFn: async ({ signal, pageParam }) => {
+      const order = startTaskRequestRead();
+      const page = await fetchTaskRequests({
         ...scope,
         ...(reviewer === undefined ? {} : { reviewer }),
         ...(reviewerTeam === undefined ? {} : { reviewer_team_id: reviewerTeam }),
@@ -135,24 +155,25 @@ export function useTaskRequestsQueue({
         limit: PAGE_SIZE,
         ...(activeTab === 'all' ? {} : { status: activeTab }),
         ...(pageParam === undefined ? {} : { cursor: pageParam }),
-      }),
+      });
+      if (!signal.aborted) recordTaskRequestReads(queryClient, page.items, order);
+      return page;
+    },
     getNextPageParam: (last) => (last.page?.has_more ? last.page.cursor : undefined),
   });
-  // Fresh pages own row content; retain completion separately for selection/focus.
+  const readStates = useTaskRequestReadStates();
+  // Pages own row membership. After denial, carry the latest VOC source
+  // projection across cached pages and the decision overlay.
   const items = React.useMemo(
     () =>
       (taskRequestsQuery.data?.pages.flatMap((page) => page.items) ?? []).flatMap((item) => {
-        if (
-          completedDecision?.context !== decisionContext ||
-          completedDecision.overlayData !== taskRequestsQuery.data ||
-          completedDecision.item.id !== item.id
-        )
-          return [item];
-        return activeTab === 'all' || completedDecision.item.status === activeTab
-          ? [completedDecision.item]
-          : [];
+        const overlay = completedDecision?.context === decisionContext &&
+          completedDecision.overlayData === taskRequestsQuery.data &&
+          completedDecision.item.id === item.id ? completedDecision.item : undefined;
+        if (overlay && activeTab !== 'all' && overlay.status !== activeTab) return [];
+        return [applyTaskRequestVocSource(overlay ?? item, readStates?.[taskRequestReadStateKey(item.id)])];
       }),
-    [taskRequestsQuery.data, completedDecision, decisionContext, activeTab],
+    [taskRequestsQuery.data, completedDecision, decisionContext, activeTab, readStates],
   );
   const { selectedId, linkMissing, setLocalSelectedId, selectRow, closePanel, markLinkMissing } =
     useTaskPanelSelection({
@@ -170,18 +191,59 @@ export function useTaskRequestsQueue({
     },
     [closePanel, selectRow],
   );
+  const detailId = detailOnly ? selectedParam ?? null : selectedId;
+  const listedItem = items.find((item) => item.id === selectedId);
+  const trackDetachedDenial = keepMissingSelection && !detailOnly;
+  const readState = keepMissingSelection && detailId !== null
+    ? readStates?.[taskRequestReadStateKey(detailId)] : undefined;
+  const detachedReadDenied = trackDetachedDenial && readState?.denied === true;
+  const canReadDetached = taskRequestsQuery.isSuccess && (listedItem === undefined || readState !== undefined);
   const selectedDetail = useQuery({
-    queryKey: ['task-request', selectedId] as const,
-    queryFn: ({ signal }) => getTaskRequest(selectedId as string, signal),
-    enabled:
-      selectedId !== null &&
-      taskRequestsQuery.isSuccess &&
-      !items.some((item) => item.id === selectedId),
-    staleTime: 30_000,
+    queryKey: detailOnly ? ['task-request', detailId, 'entry', entryId] : ['task-request', detailId],
+    queryFn: async ({ signal }) => {
+      const id = detailId as string;
+      const order = startTaskRequestRead();
+      try {
+        const item = await getTaskRequest(id, signal);
+        if (!signal.aborted) recordTaskRequestReads(queryClient, [item], order, keepMissingSelection);
+        return item;
+      } catch (error) {
+        if (
+          trackDetachedDenial && !signal.aborted && error instanceof ApiError &&
+          (error.status === 404 || error.status === 403)
+        ) {
+          recordTaskRequestDenial(queryClient, id);
+        }
+        throw error;
+      }
+    },
+    enabled: detailId !== null && (detailOnly || canReadDetached),
+    ...(detailOnly ? { gcTime: 0 } : {}),
+    staleTime: detachedReadDenied ? 0 : 30_000,
     retry: false,
   });
+  const recoveredItem = readState?.denied === false ? readState.latest.item : undefined;
+  const detailItem = detailOnly && !selectedDetail.isSuccess ? null : selectedDetail.data ?? null;
+  const availableItem = detailOnly ? detailItem : listedItem ?? detailItem;
+  // Keep the freshest projection without opening a drawer from the session
+  // cache alone when neither current query has a record.
+  const selectedItem = availableItem && (recoveredItem ?? availableItem);
+  const scopeItem = recoveredItem ?? selectedDetail.data;
+  const filteredOut =
+    scopeItem?.id === detailId &&
+    managedSystem !== undefined &&
+    managedSystem !== 'all' &&
+    scopeItem.primary_managed_system_id !== managedSystem;
+  const unavailable =
+    !selectedDetail.isFetching &&
+    selectedDetail.error instanceof ApiError &&
+    (selectedDetail.error.status === 404 ||
+      (keepMissingSelection && selectedDetail.error.status === 403));
+  const selectedMissing =
+    detachedReadDenied || ((filteredOut || unavailable) && (detailOnly || listedItem === undefined));
   const selected =
     !linkMissing &&
+    !(keepMissingSelection && selectedMissing) &&
     selectedId &&
     !(
       completedDecision?.context === decisionContext &&
@@ -191,23 +253,12 @@ export function useTaskRequestsQueue({
       completedDecision.item.status !== activeTab &&
       !completedDecision.retained
     )
-      ? (items.find((item) => item.id === selectedId) ?? selectedDetail.data ?? null)
+      ? selectedItem
       : null;
   React.useEffect(() => {
-    const filteredOut =
-      selectedDetail.data?.id === selectedId &&
-      selectedDetail.data !== undefined &&
-      managedSystem !== undefined &&
-      managedSystem !== 'all' &&
-      selectedDetail.data.primary_managed_system_id !== managedSystem;
-    if (
-      (selectedDetail.error instanceof ApiError && selectedDetail.error.status === 404) ||
-      filteredOut
-    ) {
-      markLinkMissing();
-    }
-  }, [selectedDetail.data, selectedDetail.error, managedSystem, selectedId, markLinkMissing]);
-  // `selected` already prefers the current queue row over a cached detail.
+    if (selectedMissing && !keepMissingSelection) markLinkMissing();
+  }, [selectedMissing, keepMissingSelection, markLinkMissing]);
+  // Restore the tab from the same record the drawer can display.
   const restoredDetail = selected?.id === selectedParam ? selected : null;
   const followedParam = React.useRef({ param: selectedParam, consumed: false });
   React.useEffect(() => {
@@ -332,6 +383,7 @@ export function useTaskRequestsQueue({
 
   const onDecisionComplete = React.useCallback(
     (updatedItem: TaskRequestDto) => {
+      recordTaskRequestDecision(queryClient, updatedItem);
       queryClient.setQueryData(['task-request', updatedItem.id], updatedItem);
       // Patch each cached status according to membership, retaining all-tab order.
       for (const query of queryClient
@@ -500,12 +552,16 @@ export function useTaskRequestsQueue({
     },
     hasItems: summaryQuery.isSuccess && (summaryQuery.data.page?.total ?? 0) > 0,
     selectedId,
-    linkMissing,
+    linkMissing: linkMissing || (keepMissingSelection && selectedMissing),
+    detachedReadDenied,
     setSelectedId,
     tabs,
     shown,
     names,
     selected,
+    settledSelectedDetail: !detachedReadDenied && selectedDetail.isSuccess && !selectedDetail.isFetching
+      ? recoveredItem ?? selectedDetail.data : undefined,
+    retrySelectedDetail: selectedDetail.isError && !unavailable && !detachedReadDenied ? () => { void selectedDetail.refetch(); } : null,
     currentActorId: meQuery.data?.actor.id ?? null,
     currentRole: meQuery.data?.actor.role_level ?? null,
     isLoading: taskRequestsQuery.isLoading || summaryQuery.isLoading,

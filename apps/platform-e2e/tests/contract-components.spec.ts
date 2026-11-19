@@ -1030,7 +1030,10 @@ test.describe('로그 지식 허브 카탈로그 관리 (#1194)', () => {
     await expect(table.getByText('A-100', { exact: true })).toBeVisible();
     await expect(table.getByText('Alpha 100', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'A-100 수정' }).click();
-    await expect(page.getByRole('heading', { name: 'A-100' })).toBeVisible();
+    // #2536: the drawer header is one line — mono ID, then the record title as the heading.
+    const drawerHeading = page.getByRole('heading', { name: 'Alpha 100' });
+    await expect(drawerHeading).toBeVisible();
+    await expect(drawerHeading.locator('..')).toContainText('A-100');
     await expect.poll(() => query(page).get('focus')).not.toBeNull();
     const name = page.getByRole('textbox', { name: /^이름/ });
     await name.fill('Alpha 100 Rev2');

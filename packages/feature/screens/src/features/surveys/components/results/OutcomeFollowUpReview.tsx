@@ -148,7 +148,7 @@ function renderStandaloneAside(parts: ClosableDetailParts): ReactNode {
       className="flex h-full min-h-0 flex-col bg-surface-detail"
       data-testid="follow-up-detail-panel"
     >
-      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.survey} id={String(parts.title)} onClose={parts.requestClose} />
+      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.survey} title={parts.title} onClose={parts.requestClose} />
       {parts.body}
     </aside>
   );

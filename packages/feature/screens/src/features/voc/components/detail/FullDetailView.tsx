@@ -35,7 +35,7 @@ export function FullDetailView({
 }: FullDetailViewProps): React.ReactElement {
   return (
     <div className="flex flex-col h-full" data-testid="voc-detail-panel">
-      <DetailHeader vocId={vocId} displayId={voc.display_id} onClose={onClose} />
+      <DetailHeader vocId={vocId} displayId={voc.display_id} title={voc.title} onClose={onClose} />
       {children}
     </div>
   );

@@ -1,7 +1,8 @@
 /**
  * @ap/menu-tasks — tasks group manifests (operations console Task 관리: Task Requests, Tasks board, 내 Task, Milestones and the hidden Task 목록; ADR-0081, #763).
- * The feature operator Task screens through the bridge; the page keys equal the route tables in `@ap/feature-bridge` (`taskRequestsRoute`, `taskBoardRoute`, `myTasksRoute`, `milestonesRoute`, `taskListRoute`; pinned by the page tests),
- * and the app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` is the selected Task (06 §13).
+ * The feature operator Task screens through the bridge; their feature keys follow the route tables in `@ap/feature-bridge`.
+ * Task Requests owns the platform-only `detailPage=1` key for the full-page reading view. Omit it for the queue.
+ * The app-declared carry set carries `managedSystem` (#1099b, replacing ADR-0081 decision 4). `focus` selects the record (06 §13).
  */
 import { lazy } from 'react';
 import { Flag, Inbox, ListTodo, User } from 'lucide-react';
@@ -21,7 +22,7 @@ export const manifests: MenuEntry[] = [
     description: { ko: 'Task 요청 검토 · 승인 · 반려', en: 'Incoming Task requests · Review · Approval · Rejection' },
     path: '/flow/task-requests', icon: Inbox, permission: 'features:access', requiresScope: false, pageType: 'management',
     context: contextCapabilities(), features: NO_FEATURES,
-    pageKeys: ['focus', 'reviewer', 'reviewerTeam', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
+    pageKeys: ['focus', 'reviewer', 'reviewerTeam', 'managedSystem', 'returnTo', 'detailPage'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureTaskRequests')),
   },
   {

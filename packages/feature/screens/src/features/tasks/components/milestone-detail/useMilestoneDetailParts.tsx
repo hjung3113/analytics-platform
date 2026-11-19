@@ -141,6 +141,8 @@ export function useMilestoneDetailParts({
     kind: 'detail',
     requestClose,
     view: { kind: 'ready', milestone },
+    id: milestone.display_id,
+    objectTitle: milestone.title,
     title: milestone.display_id,
     headerActions: <MilestoneHeaderActions milestoneId={milestone.id} />,
     body: (

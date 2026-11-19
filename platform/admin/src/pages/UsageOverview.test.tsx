@@ -71,6 +71,7 @@ describe('UsageOverview next screens (#605)', () => {
   it('opens the drawer directly from focus, with four summary segments and the entry base', async () => {
     const calls = setup('/admin/usage?focus=admin-audit');
     const drawer = await screen.findByRole('dialog', { name: '변경 감사' });
+    expect(within(drawer).getByText('admin-audit')).toBeTruthy();
     await within(drawer).findByText('본 화면 진입 100건');
     expect(calls.mock.calls[0]?.[0]).toEqual({ menuId: 'admin-audit', includeBack: false });
     for (const label of ['다른 메뉴로 이동', '같은 메뉴 안', '뒤로·복귀', '이후 메뉴 이동 없음']) expect(within(drawer).getByText(label)).toBeTruthy();

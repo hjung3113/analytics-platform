@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Boxes } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { testAdapter, testSession } from '@ap/kernel/testing';
-import { DetailPanelSlotProvider } from '@ap/ui';
+import { testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { manifests } from '../index';
 import EquipmentMaster from './EquipmentMaster';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
@@ -23,6 +23,11 @@ const row = { equipmentId: 'EQ-1', site: 'MEM', room: 'PHOTO', line: 'L1', stgro
 const assessments = (['collection', 'processing_delay', 'coverage'] as const).map(kind => ({ kind, state: 'clear' as const }));
 const ok = (data: unknown): ApiResponse<never> => ({ outcome: 'ok', data, assessments, trust: null, correlationId: 'fixture' }) as ApiResponse<never>;
 const empty: ApiResponse<never> = { outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' };
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(done => { resolve = done; });
+  return { promise, resolve };
+}
 const queries: MenuQuery[] = [];
 const adapter = testAdapter({
   menuQuery: async (req: MenuQuery) => { queries.push(req); return req.endpoint === 'equipment.master.page' ? ok({ rows: [row], total: 1 }) : req.endpoint === 'equipment.master.makers' ? ok(['AMAT', 'TEL']) : empty; },
@@ -122,4 +127,138 @@ describe('EquipmentMaster wall-clock display', () => {
     expect(screen.getByText('2026-09-14 10:32')).toBeTruthy();
     expect(screen.queryByText(/2025-12-24T|2026-09-14T/)).toBeNull();
   });
+});
+
+function DrawerHost() {
+  const slot = useDetailPanelSlotHost();
+  const toasts = useToastsForTest();
+  return <><aside ref={slot.ref} /><div role="log">{toasts.map(toast => <p key={toast.id}>{toast.text}</p>)}</div></>;
+}
+
+function mountDrawer(id: string, options: { search?: string; url?: URL; readPage?: () => Promise<ApiResponse<never>>; readMembership?: () => Promise<ApiResponse<never>> } = {}) {
+  window.history.replaceState(null, '', options.url ?? `/mars/equipment-master?v=1&scopeId=MEM&focus=${id}${options.search ?? ''}`);
+  const scopedAdapter = testAdapter({
+    session: () => session,
+    getEntity: async ref => ref.id === row.equipmentId ? ok(row) : empty,
+    menuQuery: async req => {
+      queries.push(req);
+      const query = req.params as { q?: string };
+      if (req.endpoint === 'equipment.master.page') return query.q && options.readPage ? options.readPage() : ok(query.q ? { rows: [], total: 0 } : { rows: [row], total: 1 });
+      if (req.endpoint === 'equipment.master.export') return query.q ? options.readMembership?.() ?? { ...empty, assessments } : ok([row]);
+      return ok(['TEL']);
+    },
+  });
+  render(<I18nProvider><PlatformProvider adapter={scopedAdapter} registry={registry}>
+    <DetailPanelSlotProvider><EquipmentMaster /><DrawerHost /></DetailPanelSlotProvider>
+  </PlatformProvider></I18nProvider>);
+}
+
+it('closes a filtered-out Equipment detail, keeps the applied search, and focuses and announces the list', async () => {
+  mountDrawer('EQ-1');
+  await within(await screen.findByRole('dialog')).findByRole('link', { name: 'X' });
+  const search = screen.getByRole('searchbox', { name: '설비 ID 검색' });
+  fireEvent.change(search, { target: { value: 'ETCH' } });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  const params = new URLSearchParams(window.location.search);
+  expect(params.has('focus')).toBe(false);
+  expect(params.get('q')).toBe('ETCH');
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('group', { name: '설비 목록' })));
+  expect(screen.getByRole('log').textContent).toContain('열린 항목이 목록에서 빠져 닫았습니다');
+});
+
+it('clears the missing Equipment ID using the shared recovery action', async () => {
+  mountDrawer('NOPE-999');
+  const drawer = await screen.findByRole('dialog', { name: 'NOPE-999' });
+  expect(await within(drawer).findByText('이 항목을 찾을 수 없습니다 — 삭제되었거나 볼 권한이 없습니다')).toBeTruthy();
+  expect(within(drawer).getByRole('heading', { name: 'NOPE-999' }).className).toContain('t-mono');
+  expect(within(drawer).getAllByRole('button').map(button => button.textContent || button.getAttribute('aria-label'))).toEqual(['상세 닫기', '선택 해제']);
+  fireEvent.click(within(drawer).getByRole('button', { name: '선택 해제' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+});
+
+it('copies applied hidden Equipment filters and excludes extras, return navigation and expansion', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal('isSecureContext', true);
+  vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: { writeText } } }));
+  mountDrawer('EQ-1', { search: '&filter=status:in:active&filter=model:contains:X&extra=hidden&expand=1&returnTo=%2Fmars%2Fequipment-master' });
+  const link = await screen.findByRole('link', { name: 'X' });
+  expect(new URLSearchParams(window.location.search).has('filter')).toBe(false);
+  const drawer = link.closest<HTMLElement>('[role="dialog"]')!;
+  fireEvent.click(within(drawer).getByRole('button', { name: '링크 복사' }));
+  expect(writeText).toHaveBeenCalledTimes(1);
+  const copied = new URL(writeText.mock.calls[0]![0]);
+  expect(copied.pathname).toBe('/mars/equipment-master');
+  expect(copied.searchParams.get('focus')).toBe('EQ-1');
+  expect(copied.searchParams.getAll('filter')).toEqual(['status:in:active', 'model:contains:X']);
+  for (const key of ['extra', 'expand', 'returnTo']) expect(copied.searchParams.has(key)).toBe(false);
+  cleanup();
+  queries.length = 0;
+  mountDrawer('EQ-1', { url: copied });
+  await waitFor(() => expect(lastPageParams().filters).toEqual([
+    { id: 'status', op: 'in', value: ['active'] },
+    { id: 'model', op: 'contains', value: 'X' },
+  ]));
+});
+
+it('reports an oversized Equipment share without writing a shorter link', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal('isSecureContext', true);
+  vi.stubGlobal('navigator', Object.create(navigator, { clipboard: { value: { writeText } } }));
+  mountDrawer('EQ-1', {
+    search: `&q=${'X'.repeat(4000)}`,
+    readPage: async () => ok({ rows: [row], total: 1 }),
+    readMembership: async () => ok([row]),
+  });
+  const link = await screen.findByRole('link', { name: 'X' });
+  const drawer = link.closest<HTMLElement>('[role="dialog"]')!;
+  fireEvent.click(within(drawer).getByRole('button', { name: '링크 복사' }));
+  expect(await screen.findByText('조건 링크가 너무 길어 복사하지 못했습니다. 조건을 줄인 뒤 다시 시도하세요.')).toBeTruthy();
+  expect(writeText).not.toHaveBeenCalled();
+});
+
+it.each(['button', 'Escape'])('restores a manually closed Equipment drawer with Back (%s)', async gesture => {
+  mountDrawer('EQ-1');
+  const link = await screen.findByRole('link', { name: 'X' });
+  const drawer = link.closest<HTMLElement>('[role="dialog"]')!;
+  const close = within(drawer).getByRole('button', { name: '상세 닫기' });
+  const priorLength = window.history.length;
+  if (gesture === 'button') fireEvent.click(close);
+  else fireEvent.keyDown(close, { key: 'Escape' });
+  expect(window.history.length).toBe(priorLength + 1);
+  expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+  window.history.back();
+  await waitFor(() => expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1'));
+  expect(await screen.findByRole('link', { name: 'X' })).toBeTruthy();
+  window.history.forward();
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+});
+
+it.each([true, false])('waits for a successful Equipment page before automatic closure (success=%s)', async success => {
+  const page = deferred<ApiResponse<never>>();
+  const membership = deferred<ApiResponse<never>>();
+  const readPage = vi.fn(() => page.promise);
+  const readMembership = vi.fn(() => membership.promise);
+  mountDrawer('EQ-1', { readPage, readMembership });
+  const link = await screen.findByRole('link', { name: 'X' });
+  const search = screen.getByRole('searchbox', { name: '설비 ID 검색' });
+  fireEvent.change(search, { target: { value: 'ETCH' } });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  await waitFor(() => { expect(readPage).toHaveBeenCalled(); expect(readMembership).toHaveBeenCalled(); });
+  await act(async () => membership.resolve({ ...empty, assessments }));
+  expect(screen.getByRole('link', { name: 'X' })).toBe(link);
+  expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
+  expect(screen.getByRole('log').textContent).toBe('');
+  await act(async () => page.resolve(success ? ok({ rows: [], total: 0 }) : { ...empty, outcome: 'error', message: 'Page unavailable' }));
+  if (success) {
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(within(screen.getByRole('log')).getAllByText('열린 항목이 목록에서 빠져 닫았습니다')).toHaveLength(1);
+    expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+  } else {
+    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'X' })).toBe(link);
+    expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
+  }
 });

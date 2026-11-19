@@ -81,7 +81,7 @@ export function buildRecoveryPanelParts(
     body: <RecoveryPanelBody key={itemKey} {...props} />,
     requestClose: props.onClose,
     itemKey,
-    ...(sourceHeader ? { sourceHeader } : {}),
+    ...(sourceHeader ? { sourceHeader, id: sourceHeader.displayId } : {}),
   };
 }
 
@@ -98,7 +98,7 @@ export function RecoveryPanelFrame({ parts }: { parts: RecoveryPanelParts }) {
           {...DETAIL_PANEL_KICKERS[sourceHeader.kind]}
           {...(sourceHeader.displayId ? { id: sourceHeader.displayId } : {})}
           onClose={parts.requestClose}
-          extras={<h2 className="truncate text-sm font-semibold">{parts.title}</h2>}
+          title={parts.title}
         />
       ) : (
         <header className="flex h-toolbar shrink-0 items-center justify-between border-b border-border-subtle px-4">

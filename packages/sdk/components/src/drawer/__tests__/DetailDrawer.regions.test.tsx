@@ -7,7 +7,7 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { DetailDrawer } from '../DetailDrawer';
 
 function Host() { const slot = useDetailPanelSlotHost(); return <aside ref={slot.ref} />; }
-function Fixture({ tabs, lang = 'ko', footer }: { tabs: ComponentProps<typeof DetailDrawer>['tabs']; lang?: 'ko' | 'en'; footer?: ReactNode }) {
+function Fixture({ tabs, lang = 'ko', footer }: { tabs: NonNullable<ComponentProps<typeof DetailDrawer>['tabs']>; lang?: 'ko' | 'en'; footer?: ReactNode }) {
   return <I18nProvider><Language lang={lang} /><DetailPanelSlotProvider><Host /><DetailDrawer title="Record" onClose={() => {}} tabs={tabs} footer={footer} /></DetailPanelSlotProvider></I18nProvider>;
 }
 function Language({ lang }: { lang: 'ko' | 'en' }) { const { setLang } = useI18n(); useEffect(() => { setLang(lang); }, [lang, setLang]); return null; }

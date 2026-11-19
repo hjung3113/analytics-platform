@@ -410,7 +410,7 @@ describe('Top View', () => {
     const fake = fakeFor('topview');
     fake.render(TopViewScreen);
     const dialog = await openComponent('pm-a');
-    within(dialog).getByText('Component · pm-a');
+    expect(screen.getByRole('dialog', { name: 'Component' })).toBe(dialog);
     within(dialog).getByRole('region', { name: 'Component 상세 pm-a' });
     expect(screen.queryByText('Component를 선택하세요')).toBeNull();
   });

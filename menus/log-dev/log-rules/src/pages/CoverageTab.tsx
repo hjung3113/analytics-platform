@@ -74,7 +74,7 @@ function ComputedCoverage({ onRefresh, onOpenRule, data, modelId, softwareId, ur
 }
 function RequirementDrawer({ row, onClose, onOpenRule }: { row: RequirementRow; onClose: () => void; onOpenRule: () => void }) {
   const { setPage } = usePlatform();
-  return <DetailDrawer title={<span className="t-mono">{row.key}</span>} onClose={onClose} tabs={[{ id: 'requirement', label: '명세 요구사항', content: <div className="grid min-w-0 gap-5 break-keep text-xs">
+  return <DetailDrawer id={row.key} onClose={onClose} tabs={[{ id: 'requirement', label: '명세 요구사항', content: <div className="grid min-w-0 gap-5 break-keep text-xs">
     <Section title="명세 요구사항"><Original>{row.key}</Original><div><CoverageBadge value={row.state} /></div></Section>
     <Section title={`선언한 Rule ${row.declaredCount}개`}>{row.declaredBy.length === 0 ? <p>이 명세 요구사항을 선언한 규칙이 없습니다.</p> : row.declaredBy.map(rule => <div key={JSON.stringify([rule.ruleSetKey, rule.revision, rule.ruleKey])} className="grid min-w-0 gap-1">
       <Button type="button" variant="link" size="sm" onClick={() => { onOpenRule(); setPage({ tab: 'rules', focus: null, page: null, ruleSetKey: rule.ruleSetKey, ruleKey: rule.ruleKey }); }}><Original>{rule.ruleSetKey} / {rule.ruleKey}</Original></Button>

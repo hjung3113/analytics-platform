@@ -13,7 +13,7 @@ function useActorNames(): ReadonlyMap<string, string> {
  */
 export function TaskDetailDrawer({ taskId, view, onClose }: { taskId: string; view: 'backlog' | 'my'; onClose: () => void }) {
   const parts = useTaskDetailParts({ taskId, view, onClose, titleInHeader: true, actorNamesById: useActorNames(), managedSystemNamesById: useTaskManagedSystemNames() });
-  return <FeatureDetailDrawer parts={parts} onClose={onClose} requestClose={parts.requestClose} />;
+  return <FeatureDetailDrawer copyPage={null} parts={parts} onClose={onClose} requestClose={parts.requestClose} />;
 }
 
 /** What `TaskBoardScreen` hands `renderDetail` (the board owns the move and the close). */
@@ -29,5 +29,5 @@ export type BoardDetailOptions = {
 export function BoardTaskDrawer({ taskId, onClose, ...options }: { taskId: string } & BoardDetailOptions) {
   // The next-status footer stays at the end of the body (the board's standalone order), not in the drawer's footer slot.
   const { footer, ...parts } = useTaskDetailParts({ taskId, view: 'board', onClose, titleInHeader: true, ...options });
-  return <FeatureDetailDrawer parts={{ ...parts, body: <>{parts.body}{footer}</> }} onClose={onClose} requestClose={parts.requestClose} />;
+  return <FeatureDetailDrawer copyPage={null} parts={{ ...parts, body: <>{parts.body}{footer}</> }} onClose={onClose} requestClose={parts.requestClose} />;
 }

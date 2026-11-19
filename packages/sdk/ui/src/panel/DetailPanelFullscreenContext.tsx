@@ -63,6 +63,13 @@ export function rememberPopupEscape(event: KeyboardEvent) {
 }
 export function popupOwnsEscape(event: Event) { return popupEscapes.has(event); }
 
+const closeTooltipEscapes = new WeakSet<Event>();
+export function rememberDetailCloseTooltipEscape(event: KeyboardEvent) {
+  if (!event.defaultPrevented && event.target instanceof HTMLButtonElement && event.target.hasAttribute('data-detail-panel-close')) {
+    closeTooltipEscapes.add(event);
+  }
+}
+
 /** Escape restores focus without opening a tooltip that would consume the next Escape before the close path. */
 export function focusDetailPanelToggle(root: HTMLElement | null) {
   const toggle = root?.querySelector<HTMLElement>('[data-detail-expand-toggle]');
@@ -76,7 +83,10 @@ export function focusDetailPanelToggle(root: HTMLElement | null) {
 export function useDetailPanelEscape(onClose: () => void) {
   const fullscreen = useContext(DetailPanelFullscreenContext);
   return (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key !== 'Escape' || event.defaultPrevented || popupOwnsEscape(event.nativeEvent) || !event.currentTarget.contains(event.target as Node)) return;
+    if (event.key !== 'Escape' || popupOwnsEscape(event.nativeEvent) || !event.currentTarget.contains(event.target as Node)) return;
+    // Radix prevents default when it dismisses the focused close button's tooltip.
+    // The same press should still follow the panel's collapse and close order.
+    if (event.defaultPrevented && !closeTooltipEscapes.has(event.nativeEvent)) return;
     event.preventDefault(); event.stopPropagation();
     if (fullscreen?.expanded) {
       fullscreen.toggle();

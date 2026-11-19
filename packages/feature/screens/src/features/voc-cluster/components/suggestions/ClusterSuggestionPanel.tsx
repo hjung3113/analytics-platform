@@ -45,7 +45,7 @@ export function ClusterSuggestionPanel({
   }, [notice, noticeId, fallbackRef]);
   return (
     <div data-testid="cluster-suggestion-panel">
-      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.cluster} id={COPY.tab} onClose={onClose} />
+      <DetailPanelHeader {...DETAIL_PANEL_KICKERS.cluster} title={COPY.tab} onClose={onClose} />
       <div className="flex flex-col gap-5 p-5">
         {notice && (
           <div role="alert" tabIndex={-1} ref={noticeNode}>

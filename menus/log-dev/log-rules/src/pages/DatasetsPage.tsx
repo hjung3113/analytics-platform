@@ -32,7 +32,7 @@ const ui: Presentation = {
   page: parts => <DatasetPageFrame {...parts} />,
   cellLink: parts => <DatasetCellLink {...parts} />,
   table: parts => <Table {...parts} />,
-  drawer: parts => <DetailDrawer title={parts.title} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} footer={parts.footer} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
+  drawer: parts => <DetailDrawer title={parts.title} copyPage={null} onClose={parts.requestClose} returnFocusRef={parts.returnFocusRef} footer={parts.footer} tabs={[{ id: 'detail', label: '상세', content: parts.body }]} />,
   timeline,
   trust: reasons => <DataTrustIndicator summary wrap showWithoutTrust trust={null} assessments={reasons.map(detail => ({ kind: 'coverage', state: 'unknown', reason: 'check_failed', detail }))} />,
 };

@@ -119,7 +119,7 @@ export function AssessDrawer({ detail, onReload, onClose, reloadQuery, returnFoc
   const guard = useCloseGuard(onClose);
   useUnsavedGuard(guard.dirty && !guard.released, { leaves: 'address' });
   return <>
-    <DetailDrawer title="판단 변경" subtitle={`${itemNoLabel(detail.item.itemNo)} · ${ownerText(detail.item.owner)}`} onClose={guard.request} returnFocusRef={returnFocusRef}
+    <DetailDrawer id={itemNoLabel(detail.item.itemNo)} title="판단 변경" subtitle={ownerText(detail.item.owner)} copyPage={null} onClose={guard.request} returnFocusRef={returnFocusRef}
       tabs={[{ id: 'form', label: '내용', content: <AssessForm key={synced} detail={detail} guard={guard} rationale={rationale} setRationale={setRationale} reloadQuery={reloadQuery} reloaded={synced !== initialVersion} onReload={() => { sync(); onReload(); }} /> }]} />
     {guard.dialog}
   </>;

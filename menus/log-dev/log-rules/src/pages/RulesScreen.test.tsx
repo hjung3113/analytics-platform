@@ -166,7 +166,8 @@ describe('validation rules screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'R-001 상세 보기' }));
     await waitFor(() => expect(queries.filter(q => q.endpoint === 'logRules.ruleDetail').at(-1)?.params).toEqual({ ruleSetKey: 'core', ruleKey: 'R-001' }));
     fireEvent.click(screen.getByRole('button', { name: 'core RuleSet 이력' }));
-    expect(await screen.findByRole('dialog', { name: 'core · RuleSet 이력' })).toBeTruthy();
+    const history = await screen.findByRole('dialog', { name: 'RuleSet 이력' });
+    expect(within(history).getByText('core')).toBeTruthy();
   });
   it('does not call declared IDs unmatched until a complete selected spec is read', async () => {
     mount('&ruleSetKey=core&ruleKey=R-001');
@@ -202,7 +203,8 @@ describe('validation rules screen', () => {
   });
   it('reads RuleSet Revision diffs including a retired revision', async () => {
     mount('&ruleSetKey=core');
-    expect(await screen.findByRole('dialog', { name: 'core · RuleSet 이력' })).toBeTruthy();
+    const history = await screen.findByRole('dialog', { name: 'RuleSet 이력' });
+    expect(within(history).getByText('core')).toBeTruthy();
     expect(await screen.findByText('R-002')).toBeTruthy();
     expect(screen.getByText('R-003')).toBeTruthy(); expect(screen.getAllByText(/r1 · 퇴역/)).toHaveLength(1);
   });

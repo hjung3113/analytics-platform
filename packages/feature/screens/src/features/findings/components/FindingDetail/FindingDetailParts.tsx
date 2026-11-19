@@ -148,6 +148,8 @@ export function useFindingDetailParts({
 
   // 3. Full detail. Independent of the document-title release above: a refetch must not blank the drawer's title.
   return {
+    id: data.display_id,
+    objectTitle: data.title,
     title:
       formatRecordDocumentTitle({ displayId: data.display_id, title: data.title }) ??
       data.display_id,

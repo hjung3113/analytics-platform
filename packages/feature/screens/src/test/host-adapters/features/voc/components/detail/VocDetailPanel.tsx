@@ -27,6 +27,7 @@ export function VocDetailPanel({
   const parts = useVocDetailParts({
     vocId,
     onClose,
+    titleInHeader: true,
     ...(managedSystemId !== undefined ? { managedSystemId } : {}),
   });
   const { view } = parts;

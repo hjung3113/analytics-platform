@@ -561,6 +561,11 @@ export const COMPONENTS_MESSAGES = {
 
   // Drawer / Audit
   drawerCloseDetails: { ko: '상세 닫기', en: 'Close details' },
+  drawerCopyLink: { ko: '링크 복사', en: 'Copy link' },
+  drawerLinkCopied: { ko: '링크가 복사되었습니다.', en: 'Link copied.' },
+  drawerListClosed: { ko: '열린 항목이 목록에서 빠져 닫았습니다', en: 'Details closed because the item left the list' },
+  drawerMissingItem: { ko: '이 항목을 찾을 수 없습니다 — 삭제되었거나 볼 권한이 없습니다', en: 'This item could not be found — it may have been deleted or you do not have permission to view it' },
+  drawerClearSelection: { ko: '선택 해제', en: 'Clear selection' },
   drawerDetailTabs: { ko: '상세 탭', en: 'Detail tabs' },
   drawerDetailTabField: { ko: '상세 탭', en: 'Detail tab' },
   drawerClearTabValue: { ko: '값 지우기', en: 'Clear value' },
@@ -585,6 +590,8 @@ export const COMPONENTS_MESSAGES = {
     ko: '링크를 복사하지 못했습니다. 주소창의 주소를 직접 복사하세요.',
     en: 'Could not copy the link. Copy the address from the address bar instead.',
   },
+  drawerShareTooLong: { ko: '조건 링크가 너무 길어 복사하지 못했습니다. 조건을 줄인 뒤 다시 시도하세요.', en: 'The conditions link is too long to copy. Reduce the conditions and try again.' },
+  drawerShareInvalid: { ko: '조건 링크를 만들지 못했습니다. 적용된 조건을 확인한 뒤 다시 시도하세요.', en: 'Could not build the conditions link. Check the applied conditions and try again.' },
   trustNotConfirmed: { ko: '미확인', en: 'Not confirmed' },
   trustKindCollection: { ko: '수집', en: 'Collection' },
   trustKindProcessingDelay: { ko: '처리 지연', en: 'Processing delay' },

@@ -126,8 +126,8 @@ export function ProductivityDrillBody({ ko, room, stgroup, equipment, stgroupQue
               <EquipmentTable ko={ko} rows={eq.equipment} current={equipment} onEnter={onEnterEquipment} n1={n1} ni={ni} />
             </Stage>
             {row && <DetailDrawer
-              title={<span className="t-mono">{row.equipmentId}</span>}
-              subtitle={m('productivityDrillEquipmentSummary')}
+              id={row.equipmentId}
+              title={m('productivityDrillEquipmentSummary')}
               onClose={onCloseEquipment}
               tabs={[{
                 id: 'summary',

@@ -153,6 +153,7 @@ export function useVocDetailParts({
     return {
       ...base,
       view: { kind: 'summary', data },
+      id: data.display_id,
       title: data.display_id,
       headerActions: <VocHeaderActions vocId={vocId} displayId={data.display_id} />,
       body: <SummaryPermissionBody data={data} />,
@@ -169,6 +170,8 @@ export function useVocDetailParts({
   return {
     ...base,
     view: { kind: 'full', voc },
+    id: voc.display_id,
+    objectTitle: voc.title,
     title:
       formatRecordDocumentTitle({ displayId: voc.display_id, title: voc.title }) ?? voc.display_id,
     headerActions: <VocHeaderActions vocId={vocId} displayId={voc.display_id} />,
