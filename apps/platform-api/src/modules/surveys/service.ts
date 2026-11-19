@@ -4,7 +4,7 @@ import type { AuditService } from '../core/audit/audit-service.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
 import type { CheckService } from '../permissions/check-service.js';
-import type { EntityLinksService } from '../entity-links/service.js';
+import type { EntityLinksService } from '../entity-links/index.js';
 import { createMyAnswerableSurveys } from './answerable-surveys.js';
 import { createSurveyAuthoring } from './authoring.js';
 import { createSurveyEvidenceAccess } from './evidence-access.js';

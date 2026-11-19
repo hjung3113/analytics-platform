@@ -171,6 +171,9 @@ function makePanelRouter() {
     if (method === 'GET' && /^\/tasks\/[^/]+\/comments/.test(path)) {
       return jsonResponse({ items: [], page: { has_more: false } });
     }
+    if (method === 'GET' && path.startsWith('/entity-links?target_type=task&target_id=')) {
+      return jsonResponse({ items: [], page: { has_more: false } });
+    }
     if (method === 'GET' && /^\/tasks\/[^/]+$/.test(path)) {
       const taskId = path.split('/')[2];
       const make = () => jsonResponse(config.taskResponses[taskId ?? ''] ?? taskA);
@@ -327,6 +330,9 @@ function makeIdempotentRouter(): IdempotentRouter {
       return response.clone();
     }
     if (method === 'GET' && /^\/tasks\/[^/]+\/comments/.test(path)) {
+      return jsonResponse({ items: [], page: { has_more: false } });
+    }
+    if (method === 'GET' && path.startsWith('/entity-links?target_type=task&target_id=')) {
       return jsonResponse({ items: [], page: { has_more: false } });
     }
     if (method === 'GET' && /^\/tasks\/[^/]+$/.test(path)) {
