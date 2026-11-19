@@ -14,6 +14,7 @@ export interface ValidateLinesOptions {
 }
 
 const LINE_BREAK = /\r\n|\n|\r/;
+const TRAILING_LINE_BREAK = /(?:\r\n|\n|\r)$/;
 
 /** Validate each physical line, reporting the first line beyond the limit instead of dropping it. */
 export function validateLines(
@@ -25,7 +26,8 @@ export function validateLines(
     throw new RangeError('maxLines must be a positive safe integer');
   }
 
-  const lines = text.split(LINE_BREAK, maxLines + 1);
+  const lines = text.split(LINE_BREAK, maxLines + 2);
+  if (TRAILING_LINE_BREAK.test(text) && lines.at(-1) === '') lines.pop();
   const errors: LineValidationError[] = [];
   const checkedCount = Math.min(lines.length, maxLines);
 
@@ -54,6 +56,7 @@ export interface LineErrorListMessages {
 
 export interface LineErrorListProps {
   errors: readonly LineValidationError[];
+  id?: string;
   maxVisible?: number;
   messages?: LineErrorListMessages;
 }
@@ -67,6 +70,7 @@ const DEFAULT_MESSAGES: LineErrorListMessages = {
 /** Small inline list for a bulk input's first errors and remaining count. */
 export function LineErrorList({
   errors,
+  id,
   maxVisible = DEFAULT_MAX_VISIBLE,
   messages = DEFAULT_MESSAGES,
 }: LineErrorListProps) {
@@ -77,7 +81,7 @@ export function LineErrorList({
   const remainingCount = errors.length - visibleErrors.length;
 
   return (
-    <ul className="grid gap-1 break-keep text-xs text-text-danger-label" aria-live="polite">
+    <ul id={id} className="grid gap-1 break-keep text-xs text-text-danger-label" aria-live="polite">
       {visibleErrors.map((error, index) => (
         <li key={`${error.line}-${index}`}>{messages.line(error.line, error.message)}</li>
       ))}

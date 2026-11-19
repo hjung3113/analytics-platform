@@ -9,7 +9,7 @@ type Values = { first: string; second: string };
 
 function ValidationForm({ onValid }: { onValid: (values: Values, event: React.FormEvent<HTMLFormElement>) => void }) {
   const [values, setValues] = React.useState<Values>({ first: '', second: '' });
-  const { errors, handleSubmit } = useValidatedSubmit({
+  const { errors, handleSubmit, clearError } = useValidatedSubmit({
     validate: (next) => {
       const errors: Partial<Record<keyof Values, string>> = {};
       if (next.second.trim() === '') errors.second = 'Second is required';
@@ -23,12 +23,18 @@ function ValidationForm({ onValid }: { onValid: (values: Values, event: React.Fo
     <form data-testid="validation-form" onSubmit={handleSubmit(values)}>
       <FormField label="First" error={errors.first}>
         {(control) => (
-          <Input {...control} value={values.first} onChange={(event) => setValues((current) => ({ ...current, first: event.target.value }))} />
+          <Input {...control} value={values.first} onChange={(event) => {
+            setValues((current) => ({ ...current, first: event.target.value }));
+            clearError('first');
+          }} />
         )}
       </FormField>
       <FormField label="Second" error={errors.second}>
         {(control) => (
-          <Input {...control} value={values.second} onChange={(event) => setValues((current) => ({ ...current, second: event.target.value }))} />
+          <Input {...control} value={values.second} onChange={(event) => {
+            setValues((current) => ({ ...current, second: event.target.value }));
+            clearError('second');
+          }} />
         )}
       </FormField>
       <button type="submit">Save</button>
@@ -52,6 +58,13 @@ it('shows errors only after submit and focuses the first invalid control in DOM 
   expect(first).toHaveAttribute('aria-invalid', 'true');
   expect(first).toHaveFocus();
   expect(onValid).not.toHaveBeenCalled();
+
+  fireEvent.change(first, { target: { value: 'A' } });
+
+  expect(screen.queryByText('First is required')).toBeNull();
+  expect(first).not.toHaveAttribute('aria-invalid');
+  expect(screen.getByText('Second is required')).toBeVisible();
+  expect(second).toHaveAttribute('aria-invalid', 'true');
 });
 
 it('calls onValid with values and the form event when validation succeeds', () => {

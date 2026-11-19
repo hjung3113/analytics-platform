@@ -29,6 +29,17 @@ it('keeps the hint visible while an error shows and uses no live role for the er
   expect(screen.getByText('입력 길이가 너무 깁니다')).toHaveClass('break-keep', 'text-text-danger-label');
 });
 
+it('allows a single field error to opt into an alert role', () => {
+  render(
+    <FormField label="Reason" error="The reason was rejected" errorRole="alert">
+      {(control) => <Input {...control} />}
+    </FormField>,
+  );
+
+  expect(screen.getByRole('alert')).toHaveTextContent('The reason was rejected');
+  expect(screen.getByLabelText('Reason').getAttribute('aria-describedby')).toContain('-error');
+});
+
 it('adds no aria-invalid, aria-required or describedby when there is nothing to say', () => {
   render(<FormField label="제목">{control => <Input {...control} />}</FormField>);
   const input = screen.getByLabelText('제목');
@@ -47,6 +58,17 @@ it('passes the opt-in required mark and supplied localized text through to Field
 
   expect(screen.getByLabelText(/Name/)).toHaveAttribute('aria-required', 'true');
   expect(screen.getByText('· Required')).toHaveAttribute('aria-hidden', 'true');
+});
+
+it('can omit the visual required mark while keeping the control required', () => {
+  render(
+    <FormField label="Name" required requiredMark="text" showRequiredMark={false}>
+      {(control) => <Input {...control} />}
+    </FormField>,
+  );
+
+  expect(screen.getByLabelText('Name')).toHaveAttribute('aria-required', 'true');
+  expect(screen.queryByText('· 필수')).toBeNull();
 });
 
 it('treats an empty-string error as no error and appends only the caller describedBy', () => {

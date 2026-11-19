@@ -72,8 +72,9 @@ export interface ButtonProps
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
+  (buttonProps, ref) => {
+    const hasDisabledReasonProp = Object.prototype.hasOwnProperty.call(buttonProps, 'disabledReason');
+    const {
       className,
       variant,
       size,
@@ -87,26 +88,26 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       'aria-describedby': describedBy,
       children,
       ...props
-    },
-    ref,
-  ) => {
+    } = buttonProps;
     const reasonId = React.useId();
-    const hasDisabledReason =
+    const showDisabledReason =
       (disabled === true || loading === true) &&
       disabledReason !== undefined &&
       disabledReason !== null &&
       disabledReason !== false &&
       disabledReason !== '';
-    const buttonDescribedBy = [describedBy, hasDisabledReason ? reasonId : undefined]
+    const buttonDescribedBy = [describedBy, showDisabledReason ? reasonId : undefined]
       .filter((id): id is string => id !== undefined && id !== '')
       .join(' ');
     const withReason = (button: React.ReactElement) =>
-      hasDisabledReason ? (
+      hasDisabledReasonProp ? (
         <span className="inline-flex min-w-0 flex-col items-start gap-1">
           {button}
-          <span id={reasonId} className="max-w-full break-words text-xs text-text-muted">
-            {disabledReason}
-          </span>
+          {showDisabledReason && (
+            <span id={reasonId} className="max-w-full break-words text-xs text-text-muted">
+              {disabledReason}
+            </span>
+          )}
         </span>
       ) : (
         button

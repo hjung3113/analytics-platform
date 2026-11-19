@@ -1,5 +1,6 @@
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { TASK_REQUEST_COPY } from '../../../../lib/copy/task-requests';
+import { decisionReasonError } from './decisionReasonError';
 import {
   Button,
   Dialog,
@@ -147,8 +148,6 @@ export function TaskRequestDecisionDialog({
           description: '실행 후보를 승인하는 이유를 기록하세요.',
           label: isSelfApproval ? '본인 승인 사유' : '승인 사유',
           submitLabel: '승인',
-          required: isSelfApproval,
-          reasonRequired: TASK_REQUEST_COPY.selfApprovalReasonRequired,
         }
       : content?.action === 'request-more-evidence'
         ? {
@@ -156,29 +155,34 @@ export function TaskRequestDecisionDialog({
             description: '요청을 검토하기 전에 필요한 근거를 기록하세요.',
             label: '근거 메모',
             submitLabel: '요청',
-            required: true,
-            reasonRequired: TASK_REQUEST_COPY.evidenceNoteRequired,
           }
         : {
             title: 'Task 요청 반려',
             description: '실행 후보를 반려하는 이유를 기록하세요.',
             label: '반려 사유',
             submitLabel: '반려',
-            required: true,
-            reasonRequired: TASK_REQUEST_COPY.rejectReasonRequired,
           };
   const inputId = `task-request-${content?.action}-reason`;
+  const reasonRef = React.useRef<HTMLTextAreaElement>(null);
+  const serverReasonError =
+    content && content.error !== null && content.reasonInvalid !== false
+      ? content.error
+      : undefined;
+  const reasonRequired =
+    content !== null && decisionReasonError(content.action, isSelfApproval, '') !== null;
   const { errors, handleSubmit, clearErrors } = useValidatedSubmit<{ reason: string }>({
-    validate: ({ reason }) =>
-      details.required && reason.trim() === '' ? { reason: details.reasonRequired } : {},
+    validate: ({ reason }) => {
+      if (!content) return {};
+      const error = decisionReasonError(content.action, isSelfApproval, reason);
+      return error ? { reason: error } : {};
+    },
     onValid: (_values, event) => onSubmit(event),
   });
   React.useEffect(() => clearErrors(), [opening.key, clearErrors]);
-  const fieldError =
-    errors.reason ??
-    (content && content.error !== null && content.reasonInvalid !== false
-      ? content.error
-      : undefined);
+  React.useLayoutEffect(() => {
+    if (serverReasonError) reasonRef.current?.focus();
+  }, [opening.key, serverReasonError]);
+  const fieldError = errors.reason ?? serverReasonError;
   const submit = handleSubmit({ reason: content?.value ?? '' });
 
   return (
@@ -239,13 +243,15 @@ export function TaskRequestDecisionDialog({
             <FormField
               id={inputId}
               label={details.label}
-              required={details.required}
+              required={reasonRequired}
               requiredMark="text"
               error={fieldError}
+              {...(serverReasonError ? { errorRole: 'alert' as const } : {})}
             >
               {(control) => (
                 <Textarea
                   {...control}
+                  ref={reasonRef}
                   rows={3}
                   value={content.value}
                   onChange={(event) => {
@@ -281,7 +287,6 @@ export function TaskRequestDecisionDialog({
               <Button
                 type="submit"
                 disabled={successfulClose}
-                disabledReason={successfulClose ? TASK_REQUEST_COPY.decisionComplete : undefined}
                 aria-busy={isSubmitting}
                 aria-disabled={isSubmitting || undefined}
               >

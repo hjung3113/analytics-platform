@@ -22,9 +22,18 @@ it('reports the first line beyond maxLines instead of silently dropping it', () 
   })).toEqual([{ line: 3, message: 'Only 2 lines are allowed' }]);
 });
 
+it.each(['\n', '\r\n', '\r'])('ignores one trailing %j after the last allowed line', (lineBreak) => {
+  expect(validateLines(`valid${lineBreak}valid${lineBreak}`, () => null, { maxLines: 2 })).toEqual([]);
+  expect(validateLines(`valid${lineBreak}valid${lineBreak}${lineBreak}`, () => null, {
+    maxLines: 2,
+    maxLinesMessage: 'Only 2 lines are allowed',
+  })).toEqual([{ line: 3, message: 'Only 2 lines are allowed' }]);
+});
+
 it('renders the first errors and a remaining-count summary', () => {
   render(
     <LineErrorList
+      id="line-errors"
       maxVisible={2}
       errors={[
         { line: 2, message: 'Missing id' },
@@ -39,6 +48,7 @@ it('renders the first errors and a remaining-count summary', () => {
   expect(screen.getByText('7행: Unknown system')).toBeVisible();
   expect(screen.getByText('외 2건')).toBeVisible();
   expect(screen.getAllByRole('listitem')).toHaveLength(3);
+  expect(screen.getByRole('list')).toHaveAttribute('id', 'line-errors');
 });
 
 it('renders nothing when there are no line errors', () => {

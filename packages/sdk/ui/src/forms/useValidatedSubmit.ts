@@ -13,6 +13,8 @@ export interface UseValidatedSubmitResult<TValues> {
   handleSubmit: (values: TValues) => React.FormEventHandler<HTMLFormElement>;
   /** Clear errors when the surrounding form is reset or closed. */
   clearErrors: () => void;
+  /** Clear only the error for a field whose value changed. */
+  clearError: (field: Extract<keyof TValues, string>) => void;
 }
 
 /** Validate only after submit, then focus the first invalid control after its `aria-invalid` props render. */
@@ -50,6 +52,16 @@ export function useValidatedSubmit<TValues>({
     setErrors({});
   }, []);
 
+  const clearError = React.useCallback((field: Extract<keyof TValues, string>) => {
+    shouldFocusInvalidRef.current = false;
+    setErrors((current) => {
+      if (!Object.prototype.hasOwnProperty.call(current, field)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
   const handleSubmit = React.useCallback(
     (values: TValues): React.FormEventHandler<HTMLFormElement> =>
       (event) => {
@@ -70,5 +82,5 @@ export function useValidatedSubmit<TValues>({
     [onValid, validate],
   );
 
-  return { errors, handleSubmit, clearErrors };
+  return { errors, handleSubmit, clearErrors, clearError };
 }

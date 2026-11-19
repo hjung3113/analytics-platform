@@ -142,6 +142,18 @@ describe('useTaskRequestDecision success toast', () => {
       expect(navigate).not.toHaveBeenCalled();
     },
   );
+
+  it('uses the shared required-reason message when a submit handler is called directly', () => {
+    const { result } = renderDecision();
+    act(() => result.current.reject());
+    submitDecision(result.current);
+
+    expect(result.current.dialog).toMatchObject({
+      error: TASK_REQUEST_COPY.rejectReasonRequired,
+      reasonInvalid: true,
+    });
+    expect(api.rejectTaskRequest).not.toHaveBeenCalled();
+  });
   it('keeps the open dialog on a rerender with the same item object and clears it for a new object with an equal id', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result, rerender } = renderHook(

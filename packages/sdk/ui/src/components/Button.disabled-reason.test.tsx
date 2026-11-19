@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import { Button } from './Button.js';
@@ -34,5 +35,38 @@ it('does not render a disabled reason for an enabled button', () => {
     'aria-describedby',
     'existing-description',
   );
+  expect(screen.queryByText('Select a system first')).toBeNull();
+});
+
+it('keeps the focused button node when its disabled reason appears and disappears', () => {
+  const ref = React.createRef<HTMLButtonElement>();
+  const { rerender } = render(
+    <Button ref={ref} disabledReason={undefined}>
+      Create
+    </Button>,
+  );
+  const button = screen.getByRole('button', { name: 'Create' });
+  button.focus();
+
+  rerender(
+    <Button ref={ref} disabled disabledReason="Select a system first">
+      Create
+    </Button>,
+  );
+
+  expect(screen.getByRole('button', { name: 'Create' })).toBe(button);
+  expect(ref.current).toBe(button);
+  expect(button).toHaveFocus();
+  expect(screen.getByText('Select a system first')).toBeVisible();
+
+  rerender(
+    <Button ref={ref} disabledReason={undefined}>
+      Create
+    </Button>,
+  );
+
+  expect(screen.getByRole('button', { name: 'Create' })).toBe(button);
+  expect(ref.current).toBe(button);
+  expect(button).toHaveFocus();
   expect(screen.queryByText('Select a system first')).toBeNull();
 });

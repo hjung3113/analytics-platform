@@ -179,12 +179,11 @@ export function CreateSurveyDialog({
     (mode === 'builtin' && templates.isError) || (mode === 'existing' && sources.isError);
   const noAvailableStartingPoints =
     mode === 'existing' &&
+    !blocked &&
     sources.isSuccess &&
     !sources.isFetching &&
     !sources.hasNextPage &&
     sourceItems.length === 0;
-  const selectedStartingPointUnavailable =
-    startingPointChosen && !startingPointLoading && !definition;
   let submitDisabledReason: string | undefined;
   if (!canManage) {
     submitDisabledReason = COPY.permissionUnavailable;
@@ -192,25 +191,19 @@ export function CreateSurveyDialog({
     submitDisabledReason = COPY.creating;
   } else if (startingPointLoading || startingPointListLoading) {
     submitDisabledReason = COPY.loading;
-  } else if (blocked) {
-    submitDisabledReason = COPY.reselect;
-  } else if (system !== '' && !systemInScope) {
-    submitDisabledReason = COPY.systemUnavailable;
-  } else if (startingPointListUnavailable) {
+  } else if (!blocked && startingPointListUnavailable) {
     submitDisabledReason = COPY.loadFailed;
-  } else if (noAvailableStartingPoints) {
+  } else if (!blocked && noAvailableStartingPoints) {
     submitDisabledReason = search.trim() ? COPY.searchEmpty : COPY.empty;
-  } else if (mode === 'existing' && startingPointChosen && source.isError) {
+  } else if (!blocked && mode === 'existing' && startingPointChosen && source.isError) {
     submitDisabledReason = COPY.previewFailed;
-  } else if (selectedStartingPointUnavailable) {
-    submitDisabledReason = COPY.startingPointUnavailable;
   }
   const sourceReadDenied =
     (sources.error instanceof ApiError &&
       (sources.error.status === 403 || sources.error.status === 404)) ||
     (source.error instanceof ApiError &&
       (source.error.status === 403 || source.error.status === 404));
-  const { errors, handleSubmit, clearErrors } = useValidatedSubmit<SurveyCreateValues>({
+  const { errors, handleSubmit, clearErrors, clearError } = useValidatedSubmit<SurveyCreateValues>({
     validate: (values) => {
       const next: Partial<Record<keyof SurveyCreateValues, string>> = {};
       if (values.title.trim() === '') next.title = COPY.titleRequired;
@@ -218,8 +211,11 @@ export function CreateSurveyDialog({
       if (values.system === '') next.system = COPY.systemRequired;
       else if (!values.systemInScope) next.system = COPY.systemUnavailable;
       if (values.mode !== 'blank') {
-        if (values.startingPoint === '') next.startingPoint = COPY.startingPointRequired;
-        else if (values.blocked || (!values.startingPointReady && !values.startingPointLoading)) {
+        if (values.blocked) {
+          next.startingPoint = COPY.startingPointUnavailable;
+        } else if (values.startingPoint === '') {
+          next.startingPoint = COPY.startingPointRequired;
+        } else if (!values.startingPointReady && !values.startingPointLoading) {
           next.startingPoint = COPY.startingPointUnavailable;
         }
       }
@@ -230,6 +226,9 @@ export function CreateSurveyDialog({
     },
     onValid: createSurvey,
   });
+  React.useEffect(() => {
+    if (systemInScope) clearError('system');
+  }, [systemInScope, clearError]);
   React.useEffect(() => {
     if (!sourceReadDenied) return;
     setBlocked(true);
@@ -406,7 +405,7 @@ export function CreateSurveyDialog({
                     onChange={(event) => {
                       setTitleEdited(true);
                       setTitle(event.target.value);
-                    clearErrors();
+                      clearError('title');
                     }}
                   />
                 )}
@@ -418,7 +417,7 @@ export function CreateSurveyDialog({
                     disabled={startingPointChosen}
                     onValueChange={(value) => {
                       setType(value as SurveyType);
-                      clearErrors();
+                      clearError('type');
                     }}
                   >
                     <SelectTrigger {...control} aria-label="설문 유형">
@@ -447,7 +446,8 @@ export function CreateSurveyDialog({
                       setSystem(value);
                       setAnalyticsArea('');
                       clearSelection();
-                      clearErrors();
+                      clearError('system');
+                      clearError('startingPoint');
                       setSearch('');
                       setDebouncedSearch('');
                     }}
@@ -497,7 +497,7 @@ export function CreateSurveyDialog({
                         : sources.isFetching && !sources.isFetchingNextPage) && (
                         <output>{COPY.loading}</output>
                       )}
-                      {(mode === 'builtin' ? templates.isError : sources.isError) ? (
+                      {(mode === 'builtin' ? templates.isError : sources.isError) && !blocked ? (
                         <p role="alert" className="text-sm text-text-danger">
                           {COPY.loadFailed}
                         </p>
@@ -523,7 +523,7 @@ export function CreateSurveyDialog({
                               value={mode === 'builtin' ? templateId : sourceId}
                               onValueChange={(value) => {
                                 clearSelection();
-                                clearErrors();
+                                clearError('startingPoint');
                                 if (mode === 'builtin') setTemplateId(value);
                                 else setSourceId(value);
                               }}
@@ -690,7 +690,7 @@ export function CreateSurveyDialog({
                     value={identityProtected}
                     onValueChange={(value) => {
                       setIdentityProtected(value as 'true' | 'false');
-                      clearErrors();
+                      clearError('identityProtected');
                     }}
                   >
                     <SelectTrigger {...control} aria-label="응답 익명 보호">
@@ -721,9 +721,6 @@ export function CreateSurveyDialog({
               variant="secondary"
               onClick={close}
               disabled={create.isPending || submitting.current}
-              disabledReason={
-                create.isPending || submitting.current ? COPY.creating : undefined
-              }
               data-testid="survey-create-cancel"
             >
               취소

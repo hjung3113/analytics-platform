@@ -10,6 +10,7 @@ import {
   DatePicker,
   DirtyConfirmation,
   FieldRow,
+  RequiredMark,
   FormField,
   Input,
   Select,
@@ -185,7 +186,7 @@ export function useMilestoneCreateParts({
     onError: (err) => setFormError(mapUnknownError(err).message),
   });
 
-  const { errors, handleSubmit, clearErrors } = useValidatedSubmit<MilestoneCreateValues>({
+  const { errors, handleSubmit, clearError } = useValidatedSubmit<MilestoneCreateValues>({
     validate: (values) => {
       const next: Partial<Record<keyof MilestoneCreateValues, string>> = {};
       if (values.title.trim() === '') next.title = MILESTONE_CREATE_COPY.titleRequired;
@@ -231,9 +232,7 @@ export function useMilestoneCreateParts({
   const requiredLabel = (label: React.ReactNode) => (
     <>
       {label}
-      <span className="ml-1 text-xs font-normal text-text-muted" aria-hidden="true">
-        · 필수
-      </span>
+      <RequiredMark mark="text" />
     </>
   );
 
@@ -258,6 +257,7 @@ export function useMilestoneCreateParts({
                 label="제목"
                 required
                 requiredMark="text"
+                showRequiredMark={false}
                 error={errors.title}
                 className="grid w-56 text-left [&>label]:sr-only"
               >
@@ -270,7 +270,7 @@ export function useMilestoneCreateParts({
                     value={title}
                     onChange={(event) => {
                       setTitle(event.target.value);
-                      clearErrors();
+                      clearError('title');
                     }}
                   />
                 )}
@@ -281,6 +281,7 @@ export function useMilestoneCreateParts({
                 label={GLOSSARY.whyThisMilestoneExists}
                 required
                 requiredMark="text"
+                showRequiredMark={false}
                 error={errors.why}
                 className="grid w-56 text-left [&>label]:sr-only"
               >
@@ -294,7 +295,7 @@ export function useMilestoneCreateParts({
                     value={why}
                     onChange={(event) => {
                       setWhy(event.target.value);
-                      clearErrors();
+                      clearError('why');
                     }}
                   />
                 )}
@@ -305,6 +306,7 @@ export function useMilestoneCreateParts({
                 label="시스템"
                 required
                 requiredMark="text"
+                showRequiredMark={false}
                 error={errors.managedSystemId}
                 className="grid w-48 text-left [&>label]:sr-only"
               >
@@ -315,7 +317,7 @@ export function useMilestoneCreateParts({
                     onValueChange={(value) =>
                       {
                         handleManagedSystemChange(value === NO_SELECTION ? '' : value);
-                        clearErrors();
+                        clearError('managedSystemId');
                       }
                     }
                   >
@@ -382,6 +384,7 @@ export function useMilestoneCreateParts({
                 label={GLOSSARY.start}
                 required
                 requiredMark="text"
+                showRequiredMark={false}
                 error={errors.startDate}
                 className="grid w-56 text-left [&>label]:sr-only"
               >
@@ -394,7 +397,7 @@ export function useMilestoneCreateParts({
                     value={startDate}
                     onChange={(value) => {
                       setStartDate(value ?? '');
-                      clearErrors();
+                      clearError('startDate');
                     }}
                   />
                 )}
@@ -405,6 +408,7 @@ export function useMilestoneCreateParts({
                 label={GLOSSARY.target}
                 required
                 requiredMark="text"
+                showRequiredMark={false}
                 error={errors.targetDate}
                 className="grid w-56 text-left [&>label]:sr-only"
               >
@@ -417,7 +421,7 @@ export function useMilestoneCreateParts({
                     value={targetDate}
                     onChange={(value) => {
                       setTargetDate(value ?? '');
-                      clearErrors();
+                      clearError('targetDate');
                     }}
                   />
                 )}

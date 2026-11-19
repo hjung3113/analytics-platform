@@ -296,13 +296,26 @@ it.each([
   if (_name === 'preview failure')
     await user.click(await screen.findByRole('radio', { name: /지난 라운드 문항/ }));
   expect(await screen.findByText(message, { selector: 'p' })).toBeVisible();
-  expectDisabledReason(screen.getByTestId('survey-create-submit'), message);
+  if (_name === 'preview failure') {
+    await user.type(screen.getByLabelText('제목'), '새 설문');
+    await choose(user, '설문 유형', '탐색');
+    await choose(user, '응답 익명 보호', '보호함');
+    const submit = screen.getByTestId('survey-create-submit');
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    const startingPoint = screen.getByRole('radiogroup', { name: '기존 설문 문항 사용' });
+    expect(startingPoint).toHaveAttribute('aria-invalid', 'true');
+    expect(startingPoint).toHaveFocus();
+    expect(screen.getByText('시작 문항을 확인할 수 없습니다. 다시 선택해 주세요.')).toBeVisible();
+  } else {
+    expectDisabledReason(screen.getByTestId('survey-create-submit'), message);
+  }
   await choose(user, '시작 방법', '빈 설문');
   expect(screen.queryByText(message)).not.toBeInTheDocument();
 });
 
 it.each([403, 404, 409])(
-  'blocks failed source create (%i) until reselected and never creates blank',
+  'shows a field error for a failed source create (%i) until reselected',
   async (status) => {
     const user = userEvent.setup();
     const bodies: unknown[] = [];
@@ -351,10 +364,14 @@ it.each([403, 404, 409])(
       screen.queryByText('설문을 만들지 못했습니다. 입력을 확인하고 다시 시도하세요.'),
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText('제목')).toHaveValue('지난 라운드 문항');
-    expectDisabledReason(
-      screen.getByTestId('survey-create-submit'),
-      '문항이 변경되었거나 접근 권한이 없습니다. 새로고침 후 다시 선택하세요.',
-    );
+    const submit = screen.getByTestId('survey-create-submit');
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    expect(await screen.findByText('시작 문항을 확인할 수 없습니다. 다시 선택해 주세요.')).toBeVisible();
+    const startingPoint = screen.getByRole('radiogroup', { name: '기존 설문 문항 사용' });
+    expect(startingPoint).toHaveAttribute('aria-invalid', 'true');
+    expect(startingPoint).toHaveFocus();
+    expect(bodies).toHaveLength(1);
     expect(screen.queryByText(/분기:/)).not.toBeInTheDocument();
     expect(bodies).toHaveLength(1);
     expect(created).not.toHaveBeenCalled();
@@ -768,22 +785,28 @@ it('preserves an uncertain attempt body/key through a rendered retry and uses a 
   expect(created).not.toHaveBeenCalled();
 });
 
-it('fails closed when the selected system leaves the manageable scope, keeping input until it recovers', async () => {
+it('keeps submit enabled with a system field error when the selected system leaves scope', async () => {
   const user = userEvent.setup();
   const scope = vi.mocked(fetchCapabilityScope);
+  const posts: unknown[] = [];
   scope.mockResolvedValueOnce({ scope: { kind: 'all' } });
   scope.mockResolvedValue({ scope: { kind: 'scoped', managed_system_ids: [] } });
   vi.stubGlobal(
     'fetch',
     vi.fn(
-      async (url) =>
-        new Response(
+      async (url, init) => {
+        if (init?.method === 'POST') {
+          posts.push(init.body);
+          return new Response(JSON.stringify(surveyVisualFixture), { status: 201 });
+        }
+        return new Response(
           JSON.stringify(
             String(url).includes('/copy-sources?')
               ? surveyCopySourcesVisualFixture
               : surveyCopySourceVisualFixture,
           ),
-        ),
+        );
+      },
     ),
   );
   const client = new QueryClient({
@@ -812,10 +835,14 @@ it('fails closed when the selected system leaves the manageable scope, keeping i
   )).toBeVisible();
   expect(screen.queryByText(/분기:/)).not.toBeInTheDocument();
   expect(screen.queryByRole('radio', { name: /지난 라운드 문항/ })).not.toBeInTheDocument();
-  expectDisabledReason(
-    screen.getByTestId('survey-create-submit'),
-    '문항이 변경되었거나 접근 권한이 없습니다. 새로고침 후 다시 선택하세요.',
-  );
+  const submit = screen.getByTestId('survey-create-submit');
+  expect(submit).toBeEnabled();
+  await user.click(submit);
+  const system = screen.getByRole('combobox', { name: '시스템' });
+  expect(await screen.findByText('선택한 시스템을 사용할 수 없습니다. 다시 선택해 주세요.')).toBeVisible();
+  expect(system).toHaveAttribute('aria-invalid', 'true');
+  expect(system).toHaveFocus();
+  expect(posts).toHaveLength(0);
   expect(screen.getByLabelText('제목')).toHaveValue('직접 작성');
   expect(screen.getByLabelText('설명 (선택)')).toHaveValue('직접 작성한 설명');
   expect(screen.getByRole('combobox', { name: '응답 익명 보호' })).toHaveTextContent('보호함');
@@ -826,10 +853,7 @@ it('fails closed when the selected system leaves the manageable scope, keeping i
   // Automatic scope recovery must not restore the preview or source submission;
   // only explicit 새로고침 and reselection do (FO ADR-0070).
   await waitFor(() => expect(screen.queryByText(/분기:/)).not.toBeInTheDocument());
-  expectDisabledReason(
-    screen.getByTestId('survey-create-submit'),
-    '문항이 변경되었거나 접근 권한이 없습니다. 새로고침 후 다시 선택하세요.',
-  );
+  expect(submit).toBeEnabled();
   await user.click(screen.getByRole('button', { name: '새로고침' }));
   await user.click(await screen.findByRole('radio', { name: /지난 라운드 문항/ }));
   expect(await screen.findByText(/분기:/)).toBeVisible();
@@ -867,6 +891,7 @@ it('latches a 403 from 더 보기 while a snapshot is shown until refresh and re
   await existing(user);
   await user.click(await screen.findByRole('radio', { name: /지난 라운드 문항/ }));
   expect(await screen.findByText(/분기:/)).toBeVisible();
+  await choose(user, '응답 익명 보호', '보호함');
   await user.click(screen.getByRole('button', { name: '더 보기' }));
   expect(await screen.findByText(
     '문항이 변경되었거나 접근 권한이 없습니다. 새로고침 후 다시 선택하세요.',
@@ -874,13 +899,16 @@ it('latches a 403 from 더 보기 while a snapshot is shown until refresh and re
   )).toBeVisible();
   expect(screen.queryByText(/분기:/)).not.toBeInTheDocument();
   expect(screen.queryByRole('radio', { name: /지난 라운드 문항/ })).not.toBeInTheDocument();
-  expectDisabledReason(
-    screen.getByTestId('survey-create-submit'),
-    '문항이 변경되었거나 접근 권한이 없습니다. 새로고침 후 다시 선택하세요.',
-  );
+  const submit = screen.getByTestId('survey-create-submit');
+  expect(submit).toBeEnabled();
+  await user.click(submit);
+  const startingPoint = screen.getByRole('radiogroup', { name: '기존 설문 문항 사용' });
+  expect(startingPoint).toHaveAttribute('aria-invalid', 'true');
+  expect(startingPoint).toHaveFocus();
+  expect(screen.getByText('시작 문항을 확인할 수 없습니다. 다시 선택해 주세요.')).toBeVisible();
   expect(screen.getByLabelText('제목')).toHaveValue('지난 라운드 문항');
   expect(screen.getByRole('combobox', { name: '응답 익명 보호' })).toHaveTextContent(
-    '보호 여부 선택',
+    '보호함',
   );
   expect(bodies).toHaveLength(0);
   await user.click(screen.getByRole('button', { name: '새로고침' }));

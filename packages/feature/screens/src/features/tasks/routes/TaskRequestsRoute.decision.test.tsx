@@ -258,6 +258,22 @@ describe('TaskRequestsRoute decision dialogs', () => {
     expect(within(dialog).getByRole('textbox')).not.toHaveAttribute('aria-invalid');
   });
 
+  it('announces and focuses the reason after a server validation rejection', async () => {
+    api.rejectTaskRequest.mockRejectedValueOnce(
+      new ApiError(422, { code: 'validation.failed', message: 'invalid reason' }),
+    );
+    const dialog = await openDialog('반려', 'Task 요청 반려');
+    const reason = within(dialog).getByRole('textbox', { name: '반려 사유' });
+    fireEvent.change(reason, { target: { value: '검토 메모' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
+
+    const error = await within(dialog).findByRole('alert');
+    expect(error).toBeVisible();
+    expect(reason).toHaveAttribute('aria-invalid', 'true');
+    expect(reason).toHaveAttribute('aria-describedby', expect.stringContaining(error.id));
+    expect(reason).toHaveFocus();
+  });
+
   it('discards retained content and focuses the blocked heading after post-decision denial', async () => {
     api.resolveActors.mockResolvedValue({
       actors: [
