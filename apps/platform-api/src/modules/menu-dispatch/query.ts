@@ -180,16 +180,47 @@ export async function resolveRequestScopes(
   context: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<readonly ScopeGrant[] | null> {
-  if (tokenDenial('scope.read')) return null;
+  return (await judgeRequestScopes(resolver, actor, context, signal)).scopes;
+}
+
+type DeniedScope = NonNullable<NonNullable<EndpointResult['recovery']>['deniedScope']>;
+type ScopeJudgment = { scopes: readonly ScopeGrant[]; deniedScope?: never } | { scopes: null; deniedScope?: DeniedScope };
+
+/**
+ * `resolveRequestScopes` plus the denied target, named only when the resolver answered and exactly one requested
+ * Site or Room is outside the actor's grants (components §19: never guess a target). A token without `scope.read`, a
+ * missing or failed resolver, a cancelled read and a denial over several rooms carry no target.
+ */
+async function judgeRequestScopes(
+  resolver: ScopeResolver | undefined,
+  actor: PlatformActor,
+  context: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<ScopeJudgment> {
+  if (tokenDenial('scope.read')) return { scopes: null };
+  let scopes: readonly ScopeGrant[] | undefined;
   try {
-    const scopes = await resolver?.resolve(actor, signal);
-    if (signal?.aborted || !scopes?.length) return null;
-    if (!hasRequestScope(context, scopes)) return null;
-    return scopes;
+    scopes = await resolver?.resolve(actor, signal);
   } catch {
     if (signal?.aborted && signal.reason instanceof CoreDeadlineExpired) throw signal.reason;
-    return null;
+    return { scopes: null };
   }
+  if (signal?.aborted || scopes === undefined) return { scopes: null };
+  if (scopes.length > 0 && hasRequestScope(context, scopes)) return { scopes };
+  const deniedScope = deniedRequestScope(context, scopes);
+  return deniedScope ? { scopes: null, deniedScope } : { scopes: null };
+}
+
+function deniedRequestScope(context: Record<string, unknown>, scopes: readonly ScopeGrant[]): DeniedScope | undefined {
+  const site = context.scopeId;
+  if (typeof site !== 'string' || site === '') return undefined;
+  const grants = scopes.filter(grant => grant.site === site);
+  if (!grants.some(grant => grant.rooms.length > 0)) return { kind: 'site', site };
+  const rooms = context.roomNames;
+  if (!Array.isArray(rooms)) return undefined;
+  if (!rooms.every((room): room is string => typeof room === 'string' && room !== '')) return undefined;
+  const [room, ...more] = [...new Set(rooms.filter(name => !grants.some(grant => grant.rooms.includes(name))))];
+  return room !== undefined && more.length === 0 ? { kind: 'site_room', site, room } : undefined;
 }
 
 /**
@@ -262,11 +293,12 @@ async function runQuerySteps(
   if (!authorized) {
     return answer('forbidden', { message: `No permission ${declaration.spec.permission}` });
   }
-  const scopes = declaration.spec.requiresScope
-    ? await resolveRequestScopes(shape.scopeResolver, actor, context, signal)
-    : [];
+  const judgment: ScopeJudgment = declaration.spec.requiresScope
+    ? await judgeRequestScopes(shape.scopeResolver, actor, context, signal)
+    : { scopes: [] };
   checkActive();
-  if (scopes === null) return answer('forbidden');
+  const { scopes } = judgment;
+  if (scopes === null) return answer('forbidden', judgment.deniedScope ? { recovery: { deniedScope: judgment.deniedScope } } : {});
   const hourLimit = exceededHourLimit(declaration, context);
   if (hourLimit !== undefined) {
     // The wire field expresses a whole-hour window. Round down to keep it within the declared limit.
