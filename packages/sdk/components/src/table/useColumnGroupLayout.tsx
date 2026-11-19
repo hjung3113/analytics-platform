@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Column, Header, Table } from '@tanstack/react-table';
 import { cn } from '@ap/ui';
-import { columnGroupWidth, displayedUnits, displayedWidth, renderDisplayedUnits, type ColumnGroups } from './columnGroups';
+import { columnGroupGrowthShares, columnGroupWidth, displayedUnits, displayedWidth, renderDisplayedUnits, type ColumnGroups } from './columnGroups';
 import { useColumnGroupPan } from './useColumnGroupPan';
 
 /** A pinned cell or a panned group clip fades what scrolls beneath its inner edge (a pseudo-element, no pointer events). */
@@ -62,13 +62,8 @@ export function useColumnGroupLayout<T>({ table, model, sizing, fitWidth, column
   for (const unit of displayedUnits(displayedColumns, displayedPath)) {
     const width = unit.kind === 'group' ? groupWidth(unit.id) : undefined;
     if (width === undefined) continue;
-    const content = unit.leaves.reduce((sum, c) => sum + c.getSize(), 0);
-    const growth = Math.max(0, width - content);
-    let remaining = growth;
-    unit.leaves.forEach((c, index) => {
-      const share = index === unit.leaves.length - 1 ? remaining : Math.floor(growth * c.getSize() / content);
-      shares.set(c.id, share); remaining -= share;
-    });
+    const growth = columnGroupGrowthShares(width, unit.leaves.map(c => c.getSize()));
+    unit.leaves.forEach((c, index) => shares.set(c.id, growth[index]));
   }
   const widthOf = (column: Column<T>) => column.getSize() + (shares.get(column.id) ?? 0);
   const pan = useColumnGroupPan(displayedUnits(displayedColumns, displayedPath).flatMap(unit => {

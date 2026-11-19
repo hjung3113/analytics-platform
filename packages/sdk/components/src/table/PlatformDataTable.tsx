@@ -12,7 +12,7 @@ import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKe
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef, toGroupedColumnDefs } from './columnDef';
-import { columnGroupBasis, columnGroupErrors, columnGroupLabel, displayedUnits, displayedWidth, effectiveColumnGroups, validGroupName, type StoredColumnGroups } from './columnGroups';
+import { columnGroupBasis, columnGroupErrors, columnGroupGrowthShares, columnGroupLabel, displayedUnits, displayedWidth, effectiveColumnGroups, validGroupName, type StoredColumnGroups } from './columnGroups';
 import { createColumnGroup, materializeColumnGroups, renameColumnGroup, setColumnGroupMembers, setColumnGroupWidth, ungroupColumns } from './columnGroupEdits';
 import { ColumnGroupChooseView, ColumnGroupRename, ColumnGroupResizer, ColumnGroupRowMenu, useColumnGroupEditor, useColumnGroupResize } from './ColumnGroupEditor';
 import { columnGroupModel, FADE_BASE, useColumnGroupLayout } from './useColumnGroupLayout';
@@ -140,6 +140,8 @@ const ACTION_COLUMN_WIDTH = 128;
 const COMPACT_ACTION_WIDTH = 72;
 /** A table narrower than this (a detail drawer beside it) takes the compact action column when columns are scrolled off anyway, so the freed 56px shows more data. */
 const NARROW_TABLE_WIDTH = 800;
+const PIN_EDGE_FADE_WIDTH = 20; // FADE_BASE uses w-5.
+const SCROLL_EDGE_TOLERANCE = 1;
 const DEFAULT_COLUMN_WIDTH = 150;
 const MIN_COLUMN_WIDTH = 60;
 const MAX_COLUMN_WIDTH = 600;
@@ -395,7 +397,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const [fade, setFade] = useState({ left: false, right: false });
   const updateFade = useCallback(() => {
     const node = viewport.current;
-    const next = { left: !!node && node.scrollLeft > 1, right: !!node && node.scrollWidth - node.clientWidth - node.scrollLeft > 1 };
+    const next = { left: !!node && node.scrollLeft > SCROLL_EDGE_TOLERANCE, right: !!node && node.scrollWidth - node.clientWidth - node.scrollLeft > SCROLL_EDGE_TOLERANCE };
     setFade(prev => prev.left === next.left && prev.right === next.right ? prev : next);
   }, []);
   const bindViewport = fit.viewportRef;
@@ -490,15 +492,41 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
   // One width model for the fit estimates: the stored or declared size, clamped to what the table renders.
-  const columnWidth = (id: string, size: number | undefined) => renderedWidth((inWidthGroup(id) ? undefined : preferences.sizing[id]) ?? Math.round((size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
-  const visibleDataColumns = p.columns.filter(c => visibility[c.id] !== false);
-  const leftPinnedWidth = displayedWidth(pinnedIds.flatMap(id => visibleDataColumns.filter(c => c.id === id)), c => c.columnGroup, c => columnWidth(c.id, c.size), groupWidth);
+  const columnWidth = (column: PlatformColumn<T>) => renderedWidth((inWidthGroup(column.id) ? undefined : preferences.sizing[column.id]) ?? Math.round((column.size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
+  const visibleDataColumns = orderedIds.flatMap(id => {
+    const column = declarations.get(id);
+    return column && visibility[id] !== false ? [column] : [];
+  });
+  const leftPinnedWidth = displayedWidth(pinnedIds.flatMap(id => visibleDataColumns.filter(c => c.id === id)), c => c.columnGroup, columnWidth, groupWidth);
   // When only the compact (72px, icon-only) form fits beside the left pins it stays pinned; narrower still it unpins in the normal form.
   const fitsFull = fit.width === null || fit.width === 0 || fit.width >= leftPinnedWidth + ACTION_COLUMN_WIDTH + ACTION_PIN_MIN_SCROLL;
   // Narrow table with columns scrolled off by more than a whole action column: the 56px saved by the compact form is worth more as data.
-  const dataColumnsWidth = (selectable ? renderedWidth(SELECT_COLUMN_SIZE) : 0) + displayedWidth(orderedIds.flatMap(id => visibleDataColumns.filter(c => c.id === id)), c => c.columnGroup, c => columnWidth(c.id, c.size), groupWidth);
+  const selectionWidth = selectable ? renderedWidth(SELECT_COLUMN_SIZE) : 0;
+  const dataColumnsWidth = selectionWidth + displayedWidth(visibleDataColumns, c => c.columnGroup, columnWidth, groupWidth);
   const narrowScrolling = fit.width !== null && fit.width > 0 && fit.width < NARROW_TABLE_WIDTH && dataColumnsWidth > fit.width + ACTION_COLUMN_WIDTH;
-  const actionCompact = !!p.rowAction && (fitsFull ? narrowScrolling : fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL);
+  // Keep a whole column clear of the pinned edge and fade at the initial scroll position when compacting makes it fit.
+  const viewportWidth = fit.width ?? 0;
+  const clearEdge = (actionWidth: number) => {
+    const pinStart = viewportWidth - actionWidth;
+    return dataColumnsWidth - pinStart > SCROLL_EDGE_TOLERANCE ? pinStart - PIN_EDGE_FADE_WIDTH : pinStart;
+  };
+  const fullEdge = clearEdge(ACTION_COLUMN_WIDTH);
+  const compactEdge = clearEdge(COMPACT_ACTION_WIDTH);
+  let unitStart = selectionWidth + leftPinnedWidth;
+  const revealsColumn = !!p.rowAction && fitsFull && viewportWidth > NARROW_TABLE_WIDTH && dataColumnsWidth > fullEdge &&
+    displayedUnits(visibleDataColumns.filter(c => !pinnedIds.includes(c.id)), c => inWidthGroup(c.id) ? c.columnGroup : undefined).some(unit => {
+      const clipWidth = unit.kind === 'group' ? groupWidth(unit.id) : undefined;
+      const leafWidths = unit.leaves.map(columnWidth);
+      const growth = clipWidth === undefined ? [] : columnGroupGrowthShares(clipWidth, leafWidths);
+      const unitEnd = unitStart + (clipWidth ?? leafWidths.reduce((sum, width) => sum + width, 0));
+      let leafEnd = unitStart;
+      unitStart = unitEnd;
+      return leafWidths.some((width, index) => {
+        leafEnd += width + (growth[index] ?? 0);
+        return leafEnd <= unitEnd && leafEnd > fullEdge && leafEnd <= compactEdge;
+      });
+    });
+  const actionCompact = !!p.rowAction && (fitsFull ? narrowScrolling || revealsColumn : fit.width !== null && fit.width >= leftPinnedWidth + COMPACT_ACTION_WIDTH + ACTION_PIN_MIN_SCROLL);
   const actionPinned = !!p.rowAction && (fitsFull || actionCompact);
   const actionWidth = actionCompact ? COMPACT_ACTION_WIDTH : ACTION_COLUMN_WIDTH;
   // #556a: `order` is the single order source; the pins only say which columns are pinned and are laid out by it.
@@ -1112,7 +1140,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
               return <div role="columnheader" key={h.id} data-column={h.column.id} style={headStyle(h.column)} title={declarations.get(h.column.id)?.headerLabel ?? (typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined)}
                 aria-label={declarations.get(h.column.id)?.headerLabel}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
-                className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', lineClass(h.column.id), h.column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(h.column.id) ? false : h.column.getIsPinned(), false), align(h.column))}>
+                className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', actionCompact && h.column.id === '_action' && 'px-2', lineClass(h.column.id), h.column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(h.column.id) ? false : h.column.getIsPinned(), false), align(h.column))}>
                 {h.column.getCanSort()
                   ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-xs px-1 hover:text-text-primary">
                       <span className="min-w-0 truncate">{path && <span className="sr-only">{path}, </span>}{flexRender(h.column.columnDef.header, h.getContext())}</span>

@@ -24,6 +24,41 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
 });
 
 test.describe('관리 레이아웃 필터 줄 — 레일 없음 (06 §12.6, ADR-0105)', () => {
+  for (const [lang, headers] of [
+    ['ko', [['targetType', '대상 유형']]],
+    ['en', [['action', 'Action'], ['source', 'Source'], ['targetType', 'Target type'],
+      ['changes', 'Changed fields'], ['original', 'Source values']]],
+  ] as const) {
+    test(`1440 audit filter headers show their full labels (${lang})`, async ({ page }) => {
+      await signInAs(page, 'admin');
+      await page.addInitScript(language => localStorage.setItem('platform:lang', language), lang);
+      await page.goto('/operations/admin-audit?v=1');
+      const table = page.getByRole('table');
+      await expect(table).toBeVisible();
+      await page.evaluate(async () => { await document.fonts.ready; });
+      for (const [id, label] of headers) {
+        const text = table.locator(`[role="columnheader"][data-column="${id}"]`).getByText(label, { exact: true });
+        await expect(text).toBeVisible();
+        expect(await text.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+
+  test('1440 English audit shows Source values beside pinned Actions at the initial scroll position', async ({ page }) => {
+    await signInAs(page, 'admin');
+    await page.addInitScript(() => localStorage.setItem('platform:lang', 'en'));
+    await page.goto('/operations/admin-audit?v=1');
+    const table = page.getByRole('table');
+    const source = table.getByRole('columnheader', { name: 'Source values', exact: true });
+    const actions = table.getByRole('columnheader', { name: 'Actions', exact: true });
+    await expect(source).toBeVisible();
+    expect(await table.evaluate(node => node.parentElement?.scrollLeft)).toBe(0);
+    expect(await actions.evaluate(node => getComputedStyle(node).position)).toBe('sticky');
+    const sourceBox = (await source.boundingBox())!;
+    const actionBox = (await actions.boundingBox())!;
+    expect(sourceBox.x + sourceBox.width).toBeLessThanOrEqual(actionBox.x);
+  });
+
   // #1217 (node e2): 변경 감사 and 권한/역할 had the management filter rail; their conditions are the table's filter line now. This describe checks the
   // management layout without a rail: no rail or `필터` button, the filter line above the first row, pinned fields, the hidden `filter` key.
   test('1440 변경 감사는 필터 레일 없이 표 위 필터 줄에 고정 필드를 두고 첫 행이 그 아래에서 시작한다', async ({ page }, testInfo) => {

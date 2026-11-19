@@ -275,6 +275,54 @@ describe('action column pinned right (ADR-0037)', () => {
   const actionCell = () => document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!;
   const compactAction = (row: Row, { compact }: { compact: boolean }) => <button type="button" data-compact={String(compact)}>{row.id} 열기</button>;
 
+  it('keeps the action pinned but compacts it when doing so exposes a whole column beyond the fade', async () => {
+    const columns: PlatformDataTableProps<Row>['columns'] = [400, 610, 200].map((size, index) => ({
+      id: `c${index}`, header: `Column ${index}`, size, value: row => row.id,
+    }));
+    geo.viewportWidth = 1112;
+    render(<Page height={200} columns={columns} rowAction={compactAction} />);
+    const button = await screen.findByRole('button', { name: 'r1 열기' });
+    expect(button).toHaveAttribute('data-compact', 'true');
+    expect(actionCell()).toHaveStyle({ width: '72px', position: 'sticky', right: '0px' });
+    resize(1160);
+    expect(button).toHaveAttribute('data-compact', 'false');
+    expect(button).toBeInTheDocument();
+  });
+
+  it('keeps the focused action compact on resize until the full pin fade clears the column', async () => {
+    const columns: PlatformDataTableProps<Row>['columns'] = [400, 600, 200].map((size, index) => ({
+      id: `c${index}`, header: `Column ${index}`, size, value: row => row.id,
+    }));
+    geo.viewportWidth = 1127;
+    render(<Page height={200} columns={columns} rowAction={compactAction} />);
+    const button = await screen.findByRole('button', { name: 'r1 열기' });
+    expect(actionCell()).toHaveStyle({ width: '72px', position: 'sticky' });
+    button.focus();
+    for (const [viewport, action] of [[1128, 72], [1147, 72], [1148, 128]]) {
+      resize(viewport);
+      expect(actionCell()).toHaveStyle({ width: `${action}px`, position: 'sticky' });
+      expect(screen.getByRole('button', { name: 'r1 열기' })).toBe(button);
+      expect(button).toHaveFocus();
+    }
+  });
+
+  it.each([
+    { viewport: 1112, clip: 400, first: 450, second: 150, action: 128 },
+    { viewport: 1112, clip: 450, first: 380, second: 150, action: 72 },
+    { viewport: 1030, clip: 450, first: 330, second: 70, action: 128 },
+  ])('at $viewport px with a $clip px clip and a $first px first leaf, uses $action px Actions', async ({ viewport, clip, first, second, action }) => {
+    const columns: PlatformDataTableProps<Row>['columns'] = [
+      { id: 'before', header: 'Before', size: 600 },
+      { id: 'first', header: 'First', size: first, columnGroup: ['group'] },
+      { id: 'second', header: 'Second', size: second, columnGroup: ['group'] },
+      { id: 'after', header: 'After', size: 200 },
+    ];
+    geo.viewportWidth = viewport;
+    render(<Page height={200} columns={columns} columnGroups={{ group: { label: 'Group', width: clip } }} rowAction={compactAction} />);
+    await screen.findByRole('button', { name: 'r1 열기' });
+    expect(actionCell()).toHaveStyle({ width: `${action}px`, position: 'sticky' });
+  });
+
   it.each([[248, 128, 'false'], [300, 128, 'false'], [247, 72, 'true'], [192, 72, 'true']])('at %ipx the action column is pinned at %ipx (compact=%s)', async (width, size, compact) => {
     geo.viewportWidth = width;
     render(<Page height={200} rowAction={compactAction} />);
@@ -286,7 +334,7 @@ describe('action column pinned right (ADR-0037)', () => {
 
   // #1942: a detail drawer leaves ~690px; with the columns scrolled off anyway the action column takes the compact 72px form.
   const manyColumns: PlatformDataTableProps<Row>['columns'] = Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, header: `C${i}`, size: 140, value: (r: Row) => r.id }));
-  it.each([[690, 72, 'true'], [799, 72, 'true'], [800, 128, 'false'], [1400, 128, 'false']])('a 10-column table at %ipx keeps the action column at %ipx (compact=%s)', async (width, size, compact) => {
+  it.each([[690, 72, 'true'], [799, 72, 'true'], [800, 128, 'false'], [1400, 72, 'true']])('a 10-column table at %ipx keeps the action column at %ipx (compact=%s)', async (width, size, compact) => {
     geo.viewportWidth = width;
     render(<Page height={200} columns={manyColumns} rowAction={compactAction} />);
     await screen.findByRole('button', { name: 'r1 열기' });

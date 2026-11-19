@@ -122,6 +122,17 @@ export function displayedWidth<T>(items: readonly T[], pathOf: (item: T) => read
   return displayedUnits(items, pathOf).reduce((sum, unit) => sum + (unit.kind === 'group' ? groupWidth(unit.id) ?? unit.leaves.reduce((n, item) => n + widthOf(item), 0) : unit.leaves.reduce((n, item) => n + widthOf(item), 0)), 0);
 }
 
+export function columnGroupGrowthShares(clipWidth: number, leafWidths: readonly number[]): number[] {
+  const contentWidth = leafWidths.reduce((sum, width) => sum + width, 0);
+  const growth = Math.max(0, clipWidth - contentWidth);
+  let remaining = growth;
+  return leafWidths.map((width, index) => {
+    const share = index === leafWidths.length - 1 ? remaining : Math.floor(growth * width / contentWidth);
+    remaining -= share;
+    return share;
+  });
+}
+
 /** All three row kinds render through this boundary. `wrap` returns `undefined` for a group it does not wrap (label-only), whose
  *  cells then stay flat keyed siblings as in the original DOM: a nested array would be an unkeyed fragment matched by position,
  *  so moving the group or hiding a column before it would remount its cells. */

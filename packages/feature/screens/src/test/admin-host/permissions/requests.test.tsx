@@ -853,6 +853,8 @@ describe('/admin/permissions/requests', () => {
     async (target) => {
       const firstSystemId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
       const secondSystemId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const firstUnresolvedId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+      const secondUnresolvedId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
       const managedSystems = [
         { id: firstSystemId, slug: 'tableau-ops' },
         { id: secondSystemId, slug: 'tableau-finance' },
@@ -871,7 +873,7 @@ describe('/admin/permissions/requests', () => {
         updated_at: '2026-07-17T00:00:00.000Z',
       }));
       installFetch({
-        managedSystems: target === 'same-name system' ? managedSystems : [],
+        managedSystems,
         detail: (row) => ({
           ...adminDetailFixture(row),
           allowed_actions: ['approve'],
@@ -879,6 +881,8 @@ describe('/admin/permissions/requests', () => {
             { managed_system_id: null },
             { managed_system_id: firstSystemId },
             { managed_system_id: secondSystemId },
+            { managed_system_id: firstUnresolvedId },
+            { managed_system_id: secondUnresolvedId },
           ],
         }),
       });
@@ -898,8 +902,8 @@ describe('/admin/permissions/requests', () => {
         expect(summary.parentElement).not.toHaveAttribute('open');
         fireEvent.click(summary);
         const group = decision.getByRole('radiogroup', { name: '이름 미확인 시스템 선택' });
-        const option = within(group).getByRole('radio', { name: secondSystemId });
-        expect(within(group).getByRole('radio', { name: firstSystemId })).toBeInTheDocument();
+        const option = within(group).getByRole('radio', { name: secondUnresolvedId });
+        expect(within(group).getByRole('radio', { name: firstUnresolvedId })).toBeInTheDocument();
         fireEvent.click(option);
         expect(option).toBeChecked();
         fireEvent.click(summary);
@@ -907,13 +911,14 @@ describe('/admin/permissions/requests', () => {
       }
       const submit = decision.getByTestId('permission-decision-submit');
       const targetLabel = target === 'same-name system' ? 'Tableau · tableau-finance' : '시스템';
-      expect(submit).toHaveAccessibleDescription(`승인 범위: ${targetLabel} ${secondSystemId}`);
+      const targetId = target === 'same-name system' ? secondSystemId : secondUnresolvedId;
+      expect(submit).toHaveAccessibleDescription(`승인 범위: ${targetLabel} ${targetId}`);
       expect(document.getElementById(submit.getAttribute('aria-describedby') ?? '')).toBeVisible();
       fireEvent.click(submit);
       await waitFor(() => expect(decisionPosts()).toHaveLength(1));
       expect(JSON.parse(present(decisionPosts()[0])[1].body as string)).toEqual({
         expected_revision: 7,
-        granted_managed_system_id: secondSystemId,
+        granted_managed_system_id: targetId,
       });
       expect(screen.getByTestId('permission-request-detail-panel')).toHaveTextContent(
         '전체',
