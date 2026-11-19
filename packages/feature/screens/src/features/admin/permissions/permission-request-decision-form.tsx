@@ -9,6 +9,8 @@ import {
   Button,
   Checkbox,
   DatePicker,
+  FieldList,
+  FieldRow,
   Input,
   PanelSectionTitle,
   RadioGroup,
@@ -28,7 +30,7 @@ import { scopeRoomsFor } from '../../../components/PermissionScopeTargetFields';
 import { mintIdempotencyKey } from '../../../lib/api/idempotency';
 import { useMeBridge } from '../../../lib/api/me';
 import type { PermissionRequestDecisionAction } from '../../../lib/api/permission-admin';
-import { ADMIN_PERMISSIONS_COPY, PERMISSION_REVIEW_TEXT } from '../../../lib/copy/admin-permissions';
+import { ADMIN_PERMISSIONS_COPY, PERMISSION_APPROVAL_SCOPE_COPY } from '../../../lib/copy/admin-permissions';
 import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { usePermissionScopeCandidates } from '../../../lib/api/permission-scope-candidates';
@@ -57,6 +59,7 @@ const ACTIONS: Array<{
 ];
 
 type ApprovalExpirationMode = 'keep' | 'change' | 'clear';
+type ManagedScopeChoice = { kind: 'requested' } | { kind: 'picked' | 'unavailable'; value: string };
 
 // Approval keeps the requested Site·공정 target unless a Site request is narrowed to one 공정 of the same site,
 // the only change the server allows (ADR-0154; permissions.md «Request and decision fields»).
@@ -110,13 +113,16 @@ function hasExpirationFieldError(error: unknown): boolean {
   );
 }
 
+export type SystemNamesRead = { isFetching: boolean; retry: () => void };
+
 export function PermissionRequestDecisionForm({
   request,
   footerTarget,
   batch,
   actorName,
-  managedSystemNames,
-  managedSystemSlugs,
+  approvalSystemNames,
+  systemNamesRead,
+  scopeRadios = false,
   staleNoticeShown,
   discardedReason,
   onDraftChanged,
@@ -130,8 +136,9 @@ export function PermissionRequestDecisionForm({
   footerTarget?: HTMLElement | null;
   batch?: { id: string; items: PermissionRequestAdminDetail[] };
   actorName?: string | undefined;
-  managedSystemNames?: Readonly<Record<string, string>>;
-  managedSystemSlugs?: Readonly<Record<string, string>> | undefined;
+  approvalSystemNames?: Readonly<Record<string, string>> | undefined;
+  systemNamesRead?: SystemNamesRead | undefined;
+  scopeRadios?: boolean;
   staleNoticeShown?: boolean;
   discardedReason?: string;
   onDraftChanged?: (draft: { revision: number; nonEmpty: boolean; reason: string }) => void;
@@ -141,6 +148,7 @@ export function PermissionRequestDecisionForm({
   onReviewCompleted?: () => void;
 }) {
   const { lang = 'ko' } = useHostSeam();
+  const copy = PERMISSION_APPROVAL_SCOPE_COPY[lang];
   const [reviewBlocked, setReviewBlocked] = React.useState(false);
   const batchDecidable = batch?.items.filter(item => item.status === 'pending' || item.status === 'needs_more_info') ?? [];
   const grantable = batchDecidable.filter(item => item.allowed_actions.includes('approve') && !item.effective_access.decision.allow);
@@ -149,6 +157,9 @@ export function PermissionRequestDecisionForm({
   const approvalScopeCandidates = batch
     ? (selectedBatchItems[0]?.approval_scope_candidates ?? []).filter(candidate => selectedBatchItems.every(item => item.approval_scope_candidates.some(other => other.managed_system_id === candidate.managed_system_id && other.scope_kind === candidate.scope_kind && other.scope_site === candidate.scope_site && other.scope_room === candidate.scope_room)))
     : request.approval_scope_candidates;
+  const managedScopeCandidates = approvalScopeCandidates.filter(
+    candidate => candidate.scope_kind === undefined || candidate.scope_kind === 'managed_system',
+  );
   const [action, setAction] = React.useState<PermissionRequestDecisionAction | null>(null);
   const [reason, setReason] = React.useState('');
   const [reasonAttempted, setReasonAttempted] = React.useState(false);
@@ -164,31 +175,48 @@ export function PermissionRequestDecisionForm({
   );
   const intent = React.useRef<{ fingerprint: string; key: string } | null>(null);
   const submitting = React.useRef(false);
-  const [scope, setScope] = React.useState(request.requested_managed_system_id ?? 'workspace');
-  const scopeTargetLabel = requestedScopeTargetLabel(request);
-  const approvalTargetDescriptionId = React.useId();
-  const selectedSystemId =
-    action === 'approve' && scopeTargetLabel === null && scope !== 'workspace' ? scope : null;
-  const scopeName = (id: string | null) => id === null
-    ? PERMISSION_REVIEW_TEXT.all[lang]
-    : managedSystemNames?.[id] ?? PERMISSION_REVIEW_TEXT.system[lang];
-  const scopeOptions = new Map<string, string>();
-  const unresolvedScopeIds: string[] = [];
-  const unresolvedScopeLabel = lang === 'ko' ? '이름 미확인 시스템 선택' : 'Choose a system by ID';
-  if (action === 'approve' && scopeTargetLabel === null) {
-    for (const { managed_system_id: id } of approvalScopeCandidates) {
-      if (id === null) {
-        scopeOptions.set('workspace', scopeName(null));
-        continue;
-      }
-      const name = managedSystemNames?.[id];
-      const slug = managedSystemSlugs?.[id];
-      if (name && slug) scopeOptions.set(id, `${name} · ${slug}`);
-      else unresolvedScopeIds.push(id);
-    }
+  const [scopeChoice, setScopeChoice] = React.useState<ManagedScopeChoice>({ kind: 'requested' });
+  const approvedItems = batch ? selectedBatchItems : [request];
+  const candidateValue = (id: string | null) => id ?? 'workspace';
+  const pickedScope = scopeChoice.kind === 'picked' ? scopeChoice.value : null;
+  const pickedScopeUnsupported = pickedScope !== null && !managedScopeCandidates.some(
+    candidate => candidateValue(candidate.managed_system_id) === pickedScope,
+  );
+  // Require another explicit choice even if a later checklist change or refresh brings this candidate back.
+  if (pickedScopeUnsupported) setScopeChoice({ kind: 'unavailable', value: pickedScope });
+  const scopeUnavailable = scopeChoice.kind === 'unavailable' || pickedScopeUnsupported;
+  const scope = scopeUnavailable ? '' : pickedScope ?? REQUESTED_SCOPE;
+  const hasManagedScope = approvedItems.some(item => requestedScopeTargetLabel(item) === null);
+  const overriddenSystem = pickedScope === 'workspace' ? null : pickedScope;
+  const grantedManagedSystemId = hasManagedScope && pickedScope !== null && !scopeUnavailable
+    && approvedItems.some(item => item.requested_managed_system_id !== overriddenSystem)
+    ? overriddenSystem : undefined;
+  const effectiveSystemId = (item: PermissionRequestAdminDetail) =>
+    grantedManagedSystemId === undefined ? item.requested_managed_system_id : grantedManagedSystemId;
+  const needsName = (id: string | null) => id !== null && !approvalSystemNames?.[id];
+  const unresolvedGrant = approvedItems.some(item =>
+    requestedScopeTargetLabel(item) === null && needsName(effectiveSystemId(item)));
+  const unresolvedCandidate = managedScopeCandidates.some(candidate => needsName(candidate.managed_system_id));
+  const missingName = systemNamesRead?.isFetching ? copy.loading : copy.unavailable;
+  const systemLabel = (id: string | null) => id === null ? copy.allSystems : approvalSystemNames?.[id] ?? missingName;
+  const approvalTargetLabel = (item: PermissionRequestAdminDetail) =>
+    requestedScopeTargetLabel(item) ?? systemLabel(effectiveSystemId(item));
+  const pickScope = (value: string) =>
+    setScopeChoice(value === REQUESTED_SCOPE ? { kind: 'requested' } : { kind: 'picked', value });
+  const previewId = React.useId();
+  const systemNameStatusId = React.useId();
+  const scopeUnavailableId = React.useId();
+  const showApprovalPreview = action === 'approve' && !scopeUnavailable
+    && approvedItems.length > 0 && (batch !== undefined || hasManagedScope);
+  let approvalDescriptionId: string | undefined;
+  if (action === 'approve') {
+    if (scopeUnavailable) approvalDescriptionId = scopeUnavailableId;
+    else if (unresolvedGrant) approvalDescriptionId = systemNameStatusId;
+    else if (showApprovalPreview) approvalDescriptionId = previewId;
   }
+  // The batch endpoint only takes a Managed System override and preserves each Site or room target.
   const siteRequest =
-    request.requested_scope_kind === 'site' && request.requested_scope_site
+    !batch && request.requested_scope_kind === 'site' && request.requested_scope_site
       ? request.requested_scope_site
       : null;
   const [scopeNarrow, setScopeNarrow] = React.useState(REQUESTED_SCOPE);
@@ -202,7 +230,7 @@ export function PermissionRequestDecisionForm({
         peerReviewerAbsence !== '' ||
         expirationMode !== 'keep' ||
         expirationDate !== (request.requested_expiration?.slice(0, 10) ?? '') ||
-        scope !== (request.requested_managed_system_id ?? 'workspace') ||
+        scopeChoice.kind !== 'requested' ||
         scopeNarrow !== REQUESTED_SCOPE,
       reason,
     });
@@ -217,7 +245,7 @@ export function PermissionRequestDecisionForm({
     peerReviewerAbsence,
     expirationMode,
     expirationDate,
-    scope,
+    scopeChoice,
     scopeNarrow,
   ]);
   const mutation = useDecidePermissionRequest(
@@ -298,6 +326,7 @@ export function PermissionRequestDecisionForm({
         : null;
   const submitDisabled =
     !hasDecisionActions ||
+    (action === 'approve' && (scopeUnavailable || unresolvedGrant)) ||
     reviewBlocked ||
     action === null ||
     !selfApprovalReady ||
@@ -308,7 +337,7 @@ export function PermissionRequestDecisionForm({
 
   React.useEffect(() => {
     intent.current = null;
-    setScope(request.requested_managed_system_id ?? 'workspace');
+    setScopeChoice({ kind: 'requested' });
     setScopeNarrow(REQUESTED_SCOPE);
     setAction(null);
     setReason('');
@@ -354,11 +383,7 @@ export function PermissionRequestDecisionForm({
       expectedRevision: request.revision,
       action,
       reason: reason.trim(),
-      ...(action === 'approve' &&
-      scopeTargetLabel === null &&
-      scope !== (request.requested_managed_system_id ?? 'workspace')
-        ? { grantedManagedSystemId: scope === 'workspace' ? null : scope }
-        : {}),
+      ...(action === 'approve' && grantedManagedSystemId !== undefined ? { grantedManagedSystemId } : {}),
       ...(action === 'approve' && siteRequest !== null && scopeNarrow.startsWith(ROOM_PREFIX)
         ? { grantedScope: { site: siteRequest, room: scopeNarrow.slice(ROOM_PREFIX.length) } }
         : {}),
@@ -409,7 +434,7 @@ export function PermissionRequestDecisionForm({
         onClick={submit}
         loading={mutation.isPending}
         disabled={submitDisabled}
-        aria-describedby={selectedSystemId !== null ? approvalTargetDescriptionId : undefined}
+        aria-describedby={approvalDescriptionId}
         data-testid="permission-decision-submit"
       >
         {batch && action === 'approve' ? PERMISSION_GROUP_COPY.approve(selectedBatchItems.length) : showSelfApprovalCapture
@@ -466,7 +491,9 @@ export function PermissionRequestDecisionForm({
           </Button>
         ))}
       </fieldset>
-      {batch && action === 'approve' ? <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">{PERMISSION_GROUP_COPY.checklist}</legend>{batch.items.map(item => <div key={item.id} className="flex items-center gap-2"><Checkbox id={`batch-approve-${item.id}`} checked={approveIds.includes(item.id) && grantable.some(candidate => candidate.id === item.id)} disabled={mutation.isPending || !grantable.some(candidate => candidate.id === item.id)} onCheckedChange={checked => setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} /><label htmlFor={`batch-approve-${item.id}`}><ReviewCapabilityName id={item.requested_capability} />{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
+      {batch && action === 'approve' ? <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">{PERMISSION_GROUP_COPY.checklist}</legend>{batch.items.map(item => <div key={item.id} className="flex items-center gap-2"><Checkbox id={`batch-approve-${item.id}`} checked={approveIds.includes(item.id) && grantable.some(candidate => candidate.id === item.id)} disabled={mutation.isPending || !grantable.some(candidate => candidate.id === item.id)} onCheckedChange={checked => {
+        setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id));
+      }} /><label htmlFor={`batch-approve-${item.id}`}><ReviewCapabilityName id={item.requested_capability} />{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
       {selfApprovalBlockedByPolicy ? (
         <p className="text-xs text-accent-danger">
           운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
@@ -515,49 +542,68 @@ export function PermissionRequestDecisionForm({
           disabled={mutation.isPending}
         />
       ) : null}
-      {scopeOptions.size > 0 ? (
-        <label
-          htmlFor="permission-approval-scope"
-          className="flex flex-col gap-2 text-sm text-text-secondary"
-        >
-          {ADMIN_PERMISSIONS_COPY.approvalScope}
-          <Select value={scopeOptions.has(scope) ? scope : ''} onValueChange={setScope} disabled={mutation.isPending}>
-            <SelectTrigger
-              id="permission-approval-scope"
-              aria-label={ADMIN_PERMISSIONS_COPY.approvalScope}
-            >
-              <SelectValue placeholder={PERMISSION_REVIEW_TEXT.system[lang]} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {Array.from(scopeOptions, ([id, label]) => (
-                  <SelectItem key={id} value={id}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </label>
-      ) : null}
-      {unresolvedScopeIds.length > 0 ? (
-        <details className="break-keep text-sm">
-          <summary className="cursor-pointer py-1.5 text-text-secondary">{unresolvedScopeLabel}</summary>
-          <RadioGroup
-            aria-label={unresolvedScopeLabel}
-            value={scope}
-            onValueChange={setScope}
-            disabled={mutation.isPending || reviewBlocked}
-          >
-            {unresolvedScopeIds.map((id) => (
-              <label key={id} className="flex cursor-pointer items-center gap-2 text-text-secondary">
-                <RadioGroupItem value={id} />
-                <code className="break-all">{id}</code>
-              </label>
-            ))}
-          </RadioGroup>
-        </details>
-      ) : null}
+      {action === 'approve' && (scopeUnavailable || (hasManagedScope && managedScopeCandidates.length > 0)) && (
+        scopeRadios ? (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-text-secondary">{copy.scope}</legend>
+            <RadioGroup aria-label={copy.scope} value={scope} onValueChange={pickScope} disabled={mutation.isPending || reviewBlocked}>
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <RadioGroupItem id="permission-approval-requested" value={REQUESTED_SCOPE} />
+                <label htmlFor="permission-approval-requested">{copy.requestedScope}</label>
+              </div>
+              {managedScopeCandidates.map(candidate => {
+                const value = candidateValue(candidate.managed_system_id);
+                const id = `permission-approval-${value}`;
+                return <div key={value} className="flex items-center gap-2 text-sm text-text-secondary">
+                  <RadioGroupItem id={id} value={value} disabled={needsName(candidate.managed_system_id)} />
+                  <label htmlFor={id}>{systemLabel(candidate.managed_system_id)}</label>
+                </div>;
+              })}
+            </RadioGroup>
+          </fieldset>
+        ) : (
+          <label htmlFor="permission-approval-scope" className="flex flex-col gap-2 text-sm text-text-secondary">
+            {copy.scope}
+            <Select value={scope} onValueChange={pickScope} disabled={mutation.isPending}>
+              <SelectTrigger id="permission-approval-scope" aria-label={copy.scope}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value={REQUESTED_SCOPE}>{copy.requestedScope}</SelectItem>
+                  {managedScopeCandidates.map(candidate => {
+                    const value = candidateValue(candidate.managed_system_id);
+                    return <SelectItem key={value} value={value} disabled={needsName(candidate.managed_system_id)}>
+                      {systemLabel(candidate.managed_system_id)}
+                    </SelectItem>;
+                  })}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </label>
+        )
+      )}
+      {action === 'approve' && scopeUnavailable && (
+        <p id={scopeUnavailableId} role="status" className="text-sm text-text-muted">{copy.reselectScope}</p>
+      )}
+      {action === 'approve' && (unresolvedGrant || (unresolvedCandidate && systemNamesRead && !systemNamesRead.isFetching)) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span id={systemNameStatusId} role="status" className="text-sm text-text-muted">{missingName}</span>
+          {systemNamesRead && !systemNamesRead.isFetching && (
+            <Button type="button" variant="ghost" size="sm" onClick={systemNamesRead.retry}>{copy.retry}</Button>
+          )}
+        </div>
+      )}
+      {showApprovalPreview && (
+        <div id={previewId}>
+          <FieldList>
+            <FieldRow label={copy.opens} inset="none">
+              {approvedItems.map(item => <div key={item.id}>
+                <ReviewCapabilityName id={item.requested_capability} />{' · '}
+                {approvalTargetLabel(item)}
+              </div>)}
+            </FieldRow>
+          </FieldList>
+        </div>
+      )}
       {action === 'approve' ? (
         <fieldset className="flex flex-col gap-2" data-testid="permission-approval-expiration">
           {/* FR-PERM-002 adds expiration decisions beyond the prototype's static decision actions. */}
@@ -683,10 +729,9 @@ export function PermissionRequestDecisionForm({
             <span>
               {captureCopy.permission}: <ReviewCapabilityName id={request.requested_capability} />
             </span>
-            <span>
-              {captureCopy.scope}:{' '}
-              {scopeTargetLabel ?? scopeName(request.requested_managed_system_id)}
-            </span>
+            {!scopeUnavailable && (
+              <span>{captureCopy.scope}: {approvalTargetLabel(request)}</span>
+            )}
             <span>
               {captureCopy.policyCitation}: {policyCitation || captureCopy.required}
             </span>
@@ -707,13 +752,6 @@ export function PermissionRequestDecisionForm({
             정책 근거가 모호하면 직접 승인 대신 추가 정보 요청을 선택하세요.
           </p>
         </section>
-      ) : null}
-      {selectedSystemId !== null ? (
-        <p id={approvalTargetDescriptionId} className="wrap-anywhere text-sm text-text-secondary">
-          {lang === 'ko' ? ADMIN_PERMISSIONS_COPY.approvalScope : 'Approval scope'}:{' '}
-          {scopeOptions.get(selectedSystemId) ?? scopeName(selectedSystemId)}{' '}
-          <code>{selectedSystemId}</code>
-        </p>
       ) : null}
       {footerTarget === undefined ? submitAction : footerTarget && createPortal(submitAction, footerTarget)}
     </section>

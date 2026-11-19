@@ -6,6 +6,7 @@ import { fetchPermissionRequestAdminDetail } from '../../../lib/api/permission-a
 import { permissionRequestAdminDetailKey } from '../../../lib/api/permission-requests';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
+import type { SystemNamesRead } from './permission-request-decision-form';
 import { PermissionRequestDetail } from './permission-request-detail';
 
 type ReviewMember = { id: string; revision: number };
@@ -47,14 +48,16 @@ export function SelectedPermissionRequestDetail({
   id,
   actorNames,
   managedSystemNames,
-  managedSystemSlugs,
+  approvalSystemNames,
+  systemNamesRead,
   onClose,
   renderDetail,
 }: {
   id: string;
   actorNames: Record<string, string>;
   managedSystemNames: Record<string, string>;
-  managedSystemSlugs?: Readonly<Record<string, string>> | undefined;
+  approvalSystemNames?: Record<string, string> | undefined;
+  systemNamesRead?: SystemNamesRead | undefined;
   onClose: () => void;
   /** Absent = the standalone panel. Present = the host draws the parts in place (the screen stays mounted, so the draft survives). */
   renderDetail?: (parts: ClosableDetailParts) => React.ReactNode;
@@ -108,7 +111,8 @@ export function SelectedPermissionRequestDetail({
       request={detail}
       actorName={detail.requester.display_name || actorNames[detail.requester_actor_id]}
       managedSystemNames={managedSystemNames}
-      managedSystemSlugs={managedSystemSlugs}
+      approvalSystemNames={approvalSystemNames}
+      systemNamesRead={systemNamesRead}
       managedSystemName={
         detail.requested_managed_system_id
           ? managedSystemNames[detail.requested_managed_system_id]

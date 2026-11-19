@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { declaredCapabilitiesKey } from '../../../../lib/api/declared-capabilities';
+import * as registryReads from '../../../../lib/api/registry-reads';
+import { managedSystemsCatalogQuery } from '../../../../lib/cross-system/useManagedSystemNames';
 import { adminDetailFixture } from '../../../../test/permission-details';
+import { scopeAdminDetailBody, scopeAdminRowBody } from '../../../../test/fixtures/permission-scope';
 import { PermissionRequestDecisionForm } from '../permission-request-decision-form';
 import { PermissionRequestDetail } from '../permission-request-detail';
 
@@ -117,4 +120,117 @@ it('unchecks a member that becomes held during a fresh access read', () => {
   view.rerender(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items: [first, held] }} />);
   expect(screen.getByRole('checkbox', { name: /Finding 조회/ })).toHaveAttribute('aria-checked', 'false');
   expect(screen.getByRole('checkbox', { name: /Finding 조회/ })).toBeDisabled();
+});
+
+function impactRow(label: string) {
+  const row = screen.getByText(label).parentElement;
+  if (!row) throw new Error(`Missing impact row for ${label}`);
+  return row;
+}
+
+it.each(['system', 'site', 'room'] as const)('previews each checked grant with a %s lead row', lead => {
+  const system = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const targets = {
+    system: { ...first, requested_capability: 'survey.export', requested_managed_system_id: system, approval_scope_candidates: [{ managed_system_id: system }] },
+    site: scopeAdminDetailBody(scopeAdminRowBody(second.id, 'site', 'SITE-A')),
+    room: scopeAdminDetailBody(scopeAdminRowBody('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'site_room', 'SITE-B', 'RA1')),
+  };
+  const workspace = { ...second, id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', requested_capability: 'explorer.export' };
+  const items = [targets[lead], ...Object.values(targets).filter(item => item !== targets[lead]), workspace];
+  render(<PermissionRequestDecisionForm request={targets[lead]} batch={{ id: batchId, items }}
+    scopeRadios approvalSystemNames={{ [system]: 'Alpha' }} />);
+  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  const preview = within(impactRow('승인 후 열리는 것'));
+  expect(preview.getByText('설문 데이터 내보내기 · Alpha')).toBeInTheDocument();
+  expect(preview.getByText('Site·공정 조회 · Site SITE-A 전체')).toBeInTheDocument();
+  expect(preview.getByText('Site·공정 조회 · Site SITE-B · 공정 RA1')).toBeInTheDocument();
+  expect(preview.getByText('로그 원본 내보내기 · 전체 시스템')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('checkbox', { name: '설문 데이터 내보내기' }));
+  expect(preview.queryByText('설문 데이터 내보내기 · Alpha')).not.toBeInTheDocument();
+  expect(screen.getByTestId('permission-decision-submit')).toHaveAccessibleDescription(/Site SITE-A 전체/);
+});
+
+function mountCatalogReview(element: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}>{element}</QueryClientProvider>);
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+it('keeps an unresolved system override disabled during loading and offers retries after failure and omission', async () => {
+  const beta = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const request = { ...first, requested_capability: 'survey.export',
+    approval_scope_candidates: [{ managed_system_id: null }, { managed_system_id: beta }] };
+  let failRead!: (error: Error) => void;
+  const read = vi.spyOn(registryReads, 'fetchManagedSystems')
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { failRead = reject; }))
+    .mockResolvedValueOnce({ items: [], total: 0 })
+    .mockResolvedValueOnce({ items: [{ id: beta, name: 'Beta' } as registryReads.ManagedSystemDto], total: 1 });
+  function Review() {
+    const catalog = useQuery({ ...managedSystemsCatalogQuery(), retry: false });
+    const names = Object.fromEntries((catalog.data?.items ?? []).map(system => [system.id, system.name]));
+    return <PermissionRequestDecisionForm request={request} scopeRadios approvalSystemNames={names}
+      systemNamesRead={{ isFetching: catalog.isFetching, retry: () => void catalog.refetch() }} />;
+  }
+  mountCatalogReview(<Review />);
+  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  expect(screen.getByRole('radio', { name: '시스템 이름 확인 중' })).toBeDisabled();
+  expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  failRead(new Error('Catalog unavailable'));
+  const retry = () => screen.findByRole('button', { name: '시스템 이름 다시 불러오기' });
+  fireEvent.click(await retry());
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+  expect(await screen.findByRole('radio', { name: '시스템 이름 확인 불가' })).toBeDisabled();
+  fireEvent.click(await retry());
+  const option = await screen.findByRole('radio', { name: 'Beta' });
+  expect(option).toBeEnabled();
+  fireEvent.click(option);
+  expect(impactRow('승인 후 열리는 것')).toHaveTextContent('Beta');
+  fireEvent.change(screen.getByLabelText(/사유/), { target: { value: 'Beta 보고서 검토' } });
+  fireEvent.click(screen.getByTestId('permission-decision-submit'));
+  expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({ grantedManagedSystemId: beta }));
+});
+
+it.each(['single', 'batch'] as const)('blocks the concrete requested scope in a %s review until its label resolves', async mode => {
+  const system = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const concrete = { ...second, requested_managed_system_id: system, approval_scope_candidates: [{ managed_system_id: system }] };
+  const request = mode === 'batch' ? first : concrete;
+  const batch = mode === 'batch' ? { batch: { id: batchId, items: [first, concrete] } } : {};
+  let failRead!: (error: Error) => void;
+  const read = vi.spyOn(registryReads, 'fetchManagedSystems')
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { failRead = reject; }))
+    .mockResolvedValueOnce({ items: [{ id: system, name: 'Alpha', slug: 'alpha' } as registryReads.ManagedSystemDto], total: 1 });
+  function Review() {
+    const catalog = useQuery({ ...managedSystemsCatalogQuery(), retry: false });
+    const names = Object.fromEntries((catalog.data?.items ?? []).map(item => [item.id, item.name]));
+    return <PermissionRequestDecisionForm request={request} {...batch} scopeRadios approvalSystemNames={names}
+      systemNamesRead={{ isFetching: catalog.isFetching, retry: () => void catalog.refetch() }} />;
+  }
+  mountCatalogReview(<Review />);
+  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  const submit = screen.getByTestId('permission-decision-submit');
+  expect(submit).toBeDisabled();
+  expect(impactRow('승인 후 열리는 것')).toHaveTextContent('시스템 이름 확인 중');
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  failRead(new Error('Catalog unavailable'));
+  await screen.findByRole('button', { name: '시스템 이름 다시 불러오기' });
+  expect(submit).toBeDisabled();
+  fireEvent.click(submit);
+  expect(state.mutate).not.toHaveBeenCalled();
+
+  if (mode === 'batch') {
+    const member = screen.getByRole('checkbox', { name: /Finding 조회/ });
+    fireEvent.click(member);
+    expect(submit).toBeEnabled();
+    fireEvent.click(member);
+    expect(submit).toBeDisabled();
+  }
+
+  fireEvent.click(screen.getByRole('button', { name: '시스템 이름 다시 불러오기' }));
+  await waitFor(() => expect(submit).toBeEnabled());
+  expect(impactRow('승인 후 열리는 것')).toHaveTextContent('Alpha');
+  fireEvent.click(submit);
+  expect(state.mutate).toHaveBeenCalledTimes(1);
+  expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty('grantedManagedSystemId');
 });

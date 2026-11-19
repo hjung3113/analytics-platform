@@ -10,6 +10,7 @@ import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors
 import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
 import { useHostSearchWriter } from '../../../lib/host/useHostSearchWriter';
 import { type ReviewTab, validatePermissionRequestsSearch } from './permission-requests-search.js';
+import type { SystemNamesRead } from './permission-request-decision-form';
 import { permissionRequestsReviewKey } from './useDecidePermissionRequest.js';
 import { aggregatePermissionRequests } from '../../../lib/copy/permission-groups';
 
@@ -32,7 +33,8 @@ export function usePermissionRequestsConsole({
   selectedId: string | null;
   actorNames: Record<string, string>;
   managedSystemNames: Record<string, string>;
-  managedSystemSlugs: Record<string, string>;
+  approvalSystemNames: Record<string, string>;
+  systemNamesRead: SystemNamesRead;
   isPending: boolean;
   isError: boolean;
   handleTabChange: (next: ReviewTab) => void;
@@ -50,15 +52,14 @@ export function usePermissionRequestsConsole({
     (actors.actors ?? []).map((actor) => [actor.id, actor.display_name]),
   );
   const managedSystemsQuery = useQuery({ ...managedSystemsCatalogQuery(), retry: false });
-  const managedSystemNames = Object.fromEntries(
-    (managedSystemsQuery.data?.items ?? []).map((managedSystem) => [
-      managedSystem.id,
-      managedSystem.name,
-    ]),
-  );
-  const managedSystemSlugs = Object.fromEntries(
-    (managedSystemsQuery.data?.items ?? []).map((system) => [system.id, system.slug]),
-  );
+  const managedSystemNames: Record<string, string> = {};
+  const approvalSystemNames: Record<string, string> = {};
+  for (const { id, name, slug } of managedSystemsQuery.data?.items ?? []) {
+    managedSystemNames[id] = name;
+    // A literal name can match another system's decorated name. Include the
+    // unique slug in every concrete approval label.
+    if (name && slug) approvalSystemNames[id] = `${name} (${slug})`;
+  }
   // Tab + selection are URL state; `pending` is the default tab (omitted).
   const activeTab: ReviewTab = search.tab ?? 'pending';
   const selectedId = search.selected ?? null;
@@ -148,7 +149,8 @@ export function usePermissionRequestsConsole({
     selectedId,
     actorNames,
     managedSystemNames,
-    managedSystemSlugs,
+    approvalSystemNames,
+    systemNamesRead: { isFetching: managedSystemsQuery.isFetching, retry: () => void managedSystemsQuery.refetch() },
     isPending: query.isPending,
     isError: query.isError,
     handleTabChange,

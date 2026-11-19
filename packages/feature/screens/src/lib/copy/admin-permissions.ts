@@ -186,3 +186,26 @@ export const PERMISSION_REVIEW_TEXT = {
   close: { ko: '닫기', en: 'Close' },
   closePanel: { ko: '패널 닫기', en: 'Close panel' },
 } as const;
+
+export const PERMISSION_APPROVAL_SCOPE_COPY = {
+  ko: {
+    scope: '승인 범위',
+    allSystems: '전체 시스템',
+    requestedScope: '항목별 요청 범위',
+    loading: '시스템 이름 확인 중',
+    unavailable: '시스템 이름 확인 불가',
+    reselectScope: '선택한 승인 범위를 더 이상 사용할 수 없습니다. 승인 범위를 다시 선택하세요.',
+    retry: '시스템 이름 다시 불러오기',
+    opens: '승인 후 열리는 것',
+  },
+  en: {
+    scope: 'Approval scope',
+    allSystems: 'All systems',
+    requestedScope: 'Scope requested for each item',
+    loading: 'Checking system name',
+    unavailable: 'System name unavailable',
+    reselectScope: 'The selected approval scope is no longer available. Choose an approval scope again.',
+    retry: 'Retry loading system names',
+    opens: 'What approval opens',
+  },
+} as const;
