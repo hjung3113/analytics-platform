@@ -1,13 +1,14 @@
+import { ChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
 import type { ChartChromeOptions } from './chartChrome';
 import type { ChartTrust } from '../state/trustFormat';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
-import { toMs, unknownLabel } from './analysisChartShared';
-import { BrushIcon, Download, Eye, GitCompare, MessageSquarePlus, MoreHorizontal, RotateCcw, Table2, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
+import { toMs, unknownLabel, warnMissingChartUnit } from './analysisChartShared';
+import { BrushIcon, Eye, GitCompare, MessageSquarePlus, RotateCcw, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
 import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
-import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
+import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
@@ -35,7 +36,7 @@ import { groupedRowText, rowGroup, rowLabel, type ChartRowGroups } from './chart
 export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
 
-import { AnalysisChartPart, ChartCardHeader, ChartHeading, ChartTrustFooter, ChartZoomButton, PanelChartChrome, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartZoomButton, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
 
 export type ChartSeries = {
   id: string;
@@ -44,6 +45,8 @@ export type ChartSeries = {
   color: ThemeColorToken;
   /** [x, y]: x is a naive wall-clock datetime (time axis) or a category label. null = unknown, never 0. */
   points: [string, number | null][];
+  /** Display unit for this series. Omission falls back to its axis unit and warns in development. */
+  unit?: string;
   kind?: 'line' | 'bar';
   /** Native step geometry for line series. Omit for a straight line. */
   step?: 'start' | 'middle' | 'end';
@@ -127,7 +130,7 @@ export type ChartPoint = { x: string; seriesId: string; value: number | null };
 export type ChartPointAction = { id: string; label: string; onSelect: (point: ChartPoint) => void; disabled?: boolean;
   /** The action may change page keys but does not move the user: when the menu closes, focus returns to `지점 동작` even though the URL changed (06 §16). */
   keepsFocus?: boolean };
-type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void } } };
+type PointEvent = { seriesId?: string; value?: unknown; name?: string; dataIndex?: number; event?: { event?: { preventDefault?: () => void; metaKey?: boolean; shiftKey?: boolean } } };
 
 export type AnalysisChartFrameProps = ChartChromeOptions & {
   /** Use standard plot sizing with a visible card title, optional legend caption below it, and only info and zoom tools. */
@@ -155,6 +158,7 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   /** Controlled visibility includes current and comparison series IDs. */
   visibleSeriesIds?: readonly string[];
   onVisibleSeriesChange?: (ids: string[]) => void;
+  /** Drill callback for double-click, Enter and the point picker. The legacy `on` field is retained for source compatibility. */
   pointActivation?: { on: 'click' | 'dblclick'; onActivate: (point: ChartPoint) => void };
   /** A list, or a function of the selected point evaluated when the menu opens. `지점 동작` is disabled while the list for the selected point is empty. */
   pointActions?: readonly ChartPointAction[] | ((point: ChartPoint) => readonly ChartPointAction[]);
@@ -173,8 +177,9 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   canApplyRange?: boolean;
   /** Page-owned actions for the current brushed selection (e.g. filter a table). */
   selectionActions?: (selection: Selection) => ReactNode;
-  /** Explicit drill-down on a data point; charts never silently mutate global Context on click. */
+  /** Drill callback when pointActivation is absent, invoked on double-click or Enter. */
   onPointClick?: (x: string, seriesId: string) => void;
+  /** @deprecated The SDK renders guidance from the available inputs. */
   pointClickHint?: string;
   /** A line whose `unit` or `metricVersion` is given and differs from this Frame's is not drawn; the Frame says so in a note. Omitted fields leave the line as it is. Not drawn with `startAlign` (x is not one value scale). */
   markLines?: { y: number; label: string; unit?: string; metricVersion?: string }[];
@@ -183,11 +188,9 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   /** Legend and reading-aid labels; defaults to localized Upper bound / Lower bound / Bound range. */
   boundLabels?: ChartBoundLabels;
   extraActions?: ReactNode;
-  /**
-   * Opt-in (#2459): menu controls drawn at the start of the plot's tool row, for example `PanelOptions`. In panel chrome (`standard`/`minimal`)
-   * they sit after ⓘ on the same row as the plot tools, so a panel needs no separate option row; in `full` chrome they open the toolbar.
-   * Omitted: the output is unchanged. Unlike `extraActions`, never moved into More.
-   */
+  /** Shows the chart heading in the toolbar row even when compact chrome already has a panel title. */
+  headingInToolbar?: boolean;
+  /** Menu controls at the start of the chart row, outside More. */
   toolbarStart?: ReactNode;
   /** A second value axis on the right for series with `axis: 'right'`: its own scale from 0, this unit in the axis name, in the tooltip, the table and CSV headers (`name (unit)`), and `valueFormat` for tooltip, point selector and table values (default: the Frame's `valueFormat`). Vertical, unstacked charts only; with `orientation="horizontal"` or `stacked` every series is drawn on the left, with a dev warning. `markLines` stay on the left axis. */
   rightAxis?: { unit: string; valueFormat?: (v: number) => string };
@@ -213,7 +216,7 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
    * the frame never changes its own highlight; it draws a border on that row's bars and a bold category label, and names the row in the selection summary.
    */
   activeCategory?: string | null;
-  /** A bar click ('pointer') or the point picker moving to a row ('keyboard'). On a click this runs before `pointActivation.onActivate`; the two are separate (06 §16, ADR-0079). */
+  /** A bar click ('pointer') or the point picker moving to a row ('keyboard'). Row selection and drill activation are separate (06 §16, ADR-0079). */
   onActiveCategoryChange?: (category: string | null, how: 'pointer' | 'keyboard') => void;
   /** With `rowPitch`: when `activeCategory` changes from outside, scroll that row into view inside the frame. Never moves focus; a change that came from this frame's own click does not scroll. */
   revealActive?: boolean;
@@ -248,8 +251,9 @@ type FrameHost = {
   global: { scopeId: string | null; from: string | null; to: string | null };
   /** A change resets the chart's local state (it described the previous result). */
   contextKey: string;
+  analyticsAllowed: boolean;
   features: { compare: boolean; annotate: boolean; export: boolean };
-  /** Promotes a brushed range to the period; null = no `분석 구간 적용`. */
+  /** Promotes a brushed range to the period; null = analysis range application is unavailable. */
   applyPeriod: ((range: Selection) => void) | null;
   notify: (text: string, tone?: 'warning') => void;
   url: string;
@@ -262,7 +266,7 @@ type FrameHost = {
  * State layers stay separate: Global Context (URL) · Page Filter (page) · Chart Local State (here) · Persistent Annotation (server, keyed by chartId + Scope).
  * Compare/Annotate/Export follow the current menu's manifest `features`; a chart outside a routed menu offers none of them.
  * Without a `PlatformProvider` (#1953 C) the chart behaviour (Zoom, Brush, local selection, point actions, tooltip, table) works on its own;
- * Compare, Annotate and `분석 구간 적용` are not drawn, and export follows `exportActions`.
+ * Compare is absent, range actions show their unavailable reasons, and export follows `exportActions`.
  */
 export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
   const platform = usePlatformOptional();
@@ -272,12 +276,14 @@ export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
 function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform: MenuPlatform }) {
   const { setGlobal, toast, global, route, url } = platform;
   const features = route?.menu.features;
-  const canAnnotate = !p.zoomOnly && !!features?.annotate;
+  const analyticsAllowed = platform.can('analytics:view');
+  const canAnnotate = !p.zoomOnly && !!features?.annotate && analyticsAllowed;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
   const host: FrameHost = {
-    inPlatform: true, global, contextKey: JSON.stringify(global), url, status: '', notify: toast,
-    features: { compare: !!features?.compare, annotate: canAnnotate, export: !!features?.export },
-    applyPeriod: range => setGlobal({ from: range.from, to: range.to }),
+    inPlatform: true, global, contextKey: JSON.stringify([platform.user?.id, platform.revision, analyticsAllowed, global]), url, status: '', notify: toast,
+    analyticsAllowed,
+    features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
+    applyPeriod: analyticsAllowed ? range => setGlobal({ from: range.from, to: range.to }) : null,
   };
   return <FrameBody {...p} host={host} editor={editor} />;
 }
@@ -289,7 +295,7 @@ function wallClockOrNull(value: string | null | undefined, field: string): strin
 }
 
 function StandaloneFrame(p: AnalysisChartFrameProps) {
-  const editor = useNoAnnotationEditor(p.chartId);
+  const editor = useNoAnnotationEditor();
   const [status, setStatus] = useState('');
   const rawFrom = p.period?.from; const rawTo = p.period?.to;
   // Checked once per value, so a bad value warns once rather than on every render.
@@ -299,6 +305,7 @@ function StandaloneFrame(p: AnalysisChartFrameProps) {
   useEffect(() => { setStatus(''); }, [from, to]);
   const host: FrameHost = {
     inPlatform: false, global, contextKey: JSON.stringify(global), url: '', status, notify: p.exportActions?.notify ?? (text => setStatus(text)),
+    analyticsAllowed: false,
     features: { compare: false, annotate: false, export: p.exportActions?.exportAllowed === true },
     applyPeriod: null,
   };
@@ -314,7 +321,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const chrome = (zoomOnly ? 'standard' : p.chrome) ?? (panel ? 'standard' : 'full');
   const compactChrome = chrome !== 'full';
   const [panelToolsOpen, setPanelToolsOpen] = useState(false);
-  const focusPanelAnnotate = useRef(false);
+  const [selectedPointKeys, setSelectedPointKeys] = useState<readonly string[]>([]);
+  const toolbarButtonSize = compactChrome ? 'icon-xs' : 'toolbar';
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
   const compact = size === 'compact';
@@ -325,7 +333,11 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillFloor, fill.height ?? fillMin) : analysisChartHeight(size, 260));
   const { global, features, notify, url, applyPeriod } = host;
   const canCompare = !zoomOnly && features.compare && !!p.compareSeries?.length;
-  const canAnnotate = features.annotate;
+  const showAnnotate = !zoomOnly && (features.annotate || !host.inPlatform);
+  const canAnnotate = !zoomOnly && features.annotate && host.analyticsAllowed;
+  const annotateReasonId = useId();
+  const rangeAnnotateReasonId = useId();
+  const applyReasonId = useId();
   const canExport = !zoomOnly && features.export;
   const titleId = useId();
   const currentPeriodId = useId();
@@ -351,7 +363,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const menu = usePointMenu(url);
   const pointChart = menu.chartRef;
-  const { selectedKey: selectedPointKey, setSelectedKey: setSelectedPointKey, openMenu } = menu;
+  const { selectedKey: selectedPointKey, setSelectedKey: setSelectedPointKey, openMenu, reset: resetPoint } = menu;
   const openPointMenu = useCallback((opener: HTMLElement | null) => {
     if (compactChrome) setPanelToolsOpen(true);
     openMenu(opener);
@@ -421,7 +433,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
   const pointActions = p.pointActions;
   const hasPointActions = typeof pointActions === 'function' || !!pointActions?.length;
-  const pointControls = !!p.pointActivation || hasPointActions || !!p.pointStatus || (rawBounds && !horizontal);
+  const { pointActivation, onPointClick } = p;
+  const activatePoint = useCallback((point: ChartPoint) => {
+    if (pointActivation) pointActivation.onActivate(point);
+    else onPointClick?.(point.x, point.seriesId);
+  }, [pointActivation, onPointClick]);
+  const canDrill = !!pointActivation || !!onPointClick;
+  const plotPointControls = !zoomOnly && (canDrill || hasPointActions || !!p.pointStatus || (rawBounds && !horizontal));
   const isPointSelectable = p.isPointSelectable;
   const categories = useMemo(() => (xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : []), [xType, p.series]);
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
@@ -469,8 +487,48 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // Computed from the displayed (visible) series, so a hidden series has none; the point selector's own rule decides which rows count.
   const extremes = useMemo(() => (horizontal && p.minMax ? seriesExtremes(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
   const equalIds = useMemo(() => (horizontal && p.minMax ? equalSeriesIds(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
-  const points = useMemo(() => pointControls ? displayed.flatMap(s => s.points.map(([x, value]) => ({ x, seriesId: s.id, value })).filter(point => isPointSelectable?.(point) ?? true)) : [], [pointControls, displayed, isPointSelectable]);
+  const pointEntries = useMemo(() => {
+    if (zoomOnly) return [];
+    return displayed.flatMap((series, i) => {
+      // A missing category is projected as null for the plot and table, but it has no point to select.
+      const sourceCategories = xType === 'category' ? new Set(visible[i].points.map(([x]) => x)) : null;
+      return series.points.flatMap(([x, value]) => {
+        const point = { x, seriesId: series.id, value };
+        if ((sourceCategories && !sourceCategories.has(x)) || isPointSelectable?.(point) === false) return [];
+        return [{ key: chartPointKey(point), point, series }];
+      });
+    });
+  }, [displayed, visible, xType, zoomOnly, isPointSelectable]);
+  const pointKeys = useMemo(() => new Set(pointEntries.map(entry => entry.key)), [pointEntries]);
+  const points = useMemo(() => pointEntries.map(entry => entry.point), [pointEntries]);
+  const canSelectPoint = points.length > 0;
+  const pointControls = canSelectPoint || plotPointControls;
+  const pointToolsInMore = compactChrome || !plotPointControls;
+  const pointIdentity = JSON.stringify([p.chartId, xType]);
+  const [previousPointIdentity, setPreviousPointIdentity] = useState(pointIdentity);
+  if (previousPointIdentity !== pointIdentity) {
+    setPreviousPointIdentity(pointIdentity);
+    resetPoint();
+    setSelectedPointKeys([]);
+  } else {
+    const retained = selectedPointKeys.filter(key => pointKeys.has(key));
+    if (retained.length !== selectedPointKeys.length) setSelectedPointKeys(retained);
+    if (selectedPointKey !== null && !pointKeys.has(selectedPointKey)) setSelectedPointKey(null);
+  }
+  const chosenPoints = useMemo(() => {
+    if (!selectedPointKeys.length) return [];
+    const chosen = new Set(selectedPointKeys);
+    return pointEntries.filter(entry => chosen.has(entry.key));
+  }, [pointEntries, selectedPointKeys]);
   const selectedPoint = points.find(point => chartPointKey(point) === selectedPointKey) ?? points[0];
+  const choosePoint = useCallback((point: ChartPoint, { add }: { add: boolean }) => {
+    const key = chartPointKey(point);
+    setSelectedPointKey(key);
+    setSelectedPointKeys(previous => {
+      if (add) return previous.includes(key) ? previous : [...previous, key];
+      return previous.length === 1 && previous[0] === key ? previous : [key];
+    });
+  }, [setSelectedPointKey]);
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
@@ -482,7 +540,18 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const rightFormatRef = useRef(rightFormat);
   useLayoutEffect(() => { rightFormatRef.current = rightFormat; });
   const fmtOf = (s: ChartSeries) => (isRight(s) ? rightFormat : format);
-  const unitOf = (s: ChartSeries) => (isRight(s) ? p.rightAxis!.unit : p.unit);
+  const unitOf = (s: ChartSeries) => s.unit?.trim() || (isRight(s) ? p.rightAxis!.unit : p.unit);
+  const selectedSeries = selectedPoint && allSeries.find(series => series.id === selectedPoint.seriesId);
+  const selectedExtremes = selectedSeries && extremes?.get(selectedSeries.id);
+  const warnedUnits = useRef(new Set<string>());
+  const { series, compareSeries } = p;
+  useEffect(() => {
+    for (const item of [...series, ...(compareSeries ?? [])]) {
+      if (item.unit?.trim() || warnedUnits.current.has(item.id)) continue;
+      warnedUnits.current.add(item.id);
+      warnMissingChartUnit(item.id);
+    }
+  }, [series, compareSeries]);
   /** Table and CSV column header: the unit joins the name only while the right axis is active (otherwise headers are as before). */
   const columnName = (s: ChartSeries) => (rightActive ? `${s.name} (${unitOf(s)})` : s.name);
   // One row per distinct x across the visible series (#297): Compare series carry different dates, so the
@@ -498,38 +567,31 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   }, [displayed, xType, categories]);
 
   const onVisibleSeriesChange = p.onVisibleSeriesChange;
-  const { reset: resetPoint } = menu;
   const { cancelDelete } = editor;
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); closeEditor();
+    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); closeEditor(); setSelectedPointKeys([]);
   }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = host.contextKey;
-  const appliedActive = useRef<string | null>(null);
-  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint(); appliedActive.current = null;
+  const appliedActive = useRef<{ identity: string; category: string } | null>(null);
+  useEffect(() => { rangeActions.contextReset(); closeEditor(); cancelDelete(); resetPoint(); appliedActive.current = null; setSelectedPointKeys([]);
   }, [contextKey, closeEditor, cancelDelete, resetPoint, rangeActions]);
-  const returnToPanelAnnotate = useCallback(() => {
-    if (annotateButton.current) { annotateButton.current.focus({ preventScroll: true }); return; }
-    focusPanelAnnotate.current = true;
-    setPanelToolsOpen(true);
-  }, []);
-  useAnnotationDeleteFocus(editor, { annotateButton, brushToggle, returnToAnnotate: compactChrome && canAnnotate && selection && scopeId !== null ? returnToPanelAnnotate : undefined });
+  useAnnotationDeleteFocus(editor, { annotateButton, brushToggle });
   // An outside change of the active row moves the selected point (selector and `지점 동작` target) to that row: the selected series if its point there is selectable, else the row's first selectable point. A change this frame reported already selected that row, so it does not move again. It runs after the Context reset below, so a row set at mount (a URL) or kept across a reset is not cleared by it. `null` leaves the selection; focus never moves.
   useEffect(() => {
     if (activeCategory == null) { appliedActive.current = null; return; }
-    if (appliedActive.current === activeCategory) return;
+    if (appliedActive.current?.identity === pointIdentity && appliedActive.current.category === activeCategory) return;
     const inRow = points.filter(point => point.x === activeCategory);
     if (inRow.length === 0) return;
-    appliedActive.current = activeCategory;
-    if (selectedPoint?.x === activeCategory) return;
+    appliedActive.current = { identity: pointIdentity, category: activeCategory };
     const target = inRow.find(point => point.seriesId === selectedPoint?.seriesId) ?? inRow[0]!;
     setSelectedPointKey(chartPointKey(target));
-  }, [activeCategory, points, selectedPoint, setSelectedPointKey]);
+  }, [activeCategory, contextKey, pointIdentity, points, selectedPoint, setSelectedPointKey]);
 
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
-  const showKeyboard = xType === 'time' && global.to !== null && timeBounds.length >= 2;
+  const showKeyboard = !zoomOnly && xType === 'time' && global.to !== null && timeBounds.length >= 2;
   // A category axis has no query end to wait for: the start/end selects are the non-pointer path to a range (06 §16, #2024). StartAlign turns Brush off, and the selects with it.
-  const showCategoryKeyboard = xType === 'category' && categories.length > 0 && !startAlign;
+  const showCategoryKeyboard = !zoomOnly && xType === 'category' && categories.length > 0 && !startAlign;
   const rangeKeyboard = showKeyboard || showCategoryKeyboard;
   // The data under a kept selection changed (#2064): a new granularity or a new category list re-fits the selection the same way a fresh pick is fitted,
   // so the header and the counts never describe different ranges. Time: snap outward onto the new bars, then clip; nothing left clears it. Category: an end that is no longer drawn clears it.
@@ -633,10 +695,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit,
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -657,8 +719,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     const value = datum ? datum[1] : series.points.find(([label]) => label === x)?.[1];
     if (value === undefined) return null;
     const point = { x, seriesId: series.id, value };
-    return isPointSelectable && !isPointSelectable(point) ? null : point;
-  }, [displayed, xType, isPointSelectable]);
+    if (!pointKeys.has(chartPointKey(point)) || isPointSelectable?.(point) === false) return null;
+    return point;
+  }, [displayed, xType, pointKeys, isPointSelectable]);
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
@@ -685,32 +748,31 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       if (brushMode) return;
       const point = eventPoint(params);
       if (!point) return;
-      if (pointControls) setSelectedPointKey(chartPointKey(point));
-      // Row focus first, then activation: a click focuses the row and (on: 'click') also activates the point.
+      if (zoomOnly) return;
+      choosePoint(point, { add: !!(params.event?.event?.metaKey || params.event?.event?.shiftKey) });
       if (horizontal && onActiveCategoryChange) {
         setPointerRequest(point.x);
         onActiveCategoryChange(point.x, 'pointer');
       }
-      // Native double-click recognition is OS-defined; no timer can safely commit a click first.
-      const onPointClick = p.onPointClick;
-      const pointActivation = p.pointActivation;
-      if (pointActivation?.on !== 'dblclick') {
-        onPointClick?.(point.x, point.seriesId);
-        pointActivation?.onActivate(point);
-      }
     },
     dblclick: (params: PointEvent) => {
-      const activation = p.pointActivation;
-      if (brushMode || activation?.on !== 'dblclick') return;
+      if (zoomOnly || brushMode || !canDrill) return;
       const point = eventPoint(params);
-      if (point) { setSelectedPointKey(chartPointKey(point)); activation.onActivate(point); }
+      if (point) { setSelectedPointKey(chartPointKey(point)); activatePoint(point); }
     },
     contextmenu: (params: PointEvent) => {
       if (brushMode || !hasPointActions) return;
       const point = eventPoint(params);
-      if (point) { params.event?.event?.preventDefault?.(); setSelectedPointKey(chartPointKey(point)); if (actionsFor(point).length > 0) openPointMenu(pointChart.current); }
+      if (point) {
+        params.event?.event?.preventDefault?.();
+        setSelectedPointKey(chartPointKey(point));
+        if (actionsFor(point).length > 0) {
+          if (compactChrome) setPanelToolsOpen(true);
+          openPointMenu(pointChart.current);
+        }
+      }
     },
-  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, p.onPointClick, p.pointActivation, hasPointActions, actionsFor, pointControls, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey]);
+  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey, choosePoint]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -741,7 +803,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series token resolved at runtime
         ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
         : <svg aria-hidden width="32" height="14"><line x1="0" y1="7" x2="32" y2="7" stroke={stroke} strokeWidth="2" strokeDasharray={svgDasharray(linePattern(s, previous))} /></svg>}
-      {s.name}
+      {unitOf(s) ? `${s.name} (${unitOf(s)})` : s.name}
     </label>;
   }
 
@@ -779,8 +841,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // The controlled value stays as given (the reveal and selection effects read it); only the summary names a row the plot draws.
   const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
-  const { quiet: quietSummary, show: showSummary, rest: quietRest, showRangeForm, rangeUi, focusable: summaryFocusable } = summaryPresentation({
-    chrome, summary: p.summary, fill: size === 'fill', brushMode, selection: !!selection, rangeKeyboard, draft: !!draft,
+  const { quiet: quietSummary, show: showSummary, rest: quietRest, showRangeForm, focusable: summaryFocusable } = summaryPresentation({
+    chrome, summary: p.summary, quickRanges: showKeyboard, fill: size === 'fill', brushMode, selection: !!selection, rangeKeyboard, draft: !!draft,
     preview: !!preview, applyPeriod: !!applyPeriod, note: note !== null, clipNotice: !!clipNotice, annotationAlert,
     annotations: annotations.length, ownAnnotation: annotations.some(a => a.mine), activeRow: drawnActive !== null,
     selectedPoint: !!selectedPoint, pointDetail: !!(rowGroups || statusEnabled || bounds),
@@ -822,19 +884,17 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     rangeActions.setDraft({ from: base.from, to: next });
   }
 
-  const frameLegend = (p.legend !== false || brushMode || (p.onPointClick && p.pointClickHint)) && <div role={p.legend === false ? undefined : 'group'} aria-label={p.legend === false ? undefined : m('chartLegend')} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
+  const frameLegend = p.legend !== false && <div role="group" aria-label={m('chartLegend')} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
       {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column count depends on the visible period groups at runtime */}
-      {p.legend === false ? null : showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
+      {showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </div> : <>
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </> : allSeries.map(s => renderLegendSeries(s, false))}
-      {p.legend !== false && <ChartBoundsLegend bounds={bounds} />}
-      {p.legend !== false && <ChartStatusLegend statuses={statusLegend} />}
-      {brushMode && <span className="text-tiny text-accent-primary">{m('chartBrushHint')}</span>}
-      {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
+      <ChartBoundsLegend bounds={bounds} />
+      <ChartStatusLegend statuses={statusLegend} />
     </div>;
   const standardLegend = <>{p.legend !== false && <>
       {showPeriodGroups ? <>
@@ -843,8 +903,6 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       </> : allSeries.map(series => renderLegendSeries(series, false))}
       <ChartBoundsLegend bounds={bounds} /><ChartStatusLegend statuses={statusLegend} />
     </>}
-    {brushMode && <span className="text-tiny text-accent-primary">{m('chartBrushHint')}</span>}
-    {p.onPointClick && !brushMode && p.pointClickHint && <span className="text-tiny text-text-muted">{p.pointClickHint}</span>}
   </>;
 
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
@@ -858,100 +916,89 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     {mismatchedLines.map(line => <p key={line.label}>{m('chartRefLineHiddenUnit', { label: line.label })}</p>)}
   </div>;
   const plotLegendCaption = zoomOnly ? undefined : p.legendCaption;
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && !zoomOnly && 'rounded-none border-0 shadow-none')}>
-    {/* Pinned to the card corner so a wrapping toolbar never strands it on its own line. */}
-    <AnalysisChartPart enabled={analysisSection !== null}>
-    {zoomOnly ? <>
-      <ChartCardHeader reserveCorner={analysisSection !== null} title={<h3 id={titleId} className="t-card-title">{p.title}</h3>}
-        subtitle={p.legendCaption != null && <div className="text-xs text-text-muted">{p.legendCaption}</div>} actions={<>
-          <InfoTip label={m('laneHowToInteract')}>{p.description ?? (rowPitch === undefined ? m('chartZoomTitle') : m('chartLocalStateNote'))}</InfoTip>
-          {rowPitch === undefined && <>
-            <ChartZoomButton label={m('laneZoomIn')} icon={ZoomIn} onClick={rangeActions.zoomIn} />
-            <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
-          </>}
-          <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
-        </>} />
-      {chartNotes}
-    </> : <PanelChartChrome enabled={compactChrome} start={p.toolbarStart} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} open={panelToolsOpen} onOpenChange={setPanelToolsOpen} onOpenAutoFocus={event => {
-      if (!focusPanelAnnotate.current) return;
-      focusPanelAnnotate.current = false;
-      event.preventDefault();
-      annotateButton.current?.focus({ preventScroll: true });
-    }} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={<>
-      {rowPitch === undefined && <Button ref={zoomInButton} variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden /></Button>}
-      {rowPitch === undefined && isZoomed && <>
-        <Button variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden /></Button>
-        <Button variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden /></Button>
-        <Button variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden /></Button>
-      </>}
-      <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="icon-xs" className="shrink-0" aria-label={m('chartBrush')} aria-pressed={brushMode} disabled={startAlign} title={startAlign ? m('chartBrushStartAlignDisabled') : m('chartBrush')} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden /></Button>
-      <Button variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('chartReset')} title={m('chartReset')} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden /></Button>
-    </>}>
-    <header className={cn('flex flex-wrap items-start justify-between', compactEmbedded ? 'gap-1 px-2 pt-1' : 'gap-2 px-4 pt-3', analysisSection && 'pr-12')}>
-      {!compactChrome && <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} hideTitle={false} />}
-      {/* The core controls wrap in source order inside narrow cards; the Export/More tail stays bundled as its own
-        wrap unit. Wide cards keep one right-aligned row, and extraActions keeps its own bundle. */}
-      <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex flex-wrap items-center justify-end gap-1">
-        {!compactChrome && p.toolbarStart != null && <div data-chart-toolbar-start className="flex flex-wrap items-center gap-1">{p.toolbarStart}</div>}
-        {pointControls && <div className="flex flex-wrap items-center gap-1">
+  const pointTools = pointControls && <div className="flex flex-wrap items-center gap-1">
           <select aria-label={m('chartSelectPoint')} value={selectedPoint ? chartPointKey(selectedPoint) : ''} disabled={brushMode || !points.length}
-            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => { setSelectedPointKey(event.target.value); const picked = points.find(point => chartPointKey(point) === event.target.value); if (horizontal && picked) p.onActiveCategoryChange?.(picked.x, 'keyboard'); }}>
+            className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs" onChange={event => {
+              const key = event.target.value;
+              setSelectedPointKey(key);
+              const picked = points.find(point => chartPointKey(point) === key);
+              if (horizontal && picked) onActiveCategoryChange?.(picked.x, 'keyboard');
+            }}>
             {!points.length && <option value="">{m('chartNoPoints')}</option>}
-            {points.map(point => <option key={chartPointKey(point)} value={chartPointKey(point)}>{labelOf(point.x)} · {allSeries.find(s => s.id === point.seriesId)?.name} · {point.value === null ? unknownLabel(lang) : fmtOf(allSeries.find(s => s.id === point.seriesId)!)(point.value)}{rightActive && point.value !== null ? ` ${unitOf(allSeries.find(s => s.id === point.seriesId)!)}` : ''}{extremeText(point)}{pointBoundsText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
+            {pointEntries.map(({ key, point, series }) => <option key={key} value={key}>{labelOf(point.x)} · {series.name} · {point.value === null ? unknownLabel(lang) : fmtOf(series)(point.value)}{point.value !== null ? ` ${unitOf(series)}` : ''}{extremeText(point)}{pointBoundsText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
           </select>
-          {p.pointActivation && <Button variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) p.pointActivation?.onActivate(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
+          <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: false }); }}>{m('chartSelectOnlyPoint')}</Button>
+          <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: true }); }}>{m('chartAddPoint')}</Button>
+          {canDrill && <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) activatePoint(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
-            <DropdownMenuTrigger asChild><Button ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{m('chartPointActions')}</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button type="button" ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{m('chartPointActions')}</Button></DropdownMenuTrigger>
             <DropdownMenuContent ref={menu.contentRef} align="end" onCloseAutoFocus={menu.onCloseAutoFocus}>
               {selectedActions.map(action => <DropdownMenuItem key={action.id} disabled={action.disabled} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring" onSelect={() => { if (selectedPoint && !brushMode) { if (action.keepsFocus) menu.stayOnChart(); action.onSelect(selectedPoint); } }}>{action.label}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>}
           {brushMode && <span className="text-tiny text-text-secondary">{m('chartBrushDisablesPointActions')}</span>}
-        </div>}
-        {p.extraActions != null && <div className="flex items-center gap-1">{p.extraActions}</div>}
-        <div className="flex flex-wrap items-center gap-1">
-          {!compactChrome && rowPitch === undefined && <Button ref={zoomInButton} variant="ghost" size="toolbar" onClick={rangeActions.zoomIn} title={m('chartZoomTitle')}><ZoomIn className="size-3.5" aria-hidden />{m('chartZoom')}</Button>}
-          {/* Zoom out and pan exist only while zoomed: at the full range they do nothing, and three disabled buttons would wrap the toolbar of a narrow panel. */}
-          {!compactChrome && rowPitch === undefined && isZoomed && <>
-            <Button variant="ghost" size="toolbar" onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{m('chartZoomOut')}</Button>
-            <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{m('chartPanLeft')}</Button>
-            <Button variant="ghost" size="toolbar" onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{m('chartPanRight')}</Button>
+        </div>;
+  let annotateReason: string | undefined;
+  if (!host.inPlatform) annotateReason = m('chartAnnotateUnavailable');
+  else if (!host.analyticsAllowed) annotateReason = m('chartAnnotateDenied');
+  else if (scopeId === null) annotateReason = m('chartAnnotatePickScope');
+
+  let applyReason: string | undefined;
+  if (xType !== 'time') applyReason = m('chartApplyRangeTimeOnly');
+  else if (!host.inPlatform || p.canApplyRange === false) applyReason = m('chartApplyRangeUnavailable');
+  else if (!applyPeriod) applyReason = m('chartApplyRangeDenied');
+
+  const quickRanges = showKeyboard && <div role="group" aria-label={m('chartQuickRange')} className="flex items-center gap-1">
+    {oneHour && <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{m('chartRange1h')}</Button>}
+    {fourHour && <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{m('chartRange4h')}</Button>}
+    <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{t('all')}</Button>
+  </div>;
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && !zoomOnly && 'rounded-none border-0 shadow-none')}>
+    <AnalysisChartPart enabled={analysisSection !== null}>
+      <ChartInteractionToolbar compact={compactChrome} reserveCorner={analysisSection !== null}
+        toolsReveal={chrome === 'standard' && !p.toolbarStart && !p.headingInToolbar ? p.toolsReveal : undefined}
+        heading={zoomOnly ? <div className="min-w-0">
+          <h3 id={titleId} className="t-card-title">{p.title}</h3>
+          {p.legendCaption != null && <div className="text-xs text-text-muted">{p.legendCaption}</div>}
+        </div> : <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion}
+          compact={compact || compactChrome} hideTitle={compactChrome && !p.headingInToolbar} />}
+        start={p.toolbarStart}
+        zoom={zoomOnly ? <>
+          <InfoTip label={m('laneHowToInteract')}>{p.description ?? (rowPitch === undefined ? m('chartZoomTitle') : m('chartLocalStateNote'))}</InfoTip>
+          {rowPitch === undefined && <>
+            <ChartZoomButton label={m('laneZoomIn')} icon={ZoomIn} onClick={rangeActions.zoomIn} />
+            <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
           </>}
-          {!compactChrome && <Button ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={brushMode} disabled={startAlign} title={startAlign ? m('chartBrushStartAlignDisabled') : undefined} onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}</Button>}
-          {showKeyboard && <div role="group" aria-label={m('chartQuickRange')} className="flex items-center gap-1">
-            {oneHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{m('chartRange1h')}</Button>}
-            {fourHour && <Button variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{m('chartRange4h')}</Button>}
-            <Button variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{t('all')}</Button>
-          </div>}
-          {!compactChrome && <Button variant="ghost" size="toolbar" onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{m('chartReset')}</Button>}
-          {canCompare && <Button variant={compare ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{m('chartCompare')}</Button>}
-          {canAnnotate && <Button ref={annotateButton} variant="ghost" size="toolbar" disabled={!selection || scopeId === null} title={scopeId === null ? m('chartAnnotatePickScope') : selection ? undefined : m('chartAnnotateBrushFirst')} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{m('chartAnnotate')}</Button>}
-        </div>
-        {/* In panel chrome this tail sits inside More: stack it so the table action and note take the popover width (#2460). */}
-        <div className={compactChrome ? 'flex w-full flex-col items-start gap-1' : 'flex items-center gap-1'} data-chart-toolbar-tail>
-          {canExport && <Button variant="ghost" size="toolbar" onClick={exportCsv}><Download className="size-3.5" aria-hidden />{t('export')}</Button>}
-          {!compactChrome && canExport && host.status !== '' && <span role="status" className="t-caption text-text-muted">{host.status}</span>}
-          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={compactChrome ? host.notify : undefined} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
-          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} onOutcome={compactChrome ? host.notify : undefined} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
-          {compactChrome ? <>
-            <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? m('chartHideDataTable') : m('chartShowSameDataTable')}</button>
-            <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{m('chartLocalStateNote')}</p>
-          </> : <Popover>
-            <PopoverTrigger asChild><Button variant="ghost" size="toolbar" aria-label={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-            <PopoverContent align="end" className="w-72">
-              <button type="button" className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-surface-sunken" onClick={() => setShowTable(s => !s)}><Table2 className="size-3.5" aria-hidden />{showTable ? m('chartHideDataTable') : m('chartShowSameDataTable')}</button>
-              <p className="mt-2 border-t border-border-subtle pt-2 text-text-secondary">{m('chartLocalStateNote')}</p>
-            </PopoverContent>
-          </Popover>}
-        </div>
-      </div>
-    </header>
-
-    {chrome !== 'standard' && frameLegend}
-
-    {chartNotes}
-
-    </PanelChartChrome>}
+        </> : rowPitch === undefined && <>
+          <Button type="button" ref={zoomInButton} variant="ghost" size={toolbarButtonSize} aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactChrome && m('chartZoom')}</Button>
+          {isZoomed && <>
+            <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactChrome && m('chartZoomOut')}</Button>
+            <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{!compactChrome && m('chartPanLeft')}</Button>
+            <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactChrome && m('chartPanRight')}</Button>
+          </>}
+        </>}
+        brush={!zoomOnly && <Button type="button" ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size={toolbarButtonSize} aria-pressed={brushMode} aria-label={m('chartBrush')} disabled={startAlign} title={m(startAlign ? 'chartBrushStartAlignDisabled' : 'chartBrush')}
+          onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
+        reset={zoomOnly ? <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
+          : <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
+        compare={canCompare && <Button type="button" variant={compare ? 'secondary' : 'ghost'} size={toolbarButtonSize} aria-label={m('chartCompare')} title={m('chartCompare')} aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{!compactChrome && m('chartCompare')}</Button>}
+        annotate={showAnnotate && <Button type="button" ref={annotateButton} variant="ghost" size={toolbarButtonSize} aria-label={m('chartAnnotate')} aria-describedby={annotateReason ? annotateReasonId : undefined} disabled={!selection || !!annotateReason}
+          title={annotateReason ?? (selection ? m('chartAnnotate') : m('chartAnnotateBrushFirst'))} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{!compactChrome && m('chartAnnotate')}</Button>}
+        table={zoomOnly ? undefined : { shown: showTable, toggle: () => setShowTable(open => !open) }}
+        exportCsv={canExport ? exportCsv : undefined}
+        exportTools={canExport && <>
+          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={host.notify} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} onOutcome={host.notify} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+        </>}
+        secondary={!zoomOnly && <>
+          {pointToolsInMore && pointTools}{p.extraActions}
+          {chrome === 'minimal' && frameLegend}
+          <p className="border-t border-border-subtle pt-2 text-text-secondary">{m('chartLocalStateNote')}</p>
+        </>} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen} />
+      {showAnnotate && annotateReason && <p id={annotateReasonId} className="px-2 py-0.5 text-xs text-text-secondary">{annotateReason}</p>}
+      {!pointToolsInMore && pointTools && <div className="px-4 pt-1">{pointTools}</div>}
+      {chrome === 'full' && frameLegend}
+      {chartNotes}
     </AnalysisChartPart>
     <AnalysisChartPart enabled={analysisSection !== null} body bounded={chrome === 'standard' && size === 'fill'}>
     {allSeries.length > 0 && visible.length === 0 && <>
@@ -960,20 +1007,35 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
-    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || brushMode || (!!p.onPointClick && !!p.pointClickHint) || plotLegendCaption != null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
+    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
-      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill && chrome !== 'standard' ? { minHeight: fillMin } : undefined} role={pointControls ? 'group' : undefined} aria-label={pointControls ? m('chartPointsGroup') : undefined} tabIndex={pointControls ? 0 : -1}
+      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill && chrome !== 'standard' ? { minHeight: fillMin } : undefined} role={plotPointControls ? 'group' : undefined} aria-label={plotPointControls ? m('chartPointsGroup') : undefined} tabIndex={plotPointControls ? 0 : -1}
       onContextMenu={event => { if (hasPointActions) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && hasPointActions) {
           event.preventDefault();
-          if (!brushMode && selectedPoint && !noActions) openPointMenu(pointChart.current);
+          if (!brushMode && selectedPoint && !noActions) {
+            if (compactChrome) setPanelToolsOpen(true);
+            openPointMenu(pointChart.current);
+          }
+        }
+        if (event.key === 'Enter' && canDrill && selectedPoint && !brushMode) {
+          event.preventDefault();
+          activatePoint(selectedPoint);
         }
       }}><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
       ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
 
     </ChartLegendLayout>
+    {!zoomOnly && <ChartGestureHint point={canSelectPoint} drill={canDrill && canSelectPoint}
+      range={!startAlign && displayed.some(item => item.points.length > 1)} brushing={brushMode} />}
+    {!selection && chosenPoints.length > 0 && <p aria-live="polite" className="px-2 py-0.5 text-xs text-text-secondary break-keep">
+      {chosenPoints.map(({ point, series }) => {
+        const value = point.value === null ? unknownLabel(lang) : `${fmtOf(series)(point.value)} ${unitOf(series)}`.trim();
+        return `${labelOf(point.x)} · ${series.name} · ${value}`;
+      }).join(' / ')}
+    </p>}
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table aria-labelledby={titleId} className="w-full text-xs tabular">
@@ -988,10 +1050,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       </table>
     </div>}
 
-    {compactChrome && canExport && <span role="status" className="sr-only">{host.status}</span>}
+    {canExport && !host.inPlatform && <span role="status" className={host.status ? 'px-2 text-xs text-text-muted' : 'sr-only'}>{host.status}</span>}
     {showSummary && <section tabIndex={summaryFocusable ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} aria-live="polite" className={cn(
-      !quietSummary && (compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs'),
-      quietSummary && (quietRest ? 'sr-only' : 'mx-2 mb-1 max-h-16 shrink-0 overflow-y-auto px-2 py-1 text-xs'),
+      !quietSummary && (compactChrome ? 'flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs' : 'mx-4 mb-3 min-h-9 shrink-0 rounded-md bg-surface-sunken px-3 py-2 text-xs'),
+      quietSummary && (quietRest ? 'sr-only' : 'mx-2 mb-1 shrink-0 overflow-y-auto px-2 py-1 text-xs'),
+      compactChrome && note === null && !preview && 'max-h-16',
+      'break-keep',
     )}>
       {showRangeForm && draft && <div role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{m('chartStart')}</span>
@@ -1017,20 +1081,30 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       {drawnActive !== null && <p className={quietSummary ? 'sr-only' : 'mb-1 font-semibold'}>{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
       {(rowGroups || statusEnabled) && selectedPoint && <p className={quietSummary ? 'sr-only' : 'mb-1'}>{labelOf(selectedPoint.x)} · {allSeries.find(s => s.id === selectedPoint.seriesId)?.name}{resolvedStatus(selectedPoint) ? `: ${statusText(resolvedStatus(selectedPoint))}` : ''}</p>}
       {bounds && selectedPoint && !previousIds.has(selectedPoint.seriesId) && boundText(bounds, selectedPoint.x, format) && <p className={quietSummary ? 'sr-only' : 'mb-1'}>{m('chartCurrentBounds', { bounds: boundText(bounds, selectedPoint.x, format) })}</p>}
-      {selectedPoint && equalIds?.has(selectedPoint.seriesId) && <p className="mb-1 tabular">{allSeries.find(s => s.id === selectedPoint.seriesId)?.name}: {allEqualText}</p>}
-      {selectedPoint && extremes?.get(selectedPoint.seriesId) && (() => { const e = extremes.get(selectedPoint.seriesId)!; const name = allSeries.find(s => s.id === selectedPoint.seriesId)?.name; return <p className="mb-1 tabular">{name}: {m('chartMin')} {e.min.x} {format(e.min.value)} · {m('chartMax')} {e.max.x} {format(e.max.value)} {p.unit}</p>; })()}
-      {!selection ? (quietSummary || rangeUi || chrome === 'standard') && <span className={quietSummary ? 'sr-only' : 'text-text-secondary'}>{startAlign ? m('chartNoRangeSelection') : showKeyboard
-        ? m('chartNoSelectionWithKeyboardHint')
-        : m('chartNoSelectionHint')}</span>
-        : <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${labelOf(selection.from)} – ${labelOf(selection.to)}`}</span>
-          {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
-          <span className="ml-auto flex flex-wrap gap-2">
-            {p.selectionActions?.(selection)}
-            {xType === 'time' && p.canApplyRange !== false && applyPeriod && <Button ref={applyRangeButton} size="toolbar" onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>}
-            <Button size="toolbar" variant="ghost" onClick={rangeActions.clear}>{t('clear')}</Button>
-          </span>
+      {selectedSeries && equalIds?.has(selectedSeries.id) && <p className="mb-1 tabular">{selectedSeries.name}: {allEqualText}</p>}
+      {selectedSeries && selectedExtremes && <p className="mb-1 tabular">
+        {selectedSeries.name}: {m('chartMin')} {selectedExtremes.min.x} {fmtOf(selectedSeries)(selectedExtremes.min.value)} · {m('chartMax')} {selectedExtremes.max.x} {fmtOf(selectedSeries)(selectedExtremes.max.value)} {unitOf(selectedSeries)}
+      </p>}
+      {(selection || quickRanges) && <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {selection
+          ? <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${labelOf(selection.from)} – ${labelOf(selection.to)}`}</span>
+          : <span className="text-text-secondary">{m('chartQuickRange')}</span>}
+        {quickRanges}
+        {selection && <div className="ml-auto flex flex-wrap items-center gap-2">
+          {showAnnotate && <>
+            <Button type="button" size="toolbar" disabled={!!annotateReason} aria-describedby={annotateReason ? rangeAnnotateReasonId : undefined} onClick={editor.openEditor}>{m('chartAnnotateRange')}</Button>
+            {annotateReason && <span id={rangeAnnotateReasonId} className="text-text-secondary">{annotateReason}</span>}
+          </>}
+          <Button type="button" ref={applyRangeButton} size="toolbar" disabled={!!applyReason} aria-describedby={applyReason ? applyReasonId : undefined} onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>
+          {applyReason && <span id={applyReasonId} className="text-text-secondary">{applyReason}</span>}
+          {p.selectionActions?.(selection)}
+          <Button size="toolbar" variant="ghost" onClick={rangeActions.clear}>{t('clear')}</Button>
         </div>}
+        {selection && <div className="flex w-full flex-wrap gap-x-4 gap-y-1">
+          {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
+        </div>}
+      </div>}
+      {!selection && (showRangeForm || !quickRanges) && <p className={quietRest ? 'sr-only' : 'text-text-secondary'}>{m('chartNoRangeSelection')}</p>}
       {selection && selectionCounts.length > 0 && selectionCounts.every(c => c.n === 0) && <p className="mt-1 text-text-secondary">
         {m('chartNoValuesInRange')}
       </p>}

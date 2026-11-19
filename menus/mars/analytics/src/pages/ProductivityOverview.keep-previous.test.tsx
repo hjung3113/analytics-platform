@@ -13,7 +13,7 @@ import { TEST_AXES } from '../test-axes';
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
   function AnalysisChartFrame(props: import('@ap/components').AnalysisChartFrameProps) {
-    return <figure aria-label={String(props.title)} data-chart={props.chartId}>{props.extraActions}{props.series.map(s => s.id).join(',')}</figure>;
+    return <figure aria-label={String(props.title)} data-chart={props.chartId}>{props.toolbarStart}{props.series.map(s => s.id).join(',')}</figure>;
   }
   return { ...actual, AnalysisChartFrame };
 });

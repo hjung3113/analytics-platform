@@ -58,6 +58,7 @@ describe('without a PlatformProvider', () => {
     const notify = vi.fn();
     bare(chart(specs.topNBar!, { exportActions: { exportAllowed: true, notify } }));
     fireEvent.click(exportButton()!);
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenCalledTimes(1);
     expect(vi.mocked(downloadChartCsv).mock.calls[0]![0].context).toEqual({});
     expect(notify).toHaveBeenCalledTimes(1);
@@ -66,6 +67,7 @@ describe('without a PlatformProvider', () => {
     cleanup();
     bare(chart(specs.topNBar!, { exportActions: { exportAllowed: true } }));
     fireEvent.click(exportButton()!);
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(await screen.findByText(text)).toBeTruthy();
   });
 
@@ -74,9 +76,11 @@ describe('without a PlatformProvider', () => {
     const notify = vi.fn();
     bare(chart(specs.topNBar!, { exportActions: { exportAllowed: true, notify } }));
     fireEvent.click(exportButton()!);
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('내보내지 못했습니다'), 'warning');
     fireEvent.click(exportButton()!);
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(notify).toHaveBeenCalledTimes(2);
     expect(notify.mock.lastCall![0]).toContain('내보냄');
     expect(notify.mock.lastCall![1]).toBeUndefined();

@@ -101,6 +101,7 @@ export type SummaryFacts = {
   selection: boolean;
   /** The start/end selects exist for this axis (time or category keyboard range). */
   rangeKeyboard: boolean;
+  quickRanges?: boolean;
   draft: boolean;
   preview: boolean;
   applyPeriod: boolean;
@@ -141,9 +142,9 @@ export function summaryPresentation(f: SummaryFacts): SummaryPresentation {
   const rangeUi = !f.fill || f.brushMode || f.selection;
   const showRangeForm = rangeUi && f.rangeKeyboard && f.draft && (!quiet || f.brushMode);
   const busy = f.preview || f.note || f.clipNotice || f.annotationAlert || f.annotations > 0 || (f.brushMode && f.rangeKeyboard);
-  const rest = quiet && !f.selection && !busy;
-  const hasControls = showRangeForm || f.selection || (f.preview && f.applyPeriod) || f.annotationAlert || f.ownAnnotation;
-  const show = quiet || f.chrome === 'standard' || rangeUi || f.clipNotice || f.preview || f.note || f.annotations > 0 || f.annotationAlert
+  const rest = quiet && !f.selection && !busy && !f.quickRanges;
+  const hasControls = !!f.quickRanges || showRangeForm || f.selection || (f.preview && f.applyPeriod) || f.annotationAlert || f.ownAnnotation;
+  const show = !!f.quickRanges || quiet || f.chrome === 'standard' || rangeUi || f.clipNotice || f.preview || f.note || f.annotations > 0 || f.annotationAlert
     || f.activeRow || (f.pointDetail && f.selectedPoint) || (f.selectedPoint && f.pointExtremes);
   return { quiet, show, rest, rangeUi, showRangeForm, hasControls, focusable: compact && !hasControls && !rest };
 }

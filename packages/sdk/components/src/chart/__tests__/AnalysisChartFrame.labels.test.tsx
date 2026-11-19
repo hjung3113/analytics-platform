@@ -42,8 +42,7 @@ async function mount(extra: Partial<AnalysisChartFrameProps> = {}) {
   return { ...view, update: (more: Partial<AnalysisChartFrameProps>) => view.rerender(frame(more)) };
 }
 const tableText = async () => {
-  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-  fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+  fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
   return screen.getAllByRole('row').map(row => row.textContent);
 };
 let warn: ReturnType<typeof vi.spyOn>;

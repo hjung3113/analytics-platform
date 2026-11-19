@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useMessages, usePlatform, usePlatformQuery, type QueryState } from '@ap/kernel';
 import type { AnnotationQuery, PlatformAdapter } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -12,6 +12,7 @@ type AnnotationIo = {
   toast: (text: string) => void;
 };
 type EditorArgs = { chartId: string; scopeId: string | null; canAnnotate: boolean; axisKind?: AnnotationQuery['axisKind']; from?: string | null; to?: string | null };
+type AnnotationTarget = { chartId: string; scopeId: string };
 
 /**
  * The annotation editor: the persisted notes (server-owned, keyed by chartId + Scope), the draft text, save, and the
@@ -20,23 +21,26 @@ type EditorArgs = { chartId: string; scopeId: string | null; canAnnotate: boolea
  */
 export function useAnnotationEditor({ chartId, scopeId, canAnnotate, axisKind, from, to }: EditorArgs) {
   const { adapter, toast } = usePlatform();
+  const target = canAnnotate && scopeId !== null ? { chartId, scopeId } : null;
   // A row belongs to one site: the Scope is part of the query identity, so a site switch hides the previous site's notes.
-  const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId, axisKind, from, to }, signal), [chartId, scopeId, axisKind, from, to], canAnnotate && scopeId !== null, 'session');
-  return useEditorState({ chartId, scopeId, canAnnotate }, { query, adapter, toast });
+  const query = usePlatformQuery(signal => adapter.listAnnotations({ chartId, scopeId, axisKind, from, to }, signal), [chartId, scopeId, axisKind, from, to], target !== null, 'session');
+  return useEditorState(target, { query, adapter, toast });
 }
 
 const NO_ANNOTATIONS: AnnotationIo = { query: { response: null, refetch: () => {} }, adapter: null, toast: () => {} };
 /** Outside a platform there is no annotation store: the same editor shape with no notes, and save or delete do nothing (Annotate is not drawn). */
-export function useNoAnnotationEditor(chartId: string) {
-  return useEditorState({ chartId, scopeId: null, canAnnotate: false }, NO_ANNOTATIONS);
+export function useNoAnnotationEditor() {
+  return useEditorState(null, NO_ANNOTATIONS);
 }
 
-function useEditorState({ chartId, scopeId }: EditorArgs, { query, adapter, toast }: AnnotationIo) {
+function useEditorState(target: AnnotationTarget | null, { query, adapter, toast }: AnnotationIo) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const [note, setNote] = useState<string | null>(null);
-  const annotations = useMemo(() => query.response?.data?.items ?? [], [query.response]);
+  const enabled = target !== null;
+  const annotations = useMemo(() => (enabled ? query.response?.data?.items ?? [] : []), [enabled, query.response]);
   const refetch = query.refetch;
-  const [saving, setSaving] = useState(false);
+  const [savingGeneration, setSavingGeneration] = useState<number | null>(null);
+  const saving = savingGeneration !== null;
   // Each editor session gets a generation; a save that finishes after cancel/reopen/Scope change must not touch the newer draft.
   const draftGen = useRef(0);
   // Delete (#399): one inline confirm per note. `pendingDelete` is the note being confirmed, `deleting` the in-flight call,
@@ -51,30 +55,47 @@ function useEditorState({ chartId, scopeId }: EditorArgs, { query, adapter, toas
   // Whether keyboard focus is still on the confirm row: set by focus in, cleared when focus leaves the group — to another element or to the
   // page (blur to body). A window blur keeps the element active and leaves it set; removing the focused row fires no event the group sees.
   const focusOnConfirm = useRef(false);
-  const openEditor = useCallback(() => { draftGen.current++; setNote(''); }, []);
-  const closeEditor = useCallback(() => { draftGen.current++; setNote(null); }, []);
+  const openEditor = useCallback(() => {
+    if (!enabled) return;
+    draftGen.current++;
+    setSavingGeneration(null);
+    setNote('');
+  }, [enabled]);
+  const closeEditor = useCallback(() => {
+    draftGen.current++;
+    setSavingGeneration(null);
+    setNote(null);
+  }, []);
   const cancelDelete = useCallback(() => {
     deleteGen.current++; focusOnConfirm.current = false; setPendingDelete(null); setSettled(null); setDeleting(false);
   }, []);
+  useLayoutEffect(() => {
+    if (enabled) return;
+    closeEditor();
+    cancelDelete();
+    setRestoreFocus(null);
+  }, [enabled, closeEditor, cancelDelete]);
 
   async function saveNote(range: Selection) {
     const text = (note ?? '').trim();
-    if (!text || scopeId === null || saving || !adapter) return;
+    if (!target || !text || saving || !adapter) return;
     const gen = draftGen.current;
     const failed = () => { if (gen === draftGen.current) toast(m('chartAnnotationSaveError')); };
-    setSaving(true);
+    setSavingGeneration(gen);
     try {
-      const res = await adapter.saveAnnotation({ chartId, scopeId, from: range.from, to: range.to, text });
+      const res = await adapter.saveAnnotation({ ...target, from: range.from, to: range.to, text });
       if (res.outcome !== 'ok') failed();
       else {
         refetch();
         if (gen === draftGen.current) { closeEditor(); toast(m('chartAnnotationSaved')); }
       }
-    } catch { failed(); } finally { setSaving(false); }
+    } catch { failed(); } finally {
+      setSavingGeneration(current => current === gen ? null : current);
+    }
   }
 
   async function deleteNote(id: string) {
-    if (scopeId === null || deleting || !adapter) return;
+    if (!target || deleting || !adapter) return;
     const mineIds = annotations.filter(a => a.mine).map(a => a.id);
     const nextId = mineIds[mineIds.indexOf(id) + 1] ?? null;
     const gen = deleteGen.current;
@@ -88,7 +109,7 @@ function useEditorState({ chartId, scopeId }: EditorArgs, { query, adapter, toas
     };
     setDeleting(true);
     try {
-      const res = await adapter.deleteAnnotation({ chartId, scopeId, id });
+      const res = await adapter.deleteAnnotation({ ...target, id });
       if (stale()) {
         // The server removed the note; the session list is keyed by chart and Scope only, so it must still reload.
         if (res.outcome === 'ok') refetch();
@@ -112,8 +133,8 @@ function useEditorState({ chartId, scopeId }: EditorArgs, { query, adapter, toas
 
   return {
     query, annotations, refetch,
-    note, setNote, saving, openEditor, closeEditor, saveNote,
-    pendingDelete, startDelete: setPendingDelete, deleting, deleteNote, cancelConfirm, cancelDelete,
+    note: enabled ? note : null, setNote, saving, openEditor, closeEditor, saveNote,
+    pendingDelete, startDelete: (id: string) => { if (enabled) setPendingDelete(id); }, deleting, deleteNote, cancelConfirm, cancelDelete,
     deleteButtons, focusOnConfirm,
     settled, endSettled, restoreFocus, setRestoreFocus,
   };

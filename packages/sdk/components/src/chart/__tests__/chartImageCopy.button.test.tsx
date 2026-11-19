@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
@@ -27,6 +27,10 @@ function mount(element: React.ReactElement, canExport: boolean) {
   return render(<I18nProvider><PlatformProvider adapter={adapter} registry={exportRegistry(canExport)}>{element}</PlatformProvider></I18nProvider>);
 }
 const button = () => screen.queryByRole('button', { name: '이미지 복사' });
+function openExport() {
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  return within(screen.getByRole('dialog', { name: '내보내기' }));
+}
 
 beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', () => 1); vi.stubGlobal('cancelAnimationFrame', () => {});
@@ -42,7 +46,9 @@ describe.each(Object.keys(components) as (keyof typeof components)[])('%s image 
     ['features.export on but prop absent', undefined, true, false],
   ])('%s -> visible: %s', (_label, imageCopy, canExport, visible) => {
     mount(components[name](imageCopy), canExport);
-    expect(!!button()).toBe(visible);
+    if (name === 'frame' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    const actions = name === 'frame' && canExport ? openExport() : screen;
+    expect(!!actions.queryByRole('button', { name: '이미지 복사' })).toBe(visible);
   });
 });
 
@@ -58,17 +64,25 @@ describe.each(Object.keys(printers) as (keyof typeof printers)[])('%s print butt
     ['features.export on but prop absent', undefined, true, false],
   ])('%s -> visible: %s', (_label, imagePrint, canExport, visible) => {
     mount(printers[name](imagePrint), canExport);
-    expect(!!screen.queryByRole('button', { name: '인쇄' })).toBe(visible);
+    if (name === 'frame' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    const actions = name === 'frame' && canExport ? openExport() : screen;
+    expect(!!actions.queryByRole('button', { name: '인쇄' })).toBe(visible);
   });
 });
 
-it('places the button right after Export in the Frame and AnalysisChart, and last in LaneTimeline', () => {
-  for (const name of ['frame', 'chart'] as const) {
-    mount(components[name](true), true);
-    const labels = screen.getAllByRole('button').map(b => b.textContent);
-    expect(labels[labels.indexOf('내보내기') + 1]).toBe('이미지 복사');
+it('places image copy after CSV in the Frame and Top N Export groups, after Export in Donut, and last in LaneTimeline', () => {
+  const topN = <AnalysisChart chartId="c" title="C" unit="ea" imageCopy
+    spec={{ kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 1, colorToken: 'chart-blue' }] }} />;
+  for (const chart of [components.frame(true), topN]) {
+    mount(chart, true);
+    const group = openExport();
+    expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['내보내기 CSV', '이미지 복사']);
     cleanup();
   }
+  mount(components.chart(true), true);
+  const labels = screen.getAllByRole('button').map(b => b.textContent);
+  expect(labels[labels.indexOf('내보내기') + 1]).toBe('이미지 복사');
+  cleanup();
   mount(components.lane(true), true);
   const toolbar = screen.getByRole('toolbar');
   expect(toolbar.lastElementChild?.textContent).toBe('이미지 복사');
@@ -87,7 +101,7 @@ it('toasts the outcome through the platform toast', async () => {
   function Toasts() { return <output aria-label="toasts">{useToastsForTest().map(t => <span key={t.id}>{t.text}</span>)}</output>; }
   // The Frame has no ready ECharts instance behind the stand-in plot, so the capture fails and says so.
   mount(<><Toasts />{components.frame(true)}</>, true);
-  fireEvent.click(button()!);
+  fireEvent.click(openExport().getByRole('button', { name: '이미지 복사' }));
   expect(await screen.findByText('이미지를 복사하거나 내려받지 못했습니다')).toBeTruthy();
   expect(plotted).toBeGreaterThan(0);
 });

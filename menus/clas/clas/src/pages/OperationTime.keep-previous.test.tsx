@@ -65,7 +65,7 @@ it('renders an ok response with an empty ranking without throwing (#2056)', () =
 });
 
 describe('CLAS operation time summary and chart trust (#2532)', () => {
-  it('names both tied leaders and shows the ranked-row mean in minutes', () => {
+  it('names both tied leaders and shows both total and mean in minutes', () => {
     acceptedResponse = responseFor([
       { equipmentId: 'EQ-01', room: 'PHOTO', minutes: 1296 },
       { equipmentId: 'EQ-02', room: 'ETCH', minutes: 1296 },
@@ -73,8 +73,8 @@ describe('CLAS operation time summary and chart trust (#2532)', () => {
     ]);
     const html = renderToStaticMarkup(<OperationTimeScreen />);
     expect(html).toContain('공동 1위 2대 · EQ-01, EQ-02');
-    expect(html).toContain('1,064');
-    expect(html).toContain('분');
+    expect(html).toContain('<span>총 동작시간</span><strong>3,192</strong><span>분</span>');
+    expect(html).toContain('<span>설비당 평균</span><strong>1,064</strong><span>분</span>');
   });
 
   it('keeps the longest caption for one leader and formats the response update instant in the chart footer', () => {

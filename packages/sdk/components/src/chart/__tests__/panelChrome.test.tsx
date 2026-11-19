@@ -23,33 +23,36 @@ describe('Panel chart chrome', () => {
   it('keeps the Frame primary actions in one icon row and secondary actions in More with visible legends', () => {
     mount();
     const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
-    for (const name of ['확대', '구간 선택', '차트 초기화', '더보기']) {
+    for (const name of ['확대', '구간 선택', '초기화', '주석', '표로 보기', '내보내기', '더보기']) {
       const button = within(toolbar).getByRole('button', { name });
       expect(button.textContent).toBe('');
       expect(button).toHaveAttribute('title');
     }
     expect(screen.getByRole('heading', { name: 'Chart' })).toHaveClass('sr-only');
     expect(screen.getByRole('button', { name: '차트 설명' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    expect(within(toolbar).getByRole('button', { name: '내보내기' })).toBeVisible();
     expect(screen.getByRole('group', { name: '범례' })).toBeVisible();
     expect(screen.getByRole('region', { name: '선택 요약' })).toBeVisible();
     fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
     const more = screen.getByRole('dialog');
-    expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
-    expect(within(more).getByRole('button', { name: '같은 데이터를 표로 보기' })).toBeVisible();
+    expect(within(more).queryByRole('button', { name: '내보내기' })).toBeNull();
+    expect(within(more).queryByRole('button', { name: '표로 보기' })).toBeNull();
     expect(within(more).queryByRole('checkbox', { name: /Series/ })).toBeNull();
     expect(screen.getByRole('checkbox', { name: /Series/ })).toBeVisible();
-    fireEvent.click(within(more).getByRole('button', { name: '같은 데이터를 표로 보기' }));
+    fireEvent.keyDown(more, { key: 'Escape' });
+    fireEvent.click(within(toolbar).getByRole('button', { name: '표로 보기' }));
     expect(screen.getByRole('table')).toBeVisible();
   });
-  it('stacks the More tail so the table action and note take the popover width (#2460)', () => {
+  it('keeps the grouped actions separate from the full-width More note (#2460)', () => {
     mount();
-    fireEvent.click(within(screen.getByRole('toolbar', { name: '차트 동작' })).getByRole('button', { name: '더보기' }));
-    const more = screen.getByRole('dialog');
-    const tail = more.querySelector('[data-chart-toolbar-tail]');
-    // A row here squeezed «같은 데이터를 표로 보기» beside Export and the note into one character per line.
-    expect(tail).toHaveClass('flex-col', 'w-full');
-    expect(tail).not.toHaveClass('items-center');
+    const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
+    const tail = toolbar.querySelector<HTMLElement>('[data-chart-toolbar-tail]')!;
+    expect(within(tail).getByRole('button', { name: '표로 보기' })).toBeVisible();
+    expect(within(tail).getByRole('button', { name: '내보내기' })).toBeVisible();
+    fireEvent.click(within(tail).getByRole('button', { name: '더보기' }));
+    const more = screen.getByRole('dialog', { name: '더보기' });
+    expect(within(more).getByText(/^확대·구간 선택/).parentElement).toHaveClass('flex-col');
+    expect(within(more).queryByRole('button', { name: '표로 보기' })).toBeNull();
   });
   it('puts toolbarStart on the plot tool row in panel chrome, outside More, and opens the full toolbar with it (#2459)', () => {
     const withStart = (chrome?: 'full') => <AnalysisChartFrame chartId="panel" title="Chart" description="Chart explanation" unit="s" xType="category" series={series} size="fill" chrome={chrome}
@@ -67,8 +70,8 @@ describe('Panel chart chrome', () => {
     cleanup();
     mount(withStart('full'), false);
     const full = screen.getByRole('toolbar', { name: '차트 동작' });
-    expect(full.firstElementChild).toHaveAttribute('data-chart-toolbar-start');
-    expect(within(full).getByRole('button', { name: '정렬: 원래 순서' })).toBeVisible();
+    expect(full.previousElementSibling).toHaveAttribute('data-chart-toolbar-start');
+    expect(within(full.previousElementSibling as HTMLElement).getByRole('button', { name: '정렬: 원래 순서' })).toBeVisible();
     cleanup();
     mount();
     expect(document.querySelector('[data-chart-toolbar-start]')).toBeNull();
@@ -89,39 +92,54 @@ describe('Panel chart chrome', () => {
       expect(button).toHaveAttribute('title');
     }
     expect(screen.getByRole('heading', { name: 'Kind' })).toHaveClass('sr-only');
-    expect(screen.queryByRole('button', { name: '표로 보기' })).toBeNull();
+    if (spec.kind !== 'topNBar') expect(screen.queryByRole('button', { name: '표로 보기' })).toBeNull();
     const region = screen.getByRole('region', { name: 'Kind' });
     expect(document.getElementById(region.getAttribute('aria-describedby')!)).toHaveClass('sr-only');
     expect(screen.getByRole('group', { name: '범례' })).toBeVisible();
-    fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
-    const more = screen.getByRole('dialog');
-    expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
-    fireEvent.click(within(more).getByRole('button', { name: '표로 보기' }));
+    if (spec.kind === 'topNBar') {
+      expect(within(toolbar).getByRole('button', { name: '내보내기' })).toBeVisible();
+      fireEvent.click(within(toolbar).getByRole('button', { name: '표로 보기' }));
+    } else {
+      fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
+      const more = screen.getByRole('dialog', { name: '더보기' });
+      expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
+      fireEvent.click(within(more).getByRole('button', { name: '표로 보기' }));
+    }
     expect(screen.getByRole('table')).toBeVisible();
   });
 
-  it('keeps feature-gated comparison, annotation, quick ranges and image actions inside More', () => {
+  it('keeps comparison and annotation on the toolbar, quick ranges in the summary, and images in Export', () => {
     const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'Home', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
-    const session = testSession(['platform:view']);
+    const session = testSession(['platform:view', 'analytics:view']);
     const adapter = testAdapter({ session: () => session });
     const timed = [{ ...series[0], points: [['2026-09-01T00:00:00', 1], ['2026-09-01T01:00:00', 2]] as [string, number][] }];
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-01T00:00:00&to=2026-09-01T02:00:00');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><InWorkspacePanelProvider value>
       <AnalysisChartFrame chartId="all" title="All" unit="s" series={timed} compareSeries={timed.map(item => ({ ...item, id: 'previous' }))} size="fill" imageCopy imagePrint />
     </InWorkspacePanelProvider></PlatformProvider></I18nProvider>);
-    for (const name of ['비교', '주석', '이미지 복사', '인쇄', '1시간']) expect(screen.queryByRole('button', { name })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    const more = screen.getByRole('dialog');
-    for (const name of ['비교', '주석', '내보내기', '이미지 복사', '인쇄', '1시간']) expect(within(more).getByRole('button', { name })).toBeInTheDocument();
-    fireEvent.click(within(more).getByRole('button', { name: '비교' }));
-    expect(within(more).getByRole('button', { name: '비교' })).toHaveAttribute('aria-pressed', 'true');
+    const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
+    const compare = within(toolbar).getByRole('button', { name: '비교' });
+    const annotate = within(toolbar).getByRole('button', { name: '주석' });
+    expect(annotate).toBeDisabled();
+    for (const name of ['이미지 복사', '인쇄']) expect(screen.queryByRole('button', { name })).toBeNull();
+    fireEvent.click(within(toolbar).getByRole('button', { name: '내보내기' }));
+    const exports = screen.getByRole('dialog', { name: '내보내기' });
+    for (const name of ['내보내기 CSV', '이미지 복사', '인쇄']) expect(within(exports).getByRole('button', { name })).toBeVisible();
+    fireEvent.keyDown(exports, { key: 'Escape' });
+    fireEvent.click(compare);
+    expect(compare).toHaveAttribute('aria-pressed', 'true');
     const legend = screen.getByRole('group', { name: '범례' });
     expect(legend).toHaveTextContent('현재 기간');
     expect(legend).toHaveTextContent('이전 기간');
+    fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
+    const more = screen.getByRole('dialog', { name: '더보기' });
     expect(within(more).queryByRole('group', { name: '범례' })).toBeNull();
-    fireEvent.click(within(more).getByRole('button', { name: '1시간' }));
-    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('01:00');
-    expect(within(more).getByRole('button', { name: '주석' })).toBeEnabled();
+    expect(within(more).queryByRole('button', { name: '1시간' })).toBeNull();
+    fireEvent.keyDown(more, { key: 'Escape' });
+    const summary = screen.getByRole('region', { name: '선택 요약' });
+    fireEvent.click(within(summary).getByRole('button', { name: '1시간' }));
+    expect(summary).toHaveTextContent('01:00');
+    expect(annotate).toBeEnabled();
   });
 
   it('keeps heatmap table selection, activation and Details usable with compact named buttons', () => {
@@ -158,13 +176,13 @@ describe('Panel chart chrome', () => {
     fireEvent.change(within(more).getByRole('combobox', { name: '차트 지점 선택' }), { target: { value: JSON.stringify(['s', 'B']) } });
     fireEvent.click(within(more).getByRole('button', { name: '선택 지점 실행' }));
     expect(onActivate).toHaveBeenCalledWith({ x: 'B', seriesId: 's', value: 2 });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Series' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Series (s)' }));
     expect(screen.getByRole('status')).toHaveTextContent('모두 껐습니다');
   });
 
   it.each([false, 'pane'] as const)('preserves text tools, title and visible legends outside panels (%s)', mode => {
     mount(frame, mode);
-    expect(screen.getByRole('button', { name: '차트 초기화' }).textContent).toBe('차트 초기화');
+    expect(screen.getByRole('button', { name: '초기화' }).textContent).toBe('초기화');
     expect(screen.getByRole('button', { name: '내보내기' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Chart' })).not.toHaveClass('sr-only');
     expect(screen.getByRole('group', { name: '범례' })).toBeVisible();

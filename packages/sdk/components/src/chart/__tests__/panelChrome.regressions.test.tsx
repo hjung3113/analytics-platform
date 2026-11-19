@@ -22,7 +22,7 @@ const charts = {
 const mount = (element: React.ReactElement) => render(<I18nProvider><InWorkspacePanelProvider value>{element}</InWorkspacePanelProvider></I18nProvider>);
 
 describe('Panel chart regression fixes (#2372)', () => {
-  it.each(['frame', 'heatmap'] as const)('%s announces a deferred clipboard outcome after More unmounts', async kind => {
+  it.each(['frame', 'heatmap'] as const)('%s announces a deferred clipboard outcome after the popover unmounts', async kind => {
     let finish!: () => void;
     const write = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
     vi.stubGlobal('isSecureContext', true);
@@ -30,7 +30,7 @@ describe('Panel chart regression fixes (#2372)', () => {
     vi.stubGlobal('navigator', { clipboard: { write } });
     mount(charts[kind]);
     await screen.findByRole('img', { name: 'plot' });
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+    fireEvent.click(screen.getByRole('button', { name: kind === 'frame' ? '내보내기' : '더보기' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '이미지 복사' }));
     expect(write).toHaveBeenCalledTimes(1);
     const status = screen.queryByRole('status');

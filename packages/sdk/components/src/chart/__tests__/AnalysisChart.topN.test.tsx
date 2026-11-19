@@ -55,7 +55,7 @@ it('drops raw colors and duplicate IDs, filters legends by displayed tokens in c
     { label: 'Unused', colorToken: 'chart-series-2' }, { label: 'Used', colorToken: 'chart-series-1' }, { label: 'Duplicate', colorToken: 'chart-series-1' }, { label: 'Invalid', colorToken: 'rgb(1,2,3)' as never },
   ] }, false, 'ea');
   expect(data.rows.map(row => row.value)).toEqual([2]);
-  expect(data.legend.map(row => row.label)).toEqual(['Used']);
+  expect(data.legend.map(row => row.label)).toEqual(['Used (ea)']);
 });
 it('requests controlled collapse without changing the accepted value; carries it into uncontrolled mode', async () => {
   const onExpandedChange = vi.fn();
@@ -94,6 +94,7 @@ it('exports exactly the visible table projection under the manifest gate and pre
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(plot.option).toBe(option);
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['이름', '값 (ea)'], [['Item 9', 9], ['Item 7', 8]]);
   const bars = (plot.option as { series: { barMaxWidth: number; data: { itemStyle: { color: string } }[] }[] }).series;
   expect(bars[0].barMaxWidth).toBe(24);
@@ -162,7 +163,7 @@ it('Reset and a local deselect end following until the followed id changes (#218
   const view = mount({ kind: 'topNBar', items, expanded: true, selectedId: '3' });
   await screen.findByRole('img');
   expect(summary()).toContain('Item 3 · 상위 8개 밖');
-  fireEvent.click(screen.getByRole('button', { name: '차트 초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
   expect(summary()).toContain('선택 없음');
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   const box = screen.getByRole('checkbox', { name: /Item 9/ });

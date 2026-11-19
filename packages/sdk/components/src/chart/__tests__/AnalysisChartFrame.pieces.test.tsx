@@ -37,10 +37,12 @@ function pointEvent(name: string) {
 afterEach(() => { cleanup(); });
 
 describe('AnalysisChartFrame SDK pieces (#541)', () => {
-  it('activates a clicked point with its category, series and value without navigation', async () => {
+  it('activates a double-clicked point with its category, series and value without navigation', async () => {
     const onActivate = vi.fn();
     await mount({ pointActivation: { on: 'click', onActivate } });
     pointEvent('click');
+    expect(onActivate).not.toHaveBeenCalled();
+    pointEvent('dblclick');
     expect(onActivate).toHaveBeenCalledWith({ x: 'Row B | B1', seriesId: 'one', value: 2 });
     expect(window.location.search).toBe('?v=1');
   });
@@ -66,8 +68,10 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     pointEvent('click');
     expect(onPointClick).not.toHaveBeenCalled();
   });
-  it('keeps the existing onPointClick immediate without new props', async () => {
+  it('uses double-click for the legacy onPointClick callback', async () => {
     const onPointClick = vi.fn(); await mount({ onPointClick }); pointEvent('click');
+    expect(onPointClick).not.toHaveBeenCalled();
+    pointEvent('dblclick');
     expect(onPointClick).toHaveBeenCalledWith('Row B | B1', 'one');
   });
   it.each(['contextmenu', 'Shift+F10', 'ContextMenu', 'toolbar'])('runs an action through %s', async method => {
@@ -102,8 +106,7 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     expect(option.yAxis).toMatchObject({ type: 'category', inverse: true, data: ['Row B | B1', 'Row A | A1'] });
     expect(option.xAxis.type).toBe('value');
     expect(option.series.slice(0, 2)).toMatchObject([{ type: 'bar', stack: 'total', data: [2, 4] }, { type: 'bar', stack: 'total', data: [3, 5] }]);
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+    fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
     expect(screen.getAllByRole('row').slice(1).map(row => row.textContent)).toEqual(['Row B | B123', 'Row A | A145']);
   });
   it('shares horizontal plotted categories and first values with the picker, callbacks, table and export', async () => {
@@ -113,11 +116,11 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
       { ...series[1], points: [['A', 2], ['A', 99], ['B', 77]] },
     ], pointActivation: { on: 'click', onActivate }, pointActions: [{ id: 'inspect', label: 'Inspect', onSelect }] });
     const picker = screen.getByRole('combobox', { name: '차트 지점 선택' });
-    expect(Array.from(picker.querySelectorAll('option')).map(option => option.textContent)).toEqual(['A · Two · 2']);
+    expect(Array.from(picker.querySelectorAll('option')).map(option => option.textContent)).toEqual(['A · Two · 2 s']);
     expect((plot.option as any).yAxis.data).toEqual(['A']);
     expect((plot.option as any).series[0]).toMatchObject({ id: 'two', data: [2] });
     fireEvent.click(screen.getByRole('button', { name: '선택 지점 실행' }));
-    act(() => plot.onEvents?.click?.({ seriesId: 'two', dataIndex: 0 }, {} as never));
+    act(() => plot.onEvents?.dblclick?.({ seriesId: 'two', dataIndex: 0 }, {} as never));
     expect(onActivate.mock.calls).toEqual([[{ x: 'A', seriesId: 'two', value: 2 }], [{ x: 'A', seriesId: 'two', value: 2 }]]);
     act(() => plot.onEvents?.contextmenu?.({ seriesId: 'two', name: 'B', value: 77 }, {} as never));
     expect(screen.queryByRole('menu')).toBeNull();
@@ -125,9 +128,9 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Inspect' }));
     expect(onSelect).toHaveBeenCalledWith({ x: 'A', seriesId: 'two', value: 2 });
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.objectContaining({ chartId: 'pieces' }), ['x', 'Two'], [['A', 2]]);
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+    fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
     expect(screen.getAllByRole('row').slice(1).map(row => row.textContent)).toEqual(['A2']);
   });
   it('brushes a category range on the vertical axis in horizontal mode', async () => {
@@ -139,34 +142,34 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
   });
   it('renders controlled visibility from props and only requests changes', async () => {
     const onVisibleSeriesChange = vi.fn(); const view = await mount({ visibleSeriesIds: ['one'], onVisibleSeriesChange });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Two' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Two (s)' }));
     expect(onVisibleSeriesChange).toHaveBeenCalledWith(['one', 'two']);
-    expect((screen.getByRole('checkbox', { name: 'Two' }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole('checkbox', { name: 'Two (s)' }) as HTMLInputElement).checked).toBe(false);
     view.rerender(frame({ visibleSeriesIds: ['two'], onVisibleSeriesChange }));
     await waitFor(() => expect((plot.option as any).series[0].id).toBe('two'));
   });
   it('keeps uncontrolled legend toggles and distinguishes all-off from empty data', async () => {
     await mount();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Two' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'One (s)' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Two (s)' }));
     expect(screen.getByText('표시할 시리즈를 모두 껐습니다')).toBeTruthy();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'One (s)' }));
     expect(screen.queryByText('표시할 시리즈를 모두 껐습니다')).toBeNull();
   });
   it('does not activate points while brushing and leaves no delayed work after unmount', async () => {
     const onActivate = vi.fn(); const onPointClick = vi.fn();
     const settle = () => act(() => new Promise<void>(resolve => { setTimeout(resolve, 50); }));
     const view = await mount({ pointActivation: { on: 'click', onActivate }, onPointClick });
-    pointEvent('click');
-    expect(onActivate).toHaveBeenCalledTimes(1); expect(onPointClick).toHaveBeenCalledTimes(1);
+    pointEvent('dblclick');
+    expect(onActivate).toHaveBeenCalledTimes(1); expect(onPointClick).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     pointEvent('click'); pointEvent('dblclick');
     await settle();
-    expect(onActivate).toHaveBeenCalledTimes(1); expect(onPointClick).toHaveBeenCalledTimes(1);
+    expect(onActivate).toHaveBeenCalledTimes(1); expect(onPointClick).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-    pointEvent('click'); view.unmount();
+    pointEvent('dblclick'); view.unmount();
     await settle();
-    expect(onActivate).toHaveBeenCalledTimes(2); expect(onPointClick).toHaveBeenCalledTimes(2);
+    expect(onActivate).toHaveBeenCalledTimes(2); expect(onPointClick).not.toHaveBeenCalled();
   });
   it('keeps disabled consumer actions unavailable', async () => {
     const onSelect = vi.fn(); await mount({ pointActions: [{ id: 'inspect', label: 'Inspect', onSelect, disabled: true }] });
@@ -199,8 +202,8 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
   it('shows every series again from the all-off state: uncontrolled clears hidden and notifies', async () => {
     const onVisibleSeriesChange = vi.fn();
     await mount({ onVisibleSeriesChange });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Two' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'One (s)' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Two (s)' }));
     onVisibleSeriesChange.mockClear();
     fireEvent.click(screen.getByRole('button', { name: '모두 보이기' }));
     expect(onVisibleSeriesChange).toHaveBeenCalledWith(['one', 'two']);
@@ -210,8 +213,8 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
   it.each(['{Enter}', ' '])('moves focus to the plot when keyboard activation of 모두 보이기 removes it (%j)', async key => {
     const user = userEvent.setup();
     await mount({ pointActivation: { on: 'click', onActivate: vi.fn() } });
-    await user.click(screen.getByRole('checkbox', { name: 'One' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Two' }));
+    await user.click(screen.getByRole('checkbox', { name: 'One (s)' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Two (s)' }));
     screen.getByRole('button', { name: '모두 보이기' }).focus();
     await user.keyboard(key);
     expect(screen.queryByRole('button', { name: '모두 보이기' })).toBeNull();
@@ -241,15 +244,16 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
   it('preserves wall-clock point identity and value on time axes', async () => {
     const onActivate = vi.fn(); const onPointClick = vi.fn();
     await mount({ xType: 'time', series: [{ ...series[0], points: [['2026-10-21T10:20:00', 7]] }], pointActivation: { on: 'click', onActivate }, onPointClick });
-    act(() => plot.onEvents?.click?.({ seriesId: 'one', dataIndex: 0 }, {} as never));
+    act(() => plot.onEvents?.dblclick?.({ seriesId: 'one', dataIndex: 0 }, {} as never));
     expect(onActivate).toHaveBeenCalledWith({ x: '2026-10-21T10:20:00', seriesId: 'one', value: 7 });
-    expect(onPointClick).toHaveBeenCalledWith('2026-10-21T10:20:00', 'one');
+    expect(onPointClick).not.toHaveBeenCalled();
   });
 
   it('keeps horizontal export and trust aligned with the table projection', async () => {
     vi.mocked(downloadChartCsv).mockClear();
     await mount({ orientation: 'horizontal', visibleSeriesIds: ['two'], trust: { source: 'Test source', updated: 'Test updated', coverage: 'Test coverage' } });
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenCalledWith(expect.objectContaining({ chartId: 'pieces' }), ['x', 'Two'], [['Row B | B1', 3], ['Row A | A1', 5]]);
     expect(screen.getByText(/Test source/)).toBeTruthy();
     expect(screen.getByText(/Test coverage/)).toBeTruthy();
@@ -267,20 +271,20 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
   it('retains uncontrolled comparison visibility while toggling current series', async () => {
     await mount({ compareSeries: [{ ...series[1], id: 'previous', name: 'Previous' }] });
     fireEvent.click(screen.getByRole('button', { name: '비교' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Previous' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Previous (s)' }));
     fireEvent.click(screen.getByRole('button', { name: '비교' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'One' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'One (s)' }));
     fireEvent.click(screen.getByRole('button', { name: '비교' }));
-    expect((screen.getByRole('checkbox', { name: 'Previous' }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole('checkbox', { name: 'Previous (s)' }) as HTMLInputElement).checked).toBe(false);
   });
   it('drives comparison visibility from the same controlled ID set', async () => {
     const onVisibleSeriesChange = vi.fn();
     await mount({ compareSeries: [{ ...series[1], id: 'previous', name: 'Previous' }], visibleSeriesIds: ['previous'], onVisibleSeriesChange });
     fireEvent.click(screen.getByRole('button', { name: '비교' }));
     expect((plot.option as any).series[0].id).toBe('previous');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Previous' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Previous (s)' }));
     expect(onVisibleSeriesChange).toHaveBeenCalledWith([]);
-    expect((screen.getByRole('checkbox', { name: 'Previous' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Previous (s)' }) as HTMLInputElement).checked).toBe(true);
   });
 
 });

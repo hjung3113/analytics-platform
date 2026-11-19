@@ -185,6 +185,7 @@ export type ChartOptionInput = {
   extremes?: ReadonlyMap<string, SeriesExtremes>;
   /** Horizontal stacked only; absent = no value labels and the option is unchanged. */
   valueLabels?: ValueLabels;
+  selectedPointKeys?: readonly string[];
   /** Per category total to draw (`resolveRowTotals`); only read when `valueLabels` includes `total`. */
   totals?: ReadonlyMap<string, RowTotal>;
   /** Each total's text under the render's own formatter: the text and the grid room are built from it, not from the lazy `valueFormat`. */
@@ -204,6 +205,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const groupLayout = groups ? rowGroupLayout(groups, categories) : undefined;
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
+  const selectedPoints = new Set(i.selectedPointKeys);
   const statuses = i.statuses ?? new Map<string, ChartStatus>();
   const bounds = projectChartBounds(i);
   const chips = !!i.extremes?.size && horizontal;
@@ -283,7 +285,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       if (!s || !point) return [];
       const [x, y] = point;
       const axis = i.rightAxis && s.axis === 'right' ? i.rightAxis : i;
-      const value = y === null ? unknownLabel(lang) : `${axis.valueFormat(y)} ${axis.unit}`;
+      const value = y === null ? unknownLabel(lang) : `${axis.valueFormat(y)} ${s.unit?.trim() || axis.unit}`;
       const group = groups ? `${groups.header}: ${groups.byCategory.get(x)?.group ?? ''} · ` : '';
       const text = `${group}${rowLabel(groups, x)} · ${s.name}: ${value}`;
       const status = statuses.get(chartPointKey({ seriesId: s.id, x }));
@@ -323,11 +325,17 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         const color = kind === 'line' ? palette.series[n].stroke : palette.series[n].fill;
         const pattern = linePattern(s, i.previousIds.has(s.id));
         const extreme = horizontal ? i.extremes?.get(s.id) : undefined;
+        const right = i.rightAxis && s.axis === 'right' ? i.rightAxis : null;
+        const axis = right ?? i;
+        const unit = s.unit?.trim() || axis.unit;
         const datum = (x: string, y: number | null) => {
           const isActive = active !== null && x === active;
           const mark = extreme?.min.x === x ? 'min' : extreme?.max.x === x ? 'max' : null;
           const status = kind === 'bar' ? statuses.get(chartPointKey({ seriesId: s.id, x })) : undefined;
-          if (!isActive && !mark && !status) return y;
+          const label = y !== null && selectedPoints.has(chartPointKey({ seriesId: s.id, x }))
+            ? { show: true, position: horizontal ? 'insideRight' : 'top', formatter: () => `${axis.valueFormat(y)} ${unit}`.trim() }
+            : undefined;
+          if (!isActive && !mark && !status) return label ? { value: y, label } : y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
             // The status ring is drawn inside the piece by the __statusBarBacking layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
@@ -341,17 +349,17 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
             color: palette.series[n].fill,
             borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2,
             ...(mark && isActive ? { shadowBlur: 6, shadowColor: palette.series[n].stroke } : {}),
-          }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : {}) };
+          }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : label ? { label } : {}) };
         };
-        const right = i.rightAxis && s.axis === 'right' ? i.rightAxis : null;
         const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
-          showSymbol: false, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
+          showSymbol: i.selectedPointKeys !== undefined, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
           ...(kind === 'line' && s.step ? { step: s.step } : {}),
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
           emphasis: { focus: i.emphasisFocus ?? 'none' },
           // The tooltip's own formatter is the left axis'; a right series reads its unit and format.
-          ...(right ? { yAxisIndex: 1, tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${right.valueFormat(v)} ${right.unit}`) } } : {}),
+          ...(right ? { yAxisIndex: 1 } : {}),
+          ...(right || s.unit?.trim() ? { tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${axis.valueFormat(v)} ${unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
             label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
             labelLayout: (p: { dataIndex: number; labelRect: LabelRect; rect: LabelRect }) => statuses.has(chartPointKey({ seriesId: s.id, x: s.points[p.dataIndex]?.[0] })) ? {} : segmentLayout(p),

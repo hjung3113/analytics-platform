@@ -34,37 +34,41 @@ describe('Chart chrome levels (#2372)', () => {
       else expect(legend).toBeVisible();
       if (expected === 'full') {
         expect(screen.getByText('Explanation')).toBeVisible();
-        expect(screen.getByRole('button', { name: '내보내기' })).toBeVisible();
       } else {
         if (expected === 'standard') expect(screen.getByRole('region', { name: '선택 요약' })).toBeVisible();
+      }
+      if (kind === 'frame' || expected === 'full') {
+        expect(within(screen.getByRole('toolbar')).getByRole('button', { name: '내보내기' })).toBeVisible();
+      } else {
         expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
       }
       if (expected === 'full') { cleanup(); continue; }
       fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-      const more = screen.getByRole('dialog');
+      const more = screen.getByRole('dialog', { name: '더보기' });
+      if (kind === 'frame') expect(within(more).queryByRole('button', { name: '내보내기' })).toBeNull();
       if (expected === 'minimal') expect(within(more).getByLabelText('범례')).toBeVisible();
       if (expected === 'standard') {
         expect(within(more).queryByLabelText('범례')).toBeNull();
         expect(within(more).queryByRole('region', { name: '선택 요약' })).toBeNull();
-        expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
+        if (kind !== 'frame') expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
       }
       cleanup();
     }
   });
-  it('keeps Frame series/status/bound keys outside More and diagnostic notes inside', () => {
+  it('keeps Frame series/status/bound keys and diagnostic notes outside More', () => {
     mount('frame', true, undefined, {
       bounds: new Map([['A', { lower: 0, upper: 3 }]]),
       pointStatus: () => ({ tone: 'warning', label: 'Check' }),
       markLines: [{ y: 2, label: 'Wrong unit', unit: 'ms' }],
     });
     const legend = screen.getByRole('group', { name: '범례' });
-    expect(within(legend).getByRole('checkbox', { name: 'Series' })).toBeVisible();
+    expect(within(legend).getByRole('checkbox', { name: 'Series (s)' })).toBeVisible();
     expect(within(legend).getByText('Check')).toBeVisible();
     expect(legend.querySelectorAll('[data-chart-bound-legend]')).toHaveLength(3);
-    expect(document.querySelector('[data-chart-notes]')).toBeNull();
+    expect(screen.getByText('Wrong unit 기준선은 단위가 달라 표시하지 않음')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '더보기' }));
     const more = screen.getByRole('dialog');
-    expect(more.querySelector('[data-chart-notes]')).toHaveTextContent('Wrong unit');
+    expect(more.querySelector('[data-chart-notes]')).toBeNull();
     expect(within(more).queryByRole('group', { name: '범례' })).toBeNull();
   });
   it.each(['frame', 'heatmap', 'donut'])('%s defaults to a bottom legend with the caption last', kind => {
@@ -144,9 +148,12 @@ describe('standard chrome with legend={false} (#2416)', () => {
     expect(screen.getByText('Note')).toBeVisible();
     expect(screen.queryByRole('group', { name: '범례' })).toBeNull();
   });
-  it('keeps a point-click hint as plain text', () => {
-    mount('frame', true, undefined, { legend: false, onPointClick: () => undefined, pointClickHint: 'Click a bar' });
-    expect(screen.getByText('Click a bar')).toBeVisible();
+  it('keeps the point gesture hint as plain text', () => {
+    mount('frame', true, undefined, { legend: false, onPointClick: () => undefined });
+    const hint = screen.getByText('클릭으로 선택 · ⌘/Shift+클릭으로 추가 · 더블클릭/Enter로 안쪽 단계');
+    expect(hint).toBeVisible();
+    expect(hint).toHaveRole('paragraph');
+    expect(hint.closest('button, a, [role="button"], [role="link"], [tabindex]')).toBeNull();
     expect(screen.queryByRole('group', { name: '범례' })).toBeNull();
   });
   it('keeps the 범례 group when the legend is shown', () => {

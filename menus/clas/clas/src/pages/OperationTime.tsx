@@ -51,6 +51,7 @@ function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: Opera
   let leaderCaption = '—';
   if (leaders.length > 1) leaderCaption = tx({ ko: `공동 1위 ${leaders.length}대 · ${leaders.join(', ')}`, en: `Tied first, ${leaders.length} · ${leaders.join(', ')}` });
   else if (leaders.length === 1) leaderCaption = tx({ ko: `최장 ${leaders[0]}`, en: `Longest ${leaders[0]}` });
+  const minutes = tx({ ko: '분', en: 'min' });
   const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
   let updated = '—';
   if (updatedAt) {
@@ -62,13 +63,13 @@ function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: Opera
   return <AnalysisLayout
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">
       <StatCard icon={Cpu} chip="blue" label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
-      <StatCard icon={Clock} chip="teal" label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(Math.round(total / 60))} unit={tx({ ko: '시간', en: 'h' })} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
-      <StatCard icon={Gauge} chip="blue" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={tx({ ko: '분', en: 'min' })} caption={leaderCaption} />
+      <StatCard icon={Clock} chip="teal" label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(total)} unit={minutes} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
+      <StatCard icon={Gauge} chip="blue" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={minutes} caption={<span className="break-keep">{leaderCaption}</span>} />
     </div> }}
     charts={[
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"
         title={tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' })} description={period}
-        metricVersion="synthetic v1" unit={tx({ ko: '분', en: 'min' })} size="hero" height={360} trust={trust}
+        metricVersion="synthetic v1" unit={minutes} size="hero" height={360} trust={trust}
         spec={{ kind: 'topNBar', topN: 10, defaultExpanded: true, onItemClick: id => setPage({ eqp: id }), selectedId: data.equipmentId,
           items: chartRows.map(row => ({ id: row.equipmentId, label: row.equipmentId, value: row.minutes, colorToken: roomColor(row.room) })),
           legend: rooms.map(room => ({ label: room, colorToken: roomColor(room) })) }} /> },

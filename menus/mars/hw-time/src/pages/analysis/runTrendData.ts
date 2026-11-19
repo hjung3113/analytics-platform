@@ -1,7 +1,7 @@
 import { formatText } from '@ap/kernel';
 import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
 import type { ChartPoint, ChartSeries } from '@ap/components';
-import type { HwTimeRunObservation } from '../../endpoints';
+import { HW_TIME_UNIT, type HwTimeRunObservation } from '../../endpoints';
 import { htmStatusView } from '../../shared/htm';
 import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValueSettings } from './runScatterData';
 
@@ -28,7 +28,7 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
     // A status can change along the line. Keep the equipment line identity; point colours/status carry those changes.
     const baseStatus = group.every(row => row.judgement.status === 'unjudgeable') ? 'unjudgeable' : 'normal';
     const color = settings.color === 'status' ? runColor(baseStatus, 0, 'status') : runColor(key, colorKeys.indexOf(key), settings.color);
-    return { id, name: equipmentLabels?.get(id) ?? id, kind: 'line', color, points: categories.map(day => [day, pointBySeries.get(`${id}/${day}`)?.value ?? null]) };
+    return { id, name: equipmentLabels?.get(id) ?? id, kind: 'line', color, unit: HW_TIME_UNIT[lang], points: categories.map(day => [day, pointBySeries.get(`${id}/${day}`)?.value ?? null]) };
   });
   const bounds = new Map<string, RunBound>();
   if (sharedBounds && equipment.length > 1 && settings.value === 'motion') {
@@ -53,6 +53,7 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
   };
   const verdictSeries: ChartSeries[] = (['over', 'under'] as const).map(status => ({
     id: status, name: formatText(HW_TIME_OVERVIEW_MESSAGES[status === 'over' ? 'verdictOver' : 'verdictUnder'], lang), kind: 'bar', color: runColor(status, 0, 'status'),
+    unit: formatText(HW_TIME_OVERVIEW_MESSAGES.equipmentCount, lang),
     points: categories.map(day => [day, new Set(rows.filter(row => dayKey(row.point.at) === day && row.judgement.status === status).map(row => row.point.equipmentId)).size]),
   }));
   const boundLabels = { lower: formatText(HW_TIME_OVERVIEW_MESSAGES.lower, lang), upper: formatText(HW_TIME_OVERVIEW_MESSAGES.upper, lang), band: formatText(HW_TIME_OVERVIEW_MESSAGES.htm, lang) };

@@ -24,8 +24,7 @@ function mount(extra: Partial<AnalysisChartFrameProps> = {}) {
   return { ...view, update: (next: Partial<AnalysisChartFrameProps>) => view.rerender(wrap({ ...extra, ...next })) };
 }
 async function table() {
-  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-  fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+  fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
   return screen.getByRole('table');
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
@@ -38,6 +37,7 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
     expect(within(t).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['구간', 'Current', '하한', '상한']);
     expect(within(t).getAllByRole('row')[2].textContent).toBe('B58');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'Current', '하한', '상한'], [['A', 3, 1, 4], ['B', 5, '', 8], ['C', '', '', 8]]);
     const legend = screen.getByRole('group', { name: '범례' });
     expect(legend.querySelectorAll('[data-chart-bound-legend]')).toHaveLength(3);
@@ -50,6 +50,7 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
     expect(within(await table()).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['구간', 'Current']);
     expect(JSON.stringify(plot.option)).not.toContain('__bounds');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'Current'], [['A', 3], ['B', 5], ['C', '']]);
   });
   it('keeps the default table and CSV unchanged', async () => {
@@ -57,6 +58,7 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
     expect(screen.queryByRole('combobox', { name: '차트 지점 선택' })).toBeNull();
     expect(within(await table()).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['구간', 'Current']);
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'Current'], [['A', 3], ['B', 5], ['C', '']]);
   });
   it('projects line statuses into legend/table/summary/CSV and removes hidden and null statuses', async () => {
@@ -67,6 +69,7 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
     expect(screen.getByRole('group', { name: '범례' })).toHaveTextContent('High');
     expect(await table()).toHaveTextContent('Current: ■ High · Limit');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'Current', '상태', '사유'], [['A', 3, 'Current: ■ High', 'Current: Limit'], ['B', 5, 'Current: ■ High', 'Current: Limit'], ['C', '', '', '']]);
     act(() => plot.onEvents?.click?.({ seriesId: 'a', dataIndex: 2 }, {} as never));
     expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent('High');

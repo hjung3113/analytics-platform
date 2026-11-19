@@ -9,7 +9,7 @@ import { RunPanel } from './RunPanel';
 const frames = vi.hoisted(() => vi.fn());
 vi.mock('@ap/components', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/components')>(),
-  AnalysisChartFrame: (props: AnalysisChartFrameProps) => { frames(props); return <div data-testid={props.chartId} />; },
+  AnalysisChartFrame: (props: AnalysisChartFrameProps) => { frames(props); return <div data-testid={props.chartId}>{props.toolbarStart}</div>; },
 }));
 afterEach(() => { cleanup(); frames.mockClear(); vi.unstubAllGlobals(); });
 const row = (equipmentId: string, at: string, status: HtmJudgement['status']) => {
@@ -51,8 +51,12 @@ it('recounts the same daily domain after the panel equipment filter', async () =
   ] });
   const bars = () => frames.mock.calls.filter(([p]) => p.chartId === 'hw-overview-runs-trend-verdicts').at(-1)![0] as AnalysisChartFrameProps;
   expect(bars().series[0]!.points).toEqual([['09-19', 2], ['09-20', 0]]);
-  fireEvent.click(screen.getByText('패널 표시 설정'));
-  fireEvent.click(within(screen.getByRole('group', { name: '이 패널만' })).getByRole('button', { name: '필터 추가' }));
+  const chart = screen.getByTestId('hw-overview-runs-trend');
+  expect(within(chart).getByRole('heading', { name: /LK1 · Pump/ })).toBeTruthy();
+  fireEvent.click(within(chart).getByRole('button', { name: '패널 표시 설정' }));
+  const settings = screen.getByRole('dialog', { name: '패널 표시 설정' });
+  expect(chart.contains(settings)).toBe(false);
+  fireEvent.click(within(within(settings).getByRole('group', { name: '이 패널만' })).getByRole('button', { name: '필터 추가' }));
   fireEvent.click(await screen.findByRole('button', { name: '설비' }));
   const dialog = await screen.findByRole('dialog', { name: '설비' });
   fireEvent.click(within(dialog).getByRole('checkbox', { name: 'EQ-001' }));
