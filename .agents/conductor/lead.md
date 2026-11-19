@@ -5,10 +5,20 @@ Lead-only sections of the conductor profile. The lead reads this file and [`PROF
 ## Lead duties
 
 - **Bot PRs** (Dependabot, `.github/dependabot.yml`: one grouped npm minor/patch PR and one GitHub Actions PR each Monday): the lead reads the lockfile diff and the PR CI, then merges a green one like any PR. If CI is red, the lead closes it or hands the fix to `lane:arch` on the bot branch; a dependency that cannot move gets an `ignore` entry with its reason and a backlog row. Majors are never opened by the bot: each is its own issue. Reason: a lockfile change reruns almost every package, so one weekly bundle costs one PR's CI.
-- The lead updates `.planning/README.md` once, in the release-docs PR. Mid-slice progress is `board.py` output.
 - App `v0.x` tags: at slice start ask once: 'tag when the tag SHA's main-push CI is green?'. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
 
+## Release spec
+
+The lead keeps one file per release, `.planning/releases/<version>.md`: the owner's decisions quoted with dates, the scope issues, an «결정 안 됨» list, and the screen checklist below. The lead re-reads it before every merge. Reason: owner criteria held only in the lead's context are lost at compaction.
+
+## Screen check
+
+Before merging a screen-changing PR the lead looks at its 1440×900 before/after captures and checks five things: the captures are 1440×900; terms and hierarchy match `GLOSSARY.md`; Panel and card frames do not mix on one screen; nothing is cut off, overlapping, or left as empty space after a collapse; nothing changed beyond the owner's decisions in the release spec. Any miss is fixed before merge or becomes an owner question. Reason: in v0.44 the lead saw captures only after merge, and messy screens shipped.
+
 ## Request classification
+
+Classification picks the area (PROFILE §Lanes table, for paths and E2E port); the lead dispatches the worker.
+
 
 Take the first match:
 
@@ -32,7 +42,7 @@ Release order. Reason: once the slice's work is merged, the tag waits only for t
   6. After the tag and the step 5 record (real-server counts and gate table) are on the release-scope issue, the lead closes that issue. Reason: the issue holds the release's records, so it stays open until they are posted, and an open release-scope issue then means only that the release is not finished.
 
 - **Weekly cold run:** once a week, with the Monday Dependabot review, the lead runs `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`, none for server-only PRs; `Platform test` leaves out `@ap/platform-api`, which `integration` runs), so this run is the only whole, cold check. A failure gets a `bug` issue. Reason: a cold run per tag cost 20–42 minutes per release and found runner failures but no code defect.
-- **Gate table:** after tagging (step 5), the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with two rows: `tier=small` (count and findings of major or worse) and bundles (PRs, issues per PR, median changed source lines, PR CI runs per PR). The lead re-sizes the [`PROFILE.md`](PROFILE.md) §Size and path bundle limits from the bundle row.
+- **Gate table:** after tagging (step 5), the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with two rows: `tier=small` (count and findings of major or worse) and bundles (PRs, issues per PR, median changed source lines, PR CI runs per PR). Add four numbers: median issue-to-merge time, review rounds per PR (median and max), minutes `main` was red, and the share of `start=no` capacity checks. v0.44 baseline: 6.7 h, max 8, 385 min, 10 of 44. The lead re-sizes the [`PROFILE.md`](PROFILE.md) §Size and path bundle limits from the bundle row.
 - **SDK release timing:** a lane adds only its `packages/sdk/changes/<issue>.md` fragment. The lead releases the SDK when a fragment (or a leftover `다음 릴리스` row) exists and main CI is green, and at once if a lane is waiting for it.
 - **Intro site (paused):** do not update, test, capture or deploy `site/`, and leave it out of release reports and questions; a release does not deploy Pages (manual `workflow_dispatch` only). Reason: the owner will restructure the site later and paused it until then. Reopen: when the owner says to resume the site.
 
