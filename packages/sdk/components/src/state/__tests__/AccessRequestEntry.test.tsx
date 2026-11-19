@@ -77,18 +77,34 @@ describe('place (c): the Scope forbidden gate', () => {
     <PlatformPage><p>page body</p></PlatformPage>
   </PlatformProvider></I18nProvider>);
 
-  it('without the slot draws today\'s gate', async () => {
+  it('without the slot shows only the Scope denial', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
     renderGate(requestable());
     expect(await screen.findByText('이 Scope에 접근 권한이 없습니다')).toBeTruthy();
-    expect(screen.getByText(/관리자에게 요청하세요/)).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('현재 권한으로는 이 Scope를 볼 수 없습니다.');
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
   });
 
-  it('with the slot but a session without requestableScopes (not a grant-table source) draws today\'s gate', async () => {
+  it('uses the shared denial card and suppresses the legacy dialog for a null request href', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    renderGate(requestable(), {
+      ...fakeSlot,
+      Pending: ({ children }) => <>{children({ pending: false, statusHref: null, requestHref: null })}</>,
+    });
+    const heading = await screen.findByRole('heading', { name: '이 Scope에 접근 권한이 없습니다' });
+    const card = heading.closest('[data-state="blocked_not_requestable"]');
+    expect(card).not.toBeNull();
+    expect(within(card as HTMLElement).getByText('현재 권한으로는 이 Scope를 볼 수 없습니다.')).toBeTruthy();
+    expect(within(card as HTMLElement).queryByText(/관리자에게 요청하세요/)).toBeNull();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+    expect(dialogs).toHaveLength(0);
+  });
+
+  it('with the slot but a session without requestableScopes shows only the Scope denial', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
     renderGate(testSession(['platform:view']), fakeSlot);
-    expect(await screen.findByText(/관리자에게 요청하세요/)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '이 Scope에 접근 권한이 없습니다' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('현재 권한으로는 이 Scope를 볼 수 없습니다.');
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
   });
 
@@ -107,14 +123,22 @@ describe('place (c): the Scope forbidden gate', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('a pending request from the server reads «요청 대기 중» with the status link, and the same after a remount (reload)', async () => {
+  it('renders the shared pending state, missing labels, and status action, including on remount', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
-    pendingTargets = [{ kind: 'site', site: 'SITE-C' }];
+    const slot: AccessRequestSlot = { ...fakeSlot, Pending: ({ children }) => <>{children({
+      pending: true, statusHref: '/permission-requests?id=req-1', requestHref: null,
+      missing: { permission: 'Site 조회', system: 'Power BI' },
+    })}</> };
     for (let mount = 0; mount < 2; mount++) {
-      const view = renderGate(requestable(), fakeSlot);
-      expect(await screen.findByText('요청 대기 중')).toBeTruthy();
-      expect(screen.getByText('운영자의 검토를 기다리고 있습니다.')).toBeTruthy();
-      expect(screen.getByRole('link', { name: '요청 상태' }).getAttribute('href')).toBe('/permission-requests?id=req-1');
+      const view = renderGate(requestable(), slot);
+      const action = await screen.findByRole('link', { name: '내 권한 요청 보기' });
+      const card = action.closest<HTMLElement>('[data-request-status="pending"]')!;
+      expect(within(card).getByRole('status')).toHaveTextContent('보낸 권한 요청을 검토하고 있습니다.');
+      expect(within(card).getByText('Site 조회 · Power BI')).toBeTruthy();
+      expect(within(card).queryByText('검토 중')).toBeNull();
+      expect(within(card).getAllByRole('link')).toEqual([action]);
+      expect(action).toHaveAttribute('href', '/permission-requests?id=req-1');
+      expect(action).toHaveClass('border-border-subtle');
       expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
       view.unmount();
     }
@@ -125,7 +149,7 @@ describe('place (c): the Scope forbidden gate', () => {
     pendingAnswer = 'unknown';
     renderGate(requestable(), fakeSlot);
     expect(await screen.findByRole('button', { name: '권한 요청' })).toBeTruthy();
-    expect(screen.queryByText('요청 대기 중')).toBeNull();
+    expect(screen.queryByText('검토 중')).toBeNull();
   });
 
   it('when the grant arrives on the next session snapshot the focused entry leaves and focus goes to the page body (06 §26)', async () => {
@@ -371,7 +395,9 @@ describe('focus ownership with the real dialog (portal + autofocus)', () => {
     return { adapter: testAdapter({ session: () => current, validateScope, menuQuery: replyByParams, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } }), swap: () => { current = later; act(() => listeners.forEach(listener => listener())); } };
   };
   const openDialog = async (name = '권한 요청') => {
-    fireEvent.click(await screen.findByRole('button', { name }));
+    const trigger = await screen.findByRole('button', { name });
+    expect(trigger).not.toHaveAttribute('href');
+    fireEvent.click(trigger);
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     return dialog;
@@ -386,7 +412,7 @@ describe('focus ownership with the real dialog (portal + autofocus)', () => {
     setPending(true);
     fireEvent.keyDown(dialog, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-access-request="pending"] a')));
+    await waitFor(() => expect(screen.getByRole('link', { name: '내 권한 요청 보기' })).toHaveFocus());
   });
 
   it('place (c): the gate is removed by a session swap while the dialog holds focus → focus goes to the page body', async () => {
@@ -438,6 +464,40 @@ describe('request state unknown (#1933): checking and error', () => {
     expect(screen.queryByText('요청 대기 중')).toBeNull();
   });
 
+  it.each([
+    ['checking', '/requests?new=1'],
+    ['dialog', '/requests?new=1'],
+    ['checking', null],
+  ] as const)('hands off Scope focus from %s when the settled request URL is %s', async (initial, settledHref) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
+    let startRead: () => void = () => {};
+    let finish: () => void = () => {};
+    const Pending: AccessRequestSlot['Pending'] = ({ children }) => {
+      const [phase, setPhase] = useState<'dialog' | 'checking' | 'settled'>(initial);
+      startRead = () => setPhase('checking');
+      finish = () => setPhase('settled');
+      switch (phase) {
+        case 'dialog': return <>{children({ pending: false, statusHref: null })}</>;
+        case 'checking': return <>{children({ pending: null, statusHref: null, requestHref: '/requests?new=1', read: 'checking' })}</>;
+        case 'settled': return <>{children({ pending: false, statusHref: null, requestHref: settledHref })}</>;
+      }
+    };
+    gate({ ...fakeSlot, Pending });
+    const busy = await screen.findByRole('button', { name: '권한 요청' });
+    busy.focus();
+    if (initial === 'dialog') act(startRead);
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    expect(busy).toHaveFocus();
+    act(finish);
+    if (settledHref) {
+      const link = screen.getByRole('link', { name: '권한 요청' });
+      expect(link).toHaveAttribute('href', settledHref);
+      expect(link).toHaveFocus();
+    } else {
+      expect(screen.getByRole('status').closest('[data-platform-page-content]')).toHaveFocus();
+    }
+  });
+
   it('place (c) after a failed read: says so, offers 다시 시도, and the request button still opens the dialog', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-C');
     pendingAnswer = 'error';
@@ -471,7 +531,7 @@ describe('request state unknown (#1933): checking and error', () => {
     expect(screen.getByRole('button', { name: '다시 시도' })).toBe(retry);
     expect(document.activeElement).toBe(retry);
     act(() => { phase = 'known'; bump(); });
-    expect(await screen.findByText('요청 대기 중')).toBeTruthy();
+    expect(await screen.findByRole('link', { name: '내 권한 요청 보기' })).toHaveAttribute('href', '/permission-requests?id=req-1');
   });
 
   it('keeps the failure sentence in the body while a retry runs, and focus stays on the pressed 다시 시도 (#1933 review C4)', async () => {
@@ -527,7 +587,10 @@ describe('request state unknown (#1933): checking and error', () => {
     pendingAnswer = 'checking';
     banner();
     expect(await screen.findByText('요청 상태를 확인하는 중입니다.', undefined, { timeout: 5000 })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '권한 요청' }).getAttribute('aria-disabled')).toBe('true');
+    const button = screen.getByRole('button', { name: '권한 요청' });
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(fireEvent.click(button)).toBe(false);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('place (e) banner after a failed read says so shortly, offers 다시 시도 and keeps the request button usable', async () => {

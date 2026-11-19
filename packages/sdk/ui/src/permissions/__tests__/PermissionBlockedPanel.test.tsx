@@ -1,6 +1,7 @@
 /// <reference types="@testing-library/jest-dom" />
 import * as React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { vi } from 'vitest';
 import {
   PermissionBlockedPanel,
@@ -52,6 +53,7 @@ describe('PermissionBlockedPanel — state rendering', () => {
     );
     const btn = screen.getByRole('button', { name: '권한 요청하기' });
     expect(btn).not.toBeDisabled();
+    expect(btn.parentElement).toContainElement(screen.getByText('이 항목에 접근하려면 권한 요청이 필요합니다.'));
     fireEvent.click(btn);
     expect(handler).toHaveBeenCalledTimes(1);
   });
@@ -184,6 +186,11 @@ describe('PermissionBlockedPanel — state rendering', () => {
 });
 
 describe('PermissionBlockedPanel — audit footer', () => {
+  it('renders the legacy audit label and space as one text segment', () => {
+    const html = renderToString(<PermissionBlockedPanel state="denied" category="VOC 상세" decisionId="dec-abc123" />);
+    expect(html).toContain('결정 <code>dec-abc123</code>');
+  });
+
   it('renders decisionId when provided', () => {
     render(
       <PermissionBlockedPanel
@@ -230,4 +237,69 @@ describe('PermissionBlockedPanel — all four states set data-state', () => {
       expect(container.querySelector(`[data-state="${state}"]`)).not.toBeNull();
     });
   });
+});
+
+describe('PermissionBlockedPanel request flow', () => {
+  it.each([
+    ['denied', 'lucide-circle-x'],
+    ['blocked_not_requestable', 'lucide-ban'],
+  ] as const)('uses the original panel layout and icon for %s by default', (state, icon) => {
+    const { container } = render(<PermissionBlockedPanel state={state} category="Finding" />);
+    const panel = container.querySelector('[data-state]');
+    expect(panel).toHaveClass('rounded-md', 'p-4');
+    expect(panel).not.toHaveClass('max-w-lg');
+    expect(panel?.querySelector(`.${icon}`)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['none', '권한 요청', null, '이 항목에 접근하려면 권한 요청이 필요합니다.'],
+    ['pending', '내 권한 요청 보기', null, '보낸 권한 요청을 검토하고 있습니다.'],
+    ['approved-partial', '남은 권한 요청', '승인됨 · 아직 필요한 것', '아직 필요한 권한을 요청하세요.'],
+    ['not-requestable', null, null, '이 항목에 접근할 수 없습니다.'],
+  ] as const)('renders %s with one row of allowed actions', (status, label, statusLabel, body) => {
+    const { container } = render(<PermissionBlockedPanel
+      layout="card"
+      state="request_access"
+      category="Finding"
+      missing={{ permission: 'Finding 조회', system: 'Power BI' }}
+      requiredScope={['finding.read']}
+      requestStatus={status}
+      requestAction={label && <button type="button">{label}</button>}
+      exitAction={<button type="button">홈으로</button>}
+    />);
+    expect(container.querySelector('[data-request-status]')).toHaveClass('mx-auto', 'max-w-lg');
+    expect(screen.getByText(body)).toBeInTheDocument();
+    expect(screen.queryByText('finding.read')).not.toBeInTheDocument();
+    expect(screen.getByText('Finding 조회 · Power BI')).toBeInTheDocument();
+    expect(screen.getByText('필요한 권한')).toBeInTheDocument();
+    const home = screen.getByRole('button', { name: '홈으로' });
+    const row = home.parentElement!;
+    expect(row).toHaveClass('flex', 'gap-2');
+    const expected = label ? [screen.getByRole('button', { name: label }), home] : [home];
+    expect(within(row).getAllByRole('button')).toEqual(expected);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByText('검토 중')).not.toBeInTheDocument();
+    if (statusLabel) expect(screen.getByText(statusLabel)).toBeInTheDocument();
+  });
+});
+
+it('keeps the card callback and exit in the same row and ignores the exit in the default panel', () => {
+  const onRequestAccess = vi.fn();
+  const props = { state: 'request_access', category: 'Finding', onRequestAccess, exitAction: <button type="button">Go to Home</button> } as const;
+  const { rerender } = render(<PermissionBlockedPanel {...props} />);
+  expect(screen.queryByRole('button', { name: 'Go to Home' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '권한 요청하기' })).toBeInTheDocument();
+  rerender(<PermissionBlockedPanel {...props} layout="card" />);
+  const request = screen.getByRole('button', { name: /^권한 요청$/ });
+  const home = screen.getByRole('button', { name: 'Go to Home' });
+  const row = home.parentElement!;
+  expect(within(row).getAllByRole('button')).toEqual([request, home]);
+  fireEvent.click(request);
+  expect(onRequestAccess).toHaveBeenCalledOnce();
+  rerender(<PermissionBlockedPanel {...props} layout="card" lang="en" requestStatus="pending"
+    missing={{ permission: 'Read findings' }} requestAction={<button type="button">View my access requests</button>} />);
+  expect(within(row).getAllByRole('button')).toEqual([screen.getByRole('button', { name: 'View my access requests' }), home]);
+  expect(screen.getByText('Required access')).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Your access request is under review.');
+  expect(screen.queryByText('In review')).not.toBeInTheDocument();
 });

@@ -12,7 +12,7 @@ import { cloneElement, createContext, isValidElement, useCallback, useContext, u
 import { errorGuidance, formatSummaryTime, type MenuEntry, PlatformLink, type QueryStatus, useConditionPreset, useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
-import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Button, cn, DetailPanelFullscreenContext, PermissionBlockedPanel, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { AccessRequestEntry, accessRequestBody, useScopeAccessRequest } from '../state/AccessRequestEntry';
 import { ReturnLink, ReturnRowShown, useReturnNavigation } from './DrillLayout';
@@ -403,9 +403,9 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
 
 /** The screen standing in for a page whose Scope is not usable: one branch per `scope.status` (everything but `valid`; `forbidden` is the default branch and carries the request entry, place (c)). */
 function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivElement | null>; selectorAvailable: boolean }) {
-  const { scope, retryScope, setGlobal, lastScope, scopeSelector } = useHostPlatform();
+  const { scope, retryScope, setGlobal, lastScope, scopeSelector, registry, resolveLink, sidebarSpace } = useHostPlatform();
   const accessRequest = useScopeAccessRequest();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   switch (scope.status) {
     case 'validating':
       return <StateMessage icon={<Loader2 className="size-4 animate-spin" aria-hidden />} title={t('scopeValidating')} />;
@@ -421,12 +421,38 @@ function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivE
         action={<Button size="sm" variant="secondary" onClick={() => { focusPageFallback(root.current); retryScope(); }}><RotateCw className="size-3.5" />{t('retry')}</Button>} />;
     case 'unknown_scope':
       return <StateMessage icon={<MapPinOff className="size-4" aria-hidden />} title={t('scopeUnknownTitle')} body={t('scopeUnknownBody')} />;
-    default:
-      // Place (c): the forbidden Scope itself is the request target (site only; the dialog lets the user pick the range kind, ADR-0154 decision 6).
+    default: {
+      let homeLink: string | null = null;
+      for (const id of [registry.platformHome?.id, sidebarSpace?.homeMenuId]) {
+        if (id === undefined || registry.menuById(id).requiresScope) continue;
+        const link = resolveLink(id, { global: { scopeId: null } });
+        if (link.allowed) {
+          homeLink = link.href;
+          break;
+        }
+      }
+      const homeHref = homeLink;
+      const exit = homeHref ? <Button asChild size="sm" variant="secondary"><PlatformLink href={homeHref}>{t('goToHome')}</PlatformLink></Button> : null;
+      const category = t('stateForbidden');
       return accessRequest && scope.scopeId !== null
-        ? <AccessRequestEntry slot={accessRequest} target={{ kind: 'site', site: scope.scopeId }}>{(state, action) => <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')}
-          body={accessRequestBody(t, state, true)} action={action} />}</AccessRequestEntry>
-        : <StateMessage tone="warning" icon={<MapPinOff className="size-4" aria-hidden />} title={t('stateForbidden')} body={t('stateForbiddenBody')} />;
+        ? <AccessRequestEntry slot={accessRequest} emphasis="primary" target={{ kind: 'site', site: scope.scopeId }}
+          renderPendingAction={href => href === null ? null : <Button asChild size="sm" variant="secondary"><PlatformLink href={href}>{t('accessRequestViewMine')}</PlatformLink></Button>}>
+          {(state, action) => {
+            const unavailable = state.requestHref === null && !state.pending;
+            let description: string | undefined;
+            if (unavailable) description = t('scopeAccessDeniedBody');
+            else if (!state.pending) description = accessRequestBody(t, state, true);
+            const availableStatus = state.pending ? 'pending' : 'none';
+            return <PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} category={category}
+              state={unavailable ? 'blocked_not_requestable' : 'request_access'}
+              description={description} missing={state.missing}
+              requestStatus={unavailable ? 'not-requestable' : availableStatus}
+              requestAction={unavailable ? null : action} exitAction={exit} />;
+          }}
+        </AccessRequestEntry>
+        : <PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} category={category} state="blocked_not_requestable"
+          description={t('scopeAccessDeniedBody')} requestStatus="not-requestable" exitAction={exit} />;
+    }
   }
 }
 

@@ -1,11 +1,11 @@
-import { Ban, FileQuestion, Link2Off } from 'lucide-react';
-import { lazy, Suspense, useRef } from 'react';
-import { PlatformLink, contractErrorSentence, routeParamNames, useI18n, useMessages } from '@ap/kernel';
+import { Ban, FileQuestion, Link2Off, Loader2 } from 'lucide-react';
+import { lazy, Suspense, useLayoutEffect, useRef } from 'react';
+import { PlatformLink, contractErrorSentence, routeParamNames, useI18n, useMessages, type AccessRequestState } from '@ap/kernel';
 import { isImplementedMenu, ScreenContentLoading, useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
-import { LoadingBlock, Panel, PlatformPage, PlatformPageBodyBoundary, StateMessage, focusPageFallback } from '@ap/components';
-import { Button, shortcutLabel } from '@ap/ui';
+import { LoadingBlock, Panel, PlatformPage, PlatformPageBodyBoundary, StateMessage, focusPageFallback, useAccessRequestRetry } from '@ap/components';
+import { Button, PermissionBlockedPanel, shortcutLabel } from '@ap/ui';
 import { menuPermissions, type Permission } from '@ap/contracts';
-import { HomeLink } from '../frame/HomeLink';
+import { HomeLink, useHomeHref } from '../frame/HomeLink';
 import { ShellBoundary } from '../frame/ShellBoundary';
 import { SHELL_MESSAGES } from '../messages';
 import { ModuleScreen } from './ModuleScreen';
@@ -71,8 +71,9 @@ export function ScreenOutlet() {
   }
   // Direct URL to a menu hidden by permission: the server check still answers (§17), distinct from "no data".
   const missing = menuPermissions(route.menu).find(permission => !can(permission));
-  if (missing !== undefined) return <KernelMessage heading={tx(route.menu.label)} tone="warning" icon={<Ban className="size-4" aria-hidden />} title={t('menuDenied')}
-    body={<>{tx(route.menu.label)}. {t('askAccessOwner')}</>} extra={<RequestPermissionLink permission={missing} />} />;
+  if (missing !== undefined) return <KernelStatePage title={tx(route.menu.label)}>
+    <MenuPermissionBlocked key={`${route.menu.id}|${sessionKey}`} permission={missing} heading={tx(route.menu.label)} />
+  </KernelStatePage>;
   const Page = route.menu.component;
   // Every screen is a different instance per session generation (#2075): a session change notice (revision), another user or an adapter
   // swap (its revision count restarts at 0, even for the same user) remounts it and drops its local state; URL state survives because it comes from the URL.
@@ -113,18 +114,83 @@ function OpenPaletteButton() {
   return <Button type="button" size="sm" variant="secondary" aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K" onClick={() => setPaletteOpen(true)}>{t('paletteName')} ({shortcutLabel('K')})</Button>;
 }
 
-/**
- * `권한 요청` for a menu the user may not open. The Shell does not know the request page: the app's `accessRequest` slot gives its address for the
- * missing permission (`statusHref`). No slot, or no address → no button. It names only the missing permission the screen already denies.
- */
-function RequestPermissionLink({ permission }: { permission: Permission }) {
-  const { t } = useI18n();
+function MenuPermissionBlocked({ permission, heading }: { permission: Permission; heading: string }) {
   const { slots } = useHostPlatform();
   const Pending = slots.accessRequest?.Pending;
-  if (!Pending) return null;
-  // An injected slot is outside the menu's `RouteErrorBoundary`: its failure leaves the denial and the home link, and is reported like any shell region.
-  return <ShellBoundary fallback={null}><Pending target={{ kind: 'permission', permission }}>{state => state.statusHref === null ? null
-    : <Button asChild size="sm" variant="secondary"><PlatformLink href={state.statusHref}>{t('accessRequest')}</PlatformLink></Button>}</Pending></ShellBoundary>;
+  const fallback = <MenuPermissionCard heading={heading} state={{ pending: null, statusHref: null }} />;
+  if (!Pending) return fallback;
+  return <ShellBoundary fallback={fallback}><Pending target={{ kind: 'permission', permission }}>
+    {state => <MenuPermissionCard heading={heading} state={state} />}
+  </Pending></ShellBoundary>;
+}
+
+const requestLabels = { pending: 'accessRequestViewMine', 'approved-partial': 'accessRequestRemaining', none: 'accessRequest' } as const;
+
+function MenuPermissionCard({ heading, state }: { heading: string; state: AccessRequestState }) {
+  const { t, lang } = useI18n();
+  const homeHref = useHomeHref();
+  const { shown, canRetry, retrying, run } = useAccessRequestRetry(state);
+  const href = shown.pending || shown.requestHref === undefined ? shown.statusHref : shown.requestHref;
+  const unavailable = shown.requestHref === null && !shown.pending;
+  const approvalStatus = shown.approvedPartial ? 'approved-partial' : 'none';
+  const availableStatus = shown.pending ? 'pending' : approvalStatus;
+  const status = shown.pending || href ? availableStatus : 'not-requestable';
+  const checking = !shown.pending && shown.read === 'checking' && Boolean(href);
+  const showRetry = !unavailable && ((retrying && state.read === 'checking')
+    || (!shown.pending && shown.read === 'error' && canRetry));
+  const card = useRef<HTMLDivElement>(null);
+  const readFocus = useRef<'request' | 'checking' | 'retry' | null>(null);
+  useLayoutEffect(() => {
+    const owner = readFocus.current;
+    if (owner === null || (owner === 'checking' && checking) || (owner === 'retry' && showRetry)) return;
+    // The busy control takes the request slot during a read. Otherwise request/status comes before Home.
+    const replacement = card.current?.querySelector<HTMLElement>(checking ? 'button[aria-busy="true"]' : 'a[href]');
+    const activeElement = document.activeElement;
+    if (replacement && activeElement === replacement) return;
+    readFocus.current = null;
+    if (activeElement !== null && activeElement !== document.body) return;
+    if (replacement) replacement.focus({ preventScroll: true });
+    else focusPageFallback(card.current);
+  }, [checking, href, showRetry]);
+
+  const requestAction = href ? <Button asChild size="sm" variant={shown.pending ? 'secondary' : 'primary'}>
+    <PlatformLink href={href}
+      onFocus={() => { readFocus.current = 'request'; }}
+      onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
+    >{t(requestLabels[availableStatus])}</PlatformLink>
+  </Button> : null;
+  const exitAction = homeHref ? <Button asChild size="sm" variant="secondary"><PlatformLink href={homeHref}>{t('goToHome')}</PlatformLink></Button> : null;
+  let action = requestAction;
+  // Requestable: the card's own request sentence (same message as the list cards); only a denial with no request asks for an administrator.
+  let description = shown.pending || href ? undefined : t('askAccessOwner');
+  let reason: string | undefined;
+  if (!unavailable && !shown.pending && shown.read === 'checking') {
+    reason = description;
+    description = t('accessRequestChecking');
+    action = checking ? <Button type="button" size="sm" variant="primary" aria-disabled aria-busy
+      onFocus={() => { readFocus.current = 'checking'; }}
+      onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
+    ><Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequest')}</Button> : null;
+  }
+  if (showRetry) {
+    reason = description;
+    description = t('accessRequestReadError');
+    action = <>
+      {requestAction}
+      <Button type="button" size="sm" variant="secondary" aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
+        onFocus={() => { readFocus.current = 'retry'; }}
+        onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
+        onClick={run}>{t('retry')}</Button>
+    </>;
+  }
+  return <div ref={card} className="contents"><PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} state={href ? 'request_access' : 'blocked_not_requestable'} category={t('menuDenied')}
+    description={description}
+    reason={reason}
+    missing={shown.missing}
+    requestStatus={status}
+    requestAction={action}
+    exitAction={exitAction}
+  /></div>;
 }
 
 function ContractErrorView() {

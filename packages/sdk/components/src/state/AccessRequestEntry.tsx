@@ -26,14 +26,15 @@ export function scopeRequestTarget(site: string, roomNames: IdSet, grantedRooms:
 }
 
 /**
- * One blocked place's request entry: the plain `권한 요청` button, or `요청 대기 중` plus the status link when the app's
+ * One blocked place's request entry: the plain `권한 요청` button, or `검토 중` plus the status link when the app's
  * server read says a request is pending. The dialog opens in place (no URL key, no Context change). `children` lets the
  * place word its message by the same state; it gets the action to place. `size="field"` is the quiet button under a field.
+ * When the slot supplies a request URL, the action opens that form instead.
  * When the entry leaves while it, or its open dialog (portaled, so outside the entry's DOM), holds focus (the grant arrived and
  * the gate closed), focus goes to the main landmark (06 §26), after the dialog's own deferred close autofocus. When the dialog
  * closes and the opener has been replaced by the pending state, focus goes to the surviving status action.
  */
-export function AccessRequestEntry({ slot, target, size = 'action', label, emphasis, exactTarget, children }: {
+export function AccessRequestEntry({ slot, target, size = 'action', label, emphasis, exactTarget, renderPendingAction, children }: {
   slot: AccessRequestSlot;
   target: PermissionRequestTarget;
   size?: 'action' | 'field';
@@ -41,6 +42,8 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, empha
   exactTarget?: boolean;
   /** Accessible name of the request button when the place needs a more specific one than `권한 요청`. */
   label?: string;
+  /** Replaces the pending badge and link when the containing card presents the status itself. */
+  renderPendingAction?: (statusHref: string | null) => ReactNode;
   children?: (state: AccessRequestState, action: ReactNode) => ReactNode;
 }) {
   const { url } = useHostPlatform();
@@ -79,7 +82,8 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, empha
   }, []);
   const { Pending, Dialog } = slot;
   return <>
-    <Pending target={target}>{state => <EntryView state={state} size={size} label={label} emphasis={emphasis} holder={holder} onRequest={() => changeOpen(true)}>{children}</EntryView>}</Pending>
+    <Pending target={target}>{state => <EntryView state={state} size={size} label={label} emphasis={emphasis} holder={holder} anchor={anchor}
+      onRequest={() => changeOpen(true)} renderPendingAction={renderPendingAction}>{children}</EntryView>}</Pending>
     <span ref={anchor} className="contents" onFocus={() => { dialogFocus.current = true; }} onBlur={() => { dialogFocus.current = false; }}><Dialog exactTarget={exactTarget} target={target} returnTo={url} open={open} onOpenChange={changeOpen} /></span>
   </>;
 }
@@ -101,43 +105,65 @@ export function accessRequestBody(t: ReturnType<typeof useI18n>['t'], state: Acc
  * 「다시 시도」 beside the request button, which still works (the server answers a repeated request, #1907). While a retry runs the error layout
  * stays and the pressed button is busy, so focus is not lost when the state flips to checking and back.
  */
-function EntryView({ state, size, label, emphasis, holder, onRequest, children }: {
+function EntryView({ state, size, label, emphasis, holder, anchor, onRequest, renderPendingAction, children }: {
   state: AccessRequestState;
   size: 'action' | 'field';
   label: string | undefined;
   emphasis: 'primary' | undefined;
   holder: RefObject<HTMLSpanElement | null>;
+  anchor: RefObject<HTMLSpanElement | null>;
   onRequest: () => void;
+  renderPendingAction: ((statusHref: string | null) => ReactNode) | undefined;
   children: ((state: AccessRequestState, action: ReactNode) => ReactNode) | undefined;
 }) {
   const { t } = useI18n();
   const { shown, retrying, canRetry, run: retryNow } = useAccessRequestRetry(state);
   const phase = shown.pending ? 'pending' : shown.read ?? 'request';
-  // The pressed retry button disappears when the read settles into pending or plain; focus it held goes to the surviving action.
-  const retryFocus = useRef(false);
+  const checking = phase === 'checking';
+  const legacy = renderPendingAction === undefined;
+  const checkingControl = checking && !legacy && shown.requestHref !== null;
+  // The read can replace either the busy request button or the pressed retry button.
+  const readFocus = useRef<'checking' | 'retry' | null>(null);
   useLayoutEffect(() => {
-    if (phase === 'error' || !retryFocus.current) return;
-    retryFocus.current = false;
-    if (isFocusLost()) holder.current?.querySelector<HTMLElement>('a[href], button')?.focus({ preventScroll: true });
-  }, [phase, holder]);
+    if (checkingControl && holder.current?.contains(document.activeElement)) {
+      readFocus.current = 'checking';
+      return;
+    }
+    const owner = readFocus.current;
+    if (owner === null || (owner === 'retry' && phase === 'error') || (owner === 'checking' && checkingControl)) return;
+    readFocus.current = null;
+    if (!isFocusLost()) return;
+    const replacement = holder.current?.querySelector<HTMLElement>('a[href], button');
+    const target = replacement ?? (owner === 'checking' ? pageFallbackTarget(anchor.current) : null);
+    target?.focus({ preventScroll: true });
+  }, [phase, checkingControl, holder, anchor]);
   const buttonSize = size === 'field' ? 'toolbar' : 'sm';
   const actionVariant = emphasis === 'primary' ? 'default' : 'secondary';
   const variant = size === 'field' ? 'ghost' : actionVariant;
-  const checking = phase === 'checking';
-  const action = <span ref={holder} data-access-request={phase} className="contents">{phase === 'pending'
-    ? <span className="inline-flex flex-wrap items-center gap-2">
+  const requestHref = checking ? undefined : shown.requestHref;
+  const button = requestHref
+    ? <Button asChild size={buttonSize} variant={variant}><PlatformLink href={requestHref} aria-label={label}>{t('accessRequest')}</PlatformLink></Button>
+    : <Button type="button" size={buttonSize} variant={variant} aria-label={label} {...(checking ? { 'aria-disabled': true, 'aria-busy': true } : {})}
+      onFocus={checkingControl ? () => { readFocus.current = 'checking'; } : undefined}
+      onBlur={checkingControl ? event => { if (event.relatedTarget) readFocus.current = null; } : undefined}
+      onClick={event => { if (!checking) onRequest(); else if (legacy) event.preventDefault(); }}>
+      {checking && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('accessRequest')}
+    </Button>;
+  const pendingAction = phase === 'pending' && (renderPendingAction !== undefined
+    ? renderPendingAction(shown.statusHref)
+    : <span className="inline-flex flex-wrap items-center gap-2">
       <StatusBadge tone="neutral">{t('accessRequestPending')}</StatusBadge>
       {shown.statusHref !== null && <PlatformLink href={shown.statusHref} className="text-xs font-medium text-accent-primary hover:underline">{t('accessRequestStatus')}</PlatformLink>}
-    </span>
-    // One flat child list in every non-pending phase, so the request button is the same element while checking, failed and plain.
+    </span>);
+  const action = <span ref={holder} data-access-request={phase} className="contents">{phase === 'pending'
+    ? pendingAction
+    // Keep the native request button mounted across non-pending phases when it is not replaced by a form link.
     : <span className={phase === 'error' ? 'inline-flex flex-wrap items-center gap-2' : 'contents'}>
       {phase === 'error' && size === 'field' && <span className="text-xs text-text-muted">{t('accessRequestReadErrorShort')}</span>}
       {phase === 'error' && canRetry && <Button type="button" size={buttonSize} variant="ghost" aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
-        onBlur={event => { if (event.relatedTarget) retryFocus.current = false; }}
-        onClick={() => { if (retrying) return; retryFocus.current = true; retryNow(); }}>{retrying && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('retry')}</Button>}
-      <Button type="button" size={buttonSize} variant={variant} aria-label={label} {...(checking ? { 'aria-disabled': true, 'aria-busy': true } : {})} onClick={checking ? event => event.preventDefault() : onRequest}>
-        {checking && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('accessRequest')}
-      </Button>
+        onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
+        onClick={() => { if (retrying) return; readFocus.current = 'retry'; retryNow(); }}>{retrying && <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}{t('retry')}</Button>}
+      {shown.requestHref !== null && button}
     </span>}</span>;
   return <>{children ? children(shown, action) : action}</>;
 }
@@ -150,8 +176,8 @@ function EntryView({ state, size, label, emphasis, holder, onRequest, children }
 export function useAccessRequestRetry(state: AccessRequestState): { shown: AccessRequestState; retrying: boolean; canRetry: boolean; run: () => void } {
   const [retry, setRetry] = useState<null | 'pressed' | 'running'>(null);
   const retryAction = useRef(state.retry);
-  if (state.retry) retryAction.current = state.retry;
-  const action = state.retry ?? (retry !== null ? retryAction.current : undefined);
+  useLayoutEffect(() => { if (state.retry) retryAction.current = state.retry; }, [state.retry]);
+  const canRetry = state.retry !== undefined || retry !== null;
   useEffect(() => {
     if (retry === 'pressed' && state.read === 'checking') setRetry('running');
     else if (retry === 'running' && state.read !== 'checking') setRetry(null);
@@ -163,6 +189,12 @@ export function useAccessRequestRetry(state: AccessRequestState): { shown: Acces
     return () => window.clearTimeout(timer);
   }, [retry]);
   const shown: AccessRequestState = retry !== null && state.read === 'checking' ? { ...state, read: 'error' } : state;
-  const run = () => { if (action === undefined || retry !== null) return; setRetry('pressed'); action(); };
-  return { shown, retrying: retry !== null, canRetry: action !== undefined, run };
+  const run = () => {
+    if (retry !== null) return;
+    const action = state.retry ?? retryAction.current;
+    if (action === undefined || !canRetry) return;
+    setRetry('pressed');
+    action();
+  };
+  return { shown, retrying: retry !== null, canRetry, run };
 }

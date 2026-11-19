@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { StrictMode, type ComponentProps } from 'react';
+import { StrictMode, useState, type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type Permission } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider, type AccessRequestSlot } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform, useOverlayState } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppSidebar } from '../../frame/AppSidebar';
@@ -105,7 +105,7 @@ describe('Kernel blocked screens (#1893, 06 §26)', () => {
     const main = screen.getByRole('main');
     const heading = within(main).getByRole('heading', { level: 1, name: title });
     expect(heading).not.toHaveFocus();
-    const home = within(main).queryByRole('link', { name: '홈' });
+    const home = within(main).queryByRole('link', { name: /^(홈|홈으로)$/ });
     const action = home ?? within(main).getByRole('button', { name: '조건 초기화' });
     act(() => { action.focus(); platform.navigate(`${href}&lotIds=kept`); });
     expect(action).toHaveFocus();
@@ -123,12 +123,16 @@ describe('Kernel blocked screens (#1893, 06 §26)', () => {
     expect(main.getByRole('button', { name: '조건 초기화' })).toBeVisible();
   });
 
-  it.each([
-    ['space', '/operations/roles?v=1', '운영 콘솔'],
-    ['menu', '/mars/equipment?v=1', '설비 마스터'],
-  ])('names the denied %s in the body', (_state, href, label) => {
-    mount(href);
-    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent(`${label}. 관리자에게 요청하세요.`);
+  it('names the denied space in the body', () => {
+    mount('/operations/roles?v=1');
+    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('운영 콘솔. 관리자에게 요청하세요.');
+  });
+
+  it('asks for access on the denied menu card without a menu-name fragment (the page or pane head names the menu)', () => {
+    mount('/mars/equipment?v=1');
+    const status = within(screen.getByRole('main')).getByRole('status');
+    expect(status).toHaveTextContent('관리자에게 요청하세요.');
+    expect(status).not.toHaveTextContent('설비 마스터');
   });
 
   it.each([blocked[0], blocked[2]])('uses one platform name in the fallback sidebar (%s)', (_state, href) => {
@@ -145,7 +149,7 @@ describe('Kernel blocked screens (#1893, 06 §26)', () => {
     expect(within(pane).queryByRole('heading', { level: 1 })).toBeNull();
     act(() => { pane.focus(); });
     expect(pane).toHaveFocus();
-    expect(within(pane).getByRole('status')).toHaveTextContent('설비 마스터');
+    expect(within(pane).getByRole('status')).toHaveTextContent('관리자에게 요청하세요.');
   });
 
   it('keeps reset recovery focus on main when the contract error disappears', () => {
@@ -219,9 +223,8 @@ describe('Kernel blocked screens: next actions (#1940)', () => {
     Pending: ({ target, children }) => { targets.push(target); return <>{children({ pending: null, statusHref: '/permission-requests' })}</>; },
     Dialog: () => null,
   };
-  const mountWith = (url: string, slots?: { accessRequest: AccessRequestSlot }) => {
+  const mountWith = (url: string, slots?: { accessRequest: AccessRequestSlot }, session = testSession(['platform:view'])) => {
     window.history.replaceState(null, '', url);
-    const session = testSession(['platform:view']);
     return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}>
       <Probe /><main id="platform-main" tabIndex={-1}><ScreenOutlet /></main>
     </PlatformProvider></I18nProvider>);
@@ -236,12 +239,191 @@ describe('Kernel blocked screens: next actions (#1940)', () => {
     expect(overlay.paletteOpen).toBe(true);
   });
 
-  it('menu denied: 권한 요청 goes to the address the slot gives, asked for the missing permission', () => {
+  it.each([
+    ['request URL', { pending: null, statusHref: null, requestHref: '/permission-requests?new=1' }, '/permission-requests?new=1'],
+    ['legacy status URL', { pending: null, statusHref: '/permission-requests' }, '/permission-requests'],
+  ] as const)('menu denied: 권한 요청 links to the %s, asked for the missing permission', (_url, state, href) => {
     targets.length = 0;
-    mountWith('/mars/equipment?v=1', { accessRequest: slot });
-    const link = within(screen.getByRole('main')).getByRole('link', { name: '권한 요청' });
-    expect(link.getAttribute('href')).toBe('/permission-requests');
+    const accessRequest = { ...slot, Pending: ({ target, children }: ComponentProps<AccessRequestSlot['Pending']>) => {
+      targets.push(target);
+      return <>{children(state)}</>;
+    } };
+    mountWith('/mars/equipment?v=1', { accessRequest });
+    const main = within(screen.getByRole('main'));
+    const request = main.getByRole('link', { name: '권한 요청' });
+    const home = main.getByRole('link', { name: '홈으로' });
+    expect(within(home.parentElement!).getAllByRole('link')).toEqual([request, home]);
+    expect(request).toHaveClass('bg-accent-primary');
+    expect(home).toHaveClass('border-border-subtle');
+    expect(request).toHaveAttribute('href', href);
+    expect(home).toHaveAttribute('href', '/mars/home?v=1');
+    fireEvent.click(request);
+    expect(window.location.pathname).toBe('/permission-requests');
     expect(targets).toContainEqual({ kind: 'permission', permission: 'console:access' });
+  });
+
+  const requestHref = '/permission-requests?new=1';
+  function mountChangingRequest(initial: 'checking' | 'error', settled: AccessRequestState, session?: ReturnType<typeof testSession>) {
+    let finish: () => void = () => {};
+    const Pending: AccessRequestSlot['Pending'] = ({ children }) => {
+      const [phase, setPhase] = useState<'checking' | 'error' | 'settled'>(initial);
+      finish = () => setPhase('settled');
+      const current = { pending: null, statusHref: null, requestHref };
+      switch (phase) {
+        case 'checking': return <>{children({ ...current, read: 'checking' })}</>;
+        case 'error': return <>{children({ ...current, read: 'error', retry: () => setPhase('checking') })}</>;
+        case 'settled': return <>{children(settled)}</>;
+      }
+    };
+    mountWith('/mars/equipment?v=1', { accessRequest: { ...slot, Pending } }, session);
+    return () => act(finish);
+  }
+
+  it('keeps the busy menu request control before Home and hands focus to the settled link', () => {
+    const settle = mountChangingRequest('checking', { pending: false, statusHref: null, requestHref });
+    const home = screen.getByRole('link', { name: '홈으로' });
+    const busy = screen.getByRole('button', { name: '권한 요청' });
+    expect(Array.from(home.parentElement!.querySelectorAll('a, button'))).toEqual([busy, home]);
+    expect(busy).toHaveAttribute('aria-disabled', 'true');
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    busy.focus();
+    expect(busy).toHaveFocus();
+    fireEvent.click(busy);
+    expect(window.location.pathname).toBe('/mars/equipment');
+    settle();
+    const request = screen.getByRole('link', { name: '권한 요청' });
+    expect(request).toHaveAttribute('href', requestHref);
+    expect(request).toHaveFocus();
+  });
+
+  it('keeps menu request focus from the link through a fresh read and back', () => {
+    const settled = { pending: null, statusHref: null, requestHref };
+    let emit: (state: AccessRequestState) => void = () => {};
+    const Pending: AccessRequestSlot['Pending'] = ({ children }) => {
+      const [state, setState] = useState<AccessRequestState>(settled);
+      emit = setState;
+      return <>{children(state)}</>;
+    };
+    mountWith('/mars/equipment?v=1', { accessRequest: { ...slot, Pending } });
+    const request = screen.getByRole('link', { name: '권한 요청' });
+    request.focus();
+    expect(request).toHaveFocus();
+
+    act(() => emit({ ...settled, read: 'checking' }));
+    const busy = screen.getByRole('button', { name: '권한 요청' });
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    expect(busy).toHaveFocus();
+
+    act(() => emit(settled));
+    const restored = screen.getByRole('link', { name: '권한 요청' });
+    expect(restored).toHaveAttribute('href', requestHref);
+    expect(restored).toHaveFocus();
+  });
+
+  it.each([
+    ['권한 요청', { pending: false, statusHref: null, requestHref }],
+    ['내 권한 요청 보기', { pending: true, statusHref: '/permission-requests?id=1', requestHref: null }],
+    ['홈으로', { pending: false, statusHref: null, requestHref: null }],
+    ['설비 마스터', { pending: false, statusHref: null, requestHref }],
+  ] as const)('keeps focus during menu retry and settles on %s', (focusName, settled) => {
+    const settle = mountChangingRequest('error', settled);
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    const heading = screen.getByRole('heading', { name: '설비 마스터' });
+    retry.focus();
+    fireEvent.click(retry);
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBe(retry);
+    expect(retry).toHaveAttribute('aria-busy', 'true');
+    expect(retry).toHaveAttribute('aria-disabled', 'true');
+    expect(retry).toHaveFocus();
+    if (focusName === '설비 마스터') heading.focus();
+    settle();
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    expect(focusName === '설비 마스터' ? heading : screen.getByRole('link', { name: focusName })).toHaveFocus();
+  });
+
+  it('returns retry focus to the page when neither menu action survives', () => {
+    const settle = mountChangingRequest('error', { pending: true, statusHref: null, requestHref: null }, testSession([]));
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    retry.focus();
+    fireEvent.click(retry);
+    settle();
+    const main = screen.getByRole('main');
+    expect(within(main).queryByRole('link')).toBeNull();
+    expect(main).toHaveFocus();
+  });
+
+  it('removes the focused menu retry when the target becomes non-requestable mid-read', () => {
+    const markUnavailable = mountChangingRequest('error', { pending: null, statusHref: null, requestHref: null, read: 'checking' });
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    retry.focus();
+    fireEvent.click(retry);
+    expect(retry).toHaveAttribute('aria-busy', 'true');
+    expect(retry).toHaveFocus();
+
+    markUnavailable();
+    const main = within(screen.getByRole('main'));
+    const home = main.getByRole('link', { name: '홈으로' });
+    expect(main.getByRole('status')).toHaveTextContent(/^관리자에게 요청하세요\.$/);
+    expect(main.getAllByRole('link')).toEqual([home]);
+    expect(main.queryByRole('button')).toBeNull();
+    expect(home).toHaveFocus();
+  });
+
+  it.each([undefined, 'checking', 'error'] as const)('gives a non-requestable menu only Home with read state %s', read => {
+    const Pending: AccessRequestSlot['Pending'] = ({ children }) => <>{children({
+      pending: null, statusHref: '/permission-requests', requestHref: null, read, retry: vi.fn(),
+    })}</>;
+    mountWith('/mars/equipment?v=1', { accessRequest: { ...slot, Pending } });
+    const status = within(screen.getByRole('main')).getByRole('status');
+    const main = within(screen.getByRole('main'));
+    const home = main.getByRole('link', { name: '홈으로' });
+    expect(main.getAllByRole('link')).toEqual([home]);
+    expect(home).toHaveAttribute('href', '/mars/home?v=1');
+    expect(home).toHaveClass('border-border-subtle');
+    expect(home.closest('[data-request-status="not-requestable"]')).toBeVisible();
+    expect(status).toHaveTextContent('관리자에게 요청하세요.');
+    expect(status).not.toContainElement(home);
+    fireEvent.click(home);
+    expect(window.location.pathname + window.location.search).toBe('/mars/home?v=1');
+  });
+
+  it('says a request is needed, not «관리자에게 요청하세요», when the menu card offers 권한 요청', () => {
+    const Pending: AccessRequestSlot['Pending'] = ({ children }) => <>{children({
+      pending: false, statusHref: null, requestHref: '/permission-requests?new=1',
+    })}</>;
+    mountWith('/mars/equipment?v=1', { accessRequest: { ...slot, Pending } });
+    const main = within(screen.getByRole('main'));
+    expect(main.getByRole('status')).toHaveTextContent(/^이 항목에 접근하려면 권한 요청이 필요합니다\.$/);
+    expect(main.getAllByRole('link').map(link => link.textContent)).toEqual(['권한 요청', '홈으로']);
+  });
+
+  it.each(['/permission-requests?id=1', null])('shows the pending body and permitted links with status URL %s', statusHref => {
+    const Pending: AccessRequestSlot['Pending'] = ({ children }) => <>{children({
+      pending: true, statusHref, requestHref: '/permission-requests?new=1',
+    })}</>;
+    mountWith('/mars/equipment?v=1', { accessRequest: { ...slot, Pending } });
+    const main = within(screen.getByRole('main'));
+    const home = main.getByRole('link', { name: '홈으로' });
+    const pending = statusHref ? main.getByRole('link', { name: '내 권한 요청 보기' }) : null;
+    expect(within(home.parentElement!).getAllByRole('link')).toEqual(pending ? [pending, home] : [home]);
+    expect(main.getByRole('status')).toHaveTextContent('보낸 권한 요청을 검토하고 있습니다.');
+    expect(main.getByRole('status')).not.toContainElement(home);
+    expect(main.queryByText('검토 중')).toBeNull();
+    expect(home).toHaveAttribute('href', '/mars/home?v=1');
+    expect(home).toHaveClass('border-border-subtle');
+    if (pending) {
+      expect(pending).toHaveAttribute('href', statusHref);
+      expect(pending).toHaveClass('border-border-subtle');
+      fireEvent.click(pending);
+      expect(window.location.pathname + window.location.search).toBe(statusHref);
+    }
+  });
+
+  it('uses a level-two denial heading below the menu page title', () => {
+    mountWith('/mars/equipment?v=1');
+    const main = within(screen.getByRole('main'));
+    expect(main.getByRole('heading', { level: 1, name: '설비 마스터' })).toBeVisible();
+    expect(main.getByRole('heading', { level: 2, name: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
   });
 
   it.each([
@@ -249,17 +431,17 @@ describe('Kernel blocked screens: next actions (#1940)', () => {
     ['a slot with no address', { accessRequest: { ...slot, Pending: ({ children }: ComponentProps<AccessRequestSlot['Pending']>) => <>{children({ pending: null, statusHref: null })}</> } }],
   ])('menu denied with %s draws no 권한 요청', (_name, slots) => {
     mountWith('/mars/equipment?v=1', slots);
-    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('설비 마스터');
+    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('관리자에게 요청하세요.');
     expect(screen.queryByText('권한 요청')).toBeNull();
   });
 
-  it('a slot that throws while rendering leaves the denial, the home link and the page (reported like any shell region)', () => {
+  it('a slot that throws while rendering leaves the denial, the Home button and the page (reported like any shell region)', () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     const throwing: AccessRequestSlot = { Pending: () => { throw new Error('slot failed'); }, Dialog: () => null };
     mountWith('/mars/equipment?v=1', { accessRequest: throwing });
     const main = within(screen.getByRole('main'));
-    expect(main.getByRole('status')).toHaveTextContent('설비 마스터');
-    expect(main.getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(main.getByRole('status')).toHaveTextContent('관리자에게 요청하세요.');
+    expect(main.getByRole('link', { name: '홈으로' })).toBeTruthy();
     expect(screen.queryByText('권한 요청')).toBeNull();
     quiet.mockRestore();
   });

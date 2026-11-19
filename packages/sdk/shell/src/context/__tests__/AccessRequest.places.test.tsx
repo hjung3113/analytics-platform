@@ -89,6 +89,28 @@ describe('place (b): Scope selector request items', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
+  it('omits the Site request row when the request href is null', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
+    mount(grantTable(), { ...fakeSlot, Pending: ({ target, children }) => <>{children({
+      pending: false, statusHref: null, requestHref: target.kind === 'site' && target.site === 'SITE-C' ? null : undefined,
+    })}</> });
+    openMenu();
+    expect(await screen.findByRole('menuitem', { name: 'SITE-B · 공정 3개 권한 없음' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: /SITE-C ·/ })).toBeNull();
+  });
+
+  it('navigates to a supplied Site request href without opening the dialog', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
+    const requestHref = '/permission-requests?site=SITE-C';
+    mount(grantTable(), { ...fakeSlot, Pending: ({ children }) => <>{children({
+      pending: false, statusHref: '/permission-requests?id=req-1', requestHref,
+    })}</> });
+    openMenu();
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SITE-C · 공정 4개 권한 없음' }));
+    await waitFor(() => expect(path).toBe(requestHref));
+    expect(dialogs).toHaveLength(0);
+  });
+
   it('an unknown pending state (loading or failed read) lists the plain request items', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
     pendingAnswer = 'unknown';

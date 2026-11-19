@@ -145,6 +145,8 @@ function SiteRows({ state, site, onRequest, onStatus }: { state: AccessRequestSt
       {t('accessRequestSitePending', { site: site.label })}
     </DropdownMenuItem>;
   }
+  const { requestHref } = shown;
+  if (requestHref === null) return null;
   if (shown.read === 'checking') {
     // The row keeps its place and stays focusable; selecting it does nothing until the read answers.
     return <DropdownMenuItem data-access-request="checking" aria-disabled="true" aria-busy="true" onSelect={event => event.preventDefault()} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
@@ -152,7 +154,8 @@ function SiteRows({ state, site, onRequest, onStatus }: { state: AccessRequestSt
     </DropdownMenuItem>;
   }
   return <>
-    <DropdownMenuItem ref={requestRow} data-access-request={shown.read === 'error' ? 'error' : 'request'} onSelect={onRequest} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
+    <DropdownMenuItem ref={requestRow} data-access-request={shown.read === 'error' ? 'error' : 'request'}
+      onSelect={() => { if (requestHref === undefined) onRequest(); else onStatus(requestHref); }} className="focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
       {t('accessRequestSiteRooms', { site: site.label, count: site.missing })}
     </DropdownMenuItem>
     {shown.read === 'error' && canRetry && <DropdownMenuItem aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
