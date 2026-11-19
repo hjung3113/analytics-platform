@@ -69,3 +69,27 @@ export const SURVEY_START_COPY = {
   questions: (count: number) => `문항 ${count}개`,
   branch: (parent: string, option: string) => `분기: ${parent} · ${option}`,
 } as const;
+
+export const SURVEY_OUTCOME_LINK_COPY = {
+  typeExplanation: {
+    discovery: '문제와 사용 맥락을 탐색합니다.',
+    validation: '가설이나 해결안이 맞는지 확인합니다.',
+    outcome: 'Task 조치 후 결과 변화를 확인합니다.',
+  },
+  chooseTypeExplanation: '설문 목적에 맞는 유형을 선택하세요.',
+  taskPickerLabel: '효과를 확인할 Task (선택)',
+  taskPickerPlaceholder: 'Task 연결 선택 안 함',
+  taskSearchPlaceholder: 'Task 검색…',
+  taskHelp: '설문 결과와 연결할 Task를 선택합니다. 연결하지 않아도 됩니다.',
+  taskRejected: '선택한 Task를 연결할 수 없습니다. 권한 또는 시스템을 확인하세요.',
+  systemRequired: '시스템을 먼저 선택하세요',
+  clearTask: 'Task 연결 해제',
+  taskHeading: '효과를 확인할 Task',
+  taskLoading: 'Task 연결 정보를 불러오는 중…',
+  taskLoadError: 'Task 연결 정보를 불러오지 못했습니다.',
+  taskHidden: '연결된 Task가 있습니다. Task 상세 권한이 없습니다.',
+  taskUnlinked: '연결된 Task가 없습니다.',
+  surveysHeading: '효과를 확인하는 설문',
+  surveysLoading: '효과를 확인하는 설문을 불러오는 중…',
+  surveysLoadError: '효과를 확인하는 설문을 불러오지 못했습니다.',
+} as const;

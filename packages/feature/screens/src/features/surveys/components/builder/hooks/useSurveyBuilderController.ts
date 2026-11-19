@@ -1,6 +1,8 @@
 import { ApiError } from '../../../../../lib/api/types';
 import { mapUnknownError } from '../../../../../lib/api/errorMapper';
 import { SURVEY_BUILDER_COPY } from '../../../../../lib/copy/surveys';
+import { fetchEntityLinksBySource } from '../../../../../lib/api/entity-links';
+import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useOpenSurvey, useSurveyQuestionMutations } from '../../../hooks/useSurveys';
 import type { QuestionKind, Survey, SurveyQuestion } from '../../../types';
@@ -43,6 +45,13 @@ export function useSurveyBuilderController(args: {
   isSaving: boolean;
   saveFailed: boolean;
   saveError: string | null;
+  outcomeTaskId: string | null;
+  outcomeTask: { display_id: string; title: string } | null;
+  hasOutcomeTask: boolean;
+  outcomeTaskLoading: boolean;
+  outcomeTaskLoadError: boolean;
+  setOutcomeTask: (task: { id: string; display_id: string; title: string } | null) => void;
+  clearOutcomeTask: () => void;
   preview: boolean;
   setPreview: (open: boolean) => void;
   launchOpen: boolean;
@@ -70,6 +79,48 @@ export function useSurveyBuilderController(args: {
   const [description, setDescription] = React.useState(survey.description ?? '');
   const descriptionRef = React.useRef(description);
   const savedDescriptionRef = React.useRef(survey.description ?? '');
+  const savedOutcomeTaskIdRef = React.useRef<string | null>(null);
+  const outcomeTaskTouchedRef = React.useRef(false);
+  const [outcomeTaskId, setOutcomeTaskId] = React.useState<string | null>(null);
+  const [outcomeTask, setOutcomeTaskSummary] = React.useState<{
+    display_id: string;
+    title: string;
+  } | null>(null);
+  const [hasOutcomeTask, setHasOutcomeTask] = React.useState(false);
+  const [outcomeTaskTouched, setOutcomeTaskTouched] = React.useState(false);
+  const outcomeLinks = useQuery({
+    queryKey: [
+      'entity-links',
+      'source',
+      'survey',
+      survey.primary_managed_system_id,
+      survey.id,
+    ],
+    queryFn: ({ signal }) => fetchEntityLinksBySource('survey', survey.id, { signal }),
+    enabled: survey.type === 'outcome',
+    retry: false,
+  });
+  React.useEffect(() => {
+    if (!outcomeLinks.isSuccess || outcomeTaskTouchedRef.current) return;
+    const active = outcomeLinks.data.items.find(
+      (link) =>
+        link.source_type === 'survey' &&
+        link.target_type === 'task' &&
+        link.relation_type === 'measures_outcome_of' &&
+        link.status === 'active',
+    );
+    const allowedTask =
+      active?.visibility_state === 'allowed' && active.target_summary?.type === 'task'
+        ? active.target_summary
+        : null;
+    const id = allowedTask?.id ?? null;
+    setOutcomeTaskId(id);
+    savedOutcomeTaskIdRef.current = id;
+    setOutcomeTaskSummary(
+      allowedTask ? { display_id: allowedTask.display_id, title: allowedTask.title } : null,
+    );
+    setHasOutcomeTask(active !== undefined);
+  }, [outcomeLinks.data, outcomeLinks.isSuccess]);
   const savedQuestionsRef = React.useRef<SurveyQuestion[]>(survey.questions ?? []);
   const [selectedId, setSelectedId] = React.useState<string | null>(questions[0]?.id ?? null);
   const [dirty, setDirty] = React.useState(false);
@@ -94,6 +145,24 @@ export function useSurveyBuilderController(args: {
   const updateDirty = (next: boolean) => {
     setDirty(next);
     args.onDirtyChange?.(next);
+  };
+  const setOutcomeTask = (task: { id: string; display_id: string; title: string } | null) => {
+    outcomeTaskTouchedRef.current = true;
+    setOutcomeTaskTouched(true);
+    setOutcomeTaskId(task?.id ?? null);
+    setOutcomeTaskSummary(task ? { display_id: task.display_id, title: task.title } : null);
+    setHasOutcomeTask(task !== null);
+    updateDirty(true);
+    clearSaveError();
+  };
+  const clearOutcomeTask = () => {
+    outcomeTaskTouchedRef.current = true;
+    setOutcomeTaskTouched(true);
+    setOutcomeTaskId(null);
+    setOutcomeTaskSummary(null);
+    setHasOutcomeTask(false);
+    updateDirty(true);
+    clearSaveError();
   };
   const setLaunchOpen = (open: boolean) => {
     setLaunchOpenState(open);
@@ -270,6 +339,13 @@ export function useSurveyBuilderController(args: {
         savedTitleRef,
         descriptionRef,
         savedDescriptionRef,
+        outcomeTaskId,
+        outcomeTaskTouched,
+        savedOutcomeTaskIdRef,
+        onOutcomeTaskSaved: () => {
+          outcomeTaskTouchedRef.current = false;
+          setOutcomeTaskTouched(false);
+        },
         savedQuestionsRef,
         replaceLocalId,
         updateQuestions,
@@ -295,6 +371,7 @@ export function useSurveyBuilderController(args: {
       const isClean =
         titleRef.current === savedTitleRef.current &&
         descriptionRef.current === savedDescriptionRef.current &&
+        !outcomeTaskTouchedRef.current &&
         questionsAreSaved;
       updateDirty(!isClean);
       return isClean;
@@ -330,6 +407,13 @@ export function useSurveyBuilderController(args: {
     isSaving,
     saveFailed,
     saveError,
+    outcomeTaskId,
+    outcomeTask,
+    hasOutcomeTask,
+    outcomeTaskLoading: outcomeLinks.isLoading,
+    outcomeTaskLoadError: outcomeLinks.isError,
+    setOutcomeTask,
+    clearOutcomeTask,
     preview,
     setPreview,
     launchOpen,

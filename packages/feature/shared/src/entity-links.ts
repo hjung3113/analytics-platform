@@ -4,6 +4,7 @@ import { listLimitSchema } from './list-page.js';
 
 export const entityLinkEntityTypeSchema = z.enum([
   'voc',
+  'survey',
   'survey_response',
   'finding',
   'voc_cluster',
@@ -21,6 +22,7 @@ export const entityLinkRelationTypeSchema = z.enum([
   'evidence_of',
   'requested_task',
   'converted_to',
+  'measures_outcome_of',
 ]);
 export type EntityLinkRelationType = z.infer<typeof entityLinkRelationTypeSchema>;
 
@@ -67,7 +69,30 @@ export const entityLinkRefSchema = z.object({
 });
 export type EntityLinkRef = z.infer<typeof entityLinkRefSchema>;
 
+export const entityLinkVocClusterSummarySchema = z
+  .object({
+    type: z.literal('voc_cluster'),
+    id: z.string().uuid(),
+    display_id: z.string(),
+    title: z.string(),
+    summary: z.string().nullable(),
+    status: z.string(),
+    primary_managed_system_id: z.string().uuid(),
+  })
+  .strict();
+
 export const entityLinkTargetSummarySchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('survey'),
+      id: z.string().uuid(),
+      display_id: z.string(),
+      title: z.string(),
+      survey_type: z.enum(['discovery', 'validation', 'outcome']),
+      status: z.enum(['draft', 'open', 'closed']),
+      primary_managed_system_id: z.string().uuid(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal('finding'),
@@ -109,21 +134,12 @@ export const entityLinkTargetSummarySchema = z.discriminatedUnion('type', [
       requester_actor_id: z.string().uuid(),
     })
     .strict(),
-  z
-    .object({
-      type: z.literal('voc_cluster'),
-      id: z.string().uuid(),
-      display_id: z.string(),
-      title: z.string(),
-      summary: z.string().nullable(),
-      status: z.string(),
-      primary_managed_system_id: z.string().uuid(),
-    })
-    .strict(),
+  entityLinkVocClusterSummarySchema,
 ]);
 export type EntityLinkTargetSummary = z.infer<typeof entityLinkTargetSummarySchema>;
 
 export const registeredEntityLinkPairs = [
+  { source_type: 'survey', target_type: 'task', relation_type: 'measures_outcome_of' },
   { source_type: 'voc', target_type: 'voc', relation_type: 'related_to' },
   { source_type: 'voc', target_type: 'finding', relation_type: 'created_finding' },
   { source_type: 'voc', target_type: 'finding', relation_type: 'evidence_of' },

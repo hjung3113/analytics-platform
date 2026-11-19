@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   entityLinkRelationTypeSchema,
+  entityLinkTargetSummarySchema,
   isNoManagedSystemEntityLinkPair,
   isRegisteredEntityLinkPair,
   registeredEntityLinkPairs,
@@ -107,13 +108,41 @@ describe('Survey response Entity Link registry', () => {
   });
 });
 
+describe('Outcome Survey Entity Link summary', () => {
+  it('registers only the Survey-to-Task measures-outcome tuple', () => {
+    const pair = {
+      source_type: 'survey',
+      target_type: 'task',
+      relation_type: 'measures_outcome_of',
+    } as const;
+
+    expect(registeredEntityLinkPairSchema.parse(pair)).toEqual(pair);
+    expect(registeredEntityLinkPairs).toContainEqual(pair);
+  });
+
+  it('allows only the metadata fields approved for an internal Survey summary', () => {
+    const summary = {
+      type: 'survey',
+      id: '11111111-1111-4111-8111-111111111111',
+      display_id: 'SRV-1',
+      title: 'Outcome results',
+      survey_type: 'outcome',
+      status: 'draft',
+      primary_managed_system_id: '22222222-2222-4222-8222-222222222222',
+    };
+
+    expect(entityLinkTargetSummarySchema.parse(summary)).toEqual(summary);
+    expect(() => entityLinkTargetSummarySchema.parse({ ...summary, response_count: 12 })).toThrow();
+  });
+});
+
 describe('no-Managed-System tuples (ADR-0123)', () => {
   it('registers the 수동 검증 첨부 → Round pair exactly once and lists it as no-Managed-System', () => {
     const pair = { source_type: 'manual_validation_attachment', target_type: 'validation_round', relation_type: 'evidence_of' };
     expect(registeredEntityLinkPairs.filter((p) => isNoManagedSystemEntityLinkPair(p))).toEqual([pair]);
     expect(isRegisteredEntityLinkPair(pair)).toBe(true);
     expect(registeredEntityLinkPairSchema.safeParse(pair).success).toBe(true);
-    expect(registeredEntityLinkPairs).toHaveLength(14);
+    expect(registeredEntityLinkPairs).toHaveLength(15);
   });
 
   it.each([
@@ -127,6 +156,6 @@ describe('no-Managed-System tuples (ADR-0123)', () => {
 
   it('keeps every pre-existing pair out of the no-Managed-System list', () => {
     const existing = registeredEntityLinkPairs.filter((p) => !isNoManagedSystemEntityLinkPair(p));
-    expect(existing).toHaveLength(13);
+    expect(existing).toHaveLength(14);
   });
 });

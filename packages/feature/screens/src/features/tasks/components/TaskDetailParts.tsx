@@ -45,6 +45,7 @@ import * as React from 'react';
 import { useTaskManagedSystems } from '../adapters/taskDisplayAdapters';
 import { ResponsibilityEditor } from './ResponsibilityEditor';
 import { TaskMilestoneEditor } from './TaskMilestoneEditor';
+import { TaskOutcomeSurveysSection } from './TaskOutcomeSurveysSection';
 
 const PRIORITY_SEVERITY: Record<TaskDetailDto['priority'], 'low' | 'medium' | 'high' | 'critical'> =
   {
@@ -531,6 +532,10 @@ export function useTaskDetailParts({
                 ]}
               />
             </div>
+            <TaskOutcomeSurveysSection
+              taskId={task.id}
+              managedSystemId={task.primary_managed_system_id}
+            />
           </div>
 
           <div data-anchor="notes" className="border-t border-border-subtle px-4 py-4">

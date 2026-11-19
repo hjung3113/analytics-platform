@@ -10,7 +10,13 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Survey } from '../../types';
-import { surveyKeys, useSurvey, useSurveys } from '../useSurveys';
+import {
+  surveyKeys,
+  useCreateSurvey,
+  useSurvey,
+  useSurveyQuestionMutations,
+  useSurveys,
+} from '../useSurveys';
 
 const originalFetch = global.fetch;
 
@@ -82,6 +88,21 @@ function renderHookWithClient<T>(callback: () => T) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  return renderHook(callback, {
+    wrapper: ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
+
+function linkCacheKeys() {
+  return [
+    ['entity-links', 'source', 'survey', SURVEY.primary_managed_system_id, SURVEY.id],
+    ['entity-links', 'target', 'task', SURVEY.primary_managed_system_id, 'task-id'],
+  ] as const;
+}
+
+function renderHookWithQueryClient<T>(callback: () => T, client: QueryClient) {
   return renderHook(callback, {
     wrapper: ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -186,6 +207,44 @@ it.each([undefined, SURVEY.primary_managed_system_id])(
     expect(global.fetch).not.toHaveBeenCalled();
   },
 );
+
+it('invalidates Entity Links after creating a Survey', async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  for (const key of linkCacheKeys()) client.setQueryData(key, { items: [] });
+  global.fetch = mockFetch({ status: 201, jsonBody: SURVEY });
+  const { result } = renderHookWithQueryClient(() => useCreateSurvey(), client);
+
+  await result.current.mutateAsync({
+    type: 'outcome',
+    title: 'Outcome survey',
+    primary_managed_system_id: SURVEY.primary_managed_system_id,
+    responses_identity_protected: true,
+  });
+
+  await waitFor(() =>
+    expect(linkCacheKeys().every((key) => client.getQueryState(key)?.isInvalidated)).toBe(true),
+  );
+});
+
+it('invalidates Entity Links after updating a Survey draft', async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  for (const key of linkCacheKeys()) client.setQueryData(key, { items: [] });
+  global.fetch = mockFetch({ status: 200, jsonBody: SURVEY });
+  const { result } = renderHookWithQueryClient(
+    () => useSurveyQuestionMutations(SURVEY.id),
+    client,
+  );
+
+  await result.current.updateSurvey.mutateAsync({ title: 'Updated outcome survey' });
+
+  await waitFor(() =>
+    expect(linkCacheKeys().every((key) => client.getQueryState(key)?.isInvalidated)).toBe(true),
+  );
+});
 
 it('path values are validated', async () => {
   const fetchMock = vi.fn();

@@ -229,6 +229,7 @@ const genericEntityLinkPairs = registeredEntityLinkPairs.filter(
 // Domain-owned conversions cannot be generically detached without reconciling state/audit.
 const detachableEntityLinkPairs = genericEntityLinkPairs.filter(
   (pair) =>
+    !(pair.source_type === 'survey' && pair.target_type === 'task' && pair.relation_type === 'measures_outcome_of') &&
     !(
       (pair.source_type === 'voc' || pair.source_type === 'voc_cluster') &&
       pair.target_type === 'task_request' &&
@@ -766,6 +767,132 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     const focus = await provider.getPermissionSubject(deps.db, actor.workspace_id, endpoint.id);
     if (!focus) return false;
     return provider.canRead(deps, actor, focus);
+  }
+
+  async function getSurveyOutcomeTask(args: {
+    tx: Tx;
+    workspaceId: string;
+    surveyId: string;
+  }): Promise<{ taskId: string } | null> {
+    const matches = (await selectActiveLinksForEndpoint(args.tx, {
+      workspaceId: args.workspaceId,
+      endpointType: 'survey',
+      endpointId: args.surveyId,
+      side: 'source',
+    })).filter(
+      (link) =>
+        link.target_type === 'task' && link.relation_type === 'measures_outcome_of',
+    );
+    if (matches.length > 1) {
+      throw new HttpError('internal.unexpected', 'Survey has multiple active outcome Task links');
+    }
+    const link = matches[0];
+    return link ? { taskId: link.target_id } : null;
+  }
+
+  async function setSurveyOutcomeTask(args: {
+    actor: EntityLinksActor;
+    tx: Tx;
+    surveyId: string;
+    surveyManagedSystemId: string;
+    taskId: string | null;
+  }): Promise<void> {
+    const { actor, tx, surveyId, surveyManagedSystemId, taskId } = args;
+    const current = await getSurveyOutcomeTask({
+      tx,
+      workspaceId: actor.workspace_id,
+      surveyId,
+    });
+    const targetProvider = deps.providers.task;
+    let targetManagedSystemId: string | null = null;
+    if (taskId !== null) {
+      const bound = readDependencies(tx);
+      const task = await targetProvider.assertExists(bound.db, actor.workspace_id, taskId);
+      if (!task || !(await targetProvider.canRead(bound, actor, task))) {
+        throw new HttpError('validation.failed', 'invalid outcome Task', {
+          fields: [{ path: ['outcome_task_id'], code: 'invalid' }],
+        });
+      }
+      targetManagedSystemId = task.managed_system_id;
+      assertLinkManagedSystemCompatibility(surveyManagedSystemId, targetManagedSystemId, {
+        path: ['outcome_task_id'],
+      });
+    }
+
+    if (current?.taskId === taskId) return;
+
+    if (current) {
+      const existing = (await selectActiveLinksForEndpoint(tx, {
+        workspaceId: actor.workspace_id,
+        endpointType: 'survey',
+        endpointId: surveyId,
+        side: 'source',
+      })).find(
+        (link) =>
+          link.target_type === 'task' &&
+          link.target_id === current.taskId &&
+          link.relation_type === 'measures_outcome_of',
+      );
+      if (!existing) {
+        throw new HttpError('conflict.stale_write', 'Survey outcome Task link changed');
+      }
+      const detached = await detachEntityLink(tx, {
+        workspaceId: actor.workspace_id,
+        linkId: existing.id,
+        actorId: actor.actor_id,
+        reason: 'Survey outcome Task changed or cleared',
+      });
+      if (!detached) throw new HttpError('conflict.stale_write', 'Survey outcome Task link changed');
+      await deps.auditService.record(tx, {
+        workspace_id: actor.workspace_id,
+        actor_id: actor.actor_id,
+        event_type: 'entity_link.detached',
+        subject_type: 'entity_link',
+        subject_id: detached.id,
+        summary: 'Entity link detached',
+        detail: {
+          link_id: detached.id,
+          source: { type: 'survey', id: surveyId },
+          target: { type: 'task', id: current.taskId },
+          relation_type: 'measures_outcome_of',
+          visibility: 'internal_only',
+        },
+      });
+    }
+
+    if (taskId !== null) {
+      if (targetManagedSystemId === null) {
+        throw new HttpError('internal.unexpected', 'Task provider returned no Managed System');
+      }
+      const inserted = await insertActiveEntityLink(tx, {
+        workspaceId: actor.workspace_id,
+        sourceType: 'survey',
+        sourceId: surveyId,
+        targetType: 'task',
+        targetId: taskId,
+        relationType: 'measures_outcome_of',
+        managedSystemId: surveyManagedSystemId,
+        createdBy: actor.actor_id,
+        visibility: 'internal_only',
+      });
+      if (inserted.inserted) {
+        await deps.auditService.record(tx, {
+          workspace_id: actor.workspace_id,
+          actor_id: actor.actor_id,
+          event_type: 'entity_link.created',
+          subject_type: 'entity_link',
+          subject_id: inserted.row.id,
+          summary: 'Entity link created',
+          detail: {
+            link_id: inserted.row.id,
+            source: { type: 'survey', id: surveyId },
+            target: { type: 'task', id: taskId },
+            relation_type: 'measures_outcome_of',
+            visibility: 'internal_only',
+          },
+        });
+      }
+    }
   }
 
   async function resolveReadableEndpointSummary(args: {
@@ -1387,6 +1514,8 @@ export function createEntityLinksService(deps: EntityLinksServiceDeps) {
     listInventoryLinks,
     readVocFollowUp,
     detachLink,
+    getSurveyOutcomeTask,
+    setSurveyOutcomeTask,
   };
 }
 

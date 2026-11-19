@@ -816,7 +816,7 @@ A structured question set for one **Managed System**.
 _Avoid_: VOC, task
 
 **Outcome Survey**:
-A **Survey** of type `outcome`, used to check whether released work improved the experience. A closed Outcome Survey with a poor result (a rating answer in the low band) and no follow-up decision is a follow-up gap; follow-up goes through a **Finding**, never directly from a Survey Response to a **Task Request** (FO ADR-0055).
+A **Survey** of type `outcome`, used to check whether released work improved the experience. It may name one same-Managed-System **Task** whose effect it measures; that optional link is context, not follow-up. A closed Outcome Survey with a poor result (a rating answer in the low band) and no follow-up decision is a follow-up gap; follow-up goes through a **Finding**, never directly from a Survey Response to a **Task Request** (FO ADR-0055).
 _Avoid_: Requested outcome (a **Task Request** field), VOC
 
 

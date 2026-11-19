@@ -73,7 +73,7 @@ Survey Result
 
 ### WF-SURVEY-003: Outcome Survey
 
-The Task / Milestone Released trigger is future (WF-X-004). An Outcome Survey is created like any Survey and has no Task or Milestone link. Every Outcome Survey is configured for follow-up (FO ADR-0055).
+The Task / Milestone Released trigger is future (WF-X-004). An Outcome Survey may name one Task in the same Managed System whose effect it measures. This is optional context selected by an operator; it does not trigger the Survey, establish automatic before/after causality, or affect follow-up. Every Outcome Survey is configured for follow-up (FO ADR-0055).
 
 ```text
 Task / Milestone Released
@@ -93,6 +93,7 @@ Acceptance Criteria:
 ```text
 - Survey Operator can create Discovery, Validation, or Outcome Survey.
 - Survey requires exactly one Primary Managed System.
+- An Outcome Survey may link one same-Managed-System Task as the work whose effect it measures. Discovery and Validation Surveys cannot carry this link. The link can be set, replaced, or cleared while the Survey is a draft and is frozen after opening; it never counts as follow-up.
 - Survey can link Analytics Area under that Managed System.
 - Survey can be created atomically from one of three built-in starters through the backend contract (#1073, FO ADR-0070).
 - The creation dialog starts blank and offers built-in templates or saved questions from a same-Managed-System Survey (#1075). Sources are searched and paginated, with a read-only definition preview. Type follows the selected starting point and is locked until it is cleared; title remains editable and privacy is chosen independently (#1183, FO ADR-0070 amendment).

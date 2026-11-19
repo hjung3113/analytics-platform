@@ -210,6 +210,7 @@ export function useCreateSurvey() {
       attempt.current = null;
       invalidateNavCounts(queryClient);
       void queryClient.invalidateQueries({ queryKey: surveyKeys.list });
+      void queryClient.invalidateQueries({ queryKey: ['entity-links'] });
     },
   });
   const resetMutation = mutation.reset;
@@ -239,10 +240,10 @@ export const useCloseSurvey = (surveyId: string) => useSurveyStatusMutation(surv
 
 export function useSurveyQuestionMutations(surveyId: string) {
   const queryClient = useQueryClient();
-  const invalidate = () =>
-    void queryClient.invalidateQueries({
-      queryKey: surveyKeys.detail(surveyId),
-    });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: surveyKeys.detail(surveyId) });
+    void queryClient.invalidateQueries({ queryKey: ['entity-links'] });
+  };
   const create = useMutation({
     mutationFn: async ({ body, idempotencyKey }: { body: QuestionInput; idempotencyKey: string }) =>
       (await apiClient<SurveyQuestionResponse>('POST', apiPath`/surveys/${surveyId}/questions`, { body, idempotencyKey }))

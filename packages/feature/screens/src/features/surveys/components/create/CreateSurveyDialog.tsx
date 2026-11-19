@@ -2,7 +2,10 @@ import { fetchCapabilityScopeViaClient } from '../../../../lib/api/permission-re
 import { fetchManagedSystems } from '../../../../lib/api/registry-reads';
 import { ApiError } from '../../../../lib/api/types';
 import { SURVEY_STATUS_LABELS, SURVEY_TYPE_LABELS } from '../../../../lib/copy/enum-labels';
-import { SURVEY_START_COPY as COPY } from '../../../../lib/copy/survey-builder';
+import {
+  SURVEY_OUTCOME_LINK_COPY as OUTCOME_LINK_COPY,
+  SURVEY_START_COPY as COPY,
+} from '../../../../lib/copy/survey-builder';
 import {
   activeAnalyticsAreas,
   analyticsAreasCatalogQuery,
@@ -15,6 +18,7 @@ import {
 } from '@ap/feature-shared';
 import {
   Button,
+  Combobox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,6 +39,7 @@ import {
   useValidatedSubmit,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
+import { listTasks } from '../../../../lib/api/tasks';
 import * as React from 'react';
 import {
   useCreateSurvey,
@@ -43,11 +48,13 @@ import {
   useSurveyTemplates,
 } from '../../hooks/useSurveys';
 import type { SurveyType } from '../../types';
+import type { TaskDto } from '@ap/feature-shared';
 
 interface SurveyCreateValues {
   title: string;
   type: SurveyType | '';
   system: string;
+  outcomeTaskId: string | null;
   identityProtected: 'true' | 'false' | '';
   mode: 'blank' | 'builtin' | 'existing';
   startingPoint: string;
@@ -55,6 +62,18 @@ interface SurveyCreateValues {
   startingPointLoading: boolean;
   systemInScope: boolean;
   blocked: boolean;
+}
+
+function hasErrorField(error: ApiError, fieldName: string): boolean {
+  const fields = error.detail?.fields;
+  return (
+    Array.isArray(fields) &&
+    fields.some((field) => {
+      if (field === null || typeof field !== 'object') return false;
+      const path = (field as { path?: unknown }).path;
+      return Array.isArray(path) && path.includes(fieldName);
+    })
+  );
 }
 
 export function CreateSurveyDialog({
@@ -72,6 +91,9 @@ export function CreateSurveyDialog({
   const [title, setTitle] = React.useState('');
   const [type, setType] = React.useState<SurveyType | ''>('');
   const [system, setSystem] = React.useState('');
+  const [outcomeTask, setOutcomeTask] = React.useState<TaskDto | null>(null);
+  const [outcomeTaskError, setOutcomeTaskError] = React.useState<string | undefined>();
+  const [taskSearch, setTaskSearch] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [analyticsArea, setAnalyticsArea] = React.useState('');
   const [identityProtected, setIdentityProtected] = React.useState<'true' | 'false' | ''>('');
@@ -124,6 +146,18 @@ export function CreateSurveyDialog({
     enabled: open && Boolean(system),
     retry: false,
   });
+  const tasks = useQuery({
+    queryKey: ['tasks', 'survey-outcome-picker', system, taskSearch],
+    queryFn: ({ signal }) =>
+      listTasks({
+        managed_system_id: system,
+        ...(taskSearch.trim() ? { q: taskSearch.trim() } : {}),
+        limit: 20,
+        signal,
+      }),
+    enabled: open && type === 'outcome' && Boolean(system),
+    retry: false,
+  });
   const allowedSystems = (systems.data?.items ?? []).filter(
     (candidate) =>
       candidate.archived_at === null &&
@@ -156,6 +190,8 @@ export function CreateSurveyDialog({
     // for an unchanged pending/uncertain attempt).
     if (definition && !pinnedStart.current) {
       setType(definition.type);
+      setOutcomeTask(null);
+      setTaskSearch('');
       if (!titleEdited) setTitle(definition.title);
     }
   }, [definition, titleEdited]);
@@ -250,6 +286,9 @@ export function CreateSurveyDialog({
     setTitle('');
     setType('');
     setSystem('');
+    setOutcomeTask(null);
+    setOutcomeTaskError(undefined);
+    setTaskSearch('');
     setDescription('');
     setAnalyticsArea('');
     setIdentityProtected('');
@@ -286,12 +325,16 @@ export function CreateSurveyDialog({
     // for an unchanged pending/uncertain attempt).
     pinnedStart.current = startingPoint ?? null;
     submitting.current = true;
+    setOutcomeTaskError(undefined);
     try {
       const created = await create.mutateAsync({
         type: values.type,
         title: values.title.trim(),
         ...(description.trim() ? { description: description.trim() } : {}),
         primary_managed_system_id: values.system,
+        ...(values.type === 'outcome' && values.outcomeTaskId
+          ? { outcome_task_id: values.outcomeTaskId }
+          : {}),
         ...(analyticsArea ? { analytics_area_id: analyticsArea } : {}),
         responses_identity_protected: values.identityProtected === 'true',
         ...(startingPoint ? { starting_point: startingPoint } : {}),
@@ -299,6 +342,13 @@ export function CreateSurveyDialog({
       reset();
       onCreated(created.id);
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === 'validation.failed' &&
+        hasErrorField(error, 'outcome_task_id')
+      ) {
+        setOutcomeTaskError(OUTCOME_LINK_COPY.taskRejected);
+      }
       if (
         startingPoint &&
         error instanceof ApiError &&
@@ -354,6 +404,7 @@ export function CreateSurveyDialog({
             title,
             type,
             system,
+            outcomeTaskId: outcomeTask?.id ?? null,
             identityProtected,
             mode,
             startingPoint: mode === 'builtin' ? templateId : mode === 'existing' ? sourceId : '',
@@ -417,6 +468,9 @@ export function CreateSurveyDialog({
                     disabled={startingPointChosen}
                     onValueChange={(value) => {
                       setType(value as SurveyType);
+                      setOutcomeTask(null);
+                      setOutcomeTaskError(undefined);
+                      setTaskSearch('');
                       clearError('type');
                     }}
                   >
@@ -433,6 +487,9 @@ export function CreateSurveyDialog({
                   </Select>
                 )}
               </FormField>
+              <p className="-mt-3 text-xs text-text-muted">
+                {type ? OUTCOME_LINK_COPY.typeExplanation[type] : OUTCOME_LINK_COPY.chooseTypeExplanation}
+              </p>
               <div>
                 {startingPointChosen ? (
                   <p className="text-sm text-text-muted">{COPY.sourceSetsType}</p>
@@ -444,6 +501,9 @@ export function CreateSurveyDialog({
                     value={system}
                     onValueChange={(value) => {
                       setSystem(value);
+                      setOutcomeTask(null);
+                      setOutcomeTaskError(undefined);
+                      setTaskSearch('');
                       setAnalyticsArea('');
                       clearSelection();
                       clearError('system');
@@ -465,6 +525,62 @@ export function CreateSurveyDialog({
                   </Select>
                 )}
               </FormField>
+              {type === 'outcome' ? (
+                <div className="flex flex-col gap-1.5">
+                  <FormField
+                    label={OUTCOME_LINK_COPY.taskPickerLabel}
+                    id="survey-outcome-task"
+                    describedBy="survey-outcome-task-help"
+                    error={outcomeTaskError}
+                    {...(outcomeTaskError ? { errorRole: 'alert' as const } : {})}
+                  >
+                    {(control) => (
+                      <Combobox
+                        {...control}
+                        value={outcomeTask?.id ?? null}
+                        onChange={(id) => {
+                          const selected = tasks.data?.items.find((task) => task.id === id);
+                          if (selected) setOutcomeTask(selected);
+                          setOutcomeTaskError(undefined);
+                        }}
+                        onSearchChange={setTaskSearch}
+                        filterOptions={false}
+                        options={[
+                          ...(outcomeTask && !tasks.data?.items.some((task) => task.id === outcomeTask.id)
+                            ? [{ value: outcomeTask.id, label: `${outcomeTask.display_id} · ${outcomeTask.title}` }]
+                            : []),
+                          ...(tasks.data?.items ?? [])
+                            .filter((task) => task.primary_managed_system_id === system)
+                            .map((task) => ({ value: task.id, label: `${task.display_id} · ${task.title}` })),
+                        ]}
+                        disabled={!system}
+                        loading={tasks.isLoading || tasks.isFetching}
+                        placeholder={OUTCOME_LINK_COPY.taskPickerPlaceholder}
+                        searchPlaceholder={OUTCOME_LINK_COPY.taskSearchPlaceholder}
+                        listboxLabel={OUTCOME_LINK_COPY.taskPickerLabel}
+                        emptyText={tasks.isError ? OUTCOME_LINK_COPY.taskLoadError : OUTCOME_LINK_COPY.taskUnlinked}
+                      />
+                    )}
+                  </FormField>
+                  <p id="survey-outcome-task-help" className="text-xs text-text-muted">
+                    {system ? OUTCOME_LINK_COPY.taskHelp : OUTCOME_LINK_COPY.systemRequired}
+                  </p>
+                  {outcomeTask ? (
+                    <Button
+                      type="button"
+                      variant="subtle"
+                      size="sm"
+                      className="self-start"
+                      onClick={() => {
+                        setOutcomeTask(null);
+                        setOutcomeTaskError(undefined);
+                      }}
+                    >
+                      {OUTCOME_LINK_COPY.clearTask}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
               {mode !== 'blank' && (
                 <section aria-label={COPY.preview} className="flex flex-col gap-2">
                   {!system ? (
@@ -710,7 +826,7 @@ export function CreateSurveyDialog({
               {COPY.reselect}
             </p>
           )}
-          {create.isError && !blocked && (
+          {create.isError && !blocked && !outcomeTaskError && (
             <p role="alert" className="text-sm text-text-danger">
               {COPY.createFailed}
             </p>

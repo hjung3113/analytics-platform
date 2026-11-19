@@ -21,6 +21,7 @@ import type { Survey } from '../../types';
 import { SurveyManagedSystemPill } from '../SurveyManagedSystemPill';
 import { SurveyStatusBadge } from '../SurveyStatusBadge';
 import { SurveyStatusConfirmationDialog } from '../SurveyStatusConfirmationDialog';
+import { SurveyOutcomeTaskSection } from './SurveyOutcomeTaskSection';
 
 export type SurveyDetailView =
   | { kind: 'loading' }
@@ -129,6 +130,12 @@ export function surveyDetailPieces({
   );
   const sections = (
     <>
+      {survey.type === 'outcome' ? (
+        <SurveyOutcomeTaskSection
+          surveyId={survey.id}
+          managedSystemId={survey.primary_managed_system_id}
+        />
+      ) : null}
       <section className="mt-6 px-5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium">결과 요약</h2>

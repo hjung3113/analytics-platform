@@ -52,6 +52,7 @@ export type CreateSurveyInput = {
   operator_actor_id?: string;
   responses_identity_protected: boolean;
   starting_point?: SurveyStartingPoint;
+  outcome_task_id?: string;
 };
 export type QuestionInput = {
   kind: QuestionKind;
@@ -74,6 +75,7 @@ export type UpdateSurveyInput = Partial<{
   analytics_area_id: string;
   operator_actor_id: string;
   responses_identity_protected: boolean;
+  outcome_task_id: string | null;
 }>;
 export type ResponseSubmissionInput = {
   answers: Array<{ question_id: string; value: string | string[] | number }>;
@@ -369,6 +371,11 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           const manage = await checkSurveyManage(deps.checkService, a.actor, m.id, { tx });
           if (!manage.allow)
             throw new HttpError('permission.denied', 'survey.manage capability required');
+          if (a.input.outcome_task_id != null && a.input.type !== 'outcome') {
+            throw new HttpError('validation.failed', 'only Outcome Surveys may measure a Task', {
+              fields: [{ path: ['outcome_task_id'], code: 'invalid' }],
+            });
+          }
           if (a.input.analytics_area_id) {
             await assertActiveAnalyticsAreaForManagedSystem(
               tx,
@@ -447,6 +454,15 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
             responsesIdentityProtected: a.input.responses_identity_protected,
             createdBy: a.actor.actor_id,
           });
+          if (a.input.outcome_task_id != null) {
+            await deps.entityLinksService.setSurveyOutcomeTask({
+              actor: a.actor,
+              tx,
+              surveyId: s.id,
+              surveyManagedSystemId: m.id,
+              taskId: a.input.outcome_task_id,
+            });
+          }
           const questions: QuestionRow[] = [];
           const parentIds = new Map<string, string>();
           const definitions = sourceQuestions.length
@@ -803,6 +819,35 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
           if (!s) throw new HttpError('not_found.record', 'survey not found');
           await requireManage(deps, tx, a.actor, s);
           draft(s);
+          const hasOutcomeTaskId = Object.prototype.hasOwnProperty.call(
+            a.input,
+            'outcome_task_id',
+          );
+          const nextType = a.input.type ?? s.type;
+          const nextManagedSystemId =
+            a.input.primary_managed_system_id ?? s.primary_managed_system_id;
+          const currentOutcomeTask = await deps.entityLinksService.getSurveyOutcomeTask({
+            tx,
+            workspaceId: a.actor.workspace_id,
+            surveyId: s.id,
+          });
+          if (hasOutcomeTaskId && a.input.outcome_task_id != null && nextType !== 'outcome') {
+            throw new HttpError('validation.failed', 'only Outcome Surveys may measure a Task', {
+              fields: [{ path: ['outcome_task_id'], code: 'invalid' }],
+            });
+          }
+          if (currentOutcomeTask && !hasOutcomeTaskId) {
+            if (nextType !== 'outcome') {
+              throw new HttpError('validation.failed', 'clear the measured Task before changing type', {
+                fields: [{ path: ['outcome_task_id'], code: 'invalid' }],
+              });
+            }
+            if (nextManagedSystemId !== s.primary_managed_system_id) {
+              throw new HttpError('validation.failed', 'replace the measured Task for this system', {
+                fields: [{ path: ['outcome_task_id'], code: 'managed_system_mismatch' }],
+              });
+            }
+          }
           const primaryManagedSystemId =
             a.input.primary_managed_system_id ?? s.primary_managed_system_id;
           const m = await lockManagedSystem(tx, a.actor.workspace_id, primaryManagedSystemId);
@@ -857,7 +902,7 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
               });
           }
           const updated = await updateSurvey(tx, a.actor.workspace_id, s.id, {
-            type: a.input.type ?? s.type,
+            type: nextType,
             title: a.input.title ?? s.title,
             description: a.input.description ?? s.description,
             primaryManagedSystemId,
@@ -866,6 +911,15 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
             responsesIdentityProtected:
               a.input.responses_identity_protected ?? s.responses_identity_protected,
           });
+          if (hasOutcomeTaskId) {
+            await deps.entityLinksService.setSurveyOutcomeTask({
+              actor: a.actor,
+              tx,
+              surveyId: s.id,
+              surveyManagedSystemId: primaryManagedSystemId,
+              taskId: a.input.outcome_task_id ?? null,
+            });
+          }
           await deps.auditService.record(tx, {
             workspace_id: a.actor.workspace_id,
             actor_id: a.actor.actor_id,

@@ -4,6 +4,7 @@ import type { AuditService } from '../core/audit/audit-service.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { RecoveryRecorder } from '../dashboard/recorder.js';
 import type { CheckService } from '../permissions/check-service.js';
+import type { EntityLinksService } from '../entity-links/index.js';
 import { createMyAnswerableSurveys } from './answerable-surveys.js';
 import { createSurveyAuthoring } from './authoring.js';
 import { createSurveyEvidenceAccess } from './evidence-access.js';
@@ -29,6 +30,7 @@ export interface SurveysServiceDeps {
   auditService: AuditService;
   checkService: CheckService;
   idempotencyService: IdempotencyService;
+  entityLinksService: Pick<EntityLinksService, 'getSurveyOutcomeTask' | 'setSurveyOutcomeTask'>;
   resolveWorkspaceSettings: (
     dbOrTx: Db | Tx,
     workspaceId: string,

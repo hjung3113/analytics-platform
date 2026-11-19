@@ -144,6 +144,7 @@ export const ENTITY_LINK_RELATION_LABELS: Record<EntityLinkRelationType, string>
   evidence_of: '근거',
   requested_task: '요청한 Task',
   converted_to: '전환된 항목',
+  measures_outcome_of: '효과를 확인하는 Task',
 };
 
 type SurveyResultKind = Extract<SurveyQuestionResult, { visibility: 'visible' }>['kind'];

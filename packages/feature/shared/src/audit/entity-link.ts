@@ -25,6 +25,11 @@ const surveyResponseRefDetailSchema = z.object({
   id: z.string().uuid(),
 });
 
+const surveyRefDetailSchema = z.object({
+  type: z.literal('survey'),
+  id: z.string().uuid(),
+});
+
 const vocClusterRefDetailSchema = z.object({
   type: z.literal('voc_cluster'),
   id: z.string().uuid(),
@@ -57,6 +62,15 @@ const validationRoundRefDetailSchema = z.object({
 });
 
 export const entityLinkCreatedDetailSchema = z.union([
+  z
+    .object({
+      link_id: z.string().uuid(),
+      source: surveyRefDetailSchema,
+      target: taskRefDetailSchema,
+      relation_type: z.literal('measures_outcome_of'),
+      visibility: z.literal('internal_only'),
+    })
+    .strict(),
   z.object({
     link_id: z.string().uuid(),
     source: vocRefDetailSchema,
@@ -165,6 +179,15 @@ export const entityLinkCreatedDetailSchema = z.union([
 export type EntityLinkCreatedDetail = z.infer<typeof entityLinkCreatedDetailSchema>;
 
 export const entityLinkDetachedDetailSchema = z.union([
+  z
+    .object({
+      link_id: z.string().uuid(),
+      source: surveyRefDetailSchema,
+      target: taskRefDetailSchema,
+      relation_type: z.literal('measures_outcome_of'),
+      visibility: z.literal('internal_only'),
+    })
+    .strict(),
   z.object({
     link_id: z.string().uuid(),
     source: vocRefDetailSchema,
