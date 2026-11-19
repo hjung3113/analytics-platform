@@ -86,7 +86,7 @@ it.each([
       source,
       context: {
         scopeId: { kind: 'context', key: 'scopeId' }, time: { kind: 'context', key: 'time' },
-        roomNames: { kind: 'context', key: 'roomNames' }, condition: { kind: 'context', key: 'condition' },
+        roomNames: { kind: 'context', key: 'roomNames' }, condition: { kind: 'context', key: 'condition' }, prcGroup: { kind: 'context', key: 'prcGroup' },
         selection: { kind: 'context', key: 'selection' },
       },
       page: {
