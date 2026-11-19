@@ -15,7 +15,7 @@ import {
   taskPrioritySchema,
 } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type * as React from 'react';
 import { useLayoutEffect, useSyncExternalStore } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -285,6 +285,20 @@ beforeEach(() => {
 });
 
 describe('TaskRequestsRoute conversion title', () => {
+  it('focuses the prefilled title and labels the sole form action Task 만들기', async () => {
+    const input = await openConvertForm();
+    expect(input).toHaveFocus();
+    expect((input as HTMLInputElement).value).not.toBe('');
+    expect(screen.getByTestId('task-request-convert-submit')).toHaveTextContent('Task 만들기');
+    const decisionSection = screen
+      .getByRole('heading', { name: '검토 결정' })
+      .closest('section') as HTMLElement;
+    const primaryActions = within(decisionSection)
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('bg-accent-primary'));
+    expect(primaryActions).toEqual([screen.getByTestId('task-request-convert-submit')]);
+  });
+
   it('AC-C6a parses the generated default title with the canonical conversion schema', async () => {
     const input = await openConvertForm();
     expect(

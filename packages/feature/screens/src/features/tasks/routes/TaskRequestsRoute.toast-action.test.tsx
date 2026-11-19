@@ -227,14 +227,18 @@ describe('TaskRequestsRoute approve toast action (#1293)', () => {
     api.resolveActors.mockResolvedValue({ actors: [], teams: [] });
   });
 
-  it('opens the approved request, not the first approved row, after the queue auto-advanced', async () => {
+  it('keeps the approved request open and the toast action reopens it after Next request', async () => {
     render(<Harness client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />);
     await screen.findByRole('heading', { name: '검토 결정' });
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
-    // The queue advanced to the next pending request.
+
+    // Approval retains the request so conversion remains the primary action.
+    await waitFor(() => expect(detailSlotText()).toContain('REQ-1001'));
+    expect(screen.getByRole('button', { name: 'Task로 전환' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '다음 요청' }));
     await waitFor(() => expect(detailSlotText()).toContain('REQ-1007'));
 
     act(() => toast.success.mock.calls[0]?.[1].action.onClick());

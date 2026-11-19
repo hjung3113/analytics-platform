@@ -198,9 +198,12 @@ as the other surfaces.
 - Browser refresh on a selected URL restores AppShell, list context, and selected detail when data is accessible.
 - Finding, Task list, Task Request queue, VOC Inbox and 내 VOC screens load cursor pages of 50 rows
   using the shipped load-more control. Finding and Task counts use the first
-  page's exact total. Task Request badges and global-empty state use a separate
-  unfiltered `limit=1` summary; active-tab pages send the server status filter.
-  Badges stay unknown until that summary succeeds. The Task board is bounded (#1178):
+  page's exact total. With reviewer filters active, Task Request's five badges
+  (`전체` and the four status tabs) use one filtered `limit=1` summary with the
+  same scope and reviewer filters as the list. The global-empty state uses a
+  separate summary without reviewer filters; active-tab pages send the server
+  status filter. Badges stay unknown until the current-filter summary succeeds.
+  The Task board is bounded (#1178):
   grouped by status, each of the seven status columns runs its own paged read
   (`status`, `limit=50`, cursor) with the board's scope, `q`, `public_update` and
   personal filters, shows that read's exact first-page total in its header, and ends
@@ -227,16 +230,19 @@ as the other surfaces.
   notice in the detail panel, and no other Cluster opens; a resolved Cluster outside the active
   Managed System scope or tab is reconciled away. Task Request explicit selections never fall back
   to another row while unresolved. Review decisions refresh page and
-  summary caches while keeping the current tab. If the decided request leaves
-  the tab, select the next loaded row in visible order, otherwise the preceding
+  summary caches while keeping the current tab. Approval keeps the approved
+  request selected across refresh even when it leaves the current tab; the panel
+  offers conversion and a separate next-request action. Rejection and additional
+  evidence select the next loaded row in visible order, otherwise the preceding
   row. If no loaded rows remain, fetch remaining cursor pages before claiming
   emptiness; preserve loading/error/retry until that read settles. The all tab
   (or any matching-status tab) keeps a request that still belongs.
 - Without an explicit `param`, changing the Task list view or either Task screen's
   Managed System scope, or switching a Task Request status tab, resets the panel
   selection to the new context's first row (or none when empty). An explicit
-  `param` remains authoritative; review completion replaces it with the next
-  current-tab selection (or clears it while remaining pages reconcile). Explicit
+  `param` remains authoritative; approval retains the approved request's `param`,
+  while rejection and additional-evidence completion replace it with the next
+  current-tab selection (or clear it while remaining pages reconcile). Explicit
   deep links still align to a request's status tab once; manual tab changes persist.
 - Task Request row selection pushes `param` while preserving the current search
   context. Task list row selection also pushes `param` while preserving the current
@@ -255,18 +261,24 @@ as the other surfaces.
   The notice clears on row selection, a tab/view or scope change, or a new defined
   `param`; removing `param` during cleanup does not clear it. First-row auto-selection
   stays local and runs only without an explicit `param`, a closed panel, or the notice.
-  Review decisions replace `param` with the current-tab selection, reconciling
-  it after refetch so refresh restores that selection.
+  Rejection and additional-evidence decisions replace `param` with the
+  current-tab selection, reconciling it after refetch so refresh restores that
+  selection. Approval keeps the approved request URL-selected until the reviewer
+  chooses `다음 요청` or navigates away.
 - Task Request status tabs stay mounted during initial load, uncached-tab loading,
   cached refresh, and queue errors/permission denial; loading/error content replaces
   only the list body. Empty/rows motion boundaries keep their existing context keys.
   A manual tab or scope change still reconciles selection by the rules above.
-- Approval/rejection/additional-evidence completion retains the old panel and
-  successful dialog content until the newly selected current-tab row (or a
-  confirmed empty-state heading with `tabIndex=-1`) receives focus while the
-  content is still connected. The dialog releases its trap before handoff,
-  respects its exit animation, and reconciles deferred close autofocus. A failed
-  remaining-page read offers retry in the retained dialog. Cancel/Escape keep
+- Rejection/additional-evidence completion retains the old panel and successful
+  dialog content until the newly selected current-tab row (or a confirmed
+  empty-state heading with `tabIndex=-1`) receives focus while the content is
+  still connected. Approval closes its dialog after success, retains the approved
+  panel, and focuses `Task로 전환`; opening conversion focuses the prefilled title.
+  `다음 요청` is disabled with a visible reason when no other request is waiting.
+  The dialog releases its trap before handoff, respects its exit animation, and
+  reconciles deferred close autofocus. A failed remaining-page read during
+  rejection or additional-evidence handoff offers retry in the retained dialog.
+  Cancel/Escape keep
   opener restoration; newer openings, selections, and manual tabs own focus.
   Action-specific success copy names the decision; approval explains that Task
   conversion is a separate next step. Automatic conversion explains configured

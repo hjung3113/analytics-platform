@@ -87,6 +87,9 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     originParam: string | null;
     expectedId: string | null;
   } | null>(null);
+  const clearHandoff = useCallback(() => {
+    setHandoff(null);
+  }, []);
   const listRef = useRef<HTMLDivElement>(null);
   const replaceSelection = useCallback(
     (id: string | null, replace: boolean) => {
@@ -160,20 +163,20 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
       if (heading) {
         heading.tabIndex = -1;
         heading.focus();
-        setHandoff(null);
+        clearHandoff();
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [queue.permissionDeniedError, handoff]);
+  }, [queue.permissionDeniedError, handoff, clearHandoff]);
   const panelItem = retainedPanel?.item ?? queue.selected;
   const completeDecision = (result: TaskRequestDto) => {
     if (
-      document.activeElement?.closest('[role="dialog"]') &&
       queue.selected?.id === result.id &&
-      ['approved', 'rejected', 'needs_more_evidence'].includes(result.status)
+      ['approved', 'rejected', 'needs_more_evidence'].includes(result.status) &&
+      (result.status === 'approved' || document.activeElement?.closest('[role="dialog"]'))
     ) {
       setHandoff({
-        item: queue.selected,
+        item: result.status === 'approved' ? result : queue.selected,
         names: queue.names,
         context,
         result,
@@ -184,8 +187,11 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     queue.onDecisionComplete(result);
   };
   const completedFocusTarget = (result: TaskRequestDto) => {
-    if (!retainedPanel || retainedPanel.result !== result || queue.hasError || queue.isLoading)
-      return null;
+    if (!retainedPanel || retainedPanel.result !== result) return null;
+    if (result.status === 'approved') {
+      return document.querySelector<HTMLElement>('[data-testid="task-request-convert-action"]');
+    }
+    if (queue.hasError || queue.isLoading) return null;
     if (queue.selectedId !== null) {
       return (
         listRef.current?.querySelector<HTMLElement>(`[data-request-id="${queue.selectedId}"]`) ??
@@ -230,9 +236,9 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
 
   const activeTabLabel =
     queue.tabs.find((tab) => tab.value === queue.activeTab)?.label ?? queue.activeTab;
-  // A reviewer filter changes which branch a zero-page takes: the row exists in
-  // the scope-wide tab count but is not the viewer's — never call it empty.
-  const isReviewFilteredEmpty = reviewerFilterActive && queue.shown.length === 0 && queue.hasItems;
+  // Offer clearing reviewer filters when requests exist outside the filtered list.
+  const isReviewFilteredEmpty =
+    reviewerFilterActive && queue.hasItems && queue.shown.length === 0;
   const isPendingEmpty =
     !reviewerFilterActive &&
     queue.shown.length === 0 &&
@@ -245,8 +251,11 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     queue.activeTab !== 'pending_review' &&
     queue.activeTab !== 'all';
 
+  // Approval is complete independently of queue reads; its cached detail still owns conversion.
   const detail =
-    queue.hasError && !retainedPanel
+    queue.hasError &&
+    !retainedPanel &&
+    (queue.permissionDeniedError !== null || queue.recentlyApprovedRequestId === null)
       ? null
       : queue.linkMissing
         ? null
@@ -260,8 +269,15 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                 currentRole: queue.currentRole,
                 // #2530: decisions only for a row of the shown list. The post-decision handoff keeps its own item.
                 outsideList:
-                  retainedPanel === null && !queue.shown.some((row) => row.id === panelItem.id),
+                  queue.recentlyApprovedRequestId !== panelItem.id &&
+                  retainedPanel === null &&
+                  !queue.shown.some((row) => row.id === panelItem.id),
                 ...(titleInHeader ? { titleInHeader } : {}),
+                recentlyApproved: queue.recentlyApprovedRequestId === panelItem.id,
+                hasNextRequest: queue.hasNextRequest,
+                onNextRequest: () => {
+                  void queue.goToNextRequest();
+                },
                 onClose: () => {
                   if (queue.selectedId !== null) returnFocus(queue.selectedId);
                   queue.setSelectedId(null);
@@ -269,7 +285,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                 onDecisionComplete: completeDecision,
                 onReopenRequest: queue.reopenRequest,
                 getCompletedFocusTarget: completedFocusTarget,
-                onDecisionCloseComplete: () => setHandoff(null),
+                onDecisionCloseComplete: clearHandoff,
                 decisionRecovery:
                   retainedPanel && (queue.hasError || queue.loadMoreError) ? (
                     <div role="alert">
@@ -297,7 +313,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
               tabs={queue.tabs}
               activeTab={queue.activeTab}
               onTabChange={(next) => {
-                setHandoff(null);
+                clearHandoff();
                 queue.setActiveTab(next as TaskRequestTab);
               }}
               action={
@@ -373,7 +389,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                       selected={queue.selected?.id === item.id}
                       names={retainedPanel?.names ?? queue.names}
                       onSelect={(id) => {
-                        setHandoff(null);
+                        clearHandoff();
                         queue.setSelectedId(id);
                       }}
                       rowRef={(element) => {

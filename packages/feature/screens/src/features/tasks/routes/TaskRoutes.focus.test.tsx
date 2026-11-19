@@ -255,7 +255,7 @@ function createTasksRouter(
   });
   return { router, history };
 }
-function mount(view: 'requests' | 'backlog') {
+function mount(view: 'requests' | 'backlog' | 'board') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const { router } = createTasksRouter(view, (children) => (
     <DetailPanelHost>{children}</DetailPanelHost>
@@ -267,6 +267,37 @@ function mount(view: 'requests' | 'backlog') {
   );
   return { client, router };
 }
+
+it.each([
+  ['/flow/task-list?focus=<task-id>', 'backlog'],
+  ['/flow/tasks?focus=<task-id>', 'board'],
+] as const)(
+  'shows the Task status Select when a Task Request link opens detail through %s',
+  async (_path, view) => {
+    const sourceTaskRequestId = '70000000-0000-4000-8000-000000000007';
+    const detail = vi.spyOn(api, 'getTask').mockResolvedValue({
+      ...task,
+      source_task_request_id: sourceTaskRequestId,
+      source: {
+        task_request: {
+          id: sourceTaskRequestId,
+          display_id: 'REQ-42',
+          status: 'converted',
+        },
+      },
+    });
+    const mounted = mount(view);
+    try {
+      expect(await screen.findByRole('combobox', { name: '상태' })).toBeInTheDocument();
+      expect(mounted.router.state.location.search.param).toBe(request.id);
+    } finally {
+      cleanup();
+      mounted.client.clear();
+      detail.mockRestore();
+    }
+  },
+);
+
 // Real fullscreen host (acceptance D/E): the real AppFrame renders <main hidden>
 // while the panel is expanded, so the row is inside a [hidden] ancestor on close.
 function mountWithFrame(view: 'backlog') {
@@ -512,15 +543,20 @@ it.each(['approved', 'rejected'] as const)(
       const dialog = await screen.findByRole('dialog');
       await user.type(within(dialog).getByRole('textbox'), '검토 완료');
       await user.click(within(dialog).getByRole('button', { name: action }));
-      const nextRow = await screen.findByRole('button', { name: new RegExp(request2.display_id) });
-      await waitFor(() => expect(nextRow).toHaveFocus());
+      const focusTarget =
+        status === 'approved'
+          ? await screen.findByRole('button', { name: 'Task로 전환' })
+          : await screen.findByRole('button', { name: new RegExp(request2.display_id) });
+      await waitFor(() => expect(focusTarget).toHaveFocus());
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
-      expect(document.activeElement).toBe(nextRow);
+      expect(document.activeElement).toBe(focusTarget);
       await act(async () => resolvePage(taskRequestPage([request2])));
-      expect(document.activeElement).toBe(nextRow);
-      expect(router.state.location.search.param).toBe(request2.id);
+      expect(document.activeElement).toBe(focusTarget);
+      expect(router.state.location.search.param).toBe(
+        status === 'approved' ? request.id : request2.id,
+      );
     } finally {
       cleanup();
       client.clear();
@@ -531,13 +567,9 @@ it.each(['approved', 'rejected'] as const)(
   },
 );
 
-it.each(
-  (['approved', 'rejected'] as const).flatMap((status) =>
-    [false, true].map((expanded) => ({ status, expanded })),
-  ),
-)(
-  'keeps the sole needs-more-evidence dialog connected until confirmed empty after $status expanded=$expanded',
-  async ({ status, expanded }) => {
+it.each([false, true] as const)(
+  'keeps the rejection dialog connected until confirmed empty expanded=%s',
+  async (expanded) => {
     const row = { ...request, status: 'needs_more_evidence' as const };
     let release!: (value: Awaited<ReturnType<typeof api.fetchTaskRequests>>) => void;
     let decided = false;
@@ -550,12 +582,10 @@ it.each(
       return taskRequestPage(query?.status === row.status ? [row] : [], query);
     });
     const detail = vi.spyOn(api, 'getTaskRequest').mockResolvedValue(row);
-    const mutation = vi
-      .spyOn(api, status === 'approved' ? 'approveTaskRequest' : 'rejectTaskRequest')
-      .mockImplementation(async () => {
-        decided = true;
-        return { ...row, status };
-      });
+    const mutation = vi.spyOn(api, 'rejectTaskRequest').mockImplementation(async () => {
+      decided = true;
+      return { ...row, status: 'rejected' };
+    });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { router } = createTasksRouter('requests', (children) => (
       <AppFrame activeDomain="tasks" sidebarEntries={[]}>
@@ -589,7 +619,7 @@ it.each(
         ),
       );
       if (expanded) fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
-      const action = status === 'approved' ? '승인' : '반려';
+      const action = '반려';
       fireEvent.click(screen.getByRole('button', { name: action }));
       dialog = await screen.findByRole('dialog');
       fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
@@ -620,10 +650,10 @@ it.each(
   },
 );
 
-it('collapses an expanded decision panel before the next row receives focus', async () => {
+it('collapses an expanded rejection panel before the next row receives focus', async () => {
   const mutation = vi
-    .spyOn(api, 'approveTaskRequest')
-    .mockResolvedValue({ ...request, status: 'approved' });
+    .spyOn(api, 'rejectTaskRequest')
+    .mockResolvedValue({ ...request, status: 'rejected' });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const { router } = createTasksRouter('requests', (children) => (
     <AppFrame activeDomain="tasks" sidebarEntries={[]}>
@@ -645,10 +675,10 @@ it('collapses an expanded decision panel before the next row receives focus', as
     await screen.findByRole('heading', { name: '검토 결정' });
     fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
     expect(screen.getByTestId('app-main')).toHaveProperty('hidden', true);
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('button', { name: '반려' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
     await waitFor(() => expect(hiddenAtFocus).toBe(false));
     expect(screen.getByRole('button', { name: /REQ-1072/ })).toHaveFocus();
   } finally {
@@ -659,16 +689,11 @@ it('collapses an expanded decision panel before the next row receives focus', as
   }
 });
 
-it('keeps the sole URL-selected row connected through delayed refetch and remaining pages', async () => {
+it('keeps the approved request selected through a delayed current-tab refetch', async () => {
   let decided = false;
   let releasePage!: (value: Awaited<ReturnType<typeof api.fetchTaskRequests>>) => void;
-  let releaseNext!: (value: Awaited<ReturnType<typeof api.fetchTaskRequests>>) => void;
   const fetch = vi.spyOn(api, 'fetchTaskRequests').mockImplementation(async (query) => {
     if (query?.limit === 1) return taskRequestPage(requests);
-    if (query?.cursor)
-      return new Promise((resolve) => {
-        releaseNext = resolve;
-      });
     if (decided)
       return new Promise((resolve) => {
         releasePage = resolve;
@@ -692,20 +717,23 @@ it('keeps the sole URL-selected row connected through delayed refetch and remain
     await screen.findByRole('heading', { name: '검토 결정' });
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
+    fireEvent.change(within(dialog).getByRole('textbox'), {
+      target: { value: '검토 완료' },
+    });
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
-    await waitFor(() => expect(router.state.location.search.param).toBeUndefined());
-    expect(dialog.isConnected).toBe(true);
-    await act(async () =>
-      releasePage({ items: [], page: { has_more: true, cursor: 'next-page', total: 1 } }),
-    );
-    await waitFor(() => expect(releaseNext).toBeTypeOf('function'));
-    expect(dialog.isConnected).toBe(true);
-    expect(screen.queryByText('검토 대기 중인 Task 요청이 없습니다')).not.toBeInTheDocument();
-    await act(async () => releaseNext(taskRequestPage([request2])));
-    await waitFor(() => expect(screen.getByRole('button', { name: /REQ-1072/ })).toHaveFocus());
-    expect(router.state.location.search.param).toBe(request2.id);
+    const convert = await screen.findByRole('button', { name: 'Task로 전환' });
+    await waitFor(() => expect(convert).toHaveFocus());
+    await waitFor(() => expect(releasePage).toBeTypeOf('function'));
+    expect(router.state.location.search.param).toBe(request.id);
     expect(dialog.isConnected).toBe(false);
+    await act(async () =>
+      releasePage({ items: [], page: { has_more: false, total: 1 } }),
+    );
+    await settleQueries(client);
+    expect(router.state.location.search.param).toBe(request.id);
+    expect(screen.getAllByText('승인됨').some((element) => element.className.includes('rounded-sm')))
+      .toBe(true);
+    expect(screen.getByRole('button', { name: 'Task로 전환' })).toHaveFocus();
   } finally {
     cleanup();
     client.clear();
@@ -714,20 +742,65 @@ it('keeps the sole URL-selected row connected through delayed refetch and remain
   }
 });
 
-it.each(['refetch error', 'focus refusal'] as const)(
-  'bounds decision focus work after %s and retains connected content',
-  async (failure) => {
+it('closes approval and leaves a failed current-tab refetch to the list retry', async () => {
+  let decided = false;
+  let recovered = false;
+  let failPage!: (error: Error) => void;
+  const fetch = vi.spyOn(api, 'fetchTaskRequests').mockImplementation(async (query) => {
+    if (query?.limit === 1) return taskRequestPage(requests);
+    if (!decided) return taskRequestPage([request], query);
+    if (recovered) return taskRequestPage([request2], query);
+    return new Promise((_resolve, reject) => {
+      failPage = reject;
+    });
+  });
+  const mutation = vi.spyOn(api, 'approveTaskRequest').mockImplementation(async () => {
+    decided = true;
+    return { ...request, status: 'approved' };
+  });
+  const { client } = mount('requests');
+  try {
+    await screen.findByRole('heading', { name: '검토 결정' });
+    await settleQueries(client);
+    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
+    await waitFor(() => expect(failPage).toBeTypeOf('function'));
+    await act(async () =>
+      failPage(new ApiError(500, { code: 'internal.unexpected', message: 'temporary failure' })),
+    );
+    await waitFor(() =>
+      expect(
+        client
+          .getQueryCache()
+          .findAll({ queryKey: ['task-requests', scope, 'pages'] })
+          .some((query) => query.state.error !== null),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const convert = screen.getByRole('button', { name: 'Task로 전환' });
+    await waitFor(() => expect(convert).toHaveFocus());
+    expect(screen.getByText('Task 요청 목록을 불러오지 못했습니다')).toBeVisible();
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    expect(retry).toBeVisible();
+    const readsBeforeRetry = fetch.mock.calls.length;
+    recovered = true;
+    fireEvent.click(retry);
+    await waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(readsBeforeRetry));
+  } finally {
+    cleanup();
+    client.clear();
+    fetch.mockRestore();
+    mutation.mockRestore();
+  }
+});
+
+it('bounds focus work when the Task conversion action refuses focus', async () => {
     let decided = false;
-    let recovered = false;
-    let failPage!: (error: Error) => void;
     const fetch = vi.spyOn(api, 'fetchTaskRequests').mockImplementation(async (query) => {
       if (query?.limit === 1) return taskRequestPage(requests);
-      if (!decided)
-        return taskRequestPage(failure === 'refetch error' ? [request] : requests, query);
-      if (recovered || failure === 'focus refusal') return taskRequestPage([request2], query);
-      return new Promise((_resolve, reject) => {
-        failPage = reject;
-      });
+      return taskRequestPage(decided ? [request2] : requests, query);
     });
     const mutation = vi.spyOn(api, 'approveTaskRequest').mockImplementation(async () => {
       decided = true;
@@ -742,32 +815,30 @@ it.each(['refetch error', 'focus refusal'] as const)(
     const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
       frames.delete(id);
     });
-    const { client } = mount('requests');
+    const { client, router } = mount('requests');
     let focus: ReturnType<typeof vi.spyOn> | undefined;
+    let blockedFocusCalls = 0;
+    const nativeFocus = HTMLElement.prototype.focus;
     try {
       await screen.findByRole('heading', { name: '검토 결정' });
       await settleQueries(client);
-      if (failure === 'focus refusal') {
-        const target = screen.getByRole('button', { name: /REQ-1072/ });
-        focus = vi.spyOn(target, 'focus').mockImplementation(() => {});
-      }
+      focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
+        this: HTMLElement,
+        options,
+      ) {
+        if (this.dataset.testid === 'task-request-convert-action') {
+          blockedFocusCalls += 1;
+          return;
+        }
+        nativeFocus.call(this, options);
+      });
       fireEvent.click(screen.getByRole('button', { name: '승인' }));
       const dialog = await screen.findByRole('dialog');
       fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '검토 완료' } });
       fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
-      if (failure === 'refetch error') {
-        await waitFor(() => expect(failPage).toBeTypeOf('function'));
-        await act(async () =>
-          failPage(
-            new ApiError(500, { code: 'internal.unexpected', message: 'temporary failure' }),
-          ),
-        );
-        await within(dialog).findByRole('button', { name: '다시 시도' });
-      } else {
-        await waitFor(() => expect(focus).toHaveBeenCalled());
-      }
+      await waitFor(() => expect(blockedFocusCalls).toBeGreaterThan(0));
       await settleQueries(client);
-      const attemptsBeforeFrames = focus?.mock.calls.length ?? 0;
+      const attemptsBeforeFrames = blockedFocusCalls;
       for (let frame = 0; frame < 50; frame++) {
         await act(async () => {
           const pending = [...frames.values()];
@@ -777,19 +848,12 @@ it.each(['refetch error', 'focus refusal'] as const)(
       }
       expect(frames.size).toBe(0);
       if (focus) {
-        expect(focus.mock.calls.length).toBeGreaterThan(0);
-        expect(focus.mock.calls.length - attemptsBeforeFrames).toBeLessThanOrEqual(10);
+        expect(blockedFocusCalls).toBeGreaterThan(0);
+        expect(blockedFocusCalls - attemptsBeforeFrames).toBeLessThanOrEqual(10);
       }
       expect(dialog.isConnected).toBe(true);
-      expect(within(dialog).getByRole('textbox')).toHaveValue('검토 완료');
-      if (failure === 'refetch error') {
-        const retry = within(dialog).getByRole('button', { name: '다시 시도' });
-        expect(retry).toBeVisible();
-        recovered = true;
-        fireEvent.click(retry);
-        await waitFor(() => expect(screen.getByRole('button', { name: /REQ-1072/ })).toHaveFocus());
-        expect(dialog.isConnected).toBe(false);
-      }
+      expect(dialog).toHaveAttribute('data-state', 'closed');
+      expect(router.state.location.search.param).toBe(request.id);
     } finally {
       focus?.mockRestore();
       cleanup();
@@ -799,8 +863,7 @@ it.each(['refetch error', 'focus refusal'] as const)(
       fetch.mockRestore();
       mutation.mockRestore();
     }
-  },
-);
+  });
 
 it('opens the converted Task from the persistent toast action through the real router', async () => {
   const row = { ...request, status: 'approved' as const, source_type: 'voc' as const };
@@ -909,6 +972,11 @@ it.each([10, 60])(
       await user.type(within(dialog).getByRole('textbox'), '검토 완료');
       await user.click(within(dialog).getByRole('button', { name: '승인' }));
       await waitFor(() => expect(success).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Task로 전환' })).toHaveFocus(),
+      );
+      await user.click(screen.getByRole('button', { name: '패널 닫기' }));
+      await waitFor(() => expect(router.state.location.search.param).toBeUndefined());
       const action = success.mock.calls[0]?.[1]?.action;
       if (!action || typeof action !== 'object' || !('onClick' in action))
         throw new Error('Expected a toast action');

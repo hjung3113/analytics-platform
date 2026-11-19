@@ -56,8 +56,8 @@ response body (always paged): { items: TaskRequestDto[], page: { has_more, curso
   total only on the first page (no cursor), visible rows under the same filters
   status_counts only on the first page without a status filter; keys:
     pending_review, approved, rejected, needs_more_evidence, converted
-    values count visible rows under the workspace/Managed System authority scope,
-    ignoring personal reviewer filters, including zeros
+    values count visible rows under the same workspace/Managed System and reviewer
+    filters as total, except status, including zeros
 validation: invalid cursor -> 422 validation.failed,
   detail.fields: [{ path: ['cursor'], code: 'invalid_cursor' }]
   invalid limit -> 422 validation.failed (query-validation envelope)
@@ -615,6 +615,8 @@ queue routing; no member-derived Area is inferred. Source commands consume the e
 source-owned Finding/VOC locks and Core-owned `lockAnalyticsArea` owner-team input.
 
 Reviewer/assignee filters apply before list paging and matching total counts. Task Request
-status counts and the separate queue summary stay scope-wide. Home sends `reviewer=me`
-under Actor-and-scope cache keys and never treats team membership as personal assignment.
+status counts use the same workspace/Managed System, reviewer and reviewer-team filters as
+total, ignoring the status filter. A read without reviewer filters returns scope-wide counts.
+Home sends `reviewer=me` under Actor-and-scope cache keys and never treats team membership
+as personal assignment.
 Assignment, decision and conversion refresh source detail/list and personal Home caches.

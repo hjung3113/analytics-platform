@@ -65,6 +65,12 @@ Depends on:
 ```
 
 Task status is not the same as Reporter-facing VOC Status.
+Task Detail exposes the same seven status destinations as the Task board to Admins
+and Developers with `finding.manage` on the Task's Primary Managed System. A change
+uses the board's status mutation and optimistic recovery behavior. The labelled
+Select keeps the current value readable when disabled; its visible permission
+reason is connected with `aria-describedby`, and pending or failed writes show
+inline feedback.
 
 Standalone Tasks are valid. A Task may be created from internal planning without VOC, Survey, Finding, Evidence, or reporter-facing context. Every Task requires exactly one Primary Managed System in MVP.
 
@@ -86,7 +92,7 @@ UI language must keep Task Request and Task separate:
 ```text
 - Use "Request Task" when creating an execution candidate from VOC, VOC Cluster, Finding, or Survey-derived Finding.
 - Use "Convert to Task" when an approved Task Request becomes a Backlog Task.
-- Use "Create Task" only for standalone internal Tasks created from the Tasks surface (standalone create is deferred, FO ADR-0027).
+- Use "Create Task" for standalone internal Tasks from the Tasks surface and as the submit action inside an approved Task Request's already-open conversion form (standalone create remains deferred, FO ADR-0027).
 - Do not label VOC, Finding, or Survey follow-up actions as "Create Task".
 - Task Request screens are review/intake surfaces; Task screens are execution backlog, board, and detail surfaces.
 ```
@@ -205,11 +211,18 @@ conversion until another explicit choice is made. Preserve an explicit Area or
 `없음` choice across same-request refetches; selecting a different Task Request
 resets the conversion form.
 
-A successful review decision updates the canonical queue row and keeps the
-current tab. Keep the request selected if it still belongs to that tab; otherwise
-select the next row, or the previous row when deciding the last loaded row.
-Retain the decision panel/dialog until focus reaches the next selection or the
-confirmed empty-state heading after fresh data and remaining pages settle.
+An approval updates the canonical queue row and keeps that approved request
+selected, including when it leaves the current tab. The panel shows the approved
+status, makes `Convert to Task` its primary action, and moves focus there after the
+approval dialog closes. The conversion form focuses its prefilled title and uses
+`Create Task` for its submit action. `Next Request` selects the next request in
+the current filtered queue; it is disabled with an explanation when there is no
+other loaded request and no remaining page. Rejecting or requesting more evidence
+continues to select the next visible row, or the previous row when deciding the
+last loaded row. If no loaded rows remain, fetch remaining cursor pages before
+claiming emptiness. For those decisions, retain the decision panel/dialog until
+focus reaches the next selection or the confirmed empty-state heading after
+fresh data settles.
 Revisiting the request must not replay an old result over newer row state or
 change the current tab.
 
@@ -449,6 +462,7 @@ Converted Task has `assignee_team_id` paired with `assignee_actor_id`.
 Use the owner resolver on omission, explicit Actor/team/null when permitted, retain Backlog,
 links/audit/idempotency, and notify only a concrete Actor once. Defaults change no existing
 assignments. Source-owned display/edit/filter and Home assigned-reviewer filter shipped with
-fields; personal views do not invent team membership or narrow operational totals.
+fields; personal views do not invent team membership. Home and Dashboard summary counts stay
+scope-wide; Task Request queue badges count the list under active reviewer filters.
 The older conversion assignee validation/status text describes shipped behavior; FO ADR-0067
 supersedes it only for explicit responsibility validation and default/null routing.

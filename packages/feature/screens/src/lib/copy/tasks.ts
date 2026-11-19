@@ -51,6 +51,12 @@ export const TASK_MILESTONE_COPY = {
     label === null ? `현재: ${TASK_MILESTONE_COPY.none}` : `현재: ${label}`,
 } as const;
 
+export const TASK_STATUS_CONTROL_COPY = {
+  select: '상태',
+  permissionRequired: 'Task 상태를 바꾸려면 Admin 또는 이 시스템의 Finding 관리 권한이 필요합니다.',
+  updating: '상태를 저장하는 중…',
+} as const;
+
 export const TASK_REPORT_FILTER_COPY = {
   status: (label: string) => `상태: ${label}`,
   inFlight: '상태: 할 일·진행 중·검토',

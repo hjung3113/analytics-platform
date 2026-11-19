@@ -15,6 +15,7 @@ import {
   SelectValue,
   useImeEnterGuard,
 } from '@ap/ui';
+import * as React from 'react';
 
 import { useResponsibilityIdentityNames } from '../../components/ResponsibilityEditor';
 
@@ -47,6 +48,9 @@ export function TaskRequestConversionForm({
   eligibleActors: readonly WorkspaceActor[];
 }) {
   const ime = useImeEnterGuard();
+  React.useEffect(() => {
+    conversion.titleInputRef.current?.focus();
+  }, [conversion.titleInputRef]);
   const candidateTeamIds = [
     ...new Set([...teamCandidates, ...(conversion.teamId ? [conversion.teamId] : [])]),
   ];
@@ -289,7 +293,7 @@ export function TaskRequestConversionForm({
         disabled={!conversion.canSubmit}
         data-testid="task-request-convert-submit"
       >
-        Task로 전환
+        {TASK_REQUEST_COPY.createTask}
       </Button>
     </form>
   );

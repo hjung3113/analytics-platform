@@ -13,6 +13,7 @@ import {
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { REPORTER_STATUS_LABELS } from '../../../lib/copy/reporter-status-labels';
+import { TASK_STATUS_CONTROL_COPY } from '../../../lib/copy/tasks';
 import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
 import type { DetailParts, DetailPartsOptions } from '../../../lib/host/detail-parts';
 import { formatRecordDocumentTitle } from '../../../lib/host/document-title-format';
@@ -36,6 +37,11 @@ import {
   PanelSectionTitle,
   PanelTitleBlock,
   PermissionBlockedPanel,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   SkeletonBlocks,
 } from '@ap/ui';
@@ -46,6 +52,8 @@ import { useTaskManagedSystems } from '../adapters/taskDisplayAdapters';
 import { ResponsibilityEditor } from './ResponsibilityEditor';
 import { TaskMilestoneEditor } from './TaskMilestoneEditor';
 import { TaskOutcomeSurveysSection } from './TaskOutcomeSurveysSection';
+import { TASK_BOARD_STATUS_COLUMNS } from '../hooks/useTaskBoardData';
+import { useTaskStatusTransition } from '../hooks/useTaskStatusTransition';
 
 const PRIORITY_SEVERITY: Record<TaskDetailDto['priority'], 'low' | 'medium' | 'high' | 'critical'> =
   {
@@ -216,6 +224,13 @@ export function useTaskDetailParts({
   // Task's Managed System — the same rule behind the responsibility editor.
   const canManageAssignment =
     me?.actor.role_level === 'admin' || (me?.actor.role_level === 'developer' && canManageNotes);
+  const statusPermissionReasonId = React.useId();
+  const showStatusPermissionReason =
+    me !== undefined && notesManageQuery.isSuccess && !canManageAssignment;
+  const statusTransition = useTaskStatusTransition(
+    { mode: 'detail', detailKey: ['task', taskId] },
+    `task-detail:${taskId}`,
+  );
 
   const base = { requestClose: onClose };
 
@@ -352,7 +367,49 @@ export function useTaskDetailParts({
 
           <div data-anchor="properties" className="border-t border-border-subtle py-2">
             <PanelSectionTitle inset="panel">속성</PanelSectionTitle>
-            <FieldRow label="상태">{TASK_STATUS_LABELS[task.status]}</FieldRow>
+            <FieldRow label={TASK_STATUS_CONTROL_COPY.select}>
+              <div className="flex flex-col gap-1">
+                <Select
+                  value={task.status}
+                  disabled={!canManageAssignment || statusTransition.isPending}
+                  onValueChange={(status) =>
+                    statusTransition.mutate({ task, status: status as TaskStatus })
+                  }
+                >
+                  <SelectTrigger
+                    aria-label={TASK_STATUS_CONTROL_COPY.select}
+                    data-testid="task-status-select"
+                    {...(showStatusPermissionReason
+                      ? { 'aria-describedby': statusPermissionReasonId }
+                      : {})}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_BOARD_STATUS_COLUMNS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {TASK_STATUS_LABELS[status]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {showStatusPermissionReason && (
+                  <span id={statusPermissionReasonId} className="text-xs text-text-muted">
+                    {TASK_STATUS_CONTROL_COPY.permissionRequired}
+                  </span>
+                )}
+                {statusTransition.isPending && (
+                  <span role="status" className="text-xs text-text-muted">
+                    {TASK_STATUS_CONTROL_COPY.updating}
+                  </span>
+                )}
+                {statusTransition.isError && (
+                  <span role="alert" className="text-xs text-accent-danger">
+                    {mapUnknownError(statusTransition.error).message}
+                  </span>
+                )}
+              </div>
+            </FieldRow>
             <FieldRow label="우선순위">{TASK_PRIORITY_LABELS[task.priority]}</FieldRow>
             <FieldRow label="담당자">
               <ResponsibilityEditor

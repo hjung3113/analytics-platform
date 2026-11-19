@@ -200,7 +200,7 @@ describe.skipIf(!runIntegration)('task-request list managed_system_id filter (#3
     return body.items.map((item) => item.id);
   }
 
-  it('filters assigned Actor/team before paging and keeps operational status totals scope-wide', async () => {
+  it('filters assigned Actor/team before paging and counts total and status_counts under the same filters', async () => {
     const teamId = await insertTeamDirectly(migrateHandle, WORKSPACE_ID, uid(SLUG_PREFIX));
     teamIds.push(teamId);
     await migrateHandle.pool.query(
@@ -222,6 +222,25 @@ describe.skipIf(!runIntegration)('task-request list managed_system_id filter (#3
       'update task_request.task_requests set assigned_reviewer_team_id = $1 where id = $2',
       [teamId, teamRequest.id],
     );
+    const approvedVoc = await insertVocDirectly(
+      dbHandle,
+      WORKSPACE_ID,
+      msAId,
+      userActorId,
+      'Task request approved status count VOC',
+    );
+    const approvedRequest = await insertTaskRequestRow(migrateHandle, {
+      workspaceId: WORKSPACE_ID,
+      sourceType: 'voc',
+      sourceId: approvedVoc.id,
+      primaryManagedSystemId: msAId,
+      requesterActorId: userActorId,
+      status: 'approved',
+    });
+    await migrateHandle.pool.query(
+      'update task_request.task_requests set assigned_reviewer_actor_id = $1 where id = $2',
+      [adminActorId, approvedRequest.id],
+    );
     await insertTaskRequestRow(migrateHandle, {
       workspaceId: WORKSPACE_ID,
       sourceType: 'voc',
@@ -229,26 +248,72 @@ describe.skipIf(!runIntegration)('task-request list managed_system_id filter (#3
       primaryManagedSystemId: msAId,
       requesterActorId: userActorId,
     });
-    const read = (filter: string) =>
+    const read = (filter = '', limit = 1) =>
       app.inject({
         method: 'GET',
-        url: `/task-requests?limit=1&${filter}`,
+        url: `/task-requests?${filter ? `${filter}&` : ''}limit=${limit}`,
         headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
       });
     const mine = await read('reviewer=me');
     expect(mine.statusCode).toBe(200);
-    expect(mine.json().items.map((row: { id: string }) => row.id)).toEqual([requestAId]);
     expect(mine.json().page).toMatchObject({
-      total: 1,
-      has_more: false,
-      status_counts: { pending_review: 4 },
+      total: 2,
+      has_more: true,
+      status_counts: {
+        pending_review: 1,
+        approved: 1,
+        rejected: 0,
+        needs_more_evidence: 0,
+        converted: 0,
+      },
     });
-    expect(
-      (await read(`reviewer=${userActorId}`)).json().items.map((row: { id: string }) => row.id),
-    ).toEqual([requestBId]);
-    expect(
-      (await read(`reviewer_team_id=${teamId}`)).json().items.map((row: { id: string }) => row.id),
-    ).toEqual([teamRequest.id]);
+    expect(ids((await read('reviewer=me', 10)).json()).sort()).toEqual(
+      [requestAId, approvedRequest.id].sort(),
+    );
+
+    const byActor = await read(`reviewer=${userActorId}`);
+    expect(ids(byActor.json())).toEqual([requestBId]);
+    expect(byActor.json().page).toMatchObject({
+      total: 1,
+      status_counts: {
+        pending_review: 1,
+        approved: 0,
+        rejected: 0,
+        needs_more_evidence: 0,
+        converted: 0,
+      },
+    });
+
+    const byTeam = await read(`reviewer_team_id=${teamId}`);
+    expect(ids(byTeam.json())).toEqual([teamRequest.id]);
+    expect(byTeam.json().page).toMatchObject({
+      total: 1,
+      status_counts: {
+        pending_review: 1,
+        approved: 0,
+        rejected: 0,
+        needs_more_evidence: 0,
+        converted: 0,
+      },
+    });
+
+    const unfiltered = await read();
+    expect(unfiltered.json().page).toMatchObject({
+      total: 5,
+      status_counts: {
+        pending_review: 4,
+        approved: 1,
+        rejected: 0,
+        needs_more_evidence: 0,
+        converted: 0,
+      },
+    });
+    for (const response of [mine, byActor, byTeam, unfiltered]) {
+      const { total, status_counts: counts } = response.json().page;
+      expect(
+        Object.values(counts as Record<string, number>).reduce((sum, count) => sum + count, 0),
+      ).toBe(total);
+    }
   });
 
   it('edits assigned reviewer atomically without changing actual review or granting authority', async () => {

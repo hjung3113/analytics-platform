@@ -20,6 +20,7 @@ export const TASK_REQUEST_COPY = {
   converted: (displayId: string, assignee: string) =>
     `Task ${displayId}${/[036]$/.test(displayId) ? '으로' : '로'} 전환했습니다. 담당자: ${assignee}`,
   convertToTask: 'Task로 전환',
+  createTask: 'Task 만들기',
   openTask: 'Task 열기',
   created: 'Task 요청이 생성되었습니다.',
   openRequest: 'Task 요청 열기',
@@ -27,6 +28,11 @@ export const TASK_REQUEST_COPY = {
   peerApproved: '다른 검토자가 승인함',
   notApproved: '아직 승인되지 않음',
 };
+
+export const TASK_REQUEST_NEXT_COPY = {
+  label: '다음 요청',
+  noNext: '이 목록에 다른 요청이 없습니다.',
+} as const;
 
 /** #2530: the open request is not a row of the shown list, so its decisions are not offered here. */
 export const TASK_REQUEST_OUTSIDE_LIST_MESSAGE = (statusLabel: string): string =>
