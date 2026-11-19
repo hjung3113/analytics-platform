@@ -38,6 +38,7 @@ export { useDetailPanelContent } from './layout/useDetailPanelContent';
 
 export { FieldLabel, RequiredMark, type FieldLabelProps, type RequiredMarkProps } from './forms/FieldLabel';
 export { FormField, type FormFieldControl, type FormFieldProps } from './forms/FormField';
+export { DECISION_RULE_KINDS, DecisionImpactConfirmDialog, DecisionReasonField, createDecisionUndoToastAction, requiredDecisionReasonError, type CreateDecisionUndoToastActionOptions, type DecisionImpactConfirmDialogProps, type DecisionReasonFieldProps, type DecisionRuleKind, type DecisionUndoToastAction } from './decision-rules/DecisionRules';
 export { useValidatedSubmit, type UseValidatedSubmitOptions, type UseValidatedSubmitResult, type ValidationErrors } from './forms/useValidatedSubmit';
 export { LineErrorList, validateLines, type LineErrorListMessages, type LineErrorListProps, type LineValidationError, type LineValidationRule, type ValidateLinesOptions } from './forms/LineErrors';
 export { DatePicker, type DatePickerProps } from './forms/DatePicker.js';

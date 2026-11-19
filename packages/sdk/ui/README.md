@@ -7,3 +7,5 @@ UI primitive 층과 디자인 시스템 CSS입니다. 버튼, 입력, 표시 요
 - **주의:** 토큰 파일 일부는 생성물입니다. 직접 고치지 않고 AGENTS.md의 절차를 따릅니다.
 
 처음이면 [첫 메뉴 화면 만들기](../../../docs/guides/first-menu-screen.md)부터 읽습니다. 파일별 설명과 작업 규칙은 [AGENTS.md](AGENTS.md), 시각 규칙은 [DESIGN.md](../../../DESIGN.md)입니다.
+
+되돌릴 수 있는 작업, 판단 기록, 되돌릴 수 없는 작업에 선택 적용하는 부품은 [의사결정 규칙 문서](docs/decision-rules.md)를 참고합니다(ADR-0174).

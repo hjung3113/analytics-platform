@@ -23,6 +23,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type * as React from 'react';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { noticeHost, registerNoticeHost } from '../../../../test/notice-host';
 import { useFindingDetailController } from './useFindingDetailController';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -160,7 +161,10 @@ function renderController(finding: FindingDto) {
 }
 
 describe('useFindingDetailController', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await registerNoticeHost();
+    noticeHost.notify.mockClear();
+    noticeHost.dismiss.mockClear();
     vi.mocked(getTask).mockReset();
     vi.mocked(getTask).mockResolvedValue(TASK_DETAIL);
     vi.mocked(apiClient).mockReset();
@@ -278,13 +282,18 @@ describe('useFindingDetailController', () => {
     expect(result.current[openKey]).toBe(false);
   });
 
-  it('mark-not-actionable success refreshes detail and paged lists and toasts', async () => {
+  it('marks not actionable, notifies with an undo action, and restores active status through the status command', async () => {
     const { result, invalidateSpy, setDataSpy } = renderController(FINDING_LINKED);
     act(() => {
       result.current.handleMarkNotActionable();
     });
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith('Finding이 조치 불필요로 표시되었습니다.'),
+      expect(noticeHost.notify).toHaveBeenCalledWith(expect.objectContaining({
+        tone: 'success',
+        variant: 'undo',
+        message: '조치 불필요로 표시했습니다.',
+        action: expect.objectContaining({ label: '실행 취소' }),
+      })),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['nav-counts'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['findings'] });
@@ -296,6 +305,20 @@ describe('useFindingDetailController', () => {
       expect.objectContaining({ id: IDS.finding }),
     );
     expect(toast.error).not.toHaveBeenCalled();
+
+    const notice = noticeHost.notify.mock.calls[0]?.[0];
+    act(() => notice?.action?.onAction());
+    await waitFor(() => {
+      const patches = vi.mocked(apiClient).mock.calls.filter(([method, path]) =>
+        method === 'PATCH' && path === `/findings/${IDS.finding}`,
+      );
+      expect(patches).toHaveLength(2);
+      expect(patches.map(([, , options]) => options?.body)).toEqual([
+        { status: 'not_actionable' },
+        { status: 'active' },
+      ]);
+    });
+    expect(noticeHost.dismiss).toHaveBeenCalledWith('notice-id');
   });
 
   it('eligibleOwners keeps Admin/Developer actors and drops User-level and the System audit actor', () => {

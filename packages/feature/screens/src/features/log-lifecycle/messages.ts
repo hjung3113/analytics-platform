@@ -8,6 +8,7 @@ export const pageCopy = {
   roundTitle: (model: string, seq?: number) => `${model} · Round${seq === undefined ? '' : ` ${seq}`}`,
   sourceInfo: (count: number) => `${count}파일 · 파일 순서 → 줄 번호 · Top View 미연결`,
   gateDecision: 'Gate 결정', attempt: '시도', latestExecution: '최신 실행', gate: 'Gate', resultScope: '결과 범위',
+  decisionReasonOneLine: '결정 사유 (한 줄)', decisionRequiredMark: '· 필수', decisionReasonRequired: '결정 사유를 입력해 주세요.',
   opinionGrade: '의견 등급', opinionGradePrefix: '의견 등급:', all: '전체', problems: '문제만', noOpinion: '의견 없음',
   resultsLoading: '규칙 결과 불러오는 중…', resultsUnavailable: '규칙 결과 집계 불가',
   scaleLoading: '의견 척도 불러오는 중…', scaleUndeclared: '의견 척도 미선언', showAll: '전체 보기',

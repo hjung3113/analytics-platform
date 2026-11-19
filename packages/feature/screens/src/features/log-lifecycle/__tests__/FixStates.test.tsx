@@ -19,8 +19,8 @@ it('requires an explicit server-allowed Gate decision and a reason, and reconcil
   expect(screen.getByRole('radio', { name: '승인' })).not.toBeChecked();
   expect(screen.getByRole('radio', { name: '거절' })).not.toBeChecked();
   await user.click(screen.getByRole('radio', { name: '거절' }));
-  expect(screen.getByRole('button', { name: /결정 기록/ })).toBeDisabled();
-  await user.type(screen.getByLabelText('결정 사유 (필수)'), '재검증 필요');
+  expect(screen.getByRole('button', { name: /결정 기록/ })).toBeEnabled();
+  await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '재검증 필요');
   expect(screen.getByRole('button', { name: /결정 기록/ })).toBeEnabled();
   view.rerender(<GatePanel {...p} round={round([])} />);
   expect(screen.getAllByRole('radio').every(r => r.getAttribute('aria-checked') === 'false')).toBe(true);

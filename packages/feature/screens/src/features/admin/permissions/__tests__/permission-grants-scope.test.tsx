@@ -209,6 +209,9 @@ describe('부여 목록 — Site·공정 grants', () => {
     const revoke = screen.getByTestId('permission-grants-submit');
     expect(revoke).toHaveTextContent('권한 취소');
     await user.click(revoke);
+    const confirmation = await screen.findByRole('alertdialog', { name: '권한 취소 확인' });
+    expect(requests.some((r) => r.method === 'POST' && r.path === `/permissions/grants/${REMOVED_ID}/revoke`)).toBe(false);
+    await user.click(within(confirmation).getByRole('button', { name: '권한 취소' }));
 
     await waitFor(() =>
       expect(requests.some((r) => r.method === 'POST' && r.path === `/permissions/grants/${REMOVED_ID}/revoke`)).toBe(true),
