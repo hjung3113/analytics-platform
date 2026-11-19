@@ -215,8 +215,14 @@ describe('ProductivityOverview throughput trend observation totals (#2532)', () 
   ])('shows the unconfirmed total only for $name', async ({ equipmentCount, current, visible }) => {
     renderWithTrend(trendReply('empty', { equipmentCount, current, previous: [] }));
     await screen.findByRole('radiogroup', { name: '집계 단위' });
-    if (visible) expect(await screen.findByText('합계 미확인')).toBeTruthy();
-    else expect(screen.queryByText('합계 미확인')).toBeNull();
+    if (visible) {
+      // The note and the trend's own state share one named frame (#2604).
+      const frame = (await screen.findByText('합계 미확인')).closest('section');
+      expect(frame).not.toBeNull();
+      expect(frame?.getAttribute('aria-label')).not.toBe('주요 추세');
+      expect(within(frame as HTMLElement).getByRole('heading', { name: 'Job 처리량 추세' })).toBeTruthy();
+      expect(within(frame as HTMLElement).getByRole('group', { name: 'Job 처리량 추세' })).toBeTruthy();
+    } else expect(screen.queryByText('합계 미확인')).toBeNull();
   });
 
   it('sums and counts known current buckets, including observed zero, and includes the count in footer coverage', async () => {

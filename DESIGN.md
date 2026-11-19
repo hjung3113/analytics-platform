@@ -356,7 +356,7 @@ Empty/error는 원인 설명·허용된 다음 행동·추적 번호를 읽을 �
 
 [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 A안(#2535). 원인과 복구 값이 같은 위젯이 두 개 이상이면 본문 상단에 띠 하나를 둔다. 집계 불가·오류·시간 초과는 danger-soft와 danger-label, 권한 없음·조회 한도는 warn-soft와 warning-label, 0건은 sunken과 control border를 쓴다. 원인과 허용된 복구 동작을 띠에 두며 원인을 해소하는 동작 하나까지 강조한다. 긴 문구는 한 줄로 줄일 수 있고 「자세히」에서 전체 문구와 소속 위젯 이름을 볼 수 있다. 그룹 상태는 scope의 기존 live 채널에서 한 번 안내한다.
 
-그룹 위젯은 sunken 표면에 이름, 상태를 붙인 「위 안내 참고」, 접힌 「기술 정보」를 표시하며 `aria-describedby`로 띠와 연결한다. 기술 정보에서 위젯별 추적 번호와 서버 원문을 읽을 수 있다. 안내는 secondary 글자를 쓰고 opacity로 흐리게 하지 않는다. 위젯이 하나면 인라인 카드를 쓴다. 오류 카드(`StateMessage tone="danger"`)는 danger-soft 배경과 danger-label 경계선·제목, danger 아이콘, secondary 본문·추적 번호를 쓴다.
+그룹 위젯은 sunken 표면에 이름, 안내 한 줄(문구는 [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)), 접힌 「기술 정보」를 표시하며 `aria-describedby`로 띠와 연결한다. 기술 정보에서 위젯별 추적 번호와 서버 원문을 읽을 수 있다. 안내는 secondary 글자를 쓰고 opacity로 흐리게 하지 않는다. 위젯이 하나면 인라인 카드를 쓴다. 오류 카드(`StateMessage tone="danger"`)는 danger-soft 배경과 danger-label 경계선·제목, danger 아이콘, secondary 본문·추적 번호를 쓴다.
 
 마운트된 페이지의 렌더 오류는 머리와 기간·대상을 보존하고 본문과 같은 여백에 오류 카드를 둔다. 추적 번호·다시 시도·홈을 제공하며, 사용 가능한 VOC 목적지가 있을 때 「이 오류 신고」를 제공한다. 예정 메뉴는 공통 `Panel` 한 곳에서 준비 중인 메뉴 이름과 현재 열 수 있는 화면 링크를 보여 준다.
 

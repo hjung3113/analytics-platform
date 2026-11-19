@@ -1,6 +1,6 @@
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
 import { useInWorkspacePanel } from './workspace/panelContext';
-import { useSharedOutcomeNotice } from './filters/OutcomeScope';
+import { useOutcomeBannerCount, useSharedOutcomeNotice } from './filters/OutcomeScope';
 import { useQueryBarStatus, useRequestContextEditor } from './filters/QueryBarStatus';
 import { useOutcomeRecovery } from './state/OutcomeActions';
 import { QueryRefreshNotice } from './state/QueryRefreshNotice';
@@ -11,7 +11,7 @@ import { queryMissingSentence, type QueryState, useI18n } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { Button, cn, Skeleton } from '@ap/ui';
 
-type WidgetStateProps = { grouped?: boolean; bannerId?: string; statusLabel?: string; widgetName?: string; hideWidgetName?: boolean };
+type WidgetStateProps = { grouped?: boolean; bannerId?: string; statusLabel?: string; failed?: boolean; widgetName?: string; hideWidgetName?: boolean };
 
 type StateProps = { icon: ReactNode; title: string; body?: ReactNode; action?: ReactNode; tone?: 'neutral' | 'danger' | 'warning'; correlationId?: string; compact?: boolean; detail?: string };
 
@@ -42,10 +42,16 @@ export function StateMessage({ icon, title, body, action, tone = 'neutral', corr
   </div>;
 }
 
-function GroupedStateMessage({ action, correlationId, detail, bannerId, statusLabel, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
+function GroupedStateMessage({ action, correlationId, detail, bannerId, statusLabel, failed, widgetName, hideWidgetName }: StateProps & WidgetStateProps) {
   const { t } = useI18n();
   const nameId = useId();
-  const notice = statusLabel ? t('sharedOutcomeNoticeFor', { status: statusLabel }) : t('sharedOutcomeNotice');
+  // The linked banner above already states the cause, so a failed widget says only that it did not load (#2604).
+  // With several banners on the page the status still tells which one applies (#2509). An empty result did load:
+  // it keeps the pointer to the banner with its status.
+  const several = useOutcomeBannerCount() > 1;
+  const notice = failed
+    ? (several && statusLabel ? t('sharedOutcomeNoticeFailedFor', { status: statusLabel }) : t('sharedOutcomeNoticeFailed'))
+    : statusLabel ? t('sharedOutcomeNoticeFor', { status: statusLabel }) : t('sharedOutcomeNotice');
   return <div data-widget-state role="group" aria-labelledby={widgetName && !hideWidgetName ? nameId : undefined} aria-label={hideWidgetName ? widgetName : undefined} aria-describedby={bannerId} className="min-w-0 rounded-md bg-surface-sunken p-3 text-text-secondary">
     {widgetName && !hideWidgetName && <p id={nameId} className="mb-1.5 text-sm font-semibold">{widgetName}</p>}
     <p className="text-xs leading-4">{notice}</p>
@@ -56,7 +62,7 @@ function GroupedStateMessage({ action, correlationId, detail, bannerId, statusLa
   </div>;
 }
 
-function OutcomeStateMessage({ grouped, bannerId, statusLabel, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
+function OutcomeStateMessage({ grouped, bannerId, statusLabel, failed, widgetName, hideWidgetName, ...props }: StateProps & WidgetStateProps) {
   const nameId = useId();
   // Non-grouped compact states otherwise look identical to every sibling's error box; draw the same
   // name line the grouped path draws (UXA-3). Grouping decision and alert/status roles stay untouched.
@@ -66,7 +72,7 @@ function OutcomeStateMessage({ grouped, bannerId, statusLabel, widgetName, hideW
       <StateMessage {...props} />
     </div>;
   }
-  return grouped ? <GroupedStateMessage {...props} bannerId={bannerId} statusLabel={statusLabel} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
+  return grouped ? <GroupedStateMessage {...props} bannerId={bannerId} statusLabel={statusLabel} failed={failed} widgetName={widgetName} hideWidgetName={hideWidgetName} /> : <StateMessage {...props} />;
 }
 
 export function LoadingBlock({ rows = 3, height = 96, className }: { rows?: number; height?: number; className?: string }) {
@@ -93,7 +99,7 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
   if (!state) return <OutcomeStateMessage compact={compact} widgetName={widgetName} hideWidgetName={hideWidgetName}
     icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} detail={detail}
     correlationId={detail ? response.correlationId : undefined} />;
-  return <OutcomeStateMessage grouped={grouped} bannerId={bannerId} statusLabel={state.label}
+  return <OutcomeStateMessage grouped={grouped} bannerId={bannerId} statusLabel={state.label} failed={response.outcome !== 'empty'}
     widgetName={widgetName} hideWidgetName={hideWidgetName} compact={compact}
     icon={<state.Icon className={icon} aria-hidden />} title={state.title} tone={outcomeTone(response)}
     body={<>{state.body}{recovery.evidence && <p className="mt-1 break-words">{recovery.evidence}</p>}</>}
