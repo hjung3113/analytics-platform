@@ -99,6 +99,11 @@ the same `managed_system_id` scope (a request without a Managed System matches
 only a check without one). Backend decisions on the enforcing routes stay
 authoritative.
 
+On a denied check with a concrete Managed System, `requestable` is `null` if the
+exact target is outside the same scope candidates used to validate new requests.
+This excludes archived and unknown Managed Systems. Existing allow decisions
+still apply to historical data.
+
 The generic check answers for the role layer only. For a caller whose role level
 is `admin`, the route re-applies the per-capability admin module bypass declared
 in `CAPABILITY_META.adminModuleBypass` (`packages/feature/shared/src/enums/capabilities.ts`)
