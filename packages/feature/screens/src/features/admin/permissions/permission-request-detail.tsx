@@ -17,7 +17,7 @@ import { type PermissionRequestAdminDetail, grantOpensScreensFor } from '@ap/fea
 
 import { ReviewCapabilityName } from './declared-capability-name.js';
 import { hasPermissionDecisionActions } from './permission-decision-actions';
-import { PermissionRequestDecisionForm } from './permission-request-decision-form.js';
+import { PermissionRequestDecisionForm, type SystemNamesRead } from './permission-request-decision-form.js';
 import { permissionRequestStatusText } from '../../../lib/copy/enum-labels';
 
 export function PermissionRequestDetail({
@@ -26,7 +26,8 @@ export function PermissionRequestDetail({
   actorName,
   managedSystemName,
   managedSystemNames,
-  managedSystemSlugs,
+  approvalSystemNames,
+  systemNamesRead,
   staleNotice,
   discardedReason,
   onDraftChanged,
@@ -41,7 +42,8 @@ export function PermissionRequestDetail({
   actorName?: string | undefined;
   managedSystemName?: string | undefined;
   managedSystemNames?: Record<string, string> | undefined;
-  managedSystemSlugs?: Readonly<Record<string, string>> | undefined;
+  approvalSystemNames?: Record<string, string> | undefined;
+  systemNamesRead?: SystemNamesRead | undefined;
   staleNotice?: boolean;
   discardedReason?: string;
   onDraftChanged?: (draft: { revision: number; nonEmpty: boolean; reason: string }) => void;
@@ -132,13 +134,14 @@ export function PermissionRequestDetail({
       />
       {batch && batchDecided ? <section className="flex flex-col gap-2"><PanelSectionTitle>{PERMISSION_GROUP_COPY.count(batch.items.length)}</PanelSectionTitle><ul>{batch.items.map(item => <li key={item.id}><ReviewCapabilityName id={item.requested_capability} /> · {permissionRequestStatusText[item.status][lang]}</li>)}</ul><p>{PERMISSION_GROUP_COPY.outcome(batch.items.filter(item => item.status === 'approved').length, batch.items.filter(item => item.status === 'rejected').length)}</p></section> : null}
       <PermissionRequestDecisionForm
+        scopeRadios={renderDetail !== undefined}
         key={`${request.id}:${request.revision}:${reviewEpoch}`}
         request={request}
         {...(renderDetail ? { footerTarget: decisionFooter } : {})}
         {...(batch ? { batch } : {})}
         actorName={actorName}
-        managedSystemNames={names}
-        managedSystemSlugs={managedSystemSlugs}
+        approvalSystemNames={approvalSystemNames}
+        systemNamesRead={systemNamesRead}
         {...(staleNotice ? { staleNoticeShown: true } : {})}
         {...(discardedReason !== undefined ? { discardedReason } : {})}
         {...(onDraftChanged ? { onDraftChanged } : {})}

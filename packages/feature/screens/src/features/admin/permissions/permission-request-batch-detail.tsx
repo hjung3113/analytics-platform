@@ -6,10 +6,11 @@ import { fetchPermissionRequestAdminDetail, permissionRequestAdminDetailKey } fr
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
+import type { SystemNamesRead } from './permission-request-decision-form';
 import { PermissionRequestDetail } from './permission-request-detail';
 import { usePermissionReviewState } from './selected-permission-request-detail';
 
-export function PermissionRequestBatchDetail({ rows, id, managedSystemNames, managedSystemSlugs, onClose, renderDetail }: { rows: AdminPermissionRequestRow[]; id: string; managedSystemNames: Record<string, string>; managedSystemSlugs?: Readonly<Record<string, string>> | undefined; onClose: () => void; renderDetail?: (parts: ClosableDetailParts) => ReactNode }) {
+export function PermissionRequestBatchDetail({ rows, id, managedSystemNames, approvalSystemNames, systemNamesRead, onClose, renderDetail }: { rows: AdminPermissionRequestRow[]; id: string; managedSystemNames: Record<string, string>; approvalSystemNames?: Record<string, string> | undefined; systemNamesRead?: SystemNamesRead | undefined; onClose: () => void; renderDetail?: (parts: ClosableDetailParts) => ReactNode }) {
   const reads = useQueries({ queries: rows.map(row => ({ queryKey: permissionRequestAdminDetailKey(row.id), queryFn: ({ signal }: { signal: AbortSignal }) => fetchPermissionRequestAdminDetail(row.id, signal), retry: false, staleTime: 0 })) });
   const failed = reads.some(read => read.isError);
   const items = reads.flatMap(read => read.data ? [read.data] : []);
@@ -23,5 +24,5 @@ export function PermissionRequestBatchDetail({ rows, id, managedSystemNames, man
   const decidable = items.filter(item => item.status === 'pending' || item.status === 'needs_more_info');
   const commonActions = [...new Set(decidable.flatMap(item => item.allowed_actions))].filter(action => action !== 'approve' || decidable.some(item => item.allowed_actions.includes('approve') && !item.effective_access.decision.allow));
   const request = { ...first, allowed_actions: commonActions };
-  return <PermissionRequestDetail key={revisionKey} {...review} request={request} batch={{ id, items }} actorName={first.requester.display_name} managedSystemNames={managedSystemNames} managedSystemSlugs={managedSystemSlugs} managedSystemName={first.requested_managed_system_id ? managedSystemNames[first.requested_managed_system_id] : undefined} onClose={onClose} {...(renderDetail ? { renderDetail: parts => renderDetail({ ...parts, title: first.permission_group ? PERMISSION_GROUP_COPY.origin(first.permission_group.name) : PERMISSION_GROUP_COPY.count(items.length) }) } : {})} />;
+  return <PermissionRequestDetail key={revisionKey} {...review} request={request} batch={{ id, items }} actorName={first.requester.display_name} managedSystemNames={managedSystemNames} approvalSystemNames={approvalSystemNames} systemNamesRead={systemNamesRead} managedSystemName={first.requested_managed_system_id ? managedSystemNames[first.requested_managed_system_id] : undefined} onClose={onClose} {...(renderDetail ? { renderDetail: parts => renderDetail({ ...parts, title: first.permission_group ? PERMISSION_GROUP_COPY.origin(first.permission_group.name) : PERMISSION_GROUP_COPY.count(items.length) }) } : {})} />;
 }

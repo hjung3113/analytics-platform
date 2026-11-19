@@ -43,7 +43,8 @@ export function PermissionRequestsScreen({
     selected,
     actorNames,
     managedSystemNames,
-    managedSystemSlugs,
+    approvalSystemNames,
+    systemNamesRead,
     isPending,
     isError,
     handleTabChange,
@@ -69,13 +70,14 @@ export function PermissionRequestsScreen({
       : {}),
   }));
 
-  const detail = selected?.batch_id ? <PermissionRequestBatchDetail key={selected.batch_id} id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} managedSystemSlugs={managedSystemSlugs} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
+  const detail = selected?.batch_id ? <PermissionRequestBatchDetail key={selected.batch_id} id={selected.batch_id} rows={(selected as AdminPermissionRequestRow & { batchItems: AdminPermissionRequestRow[] }).batchItems} managedSystemNames={managedSystemNames} approvalSystemNames={approvalSystemNames} systemNamesRead={systemNamesRead} onClose={handleClose} {...(renderDetail ? { renderDetail } : {})} /> : selected ? (
     <SelectedPermissionRequestDetail
       key={selected.id}
       id={selected.id}
       actorNames={actorNames}
       managedSystemNames={managedSystemNames}
-      managedSystemSlugs={managedSystemSlugs}
+      approvalSystemNames={approvalSystemNames}
+      systemNamesRead={systemNamesRead}
       onClose={handleClose}
       {...(renderDetail ? { renderDetail } : {})}
     />
