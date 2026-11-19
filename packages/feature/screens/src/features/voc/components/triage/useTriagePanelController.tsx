@@ -19,6 +19,8 @@ export function useTriagePanelController({
   onAct,
   onOptimisticRemove,
   onOptimisticPostpone,
+  onConfirmSuccess,
+  onUndoConfirm,
   onProcessed,
   onOptimisticRestore,
   onOptimisticRollback,
@@ -39,6 +41,8 @@ export function useTriagePanelController({
   ) => void;
   onOptimisticRemove?: (vocId: string, input?: TriageInput) => void;
   onOptimisticPostpone?: (vocId: string, input?: TriageInput) => void;
+  onConfirmSuccess?: (voc: VocListItem, dismissUndo: () => void) => void;
+  onUndoConfirm?: (vocId: string) => void;
   onProcessed?: (delta: 1 | -1) => void;
   onMutationFailure?: (vocId: string) => void;
   onQueueOutcome?: (input: TriageInput, outcome: TriageQueueOutcome) => void;
@@ -98,6 +102,29 @@ export function useTriagePanelController({
   const baselineAreaName = aaOptions.find((area) => area.id === baseline.analyticsAreaId)?.label;
   const stagedAreaName = aaOptions.find((area) => area.id === panelState.analyticsAreaId)?.label;
 
+  // The notice of the call that is still undoable. A newer call replaces the current call, which makes the earlier
+  // notice's undo inert (token guard in useUndoableMutation), so the earlier notice is dismissed when the newer call starts.
+  const liveNoticeRef = React.useRef<string | null>(null);
+  const liveNoticeVocIdRef = React.useRef<string | null>(null);
+  const supersedeNotice = React.useCallback(() => {
+    if (liveNoticeRef.current !== null) dismiss(liveNoticeRef.current);
+    liveNoticeRef.current = null;
+    liveNoticeVocIdRef.current = null;
+  }, [dismiss]);
+  const handleConfirmSuccess = React.useCallback(
+    (confirmedVoc: VocListItem): void => {
+      onConfirmSuccess?.(confirmedVoc, () => {
+        if (liveNoticeVocIdRef.current !== confirmedVoc.id || liveNoticeRef.current === null) {
+          return;
+        }
+        dismiss(liveNoticeRef.current);
+        liveNoticeRef.current = null;
+        liveNoticeVocIdRef.current = null;
+      });
+    },
+    [dismiss, onConfirmSuccess],
+  );
+
   // ── mutation setup ──────────────────────────────────────────────────────────
 
   // Undo state machine — HTTP adapter, compensation order, and the error
@@ -106,6 +133,7 @@ export function useTriagePanelController({
   const { panelLocked, isSubmitting, commit, undoLast } = useTriageCommand({
     voc,
     serverReviewPostponedAt,
+    onConfirmSuccess: handleConfirmSuccess,
     onProcessed,
     onOptimisticRestore,
     onOptimisticRollback,
@@ -123,14 +151,6 @@ export function useTriagePanelController({
 
   // Keep the ref current
   undoLastRef.current = undoLast;
-
-  // The notice of the call that is still undoable. A newer call replaces the current call, which makes the earlier
-  // notice's undo inert (token guard in useUndoableMutation), so the earlier notice is dismissed when the newer call starts.
-  const liveNoticeRef = React.useRef<string | null>(null);
-  const supersedeNotice = React.useCallback(() => {
-    if (liveNoticeRef.current !== null) dismiss(liveNoticeRef.current);
-    liveNoticeRef.current = null;
-  }, [dismiss]);
 
   // ── handlers ───────────────────────────────────────────────────────────────
 
@@ -172,6 +192,7 @@ export function useTriagePanelController({
           // REV-3 Cluster X: pass the token so undoLast no-ops if this is
           // a stale toast (a newer mutation has since started).
           onAction: () => {
+            if (kind === 'confirm') onUndoConfirm?.(voc.id);
             undoLastRef.current(callToken);
             dismiss(successToastId);
           },
@@ -179,6 +200,7 @@ export function useTriagePanelController({
         variant: 'undo',
       });
       liveNoticeRef.current = successToastId;
+      liveNoticeVocIdRef.current = voc.id;
 
       onAct?.(kind, {
         vocId: voc.id,
@@ -199,6 +221,7 @@ export function useTriagePanelController({
       panelState,
       onOptimisticRemove,
       onQueueOutcome,
+      onUndoConfirm,
       onAct,
       commit,
       notify,
@@ -238,6 +261,7 @@ export function useTriagePanelController({
       variant: 'undo',
     });
     liveNoticeRef.current = successToastId;
+    liveNoticeVocIdRef.current = voc.id;
 
     onAct?.('skip');
   }, [

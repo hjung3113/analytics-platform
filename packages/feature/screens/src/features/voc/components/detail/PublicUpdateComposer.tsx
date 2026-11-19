@@ -93,6 +93,12 @@ import { PublicUpdateToolbar } from './rich-toolbars/PublicUpdateToolbar';
 export interface PublicUpdateComposerProps {
   voc: VocDetailEnvelope;
   me: MeResponse | null | undefined;
+  /** Initial draft used when this composer is opened from triage. */
+  initialDraftDoc?: TipTapDoc | null;
+  /** Initial status used when this composer is opened from triage. */
+  initialNextStatus?: ReporterFacingStatusEnum;
+  /** Focus the editor as soon as its live editor instance registers. */
+  focusOnOpen?: boolean;
   /**
    * REV-1 #7: controlled draft doc from parent ComposerSection (persists across tab switches).
    * When provided, this value drives the editor; onChange updates the parent instead of
@@ -103,6 +109,10 @@ export interface PublicUpdateComposerProps {
   onDraftChange?: (doc: TipTapDoc | null) => void;
   /** Select the public conversation timeline after a successful post. */
   onPosted?: (tab: 'public') => void;
+  /** Reports user edits so a parent close action can ask before discarding. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Parent gate for writes that need a fresh VOC version before submit. */
+  submissionBlocked?: boolean;
 }
 
 // Maps ApiError code to Callout tone for the inline error surface.
@@ -125,18 +135,24 @@ export function PublicUpdateComposer({
   draftDoc: controlledDraftDoc,
   onDraftChange,
   onPosted,
+  onDirtyChange,
+  submissionBlocked = false,
+  initialDraftDoc,
+  initialNextStatus,
+  focusOnOpen = false,
 }: PublicUpdateComposerProps): ReactElement {
   const queryClient = useQueryClient();
   const { notifyError, notifySuccess } = useHostSeam();
-  const { editorHandle, focusEditor } = useComposerEditorFocus();
+  const { editorHandle, focusEditor } = useComposerEditorFocus({ focusOnRegister: focusOnOpen });
 
   // REV-1 #7: if parent provides controlled draft, use it; otherwise keep local state
   // for backward-compat when the composer is used standalone.
   const isControlled = controlledDraftDoc !== undefined;
-  const [localDraftDoc, setLocalDraftDoc] = useState<TipTapDoc | null>(null);
+  const [localDraftDoc, setLocalDraftDoc] = useState<TipTapDoc | null>(initialDraftDoc ?? null);
   const draftDoc = isControlled ? (controlledDraftDoc ?? null) : localDraftDoc;
 
   function setDraftDoc(doc: TipTapDoc | null) {
+    onDirtyChange?.(true);
     if (isControlled) {
       onDraftChange?.(doc);
     } else {
@@ -145,7 +161,7 @@ export function PublicUpdateComposer({
   }
 
   const [nextStatus, setNextStatus] = useState<ReporterFacingStatusEnum>(
-    voc.reporter_facing_status,
+    initialNextStatus ?? voc.reporter_facing_status,
   );
   const [previewOpen, setPreviewOpen] = useState(false);
   const submitInFlightRef = useRef(false);
@@ -162,9 +178,9 @@ export function PublicUpdateComposer({
   if (prevVocIdRef.current !== voc.id) {
     prevVocIdRef.current = voc.id;
     if (!isControlled) {
-      setLocalDraftDoc(null);
+      setLocalDraftDoc(initialDraftDoc ?? null);
     }
-    setNextStatus(voc.reporter_facing_status);
+    setNextStatus(initialNextStatus ?? voc.reporter_facing_status);
     setPreviewOpen(false);
   }
 
@@ -218,6 +234,7 @@ export function PublicUpdateComposer({
   const isIdempotencyLocked =
     mutationError != null && mutationError.code === 'conflict.idempotency_key_reuse';
   const isSubmitBlocked =
+    submissionBlocked ||
     isEmpty ||
     mutation.isPending ||
     isGateBlocked ||
@@ -306,7 +323,10 @@ export function PublicUpdateComposer({
       {/* PLAN-22 C7a: composer-level attachment dropzone (compact). */}
       <ComposerAttachmentDropzone
         testId="public-update-attachment-dropzone"
-        onChange={setAttachmentIds}
+        onChange={(ids) => {
+          setAttachmentIds(ids);
+          onDirtyChange?.(true);
+        }}
         onUploadingChange={setAttachmentsUploading}
         resetToken={attachmentResetToken}
       />
@@ -315,7 +335,10 @@ export function PublicUpdateComposer({
       <ReporterStatusChangeBlock
         voc={voc}
         nextStatus={nextStatus}
-        onChangeStatus={setNextStatus}
+        onChangeStatus={(status) => {
+          setNextStatus(status);
+          onDirtyChange?.(true);
+        }}
         draftDoc={draftDoc}
         owner={owner}
       />

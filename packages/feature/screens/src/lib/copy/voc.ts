@@ -32,6 +32,16 @@ export const VOC_REPLY_COPY = {
   reporterPlaceholder: '담당자에게 보낼 답장 내용을 입력하세요...',
 } as const;
 
+export const VOC_TRIAGE_PUBLIC_UPDATE_COPY = {
+  title: '담당자 답변 작성',
+  description:
+    '답변을 공개할 때 선택한 공개 상태도 함께 저장됩니다. 답변을 게시하면 분류 실행 취소가 사라집니다. 창을 닫으면 저장되지 않습니다.',
+  prefill: '접수해 주신 내용을 확인했습니다. 현재 검토 중이며, 확인이 끝나면 다시 안내드리겠습니다.',
+  loading: 'VOC 정보를 불러오는 중…',
+  loadError: '답변 작성에 필요한 VOC 상세 정보를 불러오지 못했습니다.',
+  retry: '다시 시도',
+} as const;
+
 export const VOC_AREA_FILTER_EMPTY_COPY = {
   title: '현재 조건에 맞는 VOC가 없습니다',
   body: (label: string) => `${label} 조건으로 표시 중입니다.`,

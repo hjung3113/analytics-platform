@@ -43,6 +43,7 @@ import { type CallToken, useUndoableMutation } from './useUndoableMutation';
 export interface UseTriageCommandArgs {
   voc: VocListItem;
   serverReviewPostponedAt?: string | null;
+  onConfirmSuccess?: ((voc: VocListItem) => void) | undefined;
   onProcessed?: ((delta: 1 | -1) => void) | undefined;
   onMutationFailure?: ((vocId: string) => void) | undefined;
   onQueueOutcome?: ((input: TriageInput, outcome: TriageQueueOutcome) => void) | undefined;
@@ -60,6 +61,7 @@ export interface UseTriageCommandResult {
 export function useTriageCommand({
   voc,
   serverReviewPostponedAt = null,
+  onConfirmSuccess,
   onOptimisticRestore,
   onOptimisticRollback,
   onQueueOutcome,
@@ -112,6 +114,9 @@ export function useTriageCommand({
         if (!undoneRef.current.has(input)) {
           countedRef.current.add(input);
           onProcessedRef.current?.(1);
+          if (input.kind === 'confirm' && voc.reporter_facing_status === 'received') {
+            onConfirmSuccess?.(voc);
+          }
         }
         if (output && !isTriageFullOutput(output)) {
           void queryClient.invalidateQueries({
