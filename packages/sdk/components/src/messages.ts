@@ -3,6 +3,15 @@ import { CUSTOM_GROUP_LABELS } from '@ap/kernel';
 
 /** Component SDK UI copy (docs/06 §23): domain values and identifiers stay untranslated. */
 export const COMPONENTS_MESSAGES = {
+  outcomeOpenConditions: { ko: '조건 열기', en: 'Open conditions' },
+  outcomeExcludeEquipment: { ko: '이 {count}대 빼고 다시 조회', en: 'Exclude {count} from query' },
+  outcomeAffectedEquipment: { ko: '영향 설비 {ids}', en: 'Affected equipment {ids}' },
+  outcomeShortenDay: { ko: '기간 1일로 줄이기', en: 'Shorten to 1 day' },
+  outcomeShortenHours: { ko: '기간 {hours}시간으로 줄이기', en: 'Shorten to {hours} hours' },
+  outcomePeriodLimit: { ko: '조회 한도 {hours}시간', en: 'Query limit {hours} hours' },
+  outcomeDeniedTarget: { ko: '권한이 필요한 대상 {target}', en: 'Access required for {target}' },
+  outcomeResetFilter: { ko: '필터 초기화', en: 'Reset filter' },
+
   // FacetedSetDialog
   fsCancel: { ko: '취소', en: 'Cancel' },
   fsDescription: { ko: '분류의 값을 조합하거나 결과에서 항목을 골라 적용합니다.', en: 'Combine facet values or select result items, then apply.' },

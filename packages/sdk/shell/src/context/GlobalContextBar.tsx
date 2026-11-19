@@ -67,7 +67,7 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
     ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${m('metricNoVersion')})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
-  const layout = (target: ReactNode, targetOpen = false) => <ContextBarLayout activeControl={targetOpen ? 'target' : undefined} regionName={label?.region} controls={controls(target)} revision={JSON.stringify([global, cap, lang, shown, label])} actions={compact => <span className="flex items-center gap-1">
+  const layout = (target: ReactNode, targetOpen = false, openTargetEditor?: () => void) => <ContextBarLayout activeControl={targetOpen ? 'target' : undefined} openTargetEditor={openTargetEditor} hasPeriodEditor={editable('time')} regionName={label?.region} controls={controls(target)} revision={JSON.stringify([global, cap, lang, shown, label])} actions={compact => <span className="flex items-center gap-1">
         <ShareControl compact={compact} align="end" />
         <Button type="button" variant="ghost" size="toolbar" aria-label={t('resetContext')} title={t('resetContext')} onClick={resetContext}>
           <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}

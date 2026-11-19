@@ -12,9 +12,45 @@ describe('envelope methods (contract §2.1)', () => {
     expect(await adapter.menuQuery(QUERY)).toEqual(ENVELOPE);
   });
 
-  type Row = [string, Handler, { outcome: 'error' | 'timeout'; message: string; id: 'request' | 'srv-7'; recheck: boolean }];
+  it('preserves well-formed query recovery and ignores invalid recovery parameters', async () => {
+    const recovery = { maxHours: 48, deniedScope: { kind: 'site_room', site: 'MEM', room: 'R1' } };
+    const { adapter } = await ready(() => json({
+      ...ENVELOPE, outcome: 'forbidden', recovery: { ...recovery, affectedEquipmentIds: [' '], retryable: 'yes' },
+    }));
+    expect((await adapter.menuQuery(QUERY)).recovery).toEqual(recovery);
+  });
+
+  it('drops a contradictory site target and keeps the other recovery fields', async () => {
+    const { adapter } = await ready(() => json({
+      ...ENVELOPE, outcome: 'forbidden', recovery: { maxHours: 48, deniedScope: { kind: 'site', site: 'MEM', room: 'R1' } },
+    }));
+    expect((await adapter.menuQuery(QUERY)).recovery).toEqual({ maxHours: 48 });
+  });
+
+  it.each([
+    ['error', {}, undefined],
+    ['timeout', { maxHours: 48 }, { maxHours: 48 }],
+  ])('drops Retry and keeps equipment diagnostics safe when malformed lists are dropped (%s)', async (outcome, recovery, expectedRecovery) => {
+    const { adapter } = await ready(() => json({
+      ...ENVELOPE, outcome, message: 'Unable to aggregate equipment OUTSIDE-GRANT',
+      recovery: { ...recovery, affectedEquipmentIds: [' '], authorizedEquipmentIds: [], retryable: true },
+    }));
+    const result = await adapter.menuQuery(QUERY);
+    expect(result.outcome).toBe(outcome);
+    expect(result.recovery).toEqual(expectedRecovery);
+    expect(result.message).toBeUndefined();
+    expect(result.correlationId).toBe(ENVELOPE.correlationId);
+  });
+
+  it('preserves an explicit producer retry signal on a judged failure', async () => {
+    const reply = { ...ENVELOPE, outcome: 'error', recovery: { retryable: true } };
+    const { adapter } = await ready(() => json(reply));
+    expect(await adapter.menuQuery(QUERY)).toEqual(reply);
+  });
+
+  type Row = [string, Handler, { outcome: 'error' | 'timeout'; message: string; id: 'request' | 'srv-7'; recheck: boolean; retryable?: true }];
   const rows: Row[] = [
-    ['network failure', () => { throw new TypeError('Failed to fetch'); }, { outcome: 'error', message: 'network_error', id: 'request', recheck: false }],
+    ['network failure', () => { throw new TypeError('Failed to fetch'); }, { outcome: 'error', message: 'network_error', id: 'request', recheck: false, retryable: true }],
     ['401', () => new Response('', { status: 401, headers: SERVER_ID }), { outcome: 'error', message: 'session_expired', id: 'srv-7', recheck: true }],
     ['302', () => new Response(null, { status: 302 }), { outcome: 'error', message: 'session_expired', id: 'request', recheck: true }],
     ['opaqueredirect', () => opaqueRedirect(), { outcome: 'error', message: 'session_expired', id: 'request', recheck: true }],
@@ -24,7 +60,10 @@ describe('envelope methods (contract §2.1)', () => {
     ['422', () => new Response('', { status: 422, headers: SERVER_ID }), { outcome: 'error', message: 'http_422', id: 'srv-7', recheck: false }],
     ['429', () => new Response('', { status: 429, headers: SERVER_ID }), { outcome: 'error', message: 'http_429', id: 'srv-7', recheck: false }],
     ['500', () => new Response('Traceback ...', { status: 500, headers: SERVER_ID }), { outcome: 'error', message: 'http_500', id: 'srv-7', recheck: false }],
-    ['504 (a gateway timeout is not a server judgement)', () => new Response('', { status: 504, headers: SERVER_ID }), { outcome: 'error', message: 'http_504', id: 'srv-7', recheck: false }],
+    ['502 (Core rejected an invalid upstream envelope)', () => json({ code: 'upstream.unavailable' }, { status: 502, headers: SERVER_ID }), { outcome: 'error', message: 'http_502', id: 'srv-7', recheck: false }],
+    ['503 without a retry signal', () => new Response('', { status: 503, headers: SERVER_ID }), { outcome: 'error', message: 'http_503', id: 'srv-7', recheck: false }],
+    ['503 with Retry-After', () => new Response('', { status: 503, headers: { ...SERVER_ID, 'Retry-After': '5' } }), { outcome: 'error', message: 'http_503', id: 'srv-7', recheck: false, retryable: true }],
+    ['504 (a gateway timeout is not a server judgement)', () => new Response('', { status: 504, headers: SERVER_ID }), { outcome: 'error', message: 'http_504', id: 'srv-7', recheck: false, retryable: true }],
     ['200 that is not JSON', () => new Response('<html>login</html>', { status: 200, headers: SERVER_ID }), { outcome: 'error', message: 'invalid_response', id: 'srv-7', recheck: false }],
     ['200 JSON with an unknown outcome', () => json({ ...ENVELOPE, outcome: 'weird' }, { headers: SERVER_ID }), { outcome: 'error', message: 'invalid_envelope', id: 'srv-7', recheck: false }],
     ['200 JSON without correlationId', () => json({ ...ENVELOPE, correlationId: undefined }, { headers: SERVER_ID }), { outcome: 'error', message: 'invalid_envelope', id: 'srv-7', recheck: false }],
@@ -43,6 +82,7 @@ describe('envelope methods (contract §2.1)', () => {
       trust: null,
       correlationId: want.id === 'request' ? requestId : want.id,
       message: want.message,
+      ...(want.retryable ? { recovery: { retryable: true } } : {}),
     });
     expect(result.message).toMatch(/^[a-z_0-9]+$/);
     await Promise.resolve();
@@ -60,7 +100,7 @@ describe('envelope methods (contract §2.1)', () => {
       expect(sent()).toHaveLength(1);
       await vi.advanceTimersByTimeAsync(1);
       const result = await pending;
-      expect(result).toEqual({ outcome: 'timeout', data: null, assessments: [], trust: null, correlationId: sent()[0]!.headers['X-Correlation-Id'], message: 'client_timeout' });
+      expect(result).toEqual({ outcome: 'timeout', data: null, assessments: [], trust: null, correlationId: sent()[0]!.headers['X-Correlation-Id'], message: 'client_timeout', recovery: { retryable: true } });
     });
 
     it('timeoutMs is configurable', async () => {

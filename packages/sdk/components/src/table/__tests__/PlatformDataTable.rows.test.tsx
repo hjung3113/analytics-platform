@@ -1,6 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -105,9 +106,18 @@ describe('PlatformDataTable rows', () => {
   });
 
   it('a filter that fails validateFilters shows the error state', async () => {
-    const filters: ColumnFilter[] = [{ id: 'line', op: 'gt', value: 1 }];
-    render(<Harness rows={make(1, 2)} urlState={controlled({ filters })} />);
-    expect(await screen.findByRole('button', { name: '다시 시도' })).toBeTruthy();
+    const user = userEvent.setup();
+    const rows = make(1, 2);
+    function Host() {
+      const [filters, setFilters] = useState<ColumnFilter[]>([{ id: 'line', op: 'gt', value: 1 }]);
+      return <Harness rows={rows} urlState={controlled({ filters, onChange: next => setFilters(next.filters ?? []) })} />;
+    }
+    render(<Host />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('데이터를 불러오지 못했습니다');
+    expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '모두 지우기' }));
+    await waitFor(() => expect(shownIds()).toEqual(['r1', 'r2']));
+    expect(screen.getByRole('button', { name: '필터 추가' })).toHaveFocus();
   });
 
   it('groupable groups with subtotal columns', async () => {

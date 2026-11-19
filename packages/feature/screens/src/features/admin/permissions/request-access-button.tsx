@@ -73,6 +73,7 @@ export type RequestAccessButtonProps = RequestAccessButtonCommonProps &
 
 interface RequestAccessButtonCommonProps {
   returnRouteIntent: string;
+  exactScopeTarget?: boolean;
   onRequestSubmitted?: () => void;
   /** Uses a caller-owned trigger while this component retains the request dialog and flow. */
   renderTrigger?: (open: () => void) => ReactNode;
@@ -123,8 +124,11 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   const initialScopeKind: PermissionScopeTargetKind | '' =
     scopeTarget?.kind === 'site_room' ? 'site_room' : '';
   const initialScopeRoom = scopeTarget?.kind === 'site_room' ? scopeTarget.room : '';
-  const [scopeKind, setScopeKind] = useState<PermissionScopeTargetKind | ''>(initialScopeKind);
-  const [scopeRoom, setScopeRoom] = useState(initialScopeRoom);
+  const [draftScopeKind, setScopeKind] = useState<PermissionScopeTargetKind | ''>(initialScopeKind);
+  const [draftScopeRoom, setScopeRoom] = useState(initialScopeRoom);
+  const exactTarget = props.exactScopeTarget ? scopeTarget : undefined;
+  const scopeKind = exactTarget?.kind ?? draftScopeKind;
+  const scopeRoom = exactTarget ? initialScopeRoom : draftScopeRoom;
   const scopeTargetLabel =
     scopeTarget && scopeKind !== ''
       ? formatPermissionScopeTarget(scopeKind, scopeTarget.site, scopeRoom)
@@ -176,7 +180,7 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
     restore: (draft) => {
       setReason(draft.reason);
       setExpiration(draft.expiration);
-      if (scopeTarget && draft.scopeKind !== null) {
+      if (scopeTarget && !exactTarget && draft.scopeKind !== null) {
         setScopeKind(draft.scopeKind);
         setScopeRoom(draft.scopeRoom);
       }
@@ -399,9 +403,9 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                   <>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm">
                       <dt className="text-text-muted">{PERMISSION_SCOPE_COPY.target}</dt>
-                      <dd className="text-text-primary">Site {scopeTarget.site}</dd>
+                      <dd className="text-text-primary">{exactTarget ? scopeTargetLabel : `Site ${scopeTarget.site}`}</dd>
                     </dl>
-                    <div className="space-y-1">
+                    {!exactTarget && <div className="space-y-1">
                       <Label htmlFor="permission-request-scope-kind">
                         {PERMISSION_SCOPE_COPY.kind}
                       </Label>
@@ -428,8 +432,8 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-                    </div>
-                    {scopeKind === 'site_room' ? (
+                    </div>}
+                    {!exactTarget && scopeKind === 'site_room' ? (
                       <PermissionScopeTargetFields
                         idPrefix="permission-request-scope"
                         mode="request"

@@ -57,14 +57,17 @@
 2. **params 값** → 엔드포인트의 값 검증(예: 계열에 없는 `metricVersion`)이 거부하면 `error`. 잘못된 요청이지 빈 결과가 아니다.
 3. **권한** → 엔드포인트 권한(데이터 접근 권한, 메뉴 권한과 다를 수 있음 — Q5)이 없으면 `forbidden`. 요청 시점의 세션 사용자로 판정하고, 비행 중 역할이 바뀌어도 보낸 사람 기준이다.
 4. **Scope** → `requiresScope`면 site 부여 → room 부여 → 조건 → Selection으로 설비 집합을 해석하고, 부여 밖이면 `forbidden`(Scope `null`도 `forbidden`).
-5. **한도** → `limits.maxHours`를 넘고 좁은 Selection이 없으면 `too_large`.
+5. **한도** → `limits.maxHours`를 넘고 좁은 Selection이 없으면 `too_large`. 코어는 선언 한도 안에서 양의 정수 시간으로 표현할 수 있는 상한을 `recovery.maxHours`에 싣는다.
 6. **명시적 공집합** → 적용된 집합 키가 `[]`면 원천을 읽지 않고 `empty`, assessments 없음, trust `null`(06 §19).
 7. **시간 도메인** → `mergeTimeDomain`이면 조회 설비 수와 관계없이 요청 Site의 시간 보증으로 §6.3 판정(보증 표기는 아래 «시간 도메인(§3 7단계)»), 안 되면 `error`(`message`는 `time_domain_unverified` 또는 `time_domain_mismatch`), 핸들러는 부르지 않는다. 통과하면 증명된 `timeDomainId`를 핸들러에 넘긴다.
 8. **핸들러** → 해석된 설비, 적용 Context만 남긴 값(비적용 키는 "제약 없음"), params, 세션 사용자를 받아 계산. 데이터로만 판정할 수 있는 잘못된 요청(예: 다른 사용자에게 발급한 커서)은 `error`.
 9. **행 상한** → `limits.maxRows`를 선언한 비페이지 엔드포인트(내보내기·탐색)는 핸들러가 돌려준 결과 **전체**(페이지가 아님)로 판정한다. 배열 길이가 `maxRows`를 넘으면 데이터 없이 `too_large`(원천을 다 읽기 전에 판정할 수 있으면 그렇게 — 단, 1–8단계 판정이 언제나 앞선다). ids를 params로 받는 선택 내보내기(#173)는 ids로 거른 **뒤의 크기**가 기준이라 큰 필터 결과 안의 작은 선택도 내보낼 수 있다. 선언했는데 핸들러가 배열이 아닌 값을 돌려주면 데이터 답이 아니라 계약 `error`(선언 오용)다. 페이지 엔드포인트에 선언하면 등록 검증이 거부한다.
 10. **응답** → `assessments`는 선언한 kind마다 정확히 하나. mart 데이터면 `trust`(갱신 시각·데이터 기준 시각·커버리지·지표 버전·잠정 여부·원천), 기능 같은 비 mart 원천이면 `trust: null`. 원천 의존 kind(`collection`·`processing_delay`·`coverage`)의 원천이 아직 없으면(적재 워커 기록 구현 전 — 스키마는 #37로 Decided) 빼지 않고 `state: 'unknown'`, `reason: 'source_unavailable'`로 답한다(06 §19 — 생략은 계약 위반, 행 수로 `clear`를 추론하지 않음). Trust는 키가 모두 필수이고 모르는 값(`dataThrough`·`coverage`)은 `null`(06 §18, `@ap/contracts` `Trust`).
 
-**위 순서는 문자열 행(`MENU_UPSTREAM_BASE_URL`로 가는 envelope 전달)에서 바뀌지 않는다.** `endpointOwners`의 값이 경로 문자열이면 1~7단계는 코어가 끝내고 8단계 핸들러가 상류에 그대로 전달하며, 9단계(`limits.maxRows`)는 이 행에 선언하면 기동 거부다. 아래는 선언 묶음이 `targets`와 라우팅 객체를 쓰는 엔드포인트에서 8~10단계가 달라지는 부분이다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 3~6·10). 라우팅된 엔드포인트에도 위 1~7단계를 그대로 적용한다. 라우팅은 8단계 핸들러 안에서만 일어난다.
+**위 순서는 문자열 행(`MENU_UPSTREAM_BASE_URL`로 가는 envelope 전달)에서 바뀌지 않는다.** `endpointOwners`의 값이 경로 문자열이면 1~7단계는 코어가 끝내고 8단계 핸들러가 상류에 그대로 전달하며, 9단계(`limits.maxRows`)는 이 행에 선언하면 기동 거부다. 상류 envelope를 검증한 뒤 선택 필드 `recovery`를 아래 기준에 따라 응답에 전달한다. 아래는 선언 묶음이 `targets`와 라우팅 객체를 쓰는 엔드포인트에서 8~10단계가 달라지는 부분이다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 3~6·10). 라우팅된 엔드포인트에도 위 1~7단계를 그대로 적용한다. 라우팅은 8단계 핸들러 안에서만 일어난다.
+
+- **설비 복구 목록 전달** — `affectedEquipmentIds`와 `authorizedEquipmentIds`는 코어가 상류 응답과 독립적인 서버 조회로 확인한 ID로 좁힌다. 요청 Site와 부여받은 room, 요청의 room 필터와 Selection, 라우팅된 대상의 room 범위를 모두 적용한다. 확인된 영향 설비가 하나 이상이고 모두 허용 목록에 속하며, 제외 후 허용 설비가 하나 이상 남을 때 두 목록을 함께 보낸다. 현재 코어 구성에는 이 서버 조회가 없어 두 목록을 생략한다.
+- **집계 거부 진단** — 설비 목록을 포함한 응답이나 인식된 집계 거부에서는 `message`에 `time_domain_unverified` 또는 `time_domain_mismatch` 코드만 남긴다. 인식된 코드가 없으면 `message`를 생략한다. `assessments`의 자유 문구인 `detail`도 제거한다. 이 경로에서 두 설비 목록을 전달할 수 없으면 `retryable`을 제거하고 검증된 `maxHours`는 전달한다. 복구 필드의 의미는 [컴포넌트 계약 §19](../contract/components.md)를 따른다.
 
 **라우팅된 대상의 8~10단계 (코어가 판정자)** — 순서도 계약이다:
 

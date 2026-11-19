@@ -233,7 +233,7 @@ describe('HW Time table page', () => {
     const original = adapter.menuQuery.bind(adapter);
     let failLevel = true;
     vi.spyOn(adapter, 'menuQuery').mockImplementation(async req => failLevel && req.endpoint === hwTime.levelRows.id
-      ? ({ outcome: 'error', message: 'level read failed', assessments, trust: null, correlationId: 'level-fail' }) as ApiResponse<never>
+      ? { outcome: 'error', data: null, message: 'network_error', assessments, trust: null, correlationId: 'level-fail', recovery: { retryable: true } }
       : original(req));
     await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 · H1 보기' }));

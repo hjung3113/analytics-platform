@@ -20,15 +20,20 @@ describe('app home launcher assembly (#1109)', () => {
     expect(new Set(classified).size).toBe(classified.length);
   });
 
-  // #1905: the expectations come from HOME_LAUNCHER_GROUPS and SPACES (one card per space, in declared order, linking to the space's home
-  // menu), so adding a space needs no edit here — only its HOME_LAUNCHER_GROUPS entry (the test above names a missing one).
+  // #1905: expect one card per space in declared order, derived from HOME_LAUNCHER_GROUPS and SPACES.
   it.each([
     ['ko' as const, '업무 시스템'],
     ['en' as const, 'Work systems'],
   ])('renders selected A through the actual registry (%s)', async (lang, systems) => {
     const headings = HOME_LAUNCHER_GROUPS.map(group => group.label[lang]);
     // Cards inside a category follow SPACES (Registry) order, not the membership array order (ADR-0102 decision 1).
-    const categoryPaths = HOME_LAUNCHER_GROUPS.map(group => SPACES.filter(space => (group.spaces as readonly string[]).includes(space.id)).map(space => registry.menuById(space.homeMenuId!)!.path));
+    const categoryPaths = HOME_LAUNCHER_GROUPS.map(group => SPACES
+      .filter(space => (group.spaces as readonly string[]).includes(space.id))
+      .map(space => {
+        // #2535 picked Models for fresh Log-dev entry while My validation queue is planned.
+        const entryMenuId = space.id === 'log-dev' ? 'log-models' : space.homeMenuId;
+        return registry.menuById(entryMenuId)!.path;
+      }));
     localStorage.setItem('platform:lang', lang);
     const session = testSession([...registry.permissions]);
     const adapter = testAdapter({ session: () => session, menuQuery: async () => ({ outcome: 'empty', data: null, assessments: [], trust: null, correlationId: 'fixture' }) });

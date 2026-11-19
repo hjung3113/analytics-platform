@@ -13,7 +13,7 @@ import type { PlatformActor } from '../platform-port/permissions.js';
 import { hasRequestScope, type ScopeGrant, type ScopeResolver } from './scope-resolver.js';
 import type { MenuDispatchRegistry } from './registry.js';
 import { judgeTimeDomain, wallClockMs, type SiteTimeDomains, type TimeDomainVerdict } from './time-domain.js';
-import type { ContextKey, EndpointOutcome, MenuEndpointDeclaration } from './types.js';
+import type { ContextKey, EndpointOutcome, EndpointResult, MenuEndpointDeclaration } from './types.js';
 
 export interface QueryAnswer {
   outcome: EndpointOutcome;
@@ -21,6 +21,7 @@ export interface QueryAnswer {
   assessments: readonly unknown[];
   trust: unknown;
   message?: string;
+  recovery?: EndpointResult['recovery'];
 }
 
 const isPlain = (value: unknown): value is Record<string, unknown> =>
@@ -153,15 +154,15 @@ const answer = (
 
 const WALL_CLOCK_HOUR_MS = 3_600_000;
 
-/** Step 5 (hours): a wall-clock range longer than `maxHours` without a narrowing Selection. */
-function overHourLimit(declaration: MenuEndpointDeclaration, context: Record<string, unknown>) {
+/** Step 5 (hours): return the exceeded wall-clock cap when there is no narrowing Selection. */
+function exceededHourLimit(declaration: MenuEndpointDeclaration, context: Record<string, unknown>) {
   const maxHours = declaration.spec.limits?.maxHours;
   if (maxHours === undefined || typeof context.from !== 'string' || typeof context.to !== 'string') {
-    return false;
+    return undefined;
   }
   const hours = (wallClockMs(context.to) - wallClockMs(context.from)) / WALL_CLOCK_HOUR_MS;
   const narrowed = Array.isArray(context.selection) && context.selection.length > 0;
-  return hours > maxHours && !narrowed;
+  return hours > maxHours && !narrowed ? maxHours : undefined;
 }
 
 /** Only the routed core timer creates this reason; caller-supplied upstream errors remain Scope denial. */
@@ -266,7 +267,12 @@ async function runQuerySteps(
     : [];
   checkActive();
   if (scopes === null) return answer('forbidden');
-  if (overHourLimit(declaration, context)) return answer('too_large');
+  const hourLimit = exceededHourLimit(declaration, context);
+  if (hourLimit !== undefined) {
+    // The wire field expresses a whole-hour window. Round down to keep it within the declared limit.
+    const maxHours = Math.floor(hourLimit);
+    return answer('too_large', Number.isSafeInteger(maxHours) && maxHours > 0 ? { recovery: { maxHours } } : {});
+  }
   if (SET_FIELDS.some((field) => Array.isArray(context[field]) && context[field].length === 0)) {
     return answer('empty');
   }
@@ -293,5 +299,6 @@ async function runQuerySteps(
     assessments: result.assessments ?? [],
     trust: result.trust ?? null,
     ...(result.message !== undefined ? { message: result.message } : {}),
+    ...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
   });
 }

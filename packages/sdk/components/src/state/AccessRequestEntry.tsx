@@ -2,7 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { IdSet, PermissionRequestTarget } from '@ap/contracts';
 import { PlatformLink, useI18n, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { useHostPlatform, useHostPlatformOptional } from '@ap/kernel/host';
 import { Button, StatusBadge } from '@ap/ui';
 import { pageFallbackTarget } from './pageFocus';
 
@@ -11,8 +11,8 @@ import { pageFallbackTarget } from './pageFocus';
  * comes from a platform grant-table source (`requestableScopes` present). Null → the place renders as without a slot.
  */
 export function useScopeAccessRequest(): AccessRequestSlot | null {
-  const { slots, session } = useHostPlatform();
-  return slots.accessRequest && session.requestableScopes !== undefined ? slots.accessRequest : null;
+  const host = useHostPlatformOptional();
+  return host?.session.requestableScopes === undefined ? null : host.slots.accessRequest ?? null;
 }
 
 /**
@@ -33,10 +33,12 @@ export function scopeRequestTarget(site: string, roomNames: IdSet, grantedRooms:
  * the gate closed), focus goes to the main landmark (06 §26), after the dialog's own deferred close autofocus. When the dialog
  * closes and the opener has been replaced by the pending state, focus goes to the surviving status action.
  */
-export function AccessRequestEntry({ slot, target, size = 'action', label, children }: {
+export function AccessRequestEntry({ slot, target, size = 'action', label, emphasis, exactTarget, children }: {
   slot: AccessRequestSlot;
   target: PermissionRequestTarget;
   size?: 'action' | 'field';
+  emphasis?: 'primary';
+  exactTarget?: boolean;
   /** Accessible name of the request button when the place needs a more specific one than `권한 요청`. */
   label?: string;
   children?: (state: AccessRequestState, action: ReactNode) => ReactNode;
@@ -77,8 +79,8 @@ export function AccessRequestEntry({ slot, target, size = 'action', label, child
   }, []);
   const { Pending, Dialog } = slot;
   return <>
-    <Pending target={target}>{state => <EntryView state={state} size={size} label={label} holder={holder} onRequest={() => changeOpen(true)}>{children}</EntryView>}</Pending>
-    <span ref={anchor} className="contents" onFocus={() => { dialogFocus.current = true; }} onBlur={() => { dialogFocus.current = false; }}><Dialog target={target} returnTo={url} open={open} onOpenChange={changeOpen} /></span>
+    <Pending target={target}>{state => <EntryView state={state} size={size} label={label} emphasis={emphasis} holder={holder} onRequest={() => changeOpen(true)}>{children}</EntryView>}</Pending>
+    <span ref={anchor} className="contents" onFocus={() => { dialogFocus.current = true; }} onBlur={() => { dialogFocus.current = false; }}><Dialog exactTarget={exactTarget} target={target} returnTo={url} open={open} onOpenChange={changeOpen} /></span>
   </>;
 }
 
@@ -99,10 +101,11 @@ export function accessRequestBody(t: ReturnType<typeof useI18n>['t'], state: Acc
  * 「다시 시도」 beside the request button, which still works (the server answers a repeated request, #1907). While a retry runs the error layout
  * stays and the pressed button is busy, so focus is not lost when the state flips to checking and back.
  */
-function EntryView({ state, size, label, holder, onRequest, children }: {
+function EntryView({ state, size, label, emphasis, holder, onRequest, children }: {
   state: AccessRequestState;
   size: 'action' | 'field';
   label: string | undefined;
+  emphasis: 'primary' | undefined;
   holder: RefObject<HTMLSpanElement | null>;
   onRequest: () => void;
   children: ((state: AccessRequestState, action: ReactNode) => ReactNode) | undefined;
@@ -118,7 +121,8 @@ function EntryView({ state, size, label, holder, onRequest, children }: {
     if (isFocusLost()) holder.current?.querySelector<HTMLElement>('a[href], button')?.focus({ preventScroll: true });
   }, [phase, holder]);
   const buttonSize = size === 'field' ? 'toolbar' : 'sm';
-  const variant = size === 'field' ? 'ghost' : 'secondary';
+  const actionVariant = emphasis === 'primary' ? 'default' : 'secondary';
+  const variant = size === 'field' ? 'ghost' : actionVariant;
   const checking = phase === 'checking';
   const action = <span ref={holder} data-access-request={phase} className="contents">{phase === 'pending'
     ? <span className="inline-flex flex-wrap items-center gap-2">

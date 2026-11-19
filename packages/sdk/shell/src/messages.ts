@@ -156,8 +156,9 @@ export const SHELL_MESSAGES = {
   metricUnknownTitle: { ko: '지표를 확인하지 못했습니다', en: 'The metric could not be confirmed' },
   metricNoReleasedVersionTitle: { ko: '발행 버전이 없습니다', en: 'No released version' },
   metricClearPair: { ko: '이 지표 쌍 지우기', en: 'Clear this metric pair' },
-  plannedGroup: { ko: '그룹', en: 'Group' },
-  plannedCapabilitySubtitle: { ko: '지원하지 않는 조건은 위 막대에 이 화면에서 미사용으로 표시됩니다.', en: 'Conditions this page does not use stay on the bar above.' },
+  palettePlanned: { ko: '준비 중', en: 'Coming soon' },
+  plannedScreen: { ko: '{menu} 준비 중', en: '{menu} is coming soon' },
+  plannedLinks: { ko: '지금 쓸 수 있는 화면', en: 'Available screens' },
   palettePreserveContext: { ko: '이동 시 전역 Context를 보존합니다.', en: 'Global context is preserved on navigation.' },
   moduleDetailTab: { ko: '상세', en: 'Detail' },
   moduleAuthRequired: { ko: '다시 로그인이 필요합니다', en: 'Sign-in required' },
@@ -165,8 +166,6 @@ export const SHELL_MESSAGES = {
   moduleUnavailable: { ko: '지금 이 화면을 열 수 없습니다', en: 'This screen is unavailable right now' },
 
   // Errors
-  errorVocDenied: { ko: 'VOC를 등록할 권한이 없습니다.', en: 'You do not have permission to submit a VOC.' },
-  errorVocUnavailable: { ko: '이 환경에서는 VOC를 사용할 수 없습니다.', en: 'VOC is not available in this environment.' },
   errorRecovery: { ko: '다른 메뉴는 그대로 동작합니다. 다시 시도하거나 홈으로 이동하세요.', en: 'Other menus still work. Retry, or go home.' },
   errorManualTrace: { ko: '문의할 때 아래 추적 번호를 알려 주세요.', en: 'Quote the Trace ID below when you ask for help.' },
   errorReportReceipt: { ko: '오류 신고가 접수되었습니다. 다시 시도하거나 홈으로 이동하세요.', en: 'Your error report has been received. Retry or go home.' },

@@ -3,12 +3,13 @@
  * Only the shell, the platform components and the app import it (lint gate); menus use `usePlatform()` from `@ap/kernel`; host modules read only their injected `ModuleHost` (ADR-0053).
  */
 export { PaneScreenProvider, PaneQueryDraftProvider, useHostPlatform, useHostPlatformOptional, useOverlayState, useToastList, useLeaveRequest, type HostPlatform, type OverlayState, type PaneScreen } from './platform/platform';
+export { queryRecoveryEvidence } from './query/recovery-evidence';
 export { isChunkLoadFailure } from './error/chunkFailure';
-export { useAdapterRequest, useKeptAnswers, type KeptAnswers } from './query/query';
+export { isTransientReadError, useAdapterRequest, useKeptAnswers, type KeptAnswers } from './query/query';
 export { type PageFocus, type PageNavigation } from './context/pageNavigation';
 export { useArrivalFocus, type ArrivalFocusOptions } from './platform/useArrivalFocus';
 export { useModuleHost, type ModuleShellPorts } from './registry/module-host';
-export { BOARD_PATH } from './registry/registry';
+export { BOARD_PATH, isImplementedMenu } from './registry/registry';
 export { hasDotSegment } from './context/location';
 export { paneHref, withPaneContext } from './context/paneContext';
 export { useQueryHistory, type QueryHistory, type QueryHistoryRow } from './query/query-history';

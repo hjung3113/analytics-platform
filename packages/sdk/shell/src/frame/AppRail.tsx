@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
 import { type MenuEntry, useI18n, useMessages } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { isImplementedMenu, useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { SystemSwitcher } from './SystemSwitcher';
 import { undeclaredOnlySections, UndeclaredBoundary } from './undeclared';
@@ -52,7 +52,7 @@ export function AppRail() {
             }
             const active = group.id === systems.currentGroupId;
             // A section whose menus are all registered without a screen looks dimmed and says so; the words are in the name and tooltip (#1944).
-            const planned = items.every(menu => !menu.component && !menu.moduleScreen);
+            const planned = items.every(menu => !isImplementedMenu(menu));
             const name = planned ? `${tx(group.label)} · ${t('planned')}` : tx(group.label);
             return <Tooltip key={group.id}><TooltipTrigger asChild>
               <button type="button" aria-label={name} data-section-planned={planned ? 'true' : undefined} aria-current={active ? 'true' : undefined}

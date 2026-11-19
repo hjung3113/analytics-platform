@@ -25,9 +25,9 @@ const wait = (pinned: Pinned, signal: AbortSignal | undefined, opts?: ServiceOpt
 const baseOf = (): Base => ({ correlationId: nextCorrelation(), data: null, trust: null, assessments: [] });
 
 /** The scenario outcome an envelope read answers before looking at the request, or null for normal service. */
-function scenarioFail(scenario: Pinned['scenario']): { outcome: 'timeout' | 'error' | 'forbidden'; message: string } | null {
-  if (scenario === 'timeout') return { outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
-  if (scenario === 'error') return { outcome: 'error', message: '상류 요청이 실패했습니다' };
+function scenarioFail(scenario: Pinned['scenario']): Pick<ApiResponse<never>, 'outcome' | 'message' | 'recovery'> | null {
+  if (scenario === 'timeout') return { outcome: 'timeout', recovery: { retryable: true }, message: '조회가 30초 제한을 넘었습니다' };
+  if (scenario === 'error') return { outcome: 'error', recovery: { retryable: true }, message: '상류 요청이 실패했습니다' };
   if (scenario === 'forbidden') return { outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
   return null;
 }

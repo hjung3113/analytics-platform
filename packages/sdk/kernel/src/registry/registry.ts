@@ -49,6 +49,10 @@ export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
 
 export type MenuEntry = PlatformMenuEntry | ModuleMenuEntry;
 
+export function isImplementedMenu(menu: MenuEntry): boolean {
+  return Boolean(menu.component || menu.moduleScreen);
+}
+
 /** Group ids a menu can name: one the app declares or a module-prefixed id. */
 export type AnyGroupId = GroupId | ModuleScopedId;
 

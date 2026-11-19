@@ -1,13 +1,14 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, type AccessRequestSlot, type AccessRequestState, type QueryState } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery, type AccessRequestSlot, type AccessRequestState, type QueryState } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, spaceId, type ApiResponse, type PermissionRequestTarget, type ScopeCheck, type ScopeOption, type Session } from '@ap/contracts';
+import { defineEndpoint, groupId, spaceId, type ApiResponse, type MenuQuery, type PermissionRequestTarget, type ScopeCheck, type ScopeOption, type Session } from '@ap/contracts';
 import { Dialog as UiDialog, DialogContent, DialogDescription, DialogTitle } from '@ap/ui';
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { QueryView } from '../../StateView';
+import { useRegisterContextEditorFocus } from '../../filters/QueryBarStatus';
 import { scopeRequestTarget } from '../AccessRequestEntry';
 
 // Synthetic site and room names only (ADR-0151).
@@ -23,6 +24,7 @@ let pendingAnswer: 'known' | 'unknown' | 'checking' | 'error' = 'known';
 const retrySpy = vi.fn();
 const dialogs: { target: PermissionRequestTarget; returnTo: string }[] = [];
 const fakeSlot: AccessRequestSlot = {
+  supportsExactTarget: true,
   Pending: ({ target, children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
     if (pendingAnswer === 'checking') return <>{children({ pending: null, statusHref: null, read: 'checking' })}</>;
     if (pendingAnswer === 'error') return <>{children({ pending: null, statusHref: null, read: 'error', retry: retrySpy })}</>;
@@ -36,13 +38,21 @@ const fakeSlot: AccessRequestSlot = {
   },
 };
 
+const endpoint = defineEndpoint<{ reply: ApiResponse<unknown> }, unknown>({
+  id: 'home.denied', menuId: 'home', paramKeys: { reply: true }, permission: 'platform:view', requiresScope: true,
+  context: {}, kinds: [], mergeTimeDomain: false,
+});
+const replyByParams = async (request: MenuQuery) => (request.params as { reply: ApiResponse<unknown> }).reply;
 function adapterFor(session: Session, validateScope: () => Promise<ScopeCheck>) {
-  return testAdapter({ session: () => session, validateScope });
+  return testAdapter({ session: () => session, validateScope, menuQuery: replyByParams });
+}
+function ResultWidget({ query, name }: { query: QueryState<unknown>; name: string }) {
+  return <QueryView query={useMenuQuery(endpoint, { reply: query.response! })} widgetName={name}>{() => <p>ok</p>}</QueryView>;
 }
 const requestable = (scopes: readonly ScopeOption[] = []): Session => ({ ...testSession(['platform:view'], { scopes }), requestableScopes: [{ id: 'SITE-C', label: 'SITE-C', totalRooms: 4 }] });
 const forbiddenCheck = async (): Promise<ScopeCheck> => ({ status: 'forbidden', grantedRooms: [] });
 
-const forbiddenResponse: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture' };
+const forbiddenResponse: ApiResponse<unknown> = { outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'fixture', recovery: { deniedScope: { kind: 'site', site: 'SITE-B' } } };
 const forbiddenQuery: QueryState<unknown> = { status: 'done', response: forbiddenResponse, refetch: vi.fn(), missing: [], completedAt: null };
 const partial = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 5 }];
 const full = [{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }];
@@ -139,38 +149,70 @@ describe('place (c): the Scope forbidden gate', () => {
   });
 });
 
-describe('place (e): one request banner for forbidden widgets on a partially granted Scope', () => {
-  const renderPage = (session: Session, slot?: AccessRequestSlot) => render(<I18nProvider><PlatformProvider adapter={adapterFor(session, async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={slot ? { accessRequest: slot } : undefined}>
+describe('place (e): access request for the denied target in a query reply', () => {
+  const renderPage = (session: Session, slot?: AccessRequestSlot, q = forbiddenQuery, contextBar?: ReactNode) => render(<I18nProvider><PlatformProvider adapter={adapterFor(session, async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: slot, contextBar }}>
     <PlatformPage>
-      <QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView>
-      <QueryView query={forbiddenQuery} widgetName="Widget B">{() => <p>ok</p>}</QueryView>
+      <ResultWidget query={q} name="Widget A" />
+      <ResultWidget query={q} name="Widget B" />
     </PlatformPage>
   </PlatformProvider></I18nProvider>);
 
   it('without the slot groups the widgets without an access-request banner', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
-    const view = renderPage(requestable(partial));
-    expect(await screen.findAllByText('위 안내 참고')).toHaveLength(2);
+    const focusConditions = vi.fn();
+    function Conditions() {
+      useRegisterContextEditorFocus(focusConditions);
+      return <button type="button">Context editor</button>;
+    }
+    const view = renderPage(requestable(partial), undefined, forbiddenQuery, <Conditions />);
+    fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
+    expect(focusConditions).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(await screen.findAllByText('위 안내 참고(권한 없음)')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
-    expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
+    expect(view.container.querySelector('[data-access-request]')).toBeNull();
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+  });
+
+  it('omits Open conditions for a mounted bar without an opener', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    renderPage(requestable(partial), undefined, forbiddenQuery, <div>Custom conditions bar</div>);
+    expect(await screen.findByText('Custom conditions bar')).toBeTruthy();
+    expect(await screen.findByRole('group', { name: '위젯 상태 요약' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '조건 열기' })).toBeNull();
+  });
+
+  it('removes Open conditions when the registered editor unmounts', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+    function Editor() {
+      useRegisterContextEditorFocus(() => {});
+      return null;
+    }
+    function CustomBar() {
+      const [registered, setRegistered] = useState(true);
+      return <><button type="button" onClick={() => setRegistered(false)}>Remove editor</button>{registered && <Editor />}</>;
+    }
+    renderPage(requestable(partial), undefined, forbiddenQuery, <CustomBar />);
+    expect(await screen.findByRole('button', { name: '조건 열기' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove editor' }));
+    expect(screen.queryByRole('button', { name: '조건 열기' })).toBeNull();
   });
 
   it('on a fully granted Scope forbidden widgets still group (a capability matter, not a Scope target)', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
-    const view = renderPage(requestable(full), fakeSlot);
-    expect(await screen.findAllByText('위 안내 참고')).toHaveLength(2);
+    const view = renderPage(requestable(full), fakeSlot, { ...forbiddenQuery, response: { ...forbiddenResponse, recovery: undefined } });
+    expect(await screen.findAllByText('위 안내 참고(권한 없음)')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
-    expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
+    expect(view.container.querySelector('[data-access-request]')).toBeNull();
   });
 
-  it('draws one banner for two forbidden widgets, prefilled with the deep-linked ungranted room', async () => {
-    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B&roomNames=RB4');
-    const view = renderPage(requestable(partial), fakeSlot);
-    const banner = await vi.waitFor(() => { const node = view.container.querySelector<HTMLElement>('[data-access-request-banner]'); if (!node) throw new Error('no banner'); return node; });
-    expect(view.container.querySelectorAll('[data-access-request-banner]')).toHaveLength(1);
-    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(0);
-    expect(banner).toHaveTextContent('위젯 2개');
+  it('draws one strip for two forbidden widgets, prefilled with the room from the reply', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B&roomNames=RB3');
+    const q = { ...forbiddenQuery, response: { ...forbiddenResponse, recovery: { deniedScope: { kind: 'site_room' as const, site: 'SITE-B', room: 'RB4' } } } };
+    const view = renderPage(requestable(partial), fakeSlot, q);
+    const banner = await screen.findByRole('group', { name: '위젯 상태 요약' });
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
+    expect(banner).toHaveTextContent('SITE-B / RB4');
+    expect(screen.queryByText('요청 대기 중')).toBeNull();
     expect(within(banner).queryByRole('status')).toBeNull();
     for (const name of ['Widget A', 'Widget B']) {
       expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고');
@@ -186,18 +228,13 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     const qTwo: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, message: 'two' } };
     const view = render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: fakeSlot }}>
       <PlatformPage>
-        <QueryView query={qOne} widgetName="Widget A">{() => <p>ok</p>}</QueryView>
-        <QueryView query={qOne} widgetName="Widget B">{() => <p>ok</p>}</QueryView>
-        <QueryView query={qTwo} widgetName="Widget C">{() => <p>ok</p>}</QueryView>
-        <QueryView query={qTwo} widgetName="Widget D">{() => <p>ok</p>}</QueryView>
+        <ResultWidget query={qOne} name="Widget A" />
+        <ResultWidget query={qOne} name="Widget B" />
+        <ResultWidget query={qTwo} name="Widget C" />
+        <ResultWidget query={qTwo} name="Widget D" />
       </PlatformPage>
     </PlatformProvider></I18nProvider>);
-    const banner = await vi.waitFor(() => { const node = view.container.querySelector<HTMLElement>('[data-access-request-banner]'); if (!node) throw new Error('no banner'); return node; });
-    expect(view.container.querySelectorAll('[data-access-request-banner]')).toHaveLength(1);
-    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(0);
-    expect(banner).not.toHaveTextContent('위젯 4개');
-    const summaries = within(banner).getAllByText(/위젯 2개가 같은 이유로 열리지 않았습니다\./);
-    expect(summaries).toHaveLength(2);
+    await waitFor(() => expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(2));
     const idA = screen.getByRole('group', { name: 'Widget A' }).getAttribute('aria-describedby')!;
     const idB = screen.getByRole('group', { name: 'Widget B' }).getAttribute('aria-describedby')!;
     const idC = screen.getByRole('group', { name: 'Widget C' }).getAttribute('aria-describedby')!;
@@ -218,7 +255,7 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     for (const name of ['Widget A', 'Widget B', 'Widget C', 'Widget D']) {
       expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고(권한 없음)');
     }
-    expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(2);
     const announcer = view.container.querySelector('[data-outcome-announcer="polite"]')!;
     expect(announcer.textContent).not.toContain('위젯 4개');
     expect(within(announcer as HTMLElement).getAllByText('위젯 2개가 같은 이유로 열리지 않았습니다.')).toHaveLength(2);
@@ -227,19 +264,20 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
   it('with the slot but a session without requestableScopes groups the widgets without an access-request banner', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = renderPage(testSession(['platform:view'], { scopes: partial }), fakeSlot);
-    expect(await screen.findAllByText('위 안내 참고')).toHaveLength(2);
+    expect(await screen.findAllByText('위 안내 참고(권한 없음)')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
-    expect(view.container.querySelector('[data-access-request-banner]')).toBeNull();
+    expect(view.container.querySelector('[data-access-request]')).toBeNull();
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
   });
 
-  it('a single forbidden widget draws exactly one banner', async () => {
+  it('puts a single forbidden response and its request inside the named widget', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: fakeSlot }}>
-      <PlatformPage><QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage>
+      <PlatformPage><ResultWidget query={forbiddenQuery} name="Widget A" /></PlatformPage>
     </PlatformProvider></I18nProvider>);
-    await vi.waitFor(() => { if (!view.container.querySelector('[data-access-request-banner]')) throw new Error('no banner'); });
-    expect(view.container.querySelectorAll('[data-access-request-banner]')).toHaveLength(1);
+    const widget = await screen.findByRole('group', { name: 'Widget A' });
+    expect(within(widget).getByRole('button', { name: '권한 요청' })).toBeTruthy();
+    expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(0);
     expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
   });
 
@@ -248,13 +286,13 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     const adapter = adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
     const okQuery: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, outcome: 'ok' } };
     const tree = (query: QueryState<unknown>) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: fakeSlot }}>
-      <PlatformPage><QueryView query={query} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage>
+      <PlatformPage><ResultWidget query={query} name="Widget A" /></PlatformPage>
     </PlatformProvider></I18nProvider>;
     const view = render(tree(forbiddenQuery));
     const button = await screen.findByRole('button', { name: '권한 요청' });
     button.focus();
     view.rerender(tree(okQuery));
-    await vi.waitFor(() => { if (view.container.querySelector('[data-access-request-banner]')) throw new Error('banner still there'); });
+    await vi.waitFor(() => { if (view.container.querySelector('[data-access-request]')) throw new Error('request entry still there'); });
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
     expect(document.activeElement?.hasAttribute('data-platform-page-content')).toBe(true);
   });
@@ -269,7 +307,7 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
     const adapter = adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
     const okQuery: QueryState<unknown> = { ...forbiddenQuery, response: { ...forbiddenResponse, outcome: 'ok' } };
     const tree = (query: QueryState<unknown>, page: boolean) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: fakeSlot }}>
-      {page ? <PlatformPage><QueryView query={query} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage> : null}
+      {page ? <PlatformPage><ResultWidget query={query} name="Widget A" /></PlatformPage> : null}
     </PlatformProvider></I18nProvider>;
     const outside = document.createElement('button');
     outside.textContent = 'outside';
@@ -284,7 +322,7 @@ describe('place (e): one request banner for forbidden widgets on a partially gra
       const blurs: string[] = [];
       outside.addEventListener('blur', () => blurs.push(document.activeElement?.tagName ?? 'none'));
       view.rerender(removal === 'the owner page is disposed' ? tree(forbiddenQuery, false) : tree(okQuery, true));
-      await vi.waitFor(() => { if (view.container.querySelector('[data-access-request-banner]')) throw new Error('banner still there'); });
+      await vi.waitFor(() => { if (view.container.querySelector('[data-access-request]')) throw new Error('request entry still there'); });
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
       expect(blurs).toEqual([]);
       expect(document.activeElement).toBe(outside);
@@ -316,6 +354,7 @@ describe('focus ownership with the real dialog (portal + autofocus)', () => {
   const store = { pending: false, listeners: new Set<() => void>() };
   const setPending = (pending: boolean) => { store.pending = pending; act(() => store.listeners.forEach(listener => listener())); };
   const realSlot: AccessRequestSlot = {
+    supportsExactTarget: true,
     Pending: ({ children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) => {
       const pending = useSyncExternalStore(listener => { store.listeners.add(listener); return () => { store.listeners.delete(listener); }; }, () => store.pending);
       return <>{children({ pending, statusHref: pending ? '/permission-requests?id=req-1' : null })}</>;
@@ -329,7 +368,7 @@ describe('focus ownership with the real dialog (portal + autofocus)', () => {
   const swapAdapter = (initial: Session, later: Session, validateScope: () => Promise<ScopeCheck>) => {
     let current = initial;
     listeners.clear();
-    return { adapter: testAdapter({ session: () => current, validateScope, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } }), swap: () => { current = later; act(() => listeners.forEach(listener => listener())); } };
+    return { adapter: testAdapter({ session: () => current, validateScope, menuQuery: replyByParams, subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; } }), swap: () => { current = later; act(() => listeners.forEach(listener => listener())); } };
   };
   const openDialog = async (name = '권한 요청') => {
     fireEvent.click(await screen.findByRole('button', { name }));
@@ -367,11 +406,11 @@ describe('focus ownership with the real dialog (portal + autofocus)', () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const { adapter, swap } = swapAdapter(requestable([{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 5 }]), granted([{ id: 'SITE-B', label: 'SITE-B', grantedRooms: 2, totalRooms: 2 }]), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }));
     const view = render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ accessRequest: realSlot }}><PlatformPage>
-      <QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView>
+      <ResultWidget query={forbiddenQuery} name="Widget A" />
     </PlatformPage></PlatformProvider></I18nProvider>);
     await openDialog();
     swap();
-    await waitFor(() => expect(view.container.querySelector('[data-access-request-banner]')).toBeNull());
+    await waitFor(() => expect(view.container.querySelector('[data-access-request]')).toBeNull());
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(onPageFallback()).toBe(true));
   });
@@ -382,7 +421,7 @@ describe('request state unknown (#1933): checking and error', () => {
     <PlatformPage><p>page body</p></PlatformPage>
   </PlatformProvider></I18nProvider>);
   const banner = (slot: AccessRequestSlot = fakeSlot) => render(<I18nProvider><PlatformProvider adapter={adapterFor(requestable(partial), async () => ({ status: 'valid', grantedRooms: ['RB1', 'RB2'] }))} registry={registry} slots={{ accessRequest: slot }}>
-    <PlatformPage><QueryView query={forbiddenQuery} widgetName="Widget A">{() => <p>ok</p>}</QueryView></PlatformPage>
+    <PlatformPage><ResultWidget query={forbiddenQuery} name="Widget A" /></PlatformPage>
   </PlatformProvider></I18nProvider>);
 
   it('place (c) while checking: the request button keeps its place, busy and inert, and the body says why (no live role)', async () => {

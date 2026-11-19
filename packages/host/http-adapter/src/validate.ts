@@ -1,4 +1,4 @@
-import { isIsoInstant, isRecord, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
+import { isIsoInstant, isRecord, readQueryRecovery, type ActionOutcome, type ActionResponse, type ApiResponse, type Outcome, type PublishedMetric, type Session } from '@ap/contracts';
 
 const OUTCOMES: readonly string[] = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'];
 const ACTION_OUTCOMES: readonly string[] = ['ok', 'invalid', 'conflict', 'forbidden', 'not_found', 'error', 'unknown'];
@@ -59,13 +59,22 @@ export function toEnvelope(value: unknown): ApiResponse<unknown> | null {
   if (!Array.isArray(assessments) || !assessments.every(isAssessment)) return null;
   if (trust !== null && !isTrust(trust)) return null;
   if (!isNonEmpty(correlationId)) return null;
+  const recovery = readQueryRecovery(value.recovery);
+  // Inspect the wire fields before normalization can discard malformed lists.
+  const wireRecovery = value.recovery;
+  const equipment = isRecord(wireRecovery)
+    && (Object.hasOwn(wireRecovery, 'affectedEquipmentIds') || Object.hasOwn(wireRecovery, 'authorizedEquipmentIds'));
+  const detail = equipment && isString(message)
+    ? /^\s*(time_domain_(?:unverified|mismatch))\s*(?::|$)/.exec(message)?.[1]
+    : message;
   return {
     outcome: outcome as Outcome,
     data,
     assessments: assessments as ApiResponse<unknown>['assessments'],
     trust: trust as ApiResponse<unknown>['trust'],
     correlationId,
-    ...withMessage(message),
+    ...withMessage(detail),
+    ...(recovery ? { recovery } : {}),
   };
 }
 

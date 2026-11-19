@@ -24,7 +24,7 @@ import {
 } from '../platform-port/transport.js';
 import { createMenuActionEngine } from './action.js';
 import { MenuUpstreamError } from './forwarder.js';
-import { judgeQueryShape, runQuery, unavailableSessionVersion } from './query.js';
+import { judgeQueryShape, runQuery, unavailableSessionVersion, type QueryAnswer } from './query.js';
 import type { MenuDispatchRegistry } from './registry.js';
 
 export const MENU_QUERY_PREFIX = '/api/v1/menu-query';
@@ -93,13 +93,7 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
 /** `ApiResponse` wire body: the engine decides assessments/trust, the transport only adds the correlation id. */
 function answerOf(
   req: Pick<FastifyRequest, 'id'>,
-  answer: {
-    outcome: string;
-    data?: unknown;
-    assessments?: readonly unknown[];
-    trust?: unknown;
-    message?: string;
-  },
+  answer: Pick<QueryAnswer, 'outcome'> & Partial<QueryAnswer>,
 ) {
   return {
     outcome: answer.outcome,
@@ -108,6 +102,7 @@ function answerOf(
     trust: answer.trust ?? null,
     correlationId: req.id,
     ...(answer.message !== undefined ? { message: answer.message } : {}),
+    ...(answer.recovery !== undefined ? { recovery: answer.recovery } : {}),
   };
 }
 

@@ -125,8 +125,8 @@ export async function auditTrail(query: AuditTrailQuery, signal?: AbortSignal, o
   const base = { correlationId, data: null, trust: null, assessments: [] as Assessment[] };
   // Operator permission beats every scenario and every filter (a targetId here is search text, not the detail read).
   if (!activeWorld().users[requestRole].permissions.includes('console:access')) return { ...base, outcome: 'forbidden', message: 'No permission console:access' };
-  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
-  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', recovery: { retryable: true }, message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', recovery: { retryable: true }, message: '상류 mart 쿼리가 실패했습니다' };
   if (s === 'forbidden') return { ...base, outcome: 'forbidden', message: '권한이 회수되었습니다(시나리오)' };
   if (invalidAuditQuery(query)) return { ...base, outcome: 'error', message: 'Invalid audit filter' };
   if (s === 'empty') return { ...base, outcome: 'empty' };
@@ -167,9 +167,9 @@ export async function entityAudit(ref: EntityAuditRequest, signal?: AbortSignal,
   const permission = ref.type === 'equipment' ? menuPermission('equipment:view') : menuPermission('metrics:view');
   if (!activeWorld().users[requestRole].permissions.includes(permission)) return { ...base, outcome: 'forbidden', message: `No permission ${permission}` };
   // 3. Scenario early returns, same as getEntity() (shared partial counter).
-  if (s === 'timeout') return { ...base, outcome: 'timeout', message: '조회가 30초 제한을 넘었습니다' };
-  if (s === 'error') return { ...base, outcome: 'error', message: '상류 mart 쿼리가 실패했습니다' };
-  if (partialFails(s)) return { ...base, outcome: 'error', message: '위젯 쿼리가 실패했습니다(부분 실패 시나리오)' };
+  if (s === 'timeout') return { ...base, outcome: 'timeout', recovery: { retryable: true }, message: '조회가 30초 제한을 넘었습니다' };
+  if (s === 'error') return { ...base, outcome: 'error', recovery: { retryable: true }, message: '상류 mart 쿼리가 실패했습니다' };
+  if (partialFails(s)) return { ...base, outcome: 'error', recovery: { retryable: true }, message: '위젯 쿼리가 실패했습니다(부분 실패 시나리오)' };
   if (ref.type === 'equipment') {
     // 4. Site gate before any search: never look up equipment for an ungranted or unknown scope.
     const scope = checkScope(requestRole, ref.scopeId);

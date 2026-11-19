@@ -1,3 +1,4 @@
+import { PlatformPage } from '@ap/components';
 import { lazy } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
@@ -327,7 +328,7 @@ describe('planned menu without a context bar (#304)', () => {
     adapter.session = () => session;
     window.history.replaceState(null, '', '/planned?v=1');
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={planned}><RouteOutlet /></PlatformProvider></I18nProvider>);
-    expect(await screen.findByText('레지스트리에 선언된 메뉴 (화면 미구현)')).toBeTruthy();
+    expect(await screen.findByText('예정 메뉴 준비 중')).toBeTruthy();
     expect(screen.queryByText(/Context Bar/)).toBeNull();
     expect(screen.queryByText('path')).toBeNull();
     expect(screen.queryByText('permission')).toBeNull();
@@ -335,7 +336,35 @@ describe('planned menu without a context bar (#304)', () => {
     expect(screen.queryByText('/planned')).toBeNull();
     expect(screen.queryByText('unsupported')).toBeNull();
     expect(screen.queryByText('apply')).toBeNull();
-    expect(screen.getAllByText('이 화면에서 미사용').length).toBeGreaterThan(0);
+    expect(screen.queryByText('이 화면에서 미사용')).toBeNull();
+  });
+
+  it('offers only openable implemented destinations in the same group or space', async () => {
+    const planned = createRegistry({
+      spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'planned' })],
+      groups: [
+        { id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') },
+        { id: groupId('other'), label: { ko: '분석', en: 'Analysis' }, icon: House, space: spaceId('mars') },
+        { id: groupId('global'), label: { ko: '전역', en: 'Global' }, icon: House, space: null },
+      ],
+      menus: [
+        menu('planned', '/planned', { primary: true }),
+        menu('built', '/built', { component: () => null, label: { ko: '구현 화면', en: 'Implemented' } }),
+        menu('same-space', '/same-space', { group: groupId('other'), primary: true, component: () => null, label: { ko: '같은 공간', en: 'Same space' } }),
+        menu('denied', '/denied', { permission: 'console:access', component: () => null }),
+        menu('parameter', '/parameter/:id', { navHidden: true, parent: 'built', component: () => null }),
+        menu('global', '/global', { group: groupId('global'), primary: true, component: () => null }),
+      ],
+    });
+    const { adapter } = fixture(async () => ({ accepted: true }));
+    const viewer = testSession(['platform:view']);
+    adapter.session = () => viewer;
+    window.history.replaceState(null, '', '/mars/planned?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={planned}><RouteOutlet /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('지금 쓸 수 있는 화면')).toBeTruthy();
+    expect(screen.getAllByRole('link').map(link => link.getAttribute('href'))).toEqual([
+      '/mars/built?v=1&scopeId=MEM', '/mars/same-space?v=1&scopeId=MEM',
+    ]);
   });
 });
 
@@ -375,4 +404,32 @@ describe('RouteOutlet contract error view', () => {
     expect(urlText.className).toContain('t-mono');
     expect(urlText.className).not.toMatch(/(^|\s)opacity-/);
   });
+});
+
+it('retains mounted page controls and retries only the body', async () => {
+  const report = vi.fn<PlatformAdapter['reportClientError']>(async () => ({ accepted: true }));
+  const { adapter } = fixture(report);
+  const bodyRegistry = createRegistry({
+    spaces: [testSpace({ id: spaceId('mars'), homeMenuId: 'body-crash' })],
+    groups: [{ id: groupId('equipment'), label: { ko: '설비관리', en: 'Equipment' }, icon: House, space: spaceId('mars') }],
+    menus: [menu('body-crash', '/body-crash', { primary: true, component: () => <PlatformPage primaryAction={<button type="button">Target</button>}><Flaky /></PlatformPage> })],
+  });
+  window.history.replaceState(null, '', '/mars/body-crash?v=1');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={bodyRegistry} slots={{ contextBar: <button type="button">Period</button> }}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  const title = await screen.findByRole('heading', { name: 'body-crash' });
+  const target = screen.getByRole('button', { name: 'Target' });
+  expect(screen.getByRole('button', { name: 'Period' })).toBeVisible();
+  const error = screen.getByRole('alert');
+  expect(error.closest('[data-platform-page-content]')).not.toBeNull();
+  const trace = screen.getByText(/^client-/);
+  expect(trace).toBeVisible();
+  expect(error.closest('[data-platform-page-content]')).toContainElement(trace);
+  expect(report).toHaveBeenCalledWith(expect.objectContaining({ correlationId: trace.textContent }));
+  expect(document.body).not.toHaveTextContent('flaky');
+  expect(screen.queryByRole('button', { name: '이 오류 신고' })).toBeNull();
+  broken = false;
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  expect(await screen.findByText('flaky ok')).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'body-crash' })).toBe(title);
+  expect(screen.getByRole('button', { name: 'Target' })).toBe(target);
 });

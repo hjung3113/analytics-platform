@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { hasDotSegment, isAppPath } from '../context/location';
 import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
 import type { PageFocus } from '../context/pageNavigation';
-import { routeParamNames, withPagePreset } from '../registry/registry';
+import { isImplementedMenu, routeParamNames, withPagePreset } from '../registry/registry';
 import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
@@ -209,7 +209,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (!route || route.viaAlias || contractError || !menuPermissions(route.menu).every(can)) return;
     if (!enters(route.menu)) return;
     // A registered menu with no screen yet is a place to look at, not one to come back to: no 이어서, no recent visit (#1944).
-    if (!route.menu.component && !route.menu.moduleScreen) return;
+    if (!isImplementedMenu(route.menu)) return;
     const space = registry.spaceOf(route.menu);
     if (space !== null) writeSpaceLast(userId, space.id, url, spaceIdMigrations);
     recordVisit(route.menu.id, url);
@@ -253,13 +253,16 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (!space) return null;
     const resume = spaceResume(spaceId);
     if (resume) return { ...resume, resumed: true };
-    if (canOpen(space.homeMenuId)) return { menuId: space.homeMenuId, href: resolveEntryLink(space.homeMenuId).href, resumed: false };
-    for (const group of registry.groups) {
-      if (group.space !== spaceId) continue;
-      const menu = registry.menus.find(m => m.group === group.id && !m.navHidden && routeParamNames(m.path).length === 0 && canOpen(m.id));
-      if (menu) return { menuId: menu.id, href: resolveEntryLink(menu.id).href, resumed: false };
-    }
-    return null;
+    const home = registry.menuById(space.homeMenuId);
+    const eligible = registry.menus.filter(menu => registry.spaceOf(menu)?.id === spaceId
+      && !menu.navHidden && routeParamNames(menu.path).length === 0 && canOpen(menu.id));
+    const homeAllowed = canOpen(home.id);
+    const entry = homeAllowed && isImplementedMenu(home)
+      ? home
+      : eligible.find(isImplementedMenu);
+    // A space with only planned pages still has a destination that explains what is coming.
+    const destination = entry ?? (homeAllowed ? home : eligible[0]);
+    return destination ? { menuId: destination.id, href: resolveEntryLink(destination.id).href, resumed: false } : null;
   }, [accessibleSpaces, spaceResume, canOpen, resolveEntryLink, registry]);
   // Reselecting the current space never sends the user home; targets without an entry keep the URL.
   const switchSpace = useCallback((spaceId: SpaceId) => {

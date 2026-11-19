@@ -1,4 +1,4 @@
-import { createContext, useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useHostPlatform, useHostPlatformOptional } from '@ap/kernel/host';
 import { paneRouteKey } from './paneRouteKey';
 
@@ -23,7 +23,12 @@ export type QueryBarStatus = {
 export type ContextEditorRequest = { key: string; opener: HTMLButtonElement };
 export type ContextEditorFocus = (request?: ContextEditorRequest) => void;
 
-type LocalStatus = { status: QueryBarStatus | null; report: (status: QueryBarStatus | null) => void; editorFocus?: { current: ContextEditorFocus | null } };
+type LocalStatus = {
+  status: QueryBarStatus | null;
+  report: (status: QueryBarStatus | null) => void;
+  editorFocus?: ContextEditorFocus | null;
+  setEditorFocus?: Dispatch<SetStateAction<ContextEditorFocus | null>>;
+};
 /** Provided by `PlatformPage`: the bar inside the page reports here. */
 export const QueryBarStatusContext = createContext<LocalStatus | null>(null);
 
@@ -35,7 +40,15 @@ function createStatuses() {
     read: (key: string) => entries.get(key),
     focuser: (key: string) => focusers.get(key),
     /** Removing only drops the caller's own registration: a second bar under the same key keeps its own. */
-    putFocuser: (key: string, focus: ContextEditorFocus | null, owner?: ContextEditorFocus) => { if (focus === null) { if (owner === undefined || focusers.get(key) === owner) focusers.delete(key); } else focusers.set(key, focus); },
+    putFocuser: (key: string, focus: ContextEditorFocus) => {
+      focusers.set(key, focus);
+      listeners.forEach(listener => listener());
+      return () => {
+        if (focusers.get(key) !== focus) return;
+        focusers.delete(key);
+        listeners.forEach(listener => listener());
+      };
+    },
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     put: (key: string, value: QueryBarStatus | null) => {
       if (value === null) entries.delete(key); else entries.set(key, value);
@@ -85,29 +98,39 @@ export function useQueryBarStatus(): QueryBarStatus | null {
 export function useRegisterContextEditorFocus(focus: ContextEditorFocus): void {
   const local = useContext(QueryBarStatusContext);
   const store = useContext(PaneStatuses);
-  const { paneId, route } = useHostPlatform();
-  const key = paneRouteKey(paneId, route);
+  const host = useHostPlatformOptional();
+  const paneId = host?.paneId ?? null;
+  const key = paneRouteKey(paneId, host?.route ?? null);
   const latest = useRef(focus);
   useLayoutEffect(() => { latest.current = focus; }, [focus]);
-  const slot = local?.editorFocus;
+  const setEditorFocus = local?.setEditorFocus;
   useLayoutEffect(() => {
     const call: ContextEditorFocus = request => latest.current(request);
-    if (slot) slot.current = call;
-    if (store && paneId) store.putFocuser(key, call);
-    return () => { if (slot && slot.current === call) slot.current = null; if (store && paneId) store.putFocuser(key, null, call); };
-  }, [slot, store, paneId, key]);
+    setEditorFocus?.(() => call);
+    const remove = paneId ? store?.putFocuser(key, call) : undefined;
+    return () => {
+      setEditorFocus?.((current: ContextEditorFocus | null) => current === call ? null : current);
+      remove?.();
+    };
+  }, [setEditorFocus, store, paneId, key]);
 }
 
-/** Opens and focuses the Context editor of the bar that serves this page or pane; does nothing when no bar registered one. */
-export function useFocusContextEditor(): () => void {
-  const request = useRequestContextEditor();
-  return () => request();
-}
-
-export function useRequestContextEditor(): ContextEditorFocus {
+export function useContextEditorOpener(): ContextEditorFocus | undefined {
   const local = useContext(QueryBarStatusContext);
   const store = useContext(PaneStatuses);
   const host = useHostPlatformOptional();
   const key = paneRouteKey(host?.paneId ?? null, host?.route ?? null);
-  return request => (local?.editorFocus?.current ?? store?.focuser(key))?.(request);
+  const shared = useSyncExternalStore(store?.subscribe ?? noop, () => store?.focuser(key), () => undefined);
+  return local?.editorFocus ?? shared;
+}
+
+export function useRequestContextEditor(): ContextEditorFocus {
+  const open = useContextEditorOpener();
+  return request => open?.(request);
+}
+
+/** Opens and focuses the Context editor of the bar that serves this page or pane. */
+export function useFocusContextEditor(): () => void {
+  const request = useRequestContextEditor();
+  return () => request();
 }

@@ -199,3 +199,27 @@ describe('module grants are not platform grants (ADR-0053)', () => {
     expect(screen.getByTestId('grant').textContent).toBe('false,false,false,false,0,0');
   });
 });
+
+it.each([false, true])('uses the first openable implemented destination after considering resume (%s)', resumed => {
+  const declared = ['equipment', 'admin-roles', 'admin-child'].map(id => registry.menuById(id));
+  const rawMenu = (m: typeof declared[number], path: string) => ({ ...m, path, aliases: undefined });
+  const equipment = rawMenu(declared[0], '/equipment');
+  const home = rawMenu(declared[1], '/admin/roles');
+  const child = rawMenu(declared[2], '/admin/child');
+  const plannedRegistry = createRegistry({
+    spaces,
+    groups: registry.groups,
+    menus: [
+      equipment,
+      { ...home, component: undefined },
+      { ...child, id: 'denied', path: '/denied', permission: 'features:access' },
+      child,
+      { ...child, id: 'resume', path: '/resume' },
+    ],
+  });
+  window.history.replaceState(null, '', resumed ? '/operations/resume?v=1' : EQUIPMENT_URL);
+  render(<I18nProvider><PlatformProvider adapter={fixture(ADMIN)} registry={plannedRegistry}><SpaceProbe /></PlatformProvider></I18nProvider>);
+  if (resumed) act(() => screen.getByTestId('to-analytics').click());
+  act(() => screen.getByTestId('to-operations').click());
+  expect(screen.getByTestId('pathname').textContent).toBe(resumed ? '/operations/resume' : '/operations/admin-child');
+});

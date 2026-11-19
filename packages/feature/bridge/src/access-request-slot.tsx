@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { PermissionRequestTarget } from '@ap/contracts';
 import { usePlatform, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
@@ -74,13 +74,13 @@ function Pending({ target, children }: { target: PermissionRequestTarget; childr
 const AccessRequest = lazy(() => import('./pages/AccessRequest'));
 
 /** The controlled request dialog. Mounted from the first open on (so its close animation and completion step stay), only in a ready session and only for a site or room place. */
-function Dialog({ target, returnTo, open, onOpenChange }: { target: PermissionRequestTarget; returnTo: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+function Dialog({ target, returnTo, open, onOpenChange, exactTarget }: ComponentProps<AccessRequestSlot['Dialog']>) {
   const session = useFeatureSession();
   const [opened, setOpened] = useState(open);
   if (open && !opened) setOpened(true);
   if (target.kind === 'permission' || session.status !== 'ready' || !opened) return null;
-  return <Suspense fallback={null}><AccessRequest target={target} returnTo={returnTo} open={open} onOpenChange={onOpenChange} /></Suspense>;
+  return <Suspense fallback={null}><AccessRequest exactTarget={exactTarget} target={target} returnTo={returnTo} open={open} onOpenChange={onOpenChange} /></Suspense>;
 }
 
 /** The blocked-place request entry (Kernel `accessRequest`, ADR-0154 decision 6). Only `apps/platform-web/src/main.tsx` imports this; the app passes it only with a feature API. */
-export const accessRequestSlot: AccessRequestSlot = { Pending, Dialog };
+export const accessRequestSlot: AccessRequestSlot = { Pending, Dialog, supportsExactTarget: true };

@@ -367,23 +367,36 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     const main = page.getByRole('main');
     const banner = main.getByRole('group', { name: '위젯 상태 요약' });
     await expect(main.locator('[data-outcome-banner]')).toHaveCount(1);
-    await expect(banner).toContainText('위젯 4개가 같은 이유로 열리지 않았습니다.');
-    await expect(banner.getByText('데이터를 불러오지 못했습니다')).toBeVisible();
-    await expect(banner.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+    await expect(banner).toHaveAttribute('data-outcome-compact', 'true');
+    const summary = '위젯 4개가 같은 이유로 열리지 않았습니다.';
+    await expect(banner.getByText('서버 오류 ·', { exact: true })).toBeVisible();
+    await expect(banner.getByText(summary, { exact: true })).toBeVisible();
+    for (const action of ['자세히', '다시 시도', '조건 열기']) {
+      await expect(banner.getByRole('button', { name: action, exact: true })).toBeVisible();
+    }
+    await expect(banner.getByRole('button')).toHaveCount(3);
     await expect(banner).not.toContainText('Correlation ID');
     await expect(main.locator('[data-widget-state]')).toHaveCount(4);
+    const traces = new Set<string>();
     for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
       const state = main.getByRole('group', { name, exact: true });
       await expect(state).toBeVisible();
-      await expect(state.getByText('위 안내 참고')).toBeVisible();
+      await expect(state.getByText('위 안내 참고(서버 오류)', { exact: true })).toBeVisible();
       await expect(state.getByText('데이터를 불러오지 못했습니다')).toHaveCount(0);
-      await expect(state.getByRole('button', { name: '다시 시도' })).toHaveCount(1);
+      await expect(state.getByRole('button')).toHaveCount(1);
+      await expect(state.getByRole('link')).toHaveCount(0);
       await expect(state).not.toContainText('corr-');
-      await state.getByRole('button', { name: '기술 정보' }).click();
-      await expect(state.getByRole('note', { name: '서버 세부' })).toContainText('corr-');
+      const technicalInfo = state.getByRole('button', { name: '기술 정보', exact: true });
+      await expect(technicalInfo).toHaveAttribute('aria-expanded', 'false');
+      await technicalInfo.click();
+      await expect(technicalInfo).toHaveAttribute('aria-expanded', 'true');
+      const trace = state.getByRole('note', { name: '서버 세부' }).getByText(/^추적 번호: corr-/);
+      await expect(trace).toBeVisible();
+      traces.add(await trace.innerText());
     }
+    expect(traces.size).toBe(4);
     await expect(main.getByRole('alert')).toHaveCount(0);
-    await expect(main.locator('[data-outcome-announcer="assertive"]')).toContainText('위젯 4개가 같은 이유로');
+    await expect(main.locator('[data-outcome-announcer="assertive"]')).toHaveText(summary);
     await expect(main.getByText('지표 요약', { exact: true })).toHaveCount(1);
     await evidence(page, testInfo, 'shared-error-banner');
   });

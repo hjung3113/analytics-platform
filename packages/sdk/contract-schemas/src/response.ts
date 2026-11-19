@@ -1,4 +1,5 @@
 import { z } from 'zod/v4';
+import { contextIdSchema } from './menu-query.ts';
 import { ASSESSMENT_KINDS, ASSESSMENT_REASONS, ASSESSMENT_STATES, OUTCOME_VALUES } from './vocab.ts';
 
 /** A real point in time (offset ISO, 06 §6.3 — never the wall-clock form of `from`/`to`). */
@@ -34,6 +35,19 @@ export const trustSchema = z.object({
   source: z.string(),
 });
 
+const recoveryIds = z.array(contextIdSchema).min(1);
+
+const queryRecoverySchema = z.object({
+  affectedEquipmentIds: recoveryIds.optional(),
+  authorizedEquipmentIds: recoveryIds.optional(),
+  maxHours: z.int().positive().optional(),
+  retryable: z.boolean().optional(),
+  deniedScope: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('site'), site: contextIdSchema }),
+    z.strictObject({ kind: z.literal('site_room'), site: contextIdSchema, room: contextIdSchema }),
+  ]).optional(),
+});
+
 export const apiResponseSchema = <T extends z.ZodType>(dataSchema: T) =>
   z.object({
     outcome: outcomeSchema,
@@ -42,4 +56,5 @@ export const apiResponseSchema = <T extends z.ZodType>(dataSchema: T) =>
     trust: trustSchema.nullable(),
     correlationId: z.string(),
     message: z.string().optional(),
+    recovery: queryRecoverySchema.optional(),
   });

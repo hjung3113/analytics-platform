@@ -1,3 +1,5 @@
+import type { PermissionRequestTarget } from './adapter.js';
+
 /** Response envelope (docs/06 §18–19): exclusive `outcome` plus declared `assessments[]`. Field names are Candidates. */
 /** The outcome vocabulary at runtime — emitted to `vocab.json` (#674). */
 export const OUTCOMES = ['ok', 'empty', 'error', 'forbidden', 'too_large', 'timeout'] as const;
@@ -28,6 +30,16 @@ export type Trust = {
   provisional: boolean;
   source: string;
 };
+/** Optional, server-verified recovery parameters for the request that produced this reply. */
+export type QueryRecovery = {
+  affectedEquipmentIds?: string[];
+  /** Effective submitted equipment after authorization and all requested filters, before removing affected IDs. */
+  authorizedEquipmentIds?: string[];
+  maxHours?: number;
+  retryable?: boolean;
+  deniedScope?: Exclude<PermissionRequestTarget, { kind: 'permission' }>;
+};
+
 export type ApiResponse<T> = {
   outcome: Outcome;
   data: T | null;
@@ -35,4 +47,5 @@ export type ApiResponse<T> = {
   trust: Trust | null;
   correlationId: string;
   message?: string;
+  recovery?: QueryRecovery;
 };

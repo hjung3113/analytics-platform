@@ -919,22 +919,28 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
   test('메뉴 화면이 렌더 중 예외를 던져도 셸·내비게이션은 살고, Correlation ID를 보이며, 다시 시도는 원인이 남아 있으면 새 Correlation ID로 다시 가두고, 원인이 사라지면 복구한다', async ({ page }, testInfo) => {
     await page.goto(PRODUCTIVITY);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
-    const main = page.getByRole('main');
+    const body = page.getByRole('main').locator('[data-platform-page-content]');
     await setScenario(page, '응답 형식 오류 (malformed)');
-    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
-    await expect(main.getByText(/추적 번호: client-/)).toBeVisible();
+    const failure = body.getByRole('alert').getByText('이 화면에서 오류가 발생했습니다', { exact: true });
+    const trace = body.getByText(/추적 번호: client-/);
+    await expect(failure).toBeVisible();
+    await expect(trace).toBeVisible();
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await expect(contextBar(page).getByRole('button', { name: /^기간:/ })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: /^대상 조건 .*공정: PHOTO$/ })).toBeVisible();
     await expect(page.getByRole('navigation').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toBeVisible();
     await evidence(page, testInfo, 'route-error');
 
-    const firstId = await main.getByText(/추적 번호: client-/).innerText();
-    await main.getByRole('button', { name: '다시 시도' }).click();
-    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
-    await expect(main.getByText(/추적 번호: client-/)).not.toHaveText(firstId);
+    const firstId = await trace.innerText();
+    await body.getByRole('button', { name: '다시 시도', exact: true }).click();
+    await expect(failure).toBeVisible();
+    await expect(trace).not.toHaveText(firstId);
 
     await setScenario(page, '정상');
-    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toHaveCount(0);
+    await expect(failure).toHaveCount(0);
     await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await expect(body.getByRole('heading', { name: '지표 요약' })).toBeVisible();
   });
 
   test('배포 뒤 낡은 셸 조각(알림 팝오버 청크)이 404여도 현재 화면·내비게이션·알림 단추는 남고, 조각 안에서 다시 시도를 보인다 (#1981)', async ({ page }, testInfo) => {
@@ -958,8 +964,10 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     await setScenario(page, '응답 형식 오류 (malformed)');
     const main = page.getByRole('main');
-    await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();
-    await main.getByRole('link', { name: '홈' }).click();
+    const body = main.locator('[data-platform-page-content]');
+    await expect(body.getByRole('alert')).toContainText('이 화면에서 오류가 발생했습니다');
+    await expect(mainHeading(page)).toHaveText('생산성 개요');
+    await body.getByRole('link', { name: '홈', exact: true }).click();
     await expect(page).not.toHaveURL(/\/mars\/productivity-overview/);
     // The scenario is still on, so the home screen fails on its own data — and that failure is contained the same way.
     await expect(main.getByText('이 화면에서 오류가 발생했습니다')).toBeVisible();

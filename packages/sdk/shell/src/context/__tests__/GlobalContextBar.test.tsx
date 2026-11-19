@@ -1,10 +1,11 @@
+import { PlatformPage, QueryView } from '@ap/components';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
 import { GlobalContextBar } from '../GlobalContextBar';
 import { memoryStorage, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
-import { groupId, spaceId, type Capability } from '@ap/contracts';
+import { defineEndpoint, groupId, spaceId, type Capability, type QueryRecovery } from '@ap/contracts';
 
 const caps = { time: 'reference', roomNames: 'apply', line: 'unsupported', prcGroup: 'unsupported', condition: 'apply', selection: 'apply', lot: 'unsupported', ppid: 'unsupported', recipe: 'unsupported', metric: 'unsupported' } as const;
 const registryWith = (context: Record<keyof typeof caps, Capability>) => createRegistry({
@@ -71,6 +72,64 @@ function mount(extra = '', lang: 'ko' | 'en' = 'ko', period = true, menus = regi
 }
 function width(value: number) { act(() => { barWidth = value; resize?.(); }); }
 const inlineKeys = () => Array.from(bar().querySelectorAll('[data-context-key]'), el => el.getAttribute('data-context-key'));
+
+describe('Live query recovery (#2535)', () => {
+  const endpoint = defineEndpoint<null, unknown>({
+    id: 'home.recovery', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: true,
+    context: { time: 'apply', roomNames: 'apply', selection: 'apply' }, kinds: [], mergeTimeDomain: false,
+  });
+
+  function RecoveryQuery() {
+    const query = useMenuQuery(endpoint, null);
+    return <QueryView query={query} widgetName="조회">{() => null}</QueryView>;
+  }
+
+  function mountRecovery(recovery?: QueryRecovery, context: Record<keyof typeof caps, Capability> = { ...caps, time: 'apply' }) {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    const reply = { ...forbidden, outcome: 'error' as const, recovery };
+    const menus = registryWith(context);
+    const queryAdapter = testAdapter({ ...adapter, menuQuery: async () => reply });
+    return render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={queryAdapter} registry={menus} slots={{ contextBar: <GlobalContextBar /> }}>
+      <PlatformPage><RecoveryQuery /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+  }
+
+  it('opens the live target editor when the reply has no recovery values', async () => {
+    mountRecovery();
+    fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).not.toHaveAccessibleName('기간');
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('does not advertise a conditions editor on a live bar carrying read-only conditions', async () => {
+    mountRecovery(undefined, { ...caps, time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'reference', metric: 'apply' });
+    await screen.findByRole('alert');
+    expect(bar()).toBeInTheDocument();
+    expect(within(bar()).getByRole('group', { name: /^기간:/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '조건 열기' })).toBeNull();
+  });
+
+  it('opens the target editor in one action when its trigger is in overflow', async () => {
+    barWidth = 120;
+    mountRecovery();
+    expect(inlineKeys()).not.toContain('target');
+    fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
+    expect(await screen.findByRole('dialog', { name: '대상' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['이 1대 빼고 다시 조회', '2026-09-19T09:00:00', ['E2']],
+    ['기간 1일로 줄이기', '2026-09-25T09:00:00', []],
+  ] as const)('applies %s to the URL with the same end time', async (action, from, selected) => {
+    mountRecovery({ affectedEquipmentIds: ['E1'], authorizedEquipmentIds: ['E1', 'E2'], maxHours: 24 });
+    fireEvent.click(await screen.findByRole('button', { name: action }));
+    const current = new URLSearchParams(window.location.search);
+    expect(current.get('from')).toBe(from);
+    expect(current.get('to')).toBe('2026-09-26T09:00:00');
+    expect(current.getAll('selectedEquipmentIds')).toEqual([...selected]);
+  });
+});
 
 describe('Global Context priority overflow (#56)', () => {
   it('uses an opaque canvas band and the shared period-control transparency rule', () => {

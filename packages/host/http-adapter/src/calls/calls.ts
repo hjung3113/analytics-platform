@@ -85,7 +85,12 @@ export async function envelopeCall<T>(context: CallContext, request: Omit<SendRe
   const converted = (outcome: 'error' | 'timeout', message: string, correlationId: string): ApiResponse<T> =>
     ({ outcome, data: null, assessments: [], trust: null, correlationId, message });
   const failed = failure(raw);
-  if (failed) return converted(failed.code === 'client_timeout' ? 'timeout' : 'error', failed.code, failed.correlationId);
+  if (failed) {
+    const result = converted(raw.kind === 'timeout' ? 'timeout' : 'error', failed.code, failed.correlationId);
+    const transient = raw.kind === 'timeout' || raw.kind === 'network'
+      || (raw.kind === 'response' && (raw.status === 504 || (raw.status === 503 && raw.retryAfterSeconds !== undefined)));
+    return transient ? { ...result, recovery: { retryable: true } } : result;
+  }
   const correlationId = raw.kind === 'response' ? raw.correlationId : '';
   const parsed = body(raw);
   if (!parsed.ok) return converted('error', 'invalid_response', correlationId);

@@ -70,16 +70,11 @@ describe('RouteErrorBoundary approved B report entry', () => {
     expect(report).toHaveFocus();
   });
 
-  it.each(['off', 'absent', 'denied'] as const)('%s disables reporting, describes why, and restores manual recovery guidance', async status => {
+  it.each(['off', 'absent', 'denied'] as const)('%s hides reporting and keeps the trace and manual recovery guidance', status => {
     mount(status);
-    const reason = status === 'denied' ? 'VOC를 등록할 권한이 없습니다.' : '이 환경에서는 VOC를 사용할 수 없습니다.';
-    const report = entry();
-    expect(report).toBeDisabled();
-    expect(report).toHaveAccessibleDescription(reason);
-    expect(document.getElementById(report.getAttribute('aria-describedby')!)).toHaveTextContent(reason);
+    expect(main().queryByRole('button', { name: '이 오류 신고' })).toBeNull();
+    expect(main().getByText(TRACE)).toBeVisible();
     expect(main().getByRole('alert')).toHaveTextContent(`${RECOVERY} ${MANUAL}`);
-    await userEvent.setup().click(report);
-    expect(screen.queryByRole('complementary', { name: 'VOC 등록' })).toBeNull();
   });
 
   it('announces submission in the existing polite status region, keeps recovery, and makes the entry inert without losing focus', async () => {
@@ -105,15 +100,16 @@ describe('RouteErrorBoundary approved B report entry', () => {
 
   it.each(['available', 'off', 'denied'] as const)('uses English guidance and report controls for %s', status => {
     mount(status, 'en');
-    const report = entry('Report this error');
-    expect(report.parentElement).toHaveTextContent(`Trace ID: ${TRACE}`);
+    const report = main().queryByRole('button', { name: 'Report this error' });
+    expect(main().getByText(TRACE).parentElement).toHaveTextContent(`Trace ID: ${TRACE}`);
     const alert = main().getByRole('alert');
     expect(alert).toHaveTextContent('Other menus still work. Retry, or go home.');
     if (status === 'available') {
+      expect(report).toBeEnabled();
       expect(alert).not.toHaveTextContent('Quote the Trace ID');
     } else {
       expect(alert).toHaveTextContent('Quote the Trace ID below when you ask for help.');
-      expect(report).toHaveAccessibleDescription(status === 'off' ? 'VOC is not available in this environment.' : 'You do not have permission to submit a VOC.');
+      expect(report).toBeNull();
     }
   });
 

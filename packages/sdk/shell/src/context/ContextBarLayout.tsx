@@ -1,3 +1,4 @@
+import { useRegisterContextEditorFocus } from '@ap/components';
 import { createContext, useContext, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
 import type { ContextKey } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -38,12 +39,19 @@ export function useContextEditorFocusRecovery() {
 type Control = { key: ControlKey; applied: boolean; node: ReactNode; compactNode?: ReactNode };
 type Measurements = { width: number; controls: number[]; period: number; actions: number; icons: number; overflow: number[] };
 
-export function ContextBarLayout({ controls, revision, actions, regionName, activeControl }: {
+function ContextEditorRegistration({ open }: { open: () => void }) {
+  useRegisterContextEditorFocus(open);
+  return null;
+}
+
+export function ContextBarLayout({ controls, revision, actions, regionName, activeControl, openTargetEditor, hasPeriodEditor }: {
   controls: Control[]; revision: string; actions: (compact: boolean) => ReactNode;
   /** The analysis board names the bar after the pane it edits: the region's accessible name (docs/16 §4). */
   regionName?: string;
   /** A modal owned above relocating controls keeps its overflow opener mounted. */
   activeControl?: ControlKey;
+  openTargetEditor?: () => void;
+  hasPeriodEditor: boolean;
 }) {
   const { t } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
@@ -125,6 +133,20 @@ export function ContextBarLayout({ controls, revision, actions, regionName, acti
     try { (element?.querySelector<HTMLButtonElement>('[data-context-key] button') ?? overflowTrigger.current ?? element)?.focus(); }
     finally { recoveringFocus.current = false; }
   };
+  const openConditions = () => {
+    const target = host.current?.querySelector<HTMLButtonElement>('[data-context-key="target"] button:not(:disabled)');
+    if (target) { target.focus(); target.click(); return; }
+    if (openTargetEditor) {
+      setOverflowOpen(true);
+      openTargetEditor();
+      return;
+    }
+    const period = host.current?.querySelector<HTMLButtonElement>('[data-context-key="time"] button[aria-haspopup]:not(:disabled)');
+    if (period) {
+      period.focus();
+      if (period.getAttribute('aria-expanded') !== 'true') period.click();
+    }
+  };
   const placement = controls.map(control => `${control.key}:${hidden.some(c => c.key === control.key) ? 'overflow' : 'inline'}`).join(',');
   // The effect fires when the placement string changes; what it reads (controls, hidden, drafts) is the latest render's.
   const syncPlacements = useEffectEvent(() => {
@@ -150,6 +172,7 @@ export function ContextBarLayout({ controls, revision, actions, regionName, acti
     </div>
   </EditorState.Provider>;
   return <div ref={host} tabIndex={-1} role="region" aria-label={barLabel} data-canvas-band className="relative h-12 min-w-0 border-b border-border-subtle bg-surface-canvas px-3 backdrop-blur">
+    {(hasPeriodEditor || openTargetEditor) && <ContextEditorRegistration open={openConditions} />}
     <div inert aria-hidden className="pointer-events-none invisible absolute inset-0 overflow-hidden">
     <div ref={probe} data-context-measuring className="flex w-max items-center gap-2 whitespace-nowrap">
       <MeasuringContext.Provider value>
