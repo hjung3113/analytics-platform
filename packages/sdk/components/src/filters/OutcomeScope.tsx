@@ -113,6 +113,12 @@ export function useSharedOutcomeNotice(response: Widget['response'], retry: () =
   return { grouped: true as const, bannerId: raw.slice('1|'.length) || undefined };
 }
 
+/** How many shared-cause banners the scope shows now; 0 outside an OutcomeScope. */
+export function useOutcomeBannerCount() {
+  const store = useContext(OutcomeContext);
+  return useSyncExternalStore(store?.subscribe ?? subscribeNone, () => store?.getSnapshot().length ?? 0, () => 0);
+}
+
 /** `compact` (page bodies): a one-line strip with the same group, tone, retry and live rules; the sentence truncates and `자세히` shows it in full. */
 function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRetry: () => void; compact?: boolean }) {
   const { t } = useI18n();

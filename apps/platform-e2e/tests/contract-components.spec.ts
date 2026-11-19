@@ -418,7 +418,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
       const state = main.getByRole('group', { name, exact: true });
       await expect(state).toBeVisible();
-      await expect(state.getByText('위 안내 참고(서버 오류)', { exact: true })).toBeVisible();
+      await expect(state.getByText('불러오지 못함', { exact: true })).toBeVisible();
       await expect(state.getByText('데이터를 불러오지 못했습니다')).toHaveCount(0);
       await expect(state.getByRole('button')).toHaveCount(1);
       await expect(state.getByRole('link')).toHaveCount(0);
@@ -446,7 +446,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     await expect(main.locator('[data-outcome-banner], [data-access-request-banner]')).toHaveCount(1);
     for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
       const state = main.getByRole('group', { name, exact: true });
-      await expect(state.getByText('위 안내 참고')).toBeVisible();
+      await expect(state.getByText('불러오지 못함')).toBeVisible();
       await expect(main.getByText(name, { exact: true })).toHaveCount(1);
     }
     await expect(main.getByRole('button', { name: '다시 시도' })).toHaveCount(0);

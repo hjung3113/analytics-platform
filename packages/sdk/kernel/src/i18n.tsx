@@ -125,6 +125,8 @@ const dict = {
   sharedOutcomeSummary: { ko: '위젯 {count}개가 같은 이유로 열리지 않았습니다.', en: '{count} widgets could not open for the same reason.' },
   sharedOutcomeNotice: { ko: '위 안내 참고', en: 'See the notice above' },
   sharedOutcomeNoticeFor: { ko: '위 안내 참고({status})', en: 'See the notice above ({status})' },
+  sharedOutcomeNoticeFailed: { ko: '불러오지 못함', en: 'Could not load' },
+  sharedOutcomeNoticeFailedFor: { ko: '불러오지 못함({status})', en: 'Could not load ({status})' },
   sharedOutcomeError: { ko: '서버 오류', en: 'server error' },
   sharedOutcomeCannotAggregate: { ko: '집계 불가', en: 'cannot aggregate' },
   sharedOutcomeBlocked: { ko: '조회 안 함', en: 'not queried' },

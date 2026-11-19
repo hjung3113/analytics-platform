@@ -167,7 +167,7 @@ describe('place (e): access request for the denied target in a query reply', () 
     const view = renderPage(requestable(partial), undefined, forbiddenQuery, <Conditions />);
     fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
     expect(focusConditions).toHaveBeenCalledExactlyOnceWith(undefined);
-    expect(await screen.findAllByText('위 안내 참고(권한 없음)')).toHaveLength(2);
+    expect(await screen.findAllByText('불러오지 못함')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(view.container.querySelector('[data-access-request]')).toBeNull();
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
@@ -200,7 +200,7 @@ describe('place (e): access request for the denied target in a query reply', () 
   it('on a fully granted Scope forbidden widgets still group (a capability matter, not a Scope target)', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = renderPage(requestable(full), fakeSlot, { ...forbiddenQuery, response: { ...forbiddenResponse, recovery: undefined } });
-    expect(await screen.findAllByText('위 안내 참고(권한 없음)')).toHaveLength(2);
+    expect(await screen.findAllByText('불러오지 못함')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(view.container.querySelector('[data-access-request]')).toBeNull();
   });
@@ -215,7 +215,7 @@ describe('place (e): access request for the denied target in a query reply', () 
     expect(screen.queryByText('요청 대기 중')).toBeNull();
     expect(within(banner).queryByRole('status')).toBeNull();
     for (const name of ['Widget A', 'Widget B']) {
-      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고');
+      expect(screen.getByRole('group', { name })).toHaveTextContent('불러오지 못함');
     }
     expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
     fireEvent.click(within(banner).getByRole('button', { name: '권한 요청' }));
@@ -253,7 +253,7 @@ describe('place (e): access request for the denied target in a query reply', () 
     expect(summaryTwo).toHaveTextContent('Widget D');
     expect(summaryTwo).not.toHaveTextContent('Widget A');
     for (const name of ['Widget A', 'Widget B', 'Widget C', 'Widget D']) {
-      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고(권한 없음)');
+      expect(screen.getByRole('group', { name })).toHaveTextContent('불러오지 못함(권한 없음)');
     }
     expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(2);
     const announcer = view.container.querySelector('[data-outcome-announcer="polite"]')!;
@@ -264,7 +264,7 @@ describe('place (e): access request for the denied target in a query reply', () 
   it('with the slot but a session without requestableScopes groups the widgets without an access-request banner', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
     const view = renderPage(testSession(['platform:view'], { scopes: partial }), fakeSlot);
-    expect(await screen.findAllByText('위 안내 참고(권한 없음)')).toHaveLength(2);
+    expect(await screen.findAllByText('불러오지 못함')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(view.container.querySelector('[data-access-request]')).toBeNull();
     expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();

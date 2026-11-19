@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { formatSummaryTime, useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks } from '@ap/components';
@@ -44,6 +45,11 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
 
 export default function ProductivityOverview(_: PageProps) {
   const m = useMessages(ANALYTICS_MESSAGES);
+  // A widget that cannot draw its own card (loading, error, empty) sits in the same named Panel frame as the attention
+  // list, so no state leaves a bare line or a lone card on the page; a drawn chart keeps its own card (#2604).
+  const unframed = (q: { response: { outcome: string } | null }) => q.response?.outcome === 'ok';
+  const framed = (title: string | undefined, q: { response: { outcome: string } | null }, node: ReactNode) =>
+    unframed(q) ? node : <Panel title={title}>{node}</Panel>;
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
 
@@ -278,11 +284,12 @@ export default function ProductivityOverview(_: PageProps) {
             {' '}{CYCLE_VERSION_NOTE[lang]}
           </InfoTip>
         </div>
-        <QueryView widgetName={m('productivityOverviewMetricSummary2')} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+        {/* The section heading already names the KPI row, so its frame carries no title. */}
+        {framed(undefined, kpiQ, <QueryView widgetName={m('productivityOverviewMetricSummary2')} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
           {data => <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-4">
             {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
           </div>}
-        </QueryView>
+        </QueryView>)}
       </section>
 
       {/* Main Trend */}
@@ -291,7 +298,7 @@ export default function ProductivityOverview(_: PageProps) {
           && trendQ.response.data.equipmentCount > 0 && trendQ.response.data.current.length > 0
           && trendQ.response.data.current.every(bucket => !bucket.known)
           && <p role="status" className="t-caption text-text-secondary">{m('productivityOverviewUnconfirmedTrendTotal')}</p>}
-        <QueryView widgetName={meta.title} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
+        {framed(meta.title, trendQ, <QueryView widgetName={meta.title} hideWidgetName={!unframed(trendQ)} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
           {data => {
             const { series, compareSeries, total, knownBucketCount, bucketCount } = trendSeriesFor(data);
             const t = trendQ.response?.trust;
@@ -321,13 +328,13 @@ export default function ProductivityOverview(_: PageProps) {
               trust={trendTrust}
             />;
           }}
-        </QueryView>
+        </QueryView>)}
       </section>
 
       <div className="grid grid-cols-1 gap-4 @xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
         <section aria-label={m('productivityOverviewOccupancyComposition')}>
-          <QueryView widgetName={m('productivityOverviewOccupancyComposition2')} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
+          {framed(m('productivityOverviewOccupancyComposition2'), breakdownQ, <QueryView widgetName={m('productivityOverviewOccupancyComposition2')} hideWidgetName={!unframed(breakdownQ)} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
             {rows => {
               const t = breakdownQ.response?.trust;
               const pct = (r: typeof rows[number]) => (r.observableHours > 0 ? (r.occupiedHours / r.observableHours) * 100 : null);
@@ -399,7 +406,7 @@ export default function ProductivityOverview(_: PageProps) {
                 </div>
               </>;
             }}
-          </QueryView>
+          </QueryView>)}
         </section>
 
         {/* Attention List: ranking only, no threshold verdicts (wireframe 11 §1) */}
