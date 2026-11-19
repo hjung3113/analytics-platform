@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { evidence, expectScopeValid, expandQueryBar, pickTargetRoom, query, queryBar, signInAs } from './support';
 
 const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
+// The daily trend needs at least two calendar days; the first-visit default is one day (#2586).
+const TWO_DAYS = '&from=2026-09-24T00:00:00&to=2026-09-26T00:00:00';
 const workspace = (page: Page) => page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
 const panel = (page: Page, id: string) => workspace(page).locator(`[data-dock-panel="${id}"]`);
 const node = (page: Page, id: string) => panel(page, 'tree').locator(`[role="treeitem"][data-id="${id}"]`).first();
@@ -77,7 +79,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
     test(`${viewport.width}: type → Motion → Module restores four step defaults`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
-      await page.goto(SCREEN);
+      await page.goto(`${SCREEN}${TWO_DAYS}`);
       await expectScopeValid(page, 'MEM · 메모리');
       await expect(panel(page, 'tree')).toBeVisible();
       await expect(panel(page, 'current').getByRole('img')).toBeVisible();
@@ -105,7 +107,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
   }
 
   test('step-1 activation drills, step-2 activation opens the point trend, and pinned scatter follows the drill', async ({ page }) => {
-    await page.goto(SCREEN);
+    await page.goto(`${SCREEN}${TWO_DAYS}`);
     await activatePoint(page, 'EQ-001');
     await expect.poll(() => query(page).get('moduleType')).toBe('PM');
     await expect(panel(page, 'previous')).toContainText('설비별 Module 타입 평균');
@@ -126,7 +128,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
   });
 
   test('add list gives disabled reasons, and tree checks persist without new reads', async ({ page }) => {
-    await page.goto(`${SCREEN}&moduleType=PM&drillMotion=Chuck&drillModule=PM1`);
+    await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Chuck&drillModule=PM1`);
     await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     await expect(panel(page, 'trend').getByRole('img', { name: /^일별 HTM 판정 건수:/ })).toBeVisible();
     await expect(panel(page, 'trend')).not.toContainText('HTM 하한: · HTM 상한:');
@@ -162,7 +164,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
       localStorage.setItem('platform:board-layout-engine', 'dock');
       localStorage.setItem('platform:board:engineer', JSON.stringify({ v: 1, activeSheetId: 'hw-legacy', sheets: [{
         id: 'hw-legacy', name: 'HW legacy', layout: '1x1', selected: 0, panes: [{ menuId: 'hw-time-steps', params: {},
-          query: '?v=1&scopeId=MEM&view=steps&moduleType=PM&drillMotion=Chuck&drillModule=PM1&row=EQ-001%20%C2%B7%20PM1' }],
+          query: '?v=1&scopeId=MEM&from=2026-09-24T00%3A00%3A00&to=2026-09-26T00%3A00%3A00&view=steps&moduleType=PM&drillMotion=Chuck&drillModule=PM1&row=EQ-001%20%C2%B7%20PM1' }],
       }] }));
       sessionStorage.setItem(marker, '1');
     });
