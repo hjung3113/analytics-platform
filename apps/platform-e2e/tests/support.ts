@@ -42,10 +42,14 @@ export async function expandQueryBar(page: Page, scope: Locator = contextBar(pag
   const expand = scope.getByRole('button', { name: '조회 조건 펼치기' });
   const collapse = scope.getByRole('button', { name: '조회 조건 접기' });
   await expect(scope.getByRole('button').first()).toBeVisible();
-  if (await expand.isVisible()) {
-    await expand.click();
-    await expect(collapse).toBeVisible();
-  }
+  if (!(await expand.isVisible())) return;
+  // A bar with no applied query opens itself after mount, so the expand button can vanish between the check and the
+  // click; retry until the bar is open instead of waiting on a button that is gone.
+  await expect(async () => {
+    if (await collapse.isVisible()) return;
+    await expand.click({ timeout: 2_000 });
+    await expect(collapse).toBeVisible({ timeout: 2_000 });
+  }).toPass();
 }
 
 /** Opens the inline page editor. Expand a folded workspace query bar first (#1941). */
