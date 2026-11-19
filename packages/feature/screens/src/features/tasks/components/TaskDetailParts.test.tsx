@@ -478,7 +478,12 @@ describe('Task detail parts through the host seam', () => {
 
     api.updateTaskStatus.mockRejectedValueOnce(new Error('write failed'));
     await user.keyboard('{Enter}{ArrowDown}{Enter}');
-    expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
+    // The detail also renders other sections (e.g. outcome surveys) that may raise their own alert.
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('alert').some((node) => node.textContent?.includes('일시적 오류')),
+      ).toBe(true),
+    );
     expect(calls.error).not.toHaveBeenCalled();
   });
 
