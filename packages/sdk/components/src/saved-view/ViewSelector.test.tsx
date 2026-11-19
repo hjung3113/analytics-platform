@@ -413,7 +413,7 @@ describe('ViewSelector fix round', () => {
   it('a long name and a 7-day relative or fixed period are read in full from the keyboard details', async () => {
     const user = userEvent.setup();
     const long = 'L'.repeat(120);
-    const views = [entry('l', long, { context: { relativePeriod: { hours: 168 } } }), entry('f', 'Fixed', { context: { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' } })];
+    const views = [entry('l', long, { context: { relativePeriod: { hours: 168 } } }), entry('f', 'Fixed', { context: { from: '2026-09-19T00:00:00', to: '2026-09-26T00:00:00' } })];
     render(<Harness views={views} currentId="l" />);
     await open(user);
     act(() => screen.getByRole('button', { name: `${long} 동작` }).focus());
