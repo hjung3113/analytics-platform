@@ -270,16 +270,15 @@ export default function CycleTimeDrilldown(_: PageProps) {
                 unit={m('cycleTimeDrilldownMin3')}
                 valueFormat={value => formatMin(value, lang)}
                 series={[
-                  { id: 'p50', name: 'P50', color: 'chart-blue', points: data.current.p50 },
-                  { id: 'p95', name: 'P95', color: 'chart-teal', points: data.current.p95, dashed: true },
+                  { id: 'p50', name: 'P50', color: 'chart-blue', unit: m('cycleTimeDrilldownMin3'), points: data.current.p50 },
+                  { id: 'p95', name: 'P95', color: 'chart-teal', unit: m('cycleTimeDrilldownMin3'), points: data.current.p95, dashed: true },
                 ]}
                 compareSeries={[
-                  { id: 'p50-prev', name: m('cycleTimeDrilldownP50PreviousPeriod'), color: 'chart-purple', points: data.previous.p50 },
-                  { id: 'p95-prev', name: m('cycleTimeDrilldownP95PreviousPeriod'), color: 'cat-amber', points: data.previous.p95, dashed: true },
+                  { id: 'p50-prev', name: m('cycleTimeDrilldownP50PreviousPeriod'), color: 'chart-purple', unit: m('cycleTimeDrilldownMin3'), points: data.previous.p50 },
+                  { id: 'p95-prev', name: m('cycleTimeDrilldownP95PreviousPeriod'), color: 'cat-amber', unit: m('cycleTimeDrilldownMin3'), points: data.previous.p95, dashed: true },
                 ]}
                 markLines={data.populationP95 === null ? undefined : [{ y: data.populationP95, label: `P95 ${formatMin(data.populationP95, lang)}` }]}
                 trust={response.trust}
-                pointClickHint={m('cycleTimeDrilldownClickAPointToKeepThatBucket')}
                 onPointClick={(x, seriesId) => {
                   if (seriesId.endsWith('-prev')) {
                     toast(m('cycleTimeDrilldownPreviousPeriodPointsAreForComparisonThe'));

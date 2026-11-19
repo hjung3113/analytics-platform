@@ -22,7 +22,7 @@ function FakePlot(props: EChartProps) {
   plotProps = props;
   const categories = (props.option as unknown as { yAxis: { data?: string[] } }).yAxis.data ?? [];
   return <div role="img" aria-label={props.ariaLabel}>
-    {categories.map((c, dataIndex) => <button key={c} type="button" onClick={() => props.onEvents?.click?.({ seriesId: 'a', dataIndex, name: c }, {} as never)}>bar-{c}</button>)}
+    {categories.map((c, dataIndex) => <button key={c} type="button" onClick={() => props.onEvents?.click?.({ seriesId: 'a', dataIndex, name: c }, {} as never)} onDoubleClick={() => props.onEvents?.dblclick?.({ seriesId: 'a', dataIndex, name: c }, {} as never)}>bar-{c}</button>)}
     <button type="button" onClick={() => props.onEvents?.brushEnd?.({ areas: [{ coordRange: [0, 1] }] }, { dispatchAction: () => {} } as never)}>fake-brush</button>
   </div>;
 }
@@ -96,10 +96,12 @@ describe('controlled activeCategory (#690b)', () => {
     expect(onChange).toHaveBeenCalledWith('R3', 'keyboard');
   });
 
-  it('keeps pointActivation as a separate path: a click focuses the row first, then activates', async () => {
+  it('keeps pointActivation as a separate path: a click focuses the row, then a double-click activates', async () => {
     const order: string[] = [];
     mount({ activeCategory: 'R1', onActiveCategoryChange: c => order.push(`focus:${c}`), pointActivation: { on: 'click', onActivate: p => order.push(`activate:${p.x}`) } });
     fireEvent.click(await screen.findByRole('button', { name: 'bar-R2' }));
+    expect(order).toEqual(['focus:R2']);
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'bar-R2' }));
     expect(order).toEqual(['focus:R2', 'activate:R2']);
     fireEvent.click(screen.getByRole('button', { name: '선택 지점 실행' }));
     expect(order).toHaveLength(3);

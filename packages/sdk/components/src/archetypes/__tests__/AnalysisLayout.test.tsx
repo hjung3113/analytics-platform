@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useState } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -370,7 +370,8 @@ it('inherits compact content through layout context and keeps table and focused 
     ]} />
   </PlatformProvider></I18nProvider>;
   const view = render(node('regular')); await screen.findByRole('img', { name: 'Kind' });
-  const tableButton = screen.getByRole('button', { name: '표로 보기' }); fireEvent.click(tableButton); tableButton.focus();
+  const kindChart = screen.getByRole('region', { name: 'Kind' });
+  const tableButton = within(kindChart).getByRole('button', { name: '표로 보기' }); fireEvent.click(tableButton); tableButton.focus();
   view.rerender(node('compact'));
   expect(tableButton).toHaveFocus(); expect(tableButton).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByRole('table')).toBeVisible();

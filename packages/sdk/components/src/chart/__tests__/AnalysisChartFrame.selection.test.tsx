@@ -14,7 +14,7 @@ const registry = createRegistry({
   spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: { export: false, savedView: false, annotate: true, compare: false }, pageKeys: [] }],
 });
-const session = testSession(['platform:view']);
+const session = testSession(['platform:view', 'analytics:view']);
 const none = async () => ({ data: null, assessments: [], trust: null, correlationId: 'fixture', outcome: 'empty' as const });
 const adapter = testAdapter({ session: () => session, getEntity: none, listAnnotations: none, saveAnnotation: none });
 const tree = (props: Partial<AnalysisChartFrameProps>) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
@@ -125,7 +125,7 @@ describe('review fix round (#2020 FIX1)', () => {
     await screen.findByRole('img');
     brush([ms('2026-10-03T06:00:00'), ms('2026-10-03T18:00:00')]);
     expect(summary().textContent).toContain('선택 구간: 2026-10-03 00:00 – 2026-10-04 00:00');
-    fireEvent.click(screen.getByRole('button', { name: '분석 구간 적용…' }));
+    fireEvent.click(screen.getByRole('button', { name: '분석 구간으로 적용' }));
     fireEvent.click(screen.getByRole('button', { name: '주석' }));
     expect(screen.getByRole('group', { name: '구간 적용 확인' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: '주석 내용' })).toBeTruthy();

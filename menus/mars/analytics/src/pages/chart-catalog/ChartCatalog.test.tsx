@@ -194,9 +194,7 @@ describe('chart catalog route and lifetime', () => {
   });
   it.each(['line', 'bar'] as const)('%s preserves zoom, legend, table, selection and unaffected focus across layout', async kind => {
     mount(kind); await screen.findByRole('img');
-    click('비교'); click('확대'); click('선택'); click('더보기'); click('같은 데이터를 표로 보기');
-    // Close the More popover before changing layout.
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    click('비교'); click('확대'); click('선택'); click('표로 보기');
     const dataTable = screen.getByRole('table', { name: /차트/ });
     const previousLegend = screen.getByRole('checkbox', { name: /이전 동일 기간/ }) as HTMLInputElement;
     fireEvent.click(previousLegend);
@@ -279,7 +277,7 @@ it('renders the standalone Lane consumer with labels and keyboard selection', as
 });
 
 describe('breakdown support rows match the controls on the screen (#580h)', () => {
-  const controls = { zoom: '확대', selection: '구간 선택', reset: '차트 초기화', compare: '비교', annotate: '주석', export: '내보내기', drill: /단계로 이동/ } as const;
+  const controls = { zoom: '확대', selection: '구간 선택', reset: '초기화', compare: '비교', annotate: '주석', export: '내보내기', drill: /단계로 이동/ } as const;
   it('every claimed capability has its control and every unsupported one has none', async () => {
     mount('breakdown');
     await screen.findByRole('checkbox', { name: '최소·최대 표시' });

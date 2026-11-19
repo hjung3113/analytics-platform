@@ -16,7 +16,7 @@ function FakePlot(props: EChartProps) {
   plotProps = props;
   const categories = (props.option as unknown as { yAxis: { data?: string[] } }).yAxis.data ?? [];
   return <div role="img" aria-label={props.ariaLabel}>
-    {categories.map((c, dataIndex) => <button key={c} type="button" onClick={() => props.onEvents?.click?.({ seriesId: 'a', dataIndex, name: c }, {} as never)}>bar-{c}</button>)}
+    {categories.map((c, dataIndex) => <button key={c} type="button" onClick={() => props.onEvents?.click?.({ seriesId: 'a', dataIndex, name: c }, {} as never)} onDoubleClick={() => props.onEvents?.dblclick?.({ seriesId: 'a', dataIndex, name: c }, {} as never)}>bar-{c}</button>)}
   </div>;
 }
 
@@ -27,8 +27,8 @@ const registry = createRegistry({
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 const rows: ChartSeries[] = [
-  { id: 'a', name: 'A', color: 'chart-blue', points: [['R1', 3], ['R2', 5], ['AUX', null]] },
-  { id: 'b', name: 'B', color: 'chart-teal', points: [['R1', 1], ['R2', 2], ['AUX', null]] },
+  { id: 'a', name: 'A', unit: 's', color: 'chart-blue', points: [['R1', 3], ['R2', 5], ['AUX', null]] },
+  { id: 'b', name: 'B', unit: 's', color: 'chart-teal', points: [['R1', 1], ['R2', 2], ['AUX', null]] },
 ];
 function mount(props: Partial<AnalysisChartFrameProps> = {}) {
   window.history.replaceState(null, '', '/?v=1');
@@ -174,13 +174,15 @@ describe('isPointSelectable (#690n)', () => {
     expect(labels).toHaveLength(4);
   });
 
-  it('ignores a click on a skipped row and activates a selectable one', async () => {
+  it('ignores a skipped row and activates a selectable row only on double-click', async () => {
     const onActivate = vi.fn(); const onActiveCategoryChange = vi.fn();
     mount({ pointActivation: { on: 'click', onActivate }, isPointSelectable: selectable, onActiveCategoryChange });
     fireEvent.click(await screen.findByRole('button', { name: 'bar-AUX' }));
     expect(onActivate).not.toHaveBeenCalled();
     expect(onActiveCategoryChange).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'bar-R2' }));
+    expect(onActivate).not.toHaveBeenCalled();
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'bar-R2' }));
     expect(onActivate).toHaveBeenCalledWith({ x: 'R2', seriesId: 'a', value: 5 });
   });
 

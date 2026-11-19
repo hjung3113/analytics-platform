@@ -17,8 +17,8 @@ const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 const points = (a: number, b: number): [string, number][] => [['2026-09-01T00:00:00', a], ['2026-09-02T00:00:00', b]];
 const SERIES: ChartSeries[] = [
-  { id: 'time', name: 'Time', color: 'chart-blue', points: points(10, 20) },
-  { id: 'rate', name: 'Rate', color: 'chart-teal', axis: 'right', points: points(0.5, 0.75) },
+  { id: 'time', name: 'Time', unit: 's', color: 'chart-blue', points: points(10, 20) },
+  { id: 'rate', name: 'Rate', unit: '%', color: 'chart-teal', axis: 'right', points: points(0.5, 0.75) },
 ];
 function mount(extra: Partial<AnalysisChartFrameProps> = {}, canExport = false) {
   window.history.replaceState(null, '', '/?v=1');
@@ -86,16 +86,14 @@ describe('AnalysisChartFrame right axis (#1657)', () => {
 
   it('puts the unit in table headers and formats cells per series only while the right axis is active', async () => {
     const view = mount({ rightAxis });
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+    fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
     const table = screen.getByRole('table');
     expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['시각', 'Time (s)', 'Rate (%)']);
     expect(within(table).getAllByRole('row')[1].textContent).toContain('10');
     expect(within(table).getAllByRole('row')[1].textContent).toContain('50');
     view.unmount();
     mount({ series: [SERIES[0]] });
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+    fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
     expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['시각', 'Time']);
   });
 
@@ -107,9 +105,11 @@ describe('AnalysisChartFrame right axis (#1657)', () => {
     try {
       mount({ rightAxis }, true);
       fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+      fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
       cleanup();
       mount({}, true);
       fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+      fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
       const [withUnits, plain] = await Promise.all(blobs.map(text));
       expect(withUnits).toContain('x,Time (s),Rate (%)');
       expect(plain).toContain('x,Time,Rate');

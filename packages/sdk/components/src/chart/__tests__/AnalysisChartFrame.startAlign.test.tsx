@@ -24,7 +24,7 @@ const registry = createRegistry({
 const session = testSession(['platform:view']);
 const adapter = testAdapter({ session: () => session });
 const ROWS = ['R1', 'R2', 'R3', 'R4'];
-const line = (id: string, values: (number | null)[]): ChartSeries => ({ id, name: id.toUpperCase(), color: 'chart-blue', kind: 'bar', points: ROWS.map((x, i) => [x, values[i]]) });
+const line = (id: string, values: (number | null)[]): ChartSeries => ({ id, name: id.toUpperCase(), unit: 's', color: 'chart-blue', kind: 'bar', points: ROWS.map((x, i) => [x, values[i]]) });
 // a has a null at R3, c is constant, d is hidden through visibleSeriesIds.
 const SERIES = [line('a', [4, 2, null, 6]), line('b', [1, 3, 2, 5]), line('c', [2, 2, 2, 2]), line('d', [9, 9, 9, 9])];
 const VISIBLE = ['a', 'b', 'c'];
@@ -38,8 +38,7 @@ async function mount(extra: Partial<AnalysisChartFrameProps> = {}) {
   return { ...view, update: (more: Partial<AnalysisChartFrameProps>) => view.rerender(frame(more)) };
 }
 const tableText = async () => {
-  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-  fireEvent.click(await screen.findByText('같은 데이터를 표로 보기'));
+  fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
   return screen.getAllByRole('row').map(row => row.textContent);
 };
 const realSeries = () => option().series.filter(s => !s.id!.startsWith('__'));

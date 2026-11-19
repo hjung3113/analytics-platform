@@ -1,8 +1,9 @@
+import { ChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
 import type { ChartChromeOptions } from './chartChrome';
 import type { ChartBounds, ChartBoundLabels } from './chartBounds';
 import { BrushIcon, ChevronDown, ChevronUp, RotateCcw, Play, ExternalLink } from 'lucide-react';
 import type { ChartTrust } from '../state/trustFormat';
-import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind } from './analysisChartShared';
+import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind, warnMissingChartUnit } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn, type Tone } from '@ap/ui';
@@ -194,6 +195,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [instanceReady, setInstanceReady] = useState(0);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
+  const topN = spec.kind === 'topNBar';
+  useEffect(() => {
+    if (topN && !p.unit.trim()) warnMissingChartUnit(p.chartId);
+  }, [p.chartId, p.unit, topN]);
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang, p.unit), [spec, lang, p.unit]);
@@ -212,7 +217,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, spec.yLabels.length * rowFloor + heatmapAxisHeight);
   if (fittedDonut) canvasHeight = Math.max(donutMinimumHeight, height);
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
-  const contextKey = JSON.stringify(global);
+  const contextKey = JSON.stringify([platform?.user?.id, platform?.revision, global]);
   const [previousContext, setPreviousContext] = useState(contextKey);
   const following = selected === null;
   const active = useMemo(() => previousContext !== contextKey ? []
@@ -327,6 +332,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
     };
     selectionSummary = m('chartHeatmapRangeSelection', { count: active.length, yRange: range(spec.yLabels, 'y'), xRange: range(spec.xLabels, 'x') });
   }
+  const lastSelected = rows.find(row => row.key === active.at(-1));
+  const rowDrill = topN && rows.some(row => !!row.drill);
+  const cellDrill = spec.kind === 'heatmap' && spec.cellActivation?.on === 'dblclick';
+  const canDrill = rowDrill;
+  const plotKey = (seriesIndex: number, dataIndex: number) =>
+    extended ? extended.seriesKeys[seriesIndex]?.[dataIndex] : rows[dataIndex]?.key;
   const selectedCell = spec.kind === 'heatmap' && selectedRows.length === 1 ? cells.find(cell => keyOf(cell.x, cell.y) === selectedRows[0].key) : undefined;
   const activateCell = (gesture: 'click' | 'dblclick', params: { componentType?: string; seriesIndex?: number; dataIndex: number }) => {
     if (brushMode || spec.kind !== 'heatmap' || spec.cellActivation?.on !== gesture || params.componentType !== 'series' || params.seriesIndex !== 0) return;
@@ -380,25 +391,58 @@ export function AnalysisChart(p: AnalysisChartProps) {
     {extended && <KindLegend compact singleLine items={extended.legend} />}
     {spec.kind === 'donut' && rows.map(row => <span key={row.key} className="inline-flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</span>)}
   </>;
+  const rankingToolbar = spec.kind === 'topNBar' && <ChartInteractionToolbar compact={compactChrome} reserveCorner={section !== null}
+    toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen}
+    heading={<ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion}
+      compact={compact || compactChrome} hideTitle={compactChrome} />}
+    start={<Button type="button" ref={collapseButton} size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost"
+      aria-label={m(expanded ? 'chartHide' : 'chartShow')} title={m(expanded ? 'chartHide' : 'chartShow')} aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
+        const next = !expanded;
+        if (spec.expanded === undefined) setLocalExpanded(next);
+        spec.onExpandedChange?.(next);
+      }}>{expanded ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+      {!compactChrome && m(expanded ? 'chartHide' : 'chartShow')}
+    </Button>}
+    reset={<Button type="button" variant="ghost" size={compactChrome ? 'icon-xs' : 'toolbar'} aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}>
+      <RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}
+    </Button>}
+    table={{ shown: expanded && table, toggle: () => {
+      if (!expanded) {
+        if (spec.expanded === undefined) setLocalExpanded(true);
+        spec.onExpandedChange?.(true);
+        setTable(true);
+      } else setTable(current => !current);
+    } }}
+    exportCsv={exportGate.allowed ? exportCsv : undefined}
+    exportTools={exportGate.allowed && <>
+      {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={exportGate.say} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+      {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} onOutcome={exportGate.say} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+    </>}
+    secondary={<>
+      {chrome === 'minimal' && kindLegend}
+      {rowDrill && <div className="flex flex-wrap items-center gap-1">
+        <select aria-label={m('chartSelectPoint')} className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs"
+          value={lastSelected?.key ?? ''} onChange={event => setSelected([event.target.value])}>
+          <option value="" disabled>{m('chartSelectPoint')}</option>
+          {rows.map(row => <option key={row.key} value={row.key}>{row.label} · {valueText(row.value)}</option>)}
+        </select>
+        <Button type="button" size="toolbar" variant="ghost" disabled={!lastSelected?.drill} onClick={lastSelected?.drill}>{m('chartActivatePoint')}</Button>
+      </div>}
+      <p className="border-t border-border-subtle pt-2 text-text-secondary">{summary}</p>
+    </>} />;
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), fittedDonut && 'min-h-64 overflow-y-auto', embedded && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={section !== null}>
-      <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={<>
-        {spec.kind === 'topNBar' && <Button ref={collapseButton} size="icon-xs" className="shrink-0" variant="ghost" aria-label={expanded ? m('chartHide') : m('chartShow')} title={expanded ? m('chartHide') : m('chartShow')} aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
-          const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
-          if (!next) collapseButton.current?.focus();
-        }}>{expanded ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}</Button>}
-        {spec.kind !== 'histogram' && <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden /></Button>}
+      {topN ? <>{rankingToolbar}{chrome === 'full' && kindLegend}
+        {!compactChrome && <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>}
+      </> : <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={<>
+        {spec.kind !== 'histogram' && <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartResetSelection')} title={m('chartResetSelection')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden /></Button>}
         {brushable && <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartDragToSelect')} title={m('chartDragToSelect')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden /></Button>}
       </>}>
       <header className={cn('flex flex-wrap items-start justify-between', embedded ? 'gap-1 px-4 pt-1' : 'gap-2 px-4 pt-3', section && 'pr-12')}>
         {!compactChrome && <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} hideTitle={false} />}
         <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
-          {!compactChrome && spec.kind === 'topNBar' && <Button ref={collapseButton} size="toolbar" variant="ghost" aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
-            const next = !expanded; if (spec.expanded === undefined) setLocalExpanded(next); spec.onExpandedChange?.(next);
-            if (!next) collapseButton.current?.focus();
-          }}>{expanded ? m('chartHide') : m('chartShow')}</Button>}
-          {!compactChrome && spec.kind !== 'histogram' && <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartReset')}</Button>}
+          {!compactChrome && spec.kind !== 'histogram' && <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartResetSelection')}</Button>}
           {!compactChrome && brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{m('chartDragToSelect')}</Button>}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => { setTable(current => !current); if (compactChrome) setPanelToolsOpen(false); }}>{m('chartShowAsTable')}</Button>
           {exportGate.allowed && <><Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button>{!compactChrome && <ImageActionStatus text={exportGate.status} />}</>}
@@ -408,18 +452,42 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </header>
       {chrome !== 'standard' && kindLegend}
       <p id={compactChrome ? undefined : summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
-      </PanelChartChrome>
-      {compactChrome && exportGate.allowed && <span role="status" className="sr-only">{exportGate.status}</span>}
+      </PanelChartChrome>}
+      {topN && <ImageActionStatus text={exportGate.status} />}
+      {!topN && compactChrome && exportGate.allowed && <span role="status" className="sr-only">{exportGate.status}</span>}
       {compactChrome && <p id={summaryId} className="sr-only">{summary}</p>}
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body bounded={chrome === 'standard' && size === 'fill'}>
       <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill' && !fittedDonut} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
-      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} role={rowFloor ? "region" : undefined} aria-labelledby={rowFloor ? titleId : undefined} tabIndex={rowFloor ? 0 : undefined} className={cn('relative', size === 'fill' && (chrome === 'standard' ? 'min-h-0 grow basis-0 overflow-hidden' : FILL_PLOT_CLASS), rowFloor && 'overflow-y-auto', fittedDonut && 'min-h-28')}>
+      {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} role={canDrill ? 'group' : rowFloor ? 'region' : undefined}
+        aria-label={canDrill ? m('chartPointsGroup') : undefined} aria-labelledby={rowFloor && !canDrill ? titleId : undefined}
+        tabIndex={rowFloor || canDrill ? 0 : undefined} onKeyDown={canDrill ? event => {
+          if (event.key !== 'Enter' || brushMode) return;
+          if (lastSelected?.drill) {
+            event.preventDefault();
+            lastSelected.drill();
+          }
+        } : undefined} className={cn('relative', size === 'fill' && (chrome === 'standard' ? 'min-h-0 grow basis-0 overflow-hidden' : FILL_PLOT_CLASS), rowFloor && 'overflow-y-auto', fittedDonut && 'min-h-28')}>
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={canvasHeight} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
-          click: params => { if (spec.kind === 'histogram' || params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return; activateCell('click', params); const key = extended ? extended.seriesKeys[params.seriesIndex]?.[params.dataIndex] : rows[params.dataIndex]?.key; if (key) toggle(key); },
-          // Registered only for an opted-in double-click heatmap: every other chart keeps its event set unchanged.
-          ...(spec.kind === 'heatmap' && spec.cellActivation?.on === 'dblclick' ? { dblclick: (params: { componentType?: string; seriesIndex?: number; dataIndex: number }) => activateCell('dblclick', params) } : {}),
+          click: params => {
+            if (spec.kind === 'histogram' || params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return;
+            activateCell('click', params);
+            const key = plotKey(params.seriesIndex, params.dataIndex);
+            if (!key) return;
+            if (!topN) {
+              toggle(key);
+              return;
+            }
+            if (brushMode) return;
+            const add = !singleSelect && (params.event?.event?.metaKey || params.event?.event?.shiftKey);
+            setSelected(previous => add ? [...(previous ?? active).filter(item => item !== key), key] : [key]);
+          },
+          ...(canDrill || cellDrill ? { dblclick: (params: { componentType?: string; seriesIndex: number; dataIndex: number }) => {
+            if (brushMode || params.componentType !== 'series') return;
+            if (cellDrill) activateCell('dblclick', params);
+            else rows.find(row => row.key === plotKey(params.seriesIndex, params.dataIndex))?.drill?.();
+          } } : {}),
           finished: (_, instance) => measureGrid(instance),
           takeglobalcursor: params => { if (brushable) setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
           brushselected: params => { if (!brushable) return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
@@ -432,6 +500,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         </div>}
       </div>}
       </ChartLegendLayout>
+      {topN && expanded && <ChartGestureHint point={rows.length > 0} additive={!singleSelect} drill={canDrill} />}
       {spec.kind !== 'histogram' && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !(selectedRows.length === 1 && selectedRows[0].drill) ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
         {hasStatuses && selectedRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}

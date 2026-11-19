@@ -1,6 +1,6 @@
 # SDK TopN·Lane 차트
 
-`@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../../../../docs/adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`도 `PlatformProvider` 없이 `I18nProvider`만으로 그려진다(#1953 B). `내보내기`(CSV)·`imageCopy`·`imagePrint`는 `exportActions: { exportAllowed: true }`를 줄 때만 보이고, 플랫폼 안에서는 메뉴 `features.export`가 결정한다. `AnalysisChartFrame`은 `PlatformProvider` 없이도 순수 차트 동작을 쓴다(아래 «플랫폼 밖의 Chart Frame»).
+`@ap/components`는 `AnalysisChart`의 `TopNBarSpec`과 독립 `LaneTimeline`을 공개한다([ADR-0064](../../../../docs/adr/0064-topn-bar-and-lane-timeline.md), [06 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)). 두 부품은 플랫폼의 `I18nProvider` 아래에 놓는다. `AnalysisChart`도 `PlatformProvider` 없이 `I18nProvider`만으로 그려진다(#1953 B). 플랫폼 밖에서는 `exportActions: { exportAllowed: true }`일 때 CSV와 선언된 이미지 동작을 표시한다. Frame과 Top N은 내보내기 팝오버에 모으며, 플랫폼 안에서는 메뉴 `features.export`가 표시 여부를 결정한다. `AnalysisChartFrame`은 `PlatformProvider` 없이도 순수 차트 동작을 쓴다(아래 «플랫폼 밖의 Chart Frame»).
 
 ## Chrome
 
@@ -11,8 +11,10 @@
 | Prop | 기본값 | 동작 |
 | --- | --- | --- |
 | `legendPlacement?: 'top' \| 'bottom' \| 'side'` | `bottom` | 플롯 위/아래 가로 줄(좁으면 줄바꿈, 최대 80px) 또는 오른쪽 세로 목록 |
-| `toolsReveal?: 'always' \| 'hover'` | `always` | 상시 표시 또는 차트 hover/focus-within 때 표시. 키보드·AT 접근을 유지하며 더보기가 열려 있는 동안에도 표시 |
+| `toolsReveal?: 'always' \| 'hover'` | `always` | 상시 표시 또는 차트 hover/focus-within 때 표시. 키보드·AT 접근을 유지하며 더보기가 열려 있는 동안에도 표시. Frame에서 `headingInToolbar`를 켜거나 `toolbarStart`를 주면 합쳐진 도구 줄은 상시 표시 |
 | `legendCaption?: ReactNode` | 없음 | 위/아래 범례 줄 끝, 오른쪽 범례 목록 아래에 캡션 표시 |
+
+Frame에서 `headingInToolbar`는 제목을 도구 줄에, `toolbarStart`는 패널 설정 같은 컨트롤을 도구 앞에 놓는다. `extraActions`는 `full`에서도 더보기에 놓인다. 빠른 구간은 선택 요약에서 쓴다. 지점 선택·추가는 더보기에서 할 수 있다. `full`에서 드릴·지점 동작·상태·세로 경계를 제공하면 지점 선택기는 도구 줄 아래에 있다. `pointClickHint`는 소스 호환용이며 SDK가 가능한 조작을 안내한다.
 
 ## TopN
 
@@ -110,9 +112,9 @@ const overlays = useMemo((): TimelineOverlay[] => [{ kind: 'segments', id: 'same
 
 ## 플랫폼 밖의 Chart Frame (`AnalysisChartFrame`, #1953 C)
 
-`PlatformProvider` 없이 `I18nProvider`와 `@ap/ui` CSS만으로 `AnalysisChartFrame`을 그린다. Zoom·Brush·로컬 선택·지점 선택(`pointActivation`·`pointActions`·`isPointSelectable`)·툴팁·같은 데이터 표·`selectionActions`·`차트 초기화`는 플랫폼 안과 같다. 플랫폼 의미가 있는 Compare·Annotate·`분석 구간 적용`은 그리지 않는다(`compareSeries`·`canApplyRange`를 줘도). 구간 선택은 Chart Local State라 페이지가 `selectionActions`로 자기 동작을 붙인다.
+`PlatformProvider` 없이 `I18nProvider`와 `@ap/ui` CSS만으로 `AnalysisChartFrame`을 그린다. Zoom·Brush·로컬 선택·지점 선택(`pointActivation`·`pointActions`·`isPointSelectable`)·툴팁·같은 데이터 표·`selectionActions`·`초기화`는 플랫폼 안과 같다. Compare는 숨기고 Annotate와 `분석 구간으로 적용`은 비활성화 사유를 표시한다. 구간 선택은 Chart Local State라 페이지가 `selectionActions`로 자기 동작을 붙인다.
 
-- 내보내기와 이미지: `exportActions={{ exportAllowed: true, notify? }}`일 때만 `내보내기`(보이는 CSV, 머리줄의 `from`·`to`는 `period`)와 `imageCopy`·`imagePrint` 버튼이 보인다. 기본은 꺼짐이고, 결과 문구는 `notify(text, tone?)`로, 없으면 버튼 옆 `role=status` 한 줄로 전한다.
+- `exportActions={{ exportAllowed: true, notify? }}`일 때 `내보내기` 팝오버에서 CSV를 받을 수 있다. CSV 머리줄의 `from`·`to`는 `period`에서 읽고, `imageCopy`·`imagePrint`를 선언하면 같은 팝오버에 해당 동작을 추가한다. 기본은 꺼짐이고, 결과 문구는 `notify(text, tone?)`로, 없으면 버튼 옆 `role=status` 한 줄로 전한다.
 - `period?: { from?: string | null; to?: string | null }`: 시리즈가 덮는 기간(점과 같은 `YYYY-MM-DDTHH:mm:ss` wall-clock, 변환하지 않는다 — ADR-0064). `Z`·오프셋·날짜만 같은 다른 형식은 쓰지 않고 개발 경고를 낸다. `to`가 있으면 시간축에 키보드 구간 선택(시작·끝 선택, 1시간·4시간·전체)이 생긴다. 없으면 끌기만 된다. 값이 바뀌면 로컬 선택이 초기화된다(플랫폼 안의 전역 Context 변경과 같다).
 - `PlatformProvider` 안에서는 두 prop을 읽지 않는다: 메뉴 manifest `features.export·compare·annotate`와 전역 기간이 결정하고, prop으로 메뉴 권한을 넓히지 못한다.
 

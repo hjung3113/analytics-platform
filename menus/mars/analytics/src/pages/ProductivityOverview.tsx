@@ -192,6 +192,7 @@ export default function ProductivityOverview(_: PageProps) {
       name: previous ? `${name} (${m('productivityOverviewPreviousPeriod')})` : name,
       color: previous ? 'cat-amber' : meta.colors[i],
       kind: meta.kind,
+      unit: meta.unit,
       // Previous-period series mirror their current counterpart; the Chart Frame derives the previous pattern (06 §16, ADR-0014).
       dashed: meta.dashed?.[i] ?? false,
       // Each period keeps its own bucket starts for the plot, table and CSV.
@@ -316,7 +317,7 @@ export default function ProductivityOverview(_: PageProps) {
               metricVersion={METRIC_VERSIONS[shownKpi]}
               series={series}
               compareSeries={compareSeries}
-              unit={meta.unit}
+              imageCopy imagePrint unit={meta.unit}
               valueFormat={fmtTrend}
               height={280}
               trust={trendTrust}
@@ -353,15 +354,15 @@ export default function ProductivityOverview(_: PageProps) {
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
-                  extraActions={<SegmentedRadio
+                  toolbarStart={<SegmentedRadio
                     label={m('productivityOverviewGroupBy')}
                     value={axis}
                     onChange={a => setPage({ axis: a === 'room' ? null : a })}
                     options={[{ value: 'room', label: m('productivityOverviewProcess') }, { value: 'stgroup', label: 'StGroup' }]}
                   />}
                   series={[
-                    { id: 'occupied', name: m('productivityOverviewOccupiedHours'), color: 'chart-blue', kind: 'bar', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
-                    { id: 'remainder', name: m('productivityOverviewNotOccupiedObservable'), color: 'chart-remainder', kind: 'bar', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },
+                    { id: 'occupied', name: m('productivityOverviewOccupiedHours'), color: 'chart-blue', kind: 'bar', unit: 'h', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
+                    { id: 'remainder', name: m('productivityOverviewNotOccupiedObservable'), color: 'chart-remainder', kind: 'bar', unit: 'h', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },
                   ]}
                   trust={t}
                 />

@@ -22,8 +22,7 @@ function mount(extra: Partial<AnalysisChartFrameProps> = {}) {
   return { ...view, update: (next: Partial<AnalysisChartFrameProps>) => view.rerender(frame({ ...extra, ...next })) };
 }
 async function showTable() {
-  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-  fireEvent.click(await screen.findByRole('button', { name: '같은 데이터를 표로 보기' }));
+  fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
   return screen.getByRole('table');
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
@@ -42,6 +41,7 @@ describe('opt-in Frame reading aids (#2326)', () => {
     expect(within(table).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['설비', '구간', 'M1', 'M2']);
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent('EQ1PM131');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['설비', 'x', 'M1', 'M2'], [['EQ1', 'PM1', 3, 1], ['EQ1', 'PM2', 5, 2], ['EQ2', 'PM1', '', 4]]);
   });
   it('adds one deduplicated visible status legend and a status column, summary, and separate CSV label/reason columns', async () => {
@@ -54,6 +54,7 @@ describe('opt-in Frame reading aids (#2326)', () => {
     expect(within(table).getAllByRole('columnheader').at(-1)).toHaveTextContent('상태');
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent('M1: ◆ 상한 초과 · Recipe 미구분');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'M1', 'M2', '상태', '사유'], expect.arrayContaining([['EQ1 · PM1', 3, 1, 'M1: 상한 초과\nM2: 상한 초과', 'M1: Recipe 미구분\nM2: Recipe 미구분']]));
     act(() => plot.onEvents?.click?.({ seriesId: 'a', dataIndex: 2 }, {} as never));
     expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent('상한 초과');
@@ -63,6 +64,7 @@ describe('opt-in Frame reading aids (#2326)', () => {
     const table = await showTable();
     expect(within(table).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['구간', 'M1', 'M2']);
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'M1', 'M2'], [['EQ1 · PM1', 3, 1], ['EQ1 · PM2', 5, 2], ['EQ2 · PM1', '', 4]]);
   });
   it('ignores rowGroups on vertical charts and warns once across rerenders', async () => {
@@ -84,6 +86,7 @@ it('removes hidden series from the status legend, table, summary and CSV', async
   const table = await showTable();
   expect(table).not.toHaveTextContent('Recipe 미구분');
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['x', 'M1', '상태', '사유'], [['EQ1 · PM1', 3, '', ''], ['EQ1 · PM2', 5, '', ''], ['EQ2 · PM1', '', '', '']]);
 });
 it('names the selected grouped point without needing activeCategory and leaves unmapped groups empty', async () => {
@@ -91,6 +94,7 @@ it('names the selected grouped point without needing activeCategory and leaves u
   await screen.findByRole('img');
   expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('설비: EQ1 · PM1');
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['설비', 'x', 'M1', 'M2'], [['EQ1', 'PM1', 3, 1], ['', 'EQ1 · PM2', 5, 2], ['', 'EQ2 · PM1', '', 4]]);
 });
 
@@ -121,6 +125,7 @@ it.each([false, true])('keeps startAlign spacers out of status legends, tables a
   expect(within(table).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['설비', '구간', 'M1', 'M2', '상태']);
   const laneRows = within(table).getAllByRole('row').map(row => row.textContent);
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   const laneCsv = vi.mocked(downloadChartCsv).mock.calls.at(-1)!;
   expect(laneCsv[1]).toEqual(['설비', 'x', 'M1', 'M2', '상태', '사유']);
   expect(laneCsv[2]).toEqual([
@@ -131,5 +136,6 @@ it.each([false, true])('keeps startAlign spacers out of status legends, tables a
   view.update({ startAlign: false });
   expect(within(screen.getByRole('table')).getAllByRole('row').map(row => row.textContent)).toEqual(laneRows);
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(vi.mocked(downloadChartCsv).mock.calls.at(-1)!.slice(1)).toEqual(laneCsv.slice(1));
 });

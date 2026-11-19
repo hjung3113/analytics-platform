@@ -14,7 +14,7 @@ const registry = createRegistry({
   menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: { export: false, savedView: false, annotate: true, compare: false }, pageKeys: [] }],
 });
 const none = async () => ({ data: null, assessments: [], trust: null, correlationId: 'fixture', outcome: 'empty' as const });
-const session = testSession(['platform:view']);
+const session = testSession(['platform:view', 'analytics:view']);
 const adapter = testAdapter({ session: () => session, listAnnotations: none, getEntity: none, saveAnnotation: none });
 const series: ChartSeries[] = [{ id: 's', name: 'Series', color: 'chart-blue', kind: 'bar', points: [['A', 1], ['B', 3]] }];
 async function mount(props: Partial<AnalysisChartFrameProps> = {}) {
@@ -74,9 +74,8 @@ it('shows the keyboard form only while brush mode is on', async () => {
 it('keeps apply preview and the note editor visually present', async () => {
   await mount({ summary: 'quiet', xType: 'time', orientation: 'vertical', series: [{ ...series[0], points: [['2026-10-01T00:00:00', 1], ['2026-10-02T00:00:00', 3]] }] });
   brush([new Date('2026-10-01T00:00:00').getTime(), new Date('2026-10-02T00:00:00').getTime()]);
-  fireEvent.click(screen.getByRole('button', { name: '분석 구간 적용…' }));
+  fireEvent.click(screen.getByRole('button', { name: '분석 구간으로 적용' }));
   expect(within(summary()).getByRole('group', { name: '구간 적용 확인' })).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
   fireEvent.click(screen.getByRole('button', { name: '주석' }));
   expect(within(summary()).getByRole('textbox', { name: '주석 내용' })).toBeVisible();
   expect(summary()).not.toHaveClass('sr-only');

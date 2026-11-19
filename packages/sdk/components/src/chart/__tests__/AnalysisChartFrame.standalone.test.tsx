@@ -18,30 +18,31 @@ function FakePlot(props: EChartProps): ReactElement {
 }
 
 const hours = ['2026-09-01T00:00:00', '2026-09-01T01:00:00', '2026-09-01T02:00:00', '2026-09-01T03:00:00', '2026-09-01T04:00:00', '2026-09-01T05:00:00'];
-const series: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', points: hours.map((x, i) => [x, i + 1]) }];
-const previous: ChartSeries[] = [{ id: 'p', name: 'P', color: 'chart-teal', points: hours.map((x, i) => [x, i]) }];
+const series: ChartSeries[] = [{ id: 'a', name: 'A', unit: 'ea', color: 'chart-blue', points: hours.map((x, i) => [x, i + 1]) }];
+const previous: ChartSeries[] = [{ id: 'p', name: 'P', unit: 'ea', color: 'chart-teal', points: hours.map((x, i) => [x, i]) }];
 const frame = (props: Partial<AnalysisChartFrameProps> = {}) => <AnalysisChartFrame chartId="flow" title="Flow" unit="ea" series={series} compareSeries={previous} {...props} />;
 const bare = (element: ReactElement) => render(<I18nProvider>{element}</I18nProvider>);
 const button = (name: string) => screen.queryByRole('button', { name });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
-  it('renders the chart behaviour with I18nProvider alone and offers no platform action', () => {
+  it('renders the chart behaviour with I18nProvider alone and explains why annotations are unavailable', () => {
     bare(frame({ imageCopy: true, imagePrint: true }));
     expect(screen.getByRole('region', { name: 'Flow' })).toBeTruthy();
-    for (const name of ['확대', '구간 선택', '차트 초기화']) expect(button(name)).not.toBeNull();
-    // Compare, Annotate and every export are off by default, even with compareSeries and the image props.
-    for (const name of ['비교', '주석', '내보내기', '이미지 복사', '인쇄']) expect(button(name)).toBeNull();
+    for (const name of ['확대', '구간 선택', '초기화']) expect(button(name)).not.toBeNull();
+    expect(button('주석')).toBeDisabled();
+    expect(button('주석')).toHaveAccessibleDescription('이 화면에서 주석을 남길 수 없습니다.');
+    for (const name of ['비교', '내보내기', '이미지 복사', '인쇄']) expect(button(name)).toBeNull();
   });
 
-  it('brushes and keeps the selection local: page actions show, `분석 구간 적용` does not', () => {
+  it('brushes and keeps the selection local: page actions show and applying the period is disabled', () => {
     bare(frame({ selectionActions: sel => <button type="button">filter {sel.from}</button> }));
     fireEvent.click(button('구간 선택')!);
     fireEvent.click(screen.getByRole('button', { name: 'fake-brush' }));
     expect(screen.getByText(/선택 구간:/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /^filter 2026-09-01T00:00:00/ })).toBeTruthy();
-    expect(button('분석 구간 적용…')).toBeNull();
-    fireEvent.click(button('차트 초기화')!);
+    expect(button('분석 구간으로 적용')).toBeDisabled();
+    fireEvent.click(button('초기화')!);
     expect(screen.queryByText(/선택 구간:/)).toBeNull();
   });
 
@@ -92,14 +93,16 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
     bare(frame({ exportActions: { exportAllowed: true, notify }, period: { from: hours[0], to: '2026-09-01T06:00:00' } }));
     expect(button('이미지 복사')).toBeNull();
     fireEvent.click(button('내보내기')!);
+    fireEvent.click(button('내보내기 CSV')!);
     expect(create).toHaveBeenCalledTimes(1);
     // The period goes into the header as given: wall-clock, not converted (ADR-0064).
     expect((await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]!); })).split('\n')[0]).toContain('scopeId= · from=2026-09-01T00:00:00 · to=2026-09-01T06:00:00');
     expect(notify).toHaveBeenCalledWith('flow.csv 내보냄 (보이는 시리즈)');
     cleanup();
     bare(frame({ imageCopy: true, exportActions: { exportAllowed: true } }));
-    expect(button('이미지 복사')).not.toBeNull();
     fireEvent.click(button('내보내기')!);
+    expect(button('이미지 복사')).not.toBeNull();
+    fireEvent.click(button('내보내기 CSV')!);
     expect(screen.getByRole('status').textContent).toBe('flow.csv 내보냄 (보이는 시리즈)');
     cleanup();
     bare(frame({ imageCopy: true, exportActions: { exportAllowed: false, notify } }));
@@ -109,7 +112,7 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
 });
 
 describe('AnalysisChartFrame inside a platform keeps the manifest gate (#1953 C)', () => {
-  const session = testSession(['platform:view']);
+  const session = testSession(['platform:view', 'analytics:view']);
   const adapter = testAdapter({ session: () => session });
   const mount = (element: ReactElement, canExport: boolean) => {
     window.history.replaceState(null, '', '/?v=1');
@@ -127,11 +130,12 @@ describe('AnalysisChartFrame inside a platform keeps the manifest gate (#1953 C)
   it('a closed policy does not hide what the manifest opens, and Apply stays', async () => {
     mount(frame({ imageCopy: true, exportActions: { exportAllowed: false } }), true);
     await screen.findByRole('region', { name: 'Flow' });
-    expect(button('내보내기')).not.toBeNull();
+    fireEvent.click(button('내보내기')!);
     expect(button('이미지 복사')).not.toBeNull();
+    fireEvent.keyDown(screen.getByRole('dialog', { name: '내보내기' }), { key: 'Escape' });
     fireEvent.click(button('구간 선택')!);
     fireEvent.click(screen.getByRole('button', { name: 'fake-brush' }));
-    expect(button('분석 구간 적용…')).not.toBeNull();
+    expect(button('분석 구간으로 적용')).not.toBeNull();
   });
 
   it('the CSV note inside a platform still names the applied Context', async () => {
@@ -141,6 +145,7 @@ describe('AnalysisChartFrame inside a platform keeps the manifest gate (#1953 C)
     onTestFinished(() => { URL.createObjectURL = keep.create; URL.revokeObjectURL = keep.revoke; });
     mount(<>{frame()}<ToastProbe /></>, true);
     fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(await screen.findByText('flow.csv 내보냄 (보이는 시리즈, 현재 적용 Context 기준)')).toBeTruthy();
   });
 });

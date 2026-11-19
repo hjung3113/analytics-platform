@@ -19,14 +19,16 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
     seen.add(item.id); return true;
   });
   const labels = new Map(valid.map(item => [item.id, item.label]));
-  const items = [...valid].sort((a, b) => b.value - a.value).slice(0, validN ? spec.topN ?? 8 : 8);
+  const ranked = [...valid].sort((a, b) => b.value - a.value);
+  const limit = validN ? spec.topN ?? 8 : 8;
+  const items = ranked.filter((item, index) => index < limit || item.value === ranked[0]?.value);
   const rows = items.map(item => ({ key: JSON.stringify(['topNBar', item.id]), label: item.label, value: item.value, color: item.colorToken, drill: spec.onItemClick ? () => spec.onItemClick?.(item.id) : undefined }));
   const legendSeen = new Set<string>();
   const legend = (spec.legend ?? []).filter(entry => {
     if (!isThemeColorToken(entry.colorToken) || !items.some(item => item.colorToken === entry.colorToken) || legendSeen.has(entry.colorToken)) return false;
     legendSeen.add(entry.colorToken); return true;
-  }).map(entry => ({ label: entry.label, color: entry.colorToken, symbol: 'rect' }));
-  const tableValues = rows.map(row => [row.label, `${row.value} ${unit}`]);
+  }).map(entry => ({ label: unit ? `${entry.label} (${unit})` : entry.label, color: entry.colorToken, symbol: 'rect' }));
+  const tableValues = rows.map(row => [row.label, `${row.value} ${unit}`.trim()]);
   return {
     rows, total: rows.reduce((n, row) => n + row.value, 0), empty: !rows.length,
     summary: formatText(COMPONENTS_MESSAGES.chartTopNSummary, resolved, { count: rows.length, unit }),
@@ -41,7 +43,9 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.join(' · ') ?? '' },
         xAxis: { type: 'value', min: 0, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
         yAxis: { type: 'category', inverse: true, data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, width: 112, overflow: 'truncate', interval: 0 } },
-        series: [{ type: 'bar', barMaxWidth: 24, data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
+        series: [{ type: 'bar', barMaxWidth: 24,
+          label: { show: true, position: 'insideRight', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.[1] ?? '' },
+          data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
       };
     },
   };
