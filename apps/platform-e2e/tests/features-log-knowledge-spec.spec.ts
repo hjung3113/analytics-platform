@@ -34,6 +34,8 @@ test.describe('모델 명세 계약 경로 (#1196 d, §13·§22)', () => {
     await draft.getByRole('button', { name: '저장', exact: true }).click();
     const publish = draft.getByRole('button', { name: '발행', exact: true });
     await expect(publish).toBeEnabled();
+    // Saving refetches the draft; measure only after the saved TSV is back in the editor, or the page is still short and the bar has not stuck yet.
+    await expect(draft.getByLabel('명세 TSV')).toHaveValue(/Robot\tMove/);
     const before = await publish.boundingBox();
     await draft.evaluate(el => el.scrollIntoView({ block: 'end' }));
     await expect(publish).toBeInViewport();

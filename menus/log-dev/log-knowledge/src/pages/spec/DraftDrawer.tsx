@@ -206,7 +206,7 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
   </div>;
   const loadedForm = !revisionId ? form : <QueryView widgetName={w('명세 초안', 'Spec draft')} query={draft}>{value => value ? form : <div role="alert" className="grid gap-3"><p>{w('초안이 이미 발행되거나 반려됐습니다. 입력을 유지하고 최신 상태를 확인해 주세요.', 'The draft was already published or rejected. Keep your input and check the latest state.')}</p>{form}</div>}</QueryView>;
   return <>
-    <section aria-labelledby={`${id}-heading`} className="grid min-w-0 gap-4 pb-20">
+    <section aria-labelledby={`${id}-heading`} className="grid min-w-0 gap-4">
       <header className="grid gap-1 border-b border-border-subtle pb-3">
         <h2 id={`${id}-heading`} className="text-lg font-semibold">{w('명세 초안 편집', 'Edit spec draft')}</h2>
         <p className="text-sm text-text-secondary">{w('모델', 'Model')}: {modelLabel} · {w('기준 Revision', 'Base revision')}: {baseRevisionText}</p>
