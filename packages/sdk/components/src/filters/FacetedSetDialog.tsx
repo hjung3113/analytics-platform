@@ -221,7 +221,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
     const open = expanded.has(facet.id);
     const picks = rulePicks(rule, facet.id);
     const first = picks.length ? valueLabel(facet.id, picks[0]) : null;
-    const count = pickedSets.get(facet.id)?.size ?? 0;
+    const count = Object.hasOwn(rule, facet.id) ? picks.length : (universes.get(facet.id)?.length ?? 0);
     let caption = ready ? m('fsFacetCount', { count }) : '—';
     if (first !== null) caption = picks.length === 1 ? first : m('fsFacetMore', { first, count: picks.length - 1 });
     return <li key={facet.id} className="grid min-w-0 max-w-full gap-1">

@@ -47,8 +47,9 @@ export async function periodPreset(page: Page, name: string, bar = contextBar(pa
     const disclosure = bar.getByRole('button', { name: '조회 조건 접기', exact: true });
     const editorId = await disclosure.getAttribute('aria-controls');
     const editor = page.locator(`[id="${editorId}"]`);
+    const apply = { name: '적용', exact: true };
     return { locator: editor.getByRole('button', { name, exact: true }), apply: async () => {
-      await editor.getByRole('button', { name: '적용', exact: true }).click();
+      await editor.getByRole('button', apply).or(bar.getByRole('button', apply)).click();
     } };
   }
   const trigger = bar.getByRole('button', { name: /^기간:/ });

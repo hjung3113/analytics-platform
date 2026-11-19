@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { evidence, signInAs } from './support';
+import { evidence, expandQueryBar, queryBar, signInAs } from './support';
 
 // Menu-query/menu-action Consumers: observable permission, versioned confirmation and URL Context contracts.
 test.describe('개선 아이템 (§5 권한 · §13 표/확인 · §22 Context 링크)', () => {
@@ -82,7 +82,14 @@ test.describe('개선 아이템 (§5 권한 · §13 표/확인 · §22 Context �
     await expect(analysis).toHaveURL(url.href);
     // The analysis screen lands on the after window (equal windows, so its Compare interaction reaches the before window
     // once a query runs); this screen only carries the Context, it never queries.
-    await expect(analysis.getByText('11-04 → 11-11 (7일)', { exact: true }).first()).toBeVisible();
+    const bar = queryBar(analysis);
+    await expandQueryBar(analysis, bar);
+    const start = bar.getByLabel('시작일', { exact: true });
+    const end = bar.getByLabel('종료일 (포함)', { exact: true });
+    await expect(start).toBeVisible();
+    await expect(start).toHaveValue('2026-11-04');
+    await expect(end).toBeVisible();
+    await expect(end).toHaveValue('2026-11-10');
     await analysis.close();
   });
 });

@@ -805,8 +805,9 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await expect(bar.getByRole('button', { name: '조회 조건 펼치기' })).toHaveAttribute('aria-expanded', 'false');
     await evidence(page, testInfo, 'query-bar-applied');
     const applied = page.url();
-    await expandQueryBar(page, bar);
-    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    const preset = await periodPreset(page, '어제', bar);
+    await expect(preset.locator).toHaveAttribute('aria-pressed', 'true');
+    await preset.apply();
     expect(page.url()).toBe(applied);
   });
   test('deep link와 Back/Forward는 적용값을 복원하고 초안 page 값은 적용까지 결과에 섞이지 않는다', async ({ page }) => {

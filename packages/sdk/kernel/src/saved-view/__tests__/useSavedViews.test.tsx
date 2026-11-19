@@ -89,6 +89,18 @@ it('applies the personal default to a bare route with one replace that Back cann
   expect(window.sessionStorage.getItem(KEY)).toBe('l1');
 });
 
+it('restores both non-midnight bounds of a legacy Saved View to the URL', async () => {
+  const from = '2026-09-01T08:12:34';
+  const to = '2026-09-02T13:45:56';
+  const legacy = viewOf({ id: 'legacy', context: { from, to, lineNames: ['L1'] } });
+  mount(createFakeStore([legacy]), '/' + query(['L2']));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('legacy'); });
+  const params = new URLSearchParams(window.location.search);
+  expect(params.get('from')).toBe(from);
+  expect(params.get('to')).toBe(to);
+});
+
 it('lets the personal default win while its restore is still pending on an auto Apply entry', async () => {
   const held = deferred();
   const store = createFakeStore([L1], { 'u1:home': 'l1' });

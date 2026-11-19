@@ -181,7 +181,7 @@ describe('outcomes', () => {
   it.each([
     ['error', '불러오지 못했습니다', /error-text/],
     ['timeout', '응답 시간 초과', /서버가 제때 응답하지 않았습니다/],
-    ['too_large', '구간이 너무 큽니다', /최대 8시간까지.*기간을 8시간 이하로 줄이세요/],
+    ['too_large', '구간이 너무 큽니다', /최대 8시간까지.*설비를 선택.*이 구간 보기/],
   ] as const)('%s is a screen-local state with the message and the response\'s correlation id', async (outcome, title, message) => {
     const fake = failing(outcome);
     fake.render(TopViewScreen);
@@ -825,6 +825,21 @@ describe('Top View equipment bar (#1644)', () => {
     await screen.findByText('데이터 구간 2026-01-01 10:00:00 ~ 2026-01-01 10:30:00');
     fireEvent.click(await screen.findByRole('button', { name: '이 구간 보기' }));
     await waitFor(() => expect([fake.page('from'), fake.page('to')]).toEqual([HOST_TIME.from, HOST_TIME.to]));
+  });
+  it('recovers a rejected calendar day through the equipment data window', async () => {
+    const calendarDay = { from: '2026-01-01T00:00:00', to: '2026-01-02T00:00:00' };
+    const fake = fakeFor('topview', { context: calendarDay, query: async (call) => {
+      if (call.id === OPTIONS_ID) return listOk({ options });
+      if (call.id === EVENTS_ID && call.context.from === calendarDay.from && call.context.to === calendarDay.to) return response('too_large', null);
+      return server()(call);
+    } });
+    fake.render(TopViewScreen);
+    await screen.findByText('구간이 너무 큽니다');
+    expect(drawn()).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: '이 구간 보기' }));
+    await waitFor(() => expect(drawn()).not.toBeNull());
+    expect([fake.page('from'), fake.page('to')]).toEqual([HOST_TIME.from, HOST_TIME.to]);
+    expect(screen.queryByText('구간이 너무 큽니다')).toBeNull();
   });
   it('shows the window without an action when the applied window is already inside it', async () => {
     renderBar();

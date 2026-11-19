@@ -75,7 +75,12 @@ export function formatPeriod(from: string | null, to: string | null, lang: 'ko' 
   }
   const days = start && end ? (end.getTime() - start.getTime()) / (HOURS_PER_DAY * 3_600_000) : 0;
   const span = days > 0 ? ` (${days}${lang === 'ko' ? '일' : 'd'})` : '';
-  const dateLabel = (date: Date | null) => date?.toISOString().split('T')[0].slice(-5) ?? '—';
+  const dateLabel = (date: Date | null) => {
+    if (!date) return '—';
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${month}-${day}`;
+  };
   return `${dateLabel(start)} → ${dateLabel(end)}${span}`;
 }
 

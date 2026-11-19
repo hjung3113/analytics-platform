@@ -416,7 +416,15 @@ it('in direct mode Escape closes an open facet before closing the dialog', async
 
 it('shows the first narrowed value plus the remaining count and the count of an unrestricted facet', () => {
   const extra = { id: 'three', facets: { color: 'green', size: 'XL' } };
-  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={[...items, extra]} value={{ rule: { color: ['red', 'blue'] }, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
+  const groups = { id: 'customGroup', label: 'Custom groups', values: ['g1', 'g2'], defaultSelection: 'none' } as const;
+  render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={[...facets, groups]} items={[...items, extra]} value={{ rule: { color: ['red', 'blue'] }, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
   expect(screen.getByRole('button', { name: 'Color red 외 1' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Size 3개' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Custom groups 2개' }));
+  const group = screen.getByRole('checkbox', { name: 'g1' });
+  expect(group).not.toBeChecked();
+  fireEvent.click(group);
+  expect(screen.getByRole('button', { name: 'Custom groups g1' })).toBeVisible();
+  fireEvent.click(group);
+  expect(screen.getByRole('button', { name: 'Custom groups 0개' })).toBeVisible();
 });
