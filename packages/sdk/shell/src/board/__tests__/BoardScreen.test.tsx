@@ -995,3 +995,74 @@ it.each([
   fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '베타' }));
   await waitFor(() => expect(new URLSearchParams(stored().sheets[0].panes[2]?.query).get('from')).toBe(expected));
 });
+
+it.each([
+  { name: 'skips denied recent visits and uses the next eligible visit', older: [{ menuId: 'alpha', url: `/mars/alpha${w2}&scopeId=MEM`, at: 1 }], expected: 'MEM' },
+  { name: 'uses empty conditions when all candidates are denied', older: [], expected: null },
+])('$name after rejecting the source pane', async ({ older, expected }) => {
+  const denied = w1 + '&scopeId=DENIED&lotIds=SECRET';
+  seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(denied), null] })]));
+  localStorage.setItem('platform:recent:u1', JSON.stringify([
+    { menuId: 'locked', url: `/mars/locked${w1}&scopeId=MEM`, at: 3 },
+    { menuId: 'beta', url: `/mars/beta${denied}`, at: 2 },
+    ...older,
+  ]));
+  mount(undefined, undefined, undefined, {
+    validateScope: async scopeId => ({ status: scopeId === 'DENIED' ? 'forbidden' : 'valid', grantedRooms: [] }),
+  });
+  await settle();
+  fireEvent.click(within(paneGroup(2)).getByRole('button', { name: '현재 화면 조건으로' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '알파' }));
+  await waitFor(() => {
+    const inserted = stored().sheets[0].panes[1];
+    expect(inserted?.menuId).toBe('alpha');
+    const params = new URLSearchParams(inserted?.query);
+    expect(params.get('scopeId')).toBe(expected);
+    if (expected === null) expect(params.get('from')).not.toBe('2026-09-01T00:00:00');
+    else expect(params.get('from')).toBe('2026-08-01T00:00:00');
+    expect(params.get('lotIds')).toBeNull();
+  });
+});
+
+type ScopeVerdict = Awaited<ReturnType<PlatformAdapter['validateScope']>>;
+
+function pendingBoardDefaults() {
+  seed(boardOf([sheet('a')]));
+  localStorage.setItem('platform:recent:u1', JSON.stringify([
+    { menuId: 'alpha', url: `/mars/alpha${w1}&scopeId=MEM`, at: 1 },
+  ]));
+  const pending: ((result: ScopeVerdict) => void)[] = [];
+  const validateScope = vi.fn<PlatformAdapter['validateScope']>(() => new Promise(resolve => { pending.push(resolve); }));
+  mount(undefined, undefined, undefined, { validateScope });
+  return { pending, validateScope };
+}
+
+async function chooseForEmptyPane(menu: string) {
+  fireEvent.click(await screen.findByRole('button', { name: '분석 화면 넣기' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: menu }));
+}
+
+it('discards a recent default when an adapter notice retires its revision before the write', async () => {
+  const { pending } = pendingBoardDefaults();
+  await chooseForEmptyPane('베타');
+  expect(pending).toHaveLength(1);
+  await act(async () => {
+    pending[0]({ status: 'valid', grantedRooms: [] });
+    // Let defaultQuery receive the verdict, then retire it before the write continuation.
+    queueMicrotask(() => { for (const listener of listeners) listener(); });
+  });
+  expect(stored().sheets[0].panes[0]).toBeNull();
+});
+
+it.each([0, 1])('keeps the latest confirmed choice for a slot when request %i settles first', async first => {
+  const { pending, validateScope } = pendingBoardDefaults();
+  await chooseForEmptyPane('알파');
+  await chooseForEmptyPane('베타');
+  expect(pending).toHaveLength(2);
+  const approved: ScopeVerdict = { status: 'valid', grantedRooms: [] };
+  await act(async () => { pending[first](approved); });
+  expect(stored().sheets[0].panes[0]?.menuId ?? null).toBe(first === 0 ? null : 'beta');
+  await act(async () => { pending[1 - first](approved); });
+  expect(stored().sheets[0].panes[0]?.menuId).toBe('beta');
+  expect(validateScope.mock.calls[0][1]?.aborted).toBe(true);
+});

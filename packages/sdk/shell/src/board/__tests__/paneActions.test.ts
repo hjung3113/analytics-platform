@@ -1,11 +1,12 @@
 import { admitPaneScreen, canMountPaneScreen } from '../boardMenus';
 import { House } from 'lucide-react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseQuery, groupId, spaceId } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
 import { type PaneScreen } from '@ap/kernel/host';
-import { noContext, testSpace } from '@ap/kernel/testing';
-import { applyContextToSheet, contextValues, defaultQuery, copyContextToSheet, paneSignals, replacementScreen } from '../paneActions';
+import { noContext, testAdapter, testSpace } from '@ap/kernel/testing';
+import { matchesCopySource } from '../boardCopySource';
+import { applyContextToSheet, contextValues, defaultQuery, copyContextToSheet, paneGlobal, paneSignals, replacementScreen, type ReadPaneCopySource } from '../paneActions';
 import { boardText, hasFinalConsonant } from '../text';
 import { v2Sheet } from '../__fixtures__/legacyBoard';
 
@@ -26,6 +27,9 @@ const registry = createRegistry({
   ],
 });
 const canOpen = (menuId: string) => menuId !== 'locked';
+const sourceFor = (registry: ReturnType<typeof createRegistry>): ReadPaneCopySource => (_sheet, { screen }) =>
+  screen && canMountPaneScreen(registry, canOpen, screen) ? paneGlobal(registry, screen) : null;
+const readSource = sourceFor(registry);
 const pane = (query: string, menuId = 'alpha') => ({ menuId, params: {}, query });
 const sheet = (panes: (PaneScreen | null)[]) => v2Sheet('s', { layout: '1x2', panes });
 const condition = (axis: string) => `?equipmentGroup=${encodeURIComponent(JSON.stringify({ axis, id: 'X' }))}`;
@@ -69,20 +73,22 @@ describe('Context is inherited only from a pane the role can mount', () => {
   const beta = registry.matchRoute('/beta')!.menu;
 
   it('a denied pane\'s saved Context never reaches the replacing screen; a fresh screen takes the given default instead', () => {
-    const replaced = replacementScreen(registry, canOpen, pane(secret, 'locked'), beta, '?from=2026-01-01T00:00:00&to=2026-01-02T00:00:00');
+    const old = sheet([pane(secret, 'locked'), null]);
+    const replaced = replacementScreen(beta, readSource(old, old.panes[0]), '?from=2026-01-01T00:00:00&to=2026-01-02T00:00:00');
     expect(replaced.query).not.toContain('SECRET');
     expect(parseQuery(replaced.query, []).global.from).toBe('2026-01-01T00:00:00');
   });
 
   it('a mountable pane still hands its Context to the replacing screen', () => {
-    const replaced = replacementScreen(registry, canOpen, pane(secret), beta, '');
+    const old = sheet([pane(secret), null]);
+    const replaced = replacementScreen(beta, readSource(old, old.panes[0]), '');
     expect(parseQuery(replaced.query, []).global.lotIds).toEqual(['SECRET']);
   });
 
   it('a denied pane is neither a source for apply-to-all nor for the sheet copy', () => {
     const denied = sheet([pane(secret, 'locked'), pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00')]);
-    expect(applyContextToSheet(registry, canOpen, denied, 0)).toBeNull();
-    expect(copyContextToSheet(registry, canOpen, denied, sheet([pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00'), pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00')]))).toEqual([]);
+    expect(applyContextToSheet(registry, canOpen, denied, 0, readSource)).toBeNull();
+    expect(copyContextToSheet(registry, canOpen, denied, sheet([pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00'), pane('?from=2026-08-01T00:00:00&to=2026-08-02T00:00:00')]), readSource)).toEqual([]);
   });
 });
 
@@ -95,28 +101,52 @@ describe('board pane admission', () => {
 });
 
 describe('defaultQuery', () => {
-  it('returns an empty query for a malformed Context address', () => {
-    expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?from=bad' }])).toBe('');
+  const access = () => ({ canOpen, validateScope: testAdapter().validateScope, signal: new AbortController().signal });
+  it('returns an empty query for a malformed Context address', async () => {
+    expect(await defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?from=bad' }], access())).toBe('');
   });
 
-  it('rethrows unexpected registry errors', () => {
+  it('checks a denied Scope once per lookup across different visits and uses the next eligible Scope', async () => {
+    const validateScope = vi.fn<ReturnType<typeof testAdapter>['validateScope']>(async scopeId => ({
+      status: scopeId === 'DENIED' ? 'forbidden' : 'valid', grantedRooms: [],
+    }));
+    const visits = [
+      { menuId: 'alpha', url: '/alpha?scopeId=DENIED' },
+      { menuId: 'beta', url: '/beta?scopeId=DENIED' },
+      { menuId: 'home', url: '/?scopeId=MEM&lotIds=LOT' },
+    ];
+    const query = await defaultQuery(registry, visits, { ...access(), validateScope });
+    expect(parseQuery(query, []).global).toMatchObject({ scopeId: 'MEM', lotIds: ['LOT'] });
+    expect(validateScope.mock.calls.map(([id]) => id)).toEqual(['DENIED', 'MEM']);
+  });
+
+  it('rethrows unexpected registry errors', async () => {
     const broken = { ...registry, get menus(): typeof registry.menus { throw new Error('registry failure'); } };
-    expect(() => defaultQuery(broken, [{ menuId: 'alpha', url: '/alpha?lotIds=LOT' }])).toThrow('registry failure');
+    await expect(defaultQuery(broken, [{ menuId: 'alpha', url: '/alpha?lotIds=LOT' }], access())).rejects.toThrow('registry failure');
   });
 
-  it('copies only Context from the latest address and handles no recent query', () => {
-    expect(parseQuery(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?lotIds=LOT&tab=detail&unknown=x' }]), []).global.lotIds).toEqual(['LOT']);
-    expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?tab=detail' }])).not.toContain('tab');
-    expect(defaultQuery(registry, [])).toBe('');
-    expect(defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha' }])).toBe('');
+  it('copies only Context from the latest address and handles no recent query', async () => {
+    expect(parseQuery(await defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?lotIds=LOT&tab=detail&unknown=x' }], access()), []).global.lotIds).toEqual(['LOT']);
+    expect(await defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha?tab=detail' }], access())).not.toContain('tab');
+    expect(await defaultQuery(registry, [], access())).toBe('');
+    expect(await defaultQuery(registry, [{ menuId: 'alpha', url: '/alpha' }], access())).toBe('');
   });
+});
+
+it('rejects a different or retired generation at the same pane address', () => {
+  let live = true;
+  const decision = { url: '/mars/alpha?scopeId=MEM', isCurrentGeneration: () => live };
+  expect(matchesCopySource(decision, decision)).toBe(true);
+  expect(matchesCopySource(decision, { ...decision, isCurrentGeneration: () => true })).toBe(false);
+  live = false;
+  expect(matchesCopySource(decision, decision)).toBe(false);
 });
 
 describe('Condition basis and global Line/PRC copy (#552)', () => {
   it('copies the complete map, basis and site-bound sets without changing Selection', () => {
     const source = pane(`?equipmentGroup=${encodeURIComponent(JSON.stringify({ alpha: ['A', 'B'], beta: ['C'] }))}&membershipBasis=asOf&lineNames=L&prcGroups=P&selectedEquipmentIds=E`);
     const s = sheet([source, pane('?selectedEquipmentIds=OTHER')]);
-    const { edits } = applyContextToSheet(registry, canOpen, s, 0)!;
+    const edits = applyContextToSheet(registry, canOpen, s, 0, readSource)!;
     expect(edits).toHaveLength(1);
     const copied = parseQuery(edits[0].after!.query).global;
     expect(copied).toMatchObject({ condition: { alpha: ['A', 'B'], beta: ['C'] }, membershipBasis: 'asOf', lineNames: ['L'], prcGroups: ['P'], selection: ['E'] });
@@ -137,10 +167,10 @@ describe('repeated page keys in board Context actions (F4)', () => {
     const source = pane('?lotIds=LOT&tag=b&tag=a');
     const other = pane('?lotIds=OTHER&tag=y&tag=x', 'beta');
     expect(paneSignals(repeating, canOpen, [source, other], '없음').every(signal => signal !== null)).toBe(true);
-    const applied = applyContextToSheet(repeating, canOpen, sheet([source, other]), 0)!;
-    expect(applied.edits).toHaveLength(1);
-    expect(parseQuery(applied.edits[0].after!.query, ['tag'], { repeated: ['tag'] })).toMatchObject({ global: { lotIds: ['LOT'] }, page: [['tag', 'y'], ['tag', 'x']] });
-    const copied = copyContextToSheet(repeating, canOpen, sheet([source, null]), sheet([other, null]));
+    const applied = applyContextToSheet(repeating, canOpen, sheet([source, other]), 0, sourceFor(repeating))!;
+    expect(applied).toHaveLength(1);
+    expect(parseQuery(applied[0].after!.query, ['tag'], { repeated: ['tag'] })).toMatchObject({ global: { lotIds: ['LOT'] }, page: [['tag', 'y'], ['tag', 'x']] });
+    const copied = copyContextToSheet(repeating, canOpen, sheet([source, null]), sheet([other, null]), sourceFor(repeating));
     expect(parseQuery(copied[0].after!.query, ['tag'], { repeated: ['tag'] }).page).toEqual([['tag', 'y'], ['tag', 'x']]);
   });
 });

@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { House } from 'lucide-react';
-import { groupId, spaceId, type ScopeCheck, type Session } from '@ap/contracts';
+import { groupId, spaceId, type PlatformAdapter, type ScopeCheck, type Session } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../../platform/platform';
 import { createRegistry } from '../../registry/registry';
@@ -21,6 +21,30 @@ function Probe() {
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it.each([false, true])('finishes the pending screen Scope check across a same-snapshot revision (serverPreferences=%s)', async serverPreferences => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=SITE-B');
+  const session = testSession(['platform:view']);
+  const listeners = new Set<() => void>();
+  let resolveScope!: (result: ScopeCheck) => void;
+  const validateScope = vi.fn<PlatformAdapter['validateScope']>(() => new Promise<ScopeCheck>(resolve => { resolveScope = resolve; }));
+  const adapter = testAdapter({
+    session: () => session,
+    validateScope,
+    subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  });
+  const patchPreferences = vi.spyOn(adapter, 'patchPreferences');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} serverPreferences={serverPreferences}><Probe /></PlatformProvider></I18nProvider>);
+  expect(screen.getByTestId('scope')).toHaveTextContent('validating:SITE-B:');
+  act(() => listeners.forEach(listener => listener()));
+  expect(validateScope).toHaveBeenCalledTimes(1);
+  expect(validateScope.mock.calls[0][1]?.aborted).toBe(false);
+  expect(screen.getByTestId('scope')).toHaveTextContent('validating:SITE-B:');
+  await act(async () => { resolveScope({ status: 'valid', grantedRooms: ['RB1'] }); });
+  expect(screen.getByTestId('scope')).toHaveTextContent('valid:SITE-B:RB1');
+  expect(validateScope).toHaveBeenCalledTimes(1);
+  expect(patchPreferences.mock.calls.some(([patch]) => patch.set?.lastScope === 'SITE-B')).toBe(false);
+});
 
 describe('an approved request opens the blocked Scope on the next session snapshot (ADR-0154 decision 5)', () => {
   it('forbidden → the adapter swaps its session snapshot (same user, same scopeId, no reload) → the Kernel re-validates → valid', async () => {

@@ -59,7 +59,7 @@ function registered(link: LinkResolution, menuId: string): RegisteredLink {
 }
 
 export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => RegisteredLink; initialSavedView: InitialSavedView | null } {
-  const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes } = app.pub;
+  const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
   const { url: visibleUrl, hidden, navigation: pageNavigation, commit, go, mode, paneId } = source;
@@ -263,45 +263,44 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     return accessibleSpaces[0] ?? null;
   }, [ownSidebarSpace, currentSpace, accessibleSpaces, registry]);
 
-  // Scope is re-validated on every change of requested scope or session (§6.2); URL is never proof.
-  // A pane validates its own requested Scope: panes never share or merge Scopes.
-  const [scope, setScope] = useState<ScopeState>(() => {
-    try {
-      const id = new URLSearchParams(url.includes('?') ? url.slice(url.indexOf('?')) : '').get('scopeId');
-      if (id) return { scopeId: id, status: 'validating', validatedFor: session, grantedRooms: [] };
-    } catch { /* keep none */ }
-    return { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] };
-  });
+  // The screen validates its own requested Scope. Capture the board copy generation at request start
+  // without making a same-session adapter notice restart the screen's check.
+  const copyGeneration = useRef(isCurrentGeneration);
+  useLayoutEffect(() => { copyGeneration.current = isCurrentGeneration; }, [isCurrentGeneration]);
+  const [scopeCheck, setScopeCheck] = useState<{ adapter: HostPlatform['adapter']; generation: HostPlatform['scopeGeneration']; scope: ScopeState } | null>(null);
   const [scopeRetry, setScopeRetry] = useState(0);
   const retryScope = useCallback(() => setScopeRetry(n => n + 1), []);
-  const onScopeValid = source.onScopeValid;
+  const { onScopeValid } = source;
+  const rememberScope = useRef(onScopeValid);
+  useLayoutEffect(() => { rememberScope.current = onScopeValid; }, [onScopeValid]);
   useEffect(() => {
     const scopeId = global.scopeId;
-    if (!scopeId) { setScope({ scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }); return; }
+    if (scopeId === null) { setScopeCheck(null); return; }
     const controller = new AbortController();
-    setScope({ scopeId, status: 'validating', validatedFor: session, grantedRooms: [] });
+    const generation = copyGeneration.current;
+    const setVerdict = (status: ScopeState['status'], grantedRooms: string[] = []) => {
+      setScopeCheck({ adapter, generation, scope: { scopeId, status, validatedFor: session, grantedRooms } });
+    };
+    setVerdict('validating');
     adapter.validateScope(scopeId, controller.signal).then(result => {
-      if (controller.signal.aborted) return;
-      setScope({ scopeId, status: result.status, validatedFor: session, grantedRooms: result.grantedRooms });
-      if (result.status === 'valid') onScopeValid?.(scopeId);
+      if (controller.signal.aborted || adapter.session() !== session) return;
+      setVerdict(result.status, result.grantedRooms);
+      // The screen can accept a same-session verdict after a notice. Preference writes require a live generation.
+      if (result.status === 'valid' && rememberScope.current && generation()) rememberScope.current(scopeId);
     }).catch(() => {
-      // Only the Kernel's own abort means superseded; any other rejection (even an adapter-internal AbortError) is `error` until retry (#167).
-      if (controller.signal.aborted) return;
-      setScope({ scopeId, status: 'error', validatedFor: session, grantedRooms: [] });
+      // An adapter-internal AbortError is an error if the Kernel's request is still current (#167).
+      if (controller.signal.aborted || adapter.session() !== session) return;
+      setVerdict('error');
     });
     return () => controller.abort();
-  }, [global.scopeId, session, adapter, scopeRetry, onScopeValid]);
+  }, [global.scopeId, session, adapter, scopeRetry]);
 
-  // A Scope switch — or a session-only change (role switch, re-login) that leaves the scopeId alone — renders
-  // once before the validation effect runs, and in that frame `scope` still describes the previous Scope or the
-  // previous session. The mask is exactly the value the effect will set next — never the previous Scope's
-  // error/forbidden/unknown_scope/valid, id, or grantedRooms, and never the previous session's `valid` (#183, #186).
-  const scopeMasked = scope.scopeId !== global.scopeId || scope.validatedFor !== session;
-  const maskedScope: ScopeState = scopeMasked
-    ? global.scopeId === null
-      ? { scopeId: null, status: 'none', validatedFor: session, grantedRooms: [] }
-      : { scopeId: global.scopeId, status: 'validating', validatedFor: session, grantedRooms: [] }
-    : scope;
+  // A Scope, session or adapter change masks the old verdict before the validation effect runs.
+  const currentCheck = scopeCheck?.adapter === adapter && scopeCheck.scope.validatedFor === session && scopeCheck.scope.scopeId === global.scopeId ? scopeCheck : null;
+  const scopeGeneration = currentCheck?.generation ?? isCurrentGeneration;
+  const maskedScope: ScopeState = currentCheck
+    ? currentCheck.scope
+    : { scopeId: global.scopeId, status: global.scopeId === null ? 'none' : 'validating', validatedFor: session, grantedRooms: [] };
   const scopeView = useStable(maskedScope, sameScopeState);
   const scopeReady = !routeMenu?.requiresScope || scopeView.status === 'valid';
 
@@ -517,7 +516,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     ready: routeMenu?.query?.mode !== 'apply' || scopeReady, ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
-    currentSpace, scope: scopeView, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, retryScope, mode, paneId, paneLabel]);
+    currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel,
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

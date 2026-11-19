@@ -9,17 +9,18 @@ import { paneHref, useArrivalFocus, useHostPlatform, type PaneScreen } from '@ap
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, SurfacePauseScope, ToggleGroup, ToggleGroupItem, TransientOverlayScope } from '@ap/ui';
 import { BoardContextBar } from './BoardContextBar';
 import { BoardDock, type DockPaneProps } from './BoardDock';
-import { BoardPane, type PaneCopySource } from './BoardPane';
+import { BoardPane } from './BoardPane';
+import { matchesCopySource, type CopySource } from './boardCopySource';
 import { groupHolding } from './boardDockTree';
 import { SheetTabs } from './SheetTabs';
 import {
   BOARD_LAYOUTS, canCollapse, defaultArrangement, getArrangement, setArrangement, addPane, addPaneInGroup, addSheet, applyPaneEdits, closePane, droppedPaneCount, editPane, goBackPane, indexOfPane, layoutOf, layoutShape, moveSheet, previousAt, removeSheet, renameSheet,
-  resetTree, restoreClosedPane, restoreLayout, restorePane, restoreSheet, revertPaneEdits, screens, selectedIndex, selectPane, selectPaneActive, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
+  resetTree, restoreClosedPane, restoreLayout, restorePane, restoreSheet, revertPaneEdits, samePane, screens, selectedIndex, selectPane, selectPaneActive, setLayout, setPane, type Board, type BoardLayout, type LayoutChange, type PaneEdit,
 } from './boardModel';
 import { MAX_PANES, MAX_TABS } from './boardTypes';
 import { readLayoutEngine } from './layoutEngine';
 import { boardWithSuccessors, canMountPaneScreen } from './boardMenus';
-import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneGlobal, paneNumbers, paneSignals, replacementScreen } from './paneActions';
+import { applyContextToSheet, copyContextToSheet, defaultQuery, firstEmptyPane, paneGlobal, paneNumbers, paneSignals, replacementScreen, type ReadPaneCopySource } from './paneActions';
 import { recallFocus, rememberFocus, rememberSheet } from './boardPresentation';
 import { useBoardSession } from './boardSession';
 import { GRID_GAP, PANE_HEADER_HEIGHT, PANE_BODY_MIN_HEIGHT, STACKED_PANE_MIN_HEIGHT, drawnColumns, effectiveTracks, useElementWidth, useGridHeight } from './layout';
@@ -49,7 +50,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   /** False while the host keeps the board minimized (hidden, inert): no arrival focus, no size taken from the hidden container. */
   visible?: boolean; windowed?: boolean; onMinimize?: () => void; onFloat?: () => void; onClose?: () => void;
 }) {
-  const { user, session, revision, navigate, registry, readRecent, canOpen, toast, dismissToast } = useHostPlatform();
+  const { user, session, revision, isCurrentGeneration, adapter, navigate, registry, readRecent, canOpen, toast, dismissToast } = useHostPlatform();
   const { lang, t } = useI18n();
   const text = useMemo(() => boardText(lang), [lang]);
   const { board: stored, update, storageNotice } = useBoardSession(user.id, text.sheetPrefix);
@@ -140,6 +141,52 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const layout = layoutOf(sheet);
   const paneScreens = screens(sheet);
   const onLeave = (href: string) => { navigate(href, { focus: 'page', via: 'board' }); };
+  const copySources = useRef(new Map<string, CopySource>());
+  const registerCopySource = useCallback((paneId: string, source: CopySource) => {
+    const sources = copySources.current;
+    sources.set(paneId, source);
+    return () => { if (sources.get(paneId) === source) sources.delete(paneId); };
+  }, []);
+  const readPaneSource: ReadPaneCopySource = (sourceSheet, slot) => {
+    if (!slot?.screen || !canMountPaneScreen(registry, canOpen, slot.screen)) return null;
+    const decision = copySources.current.get(paneIdOf(sourceSheet.id, slot.id));
+    // The store may have reloaded a newer address since the pane registered its decision.
+    if (!matchesCopySource(decision, { url: paneHref(registry, slot.screen), isCurrentGeneration })) return null;
+    return paneGlobal(registry, slot.screen);
+  };
+  const recentValidation = useRef<AbortController | null>(null);
+  const pendingSlots = useRef(new Map<string, AbortController>());
+  useLayoutEffect(() => {
+    const controller = new AbortController();
+    const slots = pendingSlots.current;
+    recentValidation.current = controller;
+    return () => {
+      slots.clear();
+      controller.abort();
+    };
+  }, [isCurrentGeneration, registry, sheetId, visible]);
+  const withDefaultQuery = async (write: (query: string) => void, request?: AbortSignal) => {
+    const lifetime = recentValidation.current?.signal;
+    if (!visible || !lifetime || lifetime.aborted || !isCurrentGeneration()) return;
+    const signal = request ? AbortSignal.any([lifetime, request]) : lifetime;
+    const query = await defaultQuery(registry, readRecent(), { canOpen, validateScope: (id, signal) => adapter.validateScope(id, signal), signal });
+    if (!signal.aborted && isCurrentGeneration()) write(query);
+  };
+  /** A confirmed choice owns this slot until it completes or a newer choice supersedes it. */
+  const changeSlot = async (slotId: string, write: (query: string | null, canWrite: () => boolean) => boolean) => {
+    const key = paneIdOf(sheetId, slotId);
+    const slots = pendingSlots.current;
+    const pending = new AbortController();
+    const previous = slots.get(key);
+    slots.set(key, pending);
+    previous?.abort();
+    const canWrite = () => slots.get(key) === pending && isCurrentGeneration();
+    try {
+      if (write(null, canWrite)) await withDefaultQuery(query => write(query, canWrite), pending.signal);
+    } finally {
+      if (slots.get(key) === pending) slots.delete(key);
+    }
+  };
   const writePane = (index: number, screen: PaneScreen | null) => {
     const slotId = sheet.panes[index].id;
     update(b => setPane(b, sheetId, slotId, screen));
@@ -187,43 +234,78 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     update(b => { const next = addSheet(b, text.sheetPrefix); if (next !== b) made.activeId = next.activeSheetId; return next; });
     if (made.activeId !== null) onSheetChange(made.activeId);
   };
-  /** Runs `edits` on this sheet (or `onSheet`) and raises an undo that restores them only while every edited pane still holds what they left. */
-  const editPanes = (edits: PaneEdit[], message: string, onSheet = sheetId) => {
-    update(b => applyPaneEdits(b, onSheet, edits));
-    raiseUndo(message, () => { undo(b => revertPaneEdits(b, onSheet, edits)); });
+  /** Compute edits after the store reloads, and undo only what this action wrote. */
+  const editPanes = (plan: (b: Board) => PaneEdit[] | null, message: (edits: PaneEdit[]) => string, onSheet = sheetId) => {
+    const made: { edits: PaneEdit[] | null } = { edits: null };
+    update(b => {
+      const edits = plan(b);
+      made.edits = edits;
+      return edits?.length ? applyPaneEdits(b, onSheet, edits) : b;
+    });
+    const applied = made.edits;
+    if (applied === null) return;
+    const notice = message(applied);
+    if (!applied.length) { notify(notice); return; }
+    raiseUndo(notice, () => { undo(b => revertPaneEdits(b, onSheet, applied)); });
   };
   const applyToAll = (index: number) => {
-    const result = applyContextToSheet(registry, canOpen, sheet, index);
-    if (!result) return;
-    if (result.edits.length === 0) { notify(text.appliedNothing); return; }
-    editPanes(result.edits, text.applied(index + 1, paneNumbers(result.edits.map(e => e.index))));
+    const slotId = sheet.panes[index].id;
+    editPanes(b => {
+      const live = b.sheets.find(s => s.id === sheetId);
+      const at = live ? indexOfPane(live, slotId) : -1;
+      return live && at >= 0 ? applyContextToSheet(registry, canOpen, live, at, readPaneSource) : null;
+    }, edits => edits.length ? text.applied(index + 1, paneNumbers(edits.map(e => e.index))) : text.appliedNothing);
   };
   const copyContext = (targetId: string) => {
     const target = board.sheets.find(s => s.id === targetId);
     if (!target) return;
-    const edits = copyContextToSheet(registry, canOpen, sheet, target);
-    if (edits.length === 0) { notify(text.copiedNothing(target.name)); return; }
-    editPanes(edits, text.copied(paneNumbers(edits.map(e => e.index)), target.name), targetId);
+    editPanes(b => {
+      const from = b.sheets.find(s => s.id === sheetId);
+      const to = b.sheets.find(s => s.id === targetId);
+      return from && to ? copyContextToSheet(registry, canOpen, from, to, readPaneSource) : null;
+    }, edits => edits.length ? text.copied(paneNumbers(edits.map(e => e.index)), target.name) : text.copiedNothing(target.name), targetId);
   };
   const replaceScreen = (index: number, menu: MenuEntry) => {
     const old = paneScreens[index];
     if (!old) return;
-    editPanes([{ index, paneId: sheet.panes[index].id, before: old, after: replacementScreen(registry, canOpen, old, menu, defaultQuery(registry, readRecent())), fresh: true }], text.replaced(index + 1));
+    const slotId = sheet.panes[index].id;
+    void changeSlot(slotId, (freshQuery, canWrite) => {
+      let needsDefault = false;
+      editPanes(b => {
+        if (!canWrite()) return null;
+        const live = b.sheets.find(s => s.id === sheetId);
+        const at = live ? indexOfPane(live, slotId) : -1;
+        const slot = live?.panes[at];
+        if (!live || !slot || !samePane(slot.screen, old) || !canOpen(menu.id)) return null;
+        const global = readPaneSource(live, slot);
+        if (global === null && freshQuery === null) { needsDefault = true; return null; }
+        const after = replacementScreen(menu, global, freshQuery ?? '');
+        return [{ index: at, paneId: slotId, before: old, after, fresh: true }];
+      }, () => text.replaced(index + 1));
+      return needsDefault;
+    });
   };
   const duplicate = (index: number) => {
-    const from = paneScreens[index];
-    const to = firstEmptyPane(sheet);
-    if (!from || (to === -1 && !canGrow) || !canMountPaneScreen(registry, canOpen, from)) return;
-    if (to !== -1) { editPanes([{ index: to, paneId: sheet.panes[to].id, before: null, after: { ...from, params: { ...from.params } }, fresh: true }], text.duplicated(index + 1, to + 1)); return; }
-    // No empty pane: the dock renderer makes a new one for the copy, and the undo takes it away again.
-    const made: { edit: PaneEdit | null } = { edit: null };
+    const sourceId = sheet.panes[index].id;
+    const made: { edit: PaneEdit | null; grew: boolean } = { edit: null, grew: false };
     update(b => {
-      const grown = addPane(b, sheetId, false);
-      const panes = grown === b ? undefined : grown.sheets.find(s => s.id === sheetId)?.panes;
-      const slot = panes?.at(-1);
-      if (!panes || !slot) return b;
-      made.edit = { index: panes.length - 1, paneId: slot.id, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
-      return applyPaneEdits(grown, sheetId, [made.edit]);
+      const live = b.sheets.find(s => s.id === sheetId);
+      const source = live?.panes.find(p => p.id === sourceId);
+      const from = source?.screen;
+      if (!live || !source || !from || readPaneSource(live, source) === null) return b;
+      let to = firstEmptyPane(live);
+      let next = b;
+      let slot = live.panes[to];
+      if (to === -1 && dock && live.panes.length < MAX_TABS) {
+        next = addPane(b, sheetId, false);
+        if (next === b) return b;
+        to = live.panes.length;
+        slot = next.sheets.find(s => s.id === sheetId)!.panes[to];
+      }
+      if (!slot) return b;
+      made.grew = next !== b;
+      made.edit = { index: to, paneId: slot.id, before: null, after: { ...from, params: { ...from.params } }, fresh: true };
+      return applyPaneEdits(next, sheetId, [made.edit]);
     });
     const edit = made.edit;
     if (!edit) return;
@@ -231,7 +313,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     raiseUndo(text.duplicated(index + 1, edit.index + 1), () => {
       undo(b => {
         const reverted = revertPaneEdits(b, sheetId, [edit]);
-        const at = reverted?.sheets.find(x => x.id === sheetId)?.panes.findIndex(p => p.id === slotId) ?? -1;
+        const at = made.grew ? reverted?.sheets.find(x => x.id === sheetId)?.panes.findIndex(p => p.id === slotId) ?? -1 : -1;
         return reverted && ((at >= 0 ? closePane(reverted, sheetId, at)?.board : null) ?? reverted);
       });
     });
@@ -263,19 +345,13 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   }, [editRequest, user.id, sheetId, layout, visible]);
 
   const unavailable = (index: number) => { const own = paneScreens[index]; return own !== null && !canMountPaneScreen(registry, canOpen, own); };
-  const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : applyContextToSheet(registry, canOpen, sheet, index)?.others ? null : text.applyToAllNone);
   const canGrow = dock && sheet.panes.length < MAX_TABS;
   const duplicateOff = (index: number) => (unavailable(index) ? text.paneUnavailable : emptyIndex === -1 && !canGrow ? text.noEmptyPane : null);
   const axes = useEquipmentAxes();
   const signals = paneSignals(registry, canOpen, paneScreens, text.noneValue, axes, lang, t('membershipAsOf'));
+  const applyOff = (index: number) => (unavailable(index) ? text.paneUnavailable : signals[index]?.compared ? null : text.applyToAllNone);
   const emptyIndex = firstEmptyPane(sheet);
   const selectionHistory = useRef<{ session: typeof session; revision: number; slotsBySheet: Map<string, string[]> } | null>(null);
-  const copySources = useRef(new Map<string, PaneCopySource>());
-  const registerCopySource = useCallback((paneId: string, source: PaneCopySource) => {
-    const sources = copySources.current;
-    sources.set(paneId, source);
-    return () => { if (sources.get(paneId) === source) sources.delete(paneId); };
-  }, []);
   const selectedSlot = sheet.panes[selectedIndex(sheet)];
   const selectedSlotId = selectedSlot?.screen ? selectedSlot.id : undefined;
   useLayoutEffect(() => {
@@ -290,25 +366,29 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const insert = (index: number, menu: MenuEntry, source: 'default' | 'current') => {
     const latestSelection = selectionHistory.current;
     const slotId = sheet.panes[index].id;
-    update(b => {
-      const destination = { menuId: menu.id, params: {}, query: '' };
-      const currentSheet = b.sheets.find(candidate => candidate.id === sheetId);
-      if (!currentSheet?.panes.some(slot => slot.id === slotId && slot.screen === null) || !canMountPaneScreen(registry, canOpen, destination)) return b;
-      let context: GlobalContext | null = null;
-      if (source === 'current') {
-        const remembered = latestSelection?.slotsBySheet.get(sheetId) ?? [];
-        const candidates = [...remembered.map(id => currentSheet.panes.find(slot => slot.id === id)), ...currentSheet.panes];
-        for (const slot of candidates) {
-          if (!slot?.screen || !canMountPaneScreen(registry, canOpen, slot.screen)) continue;
-          const decision = copySources.current.get(paneIdOf(sheetId, slot.id));
-          // update may have loaded a newer saved address, which needs its own current Scope decision.
-          if (!decision || decision.session !== session || decision.revision !== revision || decision.url !== paneHref(registry, slot.screen)) continue;
-          context = paneGlobal(registry, slot.screen);
-          if (context !== null) break;
+    void changeSlot(slotId, (freshQuery, canWrite) => {
+      let needsDefault = false;
+      update(b => {
+        if (!canWrite()) return b;
+        const destination = { menuId: menu.id, params: {}, query: '' };
+        const currentSheet = b.sheets.find(candidate => candidate.id === sheetId);
+        if (!currentSheet?.panes.some(slot => slot.id === slotId && slot.screen === null) || !canMountPaneScreen(registry, canOpen, destination)) return b;
+        let context: GlobalContext | null = null;
+        if (source === 'current') {
+          const remembered = latestSelection?.slotsBySheet.get(sheetId) ?? [];
+          const candidates = new Set([...remembered, ...currentSheet.panes.map(slot => slot.id)]);
+          for (const id of candidates) {
+            const slot = currentSheet.panes.find(pane => pane.id === id);
+            if (!slot) continue;
+            context = readPaneSource(currentSheet, slot);
+            if (context !== null) break;
+          }
         }
-      }
-      const query = context === null ? defaultQuery(registry, readRecent()) : buildQuery(context);
-      return setPane(b, sheetId, slotId, { ...destination, query });
+        const query = context === null ? freshQuery : buildQuery(context);
+        if (query === null) { needsDefault = true; return b; }
+        return setPane(b, sheetId, slotId, { ...destination, query });
+      });
+      return needsDefault;
     });
   };
 
@@ -372,11 +452,14 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
    */
   const [groupAdd, setGroupAdd] = useState<{ userId: string; sheetId: string; anchorId: string; members: string; number: number; notice: string | null } | null>(null);
   const groupAddFocus = useRef<{ trigger: HTMLElement; anchorId: string } | null>(null);
+  const groupAddPending = useRef<AbortController | null>(null);
   const groupAdded = useRef(false);
   const openGroupAdd = (anchorId: string, trigger: HTMLElement) => {
     if (sheet.panes.length >= MAX_TABS) { notify(text.groupAddLimit); return; }
     const group = groupHolding(sheet.tree, anchorId);
     if (!group) return;
+    groupAddPending.current?.abort();
+    groupAddPending.current = null;
     groupAddFocus.current = { trigger, anchorId };
     groupAdded.current = false;
     // The group's number is its lowest pane number, as in the `칸 N 동작` move targets.
@@ -388,17 +471,30 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
     const holder = groupHolding(sheet.tree, target.anchorId);
     if (target.userId !== user.id || target.sheetId !== sheetId || !holder || groupKey(holder.panes) !== target.members) { setGroupAdd(null); notify(text.groupAddGone); return; }
     if (sheet.panes.length >= MAX_TABS) { setGroupAdd(null); notify(text.groupAddLimit); return; }
-    const screen = { menuId: menu.id, params: {}, query: defaultQuery(registry, readRecent()) };
+    const screen = { menuId: menu.id, params: {}, query: '' };
     if (!canMountPaneScreen(registry, canOpen, screen)) { setGroupAdd({ ...target, notice: text.groupAddUnavailable }); return; }
+    groupAddPending.current?.abort();
+    const pending = new AbortController();
+    groupAddPending.current = pending;
+    void withDefaultQuery(query => finishGroupAdd(target, menu, query), pending.signal);
+  };
+  const finishGroupAdd = (target: NonNullable<typeof groupAdd>, menu: MenuEntry, query: string) => {
     const made: { id: string | null } = { id: null };
+    let groupPanes: readonly string[] = [];
     update(b => {
-      const grown = addPaneInGroup(b, sheetId, target.anchorId, screen);
+      if (!isCurrentGeneration()) return b;
+      const live = b.sheets.find(s => s.id === sheetId);
+      const group = live && groupHolding(live.tree, target.anchorId);
+      if (!group || groupKey(group.panes) !== target.members) return b;
+      groupPanes = group.panes;
+      const grown = addPaneInGroup(b, sheetId, target.anchorId, { menuId: menu.id, params: {}, query });
       made.id = grown === b ? null : grown.sheets.find(s => s.id === sheetId)?.panes.at(-1)?.id ?? null;
       return grown;
     });
     if (made.id === null) { setGroupAdd(null); notify(text.groupAddGone); return; }
     // A maximized group stays maximized with the new tab, active in it, on screen (docs/16 §4); the dock focuses its tab.
-    if (dockMaximized !== null) setPresentation({ identity: owner, maximized: null, dockMaximized: holder.panes.includes(dockMaximized) ? made.id : null });
+    if (dockMaximized !== null) setPresentation(current => current.dockMaximized !== dockMaximized ? current
+      : { identity: owner, maximized: null, dockMaximized: groupPanes.includes(dockMaximized) ? made.id : null });
     groupAdded.current = true;
     setGroupAdd(null);
     setNewPane({ id: made.id, dock: dockKey });
@@ -556,7 +652,11 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
       onRename={(id, name) => update(b => renameSheet(b, id, name))} onMove={(id, to) => update(b => moveSheet(b, id, to))} onDelete={deleteSheet} />
     </div>
     {dock && <PanePicker open={groupAdd !== null} title={text.groupAddTitle(groupAdd?.number ?? 1)} notice={groupAdd?.notice}
-      onOpenChange={open => { if (!open) setGroupAdd(null); }} onPick={pickInGroup}
+      onOpenChange={open => {
+        if (open) return;
+        groupAddPending.current?.abort();
+        setGroupAdd(null);
+      }} onPick={pickInGroup}
       onCloseAutoFocus={event => { event.preventDefault(); returnToGroupAdd(); }} />}
     <AlertDialog open={confirmLayout !== null} onOpenChange={open => { if (!open) setConfirmLayout(null); }}>
       <AlertDialogContent role="alertdialog" onOpenAutoFocus={event => { event.preventDefault(); cancelShrink.current?.focus(); }}>

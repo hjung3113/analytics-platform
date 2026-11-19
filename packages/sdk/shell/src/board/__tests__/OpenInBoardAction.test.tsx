@@ -11,7 +11,7 @@ import { useBoardSession } from '../boardSession';
 import { legacyBoard as boardOf, legacySheet as sheet, seedLegacy as seed, storedLegacy as stored, V1_KEY as KEY, V2_KEY } from '../__fixtures__/legacyBoard';
 import type { BoardV1 as Board } from '../boardMigrate';
 import { OpenInBoardAction } from '../OpenInBoardAction';
-import { groupId, spaceId, type Session } from '@ap/contracts';
+import { groupId, spaceId, type PlatformAdapter, type Session } from '@ap/contracts';
 // RouteOutlet loads the board lazily (#821); evaluate it up front so a short settle does not race a cold dynamic import.
 import '../BoardHost';
 
@@ -37,10 +37,10 @@ const registry = createRegistry({
 const w1 = 'from=2026-09-01T00:00:00&to=2026-09-02T00:00:00';
 const beta = { menuId: 'beta', params: {}, query: `?${w1}` };
 
-function mount(url: string) {
+function mount(url: string, adapterOver: Partial<PlatformAdapter> = {}, serverPreferences = false) {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={{ boardEntry: <OpenInBoardAction /> }}><RouteOutlet /></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, ...adapterOver })} registry={registry} slots={{ boardEntry: <OpenInBoardAction /> }} serverPreferences={serverPreferences}><RouteOutlet /></PlatformProvider></I18nProvider>);
 }
 const settle = () => act(() => new Promise(resolve => setTimeout(resolve, 30)));
 async function openDialog() {
@@ -60,6 +60,42 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('분석 보드에 열기… (docs/16 §6)', () => {
+  it.each(['denied', 'pending'])('opens without copying a Scope-selecting menu’s %s Scope or filters', async decision => {
+    seed(boardOf([sheet('a')]));
+    mount(`/alpha?scopeId=DENIED&${w1}&lotIds=SECRET&tab=x`, {
+      validateScope: () => decision === 'pending' ? new Promise(() => {}) : Promise.resolve({ status: 'forbidden', grantedRooms: [] }),
+    });
+    await settle();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(stored().sheets[1].panes[0]).toEqual({ menuId: 'alpha', params: {}, query: '?v=1&tab=x' });
+  });
+
+  it.each(['before', 'after'])('omits a Scope whose validation completes %s a same-snapshot adapter notice', async completion => {
+    seed(boardOf([sheet('a')]));
+    const listeners = new Set<() => void>();
+    type Verdict = Awaited<ReturnType<PlatformAdapter['validateScope']>>;
+    let resolveCheck!: (result: Verdict) => void;
+    const check = new Promise<Verdict>(resolve => { resolveCheck = resolve; });
+    const validateScope = vi.fn<PlatformAdapter['validateScope']>(() => check);
+    mount(`/alpha?scopeId=MEM&${w1}&lotIds=SECRET&tab=x`, {
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+      validateScope,
+    }, true);
+    await settle();
+    const approve = () => act(async () => { resolveCheck({ status: 'valid', grantedRooms: [] }); });
+    if (completion === 'before') await approve();
+    act(() => { for (const listener of listeners) listener(); });
+    if (completion === 'after') await approve();
+
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '열기' }));
+    await settle();
+    expect(stored().sheets[1].panes[0]).toEqual({ menuId: 'alpha', params: {}, query: '?v=1&tab=x' });
+    expect(validateScope.mock.calls.filter(([id]) => id === 'MEM')).toHaveLength(1);
+  });
+
   it('offers three destinations, defaulting to a new sheet, and writes nothing before 열기', async () => {
     seed(boardOf([sheet('a', { panes: [beta] })]));
     mount(`/alpha?${w1}&tab=x`);
