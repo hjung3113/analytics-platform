@@ -251,12 +251,13 @@ it.each([true, false])('waits for a successful Equipment page before automatic c
   expect(screen.getByRole('link', { name: 'X' })).toBe(link);
   expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
   expect(screen.getByRole('log').textContent).toBe('');
-  await act(async () => page.resolve(success ? ok({ rows: [], total: 0 }) : { ...empty, outcome: 'error', message: 'Page unavailable' }));
+  await act(async () => page.resolve(success ? ok({ rows: [], total: 0 }) : { ...empty, outcome: 'error', message: 'Page unavailable', recovery: { retryable: true } }));
   if (success) {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(within(screen.getByRole('log')).getAllByText('열린 항목이 목록에서 빠져 닫았습니다')).toHaveLength(1);
     expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
   } else {
+    // A transient page failure keeps the drawer open and offers retry (#2535: retry only for a confirmed transient error).
     expect(await screen.findByRole('button', { name: '다시 시도' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'X' })).toBe(link);
     expect(new URLSearchParams(window.location.search).get('focus')).toBe('EQ-1');
