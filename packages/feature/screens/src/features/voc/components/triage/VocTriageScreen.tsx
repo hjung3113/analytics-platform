@@ -293,6 +293,9 @@ export function VocTriageScreen({
       <PublicUpdateComposer
         voc={publicUpdateVoc}
         me={me}
+        submissionBlocked={
+          !publicUpdateDetailQuery.isFetchedAfterMount || publicUpdateDetailQuery.isFetching
+        }
         initialNextStatus="reviewing"
         initialDraftDoc={initialDraftDoc}
         focusOnOpen

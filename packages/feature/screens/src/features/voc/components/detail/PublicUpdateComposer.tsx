@@ -111,6 +111,8 @@ export interface PublicUpdateComposerProps {
   onPosted?: (tab: 'public') => void;
   /** Reports user edits so a parent close action can ask before discarding. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Parent gate for writes that need a fresh VOC version before submit. */
+  submissionBlocked?: boolean;
 }
 
 // Maps ApiError code to Callout tone for the inline error surface.
@@ -134,6 +136,7 @@ export function PublicUpdateComposer({
   onDraftChange,
   onPosted,
   onDirtyChange,
+  submissionBlocked = false,
   initialDraftDoc,
   initialNextStatus,
   focusOnOpen = false,
@@ -231,6 +234,7 @@ export function PublicUpdateComposer({
   const isIdempotencyLocked =
     mutationError != null && mutationError.code === 'conflict.idempotency_key_reuse';
   const isSubmitBlocked =
+    submissionBlocked ||
     isEmpty ||
     mutation.isPending ||
     isGateBlocked ||

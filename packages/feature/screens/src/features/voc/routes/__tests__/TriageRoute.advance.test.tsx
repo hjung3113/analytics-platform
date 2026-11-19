@@ -1,6 +1,6 @@
 import { ME_QUERY_KEY } from '../../../../lib/auth/useMe';
 import { TriageRoute } from '../../../../test/screen-host/features/voc/routes/TriageRoute';
-import type { VocListItem } from '@ap/feature-shared';
+import type { VocDetailEnvelope, VocListItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,
@@ -38,6 +38,19 @@ const second = rows[1] as VocListItem;
 const third = rows[2] as VocListItem;
 function json(body: unknown) {
   return new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+}
+function detail(row: VocListItem): VocDetailEnvelope {
+  return {
+    ...row,
+    description_rich_content: { type: 'doc', content: [] },
+    next_actions: [],
+    next_reporter_states: { allowed: ['reviewing'], forbidden: {} },
+    linked_execution: { findingRef: null, taskRef: null },
+    conversation_timeline: [],
+    conversation_page: { has_more: false },
+    permission_decisions: {},
+    attachments: [],
+  } as unknown as VocDetailEnvelope;
 }
 function deferred() {
   let resolve!: (response: Response) => void;
@@ -101,6 +114,11 @@ function mount({
         return json({ updated_at: '2026-01-02T00:00:00.000Z' });
       }
       if (init?.method === 'POST') return json({ id: 'finding-created' });
+      if ((init?.method ?? 'GET') === 'GET' && /^\/vocs\/[^/]+$/.test(url.pathname)) {
+        const vocId = url.pathname.split('/')[2] as string;
+        const row = serverRows.get(vocId) ?? items.find((item) => item.id === vocId);
+        if (row) return json(detail(row));
+      }
       if (url.pathname === '/vocs') {
         if (holdTab && url.searchParams.get('tab') === 'high') return holdTab.promise;
         const pin = url.searchParams.get('pin_voc_id');
@@ -230,6 +248,41 @@ it('settled undo restores the server row without changing selection, history or 
   expect(advanced).toHaveFocus();
   expect(screen.getByRole('heading', { name: third.title })).toBeInTheDocument();
   expect(screen.queryByText(/1건 처리됨/)).toBeNull();
+});
+
+it('keeps next-row selection and focus through Escape and undo from the received-row editor', async () => {
+  toast.dismiss();
+  render(<Toaster />);
+  const receivedRows = rows.map((row, index) =>
+    index === 1 ? { ...row, reporter_facing_status: 'received' as const } : row,
+  );
+  const { router } = mount({ items: receivedRows, compensationAware: true });
+  await screen.findByRole('heading', { name: second.title });
+
+  await confirm();
+  await screen.findByTestId('triage-public-update-dialog');
+  await waitFor(() => expect(router.state.location.search.selected).toBe(third.id));
+  fireEvent.keyDown(document.body, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByTestId('triage-public-update-dialog')).toBeNull());
+  await waitFor(() => expect(screen.getByRole('button', { name: /VOC-3/ })).toHaveFocus());
+  expect(router.state.location.search.selected).toBe(third.id);
+
+  // Restore the same row after the Escape case so the editor can be opened again.
+  fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
+  await waitFor(() => expect(screen.queryByText(/1건 처리됨/)).toBeNull());
+  const restored = await screen.findByRole('button', { name: /VOC-2/ });
+  fireEvent.click(restored);
+  await screen.findByRole('heading', { name: second.title });
+
+  await confirm();
+  await screen.findByTestId('triage-public-update-dialog');
+  await waitFor(() => expect(router.state.location.search.selected).toBe(third.id));
+  fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
+
+  await waitFor(() => expect(screen.queryByTestId('triage-public-update-dialog')).toBeNull());
+  await screen.findByRole('button', { name: /VOC-2/ });
+  await waitFor(() => expect(screen.getByRole('button', { name: /VOC-3/ })).toHaveFocus());
+  expect(router.state.location.search.selected).toBe(third.id);
 });
 
 it('undo leaves a different user-selected row and its focus alone', async () => {

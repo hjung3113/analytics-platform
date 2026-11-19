@@ -125,6 +125,7 @@ function makeDetail(
   status: VocDetailEnvelope['reporter_facing_status'] = 'received',
   id = VOC_ID,
   displayId = 'VOC-PU-1',
+  updatedAt = '2026-05-02T00:00:00.000Z',
 ): VocDetailEnvelope {
   const item = makeVoc(status, id, displayId);
   return {
@@ -132,7 +133,7 @@ function makeDetail(
     owner_user_id: item.owner_user_id ?? null,
     owner_team_id: item.owner_team_id ?? null,
     severity: item.severity ?? null,
-    updated_at: '2026-05-02T00:00:00.000Z',
+    updated_at: updatedAt,
     description_rich_content: { type: 'doc', content: [] },
     next_actions: [],
     next_reporter_states: { allowed: ['reviewing'], forbidden: {} },
@@ -158,13 +159,20 @@ function setup({
   detailStatus = status,
   actorRole = 'developer',
   items: suppliedItems,
+  seededDetail,
 }: {
   status?: VocListItem['reporter_facing_status'];
   detailStatus?: VocDetailEnvelope['reporter_facing_status'];
   actorRole?: MeResponse['actor']['role_level'];
   items?: VocListItem[];
+  seededDetail?: VocDetailEnvelope;
 } = {}) {
-  const requests: Array<{ url: string; method: string; body: Record<string, unknown> }> = [];
+  const requests: Array<{
+    url: string;
+    method: string;
+    body: Record<string, unknown>;
+    ifMatch: string | null;
+  }> = [];
   const items = suppliedItems ?? [makeVoc(status)];
   let nextDetailFetchGate: {
     started: () => void;
@@ -190,7 +198,12 @@ function setup({
       const method = (init?.method ?? 'GET').toUpperCase();
       let body: Record<string, unknown> = {};
       if (init?.body) body = JSON.parse(String(init.body)) as Record<string, unknown>;
-      requests.push({ url, method, body });
+      requests.push({
+        url,
+        method,
+        body,
+        ifMatch: new Headers(init?.headers).get('If-Match'),
+      });
       const vocId = url.match(/\/vocs\/([^/?]+)/)?.[1] ?? VOC_ID;
       const selectedItem = items.find((item) => item.id === vocId);
       const selectedDetailStatus =
@@ -233,6 +246,7 @@ function setup({
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  if (seededDetail !== undefined) client.setQueryData(['voc', seededDetail.id], seededDetail);
   const onProcessed = vi.fn();
   const rendered = render(
     <QueryClientProvider client={client}>
@@ -259,7 +273,14 @@ async function waitForPublicUpdateDialog(): Promise<void> {
   await screen.findByTestId('editor-public-update');
 }
 
-function publishRequest(requests: Array<{ url: string; method: string; body: Record<string, unknown> }>) {
+function publishRequest(
+  requests: Array<{
+    url: string;
+    method: string;
+    body: Record<string, unknown>;
+    ifMatch: string | null;
+  }>,
+) {
   return requests.find((request) => request.method === 'POST');
 }
 
@@ -360,6 +381,32 @@ describe('VOC triage confirm and Public Update', () => {
     expect(screen.getByTestId('editor-public-update')).toHaveValue('작성 중인 답변');
     refetch.release();
     await act(async () => invalidation);
+  });
+
+  it('blocks publish until the post-confirm detail refetch replaces the cached If-Match version', async () => {
+    const { holdNextDetailFetch, requests } = setup({
+      seededDetail: makeDetail('received', VOC_ID, 'VOC-PU-1', '2026-05-01T00:00:00.000Z'),
+    });
+    const detailFetch = holdNextDetailFetch();
+
+    confirmTriage();
+    await detailFetch.started;
+    await waitForPublicUpdateDialog();
+    const publish = screen.getByRole('button', { name: '답변 공개' });
+    expect(publish).toBeDisabled();
+
+    fireEvent.click(publish);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(publishRequest(requests)).toBeUndefined();
+
+    await act(async () => detailFetch.release());
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+
+    await waitFor(() => expect(publishRequest(requests)).toBeDefined());
+    expect(publishRequest(requests)?.ifMatch).toBe('2026-05-02T00:00:00.000Z');
   });
 
   it('closes the editor and dismisses triage undo after publishing without changing status', async () => {
