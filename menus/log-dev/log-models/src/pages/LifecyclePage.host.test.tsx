@@ -356,7 +356,7 @@ describe('lifecycle interactions with the real Kernel host', () => {
     if (kind === 'gate') {
       click(button('Gate 결정'));
       click(element('[role="radio"][value="approved"]'));
-      change('textarea[id^="gate-reason"]', '검토 완료');
+      change('input[id^="gate-reason"]', '검토 완료');
       click(button('Gate 결정 기록'));
       click(button('기록', element('[role="alertdialog"]')));
     } else {
@@ -415,14 +415,14 @@ describe('Round «원본/시퀀스» tab (#1475)', () => {
   it('keeps a Gate draft while the Source tab is open and brings it back', async () => {
     wire(); mount(); await ready();
     click(button('Gate 결정'));
-    change('textarea[id^="gate-reason"]', '근거 확인 중');
+    change('input[id^="gate-reason"]', '근거 확인 중');
     activate(tab('원본'));
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).not.toBeNull());
-    expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull();
+    expect(document.querySelector('input[id^="gate-reason"]')).toBeNull();
     activate(tab('결과·결함'));
     await waitFor(() => expect(document.querySelector('[data-testid="fake-source"]')).toBeNull());
-    expect((element('textarea[id^="gate-reason"]') as HTMLTextAreaElement).value).toBe('근거 확인 중');
-    expect(element('textarea[id^="gate-reason"]').closest('[hidden]')).toBeNull();
+    expect((element('input[id^="gate-reason"]') as HTMLInputElement).value).toBe('근거 확인 중');
+    expect(element('input[id^="gate-reason"]').closest('[hidden]')).toBeNull();
   });
   it('「원본에서 보기」 on a rule result opens the tab on that line in one host write', async () => {
     wire(); const t = mount('&result=all'); await ready();
@@ -519,13 +519,13 @@ describe('review-final regressions (#1809)', () => {
     const t = mount('&result=all'); await ready();
     click(button('Gate 결정'));
     click(element('[role="radio"][value="approved"]'));
-    change('textarea[id^="gate-reason"]', '합성 검토 완료');
+    change('input[id^="gate-reason"]', '합성 검토 완료');
     click(button('Gate 결정 기록'));
     click(button('기록', element('[role="alertdialog"]')));
     await waitFor(() => expect(t.sent).toHaveLength(1));
     await act(async () => { t.sent[0]!.resolve({ outcome, data: null, fieldErrors: [], version: null, replayed: false, correlationId: 'gate-retained' }); await settleQueries(); });
     activateRoundTab('설정·이력');
-    expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull();
+    expect(document.querySelector('input[id^="gate-reason"]')).toBeNull();
     activateRoundTab('결과·결함');
     click(element('button[aria-label="R-002 상세 열기"]'));
     await waitFor(() => expect(document.querySelector('[role="dialog"]')?.textContent).toContain('R-002 · 규칙 상세'));
@@ -535,18 +535,18 @@ describe('review-final regressions (#1809)', () => {
     expect(t.sent[1]!.request).toBe(t.sent[0]!.request);
     await act(async () => { t.sent[1]!.resolve({ outcome: 'ok', data: null, fieldErrors: [], version: '8', replayed: true, correlationId: 'gate-retained' }); await settleQueries(); });
     await waitFor(() => expect(text('Gate 결정을 기록했습니다.')).toBe(true));
-    expect((element('textarea[id^="gate-reason"]') as HTMLTextAreaElement).disabled).toBe(false);
+    expect((element('input[id^="gate-reason"]') as HTMLInputElement).disabled).toBe(false);
   });
   it('receives an in-flight Gate result while its panel is replaced', async () => {
     const t = mount('&result=all'); await ready();
     click(button('Gate 결정'));
     click(element('[role="radio"][value="approved"]'));
-    change('textarea[id^="gate-reason"]', '합성 검토 완료');
+    change('input[id^="gate-reason"]', '합성 검토 완료');
     click(button('Gate 결정 기록'));
     click(button('기록', element('[role="alertdialog"]')));
     await waitFor(() => expect(t.sent).toHaveLength(1));
     click(element('button[aria-label="R-002 상세 열기"]'));
-    await waitFor(() => expect(document.querySelector('textarea[id^="gate-reason"]')).toBeNull());
+    await waitFor(() => expect(document.querySelector('input[id^="gate-reason"]')).toBeNull());
     await act(async () => { t.sent[0]!.resolve({ outcome: 'ok', data: null, fieldErrors: [], version: '8', replayed: false, correlationId: 'gate-inflight' }); await settleQueries(); });
     click(button('Gate 결정'));
     await waitFor(() => expect(text('Gate 결정을 기록했습니다.')).toBe(true));
