@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryKey } from '@tanstack/react-query';
 import type { PermissionRequestTarget } from '@ap/contracts';
-import { usePlatform, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
-import { fetchPermissionRequestsMine, permissionRequestsMineKey } from '@ap/feature-screens/global-screens/core';
+import { useI18n, usePlatform, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
+import { fetchPermissionRequestsMine, isRequestablePermissionState, meBridgeQueryOptions, meCanOpenGrantedScreen, managedSystemsCatalogQuery, permissionCheckQueryOptions, permissionRequestProgress, permissionRequestsMineAllKey, permissionRequestsMineKey } from '@ap/feature-screens/global-screens/core';
 import { isPendingFor } from './feature/access-request-match';
 import { isReachable } from './feature/reachable';
 import { featureQueryClient, useFeatureSession } from './feature/session';
@@ -10,12 +10,6 @@ import { featureQueryClient, useFeatureSession } from './feature/session';
 /** Where the user reads their requests: 내 활동 › 권한 요청 (`/permission-requests`). */
 const STATUS_MENU_ID = 'permission-requests';
 
-/**
- * The place's request state from the user's own open requests (`GET /permission-requests/mine`). One `useQuery` on the shared feature
- * QueryClient under `permissionRequestsMineKey`, the key the home `내 할 일` reads and the request dialog invalidates on submit, so a submit
- * flips every place without a reload. `pending` is null in mock, before the session is ready, while loading, after an error and for a
- * `permission` place (no mapping yet, node 1844f1c); while loading `read` is `checking` and after an error it is `error` with `retry` (#1933); `statusHref` is the requester page for every place kind. `children` is called at one stable position in every state.
- */
 /** Kernel permissions the requester page cannot ask for. */
 const NOT_REQUESTABLE_PERMISSIONS: ReadonlySet<string> = new Set(['console:access']);
 
@@ -24,7 +18,7 @@ export const REQUEST_READ_LIMIT_MS = 8000;
 
 /**
  * Why a scoped place's state is unknown (#1933): `checking` only while a fetch really runs, `error` once it failed and nothing re-runs it.
- * A place with no read (not enabled: mock, session not ready, `permission` place) and a read that is not running without having failed
+ * A place with no read (not enabled: mock or session not ready) and a read that is not running without having failed
  * (paused offline, cancelled) stay `undefined`: the plain entry, so the user is never held back by a read that is not happening.
  */
 export function requestRead(input: { enabled: boolean; hasData: boolean; isError: boolean; fetchStatus: 'fetching' | 'paused' | 'idle' }): 'checking' | 'error' | undefined {
@@ -47,10 +41,14 @@ export function useCheckLimit(read: 'checking' | 'error' | undefined, attempt: n
 }
 
 function Pending({ target, children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) {
+  if (target.kind === 'permission') return <MenuPending permission={target.permission}>{children}</MenuPending>;
+  return <ScopePending target={target}>{children}</ScopePending>;
+}
+
+function ScopePending({ target, children }: { target: Exclude<PermissionRequestTarget, { kind: 'permission' }>; children: (state: AccessRequestState) => ReactNode }) {
   const session = useFeatureSession();
   const { registry, resolveLink } = usePlatform();
-  const scoped = target.kind !== 'permission';
-  const enabled = scoped && session.status === 'ready';
+  const enabled = session.status === 'ready';
   const { data, isError, fetchStatus, refetch } = useQuery({
     queryKey: permissionRequestsMineKey,
     queryFn: ({ signal }) => fetchPermissionRequestsMine({ signal }),
@@ -59,15 +57,94 @@ function Pending({ target, children }: { target: PermissionRequestTarget; childr
     retry: false,
   }, featureQueryClient);
   const pending = enabled && !isError && data !== undefined ? isPendingFor(target, data.requests) : null;
-  // A `permission` place has no pending read, but it still gets the requester page: that is where the user asks for the missing capability (#1940).
-  // `console:access` is the workspace-admin permission, which the requester page does not offer (supported-scope policy), so that denial gets no link rather than a dead end.
-  const requestable = target.kind !== 'permission' || !NOT_REQUESTABLE_PERMISSIONS.has(target.permission);
-  const link = requestable && isReachable(registry, { menuId: STATUS_MENU_ID }) ? resolveLink(STATUS_MENU_ID) : null;
+  const link = isReachable(registry, { menuId: STATUS_MENU_ID }) ? resolveLink(STATUS_MENU_ID) : null;
   const [attempt, setAttempt] = useState(0);
   const read = useCheckLimit(requestRead({ enabled, hasData: data !== undefined, isError, fetchStatus }), attempt);
   const statusHref = link?.allowed ? link.href : null;
   const retry = () => { setAttempt(n => n + 1); void refetch(); };
-  return <>{children(read === undefined ? { pending, statusHref } : read === 'checking' ? { pending, statusHref, read } : { pending, statusHref, read, retry })}</>;
+  const state = { pending, statusHref };
+  return <>{children(read === undefined ? state : read === 'checking' ? { ...state, read } : { ...state, read, retry })}</>;
+}
+
+const FINDING_PERMISSION = {
+  capability: 'finding.read',
+  label: { ko: 'Finding 조회', en: 'Read Findings' },
+  roleRequired: { ko: 'Developer 이상 역할 필요', en: 'Developer role or higher required' },
+} as const;
+const FINDING_MENU_IDS = new Set(['findings', 'evidence']);
+
+function MenuPending({ permission, children }: { permission: string; children: (state: AccessRequestState) => ReactNode }) {
+  const session = useFeatureSession();
+  const { lang } = useI18n();
+  const { registry, resolveLink, route, pageParam } = usePlatform();
+  const mapped = permission === 'features:access' && route !== null && FINDING_MENU_IDS.has(route.menu.id);
+  const ready = mapped && session.status === 'ready';
+  const meOptions = meBridgeQueryOptions();
+  const me = useQuery({ ...meOptions, enabled: ready, retry: false }, featureQueryClient);
+  const enabled = ready && me.isSuccess && meCanOpenGrantedScreen(FINDING_PERMISSION.capability, me.data.actor.role_level);
+  const managedSystem = pageParam('managedSystem');
+  const systemsOptions = managedSystemsCatalogQuery();
+  const systems = useQuery({ ...systemsOptions, enabled, retry: false }, featureQueryClient);
+  const activeSystems = enabled ? systems.data?.items.filter(item => item.archived_at === null) ?? [] : [];
+  const selected = activeSystems.find(item => item.id === managedSystem)
+    ?? (managedSystem === null || managedSystem === 'all' ? activeSystems.find(item => item.external_key === 'platform') : undefined);
+  const checkOptions = permissionCheckQueryOptions({ capability: FINDING_PERMISSION.capability, ...(selected ? { managedSystemId: selected.id } : {}) });
+  const checkEnabled = enabled && selected !== undefined;
+  const check = useQuery({ ...checkOptions, enabled: checkEnabled }, featureQueryClient);
+  const current = enabled && selected !== undefined && check.isSuccess && !check.isFetching && !check.data.decision.allow
+    ? check.data.state
+    : null;
+  const pending = current === null ? null : current === 'pending_request';
+  const requestable = isRequestablePermissionState(current);
+  const mine = useQuery({
+    queryKey: permissionRequestsMineAllKey,
+    queryFn: ({ signal }) => fetchPermissionRequestsMine({ status: 'all', signal }),
+    enabled: requestable,
+    retry: false,
+  }, featureQueryClient);
+  const [attempt, setAttempt] = useState(0);
+  const systemsRead = requestRead({ enabled, hasData: systems.data !== undefined, isError: systems.isError, fetchStatus: systems.fetchStatus });
+  const permissionRead = requestRead({ enabled: checkEnabled, hasData: check.data !== undefined && !check.isFetching, isError: check.isError, fetchStatus: check.fetchStatus });
+  const historyRead = requestRead({ enabled: requestable, hasData: mine.data !== undefined && !mine.isFetching, isError: mine.isError, fetchStatus: mine.fetchStatus });
+  const roleRead = requestRead({ enabled: ready, hasData: me.data !== undefined, isError: me.isError, fetchStatus: me.fetchStatus });
+  const reads = [roleRead, systemsRead, permissionRead, historyRead];
+  const read = useCheckLimit(reads.includes('checking') ? 'checking' : reads.find(status => status === 'error'), attempt);
+  const retry = () => {
+    setAttempt(value => value + 1);
+    const retryRead = (status: typeof read, queryKey: QueryKey, refetch: () => Promise<unknown>) => {
+      if (status === undefined) return;
+      // React Query reuses an in-flight first fetch until it is explicitly cancelled.
+      if (status === 'checking') void featureQueryClient.cancelQueries({ queryKey, exact: true });
+      void refetch();
+    };
+    retryRead(roleRead, meOptions.queryKey, me.refetch);
+    retryRead(systemsRead, systemsOptions.queryKey, systems.refetch);
+    retryRead(permissionRead, checkOptions.queryKey, check.refetch);
+    retryRead(historyRead, permissionRequestsMineAllKey, mine.refetch);
+  };
+  const reachable = isReachable(registry, { menuId: STATUS_MENU_ID });
+  const link = reachable ? resolveLink(STATUS_MENU_ID) : null;
+  const statusHref = link?.allowed ? link.href : null;
+  if (!mapped) {
+    const legacyHref = permission !== 'features:access' && !NOT_REQUESTABLE_PERMISSIONS.has(permission) ? statusHref : null;
+    return <>{children({ pending: null, statusHref: legacyHref, requestHref: legacyHref })}</>;
+  }
+  const missing = {
+    permission: ready && me.isSuccess && !enabled ? FINDING_PERMISSION.roleRequired[lang] : FINDING_PERMISSION.label[lang],
+    ...(selected ? { system: selected.name } : {}),
+  };
+  if (read !== undefined) {
+    return <>{children({ pending: null, statusHref: null, missing, read, ...(read === 'error' ? { retry } : {}) })}</>;
+  }
+  const progress = requestable && mine.isSuccess ? permissionRequestProgress(
+    mine.data.requests, FINDING_PERMISSION.capability, selected?.id, { pending: false },
+  ) : 'none';
+  const requestHref = requestable && mine.isSuccess ? statusHref : null;
+  return <>{children({
+    pending, statusHref: enabled ? statusHref : null, requestHref,
+    approvedPartial: progress === 'approved-partial',
+    missing,
+  })}</>;
 }
 
 // The dialog page (and with it the feature request form) loads on the first open, so none of it is in the main chunk.
